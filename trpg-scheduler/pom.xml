@@ -37,4 +37,11 @@
             <!-- 他のプラグインをここに追加 -->
         </plugins>
     </build>
+
+    <dependency>
+        <groupId>org.postgresql</groupId>
+        <artifactId>postgresql</artifactId>
+        <version>42.2.18</version>
+    </dependency>
+
 </project>
