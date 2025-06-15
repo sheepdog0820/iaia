@@ -15,21 +15,24 @@ Arkham Nexusは、クトゥルフ神話をテーマにしたTRPGスケジュー�
 #### 👥 **ユーザー管理**
 - カスタムユーザーモデル（ニックネーム、TRPG歴、プロフィール画像）
 - フレンド機能
-- グループ機能（**Cult Circle**）
-- Google/Twitter認証対応
+- グループ機能（**Cult Circle**）- 可視性制御（公開/非公開）
+- グループ招待システム（承認・拒否機能）
+- Google/Twitter認証対応（開発環境用モック機能）
 
 #### 📅 **スケジュール管理**
 - TRPGセッション管理（**Chrono Abyss** / **R'lyeh Log**）
-- 参加者管理・キャラクターシート共有
-- 秘匿ハンドアウト機能
+- 参加者管理・キャラクターシート統合
+- 秘匿ハンドアウト機能（GM専用・参加者限定配布）
 - YouTube配信URL対応
 - 年間プレイ時間集計（**Tindalos Metrics**）
+- カレンダー表示・月間表示機能
 
 #### 📚 **シナリオ管理**
 - シナリオ情報管理（**Mythos Archive**）
-- プレイ履歴記録
+- 高度なフィルタリング（ゲームシステム・難易度・時間・人数）
+- プレイ履歴記録・統計表示
 - GMメモ機能（公開・非公開）
-- プレイ統計表示
+- マルチゲームシステム対応（CoC、D&D、ソードワールド等）
 
 #### 🎨 **UI/UX**
 - **クトゥルフ神話テーマ**のダークデザイン
@@ -43,8 +46,8 @@ Arkham Nexusは、クトゥルフ神話をテーマにしたTRPGスケジュー�
 
 1. **リポジトリのクローン**
 ```bash
-git clone https://github.com/your-username/arkham_nexus.git
-cd arkham_nexus
+git clone https://github.com/sheepdog0820/iaia.git
+cd iaia
 ```
 
 2. **仮想環境作成・有効化**
@@ -92,6 +95,53 @@ python manage.py runserver
 - **管理者**: admin / arkham_admin_2024
 - **一般ユーザー**: azathoth_gm / arkham2024
 
+### 🎲 キャラクターシート機能（クトゥルフ神話TRPG専用）
+
+#### 6版対応
+- **能力値範囲**: 3-18（SIZは8-18）
+- **副次ステータス**: HP、MP、SAN、アイデア、知識、幸運
+- **ダメージボーナス**: STR+SIZに基づく6版ルール
+- **スキルシステム**: 基本値+職業技能+趣味技能
+
+#### 7版対応
+- **能力値範囲**: 15-90（パーセンテージベース）
+- **ビルドシステム**: STR+SIZに基づくビルド値
+- **移動力計算**: 年齢・能力値修正
+- **半分・1/5値**: スキルの自動計算
+- **背景情報**: 思想、重要な人物、宝物等
+
+#### 高度な機能
+- **バージョン管理**: キャラクターの成長・変更追跡
+- **キャラクター画像**: アップロード機能
+- **クロスユーザー可視**: 全ユーザーがキャラクターシート閲覧可能
+- **管理インターフェース**: Django Adminでの包括的管理
+- **装備・スキル管理**: 武器、防具、アイテムの詳細管理
+
+## 🚀 キー機能ハイライト
+
+### 🎭 クトゥルフ神話TRPG専用機能
+- **6版・7版完全対応**: 能力値、スキル、副次ステータスの正確な計算
+- **キャラクター成長追跡**: バージョン管理でキャラクターの成長を記録
+- **探索者履歴**: プレイしたシナリオと成果を記録
+
+### 👥 グループ管理（Cult Circle）
+- **可視性制御**: 公開/非公開グループの管理
+- **ロールベースアクセス**: 管理者/メンバーの権限分離
+- **招待システム**: 承認・拒否機能付き招待
+
+### 📅 セッション管理（Chrono Abyss）
+- **秘匿ハンドアウト**: GMから特定プレイヤーへの情報配布
+- **YouTube統合**: セッション配信URL管理
+- **統計ダッシュボード**: 年間プレイ時間、ランキング
+
+### 📚 シナリオアーカイブ（Mythos Archive）
+- **高度フィルタリング**: ゲームシステム、難易度、時間、人数
+- **プレイ統計**: シナリオ別プレイ回数、成功率
+- **GMメモ**: 公開/非公開のGM専用メモ
+
+### 🎨 クトゥルフテーマ
+Atmospheric dark design with Cthulhu Mythos styling
+
 ## 🐳 Docker を使用した起動
 
 ### 開発環境
@@ -114,9 +164,9 @@ cp .env.production.example .env.production
 ### Backend
 - **Django 4.2+** - Webフレームワーク
 - **Django REST Framework** - API構築
-- **PostgreSQL** - メインデータベース
-- **Redis** - キャッシュ・セッション管理
-- **Celery** - バックグラウンドタスク
+- **SQLite** - 開発用データベース
+- **PostgreSQL/MySQL** - 本番環境対応
+- **Redis** - キャッシュ・セッション管理（設定済み）
 
 ### Frontend
 - **Bootstrap 5** - UIフレームワーク
@@ -138,18 +188,29 @@ cp .env.production.example .env.production
 ## 📁 プロジェクト構造
 
 ```
-arkham_nexus/
+iaia/
 ├── arkham_nexus/          # Django設定
-├── accounts/              # ユーザー管理
+├── accounts/              # ユーザー管理・キャラクターシート
+│   ├── models.py          # ユーザー・グループ・キャラクターシートモデル
+│   ├── views.py           # REST APIビュー・キャラクター作成
+│   ├── statistics_views.py # 統計API
+│   └── export_views.py    # エクスポートAPI
 ├── schedules/             # スケジュール管理
+│   ├── models.py          # セッション・参加者・ハンドアウト
+│   └── handout_views.py   # ハンドアウト管理API
 ├── scenarios/             # シナリオ管理
 ├── templates/             # HTMLテンプレート
-├── static/                # 静的ファイル
-├── media/                 # アップロードファイル
+│   ├── accounts/          # キャラクターシート・ユーザー管理
+│   ├── groups/            # グループ管理
+│   ├── scenarios/         # シナリオアーカイブ
+│   └── statistics/        # 統計ダッシュボード
+├── static/                # 静的ファイル・CSS・クトゥルフテーマ
+├── CHARACTER_SHEET_*.md   # キャラクターシート仕様書
+├── CLAUDE.md              # 開発ガイドライン
+├── test_*.py              # 包括的テストスイート
 ├── requirements.txt       # Python依存関係
 ├── docker-compose.yml     # Docker設定
-├── deploy.sh             # デプロイスクリプト
-└── README.md             # このファイル
+└── deploy.sh             # デプロイスクリプト
 ```
 
 ## 🌐 API エンドポイント
@@ -159,21 +220,37 @@ arkham_nexus/
 - `POST /accounts/signup/` - サインアップ
 - `POST /accounts/logout/` - ログアウト
 
-### ユーザー・グループ
-- `GET /api/accounts/users/` - ユーザー一覧
-- `GET /api/accounts/groups/` - グループ一覧
-- `GET /api/accounts/friends/` - フレンド一覧
+### ユーザー・グループ管理
+- `GET/POST /api/accounts/users/` - ユーザー管理
+- `GET/POST /api/accounts/groups/` - グループCRUD・可視性制御
+- `POST /api/accounts/groups/{id}/join/` - 公開グループ参加
+- `POST /api/accounts/groups/{id}/invite/` - メンバー招待
+- `GET /api/accounts/friends/` - フレンド管理
+- `GET/POST /api/accounts/invitations/` - 招待処理
+
+### キャラクターシート管理（クトゥルフ神話TRPG）
+- `GET/POST /api/accounts/character-sheets/` - キャラクターシートCRUD
+- `POST /api/accounts/character-sheets/create_6th_edition/` - 6版探索者作成
+- `POST /api/accounts/character-sheets/{id}/create_version/` - バージョン管理
+- `GET /api/accounts/character-sheets/{id}/versions/` - バージョン履歴
+- スキル・装備管理用ネストエンドポイント
 
 ### セッション管理
-- `GET /api/schedules/sessions/` - セッション一覧
-- `POST /api/schedules/sessions/` - セッション作成
+- `GET/POST /api/schedules/sessions/` - セッションCRUD
 - `GET /api/schedules/sessions/upcoming/` - 次回セッション
 - `GET /api/schedules/sessions/statistics/` - プレイ統計
+- `GET /api/schedules/calendar/` - カレンダーAPI
+- `POST /api/schedules/sessions/{id}/join/` - セッション参加
 
 ### シナリオ管理
-- `GET /api/scenarios/scenarios/` - シナリオ一覧
-- `GET /api/scenarios/archive/` - シナリオアーカイブ
-- `GET /api/scenarios/statistics/` - プレイ統計
+- `GET/POST /api/scenarios/scenarios/` - シナリオCRUD・高度フィルタリング
+- `GET /api/scenarios/archive/` - シナリオアーカイブ・プレイ統計
+- `GET /api/scenarios/statistics/` - ユーザープレイ統計
+
+### 統計・エクスポート
+- `GET /api/accounts/statistics/tindalos/` - Tindalos Metricsダッシュボード
+- `GET /api/accounts/statistics/ranking/` - ユーザーランキング
+- `GET /api/accounts/export/statistics/` - 統計データエクスポート
 
 ## 🛠️ 開発・運用
 
@@ -182,6 +259,12 @@ arkham_nexus/
 ```bash
 # サンプルデータ作成
 python manage.py create_sample_data [--clear]
+
+# 探索者履歴データ作成・クリア
+python manage.py create_investigator_history_data [--clear-history]
+
+# テストデータ作成
+python manage.py create_test_data
 
 # 静的ファイル収集
 python manage.py collectstatic
