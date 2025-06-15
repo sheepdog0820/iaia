@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ソーシャルアカウント連携 - Arkham Nexus{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-lg">
+                <div class="card-header bg-info text-white text-center">
+                    <h4 class="card-title mb-0 eldritch-font">
+                        <i class="fas fa-link"></i> ソーシャルアカウント連携
+                    </h4>
+                    <p class="mb-0">深淵への複数の門</p>
+                </div>
+                <div class="card-body p-4">
+                    {% if socialaccount_list %}
+                        <h5 class="mb-3">
+                            <i class="fas fa-check-circle text-success"></i> 連携済みアカウント
+                        </h5>
+                        
+                        {% for socialaccount in socialaccount_list %}
+                        <div class="connected-account mb-3 p-3 border rounded">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    {% if socialaccount.provider == 'google' %}
+                                        <i class="fab fa-google text-danger fa-lg me-2"></i>
+                                        <strong>Google</strong>
+                                    {% elif socialaccount.provider == 'twitter' %}
+                                        <i class="fab fa-twitter text-info fa-lg me-2"></i>
+                                        <strong>Twitter</strong>
+                                    {% endif %}
+                                    <br>
+                                    <small class="text-muted">{{ socialaccount.extra_data.email|default:socialaccount.uid }}</small>
+                                </div>
+                                {% if socialaccount_list|length > 1 %}
+                                <form method="post" action="{% url 'socialaccount_remove' socialaccount.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                            onclick="return confirm('このアカウントの連携を解除しますか？')">
+                                        <i class="fas fa-unlink"></i> 解除
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <hr class="my-4">
+
+                    <h5 class="mb-3">
+                        <i class="fas fa-plus-circle text-primary"></i> アカウントを追加
+                    </h5>
+
+                    <div class="d-grid gap-2">
+                        {% load socialaccount %}
+                        {% get_providers as socialaccount_providers %}
+                        {% for provider in socialaccount_providers %}
+                            {% if provider.id == 'google' %}
+                                <a href="{% provider_login_url provider.id next=request.path %}" class="btn btn-outline-danger">
+                                    <i class="fab fa-google"></i> Googleアカウントを連携
+                                </a>
+                            {% elif provider.id == 'twitter' %}
+                                <a href="{% provider_login_url provider.id next=request.path %}" class="btn btn-outline-info">
+                                    <i class="fab fa-twitter"></i> Twitterアカウントを連携
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="text-center">
+                        <a href="{% url 'profile_edit' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> プロフィールに戻る
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <small class="text-muted eldritch-font">
+                    "Multiple pathways lead to the same destination..."
+                    <br>複数の道筋は同じ目的地へと導く
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    border: 2px solid #0dcaf0;
+    background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+}
+
+.connected-account {
+    border: 1px solid #30363d !important;
+    background-color: rgba(13, 202, 240, 0.1);
+}
+
+.connected-account:hover {
+    background-color: rgba(13, 202, 240, 0.2);
+}
+</style>
+{% endblock %}

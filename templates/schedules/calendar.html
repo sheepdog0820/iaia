@@ -1,0 +1,460 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Chrono Abyss - カレンダー{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4 eldritch-font text-center">
+                <i class="fas fa-calendar-alt"></i> Chrono Abyss
+                <small class="d-block text-muted fs-6 mt-2">時の深淵を越えて、セッションの運命を紡ぐ</small>
+            </h1>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <div id="calendar"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-filter"></i> フィルター</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="showMyGames" checked>
+                        <label class="form-check-label" for="showMyGames">
+                            <span class="badge bg-danger me-2">■</span>自分がGMのセッション
+                        </label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="showJoined" checked>
+                        <label class="form-check-label" for="showJoined">
+                            <span class="badge bg-info me-2">■</span>参加中のセッション
+                        </label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="showPublic" checked>
+                        <label class="form-check-label" for="showPublic">
+                            <span class="badge bg-success me-2">■</span>公開セッション
+                        </label>
+                    </div>
+                    <div class="text-muted small mt-3">
+                        <i class="fas fa-info-circle me-1"></i>
+                        チェックを外すと該当セッションが非表示になります
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-plus-circle"></i> 新規セッション</h5>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#newSessionModal">
+                        <i class="fas fa-dice-d20"></i> セッションを計画する
+                    </button>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-clock"></i> 次回セッション</h5>
+                </div>
+                <div class="card-body" id="upcomingSessions">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新規セッション作成モーダル -->
+<div class="modal fade" id="newSessionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title eldritch-font">
+                    <i class="fas fa-portal-enter"></i> 新たなる探索の計画
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newSessionForm">
+                    <div class="mb-3">
+                        <label for="sessionTitle" class="form-label">セッションタイトル</label>
+                        <input type="text" class="form-control" id="sessionTitle" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="sessionDate" class="form-label">日時</label>
+                            <input type="datetime-local" class="form-control" id="sessionDate" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="sessionDuration" class="form-label">予定時間（分）</label>
+                            <input type="number" class="form-control" id="sessionDuration" value="240" min="30" step="30">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="sessionLocation" class="form-label">場所</label>
+                        <input type="text" class="form-control" id="sessionLocation" placeholder="オンライン / 会場名">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="sessionGroup" class="form-label">グループ</label>
+                        <select class="form-select" id="sessionGroup" required>
+                            <option value="">グループを選択...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="sessionDescription" class="form-label">説明</label>
+                        <textarea class="form-control" id="sessionDescription" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="sessionYoutube" class="form-label">YouTube配信URL（任意）</label>
+                        <input type="url" class="form-control" id="sessionYoutube" placeholder="https://youtube.com/...">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="sessionVisibility" class="form-label">公開設定</label>
+                        <select class="form-select" id="sessionVisibility">
+                            <option value="group">グループ内のみ</option>
+                            <option value="public">全体に公開</option>
+                            <option value="private">プライベート</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" id="saveSessionBtn">
+                    <i class="fas fa-save"></i> セッションを作成
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- セッション詳細モーダル -->
+<div class="modal fade" id="sessionDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sessionDetailTitle"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="sessionDetailBody">
+                <div class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/main.min.css" rel="stylesheet">
+<style>
+#calendar {
+    height: 600px;
+}
+
+.fc-event {
+    cursor: pointer;
+    border: none;
+    padding: 2px 5px;
+}
+
+.fc-event-main {
+    font-size: 0.9em;
+}
+
+.session-gm {
+    background-color: #dc2670;
+}
+
+.session-player {
+    background-color: #39d0d8;
+}
+
+.session-public {
+    background-color: #3fb950;
+}
+
+.upcoming-session-item {
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background-color: rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.upcoming-session-item:hover {
+    background-color: rgba(220, 38, 127, 0.2);
+    transform: translateX(5px);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('calendar');
+    let calendar;
+    let userGroups = [];
+
+    // カレンダー初期化
+    function initCalendar() {
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'ja',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,listWeek'
+            },
+            events: fetchEvents,
+            eventClick: handleEventClick,
+            eventColor: '#161b22',
+            height: 'auto'
+        });
+        calendar.render();
+    }
+
+    // イベント取得
+    async function fetchEvents(info, successCallback, failureCallback) {
+        try {
+            const response = await axios.get('/api/schedules/calendar/', {
+                params: {
+                    start: info.startStr,
+                    end: info.endStr
+                }
+            });
+            
+            // フィルター状態を取得
+            const showMyGames = document.getElementById('showMyGames').checked;
+            const showJoined = document.getElementById('showJoined').checked;
+            const showPublic = document.getElementById('showPublic').checked;
+            const currentUserId = parseInt('{{ user.id }}');
+            
+            // フィルタリング
+            const filteredEvents = response.data.filter(session => {
+                // セッションタイプに基づくフィルタリング
+                const isGM = session.is_gm || session.type === 'gm';
+                const isParticipant = session.is_participant || session.type === 'participant';
+                const isPublicOnly = session.is_public_only || session.type === 'public';
+                
+                // フィルター状態に基づく表示判定
+                let shouldShow = false;
+                
+                if (showMyGames && isGM) {
+                    shouldShow = true;
+                }
+                
+                if (showJoined && isParticipant) {
+                    shouldShow = true;
+                }
+                
+                if (showPublic && isPublicOnly) {
+                    shouldShow = true;
+                }
+                
+                return shouldShow;
+            });
+            
+            const events = filteredEvents.map(session => ({
+                id: session.id,
+                title: session.title,
+                start: session.date,
+                backgroundColor: getEventColor(session),
+                extendedProps: session
+            }));
+            
+            successCallback(events);
+        } catch (error) {
+            console.error('Error fetching events:', error);
+            failureCallback(error);
+        }
+    }
+
+    // イベントの色を決定
+    function getEventColor(session) {
+        if (session.is_gm || session.type === 'gm') {
+            return '#dc2670'; // GM - 赤紫
+        } else if (session.is_participant || session.type === 'participant') {
+            return '#39d0d8'; // 参加者 - 青緑
+        } else if (session.is_public_only || session.type === 'public') {
+            return '#3fb950'; // 公開セッション - 緑
+        } else {
+            return '#6c757d'; // その他 - グレー
+        }
+    }
+
+    // イベントクリック処理
+    function handleEventClick(info) {
+        // セッション詳細ページに遷移
+        window.location.href = `/api/schedules/sessions/${info.event.id}/detail/`;
+    }
+
+    // セッション詳細表示
+    async function showSessionDetail(sessionId) {
+        const modal = new bootstrap.Modal(document.getElementById('sessionDetailModal'));
+        const titleEl = document.getElementById('sessionDetailTitle');
+        const bodyEl = document.getElementById('sessionDetailBody');
+        
+        try {
+            const response = await axios.get(`/api/schedules/sessions/${sessionId}/`);
+            const session = response.data;
+            
+            titleEl.textContent = session.title;
+            bodyEl.innerHTML = `
+                <div class="row">
+                    <div class="col-md-8">
+                        <p><i class="fas fa-calendar"></i> ${new Date(session.date).toLocaleString('ja-JP')}</p>
+                        <p><i class="fas fa-clock"></i> ${session.duration_minutes}分</p>
+                        <p><i class="fas fa-map-marker-alt"></i> ${session.location || '未定'}</p>
+                        <p><i class="fas fa-user"></i> GM: ${session.gm_detail.nickname}</p>
+                        ${session.youtube_url ? `<p><i class="fab fa-youtube"></i> <a href="${session.youtube_url}" target="_blank">配信を見る</a></p>` : ''}
+                        ${session.description ? `<hr><p>${session.description}</p>` : ''}
+                    </div>
+                    <div class="col-md-4">
+                        <h6>参加者 (${session.participant_count}人)</h6>
+                        <ul class="list-unstyled">
+                            ${session.participants_detail.map(p => `
+                                <li class="mb-2">
+                                    <i class="fas fa-user-circle"></i> ${p.user_detail.nickname}
+                                    ${p.character_name ? `<br><small class="text-muted">${p.character_name}</small>` : ''}
+                                </li>
+                            `).join('')}
+                        </ul>
+                        ${session.status === 'planned' ? `
+                            <button class="btn btn-primary btn-sm w-100 mt-2" onclick="joinSession(${session.id})">
+                                <i class="fas fa-user-plus"></i> 参加する
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            
+            modal.show();
+        } catch (error) {
+            console.error('Error loading session details:', error);
+            alert('セッション詳細の読み込みに失敗しました');
+        }
+    }
+
+    // セッション参加
+    window.joinSession = async function(sessionId) {
+        try {
+            await axios.post(`/api/schedules/sessions/${sessionId}/join/`);
+            alert('セッションに参加しました！');
+            calendar.refetchEvents();
+            bootstrap.Modal.getInstance(document.getElementById('sessionDetailModal')).hide();
+        } catch (error) {
+            alert('参加に失敗しました: ' + (error.response?.data?.error || error.message));
+        }
+    };
+
+    // 次回セッション表示
+    async function loadUpcomingSessions() {
+        try {
+            const response = await axios.get('/api/schedules/sessions/upcoming/');
+            const container = document.getElementById('upcomingSessions');
+            
+            if (response.data.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">予定されているセッションはありません</p>';
+            } else {
+                container.innerHTML = response.data.map(session => `
+                    <div class="upcoming-session-item" onclick="window.location.href=\`/api/schedules/sessions/${session.id}/detail/\`">
+                        <h6 class="mb-1">${session.title}</h6>
+                        <small class="text-muted">
+                            <i class="fas fa-calendar"></i> ${new Date(session.date).toLocaleDateString('ja-JP')}
+                        </small>
+                    </div>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Error loading upcoming sessions:', error);
+        }
+    }
+
+    // グループ読み込み
+    async function loadGroups() {
+        try {
+            const response = await axios.get('/api/accounts/groups/');
+            userGroups = response.data;
+            
+            const select = document.getElementById('sessionGroup');
+            select.innerHTML = '<option value="">グループを選択...</option>' +
+                userGroups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+        } catch (error) {
+            console.error('Error loading groups:', error);
+        }
+    }
+
+    // 新規セッション保存
+    document.getElementById('saveSessionBtn').addEventListener('click', async function() {
+        const form = document.getElementById('newSessionForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const data = {
+            title: document.getElementById('sessionTitle').value,
+            date: document.getElementById('sessionDate').value,
+            duration_minutes: document.getElementById('sessionDuration').value,
+            location: document.getElementById('sessionLocation').value,
+            group: document.getElementById('sessionGroup').value,
+            description: document.getElementById('sessionDescription').value,
+            youtube_url: document.getElementById('sessionYoutube').value,
+            visibility: document.getElementById('sessionVisibility').value
+        };
+
+        try {
+            await axios.post('/api/schedules/sessions/', data);
+            alert('セッションを作成しました！');
+            bootstrap.Modal.getInstance(document.getElementById('newSessionModal')).hide();
+            form.reset();
+            calendar.refetchEvents();
+            loadUpcomingSessions();
+        } catch (error) {
+            alert('セッション作成に失敗しました: ' + (error.response?.data?.detail || error.message));
+        }
+    });
+
+    // フィルター処理
+    ['showMyGames', 'showJoined', 'showPublic'].forEach(id => {
+        document.getElementById(id).addEventListener('change', () => {
+            calendar.refetchEvents();
+        });
+    });
+
+    // 初期化
+    initCalendar();
+    loadUpcomingSessions();
+    loadGroups();
+});
+</script>
+{% endblock %}

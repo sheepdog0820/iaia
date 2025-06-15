@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}キャラクターシート一覧 - Arkham Nexus{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-user-ninja text-primary"></i>
+                    キャラクターシート一覧
+                </h2>
+                <div class="dropdown">
+                    <button class="btn btn-success dropdown-toggle" type="button" id="createCharacterDropdown" data-bs-toggle="dropdown">
+                        <i class="fas fa-plus"></i> 新規作成
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'character_create_6th' %}">
+                            <i class="fas fa-book text-primary"></i> 6版キャラクター作成
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'character_create_7th' %}">
+                            <i class="fas fa-book-open text-success"></i> 7版キャラクター作成
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- フィルタリング -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="btn-group" role="group">
+                        <input type="radio" class="btn-check" name="edition" id="all" value="all" checked>
+                        <label class="btn btn-outline-primary" for="all">全て</label>
+                        
+                        <input type="radio" class="btn-check" name="edition" id="6th" value="6th">
+                        <label class="btn btn-outline-primary" for="6th">6版</label>
+                        
+                        <input type="radio" class="btn-check" name="edition" id="7th" value="7th">
+                        <label class="btn btn-outline-success" for="7th">7版</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" id="searchInput" placeholder="キャラクター名で検索...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- キャラクター一覧 -->
+            <div class="row" id="characterContainer">
+                <!-- 動的に生成されます -->
+            </div>
+
+            <!-- ローディング -->
+            <div class="text-center" id="loading">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">読み込み中...</span>
+                </div>
+            </div>
+
+            <!-- 空の状態 -->
+            <div class="text-center d-none" id="emptyState">
+                <div class="py-5">
+                    <i class="fas fa-user-plus fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">キャラクターシートがありません</h4>
+                    <p class="text-muted">新しいキャラクターシートを作成してください。</p>
+                    <a href="{% url 'character_create_6th' %}" class="btn btn-primary me-2">
+                        <i class="fas fa-book"></i> 6版キャラクター作成
+                    </a>
+                    <a href="{% url 'character_create_7th' %}" class="btn btn-success">
+                        <i class="fas fa-book-open"></i> 7版キャラクター作成
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let allCharacters = [];
+    
+    // キャラクター一覧を読み込み
+    function loadCharacters() {
+        document.getElementById('loading').style.display = 'block';
+        
+        axios.get('/api/accounts/character-sheets/')
+            .then(response => {
+                allCharacters = response.data;
+                displayCharacters(allCharacters);
+                document.getElementById('loading').style.display = 'none';
+                
+                if (allCharacters.length === 0) {
+                    document.getElementById('emptyState').classList.remove('d-none');
+                }
+            })
+            .catch(error => {
+                console.error('キャラクター一覧の読み込みに失敗しました:', error);
+                document.getElementById('loading').style.display = 'none';
+                alert('キャラクター一覧の読み込みに失敗しました。');
+            });
+    }
+    
+    // キャラクター表示
+    function displayCharacters(characters) {
+        const container = document.getElementById('characterContainer');
+        
+        if (characters.length === 0) {
+            container.innerHTML = '';
+            document.getElementById('emptyState').classList.remove('d-none');
+            return;
+        }
+        
+        document.getElementById('emptyState').classList.add('d-none');
+        
+        let html = '';
+        characters.forEach(character => {
+            const editionBadge = character.edition === '6th' ? 
+                '<span class="badge bg-primary">6版</span>' : 
+                '<span class="badge bg-success">7版</span>';
+            
+            const statusBadge = character.is_active ? 
+                '<span class="badge bg-success">アクティブ</span>' : 
+                '<span class="badge bg-secondary">非アクティブ</span>';
+            
+            const hp = character.current_hp || character.max_hp || 0;
+            const maxHp = character.max_hp || 0;
+            const mp = character.current_mp || character.max_mp || 0;
+            const maxMp = character.max_mp || 0;
+            const san = character.current_san || character.max_san || 0;
+            const maxSan = character.max_san || 0;
+            
+            html += `
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        ${character.character_image ? 
+                            `<img src="${character.character_image}" class="card-img-top" style="height: 200px; object-fit: contain; background-color: #f8f9fa;" alt="${character.name}">` : 
+                            `<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                                <i class="fas fa-user fa-3x text-muted"></i>
+                            </div>`
+                        }
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title mb-0">${character.name}</h5>
+                                <div>
+                                    ${editionBadge}
+                                    ${statusBadge}
+                                </div>
+                            </div>
+                            
+                            <div class="text-muted small mb-2">
+                                <div><strong>職業:</strong> ${character.occupation || '未設定'}</div>
+                                <div><strong>年齢:</strong> ${character.age || '未設定'}歳</div>
+                                <div><strong>バージョン:</strong> ${character.version}</div>
+                            </div>
+                            
+                            <div class="row text-center small mb-3">
+                                <div class="col-4">
+                                    <div class="text-danger"><strong>HP</strong></div>
+                                    <div>${hp}/${maxHp}</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="text-primary"><strong>MP</strong></div>
+                                    <div>${mp}/${maxMp}</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="text-warning"><strong>SAN</strong></div>
+                                    <div>${san}/${maxSan}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="text-muted small mb-3">
+                                作成: ${new Date(character.created_at).toLocaleDateString('ja-JP')}
+                            </div>
+                        </div>
+                        
+                        <div class="card-footer bg-transparent">
+                            <div class="d-flex gap-2">
+                                <a href="/accounts/character/${character.id}/" class="btn btn-outline-primary btn-sm flex-fill">
+                                    <i class="fas fa-eye"></i> 詳細
+                                </a>
+                                <a href="/accounts/character/${character.id}/edit/" class="btn btn-outline-secondary btn-sm flex-fill">
+                                    <i class="fas fa-edit"></i> 編集
+                                </a>
+                                <button class="btn btn-outline-info btn-sm" onclick="createVersion(${character.id})">
+                                    <i class="fas fa-copy"></i> 複製
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    // フィルタリング
+    function filterCharacters() {
+        const edition = document.querySelector('input[name="edition"]:checked').value;
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        
+        let filtered = allCharacters;
+        
+        // 版でフィルタ
+        if (edition !== 'all') {
+            filtered = filtered.filter(char => char.edition === edition);
+        }
+        
+        // 検索でフィルタ
+        if (searchTerm) {
+            filtered = filtered.filter(char => 
+                char.name.toLowerCase().includes(searchTerm) ||
+                (char.occupation || '').toLowerCase().includes(searchTerm)
+            );
+        }
+        
+        displayCharacters(filtered);
+    }
+    
+    // バージョン作成
+    function createVersion(characterId) {
+        if (confirm('このキャラクターの新しいバージョンを作成しますか？')) {
+            axios.post(`/api/accounts/character-sheets/${characterId}/create_version/`)
+                .then(response => {
+                    alert('新しいバージョンを作成しました。');
+                    loadCharacters();
+                })
+                .catch(error => {
+                    console.error('バージョン作成に失敗しました:', error);
+                    alert('バージョン作成に失敗しました。');
+                });
+        }
+    }
+    
+    // グローバル関数として定義
+    window.createVersion = createVersion;
+    
+    // イベントリスナー
+    document.querySelectorAll('input[name="edition"]').forEach(radio => {
+        radio.addEventListener('change', filterCharacters);
+    });
+    
+    document.getElementById('searchInput').addEventListener('input', filterCharacters);
+    
+    // 初期読み込み
+    loadCharacters();
+});
+</script>
+{% endblock %}

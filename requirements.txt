@@ -1,0 +1,36 @@
+# Core Django
+Django>=4.2.0,<5.0
+djangorestframework>=3.14.0
+
+# Authentication & Authorization
+django-allauth>=0.57.0
+
+# Database
+psycopg2-binary>=2.9.0  # PostgreSQL support
+mysqlclient>=2.2.0      # MySQL support (production)
+
+# Configuration
+python-decouple>=3.8
+
+# API & CORS
+django-cors-headers>=4.3.0
+
+# Image Processing
+Pillow>=10.0.0
+
+# Production Server
+gunicorn>=21.2.0
+whitenoise>=6.6.0
+
+# Caching & Background Tasks
+redis>=5.0.0
+celery>=5.3.0
+
+# Security & Monitoring
+django-ratelimit>=4.1.0
+sentry-sdk>=1.38.0
+
+# Development & Testing
+django-debug-toolbar>=4.2.0
+pytest-django>=4.7.0
+factory-boy>=3.3.0

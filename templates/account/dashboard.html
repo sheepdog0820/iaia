@@ -1,0 +1,292 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ダッシュボード - Arkham Nexus{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- ヘッダー -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="eldritch-font">
+                        <i class="fas fa-tachometer-alt text-primary"></i> ダッシュボード
+                    </h1>
+                    <p class="text-muted lead">
+                        ようこそ、{{ user.nickname|default:user.username }}さん。深淵からの記録をご覧ください。
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'profile_edit' %}" class="btn btn-outline-info">
+                        <i class="fas fa-user-edit"></i> プロフィール編集
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 統計カード -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-calendar-check fa-3x mb-3"></i>
+                    <h2 class="card-title">{{ sessions_this_year }}</h2>
+                    <p class="card-text">今年のセッション数</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-clock fa-3x mb-3"></i>
+                    <h2 class="card-title">{{ total_hours }}h</h2>
+                    <p class="card-text">今年のプレイ時間</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-users fa-3x mb-3"></i>
+                    <h2 class="card-title">{{ group_count }}</h2>
+                    <p class="card-text">参加グループ数</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="card bg-warning text-dark h-100">
+                <div class="card-body text-center">
+                    <i class="fas fa-user-friends fa-3x mb-3"></i>
+                    <h2 class="card-title">{{ friend_count }}</h2>
+                    <p class="card-text">フレンド数</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- 次回セッション -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-forward"></i> 次回セッション
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if upcoming_sessions %}
+                        {% for session in upcoming_sessions %}
+                        <div class="session-item mb-3 p-3 border rounded">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1 text-primary">{{ session.title }}</h6>
+                                    <p class="text-muted mb-1">
+                                        <i class="fas fa-calendar"></i> {{ session.date|date:"n月j日 H:i" }}
+                                    </p>
+                                    <p class="text-muted mb-0">
+                                        <i class="fas fa-user"></i> GM: {{ session.gm.nickname|default:session.gm.username }}
+                                    </p>
+                                </div>
+                                <span class="badge bg-primary">{{ session.get_status_display }}</span>
+                            </div>
+                            {% if session.description %}
+                            <p class="mt-2 mb-0 small">{{ session.description|truncatewords:15 }}</p>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-calendar-times fa-3x mb-3"></i>
+                            <p>予定されているセッションはありません</p>
+                            <a href="#" class="btn btn-outline-primary">
+                                <i class="fas fa-plus"></i> セッションを作成
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- プロフィール情報 -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user"></i> プロフィール情報
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        {% if user.profile_image %}
+                            <img src="{{ user.profile_image.url }}" alt="プロフィール画像" 
+                                 class="rounded-circle img-thumbnail mb-3" style="width: 100px; height: 100px; object-fit: cover;">
+                        {% else %}
+                            <div class="bg-secondary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
+                                 style="width: 100px; height: 100px;">
+                                <i class="fas fa-user fa-3x text-white"></i>
+                            </div>
+                        {% endif %}
+                        <h5>{{ user.nickname|default:user.username }}</h5>
+                        <p class="text-muted">{{ user.email }}</p>
+                    </div>
+
+                    <div class="profile-details">
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>ユーザー名:</strong></div>
+                            <div class="col-8">{{ user.username }}</div>
+                        </div>
+                        
+                        {% if user.first_name or user.last_name %}
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>氏名:</strong></div>
+                            <div class="col-8">{{ user.first_name }} {{ user.last_name }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>登録日:</strong></div>
+                            <div class="col-8">{{ user.date_joined|date:"Y年n月j日" }}</div>
+                        </div>
+                        
+                        {% if user.trpg_history %}
+                        <div class="mt-3">
+                            <strong>TRPG歴:</strong>
+                            <p class="mt-1 small">{{ user.trpg_history|truncatewords:30 }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="{% url 'profile_edit' %}" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-edit"></i> 編集
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- アクティビティフィード -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history"></i> 最近のアクティビティ
+                    </h5>
+                </div>
+                <div class="card-body" id="activity-feed">
+                    <div class="text-center">
+                        <div class="spinner-border text-secondary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">アクティビティを読み込んでいます...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.session-item {
+    transition: all 0.3s ease;
+    border: 1px solid #30363d !important;
+}
+
+.session-item:hover {
+    background-color: rgba(13, 202, 240, 0.1);
+    border-color: #0dcaf0 !important;
+    transform: translateY(-2px);
+}
+
+.profile-details {
+    font-size: 0.9rem;
+}
+
+.card {
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+.img-thumbnail {
+    border: 3px solid #0dcaf0;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadActivityFeed();
+});
+
+function loadActivityFeed() {
+    // 最近のプレイ履歴を読み込み
+    axios.get('/api/scenarios/history/?limit=10')
+        .then(response => {
+            const activities = response.data.results || [];
+            const container = document.getElementById('activity-feed');
+            
+            if (activities.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-history fa-3x mb-3"></i>
+                        <p>まだアクティビティがありません</p>
+                        <p class="small">TRPGセッションに参加すると、ここに履歴が表示されます</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            activities.forEach(activity => {
+                const date = new Date(activity.played_date).toLocaleDateString('ja-JP');
+                const roleClass = activity.role === 'gm' ? 'warning' : 'primary';
+                const roleIcon = activity.role === 'gm' ? 'fa-crown' : 'fa-user';
+                
+                html += `
+                    <div class="activity-item d-flex align-items-center py-2 border-bottom">
+                        <div class="activity-icon me-3">
+                            <span class="badge bg-${roleClass} rounded-pill">
+                                <i class="fas ${roleIcon}"></i>
+                            </span>
+                        </div>
+                        <div class="activity-content flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong class="text-info">${activity.scenario_detail.title}</strong>
+                                    <span class="badge bg-${roleClass} ms-2">${activity.role === 'gm' ? 'GM' : 'PL'}</span>
+                                </div>
+                                <small class="text-muted">${date}</small>
+                            </div>
+                            ${activity.notes ? `<p class="mb-0 small text-muted mt-1">${activity.notes}</p>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Error loading activity feed:', error);
+            document.getElementById('activity-feed').innerHTML = `
+                <div class="text-center text-danger py-4">
+                    <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                    <p>アクティビティの読み込みに失敗しました</p>
+                </div>
+            `;
+        });
+}
+</script>
+{% endblock %}

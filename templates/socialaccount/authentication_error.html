@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}認証エラー - Arkham Nexus{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-lg">
+                <div class="card-header bg-danger text-white text-center">
+                    <h4 class="card-title mb-0 eldritch-font">
+                        <i class="fas fa-exclamation-circle"></i> 認証エラー
+                    </h4>
+                    <p class="mb-0">深淵からの拒絶</p>
+                </div>
+                <div class="card-body p-4 text-center">
+                    <i class="fas fa-ban text-danger fa-4x mb-3"></i>
+                    <h5 class="text-danger mb-3">認証に失敗しました</h5>
+                    <p class="text-muted mb-4">
+                        ソーシャルアカウントでの認証中にエラーが発生しました。<br>
+                        以下の原因が考えられます：
+                    </p>
+                    
+                    <div class="alert alert-info text-start">
+                        <ul class="mb-0">
+                            <li>ネットワーク接続の問題</li>
+                            <li>ソーシャルアカウントの設定問題</li>
+                            <li>一時的なサービス障害</li>
+                            <li>アプリケーションの設定問題</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'account_login' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-redo"></i> 再度ログインを試す
+                        </a>
+                        <a href="{% url 'home' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-home"></i> ホームに戻る
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <small class="text-muted eldritch-font">
+                    "The ancient ones do not always answer our calls..."
+                    <br>古き者たちは常に我々の呼びかけに応えるとは限らない
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    border: 2px solid #dc3545;
+    background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+}
+</style>
+{% endblock %}

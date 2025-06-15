@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}デモログイン - Gate of Yog-Sothoth{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-lg">
+                <div class="card-header bg-warning text-dark text-center">
+                    <h4 class="card-title mb-0 eldritch-font">
+                        <i class="fas fa-flask"></i> 開発モード - デモログイン
+                    </h4>
+                    <p class="mb-0">実験的次元への入口</p>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>開発環境専用</strong><br>
+                        これは開発・テスト用の疑似ソーシャルログイン機能です。<br>
+                        実際のGoogleやTwitterアカウントは使用されません。
+                    </div>
+
+                    <div class="text-center mb-4">
+                        <i class="fas fa-user-cog text-warning fa-3x mb-3"></i>
+                        <h5 class="text-warning mb-3">デモアカウントでログイン</h5>
+                        <p class="text-muted">
+                            下記のボタンをクリックして、疑似的なソーシャルログインを体験してください。
+                        </p>
+                    </div>
+
+                    <div class="d-grid gap-3">
+                        <a href="{% url 'mock_social_login' 'google' %}" class="btn btn-danger btn-lg demo-btn">
+                            <i class="fab fa-google fa-lg me-2"></i> 
+                            <span>デモGoogleでログイン</span>
+                            <small class="d-block mt-1 opacity-75">demo.google@example.com</small>
+                        </a>
+                        
+                        <a href="{% url 'mock_social_login' 'twitter' %}" class="btn btn-info btn-lg demo-btn">
+                            <i class="fab fa-twitter fa-lg me-2"></i>
+                            <span>デモX (Twitter)でログイン</span>
+                            <small class="d-block mt-1 opacity-75">@TwitterDemo</small>
+                        </a>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="text-center">
+                        <h6 class="text-muted mb-3">
+                            <i class="fas fa-info-circle me-1"></i>
+                            デモアカウント詳細
+                        </h6>
+                        
+                        <div class="row text-start">
+                            <div class="col-6">
+                                <div class="card bg-light text-dark">
+                                    <div class="card-body p-2">
+                                        <small>
+                                            <strong>Google Demo:</strong><br>
+                                            Name: Google User<br>
+                                            Email: demo.google@example.com<br>
+                                            Avatar: 自動生成
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="card bg-light text-dark">
+                                    <div class="card-body p-2">
+                                        <small>
+                                            <strong>Twitter Demo:</strong><br>
+                                            Name: Twitter User<br>
+                                            Handle: @TwitterDemo<br>
+                                            Avatar: 自動生成
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="text-center">
+                        <a href="{% url 'account_login' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> 通常ログインに戻る
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <small class="text-muted eldritch-font">
+                    "In the realm of development, illusions become reality..."
+                    <br>開発の領域では、幻想が現実となる
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    border: 2px solid #ffc107;
+    background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+}
+
+.demo-btn {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.demo-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.demo-btn::before {
+    content: "DEMO";
+    position: absolute;
+    top: 5px;
+    right: 10px;
+    font-size: 0.7rem;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: bold;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #ea4335 0%, #d33b2c 100%);
+    border-color: #ea4335;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #d33b2c 0%, #b52d20 100%);
+    border-color: #d33b2c;
+    box-shadow: 0 8px 25px rgba(234, 67, 53, 0.4);
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #1da1f2 0%, #0d8bd9 100%);
+    border-color: #1da1f2;
+}
+
+.btn-info:hover {
+    background: linear-gradient(135deg, #0d8bd9 0%, #0a73b5 100%);
+    border-color: #0d8bd9;
+    box-shadow: 0 8px 25px rgba(29, 161, 242, 0.4);
+}
+
+.card.bg-light {
+    background: #f8f9fa !important;
+    border: 1px solid #dee2e6 !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // デモボタンにクリック効果を追加
+    const demoBtns = document.querySelectorAll('.demo-btn');
+    
+    demoBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.style.pointerEvents = 'none';
+            this.innerHTML = this.innerHTML.replace('ログイン', 'ログイン中...');
+        });
+    });
+});
+</script>
+{% endblock %}

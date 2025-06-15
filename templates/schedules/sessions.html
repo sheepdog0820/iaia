@@ -1,0 +1,503 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}R'lyeh Log - セッション記録{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4 eldritch-font text-center">
+                <i class="fas fa-scroll"></i> R'lyeh Log
+                <small class="d-block text-muted fs-6 mt-2">深淵に沈む都市より浮かび上がる、探索の記録</small>
+            </h1>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-filter"></i> フィルター</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">ステータス</label>
+                        <select class="form-select" id="statusFilter">
+                            <option value="">すべて</option>
+                            <option value="planned">予定</option>
+                            <option value="ongoing">進行中</option>
+                            <option value="completed">完了</option>
+                            <option value="cancelled">キャンセル</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">期間</label>
+                        <select class="form-select" id="periodFilter">
+                            <option value="">すべて</option>
+                            <option value="future">今後の予定</option>
+                            <option value="past7">過去7日間</option>
+                            <option value="past30">過去30日間</option>
+                            <option value="past90">過去90日間</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">参加形式</label>
+                        <select class="form-select" id="roleFilter">
+                            <option value="">すべて</option>
+                            <option value="gm">GMとして</option>
+                            <option value="player">PLとして</option>
+                        </select>
+                    </div>
+                    
+                    <button class="btn btn-primary w-100" id="applyFilter">
+                        <i class="fas fa-search"></i> フィルター適用
+                    </button>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-line"></i> 統計情報</h5>
+                </div>
+                <div class="card-body" id="statsContainer">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">セッション一覧</h4>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newSessionModal">
+                    <i class="fas fa-plus"></i> 新規セッション
+                </button>
+            </div>
+
+            <div id="sessionsList">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center" id="pagination">
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- セッション編集モーダル -->
+<div class="modal fade" id="editSessionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">セッション編集</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editSessionForm">
+                    <input type="hidden" id="editSessionId">
+                    <div class="mb-3">
+                        <label for="editSessionTitle" class="form-label">セッションタイトル</label>
+                        <input type="text" class="form-control" id="editSessionTitle" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editSessionDate" class="form-label">日時</label>
+                            <input type="datetime-local" class="form-control" id="editSessionDate" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editSessionDuration" class="form-label">実施時間（分）</label>
+                            <input type="number" class="form-control" id="editSessionDuration" min="0" step="30">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editSessionStatus" class="form-label">ステータス</label>
+                        <select class="form-select" id="editSessionStatus">
+                            <option value="planned">予定</option>
+                            <option value="ongoing">進行中</option>
+                            <option value="completed">完了</option>
+                            <option value="cancelled">キャンセル</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editSessionLocation" class="form-label">場所</label>
+                        <input type="text" class="form-control" id="editSessionLocation">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editSessionYoutube" class="form-label">YouTube配信URL</label>
+                        <input type="url" class="form-control" id="editSessionYoutube">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editSessionDescription" class="form-label">説明・メモ</label>
+                        <textarea class="form-control" id="editSessionDescription" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" id="updateSessionBtn">
+                    <i class="fas fa-save"></i> 更新
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 参加者管理モーダル -->
+<div class="modal fade" id="participantsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">参加者管理</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="participantsList">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.session-card {
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.session-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(220, 38, 127, 0.2);
+}
+
+.session-card.status-planned {
+    border-left-color: #39d0d8;
+}
+
+.session-card.status-ongoing {
+    border-left-color: #ffc107;
+}
+
+.session-card.status-completed {
+    border-left-color: #3fb950;
+}
+
+.session-card.status-cancelled {
+    border-left-color: #f85149;
+}
+
+.participant-item {
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.character-sheet-link {
+    color: #58a6ff;
+    text-decoration: none;
+}
+
+.character-sheet-link:hover {
+    text-decoration: underline;
+}
+
+.stats-item {
+    padding: 15px;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.05);
+    margin-bottom: 10px;
+}
+
+.stats-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #dc2670;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentPage = 1;
+    let currentFilters = {};
+    let currentSessionId = null;
+
+    // セッション一覧読み込み
+    async function loadSessions(page = 1) {
+        try {
+            const params = new URLSearchParams({
+                page: page,
+                ...currentFilters
+            });
+            
+            const response = await axios.get(`/api/schedules/sessions/?${params}`);
+            const sessions = response.data.results || response.data;
+            
+            const container = document.getElementById('sessionsList');
+            
+            if (sessions.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">セッションが見つかりませんでした</div>';
+                return;
+            }
+            
+            container.innerHTML = sessions.map(session => `
+                <div class="card session-card status-${session.status} mb-3">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h5 class="card-title">${session.title}</h5>
+                                <p class="text-muted mb-2">
+                                    <i class="fas fa-calendar"></i> ${new Date(session.date).toLocaleString('ja-JP')}
+                                    ${session.duration_minutes > 0 ? `<span class="ms-3"><i class="fas fa-clock"></i> ${session.duration_minutes}分</span>` : ''}
+                                </p>
+                                <p class="mb-2">
+                                    <i class="fas fa-user"></i> GM: ${session.gm_detail.nickname}
+                                    <span class="ms-3"><i class="fas fa-users"></i> 参加者: ${session.participant_count}人</span>
+                                </p>
+                                ${session.location ? `<p class="mb-1"><i class="fas fa-map-marker-alt"></i> ${session.location}</p>` : ''}
+                                ${session.youtube_url ? `<p class="mb-1"><i class="fab fa-youtube"></i> <a href="${session.youtube_url}" target="_blank">配信を見る</a></p>` : ''}
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <span class="badge bg-${getStatusColor(session.status)} mb-2">${getStatusLabel(session.status)}</span>
+                                <div>
+                                    ${session.gm === '{{ user.id }}' ? `
+                                        <button class="btn btn-sm btn-outline-primary" onclick="editSession(${session.id})">
+                                            <i class="fas fa-edit"></i> 編集
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info" onclick="manageParticipants(${session.id})">
+                                            <i class="fas fa-users-cog"></i> 参加者
+                                        </button>
+                                    ` : ''}
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="viewSession(${session.id})">
+                                        <i class="fas fa-eye"></i> 詳細
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            // ページネーション更新
+            updatePagination(response.count, response.page_size || 10, page);
+            
+        } catch (error) {
+            console.error('Error loading sessions:', error);
+            document.getElementById('sessionsList').innerHTML = 
+                '<div class="alert alert-danger">セッションの読み込みに失敗しました</div>';
+        }
+    }
+
+    // ステータスの色を取得
+    function getStatusColor(status) {
+        const colors = {
+            planned: 'info',
+            ongoing: 'warning',
+            completed: 'success',
+            cancelled: 'danger'
+        };
+        return colors[status] || 'secondary';
+    }
+
+    // ステータスのラベルを取得
+    function getStatusLabel(status) {
+        const labels = {
+            planned: '予定',
+            ongoing: '進行中',
+            completed: '完了',
+            cancelled: 'キャンセル'
+        };
+        return labels[status] || status;
+    }
+
+    // 統計情報読み込み
+    async function loadStatistics() {
+        try {
+            const year = new Date().getFullYear();
+            const response = await axios.get(`/api/schedules/sessions/statistics/?year=${year}`);
+            const stats = response.data;
+            
+            document.getElementById('statsContainer').innerHTML = `
+                <div class="stats-item">
+                    <div class="stats-number">${stats.session_count}</div>
+                    <div class="text-muted">今年のセッション数</div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-number">${stats.total_hours}h</div>
+                    <div class="text-muted">総プレイ時間</div>
+                </div>
+                <div class="stats-item">
+                    <div class="stats-number">${stats.average_session_hours}h</div>
+                    <div class="text-muted">平均セッション時間</div>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+        }
+    }
+
+    // セッション編集
+    window.editSession = async function(sessionId) {
+        currentSessionId = sessionId;
+        try {
+            const response = await axios.get(`/api/schedules/sessions/${sessionId}/`);
+            const session = response.data;
+            
+            document.getElementById('editSessionId').value = session.id;
+            document.getElementById('editSessionTitle').value = session.title;
+            document.getElementById('editSessionDate').value = session.date.slice(0, 16);
+            document.getElementById('editSessionDuration').value = session.duration_minutes;
+            document.getElementById('editSessionStatus').value = session.status;
+            document.getElementById('editSessionLocation').value = session.location || '';
+            document.getElementById('editSessionYoutube').value = session.youtube_url || '';
+            document.getElementById('editSessionDescription').value = session.description || '';
+            
+            new bootstrap.Modal(document.getElementById('editSessionModal')).show();
+        } catch (error) {
+            alert('セッション情報の読み込みに失敗しました');
+        }
+    };
+
+    // セッション更新
+    document.getElementById('updateSessionBtn').addEventListener('click', async function() {
+        const data = {
+            title: document.getElementById('editSessionTitle').value,
+            date: document.getElementById('editSessionDate').value,
+            duration_minutes: document.getElementById('editSessionDuration').value,
+            status: document.getElementById('editSessionStatus').value,
+            location: document.getElementById('editSessionLocation').value,
+            youtube_url: document.getElementById('editSessionYoutube').value,
+            description: document.getElementById('editSessionDescription').value
+        };
+
+        try {
+            await axios.patch(`/api/schedules/sessions/${currentSessionId}/`, data);
+            alert('セッションを更新しました');
+            bootstrap.Modal.getInstance(document.getElementById('editSessionModal')).hide();
+            loadSessions(currentPage);
+        } catch (error) {
+            alert('更新に失敗しました: ' + (error.response?.data?.detail || error.message));
+        }
+    });
+
+    // 参加者管理
+    window.manageParticipants = async function(sessionId) {
+        currentSessionId = sessionId;
+        const modal = new bootstrap.Modal(document.getElementById('participantsModal'));
+        
+        try {
+            const response = await axios.get(`/api/schedules/sessions/${sessionId}/`);
+            const session = response.data;
+            
+            const container = document.getElementById('participantsList');
+            container.innerHTML = `
+                <h6 class="mb-3">参加者一覧 (${session.participants_detail.length}人)</h6>
+                ${session.participants_detail.map(p => `
+                    <div class="participant-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${p.user_detail.nickname}</strong>
+                                ${p.role === 'gm' ? '<span class="badge bg-primary ms-2">GM</span>' : ''}
+                                ${p.character_name ? `<br><small class="text-muted">キャラクター: ${p.character_name}</small>` : ''}
+                                ${p.character_sheet_url ? `<br><a href="${p.character_sheet_url}" target="_blank" class="character-sheet-link"><i class="fas fa-file-alt"></i> キャラクターシート</a>` : ''}
+                            </div>
+                            <div>
+                                ${p.role !== 'gm' ? `
+                                    <button class="btn btn-sm btn-outline-danger" onclick="removeParticipant(${sessionId}, ${p.id})">
+                                        <i class="fas fa-user-minus"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+            
+            modal.show();
+        } catch (error) {
+            alert('参加者情報の読み込みに失敗しました');
+        }
+    };
+
+    // セッション詳細表示
+    window.viewSession = function(sessionId) {
+        window.location.href = `/api/schedules/sessions/${sessionId}/detail/`;
+    };
+
+    // フィルター適用
+    document.getElementById('applyFilter').addEventListener('click', function() {
+        currentFilters = {
+            status: document.getElementById('statusFilter').value,
+            period: document.getElementById('periodFilter').value,
+            role: document.getElementById('roleFilter').value
+        };
+        currentPage = 1;
+        loadSessions(1);
+    });
+
+    // ページネーション更新
+    function updatePagination(total, pageSize, currentPage) {
+        const totalPages = Math.ceil(total / pageSize);
+        const pagination = document.getElementById('pagination');
+        
+        let html = '';
+        
+        if (totalPages > 1) {
+            html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changePage(${currentPage - 1})">前へ</a>
+            </li>`;
+            
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || Math.abs(i - currentPage) <= 2) {
+                    html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+                    </li>`;
+                }
+            }
+            
+            html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changePage(${currentPage + 1})">次へ</a>
+            </li>`;
+        }
+        
+        pagination.innerHTML = html;
+    }
+
+    // ページ変更
+    window.changePage = function(page) {
+        currentPage = page;
+        loadSessions(page);
+        window.scrollTo(0, 0);
+    };
+
+    // 初期化
+    loadSessions();
+    loadStatistics();
+});
+</script>
+{% endblock %}

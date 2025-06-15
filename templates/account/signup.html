@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}サインアップ - Gate of Yog-Sothoth{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-lg">
+                <div class="card-header bg-success text-center">
+                    <h4 class="card-title mb-0 eldritch-font">
+                        <i class="fas fa-user-plus"></i> 新たなる信者の誕生
+                    </h4>
+                    <p class="mb-0 text-muted">Arkham Nexusへようこそ</p>
+                </div>
+                <div class="card-body p-4">
+                    {% if messages %}
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <div class="text-center mb-4">
+                        <i class="fas fa-user-plus text-success fa-3x mb-3"></i>
+                        <h5 class="text-success mb-3">ソーシャルアカウントで登録</h5>
+                        <p class="text-muted">
+                            GoogleまたはTwitterアカウントを使用してサインアップしてください。<br>
+                            簡単に始められます。
+                        </p>
+                    </div>
+
+                    <!-- ソーシャルサインアップ -->
+                    {% load socialaccount %}
+                    {% get_providers as socialaccount_providers %}
+                    <div class="d-grid gap-3">
+                        {% for provider in socialaccount_providers %}
+                            {% if provider.id == 'google' %}
+                                <a href="{% provider_login_url provider.id %}" class="btn btn-danger btn-lg social-btn">
+                                    <i class="fab fa-google fa-lg me-2"></i> 
+                                    <span>Googleで登録</span>
+                                </a>
+                            {% elif provider.id == 'twitter' %}
+                                <a href="{% provider_login_url provider.id %}" class="btn btn-info btn-lg social-btn">
+                                    <i class="fab fa-twitter fa-lg me-2"></i>
+                                    <span>X (Twitter)で登録</span>
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+
+                    {% if not socialaccount_providers %}
+                        <div class="alert alert-warning text-center">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>設定が必要です</strong><br>
+                            ソーシャルログインプロバイダーが設定されていません。<br>
+                            管理者にお問い合わせください。
+                        </div>
+                    {% endif %}
+
+                    <hr class="my-4">
+
+                    <div class="text-center">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            ソーシャルアカウントで登録すると、自動でアカウントが作成されます。<br>
+                            利用規約とプライバシーポリシーに同意の上、ご利用ください。
+                        </small>
+                        <hr class="my-3">
+                        <p class="mb-0">
+                            すでにアカウントをお持ちですか？
+                            <a href="{% url 'account_login' %}" class="text-decoration-none">
+                                <i class="fas fa-sign-in-alt"></i> ログイン
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <small class="text-muted eldritch-font">
+                    "We live on a placid island of ignorance in the midst of black seas of infinity..."
+                    <br>- H.P. Lovecraft
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    border: 2px solid #3fb950;
+    background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+}
+
+.social-btn {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.social-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #ea4335 0%, #d33b2c 100%);
+    border-color: #ea4335;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #d33b2c 0%, #b52d20 100%);
+    border-color: #d33b2c;
+    box-shadow: 0 8px 25px rgba(234, 67, 53, 0.4);
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #1da1f2 0%, #0d8bd9 100%);
+    border-color: #1da1f2;
+}
+
+.btn-info:hover {
+    background: linear-gradient(135deg, #0d8bd9 0%, #0a73b5 100%);
+    border-color: #0d8bd9;
+    box-shadow: 0 8px 25px rgba(29, 161, 242, 0.4);
+}
+
+.social-btn::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transform: translateY(-50%);
+    transition: left 0.6s ease;
+}
+
+.social-btn:hover::before {
+    left: 100%;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // ソーシャルログインボタンにローディング効果を追加
+    const socialBtns = document.querySelectorAll('.social-btn');
+    
+    socialBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.style.pointerEvents = 'none';
+            this.innerHTML = '<i class="fas fa-spinner fa-spin fa-lg me-2"></i>登録中...';
+        });
+    });
+});
+</script>
+{% endblock %}

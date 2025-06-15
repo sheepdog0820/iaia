@@ -1,0 +1,289 @@
+/* Arkham Nexus - Dark Cthulhu Theme CSS */
+
+@import url('https://fonts.googleapis.com/css2?family=Creepster&family=Nosifer&family=Butcherman&display=swap');
+
+/* ダークテーマのベース設定 */
+.dark-theme {
+    background-color: #0d1117;
+    color: #c9d1d9;
+}
+
+/* エルドリッチフォント */
+.eldritch-font {
+    font-family: 'Nosifer', 'Creepster', cursive;
+    text-shadow: 0 0 10px rgba(220, 38, 127, 0.5);
+}
+
+/* カード要素のスタイル */
+.card {
+    background-color: #161b22 !important;
+    border: 1px solid #30363d !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(220, 38, 127, 0.2);
+}
+
+.card-header {
+    border-bottom: 1px solid #30363d;
+    font-weight: 600;
+}
+
+/* ナビゲーションバー */
+.navbar {
+    background: linear-gradient(135deg, #0d1117 0%, #21262d 100%) !important;
+    border-bottom: 2px solid #dc2670;
+}
+
+.navbar-brand {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.navbar-nav .nav-link {
+    transition: color 0.3s ease;
+}
+
+.navbar-nav .nav-link:hover {
+    color: #dc2670 !important;
+    text-shadow: 0 0 5px rgba(220, 38, 127, 0.5);
+}
+
+/* ボタンスタイル */
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.btn-outline-primary {
+    border-color: #58a6ff;
+    color: #58a6ff;
+}
+
+.btn-outline-primary:hover {
+    background-color: #58a6ff;
+    border-color: #58a6ff;
+    box-shadow: 0 0 15px rgba(88, 166, 255, 0.4);
+}
+
+.btn-outline-info {
+    border-color: #39d0d8;
+    color: #39d0d8;
+}
+
+.btn-outline-info:hover {
+    background-color: #39d0d8;
+    border-color: #39d0d8;
+    box-shadow: 0 0 15px rgba(57, 208, 216, 0.4);
+}
+
+.btn-outline-success {
+    border-color: #3fb950;
+    color: #3fb950;
+}
+
+.btn-outline-success:hover {
+    background-color: #3fb950;
+    border-color: #3fb950;
+    box-shadow: 0 0 15px rgba(63, 185, 80, 0.4);
+}
+
+/* フィーチャーカード */
+.feature-card {
+    padding: 2rem;
+    text-align: center;
+    transition: transform 0.3s ease;
+}
+
+.feature-card:hover {
+    transform: scale(1.05);
+}
+
+.feature-card i {
+    transition: all 0.3s ease;
+}
+
+.feature-card:hover i {
+    transform: rotate(10deg);
+    filter: drop-shadow(0 0 10px currentColor);
+}
+
+/* ヒーローセクション */
+.hero-section {
+    padding: 4rem 0;
+}
+
+.hero-section h1 {
+    color: #dc2670;
+    margin-bottom: 2rem;
+}
+
+/* ドロップダウンメニュー */
+.dropdown-menu-dark {
+    background-color: #21262d;
+    border: 1px solid #30363d;
+}
+
+.dropdown-item:hover {
+    background-color: #30363d;
+    color: #dc2670;
+}
+
+/* スピナー */
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* フッター */
+footer {
+    background: linear-gradient(135deg, #0d1117 0%, #21262d 100%) !important;
+    border-top: 2px solid #dc2670;
+}
+
+/* テキストカラー調整 */
+.text-muted {
+    color: #8b949e !important;
+}
+
+/* バッジスタイル */
+.badge {
+    font-size: 0.75em;
+    padding: 0.35em 0.65em;
+}
+
+/* ボーダーカラー */
+.border-secondary {
+    border-color: #30363d !important;
+}
+
+/* カスタムボタンホバーエフェクト */
+.btn-primary:hover,
+.btn-success:hover,
+.btn-info:hover,
+.btn-warning:hover,
+.btn-danger:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+}
+
+/* フォーカス時のアウトライン */
+.form-control:focus,
+.form-select:focus {
+    border-color: #dc2670;
+    box-shadow: 0 0 0 0.2rem rgba(220, 38, 127, 0.25);
+}
+
+/* スクロールバーカスタマイズ */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0d1117;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #dc2670;
+}
+
+/* アニメーション */
+@keyframes eldritchGlow {
+    0%, 100% { text-shadow: 0 0 5px rgba(220, 38, 127, 0.5); }
+    50% { text-shadow: 0 0 20px rgba(220, 38, 127, 0.8), 0 0 30px rgba(220, 38, 127, 0.6); }
+}
+
+.eldritch-font:hover {
+    animation: eldritchGlow 2s ease-in-out infinite;
+}
+
+/* レスポンシブデザイン */
+@media (max-width: 768px) {
+    .hero-section {
+        padding: 2rem 0;
+    }
+    
+    .hero-section h1 {
+        font-size: 2.5rem;
+    }
+    
+    .feature-card {
+        padding: 1rem;
+    }
+}
+
+/* フォームスタイル */
+.form-control,
+.form-select {
+    background-color: #21262d;
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+}
+
+.form-control::placeholder {
+    color: #8b949e;
+}
+
+/* テーブルスタイル */
+.table-dark {
+    --bs-table-bg: #161b22;
+    --bs-table-border-color: #30363d;
+}
+
+/* モーダルスタイル */
+.modal-content {
+    background-color: #161b22;
+    border: 1px solid #30363d;
+}
+
+.modal-header {
+    border-bottom: 1px solid #30363d;
+}
+
+.modal-footer {
+    border-top: 1px solid #30363d;
+}
+
+/* アラートスタイル */
+.alert {
+    border: none;
+    border-radius: 8px;
+}
+
+.alert-success {
+    background-color: rgba(63, 185, 80, 0.1);
+    color: #3fb950;
+    border-left: 4px solid #3fb950;
+}
+
+.alert-danger {
+    background-color: rgba(248, 81, 73, 0.1);
+    color: #f85149;
+    border-left: 4px solid #f85149;
+}
+
+.alert-warning {
+    background-color: rgba(187, 128, 9, 0.1);
+    color: #bb8009;
+    border-left: 4px solid #bb8009;
+}
+
+.alert-info {
+    background-color: rgba(57, 208, 216, 0.1);
+    color: #39d0d8;
+    border-left: 4px solid #39d0d8;
+}

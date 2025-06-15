@@ -1,0 +1,876 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ session.title }} - セッション詳細{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- ヘッダー部分 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item">
+                                <a href="/">
+                                    <i class="fas fa-home"></i> ホーム
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item">
+                                <a href="/api/schedules/sessions/view/">
+                                    <i class="fas fa-scroll"></i> セッション一覧
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item active">
+                                <i class="fas fa-eye"></i> {{ session.title }}
+                            </li>
+                        </ol>
+                    </nav>
+                </div>
+                <div>
+                    {% if can_edit %}
+                        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editSessionModal">
+                            <i class="fas fa-edit"></i> セッション編集
+                        </button>
+                    {% endif %}
+                    {% if can_join %}
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#joinSessionModal">
+                            <i class="fas fa-user-plus"></i> 参加申請
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- メイン情報 -->
+        <div class="col-lg-8">
+            <!-- セッション基本情報 -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary">
+                    <h3 class="mb-0 eldritch-font">
+                        <i class="fas fa-scroll"></i> {{ session.title }}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-calendar"></i> 開催日時</h6>
+                            <p class="mb-3">{{ session.date|date:"Y年m月d日 H:i" }}</p>
+
+                            <h6><i class="fas fa-map-marker-alt"></i> 場所</h6>
+                            <p class="mb-3">{{ session.location|default:"未設定" }}</p>
+
+                            <h6><i class="fas fa-clock"></i> セッション時間</h6>
+                            <p class="mb-3">
+                                {% if session.duration_minutes %}
+                                    {{ session.duration_minutes }}分
+                                    {% if session.duration_minutes >= 60 %}
+                                        (約{% widthratio session.duration_minutes 60 1 %}時間)
+                                    {% endif %}
+                                {% else %}
+                                    未設定
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-user"></i> GM</h6>
+                            <p class="mb-3">
+                                {% if session.gm.profile_image %}
+                                    <img src="{{ session.gm.profile_image.url }}" alt="GM" 
+                                         class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;">
+                                {% else %}
+                                    <i class="fas fa-user-circle me-2"></i>
+                                {% endif %}
+                                {{ session.gm.nickname|default:session.gm.username }}
+                            </p>
+
+                            <h6><i class="fas fa-flag"></i> ステータス</h6>
+                            <p class="mb-3">
+                                {% if session.status == 'planned' %}
+                                    <span class="badge bg-primary fs-6"><i class="fas fa-clock"></i> 予定</span>
+                                {% elif session.status == 'ongoing' %}
+                                    <span class="badge bg-warning fs-6"><i class="fas fa-play"></i> 進行中</span>
+                                {% elif session.status == 'completed' %}
+                                    <span class="badge bg-success fs-6"><i class="fas fa-check"></i> 完了</span>
+                                {% elif session.status == 'cancelled' %}
+                                    <span class="badge bg-danger fs-6"><i class="fas fa-times"></i> キャンセル</span>
+                                {% endif %}
+                            </p>
+
+                            <h6><i class="fas fa-eye"></i> 公開設定</h6>
+                            <p class="mb-3">
+                                {% if session.visibility == 'private' %}
+                                    <span class="badge bg-secondary"><i class="fas fa-lock"></i> プライベート</span>
+                                {% elif session.visibility == 'group' %}
+                                    <span class="badge bg-info"><i class="fas fa-users"></i> グループ内</span>
+                                {% elif session.visibility == 'public' %}
+                                    <span class="badge bg-success"><i class="fas fa-globe"></i> 公開</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+
+                    {% if session.youtube_url %}
+                    <hr>
+                    <h6><i class="fab fa-youtube"></i> YouTube配信</h6>
+                    <p>
+                        <a href="{{ session.youtube_url }}" target="_blank" class="btn btn-outline-danger">
+                            <i class="fab fa-youtube"></i> 配信を見る
+                        </a>
+                    </p>
+                    {% endif %}
+
+                    {% if session.description %}
+                    <hr>
+                    <h6><i class="fas fa-scroll"></i> セッション概要</h6>
+                    <div class="border rounded p-3" style="background-color: var(--secondary-bg);">
+                        {{ session.description|linebreaks }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 参加者一覧 -->
+            <div class="card mb-4">
+                <div class="card-header bg-info">
+                    <h5 class="mb-0">
+                        <i class="fas fa-users"></i> 参加者一覧 ({{ participants.count }}人)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for participant in participants %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center mb-2">
+                                        {% if participant.user.profile_image %}
+                                            <img src="{{ participant.user.profile_image.url }}" alt="プロフィール" 
+                                                 class="rounded-circle me-3" style="width: 48px; height: 48px; object-fit: cover;">
+                                        {% else %}
+                                            <i class="fas fa-user-circle fa-3x me-3"></i>
+                                        {% endif %}
+                                        <div>
+                                            <h6 class="mb-1">{{ participant.user.nickname|default:participant.user.username }}</h6>
+                                            {% if participant.role == 'gm' %}
+                                                <span class="badge bg-primary">GM</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">PL</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    {% if participant.character_name %}
+                                    <p class="mb-2">
+                                        <i class="fas fa-mask"></i> <strong>キャラクター:</strong> {{ participant.character_name }}
+                                    </p>
+                                    {% endif %}
+                                    
+                                    {% if participant.character_sheet_url %}
+                                    <p class="mb-2">
+                                        <a href="{{ participant.character_sheet_url }}" target="_blank" class="btn btn-sm btn-outline-info">
+                                            <i class="fas fa-file-alt"></i> キャラクターシート
+                                        </a>
+                                    </p>
+                                    {% endif %}
+                                    
+                                    {% if is_gm and participant.role != 'gm' %}
+                                    <div class="mt-2">
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                onclick="removeParticipant({{ participant.id }})">
+                                            <i class="fas fa-user-minus"></i> 除名
+                                        </button>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <p class="text-muted text-center">参加者がいません</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- サイドバー -->
+        <div class="col-lg-4">
+            <!-- グループ情報 -->
+            <div class="card mb-4">
+                <div class="card-header bg-secondary">
+                    <h6 class="mb-0"><i class="fas fa-users"></i> グループ情報</h6>
+                </div>
+                <div class="card-body">
+                    <h6>{{ session.group.name }}</h6>
+                    {% if session.group.description %}
+                        <p class="text-muted small">{{ session.group.description|truncatechars:100 }}</p>
+                    {% endif %}
+                    <p class="mb-0">
+                        <i class="fas fa-user"></i> メンバー: {{ session.group.members.count }}人
+                    </p>
+                </div>
+            </div>
+
+            <!-- ハンドアウト情報 -->
+            {% if handouts or is_gm %}
+            <div class="card mb-4">
+                <div class="card-header bg-warning">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="fas fa-scroll"></i> ハンドアウト情報
+                        </h6>
+                        {% if is_gm %}
+                        <div class="btn-group btn-group-sm">
+                            <a href="/api/schedules/sessions/{{ session.id }}/handouts/manage/" 
+                               class="btn btn-outline-light">
+                                <i class="fas fa-cogs"></i> 管理画面
+                            </a>
+                            <button class="btn btn-outline-light" 
+                                    data-bs-toggle="modal" data-bs-target="#createHandoutModal">
+                                <i class="fas fa-plus"></i> 作成
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if handouts %}
+                        {% for handout in handouts %}
+                        <div class="border rounded p-3 mb-3" style="background-color: var(--secondary-bg);">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="mb-1">
+                                    {{ handout.title }}
+                                    {% if handout.is_secret %}
+                                        <i class="fas fa-eye-slash text-warning ms-1" title="秘匿情報"></i>
+                                    {% endif %}
+                                </h6>
+                                {% if is_gm %}
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary" onclick="editHandout({{ handout.id }})">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger" onclick="deleteHandout({{ handout.id }})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% if is_gm %}
+                                <p class="small text-muted mb-2">
+                                    <i class="fas fa-user"></i> {{ handout.participant.user.nickname|default:handout.participant.user.username }}
+                                </p>
+                            {% endif %}
+                            <div class="small">
+                                {{ handout.content|linebreaks }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center">ハンドアウトはありません</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 管理メニュー -->
+            {% if is_participant %}
+            <div class="card">
+                <div class="card-header bg-success">
+                    <h6 class="mb-0"><i class="fas fa-cog"></i> 管理メニュー</h6>
+                </div>
+                <div class="card-body">
+                    {% if user_participant %}
+                        <button class="btn btn-outline-primary btn-sm w-100 mb-2" 
+                                data-bs-toggle="modal" data-bs-target="#editParticipantModal">
+                            <i class="fas fa-edit"></i> 参加情報編集
+                        </button>
+                    {% endif %}
+                    
+                    {% if not is_gm %}
+                        <button class="btn btn-outline-danger btn-sm w-100" 
+                                onclick="leaveSession()">
+                            <i class="fas fa-sign-out-alt"></i> セッション脱退
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- セッション編集モーダル -->
+{% if can_edit %}
+<div class="modal fade" id="editSessionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">セッション編集</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editSessionForm">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="title" class="form-label">セッションタイトル</label>
+                            <input type="text" class="form-control" id="title" value="{{ session.title }}" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="status" class="form-label">ステータス</label>
+                            <select class="form-select" id="status">
+                                <option value="planned" {% if session.status == 'planned' %}selected{% endif %}>予定</option>
+                                <option value="ongoing" {% if session.status == 'ongoing' %}selected{% endif %}>進行中</option>
+                                <option value="completed" {% if session.status == 'completed' %}selected{% endif %}>完了</option>
+                                <option value="cancelled" {% if session.status == 'cancelled' %}selected{% endif %}>キャンセル</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="date" class="form-label">開催日時</label>
+                            <input type="datetime-local" class="form-control" id="date" 
+                                   value="{{ session.date|date:'Y-m-d\TH:i' }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="duration_minutes" class="form-label">セッション時間（分）</label>
+                            <input type="number" class="form-control" id="duration_minutes" 
+                                   value="{{ session.duration_minutes }}" min="0" step="30">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="location" class="form-label">場所</label>
+                            <input type="text" class="form-control" id="location" value="{{ session.location }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="visibility" class="form-label">公開設定</label>
+                            <select class="form-select" id="visibility">
+                                <option value="private" {% if session.visibility == 'private' %}selected{% endif %}>プライベート</option>
+                                <option value="group" {% if session.visibility == 'group' %}selected{% endif %}>グループ内</option>
+                                <option value="public" {% if session.visibility == 'public' %}selected{% endif %}>公開</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="youtube_url" class="form-label">YouTube配信URL</label>
+                        <input type="url" class="form-control" id="youtube_url" value="{{ session.youtube_url }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">セッション概要</label>
+                        <textarea class="form-control" id="description" rows="4">{{ session.description }}</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="updateSession()">
+                    <i class="fas fa-save"></i> 更新
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 参加申請モーダル -->
+{% if can_join %}
+<div class="modal fade" id="joinSessionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">セッション参加申請</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="joinSessionForm">
+                    <div class="mb-3">
+                        <label for="character_name" class="form-label">キャラクター名</label>
+                        <input type="text" class="form-control" id="character_name" 
+                               placeholder="使用するキャラクター名を入力してください">
+                    </div>
+                    <div class="mb-3">
+                        <label for="character_sheet_url" class="form-label">キャラクターシートURL</label>
+                        <input type="url" class="form-control" id="character_sheet_url" 
+                               placeholder="キャラクターシートのURLを入力してください">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="joinSession()">
+                    <i class="fas fa-user-plus"></i> 参加申請
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 参加情報編集モーダル -->
+{% if user_participant %}
+<div class="modal fade" id="editParticipantModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">参加情報編集</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editParticipantForm">
+                    <div class="mb-3">
+                        <label for="edit_character_name" class="form-label">キャラクター名</label>
+                        <input type="text" class="form-control" id="edit_character_name" 
+                               value="{{ user_participant.character_name }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_character_sheet_url" class="form-label">キャラクターシートURL</label>
+                        <input type="url" class="form-control" id="edit_character_sheet_url" 
+                               value="{{ user_participant.character_sheet_url }}">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="updateParticipant()">
+                    <i class="fas fa-save"></i> 更新
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ハンドアウト作成モーダル -->
+{% if is_gm %}
+<div class="modal fade" id="createHandoutModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">ハンドアウト作成</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createHandoutForm">
+                    <div class="mb-3">
+                        <label for="handout_participant" class="form-label">対象参加者</label>
+                        <select class="form-select" id="handout_participant" required>
+                            <option value="">参加者を選択してください</option>
+                            {% for participant in participants %}
+                            <option value="{{ participant.id }}">{{ participant.user.nickname|default:participant.user.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="handout_title" class="form-label">タイトル</label>
+                        <input type="text" class="form-control" id="handout_title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="handout_content" class="form-label">内容</label>
+                        <textarea class="form-control" id="handout_content" rows="4" required></textarea>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="handout_is_secret" checked>
+                        <label class="form-check-label" for="handout_is_secret">
+                            秘匿ハンドアウト（対象者のみ閲覧可能）
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="createHandout()">
+                    <i class="fas fa-save"></i> 作成
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card-header.bg-primary {
+    background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%) !important;
+    color: white !important;
+}
+
+.card-header.bg-info {
+    background: linear-gradient(135deg, var(--accent-info) 0%, #0891b2 100%) !important;
+    color: white !important;
+}
+
+.card-header.bg-secondary {
+    background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%) !important;
+    color: white !important;
+}
+
+.card-header.bg-warning {
+    background: linear-gradient(135deg, var(--accent-warning) 0%, #d97706 100%) !important;
+    color: white !important;
+}
+
+.card-header.bg-success {
+    background: linear-gradient(135deg, var(--accent-success) 0%, #059669 100%) !important;
+    color: white !important;
+}
+
+.badge.fs-6 {
+    font-size: 1rem !important;
+    padding: 0.5em 0.75em;
+}
+
+.breadcrumb {
+    background-color: var(--secondary-bg);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+}
+
+.breadcrumb-item a {
+    color: var(--accent-primary);
+    text-decoration: none;
+}
+
+.breadcrumb-item a:hover {
+    text-decoration: underline;
+    color: var(--accent-secondary);
+}
+
+.breadcrumb-item.active {
+    color: var(--text-primary);
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+    color: var(--text-muted);
+}
+
+/* 背景と文字色のコントラスト修正 */
+.modal-content {
+    background: var(--card-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+.modal-header {
+    background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%) !important;
+    color: white !important;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-footer {
+    background: var(--secondary-bg) !important;
+    border-top: 1px solid var(--border-color);
+}
+
+.form-control, .form-select {
+    background-color: var(--secondary-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+.form-control:focus, .form-select:focus {
+    background-color: var(--card-bg) !important;
+    border-color: var(--accent-primary) !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+}
+
+.form-control::placeholder {
+    color: var(--text-muted) !important;
+}
+
+.form-label {
+    color: var(--text-primary) !important;
+    font-weight: 500;
+}
+
+.form-check-input {
+    background-color: var(--secondary-bg);
+    border-color: var(--border-color);
+}
+
+.form-check-input:checked {
+    background-color: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+.form-check-label {
+    color: var(--text-primary);
+}
+
+/* テーブル要素の修正 */
+.table-dark {
+    --bs-table-bg: var(--secondary-bg);
+    --bs-table-border-color: var(--border-color);
+    --bs-table-color: var(--text-primary);
+}
+
+/* ボタンのコントラスト改善 */
+.btn-outline-primary {
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    background: transparent;
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+.btn-outline-secondary {
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+    background: transparent;
+}
+
+.btn-outline-secondary:hover {
+    background-color: var(--border-color);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+.btn-outline-danger {
+    border-color: var(--accent-danger);
+    color: var(--accent-danger);
+    background: transparent;
+}
+
+.btn-outline-danger:hover {
+    background-color: var(--accent-danger);
+    border-color: var(--accent-danger);
+    color: white;
+}
+
+.btn-outline-info {
+    border-color: var(--accent-info);
+    color: var(--accent-info);
+    background: transparent;
+}
+
+.btn-outline-info:hover {
+    background-color: var(--accent-info);
+    border-color: var(--accent-info);
+    color: white;
+}
+
+/* アラートスタイル */
+.alert-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--accent-success);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.alert-danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--accent-danger);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.alert-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--accent-warning);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.alert-info {
+    background: rgba(6, 182, 212, 0.1);
+    color: var(--accent-info);
+    border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+/* バッジのコントラスト改善 */
+.badge.bg-info {
+    background: var(--accent-info) !important;
+    color: white !important;
+}
+
+.badge.bg-primary {
+    background: var(--accent-primary) !important;
+    color: white !important;
+}
+
+.badge.bg-success {
+    background: var(--accent-success) !important;
+    color: white !important;
+}
+
+.badge.bg-warning {
+    background: var(--accent-warning) !important;
+    color: white !important;
+}
+
+.badge.bg-danger {
+    background: var(--accent-danger) !important;
+    color: white !important;
+}
+
+.badge.bg-secondary {
+    background: #6b7280 !important;
+    color: white !important;
+}
+
+/* カード内の要素のコントラスト */
+.card-body h6 {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.card-body p {
+    color: var(--text-primary);
+}
+
+.card-body .text-muted {
+    color: var(--text-muted) !important;
+}
+
+.card-body .small {
+    color: var(--text-secondary);
+}
+
+/* リンクのコントラスト */
+a {
+    color: var(--accent-primary);
+}
+
+a:hover {
+    color: var(--accent-secondary);
+}
+
+.text-decoration-none {
+    text-decoration: none !important;
+}
+
+.text-decoration-none:hover {
+    text-decoration: underline !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// セッション更新
+async function updateSession() {
+    const data = {
+        title: document.getElementById('title').value,
+        date: document.getElementById('date').value,
+        duration_minutes: document.getElementById('duration_minutes').value,
+        location: document.getElementById('location').value,
+        visibility: document.getElementById('visibility').value,
+        youtube_url: document.getElementById('youtube_url').value,
+        description: document.getElementById('description').value,
+        status: document.getElementById('status').value
+    };
+
+    try {
+        const response = await axios.patch(`/api/schedules/sessions/{{ session.id }}/`, data);
+        alert('セッション情報を更新しました');
+        location.reload();
+    } catch (error) {
+        alert('更新に失敗しました: ' + (error.response?.data?.detail || error.message));
+    }
+}
+
+// セッション参加
+async function joinSession() {
+    const data = {
+        character_name: document.getElementById('character_name').value,
+        character_sheet_url: document.getElementById('character_sheet_url').value
+    };
+
+    try {
+        const response = await axios.post(`/api/schedules/sessions/{{ session.id }}/join/`, data);
+        alert('セッションに参加しました');
+        location.reload();
+    } catch (error) {
+        alert('参加に失敗しました: ' + (error.response?.data?.error || error.message));
+    }
+}
+
+// 参加情報更新
+async function updateParticipant() {
+    const data = {
+        character_name: document.getElementById('edit_character_name').value,
+        character_sheet_url: document.getElementById('edit_character_sheet_url').value
+    };
+
+    try {
+        {% if user_participant %}
+        const response = await axios.patch(`/api/schedules/participants/{{ user_participant.id }}/`, data);
+        {% else %}
+        throw new Error('参加情報が見つかりません');
+        {% endif %}
+        alert('参加情報を更新しました');
+        location.reload();
+    } catch (error) {
+        alert('更新に失敗しました: ' + (error.response?.data?.detail || error.message));
+    }
+}
+
+// セッション脱退
+async function leaveSession() {
+    if (!confirm('本当にセッションから脱退しますか？')) return;
+
+    try {
+        const response = await axios.delete(`/api/schedules/sessions/{{ session.id }}/leave/`);
+        alert('セッションから脱退しました');
+        window.location.href = '/api/schedules/sessions/view/';
+    } catch (error) {
+        alert('脱退に失敗しました: ' + (error.response?.data?.error || error.message));
+    }
+}
+
+// ハンドアウト作成
+async function createHandout() {
+    const data = {
+        session: {{ session.id }},
+        participant: document.getElementById('handout_participant').value,
+        title: document.getElementById('handout_title').value,
+        content: document.getElementById('handout_content').value,
+        is_secret: document.getElementById('handout_is_secret').checked
+    };
+
+    try {
+        const response = await axios.post('/api/schedules/handouts/', data);
+        alert('ハンドアウトを作成しました');
+        location.reload();
+    } catch (error) {
+        alert('作成に失敗しました: ' + (error.response?.data?.detail || error.message));
+    }
+}
+
+// ハンドアウト削除
+async function deleteHandout(handoutId) {
+    if (!confirm('本当にこのハンドアウトを削除しますか？')) return;
+
+    try {
+        await axios.delete(`/api/schedules/handouts/${handoutId}/`);
+        alert('ハンドアウトを削除しました');
+        location.reload();
+    } catch (error) {
+        alert('削除に失敗しました: ' + (error.response?.data?.detail || error.message));
+    }
+}
+
+// 参加者除名
+async function removeParticipant(participantId) {
+    if (!confirm('本当にこの参加者を除名しますか？')) return;
+
+    try {
+        await axios.delete(`/api/schedules/participants/${participantId}/`);
+        alert('参加者を除名しました');
+        location.reload();
+    } catch (error) {
+        alert('除名に失敗しました: ' + (error.response?.data?.detail || error.message));
+    }
+}
+</script>
+{% endblock %}

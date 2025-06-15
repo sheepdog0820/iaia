@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}アカウント作成 - Arkham Nexus{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-lg">
+                <div class="card-header bg-success text-white text-center">
+                    <h4 class="card-title mb-0 eldritch-font">
+                        <i class="fas fa-user-plus"></i> アカウント作成
+                    </h4>
+                    <p class="mb-0">深淵への扉が開かれました</p>
+                </div>
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-check-circle text-success fa-4x mb-3"></i>
+                        <h5 class="text-success mb-3">ソーシャルアカウントで登録</h5>
+                        <p class="text-muted">
+                            {{ sociallogin.account.provider|title }}アカウントを使用してArkham Nexusに参加します。
+                        </p>
+                    </div>
+
+                    {% if form.errors %}
+                    <div class="alert alert-danger">
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <form method="post" action="{% url 'socialaccount_signup' %}">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.email.id_for_label }}" class="form-label">
+                                    <i class="fas fa-envelope"></i> メールアドレス
+                                </label>
+                                {{ form.email }}
+                            </div>
+                        </div>
+
+                        {% if form.username %}
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="{{ form.username.id_for_label }}" class="form-label">
+                                    <i class="fas fa-user"></i> ユーザー名
+                                </label>
+                                {{ form.username }}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-check"></i> アカウントを作成
+                            </button>
+                        </div>
+
+                        {% if redirect_field_value %}
+                        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                        {% endif %}
+                    </form>
+
+                    <hr class="my-4">
+
+                    <div class="text-center">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            アカウント作成により、利用規約とプライバシーポリシーに同意したものとみなされます。
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <small class="text-muted eldritch-font">
+                    "Welcome to the threshold of knowledge..."
+                    <br>知識の境界へようこそ
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    border: 2px solid #198754;
+    background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+}
+
+.form-control {
+    background-color: #21262d;
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+}
+
+.form-control:focus {
+    background-color: #21262d;
+    border-color: #198754;
+    box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.25);
+    color: #c9d1d9;
+}
+</style>
+{% endblock %}

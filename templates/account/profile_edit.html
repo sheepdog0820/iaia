@@ -1,0 +1,248 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}プロフィール編集 - Arkham Nexus{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-lg">
+                <div class="card-header bg-info text-center">
+                    <h4 class="card-title mb-0 eldritch-font">
+                        <i class="fas fa-user-edit"></i> プロフィール編集
+                    </h4>
+                    <p class="mb-0 text-muted">深淵の探索者情報を更新</p>
+                </div>
+                
+                <div class="card-body p-4">
+                    {% if messages %}
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    {% if form.errors %}
+                    <div class="alert alert-danger alert-dismissible fade show">
+                        <strong>エラーが発生しました：</strong>
+                        <ul class="mb-0">
+                            {% for field, errors in form.errors.items %}
+                                {% for error in errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                        </ul>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endif %}
+
+                    <form method="post" enctype="multipart/form-data" id="profile-form">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.nickname.id_for_label }}" class="form-label">
+                                        <i class="fas fa-user"></i> {{ form.nickname.label }}
+                                    </label>
+                                    {{ form.nickname }}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.email.id_for_label }}" class="form-label">
+                                        <i class="fas fa-envelope"></i> {{ form.email.label }}
+                                    </label>
+                                    {{ form.email }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.first_name.id_for_label }}" class="form-label">
+                                        <i class="fas fa-id-card"></i> {{ form.first_name.label }}
+                                    </label>
+                                    {{ form.first_name }}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.last_name.id_for_label }}" class="form-label">
+                                        <i class="fas fa-id-card"></i> {{ form.last_name.label }}
+                                    </label>
+                                    {{ form.last_name }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.trpg_history.id_for_label }}" class="form-label">
+                                <i class="fas fa-scroll"></i> {{ form.trpg_history.label }}
+                            </label>
+                            {{ form.trpg_history }}
+                            <div class="form-text">TRPG歴やゲーム経験、好きなシステムなどを記入してください</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="{{ form.profile_image.id_for_label }}" class="form-label">
+                                <i class="fas fa-image"></i> {{ form.profile_image.label }}
+                            </label>
+                            
+                            {% if user.profile_image %}
+                            <div class="current-image mb-2">
+                                <p class="small text-muted">現在の画像:</p>
+                                <img src="{{ user.profile_image.url }}" alt="プロフィール画像" 
+                                     class="img-thumbnail" style="max-width: 150px; max-height: 150px;">
+                            </div>
+                            {% endif %}
+                            
+                            {{ form.profile_image }}
+                            <div class="form-text">JPG、PNG形式の画像をアップロードできます（最大5MB）</div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary me-md-2">
+                                <i class="fas fa-arrow-left"></i> キャンセル
+                            </a>
+                            <button type="submit" class="btn btn-info" id="save-btn">
+                                <i class="fas fa-save"></i> <span class="btn-text">保存</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- アカウント情報 -->
+            <div class="card shadow-lg mt-4">
+                <div class="card-header bg-secondary">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle"></i> アカウント情報
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>ユーザー名:</strong> {{ user.username }}</p>
+                            <p><strong>登録日:</strong> {{ user.date_joined|date:"Y年n月j日" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>最終ログイン:</strong> 
+                                {% if user.last_login %}
+                                    {{ user.last_login|date:"Y年n月j日 H:i" }}
+                                {% else %}
+                                    未記録
+                                {% endif %}
+                            </p>
+                            <p><strong>アカウントタイプ:</strong> 
+                                {% if user.is_staff %}
+                                    <span class="badge bg-warning">管理者</span>
+                                {% else %}
+                                    <span class="badge bg-primary">一般ユーザー</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    border: 2px solid #0dcaf0;
+    background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+}
+
+.form-control:focus {
+    border-color: #0dcaf0;
+    box-shadow: 0 0 0 0.2rem rgba(13, 202, 240, 0.25);
+}
+
+.btn-info.loading {
+    position: relative;
+}
+
+.btn-info.loading .btn-text {
+    opacity: 0;
+}
+
+.btn-info.loading::after {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    margin: auto;
+    border: 2px solid transparent;
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.img-thumbnail {
+    border: 2px solid #0dcaf0;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('profile-form');
+    const saveBtn = document.getElementById('save-btn');
+    
+    form.addEventListener('submit', function() {
+        saveBtn.classList.add('loading');
+        saveBtn.disabled = true;
+    });
+    
+    // 画像プレビュー機能
+    const imageInput = document.getElementById('{{ form.profile_image.id_for_label }}');
+    if (imageInput) {
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    // 既存のプレビューを削除
+                    const existingPreview = document.querySelector('.image-preview');
+                    if (existingPreview) {
+                        existingPreview.remove();
+                    }
+                    
+                    // 新しいプレビューを作成
+                    const preview = document.createElement('div');
+                    preview.className = 'image-preview mt-2';
+                    preview.innerHTML = `
+                        <p class="small text-info">プレビュー:</p>
+                        <img src="${e.target.result}" alt="プレビュー" 
+                             class="img-thumbnail" style="max-width: 150px; max-height: 150px;">
+                    `;
+                    
+                    imageInput.parentNode.appendChild(preview);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

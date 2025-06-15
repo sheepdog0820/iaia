@@ -1,0 +1,498 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Arkham Nexus - TRPG管理システム{% endblock %}
+
+{% block content %}
+<div class="container">
+    {% if user.is_authenticated %}
+    <div class="row">
+        <div class="col-12">
+            <div class="welcome-section mb-5">
+                <h1 class="brand-font text-center mb-4">
+                    <i class="fas fa-dice-d20 text-primary"></i> 
+                    Welcome to Arkham Nexus, {{ user.nickname|default:user.username }}
+                </h1>
+                <p class="text-center text-muted lead">
+                    あなたのTRPGセッションを美しく管理しましょう
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- 次回セッション -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clock"></i> 次回セッション
+                    </h5>
+                </div>
+                <div class="card-body" id="upcoming-sessions">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 統計情報 -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar"></i> 統計データ
+                    </h5>
+                </div>
+                <div class="card-body" id="play-statistics">
+                    <div class="text-center">
+                        <div class="spinner-border text-success" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- クイックアクション -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bolt"></i> クイックアクション
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" id="create-session-btn">
+                            <i class="fas fa-plus"></i> セッション作成
+                        </button>
+                        <button class="btn btn-outline-info" id="join-session-btn">
+                            <i class="fas fa-user-plus"></i> セッション参加
+                        </button>
+                        <button class="btn btn-outline-success" id="add-scenario-btn">
+                            <i class="fas fa-book"></i> シナリオ追加
+                        </button>
+                        <button class="btn btn-outline-warning" id="create-character-btn" data-bs-toggle="modal" data-bs-target="#characterCreationModal">
+                            <i class="fas fa-eye"></i> 探索者作成
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近のアクティビティ -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history"></i> 最近のアクティビティ
+                    </h5>
+                </div>
+                <div class="card-body" id="recent-activity">
+                    <div class="text-center">
+                        <div class="spinner-border text-info" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- グループ一覧 -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-users"></i> あなたのグループ
+                    </h5>
+                </div>
+                <div class="card-body" id="user-groups">
+                    <div class="text-center">
+                        <div class="spinner-border text-secondary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- 未ログインユーザー向け -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="text-center">
+                <div class="hero-section mb-5">
+                    <h1 class="brand-font display-3 mb-4">
+                        <i class="fas fa-dice-d20 text-primary"></i> Arkham Nexus
+                    </h1>
+                    <p class="lead text-muted mb-4">
+                        TRPGセッションを美しく管理する統合プラットフォーム
+                    </p>
+                    <p class="text-muted">
+                        セッションのスケジュール管理、キャラクターシート共有、プレイ記録の蓄積まで、<br>
+                        あなたのTRPGライフをトータルサポートします。<br>
+                        仲間と一緒に、素晴らしい冒険の記録を残しましょう。
+                    </p>
+                </div>
+
+                <div class="row g-4 mb-5">
+                    <div class="col-md-4">
+                        <div class="feature-card">
+                            <i class="fas fa-calendar-alt text-primary fa-3x mb-3"></i>
+                            <h5>スケジュール管理</h5>
+                            <p class="text-muted">セッションの予定を美しく管理</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="feature-card">
+                            <i class="fas fa-chart-line text-success fa-3x mb-3"></i>
+                            <h5>プレイ記録</h5>
+                            <p class="text-muted">セッションの記録と統計</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="feature-card">
+                            <i class="fas fa-users text-info fa-3x mb-3"></i>
+                            <h5>グループ管理</h5>
+                            <p class="text-muted">メンバーとの協力プレイ</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cta-section">
+                    <a href="{% url 'account_signup' %}" class="btn btn-primary btn-lg me-3">
+                        <i class="fas fa-user-plus"></i> アカウント作成
+                    </a>
+                    <a href="{% url 'account_login' %}" class="btn btn-outline-primary btn-lg">
+                        <i class="fas fa-sign-in-alt"></i> ログイン
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if user.is_authenticated %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadUpcomingSessions();
+    loadPlayStatistics();
+    loadUserGroups();
+    loadRecentActivity();
+});
+
+function loadUpcomingSessions() {
+    axios.get('/api/schedules/sessions/upcoming/')
+        .then(response => {
+            const container = document.getElementById('upcoming-sessions');
+            const sessions = response.data || [];
+            
+            if (!Array.isArray(sessions) || sessions.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-calendar-times fa-3x mb-3 opacity-50"></i>
+                        <p class="mb-0">近日中のセッションはありません</p>
+                        <small>新しいセッションを作成してみましょう</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            sessions.forEach(session => {
+                const dateDisplay = session.date_display || session.date_formatted || 'TBD';
+                const gmName = session.gm_name || 'Unknown GM';
+                const participantsSummary = session.participants_summary || '参加者情報なし';
+                const durationDisplay = session.duration_display || '';
+                const location = session.location || '';
+                
+                html += `
+                    <div class="session-card mb-3 p-3 border rounded hover-card" 
+                         style="cursor: pointer; transition: all 0.3s ease; border-left: 4px solid #007bff;" 
+                         onclick="window.location.href='/api/schedules/sessions/${session.id}/detail/'"
+                         onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(0,123,255,0.15)'"
+                         onmouseout="this.style.transform=''; this.style.boxShadow=''">
+                        
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="text-primary mb-0 fw-bold">${session.title}</h6>
+                            ${session.status === 'planned' ? '<span class="badge bg-success">予定</span>' : ''}
+                        </div>
+                        
+                        <div class="session-details">
+                            <!-- 日時情報 -->
+                            <div class="mb-2">
+                                <i class="fas fa-calendar-alt text-primary me-2"></i>
+                                <span class="fw-semibold">${dateDisplay}</span>
+                                ${durationDisplay ? `<span class="text-muted ms-2">(${durationDisplay})</span>` : ''}
+                            </div>
+                            
+                            <!-- GM情報 -->
+                            <div class="mb-2">
+                                <i class="fas fa-user-tie text-warning me-2"></i>
+                                <span class="text-muted">GM:</span> 
+                                <span class="fw-semibold">${gmName}</span>
+                            </div>
+                            
+                            <!-- 参加者情報 -->
+                            <div class="mb-2">
+                                <i class="fas fa-users text-info me-2"></i>
+                                <span class="text-muted">参加者:</span> 
+                                <span class="text-sm">${participantsSummary}</span>
+                                <span class="text-muted ms-1">(${session.participant_count || 0}人)</span>
+                            </div>
+                            
+                            <!-- 場所情報 -->
+                            ${location ? `
+                                <div class="mb-2">
+                                    <i class="fas fa-map-marker-alt text-danger me-2"></i>
+                                    <span class="text-muted small">${location}</span>
+                                </div>
+                            ` : ''}
+                            
+                            <!-- グループ情報 -->
+                            ${session.group_name ? `
+                                <div class="mb-2">
+                                    <i class="fas fa-users-cog text-secondary me-2"></i>
+                                    <span class="text-muted small">グループ: ${session.group_name}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="mt-3 pt-2 border-top border-light">
+                            <small class="text-info">
+                                <i class="fas fa-mouse-pointer me-1"></i>
+                                クリックで詳細表示
+                            </small>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Error loading upcoming sessions:', error);
+            document.getElementById('upcoming-sessions').innerHTML = `
+                <div class="text-center text-danger py-4">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                    <p class="mb-0">セッション情報の読み込みに失敗しました</p>
+                    <small>しばらく時間をおいて再度お試しください</small>
+                </div>
+            `;
+        });
+}
+
+function loadPlayStatistics() {
+    axios.get('/api/schedules/sessions/statistics/')
+        .then(response => {
+            const data = response.data;
+            const container = document.getElementById('play-statistics');
+            container.innerHTML = `
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h3 class="text-success">${data.total_hours}h</h3>
+                        <small class="text-muted">年間プレイ時間</small>
+                    </div>
+                    <div class="col-6">
+                        <h3 class="text-info">${data.session_count}</h3>
+                        <small class="text-muted">セッション数</small>
+                    </div>
+                </div>
+            `;
+        })
+        .catch(error => {
+            console.error('Error loading statistics:', error);
+            document.getElementById('play-statistics').innerHTML = 
+                '<p class="text-danger text-center">データの読み込みに失敗しました</p>';
+        });
+}
+
+function loadUserGroups() {
+    axios.get('/api/accounts/groups/')
+        .then(response => {
+            const container = document.getElementById('user-groups');
+            const groups = response.data.results || response.data || [];
+            
+            if (!Array.isArray(groups) || groups.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">参加しているグループはありません</p>';
+                return;
+            }
+            
+            let html = '<div class="row">';
+            groups.forEach(group => {
+                const memberCount = group.member_count || group.members?.length || 0;
+                html += `
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title">${group.name}</h6>
+                                <p class="card-text text-muted small">${group.description || 'グループの説明なし'}</p>
+                                <small class="text-muted">メンバー: ${memberCount}人</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Error loading groups:', error);
+            document.getElementById('user-groups').innerHTML = 
+                '<p class="text-muted text-center">参加しているグループはありません</p>';
+        });
+}
+
+function loadRecentActivity() {
+    // 最近のプレイ履歴を表示
+    axios.get('/api/scenarios/history/?limit=5')
+        .then(response => {
+            const container = document.getElementById('recent-activity');
+            const data = response.data;
+            
+            // レスポンス形式の確認（results配列またはただの配列）
+            const activities = data.results || data;
+            
+            if (!Array.isArray(activities) || activities.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">最近のアクティビティはありません</p>';
+                return;
+            }
+            
+            let html = '';
+            activities.forEach(history => {
+                const date = new Date(history.played_date || history.session_date).toLocaleDateString('ja-JP');
+                const title = history.scenario_detail?.title || history.scenario?.title || 'セッション';
+                const role = history.role || (history.gm === history.user ? 'gm' : 'player');
+                
+                html += `
+                    <div class="mb-2 p-2 border-bottom border-secondary">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong class="text-info">${title}</strong>
+                                <span class="badge bg-${role === 'gm' ? 'warning' : 'primary'} ms-2">${role === 'gm' ? 'GM' : 'PL'}</span>
+                            </div>
+                            <small class="text-muted">${date}</small>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Error loading recent activity:', error);
+            document.getElementById('recent-activity').innerHTML = 
+                '<p class="text-muted text-center">最近のアクティビティはありません</p>';
+        });
+}
+
+// クイックアクションボタンのイベントリスナー
+document.addEventListener('DOMContentLoaded', function() {
+    // 探索者作成モーダルイベント
+    const create6thBtn = document.getElementById('create-6th-btn');
+    const create7thBtn = document.getElementById('create-7th-btn');
+    
+    if (create6thBtn) {
+        create6thBtn.addEventListener('click', function() {
+            window.location.href = '/accounts/character/create/6th/';
+        });
+    }
+    
+    if (create7thBtn) {
+        create7thBtn.addEventListener('click', function() {
+            window.location.href = '/accounts/character/create/7th/';
+        });
+    }
+    
+    // セッション作成ボタン
+    const createSessionBtn = document.getElementById('create-session-btn');
+    if (createSessionBtn) {
+        createSessionBtn.addEventListener('click', function() {
+            window.location.href = '/api/schedules/calendar/view/';
+        });
+    }
+    
+    // セッション参加ボタン
+    const joinSessionBtn = document.getElementById('join-session-btn');
+    if (joinSessionBtn) {
+        joinSessionBtn.addEventListener('click', function() {
+            window.location.href = '/api/schedules/sessions/list/';
+        });
+    }
+    
+    // シナリオ追加ボタン
+    const addScenarioBtn = document.getElementById('add-scenario-btn');
+    if (addScenarioBtn) {
+        addScenarioBtn.addEventListener('click', function() {
+            window.location.href = '/api/scenarios/archive/view/';
+        });
+    }
+});
+</script>
+
+<!-- 探索者作成版数選択モーダル -->
+<div class="modal fade" id="characterCreationModal" tabindex="-1" aria-labelledby="characterCreationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="characterCreationModalLabel">
+                    <i class="fas fa-eye"></i> 探索者作成 - 版数選択
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-4">作成する探索者のクトゥルフ神話TRPG版を選択してください。</p>
+                
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="card h-100 border-primary">
+                            <div class="card-body text-center">
+                                <i class="fas fa-book text-primary fa-3x mb-3"></i>
+                                <h5 class="card-title">クトゥルフ神話TRPG 6版</h5>
+                                <p class="card-text text-muted small">
+                                    クラシックルールでの探索者作成<br>
+                                    アイデア・知識ロール、ダメージボーナス
+                                </p>
+                                <button type="button" class="btn btn-primary w-100" id="create-6th-btn">
+                                    <i class="fas fa-plus"></i> 6版探索者作成
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card h-100 border-success">
+                            <div class="card-body text-center">
+                                <i class="fas fa-book-open text-success fa-3x mb-3"></i>
+                                <h5 class="card-title">クトゥルフ神話TRPG 7版</h5>
+                                <p class="card-text text-muted small">
+                                    現代ルールでの探索者作成<br>
+                                    ビルド値、移動力、詳細背景
+                                </p>
+                                <button type="button" class="btn btn-success w-100" id="create-7th-btn">
+                                    <i class="fas fa-plus"></i> 7版探索者作成
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> キャンセル
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}

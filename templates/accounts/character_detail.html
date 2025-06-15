@@ -1,0 +1,828 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ character.name }} - キャラクターシート詳細 - Arkham Nexus{% endblock %}
+
+{% block content %}
+<div class="container" id="characterDetailContainer">
+    <!-- ローディング -->
+    <div class="text-center" id="loading">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">読み込み中...</span>
+        </div>
+    </div>
+    
+    <!-- エラー表示 -->
+    <div class="alert alert-danger d-none" id="errorMessage"></div>
+    
+    <!-- キャラクターシート詳細 -->
+    <div class="d-none" id="characterContent">
+        <!-- ヘッダー -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2 id="characterName">
+                        <i class="fas fa-user-ninja text-primary"></i>
+                        <span class="character-name"></span>
+                    </h2>
+                    <div>
+                        <a href="/accounts/character/list/" class="btn btn-outline-secondary me-2">
+                            <i class="fas fa-arrow-left"></i> 一覧に戻る
+                        </a>
+                        <a href="#" id="editButton" class="btn btn-outline-primary">
+                            <i class="fas fa-edit"></i> 編集
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- キャラクター基本情報 -->
+        <div class="row mb-4">
+            <div class="col-md-3" id="characterImageContainer">
+                <!-- 画像が表示されます -->
+            </div>
+            <div class="col-md-9">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle"></i> 基本情報
+                            <span id="editionBadge" class="badge ms-2"></span>
+                            <span id="versionBadge" class="badge bg-info ms-1"></span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row" id="basicInfoContainer">
+                            <!-- 基本情報が表示されます -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 能力値と副次ステータス -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-bar"></i> 能力値
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row" id="abilitiesContainer">
+                            <!-- 能力値が表示されます -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-heart"></i> 副次ステータス
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row" id="derivedStatsContainer">
+                            <!-- 副次ステータスが表示されます -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 技能 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-cogs"></i> 技能 <small class="text-muted">（振ったもののみ表示）</small>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="skillsContainer">
+                            <!-- 技能が表示されます -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 装備・所持品 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-sword"></i> 装備・所持品
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="nav nav-tabs mb-3" id="equipmentTabs">
+                            <li class="nav-item">
+                                <a class="nav-link active" id="weapons-tab" data-bs-toggle="tab" href="#weapons">武器</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="armor-tab" data-bs-toggle="tab" href="#armor">防具</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="items-tab" data-bs-toggle="tab" href="#items">アイテム</a>
+                            </li>
+                        </ul>
+                        <div class="tab-content">
+                            <div class="tab-pane fade show active" id="weapons">
+                                <div id="weaponsContainer"></div>
+                            </div>
+                            <div class="tab-pane fade" id="armor">
+                                <div id="armorContainer"></div>
+                            </div>
+                            <div class="tab-pane fade" id="items">
+                                <div id="itemsContainer"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 版別固有情報 -->
+        <div class="row mb-4" id="editionSpecificContainer">
+            <!-- 版別固有情報が表示されます -->
+        </div>
+
+        <!-- タブ切り替え (バージョン履歴・探索者履歴) -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" id="historyTabs">
+                            <li class="nav-item">
+                                <a class="nav-link active" id="versions-tab" data-bs-toggle="tab" href="#versions">
+                                    <i class="fas fa-history"></i> バージョン履歴
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="play-history-tab" data-bs-toggle="tab" href="#play-history">
+                                    <i class="fas fa-dice-d20"></i> 探索者履歴
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body">
+                        <div class="tab-content">
+                            <!-- バージョン履歴タブ -->
+                            <div class="tab-pane fade show active" id="versions">
+                                <div id="versionsContainer">
+                                    <!-- バージョン履歴が表示されます -->
+                                </div>
+                            </div>
+                            <!-- 探索者履歴タブ -->
+                            <div class="tab-pane fade" id="play-history">
+                                <div id="playHistoryLoading" class="text-center d-none">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">読み込み中...</span>
+                                    </div>
+                                    <div class="mt-2 text-muted">プレイ履歴を読み込み中...</div>
+                                </div>
+                                <div id="playHistoryContainer">
+                                    <!-- 探索者履歴が表示されます -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const characterId = window.location.pathname.split('/')[3];
+    let character = null;
+    
+    // キャラクター詳細を読み込み
+    function loadCharacterDetail() {
+        document.getElementById('loading').style.display = 'block';
+        
+        axios.get(`/api/accounts/character-sheets/${characterId}/`)
+            .then(response => {
+                character = response.data;
+                displayCharacter(character);
+                loadVersions();
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('characterContent').classList.remove('d-none');
+            })
+            .catch(error => {
+                console.error('キャラクター詳細の読み込みに失敗しました:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('errorMessage').textContent = 'キャラクターの読み込みに失敗しました。';
+                document.getElementById('errorMessage').classList.remove('d-none');
+            });
+    }
+    
+    // キャラクター情報表示
+    function displayCharacter(character) {
+        // 名前
+        document.querySelector('.character-name').textContent = character.name;
+        document.title = `${character.name} - キャラクターシート詳細 - Arkham Nexus`;
+        
+        // 編集ボタン
+        document.getElementById('editButton').href = `/accounts/character/${character.id}/edit/`;
+        
+        // 版バッジ
+        const editionBadge = document.getElementById('editionBadge');
+        if (character.edition === '6th') {
+            editionBadge.className = 'badge bg-primary ms-2';
+            editionBadge.textContent = '6版';
+        } else {
+            editionBadge.className = 'badge bg-success ms-2';
+            editionBadge.textContent = '7版';
+        }
+        
+        // バージョンバッジ
+        document.getElementById('versionBadge').textContent = `v${character.version}`;
+        
+        // 画像
+        const imageContainer = document.getElementById('characterImageContainer');
+        if (character.character_image) {
+            imageContainer.innerHTML = `
+                <img src="${character.character_image}" class="img-fluid rounded shadow" 
+                     style="max-height: 300px; object-fit: contain; background-color: #f8f9fa;" 
+                     alt="${character.name}">
+            `;
+        } else {
+            imageContainer.innerHTML = `
+                <div class="bg-light rounded shadow d-flex align-items-center justify-content-center" 
+                     style="height: 300px;">
+                    <i class="fas fa-user fa-4x text-muted"></i>
+                </div>
+            `;
+        }
+        
+        // 基本情報
+        displayBasicInfo(character);
+        
+        // 能力値
+        displayAbilities(character);
+        
+        // 副次ステータス
+        displayDerivedStats(character);
+        
+        // 技能
+        displaySkills(character.skills);
+        
+        // 装備
+        displayEquipment(character.equipment);
+        
+        // 版別固有情報
+        displayEditionSpecific(character);
+    }
+    
+    // 基本情報表示
+    function displayBasicInfo(character) {
+        const container = document.getElementById('basicInfoContainer');
+        const info = [
+            { label: '年齢', value: character.age ? `${character.age}歳` : '未設定' },
+            { label: '性別', value: character.gender || '未設定' },
+            { label: '職業', value: character.occupation || '未設定' },
+            { label: '出身地', value: character.birthplace || '未設定' }
+        ];
+        
+        if (character.edition === '7th' && character.residence) {
+            info.push({ label: '現住所', value: character.residence });
+        }
+        
+        let html = '';
+        info.forEach(item => {
+            html += `
+                <div class="col-md-6 mb-2">
+                    <strong>${item.label}:</strong> ${item.value}
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    // 能力値表示
+    function displayAbilities(character) {
+        const container = document.getElementById('abilitiesContainer');
+        const abilities = [
+            { name: 'STR', value: character.str, label: '筋力' },
+            { name: 'CON', value: character.con, label: '体力' },
+            { name: 'POW', value: character.pow, label: '精神力' },
+            { name: 'DEX', value: character.dex, label: '敏捷性' },
+            { name: 'APP', value: character.app, label: '外見' },
+            { name: 'SIZ', value: character.siz, label: '体格' },
+            { name: 'INT', value: character.int, label: '知性' },
+            { name: 'EDU', value: character.edu, label: '教育' }
+        ];
+        
+        let html = '';
+        abilities.forEach(ability => {
+            html += `
+                <div class="col-3 mb-2 text-center">
+                    <div class="border rounded p-2">
+                        <div class="fw-bold">${ability.name}</div>
+                        <div class="fs-4 text-primary">${ability.value || 0}</div>
+                        <small class="text-muted">${ability.label}</small>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    // 副次ステータス表示
+    function displayDerivedStats(character) {
+        const container = document.getElementById('derivedStatsContainer');
+        const stats = [
+            { name: 'HP', current: character.current_hp, max: character.max_hp, color: 'danger' },
+            { name: 'MP', current: character.current_mp, max: character.max_mp, color: 'primary' },
+            { name: 'SAN', current: character.current_san, max: character.max_san, color: 'warning' }
+        ];
+        
+        if (character.edition === '6th') {
+            stats.push(
+                { name: 'アイデア', value: character.character_6th?.idea_roll, color: 'info' },
+                { name: '幸運', value: character.character_6th?.luck_roll, color: 'info' },
+                { name: '知識', value: character.character_6th?.know_roll, color: 'info' }
+            );
+        } else {
+            stats.push(
+                { name: 'ビルド', value: character.character_7th?.build, color: 'info' },
+                { name: '移動力', value: character.character_7th?.move_rate, color: 'info' },
+                { name: '回避', value: character.character_7th?.dodge, color: 'info' },
+                { name: '幸運', current: character.character_7th?.current_luck, max: character.character_7th?.max_luck, color: 'success' }
+            );
+        }
+        
+        let html = '';
+        stats.forEach(stat => {
+            if (stat.current !== undefined && stat.max !== undefined) {
+                html += `
+                    <div class="col-md-6 mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold">${stat.name}:</span>
+                            <span class="text-${stat.color}">
+                                ${stat.current || 0}/${stat.max || 0}
+                            </span>
+                        </div>
+                        <div class="progress mt-1" style="height: 6px;">
+                            <div class="progress-bar bg-${stat.color}" 
+                                 style="width: ${stat.max ? (stat.current / stat.max * 100) : 0}%"></div>
+                        </div>
+                    </div>
+                `;
+            } else if (stat.value !== undefined) {
+                html += `
+                    <div class="col-md-6 mb-2">
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-bold">${stat.name}:</span>
+                            <span class="text-${stat.color}">${stat.value || 0}</span>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    // 技能表示（振ったもののみ）
+    function displaySkills(skills) {
+        const container = document.getElementById('skillsContainer');
+        
+        // 基本値より高い技能のみフィルタ
+        const trainedSkills = skills.filter(skill => 
+            skill.current_value > skill.base_value
+        );
+        
+        if (trainedSkills.length === 0) {
+            container.innerHTML = '<p class="text-muted">技能ポイントを振った技能がありません。</p>';
+            return;
+        }
+        
+        let html = '<div class="row">';
+        trainedSkills.forEach(skill => {
+            const occupationPoints = skill.occupation_points || 0;
+            const interestPoints = skill.interest_points || 0;
+            const otherPoints = skill.other_points || 0;
+            
+            html += `
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card skill-card">
+                        <div class="card-body p-3">
+                            <h6 class="card-title mb-2">${skill.skill_name}</h6>
+                            <div class="row g-1 small">
+                                <div class="col-3">
+                                    <div class="text-muted">基本</div>
+                                    <div>${skill.base_value}</div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="text-muted">職業</div>
+                                    <div class="text-primary">${occupationPoints}</div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="text-muted">趣味</div>
+                                    <div class="text-success">${interestPoints}</div>
+                                </div>
+                                <div class="col-3">
+                                    <div class="text-muted">合計</div>
+                                    <div class="fw-bold text-warning">${skill.current_value}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        container.innerHTML = html;
+    }
+    
+    // 装備表示
+    function displayEquipment(equipment) {
+        const weapons = equipment.filter(item => item.equipment_type === 'weapon');
+        const armor = equipment.filter(item => item.equipment_type === 'armor');
+        const items = equipment.filter(item => item.equipment_type === 'item');
+        
+        displayEquipmentCategory('weaponsContainer', weapons, 'weapon');
+        displayEquipmentCategory('armorContainer', armor, 'armor');
+        displayEquipmentCategory('itemsContainer', items, 'item');
+    }
+    
+    function displayEquipmentCategory(containerId, items, type) {
+        const container = document.getElementById(containerId);
+        
+        if (items.length === 0) {
+            container.innerHTML = '<p class="text-muted">登録されていません。</p>';
+            return;
+        }
+        
+        let html = '<div class="row">';
+        items.forEach(item => {
+            html += `
+                <div class="col-md-6 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title">${item.name}</h6>
+            `;
+            
+            if (type === 'weapon') {
+                html += `
+                    <div class="small">
+                        <div><strong>ダメージ:</strong> ${item.damage || '-'}</div>
+                        <div><strong>射程:</strong> ${item.range || '-'}</div>
+                        ${item.ammo ? `<div><strong>装弾数:</strong> ${item.ammo}</div>` : ''}
+                    </div>
+                `;
+            } else if (type === 'armor') {
+                html += `
+                    <div class="small">
+                        ${item.protection ? `<div><strong>防護点:</strong> ${item.protection}</div>` : ''}
+                    </div>
+                `;
+            }
+            
+            if (item.description) {
+                html += `<div class="small text-muted mt-2">${item.description}</div>`;
+            }
+            
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        container.innerHTML = html;
+    }
+    
+    // 版別固有情報表示
+    function displayEditionSpecific(character) {
+        const container = document.getElementById('editionSpecificContainer');
+        
+        if (character.edition === '6th' && character.character_6th) {
+            const data = character.character_6th;
+            container.innerHTML = `
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-brain"></i> 6版固有情報
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            ${data.mental_disorder ? `
+                                <div class="mb-3">
+                                    <strong>精神的障害:</strong>
+                                    <div class="text-muted">${data.mental_disorder}</div>
+                                </div>
+                            ` : ''}
+                            ${data.damage_bonus ? `
+                                <div class="mb-3">
+                                    <strong>ダメージボーナス:</strong>
+                                    <span class="badge bg-info">${data.damage_bonus}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (character.edition === '7th' && character.character_7th) {
+            const data = character.character_7th;
+            const backgrounds = [
+                { label: '個人的な記述', value: data.personal_description },
+                { label: '思想・信念', value: data.ideology_beliefs },
+                { label: '重要な人々', value: data.significant_people },
+                { label: '意味のある場所', value: data.meaningful_locations },
+                { label: '大切な所持品', value: data.treasured_possessions },
+                { label: '特性', value: data.traits },
+                { label: '負傷・傷跡', value: data.injuries_scars },
+                { label: '恐怖症・マニア', value: data.phobias_manias }
+            ];
+            
+            let html = `
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-book-open"></i> 7版固有情報
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+            `;
+            
+            backgrounds.forEach(bg => {
+                if (bg.value) {
+                    html += `
+                        <div class="col-md-6 mb-3">
+                            <div class="border rounded p-3">
+                                <h6 class="text-primary">${bg.label}</h6>
+                                <div class="text-muted">${bg.value}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            html += `
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+    }
+    
+    // バージョン履歴読み込み
+    function loadVersions() {
+        axios.get(`/api/accounts/character-sheets/${characterId}/versions/`)
+            .then(response => {
+                displayVersions(response.data);
+            })
+            .catch(error => {
+                console.error('バージョン履歴の読み込みに失敗しました:', error);
+                document.getElementById('versionsContainer').innerHTML = 
+                    '<p class="text-muted">バージョン履歴を読み込めませんでした。</p>';
+            });
+    }
+    
+    // バージョン履歴表示
+    function displayVersions(versions) {
+        const container = document.getElementById('versionsContainer');
+        
+        if (versions.length === 0) {
+            container.innerHTML = '<p class="text-muted">バージョン履歴がありません。</p>';
+            return;
+        }
+        
+        let html = '<div class="row">';
+        versions.forEach(version => {
+            const isCurrent = version.id == characterId;
+            html += `
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card ${isCurrent ? 'border-primary' : ''}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="card-title mb-0">v${version.version}</h6>
+                                ${isCurrent ? '<span class="badge bg-primary">現在</span>' : ''}
+                            </div>
+                            <div class="small text-muted mb-2">
+                                作成: ${new Date(version.created_at).toLocaleDateString('ja-JP')}
+                            </div>
+                            ${!isCurrent ? `
+                                <a href="/accounts/character/${version.id}/" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-eye"></i> 表示
+                                </a>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        container.innerHTML = html;
+    }
+    
+    // プレイ履歴読み込み
+    let playHistoryLoaded = false;
+    function loadPlayHistory() {
+        if (!character || !character.user || playHistoryLoaded) return;
+        
+        // ローディング表示
+        const loadingElement = document.getElementById('playHistoryLoading');
+        const containerElement = document.getElementById('playHistoryContainer');
+        
+        if (loadingElement) {
+            loadingElement.classList.remove('d-none');
+        }
+        
+        axios.get(`/api/scenarios/history/`)
+            .then(response => {
+                displayPlayHistory(response.data);
+                playHistoryLoaded = true;
+                if (loadingElement) {
+                    loadingElement.classList.add('d-none');
+                }
+            })
+            .catch(error => {
+                console.error('プレイ履歴の読み込みに失敗しました:', error);
+                containerElement.innerHTML = 
+                    '<p class="text-muted">プレイ履歴を読み込めませんでした。</p>';
+                if (loadingElement) {
+                    loadingElement.classList.add('d-none');
+                }
+            });
+    }
+    
+    // プレイ履歴表示
+    function displayPlayHistory(playHistory) {
+        const container = document.getElementById('playHistoryContainer');
+        
+        if (playHistory.length === 0) {
+            container.innerHTML = '<p class="text-muted">プレイ履歴がありません。</p>';
+            return;
+        }
+        
+        // 年月でグループ化
+        const groupedHistory = {};
+        playHistory.forEach(play => {
+            const date = new Date(play.played_date);
+            const yearMonth = `${date.getFullYear()}年${date.getMonth() + 1}月`;
+            
+            if (!groupedHistory[yearMonth]) {
+                groupedHistory[yearMonth] = [];
+            }
+            groupedHistory[yearMonth].push(play);
+        });
+        
+        let html = '';
+        
+        // 年月順（新しい順）でソート
+        const sortedKeys = Object.keys(groupedHistory).sort((a, b) => {
+            const aDate = new Date(a.replace('年', '/').replace('月', '/1'));
+            const bDate = new Date(b.replace('年', '/').replace('月', '/1'));
+            return bDate - aDate;
+        });
+        
+        sortedKeys.forEach(yearMonth => {
+            const plays = groupedHistory[yearMonth];
+            
+            html += `
+                <div class="mb-4">
+                    <h6 class="text-primary border-bottom pb-2">
+                        <i class="fas fa-calendar-alt"></i> ${yearMonth}
+                    </h6>
+                    <div class="row">
+            `;
+            
+            plays.forEach(play => {
+                const playDate = new Date(play.played_date);
+                const roleIcon = play.role === 'gm' ? 'fas fa-chess-king' : 'fas fa-dice-d20';
+                const roleColor = play.role === 'gm' ? 'warning' : 'primary';
+                const roleText = play.role === 'gm' ? 'GM' : 'PL';
+                
+                html += `
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card h-100 play-history-card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="card-title mb-0">${play.scenario_detail.title}</h6>
+                                    <span class="badge bg-${roleColor}">
+                                        <i class="${roleIcon}"></i> ${roleText}
+                                    </span>
+                                </div>
+                                
+                                <div class="text-muted small mb-2">
+                                    ${playDate.toLocaleDateString('ja-JP', { 
+                                        year: 'numeric', 
+                                        month: 'long', 
+                                        day: 'numeric' 
+                                    })}
+                                </div>
+                                
+                                <div class="small mb-2">
+                                    <div><strong>システム:</strong> ${getSystemDisplayName(play.scenario_detail.game_system)}</div>
+                                    ${play.scenario_detail.author ? `<div><strong>作者:</strong> ${play.scenario_detail.author}</div>` : ''}
+                                </div>
+                                
+                                ${play.notes ? `
+                                    <div class="card-text small text-muted">
+                                        ${play.notes.length > 100 ? play.notes.substring(0, 100) + '...' : play.notes}
+                                    </div>
+                                ` : ''}
+                                
+                                ${play.session ? `
+                                    <div class="mt-2">
+                                        <a href="/schedules/sessions/${play.session}/" class="btn btn-outline-info btn-sm">
+                                            <i class="fas fa-external-link-alt"></i> セッション詳細
+                                        </a>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    // ゲームシステム表示名取得
+    function getSystemDisplayName(systemCode) {
+        const systems = {
+            'coc': 'クトゥルフ神話TRPG',
+            'dnd': 'D&D',
+            'sw': 'ソード・ワールド',
+            'insane': 'インセイン',
+            'other': 'その他'
+        };
+        return systems[systemCode] || systemCode;
+    }
+    
+    // タブクリックイベント
+    document.getElementById('play-history-tab')?.addEventListener('click', function() {
+        loadPlayHistory();
+    });
+    
+    // 初期読み込み
+    loadCharacterDetail();
+});
+</script>
+
+<style>
+.skill-card {
+    transition: all 0.3s ease;
+}
+
+.skill-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.progress {
+    background-color: #e9ecef;
+}
+
+.play-history-card {
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.play-history-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+    border-left-color: #007bff;
+}
+
+.card-header-tabs .nav-link {
+    border-bottom: none;
+}
+
+.card-header-tabs .nav-link.active {
+    background-color: transparent;
+    border-color: transparent transparent #dee2e6;
+    color: #007bff;
+}
+</style>
+{% endblock %}

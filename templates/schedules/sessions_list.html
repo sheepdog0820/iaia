@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}R'lyeh Log - セッション一覧{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4 eldritch-font text-center">
+                <i class="fas fa-scroll"></i> R'lyeh Log
+                <small class="d-block text-muted fs-6 mt-2">深淵に沈む都市より浮かび上がる、探索の記録</small>
+            </h1>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-list"></i> セッション一覧 ({{ count }}件)</h5>
+                </div>
+                <div class="card-body">
+                    {% if sessions %}
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover">
+                                <thead>
+                                    <tr>
+                                        <th><i class="fas fa-bookmark"></i> タイトル</th>
+                                        <th><i class="fas fa-calendar"></i> 開催日時</th>
+                                        <th><i class="fas fa-user"></i> GM</th>
+                                        <th><i class="fas fa-users"></i> 参加者数</th>
+                                        <th><i class="fas fa-flag"></i> ステータス</th>
+                                        <th><i class="fas fa-clock"></i> 時間</th>
+                                        <th><i class="fas fa-map-marker-alt"></i> 場所</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for session in sessions %}
+                                    <tr>
+                                        <td>
+                                            <a href="/api/schedules/sessions/{{ session.id }}/detail/" class="text-decoration-none">
+                                                <strong>{{ session.title }}</strong>
+                                            </a>
+                                            {% if session.description %}
+                                                <br><small class="text-muted">{{ session.description|truncatechars:50 }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {{ session.date|date:"Y/m/d H:i" }}
+                                            <br><small class="text-muted">{{ session.date|timesince }}前</small>
+                                        </td>
+                                        <td>
+                                            {% if session.gm.profile_image %}
+                                                <img src="{{ session.gm.profile_image.url }}" alt="GM" 
+                                                     class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">
+                                            {% else %}
+                                                <i class="fas fa-user-circle me-2"></i>
+                                            {% endif %}
+                                            {{ session.gm.nickname|default:session.gm.username }}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ session.participants.count }}人</span>
+                                        </td>
+                                        <td>
+                                            {% if session.status == 'planned' %}
+                                                <span class="badge bg-primary"><i class="fas fa-clock"></i> 予定</span>
+                                            {% elif session.status == 'ongoing' %}
+                                                <span class="badge bg-warning"><i class="fas fa-play"></i> 進行中</span>
+                                            {% elif session.status == 'completed' %}
+                                                <span class="badge bg-success"><i class="fas fa-check"></i> 完了</span>
+                                            {% elif session.status == 'cancelled' %}
+                                                <span class="badge bg-danger"><i class="fas fa-times"></i> キャンセル</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ session.status }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if session.duration_minutes %}
+                                                <i class="fas fa-stopwatch"></i> {{ session.duration_minutes }}分
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if session.location %}
+                                                <i class="fas fa-map-marker-alt"></i> {{ session.location|truncatechars:20 }}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- ページネーション -->
+                        {% if has_previous or has_next %}
+                        <nav aria-label="Page navigation" class="mt-4">
+                            <ul class="pagination justify-content-center">
+                                {% if has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?offset={{ offset|add:'-20' }}&limit={{ limit }}">
+                                            <i class="fas fa-chevron-left"></i> 前へ
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                
+                                <li class="page-item active">
+                                    <span class="page-link">
+                                        {{ offset|add:"1" }} - {{ offset|add:limit|default:count }} / {{ count }}
+                                    </span>
+                                </li>
+                                
+                                {% if has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?offset={{ offset|add:limit }}&limit={{ limit }}">
+                                            次へ <i class="fas fa-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-scroll fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">セッションが見つかりませんでした</h5>
+                            <p class="text-muted">まだセッションが作成されていないか、参加可能なセッションがありません。</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- フィルターオプション（将来の拡張用） -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-filter"></i> 表示オプション</h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="limit" class="form-label">表示件数</label>
+                            <select name="limit" id="limit" class="form-select">
+                                <option value="10" {% if limit == 10 %}selected{% endif %}>10件</option>
+                                <option value="20" {% if limit == 20 %}selected{% endif %}>20件</option>
+                                <option value="50" {% if limit == 50 %}selected{% endif %}>50件</option>
+                                <option value="100" {% if limit == 100 %}selected{% endif %}>100件</option>
+                            </select>
+                        </div>
+                        <div class="col-md-9 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-sync"></i> 更新
+                            </button>
+                            <a href="{% url 'sessions_api_view' %}" class="btn btn-outline-secondary ms-2">
+                                <i class="fas fa-redo"></i> リセット
+                            </a>
+                            <a href="/" class="btn btn-outline-info ms-2">
+                                <i class="fas fa-home"></i> ホームに戻る
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+.table-responsive {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.table-dark {
+    --bs-table-bg: var(--secondary-bg);
+    --bs-table-border-color: var(--border-color);
+}
+
+.table-dark th {
+    background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+    color: white;
+    border: none;
+    font-weight: 600;
+}
+
+.table-hover tbody tr:hover {
+    background-color: var(--card-bg);
+    transform: scale(1.01);
+    transition: all 0.2s ease;
+}
+
+.pagination .page-link {
+    background-color: var(--secondary-bg);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+.pagination .page-link:hover {
+    background-color: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+/* フォーム要素のコントラスト改善 */
+.form-control, .form-select {
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.form-control:focus, .form-select:focus {
+    background-color: var(--card-bg);
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+}
+
+.form-label {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+/* ボタンのコントラスト改善 */
+.btn-outline-secondary {
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+    background: transparent;
+}
+
+.btn-outline-secondary:hover {
+    background-color: var(--border-color);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+.btn-outline-info {
+    border-color: var(--accent-info);
+    color: var(--accent-info);
+    background: transparent;
+}
+
+.btn-outline-info:hover {
+    background-color: var(--accent-info);
+    border-color: var(--accent-info);
+    color: white;
+}
+
+/* リンクのコントラスト */
+a {
+    color: var(--accent-primary);
+}
+
+a:hover {
+    color: var(--accent-secondary);
+}
+
+.text-decoration-none {
+    text-decoration: none !important;
+}
+
+.text-decoration-none:hover {
+    text-decoration: underline !important;
+}
+
+/* カードヘッダーとボディの文字色 */
+.card-header h5, .card-header h6 {
+    color: white !important;
+}
+
+.card-body .text-muted {
+    color: var(--text-muted) !important;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,391 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}クトゥルフ神話TRPG 6版探索者作成 - Arkham Nexus{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-eye text-warning"></i> 
+                        クトゥルフ神話TRPG 6版探索者作成
+                    </h3>
+                    <small class="text-muted">探索者の詳細情報を入力してください</small>
+                </div>
+                
+                <div class="card-body">
+                    <form method="post" id="character-sheet-form">
+                        {% csrf_token %}
+                        
+                        <!-- システム選択（6版固定表示） -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="system" class="form-label">
+                                    <i class="fas fa-dice-d20"></i> クトゥルフ神話TRPG版選択
+                                </label>
+                                <select class="form-select" id="system" name="system" required>
+                                    <option value="cthulhu_6th" selected>クトゥルフ神話TRPG 6版</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="character-name" class="form-label">
+                                    <i class="fas fa-signature"></i> 探索者名
+                                </label>
+                                <input type="text" class="form-control" id="character-name" name="character_name" required>
+                            </div>
+                        </div>
+
+                        <!-- 基本情報 -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-primary">
+                                    <i class="fas fa-info-circle"></i> 基本情報
+                                </h5>
+                                <hr>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <label for="age" class="form-label">年齢</label>
+                                <input type="number" class="form-control" id="age" name="age" min="1" max="999">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="occupation" class="form-label">職業</label>
+                                <input type="text" class="form-control" id="occupation" name="occupation">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="birthplace" class="form-label">出身地</label>
+                                <input type="text" class="form-control" id="birthplace" name="birthplace">
+                            </div>
+                        </div>
+
+                        <!-- 能力値 -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-success">
+                                    <i class="fas fa-chart-bar"></i> 能力値
+                                </h5>
+                                <hr>
+                            </div>
+                            
+                            <!-- クトゥルフ神話TRPG用能力値 -->
+                            <div class="col-md-3">
+                                <label for="str" class="form-label">STR (筋力)</label>
+                                <input type="number" class="form-control ability-score" id="str" name="str" min="3" max="18">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="con" class="form-label">CON (体力)</label>
+                                <input type="number" class="form-control ability-score" id="con" name="con" min="3" max="18">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="pow" class="form-label">POW (精神力)</label>
+                                <input type="number" class="form-control ability-score" id="pow" name="pow" min="3" max="18">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="dex" class="form-label">DEX (敏捷性)</label>
+                                <input type="number" class="form-control ability-score" id="dex" name="dex" min="3" max="18">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="app" class="form-label">APP (外見)</label>
+                                <input type="number" class="form-control ability-score" id="app" name="app" min="3" max="18">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="siz" class="form-label">SIZ (体格)</label>
+                                <input type="number" class="form-control ability-score" id="siz" name="siz" min="8" max="18">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="int" class="form-label">INT (知性)</label>
+                                <input type="number" class="form-control ability-score" id="int" name="int" min="3" max="18">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="edu" class="form-label">EDU (教育)</label>
+                                <input type="number" class="form-control ability-score" id="edu" name="edu" min="3" max="18">
+                            </div>
+                        </div>
+
+                        <!-- 副能力値 -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-info">
+                                    <i class="fas fa-heart"></i> 副能力値
+                                </h5>
+                                <hr>
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <label for="hp" class="form-label">HP (耐久力)</label>
+                                <input type="number" class="form-control" id="hp" name="hp" readonly>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="mp" class="form-label">MP (マジックポイント)</label>
+                                <input type="number" class="form-control" id="mp" name="mp" readonly>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="san" class="form-label">SAN (正気度)</label>
+                                <input type="number" class="form-control" id="san" name="san" readonly>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="luck" class="form-label">幸運</label>
+                                <input type="number" class="form-control" id="luck" name="luck">
+                            </div>
+                            
+                            <!-- 6版固有の副能力値 -->
+                            <div class="col-md-2" id="idea-field">
+                                <label for="idea" class="form-label">アイデア</label>
+                                <input type="number" class="form-control" id="idea" name="idea" readonly>
+                            </div>
+                            <div class="col-md-2" id="know-field">
+                                <label for="know" class="form-label">知識</label>
+                                <input type="number" class="form-control" id="know" name="know" readonly>
+                            </div>
+                            <div class="col-md-12 mt-2" id="damage-bonus-field">
+                                <label for="damage-bonus" class="form-label">ダメージボーナス</label>
+                                <input type="text" class="form-control" id="damage-bonus" name="damage_bonus" readonly>
+                            </div>
+                        </div>
+                        <!-- 背景・設定 -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-danger">
+                                    <i class="fas fa-book"></i> 背景・設定
+                                </h5>
+                                <hr>
+                            </div>
+                            
+                            <div class="col-12 mb-3">
+                                <label for="backstory" class="form-label">背景・経歴</label>
+                                <textarea class="form-control" id="backstory" name="backstory" rows="4" 
+                                    placeholder="探索者の生い立ち、経歴、動機などを記入してください..."></textarea>
+                            </div>
+                            
+                            <div class="col-12 mb-3">
+                                <label for="traits" class="form-label">性格・特徴</label>
+                                <textarea class="form-control" id="traits" name="traits" rows="3" 
+                                    placeholder="探索者の性格、癖、特徴的な行動などを記入してください..."></textarea>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="ideals" class="form-label">信念・理想</label>
+                                <input type="text" class="form-control" id="ideals" name="ideals" 
+                                    placeholder="探索者が大切にしていること">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="bonds" class="form-label">重要な人物・場所</label>
+                                <input type="text" class="form-control" id="bonds" name="bonds" 
+                                    placeholder="大切な人や思い出の場所">
+                            </div>
+                        </div>
+
+                        <!-- 版数管理 -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-secondary">
+                                    <i class="fas fa-history"></i> 版数管理
+                                </h5>
+                                <hr>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="version" class="form-label">バージョン</label>
+                                <input type="text" class="form-control" id="version" name="version" value="1.0" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="last-updated" class="form-label">最終更新</label>
+                                <input type="text" class="form-control" id="last-updated" name="last_updated" readonly>
+                            </div>
+                            
+                            <div class="col-12 mt-3">
+                                <label for="update-notes" class="form-label">更新メモ</label>
+                                <textarea class="form-control" id="update-notes" name="update_notes" rows="2" 
+                                    placeholder="今回の変更内容を記入..."></textarea>
+                            </div>
+                        </div>
+
+                        <!-- 操作ボタン -->
+                        <div class="row">
+                            <div class="col-12 text-center">
+                                <button type="button" class="btn btn-secondary me-3" onclick="window.history.back()">
+                                    <i class="fas fa-arrow-left"></i> 戻る
+                                </button>
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-save"></i> 探索者を保存
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 6版固有項目を表示
+    document.getElementById('idea-field').style.display = 'block';
+    document.getElementById('know-field').style.display = 'block';
+    document.getElementById('damage-bonus-field').style.display = 'block';
+    
+    // 最終更新日時を設定
+    document.getElementById('last-updated').value = new Date().toLocaleString('ja-JP');
+    
+    // 副次ステータス自動計算
+    function calculateDerivedStats() {
+        const str = parseInt(document.getElementById('str')?.value) || 0;
+        const con = parseInt(document.getElementById('con')?.value) || 0;
+        const pow = parseInt(document.getElementById('pow')?.value) || 0;
+        const dex = parseInt(document.getElementById('dex')?.value) || 0;
+        const int = parseInt(document.getElementById('int')?.value) || 0;
+        const edu = parseInt(document.getElementById('edu')?.value) || 0;
+        const siz = parseInt(document.getElementById('siz')?.value) || 0;
+        
+        // 共通の副能力値
+        const hp = Math.ceil((con + siz) / 10);
+        const mp = Math.floor(pow / 5);
+        const san = pow;
+        
+        document.getElementById('hp').value = hp;
+        document.getElementById('mp').value = mp;
+        document.getElementById('san').value = san;
+        
+        // 6版固有の計算
+        calculateDerivedStats6th(str, con, pow, dex, int, edu, siz);
+    }
+    
+    function calculateDerivedStats6th(str, con, pow, dex, int, edu, siz) {
+        // アイデア = INT × 5
+        document.getElementById('idea').value = int * 5;
+        
+        // 知識 = EDU × 5
+        document.getElementById('know').value = edu * 5;
+        
+        // ダメージボーナス計算（6版）
+        const total = str + siz;
+        let damageBonus;
+        
+        if (total <= 12) damageBonus = "-1d4";
+        else if (total <= 16) damageBonus = "-1d2";
+        else if (total <= 24) damageBonus = "+0";
+        else if (total <= 32) damageBonus = "+1d4";
+        else if (total <= 40) damageBonus = "+1d6";
+        else damageBonus = "+2d6";
+        
+        document.getElementById('damage-bonus').value = damageBonus;
+    }
+    
+    // 能力値変更時に副次ステータスを更新
+    document.querySelectorAll('.ability-score').forEach(input => {
+        input.addEventListener('input', calculateDerivedStats);
+    });
+    
+    // 初期計算
+    calculateDerivedStats();
+    
+    // フォーム送信処理
+    const characterForm = document.getElementById('character-sheet-form');
+    if (characterForm) {
+        characterForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+        
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            
+            // バリデーション
+            if (!data.character_name) {
+                alert('探索者名は必須です。');
+                return;
+            }
+            
+            // 6版用にAPIエンドポイントに送信
+            const apiData = {
+                edition: '6th',
+                name: data.character_name,
+                player_name: data.player_name || '',
+                age: parseInt(data.age) || null,
+                gender: data.gender || '',
+                occupation: data.occupation || '',
+                birthplace: data.birthplace || '',
+                residence: data.residence || '',
+                str_value: parseInt(data.str) || 0,
+                con_value: parseInt(data.con) || 0,
+                pow_value: parseInt(data.pow) || 0,
+                dex_value: parseInt(data.dex) || 0,
+                app_value: parseInt(data.app) || 0,
+                siz_value: parseInt(data.siz) || 0,
+                int_value: parseInt(data.int) || 0,
+                edu_value: parseInt(data.edu) || 0,
+                notes: (data.backstory || '') + '\n' + (data.traits || '') + '\n信念: ' + (data.ideals || '') + '\n重要な人物・場所: ' + (data.bonds || '')
+            };
+            
+            // APIに送信
+            fetch('/accounts/character-sheets/create_6th_edition/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(apiData)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('探索者シートが正常に作成されました！');
+                    window.location.href = '/accounts/character/list/';
+                } else {
+                    alert('エラーが発生しました: ' + (result.error || '不明なエラー'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('ネットワークエラーが発生しました。');
+            });
+        });
+    }
+});
+</script>
+
+<style>
+.ability-score {
+    text-align: center;
+    font-weight: bold;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.btn-primary {
+    background-color: #1976d2;
+    border-color: #1976d2;
+}
+
+.btn-primary:hover {
+    background-color: #1565c0;
+    border-color: #1565c0;
+}
+
+.text-purple {
+    color: #6f42c1 !important;
+}
+
+.form-control:focus {
+    border-color: #1976d2;
+    box-shadow: 0 0 0 0.2rem rgba(25, 118, 210, 0.25);
+}
+
+hr {
+    border-top: 2px solid #dee2e6;
+    margin: 0.5rem 0 1rem 0;
+}
+</style>
+{% endblock %}

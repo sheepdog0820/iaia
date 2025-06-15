@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Arkham Nexus{% endblock %}</title>
+    {% load static %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{% static 'css/arkham_modern.css' %}" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg fixed-top">
+        <div class="container">
+            <a class="navbar-brand brand-font" href="{% url 'home' %}">
+                <i class="fas fa-dice-d20"></i> Arkham Nexus
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="calendar-link">
+                            <i class="fas fa-calendar-alt"></i> カレンダー
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="sessions-link">
+                            <i class="fas fa-scroll"></i> セッション
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="scenarios-link">
+                            <i class="fas fa-book"></i> シナリオ
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" id="groups-link">
+                            <i class="fas fa-users"></i> グループ
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="characterDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-scroll text-warning"></i> キャラクター
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <i class="fas fa-scroll"></i> キャラクターシート
+                                </h6>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'character_list' %}">
+                                    <i class="fas fa-list text-info"></i> 一覧・管理
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <i class="fas fa-plus text-success"></i> 新規作成
+                                </h6>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="/accounts/character/create/6th/">
+                                    <i class="fas fa-book text-primary"></i> 6版 探索者作成
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="/accounts/character/create/7th/">
+                                    <i class="fas fa-book-open text-success"></i> 7版 探索者作成
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                </ul>
+                
+                <ul class="navbar-nav">
+                    {% if user.is_authenticated %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                            {% if user.profile_image %}
+                                <img src="{{ user.profile_image.url }}" alt="プロフィール" 
+                                     class="rounded-circle me-2" style="width: 30px; height: 30px; object-fit: cover;">
+                            {% else %}
+                                <i class="fas fa-user-circle"></i>
+                            {% endif %}
+                            {{ user.nickname|default:user.username }}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'dashboard' %}"><i class="fas fa-tachometer-alt"></i> ダッシュボード</a></li>
+                            <li><a class="dropdown-item" href="{% url 'profile_edit' %}"><i class="fas fa-user-edit"></i> プロフィール編集</a></li>
+                            <li><a class="dropdown-item" href="{% url 'character_list' %}"><i class="fas fa-scroll"></i> キャラクター一覧</a></li>
+                            <li><a class="dropdown-item" href="#" id="statistics-link"><i class="fas fa-chart-bar"></i> 統計</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'account_logout' %}"><i class="fas fa-sign-out-alt"></i> ログアウト</a></li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'account_login' %}">
+                            <i class="fas fa-sign-in-alt"></i> ログイン
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'account_signup' %}">
+                            <i class="fas fa-user-plus"></i> サインアップ
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container-fluid py-4" style="padding-top: 100px !important; padding-bottom: 120px !important;">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="bg-light py-4 mt-5" style="border-top: 1px solid var(--border-color);">
+        <div class="container text-center">
+            <p class="mb-0 brand-font">
+                <i class="fas fa-dice-d20"></i> Arkham Nexus - TRPG管理システム
+            </p>
+            <small class="text-muted">
+                素晴らしいロールプレイングゲームの体験を記録し、管理しましょう
+            </small>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    
+    <!-- CSRF Token for AJAX requests -->
+    {% csrf_token %}
+    <script>
+        // CSRF トークンをAxiosのデフォルトヘッダーに設定
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        axios.defaults.headers.common['X-CSRFToken'] = csrfToken;
+        
+        // 認証情報を含める
+        axios.defaults.withCredentials = true;
+        
+        // ベースURLを設定
+        axios.defaults.baseURL = window.location.origin;
+        
+        // グローバル変数として現在のユーザー情報を設定
+        window.CURRENT_USER = {
+            id: {% if user.is_authenticated %}{{ user.id }}{% else %}null{% endif %},
+            username: '{% if user.is_authenticated %}{{ user.username }}{% endif %}',
+            nickname: '{% if user.is_authenticated %}{{ user.nickname|default:user.username }}{% endif %}'
+        };
+    </script>
+    
+    <script src="{% static 'js/arkham.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ログインキャンセル - Arkham Nexus{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-lg">
+                <div class="card-header bg-warning text-dark text-center">
+                    <h4 class="card-title mb-0 eldritch-font">
+                        <i class="fas fa-exclamation-triangle"></i> ログインキャンセル
+                    </h4>
+                    <p class="mb-0">深淵への扉は閉ざされました</p>
+                </div>
+                <div class="card-body p-4 text-center">
+                    <i class="fas fa-door-closed text-warning fa-4x mb-3"></i>
+                    <h5 class="text-warning mb-3">ログインがキャンセルされました</h5>
+                    <p class="text-muted mb-4">
+                        ソーシャルアカウントでのログインがキャンセルされました。<br>
+                        再度ログインを試すか、別のアカウントでお試しください。
+                    </p>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'account_login' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-sign-in-alt"></i> 再度ログインを試す
+                        </a>
+                        <a href="{% url 'home' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-home"></i> ホームに戻る
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <small class="text-muted eldritch-font">
+                    "Sometimes the door closes for a reason..."
+                    <br>時として扉は理由があって閉ざされる
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    border: 2px solid #ffc107;
+    background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+}
+</style>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ログアウト - Gate of Yog-Sothoth{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-lg">
+                <div class="card-header bg-warning text-dark text-center">
+                    <h4 class="card-title mb-0 eldritch-font">
+                        <i class="fas fa-sign-out-alt"></i> 深淵からの帰還
+                    </h4>
+                    <p class="mb-0">時空の門を閉じますか？</p>
+                </div>
+                <div class="card-body p-4 text-center">
+                    <div class="mb-4">
+                        <i class="fas fa-eye text-warning fa-4x mb-3"></i>
+                        <p class="lead">{{ user.nickname|default:user.username }}さん、ログアウトしますか？</p>
+                        <p class="text-muted">
+                            深淵の記録は保持されますが、<br>
+                            再び門を開くにはログインが必要です。
+                        </p>
+                    </div>
+
+                    <form method="post" action="{% url 'account_logout' %}">
+                        {% csrf_token %}
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-warning btn-lg">
+                                <i class="fas fa-sign-out-alt"></i> ログアウト
+                            </button>
+                            <a href="{% url 'home' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left"></i> キャンセル
+                            </a>
+                        </div>
+
+                        {% if redirect_field_value %}
+                        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <small class="text-muted eldritch-font">
+                    "That which is not dead can eternal lie..."
+                    <br>お疲れ様でした。またのご利用をお待ちしております。
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    border: 2px solid #ffc107;
+    background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+}
+
+.btn-warning:hover {
+    box-shadow: 0 0 15px rgba(255, 193, 7, 0.4);
+}
+
+.btn-outline-secondary:hover {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    box-shadow: 0 0 15px rgba(108, 117, 125, 0.4);
+}
+</style>
+{% endblock %}

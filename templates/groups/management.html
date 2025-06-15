@@ -1,0 +1,695 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cult Circle - グループ管理{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4 eldritch-font text-center">
+                <i class="fas fa-users"></i> Cult Circle
+                <small class="d-block text-muted fs-6 mt-2">邪神を崇める同志たちとの結社</small>
+            </h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-plus-circle"></i> 新規グループ</h5>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#createGroupModal">
+                        <i class="fas fa-users-medical"></i> グループを作成
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-user-friends"></i> フレンド管理</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="friendUsername" placeholder="ユーザー名で検索">
+                    </div>
+                    <button class="btn btn-success w-100" id="addFriendBtn">
+                        <i class="fas fa-user-plus"></i> フレンド追加
+                    </button>
+                    
+                    <hr class="my-3">
+                    
+                    <h6 class="mb-2">フレンドリスト</h6>
+                    <div id="friendsList" class="friend-list">
+                        <div class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">グループ一覧</h4>
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="groupViewType" id="myGroupsView" checked>
+                    <label class="btn btn-outline-primary" for="myGroupsView">参加中</label>
+                    
+                    <input type="radio" class="btn-check" name="groupViewType" id="publicGroupsView">
+                    <label class="btn btn-outline-primary" for="publicGroupsView">公開グループ</label>
+                    
+                    <input type="radio" class="btn-check" name="groupViewType" id="allGroupsView">
+                    <label class="btn btn-outline-primary" for="allGroupsView">すべて</label>
+                </div>
+            </div>
+            
+            <div id="groupsFilter" class="row mb-3">
+                <div class="col-md-6">
+                    <input type="text" class="form-control" id="groupSearchInput" placeholder="グループ名で検索...">
+                </div>
+                <div class="col-md-6">
+                    <select class="form-select" id="visibilityFilter">
+                        <option value="">すべての公開設定</option>
+                        <option value="public">公開グループ</option>
+                        <option value="private">プライベートグループ</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div id="groupsList" class="row">
+                <div class="col-12 text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- グループ作成モーダル -->
+<div class="modal fade" id="createGroupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title eldritch-font">
+                    <i class="fas fa-users-medical"></i> 新たなる結社の創設
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createGroupForm">
+                    <div class="mb-3">
+                        <label for="groupName" class="form-label">グループ名</label>
+                        <input type="text" class="form-control" id="groupName" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="groupDescription" class="form-label">説明</label>
+                        <textarea class="form-control" id="groupDescription" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="groupVisibility" class="form-label">公開設定</label>
+                        <select class="form-select" id="groupVisibility">
+                            <option value="private">プライベート（招待制）</option>
+                            <option value="public">公開（誰でも参加可能）</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" id="saveGroupBtn">
+                    <i class="fas fa-save"></i> グループを作成
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- グループ詳細モーダル -->
+<div class="modal fade" id="groupDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="groupDetailTitle"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="groupDetailBody">
+                <div class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- メンバー招待モーダル -->
+<div class="modal fade" id="inviteMemberModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">メンバー招待</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>フレンドリストから招待するメンバーを選択してください。</p>
+                <div id="inviteFriendsList" class="invite-list">
+                    <div class="text-center py-3">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" id="sendInviteBtn">
+                    <i class="fas fa-paper-plane"></i> 招待を送信
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.group-card {
+    height: 100%;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border-left: 4px solid #dc2670;
+}
+
+.group-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(220, 38, 127, 0.3);
+}
+
+.group-card .card-header {
+    background: linear-gradient(135deg, rgba(220, 38, 127, 0.1) 0%, rgba(220, 38, 127, 0.2) 100%);
+}
+
+.member-item {
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background-color: rgba(255, 255, 255, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.member-item:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.friend-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.friend-item {
+    padding: 8px;
+    border-radius: 6px;
+    margin-bottom: 5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.friend-item:hover {
+    background-color: rgba(220, 38, 127, 0.2);
+    transform: translateX(5px);
+}
+
+.invite-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.invite-item {
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.invite-item.selected {
+    background-color: rgba(220, 38, 127, 0.3);
+}
+
+.role-badge {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 15px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #dc2670;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #8b949e;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let allGroups = [];
+    let displayGroups = [];
+    let friends = [];
+    let currentGroupId = null;
+    let selectedFriends = new Set();
+    let currentViewType = 'my';
+
+    // グループ一覧読み込み
+    async function loadGroups(viewType = 'my') {
+        currentViewType = viewType;
+        const container = document.getElementById('groupsList');
+        
+        container.innerHTML = '<div class="col-12 text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+        
+        try {
+            let endpoint = '/api/accounts/groups/';
+            
+            switch(viewType) {
+                case 'public':
+                    endpoint = '/api/accounts/groups/public/';
+                    break;
+                case 'all':
+                    endpoint = '/api/accounts/groups/all_groups/';
+                    break;
+                default:
+                    endpoint = '/api/accounts/groups/';
+                    break;
+            }
+            
+            const response = await axios.get(endpoint);
+            allGroups = response.data;
+            displayGroups = [...allGroups];
+            applyFilters();
+        } catch (error) {
+            console.error('Error loading groups:', error);
+            container.innerHTML = 
+                '<div class="col-12"><div class="alert alert-danger">グループの読み込みに失敗しました</div></div>';
+            ARKHAM.handleError(error);
+        }
+    }
+
+    // フィルタ適用
+    function applyFilters() {
+        const searchText = document.getElementById('groupSearchInput').value.toLowerCase();
+        const visibilityFilter = document.getElementById('visibilityFilter').value;
+        
+        displayGroups = allGroups.filter(group => {
+            // 検索テキストフィルタ
+            const matchesSearch = !searchText || 
+                group.name.toLowerCase().includes(searchText) ||
+                (group.description && group.description.toLowerCase().includes(searchText));
+            
+            // 公開設定フィルタ
+            const matchesVisibility = !visibilityFilter || group.visibility === visibilityFilter;
+            
+            return matchesSearch && matchesVisibility;
+        });
+        
+        renderGroups();
+    }
+
+    // グループ表示
+    function renderGroups() {
+        const container = document.getElementById('groupsList');
+        
+        if (displayGroups.length === 0) {
+            let message = '';
+            switch(currentViewType) {
+                case 'public':
+                    message = '公開グループが見つかりません';
+                    break;
+                case 'all':
+                    message = 'グループが見つかりません';
+                    break;
+                default:
+                    message = 'まだグループに参加していません<br>新しいグループを作成するか、招待を待ちましょう';
+                    break;
+            }
+            container.innerHTML = `<div class="col-12"><div class="alert alert-info text-center">${message}</div></div>`;
+            return;
+        }
+        
+        container.innerHTML = displayGroups.map(group => `
+            <div class="col-md-6 mb-4">
+                <div class="card group-card h-100" onclick="showGroupDetail(${group.id})">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">${group.name}</h5>
+                        ${!group.is_member && group.visibility === 'public' ? 
+                            `<button class="btn btn-sm btn-success" onclick="event.stopPropagation(); joinGroup(${group.id})">
+                                <i class="fas fa-plus"></i> 参加
+                            </button>` : ''
+                        }
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">${group.description || '説明なし'}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class="fas fa-users"></i> ${group.member_count}人
+                            </span>
+                            <span class="badge bg-${group.visibility === 'public' ? 'success' : 'secondary'}">
+                                ${group.visibility === 'public' ? '公開' : 'プライベート'}
+                            </span>
+                        </div>
+                        <div class="mt-2 d-flex flex-wrap gap-1">
+                            ${group.is_member ? 
+                                `<span class="badge bg-info">参加中</span>` : ''
+                            }
+                            ${group.member_role === 'admin' ? 
+                                `<span class="badge bg-primary">管理者</span>` : ''
+                            }
+                            ${group.session_count > 0 ? 
+                                `<span class="badge bg-secondary">${group.session_count}セッション</span>` : ''
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // フレンドリスト読み込み
+    async function loadFriends() {
+        try {
+            const response = await axios.get('/api/accounts/friends/');
+            friends = response.data;
+            renderFriends();
+        } catch (error) {
+            console.error('Error loading friends:', error);
+        }
+    }
+
+    // フレンド表示
+    function renderFriends() {
+        const container = document.getElementById('friendsList');
+        
+        if (friends.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center">フレンドがいません</p>';
+            return;
+        }
+        
+        container.innerHTML = friends.map(friend => `
+            <div class="friend-item">
+                <i class="fas fa-user-circle"></i> ${friend.friend_detail.nickname}
+            </div>
+        `).join('');
+    }
+
+    // グループ詳細表示
+    window.showGroupDetail = async function(groupId) {
+        currentGroupId = groupId;
+        const modal = new bootstrap.Modal(document.getElementById('groupDetailModal'));
+        const titleEl = document.getElementById('groupDetailTitle');
+        const bodyEl = document.getElementById('groupDetailBody');
+        
+        try {
+            const response = await axios.get(`/api/accounts/groups/${groupId}/`);
+            const group = response.data;
+            
+            // メンバー情報取得
+            const membersResponse = await axios.get(`/api/accounts/groups/${groupId}/members/`);
+            const members = membersResponse.data;
+            
+            titleEl.textContent = group.name;
+            bodyEl.innerHTML = `
+                <div class="row">
+                    <div class="col-md-8">
+                        <p>${group.description || '説明なし'}</p>
+                        
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-number">${members.length}</div>
+                                <div class="stat-label">メンバー数</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number">${group.session_count || 0}</div>
+                                <div class="stat-label">セッション数</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number">${group.total_play_hours || 0}h</div>
+                                <div class="stat-label">総プレイ時間</div>
+                            </div>
+                        </div>
+                        
+                        <h6 class="mt-4">メンバー一覧</h6>
+                        <div class="members-list">
+                            ${members.map(member => `
+                                <div class="member-item">
+                                    <div>
+                                        <i class="fas fa-user-circle"></i> ${member.user_detail.nickname}
+                                        ${member.role === 'admin' ? '<span class="badge bg-primary ms-2 role-badge">管理者</span>' : ''}
+                                    </div>
+                                    <small class="text-muted">参加: ${new Date(member.joined_at).toLocaleDateString('ja-JP')}</small>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-dark">
+                            <div class="card-body">
+                                <h6>グループ情報</h6>
+                                <p class="mb-2">
+                                    <small class="text-muted">作成日</small><br>
+                                    ${new Date(group.created_at).toLocaleDateString('ja-JP')}
+                                </p>
+                                <p class="mb-2">
+                                    <small class="text-muted">公開設定</small><br>
+                                    ${group.visibility === 'public' ? '公開' : 'プライベート'}
+                                </p>
+                                <p class="mb-0">
+                                    <small class="text-muted">作成者</small><br>
+                                    ${group.created_by_name}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        ${group.created_by === window.CURRENT_USER.id ? `
+                            <div class="mt-3">
+                                <button class="btn btn-primary w-100 mb-2" onclick="inviteMembers(${group.id})">
+                                    <i class="fas fa-user-plus"></i> メンバーを招待
+                                </button>
+                                <button class="btn btn-outline-danger w-100">
+                                    <i class="fas fa-trash"></i> グループを削除
+                                </button>
+                            </div>
+                        ` : `
+                            <div class="mt-3">
+                                <button class="btn btn-outline-danger w-100" onclick="leaveGroup(${group.id})">
+                                    <i class="fas fa-sign-out-alt"></i> グループを退出
+                                </button>
+                            </div>
+                        `}
+                    </div>
+                </div>
+            `;
+            
+            modal.show();
+        } catch (error) {
+            console.error('Error loading group details:', error);
+            alert('グループ詳細の読み込みに失敗しました');
+        }
+    };
+
+    // メンバー招待
+    window.inviteMembers = async function(groupId) {
+        const modal = new bootstrap.Modal(document.getElementById('inviteMemberModal'));
+        const container = document.getElementById('inviteFriendsList');
+        
+        // グループメンバーを取得
+        const membersResponse = await axios.get(`/api/accounts/groups/${groupId}/members/`);
+        const memberIds = new Set(membersResponse.data.map(m => m.user));
+        
+        // フレンドリストから既存メンバーを除外
+        const invitableFriends = friends.filter(f => !memberIds.has(f.friend));
+        
+        if (invitableFriends.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center">招待可能なフレンドがいません</p>';
+        } else {
+            container.innerHTML = invitableFriends.map(friend => `
+                <div class="invite-item" data-friend-id="${friend.friend}">
+                    <div>
+                        <i class="fas fa-user-circle"></i> ${friend.friend_detail.nickname}
+                    </div>
+                    <input type="checkbox" class="form-check-input">
+                </div>
+            `).join('');
+            
+            // チェックボックスのイベント設定
+            container.querySelectorAll('.invite-item').forEach(item => {
+                const checkbox = item.querySelector('input');
+                const friendId = item.dataset.friendId;
+                
+                checkbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        selectedFriends.add(friendId);
+                        item.classList.add('selected');
+                    } else {
+                        selectedFriends.delete(friendId);
+                        item.classList.remove('selected');
+                    }
+                });
+            });
+        }
+        
+        modal.show();
+    };
+
+    // グループ作成
+    document.getElementById('saveGroupBtn').addEventListener('click', async function() {
+        const form = document.getElementById('createGroupForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const data = {
+            name: document.getElementById('groupName').value,
+            description: document.getElementById('groupDescription').value,
+            visibility: document.getElementById('groupVisibility').value
+        };
+
+        try {
+            const response = await axios.post('/api/accounts/groups/', data);
+            ARKHAM.showSuccess('グループを作成しました！');
+            bootstrap.Modal.getInstance(document.getElementById('createGroupModal')).hide();
+            form.reset();
+            loadGroups(currentViewType);
+        } catch (error) {
+            console.error('Error creating group:', error);
+            ARKHAM.handleError(error);
+        }
+    });
+
+    // フレンド追加
+    document.getElementById('addFriendBtn').addEventListener('click', async function() {
+        const username = document.getElementById('friendUsername').value.trim();
+        if (!username) {
+            ARKHAM.showError('ユーザー名を入力してください');
+            return;
+        }
+
+        try {
+            const response = await axios.post('/api/accounts/friends/add/', { username: username });
+            ARKHAM.showSuccess(`${username}さんをフレンドに追加しました！`);
+            document.getElementById('friendUsername').value = '';
+            loadFriends();
+        } catch (error) {
+            console.error('Error adding friend:', error);
+            ARKHAM.handleError(error);
+        }
+    });
+
+    // 招待送信
+    document.getElementById('sendInviteBtn').addEventListener('click', async function() {
+        if (selectedFriends.size === 0) {
+            ARKHAM.showError('招待するメンバーを選択してください');
+            return;
+        }
+
+        try {
+            const inviteeIds = Array.from(selectedFriends);
+            const response = await axios.post(`/api/accounts/groups/${currentGroupId}/invite/`, {
+                invitee_ids: inviteeIds.map(id => parseInt(id)),
+                message: 'Arkham Nexusでのセッションに参加しませんか？'
+            });
+            
+            ARKHAM.showSuccess(`${inviteeIds.length}人に招待を送信しました`);
+            bootstrap.Modal.getInstance(document.getElementById('inviteMemberModal')).hide();
+            selectedFriends.clear();
+        } catch (error) {
+            console.error('Error sending invitations:', error);
+            ARKHAM.handleError(error);
+        }
+    });
+
+    // グループ退出
+    window.leaveGroup = async function(groupId) {
+        if (!confirm('本当にこのグループを退出しますか？')) {
+            return;
+        }
+
+        try {
+            const response = await axios.post(`/api/accounts/groups/${groupId}/leave/`);
+            ARKHAM.showSuccess(response.data.message || 'グループから退出しました');
+            bootstrap.Modal.getInstance(document.getElementById('groupDetailModal')).hide();
+            loadGroups(currentViewType);
+        } catch (error) {
+            console.error('Error leaving group:', error);
+            ARKHAM.handleError(error);
+        }
+    };
+
+    // グループ参加機能
+    window.joinGroup = async function(groupId) {
+        try {
+            const response = await axios.post(`/api/accounts/groups/${groupId}/join/`);
+            ARKHAM.showSuccess(response.data.message);
+            loadGroups(currentViewType); // 現在のビューを再読み込み
+        } catch (error) {
+            console.error('Error joining group:', error);
+            ARKHAM.handleError(error);
+        }
+    };
+
+    // ビュータイプ変更イベント
+    document.querySelectorAll('input[name="groupViewType"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.checked) {
+                let viewType = 'my';
+                if (this.id === 'publicGroupsView') {
+                    viewType = 'public';
+                } else if (this.id === 'allGroupsView') {
+                    viewType = 'all';
+                }
+                loadGroups(viewType);
+            }
+        });
+    });
+
+    // 検索フィルターイベント
+    document.getElementById('groupSearchInput').addEventListener('input', applyFilters);
+    document.getElementById('visibilityFilter').addEventListener('change', applyFilters);
+
+    // 初期化
+    loadGroups();
+    loadFriends();
+});
+</script>
+{% endblock %}

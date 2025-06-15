@@ -1,0 +1,554 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mythos Archive - シナリオアーカイブ{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4 eldritch-font text-center">
+                <i class="fas fa-book-dead"></i> Mythos Archive
+                <small class="d-block text-muted fs-6 mt-2">禁断の知識が眠る、シナリオの書庫</small>
+            </h1>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-filter"></i> フィルター</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">ゲームシステム</label>
+                        <select class="form-select" id="systemFilter">
+                            <option value="">すべて</option>
+                            <option value="coc">Call of Cthulhu</option>
+                            <option value="dnd">D&D</option>
+                            <option value="sw">ソード・ワールド</option>
+                            <option value="insane">インセイン</option>
+                            <option value="other">その他</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">難易度</label>
+                        <select class="form-select" id="difficultyFilter">
+                            <option value="">すべて</option>
+                            <option value="beginner">初心者向け</option>
+                            <option value="intermediate">中級者向け</option>
+                            <option value="advanced">上級者向け</option>
+                            <option value="expert">エキスパート</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">プレイ時間</label>
+                        <select class="form-select" id="durationFilter">
+                            <option value="">すべて</option>
+                            <option value="short">短編（〜3時間）</option>
+                            <option value="medium">中編（3〜6時間）</option>
+                            <option value="long">長編（6時間〜）</option>
+                            <option value="campaign">キャンペーン</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">プレイ状況</label>
+                        <select class="form-select" id="playedFilter">
+                            <option value="">すべて</option>
+                            <option value="played">プレイ済み</option>
+                            <option value="not_played">未プレイ</option>
+                        </select>
+                    </div>
+                    
+                    <button class="btn btn-primary w-100" id="applyFilter">
+                        <i class="fas fa-search"></i> フィルター適用
+                    </button>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-plus"></i> シナリオ追加</h5>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#addScenarioModal">
+                        <i class="fas fa-book-medical"></i> 新規シナリオ登録
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">シナリオ一覧</h4>
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="viewMode" id="gridView" checked>
+                    <label class="btn btn-outline-secondary" for="gridView">
+                        <i class="fas fa-th"></i>
+                    </label>
+                    <input type="radio" class="btn-check" name="viewMode" id="listView">
+                    <label class="btn btn-outline-secondary" for="listView">
+                        <i class="fas fa-list"></i>
+                    </label>
+                </div>
+            </div>
+
+            <div id="scenariosList" class="row">
+                <div class="col-12 text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- シナリオ追加モーダル -->
+<div class="modal fade" id="addScenarioModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title eldritch-font">
+                    <i class="fas fa-book-medical"></i> 新たなる知識の記録
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addScenarioForm">
+                    <div class="mb-3">
+                        <label for="scenarioTitle" class="form-label">シナリオタイトル</label>
+                        <input type="text" class="form-control" id="scenarioTitle" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="scenarioSystem" class="form-label">ゲームシステム</label>
+                            <select class="form-select" id="scenarioSystem" required>
+                                <option value="">選択してください</option>
+                                <option value="coc">Call of Cthulhu</option>
+                                <option value="dnd">D&D</option>
+                                <option value="sw">ソード・ワールド</option>
+                                <option value="insane">インセイン</option>
+                                <option value="other">その他</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="scenarioAuthor" class="form-label">作者</label>
+                            <input type="text" class="form-control" id="scenarioAuthor">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="scenarioDifficulty" class="form-label">難易度</label>
+                            <select class="form-select" id="scenarioDifficulty">
+                                <option value="beginner">初心者向け</option>
+                                <option value="intermediate">中級者向け</option>
+                                <option value="advanced">上級者向け</option>
+                                <option value="expert">エキスパート</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="scenarioDuration" class="form-label">想定プレイ時間</label>
+                            <select class="form-select" id="scenarioDuration">
+                                <option value="short">短編（〜3時間）</option>
+                                <option value="medium">中編（3〜6時間）</option>
+                                <option value="long">長編（6時間〜）</option>
+                                <option value="campaign">キャンペーン</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="scenarioPlayers" class="form-label">推奨人数</label>
+                            <input type="text" class="form-control" id="scenarioPlayers" placeholder="例: 3-4人">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="scenarioSummary" class="form-label">あらすじ</label>
+                        <textarea class="form-control" id="scenarioSummary" rows="4" required></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="scenarioUrl" class="form-label">参照URL（任意）</label>
+                        <input type="url" class="form-control" id="scenarioUrl" placeholder="https://...">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" id="saveScenarioBtn">
+                    <i class="fas fa-save"></i> シナリオを登録
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- シナリオ詳細モーダル -->
+<div class="modal fade" id="scenarioDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="scenarioDetailTitle"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="scenarioDetailBody">
+                <div class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.scenario-card {
+    height: 100%;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.scenario-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(220, 38, 127, 0.3);
+}
+
+.scenario-card .card-img-top {
+    height: 200px;
+    object-fit: cover;
+    background: linear-gradient(135deg, #0d1117 0%, #21262d 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    color: #30363d;
+}
+
+.scenario-list-item {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.scenario-list-item:hover {
+    background-color: rgba(220, 38, 127, 0.1);
+    transform: translateX(5px);
+}
+
+.system-badge {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+}
+
+.difficulty-badge {
+    font-size: 0.75rem;
+}
+
+.difficulty-beginner { background-color: #3fb950; }
+.difficulty-intermediate { background-color: #58a6ff; }
+.difficulty-advanced { background-color: #ffc107; }
+.difficulty-expert { background-color: #f85149; }
+
+.play-history {
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.notes-section {
+    background-color: rgba(255, 255, 255, 0.03);
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 3px solid #dc2670;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let viewMode = 'grid';
+    let scenarios = [];
+    let currentFilters = {};
+
+    // シナリオ一覧読み込み
+    async function loadScenarios() {
+        try {
+            const response = await axios.get('/api/scenarios/scenarios/');
+            scenarios = response.data;
+            renderScenarios();
+        } catch (error) {
+            console.error('Error loading scenarios:', error);
+            document.getElementById('scenariosList').innerHTML = 
+                '<div class="col-12"><div class="alert alert-danger">シナリオの読み込みに失敗しました</div></div>';
+        }
+    }
+
+    // シナリオ表示
+    function renderScenarios() {
+        const filtered = filterScenarios(scenarios);
+        const container = document.getElementById('scenariosList');
+        
+        if (filtered.length === 0) {
+            container.innerHTML = '<div class="col-12"><div class="alert alert-info">シナリオが見つかりませんでした</div></div>';
+            return;
+        }
+        
+        if (viewMode === 'grid') {
+            container.className = 'row';
+            container.innerHTML = filtered.map(scenario => `
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card scenario-card h-100" onclick="showScenarioDetail(${scenario.id})">
+                        <div class="card-img-top">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">${scenario.title}</h5>
+                            <div class="mb-2">
+                                <span class="badge bg-secondary system-badge">${getSystemLabel(scenario.game_system)}</span>
+                                <span class="badge difficulty-badge difficulty-${scenario.difficulty}">${getDifficultyLabel(scenario.difficulty)}</span>
+                            </div>
+                            <p class="card-text text-muted small">${scenario.summary || 'あらすじなし'}</p>
+                            <div class="mt-auto">
+                                <small class="text-muted">
+                                    <i class="fas fa-user"></i> ${scenario.author || '不明'}
+                                    ${scenario.play_count > 0 ? `<span class="ms-2"><i class="fas fa-dice"></i> ${scenario.play_count}回プレイ</span>` : ''}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            container.className = '';
+            container.innerHTML = filtered.map(scenario => `
+                <div class="card scenario-list-item mb-2" onclick="showScenarioDetail(${scenario.id})">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h5 class="mb-1">${scenario.title}</h5>
+                                <span class="badge bg-secondary system-badge">${getSystemLabel(scenario.game_system)}</span>
+                                <span class="badge difficulty-badge difficulty-${scenario.difficulty}">${getDifficultyLabel(scenario.difficulty)}</span>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted">
+                                    <i class="fas fa-clock"></i> ${getDurationLabel(scenario.estimated_duration)}<br>
+                                    <i class="fas fa-users"></i> ${scenario.recommended_players || '指定なし'}
+                                </small>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                ${scenario.play_count > 0 ? `<span class="badge bg-success"><i class="fas fa-dice"></i> ${scenario.play_count}回プレイ</span>` : '<span class="badge bg-secondary">未プレイ</span>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
+    // フィルター処理
+    function filterScenarios(scenarios) {
+        return scenarios.filter(scenario => {
+            if (currentFilters.system && scenario.game_system !== currentFilters.system) return false;
+            if (currentFilters.difficulty && scenario.difficulty !== currentFilters.difficulty) return false;
+            if (currentFilters.duration && scenario.estimated_duration !== currentFilters.duration) return false;
+            if (currentFilters.played === 'played' && scenario.play_count === 0) return false;
+            if (currentFilters.played === 'not_played' && scenario.play_count > 0) return false;
+            return true;
+        });
+    }
+
+    // システムラベル取得
+    function getSystemLabel(system) {
+        const labels = {
+            coc: 'CoC',
+            dnd: 'D&D',
+            sw: 'SW',
+            insane: 'インセイン',
+            other: 'その他'
+        };
+        return labels[system] || system;
+    }
+
+    // 難易度ラベル取得
+    function getDifficultyLabel(difficulty) {
+        const labels = {
+            beginner: '初心者',
+            intermediate: '中級',
+            advanced: '上級',
+            expert: 'エキスパート'
+        };
+        return labels[difficulty] || difficulty;
+    }
+
+    // プレイ時間ラベル取得
+    function getDurationLabel(duration) {
+        const labels = {
+            short: '短編',
+            medium: '中編',
+            long: '長編',
+            campaign: 'キャンペーン'
+        };
+        return labels[duration] || duration;
+    }
+
+    // シナリオ詳細表示
+    window.showScenarioDetail = async function(scenarioId) {
+        const modal = new bootstrap.Modal(document.getElementById('scenarioDetailModal'));
+        const titleEl = document.getElementById('scenarioDetailTitle');
+        const bodyEl = document.getElementById('scenarioDetailBody');
+        
+        try {
+            const response = await axios.get(`/api/scenarios/scenarios/${scenarioId}/`);
+            const scenario = response.data;
+            
+            titleEl.textContent = scenario.title;
+            bodyEl.innerHTML = `
+                <div class="row">
+                    <div class="col-md-8">
+                        <h6>基本情報</h6>
+                        <table class="table table-sm">
+                            <tr>
+                                <th style="width: 30%;">システム</th>
+                                <td>${getSystemLabel(scenario.game_system)}</td>
+                            </tr>
+                            <tr>
+                                <th>作者</th>
+                                <td>${scenario.author || '不明'}</td>
+                            </tr>
+                            <tr>
+                                <th>難易度</th>
+                                <td><span class="badge difficulty-badge difficulty-${scenario.difficulty}">${getDifficultyLabel(scenario.difficulty)}</span></td>
+                            </tr>
+                            <tr>
+                                <th>推奨人数</th>
+                                <td>${scenario.recommended_players || '指定なし'}</td>
+                            </tr>
+                            <tr>
+                                <th>想定時間</th>
+                                <td>${getDurationLabel(scenario.estimated_duration)}</td>
+                            </tr>
+                        </table>
+                        
+                        <h6 class="mt-4">あらすじ</h6>
+                        <p>${scenario.summary || 'なし'}</p>
+                        
+                        ${scenario.url ? `<p><a href="${scenario.url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fas fa-external-link-alt"></i> 参照URLを開く</a></p>` : ''}
+                    </div>
+                    <div class="col-md-4">
+                        <h6>プレイ履歴</h6>
+                        ${scenario.play_history && scenario.play_history.length > 0 ? 
+                            scenario.play_history.map(play => `
+                                <div class="play-history">
+                                    <strong>${new Date(play.play_date).toLocaleDateString('ja-JP')}</strong><br>
+                                    GM: ${play.gm_detail.nickname}<br>
+                                    ${play.player_count}人参加
+                                </div>
+                            `).join('') : 
+                            '<p class="text-muted">まだプレイされていません</p>'
+                        }
+                        
+                        ${scenario.notes && scenario.notes.length > 0 ? `
+                            <h6 class="mt-4">GMメモ</h6>
+                            <div class="notes-section">
+                                ${scenario.notes.map(note => `
+                                    <div class="mb-2">
+                                        <small class="text-muted">${new Date(note.created_at).toLocaleDateString('ja-JP')}</small><br>
+                                        ${note.content}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                        
+                        <div class="mt-4">
+                            <button class="btn btn-primary btn-sm w-100" onclick="createSessionFromScenario(${scenario.id})">
+                                <i class="fas fa-calendar-plus"></i> このシナリオでセッションを計画
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            modal.show();
+        } catch (error) {
+            console.error('Error loading scenario details:', error);
+            alert('シナリオ詳細の読み込みに失敗しました');
+        }
+    };
+
+    // シナリオからセッション作成
+    window.createSessionFromScenario = function(scenarioId) {
+        alert('セッション作成機能は実装予定です');
+        // TODO: セッション作成画面へ遷移し、シナリオ情報を引き継ぐ
+    };
+
+    // 新規シナリオ保存
+    document.getElementById('saveScenarioBtn').addEventListener('click', async function() {
+        const form = document.getElementById('addScenarioForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const data = {
+            title: document.getElementById('scenarioTitle').value,
+            game_system: document.getElementById('scenarioSystem').value,
+            author: document.getElementById('scenarioAuthor').value,
+            difficulty: document.getElementById('scenarioDifficulty').value,
+            estimated_duration: document.getElementById('scenarioDuration').value,
+            recommended_players: document.getElementById('scenarioPlayers').value,
+            summary: document.getElementById('scenarioSummary').value,
+            url: document.getElementById('scenarioUrl').value
+        };
+
+        try {
+            await axios.post('/api/scenarios/scenarios/', data);
+            alert('シナリオを登録しました！');
+            bootstrap.Modal.getInstance(document.getElementById('addScenarioModal')).hide();
+            form.reset();
+            loadScenarios();
+        } catch (error) {
+            alert('シナリオ登録に失敗しました: ' + (error.response?.data?.detail || error.message));
+        }
+    });
+
+    // ビューモード切替
+    document.getElementById('gridView').addEventListener('change', function() {
+        if (this.checked) {
+            viewMode = 'grid';
+            renderScenarios();
+        }
+    });
+
+    document.getElementById('listView').addEventListener('change', function() {
+        if (this.checked) {
+            viewMode = 'list';
+            renderScenarios();
+        }
+    });
+
+    // フィルター適用
+    document.getElementById('applyFilter').addEventListener('click', function() {
+        currentFilters = {
+            system: document.getElementById('systemFilter').value,
+            difficulty: document.getElementById('difficultyFilter').value,
+            duration: document.getElementById('durationFilter').value,
+            played: document.getElementById('playedFilter').value
+        };
+        renderScenarios();
+    });
+
+    // 初期化
+    loadScenarios();
+});
+</script>
+{% endblock %}

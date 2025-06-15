@@ -1,0 +1,855 @@
+/* Arkham Nexus - Modern Clean Theme CSS */
+/* モダンで洗練された、見やすい色合いのテーマ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+
+/* ベーステーマ - 明るくて見やすい色調 */
+:root {
+    /* 明るい基調色 */
+    --primary-bg: #f8fafc;
+    --secondary-bg: #ffffff;
+    --card-bg: #ffffff;
+    --sidebar-bg: #f1f5f9;
+    
+    /* テキストカラー */
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --text-light: #94a3b8;
+    
+    /* ボーダーカラー */
+    --border-color: #e2e8f0;
+    --border-light: #f1f5f9;
+    
+    /* アクセントカラー - 美しいブルー系 */
+    --accent-primary: #3b82f6;
+    --accent-primary-light: #60a5fa;
+    --accent-primary-dark: #2563eb;
+    
+    /* セカンダリアクセント */
+    --accent-secondary: #6366f1;
+    --accent-tertiary: #8b5cf6;
+    
+    /* 状態カラー */
+    --accent-success: #10b981;
+    --accent-warning: #f59e0b;
+    --accent-danger: #ef4444;
+    --accent-info: #06b6d4;
+    
+    /* シャドウ */
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    
+    /* グラデーション */
+    --gradient-primary: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+    --gradient-success: linear-gradient(135deg, var(--accent-success) 0%, #059669 100%);
+    --gradient-info: linear-gradient(135deg, var(--accent-info) 0%, #0891b2 100%);
+    --gradient-warning: linear-gradient(135deg, var(--accent-warning) 0%, #d97706 100%);
+    --gradient-danger: linear-gradient(135deg, var(--accent-danger) 0%, #dc2626 100%);
+}
+
+/* ダークモード対応 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --primary-bg: #0f172a;
+        --secondary-bg: #1e293b;
+        --card-bg: #334155;
+        --sidebar-bg: #1e293b;
+        
+        --text-primary: #f8fafc;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --text-light: #64748b;
+        
+        --border-color: #475569;
+        --border-light: #334155;
+    }
+}
+
+/* 全体の背景とテキスト */
+body {
+    background: var(--primary-bg);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    line-height: 1.6;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+/* 美しいタイトルフォント */
+.brand-font {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+.brand-font.display-3 {
+    font-size: 3rem;
+    font-weight: 700;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* カード要素のスタイル - クリーンで見やすく */
+.card {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--accent-primary);
+}
+
+.card-header {
+    background: var(--gradient-primary) !important;
+    border-bottom: none;
+    font-weight: 600;
+    color: white !important;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+}
+
+.card-body {
+    padding: 1.5rem;
+    color: var(--text-secondary);
+}
+
+.card-footer {
+    background: var(--sidebar-bg) !important;
+    border-top: 1px solid var(--border-color);
+    padding: 1rem 1.5rem;
+}
+
+/* ナビゲーションバー - 美しく洗練された外観 */
+.navbar {
+    background: var(--secondary-bg) !important;
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    padding: 1rem 0;
+}
+
+.navbar-brand {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary) !important;
+    font-family: 'Poppins', sans-serif;
+    text-decoration: none;
+}
+
+.navbar-nav .nav-link {
+    color: var(--text-secondary) !important;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    position: relative;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    margin: 0 0.25rem;
+}
+
+.navbar-nav .nav-link:hover {
+    color: var(--accent-primary) !important;
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.navbar-nav .nav-link.active {
+    color: var(--accent-primary) !important;
+    background: rgba(59, 130, 246, 0.1);
+    font-weight: 600;
+}
+
+/* ボタンスタイル - モダンで美しい */
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 0.625rem 1.25rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: none;
+    font-size: 0.875rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.btn:focus {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+.btn-primary {
+    background: var(--gradient-primary);
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, var(--accent-primary-dark) 0%, #5b21b6 100%);
+    box-shadow: var(--shadow-lg);
+    color: white;
+}
+
+.btn-outline-primary {
+    border: 2px solid var(--accent-primary);
+    color: var(--accent-primary);
+    background: transparent;
+}
+
+.btn-outline-primary:hover {
+    background: var(--accent-primary);
+    color: white;
+    border-color: var(--accent-primary);
+    transform: translateY(-1px);
+}
+
+.btn-success {
+    background: var(--gradient-success);
+    color: white;
+}
+
+.btn-info {
+    background: var(--gradient-info);
+    color: white;
+}
+
+.btn-warning {
+    background: var(--gradient-warning);
+    color: white;
+}
+
+.btn-danger {
+    background: var(--gradient-danger);
+    color: white;
+}
+
+.btn-light {
+    background: var(--secondary-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-light:hover {
+    background: var(--sidebar-bg);
+    color: var(--text-primary);
+}
+
+/* フィーチャーカード */
+.feature-card {
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 16px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    height: 100%;
+}
+
+.feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+    border-color: var(--accent-primary);
+}
+
+.feature-card i {
+    transition: all 0.3s ease;
+    margin-bottom: 1rem;
+    color: var(--accent-primary);
+    font-size: 2.5rem;
+}
+
+.feature-card:hover i {
+    transform: scale(1.1);
+    color: var(--accent-secondary);
+}
+
+.feature-card h5 {
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.feature-card p {
+    color: var(--text-secondary);
+    margin-bottom: 0;
+}
+
+/* ヒーローセクション */
+.hero-section {
+    padding: 4rem 0;
+    text-align: center;
+    background: linear-gradient(135deg, var(--primary-bg) 0%, var(--sidebar-bg) 100%);
+}
+
+.hero-section h1 {
+    margin-bottom: 1.5rem;
+    font-weight: 700;
+}
+
+.hero-section .lead {
+    color: var(--text-secondary);
+    font-size: 1.25rem;
+    margin-bottom: 2rem;
+}
+
+/* ドロップダウンメニュー */
+.dropdown-menu {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.dropdown-item {
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 0.25rem;
+}
+
+.dropdown-item:last-child {
+    margin-bottom: 0;
+}
+
+.dropdown-item:hover {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--accent-primary);
+}
+
+.dropdown-item:focus {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--accent-primary);
+}
+
+/* スピナー */
+.spinner-border {
+    width: 2rem;
+    height: 2rem;
+    border-width: 0.2em;
+}
+
+.spinner-border.text-primary {
+    color: var(--accent-primary) !important;
+}
+
+/* テキストカラー調整 */
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+.text-primary {
+    color: var(--accent-primary) !important;
+}
+
+.text-secondary {
+    color: var(--text-secondary) !important;
+}
+
+/* バッジスタイル */
+.badge {
+    font-size: 0.75em;
+    font-weight: 500;
+    padding: 0.375em 0.75em;
+    border-radius: 6px;
+}
+
+.bg-primary {
+    background: var(--accent-primary) !important;
+}
+
+.bg-success {
+    background: var(--accent-success) !important;
+}
+
+.bg-warning {
+    background: var(--accent-warning) !important;
+    color: white !important;
+}
+
+.bg-info {
+    background: var(--accent-info) !important;
+}
+
+.bg-danger {
+    background: var(--accent-danger) !important;
+}
+
+.bg-light {
+    background: var(--sidebar-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+.bg-secondary {
+    background: var(--text-muted) !important;
+}
+
+/* ボーダーカラー */
+.border {
+    border-color: var(--border-color) !important;
+}
+
+.border-primary {
+    border-color: var(--accent-primary) !important;
+}
+
+.border-secondary {
+    border-color: var(--border-color) !important;
+}
+
+/* フォームスタイル */
+.form-control,
+.form-select {
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    padding: 0.625rem 1rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.1);
+    background-color: var(--secondary-bg);
+    outline: none;
+}
+
+.form-control::placeholder {
+    color: var(--text-muted);
+}
+
+.form-label {
+    color: var(--text-primary);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+/* テーブルスタイル */
+.table {
+    --bs-table-bg: var(--card-bg);
+    --bs-table-border-color: var(--border-color);
+    --bs-table-color: var(--text-primary);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.table thead th {
+    background: var(--sidebar-bg);
+    color: var(--text-primary);
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.table tbody tr:hover {
+    background: rgba(59, 130, 246, 0.05);
+}
+
+/* モーダルスタイル */
+.modal-content {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    box-shadow: var(--shadow-xl);
+}
+
+.modal-header {
+    border-bottom: 1px solid var(--border-color);
+    background: var(--sidebar-bg);
+    border-radius: 16px 16px 0 0;
+    padding: 1.5rem;
+}
+
+.modal-title {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    border-top: 1px solid var(--border-color);
+    background: var(--sidebar-bg);
+    border-radius: 0 0 16px 16px;
+    padding: 1rem 1.5rem;
+}
+
+/* アラートスタイル */
+.alert {
+    border: none;
+    border-radius: 12px;
+    border-left: 4px solid;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.alert-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--accent-success);
+    border-left-color: var(--accent-success);
+}
+
+.alert-danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--accent-danger);
+    border-left-color: var(--accent-danger);
+}
+
+.alert-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--accent-warning);
+    border-left-color: var(--accent-warning);
+}
+
+.alert-info {
+    background: rgba(6, 182, 212, 0.1);
+    color: var(--accent-info);
+    border-left-color: var(--accent-info);
+}
+
+/* スクロールバーカスタマイズ */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--primary-bg);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-primary);
+}
+
+/* カレンダー特有のスタイル改善 */
+.calendar-container {
+    background: var(--card-bg);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-color);
+}
+
+.calendar-header {
+    background: var(--gradient-primary);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.calendar-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.calendar-day {
+    background: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0.75rem;
+    transition: all 0.2s ease;
+    border-radius: 8px;
+    min-height: 80px;
+    cursor: pointer;
+}
+
+.calendar-day:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: var(--accent-primary);
+}
+
+.calendar-day.today {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: var(--accent-primary);
+    font-weight: 600;
+}
+
+.calendar-event {
+    background: rgba(59, 130, 246, 0.2);
+    border-left: 3px solid var(--accent-primary);
+    padding: 0.25rem 0.5rem;
+    margin: 0.25rem 0;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: var(--accent-primary);
+    font-weight: 500;
+}
+
+/* プログレスバー */
+.progress {
+    background: var(--border-light);
+    border-radius: 8px;
+    height: 8px;
+}
+
+.progress-bar {
+    background: var(--gradient-primary);
+    border-radius: 8px;
+}
+
+/* リストグループ */
+.list-group-item {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 1rem 1.25rem;
+    transition: all 0.2s ease;
+}
+
+.list-group-item:hover {
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.list-group-item.active {
+    background: var(--gradient-primary);
+    border-color: var(--accent-primary);
+}
+
+/* ツールチップ */
+.tooltip-inner {
+    background: var(--text-primary);
+    color: var(--card-bg);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+}
+
+/* ページネーション */
+.page-link {
+    color: var(--accent-primary);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    margin: 0 0.125rem;
+}
+
+.page-link:hover {
+    color: white;
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+.page-item.active .page-link {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+/* ユーティリティクラス */
+.rounded-lg {
+    border-radius: 12px !important;
+}
+
+.rounded-xl {
+    border-radius: 16px !important;
+}
+
+.shadow-sm {
+    box-shadow: var(--shadow-sm) !important;
+}
+
+.shadow-md {
+    box-shadow: var(--shadow-md) !important;
+}
+
+.shadow-lg {
+    box-shadow: var(--shadow-lg) !important;
+}
+
+/* レスポンシブデザイン */
+@media (max-width: 768px) {
+    .hero-section {
+        padding: 2rem 0;
+    }
+    
+    .hero-section h1 {
+        font-size: 2.5rem;
+    }
+    
+    .feature-card {
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .btn {
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+    }
+    
+    .navbar-nav {
+        margin-top: 1rem;
+    }
+    
+    .modal-body,
+    .modal-header,
+    .modal-footer {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .hero-section h1 {
+        font-size: 2rem;
+    }
+    
+    .navbar-brand {
+        font-size: 1.25rem;
+    }
+    
+    .calendar-day {
+        min-height: 60px;
+        padding: 0.5rem;
+    }
+    
+    .feature-card i {
+        font-size: 2rem;
+    }
+}
+
+/* アクセシビリティ改善 */
+.sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+/* フォーカス可視性の改善 */
+button:focus,
+a:focus,
+.btn:focus,
+.form-control:focus,
+.form-select:focus {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+/* 高コントラスト対応 */
+@media (prefers-contrast: high) {
+    :root {
+        --text-primary: #000000;
+        --text-secondary: #333333;
+        --border-color: #666666;
+        --accent-primary: #0056b3;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --text-primary: #ffffff;
+            --text-secondary: #cccccc;
+            --border-color: #999999;
+            --accent-primary: #66b3ff;
+        }
+    }
+}
+
+/* アニメーション設定 */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* カスタムコンポーネント */
+.stats-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.stats-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.stats-card .stats-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent-primary);
+    margin-bottom: 0.5rem;
+}
+
+.stats-card .stats-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+/* サイドバー */
+.sidebar {
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border-color);
+    min-height: 100vh;
+    padding: 1rem 0;
+}
+
+.sidebar-item {
+    padding: 0.75rem 1.5rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: all 0.2s ease;
+    border-radius: 0 50px 50px 0;
+    margin-right: 1rem;
+}
+
+.sidebar-item:hover {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--accent-primary);
+}
+
+.sidebar-item.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--accent-primary);
+    font-weight: 600;
+    border-right: 3px solid var(--accent-primary);
+}
