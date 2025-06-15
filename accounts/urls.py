@@ -17,6 +17,11 @@ router.register(r'character-skills', views.CharacterSkillViewSet, basename='char
 router.register(r'character-equipment', views.CharacterEquipmentViewSet, basename='character-equipment')
 
 urlpatterns = [
+    # Authentication URLs
+    path('login/', views.CustomLoginView.as_view(), name='login'),
+    path('logout/', views.CustomLogoutView.as_view(), name='logout'),
+    path('signup/', views.CustomSignUpView.as_view(), name='signup'),
+    
     # Web URLs for frontend pages (before router to avoid conflicts)
     path('groups/view/', 
          method_decorator(login_required, name='dispatch')(TemplateView).as_view(template_name='groups/management.html'), 

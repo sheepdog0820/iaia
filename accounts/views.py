@@ -920,6 +920,15 @@ class CustomSignUpView(FormView):
         return super().dispatch(request, *args, **kwargs)
 
 
+class CustomLogoutView(TemplateView):
+    """カスタムログアウトビュー"""
+    def get(self, request, *args, **kwargs):
+        from django.contrib.auth import logout
+        logout(request)
+        messages.success(request, 'ログアウトしました。深淵の門は閉じられました。')
+        return redirect('home')
+
+
 @method_decorator(login_required, name='dispatch')
 class ProfileEditView(FormView):
     """プロフィール編集ビュー"""

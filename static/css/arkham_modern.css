@@ -77,6 +77,7 @@ body {
     line-height: 1.6;
     font-size: 14px;
     transition: all 0.3s ease;
+    padding-top: 70px; /* Fixed navbarのための余白 */
 }
 
 /* 美しいタイトルフォント */

@@ -198,6 +198,11 @@ if DEVELOPMENT_MODE:
     # 開発環境ではモックログインを使用（実際のOAuth設定は無効化）
     pass
 
+# Authentication URLs
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
+
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [

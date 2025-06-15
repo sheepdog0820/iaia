@@ -5,234 +5,585 @@
 
 {% block content %}
 <div class="container">
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title mb-0">
-                        <i class="fas fa-eye text-warning"></i> 
-                        クトゥルフ神話TRPG 6版探索者作成
-                    </h3>
-                    <small class="text-muted">探索者の詳細情報を入力してください</small>
-                </div>
-                
-                <div class="card-body">
-                    <form method="post" id="character-sheet-form">
-                        {% csrf_token %}
-                        
-                        <!-- システム選択（6版固定表示） -->
-                        <div class="row mb-4">
-                            <div class="col-md-6">
-                                <label for="system" class="form-label">
-                                    <i class="fas fa-dice-d20"></i> クトゥルフ神話TRPG版選択
-                                </label>
-                                <select class="form-select" id="system" name="system" required>
-                                    <option value="cthulhu_6th" selected>クトゥルフ神話TRPG 6版</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="character-name" class="form-label">
-                                    <i class="fas fa-signature"></i> 探索者名
-                                </label>
-                                <input type="text" class="form-control" id="character-name" name="character_name" required>
-                            </div>
-                        </div>
-
-                        <!-- 基本情報 -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <h5 class="text-primary">
-                                    <i class="fas fa-info-circle"></i> 基本情報
-                                </h5>
-                                <hr>
-                            </div>
-                            
-                            <div class="col-md-4">
-                                <label for="age" class="form-label">年齢</label>
-                                <input type="number" class="form-control" id="age" name="age" min="1" max="999">
-                            </div>
-                            <div class="col-md-4">
-                                <label for="occupation" class="form-label">職業</label>
-                                <input type="text" class="form-control" id="occupation" name="occupation">
-                            </div>
-                            <div class="col-md-4">
-                                <label for="birthplace" class="form-label">出身地</label>
-                                <input type="text" class="form-control" id="birthplace" name="birthplace">
-                            </div>
-                        </div>
-
-                        <!-- 能力値 -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <h5 class="text-success">
-                                    <i class="fas fa-chart-bar"></i> 能力値
-                                </h5>
-                                <hr>
-                            </div>
-                            
-                            <!-- クトゥルフ神話TRPG用能力値 -->
-                            <div class="col-md-3">
-                                <label for="str" class="form-label">STR (筋力)</label>
-                                <input type="number" class="form-control ability-score" id="str" name="str" min="3" max="18">
-                            </div>
-                            <div class="col-md-3">
-                                <label for="con" class="form-label">CON (体力)</label>
-                                <input type="number" class="form-control ability-score" id="con" name="con" min="3" max="18">
-                            </div>
-                            <div class="col-md-3">
-                                <label for="pow" class="form-label">POW (精神力)</label>
-                                <input type="number" class="form-control ability-score" id="pow" name="pow" min="3" max="18">
-                            </div>
-                            <div class="col-md-3">
-                                <label for="dex" class="form-label">DEX (敏捷性)</label>
-                                <input type="number" class="form-control ability-score" id="dex" name="dex" min="3" max="18">
-                            </div>
-                            <div class="col-md-3">
-                                <label for="app" class="form-label">APP (外見)</label>
-                                <input type="number" class="form-control ability-score" id="app" name="app" min="3" max="18">
-                            </div>
-                            <div class="col-md-3">
-                                <label for="siz" class="form-label">SIZ (体格)</label>
-                                <input type="number" class="form-control ability-score" id="siz" name="siz" min="8" max="18">
-                            </div>
-                            <div class="col-md-3">
-                                <label for="int" class="form-label">INT (知性)</label>
-                                <input type="number" class="form-control ability-score" id="int" name="int" min="3" max="18">
-                            </div>
-                            <div class="col-md-3">
-                                <label for="edu" class="form-label">EDU (教育)</label>
-                                <input type="number" class="form-control ability-score" id="edu" name="edu" min="3" max="18">
-                            </div>
-                        </div>
-
-                        <!-- 副能力値 -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <h5 class="text-info">
-                                    <i class="fas fa-heart"></i> 副能力値
-                                </h5>
-                                <hr>
-                            </div>
-                            
-                            <div class="col-md-2">
-                                <label for="hp" class="form-label">HP (耐久力)</label>
-                                <input type="number" class="form-control" id="hp" name="hp" readonly>
-                            </div>
-                            <div class="col-md-2">
-                                <label for="mp" class="form-label">MP (マジックポイント)</label>
-                                <input type="number" class="form-control" id="mp" name="mp" readonly>
-                            </div>
-                            <div class="col-md-2">
-                                <label for="san" class="form-label">SAN (正気度)</label>
-                                <input type="number" class="form-control" id="san" name="san" readonly>
-                            </div>
-                            <div class="col-md-2">
-                                <label for="luck" class="form-label">幸運</label>
-                                <input type="number" class="form-control" id="luck" name="luck">
-                            </div>
-                            
-                            <!-- 6版固有の副能力値 -->
-                            <div class="col-md-2" id="idea-field">
-                                <label for="idea" class="form-label">アイデア</label>
-                                <input type="number" class="form-control" id="idea" name="idea" readonly>
-                            </div>
-                            <div class="col-md-2" id="know-field">
-                                <label for="know" class="form-label">知識</label>
-                                <input type="number" class="form-control" id="know" name="know" readonly>
-                            </div>
-                            <div class="col-md-12 mt-2" id="damage-bonus-field">
-                                <label for="damage-bonus" class="form-label">ダメージボーナス</label>
-                                <input type="text" class="form-control" id="damage-bonus" name="damage_bonus" readonly>
-                            </div>
-                        </div>
-                        <!-- 背景・設定 -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <h5 class="text-danger">
-                                    <i class="fas fa-book"></i> 背景・設定
-                                </h5>
-                                <hr>
-                            </div>
-                            
-                            <div class="col-12 mb-3">
-                                <label for="backstory" class="form-label">背景・経歴</label>
-                                <textarea class="form-control" id="backstory" name="backstory" rows="4" 
-                                    placeholder="探索者の生い立ち、経歴、動機などを記入してください..."></textarea>
-                            </div>
-                            
-                            <div class="col-12 mb-3">
-                                <label for="traits" class="form-label">性格・特徴</label>
-                                <textarea class="form-control" id="traits" name="traits" rows="3" 
-                                    placeholder="探索者の性格、癖、特徴的な行動などを記入してください..."></textarea>
-                            </div>
-
-                            <div class="col-md-6">
-                                <label for="ideals" class="form-label">信念・理想</label>
-                                <input type="text" class="form-control" id="ideals" name="ideals" 
-                                    placeholder="探索者が大切にしていること">
-                            </div>
-                            <div class="col-md-6">
-                                <label for="bonds" class="form-label">重要な人物・場所</label>
-                                <input type="text" class="form-control" id="bonds" name="bonds" 
-                                    placeholder="大切な人や思い出の場所">
-                            </div>
-                        </div>
-
-                        <!-- 版数管理 -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <h5 class="text-secondary">
-                                    <i class="fas fa-history"></i> 版数管理
-                                </h5>
-                                <hr>
-                            </div>
-                            
-                            <div class="col-md-6">
-                                <label for="version" class="form-label">バージョン</label>
-                                <input type="text" class="form-control" id="version" name="version" value="1.0" readonly>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="last-updated" class="form-label">最終更新</label>
-                                <input type="text" class="form-control" id="last-updated" name="last_updated" readonly>
-                            </div>
-                            
-                            <div class="col-12 mt-3">
-                                <label for="update-notes" class="form-label">更新メモ</label>
-                                <textarea class="form-control" id="update-notes" name="update_notes" rows="2" 
-                                    placeholder="今回の変更内容を記入..."></textarea>
-                            </div>
-                        </div>
-
-                        <!-- 操作ボタン -->
-                        <div class="row">
-                            <div class="col-12 text-center">
-                                <button type="button" class="btn btn-secondary me-3" onclick="window.history.back()">
-                                    <i class="fas fa-arrow-left"></i> 戻る
-                                </button>
-                                <button type="submit" class="btn btn-primary btn-lg">
-                                    <i class="fas fa-save"></i> 探索者を保存
-                                </button>
-                            </div>
-                        </div>
-                    </form>
+    <!-- ヘッダー -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="eldritch-font">
+                        <i class="fas fa-user-ninja text-primary"></i> クトゥルフ神話TRPG 6版探索者作成
+                    </h1>
+                    <p class="text-muted lead">
+                        新たなる探索者を創造し、深淵の謎に立ち向かいましょう。
+                    </p>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- フォーム -->
+    <div class="row">
+        <div class="col-12">
+            <form method="post" id="character-sheet-form">
+                {% csrf_token %}
+                
+                <!-- システム情報フィールド(非表示) -->
+                <input type="hidden" id="system" name="system" value="cthulhu_6th">
+                
+                <!-- 探索者情報 -->
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-id-card"></i> 探索者情報
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-6 mb-3">
+                                <label for="character-name" class="form-label">探索者名 *</label>
+                                <input type="text" class="form-control form-control-lg" id="character-name" name="character_name" 
+                                       placeholder="例: 高島 静雄" required>
+                            </div>
+                            <div class="col-lg-6 mb-3">
+                                <label for="player-name" class="form-label">プレイヤー名</label>
+                                <input type="text" class="form-control" id="player-name" name="player_name" 
+                                       placeholder="あなたの名前">
+                            </div>
+                            <div class="col-lg-3 mb-3">
+                                <label for="age" class="form-label">年齢</label>
+                                <input type="number" class="form-control" id="age" name="age" min="15" max="90" placeholder="28">
+                            </div>
+                            <div class="col-lg-3 mb-3">
+                                <label for="gender" class="form-label">性別</label>
+                                <select class="form-select" id="gender" name="gender">
+                                    <option value="">選択してください</option>
+                                    <option value="男性">男性</option>
+                                    <option value="女性">女性</option>
+                                    <option value="その他">その他</option>
+                                </select>
+                            </div>
+                            <div class="col-lg-3 mb-3">
+                                <label for="occupation" class="form-label">職業</label>
+                                <input type="text" class="form-control" id="occupation" name="occupation" 
+                                       placeholder="例: 私立探偵">
+                            </div>
+                            <div class="col-lg-3 mb-3">
+                                <label for="birthplace" class="form-label">出身地</label>
+                                <input type="text" class="form-control" id="birthplace" name="birthplace" 
+                                       placeholder="例: 東京">
+                            </div>
+                            <div class="col-12">
+                                <label for="notes" class="form-label">背景・特徴</label>
+                                <textarea class="form-control" id="notes" name="notes" rows="3" 
+                                          placeholder="探索者の背景、性格、特徴、動機などを記入してください..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- 全能力値ダイスロール設定 -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-warning text-dark">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-dice-d20"></i> 全能力値ダイスロール設定
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row align-items-center g-3">
+                                    <div class="col-md-2">
+                                        <label for="globalDiceCount" class="form-label small">個数</label>
+                                        <input type="number" class="form-control" id="globalDiceCount" min="1" max="10" value="3">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label for="globalDiceSides" class="form-label small">面数</label>
+                                        <input type="number" class="form-control" id="globalDiceSides" min="2" max="100" value="6">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label for="globalDiceBonus" class="form-label small">ボーナス</label>
+                                        <input type="number" class="form-control" id="globalDiceBonus" min="-50" max="50" value="0">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small">ダイス式</label>
+                                        <div class="text-center p-2 bg-light rounded">
+                                            <span id="globalDiceFormula" class="fw-bold text-primary">3d6+0</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small">&nbsp;</label>
+                                        <div class="d-grid">
+                                            <button type="button" class="btn btn-primary" id="rollAllAbilities">
+                                                <i class="fas fa-dice-d20"></i> 全能力値ロール
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <small class="text-muted">
+                                            <i class="fas fa-info-circle"></i> 
+                                            全ての基本能力値を一括でダイスロールします。設定したダイス式が全能力値に適用されます。
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ステータス（能力値と副次ステータス） -->
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-bar"></i> ステータス
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">基本能力値</h6>
+                        <!-- 能力値入力エリア -->
+                        <div class="row">
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <label for="str" class="form-label">STR (筋力)</label>
+                                <input type="number" class="form-control ability-score" id="str" name="str" min="1" max="99" placeholder="3-18">
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <label for="con" class="form-label">CON (体力)</label>
+                                <input type="number" class="form-control ability-score" id="con" name="con" min="1" max="99" placeholder="3-18">
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <label for="pow" class="form-label">POW (精神力)</label>
+                                <input type="number" class="form-control ability-score" id="pow" name="pow" min="1" max="99" placeholder="3-18">
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <label for="dex" class="form-label">DEX (敏捷性)</label>
+                                <input type="number" class="form-control ability-score" id="dex" name="dex" min="1" max="99" placeholder="3-18">
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <label for="app" class="form-label">APP (外見)</label>
+                                <input type="number" class="form-control ability-score" id="app" name="app" min="1" max="99" placeholder="3-18">
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <label for="siz" class="form-label">SIZ (体格)</label>
+                                <input type="number" class="form-control ability-score" id="siz" name="siz" min="1" max="99" placeholder="8-18">
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <label for="int" class="form-label">INT (知性)</label>
+                                <input type="number" class="form-control ability-score" id="int" name="int" min="1" max="99" placeholder="8-18">
+                            </div>
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <label for="edu" class="form-label">EDU (教育)</label>
+                                <input type="number" class="form-control ability-score" id="edu" name="edu" min="1" max="99" placeholder="6-21">
+                            </div>
+                        </div>
+                        
+                        <h6 class="text-info border-bottom pb-2 mb-3 mt-4">副次ステータス（6版ルール）</h6>
+                        <div class="row">
+                            <div class="col-md-2 col-sm-4 mb-3">
+                                <label for="hp" class="form-label">HP (耐久力)</label>
+                                <input type="number" class="form-control" id="hp" name="hp" readonly>
+                                <small class="text-muted">(CON+SIZ)/2</small>
+                            </div>
+                            <div class="col-md-2 col-sm-4 mb-3">
+                                <label for="mp" class="form-label">MP</label>
+                                <input type="number" class="form-control" id="mp" name="mp" readonly>
+                                <small class="text-muted">POW</small>
+                            </div>
+                            <div class="col-md-2 col-sm-4 mb-3">
+                                <label for="san" class="form-label">SAN (正気度)</label>
+                                <input type="number" class="form-control" id="san" name="san" readonly>
+                                <small class="text-muted">POW×5</small>
+                            </div>
+                            <div class="col-md-2 col-sm-4 mb-3">
+                                <label for="idea" class="form-label">アイデア</label>
+                                <input type="number" class="form-control" id="idea" name="idea" readonly>
+                                <small class="text-muted">INT×5</small>
+                            </div>
+                            <div class="col-md-2 col-sm-4 mb-3">
+                                <label for="luck" class="form-label">幸運</label>
+                                <input type="number" class="form-control" id="luck" name="luck" readonly>
+                                <small class="text-muted">POW×5</small>
+                            </div>
+                            <div class="col-md-2 col-sm-4 mb-3">
+                                <label for="know" class="form-label">知識</label>
+                                <input type="number" class="form-control" id="know" name="know" readonly>
+                                <small class="text-muted">EDU×5</small>
+                            </div>
+                            <div class="col-12 mt-2">
+                                <label for="damage-bonus" class="form-label">ダメージボーナス</label>
+                                <input type="text" class="form-control" id="damage-bonus" name="damage_bonus" readonly>
+                                <small class="text-muted">STR+SIZの合計により決定</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 技能システム -->
+                <div class="card mb-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">
+                            <i class="fas fa-tools"></i> 技能システム（6版）
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- ポイント管理 -->
+                        <div class="row mb-3 g-3">
+                            <div class="col-lg-5">
+                                <div class="bg-light p-3 rounded h-100">
+                                    <h6 class="text-primary">職業技能ポイント</h6>
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-12">
+                                            <small class="text-muted">計算方式</small>
+                                            <select class="form-select form-select-sm" id="occupationMethod">
+                                                <option value="edu20">EDU×20</option>
+                                                <option value="edu10app10">EDU×10＋APP×10</option>
+                                                <option value="edu10dex10">EDU×10＋DEX×10</option>
+                                                <option value="edu10pow10">EDU×10＋POW×10</option>
+                                                <option value="edu10str10">EDU×10＋STR×10</option>
+                                                <option value="edu10con10">EDU×10＋CON×10</option>
+                                                <option value="edu10siz10">EDU×10＋SIZ×10</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <small class="text-muted">総ポイント</small>
+                                            <input type="number" class="form-control form-control-sm" id="occupationTotal" readonly>
+                                        </div>
+                                        <div class="col-3">
+                                            <small class="text-muted">使用</small>
+                                            <div><span id="occupationUsed" class="badge bg-primary fs-6">0</span></div>
+                                        </div>
+                                        <div class="col-3">
+                                            <small class="text-muted">残り</small>
+                                            <div><span id="occupationRemaining" class="badge bg-success fs-6">0</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-5">
+                                <div class="bg-light p-3 rounded h-100">
+                                    <h6 class="text-info">趣味技能ポイント</h6>
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-12">
+                                            <small class="text-muted">計算方式: <strong>INT×10</strong></small>
+                                        </div>
+                                    </div>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <small class="text-muted">総ポイント</small>
+                                            <input type="number" class="form-control form-control-sm" id="interestTotal" readonly>
+                                        </div>
+                                        <div class="col-3">
+                                            <small class="text-muted">使用</small>
+                                            <div><span id="interestUsed" class="badge bg-primary fs-6">0</span></div>
+                                        </div>
+                                        <div class="col-3">
+                                            <small class="text-muted">残り</small>
+                                            <div><span id="interestRemaining" class="badge bg-success fs-6">0</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-2">
+                                <div class="d-grid gap-2 h-100">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="resetSkillPoints">
+                                        <i class="fas fa-undo"></i><br><small>リセット</small>
+                                    </button>
+                                    <button type="button" class="btn btn-primary btn-sm" id="calculateSkills">
+                                        <i class="fas fa-calculator"></i><br><small>計算</small>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 技能タブとコンテンツ -->
+                        <div id="skillsContainer">
+                            <!-- タブナビゲーション -->
+                            <ul class="nav nav-tabs" id="skillTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="combat-tab" data-bs-toggle="tab" data-bs-target="#combat" type="button" role="tab">
+                                        <i class="fas fa-sword"></i> 戦闘系
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="exploration-tab" data-bs-toggle="tab" data-bs-target="#exploration" type="button" role="tab">
+                                        <i class="fas fa-search"></i> 探索技能
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="action-tab" data-bs-toggle="tab" data-bs-target="#action" type="button" role="tab">
+                                        <i class="fas fa-running"></i> 行動技能
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="social-tab" data-bs-toggle="tab" data-bs-target="#social" type="button" role="tab">
+                                        <i class="fas fa-comments"></i> 交渉技能
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab">
+                                        <i class="fas fa-list"></i> 全表示
+                                    </button>
+                                </li>
+                            </ul>
+                            
+                            <!-- タブコンテンツ -->
+                            <div class="tab-content" id="skillTabContent">
+                                <!-- 戦闘系技能 -->
+                                <div class="tab-pane fade show active" id="combat" role="tabpanel">
+                                    <div class="row g-2 mt-2" id="combatSkills">
+                                        <!-- 戦闘系技能がここに動的生成される -->
+                                    </div>
+                                </div>
+                                
+                                <!-- 探索技能 -->
+                                <div class="tab-pane fade" id="exploration" role="tabpanel">
+                                    <div class="row g-2 mt-2" id="explorationSkills">
+                                        <!-- 探索技能がここに動的生成される -->
+                                    </div>
+                                </div>
+                                
+                                <!-- 行動技能 -->
+                                <div class="tab-pane fade" id="action" role="tabpanel">
+                                    <div class="row g-2 mt-2" id="actionSkills">
+                                        <!-- 行動技能がここに動的生成される -->
+                                    </div>
+                                </div>
+                                
+                                <!-- 交渉技能 -->
+                                <div class="tab-pane fade" id="social" role="tabpanel">
+                                    <div class="row g-2 mt-2" id="socialSkills">
+                                        <!-- 交渉技能がここに動的生成される -->
+                                    </div>
+                                </div>
+                                
+                                <!-- 全表示 -->
+                                <div class="tab-pane fade" id="all" role="tabpanel">
+                                    <div class="row g-2 mt-2" id="allSkills">
+                                        <!-- 全技能がここに動的生成される -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+
+            </form>
+        </div>
+    </div>
 </div>
+
+<!-- 固定フッター -->
+<div class="character-footer fixed-bottom bg-dark text-light py-3">
+    <div class="container">
+        <div class="row align-items-center">
+            <!-- 職業技能ポイント -->
+            <div class="col-md-3">
+                <div class="d-flex align-items-center">
+                    <span class="me-2">職業技能:</span>
+                    <span class="badge bg-success me-1" id="occupationUsedFooter">0</span>
+                    <span>/</span>
+                    <span class="badge bg-primary ms-1" id="occupationTotalFooter">0</span>
+                </div>
+            </div>
+            
+            <!-- 趣味技能ポイント -->
+            <div class="col-md-3">
+                <div class="d-flex align-items-center">
+                    <span class="me-2">趣味技能:</span>
+                    <span class="badge bg-warning text-dark me-1" id="interestUsedFooter">0</span>
+                    <span>/</span>
+                    <span class="badge bg-info ms-1" id="interestTotalFooter">0</span>
+                </div>
+            </div>
+            
+            <!-- ダイスボット実行 -->
+            <div class="col-md-3">
+                <button type="button" class="btn btn-outline-light btn-sm" id="footerRollDice">
+                    <i class="fas fa-dice"></i> ダイスロール
+                </button>
+            </div>
+            
+            <!-- 探索者保存 -->
+            <div class="col-md-3 text-end">
+                <button type="button" class="btn btn-success" id="footerSaveCharacter">
+                    <i class="fas fa-save"></i> 探索者保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 6版固有項目を表示
-    document.getElementById('idea-field').style.display = 'block';
-    document.getElementById('know-field').style.display = 'block';
-    document.getElementById('damage-bonus-field').style.display = 'block';
+
+    // 6版基本技能データ（カテゴリ分け）
+    const SKILLS_6TH = {
+        // 戦闘系技能
+        "combat": {
+            "dodge": { base: "DEX×2", name: "回避" },
+            "martial_arts": { base: 1, name: "マーシャルアーツ" },
+            "throw": { base: 25, name: "投擲" },
+            "first_aid": { base: 30, name: "応急手当" },
+            "fist_punch": { base: 50, name: "こぶし（パンチ）" },
+            "head_butt": { base: 10, name: "頭突き" },
+            "kick": { base: 25, name: "キック" },
+            "grapple": { base: 25, name: "組み付き" },
+            "knife": { base: 20, name: "ナイフ" },
+            "club": { base: 25, name: "こん棒" },
+            "handgun": { base: 20, name: "拳銃" },
+            "rifle": { base: 25, name: "ライフル" },
+            "shotgun": { base: 30, name: "ショットガン" },
+            "submachine_gun": { base: 15, name: "サブマシンガン" },
+            "machine_gun": { base: 15, name: "マシンガン" },
+            "bow": { base: 15, name: "弓" },
+            "sword": { base: 20, name: "剣" },
+            "spear": { base: 20, name: "槍" },
+            "whip": { base: 5, name: "鞭" }
+        },
+        // 探索技能
+        "exploration": {
+            "spot_hidden": { base: 25, name: "目星" },
+            "listen": { base: 25, name: "聞き耳" },
+            "library_use": { base: 25, name: "図書館" },
+            "occult": { base: 5, name: "オカルト" },
+            "cthulhu_mythos": { base: 0, name: "クトゥルフ神話" },
+            "archaeology": { base: 1, name: "考古学" },
+            "anthropology": { base: 1, name: "人類学" },
+            "history": { base: 20, name: "歴史" },
+            "natural_world": { base: 10, name: "博物学" },
+            "track": { base: 10, name: "追跡" },
+            "geology": { base: 1, name: "地質学" },
+            "astronomy": { base: 1, name: "天文学" },
+            "biology": { base: 1, name: "生物学" },
+            "chemistry": { base: 1, name: "化学" },
+            "physics": { base: 1, name: "物理学" },
+            "pharmacy": { base: 1, name: "薬学" }
+        },
+        // 行動技能
+        "action": {
+            "climb": { base: 40, name: "登攀" },
+            "jump": { base: 25, name: "跳躍" },
+            "swim": { base: 25, name: "水泳" },
+            "sneak": { base: 10, name: "忍び歩き" },
+            "hide": { base: 10, name: "隠れる" },
+            "conceal": { base: 15, name: "隠す" },
+            "locksmith": { base: 1, name: "鍵開け" },
+            "drive_auto": { base: 20, name: "運転" },
+            "pilot": { base: 1, name: "操縦" },
+            "ride": { base: 5, name: "乗馬" },
+            "navigate": { base: 10, name: "ナビゲート" },
+            "electrical_repair": { base: 10, name: "電気修理" },
+            "electronics": { base: 1, name: "電子工学" },
+            "mechanical_repair": { base: 20, name: "機械修理" },
+            "operate_heavy_machine": { base: 1, name: "重機械操作" },
+            "photography": { base: 10, name: "写真術" },
+            "disguise": { base: 1, name: "変装" },
+            "sleight_of_hand": { base: 10, name: "手さばき" }
+        },
+        // 交渉技能
+        "social": {
+            "persuade": { base: 15, name: "説得" },
+            "fast_talk": { base: 5, name: "言いくるめ" },
+            "bargain": { base: 5, name: "値切り" },
+            "psychology": { base: 5, name: "心理学" },
+            "psychoanalysis": { base: 1, name: "精神分析" },
+            "credit_rating": { base: 0, name: "信用" },
+            "language_own": { base: "EDU×5", name: "母国語" },
+            "language_other": { base: 1, name: "他国語" },
+            "intimidate": { base: 15, name: "威嚇" },
+            "charm": { base: 15, name: "魅惑" }
+        },
+        // その他技能
+        "other": {
+            "art": { base: 5, name: "芸術" },
+            "computer_use": { base: 1, name: "コンピューター" },
+            "law": { base: 5, name: "法律" },
+            "medicine": { base: 5, name: "医学" },
+            "accounting": { base: 10, name: "経理" },
+            "craft": { base: 5, name: "工芸" },
+            "appraise": { base: 5, name: "鑑定" },
+            "sing": { base: 5, name: "歌唱" },
+            "play_instrument": { base: 5, name: "楽器演奏" },
+            "dance": { base: 5, name: "ダンス" },
+            "acting": { base: 5, name: "演技" },
+            "teach": { base: 10, name: "教育" },
+            "perform": { base: 5, name: "芸能" },
+            "animal_handling": { base: 5, name: "動物使い" },
+            "survival": { base: 10, name: "サバイバル" },
+            "hypnosis": { base: 1, name: "催眠術" },
+            "occult_folklore": { base: 5, name: "民俗学" },
+            "cryptography": { base: 1, name: "暗号" },
+            "forensics": { base: 1, name: "鑑識" },
+            "gaming": { base: 5, name: "ギャンブル" }
+        }
+    };
     
-    // 最終更新日時を設定
-    document.getElementById('last-updated').value = new Date().toLocaleString('ja-JP');
-    
+    // 全技能の統合オブジェクト（後方互換性のため）
+    const ALL_SKILLS_6TH = {
+        ...SKILLS_6TH.combat,
+        ...SKILLS_6TH.exploration,
+        ...SKILLS_6TH.action,
+        ...SKILLS_6TH.social,
+        ...SKILLS_6TH.other
+    };
+
+    // 全能力値ダイス設定の更新
+    function updateGlobalDiceFormula() {
+        const count = parseInt(document.getElementById('globalDiceCount')?.value) || 3;
+        const sides = parseInt(document.getElementById('globalDiceSides')?.value) || 6;
+        const bonus = parseInt(document.getElementById('globalDiceBonus')?.value) || 0;
+        
+        const formula = `${count}d${sides}${bonus >= 0 ? '+' : ''}${bonus}`;
+        const formulaSpan = document.getElementById('globalDiceFormula');
+        if (formulaSpan) {
+            formulaSpan.textContent = formula;
+        }
+        
+        return { count, sides, bonus };
+    }
+
+    // ダイスロール関数
+    function rollDice(count, sides, bonus) {
+        let total = 0;
+        for (let i = 0; i < count; i++) {
+            total += Math.floor(Math.random() * sides) + 1;
+        }
+        return total + bonus;
+    }
+
+    // 全能力値ロール
+    function rollAllAbilities() {
+        const { count, sides, bonus } = updateGlobalDiceFormula();
+        const abilities = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu'];
+        
+        abilities.forEach(abilityName => {
+            let total = 0;
+            for (let i = 0; i < count; i++) {
+                total += Math.floor(Math.random() * sides) + 1;
+            }
+            total += bonus;
+            
+            const input = document.getElementById(abilityName);
+            if (input) {
+                input.value = total;
+                
+                // エフェクト追加
+                input.classList.add('dice-rolled');
+                setTimeout(() => input.classList.remove('dice-rolled'), 1000);
+            }
+        });
+        
+        // 自動計算実行
+        calculateDerivedStats();
+    }
+
     // 副次ステータス自動計算
     function calculateDerivedStats() {
         const str = parseInt(document.getElementById('str')?.value) || 0;
@@ -243,25 +594,37 @@ document.addEventListener('DOMContentLoaded', function() {
         const edu = parseInt(document.getElementById('edu')?.value) || 0;
         const siz = parseInt(document.getElementById('siz')?.value) || 0;
         
-        // 共通の副能力値
-        const hp = Math.ceil((con + siz) / 10);
-        const mp = Math.floor(pow / 5);
-        const san = pow;
+        // 6版計算式に基づく
+        const hp = Math.floor((con + siz) / 2);
+        const mp = pow;  // MP = POW
+        const san = pow * 5;  // SAN = POW × 5
         
-        document.getElementById('hp').value = hp;
-        document.getElementById('mp').value = mp;
-        document.getElementById('san').value = san;
+        if (document.getElementById('hp')) document.getElementById('hp').value = hp;
+        if (document.getElementById('mp')) document.getElementById('mp').value = mp;
+        if (document.getElementById('san')) document.getElementById('san').value = san;
         
         // 6版固有の計算
         calculateDerivedStats6th(str, con, pow, dex, int, edu, siz);
+        
+        // 技能ポイント計算
+        calculateSkillPoints();
     }
     
     function calculateDerivedStats6th(str, con, pow, dex, int, edu, siz) {
         // アイデア = INT × 5
-        document.getElementById('idea').value = int * 5;
+        if (document.getElementById('idea')) {
+            document.getElementById('idea').value = int * 5;
+        }
+        
+        // 幸運 = POW × 5
+        if (document.getElementById('luck')) {
+            document.getElementById('luck').value = pow * 5;
+        }
         
         // 知識 = EDU × 5
-        document.getElementById('know').value = edu * 5;
+        if (document.getElementById('know')) {
+            document.getElementById('know').value = edu * 5;
+        }
         
         // ダメージボーナス計算（6版）
         const total = str + siz;
@@ -274,15 +637,396 @@ document.addEventListener('DOMContentLoaded', function() {
         else if (total <= 40) damageBonus = "+1d6";
         else damageBonus = "+2d6";
         
-        document.getElementById('damage-bonus').value = damageBonus;
+        if (document.getElementById('damage-bonus')) {
+            document.getElementById('damage-bonus').value = damageBonus;
+        }
     }
+
+    // 職業技能ポイント計算方式
+    function calculateOccupationSkillPoints(method) {
+        const str = parseInt(document.getElementById('str')?.value) || 0;
+        const con = parseInt(document.getElementById('con')?.value) || 0;
+        const pow = parseInt(document.getElementById('pow')?.value) || 0;
+        const dex = parseInt(document.getElementById('dex')?.value) || 0;
+        const app = parseInt(document.getElementById('app')?.value) || 0;
+        const siz = parseInt(document.getElementById('siz')?.value) || 0;
+        const edu = parseInt(document.getElementById('edu')?.value) || 0;
+        
+        const calculationMethods = {
+            'edu20': edu * 20,
+            'edu10app10': edu * 10 + app * 10,
+            'edu10dex10': edu * 10 + dex * 10,
+            'edu10pow10': edu * 10 + pow * 10,
+            'edu10str10': edu * 10 + str * 10,
+            'edu10con10': edu * 10 + con * 10,
+            'edu10siz10': edu * 10 + siz * 10
+        };
+        
+        return calculationMethods[method] || edu * 20;
+    }
+    
+    // 技能ポイント計算
+    function calculateSkillPoints() {
+        const int = parseInt(document.getElementById('int')?.value) || 0;
+        const method = document.getElementById('occupationMethod')?.value || 'edu20';
+        
+        // 職業技能ポイント: 選択された計算方式による
+        const occupationPoints = calculateOccupationSkillPoints(method);
+        
+        // 趣味技能ポイント: INT × 10
+        const interestPoints = int * 10;
+        
+        if (document.getElementById('occupationTotal')) {
+            document.getElementById('occupationTotal').value = occupationPoints;
+        }
+        if (document.getElementById('interestTotal')) {
+            document.getElementById('interestTotal').value = interestPoints;
+        }
+    }
+
+
+
+    // 技能アイテムHTML生成
+    function createSkillItemHTML(key, skill, category = 'all') {
+        let baseValue = skill.base;
+        if (typeof baseValue === 'string') {
+            // 動的基本値計算
+            if (baseValue === 'DEX×2') {
+                const dex = parseInt(document.getElementById('dex')?.value) || 0;
+                baseValue = dex * 2;
+            } else if (baseValue === 'EDU×5') {
+                const edu = parseInt(document.getElementById('edu')?.value) || 0;
+                baseValue = edu * 5;
+            }
+        }
+        
+        return `
+            <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
+                <div class="skill-item border rounded p-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <label for="skill_${key}" class="form-label small fw-bold mb-0">${skill.name}</label>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                onclick="toggleSkillDiceSettings('${key}')" 
+                                title="ダイス設定">
+                            <i class="fas fa-dice-d6"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- ダイス設定エリア（初期非表示） -->
+                    <div id="diceSettings_${key}" class="skill-dice-settings mt-2" style="display: none;">
+                        <div class="bg-light p-2 rounded">
+                            <div class="row g-1">
+                                <div class="col-4">
+                                    <label class="form-label small">個数</label>
+                                    <input type="number" class="form-control form-control-sm" 
+                                           id="skillDiceCount_${key}" min="1" max="10" value="3" 
+                                           onchange="updateSkillDiceFormula('${key}')">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label small">面数</label>
+                                    <input type="number" class="form-control form-control-sm" 
+                                           id="skillDiceSides_${key}" min="2" max="100" value="6" 
+                                           onchange="updateSkillDiceFormula('${key}')">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label small">ボーナス</label>
+                                    <input type="number" class="form-control form-control-sm" 
+                                           id="skillDiceBonus_${key}" min="-50" max="50" value="0" 
+                                           onchange="updateSkillDiceFormula('${key}')">
+                                </div>
+                            </div>
+                            <div class="row g-1 mt-1">
+                                <div class="col-8">
+                                    <span class="small text-muted">式: <span id="skillDiceFormula_${key}">3d6+0</span></span>
+                                </div>
+                                <div class="col-4">
+                                    <button type="button" class="btn btn-primary btn-sm w-100" 
+                                            onclick="rollSkillValue('${key}')">
+                                        <i class="fas fa-dice"></i> ロール
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-1 mt-2">
+                        <div class="col-4">
+                            <input type="number" class="form-control form-control-sm text-center" 
+                                   value="${baseValue}" readonly title="基本値">
+                        </div>
+                        <div class="col-4">
+                            <input type="number" class="form-control form-control-sm occupation-skill text-center" 
+                                   id="occ_${key}" min="0" max="90" value="0" placeholder="職" 
+                                   data-skill="${key}" title="職業技能">
+                        </div>
+                        <div class="col-4">
+                            <input type="number" class="form-control form-control-sm interest-skill text-center" 
+                                   id="int_${key}" min="0" max="90" value="0" placeholder="趣" 
+                                   data-skill="${key}" title="趣味技能">
+                        </div>
+                    </div>
+                    <div class="row g-1 mt-1">
+                        <div class="col-12">
+                            <div class="skill-total fw-bold text-center" id="total_${key}">${baseValue}%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // 技能リスト生成（カテゴリ別）
+    function generateSkillsList() {
+        // 各カテゴリのコンテナを取得
+        const combatContainer = document.getElementById('combatSkills');
+        const explorationContainer = document.getElementById('explorationSkills');
+        const actionContainer = document.getElementById('actionSkills');
+        const socialContainer = document.getElementById('socialSkills');
+        const allContainer = document.getElementById('allSkills');
+        
+        // 各カテゴリの技能を生成
+        if (combatContainer) {
+            combatContainer.innerHTML = '';
+            Object.entries(SKILLS_6TH.combat).forEach(([key, skill]) => {
+                combatContainer.innerHTML += createSkillItemHTML(key, skill, 'combat');
+            });
+        }
+        
+        if (explorationContainer) {
+            explorationContainer.innerHTML = '';
+            Object.entries(SKILLS_6TH.exploration).forEach(([key, skill]) => {
+                explorationContainer.innerHTML += createSkillItemHTML(key, skill, 'exploration');
+            });
+        }
+        
+        if (actionContainer) {
+            actionContainer.innerHTML = '';
+            Object.entries(SKILLS_6TH.action).forEach(([key, skill]) => {
+                actionContainer.innerHTML += createSkillItemHTML(key, skill, 'action');
+            });
+        }
+        
+        if (socialContainer) {
+            socialContainer.innerHTML = '';
+            Object.entries(SKILLS_6TH.social).forEach(([key, skill]) => {
+                socialContainer.innerHTML += createSkillItemHTML(key, skill, 'social');
+            });
+        }
+        
+        if (allContainer) {
+            allContainer.innerHTML = '';
+            Object.entries(ALL_SKILLS_6TH).forEach(([key, skill]) => {
+                allContainer.innerHTML += createSkillItemHTML(key, skill, 'all');
+            });
+        }
+        
+        // 技能入力イベント追加
+        addSkillInputEvents();
+    }
+
+    // 技能入力イベント
+    function addSkillInputEvents() {
+        document.querySelectorAll('.occupation-skill, .interest-skill').forEach(input => {
+            input.addEventListener('input', updateSkillTotals);
+        });
+    }
+    
+    // 技能別ダイス設定の表示/非表示切り替え
+    function toggleSkillDiceSettings(skillKey) {
+        const settingsDiv = document.getElementById(`diceSettings_${skillKey}`);
+        if (settingsDiv) {
+            if (settingsDiv.style.display === 'none') {
+                settingsDiv.style.display = 'block';
+                updateSkillDiceFormula(skillKey);
+            } else {
+                settingsDiv.style.display = 'none';
+            }
+        }
+    }
+    
+    // 技能別ダイス式の更新
+    function updateSkillDiceFormula(skillKey) {
+        const count = parseInt(document.getElementById(`skillDiceCount_${skillKey}`)?.value) || 3;
+        const sides = parseInt(document.getElementById(`skillDiceSides_${skillKey}`)?.value) || 6;
+        const bonus = parseInt(document.getElementById(`skillDiceBonus_${skillKey}`)?.value) || 0;
+        
+        const formula = `${count}d${sides}${bonus >= 0 ? '+' : ''}${bonus}`;
+        const formulaSpan = document.getElementById(`skillDiceFormula_${skillKey}`);
+        if (formulaSpan) {
+            formulaSpan.textContent = formula;
+        }
+        
+        return { count, sides, bonus };
+    }
+    
+    // 技能値のダイスロール
+    function rollSkillValue(skillKey) {
+        const { count, sides, bonus } = updateSkillDiceFormula(skillKey);
+        
+        let total = 0;
+        for (let i = 0; i < count; i++) {
+            total += Math.floor(Math.random() * sides) + 1;
+        }
+        total += bonus;
+        
+        // 職業技能と趣味技能の入力欄に値を設定
+        const occInput = document.getElementById(`occ_${skillKey}`);
+        const intInput = document.getElementById(`int_${skillKey}`);
+        
+        // 技能名を取得
+        const skillName = ALL_SKILLS_6TH[skillKey]?.name || skillKey;
+        
+        // ダイアログで振り分けを選択
+        const choice = confirm(
+            `${skillName}のダイスロール結果: ${total}\n\n` +
+            'OK: 職業技能に設定\n' +
+            'キャンセル: 趣味技能に設定'
+        );
+        
+        if (choice && occInput) {
+            occInput.value = Math.min(total, 90);
+            occInput.classList.add('dice-rolled');
+            setTimeout(() => occInput.classList.remove('dice-rolled'), 1000);
+        } else if (!choice && intInput) {
+            intInput.value = Math.min(total, 90);
+            intInput.classList.add('dice-rolled');
+            setTimeout(() => intInput.classList.remove('dice-rolled'), 1000);
+        }
+        
+        // 技能合計を更新
+        updateSkillTotals();
+    }
+    
+    // グローバル関数として定義（HTMLから呼び出すため）
+    window.toggleSkillDiceSettings = toggleSkillDiceSettings;
+    window.updateSkillDiceFormula = updateSkillDiceFormula;
+    window.rollSkillValue = rollSkillValue;
+
+    // 技能合計更新
+    function updateSkillTotals() {
+        let occupationUsed = 0;
+        let interestUsed = 0;
+        
+        Object.keys(ALL_SKILLS_6TH).forEach(key => {
+            const occEl = document.getElementById(`occ_${key}`);
+            const intEl = document.getElementById(`int_${key}`);
+            const totalEl = document.getElementById(`total_${key}`);
+            
+            if (occEl && intEl && totalEl) {
+                // 基本値を動的に計算
+                const skill = ALL_SKILLS_6TH[key];
+                let baseValue = skill.base;
+                if (typeof baseValue === 'string') {
+                    if (baseValue === 'DEX×2') {
+                        const dex = parseInt(document.getElementById('dex')?.value) || 0;
+                        baseValue = dex * 2;
+                    } else if (baseValue === 'EDU×5') {
+                        const edu = parseInt(document.getElementById('edu')?.value) || 0;
+                        baseValue = edu * 5;
+                    }
+                }
+                
+                const base = parseInt(baseValue) || 0;
+                const occ = parseInt(occEl.value) || 0;
+                const int = parseInt(intEl.value) || 0;
+                
+                const total = Math.min(base + occ + int, 90);
+                totalEl.textContent = total + '%';
+                
+                occupationUsed += occ;
+                interestUsed += int;
+            }
+        });
+        
+        // ポイント使用状況更新
+        const occupationTotal = parseInt(document.getElementById('occupationTotal')?.value) || 0;
+        const interestTotal = parseInt(document.getElementById('interestTotal')?.value) || 0;
+        
+        if (document.getElementById('occupationUsed')) {
+            document.getElementById('occupationUsed').textContent = occupationUsed;
+        }
+        if (document.getElementById('occupationRemaining')) {
+            document.getElementById('occupationRemaining').textContent = Math.max(0, occupationTotal - occupationUsed);
+        }
+        if (document.getElementById('interestUsed')) {
+            document.getElementById('interestUsed').textContent = interestUsed;
+        }
+        if (document.getElementById('interestRemaining')) {
+            document.getElementById('interestRemaining').textContent = Math.max(0, interestTotal - interestUsed);
+        }
+        
+        // フッターの技能ポイント表示も更新
+        if (document.getElementById('occupationUsedFooter')) {
+            document.getElementById('occupationUsedFooter').textContent = occupationUsed;
+        }
+        if (document.getElementById('occupationTotalFooter')) {
+            document.getElementById('occupationTotalFooter').textContent = occupationTotal;
+        }
+        if (document.getElementById('interestUsedFooter')) {
+            document.getElementById('interestUsedFooter').textContent = interestUsed;
+        }
+        if (document.getElementById('interestTotalFooter')) {
+            document.getElementById('interestTotalFooter').textContent = interestTotal;
+        }
+    }
+
+
+    // イベントリスナー設定
+    document.getElementById('rollAllAbilities')?.addEventListener('click', rollAllAbilities);
+    
+    // 全能力値ダイス設定の変更時にフォーミュラを更新
+    document.getElementById('globalDiceCount')?.addEventListener('input', updateGlobalDiceFormula);
+    document.getElementById('globalDiceSides')?.addEventListener('input', updateGlobalDiceFormula);
+    document.getElementById('globalDiceBonus')?.addEventListener('input', updateGlobalDiceFormula);
+    
+    // 職業技能ポイント計算方式変更時のイベント
+    document.getElementById('occupationMethod')?.addEventListener('change', function() {
+        calculateSkillPoints();
+        updateSkillTotals();
+    });
+    
+    
+    // フッターボタンのイベントリスナー
+    document.getElementById('footerRollDice')?.addEventListener('click', function() {
+        document.getElementById('rollAllAbilities')?.click();
+    });
+    
+    document.getElementById('footerSaveCharacter')?.addEventListener('click', function() {
+        document.getElementById('character-sheet-form')?.dispatchEvent(new Event('submit'));
+    });
     
     // 能力値変更時に副次ステータスを更新
     document.querySelectorAll('.ability-score').forEach(input => {
         input.addEventListener('input', calculateDerivedStats);
     });
+
+    // リセット・計算ボタン
+    document.getElementById('resetSkillPoints')?.addEventListener('click', function() {
+        document.querySelectorAll('.occupation-skill, .interest-skill').forEach(input => {
+            input.value = 0;
+        });
+        updateSkillTotals();
+    });
+
+    document.getElementById('calculateSkills')?.addEventListener('click', function() {
+        calculateSkillPoints();
+        updateSkillTotals();
+    });
+
+    // Bootstrap タブ初期化
+    const triggerTabList = [].slice.call(document.querySelectorAll('#skillTabs button'));
+    triggerTabList.forEach(function (triggerEl) {
+        const tabTrigger = new bootstrap.Tab(triggerEl);
+        
+        triggerEl.addEventListener('click', function (event) {
+            event.preventDefault();
+            tabTrigger.show();
+        });
+    });
     
-    // 初期計算
+    // 初期化
+    updateGlobalDiceFormula();
+    generateSkillsList();
     calculateDerivedStats();
     
     // フォーム送信処理
@@ -349,29 +1093,100 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
+/* フッター調整 */
+body {
+    padding-bottom: 80px; /* フッターの高さ分の余白 */
+}
+
+.character-footer {
+    z-index: 1020;
+    border-top: 3px solid #ffc107;
+}
+
 .ability-score {
     text-align: center;
     font-weight: bold;
+    transition: all 0.3s ease;
 }
+
+.dice-rolled {
+    background-color: #ffeaa7 !important;
+    border-color: #fdcb6e !important;
+    box-shadow: 0 0 10px rgba(253, 203, 110, 0.5) !important;
+    transform: scale(1.05);
+}
+
+.skill-item {
+    transition: all 0.2s ease;
+    background-color: #f8f9fa;
+}
+
+.skill-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    background-color: #ffffff;
+}
+
+.skill-dice-settings,
+.ability-dice-settings {
+    border-top: 1px solid #dee2e6;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    animation: slideDown 0.3s ease;
+}
+
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        max-height: 200px;
+    }
+}
+
+.skill-total {
+    color: #1976d2;
+    font-size: 0.9rem;
+    padding: 2px 4px;
+    border-radius: 4px;
+    background-color: rgba(25, 118, 210, 0.1);
+}
+
 
 .card {
     border: none;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 .card-header {
-    background-color: #f8f9fa;
     border-bottom: 2px solid #dee2e6;
 }
 
 .btn-primary {
     background-color: #1976d2;
     border-color: #1976d2;
+    transition: all 0.2s ease;
 }
 
 .btn-primary:hover {
     background-color: #1565c0;
     border-color: #1565c0;
+    transform: translateY(-1px);
+}
+
+.btn-success:hover {
+    transform: translateY(-1px);
+}
+
+.btn-outline-primary:hover {
+    transform: translateY(-1px);
 }
 
 .text-purple {
@@ -383,9 +1198,110 @@ document.addEventListener('DOMContentLoaded', function() {
     box-shadow: 0 0 0 0.2rem rgba(25, 118, 210, 0.25);
 }
 
+.form-control-sm:focus {
+    box-shadow: 0 0 0 0.15rem rgba(25, 118, 210, 0.25);
+}
+
+.occupation-skill:focus {
+    border-color: #28a745;
+    box-shadow: 0 0 0 0.15rem rgba(40, 167, 69, 0.25);
+}
+
+.interest-skill:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.15rem rgba(255, 193, 7, 0.25);
+}
+
+.badge {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.sticky-top {
+    transition: all 0.3s ease;
+}
+
 hr {
     border-top: 2px solid #dee2e6;
     margin: 0.5rem 0 1rem 0;
+}
+
+/* アニメーション効果 */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+.dice-rolled {
+    animation: pulse 0.6s ease-in-out;
+}
+
+/* タブスタイル */
+.nav-tabs .nav-link {
+    color: #6c757d;
+    border: 1px solid transparent;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: #dee2e6;
+    background-color: #f8f9fa;
+    color: #1976d2;
+}
+
+.nav-tabs .nav-link.active {
+    color: #1976d2;
+    background-color: #fff;
+    border-color: #dee2e6 #dee2e6 #fff;
+    font-weight: 600;
+}
+
+.tab-content {
+    border: 1px solid #dee2e6;
+    border-top: none;
+    background-color: #fff;
+    min-height: 400px;
+}
+
+.tab-pane {
+    padding: 1rem;
+}
+
+/* レスポンシブ調整 */
+@media (max-width: 768px) {
+    .character-creator-header h2 {
+        font-size: 1.5rem;
+    }
+    
+    .skill-item .row .col-4 {
+        padding: 0 2px;
+    }
+    
+    .form-control-sm {
+        font-size: 0.8rem;
+    }
+    
+    .nav-tabs .nav-link {
+        font-size: 0.85rem;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .nav-tabs .nav-link i {
+        display: none;
+    }
+}
+
+/* ヘルプアコーディオン */
+.accordion-button:not(.collapsed) {
+    background-color: rgba(25, 118, 210, 0.1);
+    color: #1976d2;
+}
+
+.accordion-button:focus {
+    border-color: #1976d2;
+    box-shadow: 0 0 0 0.25rem rgba(25, 118, 210, 0.25);
 }
 </style>
 {% endblock %}
