@@ -38,8 +38,8 @@ DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
 
 # Google OAuth
-GOOGLE_CLIENT_ID=456958275505-34fh4b1090mu3p9qubv28s9httvv1cv8.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=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
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 # Twitter OAuth
 TWITTER_CLIENT_ID=your-twitter-client-id
