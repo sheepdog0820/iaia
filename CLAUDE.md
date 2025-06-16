@@ -28,6 +28,66 @@
 - キャラクターシート関連のバグ修正
 - プレイ履歴・統計機能の改善（クトゥルフ以外のシステムも対象）
 
+## 6版ダイスロール設定仕様
+
+### 動的ダイス設定システム
+
+**6版キャラクター作成では、各能力値のダイス設定を動的に変更可能です。**
+
+#### 基本仕様
+- **対象能力値**: STR, CON, POW, DEX, APP, SIZ, INT, EDU（全8つ）
+- **設定項目**: ダイス数（1-10）、ダイス面数（2-100）、ボーナス値（-50〜+50）
+- **初期値**: 6版標準ルール（STR:3D6, SIZ:2D6+6, INT:2D6+6, EDU:3D6+3等）
+- **変更可能**: ユーザーがリアルタイムで任意の値に変更可能
+
+#### 実装要件
+1. **動的計算**: ダイス設定変更時に即座にダイスロール計算ロジックに反映
+2. **固定値禁止**: ハードコードされた固定値は使用しない
+3. **設定永続化**: ユーザーの設定は名前付きで保存・管理可能
+4. **リアルタイム更新**: 設定変更時に画面表示も即座に更新
+
+#### ダイス計算ロジック
+```javascript
+// 動的なダイス計算関数（固定値使用禁止）
+function rollAbility(abilityName) {
+    const count = getDiceCount(abilityName);  // 動的取得
+    const sides = getDiceSides(abilityName);  // 動的取得  
+    const bonus = getDiceBonus(abilityName);  // 動的取得
+    
+    let total = 0;
+    for (let i = 0; i < count; i++) {
+        total += Math.floor(Math.random() * sides) + 1;
+    }
+    return total + bonus;
+}
+```
+
+#### 標準プリセット値
+- **STR (筋力)**: 3D6+0
+- **CON (体力)**: 3D6+0  
+- **POW (精神力)**: 3D6+0
+- **DEX (敏捷性)**: 3D6+0
+- **APP (外見)**: 3D6+0
+- **SIZ (体格)**: 2D6+6
+- **INT (知識)**: 2D6+6
+- **EDU (教育)**: 3D6+3
+
+#### 高能力値プリセット値
+- **STR**: 4D6-3 (4D6の最良3個相当)
+- **CON**: 4D6-3
+- **POW**: 4D6-3
+- **DEX**: 4D6-3
+- **APP**: 4D6-3
+- **SIZ**: 3D6+3
+- **INT**: 3D6+3
+- **EDU**: 4D6+0
+
+#### 禁止事項
+- ❌ ハードコードされた固定ダイス値の使用
+- ❌ 設定無視した決め打ちダイス計算
+- ❌ 設定変更が反映されない実装
+- ❌ リアルタイム更新されないUI
+
 ## コマンド集
 
 ### 開発環境セットアップ
@@ -422,6 +482,120 @@ CustomUser
 - ✅ グループ管理機能 (Cult Circle) 完全動作
 - ✅ 全てのAPIエンドポイント正常動作
 
+## 【重要】画面リファクタリング・大規模変更の注意事項
+
+### 🚨 画面リファクタリング時の必須ルール
+
+**UI/UXの大幅な変更や画面構造の変更時は、以下のルールを厳格に遵守してください**
+
+#### ❌ 禁止事項：大規模変更の一括実行
+- **アコーディオン・タブ構造の一括変換禁止**: HTMLの基本構造を大幅に変更する際は段階的に実行
+- **複数セクションの同時変換禁止**: カード→アコーディオンなどの変換は1セクションずつ実行
+- **テンプレートファイルの完全書き換え禁止**: 既存の動作するコードを一度に大量変更しない
+- **git restore なしでの強行禁止**: バックアップなしでの大規模変更は禁止
+
+#### ✅ 推奨事項：段階的改善アプローチ
+1. **最小限改善ファースト**: フッター余白、必須マーカーなど小さな改善から開始
+2. **動作確認必須**: 各変更後に必ず画面表示とJavaScript動作を確認
+3. **git commit 分割**: 機能ごとに細かくcommitし、問題時に部分的restore可能にする
+4. **バックアップ作成**: 大規模変更前に必ずgit branchまたは手動バックアップを作成
+5. **段階的実装**: 1つのセクション変更→動作確認→次のセクション変更
+
+#### 🔄 画面リファクタリングの正しい手順
+```bash
+# STEP 1: バックアップ作成
+git branch backup-before-refactor
+git add . && git commit -m "リファクタリング開始前のバックアップ"
+
+# STEP 2: 最小限改善から開始
+# フッター余白、必須マーカー、レスポンシブ調整など
+
+# STEP 3: 動作確認
+# ブラウザで画面表示とJavaScript動作を確認
+
+# STEP 4: 段階的変更
+# 1セクションずつアコーディオン化やUI変更
+
+# STEP 5: 各段階でcommit
+git add . && git commit -m "セクション1: アコーディオン化完了"
+
+# STEP 6: 問題発生時の即座復旧
+git restore <problematic-file>  # または
+git reset --hard backup-before-refactor
+```
+
+#### 🚫 失敗パターンと回避策
+
+**失敗パターン1: HTMLの完全書き換え**
+```html
+<!-- ❌ 悪い例: 既存の複雑な構造を一括変換 -->
+<!-- 全てのカードを一度にアコーディオンに変換 -->
+```
+**回避策**: 1つのカードをアコーディオンに変換→動作確認→次のカード変換
+
+**失敗パターン2: JavaScript構造の大幅変更**
+```javascript
+// ❌ 悪い例: 既存のイベントリスナーを大量削除・変更
+// onclick属性を一括でaddEventListenerに変換
+```
+**回避策**: 既存のJavaScriptが動作する状態を維持し、段階的に改善
+
+**失敗パターン3: CSS構造の完全刷新**
+```css
+/* ❌ 悪い例: 既存のスタイルを大量削除・変更 */
+/* Bootstrap classを独自CSSで完全置換 */
+```
+**回避策**: 既存スタイルを保持し、追加・改善のみ実行
+
+#### 🛡️ 緊急復旧手順
+画面が表示されない・JavaScript エラーが発生した場合：
+
+```bash
+# 1. 即座に元のファイルを復元
+git restore <broken-file>
+
+# 2. サーバー再起動
+python3 manage.py runserver
+
+# 3. 動作確認
+# ブラウザで画面表示を確認
+
+# 4. 最小限の改善のみ再実装
+# フッター余白、必須マーカーなど安全な変更のみ
+
+# 5. 段階的再挑戦
+# 1セクションずつ慎重に変更
+```
+
+#### 📋 画面リファクタリング チェックリスト
+**変更前チェック**
+- [ ] git状態確認（未コミット変更の有無）
+- [ ] バックアップブランチ作成
+- [ ] 現在の画面表示・JavaScript動作確認
+- [ ] 変更対象セクションの明確化（1セクションのみ）
+
+**変更中チェック**
+- [ ] HTMLタグの開始・終了の整合性確認
+- [ ] JavaScript関数の重複・削除の有無確認
+- [ ] CSSクラスの衝突・削除の有無確認
+- [ ] 各変更後の動作確認実行
+
+**変更後チェック**
+- [ ] ブラウザでの画面表示確認
+- [ ] JavaScript console エラーの有無確認
+- [ ] モバイル・デスクトップでの表示確認
+- [ ] 全機能の動作確認（ダイスロール、フォーム送信等）
+- [ ] git commit で変更を保存
+
+#### 🎯 成功のポイント
+1. **保守的アプローチ**: 「動作するものを壊さない」を最優先
+2. **段階的改善**: 小さな改善の積み重ねで大きな改善を実現
+3. **即座の動作確認**: 各変更後すぐにブラウザで確認
+4. **git活用**: 問題時に即座に復旧できる体制維持
+5. **ユーザー体験優先**: 見た目より動作の安定性を優先
+
+---
+
 ## 【必須】作業方針とガイドライン
 
 ### 🚀 TDD駆動による開発フロー
@@ -537,6 +711,308 @@ python3 test_complete_suite.py                  # 統合テスト成功
 - **入力検証**: すべての入力値の検証
 - **認証・認可**: 適切なアクセス制御
 - **SQLインジェクション**: ORM使用の確認
+
+## 🔧 JavaScript開発ガイドライン
+
+### ⚠️ JavaScriptエラー予防の必須ルール
+
+**この章は、JavaScriptスコープエラーの再発防止のために必須で遵守してください。**
+
+#### 🚨 スコープエラーの根本原因と対策
+
+##### ❌ 典型的な失敗パターン
+```javascript
+// 悪い例: DOMContentLoaded内で関数定義
+document.addEventListener('DOMContentLoaded', function() {
+    function toggleDiceSettings() {
+        // この関数はonclick="toggleDiceSettings()"から呼び出せない
+    }
+});
+
+// HTML側でエラーが発生
+<button onclick="toggleDiceSettings()">表示</button>
+```
+
+##### ✅ 正しい実装パターン
+```javascript
+// 良い例: グローバルスコープで関数定義
+function toggleDiceSettings() {
+    // この関数はonclickから呼び出し可能
+}
+
+// または、イベントリスナーを使用
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('toggleBtn')?.addEventListener('click', toggleDiceSettings);
+});
+
+// HTML側
+<button id="toggleBtn">表示</button>
+```
+
+#### 📋 JavaScript実装チェックリスト
+
+##### 必須チェック項目（実装前）
+- [ ] **関数スコープ確認**: onclickから呼び出す関数はグローバルスコープに配置
+- [ ] **HTML要素ID確認**: 対応するHTML要素が存在することを確認
+- [ ] **重複関数チェック**: 同名関数が複数定義されていないか確認
+- [ ] **依存関数チェック**: 呼び出す他の関数もグローバルに配置されているか確認
+
+##### 必須チェック項目（実装後）
+- [ ] **ブラウザテスト**: 実際にボタンクリックして動作確認
+- [ ] **開発者ツール確認**: Console Errorが発生しないことを確認
+- [ ] **関数可視性テスト**: `console.log(typeof functionName)`でundefinedでないことを確認
+
+#### 🔧 JavaScript関数配置ルール
+
+##### Rule 1: onclick用関数はグローバル配置
+```javascript
+// ❌ 悪い例: DOMContentLoaded内
+document.addEventListener('DOMContentLoaded', function() {
+    function handleClick() { /* onclick から呼べない */ }
+});
+
+// ✅ 良い例: グローバルスコープ
+function handleClick() { /* onclick から呼べる */ }
+```
+
+##### Rule 2: イベントリスナーパターンを推奨
+```javascript
+// ✅ 推奨: onclick属性を避ける
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('myButton')?.addEventListener('click', handleClick);
+});
+```
+
+##### Rule 3: 関数重複の回避
+```javascript
+// ❌ 悪い例: 関数の重複定義
+function myFunction() { /* グローバル */ }
+document.addEventListener('DOMContentLoaded', function() {
+    function myFunction() { /* 重複！ */ }
+});
+
+// ✅ 良い例: 一箇所での定義
+function myFunction() { /* グローバルで一度だけ */ }
+```
+
+#### 🧪 JavaScript動作確認手順
+
+##### 開発時確認ステップ
+1. **構文チェック**: ブラウザの開発者ツールでエラーなし
+2. **関数存在確認**: `console.log(typeof functionName)` → `'function'`
+3. **クリックテスト**: 実際にボタンをクリックして動作確認
+4. **ネットワークエラー確認**: 404やJSエラーがないことを確認
+
+##### エラー発生時のデバッグ手順
+```javascript
+// デバッグ用コード例
+console.log('=== デバッグ開始 ===');
+console.log('toggleDiceSettings type:', typeof toggleDiceSettings);
+console.log('rollCustomDice type:', typeof rollCustomDice);
+console.log('Element exists:', document.getElementById('targetElement'));
+console.log('=== デバッグ終了 ===');
+```
+
+#### 🔄 JavaScript修正時の必須手順
+
+##### 修正ワークフロー
+1. **🔍 問題特定**: Console Errorメッセージの確認
+2. **🧩 スコープ分析**: 関数がどこで定義されているか確認
+3. **✂️ 重複削除**: 同じ関数の重複定義を削除
+4. **🌐 グローバル移動**: onclick用関数をグローバルスコープに移動
+5. **🔗 イベント接続**: DOMContentLoaded内でイベントリスナー設定
+6. **✅ 動作確認**: ブラウザで実際にテスト実行
+
+##### テンプレート（理想的な構造）
+```javascript
+// === グローバル関数群（onclick用） ===
+function toggleDiceSettings() { /* ... */ }
+function rollCustomDice() { /* ... */ }
+function applyPresets() { /* ... */ }
+
+// === DOMContentLoaded（初期化・イベント接続） ===
+document.addEventListener('DOMContentLoaded', function() {
+    // イベントリスナー設定
+    document.getElementById('toggleBtn')?.addEventListener('click', toggleDiceSettings);
+    document.getElementById('rollBtn')?.addEventListener('click', rollCustomDice);
+    
+    // 初期化処理
+    initializeComponents();
+    
+    // ローカル関数（onclickからは呼ばない）
+    function initializeComponents() { /* ... */ }
+});
+```
+
+#### 🚨 緊急時対応プロトコル
+
+##### 本番環境でJavaScriptエラーが発生した場合
+1. **即座確認**: ブラウザ開発者ツールでエラー内容確認
+2. **一時回避**: onclick → addEventListener に変更
+3. **根本修正**: グローバル関数配置とスコープ整理
+4. **動作テスト**: 全ボタン・機能の動作確認
+5. **デプロイ**: 修正版のデプロイ
+
+#### 📚 関連ドキュメント
+
+- **JavaScript基礎**: [MDN - Functions](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Functions)
+- **イベント処理**: [MDN - Event Handling](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener)
+- **スコープ**: [MDN - Variable Scope](https://developer.mozilla.org/en-US/docs/Glossary/Scope)
+
+**重要**: 今後、JavaScriptでonclick関数エラーが発生した場合は、必ずこのガイドラインに従って修正してください。
+
+### 🚨 JavaScript重複・スコープエラーの完全予防ガイド
+
+#### 最重要ルール
+1. **変数重複の絶対禁止**: 同じ変数名（特に`const abilities`）を複数箇所で宣言しない
+2. **グローバル定数の活用**: 共通で使用する配列はグローバル定数として定義
+3. **関数重複の完全排除**: 同名関数を複数箇所で定義しない
+4. **onclick属性の段階的廃止**: addEventListener方式への全面移行
+
+#### 🔍 エラーパターンと対策
+
+##### パターン1: 変数重複エラー
+```javascript
+// ❌ 危険: 変数の重複宣言
+const abilities = ['str', 'con', 'pow'];  // グローバル
+function myFunction() {
+    const abilities = ['STR', 'CON', 'POW'];  // エラー: 重複
+}
+
+// ✅ 安全: グローバル定数の活用
+const ABILITIES_LOWER = ['str', 'con', 'pow'];
+const ABILITIES_UPPER = ['STR', 'CON', 'POW'];
+function myFunction() {
+    ABILITIES_UPPER.forEach(ability => { /* ... */ });
+}
+```
+
+##### パターン2: 関数重複エラー
+```javascript
+// ❌ 危険: 関数の重複定義
+function loadDiceSetting() { /* グローバル */ }
+document.addEventListener('DOMContentLoaded', function() {
+    function loadDiceSetting() { /* 重複エラー */ }
+});
+
+// ✅ 安全: 一箇所での定義
+function loadDiceSetting() { /* グローバルで一度だけ */ }
+document.addEventListener('DOMContentLoaded', function() {
+    // 重複定義なし
+});
+```
+
+##### パターン3: スコープアクセスエラー
+```javascript
+// ❌ 危険: onchangeから呼び出せない
+document.addEventListener('DOMContentLoaded', function() {
+    function handleChange() { /* onchangeから見えない */ }
+});
+
+// ✅ 安全: グローバル関数 + イベントリスナー
+function handleChange() { /* グローバルで定義 */ }
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('mySelect')?.addEventListener('change', handleChange);
+});
+```
+
+#### 📋 JavaScript品質チェックリスト（拡張版）
+
+##### コード作成前チェック
+- [ ] **グローバル定数確認**: 共通配列をグローバル定数で定義済みか
+- [ ] **関数配置計画**: どの関数をグローバル、どの関数をローカルにするか明確化
+- [ ] **イベント戦略**: onclick vs addEventListener のどちらを使用するか決定
+
+##### コード作成中チェック  
+- [ ] **変数名重複チェック**: 同じ変数名を複数箇所で宣言していないか
+- [ ] **関数名重複チェック**: 同じ関数名を複数箇所で定義していないか
+- [ ] **スコープ一貫性**: HTML属性から呼び出す関数がグローバルスコープにあるか
+
+##### コード完成後チェック
+- [ ] **ブラウザConsoleテスト**: 一切のSyntaxErrorとReferenceErrorがないか
+- [ ] **全ボタン動作確認**: すべてのクリック可能要素が正常動作するか
+- [ ] **ドロップダウン動作確認**: すべてのselect要素のonchangeが正常動作するか
+
+#### 🛠️ 修正作業時の標準手順
+
+##### Step 1: エラー種別の特定
+```javascript
+// Console Errorメッセージから判断
+// "Identifier 'abilities' has already been declared" → 変数重複
+// "ReferenceError: loadDiceSetting is not defined" → スコープエラー
+// "SyntaxError: Unexpected token" → 構文エラー
+```
+
+##### Step 2: 重複要素の洗い出し
+```bash
+# 重複変数の検索
+rg -n "const abilities.*=.*\[" file.html
+
+# 重複関数の検索  
+rg -n "function functionName" file.html
+
+# onclick属性の検索
+rg -n "onclick=" file.html
+```
+
+##### Step 3: 統一・整理作業
+1. **グローバル定数化**: 共通配列をファイル先頭で定義
+2. **関数統合**: 重複関数を削除、グローバル関数を一箇所に統合
+3. **イベントリスナー化**: onclick属性をaddEventListener方式に変更
+
+##### Step 4: 完全性確認
+```javascript
+// 全関数の存在確認
+console.log('Function checks:');
+console.log('toggleDiceSettings:', typeof toggleDiceSettings);
+console.log('loadDiceSetting:', typeof loadDiceSetting);
+console.log('rollCustomDice:', typeof rollCustomDice);
+
+// 全グローバル定数の確認
+console.log('Constants checks:');
+console.log('ABILITIES_LOWER:', ABILITIES_LOWER);
+console.log('ABILITIES_UPPER:', ABILITIES_UPPER);
+```
+
+#### 📚 推奨テンプレート構造
+
+```javascript
+// === ファイル先頭: グローバル定数群 ===
+const ABILITIES_LOWER = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu'];
+const ABILITIES_UPPER = ['STR', 'CON', 'POW', 'DEX', 'APP', 'SIZ', 'INT', 'EDU'];
+
+// === グローバル関数群 ===
+function toggleDiceSettings() { /* ... */ }
+function loadDiceSetting() { /* ... */ }
+function rollCustomDice() { /* ... */ }
+
+// === DOMContentLoaded: 初期化のみ ===
+document.addEventListener('DOMContentLoaded', function() {
+    // イベントリスナー設定のみ
+    document.getElementById('btn1')?.addEventListener('click', toggleDiceSettings);
+    document.getElementById('select1')?.addEventListener('change', loadDiceSetting);
+    
+    // 初期化処理
+    initializeApp();
+    
+    // ローカル関数（HTML要素から直接呼ばれない）
+    function initializeApp() { /* ... */ }
+});
+```
+
+#### 🚨 緊急修正プロトコル（更新版）
+
+JavaScriptエラーが発生した場合の対応順序：
+
+1. **🔍 即座診断**: Console Errorメッセージの完全確認
+2. **🧩 エラー分類**: 重複エラー / スコープエラー / 構文エラーの判別
+3. **✂️ 重複削除**: 同名変数・関数の重複をすべて削除
+4. **🌐 構造整理**: グローバル定数・関数の適切な配置
+5. **🔗 イベント変換**: onclick属性をaddEventListener方式に統一
+6. **✅ 全面テスト**: 全ボタン・ドロップダウンの動作確認
+7. **📝 文書更新**: 修正内容をCLAUDE.mdに反映
+
+**絶対ルール**: 同じエラーを二度と発生させないよう、このガイドラインを厳格に遵守してください。
 - **XSS対策**: 出力エスケープの確認
 - **CSRF対策**: CSRFトークンの実装
 

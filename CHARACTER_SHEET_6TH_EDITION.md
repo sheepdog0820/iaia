@@ -88,8 +88,8 @@
 
 ### 3.1 8つの能力値
 
-| 能力値 | 英名 | 説明 | ダイス | 範囲 |
-|--------|------|------|--------|------|
+| 能力値 | 英名 | 説明 | 標準ダイス | 標準範囲 |
+|--------|------|------|------------|----------|
 | 筋力 | STR | 物理的な力 | 3D6 | 3-18 |
 | 体力 | CON | 持久力・健康 | 3D6 | 3-18 |
 | 意思力 | POW | 精神力・魔法適性 | 3D6 | 3-18 |
@@ -98,6 +98,81 @@
 | 体格 | SIZ | 身長・体重 | 2D6+6 | 8-18 |
 | 知識 | INT | 知性・推理力 | 2D6+6 | 8-18 |
 | 教育 | EDU | 学識・教養 | 3D6+3 | 6-21 |
+
+### 3.2 動的ダイス設定システム
+
+**重要**: Arkham Nexusでは、能力値のダイス設定を動的に変更可能です。
+
+#### 3.2.1 設定可能項目
+- **ダイス数**: 1～10個
+- **ダイス面数**: 2～100面（d2, d4, d6, d8, d10, d12, d20, d100等）
+- **ボーナス値**: -50～+50
+
+#### 3.2.2 実装要件
+```javascript
+// 動的ダイス設定の取得関数
+function getDiceSettings(ability) {
+    return {
+        count: getDiceCount(ability),    // 設定から動的取得
+        sides: getDiceSides(ability),    // 設定から動的取得
+        bonus: getDiceBonus(ability)     // 設定から動的取得
+    };
+}
+
+// 能力値ロール実行（固定値禁止）
+function rollAbility(ability) {
+    const settings = getDiceSettings(ability);
+    let total = 0;
+    
+    for (let i = 0; i < settings.count; i++) {
+        total += Math.floor(Math.random() * settings.sides) + 1;
+    }
+    
+    return total + settings.bonus;
+}
+```
+
+#### 3.2.3 プリセット設定
+
+**標準6版プリセット**
+```json
+{
+    "name": "標準6版設定",
+    "settings": {
+        "STR": {"count": 3, "sides": 6, "bonus": 0},
+        "CON": {"count": 3, "sides": 6, "bonus": 0},
+        "POW": {"count": 3, "sides": 6, "bonus": 0},
+        "DEX": {"count": 3, "sides": 6, "bonus": 0},
+        "APP": {"count": 3, "sides": 6, "bonus": 0},
+        "SIZ": {"count": 2, "sides": 6, "bonus": 6},
+        "INT": {"count": 2, "sides": 6, "bonus": 6},
+        "EDU": {"count": 3, "sides": 6, "bonus": 3}
+    }
+}
+```
+
+**高能力値プリセット**
+```json
+{
+    "name": "高能力値6版設定",
+    "settings": {
+        "STR": {"count": 4, "sides": 6, "bonus": -3},
+        "CON": {"count": 4, "sides": 6, "bonus": -3},
+        "POW": {"count": 4, "sides": 6, "bonus": -3},
+        "DEX": {"count": 4, "sides": 6, "bonus": -3},
+        "APP": {"count": 4, "sides": 6, "bonus": -3},
+        "SIZ": {"count": 3, "sides": 6, "bonus": 3},
+        "INT": {"count": 3, "sides": 6, "bonus": 3},
+        "EDU": {"count": 4, "sides": 6, "bonus": 0}
+    }
+}
+```
+
+#### 3.2.4 制約事項
+- **固定値禁止**: ハードコードされた固定ダイス値は使用不可
+- **リアルタイム反映**: 設定変更は即座にダイスロール計算に反映
+- **設定永続化**: ユーザー設定は保存・復元可能
+- **バリデーション**: 範囲外値の入力を防止
 
 ### 3.2 能力値の使用
 

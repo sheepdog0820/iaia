@@ -1093,9 +1093,34 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
-/* フッター調整 */
+/* フッター調整 - 改善版 */
 body {
-    padding-bottom: 80px; /* フッターの高さ分の余白 */
+    padding-bottom: 120px; /* フッター余白を拡大 */
+}
+
+/* 必須フィールドマーカー */
+.form-label:has(+ input[required])::after,
+label[for="character-name"]::after {
+    content: ' *';
+    color: #dc3545;
+    font-weight: bold;
+}
+
+/* モバイル対応の改善 */
+@media (max-width: 768px) {
+    body {
+        padding-bottom: 160px; /* モバイルでより大きな余白 */
+    }
+    
+    .container {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    
+    /* iOSズーム防止 */
+    .form-control, .form-select {
+        font-size: 16px;
+    }
 }
 
 .character-footer {
