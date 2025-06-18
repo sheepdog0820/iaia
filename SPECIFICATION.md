@@ -176,6 +176,10 @@ arkham_nexus/
   - 招待の送信・受諾・拒否機能
   - 招待ステータス管理（pending/accepted/declined/expired）
   - フレンド間での簡単招待機能
+- **アクセス制御修正**（ISSUE-001完了）
+  - パブリックグループへの非メンバーアクセス制御修正
+  - GroupViewSetのget_querysetメソッド改修
+  - 管理者権限チェックの追加実装
 
 ### 3.3 スケジュール管理機能
 
@@ -354,7 +358,7 @@ arkham_nexus/
 - レート制限
 - CORS設定
 
-## 6.5 ハンドアウト管理機能
+## 6.5 ハンドアウト管理機能**【✅ 完全実装済み】**
 
 #### 6.5.1 GM専用ハンドアウト管理
 - **GMハンドアウト管理画面** (`/schedules/sessions/<id>/handouts/manage/`)
@@ -381,6 +385,18 @@ arkham_nexus/
   - 自分宛ハンドアウトのみ閲覧可能
   - 公開ハンドアウトの閲覧
 
+#### 6.5.4 実装詳細**（ISSUE-009完了）**
+- **ファイル構成**
+  - `schedules/handout_views.py` - GMハンドアウト管理API
+  - `schedules/models.py` - HandoutAttachment, UserNotificationPreferences
+  - `schedules/notification_views.py` - 通知機能
+- **主要機能**
+  - ハンドアウト一括作成・編集・削除
+  - 配布状況のリアルタイム確認
+  - ファイル添付機能（HandoutAttachment）
+  - 通知機能（ハンドアウト配布通知）
+  - 秘匿/公開ステータスの即座切り替え
+
 ### 6.6 統計・エクスポート機能
 
 #### 6.6.1 Tindalos Metrics（詳細実装済み）
@@ -395,7 +411,7 @@ arkham_nexus/
 - **ゲームシステム別統計**
   - システム別プレイ時間と回数
 
-#### 6.6.2 データエクスポート機能
+#### 6.6.2 データエクスポート機能**【✅ 完全実装済み】**
 - **エクスポート形式**
   - CSV形式（Excel互換）
   - JSON形式（プログラム処理用）
@@ -404,6 +420,13 @@ arkham_nexus/
   - Tindalos Metrics（個人統計）
   - ユーザーランキング
   - グループ活動統計
+- **API実装詳細**（ISSUE-002完了）
+  - `/api/accounts/export/formats/` - エクスポート形式一覧API
+  - `/api/accounts/export/statistics/` - 統計データエクスポートAPI
+  - 日付範囲指定機能（start_date, end_date パラメータ）
+  - ユーザーデータ分離とセキュリティ
+  - エラーハンドリングとフォールバック機能
+  - パフォーマンス最適化（5秒以内処理保証）
 
 #### 6.6.3 ユーザーランキング
 - **ランキング種別**
@@ -421,15 +444,26 @@ arkham_nexus/
 
 ## 7. 未実装機能
 
-### 7.1 キャラクターシート機能**【📋 仕様書作成済み・実装未着手】**
-- **専用キャラクターシートアプリ**
-  - 現在はSessionParticipantモデルのcharacter_sheet_urlフィールドで外部リンクのみ対応
-  - 内蔵キャラクターシート作成・編集機能未実装
-  - ゲームシステム別テンプレート未実装
-  - 能力値計算・ダイスロール機能未実装
+### 7.1 キャラクターシート機能**【🔄 部分実装済み】**
+- **基本キャラクターシート機能**【✅ 実装済み】
+  - CharacterSheet, CharacterSkill, CharacterEquipmentモデル実装
+  - 6版キャラクター作成画面（`/accounts/character/create/6th/`）
+  - 基本能力値・技能・装備管理
+- **CCFOLIA連携機能**【✅ 実装済み】（ISSUE-003完了）
+  - CCFOLIA形式エクスポートAPI（`/api/accounts/character-sheets/{id}/ccfolia-json/`）
+  - 公式CCFOLIA仕様準拠のデータ形式
+  - コマンド文字列生成（技能ロール、正気度ロール、基本判定）
+  - 一括エクスポート機能
+  - 同期機能（sync_to_ccfolia）
+- **未実装機能**
+  - カスタム技能追加システム
+  - 技能ポイント管理システム
+  - 動的ダイス設定システム
+  - 戦闘データ詳細管理
+  - 成長記録システム
 - **詳細仕様書**
-  - `CHARACTER_SHEET_6TH_EDITION.md` - 6版仕様
-  - `CHARACTER_SHEET_7TH_EDITION.md` - 7版仕様  
+  - `CHARACTER_SHEET_COC6TH.md` - 6版仕様（完全版）
+  - `CHARACTER_SHEET_7TH_EDITION.md` - 7版仕様（削除済み）
   - `CHARACTER_SHEET_TECHNICAL_SPEC.md` - 技術仕様
   - `CHARACTER_SHEET_SPECIFICATION.md` - 統合インデックス
 

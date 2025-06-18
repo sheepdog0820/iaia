@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import datetime, timedelta
-from accounts.models import CustomUser, CharacterSheet, CharacterSheet6th, CharacterSheet7th, CharacterSkill, CharacterEquipment
+from accounts.models import CustomUser, CharacterSheet, CharacterSheet6th, CharacterSkill, CharacterEquipment
 from schedules.models import TRPGSession, SessionParticipant, HandoutInfo
 from scenarios.models import Scenario, ScenarioNote, PlayHistory
 import random

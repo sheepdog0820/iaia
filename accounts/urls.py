@@ -35,9 +35,6 @@ urlpatterns = [
     path('character/create/6th/', 
          views.Character6thCreateView.as_view(), 
          name='character_create_6th'),
-    path('character/create/7th/', 
-         method_decorator(login_required, name='dispatch')(TemplateView).as_view(template_name='accounts/character_sheet_7th.html'), 
-         name='character_create_7th'),
     
     # Character Sheet Web Views
     path('character/list/', views.CharacterListView.as_view(), name='character_list'),
@@ -63,6 +60,14 @@ urlpatterns = [
     path('character-sheets/<int:character_sheet_id>/equipment/<int:pk>/', 
          views.CharacterEquipmentViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}), 
          name='character-sheet-equipment-detail'),
+    
+    # Character Sheet custom endpoints
+    path('character-sheets/<int:pk>/ccfolia-json/', 
+         views.CharacterSheetViewSet.as_view({'get': 'ccfolia_json'}), 
+         name='character-sheet-ccfolia-json'),
+    path('character-sheets/<int:pk>/export-version-data/', 
+         views.CharacterSheetViewSet.as_view({'get': 'export_version_data'}), 
+         name='character-sheet-export-version-data'),
     
     # Statistics APIs
     path('statistics/tindalos/', statistics_views.SimpleTindalosMetricsView.as_view(), name='tindalos_metrics'),

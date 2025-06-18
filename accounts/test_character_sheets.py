@@ -15,7 +15,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -665,7 +665,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -1302,7 +1302,7 @@ from django.test import TestCase
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 
@@ -1327,7 +1327,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -1975,7 +1975,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -2626,7 +2626,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -3274,7 +3274,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -3930,7 +3930,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -4578,7 +4578,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -5258,7 +5258,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -5906,7 +5906,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -6575,7 +6575,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -7223,7 +7223,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -7908,7 +7908,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -8556,7 +8556,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -9245,7 +9245,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -9893,7 +9893,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -10566,7 +10566,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -11214,7 +11214,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -11878,7 +11878,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -12526,7 +12526,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -13192,7 +13192,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -13840,7 +13840,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -14513,7 +14513,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -15161,7 +15161,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -15825,7 +15825,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -16473,7 +16473,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -17146,7 +17146,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -17794,7 +17794,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -18467,7 +18467,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -19115,7 +19115,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -19791,7 +19791,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -20439,7 +20439,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -21105,7 +21105,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -21753,7 +21753,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -22419,7 +22419,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -23067,7 +23067,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -23735,7 +23735,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -24383,7 +24383,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -25050,7 +25050,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -25698,7 +25698,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -26365,7 +26365,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -27013,7 +27013,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -27674,7 +27674,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -28322,7 +28322,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -28984,7 +28984,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -29632,7 +29632,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -30290,7 +30290,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -30938,7 +30938,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -31636,7 +31636,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -32284,7 +32284,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -32967,7 +32967,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json
@@ -33615,7 +33615,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json

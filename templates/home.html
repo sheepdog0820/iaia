@@ -398,17 +398,10 @@ function loadRecentActivity() {
 document.addEventListener('DOMContentLoaded', function() {
     // 探索者作成モーダルイベント
     const create6thBtn = document.getElementById('create-6th-btn');
-    const create7thBtn = document.getElementById('create-7th-btn');
     
     if (create6thBtn) {
         create6thBtn.addEventListener('click', function() {
             window.location.href = '/accounts/character/create/6th/';
-        });
-    }
-    
-    if (create7thBtn) {
-        create7thBtn.addEventListener('click', function() {
-            window.location.href = '/accounts/character/create/7th/';
         });
     }
     
@@ -468,21 +461,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     </div>
                     
-                    <div class="col-md-6">
-                        <div class="card h-100 border-success">
-                            <div class="card-body text-center">
-                                <i class="fas fa-book-open text-success fa-3x mb-3"></i>
-                                <h5 class="card-title">クトゥルフ神話TRPG 7版</h5>
-                                <p class="card-text text-muted small">
-                                    現代ルールでの探索者作成<br>
-                                    ビルド値、移動力、詳細背景
-                                </p>
-                                <button type="button" class="btn btn-success w-100" id="create-7th-btn">
-                                    <i class="fas fa-plus"></i> 7版探索者作成
-                                </button>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
             <div class="modal-footer">

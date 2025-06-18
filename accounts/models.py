@@ -95,7 +95,6 @@ class CharacterSheet(models.Model):
     """
     EDITION_CHOICES = [
         ('6th', '6版'),
-        ('7th', '7版'),
     ]
     
     # 基本情報
@@ -181,9 +180,9 @@ class CharacterSheet(models.Model):
     session_count = models.PositiveIntegerField(default=0, verbose_name="セッション数")
     is_active = models.BooleanField(default=True, verbose_name="アクティブ")
     
-    # Cocoholia連携
-    cocoholia_sync_enabled = models.BooleanField(default=False, verbose_name="Cocoholia同期有効")
-    cocoholia_character_id = models.CharField(max_length=100, blank=True, verbose_name="CocoholiaキャラクターID")
+    # CCFOLIA連携
+    ccfolia_sync_enabled = models.BooleanField(default=False, verbose_name="CCFOLIA同期有効")
+    ccfolia_character_id = models.CharField(max_length=100, blank=True, verbose_name="CCFOLIAキャラクターID")
     
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
@@ -588,115 +587,103 @@ class CharacterSheet(models.Model):
         
         return data
     
-    def export_cocoholia_format(self):
+    def export_ccfolia_format(self):
         """
-        Cocoholia形式でのデータエクスポート
+        CCFOLIA形式でのデータエクスポート
         
         Returns:
-            Cocoholia形式のデータ辞書
+            CCFOLIA形式のデータ辞書
         """
-        # 6版の能力値に変換（7版仕様から6版仕様へ）
-        abilities_6th = {
-            'STR': self.str_value // 5,
-            'CON': self.con_value // 5,
-            'POW': self.pow_value // 5,
-            'DEX': self.dex_value // 5,
-            'APP': self.app_value // 5,
-            'SIZ': self.siz_value // 5,
-            'INT': self.int_value // 5,
-            'EDU': self.edu_value // 5,
-        }
+        # 技能値からコマンド文字列を生成
+        commands = []
         
-        # 副次ステータス
-        hp = self.hit_points_max
-        mp = self.magic_points_max
-        san = self.sanity_current
+        # 正気度ロール
+        commands.append(f"1d100<={{SAN}} 【正気度ロール】")
         
-        # アイデア・幸運・知識ロール（6版）
-        idea = abilities_6th['INT'] * 5
-        luck = abilities_6th['POW'] * 5
-        know = abilities_6th['EDU'] * 5
+        # 基本判定
+        commands.append(f"CCB<={self.int_value * 5} 【アイデア】")
+        commands.append(f"CCB<={self.pow_value * 5} 【幸運】") 
+        commands.append(f"CCB<={self.edu_value * 5} 【知識】")
         
-        # 技能データをCocoholia形式に変換
-        skills_data = []
+        # 技能ロール
         for skill in self.skills.all():
-            skills_data.append({
-                'name': skill.skill_name,
-                'base': skill.base_value,
-                'value': skill.current_value,
-                'category': skill.category,
-                'notes': skill.notes
-            })
+            total_value = skill.base_value + skill.occupation_points + skill.interest_points + skill.bonus_points + skill.other_points
+            commands.append(f"CCB<={total_value} 【{skill.skill_name}】")
         
-        # Cocoholia形式のデータ構造
-        cocoholia_data = {
-            'character_name': self.name,
-            'pc_making_memo': self.notes or '',
-            'age': self.age,
-            'sex': self.gender or '',
-            'pc_tags': [self.occupation] if self.occupation else [],
-            'personal_data': {
-                'occupation': self.occupation or '',
-                'birthplace': self.birthplace or '',
-                'residence': self.residence or '',
-                'mental_disorder': getattr(self, 'sixth_edition_data', None) and 
-                                 self.sixth_edition_data.mental_disorder or ''
-            },
-            'params': {
-                'STR': abilities_6th['STR'],
-                'CON': abilities_6th['CON'],
-                'POW': abilities_6th['POW'],
-                'DEX': abilities_6th['DEX'],
-                'APP': abilities_6th['APP'],
-                'SIZ': abilities_6th['SIZ'],
-                'INT': abilities_6th['INT'],
-                'EDU': abilities_6th['EDU'],
-                'HP': hp,
-                'MP': mp,
-                'SAN': san,
-                'アイデア': idea,
-                '幸運': luck,
-                '知識': know
-            },
-            'skills': skills_data,
-            'items': [],  # 装備データは後で実装
-            'version_info': {
-                'version': self.version,
-                'session_count': self.session_count,
-                'last_updated': self.updated_at.isoformat()
+        # ダメージ判定
+        commands.append("1d3+0 【ダメージ判定】")
+        commands.append("1d4+0 【ダメージ判定】")
+        commands.append("1d6+0 【ダメージ判定】")
+        
+        # 能力値ロール
+        for ability, value in [
+            ('STR', self.str_value), ('CON', self.con_value), 
+            ('POW', self.pow_value), ('DEX', self.dex_value),
+            ('APP', self.app_value), ('SIZ', self.siz_value),
+            ('INT', self.int_value), ('EDU', self.edu_value)
+        ]:
+            commands.append(f"CCB<={{{ability}}}*5 【{ability} × 5】")
+        
+        # CCFOLIA標準形式
+        ccfolia_data = {
+            "kind": "character",
+            "data": {
+                "name": self.name,
+                "initiative": self.dex_value,  # DEXを行動力として使用
+                "externalUrl": "",  # 外部URLは空
+                "iconUrl": "",  # アイコンURLは空
+                "commands": "\n".join(commands),
+                "status": [
+                    {
+                        "label": "HP",
+                        "value": self.hit_points_current,
+                        "max": self.hit_points_max
+                    },
+                    {
+                        "label": "MP", 
+                        "value": self.magic_points_current,
+                        "max": self.magic_points_max
+                    },
+                    {
+                        "label": "SAN",
+                        "value": self.sanity_current,
+                        "max": self.sanity_max
+                    }
+                ],
+                "params": [
+                    {"label": "STR", "value": str(self.str_value)},
+                    {"label": "CON", "value": str(self.con_value)},
+                    {"label": "POW", "value": str(self.pow_value)},
+                    {"label": "DEX", "value": str(self.dex_value)},
+                    {"label": "APP", "value": str(self.app_value)},
+                    {"label": "SIZ", "value": str(self.siz_value)},
+                    {"label": "INT", "value": str(self.int_value)},
+                    {"label": "EDU", "value": str(self.edu_value)}
+                ]
             }
         }
         
-        # 6版固有データの追加
-        if self.edition == '6th' and hasattr(self, 'sixth_edition_data'):
-            cocoholia_data['sixth_edition_data'] = {
-                'damage_bonus': self.sixth_edition_data.damage_bonus,
-                'idea_roll': self.sixth_edition_data.idea_roll,
-                'luck_roll': self.sixth_edition_data.luck_roll,
-                'know_roll': self.sixth_edition_data.know_roll
-            }
-        
-        return cocoholia_data
+        return ccfolia_data
     
-    def sync_to_cocoholia(self):
+    def sync_to_ccfolia(self):
         """
-        Cocoholiaへの同期処理
+        CCFOLIAへの同期処理
         
         Returns:
             同期結果の辞書
         """
-        if not self.cocoholia_sync_enabled:
+        if not self.ccfolia_sync_enabled:
             return {'status': 'disabled', 'message': '同期が無効です'}
         
         try:
-            # Cocoholia形式のデータ取得
-            data = self.export_cocoholia_format()
+            # CCFOLIA形式のデータ取得
+            data = self.export_ccfolia_format()
             
             # 実際のAPI呼び出しは後で実装
             # ここではダミーレスポンス
             sync_result = {
                 'status': 'success',
-                'character_id': self.cocoholia_character_id,
+                'character_id': self.ccfolia_character_id,
                 'data_sent': data,
                 'timestamp': timezone.now().isoformat()
             }
@@ -746,22 +733,22 @@ class CharacterSheet(models.Model):
         }
     
     @classmethod
-    def bulk_export_cocoholia(cls, character_ids):
+    def bulk_export_ccfolia(cls, character_ids):
         """
-        複数キャラクターの一括Cocoholiaエクスポート
+        複数キャラクターの一括CCFOLIAエクスポート
         
         Args:
             character_ids: キャラクターIDのリスト
         
         Returns:
-            Cocoholia形式データのリスト
+            CCFOLIA形式データのリスト
         """
         characters = cls.objects.filter(id__in=character_ids)
         export_data = []
         
         for character in characters:
             try:
-                data = character.export_cocoholia_format()
+                data = character.export_ccfolia_format()
                 export_data.append(data)
             except Exception as e:
                 # エラーが発生したキャラクターはスキップ
@@ -833,114 +820,6 @@ class CharacterSheet6th(models.Model):
             return "+5d6"
 
 
-class CharacterSheet7th(models.Model):
-    """7版固有データ"""
-    character_sheet = models.OneToOneField(
-        CharacterSheet,
-        on_delete=models.CASCADE,
-        related_name='seventh_edition_data'
-    )
-    
-    # 7版固有能力値
-    luck_points = models.IntegerField(
-        validators=[MinValueValidator(15), MaxValueValidator(90)],
-        verbose_name="幸運"
-    )
-    
-    # 7版固有計算値
-    build_value = models.IntegerField(verbose_name="ビルド")
-    move_rate = models.IntegerField(verbose_name="移動力")
-    dodge_value = models.IntegerField(verbose_name="回避")
-    damage_bonus = models.CharField(max_length=10, verbose_name="ダメージボーナス")
-    
-    # 7版背景情報
-    personal_description = models.TextField(blank=True, verbose_name="個人的な記述")
-    ideology_beliefs = models.TextField(blank=True, verbose_name="イデオロギー・信念")
-    significant_people = models.TextField(blank=True, verbose_name="重要な人々")
-    meaningful_locations = models.TextField(blank=True, verbose_name="思い出の品・場所")
-    treasured_possessions = models.TextField(blank=True, verbose_name="宝物")
-    traits = models.TextField(blank=True, verbose_name="特徴")
-    injuries_scars = models.TextField(blank=True, verbose_name="傷・傷跡")
-    phobias_manias = models.TextField(blank=True, verbose_name="恐怖症・躁病")
-    
-    def save(self, *args, **kwargs):
-        """7版固有の計算を実行"""
-        if self.character_sheet:
-            # ビルド計算
-            self.build_value = self.calculate_build_7th()
-            
-            # 移動力計算
-            self.move_rate = self.calculate_move_rate_7th()
-            
-            # 回避 = DEX / 2
-            self.dodge_value = self.character_sheet.dex_value // 2
-            
-            # ダメージボーナス計算
-            self.damage_bonus = self.get_damage_bonus_from_build()
-        
-        super().save(*args, **kwargs)
-    
-    def calculate_build_7th(self):
-        """7版ビルド計算"""
-        total = self.character_sheet.str_value + self.character_sheet.siz_value
-        
-        if total <= 64:
-            return -2
-        elif total <= 84:
-            return -1
-        elif total <= 124:
-            return 0
-        elif total <= 164:
-            return 1
-        elif total <= 204:
-            return 2
-        elif total <= 284:
-            return 3
-        else:
-            return 4
-    
-    def calculate_move_rate_7th(self):
-        """7版移動力計算"""
-        base_move = 8
-        age = self.character_sheet.age
-        
-        # 年齢修正
-        if age >= 80:
-            base_move -= 5
-        elif age >= 70:
-            base_move -= 4
-        elif age >= 60:
-            base_move -= 3
-        elif age >= 50:
-            base_move -= 2
-        elif age >= 40:
-            base_move -= 1
-        
-        # 能力値修正
-        str_val = self.character_sheet.str_value
-        dex_val = self.character_sheet.dex_value
-        siz_val = self.character_sheet.siz_value
-        
-        if str_val < siz_val and dex_val < siz_val:
-            base_move -= 1
-        elif str_val > siz_val or dex_val > siz_val:
-            base_move += 1
-        
-        return max(base_move, 1)
-    
-    def get_damage_bonus_from_build(self):
-        """ビルドからダメージボーナスを取得"""
-        build_to_damage = {
-            -2: "-2",
-            -1: "-1",
-            0: "+0",
-            1: "+1d4",
-            2: "+1d6",
-            3: "+2d6",
-            4: "+3d6"
-        }
-        return build_to_damage.get(self.build_value, "+0")
-
 
 class CharacterSkill(models.Model):
     """キャラクタースキル"""
@@ -982,10 +861,6 @@ class CharacterSkill(models.Model):
     # 備考
     notes = models.TextField(blank=True, verbose_name="備考")
     
-    # 7版用
-    half_value = models.IntegerField(default=0, verbose_name="1/2値")
-    fifth_value = models.IntegerField(default=0, verbose_name="1/5値")
-    
     class Meta:
         unique_together = ['character_sheet', 'skill_name']
         ordering = ['skill_name']
@@ -1002,11 +877,6 @@ class CharacterSkill(models.Model):
             self.bonus_points +
             self.other_points
         )
-        
-        # 7版の場合、半分値・1/5値を計算
-        if self.character_sheet.edition == '7th':
-            self.half_value = self.current_value // 2
-            self.fifth_value = self.current_value // 5
         
         super().save(*args, **kwargs)
     

@@ -19,7 +19,7 @@ from rest_framework import status
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
 django.setup()
 
-from accounts.models import CharacterSheet, CharacterSheet6th, CharacterSheet7th, CharacterSkill, CharacterEquipment
+from accounts.models import CharacterSheet, CharacterSheet6th, CharacterSkill, CharacterEquipment
 
 User = get_user_model()
 

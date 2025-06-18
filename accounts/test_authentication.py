@@ -72,7 +72,7 @@ class AuthenticationTestCase(TestCase):
     def test_logout_functionality(self):
         """ログアウト機能のテスト"""
         self.client.force_login(self.user)
-        response = self.client.post('/accounts/logout/')
+        response = self.client.post('/auth/logout/')
         self.assertEqual(response.status_code, 302)  # リダイレクト
 
 

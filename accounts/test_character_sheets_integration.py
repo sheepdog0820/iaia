@@ -15,7 +15,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts.models import (
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import json

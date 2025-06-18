@@ -20,9 +20,6 @@
                         <li><a class="dropdown-item" href="{% url 'character_create_6th' %}">
                             <i class="fas fa-book text-primary"></i> 6版キャラクター作成
                         </a></li>
-                        <li><a class="dropdown-item" href="{% url 'character_create_7th' %}">
-                            <i class="fas fa-book-open text-success"></i> 7版キャラクター作成
-                        </a></li>
                     </ul>
                 </div>
             </div>
@@ -36,9 +33,6 @@
                         
                         <input type="radio" class="btn-check" name="edition" id="6th" value="6th">
                         <label class="btn btn-outline-primary" for="6th">6版</label>
-                        
-                        <input type="radio" class="btn-check" name="edition" id="7th" value="7th">
-                        <label class="btn btn-outline-success" for="7th">7版</label>
                     </div>
                 </div>
                 <div class="col-md-6">
@@ -67,11 +61,8 @@
                     <i class="fas fa-user-plus fa-3x text-muted mb-3"></i>
                     <h4 class="text-muted">キャラクターシートがありません</h4>
                     <p class="text-muted">新しいキャラクターシートを作成してください。</p>
-                    <a href="{% url 'character_create_6th' %}" class="btn btn-primary me-2">
+                    <a href="{% url 'character_create_6th' %}" class="btn btn-primary">
                         <i class="fas fa-book"></i> 6版キャラクター作成
-                    </a>
-                    <a href="{% url 'character_create_7th' %}" class="btn btn-success">
-                        <i class="fas fa-book-open"></i> 7版キャラクター作成
                     </a>
                 </div>
             </div>
@@ -120,9 +111,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let html = '';
         characters.forEach(character => {
-            const editionBadge = character.edition === '6th' ? 
-                '<span class="badge bg-primary">6版</span>' : 
-                '<span class="badge bg-success">7版</span>';
+            const editionBadge = '<span class="badge bg-primary">6版</span>';
             
             const statusBadge = character.is_active ? 
                 '<span class="badge bg-success">アクティブ</span>' : 

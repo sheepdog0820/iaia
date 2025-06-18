@@ -212,16 +212,16 @@ class StatisticsViewsTestCase(APITestCase):
         self.assertEqual(len(groups), 1)
         
         group_data = groups[0]
-        self.assertIn('group_id', group_data)
-        self.assertIn('group_name', group_data)
+        self.assertIn('group', group_data)
+        self.assertIn('id', group_data['group'])
+        self.assertIn('name', group_data['group'])
+        self.assertIn('member_count', group_data)
         self.assertIn('session_count', group_data)
-        self.assertIn('total_hours', group_data)
-        self.assertIn('active_members', group_data)
-        self.assertIn('total_members', group_data)
+        self.assertIn('total_play_time', group_data)
         
         # データの正確性確認
-        self.assertEqual(group_data['group_name'], 'Test Group')
-        self.assertEqual(group_data['total_members'], 2)
+        self.assertEqual(group_data['group']['name'], 'Test Group')
+        self.assertEqual(group_data['member_count'], 2)
         self.assertEqual(group_data['session_count'], 5)  # 今年の5セッション
 
     def test_role_statistics(self):

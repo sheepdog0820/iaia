@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (
     CustomUser, Friend, Group, GroupMembership, GroupInvitation,
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th, 
+    CharacterSheet, CharacterSheet6th, 
     CharacterSkill, CharacterEquipment
 )
 
@@ -80,21 +80,6 @@ class CharacterSheet6thInline(admin.StackedInline):
     readonly_fields = ('idea_roll', 'luck_roll', 'know_roll', 'damage_bonus')
 
 
-class CharacterSheet7thInline(admin.StackedInline):
-    model = CharacterSheet7th
-    fields = (
-        'luck_points',
-        ('build_value', 'move_rate', 'dodge_value', 'damage_bonus'),
-        'personal_description',
-        'ideology_beliefs',
-        'significant_people',
-        'meaningful_locations',
-        'treasured_possessions',
-        'traits',
-        'injuries_scars',
-        'phobias_manias'
-    )
-    readonly_fields = ('build_value', 'move_rate', 'dodge_value', 'damage_bonus')
 
 
 @admin.register(CharacterSheet)
@@ -146,8 +131,6 @@ class CharacterSheetAdmin(admin.ModelAdmin):
         
         if obj and obj.edition == '6th':
             inlines.append(CharacterSheet6thInline)
-        elif obj and obj.edition == '7th':
-            inlines.append(CharacterSheet7thInline)
         
         return inlines
 
@@ -158,7 +141,7 @@ class CharacterSkillAdmin(admin.ModelAdmin):
                    'occupation_points', 'interest_points')
     list_filter = ('character_sheet__edition', 'skill_name')
     search_fields = ('character_sheet__name', 'skill_name', 'character_sheet__user__username')
-    readonly_fields = ('current_value', 'half_value', 'fifth_value')
+    readonly_fields = ('current_value',)
 
 
 @admin.register(CharacterEquipment)

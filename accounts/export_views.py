@@ -387,9 +387,11 @@ class StatisticsExportView(APIView):
         - start_date: YYYY-MM-DD (開始日)
         - end_date: YYYY-MM-DD (終了日)
         """
+        print(f"DEBUG: StatisticsExportView.get called with params: {request.query_params}")
         export_format = request.query_params.get('format', 'json')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
+        print(f"DEBUG: Parsed format: {export_format}, start_date: {start_date}, end_date: {end_date}")
         
         # フォーマットの検証
         if export_format not in ['json', 'csv', 'pdf']:
@@ -405,14 +407,19 @@ class StatisticsExportView(APIView):
         
         # フォーマット別エクスポート
         try:
+            print(f"DEBUG: Export format: {export_format}")
             if export_format == 'json':
+                print("DEBUG: Exporting as JSON")
                 return self._export_json(statistics_data)
             elif export_format == 'csv':
+                print("DEBUG: Exporting as CSV")
                 return self._export_csv(statistics_data)
             elif export_format == 'pdf':
+                print("DEBUG: Exporting as PDF")
                 return self._export_pdf(statistics_data)
         except Exception as e:
             import traceback
+            print(f"DEBUG: Export error: {str(e)}")
             traceback.print_exc()
             return Response({'error': f'Error exporting data: {str(e)}'}, status=500)
     
@@ -591,6 +598,7 @@ class StatisticsExportView(APIView):
     def _export_csv(self, data):
         """CSV形式でエクスポート"""
         try:
+            print(f"DEBUG: _export_csv called with data keys: {data.keys() if data else 'None'}")
             output = StringIO()
             writer = csv.writer(output)
             

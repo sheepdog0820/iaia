@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from .models import (
     CustomUser, Friend, Group, GroupMembership, GroupInvitation,
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 from .serializers import (
@@ -23,7 +23,7 @@ from .serializers import (
     CharacterSheetSerializer, CharacterSheetCreateSerializer,
     CharacterSheetListSerializer, CharacterSheetUpdateSerializer,
     CharacterSkillSerializer, CharacterEquipmentSerializer,
-    CharacterSheet6thSerializer, CharacterSheet7thSerializer
+    CharacterSheet6thSerializer
 )
 from .forms import CustomLoginForm, CustomSignUpForm, ProfileEditForm, CharacterSheet6thForm
 from allauth.socialaccount.models import SocialAccount
@@ -366,9 +366,9 @@ class CharacterSheetViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        """全ユーザーのキャラクターシートを取得（参照権限は全ユーザに開放）"""
-        return CharacterSheet.objects.all().select_related(
-            'parent_sheet', 'sixth_edition_data', 'seventh_edition_data', 'user'
+        """ユーザー自身のキャラクターシートのみ取得"""
+        return CharacterSheet.objects.filter(user=self.request.user).select_related(
+            'parent_sheet', 'sixth_edition_data', 'user'
         ).prefetch_related(
             'skills', 'equipment'
         ).order_by('-updated_at')
@@ -385,11 +385,8 @@ class CharacterSheetViewSet(viewsets.ModelViewSet):
             return CharacterSheetSerializer
     
     def get_object(self):
-        """キャラクターシート取得（参照は全ユーザ可能、編集は作成者のみ）"""
+        """キャラクターシート取得（作成者のみアクセス可能）"""
         obj = super().get_object()
-        # 参照系のアクション（retrieve）は全ユーザに許可
-        if self.action in ['retrieve']:
-            return obj
         # 編集系のアクションは作成者のみ許可
         if obj.user != self.request.user:
             from rest_framework.exceptions import PermissionDenied
@@ -400,9 +397,9 @@ class CharacterSheetViewSet(viewsets.ModelViewSet):
     def by_edition(self, request):
         """版別のキャラクターシート一覧"""
         edition = request.query_params.get('edition')
-        if not edition or edition not in ['6th', '7th']:
+        if not edition or edition not in ['6th']:
             return Response(
-                {'error': 'edition parameter is required (6th or 7th)'}, 
+                {'error': 'edition parameter is required (6th)'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -527,20 +524,6 @@ class CharacterSheetViewSet(viewsets.ModelViewSet):
                 character_sheet=new_sheet,
                 mental_disorder=sixth_data.mental_disorder
             )
-        elif original_sheet.edition == '7th' and hasattr(original_sheet, 'seventh_edition_data'):
-            seventh_data = original_sheet.seventh_edition_data
-            CharacterSheet7th.objects.create(
-                character_sheet=new_sheet,
-                luck_points=seventh_data.luck_points,
-                personal_description=seventh_data.personal_description,
-                ideology_beliefs=seventh_data.ideology_beliefs,
-                significant_people=seventh_data.significant_people,
-                meaningful_locations=seventh_data.meaningful_locations,
-                treasured_possessions=seventh_data.treasured_possessions,
-                traits=seventh_data.traits,
-                injuries_scars=seventh_data.injuries_scars,
-                phobias_manias=seventh_data.phobias_manias
-            )
         
         # 作成されたキャラクターシートを返す
         response_serializer = CharacterSheetSerializer(new_sheet)
@@ -576,6 +559,55 @@ class CharacterSheetViewSet(viewsets.ModelViewSet):
         
         serializer = CharacterSheetSerializer(sheet)
         return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def ccfolia_json(self, request, pk=None):
+        """CCFOLIA形式でのJSONエクスポート"""
+        sheet = self.get_object()
+        
+        # モデルのexport_ccfolia_formatメソッドを使用
+        ccfolia_data = sheet.export_ccfolia_format()
+        
+        return Response(ccfolia_data)
+    
+    @action(detail=True, methods=['get'])
+    def export_version_data(self, request, pk=None):
+        """バージョンデータのエクスポート"""
+        sheet = self.get_object()
+        
+        # バージョン履歴を含むデータ
+        version_data = {
+            "current_version": {
+                "id": sheet.id,
+                "version": sheet.version,
+                "created_at": sheet.created_at.isoformat(),
+                "updated_at": sheet.updated_at.isoformat(),
+                "data": CharacterSheetSerializer(sheet).data
+            },
+            "version_history": []
+        }
+        
+        # 親シートがある場合は履歴を取得
+        if sheet.parent_sheet:
+            base_sheet = sheet.parent_sheet
+            versions = CharacterSheet.objects.filter(
+                parent_sheet=base_sheet
+            ).order_by('version')
+            
+            # 親シートも含める
+            all_versions = [base_sheet] + list(versions)
+            
+            for version in all_versions:
+                version_info = {
+                    "id": version.id,
+                    "version": version.version,
+                    "created_at": version.created_at.isoformat(),
+                    "updated_at": version.updated_at.isoformat(),
+                    "is_current": version.id == sheet.id
+                }
+                version_data["version_history"].append(version_info)
+        
+        return Response(version_data)
     
     @action(detail=False, methods=['post'])
     def create_6th_edition(self, request):
@@ -1108,11 +1140,11 @@ class CharacterListView(TemplateView):
         
         # 基本クエリセット（全ユーザーのキャラクターシートを表示）
         queryset = CharacterSheet.objects.all().select_related(
-            'parent_sheet', 'sixth_edition_data', 'seventh_edition_data', 'user'
+            'parent_sheet', 'sixth_edition_data', 'user'
         ).prefetch_related('skills', 'equipment').order_by('-updated_at')
         
         # フィルタ適用
-        if edition in ['6th', '7th']:
+        if edition in ['6th']:
             queryset = queryset.filter(edition=edition)
         
         if is_active == 'active':
@@ -1122,14 +1154,12 @@ class CharacterListView(TemplateView):
         
         # エディション別統計（全ユーザー分）
         sixth_count = CharacterSheet.objects.filter(edition='6th').count()
-        seventh_count = CharacterSheet.objects.filter(edition='7th').count()
         active_count = CharacterSheet.objects.filter(is_active=True).count()
         total_count = CharacterSheet.objects.count()
         
         context.update({
             'character_sheets': queryset,
             'sixth_count': sixth_count,
-            'seventh_count': seventh_count,
             'active_count': active_count,
             'total_count': total_count,
             'current_edition': edition,
@@ -1150,7 +1180,7 @@ class CharacterDetailView(TemplateView):
         
         try:
             character = CharacterSheet.objects.select_related(
-                'parent_sheet', 'sixth_edition_data', 'seventh_edition_data', 'user'
+                'parent_sheet', 'sixth_edition_data', 'user'
             ).prefetch_related(
                 'skills', 'equipment', 'versions'
             ).get(id=character_id)
@@ -1205,7 +1235,7 @@ class CharacterEditView(TemplateView):
             # 編集モード
             try:
                 character = CharacterSheet.objects.select_related(
-                    'sixth_edition_data', 'seventh_edition_data'
+                    'sixth_edition_data'
                 ).prefetch_related(
                     'skills', 'equipment'
                 ).get(id=character_id, user=self.request.user)
@@ -1243,7 +1273,7 @@ class CharacterEditView(TemplateView):
 @method_decorator(login_required, name='dispatch')
 class Character6thCreateView(FormView):
     """クトゥルフ神話TRPG 6版探索者作成ビュー"""
-    template_name = 'accounts/character_6th_create.html'
+    template_name = 'accounts/character_sheet_6th.html'
     form_class = CharacterSheet6thForm
     success_url = '/accounts/character/list/'
     

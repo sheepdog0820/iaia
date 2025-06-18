@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from .models import TRPGSession, SessionParticipant, HandoutInfo
+from .models import TRPGSession, SessionParticipant, HandoutInfo, HandoutNotification, UserNotificationPreferences
 from accounts.serializers import UserSerializer
+from accounts.models import CustomUser
 
 
 class SessionParticipantSerializer(serializers.ModelSerializer):
@@ -175,3 +176,103 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
             else:
                 return f"{minutes}分"
         return None
+
+
+# ===== ハンドアウト通知関連シリアライザー =====
+
+class UserBasicSerializer(serializers.ModelSerializer):
+    """ユーザー基本情報シリアライザー"""
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'username', 'nickname']
+
+
+class HandoutBasicSerializer(serializers.ModelSerializer):
+    """ハンドアウト基本情報シリアライザー"""
+    session_title = serializers.CharField(source='session.title', read_only=True)
+    
+    class Meta:
+        model = HandoutInfo
+        fields = ['id', 'title', 'session_title', 'is_secret']
+
+
+class HandoutNotificationSerializer(serializers.ModelSerializer):
+    """ハンドアウト通知シリアライザー"""
+    
+    recipient = UserBasicSerializer(read_only=True)
+    sender = UserBasicSerializer(read_only=True)
+    notification_type_display = serializers.CharField(
+        source='get_notification_type_display', 
+        read_only=True
+    )
+    handout_info = serializers.SerializerMethodField()
+    time_since_created = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = HandoutNotification
+        fields = [
+            'id', 'handout_id', 'recipient', 'sender', 
+            'notification_type', 'notification_type_display',
+            'message', 'is_read', 'created_at', 'read_at',
+            'handout_info', 'time_since_created'
+        ]
+        read_only_fields = [
+            'id', 'handout_id', 'recipient', 'sender',
+            'notification_type', 'message', 'created_at'
+        ]
+    
+    def get_handout_info(self, obj):
+        """ハンドアウト情報を取得"""
+        try:
+            handout = HandoutInfo.objects.get(id=obj.handout_id)
+            return HandoutBasicSerializer(handout).data
+        except HandoutInfo.DoesNotExist:
+            return None
+    
+    def get_time_since_created(self, obj):
+        """作成からの経過時間を人間が読みやすい形式で返す"""
+        from django.utils import timezone
+        import datetime
+        
+        now = timezone.now()
+        diff = now - obj.created_at
+        
+        if diff.days > 0:
+            return f"{diff.days}日前"
+        elif diff.seconds > 3600:
+            hours = diff.seconds // 3600
+            return f"{hours}時間前"
+        elif diff.seconds > 60:
+            minutes = diff.seconds // 60
+            return f"{minutes}分前"
+        else:
+            return "たった今"
+
+
+class UserNotificationPreferencesSerializer(serializers.ModelSerializer):
+    """ユーザー通知設定シリアライザー"""
+    
+    user = UserBasicSerializer(read_only=True)
+    
+    class Meta:
+        model = UserNotificationPreferences
+        fields = [
+            'id', 'user', 'handout_notifications_enabled',
+            'email_notifications_enabled', 'browser_notifications_enabled',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+    
+    def validate(self, data):
+        """通知設定のバリデーション"""
+        # 少なくとも一つの通知方法は有効にする必要がある
+        if not any([
+            data.get('handout_notifications_enabled', False),
+            data.get('email_notifications_enabled', False),
+            data.get('browser_notifications_enabled', False)
+        ]):
+            raise serializers.ValidationError(
+                "少なくとも一つの通知方法を有効にしてください"
+            )
+        
+        return data

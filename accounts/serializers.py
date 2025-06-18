@@ -1,9 +1,46 @@
 from rest_framework import serializers
+from django.core.exceptions import ValidationError
+from PIL import Image
+import os
 from .models import (
     CustomUser, Friend, Group, GroupMembership, GroupInvitation,
-    CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
+
+
+def validate_character_image(image):
+    """キャラクター画像のバリデーション"""
+    if not image:
+        return image
+    
+    # ファイルサイズチェック（5MB以下）
+    max_size = 5 * 1024 * 1024  # 5MB
+    if image.size > max_size:
+        raise ValidationError("画像ファイルのサイズは5MB以下にしてください。")
+    
+    # ファイル形式チェック
+    allowed_formats = ['JPEG', 'PNG', 'GIF']
+    try:
+        with Image.open(image) as img:
+            if img.format not in allowed_formats:
+                raise ValidationError(
+                    f"サポートされていない画像形式です。{', '.join(allowed_formats)}形式を使用してください。"
+                )
+            
+            # 画像サイズチェック（最大3000x4000px）
+            max_width, max_height = 3000, 4000
+            if img.width > max_width or img.height > max_height:
+                raise ValidationError(
+                    f"画像サイズが大きすぎます。最大{max_width}x{max_height}ピクセルにしてください。"
+                )
+                
+    except Exception as e:
+        if isinstance(e, ValidationError):
+            raise
+        raise ValidationError("画像ファイルが破損しているか、サポートされていない形式です。")
+    
+    return image
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -129,10 +166,9 @@ class CharacterSkillSerializer(serializers.ModelSerializer):
         model = CharacterSkill
         fields = [
             'id', 'skill_name', 'base_value', 'occupation_points', 
-            'interest_points', 'other_points', 'current_value',
-            'half_value', 'fifth_value'
+            'interest_points', 'other_points', 'current_value'
         ]
-        read_only_fields = ['id', 'current_value', 'half_value', 'fifth_value']
+        read_only_fields = ['id', 'current_value']
 
 
 class CharacterEquipmentSerializer(serializers.ModelSerializer):
@@ -157,17 +193,6 @@ class CharacterSheet6thSerializer(serializers.ModelSerializer):
         read_only_fields = ['idea_roll', 'luck_roll', 'know_roll', 'damage_bonus']
 
 
-class CharacterSheet7thSerializer(serializers.ModelSerializer):
-    """7版固有データシリアライザー"""
-    class Meta:
-        model = CharacterSheet7th
-        fields = [
-            'luck_points', 'build_value', 'move_rate', 'dodge_value', 'damage_bonus',
-            'personal_description', 'ideology_beliefs', 'significant_people',
-            'meaningful_locations', 'treasured_possessions', 'traits',
-            'injuries_scars', 'phobias_manias'
-        ]
-        read_only_fields = ['build_value', 'move_rate', 'dodge_value', 'damage_bonus']
 
 
 class CharacterSheetSerializer(serializers.ModelSerializer):
@@ -178,7 +203,6 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
     
     # 版別データ
     sixth_edition_data = CharacterSheet6thSerializer(read_only=True)
-    seventh_edition_data = CharacterSheet7thSerializer(read_only=True)
     
     # 計算済みフィールド
     abilities = serializers.ReadOnlyField()
@@ -200,7 +224,7 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             'magic_points_current', 'sanity_starting', 'sanity_max', 'sanity_current',
             'version', 'parent_sheet', 'parent_sheet_name', 'character_image',
             'notes', 'is_active', 'created_at', 'updated_at',
-            'skills', 'equipment', 'sixth_edition_data', 'seventh_edition_data',
+            'skills', 'equipment', 'sixth_edition_data',
             'abilities', 'versions', 'user_nickname'
         ]
         read_only_fields = [
@@ -281,19 +305,48 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             validated_data['parent_sheet'] = existing_chars.order_by('version').first()
         
         return super().create(validated_data)
+    
+    def to_representation(self, instance):
+        """表示時に6版の場合は値を変換"""
+        data = super().to_representation(instance)
+        
+        # 6版の場合、能力値を6版表示用に変換（15-90 → 3-18）
+        if instance.edition == '6th':
+            ability_fields = ['str_value', 'con_value', 'pow_value', 'dex_value', 
+                            'app_value', 'siz_value', 'int_value', 'edu_value']
+            for field in ability_fields:
+                if field in data and data[field] is not None:
+                    # 7版互換の値を6版の値に変換（÷5）
+                    data[field] = data[field] // 5
+        
+        return data
 
 
 class CharacterSheetCreateSerializer(serializers.ModelSerializer):
     """キャラクターシート作成専用シリアライザー"""
     # 版別データ
     sixth_edition_data = CharacterSheet6thSerializer(required=False)
-    seventh_edition_data = CharacterSheet7thSerializer(required=False)
     
     # スキルデータ
     skills = CharacterSkillSerializer(many=True, required=False)
     
     # 装備データ
     equipment = CharacterEquipmentSerializer(many=True, required=False)
+    
+    # 現在値フィールドをオプショナルに
+    hit_points_current = serializers.IntegerField(required=False)
+    magic_points_current = serializers.IntegerField(required=False)
+    sanity_current = serializers.IntegerField(required=False)
+    
+    # 能力値フィールドをカスタムバリデーションに
+    str_value = serializers.IntegerField()
+    con_value = serializers.IntegerField()
+    pow_value = serializers.IntegerField()
+    dex_value = serializers.IntegerField()
+    app_value = serializers.IntegerField()
+    siz_value = serializers.IntegerField()
+    int_value = serializers.IntegerField()
+    edu_value = serializers.IntegerField()
     
     class Meta:
         model = CharacterSheet
@@ -302,18 +355,91 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             'birthplace', 'residence', 'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',
-            'character_image', 'notes', 'sixth_edition_data', 'seventh_edition_data',
+            'character_image', 'notes', 'sixth_edition_data',
             'skills', 'equipment'
         ]
         read_only_fields = ['id']
+    
+    def validate_character_image(self, value):
+        """キャラクター画像のバリデーション"""
+        return validate_character_image(value)
+    
+    def validate(self, data):
+        """版別のバリデーション"""
+        edition = data.get('edition')
+        
+        if edition == '6th':
+            # 6版の能力値範囲（3-18）
+            ability_ranges = {
+                'str_value': (3, 18),
+                'con_value': (3, 18),
+                'pow_value': (3, 18),
+                'dex_value': (3, 18),
+                'app_value': (3, 18),
+                'siz_value': (8, 18),  # SIZは8-18
+                'int_value': (8, 18),  # INTは8-18
+                'edu_value': (6, 21)   # EDUは6-21
+            }
+        else:  # 7th edition
+            # 7版の能力値範囲（15-90）
+            ability_ranges = {
+                'str_value': (15, 90),
+                'con_value': (15, 90),
+                'pow_value': (15, 90),
+                'dex_value': (15, 90),
+                'app_value': (15, 90),
+                'siz_value': (30, 90),
+                'int_value': (40, 90),
+                'edu_value': (30, 90)
+            }
+        
+        # 範囲チェック
+        for field, (min_val, max_val) in ability_ranges.items():
+            value = data.get(field)
+            if value is not None:
+                if value < min_val or value > max_val:
+                    raise serializers.ValidationError({
+                        field: f"{edition}版では{min_val}から{max_val}の間で設定してください。"
+                    })
+        
+        return data
     
     def create(self, validated_data):
         """キャラクターシート作成（関連データも含む）"""
         # 関連データを分離
         sixth_data = validated_data.pop('sixth_edition_data', None)
-        seventh_data = validated_data.pop('seventh_edition_data', None)
         skills_data = validated_data.pop('skills', [])
         equipment_data = validated_data.pop('equipment', [])
+        
+        # リクエストオブジェクトから追加データを取得
+        request = self.context.get('request')
+        
+        # 6版固有データから mental_disorder を取得
+        if validated_data.get('edition') == '6th' and sixth_data:
+            # sixth_edition_data に mental_disorder が含まれている場合はそのまま使用
+            if 'mental_disorder' not in sixth_data:
+                # フォールバック: リクエストから直接取得
+                mental_disorder = request.data.get('mental_disorder', '') if request else ''
+                sixth_data['mental_disorder'] = mental_disorder
+        
+        # フロントエンドからのスキルデータを処理
+        if request and 'skills_data' in request.data:
+            import json
+            try:
+                skills_json = request.data.get('skills_data')
+                if skills_json:
+                    skills_data = json.loads(skills_json)
+            except (json.JSONDecodeError, TypeError):
+                pass  # JSONデコードエラーの場合はスキップ
+        
+        # 6版の場合、能力値を内部保存用に変換（3-18 → 15-90）
+        if validated_data.get('edition') == '6th':
+            ability_fields = ['str_value', 'con_value', 'pow_value', 'dex_value', 
+                            'app_value', 'siz_value', 'int_value', 'edu_value']
+            for field in ability_fields:
+                if field in validated_data:
+                    # 6版の値を7版互換の値に変換（×5）
+                    validated_data[field] = validated_data[field] * 5
         
         # 現在のユーザーを設定
         validated_data['user'] = self.context['request'].user
@@ -338,11 +464,6 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
                 character_sheet=character_sheet,
                 **sixth_data
             )
-        elif character_sheet.edition == '7th' and seventh_data:
-            CharacterSheet7th.objects.create(
-                character_sheet=character_sheet,
-                **seventh_data
-            )
         
         # スキルデータ作成
         for skill_data in skills_data:
@@ -359,6 +480,21 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             )
         
         return character_sheet
+    
+    def to_representation(self, instance):
+        """表示時に6版の場合は値を変換"""
+        data = super().to_representation(instance)
+        
+        # 6版の場合、能力値を6版表示用に変換（15-90 → 3-18）
+        if instance.edition == '6th':
+            ability_fields = ['str_value', 'con_value', 'pow_value', 'dex_value', 
+                            'app_value', 'siz_value', 'int_value', 'edu_value']
+            for field in ability_fields:
+                if field in data and data[field] is not None:
+                    # 7版互換の値を6版の値に変換（÷5）
+                    data[field] = data[field] // 5
+        
+        return data
 
 
 class CharacterSheetListSerializer(serializers.ModelSerializer):
@@ -413,6 +549,10 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
             'character_image', 'notes', 'is_active'
         ]
     
+    def validate_character_image(self, value):
+        """キャラクター画像のバリデーション"""
+        return validate_character_image(value)
+    
     def validate_name(self, value):
         """名前の重複チェック（同一ユーザー内）"""
         if self.instance and self.instance.name != value:
@@ -426,3 +566,25 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
                     "同じ名前のキャラクターが既に存在します。"
                 )
         return value
+    
+    def update(self, instance, validated_data):
+        """更新処理（画像削除対応）"""
+        # リクエストから削除フラグをチェック
+        request = self.context.get('request')
+        delete_image = request.data.get('delete_image') == 'true' if request else False
+        
+        # 画像削除フラグが設定されている場合
+        if delete_image:
+            if instance.character_image:
+                instance.character_image.delete(save=False)
+            validated_data['character_image'] = None
+        elif 'character_image' in validated_data:
+            # 通常の画像更新処理
+            new_image = validated_data['character_image']
+            # 空文字列が渡された場合は画像を削除
+            if new_image == '' or new_image is None:
+                if instance.character_image:
+                    instance.character_image.delete(save=False)
+                validated_data['character_image'] = None
+        
+        return super().update(instance, validated_data)

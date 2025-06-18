@@ -255,10 +255,139 @@ def perform_create(self, serializer):
 - **追加機能テスト**: `test_additional_features.py`
 - **テストランナー**: 異なるテストシナリオ用カスタムランナー
 
-## 課題管理
+## 【必須】課題管理と進捗追跡
+
+### 🔍 作業開始時の必須チェック
+
+**新しい作業を開始する前に、必ずISSUES.mdを確認してください。**
+
+```bash
+# 作業開始時に実行
+cat ISSUES.md | head -50  # 優先課題の確認
+```
+
+#### チェック項目
+- [ ] **現在の優先課題を確認**: 🔴高優先度 → 🟡中優先度 → 🟢低優先度 の順
+- [ ] **実装状況を確認**: ✅完了済み機能と❌未実装機能の把握
+- [ ] **関連ファイルの確認**: 該当ファイルが既に存在するか確認
+- [ ] **前提条件の確認**: 依存する機能が実装済みか確認
+
+### 📝 作業完了時の必須更新
+
+**作業完了後は、必ずISSUES.mdの進捗を更新してください。**
+
+#### 更新手順
+1. **該当ISSUE-XXXの状態更新**
+   - ✅実装完了: `### ✅ ISSUE-XXX: 機能名（解決済み）`
+   - 🔄部分完了: `- ✅ **基本機能** - 実装済み`、`- ❌ **詳細機能** - 未実装`
+
+2. **解決日の記録**
+   ```markdown
+   - **解決日**: 2025年6月18日
+   ```
+
+3. **実装詳細の記録**
+   ```markdown
+   - **実装内容**:
+     - ✅ **基本機能A** - 実装済み
+     - ✅ **機能B** - 実装済み
+     - ❌ **拡張機能C** - 未実装
+   ```
+
+4. **テスト結果の更新**
+   ```markdown
+   ### 統合テスト結果サマリー (2025年6月18日最新)
+   - **総テストスイート数**: 16
+   - **成功**: 16 (100.0%)
+   ```
+
+5. **課題クローズ処理**（完全実装完了時）
+   ```bash
+   # 完全実装完了時のクローズ処理
+   python3 scripts/close_issue.py ISSUE-XXX
+   ```
+
+6. **次期優先順位の調整**
+   - 完了した課題を次のステップから削除
+   - 新たに判明した課題を追加
+
+### 🗂️ 課題クローズ管理
+
+#### 完全実装完了時の処理
+機能が完全に実装完了し、テストも100%成功した場合：
+
+```bash
+# 1. 課題クローズスクリプト実行
+python3 scripts/close_issue.py ISSUE-XXX
+
+# 2. 仕様書自動更新確認
+grep -A 10 "ISSUE-XXX" SPECIFICATION.md
+
+# 3. 統計更新確認
+head -20 ISSUES.md
+```
+
+#### クローズ処理の効果
+- **ISSUES.md**: 完了済み課題を削除、統計更新
+- **ISSUES_CLOSED.md**: 完了済み課題をアーカイブ
+- **SPECIFICATION.md**: 実装詳細を仕様書に記載
+- **統計情報**: 進捗率と完了数の自動更新
+
+#### 対象ファイル
+- **現在進行中**: `ISSUES.md` - 日常開発で参照
+- **完了済み**: `ISSUES_CLOSED.md` - 履歴確認時のみ参照
+- **実装仕様**: `SPECIFICATION.md` - 実装詳細の永続記録
+
+### 🎯 進捗管理のベストプラクティス
+
+#### 作業開始時
+```bash
+# 1. 課題確認
+echo "=== 📋 ISSUES.md確認 ==="
+grep -A 5 "次の最優先課題" ISSUES.md
+
+# 2. 関連ファイル確認
+echo "=== 📁 関連ファイル確認 ==="
+ls -la accounts/models.py accounts/views.py templates/accounts/
+
+# 3. テスト状況確認
+echo "=== 🧪 テスト状況確認 ==="
+python3 manage.py test --dry-run | tail -5
+```
+
+#### 作業完了時
+```bash
+# 1. テスト実行
+python3 manage.py test
+
+# 2. 進捗更新
+echo "=== 📝 ISSUES.md更新 ==="
+# ISSUES.mdを編集して進捗を更新
+
+# 3. 完了通知
+echo "✅ 課題XXX完了 - ISSUES.md更新済み" && echo -e "\a\a\a"
+```
+
+### 🚨 必須ルール
+
+1. **ISSUES.md確認なしでの作業開始禁止**
+   - 重複作業や優先順位間違いを防止
+
+2. **進捗更新なしでの作業完了禁止**
+   - チーム内での進捗共有とトラッキング確保
+
+3. **実装状況の正確な記録**
+   - ✅/❌を正確に記録し、後続作業の判断材料とする
+
+4. **テスト結果の必須更新**
+   - 品質保証と回帰テスト防止のため
+
+### 📊 課題管理ファイル
 
 すべての課題とチケットは `ISSUES.md` ファイルで管理されています。
 新しい課題を発見した場合は、ISSUES.mdファイルに適切な優先度とカテゴリで追加してください。
+
+**重要**: ISSUES.mdは開発の中央管理ファイルです。常に最新状態を保ってください。
 
 ## 【重要】テスト駆動開発（TDD）の徹底
 
@@ -711,6 +840,152 @@ python3 test_complete_suite.py                  # 統合テスト成功
 - **入力検証**: すべての入力値の検証
 - **認証・認可**: 適切なアクセス制御
 - **SQLインジェクション**: ORM使用の確認
+
+## 【必須】画面遷移チェックガイドライン
+
+### 🚨 画面編集時の必須遷移チェック
+
+**画面を編集する際は、以下の遷移チェックを必ず実行してください**
+
+#### 遷移チェックの実行タイミング
+- ✅ HTMLテンプレートを編集した場合
+- ✅ URL設定を変更した場合  
+- ✅ JavaScriptのナビゲーション関数を修正した場合
+- ✅ 新しいページやモーダルを追加した場合
+- ✅ リンクやボタンを追加・削除した場合
+
+#### 📋 必須チェック項目
+
+##### 1. ナビゲーションメニューの確認
+- [ ] メインナビゲーションの全リンクが正常動作
+- [ ] ドロップダウンメニューの全項目が正常動作
+- [ ] ユーザー認証状態（ログイン・ログアウト）での表示切り替え
+
+##### 2. 画面内リンクの確認  
+- [ ] ボタンクリックが正常動作
+- [ ] フォーム送信が正常動作
+- [ ] AJAX通信が正常動作
+- [ ] モーダル表示・非表示が正常動作
+
+##### 3. URL遷移の確認
+- [ ] 直接URL入力での画面表示
+- [ ] 戻る・進むボタンでの正常動作
+- [ ] ページリロードでの状態保持
+
+##### 4. エラーハンドリングの確認
+- [ ] 存在しないURLへのアクセス（404エラー）
+- [ ] 権限がない画面へのアクセス（403エラー）  
+- [ ] JavaScript関数の存在確認
+
+#### 🔍 遷移チェックの実行手順
+
+##### Step 1: サーバー起動確認
+```bash
+# サーバーの起動確認
+python3 manage.py runserver 0.0.0.0:8000
+
+# サーバーの動作確認
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/
+```
+
+##### Step 2: メインナビゲーションのテスト
+```bash
+# 主要URL の HTTP ステータス確認
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/accounts/character/list/
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/schedules/calendar/view/
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/accounts/groups/view/
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/accounts/statistics/view/
+```
+
+##### Step 3: ブラウザでの手動確認
+1. **ホーム画面**: `http://localhost:8000/`
+   - [ ] ログイン状態での表示確認
+   - [ ] 未ログイン状態での表示確認
+   
+2. **メインナビゲーション**
+   - [ ] カレンダーリンク: `/api/schedules/calendar/view/`
+   - [ ] セッションリンク: `/api/schedules/sessions/view/`  
+   - [ ] シナリオリンク: `/api/scenarios/archive/view/`
+   - [ ] グループリンク: `/accounts/groups/view/`
+   - [ ] キャラクターリンク: `/accounts/character/list/`
+
+3. **キャラクター関連**
+   - [ ] 6版キャラクター作成: `/accounts/character/create/6th/`
+   - [ ] キャラクター一覧: `/accounts/character/list/`
+   - [ ] ユーザープロフィール: `/accounts/dashboard/`
+
+4. **JavaScript関数の確認**
+   ```javascript
+   // ブラウザのConsoleで実行
+   console.log('Navigation Functions Check:');
+   console.log('loadCalendarView:', typeof loadCalendarView);
+   console.log('loadSessionsView:', typeof loadSessionsView);  
+   console.log('loadScenariosView:', typeof loadScenariosView);
+   console.log('loadGroupsView:', typeof loadGroupsView);
+   console.log('loadStatisticsView:', typeof loadStatisticsView);
+   ```
+
+##### Step 4: エラー確認
+- [ ] ブラウザ開発者ツールでConsole Errorなし
+- [ ] ネットワークタブで404・500エラーなし
+- [ ] JavaScript関数の未定義エラーなし
+
+#### 🚨 遷移エラー発見時の対応
+
+##### 即座対応ルール
+1. **エラーログ確認**: server.log で詳細エラーを確認
+2. **URL設定確認**: urls.py にルートが定義されているか確認
+3. **JavaScript確認**: 関数が正しいスコープで定義されているか確認
+4. **権限確認**: ログイン必須ページの認証確認
+
+##### 修正手順
+```bash
+# Step 1: エラー特定
+tail -f server.log
+
+# Step 2: URL設定確認  
+rg -n "name='対象URL名'" --type py
+
+# Step 3: テンプレート確認
+rg -n "{% url '対象URL名' %}" templates/
+
+# Step 4: JavaScript確認
+rg -n "対象関数名" static/js/
+```
+
+#### 📝 遷移チェック完了時の記録
+
+遷移チェック完了時は以下の形式で記録：
+
+```markdown
+## 遷移チェック完了報告 - [日時]
+
+### ✅ 確認済み項目
+- [x] メインナビゲーション（5項目）
+- [x] キャラクター関連（3項目）  
+- [x] JavaScript関数（5項目）
+- [x] エラーハンドリング（404/403/500）
+
+### 🐛 発見・修正した問題
+- 問題1: 7版キャラクター作成リンクの削除 → 修正完了
+- 問題2: [問題説明] → [修正内容]
+
+### 📋 テスト済みURL一覧
+- ✅ / (ホーム)
+- ✅ /accounts/character/list/ (キャラクター一覧)
+- ✅ /accounts/character/create/6th/ (6版作成) 
+- ✅ /api/schedules/calendar/view/ (カレンダー)
+- ✅ /accounts/groups/view/ (グループ)
+- ✅ /accounts/statistics/view/ (統計)
+
+### 🔧 推奨改善項目
+- 改善1: [改善提案]
+- 改善2: [改善提案]
+```
+
+**重要**: このガイドラインに従い、画面編集後は必ず遷移チェックを実行してください。
+
+---
 
 ## 🔧 JavaScript開発ガイドライン
 

@@ -231,12 +231,6 @@
                                 <strong>6版</strong>
                                 <div class="small">クトゥルフ神話TRPG 6版</div>
                             </label>
-                            <label class="edition-option" for="edition-7th">
-                                <input type="radio" id="edition-7th" name="edition" value="7th" style="display: none;">
-                                <i class="fas fa-book-open fa-2x d-block mb-2"></i>
-                                <strong>7版</strong>
-                                <div class="small">クトゥルフ神話TRPG 7版</div>
-                            </label>
                         </div>
                     </div>
                     {% else %}
@@ -520,13 +514,10 @@ function toggleEditionSections(edition) {
     
     if (edition === '6th') {
         sixthSection.style.display = 'block';
-        seventhSection.style.display = 'none';
-    } else if (edition === '7th') {
-        sixthSection.style.display = 'none';
-        seventhSection.style.display = 'block';
+        if (seventhSection) seventhSection.style.display = 'none';
     } else {
         sixthSection.style.display = 'none';
-        seventhSection.style.display = 'none';
+        if (seventhSection) seventhSection.style.display = 'none';
     }
 }
 
@@ -585,21 +576,6 @@ function updateCalculatedValues() {
         document.getElementById('know_calculated').textContent = know + '%';
         document.getElementById('damage_bonus_calculated').textContent = damageBonus;
         
-    } else if (edition === '7th') {
-        const build = calculateBuild7th(str + siz);
-        const move = calculateMoveRate7th(age, str, dex, siz);
-        const dodge = Math.floor(dex / 2);
-        const damageBonus = getDamageBonusFromBuild(build);
-        
-        document.getElementById('build_calculated').textContent = build;
-        document.getElementById('move_calculated').textContent = move;
-        document.getElementById('dodge_calculated').textContent = dodge + '%';
-        
-        // 7版の幸運が未設定の場合、3D6*5でランダム生成を提案
-        if (!document.getElementById('luck_points').value) {
-            const randomLuck = Math.floor(Math.random() * 60) + 25; // 概算値
-            document.getElementById('luck_points').value = randomLuck;
-        }
     }
 }
 
@@ -616,27 +592,6 @@ function calculateDamageBonus6th(total) {
     return "+5d6";
 }
 
-// 7版ビルド計算
-function calculateBuild7th(total) {
-    if (total <= 64) return -2;
-    if (total <= 84) return -1;
-    if (total <= 124) return 0;
-    if (total <= 164) return 1;
-    if (total <= 204) return 2;
-    if (total <= 284) return 3;
-    return 4;
-}
-
-// 7版移動力計算
-function calculateMoveRate7th(age, str, dex, siz) {
-    let move = 8;
-    
-    // 年齢修正
-    if (age >= 80) move -= 5;
-    else if (age >= 70) move -= 4;
-    else if (age >= 60) move -= 3;
-    else if (age >= 50) move -= 2;
-    else if (age >= 40) move -= 1;
     
     // 能力値修正
     if (str < siz && dex < siz) move -= 1;

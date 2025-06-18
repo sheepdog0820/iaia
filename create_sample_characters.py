@@ -12,7 +12,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
 django.setup()
 
 from accounts.models import (
-    CustomUser, CharacterSheet, CharacterSheet6th, CharacterSheet7th,
+    CustomUser, CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 import random
