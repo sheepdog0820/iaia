@@ -1,7 +1,28 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, PasswordResetForm
 from django.contrib.auth import authenticate
-from .models import CustomUser, CharacterSheet, CharacterSheet6th
+from .models import CustomUser
+from .character_models import CharacterSheet, CharacterSheet6th
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    """複数ファイル対応のカスタムウィジェット"""
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    """複数ファイル対応のカスタムフィールド"""
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            result = [single_file_clean(d, initial) for d in data]
+        else:
+            result = single_file_clean(data, initial)
+        return result
 
 
 class CustomLoginForm(AuthenticationForm):
@@ -178,13 +199,21 @@ class CharacterSheet6thForm(forms.ModelForm):
         label='精神的障害'
     )
     
+    # 複数画像アップロード
+    character_images = MultipleFileField(
+        required=False,
+        label='キャラクター画像（複数選択可能）'
+    )
+    
     class Meta:
         model = CharacterSheet
         fields = [
             'name', 'player_name', 'age', 'gender', 'occupation', 
             'birthplace', 'residence', 'str_value', 'con_value', 
             'pow_value', 'dex_value', 'app_value', 'siz_value', 
-            'int_value', 'edu_value', 'notes'
+            'int_value', 'edu_value', 'notes',
+            'hit_points_max', 'hit_points_current', 'magic_points_max', 
+            'magic_points_current', 'sanity_starting', 'sanity_max', 'sanity_current'
         ]
         widgets = {
             'name': forms.TextInput(attrs={
@@ -220,57 +249,57 @@ class CharacterSheet6thForm(forms.ModelForm):
             }),
             'str_value': forms.NumberInput(attrs={
                 'class': 'form-control ability-input',
-                'min': 3,
-                'max': 18,
+                'min': 1,
+                'max': 999,
                 'placeholder': 'STR',
                 'required': True
             }),
             'con_value': forms.NumberInput(attrs={
                 'class': 'form-control ability-input',
-                'min': 3,
-                'max': 18,
+                'min': 1,
+                'max': 999,
                 'placeholder': 'CON',
                 'required': True
             }),
             'pow_value': forms.NumberInput(attrs={
                 'class': 'form-control ability-input',
-                'min': 3,
-                'max': 18,
+                'min': 1,
+                'max': 999,
                 'placeholder': 'POW',
                 'required': True
             }),
             'dex_value': forms.NumberInput(attrs={
                 'class': 'form-control ability-input',
-                'min': 3,
-                'max': 18,
+                'min': 1,
+                'max': 999,
                 'placeholder': 'DEX',
                 'required': True
             }),
             'app_value': forms.NumberInput(attrs={
                 'class': 'form-control ability-input',
-                'min': 3,
-                'max': 18,
+                'min': 1,
+                'max': 999,
                 'placeholder': 'APP',
                 'required': True
             }),
             'siz_value': forms.NumberInput(attrs={
                 'class': 'form-control ability-input',
-                'min': 8,
-                'max': 18,
+                'min': 1,
+                'max': 999,
                 'placeholder': 'SIZ',
                 'required': True
             }),
             'int_value': forms.NumberInput(attrs={
                 'class': 'form-control ability-input',
-                'min': 3,
-                'max': 18,
+                'min': 1,
+                'max': 999,
                 'placeholder': 'INT',
                 'required': True
             }),
             'edu_value': forms.NumberInput(attrs={
                 'class': 'form-control ability-input',
-                'min': 3,
-                'max': 18,
+                'min': 1,
+                'max': 999,
                 'placeholder': 'EDU',
                 'required': True
             }),
@@ -278,7 +307,23 @@ class CharacterSheet6thForm(forms.ModelForm):
                 'class': 'form-control',
                 'rows': 4,
                 'placeholder': '探索者の背景や特徴'
-            })
+            }),
+            'hit_points_max': forms.NumberInput(attrs={
+                'class': 'form-control bg-light',
+                'readonly': True
+            }),
+            'hit_points_current': forms.HiddenInput(),
+            'magic_points_max': forms.NumberInput(attrs={
+                'class': 'form-control bg-light',
+                'readonly': True
+            }),
+            'magic_points_current': forms.HiddenInput(),
+            'sanity_starting': forms.NumberInput(attrs={
+                'class': 'form-control bg-light',
+                'readonly': True
+            }),
+            'sanity_max': forms.HiddenInput(),
+            'sanity_current': forms.HiddenInput()
         }
         labels = {
             'name': '探索者名',
@@ -310,18 +355,8 @@ class CharacterSheet6thForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         
-        # 6版の能力値範囲チェック
-        ability_fields = ['str_value', 'con_value', 'pow_value', 'dex_value', 
-                         'app_value', 'int_value', 'edu_value']
-        for field in ability_fields:
-            value = cleaned_data.get(field)
-            if value is not None and (value < 3 or value > 18):
-                self.add_error(field, f'{self.fields[field].label}は3-18の範囲で入力してください（6版ルール）')
-        
-        # SIZの特別範囲チェック
-        siz_value = cleaned_data.get('siz_value')
-        if siz_value is not None and (siz_value < 8 or siz_value > 18):
-            self.add_error('siz_value', '体格(SIZ)は8-18の範囲で入力してください（6版ルール）')
+        # 能力値範囲制限を削除 - ユーザーの自由度を向上
+        # 6版・7版問わず、幅広い値を許可
         
         return cleaned_data
     
@@ -330,6 +365,32 @@ class CharacterSheet6thForm(forms.ModelForm):
         instance.edition = '6th'  # 強制的に6版に設定
         if self.user:
             instance.user = self.user
+        
+        # 隠しフィールドから現在値を取得
+        # 空文字や '0' の場合も最大値で初期化する
+        hit_points_current_value = self.data.get('hit_points_current', '').strip()
+        if not hit_points_current_value or hit_points_current_value == '0':
+            instance.hit_points_current = instance.hit_points_max
+        else:
+            instance.hit_points_current = int(hit_points_current_value)
+        
+        magic_points_current_value = self.data.get('magic_points_current', '').strip()
+        if not magic_points_current_value or magic_points_current_value == '0':
+            instance.magic_points_current = instance.magic_points_max
+        else:
+            instance.magic_points_current = int(magic_points_current_value)
+        
+        sanity_current_value = self.data.get('sanity_current', '').strip()
+        if not sanity_current_value or sanity_current_value == '0':
+            instance.sanity_current = instance.sanity_starting
+        else:
+            instance.sanity_current = int(sanity_current_value)
+        
+        sanity_max_value = self.data.get('sanity_max', '').strip()
+        if not sanity_max_value or sanity_max_value == '0':
+            instance.sanity_max = instance.sanity_starting
+        else:
+            instance.sanity_max = int(sanity_max_value)
         
         if commit:
             instance.save()
@@ -342,5 +403,73 @@ class CharacterSheet6thForm(forms.ModelForm):
             if not created:
                 sixth_data.mental_disorder = self.cleaned_data.get('mental_disorder', '')
                 sixth_data.save()
+            
+            # 技能データの処理（フロントエンドから送信されたhidden inputを処理）
+            self._save_skill_data(instance)
+            
+            # 複数画像の処理
+            self._save_character_images(instance)
         
         return instance
+    
+    def _save_skill_data(self, character_sheet):
+        """技能データの保存処理"""
+        from .character_models import CharacterSkill
+        
+        # 既存の技能データを削除
+        CharacterSkill.objects.filter(character_sheet=character_sheet).delete()
+        
+        # skill_データを探してCharacterSkillを作成
+        skill_names = set()
+        for key, value in self.data.items():
+            if key.startswith('skill_') and key.endswith('_name'):
+                skill_id = key.replace('skill_', '').replace('_name', '')
+                skill_names.add((skill_id, value))
+        
+        for skill_id, skill_name in skill_names:
+            base_value = self.data.get(f'skill_{skill_id}_base', 0)
+            occupation_points = self.data.get(f'skill_{skill_id}_occupation', 0)
+            interest_points = self.data.get(f'skill_{skill_id}_interest', 0)
+            bonus_points = self.data.get(f'skill_{skill_id}_bonus', 0)
+            
+            # 数値変換とデフォルト値設定
+            try:
+                base_value = int(base_value) if base_value else 0
+                occupation_points = int(occupation_points) if occupation_points else 0
+                interest_points = int(interest_points) if interest_points else 0
+                bonus_points = int(bonus_points) if bonus_points else 0
+            except (ValueError, TypeError):
+                continue  # 無効な値はスキップ
+            
+            # 何かしらのポイントが設定されている場合のみ保存
+            if base_value > 0 or occupation_points > 0 or interest_points > 0 or bonus_points > 0:
+                CharacterSkill.objects.create(
+                    character_sheet=character_sheet,
+                    skill_name=skill_name,
+                    base_value=base_value,
+                    occupation_points=occupation_points,
+                    interest_points=interest_points,
+                    other_points=bonus_points
+                )
+    
+    def _save_character_images(self, character_sheet):
+        """複数画像の保存処理"""
+        from .character_models import CharacterImage
+        
+        # フォームから複数画像を取得
+        images = self.files.getlist('character_images')
+        if not images:
+            return
+        
+        # 既存の画像を削除（新規作成時）
+        if not self.instance.pk:
+            CharacterImage.objects.filter(character_sheet=character_sheet).delete()
+        
+        # 複数画像を保存
+        for index, image_file in enumerate(images):
+            CharacterImage.objects.create(
+                character_sheet=character_sheet,
+                image=image_file,
+                is_main=(index == 0),  # 最初の画像をメインに設定
+                order=index
+            )

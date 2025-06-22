@@ -4,7 +4,7 @@
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
-from .models import CharacterSheet, CharacterSkill
+from .character_models import CharacterSheet, CharacterSkill
 
 User = get_user_model()
 
@@ -93,7 +93,7 @@ class BonusPointsTestCase(TestCase):
         skill = CharacterSkill.objects.create(
             character_sheet=self.character,
             skill_name='芸術（イラスト）',
-            category='芸術系',
+            category='特殊・その他',
             base_value=5,
             occupation_points=30,
             interest_points=10,
@@ -102,7 +102,7 @@ class BonusPointsTestCase(TestCase):
         )
         
         self.assertEqual(skill.skill_name, '芸術（イラスト）')
-        self.assertEqual(skill.category, '芸術系')
+        self.assertEqual(skill.category, '特殊・その他')
         self.assertEqual(skill.notes, '専門技能')
     
     def test_skill_point_breakdown(self):

@@ -9,7 +9,7 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 import json
 
-from .models import CharacterSheet, CharacterSheet6th, CharacterSkill
+from .character_models import CharacterSheet, CharacterSheet6th, CharacterSkill
 
 User = get_user_model()
 

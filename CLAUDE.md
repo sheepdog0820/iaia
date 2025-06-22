@@ -28,65 +28,6 @@
 - キャラクターシート関連のバグ修正
 - プレイ履歴・統計機能の改善（クトゥルフ以外のシステムも対象）
 
-## 6版ダイスロール設定仕様
-
-### 動的ダイス設定システム
-
-**6版キャラクター作成では、各能力値のダイス設定を動的に変更可能です。**
-
-#### 基本仕様
-- **対象能力値**: STR, CON, POW, DEX, APP, SIZ, INT, EDU（全8つ）
-- **設定項目**: ダイス数（1-10）、ダイス面数（2-100）、ボーナス値（-50〜+50）
-- **初期値**: 6版標準ルール（STR:3D6, SIZ:2D6+6, INT:2D6+6, EDU:3D6+3等）
-- **変更可能**: ユーザーがリアルタイムで任意の値に変更可能
-
-#### 実装要件
-1. **動的計算**: ダイス設定変更時に即座にダイスロール計算ロジックに反映
-2. **固定値禁止**: ハードコードされた固定値は使用しない
-3. **設定永続化**: ユーザーの設定は名前付きで保存・管理可能
-4. **リアルタイム更新**: 設定変更時に画面表示も即座に更新
-
-#### ダイス計算ロジック
-```javascript
-// 動的なダイス計算関数（固定値使用禁止）
-function rollAbility(abilityName) {
-    const count = getDiceCount(abilityName);  // 動的取得
-    const sides = getDiceSides(abilityName);  // 動的取得  
-    const bonus = getDiceBonus(abilityName);  // 動的取得
-    
-    let total = 0;
-    for (let i = 0; i < count; i++) {
-        total += Math.floor(Math.random() * sides) + 1;
-    }
-    return total + bonus;
-}
-```
-
-#### 標準プリセット値
-- **STR (筋力)**: 3D6+0
-- **CON (体力)**: 3D6+0  
-- **POW (精神力)**: 3D6+0
-- **DEX (敏捷性)**: 3D6+0
-- **APP (外見)**: 3D6+0
-- **SIZ (体格)**: 2D6+6
-- **INT (知識)**: 2D6+6
-- **EDU (教育)**: 3D6+3
-
-#### 高能力値プリセット値
-- **STR**: 4D6-3 (4D6の最良3個相当)
-- **CON**: 4D6-3
-- **POW**: 4D6-3
-- **DEX**: 4D6-3
-- **APP**: 4D6-3
-- **SIZ**: 3D6+3
-- **INT**: 3D6+3
-- **EDU**: 4D6+0
-
-#### 禁止事項
-- ❌ ハードコードされた固定ダイス値の使用
-- ❌ 設定無視した決め打ちダイス計算
-- ❌ 設定変更が反映されない実装
-- ❌ リアルタイム更新されないUI
 
 ## コマンド集
 
@@ -271,6 +212,34 @@ cat ISSUES.md | head -50  # 優先課題の確認
 - [ ] **実装状況を確認**: ✅完了済み機能と❌未実装機能の把握
 - [ ] **関連ファイルの確認**: 該当ファイルが既に存在するか確認
 - [ ] **前提条件の確認**: 依存する機能が実装済みか確認
+
+### 🔄 作業開始前の実装状況確認（必須）
+
+**チケットに着手する前に、必ず現在の実装状況を確認してください。**
+
+```bash
+# 実装状況確認手順
+# 1. モデル実装の確認
+rg -n "class Character" accounts/models.py accounts/character_models.py
+
+# 2. テスト作成状況の確認
+ls -la accounts/test_character_*.py accounts/test_*_management.py
+
+# 3. UI実装の確認
+rg -n "技能ポイント|装備|背景情報|成長記録" templates/accounts/character_*.html
+
+# 4. API実装の確認
+rg -n "CharacterSheet" accounts/views/
+
+# 5. マイグレーション確認
+ls -la accounts/migrations/*character*.py accounts/migrations/*background*.py
+```
+
+#### 実装状況の正確な把握
+1. **モデル層**: 実装済みか、フィールド定義のみか
+2. **ビュー層**: APIエンドポイントが実装済みか
+3. **テンプレート層**: UIが実装済みか
+4. **テスト**: テストが作成済みか、実行成功しているか
 
 ### 📝 作業完了時の必須更新
 
@@ -1135,6 +1104,30 @@ document.addEventListener('DOMContentLoaded', function() {
 - **スコープ**: [MDN - Variable Scope](https://developer.mozilla.org/en-US/docs/Glossary/Scope)
 
 **重要**: 今後、JavaScriptでonclick関数エラーが発生した場合は、必ずこのガイドラインに従って修正してください。
+
+### 🚨 JavaScript作成・修正時の必須確認事項
+
+#### 【必須】JavaScript作成・修正前のチェックリスト
+
+**すべてのJavaScript作成・修正時に、以下のベストプラクティスを必ず確認してください：**
+
+1. **事前確認（必須）**
+   - [ ] `JAVASCRIPT_BEST_PRACTICES.md` を参照
+   - [ ] `js_best_practices_guide.md` でエラーパターンを確認
+   - [ ] 既存のコードスタイルを確認
+
+2. **コーディング時（必須）**
+   - [ ] 'use strict' を使用
+   - [ ] const/let を使用（var は禁止）
+   - [ ] 関数の重複定義がないか確認
+   - [ ] DOM要素の存在確認を実装
+   - [ ] try-catch でエラーハンドリング
+
+3. **修正後の確認（必須）**
+   - [ ] すべての括弧のバランスを確認
+   - [ ] console.log でデバッグ出力を確認
+   - [ ] ブラウザでエラーがないことを確認
+   - [ ] 関連する全機能の動作確認
 
 ### 🚨 JavaScript重複・スコープエラーの完全予防ガイド
 

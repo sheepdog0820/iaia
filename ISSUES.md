@@ -16,19 +16,22 @@
   - `CHARACTER_SHEET_COC6TH.md`仕様書に基づく機能拡張
   - 現在基本的なキャラクター作成は実装済み、詳細機能が未実装
 - **該当ファイル**:
-  - `accounts/models.py` - CharacterSheet, CharacterSkill, CharacterEquipment
+  - `accounts/character_models.py` - CharacterSheet, CharacterSkill, CharacterEquipment
   - `templates/accounts/character_sheet_6th.html` - 6版作成画面
-  - `accounts/forms.py` - CharacterSheet6thForm
+  - `accounts/views/character_views.py` - CharacterSheetViewSet
 - **実装内容**:
   - ✅ **基本キャラクター作成機能** - 実装済み
-  - ✅ **CCFOLIA連携機能** - 実装済み
-  - ❌ **カスタム技能追加機能** - 未実装
-  - ❌ **技能ポイント管理システム** - 未実装
-  - ❌ **動的ダイス設定システム** - 一部実装
-  - ❌ **戦闘データ管理** - 未実装
-  - ❌ **所持品・装備管理** - 基本モデルのみ
-  - ❌ **背景情報詳細化** - 未実装
-  - ❌ **成長記録システム** - 未実装
+  - ✅ **CCFOLIA連携機能** - 実装済み（export_ccfolia_format）
+  - ✅ **カスタム技能追加機能** - 実装済み（create_custom_skill）
+  - ✅ **ダイスロール設定機能** - 実装済み（CharacterDiceRollSetting）
+  - ✅ **バージョン管理機能** - 実装済み（CharacterVersionManager）
+  - ✅ **職業テンプレート機能** - 部分実装（apply_occupation_template）
+  - ✅ **技能ポイント管理システム** - 実装完了（2025年6月20日）
+  - ✅ **戦闘データ管理** - 実装完了（2025年6月20日）
+  - ✅ **所持品・装備管理** - 実装完了（2025年6月20日）
+  - ✅ **背景情報詳細化** - 実装完了（2025年6月20日）
+  - ❌ **成長記録システム** - モデル実装済み、UI未実装
+- **更新日**: 2025年6月19日
 
 ### ISSUE-005: Tindalos統計APIの詳細実装
 - **カテゴリ**: 機能強化
@@ -40,9 +43,9 @@
   - `accounts/statistics_views.py` - SimpleTindalosMetricsView実装済み
 - **実装内容**:
   - ✅ **基本統計機能** - 実装済み
-  - ❌ **年度・月別詳細集計** - 未実装
-  - ❌ **ゲームシステム別統計** - 未実装
-  - ❌ **期間指定フィルタ** - 未実装
+  - ✅ **年度・月別詳細集計** - 実装完了（2025年6月20日）
+  - ✅ **ゲームシステム別統計** - 実装完了（2025年6月20日）
+  - ✅ **期間指定フィルタ** - 実装完了（2025年6月20日）
 
 ---
 

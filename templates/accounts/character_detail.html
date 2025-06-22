@@ -231,8 +231,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelector('.character-name').textContent = character.name;
         document.title = `${character.name} - キャラクターシート詳細 - Arkham Nexus`;
         
-        // 編集ボタン
-        document.getElementById('editButton').href = `/accounts/character/${character.id}/edit/`;
+        // 編集ボタン（キャラクター作成画面にパラメータ付きで遷移）
+        document.getElementById('editButton').href = `/accounts/character/create/6th/?id=${character.id}`;
         
         // 版バッジ
         const editionBadge = document.getElementById('editionBadge');
@@ -247,22 +247,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // バージョンバッジ
         document.getElementById('versionBadge').textContent = `v${character.version}`;
         
-        // 画像
-        const imageContainer = document.getElementById('characterImageContainer');
-        if (character.character_image) {
-            imageContainer.innerHTML = `
-                <img src="${character.character_image}" class="img-fluid rounded shadow" 
-                     style="max-height: 300px; object-fit: contain; background-color: #f8f9fa;" 
-                     alt="${character.name}">
-            `;
-        } else {
-            imageContainer.innerHTML = `
-                <div class="bg-light rounded shadow d-flex align-items-center justify-content-center" 
-                     style="height: 300px;">
-                    <i class="fas fa-user fa-4x text-muted"></i>
-                </div>
-            `;
-        }
+        // 複数画像表示
+        displayCharacterImages(character);
         
         // 基本情報
         displayBasicInfo(character);
@@ -307,6 +293,125 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         container.innerHTML = html;
+    }
+    
+    // 複数画像表示
+    function displayCharacterImages(character) {
+        const imageContainer = document.getElementById('characterImageContainer');
+        
+        // APIから画像一覧を取得
+        fetch(`/accounts/character-sheets/${character.id}/images/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.count > 0) {
+                    const images = data.results;
+                    const mainImage = images.find(img => img.is_main) || images[0];
+                    
+                    let html = '';
+                    
+                    // メイン画像表示
+                    html += `
+                        <div class="mb-3">
+                            <img src="${mainImage.image_url}" class="img-fluid rounded shadow main-character-image" 
+                                 style="max-height: 300px; width: 100%; object-fit: contain; cursor: pointer;" 
+                                 alt="${character.name}" onclick="showImageModal('${mainImage.image_url}', '${character.name}')">
+                        </div>
+                    `;
+                    
+                    // サムネイル表示（複数画像がある場合）
+                    if (images.length > 1) {
+                        html += '<div class="row g-2">';
+                        images.forEach(image => {
+                            const isMain = image.is_main ? 'border-primary border-3' : '';
+                            html += `
+                                <div class="col-4">
+                                    <img src="${image.thumbnail_url || image.image_url}" 
+                                         class="img-fluid rounded thumbnail-image ${isMain}" 
+                                         style="height: 60px; width: 100%; object-fit: contain; cursor: pointer;" 
+                                         alt="${character.name}" 
+                                         onclick="changeMainImage('${image.image_url}', '${character.name}')">
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                    }
+                    
+                    imageContainer.innerHTML = html;
+                } else {
+                    // デフォルト画像
+                    imageContainer.innerHTML = `
+                        <div class="bg-light rounded shadow d-flex align-items-center justify-content-center" 
+                             style="height: 300px;">
+                            <i class="fas fa-user fa-4x text-muted"></i>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('画像の取得に失敗しました:', error);
+                // フォールバック: 従来の単一画像表示
+                if (character.character_image) {
+                    imageContainer.innerHTML = `
+                        <img src="${character.character_image}" class="img-fluid rounded shadow" 
+                             style="max-height: 300px; object-fit: contain; background-color: #f8f9fa;" 
+                             alt="${character.name}">
+                    `;
+                } else {
+                    imageContainer.innerHTML = `
+                        <div class="bg-light rounded shadow d-flex align-items-center justify-content-center" 
+                             style="height: 300px;">
+                            <i class="fas fa-user fa-4x text-muted"></i>
+                        </div>
+                    `;
+                }
+            });
+    }
+    
+    // メイン画像変更
+    function changeMainImage(imageUrl, characterName) {
+        const mainImage = document.querySelector('.main-character-image');
+        if (mainImage) {
+            mainImage.src = imageUrl;
+            mainImage.onclick = () => showImageModal(imageUrl, characterName);
+        }
+    }
+    
+    // 画像モーダル表示
+    function showImageModal(imageUrl, characterName) {
+        // Bootstrap Modal を使用
+        const modalHtml = `
+            <div class="modal fade" id="imageModal" tabindex="-1">
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${characterName}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <img src="${imageUrl}" class="img-fluid" style="max-height: 70vh;" alt="${characterName}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // 既存のモーダルを削除
+        const existingModal = document.getElementById('imageModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // 新しいモーダルを追加
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // モーダルを表示
+        const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+        modal.show();
+        
+        // モーダルが閉じられたら削除
+        document.getElementById('imageModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
     }
     
     // 能力値表示

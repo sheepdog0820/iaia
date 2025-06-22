@@ -1,0 +1,44 @@
+/* 技能フィルタリング用CSS */
+
+/* 基本的な技能項目の表示 */
+.skill-item-wrapper {
+    transition: opacity 0.2s ease;
+}
+
+/* 非表示時のスタイル */
+.skill-item-wrapper.hidden {
+    display: none !important;
+}
+
+/* 検索でマッチしない項目 */
+.skill-item-wrapper.search-hidden {
+    display: none !important;
+}
+
+/* タブでフィルタされた項目 */
+.skill-item-wrapper.tab-hidden {
+    display: none !important;
+}
+
+/* アニメーション効果（オプション） */
+.skill-item-wrapper.fade-out {
+    opacity: 0;
+    transform: scale(0.95);
+}
+
+/* タブコンテンツの基本設定 */
+.skill-tab-content {
+    min-height: 200px;
+}
+
+/* 検索結果なしのメッセージ */
+.no-results-message {
+    text-align: center;
+    padding: 2rem;
+    color: #6c757d;
+}
+
+.no-results-message i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}

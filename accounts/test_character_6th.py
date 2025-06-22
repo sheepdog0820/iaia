@@ -12,7 +12,7 @@ from rest_framework import status
 import json
 from decimal import Decimal
 
-from .models import CharacterSheet, CharacterSheet6th, CharacterSkill, CharacterEquipment
+from .character_models import CharacterSheet, CharacterSheet6th, CharacterSkill, CharacterEquipment
 
 User = get_user_model()
 

@@ -6,7 +6,8 @@ TDD: RED フェーズ - 失敗するテストケースを作成
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from accounts.models import CustomUser, CharacterDiceRollSetting
+from accounts.models import CustomUser
+from accounts.character_models import CharacterDiceRollSetting
 import json
 
 User = get_user_model()

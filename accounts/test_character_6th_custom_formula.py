@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 import re
 
-from .models import CharacterSheet
+from .character_models import CharacterSheet
 
 User = get_user_model()
 

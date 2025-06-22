@@ -5,7 +5,7 @@
 import re
 import random
 from typing import List, Union, Dict, Optional
-from .models import CharacterDiceRollSetting
+from .character_models import CharacterDiceRollSetting
 
 
 def parse_custom_formula(formula: str) -> List[str]:

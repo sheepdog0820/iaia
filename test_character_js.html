@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JavaScript エラーチェック</title>
+    <style>
+        .error { color: red; font-weight: bold; }
+        .success { color: green; font-weight: bold; }
+        .warning { color: orange; }
+        #results { margin: 20px; padding: 20px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <h1>キャラクター作成画面 JavaScriptエラーチェック</h1>
+    <div id="results">
+        <p>チェック中...</p>
+    </div>
+    
+    <iframe id="character-frame" src="/accounts/character/create/6th/" 
+            style="width: 100%; height: 600px; border: 1px solid #ccc;"></iframe>
+    
+    <script>
+    // エラー収集
+    let errors = [];
+    let warnings = [];
+    
+    // グローバルエラーハンドラー
+    window.addEventListener('error', function(e) {
+        errors.push({
+            message: e.message,
+            file: e.filename,
+            line: e.lineno,
+            column: e.colno,
+            error: e.error
+        });
+        updateResults();
+    });
+    
+    // コンソールエラーのキャプチャ
+    const originalError = console.error;
+    console.error = function() {
+        warnings.push({
+            type: 'console.error',
+            message: Array.from(arguments).join(' ')
+        });
+        updateResults();
+        originalError.apply(console, arguments);
+    };
+    
+    // 結果表示更新
+    function updateResults() {
+        const resultsDiv = document.getElementById('results');
+        let html = '<h2>チェック結果</h2>';
+        
+        if (errors.length === 0 && warnings.length === 0) {
+            html += '<p class="success">✅ JavaScriptエラーは検出されませんでした！</p>';
+        } else {
+            if (errors.length > 0) {
+                html += '<h3 class="error">エラー (' + errors.length + '件)</h3><ul>';
+                errors.forEach(err => {
+                    html += `<li class="error">
+                        ${err.message}<br>
+                        <small>ファイル: ${err.file} (行: ${err.line}, 列: ${err.column})</small>
+                    </li>`;
+                });
+                html += '</ul>';
+            }
+            
+            if (warnings.length > 0) {
+                html += '<h3 class="warning">警告 (' + warnings.length + '件)</h3><ul>';
+                warnings.forEach(warn => {
+                    html += `<li class="warning">${warn.message}</li>`;
+                });
+                html += '</ul>';
+            }
+        }
+        
+        html += '<p><small>最終更新: ' + new Date().toLocaleTimeString() + '</small></p>';
+        resultsDiv.innerHTML = html;
+    }
+    
+    // iframe読み込み完了後のチェック
+    document.getElementById('character-frame').onload = function() {
+        setTimeout(function() {
+            // 関数存在チェック
+            try {
+                const iframe = document.getElementById('character-frame');
+                const iframeWindow = iframe.contentWindow;
+                
+                // 主要な関数の存在確認
+                const functionsToCheck = [
+                    'rollAllAbilities',
+                    'rollSingleAbility',
+                    'calculateDerivedStats',
+                    'calculateSkillPoints',
+                    'toggleDiceSettings',
+                    'loadDicePreset',
+                    'saveCustomDiceSettings',
+                    'loadCustomDiceSettings'
+                ];
+                
+                console.log('=== 関数存在チェック ===');
+                functionsToCheck.forEach(funcName => {
+                    if (typeof iframeWindow[funcName] === 'function') {
+                        console.log(`✅ ${funcName}: 存在`);
+                    } else {
+                        console.error(`❌ ${funcName}: 未定義`);
+                    }
+                });
+                
+                // DOM要素の存在確認
+                const elementsToCheck = [
+                    'occupation-points',
+                    'interest-points',
+                    'occupation-points-total',
+                    'interest-points-total',
+                    'movement_rate',
+                    'dodge_value',
+                    'progress-bar',
+                    'progress-text',
+                    'delete_image_flag'
+                ];
+                
+                console.log('=== DOM要素存在チェック ===');
+                elementsToCheck.forEach(elemId => {
+                    const elem = iframeWindow.document.getElementById(elemId);
+                    if (elem) {
+                        console.log(`✅ ${elemId}: 存在`);
+                    } else {
+                        console.error(`❌ ${elemId}: 未発見`);
+                    }
+                });
+                
+            } catch (e) {
+                console.log('Cross-origin制限によりiframe内容を確認できません');
+            }
+            
+            updateResults();
+        }, 2000);
+    };
+    
+    // 初期表示
+    updateResults();
+    </script>
+</body>
+</html>

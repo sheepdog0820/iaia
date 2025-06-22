@@ -1,7 +1,9 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (
-    CustomUser, Friend, Group, GroupMembership, GroupInvitation,
+    CustomUser, Friend, Group, GroupMembership, GroupInvitation
+)
+from .character_models import (
     CharacterSheet, CharacterSheet6th, 
     CharacterSkill, CharacterEquipment
 )

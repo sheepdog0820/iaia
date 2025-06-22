@@ -9,7 +9,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework import status
-from .models import CharacterSheet, CharacterSheet6th, CharacterSheet7th, CharacterSkill, CharacterEquipment
+from .character_models import CharacterSheet, CharacterSheet6th, CharacterSkill, CharacterEquipment
 
 User = get_user_model()
 

@@ -1,11 +1,14 @@
 from rest_framework import serializers
 from django.core.exceptions import ValidationError
+from django.db import models
 from PIL import Image
 import os
 from .models import (
-    CustomUser, Friend, Group, GroupMembership, GroupInvitation,
+    CustomUser, Friend, Group, GroupMembership, GroupInvitation
+)
+from .character_models import (
     CharacterSheet, CharacterSheet6th,
-    CharacterSkill, CharacterEquipment
+    CharacterSkill, CharacterEquipment, CharacterImage
 )
 
 
@@ -290,19 +293,10 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
         # 現在のユーザーを設定
         validated_data['user'] = self.context['request'].user
         
-        # 同名キャラクターが存在する場合、バージョン番号を調整
-        existing_chars = CharacterSheet.objects.filter(
-            user=validated_data['user'],
-            name=validated_data['name']
-        )
-        
-        if existing_chars.exists():
-            # 最新バージョン番号を取得
-            latest_version = existing_chars.order_by('-version').first().version
-            validated_data['version'] = latest_version + 1
-            
-            # 最初のキャラクターを親として設定
-            validated_data['parent_sheet'] = existing_chars.order_by('version').first()
+        # 同名キャラクター対応 - ユニークIDで管理、名前の重複は許可
+        # バージョン番号は常に1から開始（独立したキャラクターとして扱う）
+        validated_data['version'] = 1
+        validated_data['parent_sheet'] = None
         
         return super().create(validated_data)
     
@@ -368,44 +362,25 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
         """版別のバリデーション"""
         edition = data.get('edition')
         
-        if edition == '6th':
-            # 6版の能力値範囲（3-18）
-            ability_ranges = {
-                'str_value': (3, 18),
-                'con_value': (3, 18),
-                'pow_value': (3, 18),
-                'dex_value': (3, 18),
-                'app_value': (3, 18),
-                'siz_value': (8, 18),  # SIZは8-18
-                'int_value': (8, 18),  # INTは8-18
-                'edu_value': (6, 21)   # EDUは6-21
-            }
-        else:  # 7th edition
-            # 7版の能力値範囲（15-90）
-            ability_ranges = {
-                'str_value': (15, 90),
-                'con_value': (15, 90),
-                'pow_value': (15, 90),
-                'dex_value': (15, 90),
-                'app_value': (15, 90),
-                'siz_value': (30, 90),
-                'int_value': (40, 90),
-                'edu_value': (30, 90)
-            }
+        # 能力値制限を削除 - ユーザーの自由度を最大化
+        # 6版・7版問わず、1-999の範囲で自由に設定可能
         
-        # 範囲チェック
-        for field, (min_val, max_val) in ability_ranges.items():
+        # 基本的な妥当性チェックのみ実施
+        for field in ['str_value', 'con_value', 'pow_value', 'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value']:
             value = data.get(field)
             if value is not None:
-                if value < min_val or value > max_val:
+                if value < 1 or value > 999:
                     raise serializers.ValidationError({
-                        field: f"{edition}版では{min_val}から{max_val}の間で設定してください。"
+                        field: "能力値は1から999の間で設定してください。"
                     })
         
         return data
     
     def create(self, validated_data):
         """キャラクターシート作成（関連データも含む）"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         # 関連データを分離
         sixth_data = validated_data.pop('sixth_edition_data', None)
         skills_data = validated_data.pop('skills', [])
@@ -414,13 +389,20 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
         # リクエストオブジェクトから追加データを取得
         request = self.context.get('request')
         
-        # 6版固有データから mental_disorder を取得
-        if validated_data.get('edition') == '6th' and sixth_data:
-            # sixth_edition_data に mental_disorder が含まれている場合はそのまま使用
-            if 'mental_disorder' not in sixth_data:
-                # フォールバック: リクエストから直接取得
-                mental_disorder = request.data.get('mental_disorder', '') if request else ''
-                sixth_data['mental_disorder'] = mental_disorder
+        # デバッグ情報
+        logger.info(f"受信した能力値データ: str={validated_data.get('str_value')}, con={validated_data.get('con_value')}")
+        logger.info(f"validated_data keys: {list(validated_data.keys())}")
+        if request:
+            logger.info(f"request.data keys: {list(request.data.keys())}")
+            logger.info(f"skills_data in request: {'skills_data' in request.data}")
+        
+        # 6版固有データ処理
+        if validated_data.get('edition') == '6th':
+            if not sixth_data:
+                sixth_data = {}
+            # mental_disorder を直接リクエストから取得
+            mental_disorder = request.data.get('mental_disorder', '') if request else ''
+            sixth_data['mental_disorder'] = mental_disorder
         
         # フロントエンドからのスキルデータを処理
         if request and 'skills_data' in request.data:
@@ -429,7 +411,9 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
                 skills_json = request.data.get('skills_data')
                 if skills_json:
                     skills_data = json.loads(skills_json)
-            except (json.JSONDecodeError, TypeError):
+                    logger.info(f"パースしたスキルデータ数: {len(skills_data)}")
+            except (json.JSONDecodeError, TypeError) as e:
+                logger.error(f"スキルデータのパースエラー: {e}")
                 pass  # JSONデコードエラーの場合はスキップ
         
         # 6版の場合、能力値を内部保存用に変換（3-18 → 15-90）
@@ -438,8 +422,10 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
                             'app_value', 'siz_value', 'int_value', 'edu_value']
             for field in ability_fields:
                 if field in validated_data:
+                    original_value = validated_data[field]
                     # 6版の値を7版互換の値に変換（×5）
                     validated_data[field] = validated_data[field] * 5
+                    logger.info(f"{field}: {original_value} → {validated_data[field]}")
         
         # 現在のユーザーを設定
         validated_data['user'] = self.context['request'].user
@@ -456,7 +442,13 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             validated_data['parent_sheet'] = existing_chars.order_by('version').first()
         
         # キャラクターシート作成
-        character_sheet = CharacterSheet.objects.create(**validated_data)
+        try:
+            character_sheet = CharacterSheet.objects.create(**validated_data)
+            logger.info(f"キャラクターシート作成成功: ID={character_sheet.id}")
+        except Exception as e:
+            logger.error(f"キャラクターシート作成エラー: {e}")
+            logger.error(f"作成時のvalidated_data: {validated_data}")
+            raise
         
         # 版別データ作成
         if character_sheet.edition == '6th' and sixth_data:
@@ -466,11 +458,18 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             )
         
         # スキルデータ作成
+        created_skills = []
         for skill_data in skills_data:
-            CharacterSkill.objects.create(
-                character_sheet=character_sheet,
-                **skill_data
-            )
+            try:
+                skill = CharacterSkill.objects.create(
+                    character_sheet=character_sheet,
+                    **skill_data
+                )
+                created_skills.append(skill)
+            except Exception as e:
+                logger.error(f"スキル作成エラー: {e}, データ: {skill_data}")
+        
+        logger.info(f"作成されたスキル数: {len(created_skills)}")
         
         # 装備データ作成
         for equipment_data_item in equipment_data:
@@ -588,3 +587,102 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
                 validated_data['character_image'] = None
         
         return super().update(instance, validated_data)
+
+
+class CharacterImageSerializer(serializers.ModelSerializer):
+    """キャラクター画像シリアライザー"""
+    image_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CharacterImage
+        fields = [
+            'id', 'image', 'image_url', 'thumbnail_url', 
+            'is_main', 'order', 'uploaded_at'
+        ]
+        read_only_fields = ['id', 'uploaded_at', 'image_url', 'thumbnail_url']
+    
+    def get_image_url(self, obj):
+        """画像のフルURLを返す"""
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
+    
+    def get_thumbnail_url(self, obj):
+        """サムネイルURLを返す（現時点では元画像と同じ）"""
+        # TODO: 実際のサムネイル生成機能を実装
+        return self.get_image_url(obj)
+    
+    def validate_image(self, value):
+        """画像ファイルのバリデーション"""
+        if not value:
+            raise serializers.ValidationError("画像ファイルは必須です。")
+        
+        # 既存のバリデーション関数を使用
+        return validate_character_image(value)
+    
+    def validate(self, attrs):
+        """追加バリデーション"""
+        character_sheet = self.context.get('character_sheet')
+        if not character_sheet:
+            raise serializers.ValidationError("キャラクターシートが指定されていません。")
+        
+        # 画像数制限チェック（10枚まで）
+        existing_count = CharacterImage.objects.filter(
+            character_sheet=character_sheet
+        ).count()
+        
+        if self.instance:
+            # 更新の場合は現在の画像を除外
+            existing_count -= 1
+        
+        if existing_count >= 10:
+            raise serializers.ValidationError(
+                "1キャラクターにつき最大10枚まで画像をアップロードできます。"
+            )
+        
+        # 総容量制限チェック（30MB）
+        total_size = 0
+        for img in CharacterImage.objects.filter(character_sheet=character_sheet):
+            if img.image and img != self.instance:
+                total_size += img.image.size
+        
+        new_image = attrs.get('image')
+        if new_image:
+            total_size += new_image.size
+        
+        max_total_size = 30 * 1024 * 1024  # 30MB
+        if total_size > max_total_size:
+            raise serializers.ValidationError(
+                f"総容量が30MBを超えています。現在: {total_size / 1024 / 1024:.1f}MB"
+            )
+        
+        # メイン画像の一意性チェック
+        if attrs.get('is_main', False):
+            existing_main = CharacterImage.objects.filter(
+                character_sheet=character_sheet,
+                is_main=True
+            ).exclude(pk=self.instance.pk if self.instance else None)
+            
+            if existing_main.exists():
+                # 既存のメイン画像をFalseに更新
+                existing_main.update(is_main=False)
+        
+        return attrs
+    
+    def create(self, validated_data):
+        """画像作成時の処理"""
+        character_sheet = self.context.get('character_sheet')
+        validated_data['character_sheet'] = character_sheet
+        
+        # 順序番号の自動設定
+        if 'order' not in validated_data:
+            max_order = CharacterImage.objects.filter(
+                character_sheet=character_sheet
+            ).aggregate(max_order=models.Max('order'))['max_order']
+            validated_data['order'] = (max_order or -1) + 1
+        
+        return super().create(validated_data)

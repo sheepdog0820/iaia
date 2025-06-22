@@ -425,14 +425,36 @@ class StatisticsExportView(APIView):
     
     def _collect_user_statistics(self, user, start_date, end_date):
         """ユーザーの統計データを収集"""
-        from django.db.models import Sum, Count, Q
-        from datetime import datetime
-        from schedules.models import TRPGSession, SessionParticipant
-        from scenarios.models import PlayHistory, Scenario
-        from accounts.models import Group
+        # 日付フィルタの解析
+        date_filter, start_date_parsed, end_date_parsed = self._parse_date_filters(start_date, end_date)
         
-        # 日付フィルタの設定
+        # セッション統計の収集
+        session_stats = self._collect_session_statistics(user, date_filter)
+        
+        # プレイ履歴データの収集
+        play_history_details = self._collect_play_history_data(user, start_date_parsed, end_date_parsed, start_date, end_date)
+        
+        # セッション内訳統計の収集
+        session_breakdown = self._collect_session_breakdown_stats(user, date_filter)
+        
+        # シナリオ統計の収集
+        scenario_stats = self._collect_scenario_statistics(user, start_date_parsed, end_date_parsed, start_date, end_date)
+        
+        # レスポンスのフォーマット
+        return self._format_statistics_response(
+            user, start_date, end_date, session_stats, 
+            play_history_details, session_breakdown, scenario_stats
+        )
+    
+    def _parse_date_filters(self, start_date, end_date):
+        """日付フィルタを解析してQuerySetフィルタを作成"""
+        from django.db.models import Q
+        from datetime import datetime
+        
         date_filter = Q()
+        start_date_parsed = None
+        end_date_parsed = None
+        
         if start_date:
             try:
                 start_date_parsed = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -447,7 +469,13 @@ class StatisticsExportView(APIView):
             except ValueError:
                 raise ValueError("Invalid end_date format. Use YYYY-MM-DD")
         
-        # セッション統計
+        return date_filter, start_date_parsed, end_date_parsed
+    
+    def _collect_session_statistics(self, user, date_filter):
+        """セッション関連の基本統計を収集"""
+        from django.db.models import Sum, Count, Q
+        from schedules.models import TRPGSession
+        
         user_sessions = TRPGSession.objects.filter(
             Q(participants=user) | Q(gm=user),
             status='completed'
@@ -458,23 +486,29 @@ class StatisticsExportView(APIView):
             total_minutes=Sum('duration_minutes')
         )['total_minutes'] or 0
         
-        # GM/プレイヤー別統計
         gm_sessions = user_sessions.filter(gm=user).count()
         player_sessions = total_sessions - gm_sessions
         
-        # シナリオ統計
-        play_histories = PlayHistory.objects.filter(
-            user=user
-        )
+        return {
+            'total_sessions': total_sessions,
+            'total_play_time': total_play_time,
+            'gm_sessions': gm_sessions,
+            'player_sessions': player_sessions,
+            'user_sessions': user_sessions
+        }
+    
+    def _collect_play_history_data(self, user, start_date_parsed, end_date_parsed, start_date, end_date):
+        """プレイ履歴の詳細データを収集"""
+        from datetime import datetime
+        from scenarios.models import PlayHistory
+        
+        play_histories = PlayHistory.objects.filter(user=user)
         if start_date or end_date:
             play_histories = play_histories.filter(
                 played_date__date__gte=start_date_parsed if start_date else datetime.min.date(),
                 played_date__date__lte=end_date_parsed if end_date else datetime.max.date()
             )
         
-        scenarios_played = play_histories.values('scenario').distinct().count()
-        
-        # プレイ履歴の詳細データ
         play_history_details = []
         for history in play_histories.select_related('scenario', 'session'):
             session = history.session
@@ -489,7 +523,19 @@ class StatisticsExportView(APIView):
                 'notes': history.notes
             })
         
-        # セッション統計（年別、システム別）
+        return play_history_details
+    
+    def _collect_session_breakdown_stats(self, user, date_filter):
+        """セッション内訳統計を収集（年別・システム別）"""
+        from django.db.models import Q
+        from schedules.models import TRPGSession
+        from scenarios.models import PlayHistory
+        
+        user_sessions = TRPGSession.objects.filter(
+            Q(participants=user) | Q(gm=user),
+            status='completed'
+        ).filter(date_filter).distinct()
+        
         session_stats = {
             'by_year': {},
             'by_game_system': {},
@@ -507,61 +553,60 @@ class StatisticsExportView(APIView):
             session_stats['by_year'][year]['session_count'] += 1
             session_stats['by_year'][year]['total_minutes'] += session.duration_minutes or 0
         
-        # システム別集計
-        for history in play_histories:
-            if history.scenario:
-                system = history.scenario.game_system
-                if system not in session_stats['by_game_system']:
-                    session_stats['by_game_system'][system] = {
-                        'session_count': 0,
-                        'scenario_count': set()
-                    }
-                session_stats['by_game_system'][system]['session_count'] += 1
-                session_stats['by_game_system'][system]['scenario_count'].add(history.scenario.id)
+        return session_stats
+    
+    def _collect_scenario_statistics(self, user, start_date_parsed, end_date_parsed, start_date, end_date):
+        """シナリオ関連統計を収集"""
+        from datetime import datetime
+        from scenarios.models import PlayHistory
         
-        # セットをカウントに変換
-        for system in session_stats['by_game_system']:
-            session_stats['by_game_system'][system]['unique_scenarios'] = len(
-                session_stats['by_game_system'][system]['scenario_count']
+        play_histories = PlayHistory.objects.filter(user=user)
+        if start_date or end_date:
+            play_histories = play_histories.filter(
+                played_date__date__gte=start_date_parsed if start_date else datetime.min.date(),
+                played_date__date__lte=end_date_parsed if end_date else datetime.max.date()
             )
-            del session_stats['by_game_system'][system]['scenario_count']
         
-        # シナリオ統計
-        scenario_stats = {
-            'total_scenarios': scenarios_played,
-            'favorite_systems': [],
-            'longest_campaigns': []
-        }
+        scenarios_played = play_histories.values('scenario').distinct().count()
         
-        # お気に入りシステム
+        # システム別集計
         system_counts = {}
         for history in play_histories:
             if history.scenario:
                 system = history.scenario.game_system
                 system_counts[system] = system_counts.get(system, 0) + 1
         
-        scenario_stats['favorite_systems'] = [
+        favorite_systems = [
             {'system': system, 'count': count}
             for system, count in sorted(system_counts.items(), key=lambda x: x[1], reverse=True)[:5]
         ]
         
         return {
+            'total_scenarios': scenarios_played,
+            'favorite_systems': favorite_systems,
+            'longest_campaigns': []
+        }
+    
+    def _format_statistics_response(self, user, start_date, end_date, session_stats, 
+                                   play_history_details, session_breakdown, scenario_stats):
+        """統計データをレスポンス形式にフォーマット"""
+        return {
             'user_statistics': {
                 'user_id': user.id,
                 'username': user.username,
                 'nickname': user.nickname,
-                'total_sessions': total_sessions,
-                'total_play_time': round(total_play_time / 60, 1),  # 時間に変換
-                'scenarios_played': scenarios_played,
-                'gm_sessions': gm_sessions,
-                'player_sessions': player_sessions,
+                'total_sessions': session_stats['total_sessions'],
+                'total_play_time': round(session_stats['total_play_time'] / 60, 1),  # 時間に変換
+                'scenarios_played': scenario_stats['total_scenarios'],
+                'gm_sessions': session_stats['gm_sessions'],
+                'player_sessions': session_stats['player_sessions'],
                 'date_range': {
                     'start_date': start_date,
                     'end_date': end_date
                 }
             },
             'play_history': play_history_details,
-            'session_statistics': session_stats,
+            'session_statistics': session_breakdown,
             'scenario_statistics': scenario_stats,
             'export_metadata': {
                 'export_date': timezone.now().isoformat(),

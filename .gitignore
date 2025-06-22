@@ -165,3 +165,6 @@ ssl/
 # Logs
 logs/
 *.log
+
+# Debug and development images
+/debug_images/

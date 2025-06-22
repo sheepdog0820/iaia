@@ -1,0 +1,143 @@
+/**
+ * ダイス設定の表示修正用追加CSS
+ * character_sheet_improvements.cssで解決しない場合の緊急対応
+ */
+
+/* 数値入力フィールドの完全リセット */
+#dice-settings input[type="number"] {
+    /* リセット */
+    all: unset;
+    
+    /* 基本スタイル */
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 50px !important;
+    height: 31px !important;
+    padding: 0.375rem 0.5rem !important;
+    margin: 0 !important;
+    
+    /* 見た目 */
+    background-color: white !important;
+    background-image: none !important;
+    color: #212529 !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 0.25rem !important;
+    
+    /* テキスト */
+    font-family: inherit !important;
+    font-size: 0.875rem !important;
+    font-weight: normal !important;
+    line-height: 1.5 !important;
+    text-align: center !important;
+    
+    /* その他 */
+    box-sizing: border-box !important;
+    vertical-align: middle !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: textfield !important;
+    appearance: none !important;
+    cursor: text !important;
+}
+
+/* フォーカス時のスタイル */
+#dice-settings input[type="number"]:focus {
+    outline: none !important;
+    border-color: #80bdff !important;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
+}
+
+/* input-groupの修正 */
+#dice-settings .input-group {
+    display: inline-flex !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    width: auto !important;
+    max-width: 100% !important;
+}
+
+#dice-settings .input-group > * {
+    position: relative !important;
+    flex: 0 0 auto !important;
+    min-height: 31px !important;
+}
+
+#dice-settings .input-group-text {
+    display: flex !important;
+    align-items: center !important;
+    padding: 0.375rem 0.5rem !important;
+    font-size: 0.875rem !important;
+    font-weight: 400 !important;
+    line-height: 1.5 !important;
+    color: #495057 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    background-color: #e9ecef !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 0.25rem !important;
+}
+
+/* ダイス設定全体のスタイル */
+#dice-settings {
+    background-color: white !important;
+}
+
+#dice-settings .card {
+    background-color: white !important;
+}
+
+#dice-settings .card-body {
+    background-color: white !important;
+}
+
+/* 能力値アイテムの背景 */
+#dice-settings .ability-item {
+    background-color: #f8f9fa !important;
+    padding: 0.75rem !important;
+    margin-bottom: 1rem !important;
+}
+
+/* 各カラムのレイアウト調整 */
+#dice-settings .col-md-3,
+#dice-settings .col-6 {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+#dice-settings .ability-item h6 {
+    margin-bottom: 0.5rem !important;
+    font-size: 0.9rem !important;
+    white-space: nowrap !important;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    #dice-settings .col-md-3 {
+        flex: 0 0 50% !important;
+        max-width: 50% !important;
+    }
+}
+
+@media (max-width: 576px) {
+    #dice-settings input[type="number"] {
+        width: 40px !important;
+        font-size: 0.8rem !important;
+        padding: 0.25rem !important;
+    }
+    
+    #dice-settings .input-group-text {
+        padding: 0.25rem 0.375rem !important;
+        font-size: 0.8rem !important;
+    }
+}
+
+/* デバッグ用: 値が見えることを確認 */
+#dice-settings input[type="number"]::placeholder {
+    color: #6c757d !important;
+    opacity: 1 !important;
+}
+
+/* 強制的に値を表示 */
+#dice-settings input[type="number"]:not(:placeholder-shown) {
+    color: #212529 !important;
+}

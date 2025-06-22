@@ -6,6 +6,7 @@ from rest_framework.routers import DefaultRouter
 from . import views
 from . import statistics_views
 from . import export_views
+from .views.character_image_views import CharacterImageViewSet
 
 router = DefaultRouter()
 router.register(r'users', views.UserViewSet, basename='user')
@@ -48,6 +49,23 @@ urlpatterns = [
     path('friends/add/', views.AddFriendView.as_view(), name='api_add_friend'),
     
     # Character Sheet nested endpoints  
+    # Character Images endpoints
+    path('character-sheets/<int:character_id>/images/', 
+         CharacterImageViewSet.as_view({'get': 'list', 'post': 'create'}), 
+         name='character-image-list'),
+    path('character-sheets/<int:character_id>/images/<int:pk>/', 
+         CharacterImageViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}), 
+         name='character-image-detail'),
+    path('character-sheets/<int:character_id>/images/reorder/', 
+         CharacterImageViewSet.as_view({'patch': 'reorder'}), 
+         name='character-image-reorder'),
+    path('character-sheets/<int:character_id>/images/<int:pk>/set-main/', 
+         CharacterImageViewSet.as_view({'patch': 'set_main'}), 
+         name='character-image-set-main'),
+    path('character-sheets/<int:character_id>/images/bulk-upload/', 
+         CharacterImageViewSet.as_view({'post': 'bulk_upload'}), 
+         name='character-image-bulk-upload'),
+    
     path('character-sheets/<int:character_sheet_id>/skills/', 
          views.CharacterSkillViewSet.as_view({'get': 'list', 'post': 'create'}), 
          name='character-sheet-skills'),
@@ -61,6 +79,17 @@ urlpatterns = [
          views.CharacterEquipmentViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}), 
          name='character-sheet-equipment-detail'),
     
+    # Character Skill custom endpoints
+    path('character-sheets/<int:character_sheet_id>/skills/create_custom_skill/', 
+         views.CharacterSkillViewSet.as_view({'post': 'create_custom_skill'}), 
+         name='character-sheet-skills-create-custom'),
+    path('character-sheets/<int:character_sheet_id>/skills/bulk_update/', 
+         views.CharacterSkillViewSet.as_view({'patch': 'bulk_update'}), 
+         name='character-sheet-skills-bulk-update'),
+    path('character-sheets/<int:character_sheet_id>/skills/skill_categories/', 
+         views.CharacterSkillViewSet.as_view({'get': 'skill_categories'}), 
+         name='character-sheet-skills-categories'),
+    
     # Character Sheet custom endpoints
     path('character-sheets/<int:pk>/ccfolia-json/', 
          views.CharacterSheetViewSet.as_view({'get': 'ccfolia_json'}), 
@@ -69,8 +98,61 @@ urlpatterns = [
          views.CharacterSheetViewSet.as_view({'get': 'export_version_data'}), 
          name='character-sheet-export-version-data'),
     
+    # Skill Point Management endpoints
+    path('character-sheets/<int:pk>/skill-points-summary/', 
+         views.CharacterSheetViewSet.as_view({'get': 'skill_points_summary'}), 
+         name='character-sheet-skill-points-summary'),
+    path('character-sheets/<int:pk>/allocate-skill-points/', 
+         views.CharacterSheetViewSet.as_view({'post': 'allocate_skill_points'}), 
+         name='character-sheet-allocate-skill-points'),
+    path('character-sheets/<int:pk>/batch-allocate-skill-points/', 
+         views.CharacterSheetViewSet.as_view({'post': 'batch_allocate_skill_points'}), 
+         name='character-sheet-batch-allocate-skill-points'),
+    path('character-sheets/<int:pk>/reset-skill-points/', 
+         views.CharacterSheetViewSet.as_view({'post': 'reset_skill_points'}), 
+         name='character-sheet-reset-skill-points'),
+    
+    # Combat Data Management endpoints
+    path('character-sheets/<int:pk>/combat-summary/', 
+         views.CharacterSheetViewSet.as_view({'get': 'combat_summary'}), 
+         name='character-sheet-combat-summary'),
+    
+    # Inventory Management endpoints
+    path('character-sheets/<int:pk>/financial-summary/', 
+         views.CharacterSheetViewSet.as_view({'get': 'financial_summary'}), 
+         name='character-sheet-financial-summary'),
+    path('character-sheets/<int:pk>/update-financial-data/', 
+         views.CharacterSheetViewSet.as_view({'patch': 'update_financial_data'}), 
+         name='character-sheet-update-financial-data'),
+    path('character-sheets/<int:pk>/inventory-summary/', 
+         views.CharacterSheetViewSet.as_view({'get': 'inventory_summary'}), 
+         name='character-sheet-inventory-summary'),
+    path('character-sheets/<int:pk>/bulk-update-items/', 
+         views.CharacterSheetViewSet.as_view({'post': 'bulk_update_items'}), 
+         name='character-sheet-bulk-update-items'),
+    
+    # Background Information endpoints
+    path('character-sheets/<int:pk>/background-summary/', 
+         views.CharacterSheetViewSet.as_view({'get': 'background_summary'}), 
+         name='character-sheet-background-summary'),
+    path('character-sheets/<int:pk>/update-background-data/', 
+         views.CharacterSheetViewSet.as_view({'patch': 'update_background_data'}), 
+         name='character-sheet-update-background-data'),
+    
+    # Growth Record endpoints
+    path('character-sheets/<int:pk>/growth-records/', 
+         views.CharacterSheetViewSet.as_view({'get': 'growth_records', 'post': 'growth_records'}), 
+         name='character-sheet-growth-records'),
+    path('character-sheets/<int:pk>/growth-summary/', 
+         views.CharacterSheetViewSet.as_view({'get': 'growth_summary'}), 
+         name='character-sheet-growth-summary'),
+    path('character-sheets/<int:pk>/growth-records/<int:record_id>/add-skill-growth/', 
+         views.CharacterSheetViewSet.as_view({'post': 'add_skill_growth'}), 
+         name='character-sheet-add-skill-growth'),
+    
     # Statistics APIs
     path('statistics/tindalos/', statistics_views.SimpleTindalosMetricsView.as_view(), name='tindalos_metrics'),
+    path('statistics/tindalos/detailed/', statistics_views.DetailedTindalosMetricsView.as_view(), name='tindalos_metrics_detailed'),
     path('statistics/ranking/', statistics_views.UserRankingView.as_view(), name='user_ranking'),
     path('statistics/groups/', statistics_views.GroupStatisticsView.as_view(), name='group_statistics'),
     
