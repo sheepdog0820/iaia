@@ -98,8 +98,7 @@ class CharacterSheetAdmin(admin.ModelAdmin):
                 ('user', 'edition', 'version'),
                 ('name', 'player_name'),
                 ('age', 'gender'),
-                ('occupation', 'birthplace', 'residence'),
-                'character_image'
+                ('occupation', 'birthplace', 'residence')
             )
         }),
         ('能力値', {

@@ -904,6 +904,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 技能合計更新
     function updateSkillTotals() {
+        console.log('updateSkillTotals called');
         let occupationUsed = 0;
         let interestUsed = 0;
         
@@ -932,6 +933,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 const total = Math.min(base + occ + int, 90);
                 totalEl.textContent = total + '%';
+                
+                // 合計値が0でない場合はログ出力（デバッグ用）
+                if (total > 0) {
+                    console.log(`Skill ${key}: base=${base}, occ=${occ}, int=${int}, total=${total}`);
+                }
                 
                 occupationUsed += occ;
                 interestUsed += int;
@@ -1027,7 +1033,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初期化
     updateGlobalDiceFormula();
     generateSkillsList();
+    addSkillInputEvents();  // 技能リスト生成後にイベントリスナーを追加
     calculateDerivedStats();
+    updateSkillTotals();    // 初期計算を実行
     
     // フォーム送信処理
     const characterForm = document.getElementById('character-sheet-form');

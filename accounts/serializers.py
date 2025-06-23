@@ -225,7 +225,7 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_max', 'hit_points_current', 'magic_points_max',
             'magic_points_current', 'sanity_starting', 'sanity_max', 'sanity_current',
-            'version', 'parent_sheet', 'parent_sheet_name', 'character_image',
+            'version', 'parent_sheet', 'parent_sheet_name',
             'notes', 'is_active', 'status', 'created_at', 'updated_at',
             'skills', 'equipment', 'sixth_edition_data',
             'abilities', 'versions', 'user_nickname'
@@ -334,14 +334,10 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             'birthplace', 'residence', 'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',
-            'character_image', 'notes', 'sixth_edition_data',
+            'notes', 'sixth_edition_data',
             'skills', 'equipment'
         ]
         read_only_fields = ['id']
-    
-    def validate_character_image(self, value):
-        """キャラクター画像のバリデーション"""
-        return validate_character_image(value)
     
     def validate(self, data):
         """版別のバリデーション"""
@@ -465,12 +461,21 @@ class CharacterSheetListSerializer(serializers.ModelSerializer):
     equipment_count = serializers.SerializerMethodField()
     latest_version = serializers.SerializerMethodField()
     
+    # HP/MP/SAN値を追加
+    max_hp = serializers.IntegerField(source='hit_points_max', read_only=True)
+    current_hp = serializers.IntegerField(source='hit_points_current', read_only=True)
+    max_mp = serializers.IntegerField(source='magic_points_max', read_only=True)
+    current_mp = serializers.IntegerField(source='magic_points_current', read_only=True)
+    max_san = serializers.IntegerField(source='sanity_max', read_only=True)
+    current_san = serializers.IntegerField(source='sanity_current', read_only=True)
+    
     class Meta:
         model = CharacterSheet
         fields = [
-            'id', 'edition', 'name', 'player_name', 'age', 'occupation',
+            'id', 'edition', 'name', 'player_name', 'age', 'occupation', 'status',
             'version', 'character_image', 'is_active', 'created_at', 'updated_at',
-            'user_nickname', 'skill_count', 'equipment_count', 'latest_version'
+            'user_nickname', 'skill_count', 'equipment_count', 'latest_version',
+            'max_hp', 'current_hp', 'max_mp', 'current_mp', 'max_san', 'current_san'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
     
@@ -496,6 +501,30 @@ class CharacterSheetListSerializer(serializers.ModelSerializer):
         if latest:
             return latest.version
         return base_sheet.version
+    
+    def to_representation(self, instance):
+        """シリアライズ時にメイン画像を追加"""
+        data = super().to_representation(instance)
+        
+        # 新しい画像システムのメイン画像を取得
+        try:
+            main_image = instance.images.filter(is_main=True).first()
+            if main_image:
+                request = self.context.get('request')
+                if request:
+                    data['character_image'] = request.build_absolute_uri(main_image.image.url)
+            elif instance.images.exists():
+                # メイン画像が設定されていない場合は最初の画像を使用
+                first_image = instance.images.order_by('order', 'created_at').first()
+                if first_image:
+                    request = self.context.get('request')
+                    if request:
+                        data['character_image'] = request.build_absolute_uri(first_image.image.url)
+        except Exception as e:
+            # エラーが発生した場合は元のcharacter_imageフィールドを使用
+            pass
+        
+        return data
 
 
 class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
@@ -507,12 +536,8 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
             'birthplace', 'residence', 'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',
-            'character_image', 'notes', 'is_active'
+            'notes', 'is_active'
         ]
-    
-    def validate_character_image(self, value):
-        """キャラクター画像のバリデーション"""
-        return validate_character_image(value)
     
     def validate_name(self, value):
         """名前の重複チェック（同一ユーザー内）"""

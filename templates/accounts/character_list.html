@@ -73,6 +73,9 @@
 
 {% block extra_js %}
 <script>
+// デフォルトキャラクター画像のパス
+const DEFAULT_CHARACTER_IMAGE = '{% static "images/default-character.svg" %}';
+
 document.addEventListener('DOMContentLoaded', function() {
     let allCharacters = [];
     
@@ -137,21 +140,33 @@ document.addEventListener('DOMContentLoaded', function() {
             const san = character.current_san || character.max_san || 0;
             const maxSan = character.max_san || 0;
             
+            // 画像URLの決定（統一化）
+            let imageUrl = DEFAULT_CHARACTER_IMAGE;
+            if (character.character_image) {
+                imageUrl = character.character_image;
+            }
+            
             html += `
                 <div class="col-md-6 col-lg-4 mb-4">
                     <div class="card h-100 shadow-sm">
-                        ${character.character_image ? 
-                            `<img src="${character.character_image}" class="card-img-top" style="height: 200px; object-fit: contain; background-color: #f8f9fa;" alt="${character.name}">` : 
-                            `<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
-                                <i class="fas fa-user fa-3x text-muted"></i>
-                            </div>`
-                        }
+                        <div class="position-relative">
+                            <img src="${imageUrl}" 
+                                 class="card-img-top" 
+                                 style="height: 200px; object-fit: contain; background-color: #f8f9fa;" 
+                                 alt="${character.name}"
+                                 onerror="this.src='${DEFAULT_CHARACTER_IMAGE}';">
+                            ${character.status !== 'alive' ? 
+                                `<div class="position-absolute top-0 end-0 m-2">
+                                    ${statusBadge}
+                                </div>` : ''
+                            }
+                        </div>
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <h5 class="card-title mb-0">${character.name}</h5>
                                 <div>
                                     ${editionBadge}
-                                    ${statusBadge}
+                                    ${character.status === 'alive' ? statusBadge : ''}
                                 </div>
                             </div>
                             
