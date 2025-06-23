@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 テストキャラクターデータ作成スクリプト
-クトゥルフ神話TRPG 6版・7版のテストキャラクターを作成
+クトゥルフ神話TRPG 6版のテストキャラクターを作成
+様々な状態（生存、死亡、発狂など）のキャラクターを含む
 """
 
 import os
@@ -10,11 +11,13 @@ import django
 import random
 
 # Django設定
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
 django.setup()
 
-from accounts.models import (
-    CustomUser, CharacterSheet, CharacterSheet6th,
+from accounts.models import CustomUser
+from accounts.character_models import (
+    CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment
 )
 
@@ -56,7 +59,7 @@ def create_test_characters():
             print(f"{Colors.OKBLUE}📌 既存ユーザー: {username}{Colors.ENDC}")
         test_users.append(user)
     
-    # 6版キャラクターの作成
+    # 6版キャラクターの作成（様々な状態を含む）
     print(f"\n{Colors.OKCYAN}【6版キャラクター作成】{Colors.ENDC}")
     
     sixth_characters = [
@@ -67,6 +70,7 @@ def create_test_characters():
             'gender': '男性',
             'birthplace': '東京都',
             'residence': '横浜市',
+            'status': 'alive',  # 生存
             'mental_disorder': '',
             'abilities': {
                 'str': 12, 'con': 14, 'pow': 13, 'dex': 15,
@@ -88,7 +92,8 @@ def create_test_characters():
             'gender': '女性',
             'birthplace': '大阪府',
             'residence': '東京都',
-            'mental_disorder': '軽度の閉所恐怖症',
+            'status': 'insane',  # 発狂
+            'mental_disorder': '重度のクトゥルフ恐怖症、幻聴、被害妄想',
             'abilities': {
                 'str': 9, 'con': 11, 'pow': 15, 'dex': 13,
                 'app': 14, 'siz': 10, 'int': 17, 'edu': 16
@@ -104,23 +109,24 @@ def create_test_characters():
         },
         {
             'name': '山田 太郎',
-            'occupation': '医師',
+            'occupation': '考古学者',
             'age': 42,
             'gender': '男性',
             'birthplace': '京都府',
             'residence': '東京都',
+            'status': 'dead',  # 死亡
             'mental_disorder': '',
             'abilities': {
                 'str': 10, 'con': 12, 'pow': 14, 'dex': 11,
                 'app': 12, 'siz': 12, 'int': 18, 'edu': 18
             },
             'skills': [
-                ('医学', '知識系', 5, 60, 0),
-                ('応急手当', '技術系', 30, 20, 0),
-                ('生物学', '知識系', 1, 40, 0),
-                ('化学', '知識系', 1, 30, 0),
-                ('心理学', '知識系', 10, 20, 0),
-                ('説得', '対人系', 15, 10, 10),
+                ('考古学', '知識系', 1, 60, 0),
+                ('歴史', '知識系', 20, 30, 0),
+                ('図書館', '探索系', 25, 30, 0),
+                ('目星', '探索系', 25, 20, 0),
+                ('他の言語（古代エジプト語）', '言語系', 1, 30, 0),
+                ('登攀', '行動系', 40, 10, 0),
             ]
         }
     ]
@@ -136,10 +142,19 @@ def create_test_characters():
         ).first()
         
         if existing:
-            print(f"{Colors.WARNING}⚠️  既存キャラクター: {char_data['name']} (スキップ){Colors.ENDC}")
+            # 既存のキャラクターがある場合はステータスを更新
+            existing.status = char_data.get('status', 'alive')
+            existing.save()
+            
+            # 6版データの精神的障害も更新
+            if hasattr(existing, 'sixth_edition_data'):
+                existing.sixth_edition_data.mental_disorder = char_data.get('mental_disorder', '')
+                existing.sixth_edition_data.save()
+            
+            print(f"{Colors.WARNING}⚠️  既存キャラクター更新: {char_data['name']} (状態: {existing.get_status_display()}){Colors.ENDC}")
             continue
         
-        # キャラクターシート作成（能力値は×5で保存）
+        # キャラクターシート作成（6版の能力値はそのまま保存）
         character = CharacterSheet.objects.create(
             user=user,
             edition='6th',
@@ -149,15 +164,16 @@ def create_test_characters():
             gender=char_data['gender'],
             occupation=char_data['occupation'],
             birthplace=char_data['birthplace'],
-            residence=char_data['residence'],
-            str_value=char_data['abilities']['str'] * 5,
-            con_value=char_data['abilities']['con'] * 5,
-            pow_value=char_data['abilities']['pow'] * 5,
-            dex_value=char_data['abilities']['dex'] * 5,
-            app_value=char_data['abilities']['app'] * 5,
-            siz_value=char_data['abilities']['siz'] * 5,
-            int_value=char_data['abilities']['int'] * 5,
-            edu_value=char_data['abilities']['edu'] * 5,
+            residence=char_data.get('residence', ''),
+            status=char_data.get('status', 'alive'),
+            str_value=char_data['abilities']['str'],
+            con_value=char_data['abilities']['con'],
+            pow_value=char_data['abilities']['pow'],
+            dex_value=char_data['abilities']['dex'],
+            app_value=char_data['abilities']['app'],
+            siz_value=char_data['abilities']['siz'],
+            int_value=char_data['abilities']['int'],
+            edu_value=char_data['abilities']['edu'],
             notes=f'{char_data["occupation"]}として活動する探索者',
             is_active=True
         )
@@ -192,7 +208,7 @@ def create_test_characters():
                 ammo=6,
                 malfunction_number=100
             )
-        elif char_data['occupation'] == '医師':
+        elif char_data['occupation'] == '考古学者':
             CharacterEquipment.objects.create(
                 character_sheet=character,
                 item_type='item',
@@ -202,9 +218,115 @@ def create_test_characters():
         
         print(f"{Colors.OKGREEN}✅ 6版キャラクター作成: {char_data['name']} ({char_data['occupation']}){Colors.ENDC}")
     
-    # 7版キャラクターの作成
-    print(f"\n{Colors.OKCYAN}【7版キャラクター作成】{Colors.ENDC}")
+    # 追加の6版キャラクター（様々な状態）
+    additional_characters = [
+        {
+            'name': '高橋 美由紀',
+            'occupation': '看護師',
+            'age': 26,
+            'gender': '女性',
+            'birthplace': '神戸市',
+            'status': 'injured',  # 重傷
+            'mental_disorder': '',
+            'abilities': {
+                'str': 9, 'con': 13, 'pow': 14, 'dex': 12,
+                'app': 15, 'siz': 10, 'int': 14, 'edu': 15
+            },
+            'skills': [
+                ('応急手当', '技術系', 30, 40, 0),
+                ('医学', '知識系', 5, 30, 0),
+                ('心理学', '知識系', 10, 20, 0),
+                ('説得', '対人系', 15, 25, 0),
+            ]
+        },
+        {
+            'name': '田中 健二',
+            'occupation': '元警察官',
+            'age': 55,
+            'gender': '男性',
+            'birthplace': '福岡県',
+            'status': 'retired',  # 引退
+            'mental_disorder': '軽度のPTSD（銃声恐怖症）',
+            'abilities': {
+                'str': 11, 'con': 10, 'pow': 13, 'dex': 9,
+                'app': 11, 'siz': 14, 'int': 15, 'edu': 14
+            },
+            'skills': [
+                ('拳銃', '戦闘系', 20, 50, 0),
+                ('法律', '知識系', 5, 40, 0),
+                ('心理学', '知識系', 10, 30, 0),
+                ('目星', '探索系', 25, 25, 0),
+            ]
+        },
+        {
+            'name': '鈴木 研一',
+            'occupation': '大学教授',
+            'age': 48,
+            'gender': '男性',
+            'birthplace': '仙台市',
+            'status': 'missing',  # 行方不明
+            'mental_disorder': '',
+            'abilities': {
+                'str': 8, 'con': 9, 'pow': 16, 'dex': 10,
+                'app': 12, 'siz': 11, 'int': 18, 'edu': 19
+            },
+            'skills': [
+                ('オカルト', '知識系', 5, 50, 0),
+                ('歴史', '知識系', 20, 40, 0),
+                ('図書館', '探索系', 25, 35, 0),
+                ('他の言語（ラテン語）', '言語系', 1, 40, 0),
+            ]
+        }
+    ]
     
+    # 追加キャラクターを別途処理
+    for i, char_data in enumerate(additional_characters):
+        user = test_users[(i + 1) % len(test_users)]
+        
+        # キャラクターシート作成（6版の能力値はそのまま保存）
+        character = CharacterSheet.objects.create(
+            user=user,
+            edition='6th',
+            name=char_data['name'],
+            player_name=user.nickname,
+            age=char_data['age'],
+            gender=char_data['gender'],
+            occupation=char_data['occupation'],
+            birthplace=char_data['birthplace'],
+            residence=char_data.get('residence', ''),
+            status=char_data.get('status', 'alive'),
+            str_value=char_data['abilities']['str'],
+            con_value=char_data['abilities']['con'],
+            pow_value=char_data['abilities']['pow'],
+            dex_value=char_data['abilities']['dex'],
+            app_value=char_data['abilities']['app'],
+            siz_value=char_data['abilities']['siz'],
+            int_value=char_data['abilities']['int'],
+            edu_value=char_data['abilities']['edu'],
+            notes=f'{char_data["occupation"]}として活動する探索者',
+            is_active=True
+        )
+        
+        # 6版固有データ
+        CharacterSheet6th.objects.create(
+            character_sheet=character,
+            mental_disorder=char_data.get('mental_disorder', '')
+        )
+        
+        # スキル作成
+        for skill_name, category, base, occupation, interest in char_data['skills']:
+            CharacterSkill.objects.create(
+                character_sheet=character,
+                skill_name=skill_name,
+                category=category,
+                base_value=base,
+                occupation_points=occupation,
+                interest_points=interest
+            )
+        
+        print(f"{Colors.OKGREEN}✅ 6版キャラクター作成: {char_data['name']} ({char_data['occupation']}) - 状態: {character.get_status_display()}{Colors.ENDC}")
+    
+    # 7版はサポート外（プロジェクトは6版専用）
     seventh_characters = [
         {
             'name': 'エドワード・ピアース',
@@ -270,70 +392,8 @@ def create_test_characters():
         }
     ]
     
-    for i, char_data in enumerate(seventh_characters):
-        user = test_users[(i + 1) % len(test_users)]
-        
-        # 既存のキャラクターチェック
-        existing = CharacterSheet.objects.filter(
-            user=user,
-            name=char_data['name'],
-            edition='7th'
-        ).first()
-        
-        if existing:
-            print(f"{Colors.WARNING}⚠️  既存キャラクター: {char_data['name']} (スキップ){Colors.ENDC}")
-            continue
-        
-        # キャラクターシート作成（7版は能力値そのまま）
-        character = CharacterSheet.objects.create(
-            user=user,
-            edition='7th',
-            name=char_data['name'],
-            player_name=user.nickname,
-            age=char_data['age'],
-            gender=char_data['gender'],
-            occupation=char_data['occupation'],
-            birthplace=char_data['birthplace'],
-            residence=char_data['residence'],
-            str_value=char_data['abilities']['str'],
-            con_value=char_data['abilities']['con'],
-            pow_value=char_data['abilities']['pow'],
-            dex_value=char_data['abilities']['dex'],
-            app_value=char_data['abilities']['app'],
-            siz_value=char_data['abilities']['siz'],
-            int_value=char_data['abilities']['int'],
-            edu_value=char_data['abilities']['edu'],
-            notes=f'{char_data["occupation"]}として活動する探索者',
-            is_active=True
-        )
-        
-        # 7版固有データ
-        backstory = char_data['backstory']
-        CharacterSheet7th.objects.create(
-            character_sheet=character,
-            luck_points=char_data['luck_points'],
-            personal_description=backstory['personal_description'],
-            ideology_beliefs=backstory['ideology_beliefs'],
-            significant_people=backstory['significant_people'],
-            meaningful_locations=backstory['meaningful_locations'],
-            treasured_possessions=backstory['treasured_possessions'],
-            traits=backstory['traits'],
-            injuries_scars=backstory['injuries_scars'],
-            phobias_manias=backstory['phobias_manias']
-        )
-        
-        # スキル作成
-        for skill_name, category, base, occupation, interest in char_data['skills']:
-            CharacterSkill.objects.create(
-                character_sheet=character,
-                skill_name=skill_name,
-                category=category,
-                base_value=base,
-                occupation_points=occupation,
-                interest_points=interest
-            )
-        
-        print(f"{Colors.OKGREEN}✅ 7版キャラクター作成: {char_data['name']} ({char_data['occupation']}){Colors.ENDC}")
+    # 7版はサポートしない（プロジェクトは6版専用）
+    print(f"\n{Colors.WARNING}〜 7版キャラクターはサポート外です〜{Colors.ENDC}")
     
     # バージョン管理のテスト（成長したキャラクター）
     print(f"\n{Colors.OKCYAN}【キャラクター成長バージョン作成】{Colors.ENDC}")
@@ -352,16 +412,21 @@ def create_test_characters():
         grown_char.sanity_current = grown_char.sanity_current - 10
         grown_char.save()
         
-        # クトゥルフ神話技能追加
-        CharacterSkill.objects.create(
+        # クトゥルフ神話技能追加（既存チェック）
+        cthulhu_skill, created = CharacterSkill.objects.get_or_create(
             character_sheet=grown_char,
             skill_name='クトゥルフ神話',
-            category='知識系',
-            base_value=0,
-            occupation_points=0,
-            interest_points=0,
-            other_points=5
+            defaults={
+                'category': '知識系',
+                'base_value': 0,
+                'occupation_points': 0,
+                'interest_points': 0,
+                'other_points': 5
+            }
         )
+        if not created:
+            cthulhu_skill.other_points = 5
+            cthulhu_skill.save()
         
         # 精神的障害を追加
         if hasattr(grown_char, 'sixth_edition_data'):
@@ -377,13 +442,18 @@ def create_test_characters():
     
     total_chars = CharacterSheet.objects.count()
     sixth_chars = CharacterSheet.objects.filter(edition='6th').count()
-    seventh_chars = CharacterSheet.objects.filter(edition='7th').count()
     total_skills = CharacterSkill.objects.count()
     
     print(f"{Colors.OKBLUE}総キャラクター数: {total_chars}{Colors.ENDC}")
     print(f"{Colors.OKBLUE}  - 6版: {sixth_chars}{Colors.ENDC}")
-    print(f"{Colors.OKBLUE}  - 7版: {seventh_chars}{Colors.ENDC}")
     print(f"{Colors.OKBLUE}総技能数: {total_skills}{Colors.ENDC}")
+    
+    # 状態別統計
+    print(f"\n{Colors.OKCYAN}【状態別キャラクター数】{Colors.ENDC}")
+    for status, label in CharacterSheet.STATUS_CHOICES:
+        count = CharacterSheet.objects.filter(status=status).count()
+        if count > 0:
+            print(f"{Colors.OKBLUE}  - {label}: {count}体{Colors.ENDC}")
     
     # 各ユーザーのキャラクター表示
     print(f"\n{Colors.OKCYAN}【ユーザー別キャラクター】{Colors.ENDC}")

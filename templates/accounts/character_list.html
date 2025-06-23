@@ -76,6 +76,21 @@
 document.addEventListener('DOMContentLoaded', function() {
     let allCharacters = [];
     
+    // ステータスバッジを取得する関数
+    function getStatusBadge(status) {
+        const statusConfig = {
+            'alive': { text: '生存', class: 'bg-success' },
+            'dead': { text: '死亡', class: 'bg-dark' },
+            'insane': { text: '発狂', class: 'bg-warning' },
+            'injured': { text: '重傷', class: 'bg-danger' },
+            'missing': { text: '行方不明', class: 'bg-secondary' },
+            'retired': { text: '引退', class: 'bg-info' }
+        };
+        
+        const config = statusConfig[status] || { text: '不明', class: 'bg-secondary' };
+        return `<span class="badge ${config.class}">${config.text}</span>`;
+    }
+    
     // キャラクター一覧を読み込み
     function loadCharacters() {
         document.getElementById('loading').style.display = 'block';
@@ -113,9 +128,7 @@ document.addEventListener('DOMContentLoaded', function() {
         characters.forEach(character => {
             const editionBadge = '<span class="badge bg-primary">6版</span>';
             
-            const statusBadge = character.is_active ? 
-                '<span class="badge bg-success">アクティブ</span>' : 
-                '<span class="badge bg-secondary">非アクティブ</span>';
+            const statusBadge = getStatusBadge(character.status);
             
             const hp = character.current_hp || character.max_hp || 0;
             const maxHp = character.max_hp || 0;

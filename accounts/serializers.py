@@ -226,7 +226,7 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             'hit_points_max', 'hit_points_current', 'magic_points_max',
             'magic_points_current', 'sanity_starting', 'sanity_max', 'sanity_current',
             'version', 'parent_sheet', 'parent_sheet_name', 'character_image',
-            'notes', 'is_active', 'created_at', 'updated_at',
+            'notes', 'is_active', 'status', 'created_at', 'updated_at',
             'skills', 'equipment', 'sixth_edition_data',
             'abilities', 'versions', 'user_nickname'
         ]
@@ -299,21 +299,6 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
         validated_data['parent_sheet'] = None
         
         return super().create(validated_data)
-    
-    def to_representation(self, instance):
-        """表示時に6版の場合は値を変換"""
-        data = super().to_representation(instance)
-        
-        # 6版の場合、能力値を6版表示用に変換（15-90 → 3-18）
-        if instance.edition == '6th':
-            ability_fields = ['str_value', 'con_value', 'pow_value', 'dex_value', 
-                            'app_value', 'siz_value', 'int_value', 'edu_value']
-            for field in ability_fields:
-                if field in data and data[field] is not None:
-                    # 7版互換の値を6版の値に変換（÷5）
-                    data[field] = data[field] // 5
-        
-        return data
 
 
 class CharacterSheetCreateSerializer(serializers.ModelSerializer):
@@ -416,16 +401,8 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
                 logger.error(f"スキルデータのパースエラー: {e}")
                 pass  # JSONデコードエラーの場合はスキップ
         
-        # 6版の場合、能力値を内部保存用に変換（3-18 → 15-90）
-        if validated_data.get('edition') == '6th':
-            ability_fields = ['str_value', 'con_value', 'pow_value', 'dex_value', 
-                            'app_value', 'siz_value', 'int_value', 'edu_value']
-            for field in ability_fields:
-                if field in validated_data:
-                    original_value = validated_data[field]
-                    # 6版の値を7版互換の値に変換（×5）
-                    validated_data[field] = validated_data[field] * 5
-                    logger.info(f"{field}: {original_value} → {validated_data[field]}")
+        # 6版と7版で同じ値の扱いにする（変換なし）
+        # データベースには入力された値をそのまま保存
         
         # 現在のユーザーを設定
         validated_data['user'] = self.context['request'].user
@@ -479,21 +456,6 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             )
         
         return character_sheet
-    
-    def to_representation(self, instance):
-        """表示時に6版の場合は値を変換"""
-        data = super().to_representation(instance)
-        
-        # 6版の場合、能力値を6版表示用に変換（15-90 → 3-18）
-        if instance.edition == '6th':
-            ability_fields = ['str_value', 'con_value', 'pow_value', 'dex_value', 
-                            'app_value', 'siz_value', 'int_value', 'edu_value']
-            for field in ability_fields:
-                if field in data and data[field] is not None:
-                    # 7版互換の値を6版の値に変換（÷5）
-                    data[field] = data[field] // 5
-        
-        return data
 
 
 class CharacterSheetListSerializer(serializers.ModelSerializer):

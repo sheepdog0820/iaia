@@ -29,7 +29,7 @@ from allauth.socialaccount.models import SocialAccount
 
 # Local imports - models
 from ..models import CustomUser, Friend, Group, GroupMembership, GroupInvitation
-from ..character_models import CharacterSheet, CharacterSheet6th, CharacterSkill, CharacterEquipment
+from ..character_models import CharacterSheet, CharacterSheet6th, CharacterSkill, CharacterEquipment, CharacterImage, CharacterBackground, GrowthRecord, SkillGrowthRecord
 
 # Local imports - serializers
 from ..serializers import (

@@ -205,6 +205,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const characterId = window.location.pathname.split('/')[3];
     let character = null;
     
+    // ステータステキストを取得する関数
+    function getStatusText(status) {
+        const statusTexts = {
+            'alive': '生存',
+            'dead': '死亡',
+            'insane': '発狂',
+            'injured': '重傷',
+            'missing': '行方不明',
+            'retired': '引退'
+        };
+        
+        return statusTexts[status] || '不明';
+    }
+    
     // キャラクター詳細を読み込み
     function loadCharacterDetail() {
         document.getElementById('loading').style.display = 'block';
@@ -273,6 +287,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function displayBasicInfo(character) {
         const container = document.getElementById('basicInfoContainer');
         const info = [
+            { label: '状態', value: getStatusText(character.status) },
             { label: '年齢', value: character.age ? `${character.age}歳` : '未設定' },
             { label: '性別', value: character.gender || '未設定' },
             { label: '職業', value: character.occupation || '未設定' },
@@ -300,9 +315,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const imageContainer = document.getElementById('characterImageContainer');
         
         // APIから画像一覧を取得
-        fetch(`/accounts/character-sheets/${character.id}/images/`)
-            .then(response => response.json())
-            .then(data => {
+        axios.get(`/api/accounts/character-sheets/${character.id}/images/`)
+            .then(response => {
+                const data = response.data;
                 if (data.count > 0) {
                     const images = data.results;
                     const mainImage = images.find(img => img.is_main) || images[0];
@@ -418,14 +433,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function displayAbilities(character) {
         const container = document.getElementById('abilitiesContainer');
         const abilities = [
-            { name: 'STR', value: character.str, label: '筋力' },
-            { name: 'CON', value: character.con, label: '体力' },
-            { name: 'POW', value: character.pow, label: '精神力' },
-            { name: 'DEX', value: character.dex, label: '敏捷性' },
-            { name: 'APP', value: character.app, label: '外見' },
-            { name: 'SIZ', value: character.siz, label: '体格' },
-            { name: 'INT', value: character.int, label: '知性' },
-            { name: 'EDU', value: character.edu, label: '教育' }
+            { name: 'STR', value: character.str_value, label: '筋力' },
+            { name: 'CON', value: character.con_value, label: '体力' },
+            { name: 'POW', value: character.pow_value, label: '精神力' },
+            { name: 'DEX', value: character.dex_value, label: '敏捷性' },
+            { name: 'APP', value: character.app_value, label: '外見' },
+            { name: 'SIZ', value: character.siz_value, label: '体格' },
+            { name: 'INT', value: character.int_value, label: '知性' },
+            { name: 'EDU', value: character.edu_value, label: '教育' }
         ];
         
         let html = '';
@@ -448,16 +463,16 @@ document.addEventListener('DOMContentLoaded', function() {
     function displayDerivedStats(character) {
         const container = document.getElementById('derivedStatsContainer');
         const stats = [
-            { name: 'HP', current: character.current_hp, max: character.max_hp, color: 'danger' },
-            { name: 'MP', current: character.current_mp, max: character.max_mp, color: 'primary' },
-            { name: 'SAN', current: character.current_san, max: character.max_san, color: 'warning' }
+            { name: 'HP', current: character.hit_points_current, max: character.hit_points_max, color: 'danger' },
+            { name: 'MP', current: character.magic_points_current, max: character.magic_points_max, color: 'primary' },
+            { name: 'SAN', current: character.sanity_current, max: character.sanity_max, color: 'warning' }
         ];
         
         if (character.edition === '6th') {
             stats.push(
-                { name: 'アイデア', value: character.character_6th?.idea_roll, color: 'info' },
-                { name: '幸運', value: character.character_6th?.luck_roll, color: 'info' },
-                { name: '知識', value: character.character_6th?.know_roll, color: 'info' }
+                { name: 'アイデア', value: character.sixth_edition_data?.idea_roll, color: 'info' },
+                { name: '幸運', value: character.sixth_edition_data?.luck_roll, color: 'info' },
+                { name: '知識', value: character.sixth_edition_data?.know_roll, color: 'info' }
             );
         } else {
             stats.push(

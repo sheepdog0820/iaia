@@ -205,6 +205,12 @@ class CharacterSheet6thForm(forms.ModelForm):
         label='キャラクター画像（複数選択可能）'
     )
     
+    # 現在値フィールドをオプショナルに
+    hit_points_current = forms.IntegerField(required=False)
+    magic_points_current = forms.IntegerField(required=False)
+    sanity_max = forms.IntegerField(required=False)
+    sanity_current = forms.IntegerField(required=False)
+    
     class Meta:
         model = CharacterSheet
         fields = [
@@ -355,12 +361,48 @@ class CharacterSheet6thForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         
-        # 能力値範囲制限を削除 - ユーザーの自由度を向上
-        # 6版・7版問わず、幅広い値を許可
+        # 副次ステータスが計算されていることを確認
+        # HP最大値が設定されていない場合は計算
+        if 'hit_points_max' not in cleaned_data or not cleaned_data['hit_points_max']:
+            con = cleaned_data.get('con_value', 10)
+            siz = cleaned_data.get('siz_value', 13)
+            cleaned_data['hit_points_max'] = (con + siz) // 2
+        
+        # MP最大値が設定されていない場合は計算
+        if 'magic_points_max' not in cleaned_data or not cleaned_data['magic_points_max']:
+            pow_val = cleaned_data.get('pow_value', 10)
+            cleaned_data['magic_points_max'] = pow_val
+        
+        # SAN開始値を計算（常に計算する）
+        pow_val = cleaned_data.get('pow_value', 10)
+        cleaned_data['sanity_starting'] = pow_val * 5
+        
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"POW: {pow_val}, Calculated SAN starting: {cleaned_data['sanity_starting']}")
+        
+        # 現在値フィールドのデフォルト値設定
+        if 'hit_points_current' not in cleaned_data or not cleaned_data['hit_points_current']:
+            cleaned_data['hit_points_current'] = cleaned_data.get('hit_points_max', 11)
+        
+        if 'magic_points_current' not in cleaned_data or not cleaned_data['magic_points_current']:
+            cleaned_data['magic_points_current'] = cleaned_data.get('magic_points_max', 10)
+        
+        if 'sanity_max' not in cleaned_data or not cleaned_data['sanity_max']:
+            cleaned_data['sanity_max'] = cleaned_data.get('sanity_starting', 50)
+        
+        if 'sanity_current' not in cleaned_data or not cleaned_data['sanity_current']:
+            cleaned_data['sanity_current'] = cleaned_data.get('sanity_starting', 50)
         
         return cleaned_data
     
     def save(self, commit=True):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"CharacterSheet6thForm.save called with commit={commit}")
+        logger.info(f"Form files: {self.files}")
+        logger.info(f"Form data contains character_images: {'character_images' in self.files}")
+        
         instance = super().save(commit=False)
         instance.edition = '6th'  # 強制的に6版に設定
         if self.user:
@@ -368,29 +410,30 @@ class CharacterSheet6thForm(forms.ModelForm):
         
         # 隠しフィールドから現在値を取得
         # 空文字や '0' の場合も最大値で初期化する
-        hit_points_current_value = self.data.get('hit_points_current', '').strip()
-        if not hit_points_current_value or hit_points_current_value == '0':
+        hit_points_current_value = self.cleaned_data.get('hit_points_current')
+        if not hit_points_current_value:
             instance.hit_points_current = instance.hit_points_max
         else:
-            instance.hit_points_current = int(hit_points_current_value)
+            instance.hit_points_current = hit_points_current_value
         
-        magic_points_current_value = self.data.get('magic_points_current', '').strip()
-        if not magic_points_current_value or magic_points_current_value == '0':
+        magic_points_current_value = self.cleaned_data.get('magic_points_current')
+        if not magic_points_current_value:
             instance.magic_points_current = instance.magic_points_max
         else:
-            instance.magic_points_current = int(magic_points_current_value)
+            instance.magic_points_current = magic_points_current_value
         
-        sanity_current_value = self.data.get('sanity_current', '').strip()
-        if not sanity_current_value or sanity_current_value == '0':
+        # SANの初期値設定（新規作成時）
+        if not self.instance.pk:  # 新規作成の場合
             instance.sanity_current = instance.sanity_starting
-        else:
-            instance.sanity_current = int(sanity_current_value)
-        
-        sanity_max_value = self.data.get('sanity_max', '').strip()
-        if not sanity_max_value or sanity_max_value == '0':
             instance.sanity_max = instance.sanity_starting
-        else:
-            instance.sanity_max = int(sanity_max_value)
+        else:  # 編集の場合
+            sanity_current_value = self.cleaned_data.get('sanity_current')
+            if sanity_current_value:
+                instance.sanity_current = sanity_current_value
+                
+            sanity_max_value = self.cleaned_data.get('sanity_max')
+            if sanity_max_value:
+                instance.sanity_max = sanity_max_value
         
         if commit:
             instance.save()
@@ -455,21 +498,41 @@ class CharacterSheet6thForm(forms.ModelForm):
     def _save_character_images(self, character_sheet):
         """複数画像の保存処理"""
         from .character_models import CharacterImage
+        import logging
+        logger = logging.getLogger(__name__)
         
         # フォームから複数画像を取得
+        logger.info(f"Available files in form: {list(self.files.keys())}")
         images = self.files.getlist('character_images')
+        logger.info(f"Images from getlist: {images}")
         if not images:
+            # 単一ファイルとして試す
+            single_image = self.files.get('character_images')
+            if single_image:
+                images = [single_image]
+                logger.info(f"Single image found: {single_image}")
+            else:
+                logger.info(f"No images to save for character_sheet {character_sheet.id}")
+                return
+        
+        # 既存の画像がない場合のみ保存（重複エラーを防ぐ）
+        existing_images = CharacterImage.objects.filter(character_sheet=character_sheet)
+        if existing_images.exists():
+            logger.warning(f"Images already exist for character_sheet {character_sheet.id}. Skipping image save.")
             return
         
-        # 既存の画像を削除（新規作成時）
-        if not self.instance.pk:
-            CharacterImage.objects.filter(character_sheet=character_sheet).delete()
+        logger.info(f"Saving {len(images)} images for character_sheet {character_sheet.id}")
         
         # 複数画像を保存
         for index, image_file in enumerate(images):
-            CharacterImage.objects.create(
-                character_sheet=character_sheet,
-                image=image_file,
-                is_main=(index == 0),  # 最初の画像をメインに設定
-                order=index
-            )
+            try:
+                CharacterImage.objects.create(
+                    character_sheet=character_sheet,
+                    image=image_file,
+                    is_main=(index == 0),  # 最初の画像をメインに設定
+                    order=index
+                )
+                logger.info(f"Image {index} saved successfully")
+            except Exception as e:
+                logger.error(f"Error saving image {index}: {str(e)}")
+                raise

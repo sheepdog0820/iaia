@@ -23,10 +23,11 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """キャラクターに紐づく画像のクエリセット"""
         character_id = self.kwargs.get('character_id')
+        # 画像の閲覧は、キャラクターシート自体が閲覧可能であれば許可
+        # （一覧画面や詳細画面で表示されているキャラクターの画像は見られるべき）
         character = get_object_or_404(
             CharacterSheet,
-            pk=character_id,
-            user=self.request.user
+            pk=character_id
         )
         return CharacterImage.objects.filter(character_sheet=character)
     
@@ -37,8 +38,7 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
         if character_id:
             character = get_object_or_404(
                 CharacterSheet,
-                pk=character_id,
-                user=self.request.user
+                pk=character_id
             )
             context['character_sheet'] = character
         return context

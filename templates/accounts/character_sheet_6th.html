@@ -592,8 +592,14 @@ function rollAllAbilities() {
                         </div>
                     </div>
                     
-                    <form id="character-form-6th" method="post" action="{% url 'character_create_6th' %}">
+                    <form id="character-form-6th" method="post" action="{% url 'character_create_6th' %}" enctype="multipart/form-data">
                         {% csrf_token %}
+                        
+                        <!-- 隠しフィールド（現在値の保存用） -->
+                        <input type="hidden" id="hit_points_current_hidden" name="hit_points_current" value="">
+                        <input type="hidden" id="magic_points_current_hidden" name="magic_points_current" value="">
+                        <input type="hidden" id="sanity_current_hidden" name="sanity_current" value="">
+                        <input type="hidden" id="sanity_max_hidden" name="sanity_max" value="">
                         
                         <!-- 1. 基本情報 -->
                         <div class="section mb-4" id="section-basic" data-section-id="basic-info">
@@ -626,18 +632,31 @@ function rollAllAbilities() {
                             </div>
                             
                             <div class="row">
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <div class="mb-3">
                                         <label for="occupation" class="form-label">職業</label>
                                         <input type="text" class="form-control" id="occupation" 
                                                name="occupation" maxlength="100">
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <div class="mb-3">
                                         <label for="birthplace" class="form-label">出身地</label>
                                         <input type="text" class="form-control" id="birthplace" 
                                                name="birthplace" maxlength="100">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="status" class="form-label">状態</label>
+                                        <select class="form-select" id="status" name="status">
+                                            <option value="alive">生存</option>
+                                            <option value="dead">死亡</option>
+                                            <option value="insane">発狂</option>
+                                            <option value="injured">重傷</option>
+                                            <option value="missing">行方不明</option>
+                                            <option value="retired">引退</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -858,7 +877,7 @@ function rollAllAbilities() {
                                 <div class="col-md-3 col-6 mb-3 ability-item">
                                     <label for="str" class="form-label">STR (筋力)</label>
                                     <div class="input-group">
-                                        <input type="number" class="form-control ability-input" id="str" name="str_value" required onchange="updateSkillBaseValues()">
+                                        <input type="number" class="form-control ability-input" id="str" name="str_value" required onchange="updateSkillBaseValues(); calculateDerivedStats();">
                                         <button type="button" class="btn btn-outline-secondary" onclick="rollSingleAbility('str')">
                                             <i class="fas fa-dice"></i>
                                         </button>
@@ -867,7 +886,7 @@ function rollAllAbilities() {
                                 <div class="col-md-3 col-6 mb-3 ability-item">
                                     <label for="con" class="form-label">CON (体力)</label>
                                     <div class="input-group">
-                                        <input type="number" class="form-control ability-input" id="con" name="con_value" required onchange="updateSkillBaseValues()">
+                                        <input type="number" class="form-control ability-input" id="con" name="con_value" required onchange="updateSkillBaseValues(); calculateDerivedStats();">
                                         <button type="button" class="btn btn-outline-secondary" onclick="rollSingleAbility('con')">
                                             <i class="fas fa-dice"></i>
                                         </button>
@@ -876,7 +895,7 @@ function rollAllAbilities() {
                                 <div class="col-md-3 col-6 mb-3 ability-item">
                                     <label for="pow" class="form-label">POW (意志力)</label>
                                     <div class="input-group">
-                                        <input type="number" class="form-control ability-input" id="pow" name="pow_value" required onchange="updateSkillBaseValues()">
+                                        <input type="number" class="form-control ability-input" id="pow" name="pow_value" required onchange="updateSkillBaseValues(); calculateDerivedStats();">
                                         <button type="button" class="btn btn-outline-secondary" onclick="rollSingleAbility('pow')">
                                             <i class="fas fa-dice"></i>
                                         </button>
@@ -885,7 +904,7 @@ function rollAllAbilities() {
                                 <div class="col-md-3 col-6 mb-3 ability-item">
                                     <label for="dex" class="form-label">DEX (敏捷性)</label>
                                     <div class="input-group">
-                                        <input type="number" class="form-control ability-input" id="dex" name="dex_value" required onchange="updateSkillBaseValues()">
+                                        <input type="number" class="form-control ability-input" id="dex" name="dex_value" required onchange="updateSkillBaseValues(); calculateDerivedStats();">
                                         <button type="button" class="btn btn-outline-secondary" onclick="rollSingleAbility('dex')">
                                             <i class="fas fa-dice"></i>
                                         </button>
@@ -897,7 +916,7 @@ function rollAllAbilities() {
                                 <div class="col-md-3 col-6 mb-3 ability-item">
                                     <label for="app" class="form-label">APP (外見)</label>
                                     <div class="input-group">
-                                        <input type="number" class="form-control ability-input" id="app" name="app_value" required onchange="updateSkillBaseValues()">
+                                        <input type="number" class="form-control ability-input" id="app" name="app_value" required onchange="updateSkillBaseValues(); calculateDerivedStats();">
                                         <button type="button" class="btn btn-outline-secondary" onclick="rollSingleAbility('app')">
                                             <i class="fas fa-dice"></i>
                                         </button>
@@ -906,7 +925,7 @@ function rollAllAbilities() {
                                 <div class="col-md-3 col-6 mb-3 ability-item">
                                     <label for="siz" class="form-label">SIZ (体格)</label>
                                     <div class="input-group">
-                                        <input type="number" class="form-control ability-input" id="siz" name="siz_value" required onchange="updateSkillBaseValues()">
+                                        <input type="number" class="form-control ability-input" id="siz" name="siz_value" required onchange="updateSkillBaseValues(); calculateDerivedStats();">
                                         <button type="button" class="btn btn-outline-secondary" onclick="rollSingleAbility('siz')">
                                             <i class="fas fa-dice"></i>
                                         </button>
@@ -915,7 +934,7 @@ function rollAllAbilities() {
                                 <div class="col-md-3 col-6 mb-3 ability-item">
                                     <label for="int" class="form-label">INT (知性)</label>
                                     <div class="input-group">
-                                        <input type="number" class="form-control ability-input" id="int" name="int_value" required onchange="updateSkillBaseValues()">
+                                        <input type="number" class="form-control ability-input" id="int" name="int_value" required onchange="updateSkillBaseValues(); calculateDerivedStats();">
                                         <button type="button" class="btn btn-outline-secondary" onclick="rollSingleAbility('int')">
                                             <i class="fas fa-dice"></i>
                                         </button>
@@ -924,7 +943,7 @@ function rollAllAbilities() {
                                 <div class="col-md-3 col-6 mb-3 ability-item">
                                     <label for="edu" class="form-label">EDU (教育)</label>
                                     <div class="input-group">
-                                        <input type="number" class="form-control ability-input" id="edu" name="edu_value" required onchange="updateSkillBaseValues()">
+                                        <input type="number" class="form-control ability-input" id="edu" name="edu_value" required onchange="updateSkillBaseValues(); calculateDerivedStats();">
                                         <button type="button" class="btn btn-outline-secondary" onclick="rollSingleAbility('edu')">
                                             <i class="fas fa-dice"></i>
                                         </button>
@@ -1929,10 +1948,11 @@ function rollAllAbilities() {
                         <input type="hidden" id="interest-points" value="0">
                         
                         <!-- 隠しフィールド（現在値保存用） -->
-                        <input type="hidden" name="hit_points_current" id="hit_points_current_hidden">
-                        <input type="hidden" name="magic_points_current" id="magic_points_current_hidden">
-                        <input type="hidden" name="sanity_current" id="sanity_current_hidden">
-                        <input type="hidden" name="sanity_max" id="sanity_max_hidden">
+                        <input type="hidden" name="hit_points_current" id="hit_points_current_hidden" value="">
+                        <input type="hidden" name="magic_points_current" id="magic_points_current_hidden" value="">
+                        <input type="hidden" name="hit_points_max" id="hit_points_max_hidden" value="">
+                        <input type="hidden" name="magic_points_max" id="magic_points_max_hidden" value="">
+                        <input type="hidden" name="sanity_starting" id="sanity_starting_hidden" value="">
                         
                         <!-- フォーム送信ボタンはフッターに移動 -->
                     </form>
@@ -2134,6 +2154,9 @@ function calculateDerivedStats() {
     
     // 技能ポイント計算
     calculateSkillPoints();
+    
+    // 隠しフィールドも更新
+    updateHiddenFields();
 }
 
 // 副次ステータスが空の場合のみ計算する関数
@@ -2234,6 +2257,9 @@ function calculateDerivedStatsIfEmpty() {
         
         // 技能ポイント計算も実行
         calculateSkillPoints();
+        
+        // 隠しフィールドも更新
+        updateHiddenFields();
         
         console.log('[DEBUG] 副次ステータス自動計算完了');
     } else {
@@ -4821,6 +4847,9 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('character-form-6th').addEventListener('submit', async function(e) {
         e.preventDefault();
         
+        // 隠しフィールドを確実に更新
+        updateHiddenFields();
+        
         // 新規作成か編集かを判定
         const urlParams = new URLSearchParams(window.location.search);
         const characterId = urlParams.get('id') || urlParams.get('character_id');
@@ -4845,6 +4874,7 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('gender', document.getElementById('gender').value || '');
         formData.append('occupation', document.getElementById('occupation').value || '');
         formData.append('birthplace', document.getElementById('birthplace').value || '');
+        formData.append('status', document.getElementById('status').value || 'alive');
         
         // 能力値（6版の値として送信）
         const abilities = {
@@ -4890,11 +4920,52 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('character_image', imageInput.files[0]);
         }
         
-        // スキルデータをJSONとして追加
+        // スキルデータを隠しフィールドとして追加
         const skillsData = collectSkillsData();
         console.log('収集したスキルデータ:', skillsData);
+        
+        // 既存の隠しスキルフィールドをクリア
+        document.querySelectorAll('input[name^="skill_"]').forEach(input => {
+            if (input.type === 'hidden') {
+                input.remove();
+            }
+        });
+        
+        // スキルデータを隠しフィールドとして追加
         if (skillsData && skillsData.length > 0) {
-            formData.append('skills_data', JSON.stringify(skillsData));
+            const form = document.getElementById('character-form-6th');
+            skillsData.forEach((skill, index) => {
+                // 各スキルのデータを隠しフィールドとして追加
+                const skillIdInput = document.createElement('input');
+                skillIdInput.type = 'hidden';
+                skillIdInput.name = `skill_${index}_name`;
+                skillIdInput.value = skill.skill_name || '';
+                form.appendChild(skillIdInput);
+                
+                const baseInput = document.createElement('input');
+                baseInput.type = 'hidden';
+                baseInput.name = `skill_${index}_base`;
+                baseInput.value = skill.base_value || 0;
+                form.appendChild(baseInput);
+                
+                const occupationInput = document.createElement('input');
+                occupationInput.type = 'hidden';
+                occupationInput.name = `skill_${index}_occupation`;
+                occupationInput.value = skill.occupation_points || 0;
+                form.appendChild(occupationInput);
+                
+                const interestInput = document.createElement('input');
+                interestInput.type = 'hidden';
+                interestInput.name = `skill_${index}_interest`;
+                interestInput.value = skill.interest_points || 0;
+                form.appendChild(interestInput);
+                
+                const bonusInput = document.createElement('input');
+                bonusInput.type = 'hidden';
+                bonusInput.name = `skill_${index}_bonus`;
+                bonusInput.value = skill.other_points || 0;
+                form.appendChild(bonusInput);
+            });
             console.log('送信するスキルデータ数:', skillsData.length);
         } else {
             console.log('スキルデータがありません');
@@ -4910,6 +4981,22 @@ document.addEventListener('DOMContentLoaded', function() {
         // ローディング表示
         showLoadingOverlay();
         
+        // 通常のフォーム送信を行う（新規作成のみ）
+        if (!isEditing) {
+            // FormViewに通常のフォーム送信を行う
+            console.log('FormViewに通常のフォーム送信を実行');
+            
+            // 下書きをクリア
+            localStorage.removeItem('coc6th_character_draft');
+            
+            // プログレスバーを表示してフォーム送信
+            setTimeout(() => {
+                this.submit();
+            }, 100);
+            return;
+        }
+        
+        // 編集モードの場合はAPIを使用
         try {
             let response;
             if (isEditing) {
@@ -4918,16 +5005,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('APIエンドポイントに送信開始（編集）:', apiUrl);
                 response = await fetch(apiUrl, {
                     method: 'PUT',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken')
-                    },
-                    body: formData
-                });
-            } else {
-                // 新規作成モード: POST リクエスト
-                console.log('APIエンドポイントに送信開始（新規）:', '/api/accounts/character-sheets/');
-                response = await fetch('/api/accounts/character-sheets/', {
-                    method: 'POST',
                     headers: {
                         'X-CSRFToken': getCookie('csrftoken')
                     },
@@ -5331,6 +5408,7 @@ function populateFormWithCharacterData(character) {
     document.getElementById('gender').value = character.gender || '';
     document.getElementById('occupation').value = character.occupation || '';
     document.getElementById('birthplace').value = character.birthplace || '';
+    document.getElementById('status').value = character.status || 'alive';
     
     // 能力値（6版の場合は内部値を÷5して表示）
     if (character.edition === '6th') {
@@ -5651,56 +5729,104 @@ function scrollToSection(sectionId) {
 function updateHiddenFields() {
     console.log('[DEBUG] 隠しフィールド更新開始');
     
-    // HP現在値
-    const currentHp = document.getElementById('current_hp');
-    const hpHidden = document.getElementById('hit_points_current_hidden');
-    if (currentHp && hpHidden) {
-        hpHidden.value = currentHp.value || document.getElementById('hp')?.value || '';
-        console.log('[DEBUG] HP現在値設定:', hpHidden.value);
+    // 能力値を取得（デフォルト値付き）
+    const con = parseInt(document.getElementById('con')?.value) || 10;
+    const siz = parseInt(document.getElementById('siz')?.value) || 13;
+    const pow = parseInt(document.getElementById('pow')?.value) || 10;
+    
+    // HP最大値
+    const hpMaxValue = parseInt(document.getElementById('hp')?.value) || Math.ceil((con + siz) / 2);
+    const hpMaxHidden = document.getElementById('hit_points_max_hidden');
+    if (hpMaxHidden) {
+        hpMaxHidden.value = hpMaxValue;
+        console.log('[DEBUG] HP最大値設定:', hpMaxHidden.value);
     }
     
-    // MP現在値
-    const currentMp = document.getElementById('current_mp');
-    const mpHidden = document.getElementById('magic_points_current_hidden');
-    if (currentMp && mpHidden) {
-        mpHidden.value = currentMp.value || document.getElementById('mp')?.value || '';
-        console.log('[DEBUG] MP現在値設定:', mpHidden.value);
+    // HP現在値（初期値は最大HP）
+    const hpCurrentHidden = document.getElementById('hit_points_current_hidden');
+    if (hpCurrentHidden) {
+        // 戦闘データセクションの現在HPを確認
+        const currentHpCombat = document.getElementById('current_hp_combat');
+        if (currentHpCombat && currentHpCombat.value) {
+            hpCurrentHidden.value = currentHpCombat.value;
+        } else {
+            hpCurrentHidden.value = hpMaxValue;
+        }
+        console.log('[DEBUG] HP現在値設定:', hpCurrentHidden.value);
     }
     
-    // SAN現在値
-    const currentSan = document.getElementById('current_san');
-    const sanHidden = document.getElementById('sanity_current_hidden');
-    if (currentSan && sanHidden) {
-        sanHidden.value = currentSan.value || document.getElementById('san')?.value || '';
-        console.log('[DEBUG] SAN現在値設定:', sanHidden.value);
+    // MP最大値
+    const mpMaxValue = parseInt(document.getElementById('mp')?.value) || pow;
+    const mpMaxHidden = document.getElementById('magic_points_max_hidden');
+    if (mpMaxHidden) {
+        mpMaxHidden.value = mpMaxValue;
+        console.log('[DEBUG] MP最大値設定:', mpMaxHidden.value);
+    }
+    
+    // MP現在値（初期値は最大MP）
+    const mpCurrentHidden = document.getElementById('magic_points_current_hidden');
+    if (mpCurrentHidden) {
+        // 戦闘データセクションの現在MPを確認
+        const currentMpCombat = document.getElementById('current_mp_combat');
+        if (currentMpCombat && currentMpCombat.value) {
+            mpCurrentHidden.value = currentMpCombat.value;
+        } else {
+            mpCurrentHidden.value = mpMaxValue;
+        }
+        console.log('[DEBUG] MP現在値設定:', mpCurrentHidden.value);
+    }
+    
+    // SAN開始値
+    const sanStartValue = pow * 5;
+    const sanStartHidden = document.getElementById('sanity_starting_hidden');
+    if (sanStartHidden) {
+        sanStartHidden.value = sanStartValue;
+        console.log('[DEBUG] SAN開始値設定:', sanStartHidden.value);
     }
     
     // SAN最大値
-    const sanMax = document.getElementById('san');
+    const sanMaxValue = parseInt(document.getElementById('san')?.value) || (pow * 5);
     const sanMaxHidden = document.getElementById('sanity_max_hidden');
-    if (sanMax && sanMaxHidden) {
-        sanMaxHidden.value = sanMax.value || '';
+    if (sanMaxHidden) {
+        sanMaxHidden.value = sanMaxValue;
         console.log('[DEBUG] SAN最大値設定:', sanMaxHidden.value);
     }
+    
+    // SAN現在値（初期値は最大SAN）
+    const sanCurrentHidden = document.getElementById('sanity_current_hidden');
+    if (sanCurrentHidden) {
+        // 戦闘データセクションの現在SANを確認
+        const currentSanCombat = document.getElementById('current_san_combat');
+        if (currentSanCombat && currentSanCombat.value) {
+            sanCurrentHidden.value = currentSanCombat.value;
+        } else {
+            sanCurrentHidden.value = sanMaxValue;
+        }
+        console.log('[DEBUG] SAN現在値設定:', sanCurrentHidden.value);
+    }
+    
+    console.log('[DEBUG] 隠しフィールド更新完了');
 }
 
 // DOMContentLoaded時の初期化
 document.addEventListener('DOMContentLoaded', function() {
     console.log('[DEBUG] DOMContentLoaded: キャラクター作成画面初期化開始');
     
+    // 隠しフィールドの初期化を即座に実行
+    updateHiddenFields();
+    
     // フォーム送信時に隠しフィールドを更新
+    // 注意: メインのフォーム送信処理は4820行目で既に定義されているため、
+    // ここでは隠しフィールドの更新のみを行う
     const form = document.getElementById('character-form-6th');
     if (form) {
+        // submitイベントの前に隠しフィールドを更新
         form.addEventListener('submit', function(e) {
-            console.log('[DEBUG] フォーム送信処理開始');
+            console.log('[DEBUG] フォーム送信前の隠しフィールド更新');
             updateHiddenFields();
-            // 念のためフォーム送信を少し遅延させて、値が確実に設定されるようにする
-            e.preventDefault();
-            setTimeout(() => {
-                console.log('[DEBUG] フォーム送信実行');
-                form.submit();
-            }, 100);
-        });
+            // メインの送信処理は4820行目のイベントリスナーが処理するため、
+            // ここではpreventDefaultを呼ばない
+        }, true); // captureフェーズで実行して、他のイベントリスナーより先に実行
     }
     
     // 職業技能ポイント計算式変更時のイベントリスナー
@@ -5718,11 +5844,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // 戦闘ステータスの初期計算（空の場合のみ）
     setTimeout(() => {
         calculateDerivedStatsIfEmpty();
+        // 隠しフィールドの初期化も実行
+        updateHiddenFields();
     }, 1000);
     
     // 追加の初期化（ページ読み込み完了後）
     setTimeout(() => {
         calculateDerivedStatsIfEmpty();
+        // 隠しフィールドの初期化も実行
+        updateHiddenFields();
     }, 2000);
     
     // 能力値入力フィールドにイベントリスナーを追加

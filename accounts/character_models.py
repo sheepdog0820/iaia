@@ -19,11 +19,21 @@ class CharacterSheet(models.Model):
         ('6th', '6版'),
     ]
     
+    STATUS_CHOICES = [
+        ('alive', '生存'),
+        ('dead', '死亡'),
+        ('insane', '発狂'),
+        ('injured', '重傷'),
+        ('missing', '行方不明'),
+        ('retired', '引退'),
+    ]
+    
     # 基本情報
     user = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE, related_name='character_sheets')
     edition = models.CharField(max_length=3, choices=EDITION_CHOICES)
     name = models.CharField(max_length=100, verbose_name="探索者名")
     player_name = models.CharField(max_length=100, blank=True, verbose_name="プレイヤー名")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='alive', verbose_name="状態")
     
     # 個人情報
     age = models.IntegerField(
@@ -1507,8 +1517,21 @@ class CharacterImage(models.Model):
         related_name='images',
         verbose_name="キャラクターシート"
     )
+    def upload_to(instance, filename):
+        """一意なファイル名を生成"""
+        import os
+        from django.utils import timezone
+        import uuid
+        
+        # ファイル拡張子を取得
+        ext = os.path.splitext(filename)[1]
+        # 一意なファイル名を生成
+        unique_filename = f"{instance.character_sheet.id}_{uuid.uuid4().hex[:8]}{ext}"
+        # 日付ベースのパスに保存
+        return f"character_images/{timezone.now().year}/{timezone.now().month:02d}/{unique_filename}"
+    
     image = models.ImageField(
-        upload_to='character_images/%Y/%m/%d/',
+        upload_to=upload_to,
         verbose_name="画像"
     )
     is_main = models.BooleanField(

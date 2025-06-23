@@ -304,6 +304,10 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 'is_active': True
             }
             
+            # Handle character image if provided
+            if 'character_image' in request.FILES:
+                character_data['character_image'] = request.FILES['character_image']
+            
             # Create character sheet (save method auto-calculates secondary stats)
             character_sheet = CharacterSheet.objects.create(**character_data)
             
@@ -344,6 +348,26 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                         description=equipment.get('description', ''),
                         quantity=equipment.get('quantity', 1)
                     )
+            
+            # Handle multiple character images
+            image_files = []
+            # Check for single image in character_image field
+            if 'character_image' in request.FILES:
+                image_files.append(request.FILES['character_image'])
+            
+            # Check for multiple images in character_images field
+            if 'character_images' in request.FILES:
+                for image in request.FILES.getlist('character_images'):
+                    image_files.append(image)
+            
+            # Create CharacterImage entries for each uploaded image
+            for index, image_file in enumerate(image_files):
+                CharacterImage.objects.create(
+                    character_sheet=character_sheet,
+                    image=image_file,
+                    is_main=(index == 0),  # First image is main
+                    order=index
+                )
             
             # Return created character sheet
             response_serializer = CharacterSheetSerializer(character_sheet)
@@ -1368,16 +1392,60 @@ class Character6thCreateView(FormView):
         return context
     
     def form_valid(self, form):
-        character_sheet = form.save()
-        messages.success(
-            self.request, 
-            f'クトゥルフ神話TRPG 6版探索者「{character_sheet.name}」が作成されました！'
-        )
-        return super().form_valid(form)
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            logger.info("Form validation successful, saving character sheet...")
+            character_sheet = form.save()
+            logger.info(f"Character sheet saved with ID: {character_sheet.id}")
+            
+            # 画像処理はフォームのsaveメソッドで既に実行されているため、ここでは何もしない
+            
+            messages.success(
+                self.request, 
+                f'クトゥルフ神話TRPG 6版探索者「{character_sheet.name}」が作成されました！'
+            )
+            
+            # 作成したキャラクターの詳細画面にリダイレクト
+            logger.info(f"Redirecting to character detail page: {character_sheet.id}")
+            return redirect('character_detail', character_id=character_sheet.id)
+            
+        except Exception as e:
+            logger.error(f"Error in form_valid: {str(e)}", exc_info=True)
+            messages.error(
+                self.request,
+                f'探索者の作成中にエラーが発生しました: {str(e)}'
+            )
+            return self.form_invalid(form)
     
     def form_invalid(self, form):
-        messages.error(
-            self.request, 
-            '探索者の作成に失敗しました。入力内容を確認してください。'
-        )
+        # 詳細なエラー情報をログに出力
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Form validation errors: {form.errors}")
+        logger.error(f"Form data: {form.data}")
+        logger.error(f"Form files: {form.files}")
+        
+        # エラーメッセージを詳細化
+        error_messages = []
+        for field, errors in form.errors.items():
+            if field == '__all__':
+                error_messages.extend(errors)
+            else:
+                field_label = form.fields.get(field, {}).label or field
+                for error in errors:
+                    error_messages.append(f"{field_label}: {error}")
+        
+        if error_messages:
+            messages.error(
+                self.request, 
+                f'探索者の作成に失敗しました。<br>' + '<br>'.join(error_messages),
+                extra_tags='safe'
+            )
+        else:
+            messages.error(
+                self.request, 
+                '探索者の作成に失敗しました。入力内容を確認してください。'
+            )
         return super().form_invalid(form)
