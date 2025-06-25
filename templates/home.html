@@ -173,6 +173,16 @@
                     <a href="{% url 'account_login' %}" class="btn btn-outline-primary btn-lg">
                         <i class="fas fa-sign-in-alt"></i> ログイン
                     </a>
+                    {% if debug %}
+                    <div class="mt-3">
+                        <a href="{% url 'dev_login' %}" class="btn btn-warning btn-lg">
+                            <i class="fas fa-flask"></i> 開発用クイックログイン
+                        </a>
+                        <p class="text-warning mt-2">
+                            <small><i class="fas fa-info-circle"></i> 開発環境専用：テストユーザーで素早くログインできます</small>
+                        </p>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>

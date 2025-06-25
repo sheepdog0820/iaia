@@ -72,15 +72,17 @@
                         
                         <hr class="my-3">
                         
+                        {% if debug %}
                         <div class="development-only">
                             <small class="text-warning">
                                 <i class="fas fa-flask me-1"></i>
                                 <strong>開発環境:</strong> 
-                                <a href="{% url 'demo_login' %}" class="text-warning text-decoration-none">
-                                    デモログインはこちら
+                                <a href="{% url 'dev_login' %}" class="text-warning text-decoration-none">
+                                    開発用クイックログイン
                                 </a>
                             </small>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

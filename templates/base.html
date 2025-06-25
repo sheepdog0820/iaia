@@ -93,6 +93,11 @@
                             <li><a class="dropdown-item" href="{% url 'character_list' %}"><i class="fas fa-scroll"></i> キャラクター一覧</a></li>
                             <li><a class="dropdown-item" href="#" id="statistics-link"><i class="fas fa-chart-bar"></i> 統計</a></li>
                             <li><hr class="dropdown-divider"></li>
+                            {% if debug %}
+                            <li><a class="dropdown-item" href="{% url 'dev_login' %}" style="background-color: #fff3cd;">
+                                <i class="fas fa-code text-warning"></i> 開発用ログイン
+                            </a></li>
+                            {% endif %}
                             <li><a class="dropdown-item" href="{% url 'account_logout' %}"><i class="fas fa-sign-out-alt"></i> ログアウト</a></li>
                         </ul>
                     </li>
@@ -102,6 +107,13 @@
                             <i class="fas fa-sign-in-alt"></i> ログイン
                         </a>
                     </li>
+                    {% if debug %}
+                    <li class="nav-item">
+                        <a class="nav-link text-warning" href="{% url 'dev_login' %}">
+                            <i class="fas fa-code"></i> 開発ログイン
+                        </a>
+                    </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'account_signup' %}">
                             <i class="fas fa-user-plus"></i> サインアップ

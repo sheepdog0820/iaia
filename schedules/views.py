@@ -7,12 +7,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from datetime import datetime, timedelta
-from .models import TRPGSession, SessionParticipant, HandoutInfo
+from .models import TRPGSession, SessionParticipant, HandoutInfo, SessionImage, SessionYouTubeLink
 from .serializers import (
     TRPGSessionSerializer, SessionParticipantSerializer, 
-    HandoutInfoSerializer, CalendarEventSerializer, SessionListSerializer
+    HandoutInfoSerializer, CalendarEventSerializer, SessionListSerializer,
+    SessionImageSerializer, SessionYouTubeLinkSerializer
 )
-from accounts.models import Group
+from .services import YouTubeService
+from .notifications import SessionNotificationService
+from accounts.models import Group, CustomUser
 
 
 class SessionsListView(APIView):
@@ -94,20 +97,124 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(gm=self.request.user)
     
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        # 変更前の日時を保存
+        old_date = instance.date
+        old_status = instance.status
+        
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        
+        # 保存
+        self.perform_update(serializer)
+        
+        # 通知サービス
+        notification_service = SessionNotificationService()
+        
+        # スケジュール変更通知
+        if old_date != instance.date:
+            notification_service.send_session_schedule_change_notification(
+                instance, old_date, instance.date
+            )
+        
+        # キャンセル通知
+        if old_status != 'cancelled' and instance.status == 'cancelled':
+            cancel_reason = request.data.get('cancel_reason', '')
+            notification_service.send_session_cancelled_notification(
+                instance, cancel_reason
+            )
+        
+        # セッション完了時の統計更新
+        if old_status != 'completed' and instance.status == 'completed':
+            self._update_session_statistics(instance)
+        
+        if getattr(instance, '_prefetched_objects_cache', None):
+            instance._prefetched_objects_cache = {}
+        
+        return Response(serializer.data)
+    
+    def _update_session_statistics(self, session):
+        """セッション完了時の統計を更新"""
+        from scenarios.models import PlayHistory, Scenario
+        
+        # セッション参加者の統計更新
+        participants = SessionParticipant.objects.filter(
+            session=session
+        ).select_related('user', 'character_sheet')
+        
+        # ダミーシナリオを作成（実際のシナリオ関連は後で実装）
+        scenario, _ = Scenario.objects.get_or_create(
+            title=f"Session: {session.title}",
+            defaults={
+                'game_system': 'coc',
+                'created_by': session.gm,
+                'summary': session.description
+            }
+        )
+        
+        for participant in participants:
+            # プレイ履歴の作成
+            PlayHistory.objects.create(
+                user=participant.user,
+                scenario=scenario,
+                session=session,
+                played_date=session.date,
+                role=participant.role,
+                notes=f"Character: {participant.character_name}"
+            )
+            
+            # キャラクターのセッション数増加
+            if participant.character_sheet:
+                participant.character_sheet.session_count += 1
+                participant.character_sheet.save()
+    
     @action(detail=True, methods=['post'])
     def join(self, request, pk=None):
         session = self.get_object()
+        
+        # プレイヤー枠とキャラクターシートを取得
+        player_slot = request.data.get('player_slot')
+        character_sheet_id = request.data.get('character_sheet_id')
+        
+        # プレイヤー枠の重複チェック
+        if player_slot:
+            existing_slot = SessionParticipant.objects.filter(
+                session=session,
+                player_slot=player_slot
+            ).exclude(user=request.user).exists()
+            
+            if existing_slot:
+                return Response(
+                    {'error': f'Player slot {player_slot} is already taken'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
         participant, created = SessionParticipant.objects.get_or_create(
             session=session,
             user=request.user,
-            defaults={'role': 'player'}
+            defaults={
+                'role': 'player',
+                'player_slot': player_slot,
+                'character_sheet_id': character_sheet_id
+            }
         )
         
-        if created:
-            serializer = SessionParticipantSerializer(participant)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response({'error': 'Already joined'}, status=status.HTTP_400_BAD_REQUEST)
+        if not created:
+            # 既存の参加者の情報を更新
+            if player_slot:
+                participant.player_slot = player_slot
+            if character_sheet_id:
+                participant.character_sheet_id = character_sheet_id
+            participant.save()
+        
+        serializer = SessionParticipantSerializer(participant)
+        return Response(
+            serializer.data, 
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        )
     
     @action(detail=True, methods=['delete'])
     def leave(self, request, pk=None):
@@ -121,6 +228,188 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
         except SessionParticipant.DoesNotExist:
             return Response({'error': 'Not a participant'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['get'])
+    def participants(self, request, pk=None):
+        """セッションの参加者一覧を取得"""
+        session = self.get_object()
+        participants = SessionParticipant.objects.filter(
+            session=session
+        ).select_related('user', 'character_sheet')
+        
+        serializer = SessionParticipantSerializer(participants, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def add_co_gm(self, request, pk=None):
+        """協力GMを追加"""
+        session = self.get_object()
+        
+        # メインGMのみ実行可能
+        if session.gm != request.user:
+            return Response(
+                {'error': 'Only main GM can add co-GMs'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        co_gm_id = request.data.get('user_id')
+        if not co_gm_id:
+            return Response(
+                {'error': 'user_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            co_gm = CustomUser.objects.get(id=co_gm_id)
+        except CustomUser.DoesNotExist:
+            return Response(
+                {'error': 'User not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # 既に参加者の場合
+        existing = SessionParticipant.objects.filter(
+            session=session, user=co_gm
+        ).first()
+        
+        if existing:
+            if existing.role == 'gm':
+                return Response(
+                    {'error': 'User is already a co-GM'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            # プレイヤーから昇格
+            existing.role = 'gm'
+            existing.save()
+        else:
+            # 新規追加
+            SessionParticipant.objects.create(
+                session=session,
+                user=co_gm,
+                role='gm'
+            )
+        
+        return Response({'message': 'Co-GM added successfully'}, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'])
+    def invite(self, request, pk=None):
+        """セッションに参加者を招待（ISSUE-013実装）"""
+        session = self.get_object()
+        
+        # GMのみ招待可能（メインGMまたは協力GM）
+        is_gm = session.gm == request.user
+        is_co_gm = SessionParticipant.objects.filter(
+            session=session, user=request.user, role='gm'
+        ).exists()
+        
+        if not is_gm and not is_co_gm:
+            return Response(
+                {'error': 'Only GM can invite participants'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        invitee_id = request.data.get('user_id')
+        if not invitee_id:
+            return Response(
+                {'error': 'user_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            invitee = CustomUser.objects.get(id=invitee_id)
+        except CustomUser.DoesNotExist:
+            return Response(
+                {'error': 'User not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # 既に参加者の場合
+        if SessionParticipant.objects.filter(session=session, user=invitee).exists():
+            return Response(
+                {'error': 'User is already a participant'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 通知送信
+        notification_service = SessionNotificationService()
+        success = notification_service.send_session_invitation_notification(
+            session, request.user, invitee
+        )
+        
+        if success:
+            return Response({
+                'status': 'success',
+                'message': f'Invitation sent to {invitee.nickname or invitee.username}'
+            })
+        else:
+            return Response(
+                {'error': 'Failed to send invitation'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['post'])
+    def assign_player(self, request, pk=None):
+        """GM専用: プレイヤー枠にユーザーを割り当て"""
+        session = self.get_object()
+        
+        # GMのみ実行可能
+        if session.gm != request.user:
+            return Response(
+                {'error': 'Only GM can assign players'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        player_slot = request.data.get('player_slot')
+        user_id = request.data.get('user_id')
+        character_sheet_id = request.data.get('character_sheet_id')
+        
+        if not player_slot or not user_id:
+            return Response(
+                {'error': 'player_slot and user_id are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 対象ユーザーの確認
+        try:
+            target_user = CustomUser.objects.get(id=user_id)
+        except CustomUser.DoesNotExist:
+            return Response(
+                {'error': 'User not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # グループメンバーかチェック
+        if session.group and not session.group.members.filter(id=target_user.id).exists():
+            return Response(
+                {'error': 'User is not a member of this group'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 既存の枠チェック
+        existing_slot = SessionParticipant.objects.filter(
+            session=session,
+            player_slot=player_slot
+        ).exclude(user=target_user).first()
+        
+        if existing_slot:
+            return Response(
+                {'error': f'Player slot {player_slot} is already taken by {existing_slot.user.nickname}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 参加者の作成または更新
+        participant, created = SessionParticipant.objects.update_or_create(
+            session=session,
+            user=target_user,
+            defaults={
+                'role': 'player',
+                'player_slot': player_slot,
+                'character_sheet_id': character_sheet_id
+            }
+        )
+        
+        serializer = SessionParticipantSerializer(participant)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['get'])
     def upcoming(self, request):
@@ -171,9 +460,115 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        return SessionParticipant.objects.filter(
-            session__group__members=self.request.user
+        # セッションIDでフィルタリング可能
+        session_id = self.request.query_params.get('session_id')
+        queryset = SessionParticipant.objects.all()
+        
+        if session_id:
+            queryset = queryset.filter(session_id=session_id)
+        
+        # アクセス可能なセッションの参加者のみ
+        return queryset.filter(
+            Q(session__group__members=self.request.user) |  # グループメンバー
+            Q(session__visibility='public') |  # 公開セッション
+            Q(session__gm=self.request.user) |  # GM
+            Q(user=self.request.user)  # 自分の参加
         ).distinct()
+    
+    def create(self, request, *args, **kwargs):
+        """参加申請の作成（クロス参加対応）"""
+        session_id = request.data.get('session')
+        
+        try:
+            session = TRPGSession.objects.get(id=session_id)
+        except TRPGSession.DoesNotExist:
+            return Response(
+                {'error': 'Session not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # セッションへのアクセス権限チェック
+        user = request.user
+        can_participate = (
+            session.visibility == 'public' or  # 公開セッション
+            session.group.members.filter(id=user.id).exists() or  # グループメンバー
+            session.gm == user  # GM
+        )
+        
+        if not can_participate:
+            return Response(
+                {'error': 'You do not have permission to join this session'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # 既に参加している場合
+        if SessionParticipant.objects.filter(session=session, user=user).exists():
+            return Response(
+                {'error': 'You are already participating in this session'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # キャラクターシートの取得
+        character_sheet_id = request.data.get('character_sheet_id')
+        character_sheet = None
+        if character_sheet_id:
+            try:
+                character_sheet = CharacterSheet.objects.get(
+                    id=character_sheet_id,
+                    user=user
+                )
+            except CharacterSheet.DoesNotExist:
+                return Response(
+                    {'error': 'Character sheet not found or not owned by you'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # 参加者作成
+        serializer = self.get_serializer(data={
+            'session': session.id,
+            'user': user.id,
+            'character_name': request.data.get('character_name'),
+            'character_sheet': character_sheet.id if character_sheet else None,
+            'role': 'player',
+            'comment': request.data.get('comment', '')
+        })
+        
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    def update(self, request, *args, **kwargs):
+        """参加情報の更新（GM承認機能）"""
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        # GM権限チェック（メインGMまたは協力GM）
+        is_main_gm = instance.session.gm == request.user
+        is_co_gm = SessionParticipant.objects.filter(
+            session=instance.session, user=request.user, role='gm'
+        ).exists()
+        is_gm = is_main_gm or is_co_gm
+        
+        # GMまたは本人のみ更新可能
+        if not is_gm and instance.user != request.user:
+            return Response(
+                {'error': 'You do not have permission to update this participant'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # ステータス変更はGMのみ
+        if 'status' in request.data and not is_gm:
+            return Response(
+                {'error': 'Only GM can change participant status'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        
+        return Response(serializer.data)
 
 
 class HandoutInfoViewSet(viewsets.ModelViewSet):
@@ -183,10 +578,22 @@ class HandoutInfoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         # GMは全て、参加者は自分宛+公開ハンドアウト
+        # プレイヤー枠に基づくハンドアウトも含める
+        from django.db.models import OuterRef, Subquery
+        
+        # ユーザーのプレイヤー枠を取得
+        user_slots = SessionParticipant.objects.filter(
+            user=user
+        ).values_list('player_slot', 'session_id')
+        
         return HandoutInfo.objects.filter(
             Q(session__gm=user) |  # GMは全て見られる
             Q(participant__user=user) |  # 自分宛は見られる
-            (Q(session__participants=user) & Q(is_secret=False))  # 参加者は公開ハンドアウトも見られる
+            (Q(session__participants=user) & Q(is_secret=False)) |  # 参加者は公開ハンドアウトも見られる
+            Q(  # プレイヤー枠に割り当てられたハンドアウト
+                assigned_player_slot__in=[slot[0] for slot in user_slots if slot[0]],
+                session_id__in=[slot[1] for slot in user_slots]
+            )
         ).distinct()
     
     def perform_create(self, serializer):
@@ -194,6 +601,21 @@ class HandoutInfoViewSet(viewsets.ModelViewSet):
         session = serializer.validated_data['session']
         if session.gm != self.request.user:
             raise PermissionError("Only GM can create handouts")
+        
+        # ハンドアウト番号とプレイヤー枠の整合性チェック
+        handout_number = serializer.validated_data.get('handout_number')
+        assigned_player_slot = serializer.validated_data.get('assigned_player_slot')
+        
+        if handout_number and assigned_player_slot:
+            # 通常、HO1はプレイヤー1、HO2はプレイヤー2...に対応
+            if handout_number != assigned_player_slot:
+                # 警告ログを出力（強制はしない）
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    f"Handout number {handout_number} assigned to player slot {assigned_player_slot}"
+                )
+        
         serializer.save()
 
 
@@ -283,6 +705,291 @@ class CalendarView(APIView):
             })
         else:
             return Response(events)
+
+
+class MonthlyEventListView(APIView):
+    """月別イベント一覧API（ISSUE-008実装）"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        # YYYY-MM形式の月指定を取得
+        month_str = request.query_params.get('month')
+        if not month_str:
+            return Response(
+                {'error': 'month parameter is required (YYYY-MM format)'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            year, month = map(int, month_str.split('-'))
+            start_date = datetime(year, month, 1)
+            # 月末を計算
+            if month == 12:
+                end_date = datetime(year + 1, 1, 1) - timedelta(days=1)
+            else:
+                end_date = datetime(year, month + 1, 1) - timedelta(days=1)
+        except (ValueError, AttributeError):
+            return Response(
+                {'error': 'Invalid month format. Use YYYY-MM format'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # セッションを取得
+        sessions = TRPGSession.objects.filter(
+            Q(group__members=request.user) | 
+            Q(visibility='public') |
+            Q(participants=request.user),
+            date__range=[start_date, end_date]
+        ).distinct().select_related('gm', 'group').prefetch_related('participants')
+        
+        # 日付別にグループ化
+        events_by_date = {}
+        for session in sessions:
+            date_str = session.date.strftime('%Y-%m-%d')
+            if date_str not in events_by_date:
+                events_by_date[date_str] = {
+                    'date': date_str,
+                    'events': []
+                }
+            
+            # ユーザーとの関係を判定
+            is_gm = session.gm == request.user
+            is_participant = session.participants.filter(id=request.user.id).exists()
+            
+            event_data = {
+                'id': session.id,
+                'title': session.title,
+                'time': session.date.strftime('%H:%M'),
+                'duration_minutes': session.duration_minutes,
+                'status': session.status,
+                'visibility': session.visibility,
+                'group': {
+                    'id': session.group.id,
+                    'name': session.group.name
+                } if session.group else None,
+                'gm': {
+                    'id': session.gm.id,
+                    'name': session.gm.nickname or session.gm.username
+                },
+                'participant_count': session.participants.count(),
+                'is_gm': is_gm,
+                'is_participant': is_participant,
+                'location': session.location or ''
+            }
+            
+            events_by_date[date_str]['events'].append(event_data)
+        
+        # 日付順にソート
+        sorted_dates = sorted(events_by_date.values(), key=lambda x: x['date'])
+        
+        return Response({
+            'month': month_str,
+            'year': year,
+            'month_name': f"{year}年{month}月",
+            'dates': sorted_dates,
+            'total_sessions': sessions.count(),
+            'summary': {
+                'planned': sessions.filter(status='planned').count(),
+                'ongoing': sessions.filter(status='ongoing').count(),
+                'completed': sessions.filter(status='completed').count(),
+                'cancelled': sessions.filter(status='cancelled').count()
+            }
+        })
+
+
+class SessionAggregationView(APIView):
+    """セッション予定集約API（ISSUE-008実装）"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        # 期間指定
+        days = int(request.query_params.get('days', 30))
+        start_date = timezone.now()
+        end_date = start_date + timedelta(days=days)
+        
+        # ユーザーのセッションを取得
+        sessions = TRPGSession.objects.filter(
+            Q(group__members=request.user) | 
+            Q(visibility='public') |
+            Q(participants=request.user),
+            date__range=[start_date, end_date],
+            status__in=['planned', 'ongoing']
+        ).distinct().select_related('gm', 'group')
+        
+        # グループ別、システム別に集約
+        aggregations = {
+            'by_group': {},
+            'by_system': {},
+            'by_week': {},
+            'by_role': {
+                'as_gm': [],
+                'as_player': []
+            }
+        }
+        
+        for session in sessions:
+            # グループ別集約
+            if session.group:
+                group_key = session.group.id
+                if group_key not in aggregations['by_group']:
+                    aggregations['by_group'][group_key] = {
+                        'group_id': session.group.id,
+                        'group_name': session.group.name,
+                        'sessions': []
+                    }
+                aggregations['by_group'][group_key]['sessions'].append({
+                    'id': session.id,
+                    'title': session.title,
+                    'date': session.date.isoformat()
+                })
+            
+            # 週別集約
+            week_key = session.date.strftime('%Y-W%U')
+            if week_key not in aggregations['by_week']:
+                aggregations['by_week'][week_key] = {
+                    'week': week_key,
+                    'start_date': (session.date - timedelta(days=session.date.weekday())).strftime('%Y-%m-%d'),
+                    'sessions': []
+                }
+            aggregations['by_week'][week_key]['sessions'].append({
+                'id': session.id,
+                'title': session.title,
+                'date': session.date.isoformat()
+            })
+            
+            # 役割別集約
+            if session.gm == request.user:
+                aggregations['by_role']['as_gm'].append({
+                    'id': session.id,
+                    'title': session.title,
+                    'date': session.date.isoformat(),
+                    'participant_count': session.participants.count()
+                })
+            elif session.participants.filter(id=request.user.id).exists():
+                aggregations['by_role']['as_player'].append({
+                    'id': session.id,
+                    'title': session.title,
+                    'date': session.date.isoformat(),
+                    'gm_name': session.gm.nickname or session.gm.username
+                })
+        
+        return Response({
+            'period': {
+                'start': start_date.isoformat(),
+                'end': end_date.isoformat(),
+                'days': days
+            },
+            'total_sessions': sessions.count(),
+            'aggregations': aggregations,
+            'upcoming_sessions': SessionListSerializer(
+                sessions.order_by('date')[:5], 
+                many=True
+            ).data
+        })
+
+
+class ICalExportView(APIView):
+    """iCal形式エクスポートAPI（ISSUE-008実装）"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        from django.http import HttpResponse
+        import uuid
+        
+        # 期間指定
+        days = int(request.query_params.get('days', 90))
+        start_date = timezone.now()
+        end_date = start_date + timedelta(days=days)
+        
+        # セッションを取得
+        sessions = TRPGSession.objects.filter(
+            Q(group__members=request.user) | 
+            Q(visibility='public') |
+            Q(participants=request.user),
+            date__range=[start_date, end_date]
+        ).distinct().select_related('gm', 'group')
+        
+        # iCal形式の生成
+        lines = []
+        lines.append('BEGIN:VCALENDAR')
+        lines.append('VERSION:2.0')
+        lines.append('PRODID:-//Arkham Nexus//TRPG Session Calendar//JP')
+        lines.append('CALSCALE:GREGORIAN')
+        lines.append('METHOD:PUBLISH')
+        lines.append(f'X-WR-CALNAME:Arkham Nexus - {request.user.nickname or request.user.username}')
+        lines.append('X-WR-TIMEZONE:Asia/Tokyo')
+        
+        for session in sessions:
+            # イベントの開始・終了時刻
+            dtstart = session.date
+            dtend = dtstart + timedelta(minutes=session.duration_minutes or 180)
+            
+            # ユーザーとの関係
+            is_gm = session.gm == request.user
+            role = 'GM' if is_gm else 'Player'
+            
+            lines.append('BEGIN:VEVENT')
+            lines.append(f'UID:{uuid.uuid4()}@arkham-nexus.com')
+            lines.append(f'DTSTAMP:{timezone.now().strftime("%Y%m%dT%H%M%SZ")}')
+            lines.append(f'DTSTART:{dtstart.strftime("%Y%m%dT%H%M%S")}')
+            lines.append(f'DTEND:{dtend.strftime("%Y%m%dT%H%M%S")}')
+            lines.append(f'SUMMARY:[{role}] {session.title}')
+            
+            # 詳細説明
+            description_parts = []
+            description_parts.append(f'Status: {session.get_status_display()}')
+            description_parts.append(f'GM: {session.gm.nickname or session.gm.username}')
+            if session.group:
+                description_parts.append(f'Group: {session.group.name}')
+            if session.location:
+                description_parts.append(f'Location: {session.location}')
+            if session.description:
+                description_parts.append(f'\\n{session.description}')
+            
+            lines.append(f'DESCRIPTION:{" | ".join(description_parts)}')
+            
+            if session.location:
+                lines.append(f'LOCATION:{session.location}')
+            
+            # ステータスに応じた設定
+            if session.status == 'cancelled':
+                lines.append('STATUS:CANCELLED')
+            elif session.status == 'completed':
+                lines.append('STATUS:CONFIRMED')
+            else:
+                lines.append('STATUS:TENTATIVE')
+            
+            # カテゴリ
+            lines.append(f'CATEGORIES:TRPG,{role}')
+            
+            # アラーム設定（1日前と1時間前）
+            if session.status == 'planned':
+                # 1日前のリマインダー
+                lines.append('BEGIN:VALARM')
+                lines.append('TRIGGER:-P1D')
+                lines.append('ACTION:DISPLAY')
+                lines.append(f'DESCRIPTION:明日のTRPGセッション: {session.title}')
+                lines.append('END:VALARM')
+                
+                # 1時間前のリマインダー
+                lines.append('BEGIN:VALARM')
+                lines.append('TRIGGER:-PT1H')
+                lines.append('ACTION:DISPLAY')
+                lines.append(f'DESCRIPTION:1時間後のTRPGセッション: {session.title}')
+                lines.append('END:VALARM')
+            
+            lines.append('END:VEVENT')
+        
+        lines.append('END:VCALENDAR')
+        
+        # レスポンス生成
+        response = HttpResponse(
+            '\r\n'.join(lines),
+            content_type='text/calendar; charset=utf-8'
+        )
+        response['Content-Disposition'] = f'attachment; filename="arkham_nexus_sessions_{timezone.now().strftime("%Y%m%d")}.ics"'
+        
+        return response
 
 
 class CreateSessionView(APIView):
@@ -468,3 +1175,348 @@ class SessionDetailView(APIView):
         }
         
         return render(request, 'schedules/session_detail.html', context)
+
+
+class SessionImageViewSet(viewsets.ModelViewSet):
+    """セッション画像ViewSet"""
+    serializer_class = SessionImageSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """ユーザーがアクセス可能なセッションの画像のみ取得"""
+        user = self.request.user
+        return SessionImage.objects.filter(
+            Q(session__gm=user) |  # GMは全て見られる
+            Q(session__participants=user) |  # 参加者は見られる
+            Q(session__group__members=user)  # グループメンバーは見られる
+        ).distinct()
+    
+    def create(self, request, *args, **kwargs):
+        """画像作成時の権限チェック"""
+        session_id = request.data.get('session')
+        if not session_id:
+            return Response(
+                {'error': 'session is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            session = TRPGSession.objects.get(id=session_id)
+        except TRPGSession.DoesNotExist:
+            return Response(
+                {'error': 'Session not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # 権限チェック
+        if session.gm != request.user and not session.participants.filter(id=request.user.id).exists():
+            return Response(
+                {'error': 'Only GM or participants can upload images'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return super().create(request, *args, **kwargs)
+    
+    def perform_create(self, serializer):
+        """画像アップロード時の処理"""
+        # createメソッドで権限チェック済みなので、ここでは保存のみ
+        session_id = self.request.data.get('session')
+        session = TRPGSession.objects.get(id=session_id)
+        serializer.save(uploaded_by=self.request.user, session=session)
+    
+    def perform_update(self, serializer):
+        """画像更新時の処理"""
+        instance = self.get_object()
+        
+        # GMまたはアップロード者のみ編集可能
+        if instance.session.gm != self.request.user and instance.uploaded_by != self.request.user:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only GM or uploader can edit images")
+        
+        serializer.save()
+    
+    def perform_destroy(self, instance):
+        """画像削除時の処理"""
+        # GMまたはアップロード者のみ削除可能
+        if instance.session.gm != self.request.user and instance.uploaded_by != self.request.user:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only GM or uploader can delete images")
+        
+        instance.delete()
+    
+    @action(detail=False, methods=['post'])
+    def bulk_upload(self, request):
+        """複数画像の一括アップロード"""
+        session_id = request.data.get('session_id')
+        images = request.FILES.getlist('images', [])
+        
+        if not session_id:
+            return Response(
+                {'error': 'session_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            session = TRPGSession.objects.get(id=session_id)
+        except TRPGSession.DoesNotExist:
+            return Response(
+                {'error': 'Session not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # 権限チェック
+        if session.gm != request.user and not session.participants.filter(id=request.user.id).exists():
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # 画像を一括作成
+        created_images = []
+        for image_file in images[:10]:  # 最大10枚まで
+            session_image = SessionImage.objects.create(
+                session=session,
+                image=image_file,
+                title=image_file.name,
+                uploaded_by=request.user
+            )
+            created_images.append(session_image)
+        
+        serializer = SessionImageSerializer(created_images, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    @action(detail=True, methods=['post'])
+    def reorder(self, request, pk=None):
+        """画像の表示順序変更"""
+        image = self.get_object()
+        new_order = request.data.get('order')
+        
+        if new_order is None:
+            return Response(
+                {'error': 'order is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # GMのみ順序変更可能
+        if image.session.gm != request.user:
+            return Response(
+                {'error': 'Only GM can reorder images'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        image.order = new_order
+        image.save()
+        
+        return Response({'status': 'success', 'order': image.order})
+
+
+class SessionYouTubeLinkViewSet(viewsets.ModelViewSet):
+    """セッションYouTube動画リンク管理ViewSet"""
+    serializer_class = SessionYouTubeLinkSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """クエリセット取得"""
+        user = self.request.user
+        
+        # session_id が指定されている場合
+        session_id = self.kwargs.get('session_id')
+        if session_id:
+            # セッションへのアクセス権限確認
+            session = get_object_or_404(TRPGSession, id=session_id)
+            if session.gm == user or session.participants.filter(id=user.id).exists():
+                return SessionYouTubeLink.objects.filter(session_id=session_id)
+            else:
+                return SessionYouTubeLink.objects.none()
+        
+        # 通常のクエリ
+        return SessionYouTubeLink.objects.filter(
+            Q(session__gm=user) | Q(session__participants=user)
+        ).distinct()
+    
+    def create(self, request, *args, **kwargs):
+        """YouTube動画リンクの追加"""
+        session_id = self.kwargs.get('session_id')
+        if not session_id:
+            session_id = request.data.get('session')
+        
+        if not session_id:
+            return Response(
+                {'error': 'session is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            session = TRPGSession.objects.get(id=session_id)
+        except TRPGSession.DoesNotExist:
+            return Response(
+                {'error': 'Session not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # 権限チェック
+        if session.gm != request.user and not session.participants.filter(id=request.user.id).exists():
+            return Response(
+                {'error': 'Only GM or participants can add YouTube links'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # YouTube URLから動画情報を取得
+        youtube_url = request.data.get('youtube_url')
+        if not youtube_url:
+            return Response(
+                {'error': 'youtube_url is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 動画IDの抽出
+        video_id = SessionYouTubeLink.extract_video_id(youtube_url)
+        if not video_id:
+            return Response(
+                {'error': 'Invalid YouTube URL'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 重複チェック
+        if SessionYouTubeLink.objects.filter(session=session, video_id=video_id).exists():
+            return Response(
+                {'error': 'This video is already linked to the session'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # YouTube API から動画情報取得
+        video_info = YouTubeService.fetch_video_info(video_id)
+        if not video_info:
+            return Response(
+                {'error': 'Could not fetch video information'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # シリアライザーでインスタンス作成
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(
+            session=session,
+            added_by=request.user,
+            video_id=video_id,
+            title=video_info['title'],
+            duration_seconds=video_info['duration'],
+            channel_name=video_info['channel_name'],
+            thumbnail_url=video_info['thumbnail_url']
+        )
+        
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    
+    def perform_update(self, serializer):
+        """動画リンク更新時の処理"""
+        instance = self.get_object()
+        
+        # GMまたは追加者のみ編集可能
+        if instance.session.gm != self.request.user and instance.added_by != self.request.user:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only GM or the person who added can edit")
+        
+        serializer.save()
+    
+    def perform_destroy(self, instance):
+        """動画リンク削除時の処理"""
+        # GMまたは追加者のみ削除可能
+        if instance.session.gm != self.request.user and instance.added_by != self.request.user:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only GM or the person who added can delete")
+        
+        instance.delete()
+    
+    @action(detail=False, methods=['post'])
+    def fetch_info(self, request):
+        """YouTube URLから動画情報を取得"""
+        youtube_url = request.data.get('youtube_url')
+        if not youtube_url:
+            return Response(
+                {'error': 'youtube_url is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 動画IDの抽出
+        video_id = SessionYouTubeLink.extract_video_id(youtube_url)
+        if not video_id:
+            return Response(
+                {'error': 'Invalid YouTube URL'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # YouTube API から動画情報取得
+        video_info = YouTubeService.fetch_video_info(video_id)
+        if not video_info:
+            return Response(
+                {'error': 'Could not fetch video information'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        return Response({
+            'video_id': video_id,
+            'title': video_info['title'],
+            'duration_seconds': video_info['duration'],
+            'channel_name': video_info['channel_name'],
+            'thumbnail_url': video_info['thumbnail_url']
+        })
+    
+    @action(detail=True, methods=['post'])
+    def reorder(self, request, pk=None):
+        """動画リンクの表示順序変更"""
+        link = self.get_object()
+        new_order = request.data.get('order')
+        
+        if new_order is None:
+            return Response(
+                {'error': 'order is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # GMのみ順序変更可能
+        if link.session.gm != request.user:
+            return Response(
+                {'error': 'Only GM can reorder videos'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        link.order = new_order
+        link.save()
+        
+        serializer = self.get_serializer(link)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='statistics')
+    def statistics(self, request, session_id=None):
+        """セッションの動画統計情報を取得"""
+        if not session_id:
+            session_id = self.kwargs.get('session_id')
+        if not session_id:
+            session_id = request.query_params.get('session_id')
+        
+        if not session_id:
+            return Response(
+                {'error': 'session_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            session = TRPGSession.objects.get(id=session_id)
+        except TRPGSession.DoesNotExist:
+            return Response(
+                {'error': 'Session not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # 権限チェック
+        if session.gm != request.user and not session.participants.filter(id=request.user.id).exists():
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # 統計情報取得
+        statistics = SessionYouTubeLink.get_session_statistics(session)
+        
+        return Response(statistics)

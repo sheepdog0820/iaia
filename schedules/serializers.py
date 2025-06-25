@@ -1,17 +1,70 @@
 from rest_framework import serializers
-from .models import TRPGSession, SessionParticipant, HandoutInfo, HandoutNotification, UserNotificationPreferences
+from .models import TRPGSession, SessionParticipant, HandoutInfo, HandoutNotification, UserNotificationPreferences, SessionImage, SessionYouTubeLink
 from accounts.serializers import UserSerializer
 from accounts.models import CustomUser
 
 
+class SessionImageSerializer(serializers.ModelSerializer):
+    """セッション画像シリアライザー"""
+    uploaded_by_detail = UserSerializer(source='uploaded_by', read_only=True)
+    image_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = SessionImage
+        fields = ['id', 'image', 'image_url', 'title', 'description', 
+                 'order', 'uploaded_by', 'uploaded_by_detail', 
+                 'created_at', 'updated_at']
+        read_only_fields = ['id', 'uploaded_by', 'created_at', 'updated_at']
+    
+    def get_image_url(self, obj):
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
+
+
+class SessionYouTubeLinkSerializer(serializers.ModelSerializer):
+    """セッションYouTube動画リンクシリアライザー"""
+    added_by_detail = UserSerializer(source='added_by', read_only=True)
+    
+    class Meta:
+        model = SessionYouTubeLink
+        fields = ['id', 'youtube_url', 'video_id', 'title', 'duration_seconds',
+                 'duration_display', 'channel_name', 'thumbnail_url', 'description',
+                 'order', 'added_by', 'added_by_detail', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'video_id', 'title', 'duration_seconds', 
+                           'channel_name', 'thumbnail_url', 'added_by', 
+                           'created_at', 'updated_at']
+
+
 class SessionParticipantSerializer(serializers.ModelSerializer):
     user_detail = UserSerializer(source='user', read_only=True)
+    character_sheet_detail = serializers.SerializerMethodField()
     
     class Meta:
         model = SessionParticipant
         fields = ['id', 'session', 'user', 'user_detail', 'role', 
-                 'character_name', 'character_sheet_url']
+                 'character_name', 'character_sheet_url', 'player_slot',
+                 'character_sheet', 'character_sheet_detail']
         read_only_fields = ['id']
+    
+    def get_character_sheet_detail(self, obj):
+        if obj.character_sheet:
+            return {
+                'id': obj.character_sheet.id,
+                'name': obj.character_sheet.name,
+                'occupation': obj.character_sheet.occupation,
+                'age': obj.character_sheet.age,
+                'hp_current': obj.character_sheet.hp_current,
+                'mp_current': obj.character_sheet.mp_current,
+                'san_current': obj.character_sheet.san_current,
+                'hit_points_current': obj.character_sheet.hit_points_current,
+                'magic_points_current': obj.character_sheet.magic_points_current,
+                'sanity_current': obj.character_sheet.sanity_current
+            }
+        return None
 
 
 class HandoutInfoSerializer(serializers.ModelSerializer):
@@ -20,7 +73,8 @@ class HandoutInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = HandoutInfo
         fields = ['id', 'session', 'participant', 'participant_detail', 
-                 'title', 'content', 'is_secret', 'created_at', 'updated_at']
+                 'title', 'content', 'is_secret', 'handout_number',
+                 'assigned_player_slot', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
@@ -36,14 +90,30 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         many=True, 
         read_only=True
     )
+    images_detail = SessionImageSerializer(
+        source='images',
+        many=True,
+        read_only=True
+    )
+    youtube_links_detail = SessionYouTubeLinkSerializer(
+        source='youtube_links',
+        many=True,
+        read_only=True
+    )
     participant_count = serializers.SerializerMethodField()
+    youtube_total_duration = serializers.IntegerField(read_only=True)
+    youtube_total_duration_display = serializers.CharField(read_only=True)
+    youtube_video_count = serializers.IntegerField(read_only=True)
     
     class Meta:
         model = TRPGSession
         fields = ['id', 'title', 'description', 'date', 'location', 
                  'youtube_url', 'status', 'visibility', 'gm', 'gm_detail',
                  'group', 'duration_minutes', 'participants_detail', 
-                 'handouts_detail', 'participant_count', 'created_at', 'updated_at']
+                 'handouts_detail', 'images_detail', 'youtube_links_detail',
+                 'participant_count', 'youtube_total_duration', 
+                 'youtube_total_duration_display', 'youtube_video_count',
+                 'created_at', 'updated_at']
         read_only_fields = ['id', 'gm', 'created_at', 'updated_at']
     
     def get_participant_count(self, obj):
@@ -67,6 +137,8 @@ class SessionListSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     visibility_display = serializers.CharField(source='get_visibility_display', read_only=True)
     date_formatted = serializers.SerializerMethodField()
+    youtube_total_duration_display = serializers.CharField(read_only=True)
+    youtube_video_count = serializers.IntegerField(read_only=True)
     
     class Meta:
         model = TRPGSession
@@ -74,7 +146,7 @@ class SessionListSerializer(serializers.ModelSerializer):
             'id', 'title', 'description', 'date', 'date_formatted',
             'location', 'status', 'status_display', 'visibility', 'visibility_display',
             'gm_name', 'group_name', 'participant_count', 'duration_minutes',
-            'youtube_url'
+            'youtube_url', 'youtube_total_duration_display', 'youtube_video_count'
         ]
     
     def get_participant_count(self, obj):

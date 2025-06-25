@@ -34,8 +34,18 @@ class CharacterNestedResourceMixin:
     """キャラクターシート関連リソース用の mixin"""
     
     def get_character_sheet_id(self):
-        """URLからキャラクターシートIDを取得"""
-        return self.kwargs.get('character_sheet_id') or self.kwargs.get('character_sheet_pk')
+        """URLまたはリクエストデータからキャラクターシートIDを取得"""
+        # URLパラメータから取得
+        character_sheet_id = self.kwargs.get('character_sheet_id') or self.kwargs.get('character_sheet_pk')
+        
+        # URLパラメータにない場合は、リクエストデータから取得
+        if not character_sheet_id and hasattr(self, 'request'):
+            if self.request.method in ['POST', 'PUT', 'PATCH']:
+                character_sheet_id = self.request.data.get('character_sheet_id')
+            elif self.request.method == 'GET':
+                character_sheet_id = self.request.query_params.get('character_sheet_id')
+        
+        return character_sheet_id
     
     def get_character_sheet(self):
         """認証済みユーザーのキャラクターシートを取得"""
@@ -43,7 +53,12 @@ class CharacterNestedResourceMixin:
         
         character_sheet_id = self.get_character_sheet_id()
         if not character_sheet_id:
-            raise ValidationError("character_sheet_id is required")
+            # IDが見つからない場合は、パラメータから直接取得を試みる
+            if hasattr(self, 'kwargs') and 'pk' in self.kwargs:
+                # 直接キャラクターシートを参照している場合
+                character_sheet_id = self.kwargs['pk']
+            else:
+                raise ValidationError("character_sheet_id is required")
         
         try:
             return CharacterSheet.objects.get(

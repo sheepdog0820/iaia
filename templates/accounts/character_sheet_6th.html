@@ -553,12 +553,6 @@ function rollAllAbilities() {
                                 <i class="fas fa-dice-d20"></i> 
                                 クトゥルフ神話TRPG 第6版 探索者作成
                             </h3>
-                            <div class="mt-2">
-                                <small>作成進捗: <span id="progress-text">0/0</span></small>
-                                <div class="progress" style="height: 10px;">
-                                    <div class="progress-bar bg-success" id="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                                </div>
-                            </div>
                         </div>
                         <!-- モバイル用ハンバーガーメニューボタン -->
                         <div class="ms-3 d-lg-none">
@@ -578,19 +572,6 @@ function rollAllAbilities() {
                         </div>
                     </div>
                     
-                    <!-- メインプログレスバー -->
-                    <div class="main-progress-container mb-4">
-                        <div class="progress" style="height: 30px;">
-                            <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated main-progress-bar" 
-                                 role="progressbar" style="width: 0%" 
-                                 aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
-                                 data-label="0%完了">
-                            </div>
-                        </div>
-                        <div class="progress-text mt-1 text-center text-muted">
-                            <span id="progress-text">0/7 セクション完了</span>
-                        </div>
-                    </div>
                     
                     <form id="character-form-6th" method="post" action="{% url 'character_create_6th' %}" enctype="multipart/form-data">
                         {% csrf_token %}
@@ -960,27 +941,38 @@ function rollAllAbilities() {
                             
                             <div class="row">
                                 <div class="col-md-2 mb-3">
-                                    <label for="hp" class="form-label">HP</label>
+                                    <label for="hp" class="form-label">最大HP</label>
                                     <input type="number" class="form-control bg-light" id="hp" name="hit_points_max" readonly>
-                                    <!-- 現在HPも同じ値で初期化 -->
-                                    <input type="hidden" id="hit_points_current" name="hit_points_current">
                                     <small class="text-muted">(CON+SIZ)÷2</small>
                                 </div>
                                 <div class="col-md-2 mb-3">
-                                    <label for="mp" class="form-label">MP</label>
+                                    <label for="hit_points_current" class="form-label">現在HP</label>
+                                    <input type="number" class="form-control" id="hit_points_current" name="hit_points_current" placeholder="現在HP">
+                                    <small class="text-muted">任意入力</small>
+                                </div>
+                                <div class="col-md-2 mb-3">
+                                    <label for="mp" class="form-label">最大MP</label>
                                     <input type="number" class="form-control bg-light" id="mp" name="magic_points_max" readonly>
-                                    <!-- 現在MPも同じ値で初期化 -->
-                                    <input type="hidden" id="magic_points_current" name="magic_points_current">
                                     <small class="text-muted">POW</small>
                                 </div>
                                 <div class="col-md-2 mb-3">
-                                    <label for="san" class="form-label">SAN</label>
-                                    <input type="number" class="form-control bg-light" id="san" name="sanity_starting" readonly>
-                                    <!-- 最大SAN・現在SANも同じ値で初期化 -->
-                                    <input type="hidden" id="sanity_max" name="sanity_max">
-                                    <input type="hidden" id="sanity_current" name="sanity_current">
-                                    <small class="text-muted">POW×5</small>
+                                    <label for="magic_points_current" class="form-label">現在MP</label>
+                                    <input type="number" class="form-control" id="magic_points_current" name="magic_points_current" placeholder="現在MP">
+                                    <small class="text-muted">任意入力</small>
                                 </div>
+                                <div class="col-md-2 mb-3">
+                                    <label for="sanity_current" class="form-label">現在SAN</label>
+                                    <input type="number" class="form-control" id="sanity_current" name="sanity_current" min="0" max="99">
+                                    <small class="text-muted">初期値: POW×5</small>
+                                </div>
+                                <div class="col-md-2 mb-3">
+                                    <label for="sanity_max" class="form-label">最大SAN</label>
+                                    <input type="number" class="form-control bg-light" id="sanity_max" name="sanity_max" value="99" readonly>
+                                    <small class="text-muted">99-クトゥルフ神話</small>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
                                 <div class="col-md-2 mb-3">
                                     <label for="idea" class="form-label">アイデア</label>
                                     <input type="number" class="form-control bg-light" id="idea" name="idea" readonly>
@@ -1011,11 +1003,6 @@ function rollAllAbilities() {
                                     <label for="damage_bonus" class="form-label">ダメージボーナス</label>
                                     <input type="text" class="form-control bg-light" id="damage_bonus" name="damage_bonus" readonly>
                                     <small class="text-muted">STR+SIZから算出</small>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="current_san_combat" class="form-label">現在SAN値</label>
-                                    <input type="number" class="form-control" id="current_san_combat" name="current_san_combat" min="0" max="99">
-                                    <small class="text-muted">初期値: POW×5</small>
                                 </div>
                             </div>
                         </div>
@@ -2090,6 +2077,124 @@ body {
 // ABILITIES, DEFAULT_DICE_SETTINGS, HIGH_DICE_SETTINGS, currentDiceSettings, customSkills
 // これらの変数はすべて利用可能
 
+// クトゥルフ神話技能の合計値を取得
+function getCthulhuMythosTotal() {
+    let total = 0;
+    
+    console.log('[DEBUG] getCthulhuMythosTotal called');
+    
+    // より確実な方法：name属性で検索
+    const skillId = 'クトゥルフ神話'.replace(/[^a-zA-Z0-9]/g, '_');
+    const totalInput = document.querySelector(`input[name="skill_${skillId}_total"]`);
+    
+    if (totalInput) {
+        total = parseInt(totalInput.value) || 0;
+        console.log(`[DEBUG] クトゥルフ神話技能の値（name属性検索）: ${total}`);
+    } else {
+        // フォールバック：すべての技能項目を検索
+        document.querySelectorAll('.skill-item-wrapper, .skill-item').forEach(skillItem => {
+            const skillTitle = skillItem.querySelector('.skill-title, h6, strong');
+            if (skillTitle) {
+                const skillName = skillTitle.textContent.trim();
+                // バッジを除外
+                const cleanName = skillName.replace(/カスタム/g, '').trim();
+                if (cleanName === 'クトゥルフ神話') {
+                    console.log(`[DEBUG] クトゥルフ神話技能を発見: ${cleanName}`);
+                    const totalInputAlt = skillItem.querySelector('.skill-total');
+                    if (totalInputAlt) {
+                        const value = parseInt(totalInputAlt.value) || 0;
+                        console.log(`[DEBUG] クトゥルフ神話技能の値: ${value}`);
+                        total += value;
+                    }
+                }
+            }
+        });
+    }
+    
+    console.log(`[DEBUG] クトゥルフ神話技能合計: ${total}`);
+    return total;
+}
+
+// 最大SANを更新
+function updateMaxSAN() {
+    console.log('[DEBUG] updateMaxSAN called');
+    const cthulhuMythosTotal = getCthulhuMythosTotal();
+    const maxSAN = 99 - cthulhuMythosTotal;
+    
+    const sanityMaxField = document.getElementById('sanity_max');
+    if (sanityMaxField) {
+        sanityMaxField.value = maxSAN;
+        console.log(`[DEBUG] 最大SAN更新: 99 - ${cthulhuMythosTotal} = ${maxSAN}`);
+    } else {
+        console.error('[DEBUG] sanity_max要素が見つかりません');
+    }
+    
+    // 現在SANが最大SANを超えている場合の警告
+    const sanityCurrentField = document.getElementById('sanity_current');
+    if (sanityCurrentField) {
+        const currentSAN = parseInt(sanityCurrentField.value) || 0;
+        if (currentSAN > maxSAN) {
+            sanityCurrentField.classList.add('is-invalid');
+            showNotification(`現在SAN(${currentSAN})が最大SAN(${maxSAN})を超えています`, 'warning');
+        } else {
+            sanityCurrentField.classList.remove('is-invalid');
+        }
+    }
+}
+
+// デバッグ用：手動でクトゥルフ神話技能と最大SANを確認
+function debugCthulhuMythos() {
+    console.log('=== クトゥルフ神話技能デバッグ ===');
+    
+    // クトゥルフ神話技能を探す
+    let found = false;
+    document.querySelectorAll('.skill-item-wrapper, .skill-item').forEach(skillItem => {
+        const skillTitle = skillItem.querySelector('.skill-title, h6, strong');
+        if (skillTitle) {
+            const skillName = skillTitle.textContent.trim();
+            if (skillName === 'クトゥルフ神話' || skillName.includes('クトゥルフ')) {
+                found = true;
+                console.log(`技能名: ${skillName}`);
+                
+                // 各入力値を確認
+                const baseInput = skillItem.querySelector('.skill-base');
+                const occupationInput = skillItem.querySelector('.skill-occupation');
+                const interestInput = skillItem.querySelector('.skill-interest');
+                const bonusInput = skillItem.querySelector('.skill-bonus');
+                const totalInput = skillItem.querySelector('.skill-total');
+                
+                console.log(`基本値: ${baseInput?.value || 0}`);
+                console.log(`職業: ${occupationInput?.value || 0}`);
+                console.log(`趣味: ${interestInput?.value || 0}`);
+                console.log(`ボーナス: ${bonusInput?.value || 0}`);
+                console.log(`合計（表示）: ${totalInput?.value || 0}`);
+                
+                // 実際の合計を計算
+                const actualTotal = (parseInt(baseInput?.value) || 0) + 
+                                  (parseInt(occupationInput?.value) || 0) + 
+                                  (parseInt(interestInput?.value) || 0) + 
+                                  (parseInt(bonusInput?.value) || 0);
+                console.log(`合計（計算）: ${actualTotal}`);
+            }
+        }
+    });
+    
+    if (!found) {
+        console.log('クトゥルフ神話技能が見つかりません');
+    }
+    
+    // 現在の最大SAN値
+    const sanityMaxField = document.getElementById('sanity_max');
+    console.log(`現在の最大SAN: ${sanityMaxField?.value || 'なし'}`);
+    
+    // getCthulhuMythosTotal()の結果
+    const total = getCthulhuMythosTotal();
+    console.log(`getCthulhuMythosTotal()の結果: ${total}`);
+    console.log(`計算される最大SAN: 99 - ${total} = ${99 - total}`);
+    
+    console.log('=== デバッグ終了 ===');
+}
+
 // 以下の関数は既にグローバルスコープで定義済み
 
 // 副次ステータスの計算
@@ -2108,8 +2213,14 @@ function calculateDerivedStats() {
     // MP計算
     document.getElementById('mp').value = pow;
     
-    // SAN計算
-    document.getElementById('san').value = pow * 5;
+    // 現在SANの初期値設定（現在SANが未設定の場合のみ）
+    const sanityCurrentField = document.getElementById('sanity_current');
+    if (sanityCurrentField && (!sanityCurrentField.value || sanityCurrentField.value === '0' || sanityCurrentField.value === '')) {
+        sanityCurrentField.value = pow * 5;
+    }
+    
+    // 最大SANの更新（クトゥルフ神話技能を考慮）
+    updateMaxSAN();
     
     // アイデアロール
     document.getElementById('idea').value = int * 5;
@@ -2146,11 +2257,6 @@ function calculateDerivedStats() {
         movementRateElement.value = movementRate;
     }
     
-    // 戦闘データのSAN値設定（初期値POW×5）
-    const currentSanCombat = document.getElementById('current_san_combat');
-    if (currentSanCombat && (!currentSanCombat.value || currentSanCombat.value === '0' || currentSanCombat.value === '')) {
-        currentSanCombat.value = pow * 5;
-    }
     
     // 技能ポイント計算
     calculateSkillPoints();
@@ -2181,9 +2287,9 @@ function calculateDerivedStatsIfEmpty() {
             const hpValue = Math.ceil((con + siz) / 2);
             hpField.value = hpValue;
             
-            // 現在HPも同じ値で初期化
+            // 現在HPも同じ値で初期化（空の場合のみ）
             const hitPointsCurrentField = document.getElementById('hit_points_current');
-            if (hitPointsCurrentField) {
+            if (hitPointsCurrentField && !hitPointsCurrentField.value) {
                 hitPointsCurrentField.value = hpValue;
             }
             
@@ -2195,32 +2301,33 @@ function calculateDerivedStatsIfEmpty() {
         if (mpField && (!mpField.value || mpField.value === '0' || mpField.value === '')) {
             mpField.value = pow;
             
-            // 現在MPも同じ値で初期化
+            // 現在MPも同じ値で初期化（空の場合のみ）
             const magicPointsCurrentField = document.getElementById('magic_points_current');
-            if (magicPointsCurrentField) {
+            if (magicPointsCurrentField && !magicPointsCurrentField.value) {
                 magicPointsCurrentField.value = pow;
             }
             
             console.log(`[DEBUG] MP計算: ${pow}`);
         }
         
-        // SAN計算（空の場合のみ）
-        const sanField = document.getElementById('san');
-        if (sanField && (!sanField.value || sanField.value === '0' || sanField.value === '')) {
+        // 現在SAN計算（空の場合のみ）
+        const sanityCurrentField = document.getElementById('sanity_current');
+        if (sanityCurrentField && (!sanityCurrentField.value || sanityCurrentField.value === '0' || sanityCurrentField.value === '')) {
             const sanValue = pow * 5;
-            sanField.value = sanValue;
+            sanityCurrentField.value = sanValue;
             
-            // 最大SAN・現在SANも同じ値で初期化
-            const sanityMaxField = document.getElementById('sanity_max');
-            const sanityCurrentField = document.getElementById('sanity_current');
-            if (sanityMaxField) {
-                sanityMaxField.value = sanValue;
-            }
-            if (sanityCurrentField) {
-                sanityCurrentField.value = sanValue;
-            }
-            
-            console.log(`[DEBUG] SAN計算: ${pow} × 5 = ${sanValue}`);
+            console.log(`[DEBUG] 現在SAN計算: ${pow} × 5 = ${sanValue}`);
+        }
+        
+        // 最大SANの初期値設定
+        const sanityMaxField = document.getElementById('sanity_max');
+        if (sanityMaxField) {
+            // 常にクトゥルフ神話技能から計算する
+            setTimeout(() => {
+                const cthulhuMythosTotal = getCthulhuMythosTotal();
+                sanityMaxField.value = 99 - cthulhuMythosTotal; // 99 - クトゥルフ神話技能
+                console.log(`[DEBUG] 最大SAN計算: 99 - ${cthulhuMythosTotal} = ${99 - cthulhuMythosTotal}`);
+            }, 600); // 技能リスト生成後に実行
         }
         
         // 戦闘データのSAN値計算（空の場合のみ）
@@ -2569,7 +2676,7 @@ function generateSkillsList() {
                                    name="skill_${skillId}_occupation" 
                                    min="0" max="999" value="0"
                                    data-skill="${skill.name}"
-                                   onchange="updateSkillTotalSimple(this); updateSkillPointsUsage();">
+                                   onchange="updateSkillTotalSimple(this); updateSkillPointsUsage(); ${skill.name === 'クトゥルフ神話' ? 'updateMaxSAN();' : ''}">
                         </div>
                         <div class="col-3">
                             <label class="form-label form-label-sm text-success">趣味</label>
@@ -2577,7 +2684,7 @@ function generateSkillsList() {
                                    name="skill_${skillId}_interest" 
                                    min="0" max="999" value="0"
                                    data-skill="${skill.name}"
-                                   onchange="updateSkillTotalSimple(this); updateSkillPointsUsage();">
+                                   onchange="updateSkillTotalSimple(this); updateSkillPointsUsage(); ${skill.name === 'クトゥルフ神話' ? 'updateMaxSAN();' : ''}">
                         </div>
                         <div class="col-3">
                             <label class="form-label form-label-sm">ボーナス</label>
@@ -2585,7 +2692,7 @@ function generateSkillsList() {
                                    name="skill_${skillId}_bonus" 
                                    min="0" max="999" value="0"
                                    data-skill="${skill.name}"
-                                   onchange="updateSkillTotalSimple(this);">
+                                   onchange="updateSkillTotalSimple(this); ${skill.name === 'クトゥルフ神話' ? 'updateMaxSAN();' : ''}">
                         </div>
                     </div>
                     <div class="row mt-2">
@@ -2727,6 +2834,11 @@ function updateSkillTotal(inputElement) {
     
     const total = base + occupation + interest + bonus;
     totalInput.value = total;
+    
+    // クトゥルフ神話技能の場合、最大SANを更新
+    if (skillName === 'クトゥルフ神話' || skillName.includes('クトゥルフ')) {
+        updateMaxSAN();
+    }
     
     // フッターの更新
     updateFooterSkillPoints();
@@ -2922,6 +3034,7 @@ function updateSkillTotalSimple(element) {
         return;
     }
     
+    console.log(`[DEBUG] updateSkillTotalSimple called for: ${skillName}`);
     const skillId = skillName.replace(/[^a-zA-Z0-9]/g, '_');
     
     // 各値を取得
@@ -2941,6 +3054,11 @@ function updateSkillTotalSimple(element) {
         totalInput.value = total;
         
         console.log(`[DEBUG] ${skillName}: 基本=${base} + 職業=${occupation} + 趣味=${interest} + ボーナス=${bonus} = ${total}`);
+        
+        // クトゥルフ神話技能の場合、最大SANを更新
+        if (skillName === 'クトゥルフ神話' || skillName.includes('クトゥルフ')) {
+            updateMaxSAN();
+        }
     }
 }
 
@@ -2964,19 +3082,28 @@ function applyStandardPreset() {
 
 // 技能合計値の更新（要素ベース）
 function updateSkillTotalFromElement(element) {
-    const skillName = element.dataset.skill;
+    // 技能名を取得（data-skill属性またはtitle要素から）
+    let skillName = element.dataset.skill;
+    if (!skillName) {
+        const skillTitle = element.querySelector('.skill-title, h6, strong');
+        if (skillTitle) {
+            skillName = skillTitle.textContent.trim();
+        }
+    }
+    
     if (!skillName) {
         console.error('[DEBUG] 技能名が見つかりません', element);
         return;
     }
+    
     const skillId = skillName.replace(/[^a-zA-Z0-9]/g, '_');
     
-    // 各値を取得
-    const baseInput = document.querySelector(`[name="skill_${skillId}_base"]`);
-    const occupationInput = document.querySelector(`[name="skill_${skillId}_occupation"]`);
-    const interestInput = document.querySelector(`[name="skill_${skillId}_interest"]`);
-    const bonusInput = document.querySelector(`[name="skill_${skillId}_bonus"]`);
-    const totalInput = document.querySelector(`[name="skill_${skillId}_total"]`);
+    // 要素内から各入力フィールドを検索
+    const baseInput = element.querySelector('.skill-base') || document.querySelector(`[name="skill_${skillId}_base"]`);
+    const occupationInput = element.querySelector('.skill-occupation') || document.querySelector(`[name="skill_${skillId}_occupation"]`);
+    const interestInput = element.querySelector('.skill-interest') || document.querySelector(`[name="skill_${skillId}_interest"]`);
+    const bonusInput = element.querySelector('.skill-bonus') || document.querySelector(`[name="skill_${skillId}_bonus"]`);
+    const totalInput = element.querySelector('.skill-total') || document.querySelector(`[name="skill_${skillId}_total"]`);
     
     if (baseInput && occupationInput && interestInput && bonusInput && totalInput) {
         const base = parseInt(baseInput.value) || 0;
@@ -2986,6 +3113,11 @@ function updateSkillTotalFromElement(element) {
         
         const total = base + occupation + interest + bonus;
         totalInput.value = total; // 上限なし
+        
+        // クトゥルフ神話技能の場合、最大SANを更新
+        if (skillName === 'クトゥルフ神話' || skillName.includes('クトゥルフ')) {
+            updateMaxSAN();
+        }
     }
 }
 
@@ -3804,62 +3936,8 @@ function updateSkillPointsUsage() {
 }
 
 // プログレスバー更新
-function updateProgress() {
-    const sections = [
-        { id: 'character_name', required: true, name: '基本情報' },
-        { id: 'str', required: true, name: '能力値' },
-        { id: 'hp', required: false, name: '副次ステータス' },
-        { id: 'occupation-points', required: false, name: '技能ポイント' },
-        { id: 'all-skills-container', required: false, name: '技能' },
-        { id: 'armor_name', required: false, name: '戦闘データ' },
-        { id: 'cash_amount', required: false, name: '所持品' },
-        { id: 'appearance_description', required: false, name: '背景情報' }
-    ];
-    
-    let completed = 0;
-    const total = sections.length;
-    
-    sections.forEach((section, index) => {
-        const element = document.getElementById(section.id);
-        let isCompleted = false;
-        
-        if (element && section.required) {
-            isCompleted = element.value && element.value.trim() !== '';
-        } else if (element) {
-            isCompleted = true; // オプションセクションは存在するだけでOK
-        }
-        
-        if (isCompleted) completed++;
-        
-        // ステータスバッジの更新
-        const statusBadge = document.getElementById(`${section.name.replace(/\s+/g, '-').toLowerCase()}-status`);
-        if (statusBadge) {
-            if (isCompleted) {
-                statusBadge.textContent = '完了';
-                statusBadge.className = 'badge bg-success ms-auto me-2';
-            } else if (section.required) {
-                statusBadge.textContent = '未完了';
-                statusBadge.className = 'badge bg-danger ms-auto me-2';
-            } else {
-                statusBadge.textContent = '未設定';
-                statusBadge.className = 'badge bg-secondary ms-auto me-2';
-            }
-        }
-    });
-    
-    const percentage = Math.round((completed / total) * 100);
-    const progressBar = document.getElementById('progress-bar');
-    const progressText = document.getElementById('progress-text');
-    
-    if (progressBar) {
-        progressBar.style.width = percentage + '%';
-        progressBar.setAttribute('aria-valuenow', percentage);
-    }
-    
-    if (progressText) {
-        progressText.textContent = `${completed}/${total}`;
-    }
-}
+// 進捗管理機能は削除されました
+// function updateProgress() { ... }
 
 // 戦闘データ計算
 function calculateCombatData() {
@@ -4682,7 +4760,7 @@ document.addEventListener('DOMContentLoaded', function() {
             element.addEventListener('input', function() {
                 calculateDerivedStats();
                 calculateCombatData();
-                updateProgress();
+                // updateProgress(); // 進捗管理機能は削除されました
             });
         }
     });
@@ -4692,11 +4770,52 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // SkillFilterManager は skill_filter_simple.js で自動初期化されます
     
+    // 技能合計値の初期計算
+    setTimeout(() => {
+        console.log('[DEBUG] 技能合計値の初期計算開始');
+        
+        // すべての技能の合計値を再計算
+        document.querySelectorAll('.skill-item-wrapper, .skill-item').forEach(skillItem => {
+            const skillTitle = skillItem.querySelector('.skill-title, h6, strong');
+            if (skillTitle) {
+                const skillName = skillTitle.textContent.trim();
+                console.log(`[DEBUG] 技能を処理中: ${skillName}`);
+                
+                // 各入力フィールドを取得して合計を計算
+                const baseInput = skillItem.querySelector('.skill-base');
+                const occupationInput = skillItem.querySelector('.skill-occupation');
+                const interestInput = skillItem.querySelector('.skill-interest');
+                const bonusInput = skillItem.querySelector('.skill-bonus');
+                const totalInput = skillItem.querySelector('.skill-total');
+                
+                if (baseInput && occupationInput && interestInput && bonusInput && totalInput) {
+                    const base = parseInt(baseInput.value) || 0;
+                    const occupation = parseInt(occupationInput.value) || 0;
+                    const interest = parseInt(interestInput.value) || 0;
+                    const bonus = parseInt(bonusInput.value) || 0;
+                    const total = base + occupation + interest + bonus;
+                    
+                    totalInput.value = total;
+                    console.log(`[DEBUG] ${skillName} 合計: ${total}`);
+                }
+            }
+        });
+        
+        // 最大SANの更新
+        updateMaxSAN();
+    }, 500); // タイミングを少し遅らせる
+    
     // 初回のフッター更新
     updateFooterSkillPoints();
     
+    // 既存のキャラクターの場合も最大SANを再計算
+    setTimeout(() => {
+        console.log('[DEBUG] 既存キャラクターの最大SAN再計算');
+        updateMaxSAN();
+    }, 1000);
+    
     // 初回のプログレス更新
-    updateProgress();
+    // updateProgress(); // 進捗管理機能は削除されました
     
     // 戦闘ステータスの初期表示
     updateCombatStatusDisplay();
@@ -4722,7 +4841,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const accordionButtons = document.querySelectorAll('.accordion-button');
     accordionButtons.forEach(button => {
         button.addEventListener('click', function() {
-            setTimeout(updateProgress, 100); // アコーディオン開閉後に更新
+            // setTimeout(updateProgress, 100); // 進捗管理機能は削除されました
         });
     });
     
@@ -4730,7 +4849,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const formInputs = document.querySelectorAll('input, textarea, select');
     formInputs.forEach(input => {
         input.addEventListener('input', function() {
-            setTimeout(updateProgress, 100);
+            // setTimeout(updateProgress, 100); // 進捗管理機能は削除されました
             
             // 能力値変更時に技能ポイントを再計算
             if (input.id === 'edu' || input.id === 'int') {
@@ -5776,7 +5895,7 @@ function updateHiddenFields() {
         console.log('[DEBUG] MP現在値設定:', mpCurrentHidden.value);
     }
     
-    // SAN開始値
+    // SAN開始値（初期値としてPOW×5を隠しフィールドに保存）
     const sanStartValue = pow * 5;
     const sanStartHidden = document.getElementById('sanity_starting_hidden');
     if (sanStartHidden) {
@@ -5785,23 +5904,18 @@ function updateHiddenFields() {
     }
     
     // SAN最大値
-    const sanMaxValue = parseInt(document.getElementById('san')?.value) || (pow * 5);
+    const sanMaxValue = parseInt(document.getElementById('sanity_max')?.value) || 99;
     const sanMaxHidden = document.getElementById('sanity_max_hidden');
     if (sanMaxHidden) {
         sanMaxHidden.value = sanMaxValue;
         console.log('[DEBUG] SAN最大値設定:', sanMaxHidden.value);
     }
     
-    // SAN現在値（初期値は最大SAN）
+    // SAN現在値
+    const sanCurrentValue = parseInt(document.getElementById('sanity_current')?.value) || sanStartValue;
     const sanCurrentHidden = document.getElementById('sanity_current_hidden');
     if (sanCurrentHidden) {
-        // 戦闘データセクションの現在SANを確認
-        const currentSanCombat = document.getElementById('current_san_combat');
-        if (currentSanCombat && currentSanCombat.value) {
-            sanCurrentHidden.value = currentSanCombat.value;
-        } else {
-            sanCurrentHidden.value = sanMaxValue;
-        }
+        sanCurrentHidden.value = sanCurrentValue;
         console.log('[DEBUG] SAN現在値設定:', sanCurrentHidden.value);
     }
     

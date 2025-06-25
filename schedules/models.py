@@ -38,6 +38,21 @@ class TRPGSession(models.Model):
     def __str__(self):
         return f"{self.title} ({self.date.strftime('%Y-%m-%d')})"
     
+    @property
+    def youtube_total_duration(self):
+        """YouTube動画の合計時間（秒）"""
+        return SessionYouTubeLink.get_session_total_duration(self)
+    
+    @property
+    def youtube_total_duration_display(self):
+        """YouTube動画の合計時間（表示形式）"""
+        return SessionYouTubeLink.format_duration(self.youtube_total_duration)
+    
+    @property
+    def youtube_video_count(self):
+        """YouTube動画の本数"""
+        return self.youtube_links.count()
+    
     class Meta:
         ordering = ['-date']
 
@@ -48,34 +63,89 @@ class SessionParticipant(models.Model):
         ('player', 'PL'),
     ]
     
+    PLAYER_SLOT_CHOICES = [
+        (1, 'プレイヤー1'),
+        (2, 'プレイヤー2'),
+        (3, 'プレイヤー3'),
+        (4, 'プレイヤー4'),
+    ]
+    
     session = models.ForeignKey(TRPGSession, on_delete=models.CASCADE)
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='player')
     character_name = models.CharField(max_length=100, blank=True)
     character_sheet_url = models.URLField(blank=True)
     
+    # 新規フィールド: プレイヤー枠番号
+    player_slot = models.IntegerField(
+        choices=PLAYER_SLOT_CHOICES,
+        null=True,
+        blank=True,
+        help_text="プレイヤー枠番号（1-4）"
+    )
+    
+    # 新規フィールド: キャラクターシート直接参照
+    character_sheet = models.ForeignKey(
+        'accounts.CharacterSheet',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='session_participations'
+    )
+    
     class Meta:
-        unique_together = ('session', 'user')
+        unique_together = [
+            ['session', 'user'],
+            ['session', 'player_slot'],  # 同じセッション内で枠番号は重複不可
+        ]
         
     def __str__(self):
-        return f"{self.user.nickname} in {self.session.title} ({self.role})"
+        slot_display = f" (Slot {self.player_slot})" if self.player_slot else ""
+        return f"{self.user.nickname} in {self.session.title} ({self.role}){slot_display}"
 
 
 class HandoutInfo(models.Model):
+    HANDOUT_NUMBER_CHOICES = [
+        (1, 'HO1'),
+        (2, 'HO2'),
+        (3, 'HO3'),
+        (4, 'HO4'),
+    ]
+    
     session = models.ForeignKey(TRPGSession, on_delete=models.CASCADE, related_name='handouts')
     participant = models.ForeignKey(SessionParticipant, on_delete=models.CASCADE, related_name='handouts')
     title = models.CharField(max_length=100)
     content = models.TextField()
     is_secret = models.BooleanField(default=True, help_text="秘匿ハンドアウトかどうか")
     
+    # 新規フィールド: ハンドアウト番号
+    handout_number = models.IntegerField(
+        choices=HANDOUT_NUMBER_CHOICES,
+        null=True,
+        blank=True,
+        help_text="ハンドアウト番号（HO1-HO4）"
+    )
+    
+    # 新規フィールド: 割り当てプレイヤー枠
+    assigned_player_slot = models.IntegerField(
+        choices=SessionParticipant.PLAYER_SLOT_CHOICES,
+        null=True,
+        blank=True,
+        help_text="割り当てられたプレイヤー枠"
+    )
+    
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"{self.title} - {self.participant.user.nickname}"
+        ho_display = f"HO{self.handout_number}" if self.handout_number else "HO"
+        return f"{ho_display}: {self.title} - {self.participant.user.nickname}"
     
     class Meta:
-        ordering = ['title']
+        unique_together = [
+            ['session', 'handout_number'],  # 同じセッション内でHO番号は重複不可
+        ]
+        ordering = ['handout_number', 'title']
 
 
 class HandoutNotification(models.Model):
@@ -85,14 +155,20 @@ class HandoutNotification(models.Model):
         ('handout_created', 'ハンドアウト作成'),
         ('handout_published', 'ハンドアウト公開'),
         ('handout_updated', 'ハンドアウト更新'),
+        # セッション関連通知（ISSUE-013）
+        ('session_invitation', 'セッション招待'),
+        ('schedule_change', 'スケジュール変更'),
+        ('session_cancelled', 'セッションキャンセル'),
+        ('session_reminder', 'セッションリマインダー'),
     ]
     
-    handout_id = models.PositiveIntegerField(help_text="対象ハンドアウトのID")
+    handout_id = models.PositiveIntegerField(help_text="対象ハンドアウトのID（セッション通知の場合は0）")
     recipient = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='handout_notifications')
     sender = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='sent_handout_notifications')
-    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPE_CHOICES)
+    notification_type = models.CharField(max_length=30, choices=NOTIFICATION_TYPE_CHOICES)
     message = models.TextField(help_text="通知メッセージ")
     is_read = models.BooleanField(default=False)
+    metadata = models.JSONField(blank=True, null=True, help_text="追加メタデータ")
     
     created_at = models.DateTimeField(default=timezone.now)
     read_at = models.DateTimeField(null=True, blank=True)
@@ -120,6 +196,7 @@ class UserNotificationPreferences(models.Model):
     
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='notification_preferences')
     handout_notifications_enabled = models.BooleanField(default=True, help_text="ハンドアウト通知を有効にする")
+    session_notifications_enabled = models.BooleanField(default=True, help_text="セッション通知を有効にする")
     email_notifications_enabled = models.BooleanField(default=False, help_text="メール通知を有効にする")
     browser_notifications_enabled = models.BooleanField(default=True, help_text="ブラウザ通知を有効にする")
     
@@ -136,11 +213,81 @@ class UserNotificationPreferences(models.Model):
             user=user,
             defaults={
                 'handout_notifications_enabled': True,
+                'session_notifications_enabled': True,
                 'email_notifications_enabled': False,
                 'browser_notifications_enabled': True,
             }
         )
         return preferences
+
+
+class SessionImage(models.Model):
+    """セッション添付画像モデル"""
+    
+    session = models.ForeignKey(
+        TRPGSession,
+        on_delete=models.CASCADE,
+        related_name='images'
+    )
+    image = models.ImageField(
+        upload_to='session_images/%Y/%m/%d/',
+        help_text='セッションに関連する画像'
+    )
+    title = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text='画像のタイトル'
+    )
+    description = models.TextField(
+        blank=True,
+        help_text='画像の説明'
+    )
+    order = models.PositiveIntegerField(
+        default=0,
+        help_text='表示順序'
+    )
+    uploaded_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='uploaded_session_images'
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['order', 'created_at']
+        indexes = [
+            models.Index(fields=['session', 'order']),
+        ]
+    
+    def __str__(self):
+        return f"{self.session.title} - {self.title or f'画像{self.order + 1}'}"
+    
+    def save(self, *args, **kwargs):
+        # 新規作成時、orderを自動設定
+        if not self.pk and self.order == 0 and hasattr(self, 'session_id') and self.session_id:
+            max_order = SessionImage.objects.filter(
+                session_id=self.session_id
+            ).aggregate(
+                max_order=models.Max('order')
+            )['max_order']
+            self.order = (max_order or 0) + 1
+        super().save(*args, **kwargs)
+    
+    def get_thumbnail_url(self):
+        """サムネイルURL取得（将来的な実装用）"""
+        return self.image.url if self.image else None
+    
+    def delete(self, *args, **kwargs):
+        """削除時に画像ファイルも削除"""
+        if self.image:
+            try:
+                if self.image.storage.exists(self.image.name):
+                    self.image.delete(save=False)
+            except Exception:
+                pass
+        super().delete(*args, **kwargs)
 
 
 def handout_attachment_upload_path(instance, filename):
@@ -321,3 +468,144 @@ class HandoutAttachment(models.Model):
             models.Index(fields=['file_type']),
             models.Index(fields=['uploaded_by']),
         ]
+
+
+class SessionYouTubeLink(models.Model):
+    """セッションに関連するYouTube動画リンク"""
+    
+    # リレーション
+    session = models.ForeignKey(
+        TRPGSession,
+        on_delete=models.CASCADE,
+        related_name='youtube_links'
+    )
+    added_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='added_youtube_links'
+    )
+    
+    # YouTube情報
+    youtube_url = models.URLField(max_length=500)
+    video_id = models.CharField(max_length=50, db_index=True)
+    title = models.CharField(max_length=200)
+    duration_seconds = models.PositiveIntegerField(default=0)
+    channel_name = models.CharField(max_length=100, blank=True)
+    thumbnail_url = models.URLField(max_length=500, blank=True)
+    
+    # メタ情報
+    description = models.TextField(
+        blank=True,
+        verbose_name="備考",
+        help_text="この動画についての説明やメモ"
+    )
+    order = models.PositiveIntegerField(default=0)
+    
+    # タイムスタンプ
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['order', 'created_at']
+        unique_together = ['session', 'video_id']
+        indexes = [
+            models.Index(fields=['session', 'order']),
+        ]
+    
+    def __str__(self):
+        return f"{self.session.title} - {self.title}"
+    
+    @property
+    def duration_display(self):
+        """再生時間を HH:MM:SS 形式で表示"""
+        hours = self.duration_seconds // 3600
+        minutes = (self.duration_seconds % 3600) // 60
+        seconds = self.duration_seconds % 60
+        
+        if hours > 0:
+            return f"{hours}:{minutes:02d}:{seconds:02d}"
+        else:
+            return f"{minutes}:{seconds:02d}"
+    
+    def save(self, *args, **kwargs):
+        # video_idを抽出
+        if self.youtube_url and not self.video_id:
+            self.video_id = self.extract_video_id(self.youtube_url)
+        
+        # 新規作成時、orderを自動設定
+        if not self.pk and self.order == 0:
+            max_order = SessionYouTubeLink.objects.filter(
+                session_id=self.session_id
+            ).aggregate(
+                max_order=models.Max('order')
+            )['max_order']
+            self.order = (max_order or 0) + 1
+        
+        super().save(*args, **kwargs)
+    
+    @staticmethod
+    def extract_video_id(url):
+        """YouTube URLから動画IDを抽出"""
+        import re
+        
+        if not url:
+            return None
+            
+        patterns = [
+            r'(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?]+)',
+            r'(?:youtube\.com\/embed\/)([^&\n?]+)',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, url)
+            if match:
+                return match.group(1)
+        return None
+    
+    @classmethod
+    def get_session_total_duration(cls, session):
+        """セッションの動画合計時間を取得"""
+        from django.db.models import Sum
+        result = cls.objects.filter(session=session).aggregate(
+            total=Sum('duration_seconds')
+        )
+        return result['total'] or 0
+    
+    @classmethod
+    def get_session_statistics(cls, session):
+        """セッションの動画統計情報を取得"""
+        from django.db.models import Sum, Avg, Count
+        videos = cls.objects.filter(session=session)
+        
+        stats = videos.aggregate(
+            count=Count('id'),
+            total_duration=Sum('duration_seconds'),
+            avg_duration=Avg('duration_seconds')
+        )
+        
+        # チャンネル別集計
+        channel_stats = videos.values('channel_name').annotate(
+            video_count=Count('id'),
+            total_duration=Sum('duration_seconds')
+        ).order_by('-video_count')
+        
+        return {
+            'video_count': stats['count'] or 0,
+            'total_duration_seconds': stats['total_duration'] or 0,
+            'total_duration_display': cls.format_duration(stats['total_duration'] or 0),
+            'average_duration_seconds': int(stats['avg_duration'] or 0),
+            'average_duration_display': cls.format_duration(int(stats['avg_duration'] or 0)),
+            'channel_breakdown': list(channel_stats)
+        }
+    
+    @staticmethod
+    def format_duration(seconds):
+        """秒数を HH:MM:SS 形式にフォーマット"""
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        secs = seconds % 60
+        
+        if hours > 0:
+            return f"{hours}:{minutes:02d}:{secs:02d}"
+        else:
+            return f"{minutes}:{secs:02d}"

@@ -7,6 +7,7 @@ from . import views
 from . import statistics_views
 from . import export_views
 from .views.character_image_views import CharacterImageViewSet
+from .views.dev_login_view import DevLoginView
 
 router = DefaultRouter()
 router.register(r'users', views.UserViewSet, basename='user')
@@ -22,6 +23,9 @@ urlpatterns = [
     path('login/', views.CustomLoginView.as_view(), name='login'),
     path('logout/', views.CustomLogoutView.as_view(), name='logout'),
     path('signup/', views.CustomSignUpView.as_view(), name='signup'),
+    
+    # Development login (DEBUG only)
+    path('dev-login/', DevLoginView.as_view(), name='dev_login'),
     
     # Web URLs for frontend pages (before router to avoid conflicts)
     path('groups/view/', 

@@ -245,3 +245,277 @@ class HandoutNotificationService:
         except Exception as e:
             logger.error(f"メール通知送信エラー: {e}")
             return False
+
+
+class SessionNotificationService(HandoutNotificationService):
+    """セッション関連通知サービスクラス（ISSUE-013実装）"""
+    
+    def send_session_invitation_notification(self, session, inviter, invitee):
+        """
+        セッション招待通知を送信
+        
+        Args:
+            session (TRPGSession): 招待対象のセッション
+            inviter (CustomUser): 招待者
+            invitee (CustomUser): 被招待者
+            
+        Returns:
+            bool: 通知送信成功時True、失敗時False
+        """
+        try:
+            # 通知設定を確認
+            preferences = UserNotificationPreferences.get_or_create_for_user(invitee)
+            if not preferences.session_notifications_enabled:
+                logger.info(f"通知設定により送信をスキップ: user={invitee.id}")
+                return False
+            
+            # 通知メッセージ作成
+            message = self._create_session_invitation_message(session, inviter)
+            
+            # 通知レコード作成
+            notification = HandoutNotification.objects.create(
+                handout_id=0,  # セッション通知なのでhandout_idは0
+                recipient=invitee,
+                sender=inviter,
+                notification_type='session_invitation',
+                message=message,
+                is_read=False
+            )
+            
+            # metadataは後から設定
+            if hasattr(notification, 'metadata'):
+                notification.metadata = {
+                    'session_id': session.id,
+                    'session_title': session.title,
+                    'session_date': session.date.isoformat(),
+                    'inviter_name': inviter.nickname or inviter.username
+                }
+                notification.save()
+            
+            # メール通知（設定が有効な場合）
+            if preferences.email_notifications_enabled:
+                self._send_email_notification(notification)
+            
+            logger.info(f"セッション招待通知送信完了: session={session.id}, invitee={invitee.id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"セッション招待通知送信エラー: {e}")
+            return False
+    
+    def send_session_schedule_change_notification(self, session, old_date, new_date):
+        """
+        セッションスケジュール変更通知を送信
+        
+        Args:
+            session (TRPGSession): 変更されたセッション
+            old_date (datetime): 変更前の日時
+            new_date (datetime): 変更後の日時
+            
+        Returns:
+            int: 送信した通知数
+        """
+        try:
+            # セッション参加者全員に通知（GM除く）
+            participants = session.participants.exclude(id=session.gm.id).all()
+            notification_count = 0
+            
+            for participant in participants:
+                # 通知設定を確認
+                preferences = UserNotificationPreferences.get_or_create_for_user(participant)
+                if not preferences.session_notifications_enabled:
+                    continue
+                
+                # 通知メッセージ作成
+                message = self._create_schedule_change_message(session, old_date, new_date)
+                
+                # 通知レコード作成
+                notification = HandoutNotification.objects.create(
+                    handout_id=0,  # セッション通知なのでhandout_idは0
+                    recipient=participant,
+                    sender=session.gm,
+                    notification_type='schedule_change',
+                    message=message,
+                    is_read=False
+                )
+                
+                # metadataは後から設定
+                if hasattr(notification, 'metadata'):
+                    notification.metadata = {
+                        'session_id': session.id,
+                        'session_title': session.title,
+                        'old_date': old_date.isoformat(),
+                        'new_date': new_date.isoformat(),
+                        'gm_name': session.gm.nickname or session.gm.username
+                    }
+                    notification.save()
+                
+                # メール通知（設定が有効な場合）
+                if preferences.email_notifications_enabled:
+                    self._send_email_notification(notification)
+                
+                notification_count += 1
+            
+            logger.info(f"スケジュール変更通知送信完了: session={session.id}, 通知数={notification_count}")
+            return notification_count
+            
+        except Exception as e:
+            logger.error(f"スケジュール変更通知送信エラー: {e}")
+            return 0
+    
+    def send_session_cancelled_notification(self, session, reason=None):
+        """
+        セッションキャンセル通知を送信
+        
+        Args:
+            session (TRPGSession): キャンセルされたセッション
+            reason (str): キャンセル理由（オプション）
+            
+        Returns:
+            int: 送信した通知数
+        """
+        try:
+            # セッション参加者全員に通知（GM除く）
+            participants = session.participants.exclude(id=session.gm.id).all()
+            notification_count = 0
+            
+            for participant in participants:
+                # 通知設定を確認
+                preferences = UserNotificationPreferences.get_or_create_for_user(participant)
+                if not preferences.session_notifications_enabled:
+                    continue
+                
+                # 通知メッセージ作成
+                message = self._create_session_cancelled_message(session, reason)
+                
+                # 通知レコード作成
+                notification = HandoutNotification.objects.create(
+                    handout_id=0,  # セッション通知なのでhandout_idは0
+                    recipient=participant,
+                    sender=session.gm,
+                    notification_type='session_cancelled',
+                    message=message,
+                    is_read=False,
+                    metadata={
+                        'session_id': session.id,
+                        'session_title': session.title,
+                        'session_date': session.date.isoformat(),
+                        'gm_name': session.gm.nickname or session.gm.username,
+                        'cancel_reason': reason or ''
+                    }
+                )
+                
+                # メール通知（設定が有効な場合）
+                if preferences.email_notifications_enabled:
+                    self._send_email_notification(notification)
+                
+                notification_count += 1
+            
+            logger.info(f"セッションキャンセル通知送信完了: session={session.id}, 通知数={notification_count}")
+            return notification_count
+            
+        except Exception as e:
+            logger.error(f"セッションキャンセル通知送信エラー: {e}")
+            return 0
+    
+    def send_session_reminder_notification(self, session, hours_before=24):
+        """
+        セッションリマインダー通知を送信
+        
+        Args:
+            session (TRPGSession): 対象セッション
+            hours_before (int): 何時間前の通知か
+            
+        Returns:
+            int: 送信した通知数
+        """
+        try:
+            # セッション参加者全員に通知（GM含む）
+            participants = list(session.participants.all())
+            if session.gm not in participants:
+                participants.append(session.gm)
+            
+            notification_count = 0
+            
+            for participant in participants:
+                # 通知設定を確認
+                preferences = UserNotificationPreferences.get_or_create_for_user(participant)
+                if not preferences.session_notifications_enabled:
+                    continue
+                
+                # 通知メッセージ作成
+                message = self._create_session_reminder_message(session, hours_before)
+                
+                # 通知レコード作成
+                notification = HandoutNotification.objects.create(
+                    handout_id=0,  # セッション通知なのでhandout_idは0
+                    recipient=participant,
+                    sender=session.gm,
+                    notification_type='session_reminder',
+                    message=message,
+                    is_read=False,
+                    metadata={
+                        'session_id': session.id,
+                        'session_title': session.title,
+                        'session_date': session.date.isoformat(),
+                        'hours_before': hours_before,
+                        'gm_name': session.gm.nickname or session.gm.username
+                    }
+                )
+                
+                # メール通知（設定が有効な場合）
+                if preferences.email_notifications_enabled:
+                    self._send_email_notification(notification)
+                
+                notification_count += 1
+            
+            logger.info(f"セッションリマインダー通知送信完了: session={session.id}, 通知数={notification_count}")
+            return notification_count
+            
+        except Exception as e:
+            logger.error(f"セッションリマインダー通知送信エラー: {e}")
+            return 0
+    
+    def _create_session_invitation_message(self, session, inviter):
+        """セッション招待通知メッセージの作成"""
+        return (
+            f"【セッション招待】\n"
+            f"{inviter.nickname or inviter.username}さんからセッションに招待されました。\n\n"
+            f"セッション: {session.title}\n"
+            f"日時: {session.date.strftime('%Y年%m月%d日 %H:%M')}\n"
+            f"GM: {session.gm.nickname or session.gm.username}\n"
+            f"場所: {session.location or 'オンライン'}"
+        )
+    
+    def _create_schedule_change_message(self, session, old_date, new_date):
+        """スケジュール変更通知メッセージの作成"""
+        return (
+            f"【スケジュール変更】\n"
+            f"セッション「{session.title}」の開催日時が変更されました。\n\n"
+            f"変更前: {old_date.strftime('%Y年%m月%d日 %H:%M')}\n"
+            f"変更後: {new_date.strftime('%Y年%m月%d日 %H:%M')}\n"
+            f"GM: {session.gm.nickname or session.gm.username}"
+        )
+    
+    def _create_session_cancelled_message(self, session, reason=None):
+        """セッションキャンセル通知メッセージの作成"""
+        message = (
+            f"【セッションキャンセル】\n"
+            f"セッション「{session.title}」がキャンセルされました。\n\n"
+            f"予定日時: {session.date.strftime('%Y年%m月%d日 %H:%M')}\n"
+            f"GM: {session.gm.nickname or session.gm.username}"
+        )
+        if reason:
+            message += f"\n理由: {reason}"
+        return message
+    
+    def _create_session_reminder_message(self, session, hours_before):
+        """セッションリマインダー通知メッセージの作成"""
+        return (
+            f"【セッションリマインダー】\n"
+            f"{hours_before}時間後にセッションが開催されます。\n\n"
+            f"セッション: {session.title}\n"
+            f"日時: {session.date.strftime('%Y年%m月%d日 %H:%M')}\n"
+            f"GM: {session.gm.nickname or session.gm.username}\n"
+            f"場所: {session.location or 'オンライン'}"
+        )

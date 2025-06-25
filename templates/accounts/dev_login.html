@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}開発用ログイン - Arkham Nexus{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dev-warning {
+        background-color: #ffeb3b;
+        color: #333;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        text-align: center;
+        font-weight: bold;
+    }
+    
+    .user-category {
+        margin-bottom: 30px;
+    }
+    
+    .user-category h3 {
+        color: #2e7d32;
+        border-bottom: 2px solid #2e7d32;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+    }
+    
+    .user-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 15px;
+    }
+    
+    .user-card {
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 15px;
+        transition: all 0.3s ease;
+    }
+    
+    .user-card:hover {
+        background: #e8f5e9;
+        border-color: #4caf50;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .user-card.current-user {
+        background: #e3f2fd;
+        border-color: #2196f3;
+    }
+    
+    .user-info {
+        margin-bottom: 10px;
+    }
+    
+    .username {
+        font-size: 18px;
+        font-weight: bold;
+        color: #1976d2;
+        margin-bottom: 5px;
+    }
+    
+    .nickname {
+        font-size: 16px;
+        color: #666;
+        margin-bottom: 5px;
+    }
+    
+    .description {
+        font-size: 14px;
+        color: #777;
+        margin-bottom: 10px;
+    }
+    
+    .login-btn {
+        width: 100%;
+        padding: 8px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s;
+    }
+    
+    .login-btn:hover {
+        background-color: #45a049;
+    }
+    
+    .login-btn:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+    }
+    
+    .current-user-info {
+        background: #e8f5e9;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    
+    .logout-section {
+        text-align: center;
+        margin-top: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="text-center mb-4">
+        <i class="fas fa-code"></i> 開発用クイックログイン
+    </h1>
+    
+    <div class="dev-warning">
+        <i class="fas fa-exclamation-triangle"></i> 
+        この機能は開発環境専用です。本番環境では使用できません。
+    </div>
+    
+    {% if current_user %}
+    <div class="current-user-info">
+        <h4>現在のログインユーザー</h4>
+        <p class="mb-1"><strong>{{ current_user.username }}</strong> ({{ current_user.nickname|default:current_user.username }})</p>
+        <a href="{% url 'logout' %}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-sign-out-alt"></i> ログアウト
+        </a>
+    </div>
+    {% endif %}
+    
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    {% for category in test_users %}
+    <div class="user-category">
+        <h3>{{ category.category }}</h3>
+        <div class="user-grid">
+            {% for user in category.users %}
+            <div class="user-card {% if current_user.username == user.username %}current-user{% endif %}">
+                <div class="user-info">
+                    <div class="username">
+                        <i class="fas fa-user"></i> {{ user.username }}
+                    </div>
+                    <div class="nickname">{{ user.nickname }}</div>
+                    <div class="description">{{ user.description }}</div>
+                </div>
+                <form method="post" action="{% url 'dev_login' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="username" value="{{ user.username }}">
+                    <button type="submit" class="login-btn" 
+                            {% if current_user.username == user.username %}disabled{% endif %}>
+                        {% if current_user.username == user.username %}
+                            <i class="fas fa-check"></i> 現在ログイン中
+                        {% else %}
+                            <i class="fas fa-sign-in-alt"></i> このユーザーでログイン
+                        {% endif %}
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    
+    <hr class="my-5">
+    
+    <div class="text-center mb-4">
+        <h4>クイックアクセス</h4>
+        <div class="btn-group" role="group">
+            <a href="/" class="btn btn-outline-primary">
+                <i class="fas fa-home"></i> ホーム
+            </a>
+            <a href="{% url 'session-list' %}" class="btn btn-outline-primary">
+                <i class="fas fa-calendar"></i> セッション一覧
+            </a>
+            <a href="{% url 'character_list' %}" class="btn btn-outline-primary">
+                <i class="fas fa-user-ninja"></i> キャラクター一覧
+            </a>
+            <a href="{% url 'admin:index' %}" class="btn btn-outline-primary">
+                <i class="fas fa-cog"></i> 管理画面
+            </a>
+        </div>
+    </div>
+    
+    <div class="alert alert-info">
+        <h5><i class="fas fa-info-circle"></i> パスワード情報</h5>
+        <ul class="mb-0">
+            <li>GM (keeper1, keeper2): <code>keeper123</code></li>
+            <li>プレイヤー (investigator1-6): <code>player123</code></li>
+            <li>管理者 (admin): <code>arkham_admin_2024</code></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// メッセージの自動非表示
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+        const alerts = document.querySelectorAll('.alert-dismissible');
+        alerts.forEach(function(alert) {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        });
+    }, 5000);
+});
+</script>
+{% endblock %}

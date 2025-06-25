@@ -150,6 +150,42 @@ class CharacterSheet(models.Model):
             'edu': self.edu_value,
         }
     
+    # リアルタイムステータスのエイリアス（テスト互換性のため）
+    @property
+    def hp_current(self):
+        """現在HPのエイリアス"""
+        return self.hit_points_current
+    
+    @hp_current.setter
+    def hp_current(self, value):
+        """現在HPのセッター"""
+        self.hit_points_current = value
+    
+    @property
+    def mp_current(self):
+        """現在MPのエイリアス"""
+        return self.magic_points_current
+    
+    @mp_current.setter
+    def mp_current(self, value):
+        """現在MPのセッター"""
+        self.magic_points_current = value
+    
+    @property
+    def san_current(self):
+        """現在正気度のエイリアス"""
+        return self.sanity_current
+    
+    @san_current.setter
+    def san_current(self, value):
+        """現在正気度のセッター"""
+        self.sanity_current = value
+    
+    @property
+    def mp_max(self):
+        """最大MPのエイリアス"""
+        return self.magic_points_max
+    
     def calculate_derived_stats(self):
         """派生ステータスを計算"""
         # 6版と7版で計算式が異なる
@@ -159,9 +195,9 @@ class CharacterSheet(models.Model):
             hp_max = (self.con_value + self.siz_value) // 2
             # MP = POW
             mp_max = self.pow_value
-            # SAN = POW (最大99)
-            san_start = self.pow_value
-            san_max = min(99, self.pow_value)
+            # SAN = POW × 5 (最大99)
+            san_start = self.pow_value * 5
+            san_max = min(99, self.pow_value * 5)
         else:
             # 7版
             # HP = (CON + SIZ) / 10
@@ -200,15 +236,8 @@ class CharacterSheet(models.Model):
             if existing:
                 raise ValidationError(f"バージョン{self.version}は既に存在します")
         
-        if not self.pk:  # 新規作成時
-            derived = self.calculate_derived_stats()
-            self.hit_points_max = derived['hit_points_max']
-            self.hit_points_current = derived['hit_points_max']
-            self.magic_points_max = derived['magic_points_max']
-            self.magic_points_current = derived['magic_points_max']
-            self.sanity_starting = derived['sanity_starting']
-            self.sanity_max = derived['sanity_max']
-            self.sanity_current = derived['sanity_starting']
+        # saveメソッドでの自動計算を無効化
+        # フォームで全ての値を設定するため、モデルでの自動計算は行わない
         
         super().save(*args, **kwargs)
     

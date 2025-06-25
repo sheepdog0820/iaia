@@ -318,18 +318,30 @@ class CharacterSheet6thForm(forms.ModelForm):
                 'class': 'form-control bg-light',
                 'readonly': True
             }),
-            'hit_points_current': forms.HiddenInput(),
+            'hit_points_current': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '現在HP'
+            }),
             'magic_points_max': forms.NumberInput(attrs={
                 'class': 'form-control bg-light',
                 'readonly': True
             }),
-            'magic_points_current': forms.HiddenInput(),
+            'magic_points_current': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '現在MP'
+            }),
             'sanity_starting': forms.NumberInput(attrs={
                 'class': 'form-control bg-light',
                 'readonly': True
             }),
-            'sanity_max': forms.HiddenInput(),
-            'sanity_current': forms.HiddenInput()
+            'sanity_max': forms.NumberInput(attrs={
+                'class': 'form-control bg-light',
+                'readonly': True
+            }),
+            'sanity_current': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '現在正気度'
+            })
         }
         labels = {
             'name': '探索者名',
@@ -347,7 +359,14 @@ class CharacterSheet6thForm(forms.ModelForm):
             'siz_value': '体格(SIZ)',
             'int_value': '知性(INT)',
             'edu_value': '教育(EDU)',
-            'notes': 'メモ'
+            'notes': 'メモ',
+            'hit_points_max': '最大HP',
+            'hit_points_current': '現在HP',
+            'magic_points_max': '最大MP',
+            'magic_points_current': '現在MP',
+            'sanity_starting': '初期正気度',
+            'sanity_max': '最大正気度',
+            'sanity_current': '現在正気度'
         }
     
     def __init__(self, *args, **kwargs):
@@ -382,16 +401,17 @@ class CharacterSheet6thForm(forms.ModelForm):
         logger.info(f"POW: {pow_val}, Calculated SAN starting: {cleaned_data['sanity_starting']}")
         
         # 現在値フィールドのデフォルト値設定
-        if 'hit_points_current' not in cleaned_data or not cleaned_data['hit_points_current']:
+        # 値が明示的に設定されていない場合のみデフォルト値を設定
+        if 'hit_points_current' not in cleaned_data or cleaned_data['hit_points_current'] is None:
             cleaned_data['hit_points_current'] = cleaned_data.get('hit_points_max', 11)
         
-        if 'magic_points_current' not in cleaned_data or not cleaned_data['magic_points_current']:
+        if 'magic_points_current' not in cleaned_data or cleaned_data['magic_points_current'] is None:
             cleaned_data['magic_points_current'] = cleaned_data.get('magic_points_max', 10)
         
-        if 'sanity_max' not in cleaned_data or not cleaned_data['sanity_max']:
+        if 'sanity_max' not in cleaned_data or cleaned_data['sanity_max'] is None:
             cleaned_data['sanity_max'] = cleaned_data.get('sanity_starting', 50)
         
-        if 'sanity_current' not in cleaned_data or not cleaned_data['sanity_current']:
+        if 'sanity_current' not in cleaned_data or cleaned_data['sanity_current'] is None:
             cleaned_data['sanity_current'] = cleaned_data.get('sanity_starting', 50)
         
         return cleaned_data
@@ -408,31 +428,39 @@ class CharacterSheet6thForm(forms.ModelForm):
         if self.user:
             instance.user = self.user
         
-        # 隠しフィールドから現在値を取得
-        # 空文字や '0' の場合も最大値で初期化する
+        # 現在値を取得（0も有効値として扱う）
         hit_points_current_value = self.cleaned_data.get('hit_points_current')
-        if not hit_points_current_value:
-            instance.hit_points_current = instance.hit_points_max
-        else:
+        if hit_points_current_value is not None:
             instance.hit_points_current = hit_points_current_value
+        else:
+            instance.hit_points_current = instance.hit_points_max
         
         magic_points_current_value = self.cleaned_data.get('magic_points_current')
-        if not magic_points_current_value:
-            instance.magic_points_current = instance.magic_points_max
-        else:
+        if magic_points_current_value is not None:
             instance.magic_points_current = magic_points_current_value
+        else:
+            instance.magic_points_current = instance.magic_points_max
         
-        # SANの初期値設定（新規作成時）
+        # SANの値設定
+        sanity_current_value = self.cleaned_data.get('sanity_current')
+        sanity_max_value = self.cleaned_data.get('sanity_max')
+        
         if not self.instance.pk:  # 新規作成の場合
-            instance.sanity_current = instance.sanity_starting
-            instance.sanity_max = instance.sanity_starting
+            # 現在値が明示的に設定されている場合はそれを使用
+            if sanity_current_value is not None:
+                instance.sanity_current = sanity_current_value
+            else:
+                instance.sanity_current = instance.sanity_starting
+            
+            if sanity_max_value is not None:
+                instance.sanity_max = sanity_max_value
+            else:
+                instance.sanity_max = instance.sanity_starting
         else:  # 編集の場合
-            sanity_current_value = self.cleaned_data.get('sanity_current')
-            if sanity_current_value:
+            if sanity_current_value is not None:
                 instance.sanity_current = sanity_current_value
                 
-            sanity_max_value = self.cleaned_data.get('sanity_max')
-            if sanity_max_value:
+            if sanity_max_value is not None:
                 instance.sanity_max = sanity_max_value
         
         if commit:

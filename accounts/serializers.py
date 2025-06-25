@@ -217,6 +217,11 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
     # ユーザー情報
     user_nickname = serializers.CharField(source='user.nickname', read_only=True)
     
+    # エイリアスフィールド（テスト互換性のため）
+    hp_current = serializers.IntegerField(source='hit_points_current')
+    mp_current = serializers.IntegerField(source='magic_points_current')
+    san_current = serializers.IntegerField(source='sanity_current')
+    
     class Meta:
         model = CharacterSheet
         fields = [
@@ -225,6 +230,7 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_max', 'hit_points_current', 'magic_points_max',
             'magic_points_current', 'sanity_starting', 'sanity_max', 'sanity_current',
+            'hp_current', 'mp_current', 'san_current',  # エイリアス追加
             'version', 'parent_sheet', 'parent_sheet_name',
             'notes', 'is_active', 'status', 'created_at', 'updated_at',
             'skills', 'equipment', 'sixth_edition_data',
@@ -529,6 +535,11 @@ class CharacterSheetListSerializer(serializers.ModelSerializer):
 
 class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
     """キャラクターシート更新用シリアライザー"""
+    # エイリアスフィールド（テスト互換性のため）
+    hp_current = serializers.IntegerField(source='hit_points_current', required=False)
+    mp_current = serializers.IntegerField(source='magic_points_current', required=False)
+    san_current = serializers.IntegerField(source='sanity_current', required=False)
+    
     class Meta:
         model = CharacterSheet
         fields = [
@@ -536,7 +547,8 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
             'birthplace', 'residence', 'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',
-            'notes', 'is_active'
+            'hp_current', 'mp_current', 'san_current',  # エイリアス追加
+            'notes', 'is_active', 'status'
         ]
     
     def validate_name(self, value):

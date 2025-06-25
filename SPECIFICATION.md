@@ -9,10 +9,40 @@ Arkham Nexusは、クトゥルフ神話をテーマにしたTRPGスケジュー�
 
 ### 1.2 技術スタック
 - **Backend**: Django 4.2+, Django REST Framework
-- **Database**: SQLite（開発）, **MySQL（本番）**
+- **Database**: SQLite3（開発環境）, MySQL/PostgreSQL（本番環境）
 - **Frontend**: Bootstrap 5, カスタムCSS/JS（クトゥルフテーマ）
 - **認証**: django-allauth（Google/Twitter OAuth）
 - **インフラ**: Docker, Nginx, Gunicorn, Redis, Celery
+
+### 1.3 開発環境データベース
+
+#### データベース構成
+- **データベースエンジン**: SQLite3
+- **データベースファイル**: `db.sqlite3`（プロジェクトルート）
+- **文字コード**: UTF-8
+- **タイムゾーン**: Asia/Tokyo
+
+#### 開発用データ
+- **管理者アカウント**: 
+  - ユーザー名: admin
+  - パスワード: arkham_admin_2024
+- **サンプルデータ**:
+  - ユーザー数: 12名
+  - キャラクター数: 43体
+  - セッション数: 11件
+  - シナリオ数: 5本
+
+#### データベース初期化コマンド
+```bash
+# データベースマイグレーション
+python3 manage.py migrate
+
+# スーパーユーザー作成
+python3 create_admin.py
+
+# サンプルデータ生成
+python3 manage.py create_sample_data
+```
 
 ## 2. システムアーキテクチャ
 
@@ -28,6 +58,44 @@ arkham_nexus/
 ```
 
 ### 2.2 データベース設計
+
+#### テーブル構成概要
+現在のデータベースには40のテーブルが存在：
+
+**アカウント関連テーブル**
+- `accounts_customuser` - ユーザー情報
+- `accounts_charactersheet` - キャラクターシート基本情報
+- `accounts_charactersheet6th` - 6版キャラクターシート（レガシー）
+- `accounts_characterskill` - キャラクタースキル
+- `accounts_characterequipment` - キャラクター装備
+- `accounts_characterimage` - キャラクター画像
+- `accounts_characterbackground` - キャラクター背景情報
+- `accounts_characterdicerollsetting` - ダイスロール設定
+- `accounts_growthrecord` - 成長記録
+- `accounts_skillgrowthrecord` - スキル成長記録
+- `accounts_group` - グループ
+- `accounts_groupmembership` - グループメンバーシップ
+- `accounts_groupinvitation` - グループ招待
+- `accounts_friend` - フレンド関係
+
+**スケジュール関連テーブル**
+- `schedules_trpgsession` - TRPGセッション
+- `schedules_sessionparticipant` - セッション参加者
+- `schedules_handoutinfo` - ハンドアウト情報
+- `schedules_handoutattachment` - ハンドアウト添付ファイル
+- `schedules_handoutnotification` - ハンドアウト通知
+- `schedules_usernotificationpreferences` - ユーザー通知設定
+
+**シナリオ関連テーブル**
+- `scenarios_scenario` - シナリオ
+- `scenarios_playhistory` - プレイ履歴
+- `scenarios_scenarionote` - シナリオメモ
+
+**Django標準テーブル**
+- `auth_*` - 認証関連
+- `django_*` - Django管理関連
+- `account_*` - django-allauth関連
+- `socialaccount_*` - ソーシャル認証関連
 
 #### 2.2.1 accounts アプリ
 
@@ -187,7 +255,16 @@ arkham_nexus/
 - セッション作成・編集・削除
 - ステータス管理（予定/進行中/完了/キャンセル）
 - 可視性設定（プライベート/グループ内/公開）
-- YouTube配信URL対応
+- YouTube配信URL対応（単一URL）
+- **セッション画像機能**（実装済み）
+  - 複数画像のアップロード
+  - 画像の表示順序管理
+  - 権限ベースの削除機能
+- **YouTubeリンク機能**（設計済み、実装予定）
+  - 複数のYouTube動画リンク管理
+  - 動画情報の自動取得（タイトル、再生時間、サムネイル）
+  - 各動画への備考追加
+  - 表示順序の管理
 
 #### 3.3.2 参加者管理
 - GM/プレイヤー役割管理
