@@ -48,6 +48,8 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.twitter',
     'rest_framework',
     'corsheaders',
+    'crispy_forms',
+    'crispy_bootstrap5',
     
     'accounts',
     'schedules',
@@ -214,6 +216,10 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
+
+# Crispy Forms settings
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
+CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = [

@@ -11,8 +11,13 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        """Get user's character sheets only"""
-        return CharacterSheet.objects.filter(user=self.request.user).select_related(
+        """Get user's character sheets and public character sheets"""
+        from django.db.models import Q
+        
+        # 自分のキャラクター または 公開設定されているキャラクター
+        return CharacterSheet.objects.filter(
+            Q(user=self.request.user) | Q(is_public=True)
+        ).select_related(
             'parent_sheet', 'sixth_edition_data', 'user'
         ).prefetch_related(
             'skills', 'equipment'

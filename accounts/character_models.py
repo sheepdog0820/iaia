@@ -118,6 +118,7 @@ class CharacterSheet(models.Model):
     version_note = models.CharField(max_length=1000, blank=True, verbose_name="バージョンメモ")
     session_count = models.PositiveIntegerField(default=0, verbose_name="セッション数")
     is_active = models.BooleanField(default=True, verbose_name="アクティブ")
+    is_public = models.BooleanField(default=False, verbose_name="公開設定")
     
     # CCFOLIA連携
     ccfolia_sync_enabled = models.BooleanField(default=False, verbose_name="CCFOLIA同期有効")
@@ -191,22 +192,26 @@ class CharacterSheet(models.Model):
         # 6版と7版で計算式が異なる
         if self.edition == '6th':
             # 6版
-            # HP = (CON + SIZ) / 2
-            hp_max = (self.con_value + self.siz_value) // 2
+            # HP = (CON + SIZ) / 2 (端数切り上げ)
+            import math
+            hp_max = math.ceil((self.con_value + self.siz_value) / 2)
             # MP = POW
             mp_max = self.pow_value
-            # SAN = POW × 5 (最大99)
+            # SAN = POW × 5
             san_start = self.pow_value * 5
-            san_max = min(99, self.pow_value * 5)
+            # 最大SAN = 99 - クトゥルフ神話技能
+            # この時点ではスキルが存在しない可能性があるため、デフォルトは99
+            san_max = 99
         else:
             # 7版
             # HP = (CON + SIZ) / 10
             hp_max = (self.con_value + self.siz_value) // 10
             # MP = POW / 5
             mp_max = self.pow_value // 5
-            # SAN = POW (最大99)
+            # SAN = POW
             san_start = self.pow_value
-            san_max = min(99, self.pow_value)
+            # 最大SAN = 99 - クトゥルフ神話技能
+            san_max = 99
         
         return {
             'hit_points_max': hp_max,
@@ -284,6 +289,22 @@ class CharacterSheet(models.Model):
     def get_version_statistics(self):
         """バージョン統計を取得"""
         return CharacterVersionManager.get_version_statistics(self)
+    
+    def calculate_max_sanity(self):
+        """最大SAN値を計算（99 - クトゥルフ神話技能）"""
+        # クトゥルフ神話技能を探す
+        try:
+            cthulhu_skill = self.skills.get(skill_name='クトゥルフ神話')
+            cthulhu_value = cthulhu_skill.current_value
+        except CharacterSkill.DoesNotExist:
+            cthulhu_value = 0
+        
+        return 99 - cthulhu_value
+    
+    def update_max_sanity(self):
+        """最大SAN値を更新"""
+        self.sanity_max = self.calculate_max_sanity()
+        self.save(update_fields=['sanity_max'])
     
     def export_version_data(self):
         """バージョンデータをエクスポート"""
@@ -533,19 +554,20 @@ class CharacterSheet6th(models.Model):
         """6版ダメージボーナス計算"""
         total = self.character_sheet.str_value + self.character_sheet.siz_value
         
-        if total <= 12:
+        # クトゥルフ神話TRPG 6版の正式なダメージボーナス表
+        if 2 <= total <= 12:
             return "-1D6"
-        elif total <= 16:
+        elif 13 <= total <= 16:
             return "-1D4"
-        elif total <= 24:
-            return "+0"
-        elif total <= 32:
+        elif 17 <= total <= 24:
+            return "0"  # +0 ではなく 0
+        elif 25 <= total <= 32:
             return "+1D4"
-        elif total <= 40:
+        elif 33 <= total <= 40:
             return "+1D6"
-        elif total <= 56:
+        elif 41 <= total <= 56:
             return "+2D6"
-        elif total <= 72:
+        elif 57 <= total <= 72:
             return "+3D6"
         elif total <= 88:
             return "+4D6"
@@ -692,6 +714,10 @@ class CharacterSkill(models.Model):
         self.current_value = min(total, max_skill_value)
         
         super().save(*args, **kwargs)
+        
+        # クトゥルフ神話技能の場合、最大SAN値を更新
+        if self.skill_name == 'クトゥルフ神話' and self.character_sheet:
+            self.character_sheet.update_max_sanity()
     
     @classmethod
     def create_custom_skill(cls, character_sheet, skill_name, category='特殊・その他', **kwargs):

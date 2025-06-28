@@ -19,14 +19,28 @@ class UserOwnershipMixin:
         return obj
 
 
-class CharacterSheetAccessMixin(UserOwnershipMixin):
+class CharacterSheetAccessMixin:
     """キャラクターシート特化のアクセス制御 mixin"""
     
     def get_object(self):
-        """キャラクターシート所有者のみアクセス可能"""
+        """キャラクターシートのアクセス制御"""
         obj = super().get_object()
-        if hasattr(obj, 'user') and obj.user != self.request.user:
+        
+        # 自分のキャラクターの場合は常にアクセス可能
+        if hasattr(obj, 'user') and obj.user == self.request.user:
+            return obj
+        
+        # 他人のキャラクターの場合
+        if self.action in ['retrieve', 'list']:
+            # 参照系アクション（GET）は公開設定されていればOK
+            if hasattr(obj, 'is_public') and obj.is_public:
+                return obj
+            else:
+                raise PermissionDenied("このキャラクターシートは非公開です。")
+        else:
+            # 更新・削除系アクション（PUT, PATCH, DELETE）は所有者のみ
             raise PermissionDenied("このキャラクターシートを編集する権限がありません。")
+        
         return obj
 
 

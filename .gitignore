@@ -168,3 +168,17 @@ logs/
 
 # Debug and development images
 /debug_images/
+
+# Test results
+tests/results/*.log
+tests/results/test_*.md
+tests/results/TEST_RESULTS_*.md
+
+# Claude trace files
+.claude-trace/
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/traces/

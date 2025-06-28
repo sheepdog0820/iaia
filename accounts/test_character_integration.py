@@ -12,6 +12,7 @@ from accounts.models import CharacterSheet, CharacterSheet6th, CharacterSkill, C
 from PIL import Image
 import io
 import json
+import math
 
 User = get_user_model()
 
@@ -44,6 +45,45 @@ class CharacterIntegrationTestCase(TestCase):
         image.save(image_io, format='JPEG')
         image_io.seek(0)
         return SimpleUploadedFile(name, image_io.read(), content_type='image/jpeg')
+    
+    def create_character_with_stats(self, user=None, **kwargs):
+        """派生ステータスを含む完全なキャラクターを作成"""
+        if user is None:
+            user = self.user
+            
+        # デフォルト値の設定
+        defaults = {
+            'user': user,
+            'name': 'テストキャラクター',
+            'edition': '6th',
+            'age': 25,
+            'str_value': 12,
+            'con_value': 14,
+            'pow_value': 13,
+            'dex_value': 11,
+            'app_value': 10,
+            'siz_value': 12,
+            'int_value': 15,
+            'edu_value': 16
+        }
+        defaults.update(kwargs)
+        
+        # 派生ステータスの計算
+        hp_max = math.ceil((defaults['con_value'] + defaults['siz_value']) / 2)
+        mp_max = defaults['pow_value']
+        san_start = defaults['pow_value'] * 5
+        
+        defaults.update({
+            'hit_points_max': hp_max,
+            'hit_points_current': hp_max,
+            'magic_points_max': mp_max,
+            'magic_points_current': mp_max,
+            'sanity_starting': san_start,
+            'sanity_max': 99,  # 99 - クトゥルフ神話技能（初期値0）
+            'sanity_current': san_start
+        })
+        
+        return CharacterSheet.objects.create(**defaults)
     
     def test_character_creation_flow(self):
         """キャラクター作成フローのテスト"""
@@ -112,10 +152,10 @@ class CharacterIntegrationTestCase(TestCase):
         )
         self.assertEqual(detail_response.status_code, 200)
         
-        # 副次ステータスの確認（切り捨て計算）
-        self.assertEqual(detail_response.data['hit_points_max'], 13)  # (14+13)/2 = 13.5 → 13
+        # 副次ステータスの確認（切り上げ計算）
+        self.assertEqual(detail_response.data['hit_points_max'], 14)  # (14+13)/2 = 13.5 → 14（切り上げ）
         self.assertEqual(detail_response.data['magic_points_max'], 15)  # POW
-        self.assertEqual(detail_response.data['sanity_max'], 75)  # POW×5
+        self.assertEqual(detail_response.data['sanity_max'], 99)  # 99 - クトゥルフ神話技能
         print("✓ 副次ステータス自動計算: 正常")
         
         # 4. 作成されたキャラクターの確認
@@ -194,9 +234,7 @@ class CharacterIntegrationTestCase(TestCase):
         print("\n=== キャラクター画像管理テスト ===")
         
         # キャラクターを作成
-        character = CharacterSheet.objects.create(
-            user=self.user,
-            edition='6th',
+        character = self.create_character_with_stats(
             name='画像テスト探索者',
             player_name='テストユーザー',
             age=30,
@@ -269,9 +307,7 @@ class CharacterIntegrationTestCase(TestCase):
         print("\n=== バージョン管理テスト ===")
         
         # 元となるキャラクターを作成
-        original = CharacterSheet.objects.create(
-            user=self.user,
-            edition='6th',
+        original = self.create_character_with_stats(
             name='バージョン管理テスト',
             player_name='テストユーザー',
             age=25,
@@ -345,9 +381,7 @@ class CharacterIntegrationTestCase(TestCase):
         print("\n=== CCFOLIA連携テスト ===")
         
         # キャラクターとスキルを作成
-        character = CharacterSheet.objects.create(
-            user=self.user,
-            edition='6th',
+        character = self.create_character_with_stats(
             name='CCFOLIA連携テスト',
             player_name='テストユーザー',
             age=30,
@@ -386,13 +420,13 @@ class CharacterIntegrationTestCase(TestCase):
         
         # ステータス確認
         hp_status = next(s for s in ccfolia_data['data']['status'] if s['label'] == 'HP')
-        self.assertEqual(hp_status['max'], 13)  # (14+13)/2 = 13.5 → 13
+        self.assertEqual(hp_status['max'], 14)  # (14+13)/2 = 13.5 → 14（切り上げ）
         
         mp_status = next(s for s in ccfolia_data['data']['status'] if s['label'] == 'MP')
         self.assertEqual(mp_status['max'], 15)  # POW
         
         san_status = next(s for s in ccfolia_data['data']['status'] if s['label'] == 'SAN')
-        self.assertEqual(san_status['max'], 75)  # POW×5
+        self.assertEqual(san_status['max'], 99)  # 99 - クトゥルフ神話技能（初期値0）
         
         print("✓ CCFOLIAデータ形式: 正常")
         
@@ -449,24 +483,64 @@ class CharacterAPIPermissionTestCase(TestCase):
             email='user2@example.com'
         )
         
-        # user1のキャラクターを作成
-        self.character = CharacterSheet.objects.create(
+        # user1のキャラクターを作成（非公開）
+        self.private_character = self._create_character_with_stats(
             user=self.user1,
-            edition='6th',
-            name='ユーザー1のキャラクター',
+            name='ユーザー1の非公開キャラクター',
             player_name='ユーザー1',
             age=25,
-            str_value=10,
-            con_value=10,
-            pow_value=10,
-            dex_value=10,
-            app_value=10,
-            siz_value=10,
-            int_value=10,
-            edu_value=10
+            is_public=False
+        )
+        
+        # user1の公開キャラクターを作成
+        self.public_character = self._create_character_with_stats(
+            user=self.user1,
+            name='ユーザー1の公開キャラクター',
+            player_name='ユーザー1',
+            age=30,
+            is_public=True
         )
         
         self.api_client = APIClient()
+    
+    def _create_character_with_stats(self, user=None, **kwargs):
+        """派生ステータスを含む完全なキャラクターを作成"""
+        if user is None:
+            user = self.user1
+            
+        # デフォルト値の設定
+        defaults = {
+            'user': user,
+            'name': 'テストキャラクター',
+            'edition': '6th',
+            'age': 25,
+            'str_value': 12,
+            'con_value': 14,
+            'pow_value': 13,
+            'dex_value': 11,
+            'app_value': 10,
+            'siz_value': 12,
+            'int_value': 15,
+            'edu_value': 16
+        }
+        defaults.update(kwargs)
+        
+        # 派生ステータスの計算
+        hp_max = math.ceil((defaults['con_value'] + defaults['siz_value']) / 2)
+        mp_max = defaults['pow_value']
+        san_start = defaults['pow_value'] * 5
+        
+        defaults.update({
+            'hit_points_max': hp_max,
+            'hit_points_current': hp_max,
+            'magic_points_max': mp_max,
+            'magic_points_current': mp_max,
+            'sanity_starting': san_start,
+            'sanity_max': 99,  # 99 - クトゥルフ神話技能（初期値0）
+            'sanity_current': san_start
+        })
+        
+        return CharacterSheet.objects.create(**defaults)
     
     def test_unauthorized_access(self):
         """未認証アクセスのテスト"""
@@ -485,47 +559,65 @@ class CharacterAPIPermissionTestCase(TestCase):
         # 一覧取得
         response = self.api_client.get('/api/accounts/character-sheets/')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data), 2)  # 公開・非公開の2つ
         print("✓ 自分のキャラクター一覧: 取得成功")
         
-        # 詳細取得
+        # 非公開キャラクターの詳細取得
         response = self.api_client.get(
-            f'/api/accounts/character-sheets/{self.character.id}/'
+            f'/api/accounts/character-sheets/{self.private_character.id}/'
         )
         self.assertEqual(response.status_code, 200)
-        print("✓ 自分のキャラクター詳細: 取得成功")
+        print("✓ 自分の非公開キャラクター詳細: 取得成功")
+        
+        # 公開キャラクターの詳細取得
+        response = self.api_client.get(
+            f'/api/accounts/character-sheets/{self.public_character.id}/'
+        )
+        self.assertEqual(response.status_code, 200)
+        print("✓ 自分の公開キャラクター詳細: 取得成功")
     
     def test_other_user_character_access(self):
         """他ユーザーのキャラクターへのアクセステスト"""
         self.api_client.force_authenticate(user=self.user2)
         
-        # 一覧には表示されない
+        # 一覧には公開キャラクターのみ表示される
         response = self.api_client.get('/api/accounts/character-sheets/')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 0)
-        print("✓ 他ユーザーのキャラクター: 一覧に表示されない")
+        self.assertEqual(len(response.data), 1)  # 公開キャラクターのみ
+        self.assertEqual(response.data[0]['name'], 'ユーザー1の公開キャラクター')
+        print("✓ 他ユーザーのキャラクター一覧: 公開キャラクターのみ表示")
         
-        # 直接アクセスも拒否
+        # 非公開キャラクターへの直接アクセスは拒否
         response = self.api_client.get(
-            f'/api/accounts/character-sheets/{self.character.id}/'
+            f'/api/accounts/character-sheets/{self.private_character.id}/'
         )
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        print("✓ 他ユーザーのキャラクター詳細: アクセス拒否")
+        # 404 (Not Found) または 403 (Forbidden) を期待
+        # ViewSetのget_querysetで除外されるため404になる可能性もある
+        self.assertIn(response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+        print("✓ 他ユーザーの非公開キャラクター: アクセス拒否")
         
-        # 更新も拒否
+        # 公開キャラクターへの参照は可能
+        response = self.api_client.get(
+            f'/api/accounts/character-sheets/{self.public_character.id}/'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['name'], 'ユーザー1の公開キャラクター')
+        print("✓ 他ユーザーの公開キャラクター: 参照成功")
+        
+        # 公開キャラクターの編集は拒否
         response = self.api_client.patch(
-            f'/api/accounts/character-sheets/{self.character.id}/',
-            {'name': '不正な更新'},
+            f'/api/accounts/character-sheets/{self.public_character.id}/',
+            {'name': '編集しようとする名前'},
             format='json'
         )
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        print("✓ 他ユーザーのキャラクター更新: 拒否")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        print("✓ 他ユーザーの公開キャラクター編集: アクセス拒否")
         
         # 削除も拒否
         response = self.api_client.delete(
-            f'/api/accounts/character-sheets/{self.character.id}/'
+            f'/api/accounts/character-sheets/{self.public_character.id}/'
         )
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         print("✓ 他ユーザーのキャラクター削除: 拒否")
 
 
@@ -546,14 +638,51 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
         self.api_client.force_authenticate(user=self.user)
         self.client.login(username='testuser', password='testpass123')
     
+    def _create_character_with_stats(self, user=None, **kwargs):
+        """派生ステータスを含む完全なキャラクターを作成"""
+        if user is None:
+            user = self.user
+            
+        # デフォルト値の設定
+        defaults = {
+            'user': user,
+            'name': 'テストキャラクター',
+            'edition': '6th',
+            'age': 25,
+            'str_value': 12,
+            'con_value': 14,
+            'pow_value': 13,
+            'dex_value': 11,
+            'app_value': 10,
+            'siz_value': 12,
+            'int_value': 15,
+            'edu_value': 16
+        }
+        defaults.update(kwargs)
+        
+        # 派生ステータスの計算
+        hp_max = math.ceil((defaults['con_value'] + defaults['siz_value']) / 2)
+        mp_max = defaults['pow_value']
+        san_start = defaults['pow_value'] * 5
+        
+        defaults.update({
+            'hit_points_max': hp_max,
+            'hit_points_current': hp_max,
+            'magic_points_max': mp_max,
+            'magic_points_current': mp_max,
+            'sanity_starting': san_start,
+            'sanity_max': 99,  # 99 - クトゥルフ神話技能（初期値0）
+            'sanity_current': san_start
+        })
+        
+        return CharacterSheet.objects.create(**defaults)
+    
     def test_skill_points_validation(self):
         """技能ポイントのバリデーションテスト"""
         print("\n=== 技能ポイントバリデーションテスト ===")
         
         # キャラクターを作成
-        character = CharacterSheet.objects.create(
-            user=self.user,
-            edition='6th',
+        character = self._create_character_with_stats(
             name='技能テスト探索者',
             player_name='テストユーザー',
             age=25,
@@ -598,9 +727,7 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
         print("\n=== ステータス管理テスト ===")
         
         # キャラクターを作成
-        character = CharacterSheet.objects.create(
-            user=self.user,
-            edition='6th',
+        character = self._create_character_with_stats(
             name='ステータステスト探索者',
             player_name='テストユーザー',
             age=25,
@@ -641,9 +768,7 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
         print("\n=== キャラクター削除テスト ===")
         
         # キャラクターを作成
-        character = CharacterSheet.objects.create(
-            user=self.user,
-            edition='6th',
+        character = self._create_character_with_stats(
             name='削除テスト探索者',
             player_name='テストユーザー',
             age=25,
@@ -754,9 +879,7 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
         ]
         
         for str_val, siz_val, expected_bonus in test_cases:
-            character = CharacterSheet.objects.create(
-                user=self.user,
-                edition='6th',
+            character = self._create_character_with_stats(
                 name=f'DBテスト{str_val+siz_val}',
                 player_name='テストユーザー',
                 age=25,
@@ -790,9 +913,7 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
         # 複数のキャラクターを作成
         characters = []
         for i in range(3):
-            character = CharacterSheet.objects.create(
-                user=self.user,
-                edition='6th',
+            character = self._create_character_with_stats(
                 name=f'検索テスト{i}',
                 player_name='テストユーザー',
                 age=20 + i * 10,
@@ -865,9 +986,7 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
         )
         
         # キャラクターを作成
-        character = CharacterSheet.objects.create(
-            user=self.user,
-            edition='6th',
+        character = self._create_character_with_stats(
             name='セッションテスト探索者',
             player_name='テストユーザー',
             age=25,

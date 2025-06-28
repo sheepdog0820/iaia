@@ -232,7 +232,7 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             'magic_points_current', 'sanity_starting', 'sanity_max', 'sanity_current',
             'hp_current', 'mp_current', 'san_current',  # エイリアス追加
             'version', 'parent_sheet', 'parent_sheet_name',
-            'notes', 'is_active', 'status', 'created_at', 'updated_at',
+            'notes', 'is_active', 'is_public', 'status', 'created_at', 'updated_at',
             'skills', 'equipment', 'sixth_edition_data',
             'abilities', 'versions', 'user_nickname'
         ]
@@ -323,6 +323,9 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
     magic_points_current = serializers.IntegerField(required=False)
     sanity_current = serializers.IntegerField(required=False)
     
+    # 画像フィールド
+    character_image = serializers.ImageField(required=False, validators=[validate_character_image])
+    
     # 能力値フィールドをカスタムバリデーションに
     str_value = serializers.IntegerField()
     con_value = serializers.IntegerField()
@@ -340,8 +343,8 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             'birthplace', 'residence', 'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',
-            'notes', 'sixth_edition_data',
-            'skills', 'equipment'
+            'notes', 'is_public', 'sixth_edition_data',
+            'skills', 'equipment', 'character_image'
         ]
         read_only_fields = ['id']
     
@@ -405,6 +408,30 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
         
         # 6版と7版で同じ値の扱いにする（変換なし）
         # データベースには入力された値をそのまま保存
+        
+        # 派生ステータスを計算して設定
+        if validated_data.get('edition') == '6th':
+            # 6版の計算式
+            import math
+            hp_max = math.ceil((validated_data.get('con_value', 10) + validated_data.get('siz_value', 10)) / 2)
+            mp_max = validated_data.get('pow_value', 10)
+            san_start = validated_data.get('pow_value', 10) * 5
+            san_max = 99  # 99 - クトゥルフ神話技能（初期値0）
+        else:
+            # 7版の計算式（将来的に実装）
+            hp_max = (validated_data.get('con_value', 50) + validated_data.get('siz_value', 50)) // 10
+            mp_max = validated_data.get('pow_value', 50) // 5
+            san_start = validated_data.get('pow_value', 50)
+            san_max = 99  # 99 - クトゥルフ神話技能（初期値0）
+        
+        # 派生ステータスを設定
+        validated_data['hit_points_max'] = hp_max
+        validated_data['hit_points_current'] = validated_data.get('hit_points_current', hp_max)
+        validated_data['magic_points_max'] = mp_max
+        validated_data['magic_points_current'] = validated_data.get('magic_points_current', mp_max)
+        validated_data['sanity_starting'] = san_start
+        validated_data['sanity_max'] = san_max
+        validated_data['sanity_current'] = validated_data.get('sanity_current', san_start)
         
         # 現在のユーザーを設定
         validated_data['user'] = self.context['request'].user

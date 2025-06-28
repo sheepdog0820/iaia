@@ -35,6 +35,60 @@
 - **7版は保留**: 6版完成まで7版の新規開発は行わない（クリティカルなバグ修正のみ許可）
 
 
+## 環境設定とインストール済みパッケージ
+
+### テスト環境（2025年6月27日確認）
+
+#### ブラウザとWebDriver
+- **Chromium**: 138.0.7204.49 snap (Chromiumブラウザ)
+- **chromium-chromedriver**: 1:85.0.4183.83-0ubuntu2.22.04.1 (WebDriver)
+- **インストール方法**: snapパッケージとして自動インストール
+
+#### Seleniumテスト用Pythonパッケージ
+- **selenium**: 4.33.0
+- **webdriver-manager**: 4.0.2
+
+#### WSL GUI サポートライブラリ（インストール済み）
+```bash
+# ヘッドレスブラウザ実行に必要なライブラリ
+fonts-noto-cjk          # 日本語フォント
+libatk-bridge2.0-0      # アクセシビリティ
+libcairo2               # グラフィックス
+libdrm2                 # Direct Rendering Manager
+libgbm1                 # Generic Buffer Management
+libglib2.0-0            # GLib
+libnss3                 # Network Security Services
+libpango-1.0-0          # テキストレンダリング
+libxcomposite1          # X11 Composite
+libxdamage1             # X11 Damage
+libxkbcommon0           # キーボード処理
+libxrandr2              # X11 RandR
+```
+
+### Seleniumテストの実行方法
+```bash
+# Chromiumがsnapとしてインストールされているため、
+# テストコードでは自動的にChromiumを検出して使用します
+python3 manage.py test tests.ui.test_character_6th_ui
+
+# ヘッドレスモードでの動作確認
+chromium --headless --disable-gpu --dump-dom https://www.google.com
+```
+
+### Selenium インストール手順
+
+#### クイックインストール（Ubuntu/WSL）
+```bash
+# 必要なものを一括インストール
+sudo apt update
+sudo apt install -y chromium-browser chromium-chromedriver fonts-noto-cjk
+pip install selenium==4.33.0 webdriver-manager==4.0.2
+```
+
+詳細な手順：
+- [SELENIUM_QUICK_INSTALL.md](./SELENIUM_QUICK_INSTALL.md) - 5分でSelenium環境構築
+- [docs/SELENIUM_INSTALLATION_GUIDE.md](./docs/SELENIUM_INSTALLATION_GUIDE.md) - 詳細なインストールガイド
+
 ## コマンド集
 
 ### 開発環境セットアップ
@@ -64,26 +118,27 @@ python3 manage.py runserver
 # 全テスト実行
 python3 manage.py test
 
-# 特定のテストモジュール実行
-python3 manage.py test accounts.test_authentication
-python3 manage.py test schedules.test_schedules
-python3 manage.py test scenarios.test_scenarios
+# カテゴリ別テスト実行（新構造）
+python3 manage.py test tests.unit          # 単体テストのみ
+python3 manage.py test tests.integration   # 統合テストのみ
+python3 manage.py test tests.system        # システムテストのみ
+python3 manage.py test tests.ui            # UIテストのみ
 
-# 統合テストのみ実行
-python3 test_runner_comprehensive.py --integration-only
+# 統合テストランナー
+python3 tests/utils/run_all_tests.py      # 全カテゴリ順次実行
 
-# カテゴリ別テストスイート実行
-python3 test_complete_suite.py              # 全テスト
-python3 test_complete_suite.py integration  # 統合テストのみ
-python3 test_complete_suite.py system       # システム統合テストのみ
-python3 test_complete_suite.py additional   # 追加機能テストのみ
-python3 test_complete_suite.py individual   # 個別モジュールテストのみ
+# テストランナーツール
+python3 tests/utils/test_runner.py --coverage        # カバレッジ付き
+python3 tests/utils/test_runner_comprehensive.py      # 包括的テスト
+python3 tests/system/test_complete_suite.py          # 完全スイート
 
-# カバレッジ付きテスト実行
-python3 test_runner.py --coverage
+# アプリケーション別テスト
+python3 manage.py test accounts.tests
+python3 manage.py test schedules.tests
+python3 manage.py test scenarios.tests
 
 # 特定テストを詳細出力で実行
-python3 manage.py test test_integration.UserGroupIntegrationTestCase -v 2
+python3 manage.py test tests.integration.test_integration -v 2
 
 # テストDB保持（デバッグ用）
 python3 manage.py test --keepdb
@@ -92,16 +147,16 @@ python3 manage.py test --keepdb
 ### リンティングと品質チェック
 ```bash
 # 全チェック実行（テスト + カバレッジ + リント + セキュリティ）
-python3 test_runner.py --all
+python3 tests/utils/test_runner.py --all
 
 # リンティングのみ
-python3 test_runner.py --lint
+python3 tests/utils/test_runner.py --lint
 
 # セキュリティチェック
-python3 test_runner.py --security
+python3 tests/utils/test_runner.py --security
 
 # 高速テスト実行（failfast）
-python3 test_runner.py --fast
+python3 tests/utils/test_runner.py --fast
 ```
 
 ### データベース管理
@@ -195,12 +250,19 @@ def perform_create(self, serializer):
 
 ### テストアーキテクチャ
 
-テストは複数カテゴリに整理：
+テストは体系的に整理されたディレクトリ構造：
 
-- **ユニットテスト**: 各アプリの`test_*.py`ファイル
-- **統合テスト**: `test_integration.py`、`test_system_integration.py`
-- **追加機能テスト**: `test_additional_features.py`
-- **テストランナー**: 異なるテストシナリオ用カスタムランナー
+```
+tests/
+├── unit/           # 単体テスト（個別の関数、クラス、モデル）
+├── integration/    # 統合テスト（複数コンポーネントの連携）
+├── system/         # システムテスト（エンドツーエンド）
+├── ui/            # UIテスト（画面表示、ナビゲーション）
+├── performance/    # パフォーマンステスト（負荷、速度）
+└── utils/         # テストユーティリティ（ランナー、ヘルパー）
+```
+
+各アプリケーション内の`test_*.py`ファイルは引き続き使用可能。
 
 ## 【必須】課題管理と進捗追跡
 
@@ -697,6 +759,115 @@ python3 manage.py runserver
 3. **即座の動作確認**: 各変更後すぐにブラウザで確認
 4. **git活用**: 問題時に即座に復旧できる体制維持
 5. **ユーザー体験優先**: 見た目より動作の安定性を優先
+
+---
+
+## テスト管理ガイドライン
+
+### 🧪 テスト構造
+
+#### ディレクトリ構成
+```
+tests/
+├── unit/           # 単体テスト（個別の関数、クラス、モデル）
+├── integration/    # 統合テスト（複数コンポーネントの連携）
+├── system/         # システムテスト（エンドツーエンド）
+├── ui/            # UIテスト（画面表示、ナビゲーション）
+├── performance/    # パフォーマンステスト（負荷、速度）
+├── utils/         # テストユーティリティ（ランナー、ヘルパー）
+└── results/       # テスト結果、レポート、ログファイル
+```
+
+#### テスト実行方法
+```bash
+# カテゴリ別実行
+python3 manage.py test tests.unit          # 単体テストのみ（高速）
+python3 manage.py test tests.integration   # 統合テスト
+python3 manage.py test tests.system        # システムテスト
+python3 manage.py test tests.ui            # UIテスト
+
+# 全カテゴリ順次実行
+python3 tests/utils/run_all_tests.py
+
+# カバレッジ付き実行
+python3 tests/utils/test_runner.py --coverage
+
+# 結果を保存
+python3 manage.py test --verbosity=2 | tee tests/results/test_$(date +%Y%m%d_%H%M%S).log
+```
+
+#### テスト作成ガイドライン
+1. **配置場所の決定**
+   - 単一機能のテスト → `tests/unit/`
+   - 複数機能の連携テスト → `tests/integration/`
+   - ユーザーシナリオテスト → `tests/system/`
+   - 画面・UI関連テスト → `tests/ui/`
+
+2. **命名規則**
+   - 単体: `test_<feature>_unit.py`
+   - 統合: `test_<feature>_integration.py`
+   - システム: `test_<feature>_system.py`
+   - UI: `test_<feature>_ui.py`
+
+3. **テスト品質基準**
+   - 独立性: 他のテストに依存しない
+   - 冪等性: 何度実行しても同じ結果
+   - 明確性: わかりやすいアサーションとメッセージ
+   - 完全性: セットアップとクリーンアップを含む
+
+#### テスト結果の管理
+- 結果ファイルは `tests/results/` に保存
+- 実行ログは日付付きで保存
+- 統合テストの詳細レポートを保持
+
+---
+
+## テストデータ管理ガイドライン
+
+### 🗂️ テストデータの整理方針
+
+#### テストデータ作成方法（正式版のみ使用）
+```bash
+# ✅ 推奨：Django管理コマンドを使用
+python3 manage.py create_test_data          # 総合的なテストデータ作成
+python3 manage.py create_test_characters    # キャラクターテストデータ作成
+python3 manage.py create_sample_data        # サンプルデータ作成
+
+# ❌ 削除済み：ルートディレクトリのスクリプト
+# create_test_characters.py（2025-06-26削除）
+# create_sample_characters.py（2025-06-26削除）
+# create_investigator_history_data.py（2025-06-26削除）
+```
+
+#### テストデータファイルの配置
+```
+iaia/
+├── accounts/management/commands/    # ✅ 正式な配置場所
+│   ├── create_test_data.py         # 総合テストデータ作成
+│   ├── create_test_characters.py   # キャラクター専用
+│   └── create_sample_data.py       # サンプルデータ作成
+├── schedules/management/commands/
+│   └── create_session_test_data.py # セッション専用
+├── check_test_data.py              # データ確認用ユーティリティ
+├── TEST_DATA_README.md             # テストユーザー情報
+└── TEST_DATA_MANAGEMENT.md         # このガイドの詳細版
+```
+
+#### テストデータ管理ルール
+1. **新規作成時**: 必ずDjango管理コマンドとして実装
+2. **重複禁止**: 同じ機能のスクリプトを複数作成しない
+3. **配置場所**: `{app}/management/commands/` に配置
+4. **命名規則**: `create_test_{機能名}.py` 形式を使用
+5. **削除方針**: 重複・古いスクリプトは削除（履歴はGitで管理）
+
+#### テストデータのクリーンアップ
+```bash
+# データベース内のテストデータをクリア
+python3 manage.py create_sample_data --clear
+
+# テストデータの確認
+python3 check_test_data.py
+```
 
 ---
 
@@ -1368,14 +1539,31 @@ echo "✅ 品質ゲート全通過 - [機能名]実装完了!" && echo -e "\a\a\
 echo "🐙 クトゥルフ神話TRPG機能TDD完了: [機能名]" && echo -e "\a\a\a"
 ```
 
-### キャラクターシート関連ファイル一覧（クトゥルフ神話TRPG専用）
+### キャラクターシート関連ファイル（クトゥルフ神話TRPG専用）
+
+#### 📋 正式な仕様書
 ```
-CHARACTER_SHEET_6TH_EDITION.md     # 6版仕様書
-CHARACTER_SHEET_7TH_EDITION.md     # 7版仕様書
-CHARACTER_SHEET_SPECIFICATION.md   # 共通仕様
-CHARACTER_SHEET_TECHNICAL_SPEC.md  # 技術仕様
-templates/accounts/character_sheet_6th.html   # 6版テンプレート
-templates/accounts/character_sheet_7th.html   # 7版テンプレート
+docs/character_sheet/
+├── CHARACTER_SHEET_6TH_EDITION_SPECIFICATION.md  # ✅ 6版完全仕様書（正式版）
+├── README.md                                     # 仕様書の説明
+└── archive/                                      # 過去バージョン（参照のみ）
+```
+
+**重要**: 6版キャラクターシート開発は `CHARACTER_SHEET_6TH_EDITION_SPECIFICATION.md` を参照してください。
+
+#### 実装ファイル
+```
+templates/accounts/character_sheet_6th.html       # 6版テンプレート
+static/js/character_sheet_6th.js                  # 6版JavaScript
+static/js/character_sheet_6th_optimized.js        # 最適化版
+```
+
+#### その他の仕様書
+```
+CHARACTER_SHEET_SPECIFICATION.md                  # 共通仕様
+CHARACTER_SHEET_TECHNICAL_SPEC.md                 # 技術仕様
+CHARACTER_SHEET_7TH_EDITION.md                    # 7版仕様書（開発保留）
+CHARACTER_SHEET_7TH_DEVELOPMENT_HOLD.md           # 7版保留通知
 ```
 
 **注意**: これらのファイルはすべてクトゥルフ神話TRPG 6版・7版の仕様に基づいています。
@@ -1476,3 +1664,148 @@ JavaScriptでDOM要素にアクセスする際は、以下の点に注意して�
 - [ ] 関数呼び出し前に関数が定義されているか確認
 - [ ] イベントリスナー登録時に要素の存在確認をしているか
 - [ ] 数値変換時のNaN対策（デフォルト値）があるか
+
+## Playwright MCP Integration
+
+### 概要
+Playwright MCP (Model Context Protocol) サーバーが統合されました。これにより、Claude がブラウザを制御してE2Eテストの作成、実行、デバッグを行うことができます。
+
+### インストール済みバージョン
+- @playwright/mcp: 0.0.29
+
+### 主な機能
+1. **ブラウザ自動化**: Chrome, Firefox, Safari の自動操作
+2. **E2Eテスト作成**: エンドツーエンドテストの自動生成
+3. **視覚的デバッグ**: スクリーンショット、動画記録
+4. **クロスブラウザテスト**: 複数ブラウザでの動作確認
+
+### 使用方法
+```bash
+# Playwright MCPサーバーの起動
+npx @playwright/mcp@latest
+
+# E2Eテストの実行（Playwright経由）
+npx playwright test
+
+# UIモードでのテスト実行
+npx playwright test --ui
+
+# 特定のブラウザでテスト
+npx playwright test --project=chromium
+```
+
+### E2Eテスト作成ガイドライン
+
+#### テストファイルの配置
+```
+tests/
+├── e2e/                    # E2Eテストディレクトリ（新規）
+│   ├── auth.spec.ts        # 認証関連のE2Eテスト
+│   ├── character.spec.ts   # キャラクター機能のE2Eテスト
+│   ├── session.spec.ts     # セッション機能のE2Eテスト
+│   └── navigation.spec.ts  # ナビゲーションのE2Eテスト
+├── unit/                   # 既存の単体テスト
+├── integration/           # 既存の統合テスト
+└── ...
+```
+
+#### E2Eテストの基本構造
+```typescript
+import { test, expect } from '@playwright/test';
+
+test.describe('キャラクターシート6版', () => {
+  test.beforeEach(async ({ page }) => {
+    // ログイン処理
+    await page.goto('http://localhost:8000/accounts/login/');
+    await page.fill('input[name="username"]', 'testuser');
+    await page.fill('input[name="password"]', 'testpass');
+    await page.click('button[type="submit"]');
+  });
+
+  test('新規キャラクター作成', async ({ page }) => {
+    await page.goto('http://localhost:8000/accounts/character/create/6th/');
+    
+    // フォーム入力
+    await page.fill('input[name="name"]', 'テスト探索者');
+    await page.fill('input[name="age"]', '25');
+    
+    // 能力値入力
+    await page.fill('input[name="str"]', '13');
+    
+    // 保存
+    await page.click('button[type="submit"]');
+    
+    // 確認
+    await expect(page).toHaveURL(/\/accounts\/character\/\d+\//);
+    await expect(page.locator('h1')).toContainText('テスト探索者');
+  });
+});
+```
+
+#### Playwright設定ファイル (playwright.config.ts)
+```typescript
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './tests/e2e',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
+  use: {
+    baseURL: 'http://localhost:8000',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+  },
+
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+  ],
+
+  webServer: {
+    command: 'python3 manage.py runserver',
+    url: 'http://localhost:8000',
+    reuseExistingServer: !process.env.CI,
+  },
+});
+```
+
+### E2Eテスト実行コマンド
+```bash
+# 全E2Eテスト実行
+npx playwright test
+
+# 特定のテストファイル実行
+npx playwright test tests/e2e/character.spec.ts
+
+# デバッグモードで実行
+npx playwright test --debug
+
+# ヘッドレスモードを無効化（ブラウザを表示）
+npx playwright test --headed
+
+# テストレポート表示
+npx playwright show-report
+```
+
+### TDDフローへの統合
+
+E2EテストもTDDサイクルに組み込みます：
+
+1. **🔴 RED**: E2Eテストを先に作成（UI操作のシナリオ）
+2. **🟢 GREEN**: 機能を実装してE2Eテストを通す
+3. **🔵 REFACTOR**: UIとコードを改善
+4. **🔍 QUALITY**: クロスブラウザテストで品質確認
+
+### 注意事項
+- E2Eテストは単体テストより実行時間が長いため、CI/CDでは並列実行を推奨
+- スクリーンショットとトレースファイルは `.gitignore` に追加済み
+- テスト実行前に開発サーバーが起動していることを確認

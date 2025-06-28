@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 from rest_framework.test import APITestCase
 from rest_framework import status
 import json
+import math
 from decimal import Decimal
 
 from .character_models import CharacterSheet, CharacterSheet6th, CharacterSkill, CharacterEquipment
@@ -29,7 +30,7 @@ class Character6thModelTestCase(TestCase):
     
     def test_character_6th_creation(self):
         """6版キャラクター作成の基本テスト"""
-        # 現在のモデルは7版仕様の値を使用
+        # 6版仕様の値（3d6 = 3-18）
         character = CharacterSheet.objects.create(
             user=self.user,
             name='田中太郎',
@@ -38,15 +39,23 @@ class Character6thModelTestCase(TestCase):
             occupation='探偵',
             birthplace='東京',
             edition='6th',
-            # 7版仕様の値（3d6×5 = 15-90）
-            str_value=60,  # 6版なら12相当
-            con_value=70,  # 6版なら14相当
-            pow_value=55,  # 6版なら11相当
-            dex_value=65,  # 6版なら13相当
-            app_value=50,  # 6版なら10相当
-            siz_value=60,  # 6版なら12相当
-            int_value=75,  # 6版なら15相当
-            edu_value=80   # 6版なら16相当
+            # 6版仕様の値（3-18）
+            str_value=12,
+            con_value=14,
+            pow_value=11,
+            dex_value=13,
+            app_value=10,
+            siz_value=12,
+            int_value=15,
+            edu_value=16,
+            # 派生ステータスを手動で設定
+            hit_points_max=13,  # (CON + SIZ) / 2 = (14 + 12) / 2 = 13（切り上げ）
+            hit_points_current=13,
+            magic_points_max=11,  # POW = 11
+            magic_points_current=11,
+            sanity_starting=55,  # POW × 5 = 11 × 5 = 55
+            sanity_max=99,  # 99 - クトゥルフ神話技能（デフォルト0） = 99
+            sanity_current=55
         )
         
         # 6版固有データ（自動計算される）
@@ -57,10 +66,10 @@ class Character6thModelTestCase(TestCase):
         
         self.assertEqual(character.name, '田中太郎')
         self.assertEqual(character.edition, '6th')
-        # 自動計算された値を確認
-        self.assertEqual(char_6th.idea_roll, 75 * 5)  # INT × 5
-        self.assertEqual(char_6th.luck_roll, 55 * 5)  # POW × 5
-        self.assertEqual(char_6th.know_roll, 80 * 5)  # EDU × 5
+        # 自動計算された値を確認（6版の能力値を使用）
+        self.assertEqual(char_6th.idea_roll, 15 * 5)  # INT × 5 = 15 × 5 = 75
+        self.assertEqual(char_6th.luck_roll, 11 * 5)  # POW × 5 = 11 × 5 = 55
+        self.assertEqual(char_6th.know_roll, 16 * 5)  # EDU × 5 = 16 × 5 = 80
     
     def test_ability_value_ranges(self):
         """能力値の範囲検証テスト"""
@@ -70,18 +79,130 @@ class Character6thModelTestCase(TestCase):
     
     def test_derived_stats_calculation(self):
         """副次ステータス自動計算テスト"""
-        # 現在の値は7版仕様なので、6版用の値に変換する必要がある
-        # TODO: 6版の能力値範囲と計算式を実装
-        pass
+        character = CharacterSheet(
+            user=self.user,
+            name='計算テスト',
+            age=25,
+            edition='6th',
+            str_value=10,
+            con_value=14,
+            pow_value=12,
+            dex_value=13,
+            app_value=10,
+            siz_value=16,
+            int_value=14,
+            edu_value=15
+        )
+        
+        # 計算メソッドを呼び出す
+        stats = character.calculate_derived_stats()
+        
+        # 6版の計算式を確認
+        # HP = (CON + SIZ) / 2 = (14 + 16) / 2 = 15（切り上げ）
+        self.assertEqual(stats['hit_points_max'], 15)
+        # MP = POW = 12
+        self.assertEqual(stats['magic_points_max'], 12)
+        # SAN = POW × 5 = 12 × 5 = 60
+        self.assertEqual(stats['sanity_starting'], 60)
+        # 最大SAN = 99 - クトゥルフ神話技能（デフォルト0） = 99
+        self.assertEqual(stats['sanity_max'], 99)
     
     def test_damage_bonus_calculation(self):
         """ダメージボーナス計算テスト"""
-        # TODO: 6版のダメージボーナス計算を実装後にテスト
-        pass
+        # STR + SIZ のテストケース
+        test_cases = [
+            # (STR, SIZ, 期待されるダメージボーナス)
+            (6, 6, '-1D6'),    # 合計12 (2-12)
+            (7, 7, '-1D4'),    # 合計14 (13-16)
+            (10, 10, '0'),     # 合計20 (17-24)
+            (14, 14, '+1D4'),  # 合計28 (25-32)
+            (18, 18, '+1D6'),  # 合計36 (33-40)
+        ]
+        
+        for str_val, siz_val, expected in test_cases:
+            character = CharacterSheet.objects.create(
+                user=self.user,
+                name='ダメージボーナステスト',
+                age=25,
+                edition='6th',
+                str_value=str_val,
+                con_value=10,
+                pow_value=10,
+                dex_value=10,
+                app_value=10,
+                siz_value=siz_val,
+                int_value=10,
+                edu_value=10,
+                # 派生ステータスを手動で設定
+                hit_points_max=math.ceil((10 + siz_val) / 2),  # 切り上げ
+                hit_points_current=math.ceil((10 + siz_val) / 2),  # 切り上げ
+                magic_points_max=10,
+                magic_points_current=10,
+                sanity_starting=50,
+                sanity_max=99,
+                sanity_current=50
+            )
+            char_6th = CharacterSheet6th.objects.create(character_sheet=character)
+            
+            self.assertEqual(
+                char_6th.damage_bonus, 
+                expected,
+                f"STR {str_val} + SIZ {siz_val} = {str_val + siz_val} → {expected}"
+            )
 
 
 class Character6thSkillTestCase(TestCase):
     """6版技能システムのテスト"""
+    
+    def test_max_sanity_calculation_with_cthulhu_mythos(self):
+        """クトゥルフ神話技能による最大SAN値の計算テスト"""
+        user = User.objects.create_user(username='test', password='test')
+        character = CharacterSheet.objects.create(
+            user=user,
+            name='SAN Test',
+            edition='6th',
+            age=25,
+            str_value=10,
+            con_value=10,
+            pow_value=10,
+            dex_value=10,
+            app_value=10,
+            siz_value=10,
+            int_value=10,
+            edu_value=10,
+            hit_points_max=10,
+            hit_points_current=10,
+            magic_points_max=10,
+            magic_points_current=10,
+            sanity_starting=50,
+            sanity_max=99,  # 初期値は99
+            sanity_current=50
+        )
+        
+        # クトゥルフ神話技能がない場合
+        self.assertEqual(character.calculate_max_sanity(), 99)
+        
+        # クトゥルフ神話技能を追加
+        cthulhu_skill = CharacterSkill.objects.create(
+            character_sheet=character,
+            skill_name='クトゥルフ神話',
+            category='知識系',
+            base_value=0,
+            occupation_points=0,
+            interest_points=0,
+            other_points=20
+        )
+        
+        # 最大SAN値が更新されているはず
+        character.refresh_from_db()
+        self.assertEqual(character.sanity_max, 79)  # 99 - 20 = 79
+        
+        # クトゥルフ神話技能を増やす
+        cthulhu_skill.other_points = 50
+        cthulhu_skill.save()
+        
+        character.refresh_from_db()
+        self.assertEqual(character.sanity_max, 49)  # 99 - 50 = 49
     
     def setUp(self):
         self.user = User.objects.create_user(
@@ -100,7 +221,15 @@ class Character6thSkillTestCase(TestCase):
             app_value=10,
             siz_value=10,
             edu_value=16,
-            int_value=15
+            int_value=15,
+            # 派生ステータスを手動で設定
+            hit_points_max=10,  # (CON + SIZ) / 2 = (10 + 10) / 2 = 10（切り上げ）
+            hit_points_current=10,
+            magic_points_max=10,  # POW = 10
+            magic_points_current=10,
+            sanity_starting=50,  # POW × 5 = 10 × 5 = 50
+            sanity_max=99,  # 99 - クトゥルフ神話技能（デフォルト0） = 99
+            sanity_current=50
         )
     
     def test_skill_creation_with_categories(self):
@@ -145,7 +274,7 @@ class Character6thSkillTestCase(TestCase):
         custom_skill = CharacterSkill.objects.create(
             character_sheet=self.character,
             skill_name='芸術（イラスト）',
-            category='芸術系',
+            category='特殊・その他',  # 芸術系は存在しないため
             base_value=5,
             occupation_points=30,
             interest_points=10,
@@ -153,7 +282,7 @@ class Character6thSkillTestCase(TestCase):
         )
         
         self.assertEqual(custom_skill.skill_name, '芸術（イラスト）')
-        self.assertEqual(custom_skill.category, '芸術系')
+        self.assertEqual(custom_skill.category, '特殊・その他')
 
 
 class Character6thOccupationTestCase(TestCase):
@@ -176,7 +305,15 @@ class Character6thOccupationTestCase(TestCase):
             pow_value=11,
             str_value=14,
             con_value=13,
-            siz_value=12
+            siz_value=12,
+            # 派生ステータスを手動で設定
+            hit_points_max=13,  # (CON + SIZ) / 2 = (13 + 12) / 2 = 12.5 → 13（切り上げ）
+            hit_points_current=13,
+            magic_points_max=11,  # POW = 11
+            magic_points_current=11,
+            sanity_starting=55,  # POW × 5 = 11 × 5 = 55
+            sanity_max=99,
+            sanity_current=55
         )
     
     def test_occupation_skill_points_calculation(self):
@@ -231,7 +368,15 @@ class Character6thVersioningTestCase(TestCase):
             app_value=10,
             siz_value=10,
             int_value=10,
-            edu_value=10
+            edu_value=10,
+            # 派生ステータスを手動で設定
+            hit_points_max=10,  # (CON + SIZ) / 2 = (10 + 10) / 2 = 10（切り上げ）
+            hit_points_current=10,
+            magic_points_max=10,  # POW = 10
+            magic_points_current=10,
+            sanity_starting=50,  # POW × 5 = 10 × 5 = 50
+            sanity_max=99,  # 99 - クトゥルフ神話技能（デフォルト0） = 99
+            sanity_current=50
         )
     
     def test_version_creation(self):

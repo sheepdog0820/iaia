@@ -1,0 +1,874 @@
+/**
+ * クトゥルフ神話TRPG 6版 キャラクターシート CSS
+ */
+
+/* ===========================
+   基本レイアウト
+   =========================== */
+
+body {
+    padding-bottom: 100px; /* フローティング保存ボタン用 */
+}
+
+.container-fluid {
+    background-color: #f8f9fa;
+    min-height: 100vh;
+}
+
+.container {
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    padding: 20px;
+    margin-top: 20px;
+}
+
+/* ===========================
+   プログレスバー
+   =========================== */
+
+.progress-container {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 15px 0;
+    border-bottom: 2px solid #dee2e6;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.section-progress {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.section-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 5px;
+    border-radius: 10px;
+}
+
+.section-indicator:hover {
+    background-color: #f0f0f0;
+    transform: translateY(-2px);
+}
+
+.section-indicator.completed .indicator-circle {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+.section-indicator.active .indicator-circle {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.25);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(0, 123, 255, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
+    }
+}
+
+.indicator-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #e9ecef;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-bottom: 5px;
+    transition: all 0.3s ease;
+}
+
+.section-indicator span {
+    font-size: 12px;
+    font-weight: 500;
+    color: #6c757d;
+}
+
+.section-indicator.active span,
+.section-indicator.completed span {
+    color: #212529;
+    font-weight: 600;
+}
+
+.indicator-line {
+    flex: 1;
+    height: 3px;
+    background-color: #e9ecef;
+    margin: 0 5px;
+    transition: all 0.3s ease;
+}
+
+.indicator-line.completed {
+    background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+}
+
+.progress {
+    height: 8px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    background: linear-gradient(90deg, #007bff 0%, #0056b3 100%);
+    transition: width 0.5s ease;
+}
+
+/* ===========================
+   カード・タブ
+   =========================== */
+
+.card {
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.card-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 2px solid #dee2e6;
+    border-radius: 10px 10px 0 0 !important;
+    padding: 15px 20px;
+}
+
+.card-header h5 {
+    color: #2c3e50;
+    font-weight: 600;
+    margin: 0;
+}
+
+.nav-tabs {
+    border-bottom: 2px solid #dee2e6;
+}
+
+.nav-tabs .nav-link {
+    color: #6c757d;
+    border: none;
+    padding: 12px 20px;
+    margin-right: 5px;
+    border-radius: 8px 8px 0 0;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.nav-tabs .nav-link:hover {
+    background-color: #f8f9fa;
+    color: #495057;
+    transform: translateY(-2px);
+}
+
+.nav-tabs .nav-link.active {
+    color: #007bff;
+    background-color: white;
+    border: 2px solid #dee2e6;
+    border-bottom-color: white;
+    margin-bottom: -2px;
+}
+
+.nav-tabs .nav-link i {
+    margin-right: 8px;
+}
+
+/* ===========================
+   フォーム要素
+   =========================== */
+
+.form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 8px;
+}
+
+.required-field::after {
+    content: " *";
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.form-control, .form-select {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 10px 15px;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.form-control.is-invalid, .form-select.is-invalid {
+    border-color: #dc3545;
+}
+
+.form-control.is-valid, .form-select.is-valid {
+    border-color: #28a745;
+}
+
+.invalid-feedback {
+    font-size: 0.875rem;
+    margin-top: 5px;
+}
+
+/* ===========================
+   画像アップロード
+   =========================== */
+
+.image-upload-area {
+    border: 3px dashed #dee2e6;
+    border-radius: 15px;
+    padding: 40px 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    background-color: #f8f9fa;
+}
+
+.image-upload-area:hover {
+    border-color: #007bff;
+    background-color: #e7f3ff;
+    transform: translateY(-2px);
+}
+
+.image-upload-area.dragover {
+    border-color: #007bff;
+    background-color: #cce5ff;
+    box-shadow: 0 0 20px rgba(0, 123, 255, 0.2);
+}
+
+.image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.image-item {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.image-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.25);
+}
+
+.image-item img {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+}
+
+.image-item-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.image-item:hover .image-item-overlay {
+    opacity: 1;
+}
+
+.image-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.image-controls button {
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.main-badge {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    padding: 3px 10px;
+    border-radius: 15px;
+    font-size: 11px;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(40, 167, 69, 0.3);
+}
+
+/* Sortable.js用 */
+.sortable-ghost {
+    opacity: 0.4;
+}
+
+/* ===========================
+   能力値・ダイス設定
+   =========================== */
+
+.dice-preset-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.dice-preset-buttons .btn {
+    padding: 10px 20px;
+    border-radius: 25px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.dice-preset-buttons .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 123, 255, 0.3);
+}
+
+.dice-setting-area {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.dice-setting-item {
+    background-color: white;
+    padding: 15px;
+    border-radius: 10px;
+    border: 2px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.dice-setting-item:hover {
+    border-color: #007bff;
+    box-shadow: 0 3px 10px rgba(0, 123, 255, 0.1);
+}
+
+.dice-setting-item h6 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.ability-input-group {
+    text-align: center;
+}
+
+.ability-input {
+    width: 100%;
+    text-align: center;
+    font-size: 1.5em;
+    font-weight: bold;
+    padding: 15px;
+    border: 3px solid #e9ecef;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.ability-input:focus {
+    border-color: #007bff;
+    transform: scale(1.05);
+}
+
+.ability-input.dice-rolled {
+    animation: diceRoll 0.5s ease;
+    background-color: #e7f3ff;
+}
+
+@keyframes diceRoll {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-10deg); }
+    75% { transform: rotate(10deg); }
+}
+
+.derived-stat {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    border: 2px solid #dee2e6;
+    transition: all 0.3s ease;
+}
+
+.derived-stat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.derived-stat-value {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #007bff;
+    margin-top: 10px;
+}
+
+/* ===========================
+   スキル管理
+   =========================== */
+
+.skill-points-display {
+    position: sticky;
+    top: 120px;
+    z-index: 100;
+    background-color: white;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.points-info {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+.points-info span {
+    font-size: 14px;
+}
+
+.points-info strong {
+    color: #007bff;
+}
+
+/* スキルフィルタータブ */
+.nav-pills .nav-link {
+    color: #6c757d;
+    background-color: transparent;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.nav-pills .nav-link:hover {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.nav-pills .nav-link.active {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.nav-pills .nav-link i {
+    margin-right: 5px;
+}
+
+/* スキルアイテム */
+.skill-item-wrapper {
+    transition: all 0.3s ease;
+}
+
+.skill-item {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid #e9ecef;
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+.skill-item:hover {
+    border-color: #007bff;
+    box-shadow: 0 3px 10px rgba(0, 123, 255, 0.15);
+    transform: translateY(-2px);
+}
+
+.skill-name {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 16px;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #dee2e6;
+    padding-bottom: 10px;
+}
+
+.skill-inputs .form-label {
+    font-size: 11px;
+    margin-bottom: 3px;
+    color: #6c757d;
+    font-weight: 600;
+}
+
+.skill-inputs input {
+    text-align: center;
+    padding: 5px 8px;
+}
+
+.skill-base {
+    background-color: #e9ecef !important;
+    font-weight: 600;
+}
+
+.skill-occupation {
+    background-color: #fff3cd !important;
+}
+
+.skill-interest {
+    background-color: #d1ecf1 !important;
+}
+
+.skill-growth {
+    background-color: #d4edda !important;
+}
+
+.skill-other {
+    background-color: #f8d7da !important;
+}
+
+.skill-total {
+    background-color: #007bff !important;
+    color: white !important;
+    font-weight: bold;
+}
+
+/* カスタム技能 */
+.custom-skill .skill-item {
+    border-color: #6f42c1;
+    background-color: #f8f5ff;
+}
+
+.custom-skill .skill-name input {
+    border: 1px solid #6f42c1;
+    background-color: white;
+    max-width: 200px;
+}
+
+.custom-skill .skill-name .btn-danger {
+    padding: 2px 8px;
+    font-size: 12px;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 1200px) {
+    .skill-item-wrapper {
+        margin-bottom: 20px;
+    }
+    
+    .skill-inputs .row > div {
+        margin-bottom: 10px;
+    }
+}
+
+@media (max-width: 768px) {
+    .nav-pills {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .nav-pills .nav-link {
+        white-space: nowrap;
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+    
+    .skill-item {
+        padding: 15px;
+    }
+    
+    .skill-name {
+        font-size: 14px;
+    }
+    
+    .skill-inputs .form-label {
+        font-size: 10px;
+    }
+    
+    .skill-inputs input {
+        font-size: 14px;
+        padding: 3px 5px;
+    }
+}
+
+/* ===========================
+   戦闘・装備
+   =========================== */
+
+.weapon-item, .armor-item {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.weapon-item:hover, .armor-item:hover {
+    border-color: #dc3545;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.1);
+}
+
+.weapon-item h6, .armor-item h6 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+/* ===========================
+   所持品・財産
+   =========================== */
+
+.item-entry {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.item-entry:hover {
+    background-color: #e9ecef;
+}
+
+/* ===========================
+   背景情報・成長記録
+   =========================== */
+
+.session-record, .growth-record {
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.session-record:hover, .growth-record:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ===========================
+   フローティング保存ボタン
+   =========================== */
+
+.floating-save {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 1030;
+}
+
+.floating-save .btn {
+    border-radius: 30px;
+    box-shadow: 0 5px 20px rgba(0, 123, 255, 0.3);
+    padding: 15px 30px;
+    font-weight: 600;
+    font-size: 16px;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.floating-save .btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 123, 255, 0.4);
+}
+
+.floating-save .btn i {
+    margin-right: 8px;
+}
+
+/* ===========================
+   トースト通知
+   =========================== */
+
+#toast-container {
+    z-index: 1050;
+}
+
+.toast {
+    border-radius: 10px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* ===========================
+   モバイル対応
+   =========================== */
+
+@media (max-width: 768px) {
+    .section-indicator span {
+        display: none;
+    }
+    
+    .indicator-circle {
+        width: 30px;
+        height: 30px;
+        font-size: 14px;
+    }
+    
+    .image-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .floating-save {
+        bottom: 70px;
+        right: 20px;
+    }
+    
+    .floating-save .btn {
+        padding: 12px 24px;
+        font-size: 14px;
+    }
+    
+    .nav-tabs .nav-link {
+        padding: 10px 15px;
+        font-size: 14px;
+    }
+    
+    .nav-tabs .nav-link i {
+        display: none;
+    }
+    
+    .ability-input {
+        font-size: 1.2em;
+        padding: 10px;
+    }
+    
+    .dice-setting-area .row > div {
+        margin-bottom: 15px;
+    }
+    
+    .skill-category-body {
+        padding: 15px;
+    }
+    
+    .skill-item {
+        margin-bottom: 15px;
+    }
+    
+    .skill-inputs .input-group {
+        flex-wrap: wrap;
+    }
+    
+    .skill-inputs .input-group > * {
+        margin-bottom: 5px;
+    }
+    
+    .points-info {
+        flex-direction: column;
+        gap: 5px;
+    }
+}
+
+@media (max-width: 576px) {
+    .container {
+        padding: 10px;
+        margin-top: 10px;
+    }
+    
+    .card {
+        border-radius: 8px;
+    }
+    
+    .card-header {
+        padding: 12px 15px;
+    }
+    
+    .form-control, .form-select {
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+    
+    .derived-stat-value {
+        font-size: 1.5em;
+    }
+}
+
+/* ===========================
+   印刷対応
+   =========================== */
+
+@media print {
+    .progress-container,
+    .floating-save,
+    .btn,
+    .image-upload-area,
+    .dice-preset-buttons,
+    .nav-tabs {
+        display: none !important;
+    }
+    
+    .tab-pane {
+        display: block !important;
+        opacity: 1 !important;
+    }
+    
+    .card {
+        page-break-inside: avoid;
+        box-shadow: none !important;
+        border: 1px solid #dee2e6 !important;
+    }
+    
+    body {
+        padding-bottom: 0;
+    }
+}
+
+/* ===========================
+   ユーティリティ
+   =========================== */
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.no-select {
+    user-select: none;
+}
+
+.transition-all {
+    transition: all 0.3s ease;
+}
+
+/* カスタムスクロールバー */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

@@ -18,6 +18,10 @@ django-cors-headers>=4.3.0
 # Image Processing
 Pillow>=10.0.0
 
+# Form Styling
+django-crispy-forms>=2.1
+crispy-bootstrap5>=0.7
+
 # Production Server
 gunicorn>=21.2.0
 whitenoise>=6.6.0
@@ -34,3 +38,7 @@ sentry-sdk>=1.38.0
 django-debug-toolbar>=4.2.0
 pytest-django>=4.7.0
 factory-boy>=3.3.0
+
+# UI Testing (Added 2025-06-27)
+selenium>=4.33.0
+webdriver-manager>=4.0.2

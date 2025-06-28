@@ -97,7 +97,7 @@ class AddFriendView(APIView):
 
 class CustomLoginView(FormView):
     """Custom login view"""
-    template_name = 'registration/login.html'
+    template_name = 'account/login.html'
     form_class = CustomLoginForm
     success_url = reverse_lazy('dashboard')
     
