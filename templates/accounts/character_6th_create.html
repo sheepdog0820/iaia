@@ -24,7 +24,7 @@
     <!-- フォーム -->
     <div class="row">
         <div class="col-12">
-            <form method="post" id="character-sheet-form">
+            <form method="post" id="character-sheet-form" enctype="multipart/form-data">
                 {% csrf_token %}
                 
                 <!-- システム情報フィールド(非表示) -->
@@ -64,18 +64,45 @@
                             </div>
                             <div class="col-lg-3 mb-3">
                                 <label for="occupation" class="form-label">職業</label>
-                                <input type="text" class="form-control" id="occupation" name="occupation" 
-                                       placeholder="例: 私立探偵">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="occupation" name="occupation" 
+                                           placeholder="例: 私立探偵">
+                                    <button class="btn btn-outline-secondary" type="button" id="occupationTemplateBtn" 
+                                            data-bs-toggle="modal" data-bs-target="#occupationTemplateModal">
+                                        <i class="fas fa-list"></i>
+                                    </button>
+                                </div>
                             </div>
                             <div class="col-lg-3 mb-3">
                                 <label for="birthplace" class="form-label">出身地</label>
                                 <input type="text" class="form-control" id="birthplace" name="birthplace" 
                                        placeholder="例: 東京">
                             </div>
-                            <div class="col-12">
+                            <div class="col-12 mb-3">
                                 <label for="notes" class="form-label">背景・特徴</label>
                                 <textarea class="form-control" id="notes" name="notes" rows="3" 
                                           placeholder="探索者の背景、性格、特徴、動機などを記入してください..."></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label for="character-image" class="form-label">キャラクター画像</label>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <input type="file" class="form-control" id="character-image" name="character_image" 
+                                               accept="image/jpeg,image/jpg,image/png,image/gif">
+                                        <small class="text-muted">対応形式: JPG, PNG, GIF (最大5MB)</small>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div id="image-preview" class="text-center" style="display: none;">
+                                            <img id="preview-img" src="" alt="プレビュー" class="img-fluid rounded" 
+                                                 style="max-height: 150px;">
+                                            <div class="mt-2">
+                                                <button type="button" class="btn btn-sm btn-danger" id="remove-image">
+                                                    <i class="fas fa-trash"></i> 削除
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -300,6 +327,18 @@
                         
                         <!-- 技能タブとコンテンツ -->
                         <div id="skillsContainer">
+                            <!-- 基本値編集の説明 -->
+                            <div class="alert alert-info alert-dismissible fade show mb-3" role="alert">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>技能の基本値は編集可能です！</strong>
+                                <ul class="mb-0 mt-2">
+                                    <li>基本値（青色の入力欄）をクリックして、カスタム値を入力できます</li>
+                                    <li>右クリックすると、デフォルト値にリセットされます</li>
+                                    <li>DEX×2やEDU×5などの動的な基本値も、カスタム値で上書き可能です</li>
+                                </ul>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                            
                             <!-- タブナビゲーション -->
                             <ul class="nav nav-tabs" id="skillTabs" role="tablist">
                                 <li class="nav-item" role="presentation">
@@ -323,8 +362,19 @@
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="knowledge-tab" data-bs-toggle="tab" data-bs-target="#knowledge" type="button" role="tab">
+                                        <i class="fas fa-book"></i> 知識技能
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
                                     <button class="nav-link" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab">
                                         <i class="fas fa-list"></i> 全表示
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="allocated-tab" data-bs-toggle="tab" data-bs-target="#allocated" type="button" role="tab">
+                                        <i class="fas fa-check-circle"></i> 振り分け済み
+                                        <span class="badge bg-success ms-1" id="allocatedCount">0</span>
                                     </button>
                                 </li>
                             </ul>
@@ -359,10 +409,27 @@
                                     </div>
                                 </div>
                                 
+                                <!-- 知識技能 -->
+                                <div class="tab-pane fade" id="knowledge" role="tabpanel">
+                                    <div class="row g-2 mt-2" id="knowledgeSkills">
+                                        <!-- 知識技能がここに動的生成される -->
+                                    </div>
+                                </div>
+                                
                                 <!-- 全表示 -->
                                 <div class="tab-pane fade" id="all" role="tabpanel">
                                     <div class="row g-2 mt-2" id="allSkills">
                                         <!-- 全技能がここに動的生成される -->
+                                    </div>
+                                </div>
+                                
+                                <!-- 振り分け済み -->
+                                <div class="tab-pane fade" id="allocated" role="tabpanel">
+                                    <div class="row g-2 mt-2" id="allocatedSkills">
+                                        <div class="col-12 text-center text-muted p-4" id="noAllocatedMessage">
+                                            <i class="fas fa-info-circle fa-2x mb-2"></i>
+                                            <p>まだポイントを振り分けた技能がありません。</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -370,8 +437,176 @@
                     </div>
                 </div>
                 
+                <!-- 戦闘・装備 -->
+                <div class="card mb-4">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-shield-alt"></i> 戦闘・装備
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <label for="current_hp" class="form-label">現在HP</label>
+                                <input type="number" class="form-control" id="current_hp" name="current_hp" 
+                                       min="0" max="99" readonly>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="current_mp" class="form-label">現在MP</label>
+                                <input type="number" class="form-control" id="current_mp" name="current_mp" 
+                                       min="0" max="99" readonly>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="current_san" class="form-label">現在SAN</label>
+                                <input type="number" class="form-control" id="current_san" name="current_san" 
+                                       min="0" max="99" readonly>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="armor" class="form-label">装甲値</label>
+                                <input type="number" class="form-control" id="armor" name="armor" 
+                                       min="0" max="50" value="0">
+                            </div>
+                        </div>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> 武器・防具の詳細は作成後に編集画面で設定できます。
+                        </div>
+                    </div>
+                </div>
+
+                <!-- インベントリ・財産 -->
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-coins"></i> インベントリ・財産
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="money" class="form-label">所持金</label>
+                                <input type="number" class="form-control" id="money" name="money" 
+                                       min="0" placeholder="0">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="assets" class="form-label">総資産</label>
+                                <input type="number" class="form-control" id="assets" name="assets" 
+                                       min="0" placeholder="0">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="income" class="form-label">年収</label>
+                                <input type="number" class="form-control" id="income" name="income" 
+                                       min="0" placeholder="0">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12">
+                                <label for="items" class="form-label">所持品メモ</label>
+                                <textarea class="form-control" id="items" name="items" rows="3" 
+                                          placeholder="主要な所持品を記入してください..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 背景情報 -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-user-clock"></i> 背景情報
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="appearance" class="form-label">外見の描写</label>
+                                <textarea class="form-control" id="appearance" name="appearance" rows="2" 
+                                          placeholder="身長、体型、髪の色、特徴的な外見など..."></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="ideals" class="form-label">信念・信条</label>
+                                <textarea class="form-control" id="ideals" name="ideals" rows="2" 
+                                          placeholder="キャラクターが大切にしている価値観や信念..."></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="bonds" class="form-label">重要な人物</label>
+                                <textarea class="form-control" id="bonds" name="bonds" rows="2" 
+                                          placeholder="家族、友人、恩人など..."></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="flaws" class="form-label">弱点・恐怖症</label>
+                                <textarea class="form-control" id="flaws" name="flaws" rows="2" 
+                                          placeholder="性格的な弱点、恐怖症、トラウマなど..."></textarea>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label for="backstory" class="form-label">背景ストーリー</label>
+                                <textarea class="form-control" id="backstory" name="backstory" rows="4" 
+                                          placeholder="探索者の生い立ち、経歴、現在に至るまでの物語..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 送信ボタン -->
+                <div class="row mb-5">
+                    <div class="col-12 text-center">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-save"></i> 探索者を作成
+                        </button>
+                        <a href="/accounts/character/list/" class="btn btn-secondary btn-lg ms-2">
+                            <i class="fas fa-times"></i> キャンセル
+                        </a>
+                    </div>
+                </div>
 
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- 職業テンプレートモーダル -->
+<div class="modal fade" id="occupationTemplateModal" tabindex="-1" aria-labelledby="occupationTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="occupationTemplateModalLabel">
+                    <i class="fas fa-briefcase"></i> 職業テンプレート選択
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="list-group" id="occupationCategories">
+                            <a href="#" class="list-group-item list-group-item-action active" data-category="academic">
+                                <i class="fas fa-graduation-cap"></i> 学術系
+                            </a>
+                            <a href="#" class="list-group-item list-group-item-action" data-category="investigation">
+                                <i class="fas fa-search"></i> 調査系
+                            </a>
+                            <a href="#" class="list-group-item list-group-item-action" data-category="combat">
+                                <i class="fas fa-shield-alt"></i> 戦闘系
+                            </a>
+                            <a href="#" class="list-group-item list-group-item-action" data-category="medical">
+                                <i class="fas fa-heartbeat"></i> 医療系
+                            </a>
+                            <a href="#" class="list-group-item list-group-item-action" data-category="arts">
+                                <i class="fas fa-palette"></i> 芸術系
+                            </a>
+                            <a href="#" class="list-group-item list-group-item-action" data-category="others">
+                                <i class="fas fa-users"></i> その他
+                            </a>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div id="occupationList">
+                            <!-- 職業リストがここに動的生成される -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+            </div>
         </div>
     </div>
 </div>
@@ -452,19 +687,9 @@ document.addEventListener('DOMContentLoaded', function() {
             "spot_hidden": { base: 25, name: "目星" },
             "listen": { base: 25, name: "聞き耳" },
             "library_use": { base: 25, name: "図書館" },
-            "occult": { base: 5, name: "オカルト" },
-            "cthulhu_mythos": { base: 0, name: "クトゥルフ神話" },
-            "archaeology": { base: 1, name: "考古学" },
-            "anthropology": { base: 1, name: "人類学" },
-            "history": { base: 20, name: "歴史" },
-            "natural_world": { base: 10, name: "博物学" },
             "track": { base: 10, name: "追跡" },
-            "geology": { base: 1, name: "地質学" },
-            "astronomy": { base: 1, name: "天文学" },
-            "biology": { base: 1, name: "生物学" },
-            "chemistry": { base: 1, name: "化学" },
-            "physics": { base: 1, name: "物理学" },
-            "pharmacy": { base: 1, name: "薬学" }
+            "navigate": { base: 10, name: "ナビゲート" },
+            "photography": { base: 10, name: "写真術" }
         },
         // 行動技能
         "action": {
@@ -478,12 +703,10 @@ document.addEventListener('DOMContentLoaded', function() {
             "drive_auto": { base: 20, name: "運転" },
             "pilot": { base: 1, name: "操縦" },
             "ride": { base: 5, name: "乗馬" },
-            "navigate": { base: 10, name: "ナビゲート" },
             "electrical_repair": { base: 10, name: "電気修理" },
             "electronics": { base: 1, name: "電子工学" },
             "mechanical_repair": { base: 20, name: "機械修理" },
             "operate_heavy_machine": { base: 1, name: "重機械操作" },
-            "photography": { base: 10, name: "写真術" },
             "disguise": { base: 1, name: "変装" },
             "sleight_of_hand": { base: 10, name: "手さばき" }
         },
@@ -500,15 +723,32 @@ document.addEventListener('DOMContentLoaded', function() {
             "intimidate": { base: 15, name: "威嚇" },
             "charm": { base: 15, name: "魅惑" }
         },
+        // 知識技能
+        "knowledge": {
+            "occult": { base: 5, name: "オカルト" },
+            "cthulhu_mythos": { base: 0, name: "クトゥルフ神話" },
+            "archaeology": { base: 1, name: "考古学" },
+            "anthropology": { base: 1, name: "人類学" },
+            "history": { base: 20, name: "歴史" },
+            "natural_world": { base: 10, name: "博物学" },
+            "geology": { base: 1, name: "地質学" },
+            "astronomy": { base: 1, name: "天文学" },
+            "biology": { base: 1, name: "生物学" },
+            "chemistry": { base: 1, name: "化学" },
+            "physics": { base: 1, name: "物理学" },
+            "pharmacy": { base: 1, name: "薬学" },
+            "medicine": { base: 5, name: "医学" },
+            "law": { base: 5, name: "法律" },
+            "accounting": { base: 10, name: "経理" },
+            "computer_use": { base: 1, name: "コンピューター" },
+            "appraise": { base: 5, name: "鑑定" },
+            "cryptography": { base: 1, name: "暗号" },
+            "forensics": { base: 1, name: "鑑識" }
+        },
         // その他技能
         "other": {
             "art": { base: 5, name: "芸術" },
-            "computer_use": { base: 1, name: "コンピューター" },
-            "law": { base: 5, name: "法律" },
-            "medicine": { base: 5, name: "医学" },
-            "accounting": { base: 10, name: "経理" },
             "craft": { base: 5, name: "工芸" },
-            "appraise": { base: 5, name: "鑑定" },
             "sing": { base: 5, name: "歌唱" },
             "play_instrument": { base: 5, name: "楽器演奏" },
             "dance": { base: 5, name: "ダンス" },
@@ -519,8 +759,6 @@ document.addEventListener('DOMContentLoaded', function() {
             "survival": { base: 10, name: "サバイバル" },
             "hypnosis": { base: 1, name: "催眠術" },
             "occult_folklore": { base: 5, name: "民俗学" },
-            "cryptography": { base: 1, name: "暗号" },
-            "forensics": { base: 1, name: "鑑識" },
             "gaming": { base: 5, name: "ギャンブル" }
         }
     };
@@ -531,6 +769,7 @@ document.addEventListener('DOMContentLoaded', function() {
         ...SKILLS_6TH.exploration,
         ...SKILLS_6TH.action,
         ...SKILLS_6TH.social,
+        ...SKILLS_6TH.knowledge,
         ...SKILLS_6TH.other
     };
 
@@ -603,11 +842,19 @@ document.addEventListener('DOMContentLoaded', function() {
         if (document.getElementById('mp')) document.getElementById('mp').value = mp;
         if (document.getElementById('san')) document.getElementById('san').value = san;
         
+        // 現在値も初期値として設定
+        if (document.getElementById('current_hp')) document.getElementById('current_hp').value = hp;
+        if (document.getElementById('current_mp')) document.getElementById('current_mp').value = mp;
+        if (document.getElementById('current_san')) document.getElementById('current_san').value = san;
+        
         // 6版固有の計算
         calculateDerivedStats6th(str, con, pow, dex, int, edu, siz);
         
         // 技能ポイント計算
         calculateSkillPoints();
+        
+        // 動的基本値の技能を更新（DEXやEDUの変更時）
+        updateDynamicSkillBases();
     }
     
     function calculateDerivedStats6th(str, con, pow, dex, int, edu, siz) {
@@ -751,8 +998,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     <div class="row g-1 mt-2">
                         <div class="col-4">
-                            <input type="number" class="form-control form-control-sm text-center" 
-                                   value="${baseValue}" readonly title="基本値">
+                            <input type="number" class="form-control form-control-sm text-center skill-base" 
+                                   id="base_${key}" value="${baseValue}" min="0" max="100" 
+                                   data-skill="${key}" data-default="${skill.base}" 
+                                   title="基本値（クリックで編集、右クリックでリセット）"
+                                   data-bs-toggle="tooltip"
+                                   data-bs-placement="top">
                         </div>
                         <div class="col-4">
                             <input type="number" class="form-control form-control-sm occupation-skill text-center" 
@@ -782,6 +1033,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const explorationContainer = document.getElementById('explorationSkills');
         const actionContainer = document.getElementById('actionSkills');
         const socialContainer = document.getElementById('socialSkills');
+        const knowledgeContainer = document.getElementById('knowledgeSkills');
         const allContainer = document.getElementById('allSkills');
         
         // 各カテゴリの技能を生成
@@ -813,6 +1065,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
+        if (knowledgeContainer) {
+            knowledgeContainer.innerHTML = '';
+            Object.entries(SKILLS_6TH.knowledge).forEach(([key, skill]) => {
+                knowledgeContainer.innerHTML += createSkillItemHTML(key, skill, 'knowledge');
+            });
+        }
+        
         if (allContainer) {
             allContainer.innerHTML = '';
             Object.entries(ALL_SKILLS_6TH).forEach(([key, skill]) => {
@@ -822,13 +1081,91 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 技能入力イベント追加
         addSkillInputEvents();
+        
+        // ツールチップの初期化
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
     }
 
     // 技能入力イベント
     function addSkillInputEvents() {
-        document.querySelectorAll('.occupation-skill, .interest-skill').forEach(input => {
-            input.addEventListener('input', updateSkillTotals);
+        try {
+            document.querySelectorAll('.occupation-skill, .interest-skill').forEach(input => {
+                input.addEventListener('input', updateSkillTotals);
+            });
+            
+            // 基本値入力イベントを追加
+            document.querySelectorAll('.skill-base').forEach(input => {
+                input.addEventListener('input', function() {
+                    try {
+                        const skillKey = this.dataset.skill;
+                        const value = parseInt(this.value) || 0;
+                        
+                        // カスタム基本値を保存
+                        if (!window.customBaseValues) {
+                            window.customBaseValues = {};
+                        }
+                        window.customBaseValues[skillKey] = value;
+                        
+                        // カスタマイズされたことを示すクラスを追加
+                        this.classList.add('customized');
+                        
+                        // 技能合計を更新
+                        updateSkillTotals();
+                    } catch (error) {
+                        console.error('Error in skill base input handler:', error);
+                    }
+                });
+            
+            // 右クリックでデフォルト値にリセット
+            input.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                try {
+                    const skillKey = this.dataset.skill;
+                    const defaultValue = this.dataset.default;
+                    
+                    // カスタム基本値をクリア
+                    if (window.customBaseValues && window.customBaseValues[skillKey]) {
+                        delete window.customBaseValues[skillKey];
+                    }
+                    
+                    // カスタマイズクラスを削除
+                    this.classList.remove('customized');
+                    
+                    // デフォルト値に戻す
+                    const skill = ALL_SKILLS_6TH[skillKey];
+                    if (!skill) {
+                        console.warn(`Skill ${skillKey} not found in ALL_SKILLS_6TH`);
+                        return;
+                    }
+                    let baseValue = skill.base;
+                    if (typeof baseValue === 'string') {
+                        if (baseValue === 'DEX×2') {
+                            const dex = parseInt(document.getElementById('dex')?.value) || 0;
+                            baseValue = dex * 2;
+                        } else if (baseValue === 'EDU×5') {
+                            const edu = parseInt(document.getElementById('edu')?.value) || 0;
+                            baseValue = edu * 5;
+                        }
+                    }
+                    this.value = baseValue;
+                    
+                    // 技能合計を更新
+                    updateSkillTotals();
+                    
+                    // フィードバック表示
+                    this.style.backgroundColor = '#d4edda';
+                    setTimeout(() => {
+                        this.style.backgroundColor = '';
+                    }, 300);
+                } catch (error) {
+                    console.error('Error in skill base reset handler:', error);
+                }
+            });
         });
+        } catch (error) {
+            console.error('Error in addSkillInputEvents:', error);
+        }
     }
     
     // 技能別ダイス設定の表示/非表示切り替え
@@ -897,6 +1234,40 @@ document.addEventListener('DOMContentLoaded', function() {
         updateSkillTotals();
     }
     
+    // 動的基本値を持つ技能の更新
+    function updateDynamicSkillBases() {
+        try {
+            // 回避（DEX×2）
+            const dexEl = document.getElementById('dex');
+            if (!dexEl) {
+                console.warn('DEX element not found');
+                return;
+            }
+            const dex = parseInt(dexEl.value) || 0;
+            const dodgeBaseEl = document.getElementById('base_dodge');
+            if (dodgeBaseEl && (!window.customBaseValues || window.customBaseValues['dodge'] === undefined)) {
+                dodgeBaseEl.value = dex * 2;
+            }
+            
+            // 母国語（EDU×5）
+            const eduEl = document.getElementById('edu');
+            if (!eduEl) {
+                console.warn('EDU element not found');
+                return;
+            }
+            const edu = parseInt(eduEl.value) || 0;
+            const languageOwnBaseEl = document.getElementById('base_language_own');
+            if (languageOwnBaseEl && (!window.customBaseValues || window.customBaseValues['language_own'] === undefined)) {
+                languageOwnBaseEl.value = edu * 5;
+            }
+            
+            // 技能合計も更新
+            updateSkillTotals();
+        } catch (error) {
+            console.error('Error in updateDynamicSkillBases:', error);
+        }
+    }
+    
     // グローバル関数として定義（HTMLから呼び出すため）
     window.toggleSkillDiceSettings = toggleSkillDiceSettings;
     window.updateSkillDiceFormula = updateSkillDiceFormula;
@@ -904,9 +1275,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 技能合計更新
     function updateSkillTotals() {
-        console.log('updateSkillTotals called');
+        // console.log('updateSkillTotals called');
         let occupationUsed = 0;
         let interestUsed = 0;
+        let allocatedCount = 0;
+        const allocatedSkills = [];
         
         Object.keys(ALL_SKILLS_6TH).forEach(key => {
             const occEl = document.getElementById(`occ_${key}`);
@@ -914,35 +1287,57 @@ document.addEventListener('DOMContentLoaded', function() {
             const totalEl = document.getElementById(`total_${key}`);
             
             if (occEl && intEl && totalEl) {
-                // 基本値を動的に計算
-                const skill = ALL_SKILLS_6TH[key];
-                let baseValue = skill.base;
-                if (typeof baseValue === 'string') {
-                    if (baseValue === 'DEX×2') {
-                        const dex = parseInt(document.getElementById('dex')?.value) || 0;
-                        baseValue = dex * 2;
-                    } else if (baseValue === 'EDU×5') {
-                        const edu = parseInt(document.getElementById('edu')?.value) || 0;
-                        baseValue = edu * 5;
+                // 基本値を取得（カスタム値がある場合はそれを使用）
+                let base = 0;
+                if (window.customBaseValues && window.customBaseValues[key] !== undefined) {
+                    base = window.customBaseValues[key];
+                } else {
+                    // デフォルトの基本値を動的に計算
+                    const skill = ALL_SKILLS_6TH[key];
+                    let baseValue = skill.base;
+                    if (typeof baseValue === 'string') {
+                        if (baseValue === 'DEX×2') {
+                            const dex = parseInt(document.getElementById('dex')?.value) || 0;
+                            baseValue = dex * 2;
+                        } else if (baseValue === 'EDU×5') {
+                            const edu = parseInt(document.getElementById('edu')?.value) || 0;
+                            baseValue = edu * 5;
+                        }
                     }
+                    base = parseInt(baseValue) || 0;
                 }
-                
-                const base = parseInt(baseValue) || 0;
                 const occ = parseInt(occEl.value) || 0;
                 const int = parseInt(intEl.value) || 0;
                 
                 const total = Math.min(base + occ + int, 90);
                 totalEl.textContent = total + '%';
                 
-                // 合計値が0でない場合はログ出力（デバッグ用）
-                if (total > 0) {
-                    console.log(`Skill ${key}: base=${base}, occ=${occ}, int=${int}, total=${total}`);
+                // ポイントが振り分けられている技能を記録
+                if (occ > 0 || int > 0) {
+                    allocatedCount++;
+                    allocatedSkills.push({
+                        key: key,
+                        skill: skill,
+                        base: base,
+                        occ: occ,
+                        int: int,
+                        total: total
+                    });
                 }
                 
                 occupationUsed += occ;
                 interestUsed += int;
             }
         });
+        
+        // 振り分け済み技能タブの更新
+        updateAllocatedSkillsTab(allocatedSkills);
+        
+        // 振り分け済み技能数のバッジ更新
+        const allocatedCountBadge = document.getElementById('allocatedCount');
+        if (allocatedCountBadge) {
+            allocatedCountBadge.textContent = allocatedCount;
+        }
         
         // ポイント使用状況更新
         const occupationTotal = parseInt(document.getElementById('occupationTotal')?.value) || 0;
@@ -973,6 +1368,30 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (document.getElementById('interestTotalFooter')) {
             document.getElementById('interestTotalFooter').textContent = interestTotal;
+        }
+    }
+    
+    // 振り分け済み技能タブの更新
+    function updateAllocatedSkillsTab(allocatedSkills) {
+        const allocatedContainer = document.getElementById('allocatedSkills');
+        const noAllocatedMessage = document.getElementById('noAllocatedMessage');
+        
+        if (!allocatedContainer) return;
+        
+        if (allocatedSkills.length === 0) {
+            // 振り分けられた技能がない場合
+            allocatedContainer.innerHTML = `
+                <div class="col-12 text-center text-muted p-4" id="noAllocatedMessage">
+                    <i class="fas fa-info-circle fa-2x mb-2"></i>
+                    <p>まだポイントを振り分けた技能がありません。</p>
+                </div>
+            `;
+        } else {
+            // 振り分けられた技能を表示
+            allocatedContainer.innerHTML = '';
+            allocatedSkills.forEach(item => {
+                allocatedContainer.innerHTML += createSkillItemHTML(item.key, ALL_SKILLS_6TH[item.key], 'allocated');
+            });
         }
     }
 
@@ -1019,6 +1438,183 @@ document.addEventListener('DOMContentLoaded', function() {
         updateSkillTotals();
     });
 
+    // 職業テンプレートデータ
+    const OCCUPATION_TEMPLATES = {
+        academic: [
+            {
+                name: "教授",
+                skills: ["図書館", "心理学", "説得", "信用", "歴史", "博物学", "他国語", "オカルト"],
+                multiplier: 20,
+                description: "大学教授や研究者"
+            },
+            {
+                name: "考古学者", 
+                skills: ["考古学", "図書館", "歴史", "目星", "ナビゲート", "写真術", "他国語", "鑑定"],
+                multiplier: 20,
+                description: "遺跡や古代文明の研究者"
+            },
+            {
+                name: "図書館司書",
+                skills: ["図書館", "経理", "コンピューター", "歴史", "心理学", "他国語", "目星", "説得"],
+                multiplier: 20,
+                description: "図書館や資料館の管理者"
+            }
+        ],
+        investigation: [
+            {
+                name: "私立探偵",
+                skills: ["目星", "聞き耳", "追跡", "心理学", "説得", "写真術", "隠れる", "法律"],
+                multiplier: 20,
+                description: "民間の調査員"
+            },
+            {
+                name: "ジャーナリスト",
+                skills: ["説得", "心理学", "目星", "聞き耳", "写真術", "言いくるめ", "図書館", "他国語"],
+                multiplier: 20,
+                description: "新聞記者や報道関係者"
+            },
+            {
+                name: "警察官",
+                skills: ["法律", "目星", "聞き耳", "威嚇", "拳銃", "組み付き", "運転", "応急手当"],
+                multiplier: 20,
+                description: "法執行官"
+            }
+        ],
+        combat: [
+            {
+                name: "軍人",
+                skills: ["ライフル", "拳銃", "回避", "応急手当", "威嚇", "サバイバル", "ナビゲート", "運転"],
+                multiplier: 20,
+                description: "現役または退役軍人"
+            },
+            {
+                name: "格闘家",
+                skills: ["マーシャルアーツ", "回避", "キック", "組み付き", "心理学", "威嚇", "跳躍", "応急手当"],
+                multiplier: 20,
+                description: "武道家やボクサー"
+            }
+        ],
+        medical: [
+            {
+                name: "医師",
+                skills: ["医学", "応急手当", "生物学", "薬学", "心理学", "信用", "説得", "他国語"],
+                multiplier: 20,
+                description: "医者や外科医"
+            },
+            {
+                name: "看護師",
+                skills: ["医学", "応急手当", "生物学", "心理学", "説得", "聞き耳", "目星", "薬学"],
+                multiplier: 20,
+                description: "医療従事者"
+            }
+        ],
+        arts: [
+            {
+                name: "芸術家",
+                skills: ["芸術", "心理学", "目星", "歴史", "説得", "魅惑", "他国語", "鑑定"],
+                multiplier: 20,
+                description: "画家、彫刻家など"
+            },
+            {
+                name: "作家",
+                skills: ["母国語", "他国語", "図書館", "心理学", "歴史", "オカルト", "説得", "目星"],
+                multiplier: 20,
+                description: "小説家や脚本家"
+            }
+        ],
+        others: [
+            {
+                name: "犯罪者",
+                skills: ["隠れる", "忍び歩き", "鍵開け", "手さばき", "目星", "聞き耳", "値切り", "変装"],
+                multiplier: 20,
+                description: "元犯罪者や裏社会の人間"
+            },
+            {
+                name: "ディレッタント",
+                skills: ["信用", "乗馬", "芸術", "他国語", "拳銃", "歴史", "魅惑", "経理"],
+                multiplier: 20,
+                description: "資産家、道楽者"
+            }
+        ]
+    };
+
+    // 職業テンプレート機能の初期化
+    function initOccupationTemplates() {
+        const categoryLinks = document.querySelectorAll('#occupationCategories a');
+        categoryLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // アクティブクラスの切り替え
+                categoryLinks.forEach(l => l.classList.remove('active'));
+                this.classList.add('active');
+                
+                // カテゴリーの職業を表示
+                const category = this.dataset.category;
+                displayOccupations(category);
+            });
+        });
+        
+        // 初期表示
+        displayOccupations('academic');
+    }
+
+    // 職業リストの表示
+    function displayOccupations(category) {
+        const occupationList = document.getElementById('occupationList');
+        const occupations = OCCUPATION_TEMPLATES[category] || [];
+        
+        let html = '<div class="list-group">';
+        occupations.forEach(occ => {
+            html += `
+                <a href="#" class="list-group-item list-group-item-action occupation-template-item" 
+                   data-occupation='${JSON.stringify(occ)}'>
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">${occ.name}</h6>
+                        <small>倍率: EDU×${occ.multiplier}</small>
+                    </div>
+                    <p class="mb-1 text-muted small">${occ.description}</p>
+                    <small>推奨技能: ${occ.skills.join(', ')}</small>
+                </a>
+            `;
+        });
+        html += '</div>';
+        
+        occupationList.innerHTML = html;
+        
+        // クリックイベントの設定
+        document.querySelectorAll('.occupation-template-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const occupation = JSON.parse(this.dataset.occupation);
+                applyOccupationTemplate(occupation);
+            });
+        });
+    }
+
+    // 職業テンプレートの適用
+    function applyOccupationTemplate(occupation) {
+        // 職業名を設定
+        document.getElementById('occupation').value = occupation.name;
+        
+        // 職業倍率を設定
+        const methodSelect = document.getElementById('occupationMethod');
+        if (methodSelect && occupation.multiplier === 20) {
+            methodSelect.value = 'edu20';
+        }
+        
+        // 推奨技能をハイライト（実装は省略）
+        // console.log('推奨技能:', occupation.skills);
+        
+        // モーダルを閉じる
+        const modal = bootstrap.Modal.getInstance(document.getElementById('occupationTemplateModal'));
+        modal.hide();
+        
+        // 技能ポイントを再計算
+        calculateSkillPoints();
+        updateSkillTotals();
+    }
+
     // Bootstrap タブ初期化
     const triggerTabList = [].slice.call(document.querySelectorAll('#skillTabs button'));
     triggerTabList.forEach(function (triggerEl) {
@@ -1030,12 +1626,64 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
+    // 画像アップロード機能
+    function initImageUpload() {
+        const imageInput = document.getElementById('character-image');
+        const imagePreview = document.getElementById('image-preview');
+        const previewImg = document.getElementById('preview-img');
+        const removeBtn = document.getElementById('remove-image');
+        
+        if (!imageInput) return;
+        
+        // ファイル選択時のプレビュー表示
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                // ファイルサイズチェック（5MB）
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('ファイルサイズは5MB以下にしてください。');
+                    imageInput.value = '';
+                    return;
+                }
+                
+                // ファイルタイプチェック
+                if (!file.type.match(/^image\/(jpeg|jpg|png|gif)$/)) {
+                    alert('JPG、PNG、GIF形式の画像ファイルを選択してください。');
+                    imageInput.value = '';
+                    return;
+                }
+                
+                // プレビュー表示
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImg.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // 画像削除
+        removeBtn?.addEventListener('click', function() {
+            imageInput.value = '';
+            previewImg.src = '';
+            imagePreview.style.display = 'none';
+        });
+    }
+    
     // 初期化
     updateGlobalDiceFormula();
     generateSkillsList();
     addSkillInputEvents();  // 技能リスト生成後にイベントリスナーを追加
-    calculateDerivedStats();
-    updateSkillTotals();    // 初期計算を実行
+    
+    // 技能リストが生成された後に派生ステータスを計算
+    setTimeout(() => {
+        calculateDerivedStats();
+        updateSkillTotals();    // 初期計算を実行
+    }, 0);
+    
+    initOccupationTemplates(); // 職業テンプレート機能を初期化
+    initImageUpload(); // 画像アップロード機能を初期化
     
     // フォーム送信処理
     const characterForm = document.getElementById('character-sheet-form');
@@ -1044,11 +1692,33 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
         
             const formData = new FormData(this);
-            const data = Object.fromEntries(formData);
+            const data = {};
+            
+            // FormDataからデータを取得（ファイル以外）
+            for (let [key, value] of formData.entries()) {
+                if (key !== 'character_image') {
+                    data[key] = value;
+                }
+            }
             
             // バリデーション
             if (!data.character_name) {
                 alert('探索者名は必須です。');
+                return;
+            }
+            
+            // 能力値バリデーション
+            const abilities = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu'];
+            let hasAbilities = false;
+            for (const ability of abilities) {
+                if (data[ability] && parseInt(data[ability]) > 0) {
+                    hasAbilities = true;
+                    break;
+                }
+            }
+            
+            if (!hasAbilities) {
+                alert('能力値を設定してください。');
                 return;
             }
             
@@ -1062,39 +1732,167 @@ document.addEventListener('DOMContentLoaded', function() {
                 occupation: data.occupation || '',
                 birthplace: data.birthplace || '',
                 residence: data.residence || '',
-                str_value: parseInt(data.str) || 0,
-                con_value: parseInt(data.con) || 0,
-                pow_value: parseInt(data.pow) || 0,
-                dex_value: parseInt(data.dex) || 0,
-                app_value: parseInt(data.app) || 0,
-                siz_value: parseInt(data.siz) || 0,
-                int_value: parseInt(data.int) || 0,
-                edu_value: parseInt(data.edu) || 0,
-                notes: (data.backstory || '') + '\n' + (data.traits || '') + '\n信念: ' + (data.ideals || '') + '\n重要な人物・場所: ' + (data.bonds || '')
+                str_value: parseInt(data.str) || 10,
+                con_value: parseInt(data.con) || 10,
+                pow_value: parseInt(data.pow) || 10,
+                dex_value: parseInt(data.dex) || 10,
+                app_value: parseInt(data.app) || 10,
+                siz_value: parseInt(data.siz) || 10,
+                int_value: parseInt(data.int) || 10,
+                edu_value: parseInt(data.edu) || 10,
+                notes: data.notes || ''
             };
             
-            // APIに送信
-            fetch('/accounts/character-sheets/create_6th_edition/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify(apiData)
-            })
-            .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    alert('探索者シートが正常に作成されました！');
-                    window.location.href = '/accounts/character/list/';
-                } else {
-                    alert('エラーが発生しました: ' + (result.error || '不明なエラー'));
+            // 戦闘ステータス
+            if (data.current_hp) apiData.hit_points_current = parseInt(data.current_hp);
+            if (data.current_mp) apiData.magic_points_current = parseInt(data.current_mp);
+            if (data.current_san) apiData.sanity_points_current = parseInt(data.current_san);
+            if (data.armor) apiData.armor = parseInt(data.armor) || 0;
+            
+            // 財産情報
+            if (data.money) apiData.money = parseInt(data.money) || 0;
+            if (data.assets) apiData.assets = parseInt(data.assets) || 0;
+            if (data.income) apiData.income = parseInt(data.income) || 0;
+            
+            // 背景情報をnotesに統合
+            const backgroundNotes = [];
+            if (data.backstory) backgroundNotes.push(`背景ストーリー:\n${data.backstory}`);
+            if (data.appearance) backgroundNotes.push(`外見:\n${data.appearance}`);
+            if (data.ideals) backgroundNotes.push(`信念・信条:\n${data.ideals}`);
+            if (data.bonds) backgroundNotes.push(`重要な人物:\n${data.bonds}`);
+            if (data.flaws) backgroundNotes.push(`弱点・恐怖症:\n${data.flaws}`);
+            if (data.items) backgroundNotes.push(`所持品:\n${data.items}`);
+            
+            if (backgroundNotes.length > 0) {
+                apiData.notes = (apiData.notes ? apiData.notes + '\n\n' : '') + backgroundNotes.join('\n\n');
+            }
+            
+            // 技能データの収集
+            const skills = [];
+            document.querySelectorAll('.occupation-skill').forEach(input => {
+                const skillKey = input.dataset.skill;
+                const occValue = parseInt(input.value) || 0;
+                const intValue = parseInt(document.getElementById(`int_${skillKey}`)?.value) || 0;
+                
+                if (occValue > 0 || intValue > 0) {
+                    // カスタム基本値があれば使用、なければデフォルト値を使用
+                    let baseValue = 0;
+                    if (window.customBaseValues && window.customBaseValues[skillKey] !== undefined) {
+                        baseValue = window.customBaseValues[skillKey];
+                    } else {
+                        const skillData = ALL_SKILLS_6TH[skillKey];
+                        if (skillData) {
+                            let defaultBase = skillData.base;
+                            if (typeof defaultBase === 'string') {
+                                if (defaultBase === 'DEX×2') {
+                                    const dex = parseInt(document.getElementById('dex')?.value) || 0;
+                                    defaultBase = dex * 2;
+                                } else if (defaultBase === 'EDU×5') {
+                                    const edu = parseInt(document.getElementById('edu')?.value) || 0;
+                                    defaultBase = edu * 5;
+                                }
+                            }
+                            baseValue = parseInt(defaultBase) || 0;
+                        }
+                    }
+                    
+                    skills.push({
+                        skill_name: ALL_SKILLS_6TH[skillKey]?.name || skillKey,
+                        base_value: baseValue,
+                        occupation_points: occValue,
+                        interest_points: intValue,
+                        other_points: 0
+                    });
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('ネットワークエラーが発生しました。');
             });
+            
+            if (skills.length > 0) {
+                apiData.skills = skills;
+            }
+            
+            // 画像ファイルがある場合はFormDataで送信
+            const imageFile = formData.get('character_image');
+            if (imageFile && imageFile.size > 0) {
+                // FormDataを使用して画像を含めて送信
+                const submitFormData = new FormData();
+                
+                // APIデータの各フィールドをFormDataに追加
+                Object.keys(apiData).forEach(key => {
+                    if (key === 'skills' || key === 'equipment') {
+                        submitFormData.append(key, JSON.stringify(apiData[key]));
+                    } else {
+                        submitFormData.append(key, apiData[key]);
+                    }
+                });
+                
+                // 画像ファイルを追加
+                submitFormData.append('character_image', imageFile);
+                
+                // APIに送信（multipart/form-data）
+                fetch('/accounts/character-sheets/create_6th_edition/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: submitFormData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => Promise.reject(err));
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    // 成功時の処理（APIはCharacterSheetオブジェクトを返す）
+                    if (result.id) {
+                        alert('探索者シートが正常に作成されました！');
+                        window.location.href = '/accounts/character/list/';
+                    } else {
+                        alert('エラーが発生しました: 予期しないレスポンス形式');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    if (error.error) {
+                        alert('エラーが発生しました: ' + error.error);
+                    } else {
+                        alert('ネットワークエラーが発生しました。');
+                    }
+                });
+            } else {
+                // 画像なしの場合はJSONで送信
+                fetch('/accounts/character-sheets/create_6th_edition/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify(apiData)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => Promise.reject(err));
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    // 成功時の処理（APIはCharacterSheetオブジェクトを返す）
+                    if (result.id) {
+                        alert('探索者シートが正常に作成されました！');
+                        window.location.href = '/accounts/character/list/';
+                    } else {
+                        alert('エラーが発生しました: 予期しないレスポンス形式');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    if (error.error) {
+                        alert('エラーが発生しました: ' + error.error);
+                    } else {
+                        alert('ネットワークエラーが発生しました。');
+                    }
+                });
+            }
         });
     }
 });
@@ -1104,6 +1902,42 @@ document.addEventListener('DOMContentLoaded', function() {
 /* フッター調整 - 改善版 */
 body {
     padding-bottom: 120px; /* フッター余白を拡大 */
+}
+
+/* 編集可能な基本値のスタイル */
+.skill-base {
+    background-color: #f0f8ff;
+    border: 1px solid #4169e1;
+    cursor: text;
+    transition: all 0.2s ease;
+}
+
+.skill-base:hover {
+    background-color: #e6f3ff;
+    box-shadow: 0 0 0 0.1rem rgba(65, 105, 225, 0.25);
+}
+
+.skill-base:focus {
+    background-color: #ffffff;
+    border-color: #4169e1;
+    box-shadow: 0 0 0 0.2rem rgba(65, 105, 225, 0.25);
+}
+
+/* カスタマイズされた基本値 */
+.skill-base.customized {
+    background-color: #fff3cd;
+    border-color: #ffc107;
+    font-weight: bold;
+}
+
+.skill-base.customized:hover {
+    background-color: #ffeaa7;
+}
+
+.skill-base.customized:focus {
+    background-color: #ffffff;
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
 }
 
 /* 必須フィールドマーカー */
@@ -1335,6 +2169,62 @@ hr {
 .accordion-button:focus {
     border-color: #1976d2;
     box-shadow: 0 0 0 0.25rem rgba(25, 118, 210, 0.25);
+}
+
+/* 画像プレビュー */
+#image-preview {
+    border: 1px dashed #dee2e6;
+    padding: 10px;
+    border-radius: 0.25rem;
+    background-color: #f8f9fa;
+}
+
+#image-preview img {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 職業テンプレートモーダル */
+.occupation-template-item:hover {
+    background-color: #f8f9fa;
+}
+
+.occupation-template-item.active {
+    background-color: #e3f2fd;
+}
+
+/* ポイント管理セクション */
+.bg-light {
+    border: 1px solid #dee2e6;
+}
+
+/* 能力値入力フィールド強調 */
+.ability-score {
+    font-size: 1.1rem;
+}
+
+.ability-score:focus {
+    background-color: #fff3cd;
+}
+
+/* 技能ポイント残りが少ない時の警告色 */
+#occupationRemaining.badge:has-text("0") {
+    background-color: #dc3545 !important;
+}
+
+/* 成功メッセージのアニメーション */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.alert {
+    animation: fadeInUp 0.3s ease;
 }
 </style>
 {% endblock %}
