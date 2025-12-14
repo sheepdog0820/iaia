@@ -10,12 +10,20 @@ class CustomAccountAdapter(DefaultAccountAdapter):
     """
     カスタムアカウントアダプター
     ソーシャルログインのみを許可する設定
+
+    方針: このアプリケーションはソーシャルログイン専用
+    - 通常のメール/パスワードサインアップは無効
+    - Googleなどのソーシャルアカウントのみでサインアップ可能
+    - 開発環境では /accounts/dev-login/ で直接ログイン可能
     """
-    
+
     def is_open_for_signup(self, request):
         """
         通常のサインアップを無効化
         ソーシャルアカウントからのみサインアップを許可
+
+        Returns:
+            False: 通常のメール/パスワードサインアップは常に拒否
         """
         return False
 

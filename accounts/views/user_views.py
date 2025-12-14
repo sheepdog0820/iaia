@@ -100,7 +100,15 @@ class CustomLoginView(FormView):
     template_name = 'account/login.html'
     form_class = CustomLoginForm
     success_url = reverse_lazy('dashboard')
-    
+
+    def get_context_data(self, **kwargs):
+        """Add google_configured flag to context"""
+        from allauth.socialaccount.models import SocialApp
+
+        context = super().get_context_data(**kwargs)
+        context['google_configured'] = SocialApp.objects.filter(provider='google').exists()
+        return context
+
     def form_valid(self, form):
         user = form.get_user()
         login(self.request, user)
