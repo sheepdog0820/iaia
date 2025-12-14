@@ -197,11 +197,15 @@ SOCIALACCOUNT_PROVIDERS = {
         "SCOPE": [
             "profile",
             "email",
+            "openid",
         ],
         "AUTH_PARAMS": {
             "access_type": "online",
+            "prompt": "select_account",
         },
         "OAUTH_PKCE_ENABLED": True,
+        "VERIFIED_EMAIL": True,
+        "VERSION": "v2",
     }
 }
 # Development settings for social auth
