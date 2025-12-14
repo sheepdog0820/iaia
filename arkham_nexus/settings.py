@@ -276,3 +276,31 @@ YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3'
 GOOGLE_OAUTH_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
 GOOGLE_OAUTH_CLIENT_SECRET = config('GOOGLE_CLIENT_SECRET', default='')
 # FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')  # 8000番ポート統一のため無効化
+
+# Logging configuration for debugging OAuth
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'allauth': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+        },
+    },
+}
