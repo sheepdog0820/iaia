@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}404 - ページが見つかりません{% endblock %}
+
+{% block content %}
+<div class="container text-center py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="error-page">
+                <h1 class="display-1 text-muted">404</h1>
+                <h2 class="mb-4">ページが見つかりません</h2>
+                
+                <div class="mb-5">
+                    <p class="lead text-muted">
+                        お探しのページは存在しないか、移動した可能性があります。
+                    </p>
+                </div>
+                
+                <div class="error-actions">
+                    <a href="{% url 'dashboard' %}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-house-door"></i> ダッシュボードへ
+                    </a>
+                    <a href="javascript:history.back()" class="btn btn-secondary btn-lg ms-2">
+                        <i class="bi bi-arrow-left"></i> 前のページへ戻る
+                    </a>
+                </div>
+                
+                <div class="mt-5">
+                    <p class="text-muted">
+                        問題が解決しない場合は、
+                        <a href="mailto:support@yourdomain.com">サポート</a>
+                        までお問い合わせください。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.error-page {
+    padding: 2rem;
+}
+
+.error-page h1 {
+    font-weight: 300;
+    font-size: 8rem;
+}
+
+.error-actions {
+    margin-top: 2rem;
+}
+
+@media (max-width: 576px) {
+    .error-page h1 {
+        font-size: 5rem;
+    }
+    
+    .error-actions .btn {
+        display: block;
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+}
+</style>
+{% endblock %}

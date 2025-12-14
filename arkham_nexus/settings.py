@@ -12,10 +12,20 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
-from decouple import config
+from decouple import Config, RepositoryEnv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# 環境に応じた.envファイルを選択
+ENVIRONMENT = os.environ.get('DJANGO_ENV', 'development')
+if ENVIRONMENT == 'production':
+    env_file = '.env.production'
+else:
+    env_file = '.env.development'
+
+# 設定ファイルのパスを指定してConfigインスタンスを作成
+config = Config(RepositoryEnv(BASE_DIR / env_file))
 
 
 # Quick-start development settings - unsuitable for production
@@ -47,7 +57,8 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.twitter',
     'rest_framework',
-    'corsheaders',
+    'rest_framework.authtoken',
+    # 'corsheaders',  # 8000番ポート統一のため無効化
     'crispy_forms',
     'crispy_bootstrap5',
     
@@ -58,7 +69,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
+    # 'corsheaders.middleware.CorsMiddleware',  # 8000番ポート統一のため無効化
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -182,17 +193,9 @@ SOCIALACCOUNT_PROVIDERS = {
             'access_type': 'online',
         },
         'OAUTH_PKCE_ENABLED': True,
-        'APP': {
-            'client_id': config('GOOGLE_CLIENT_ID', default='your-google-client-id'),
-            'secret': config('GOOGLE_CLIENT_SECRET', default='your-google-client-secret'),
-            'key': ''
-        }
     },
     'twitter': {
-        'APP': {
-            'client_id': config('TWITTER_CLIENT_ID', default='your-twitter-client-id'),
-            'secret': config('TWITTER_CLIENT_SECRET', default='your-twitter-client-secret'),
-        }
+        # Twitter設定は後で追加
     }
 }
 
@@ -210,10 +213,16 @@ LOGOUT_REDIRECT_URL = '/'
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
     ],
 }
 
@@ -221,11 +230,24 @@ REST_FRAMEWORK = {
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"
 
-# CORS settings
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-]
+# CORS settings (8000番ポート統一のため無効化)
+# CORS_ALLOWED_ORIGINS = [
+#     'http://localhost:3000',
+#     'http://127.0.0.1:3000',
+# ]
+# 
+# CORS_ALLOW_CREDENTIALS = True
+# CORS_ALLOW_HEADERS = [
+#     'accept',
+#     'accept-encoding',
+#     'authorization',
+#     'content-type',
+#     'dnt',
+#     'origin',
+#     'user-agent',
+#     'x-csrftoken',
+#     'x-requested-with',
+# ]
 
 # Static files
 STATIC_ROOT = BASE_DIR / 'staticfiles'
@@ -240,3 +262,8 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # YouTube API設定
 YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY', '')
 YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3'
+
+# Google OAuth API設定（API経由認証用）
+GOOGLE_OAUTH_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
+GOOGLE_OAUTH_CLIENT_SECRET = config('GOOGLE_CLIENT_SECRET', default='')
+# FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')  # 8000番ポート統一のため無効化

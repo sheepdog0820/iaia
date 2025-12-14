@@ -17,7 +17,7 @@ Arkham Nexusは、クトゥルフ神話をテーマにしたTRPGスケジュー�
 - フレンド機能
 - グループ機能（**Cult Circle**）- 可視性制御（公開/非公開）
 - グループ招待システム（承認・拒否機能）
-- Google/Twitter認証対応（開発環境用モック機能）
+- Google/X（Twitter）OAuth認証対応（API経由）
 
 #### 📅 **スケジュール管理**
 - TRPGセッション管理（**Chrono Abyss** / **R'lyeh Log**）
@@ -63,8 +63,9 @@ pip install -r requirements.txt
 
 4. **環境変数設定**
 ```bash
-cp .env.example .env
-# .envファイルを編集して必要な設定を行う
+# 開発環境用の設定ファイルをコピー
+cp .env.example .env.development
+# .env.developmentファイルを編集して必要な設定を行う
 ```
 
 5. **データベースセットアップ**
@@ -215,8 +216,11 @@ docker-compose up -d
 ### 本番環境
 ```bash
 # 環境変数を設定
-cp .env.production.example .env.production
+cp .env.example .env.production
 # .env.production を編集
+
+# 本番環境として起動
+DJANGO_ENV=production python manage.py runserver
 
 # デプロイ実行
 ./deploy.sh production
@@ -243,8 +247,9 @@ cp .env.production.example .env.production
 - **systemd** - サービス管理
 
 ### 認証・セキュリティ
-- **django-allauth** - ソーシャル認証
-- **CORS対応**
+- **django-allauth** - Google/X（Twitter）OAuth認証
+- **Django REST Framework Token認証** - API経由でのアクセス
+- **CORS対応** - 認証ヘッダー許可
 - **レート制限**
 - **CSP設定**
 
@@ -279,9 +284,11 @@ iaia/
 ## 🌐 API エンドポイント
 
 ### 認証
-- `POST /accounts/login/` - ログイン
-- `POST /accounts/signup/` - サインアップ
-- `POST /accounts/logout/` - ログアウト
+- `POST /api/auth/google/` - Google OAuth認証（API経由）
+- `POST /api/auth/twitter/` - X（Twitter）OAuth認証（API経由）
+- `POST /api/auth/logout/` - APIログアウト（トークン無効化）
+- `GET /api/auth/user/` - 現在のユーザー情報取得
+- `POST /api/auth/token/refresh/` - トークン更新
 
 ### ユーザー・グループ管理
 - `GET/POST /api/accounts/users/` - ユーザー管理
@@ -370,6 +377,41 @@ sudo systemctl status postgresql
 sudo systemctl status redis
 sudo systemctl status nginx
 ```
+
+## 🌐 環境設定管理
+
+### 環境別設定ファイル
+
+本プロジェクトでは環境に応じて異なる設定ファイルを使用します：
+
+- **開発環境**: `.env.development`
+- **本番環境**: `.env.production`
+- **テンプレート**: `.env.example`
+
+### 環境の切り替え方法
+
+```bash
+# 開発環境（デフォルト）
+python manage.py runserver
+
+# 本番環境
+DJANGO_ENV=production python manage.py runserver
+
+# Dockerを使用する場合
+DJANGO_ENV=production docker-compose up
+```
+
+### 設定ファイルの準備
+
+```bash
+# 開発環境用
+cp .env.example .env.development
+
+# 本番環境用
+cp .env.example .env.production
+```
+
+環境変数`DJANGO_ENV`によって、Djangoが読み込む設定ファイルが自動的に切り替わります。
 
 ## 🔒 セキュリティ
 

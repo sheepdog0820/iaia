@@ -174,6 +174,8 @@ class PlayerWorkflowIntegrationTest(APITestCase):
             'tags': 'クトゥルフ,ホラー,古典'
         }
         response = self.client.post('/api/scenarios/scenarios/', scenario_data)
+        if response.status_code != 201:
+            print(f"Scenario creation failed: {response.status_code} - {response.data}")
         self.assertEqual(response.status_code, 201)
         scenario_id = response.data['id']
         print(f"   ✅ シナリオ作成: {response.data['title']}")
@@ -319,6 +321,8 @@ class GMWorkflowIntegrationTest(APITestCase):
             'tags': 'クトゥルフ,ホラー,海岸'
         }
         response = self.client.post('/api/scenarios/scenarios/', scenario_data)
+        if response.status_code != 201:
+            print(f"Scenario creation failed: {response.status_code} - {response.data}")
         self.assertEqual(response.status_code, 201)
         scenario_id = response.data['id']
         print(f"   ✅ シナリオ作成: {response.data['title']}")
@@ -683,6 +687,9 @@ class ExportStatisticsIntegrationTest(APITestCase):
         self.scenario_ids = []
         for scenario_data in scenarios:
             response = self.client.post('/api/scenarios/scenarios/', scenario_data)
+            if response.status_code != 201:
+                print(f"Scenario creation failed: {response.status_code} - {response.data}")
+            self.assertEqual(response.status_code, 201)
             self.scenario_ids.append(response.data['id'])
         
         # セッション作成

@@ -54,6 +54,10 @@ class CharacterSkillsIntegrationTest(TestCase):
             'edu_value': 17,
             'notes': '技能テスト用キャラクター',
             'mental_disorder': '',
+            # 必須フィールド（副次ステータス）
+            'hit_points_max': 13,  # (CON + SIZ) / 2 = (12 + 13) / 2 = 12.5 → 13
+            'magic_points_max': 15,  # POW = 15
+            'sanity_starting': 75,  # POW × 5 = 15 × 5 = 75
             # 技能データ（複数技能）
             'skill_目星_name': '目星',
             'skill_目星_base': '25',
@@ -89,7 +93,8 @@ class CharacterSkillsIntegrationTest(TestCase):
         
         # レスポンス確認
         self.assertEqual(response.status_code, 302, "キャラクター作成後のリダイレクトが失敗")
-        self.assertIn('/accounts/character/list/', response.get('Location', ''), "正しいURLにリダイレクトされていない")
+        # キャラクター作成後は詳細ページにリダイレクトされる
+        self.assertIn('/accounts/character/', response.get('Location', ''), "正しいURLにリダイレクトされていない")
         
         # データベース確認
         character = CharacterSheet.objects.filter(user=self.user, name=unique_name).first()

@@ -125,7 +125,6 @@ function initializeTabChangeHandlers() {
         tab.addEventListener('shown.bs.tab', function(event) {
             updateProgressIndicators();
             updateProgressBar();
-            saveToLocalStorage();
         });
     });
 }
@@ -658,7 +657,7 @@ function createSkillItemHTML(skill, category, isCustom = false) {
                     <div class="row g-2">
                         <div class="col-2">
                             <label class="form-label small">初期値</label>
-                            <input type="number" class="form-control form-control-sm skill-base text-center" value="${baseValue}" ${isCustom ? '' : 'readonly'} onchange="updateSkillTotal(this)">
+                            <input type="number" class="form-control form-control-sm skill-base text-center" value="${baseValue}" onchange="updateSkillTotal(this)">
                         </div>
                         <div class="col-2">
                             <label class="form-label small">職業</label>

@@ -11,8 +11,9 @@ Arkham Nexusは、クトゥルフ神話をテーマにしたTRPGスケジュー�
 - **Backend**: Django 4.2+, Django REST Framework
 - **Database**: SQLite3（開発環境）, MySQL/PostgreSQL（本番環境）
 - **Frontend**: Bootstrap 5, カスタムCSS/JS（クトゥルフテーマ）
-- **認証**: django-allauth（Google/Twitter OAuth）
+- **認証**: django-allauth（Google/X OAuth）+ Django REST Framework（API経由）
 - **インフラ**: Docker, Nginx, Gunicorn, Redis, Celery
+- **環境設定**: python-decouple（環境別設定管理）
 
 ### 1.3 開発環境データベース
 
@@ -43,6 +44,27 @@ python3 create_admin.py
 # サンプルデータ生成
 python3 manage.py create_sample_data
 ```
+
+### 1.4 環境設定管理
+
+#### 環境別設定ファイル
+- **開発環境**: `.env.development`
+- **本番環境**: `.env.production`
+- **テンプレート**: `.env.example`
+
+#### 環境切り替え方法
+```bash
+# 開発環境（デフォルト）
+python3 manage.py runserver
+
+# 本番環境
+DJANGO_ENV=production python3 manage.py runserver
+```
+
+#### 設定ファイル構成
+- `settings.py`が環境変数`DJANGO_ENV`を参照
+- デフォルトは`development`（開発環境）
+- `python-decouple`を使用して環境別の`.env`ファイルを読み込み
 
 ## 2. システムアーキテクチャ
 
@@ -96,6 +118,7 @@ arkham_nexus/
 - `django_*` - Django管理関連
 - `account_*` - django-allauth関連
 - `socialaccount_*` - ソーシャル認証関連
+- `authtoken_token` - APIトークン管理
 
 #### 2.2.1 accounts アプリ
 
@@ -202,16 +225,16 @@ arkham_nexus/
 
 ### 3.1 認証・認可
 
-#### 3.1.1 ソーシャル認証
-- Google OAuth認証
-- Twitter OAuth認証
-- django-allauthを使用した実装
-- カスタムアダプターでプロフィール情報を自動取得
+#### 3.1.1 OAuth認証（API経由）
+- Google OAuth認証（API経由）
+- X（Twitter）OAuth認証（API経由）
+- django-allauthとDjango REST Frameworkの統合
+- OAuthトークンを使用したAPIアクセス
 
-#### 3.1.2 デモログイン機能（開発環境のみ）
-- `/accounts/demo/`でアクセス可能
-- 実際のOAuth APIを使用せずに疑似ログイン
-- Google/Twitterの固定デモアカウント
+#### 3.1.2 API認証フロー
+- OAuthプロバイダーでの認証後、APIトークンを発行
+- トークンベース認証（rest_framework.authtoken）
+- 認証ヘッダー: `Authorization: Token <token>`
 
 #### 3.1.3 権限管理
 - Django標準の認証システム
@@ -317,11 +340,11 @@ arkham_nexus/
 ## 4. APIエンドポイント
 
 ### 4.1 認証関連
-- `POST /accounts/login/` - ログイン
-- `POST /accounts/signup/` - サインアップ
-- `POST /accounts/logout/` - ログアウト
-- `GET /accounts/demo/` - デモログインページ
-- `GET /accounts/mock-social/<provider>/` - デモソーシャルログイン
+- `POST /api/auth/google/` - Google OAuth認証（API経由）
+- `POST /api/auth/twitter/` - X（Twitter）OAuth認証（API経由）
+- `POST /api/auth/logout/` - APIログアウト（トークン無効化）
+- `GET /api/auth/user/` - 現在のユーザー情報取得
+- `POST /api/auth/token/refresh/` - トークン更新
 
 ### 4.2 ユーザー・グループ関連**【✅ 完全実装・動作確認済み】**
 - `GET/POST /api/accounts/users/` - ユーザー管理
@@ -420,8 +443,8 @@ arkham_nexus/
 ## 6. セキュリティ仕様
 
 ### 6.1 認証・認可
-- セッションベース認証
-- CSRF保護
+- OAuth認証（Google/X）とAPIトークンの統合
+- CORS設定（認証ヘッダー許可）
 - XSS対策（テンプレートエスケープ）
 
 ### 6.2 アクセス制御

@@ -29,7 +29,8 @@ urlpatterns = [
     path('login/', CustomLoginView.as_view(), name='account_login'),
     path('signup/', CustomSignUpView.as_view(), name='account_signup'),
     
-    # API URLs
+    # API URLs (8000番ポート統一のため、api/auth/を削除)
+    path('api/', include('api.urls')),  # 認証API
     path('api/accounts/', include('accounts.urls')),
     path('api/schedules/', include('schedules.urls')),
     path('api/scenarios/', include('scenarios.urls')),
@@ -38,7 +39,7 @@ urlpatterns = [
     path('accounts/', include('accounts.urls')),
     
     # Allauth URLs (excluding login/signup) - moved after custom accounts URLs
-    path('auth/', include('allauth.urls')),
+    # path('auth/', include('allauth.urls')),  # 8000番ポート統一のため無効化
     
     # Home page
     path('', TemplateView.as_view(template_name='home.html'), name='home'),

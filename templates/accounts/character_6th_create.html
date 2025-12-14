@@ -29,8 +29,43 @@
                 
                 <!-- システム情報フィールド(非表示) -->
                 <input type="hidden" id="system" name="system" value="cthulhu_6th">
+                <!-- 自動計算されるフィールド(非表示) -->
+                <input type="hidden" id="sanity_max" name="sanity_max">
                 
-                <!-- 探索者情報 -->
+                <!-- メインタブナビゲーション -->
+                <ul class="nav nav-tabs mb-4" id="mainTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="basic-info-tab" data-bs-toggle="tab" data-bs-target="#basic-info" type="button" role="tab">
+                            <i class="fas fa-user"></i> 基本情報
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="abilities-tab" data-bs-toggle="tab" data-bs-target="#abilities" type="button" role="tab">
+                            <i class="fas fa-dice"></i> 能力値
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="skills-tab" data-bs-toggle="tab" data-bs-target="#skills" type="button" role="tab">
+                            <i class="fas fa-graduation-cap"></i> 技能
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="combat-equipment-tab" data-bs-toggle="tab" data-bs-target="#combat-equipment" type="button" role="tab">
+                            <i class="fas fa-shield-alt"></i> 戦闘・装備
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="background-tab" data-bs-toggle="tab" data-bs-target="#background" type="button" role="tab">
+                            <i class="fas fa-book"></i> 背景情報
+                        </button>
+                    </li>
+                </ul>
+                
+                <!-- タブコンテンツ -->
+                <div class="tab-content" id="mainTabContent">
+                    <!-- 基本情報タブ -->
+                    <div class="tab-pane fade show active" id="basic-info" role="tabpanel">
+                        <!-- 探索者情報 -->
                 <div class="card mb-4">
                     <div class="card-header bg-primary text-white">
                         <h5 class="mb-0">
@@ -41,7 +76,7 @@
                         <div class="row">
                             <div class="col-lg-6 mb-3">
                                 <label for="character-name" class="form-label">探索者名 *</label>
-                                <input type="text" class="form-control form-control-lg" id="character-name" name="character_name" 
+                                <input type="text" class="form-control form-control-lg" id="character-name" name="name" 
                                        placeholder="例: 高島 静雄" required>
                             </div>
                             <div class="col-lg-6 mb-3">
@@ -78,6 +113,11 @@
                                 <input type="text" class="form-control" id="birthplace" name="birthplace" 
                                        placeholder="例: 東京">
                             </div>
+                            <div class="col-lg-3 mb-3">
+                                <label for="residence" class="form-label">現住所</label>
+                                <input type="text" class="form-control" id="residence" name="residence" 
+                                       placeholder="例: 大阪">
+                            </div>
                             <div class="col-12 mb-3">
                                 <label for="notes" class="form-label">背景・特徴</label>
                                 <textarea class="form-control" id="notes" name="notes" rows="3" 
@@ -107,9 +147,11 @@
                         </div>
                     </div>
                 </div>
+                    </div> <!-- 基本情報タブ終了 -->
 
-
-                <!-- 全能力値ダイスロール設定 -->
+                    <!-- 能力値タブ -->
+                    <div class="tab-pane fade" id="abilities" role="tabpanel">
+                        <!-- 全能力値ダイスロール設定 -->
                 <div class="row mb-4">
                     <div class="col-12">
                         <div class="card">
@@ -173,35 +215,35 @@
                         <div class="row">
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="str" class="form-label">STR (筋力)</label>
-                                <input type="number" class="form-control ability-score" id="str" name="str" min="1" max="99" placeholder="3-18">
+                                <input type="number" class="form-control ability-score" id="str" name="str_value" min="1" max="999" placeholder="1-999" required>
                             </div>
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="con" class="form-label">CON (体力)</label>
-                                <input type="number" class="form-control ability-score" id="con" name="con" min="1" max="99" placeholder="3-18">
+                                <input type="number" class="form-control ability-score" id="con" name="con_value" min="1" max="999" placeholder="1-999" required>
                             </div>
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="pow" class="form-label">POW (精神力)</label>
-                                <input type="number" class="form-control ability-score" id="pow" name="pow" min="1" max="99" placeholder="3-18">
+                                <input type="number" class="form-control ability-score" id="pow" name="pow_value" min="1" max="999" placeholder="1-999" required>
                             </div>
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="dex" class="form-label">DEX (敏捷性)</label>
-                                <input type="number" class="form-control ability-score" id="dex" name="dex" min="1" max="99" placeholder="3-18">
+                                <input type="number" class="form-control ability-score" id="dex" name="dex_value" min="1" max="999" placeholder="1-999" required>
                             </div>
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="app" class="form-label">APP (外見)</label>
-                                <input type="number" class="form-control ability-score" id="app" name="app" min="1" max="99" placeholder="3-18">
+                                <input type="number" class="form-control ability-score" id="app" name="app_value" min="1" max="999" placeholder="1-999" required>
                             </div>
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="siz" class="form-label">SIZ (体格)</label>
-                                <input type="number" class="form-control ability-score" id="siz" name="siz" min="1" max="99" placeholder="8-18">
+                                <input type="number" class="form-control ability-score" id="siz" name="siz_value" min="1" max="999" placeholder="1-999" required>
                             </div>
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="int" class="form-label">INT (知性)</label>
-                                <input type="number" class="form-control ability-score" id="int" name="int" min="1" max="99" placeholder="8-18">
+                                <input type="number" class="form-control ability-score" id="int" name="int_value" min="1" max="999" placeholder="1-999" required>
                             </div>
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="edu" class="form-label">EDU (教育)</label>
-                                <input type="number" class="form-control ability-score" id="edu" name="edu" min="1" max="99" placeholder="6-21">
+                                <input type="number" class="form-control ability-score" id="edu" name="edu_value" min="1" max="999" placeholder="1-999" required>
                             </div>
                         </div>
                         
@@ -209,17 +251,17 @@
                         <div class="row">
                             <div class="col-md-2 col-sm-4 mb-3">
                                 <label for="hp" class="form-label">HP (耐久力)</label>
-                                <input type="number" class="form-control" id="hp" name="hp" readonly>
+                                <input type="number" class="form-control" id="hp" name="hit_points_max" readonly>
                                 <small class="text-muted">(CON+SIZ)/2</small>
                             </div>
                             <div class="col-md-2 col-sm-4 mb-3">
                                 <label for="mp" class="form-label">MP</label>
-                                <input type="number" class="form-control" id="mp" name="mp" readonly>
+                                <input type="number" class="form-control" id="mp" name="magic_points_max" readonly>
                                 <small class="text-muted">POW</small>
                             </div>
                             <div class="col-md-2 col-sm-4 mb-3">
                                 <label for="san" class="form-label">SAN (正気度)</label>
-                                <input type="number" class="form-control" id="san" name="san" readonly>
+                                <input type="number" class="form-control" id="san" name="sanity_starting" readonly>
                                 <small class="text-muted">POW×5</small>
                             </div>
                             <div class="col-md-2 col-sm-4 mb-3">
@@ -245,8 +287,11 @@
                         </div>
                     </div>
                 </div>
+                    </div> <!-- 能力値タブ終了 -->
 
-                <!-- 技能システム -->
+                    <!-- 技能タブ -->
+                    <div class="tab-pane fade" id="skills" role="tabpanel">
+                        <!-- 技能システム -->
                 <div class="card mb-4">
                     <div class="card-header bg-warning text-dark">
                         <h5 class="mb-0">
@@ -436,8 +481,11 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- 戦闘・装備 -->
+                    </div> <!-- 技能タブ終了 -->
+
+                    <!-- 戦闘・装備タブ -->
+                    <div class="tab-pane fade" id="combat-equipment" role="tabpanel">
+                        <!-- 戦闘・装備 -->
                 <div class="card mb-4">
                     <div class="card-header bg-danger text-white">
                         <h5 class="mb-0">
@@ -448,17 +496,17 @@
                         <div class="row">
                             <div class="col-md-3 mb-3">
                                 <label for="current_hp" class="form-label">現在HP</label>
-                                <input type="number" class="form-control" id="current_hp" name="current_hp" 
+                                <input type="number" class="form-control" id="current_hp" name="hit_points_current" 
                                        min="0" max="99" readonly>
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label for="current_mp" class="form-label">現在MP</label>
-                                <input type="number" class="form-control" id="current_mp" name="current_mp" 
+                                <input type="number" class="form-control" id="current_mp" name="magic_points_current" 
                                        min="0" max="99" readonly>
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label for="current_san" class="form-label">現在SAN</label>
-                                <input type="number" class="form-control" id="current_san" name="current_san" 
+                                <input type="number" class="form-control" id="current_san" name="sanity_current" 
                                        min="0" max="99" readonly>
                             </div>
                             <div class="col-md-3 mb-3">
@@ -507,8 +555,11 @@
                         </div>
                     </div>
                 </div>
+                    </div> <!-- 戦闘・装備タブ終了 -->
 
-                <!-- 背景情報 -->
+                    <!-- 背景情報タブ -->
+                    <div class="tab-pane fade" id="background" role="tabpanel">
+                        <!-- 背景情報 -->
                 <div class="card mb-4">
                     <div class="card-header bg-info text-white">
                         <h5 class="mb-0">
@@ -545,6 +596,8 @@
                         </div>
                     </div>
                 </div>
+                    </div> <!-- 背景情報タブ終了 -->
+                </div> <!-- タブコンテンツ終了 -->
 
                 <!-- 送信ボタン -->
                 <div class="row mb-5">
@@ -833,8 +886,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const edu = parseInt(document.getElementById('edu')?.value) || 0;
         const siz = parseInt(document.getElementById('siz')?.value) || 0;
         
-        // 6版計算式に基づく
-        const hp = Math.floor((con + siz) / 2);
+        // 6版計算式に基づく（端数切り上げ）
+        const hp = Math.ceil((con + siz) / 2);
         const mp = pow;  // MP = POW
         const san = pow * 5;  // SAN = POW × 5
         
@@ -846,6 +899,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (document.getElementById('current_hp')) document.getElementById('current_hp').value = hp;
         if (document.getElementById('current_mp')) document.getElementById('current_mp').value = mp;
         if (document.getElementById('current_san')) document.getElementById('current_san').value = san;
+        
+        // 最大SANも設定（6版では初期値と同じ）
+        if (document.getElementById('sanity_max')) document.getElementById('sanity_max').value = san;
         
         // 6版固有の計算
         calculateDerivedStats6th(str, con, pow, dex, int, edu, siz);
@@ -1702,13 +1758,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // バリデーション
-            if (!data.character_name) {
+            if (!data.name) {
                 alert('探索者名は必須です。');
                 return;
             }
             
-            // 能力値バリデーション
-            const abilities = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu'];
+            // 能力値バリデーション（フィールド名を修正）
+            const abilities = ['str_value', 'con_value', 'pow_value', 'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value'];
             let hasAbilities = false;
             for (const ability of abilities) {
                 if (data[ability] && parseInt(data[ability]) > 0) {

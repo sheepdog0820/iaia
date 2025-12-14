@@ -527,10 +527,9 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data={
             'session': session.id,
             'user': user.id,
-            'character_name': request.data.get('character_name'),
+            'character_name': request.data.get('character_name', ''),
             'character_sheet': character_sheet.id if character_sheet else None,
-            'role': 'player',
-            'comment': request.data.get('comment', '')
+            'role': 'player'
         })
         
         serializer.is_valid(raise_exception=True)

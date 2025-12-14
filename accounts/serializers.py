@@ -8,7 +8,8 @@ from .models import (
 )
 from .character_models import (
     CharacterSheet, CharacterSheet6th,
-    CharacterSkill, CharacterEquipment, CharacterImage
+    CharacterSkill, CharacterEquipment, CharacterImage,
+    GrowthRecord, SkillGrowthRecord
 )
 
 
@@ -712,3 +713,142 @@ class CharacterImageSerializer(serializers.ModelSerializer):
             validated_data['order'] = (max_order or -1) + 1
         
         return super().create(validated_data)
+
+
+class SkillGrowthRecordSerializer(serializers.ModelSerializer):
+    """スキル成長記録のシリアライザー"""
+    
+    class Meta:
+        model = SkillGrowthRecord
+        fields = [
+            'id', 'skill_name', 'had_experience_check', 'growth_roll_result',
+            'old_value', 'new_value', 'growth_amount', 'notes'
+        ]
+        read_only_fields = ['id', 'growth_amount']
+    
+    def validate(self, attrs):
+        """スキル成長のバリデーション"""
+        old_value = attrs.get('old_value', 0)
+        new_value = attrs.get('new_value', 0)
+        
+        # 新しい値が古い値以上であることを確認
+        if new_value < old_value:
+            raise serializers.ValidationError(
+                "新しい値は古い値以上である必要があります。"
+            )
+        
+        # 成長量を自動計算
+        attrs['growth_amount'] = new_value - old_value
+        
+        return attrs
+
+
+class GrowthRecordSerializer(serializers.ModelSerializer):
+    """成長記録のシリアライザー"""
+    skill_growths = SkillGrowthRecordSerializer(many=True, read_only=True)
+    net_sanity_change = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = GrowthRecord
+        fields = [
+            'id', 'session_date', 'scenario_name', 'gm_name',
+            'sanity_gained', 'sanity_lost', 'net_sanity_change',
+            'experience_gained', 'special_rewards', 'notes',
+            'skill_growths', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'net_sanity_change']
+    
+    def get_net_sanity_change(self, obj):
+        """SAN値の正味変化を返す"""
+        return obj.calculate_net_sanity_change()
+    
+    def validate(self, attrs):
+        """成長記録のバリデーション"""
+        # SAN値の妥当性チェック
+        sanity_gained = attrs.get('sanity_gained', 0)
+        sanity_lost = attrs.get('sanity_lost', 0)
+        
+        if sanity_gained < 0 or sanity_gained > 99:
+            raise serializers.ValidationError(
+                "獲得SAN値は0から99の範囲である必要があります。"
+            )
+        
+        if sanity_lost < 0 or sanity_lost > 99:
+            raise serializers.ValidationError(
+                "喪失SAN値は0から99の範囲である必要があります。"
+            )
+        
+        return attrs
+
+
+class GrowthRecordCreateSerializer(GrowthRecordSerializer):
+    """成長記録作成用のシリアライザー"""
+    skill_growths = SkillGrowthRecordSerializer(many=True, required=False)
+    
+    def create(self, validated_data):
+        """成長記録とスキル成長を同時に作成"""
+        skill_growths_data = validated_data.pop('skill_growths', [])
+        growth_record = GrowthRecord.objects.create(**validated_data)
+        
+        # スキル成長記録を作成
+        for skill_growth_data in skill_growths_data:
+            SkillGrowthRecord.objects.create(
+                growth_record=growth_record,
+                **skill_growth_data
+            )
+        
+        return growth_record
+
+
+class UserDetailSerializer(serializers.ModelSerializer):
+    """管理者用ユーザー詳細シリアライザー"""
+    group_count = serializers.SerializerMethodField()
+    character_count = serializers.SerializerMethodField()
+    gm_session_count = serializers.SerializerMethodField()
+    player_session_count = serializers.SerializerMethodField()
+    oauth_providers = serializers.SerializerMethodField()
+    last_login_formatted = serializers.SerializerMethodField()
+    date_joined_formatted = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CustomUser
+        fields = [
+            'id', 'username', 'email', 'nickname', 'first_name', 'last_name',
+            'is_active', 'is_staff', 'is_superuser', 'last_login', 'date_joined',
+            'trpg_history', 'profile_image', 'group_count', 'character_count',
+            'gm_session_count', 'player_session_count', 'oauth_providers',
+            'last_login_formatted', 'date_joined_formatted'
+        ]
+        read_only_fields = ['id', 'last_login', 'date_joined']
+    
+    def get_group_count(self, obj):
+        """参加グループ数"""
+        return obj.groupmembership_set.count()
+    
+    def get_character_count(self, obj):
+        """作成キャラクター数"""
+        return obj.character_sheets.filter(is_active=True).count()
+    
+    def get_gm_session_count(self, obj):
+        """GMとして開催したセッション数"""
+        return obj.gm_sessions.count()
+    
+    def get_player_session_count(self, obj):
+        """プレイヤーとして参加したセッション数"""
+        return obj.sessionparticipant_set.count()
+    
+    def get_oauth_providers(self, obj):
+        """連携済みOAuth"""
+        from allauth.socialaccount.models import SocialAccount
+        social_accounts = SocialAccount.objects.filter(user=obj)
+        return [account.provider for account in social_accounts]
+    
+    def get_last_login_formatted(self, obj):
+        """最終ログイン日時（フォーマット済み）"""
+        if obj.last_login:
+            return obj.last_login.strftime("%Y年%m月%d日 %H:%M")
+        return "未ログイン"
+    
+    def get_date_joined_formatted(self, obj):
+        """登録日時（フォーマット済み）"""
+        return obj.date_joined.strftime("%Y年%m月%d日 %H:%M")

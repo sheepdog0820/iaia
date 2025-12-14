@@ -205,9 +205,12 @@ class CharacterSheet6thForm(forms.ModelForm):
         label='キャラクター画像（複数選択可能）'
     )
     
-    # 現在値フィールドをオプショナルに
+    # 派生ステータスフィールドをオプショナルに（自動計算されるため）
+    hit_points_max = forms.IntegerField(required=False)
     hit_points_current = forms.IntegerField(required=False)
+    magic_points_max = forms.IntegerField(required=False)
     magic_points_current = forms.IntegerField(required=False)
+    sanity_starting = forms.IntegerField(required=False)
     sanity_max = forms.IntegerField(required=False)
     sanity_current = forms.IntegerField(required=False)
     
@@ -385,7 +388,8 @@ class CharacterSheet6thForm(forms.ModelForm):
         if 'hit_points_max' not in cleaned_data or not cleaned_data['hit_points_max']:
             con = cleaned_data.get('con_value', 10)
             siz = cleaned_data.get('siz_value', 13)
-            cleaned_data['hit_points_max'] = (con + siz) // 2
+            import math
+            cleaned_data['hit_points_max'] = math.ceil((con + siz) / 2)
         
         # MP最大値が設定されていない場合は計算
         if 'magic_points_max' not in cleaned_data or not cleaned_data['magic_points_max']:

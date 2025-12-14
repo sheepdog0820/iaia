@@ -11,7 +11,7 @@
 | 作業内容 | 参照ガイドライン |
 |---------|-----------------|
 | **新機能開発** | 1. [課題管理](docs/guidelines/ISSUE_MANAGEMENT_GUIDELINES.md)<br>2. [TDD](docs/guidelines/TDD_GUIDELINES.md) |
-| **キャラクターシート開発** | 1. [キャラクターシート制限事項](docs/guidelines/CHARACTER_SHEET_GUIDELINES.md)<br>2. [機能一覧](CHARACTER_SHEET_FEATURES.md) - 実装済み機能の詳細<br>3. [技能タブ仕様](SKILL_TAB_SPECIFICATION.md) - 技能タブUI仕様 |
+| **キャラクターシート開発** | 1. [キャラクターシート制限事項](docs/guidelines/CHARACTER_SHEET_GUIDELINES.md)<br>2. [機能一覧](CHARACTER_SHEET_FEATURES.md) - 実装済み機能の詳細<br>3. [技能タブ仕様](SKILL_TAB_SPECIFICATION.md) - 技能タブUI仕様<br>4. [一覧画面仕様](docs/specifications/CHARACTER_LIST_SPECIFICATION.md) - キャラクター一覧画面の仕様 |
 | **JavaScript修正** | [JavaScript](docs/guidelines/JAVASCRIPT_GUIDELINES.md) |
 | **画面・UI修正** | 1. [UIリファクタリング](docs/guidelines/UI_REFACTORING_GUIDELINES.md)<br>2. [画面遷移チェック](docs/guidelines/NAVIGATION_CHECK_GUIDELINES.md) |
 | **テスト作成** | [TDD](docs/guidelines/TDD_GUIDELINES.md) |
@@ -88,7 +88,7 @@ tests/
 - **Database**: SQLite (開発), PostgreSQL (本番推奨)
 - **Frontend**: Bootstrap 5, Vanilla JavaScript
 - **Testing**: pytest, Selenium, Playwright
-- **Authentication**: django-allauth (Google/Twitter OAuth)
+- **Authentication**: django-allauth (Google/X OAuth) + Django REST Framework (API経由)
 
 ## 📋 重要な制限事項
 
@@ -113,6 +113,7 @@ tests/
 
 ### 仕様書
 - [キャラクターシート6版仕様書](docs/character_sheet/CHARACTER_SHEET_6TH_EDITION_SPECIFICATION.md)
+- [キャラクター一覧画面仕様書](docs/specifications/CHARACTER_LIST_SPECIFICATION.md)
 - [プロジェクト仕様書](SPECIFICATION.md)
 
 ### 管理ファイル

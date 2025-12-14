@@ -4,6 +4,11 @@ Character sheet management views
 from .common_imports import *
 from .base_views import BaseViewSet, PermissionMixin
 from .mixins import CharacterSheetAccessMixin, CharacterNestedResourceMixin, ErrorHandlerMixin
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import status
+from ..character_models import GrowthRecord
+from ..serializers import GrowthRecordSerializer
 
 
 class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets.ModelViewSet):
@@ -11,17 +16,19 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        """Get user's character sheets and public character sheets"""
+        """Get user's character sheets only"""
         from django.db.models import Q
         
-        # 自分のキャラクター または 公開設定されているキャラクター
-        return CharacterSheet.objects.filter(
-            Q(user=self.request.user) | Q(is_public=True)
+        # 認証ユーザーの自分のキャラクターのみを取得
+        queryset = CharacterSheet.objects.filter(
+            user=self.request.user
         ).select_related(
             'parent_sheet', 'sixth_edition_data', 'user'
         ).prefetch_related(
             'skills', 'equipment'
         ).order_by('-updated_at')
+        
+        return queryset
     
     def get_serializer_class(self):
         """Action-based serializer selection"""
@@ -49,6 +56,17 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         queryset = self.get_queryset().filter(edition=edition)
         serializer = CharacterSheetListSerializer(queryset, many=True)
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], permission_classes=[])
+    def auth_check(self, request):
+        """認証状態を確認するデバッグエンドポイント"""
+        return Response({
+            'is_authenticated': request.user.is_authenticated,
+            'user': request.user.username if request.user.is_authenticated else None,
+            'session_key': request.session.session_key if hasattr(request, 'session') else None,
+            'auth_header': request.META.get('HTTP_AUTHORIZATION', 'None'),
+            'csrf_token': request.META.get('HTTP_X_CSRFTOKEN', 'None'),
+        })
     
     @action(detail=False, methods=['get'])
     def active(self, request):
@@ -203,7 +221,53 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         serializer = CharacterSheetSerializer(sheet)
         return Response(serializer.data)
     
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=['get'], url_path='skill-points-summary')
+    def skill_points_summary(self, request, pk=None):
+        """Get skill points summary for a character"""
+        sheet = self.get_object()
+        
+        # Calculate occupation skill points
+        if sheet.edition == '6th':
+            # Default is EDU × 20, but check for custom multiplier
+            occupation_total = sheet.edu_value * sheet.occupation_multiplier
+            hobby_total = sheet.int_value * 10
+        else:
+            # 7th edition (if implemented)
+            occupation_total = sheet.edu_value * 4
+            hobby_total = sheet.int_value * 2
+        
+        # Calculate used points
+        skills = sheet.skills.all()
+        occupation_used = sum(skill.occupation_points for skill in skills)
+        hobby_used = sum(skill.interest_points for skill in skills)
+        
+        summary = {
+            'occupation_points': {
+                'total': occupation_total,
+                'used': occupation_used,
+                'remaining': occupation_total - occupation_used
+            },
+            'hobby_points': {
+                'total': hobby_total,
+                'used': hobby_used,
+                'remaining': hobby_total - hobby_used
+            },
+            'skills': [
+                {
+                    'name': skill.skill_name,
+                    'base_value': skill.base_value,
+                    'occupation_points': skill.occupation_points,
+                    'interest_points': skill.interest_points,
+                    'other_points': skill.other_points,
+                    'current_value': skill.current_value
+                }
+                for skill in skills
+            ]
+        }
+        
+        return Response(summary)
+    
+    @action(detail=True, methods=['get'], url_path='ccfolia-json')
     def ccfolia_json(self, request, pk=None):
         """Export to CCFOLIA format JSON"""
         sheet = self.get_object()
@@ -212,6 +276,193 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         ccfolia_data = sheet.export_ccfolia_format()
         
         return Response(ccfolia_data)
+    
+    @action(detail=True, methods=['post'], url_path='allocate-skill-points')
+    def allocate_skill_points(self, request, pk=None):
+        """Allocate skill points to a single skill"""
+        sheet = self.get_object()
+        
+        skill_name = request.data.get('skill_name')
+        occupation_points = request.data.get('occupation_points', 0)
+        interest_points = request.data.get('interest_points', 0)
+        
+        if not skill_name:
+            return Response(
+                {'error': 'skill_name is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get or create skill
+        skill, created = CharacterSkill.objects.get_or_create(
+            character_sheet=sheet,
+            skill_name=skill_name,
+            defaults={'base_value': 0}
+        )
+        
+        # Update points
+        skill.occupation_points = occupation_points
+        skill.interest_points = interest_points
+        skill.save()
+        
+        return Response({
+            'skill': {
+                'name': skill.skill_name,
+                'base_value': skill.base_value,
+                'occupation_points': skill.occupation_points,
+                'interest_points': skill.interest_points,
+                'current_value': skill.current_value
+            }
+        })
+    
+    @action(detail=True, methods=['post'], url_path='batch-allocate-skill-points')
+    def batch_allocate_skill_points(self, request, pk=None):
+        """Batch allocate skill points to multiple skills"""
+        sheet = self.get_object()
+        
+        skills_data = request.data.get('skills', [])
+        if not skills_data:
+            return Response(
+                {'error': 'skills array is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        updated_skills = []
+        for skill_data in skills_data:
+            skill_name = skill_data.get('skill_name')
+            if not skill_name:
+                continue
+            
+            skill, created = CharacterSkill.objects.get_or_create(
+                character_sheet=sheet,
+                skill_name=skill_name,
+                defaults={'base_value': skill_data.get('base_value', 0)}
+            )
+            
+            # Update points
+            skill.occupation_points = skill_data.get('occupation_points', 0)
+            skill.interest_points = skill_data.get('interest_points', 0)
+            skill.other_points = skill_data.get('other_points', 0)
+            skill.save()
+            
+            updated_skills.append({
+                'name': skill.skill_name,
+                'base_value': skill.base_value,
+                'occupation_points': skill.occupation_points,
+                'interest_points': skill.interest_points,
+                'other_points': skill.other_points,
+                'current_value': skill.current_value
+            })
+        
+        return Response({'skills': updated_skills})
+    
+    @action(detail=True, methods=['get'], url_path='combat-summary')
+    def combat_summary(self, request, pk=None):
+        """Get combat summary including weapons and damage bonus"""
+        sheet = self.get_object()
+        
+        # Get damage bonus
+        damage_bonus = sheet.damage_bonus if hasattr(sheet, 'damage_bonus') else '0'
+        
+        # Get weapons
+        weapons = []
+        for equipment in sheet.equipment.filter(item_type='weapon'):
+            weapons.append({
+                'name': equipment.name,
+                'skill_name': equipment.skill_name,
+                'damage': equipment.damage,
+                'base_range': equipment.base_range,
+                'attacks_per_round': equipment.attacks_per_round,
+                'ammo': equipment.ammo,
+                'malfunction_number': equipment.malfunction_number
+            })
+        
+        # Get combat skills
+        combat_skills = []
+        for skill in sheet.skills.filter(skill_name__in=['拳銃', 'ライフル', 'ショットガン', 'こぶし', 'キック', 'ナイフ', '回避']):
+            combat_skills.append({
+                'name': skill.skill_name,
+                'current_value': skill.current_value
+            })
+        
+        return Response({
+            'damage_bonus': damage_bonus,
+            'weapons': weapons,
+            'combat_skills': combat_skills,
+            'hp': {
+                'current': sheet.hit_points_current,
+                'max': sheet.hit_points_max
+            }
+        })
+    
+    @action(detail=True, methods=['get'], url_path='growth-summary')
+    def growth_summary(self, request, pk=None):
+        """Get character growth summary"""
+        sheet = self.get_object()
+        
+        # Get growth records
+        growth_records = []
+        if hasattr(sheet, 'growth_records'):
+            for record in sheet.growth_records.all().order_by('-session_date'):
+                growth_records.append({
+                    'session_date': record.session_date.isoformat(),
+                    'session_name': record.session_name,
+                    'changes': record.changes,
+                    'notes': record.notes
+                })
+        
+        # Get version history
+        versions = []
+        if sheet.parent_sheet:
+            base_sheet = sheet.parent_sheet
+            all_versions = CharacterSheet.objects.filter(
+                parent_sheet=base_sheet
+            ).order_by('version')
+            
+            for version in [base_sheet] + list(all_versions):
+                versions.append({
+                    'version': version.version,
+                    'created_at': version.created_at.isoformat(),
+                    'session_count': version.session_count
+                })
+        else:
+            versions.append({
+                'version': sheet.version,
+                'created_at': sheet.created_at.isoformat(),
+                'session_count': sheet.session_count
+            })
+        
+        return Response({
+            'session_count': sheet.session_count,
+            'growth_records': growth_records,
+            'version_history': versions
+        })
+    
+    @action(detail=True, methods=['post'])
+    def background(self, request, pk=None):
+        """Add or update character background"""
+        sheet = self.get_object()
+        
+        # Get or create background
+        background, created = CharacterBackground.objects.get_or_create(
+            character_sheet=sheet
+        )
+        
+        # Update fields
+        for field in ['personal_description', 'ideals_and_beliefs', 'significant_people', 
+                      'meaningful_locations', 'treasured_possessions', 'traits']:
+            if field in request.data:
+                setattr(background, field, request.data[field])
+        
+        background.save()
+        
+        return Response({
+            'personal_description': background.personal_description,
+            'ideals_and_beliefs': background.ideals_and_beliefs,
+            'significant_people': background.significant_people,
+            'meaningful_locations': background.meaningful_locations,
+            'treasured_possessions': background.treasured_possessions,
+            'traits': background.traits
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
     
     @action(detail=True, methods=['get'])
     def export_version_data(self, request, pk=None):
@@ -266,26 +517,20 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                     status=status.HTTP_400_BAD_REQUEST
                 )
         
-        # 6th edition ability value range check (3-18)
+        # Remove ability value range restrictions as per specification
+        # Users should be able to input any value (1-999)
         ability_fields = ['str_value', 'con_value', 'pow_value', 'dex_value', 
-                         'app_value', 'int_value', 'edu_value']
+                         'app_value', 'siz_value', 'int_value', 'edu_value']
         for field in ability_fields:
             value = request.data.get(field)
-            if not isinstance(value, int) or value < 3 or value > 18:
+            if not isinstance(value, int) or value < 1 or value > 999:
                 return Response(
-                    {'error': f'{field} must be between 3 and 18 for 6th edition'}, 
+                    {'error': f'{field} must be between 1 and 999'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
         
-        # SIZ range check (8-18)
-        siz_value = request.data.get('siz_value')
-        if not isinstance(siz_value, int) or siz_value < 8 or siz_value > 18:
-            return Response(
-                {'error': 'siz_value must be between 8 and 18 for 6th edition'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
         try:
+            
             # Create basic character sheet
             character_data = {
                 'user': request.user,
@@ -313,8 +558,23 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             if 'character_image' in request.FILES:
                 character_data['character_image'] = request.FILES['character_image']
             
-            # Create character sheet (save method auto-calculates secondary stats)
-            character_sheet = CharacterSheet.objects.create(**character_data)
+            # Create character sheet
+            character_sheet = CharacterSheet(**character_data)
+            
+            # Calculate derived stats since auto-calculation is disabled in save method
+            stats = character_sheet.calculate_derived_stats()
+            
+            # Set HP, MP, SAN values
+            character_sheet.hit_points_max = stats['hit_points_max']
+            character_sheet.hit_points_current = stats['hit_points_max']  # Start at max
+            character_sheet.magic_points_max = stats['magic_points_max']
+            character_sheet.magic_points_current = stats['magic_points_max']  # Start at max
+            character_sheet.sanity_starting = stats['sanity_starting']
+            character_sheet.sanity_current = stats['sanity_starting']  # Start at starting value
+            character_sheet.sanity_max = stats['sanity_max']
+            
+            # Save the character sheet
+            character_sheet.save()
             
             # Create 6th edition specific data
             CharacterSheet6th.objects.create(
@@ -326,13 +586,22 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             skills_data = request.data.get('skills', [])
             for skill_data in skills_data:
                 if 'skill_name' in skill_data:
+                    # current_valueが提供されていない場合は、各ポイントの合計を計算
+                    base_value = skill_data.get('base_value', 0)
+                    occupation_points = skill_data.get('occupation_points', 0)
+                    interest_points = skill_data.get('interest_points', 0)
+                    other_points = skill_data.get('other_points', 0)
+                    current_value = skill_data.get('current_value', 
+                                                   base_value + occupation_points + interest_points + other_points)
+                    
                     CharacterSkill.objects.create(
                         character_sheet=character_sheet,
                         skill_name=skill_data['skill_name'],
-                        base_value=skill_data.get('base_value', 0),
-                        occupation_points=skill_data.get('occupation_points', 0),
-                        interest_points=skill_data.get('interest_points', 0),
-                        other_points=skill_data.get('other_points', 0)
+                        base_value=base_value,
+                        occupation_points=occupation_points,
+                        interest_points=interest_points,
+                        other_points=other_points,
+                        current_value=current_value
                     )
             
             # Create equipment data if provided
@@ -384,21 +653,6 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
-    @action(detail=True, methods=['get'])
-    def skill_points_summary(self, request, pk=None):
-        """技能ポイントサマリー取得API"""
-        sheet = self.get_object()
-        
-        summary = {
-            'total_occupation_points': sheet.calculate_occupation_points(),
-            'total_hobby_points': sheet.calculate_hobby_points(),
-            'used_occupation_points': sheet.calculate_used_occupation_points(),
-            'used_hobby_points': sheet.calculate_used_hobby_points(),
-            'remaining_occupation_points': sheet.calculate_remaining_occupation_points(),
-            'remaining_hobby_points': sheet.calculate_remaining_hobby_points()
-        }
-        
-        return Response(summary)
     
     @action(detail=True, methods=['post'])
     def allocate_skill_points(self, request, pk=None):
@@ -1231,8 +1485,8 @@ class CharacterListView(TemplateView):
         edition = self.request.GET.get('edition', 'all')
         is_active = self.request.GET.get('active', 'all')
         
-        # Base queryset (show all users' character sheets)
-        queryset = CharacterSheet.objects.all().select_related(
+        # Base queryset (show only user's character sheets)
+        queryset = CharacterSheet.objects.filter(user=user).select_related(
             'parent_sheet', 'sixth_edition_data', 'user'
         ).prefetch_related('skills', 'equipment').order_by('-updated_at')
         
@@ -1245,10 +1499,10 @@ class CharacterListView(TemplateView):
         elif is_active == 'inactive':
             queryset = queryset.filter(is_active=False)
         
-        # Edition-based statistics (all users)
-        sixth_count = CharacterSheet.objects.filter(edition='6th').count()
-        active_count = CharacterSheet.objects.filter(is_active=True).count()
-        total_count = CharacterSheet.objects.count()
+        # Edition-based statistics (user's characters only)
+        sixth_count = CharacterSheet.objects.filter(user=user, edition='6th').count()
+        active_count = CharacterSheet.objects.filter(user=user, is_active=True).count()
+        total_count = CharacterSheet.objects.filter(user=user).count()
         
         context.update({
             'character_sheets': queryset,
@@ -1271,6 +1525,7 @@ class CharacterDetailView(TemplateView):
         context = super().get_context_data(**kwargs)
         character_id = kwargs.get('character_id')
         
+        
         try:
             character = CharacterSheet.objects.select_related(
                 'parent_sheet', 'sixth_edition_data', 'user'
@@ -1279,8 +1534,9 @@ class CharacterDetailView(TemplateView):
             ).get(id=character_id)
             
             # Filter skills to those above base value only
+            from django.db import models as django_models
             assigned_skills = character.skills.filter(
-                current_value__gt=models.F('base_value')
+                current_value__gt=django_models.F('base_value')
             ).order_by('skill_name')
             
             # Classify equipment by type
@@ -1364,7 +1620,7 @@ class CharacterEditView(TemplateView):
 @method_decorator(login_required, name='dispatch')
 class Character6thCreateView(FormView):
     """Cthulhu Mythos TRPG 6th edition character creation view"""
-    template_name = 'accounts/character_sheet_6th.html'
+    template_name = 'accounts/character_6th_create.html'
     form_class = CharacterSheet6thForm
     success_url = '/accounts/character/list/'
     
@@ -1454,3 +1710,86 @@ class Character6thCreateView(FormView):
                 '探索者の作成に失敗しました。入力内容を確認してください。'
             )
         return super().form_invalid(form)
+
+
+class GrowthRecordViewSet(CharacterNestedResourceMixin, viewsets.ModelViewSet):
+    """成長記録管理ViewSet"""
+    permission_classes = [IsAuthenticated]
+    
+    def get_serializer_class(self):
+        """アクションベースのシリアライザー選択"""
+        if self.action == 'create':
+            from ..serializers import GrowthRecordCreateSerializer
+            return GrowthRecordCreateSerializer
+        else:
+            from ..serializers import GrowthRecordSerializer
+            return GrowthRecordSerializer
+    
+    def get_queryset(self):
+        """キャラクターシートに関連する成長記録を取得"""
+        character_sheet = self.get_character_sheet()
+        return GrowthRecord.objects.filter(
+            character_sheet=character_sheet
+        ).prefetch_related('skill_growths').order_by('-session_date', '-created_at')
+    
+    def perform_create(self, serializer):
+        """成長記録作成時の処理"""
+        character_sheet = self.get_character_sheet()
+        serializer.save(character_sheet=character_sheet)
+    
+    @action(detail=True, methods=['post'])
+    def add_skill_growth(self, request, character_sheet_id=None, pk=None):
+        """既存の成長記録にスキル成長を追加"""
+        growth_record = self.get_object()
+        
+        from ..serializers import SkillGrowthRecordSerializer
+        serializer = SkillGrowthRecordSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            serializer.save(growth_record=growth_record)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=False, methods=['get'])
+    def summary(self, request, character_sheet_id=None):
+        """成長記録のサマリーを取得"""
+        character_sheet = self.get_character_sheet()
+        growth_records = self.get_queryset()
+        
+        # 統計情報を計算
+        total_sessions = growth_records.count()
+        total_san_gained = sum(record.sanity_gained for record in growth_records)
+        total_san_lost = sum(record.sanity_lost for record in growth_records)
+        total_experience = sum(record.experience_gained for record in growth_records)
+        
+        # スキル成長の統計
+        skill_growth_stats = {}
+        for record in growth_records:
+            for skill_growth in record.skill_growths.all():
+                skill_name = skill_growth.skill_name
+                if skill_name not in skill_growth_stats:
+                    skill_growth_stats[skill_name] = {
+                        'total_growth': 0,
+                        'growth_count': 0,
+                        'successful_checks': 0
+                    }
+                
+                skill_growth_stats[skill_name]['total_growth'] += skill_growth.growth_amount
+                skill_growth_stats[skill_name]['growth_count'] += 1
+                if skill_growth.is_growth_successful():
+                    skill_growth_stats[skill_name]['successful_checks'] += 1
+        
+        summary = {
+            'total_sessions': total_sessions,
+            'total_san_gained': total_san_gained,
+            'total_san_lost': total_san_lost,
+            'net_san_change': total_san_gained - total_san_lost,
+            'total_experience': total_experience,
+            'skill_growth_stats': skill_growth_stats,
+            'recent_sessions': GrowthRecordSerializer(
+                growth_records[:5], many=True
+            ).data
+        }
+        
+        return Response(summary)

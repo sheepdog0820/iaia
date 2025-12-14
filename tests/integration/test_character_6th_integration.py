@@ -29,6 +29,39 @@ from schedules.models import TRPGSession, SessionParticipant
 User = get_user_model()
 
 
+def create_test_character(user, **kwargs):
+    """テスト用キャラクターを作成するヘルパー関数"""
+    defaults = {
+        'user': user,
+        'name': 'Test Character',
+        'age': 25,
+        'str_value': 10,
+        'con_value': 10,
+        'pow_value': 10,
+        'dex_value': 10,
+        'app_value': 10,
+        'siz_value': 10,
+        'int_value': 10,
+        'edu_value': 10,
+    }
+    defaults.update(kwargs)
+    
+    # 副次ステータスを計算
+    character = CharacterSheet(**defaults)
+    stats = character.calculate_derived_stats()
+    
+    # 副次ステータスを設定
+    defaults['hit_points_max'] = stats['hit_points_max']
+    defaults['hit_points_current'] = defaults.get('hit_points_current', stats['hit_points_max'])
+    defaults['magic_points_max'] = stats['magic_points_max']
+    defaults['magic_points_current'] = defaults.get('magic_points_current', stats['magic_points_max'])
+    defaults['sanity_starting'] = stats['sanity_starting']
+    defaults['sanity_max'] = stats['sanity_max']
+    defaults['sanity_current'] = defaults.get('sanity_current', stats['sanity_starting'])
+    
+    return CharacterSheet.objects.create(**defaults)
+
+
 class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
     """Test complete character lifecycle from creation to retirement"""
     
@@ -53,6 +86,7 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
         print("\n=== Phase 1: Character Creation ===")
         
         character_data = {
+            'edition': '6th',
             'name': '山田太郎',
             'age': 32,
             'gender': 'male',
@@ -69,7 +103,10 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
             'edu_value': 16
         }
         
-        response = self.client.post('/api/characters/create_6th_edition/', character_data)
+        response = self.client.post('/api/accounts/character-sheets/', character_data)
+        if response.status_code != status.HTTP_201_CREATED:
+            print(f"Error creating character: {response.status_code}")
+            print(f"Response data: {response.data}")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         character_id = response.data['id']
         print(f"Created character: {response.data['name']} (ID: {character_id})")
@@ -78,8 +115,8 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
         character = CharacterSheet.objects.get(id=character_id)
         char_6th = CharacterSheet6th.objects.get(character_sheet=character)
         
-        self.assertEqual(character.hp_max, 15)  # (CON:13 + SIZ:16) / 2 = 14.5 -> 15
-        self.assertEqual(character.mp_max, 15)  # POW:15
+        self.assertEqual(character.hit_points_max, 15)  # (CON:13 + SIZ:16) / 2 = 14.5 -> 15
+        self.assertEqual(character.magic_points_max, 15)  # POW:15
         self.assertEqual(character.san_max, 75)  # POW:15 × 5
         self.assertEqual(char_6th.idea_roll, 85)  # INT:17 × 5
         self.assertEqual(char_6th.luck_roll, 75)  # POW:15 × 5
@@ -90,7 +127,7 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
         print("\n=== Phase 2: Skill Allocation ===")
         
         # Check available points
-        response = self.client.get(f'/api/characters/{character_id}/skill_points_summary/')
+        response = self.client.get(f'/api/accounts/character-sheets/{character_id}/skill_points_summary/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         occupation_points = response.data['occupation_points']['total']
@@ -122,7 +159,7 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
         }
         
         response = self.client.post(
-            f'/api/characters/{character_id}/batch_allocate_skill_points/',
+            f'/api/accounts/character-sheets/{character_id}/batch_allocate_skill_points/',
             skills_data,
             format='json'
         )
@@ -130,7 +167,7 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
         print(f"Allocated {len(skills_data['skills'])} skills")
         
         # Verify point usage
-        response = self.client.get(f'/api/characters/{character_id}/skill_points_summary/')
+        response = self.client.get(f'/api/accounts/character-sheets/{character_id}/skill_points_summary/')
         self.assertEqual(response.data['occupation_points']['used'], 320)
         self.assertEqual(response.data['hobby_points']['used'], 120)
         
@@ -190,7 +227,7 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
         
         for item in equipment_list:
             response = self.client.post(
-                f'/api/characters/{character_id}/equipment/',
+                f'/api/accounts/character-sheets/{character_id}/equipment/',
                 item
             )
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -198,7 +235,7 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
         print(f"Added {len(equipment_list)} items to inventory")
         
         # Check combat summary
-        response = self.client.get(f'/api/characters/{character_id}/combat_summary/')
+        response = self.client.get(f'/api/accounts/character-sheets/{character_id}/combat_summary/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['damage_bonus'], '+1D4')
         self.assertEqual(len(response.data['weapons']), 2)
@@ -221,7 +258,7 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
         }
         
         response = self.client.post(
-            f'/api/characters/{character_id}/background/',
+            f'/api/accounts/character-sheets/{character_id}/background/',
             background_data
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -263,7 +300,7 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
         
         # Simulate session results
         # HP damage
-        character.hp_current = character.hp_max - 3
+        character.hp_current = character.hit_points_max - 3
         character.save()
         
         # SAN loss
@@ -312,7 +349,7 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
         print("\n=== Phase 5: Character Version ===")
         
         # Create new version after significant changes
-        response = self.client.post(f'/api/characters/{character_id}/create_version/')
+        response = self.client.post(f'/api/accounts/character-sheets/{character_id}/create_version/')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         version_id = response.data['id']
         print(f"Created character version 2 (ID: {version_id})")
@@ -323,7 +360,7 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
         self.assertEqual(version.parent_sheet_id, character_id)
         
         # Check version history
-        response = self.client.get(f'/api/characters/{character_id}/versions/')
+        response = self.client.get(f'/api/accounts/character-sheets/{character_id}/versions/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)  # Original + 1 version
         
@@ -368,7 +405,7 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
         print("\n=== Phase 7: Character Export ===")
         
         # Export to CCFOLIA
-        response = self.client.get(f'/api/characters/{version_id}/ccfolia_json/')
+        response = self.client.get(f'/api/accounts/character-sheets/{version_id}/ccfolia_json/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         ccfolia_data = response.json()
@@ -381,12 +418,12 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
         print("\n=== Phase 8: Character Retirement ===")
         
         # Deactivate character
-        response = self.client.post(f'/api/characters/{version_id}/toggle_active/')
+        response = self.client.post(f'/api/accounts/character-sheets/{version_id}/toggle_active/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(response.data['is_active'])
         
         # Verify character lifecycle
-        response = self.client.get(f'/api/characters/{version_id}/growth_summary/')
+        response = self.client.get(f'/api/accounts/character-sheets/{version_id}/growth_summary/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         summary = response.data
@@ -424,7 +461,7 @@ class Character6thConcurrencyIntegrationTest(TransactionTestCase):
         # Create characters for each user
         character_ids = []
         for i, client in enumerate(self.clients):
-            response = client.post('/api/characters/create_6th_edition/', {
+            response = client.post('/api/accounts/character-sheets/create_6th_edition/', {
                 'name': f'Character {i}',
                 'age': 25,
                 'str_value': 10, 'con_value': 10, 'pow_value': 10, 'dex_value': 10,
@@ -436,7 +473,7 @@ class Character6thConcurrencyIntegrationTest(TransactionTestCase):
         # Simulate concurrent skill allocation
         def allocate_skills(client, character_id, skill_name):
             return client.post(
-                f'/api/characters/{character_id}/allocate_skill_points/',
+                f'/api/accounts/character-sheets/{character_id}/allocate_skill_points/',
                 {
                     'skill_name': skill_name,
                     'base_value': 5,
@@ -462,7 +499,7 @@ class Character6thConcurrencyIntegrationTest(TransactionTestCase):
     def test_concurrent_character_modification(self):
         """Test concurrent modifications to the same character"""
         # Create a shared character
-        character = CharacterSheet.objects.create(
+        character = create_test_character(
             user=self.users[0],
             name="Shared Character",
             age=25,
@@ -473,7 +510,7 @@ class Character6thConcurrencyIntegrationTest(TransactionTestCase):
         # Try concurrent updates
         def update_character(client, character_id, update_data):
             return client.patch(
-                f'/api/characters/{character_id}/',
+                f'/api/accounts/character-sheets/{character_id}/',
                 update_data
             )
             
@@ -533,7 +570,7 @@ class Character6thPermissionIntegrationTest(TransactionTestCase):
         )
         
         # Create characters
-        self.private_char = CharacterSheet.objects.create(
+        self.private_char = create_test_character(
             user=self.owner,
             name="Private Character",
             age=25,
@@ -542,7 +579,7 @@ class Character6thPermissionIntegrationTest(TransactionTestCase):
             is_public=False
         )
         
-        self.public_char = CharacterSheet.objects.create(
+        self.public_char = create_test_character(
             user=self.owner,
             name="Public Character",
             age=25,
@@ -558,21 +595,21 @@ class Character6thPermissionIntegrationTest(TransactionTestCase):
         client.force_authenticate(user=self.owner)
         
         # Owner can see both
-        response = client.get(f'/api/characters/{self.private_char.id}/')
+        response = client.get(f'/api/accounts/character-sheets/{self.private_char.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
-        response = client.get(f'/api/characters/{self.public_char.id}/')
+        response = client.get(f'/api/accounts/character-sheets/{self.public_char.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Test as stranger
         client.force_authenticate(user=self.stranger)
         
         # Stranger cannot see private
-        response = client.get(f'/api/characters/{self.private_char.id}/')
+        response = client.get(f'/api/accounts/character-sheets/{self.private_char.id}/')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         # Stranger can see public
-        response = client.get(f'/api/characters/{self.public_char.id}/')
+        response = client.get(f'/api/accounts/character-sheets/{self.public_char.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
     def test_character_modification_permissions(self):
@@ -582,7 +619,7 @@ class Character6thPermissionIntegrationTest(TransactionTestCase):
         # Owner can modify
         client.force_authenticate(user=self.owner)
         response = client.patch(
-            f'/api/characters/{self.public_char.id}/',
+            f'/api/accounts/character-sheets/{self.public_char.id}/',
             {'age': 26}
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -590,7 +627,7 @@ class Character6thPermissionIntegrationTest(TransactionTestCase):
         # Non-owner cannot modify even public character
         client.force_authenticate(user=self.stranger)
         response = client.patch(
-            f'/api/characters/{self.public_char.id}/',
+            f'/api/accounts/character-sheets/{self.public_char.id}/',
             {'age': 27}
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -602,7 +639,7 @@ class Character6thPermissionIntegrationTest(TransactionTestCase):
         # Owner can allocate
         client.force_authenticate(user=self.owner)
         response = client.post(
-            f'/api/characters/{self.public_char.id}/allocate_skill_points/',
+            f'/api/accounts/character-sheets/{self.public_char.id}/allocate_skill_points/',
             {
                 'skill_name': '医学',
                 'base_value': 5,
@@ -614,7 +651,7 @@ class Character6thPermissionIntegrationTest(TransactionTestCase):
         # Non-owner cannot allocate even to public character
         client.force_authenticate(user=self.stranger)
         response = client.post(
-            f'/api/characters/{self.public_char.id}/allocate_skill_points/',
+            f'/api/accounts/character-sheets/{self.public_char.id}/allocate_skill_points/',
             {
                 'skill_name': '心理学',
                 'base_value': 5,
@@ -638,7 +675,7 @@ class Character6thSessionIntegrationTest(TransactionTestCase):
         )
         
         # Create character
-        self.character = CharacterSheet.objects.create(
+        self.character = create_test_character(
             user=self.player,
             name="Session Test Character",
             age=25,
@@ -725,7 +762,7 @@ class Character6thDataIntegrityTest(TransactionTestCase):
     def test_character_deletion_cascades(self):
         """Test all related data is properly deleted with character"""
         # Create character with all related data
-        character = CharacterSheet.objects.create(
+        character = create_test_character(
             user=self.user,
             name="Delete Test",
             age=25,
@@ -783,7 +820,7 @@ class Character6thDataIntegrityTest(TransactionTestCase):
     def test_version_integrity(self):
         """Test version relationships maintain integrity"""
         # Create character and versions
-        original = CharacterSheet.objects.create(
+        original = create_test_character(
             user=self.user,
             name="Version Test",
             age=25,
@@ -844,7 +881,7 @@ class Character6thPerformanceIntegrationTest(TransactionTestCase):
         
         # Measure list performance
         start_time = time.time()
-        response = self.client.get('/api/characters/', {'page_size': 20})
+        response = self.client.get('/api/accounts/character-sheets/', {'page_size': 20})
         elapsed = time.time() - start_time
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -854,7 +891,7 @@ class Character6thPerformanceIntegrationTest(TransactionTestCase):
         
         # Test filtering performance
         start_time = time.time()
-        response = self.client.get('/api/characters/', {
+        response = self.client.get('/api/accounts/character-sheets/', {
             'is_active': True,
             'is_public': True,
             'search': 'Character 01'
@@ -867,7 +904,7 @@ class Character6thPerformanceIntegrationTest(TransactionTestCase):
     def test_complex_character_detail_performance(self):
         """Test performance loading character with many related objects"""
         # Create character with lots of data
-        character = CharacterSheet.objects.create(
+        character = create_test_character(
             user=self.user,
             name="Complex Character",
             age=25,
@@ -915,7 +952,7 @@ class Character6thPerformanceIntegrationTest(TransactionTestCase):
         
         # Measure detail retrieval performance
         start_time = time.time()
-        response = self.client.get(f'/api/characters/{character.id}/')
+        response = self.client.get(f'/api/accounts/character-sheets/{character.id}/')
         elapsed = time.time() - start_time
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -925,7 +962,7 @@ class Character6thPerformanceIntegrationTest(TransactionTestCase):
         
     def test_batch_operation_performance(self):
         """Test performance of batch operations"""
-        character = CharacterSheet.objects.create(
+        character = create_test_character(
             user=self.user,
             name="Batch Test",
             age=25,
@@ -950,7 +987,7 @@ class Character6thPerformanceIntegrationTest(TransactionTestCase):
         # Measure batch allocation performance
         start_time = time.time()
         response = self.client.post(
-            f'/api/characters/{character.id}/batch_allocate_skill_points/',
+            f'/api/accounts/character-sheets/{character.id}/batch_allocate_skill_points/',
             skills_data,
             format='json'
         )

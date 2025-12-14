@@ -329,6 +329,9 @@ class WorkflowIntegrationTestCase(TestCase):
             'estimated_duration': 240
         }
         response = self.client.post('/api/scenarios/scenarios/', scenario_data)
+        if response.status_code != 201:
+            print(f"Scenario creation failed: {response.status_code} - {response.data}")
+        self.assertEqual(response.status_code, 201)
         scenario_id = response.data['id']
         
         # プレイ履歴作成

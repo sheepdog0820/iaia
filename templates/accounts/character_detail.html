@@ -168,6 +168,11 @@
                                     <i class="fas fa-dice-d20"></i> 探索者履歴
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="growth-records-tab" data-bs-toggle="tab" href="#growth-records">
+                                    <i class="fas fa-level-up-alt"></i> 成長記録
+                                </a>
+                            </li>
                         </ul>
                     </div>
                     <div class="card-body">
@@ -190,9 +195,121 @@
                                     <!-- 探索者履歴が表示されます -->
                                 </div>
                             </div>
+                            <!-- 成長記録タブ -->
+                            <div class="tab-pane fade" id="growth-records">
+                                <div class="mb-3">
+                                    <button class="btn btn-primary" id="addGrowthRecordBtn">
+                                        <i class="fas fa-plus"></i> 成長記録を追加
+                                    </button>
+                                    <button class="btn btn-outline-secondary ms-2" id="viewGrowthSummaryBtn">
+                                        <i class="fas fa-chart-line"></i> 成長サマリー
+                                    </button>
+                                </div>
+                                <div id="growthRecordsLoading" class="text-center d-none">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">読み込み中...</span>
+                                    </div>
+                                    <div class="mt-2 text-muted">成長記録を読み込み中...</div>
+                                </div>
+                                <div id="growthRecordsContainer">
+                                    <!-- 成長記録が表示されます -->
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 成長記録追加モーダル -->
+<div class="modal fade" id="growthRecordModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-level-up-alt"></i> 成長記録を追加
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="growthRecordForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="sessionDate" class="form-label">セッション日付 <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="sessionDate" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="scenarioName" class="form-label">シナリオ名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="scenarioName" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="gmName" class="form-label">GM名</label>
+                            <input type="text" class="form-control" id="gmName">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="experienceGained" class="form-label">獲得経験点</label>
+                            <input type="number" class="form-control" id="experienceGained" min="0" value="0">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="sanityGained" class="form-label">獲得SAN値</label>
+                            <input type="number" class="form-control" id="sanityGained" min="0" max="99" value="0">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="sanityLost" class="form-label">喪失SAN値</label>
+                            <input type="number" class="form-control" id="sanityLost" min="0" max="99" value="0">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="specialRewards" class="form-label">特別報酬</label>
+                        <textarea class="form-control" id="specialRewards" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="sessionNotes" class="form-label">セッションメモ</label>
+                        <textarea class="form-control" id="sessionNotes" rows="3"></textarea>
+                    </div>
+                    
+                    <!-- スキル成長セクション -->
+                    <div class="border-top pt-3 mt-3">
+                        <h6 class="mb-3">
+                            <i class="fas fa-chart-line"></i> スキル成長
+                            <button type="button" class="btn btn-sm btn-outline-success ms-2" id="addSkillGrowthBtn">
+                                <i class="fas fa-plus"></i> スキル追加
+                            </button>
+                        </h6>
+                        <div id="skillGrowthContainer">
+                            <!-- スキル成長フォームが動的に追加されます -->
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" id="saveGrowthRecordBtn">
+                    <i class="fas fa-save"></i> 保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 成長サマリーモーダル -->
+<div class="modal fade" id="growthSummaryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-chart-line"></i> 成長サマリー
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="growthSummaryContent">
+                <!-- サマリー内容が表示されます -->
             </div>
         </div>
     </div>
@@ -518,6 +635,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // 技能表示（振ったもののみ）
     function displaySkills(skills) {
         const container = document.getElementById('skillsContainer');
+        
+        // デバッグ: 技能データを確認
+        console.log('技能データ:', skills);
+        console.log('技能数:', skills ? skills.length : 0);
+        if (skills && skills.length > 0) {
+            console.log('最初の技能:', skills[0]);
+        }
         
         // 基本値より高い技能のみフィルタ
         const trainedSkills = skills.filter(skill => 
@@ -905,6 +1029,349 @@ document.addEventListener('DOMContentLoaded', function() {
         loadPlayHistory();
     });
     
+    // 成長記録関連の関数
+    let growthRecords = [];
+    let skillGrowthCounter = 0;
+    
+    // 成長記録読み込み
+    function loadGrowthRecords() {
+        const container = document.getElementById('growthRecordsContainer');
+        const loading = document.getElementById('growthRecordsLoading');
+        
+        loading.classList.remove('d-none');
+        container.innerHTML = '';
+        
+        axios.get(`/accounts/character-sheets/${characterId}/growth-records/`)
+            .then(response => {
+                growthRecords = response.data;
+                displayGrowthRecords(growthRecords);
+            })
+            .catch(error => {
+                console.error('成長記録の読み込みエラー:', error);
+                container.innerHTML = '<div class="alert alert-danger">成長記録の読み込みに失敗しました。</div>';
+            })
+            .finally(() => {
+                loading.classList.add('d-none');
+            });
+    }
+    
+    // 成長記録表示
+    function displayGrowthRecords(records) {
+        const container = document.getElementById('growthRecordsContainer');
+        
+        if (!records || records.length === 0) {
+            container.innerHTML = '<div class="text-muted">成長記録がありません。</div>';
+            return;
+        }
+        
+        let html = '<div class="row">';
+        
+        records.forEach(record => {
+            const netSanChange = record.net_sanity_change;
+            const sanChangeClass = netSanChange > 0 ? 'text-success' : netSanChange < 0 ? 'text-danger' : 'text-muted';
+            const sanChangeIcon = netSanChange > 0 ? 'fa-arrow-up' : netSanChange < 0 ? 'fa-arrow-down' : 'fa-minus';
+            
+            html += `
+                <div class="col-12 mb-3">
+                    <div class="card growth-record-card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-calendar"></i> ${record.session_date} - ${record.scenario_name}
+                                </h6>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteGrowthRecord(${record.id})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <small class="text-muted">GM</small>
+                                    <div>${record.gm_name || '不明'}</div>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">SAN値変化</small>
+                                    <div class="${sanChangeClass}">
+                                        <i class="fas ${sanChangeIcon}"></i> ${netSanChange >= 0 ? '+' : ''}${netSanChange}
+                                        <small class="text-muted">(+${record.sanity_gained}/-${record.sanity_lost})</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">獲得経験点</small>
+                                    <div>${record.experience_gained}</div>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">特別報酬</small>
+                                    <div>${record.special_rewards || 'なし'}</div>
+                                </div>
+                            </div>
+                            ${record.notes ? `<div class="mt-2"><small class="text-muted">メモ:</small> ${record.notes}</div>` : ''}
+                            ${record.skill_growths && record.skill_growths.length > 0 ? `
+                                <div class="mt-3">
+                                    <h6><i class="fas fa-chart-line"></i> スキル成長</h6>
+                                    <div class="row">
+                                        ${record.skill_growths.map(sg => `
+                                            <div class="col-md-4 mb-2">
+                                                <div class="border rounded p-2">
+                                                    <strong>${sg.skill_name}</strong>: 
+                                                    ${sg.old_value} → ${sg.new_value} 
+                                                    <span class="text-success">(+${sg.growth_amount})</span>
+                                                    ${sg.growth_roll_result ? `<br><small>ロール: ${sg.growth_roll_result}</small>` : ''}
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
+    
+    // スキル成長フォーム追加
+    function addSkillGrowthForm() {
+        const container = document.getElementById('skillGrowthContainer');
+        const id = skillGrowthCounter++;
+        
+        const skillGrowthHtml = `
+            <div class="skill-growth-item border rounded p-3 mb-2" data-id="${id}">
+                <div class="row">
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label">技能名</label>
+                        <select class="form-select skill-select" id="skillName_${id}">
+                            <option value="">選択してください</option>
+                            <!-- 技能リストは動的に生成 -->
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <label class="form-label">旧値</label>
+                        <input type="number" class="form-control" id="oldValue_${id}" min="0" max="100">
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <label class="form-label">新値</label>
+                        <input type="number" class="form-control" id="newValue_${id}" min="0" max="100">
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <label class="form-label">ロール</label>
+                        <input type="number" class="form-control" id="rollResult_${id}" min="1" max="100">
+                    </div>
+                    <div class="col-md-2 mb-2 d-flex align-items-end">
+                        <button type="button" class="btn btn-sm btn-danger" onclick="removeSkillGrowth(${id})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <label class="form-label">メモ</label>
+                        <input type="text" class="form-control" id="growthNotes_${id}">
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', skillGrowthHtml);
+        
+        // 技能リストを設定
+        populateSkillSelect(`skillName_${id}`);
+    }
+    
+    // 技能セレクトボックスを設定
+    function populateSkillSelect(selectId) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        
+        // 現在のキャラクターの技能を取得してセレクトボックスに追加
+        axios.get(`/accounts/character-skills/?character_sheet=${characterId}`)
+            .then(response => {
+                const skills = response.data;
+                skills.forEach(skill => {
+                    const option = document.createElement('option');
+                    option.value = skill.skill_name;
+                    option.textContent = `${skill.skill_name} (${skill.current_value})`;
+                    select.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('技能リストの取得エラー:', error);
+            });
+    }
+    
+    // スキル成長削除
+    window.removeSkillGrowth = function(id) {
+        const item = document.querySelector(`.skill-growth-item[data-id="${id}"]`);
+        if (item) {
+            item.remove();
+        }
+    };
+    
+    // 成長記録保存
+    function saveGrowthRecord() {
+        const form = document.getElementById('growthRecordForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+        
+        // スキル成長データを収集
+        const skillGrowths = [];
+        document.querySelectorAll('.skill-growth-item').forEach(item => {
+            const id = item.dataset.id;
+            const skillName = document.getElementById(`skillName_${id}`).value;
+            const oldValue = parseInt(document.getElementById(`oldValue_${id}`).value) || 0;
+            const newValue = parseInt(document.getElementById(`newValue_${id}`).value) || 0;
+            const rollResult = parseInt(document.getElementById(`rollResult_${id}`).value) || null;
+            const notes = document.getElementById(`growthNotes_${id}`).value;
+            
+            if (skillName && newValue > oldValue) {
+                skillGrowths.push({
+                    skill_name: skillName,
+                    old_value: oldValue,
+                    new_value: newValue,
+                    growth_roll_result: rollResult,
+                    had_experience_check: rollResult !== null,
+                    notes: notes
+                });
+            }
+        });
+        
+        const data = {
+            session_date: document.getElementById('sessionDate').value,
+            scenario_name: document.getElementById('scenarioName').value,
+            gm_name: document.getElementById('gmName').value || '',
+            experience_gained: parseInt(document.getElementById('experienceGained').value) || 0,
+            sanity_gained: parseInt(document.getElementById('sanityGained').value) || 0,
+            sanity_lost: parseInt(document.getElementById('sanityLost').value) || 0,
+            special_rewards: document.getElementById('specialRewards').value || '',
+            notes: document.getElementById('sessionNotes').value || '',
+            skill_growths: skillGrowths
+        };
+        
+        axios.post(`/accounts/character-sheets/${characterId}/growth-records/`, data)
+            .then(response => {
+                // モーダルを閉じる
+                const modal = bootstrap.Modal.getInstance(document.getElementById('growthRecordModal'));
+                modal.hide();
+                
+                // フォームをリセット
+                form.reset();
+                document.getElementById('skillGrowthContainer').innerHTML = '';
+                skillGrowthCounter = 0;
+                
+                // 成長記録を再読み込み
+                loadGrowthRecords();
+                
+                // 成功メッセージ（オプション）
+                alert('成長記録を保存しました。');
+            })
+            .catch(error => {
+                console.error('成長記録の保存エラー:', error);
+                alert('成長記録の保存に失敗しました。');
+            });
+    }
+    
+    // 成長記録削除
+    window.deleteGrowthRecord = function(recordId) {
+        if (!confirm('この成長記録を削除しますか？')) {
+            return;
+        }
+        
+        axios.delete(`/accounts/character-sheets/${characterId}/growth-records/${recordId}/`)
+            .then(response => {
+                loadGrowthRecords();
+            })
+            .catch(error => {
+                console.error('成長記録の削除エラー:', error);
+                alert('成長記録の削除に失敗しました。');
+            });
+    };
+    
+    // 成長サマリー表示
+    function showGrowthSummary() {
+        axios.get(`/accounts/character-sheets/${characterId}/growth-records/summary/`)
+            .then(response => {
+                const summary = response.data;
+                const content = document.getElementById('growthSummaryContent');
+                
+                let html = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>セッション統計</h6>
+                            <ul class="list-unstyled">
+                                <li>総セッション数: <strong>${summary.total_sessions}</strong></li>
+                                <li>総獲得SAN値: <strong class="text-success">+${summary.total_san_gained}</strong></li>
+                                <li>総喪失SAN値: <strong class="text-danger">-${summary.total_san_lost}</strong></li>
+                                <li>正味SAN値変化: <strong class="${summary.net_san_change >= 0 ? 'text-success' : 'text-danger'}">${summary.net_san_change >= 0 ? '+' : ''}${summary.net_san_change}</strong></li>
+                                <li>総獲得経験点: <strong>${summary.total_experience}</strong></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>スキル成長統計</h6>
+                            ${Object.keys(summary.skill_growth_stats).length > 0 ? `
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>技能</th>
+                                                <th>総成長</th>
+                                                <th>成長回数</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${Object.entries(summary.skill_growth_stats).map(([skill, stats]) => `
+                                                <tr>
+                                                    <td>${skill}</td>
+                                                    <td class="text-success">+${stats.total_growth}</td>
+                                                    <td>${stats.growth_count}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ` : '<p class="text-muted">スキル成長記録がありません。</p>'}
+                        </div>
+                    </div>
+                `;
+                
+                content.innerHTML = html;
+                
+                const modal = new bootstrap.Modal(document.getElementById('growthSummaryModal'));
+                modal.show();
+            })
+            .catch(error => {
+                console.error('成長サマリーの取得エラー:', error);
+                alert('成長サマリーの取得に失敗しました。');
+            });
+    }
+    
+    // イベントリスナー設定
+    document.getElementById('growth-records-tab')?.addEventListener('shown.bs.tab', function() {
+        loadGrowthRecords();
+    });
+    
+    document.getElementById('addGrowthRecordBtn')?.addEventListener('click', function() {
+        const modal = new bootstrap.Modal(document.getElementById('growthRecordModal'));
+        modal.show();
+    });
+    
+    document.getElementById('viewGrowthSummaryBtn')?.addEventListener('click', function() {
+        showGrowthSummary();
+    });
+    
+    document.getElementById('addSkillGrowthBtn')?.addEventListener('click', function() {
+        addSkillGrowthForm();
+    });
+    
+    document.getElementById('saveGrowthRecordBtn')?.addEventListener('click', function() {
+        saveGrowthRecord();
+    });
+    
     // 初期読み込み
     loadCharacterDetail();
 });
@@ -943,6 +1410,34 @@ document.addEventListener('DOMContentLoaded', function() {
     background-color: transparent;
     border-color: transparent transparent #dee2e6;
     color: #007bff;
+}
+
+.growth-record-card {
+    transition: all 0.3s ease;
+    border-left: 4px solid #28a745;
+}
+
+.growth-record-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+}
+
+.skill-growth-item {
+    background-color: #f8f9fa;
+    transition: all 0.2s ease;
+}
+
+.skill-growth-item:hover {
+    background-color: #e9ecef;
+}
+
+#growthSummaryModal .table {
+    font-size: 0.875rem;
+}
+
+#growthRecordModal .form-label {
+    font-size: 0.875rem;
+    font-weight: 500;
 }
 </style>
 {% endblock %}

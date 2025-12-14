@@ -13,10 +13,10 @@
                     キャラクターシート一覧
                 </h2>
                 <div class="dropdown">
-                    <button class="btn btn-success dropdown-toggle" type="button" id="createCharacterDropdown" data-bs-toggle="dropdown">
+                    <button class="btn btn-success dropdown-toggle" type="button" id="createCharacterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-plus"></i> 新規作成
                     </button>
-                    <ul class="dropdown-menu">
+                    <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="{% url 'character_create_6th' %}">
                             <i class="fas fa-book text-primary"></i> 6版キャラクター作成
                         </a></li>
@@ -66,6 +66,15 @@
                     </a>
                 </div>
             </div>
+            
+            <!-- エラー時の代替リンク -->
+            <div class="text-center mt-3">
+                <small class="text-muted">
+                    ドロップダウンが動作しない場合は
+                    <a href="{% url 'character_create_6th' %}">こちらから6版キャラクターを作成</a>
+                    できます。
+                </small>
+            </div>
         </div>
     </div>
 </div>
@@ -78,6 +87,20 @@ const DEFAULT_CHARACTER_IMAGE = '{% static "images/default-character.svg" %}';
 
 document.addEventListener('DOMContentLoaded', function() {
     let allCharacters = [];
+    
+    // ドロップダウンのフォールバック処理
+    const createBtn = document.getElementById('createCharacterDropdown');
+    if (createBtn) {
+        // Bootstrap dropdown が動作しない場合のフォールバック
+        createBtn.addEventListener('click', function(e) {
+            // If dropdown doesn't work, go directly to create page
+            const dropdown = bootstrap.Dropdown.getInstance(this);
+            if (!dropdown) {
+                e.preventDefault();
+                window.location.href = '{% url "character_create_6th" %}';
+            }
+        });
+    }
     
     // ステータスバッジを取得する関数
     function getStatusBadge(status) {
@@ -111,7 +134,37 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 console.error('キャラクター一覧の読み込みに失敗しました:', error);
                 document.getElementById('loading').style.display = 'none';
-                alert('キャラクター一覧の読み込みに失敗しました。');
+                
+                // より詳細なエラー情報を表示
+                let errorMessage = 'キャラクター一覧の読み込みに失敗しました。';
+                if (error.response) {
+                    // サーバーからのエラーレスポンス
+                    if (error.response.status === 401) {
+                        errorMessage = '認証が必要です。ログインしてください。';
+                        window.location.href = '/accounts/login/';
+                        return;
+                    } else if (error.response.status === 403) {
+                        errorMessage = 'アクセス権限がありません。';
+                    } else if (error.response.data && error.response.data.detail) {
+                        errorMessage = error.response.data.detail;
+                    }
+                } else if (error.request) {
+                    // リクエストは送信されたがレスポンスがない
+                    errorMessage = 'サーバーに接続できませんでした。';
+                } else {
+                    // その他のエラー
+                    errorMessage = error.message || errorMessage;
+                }
+                
+                // エラーメッセージを画面に表示
+                const container = document.getElementById('characterContainer');
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-danger" role="alert">
+                            <i class="fas fa-exclamation-triangle"></i> ${errorMessage}
+                        </div>
+                    </div>
+                `;
             });
     }
     
@@ -129,7 +182,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let html = '';
         characters.forEach(character => {
-            const editionBadge = '<span class="badge bg-primary">6版</span>';
+            const editionBadge = character.edition === '6th' ? 
+                '<span class="badge bg-primary">6版</span>' : 
+                '<span class="badge bg-secondary">' + character.edition + '</span>';
             
             const statusBadge = getStatusBadge(character.status);
             

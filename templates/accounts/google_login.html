@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Google OAuth認証{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-body p-5">
+                    <h2 class="text-center mb-4">Google OAuth認証</h2>
+                    
+                    <div class="alert alert-info mb-4">
+                        <h5>テスト用ページ（8000番ポート統一版）</h5>
+                        <p class="mb-0">このページからGoogle認証を開始します。</p>
+                    </div>
+
+                    <div class="text-center mb-4">
+                        <a href="{{ authorization_url }}" class="btn btn-primary btn-lg">
+                            <i class="fab fa-google me-2"></i>
+                            Googleでログイン
+                        </a>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h5 class="card-title">認証フロー</h5>
+                            <ol class="mb-0">
+                                <li>上のボタンをクリック</li>
+                                <li>Googleアカウントでログイン</li>
+                                <li>アプリへのアクセスを許可</li>
+                                <li>自動的にこのサイトにリダイレクト</li>
+                                <li>認証完了！</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <h6>デバッグ情報</h6>
+                        <small class="text-muted">
+                            <strong>Client ID:</strong> {{ client_id }}<br>
+                            <strong>Redirect URI:</strong> http://localhost:8000/accounts/google/callback/
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-3">
+                <a href="{% url 'login' %}" class="text-muted">通常のログインページへ戻る</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
