@@ -1,0 +1,85 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+/staticfiles/
+/media/
+
+# Environment
+.env
+.env.local
+.env.production
+.env.docker
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Tests
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Documentation
+docs/_build/
+*.md
+!README.md
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+docker-compose.*.yml
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup
+.git_backup/
+*.bak
+
+# Temporary
+*.tmp
+tmp/
+temp/
+
+# Node (if used)
+node_modules/
+npm-debug.log
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/traces/
+
+# Claude
+.claude/
+.claude-trace/
