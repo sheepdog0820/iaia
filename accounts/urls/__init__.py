@@ -9,12 +9,13 @@ from .. import export_views
 from ..views.character_image_views import CharacterImageViewSet
 from ..views.character_views import GrowthRecordViewSet
 from ..views.dev_login_view import DevLoginView
-from ..views.google_oauth_views import (
-    google_login,
-    google_callback,
-    google_auth_success,
-    google_auth_test,
-)
+# 自前OAuth実装は使用しない（django-allauthに統一）
+# from ..views.google_oauth_views import (
+#     google_login,
+#     google_callback,
+#     google_auth_success,
+#     google_auth_test,
+# )
 from ..views.admin_views import AdminUserViewSet
 
 router = DefaultRouter()
@@ -34,12 +35,12 @@ urlpatterns = [
     
     # Development login (DEBUG only)
     path('dev-login/', DevLoginView.as_view(), name='dev_login'),
-    
-    # Google OAuth URLs (8000番ポート統一版)
-    path('google/login/', google_login, name='google_login'),
-    path('google/callback/', google_callback, name='google_callback'),
-    path('google/success/', google_auth_success, name='google_auth_success'),
-    path('google/test/', google_auth_test, name='google_auth_test'),
+
+    # Google OAuth URLs - django-allauthに統一（自前実装は無効化）
+    # path('google/login/', google_login, name='google_login'),
+    # path('google/callback/', google_callback, name='google_callback'),
+    # path('google/success/', google_auth_success, name='google_auth_success'),
+    # path('google/test/', google_auth_test, name='google_auth_test'),
     
     # Web URLs for frontend pages (before router to avoid conflicts)
     path('groups/view/', 

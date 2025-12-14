@@ -10,7 +10,7 @@
 Google Cloud Consoleで以下のリダイレクトURIを設定してください：
 
 ```
-http://localhost:8000/accounts/google/callback/
+http://127.0.0.1:8000/accounts/google/callback/
 ```
 
 **重要な注意事項：**
@@ -27,7 +27,7 @@ http://localhost:8000/accounts/google/callback/
 4. 「承認済みのリダイレクトURI」セクション
 5. 既存のURIを削除または編集：
    - 削除: `http://localhost:3000/auth/callback`
-   - 追加: `http://localhost:8000/accounts/google/callback/`
+   - 追加: `http://127.0.0.1:8000/accounts/google/callback/`
 6. 「保存」をクリック
 
 ## 🚀 使用方法
@@ -39,7 +39,7 @@ python3 manage.py runserver
 
 ### 2. テストページにアクセス
 ```
-http://localhost:8000/accounts/google/test/
+http://127.0.0.1:8000/accounts/google/test/
 ```
 
 ### 3. 認証フロー

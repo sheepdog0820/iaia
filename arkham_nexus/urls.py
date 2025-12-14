@@ -35,12 +35,13 @@ urlpatterns = [
     path('api/schedules/', include('schedules.urls')),
     path('api/scenarios/', include('scenarios.urls')),
     
-    # Web URLs  
+    # Web URLs
     path('accounts/', include('accounts.urls')),
-    
-    # Allauth URLs (excluding login/signup) - moved after custom accounts URLs
-    # path('auth/', include('allauth.urls')),  # 8000番ポート統一のため無効化
-    
+
+    # django-allauth URLs（Google OAuth認証用）
+    # 注意: accounts.urlsの後に配置することで、カスタムログイン画面を優先
+    path('accounts/', include('allauth.urls')),
+
     # Home page
     path('', TemplateView.as_view(template_name='home.html'), name='home'),
 ]

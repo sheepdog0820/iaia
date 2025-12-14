@@ -7,7 +7,7 @@
 cd /mnt/c/Users/endke/Workspace/iaia
 python3 manage.py runserver
 ```
-サーバーが `http://localhost:8000` で起動します。
+サーバーが `http://127.0.0.1:8000` で起動します。
 
 ### 2. 環境確認
 - Google Cloud Consoleの設定が完了していること
@@ -19,7 +19,7 @@ python3 manage.py runserver
 
 1. **ブラウザでアクセス**
    ```
-   http://localhost:8000/accounts/login/
+   http://127.0.0.1:8000/accounts/login/
    ```
 
 2. **Googleログインボタンをクリック**
@@ -31,7 +31,7 @@ python3 manage.py runserver
    - 初回は権限の許可を求められるので「許可」をクリック
 
 4. **ログイン完了**
-   - 自動的に `http://localhost:8000/accounts/dashboard/` にリダイレクトされます
+   - 自動的に `http://127.0.0.1:8000/accounts/dashboard/` にリダイレクトされます
    - ログインが成功すると、ダッシュボード画面が表示されます
 
 ### 方法2: API経由（フロントエンド開発用）
@@ -63,7 +63,7 @@ python3 manage.py runserver
 3. **バックエンドAPIへトークン送信**
    ```javascript
    async function sendTokenToBackend(idToken) {
-     const response = await fetch('http://localhost:8000/api/auth/google/', {
+     const response = await fetch('http://127.0.0.1:8000/api/auth/google/', {
        method: 'POST',
        headers: {
          'Content-Type': 'application/json',
@@ -89,7 +89,7 @@ python3 manage.py runserver
 async function fetchUserData() {
   const token = localStorage.getItem('authToken');
   
-  const response = await fetch('http://localhost:8000/api/auth/user/', {
+  const response = await fetch('http://127.0.0.1:8000/api/auth/user/', {
     headers: {
       'Authorization': `Token ${token}`
     }
@@ -111,7 +111,7 @@ async function fetchUserData() {
 2. **curlコマンドでテスト**
    ```bash
    # Google認証
-   curl -X POST http://localhost:8000/api/auth/google/ \
+   curl -X POST http://127.0.0.1:8000/api/auth/google/ \
      -H "Content-Type: application/json" \
      -d '{"access_token": "YOUR_ACCESS_TOKEN_HERE"}'
    
@@ -130,7 +130,7 @@ async function fetchUserData() {
 
 3. **認証トークンを使用してAPIアクセス**
    ```bash
-   curl -X GET http://localhost:8000/api/auth/user/ \
+   curl -X GET http://127.0.0.1:8000/api/auth/user/ \
      -H "Authorization: Token abcd1234567890..."
    ```
 
@@ -170,12 +170,12 @@ async function fetchUserData() {
 
 ### Webブラウザ経由
 ```
-http://localhost:8000/accounts/logout/
+http://127.0.0.1:8000/accounts/logout/
 ```
 
 ### API経由
 ```bash
-curl -X POST http://localhost:8000/api/auth/logout/ \
+curl -X POST http://127.0.0.1:8000/api/auth/logout/ \
   -H "Authorization: Token YOUR_TOKEN_HERE"
 ```
 
@@ -190,5 +190,5 @@ curl -X POST http://localhost:8000/api/auth/logout/ \
    - セキュリティのため、定期的にトークンを更新することを推奨
 
 3. **デバッグ情報**
-   - Django管理画面（http://localhost:8000/admin/）でユーザーとトークンを確認可能
+   - Django管理画面（http://127.0.0.1:8000/admin/）でユーザーとトークンを確認可能
    - 管理者アカウント: admin / arkham_admin_2024

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google OAuth API認証サンプル</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .info {
+            background-color: #e3f2fd;
+            color: #1565c0;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #1565c0;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        #userInfo {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Google OAuth API認証サンプル</h1>
+        
+        <div class="section">
+            <h2>1. Google Sign-In</h2>
+            <div id="googleSignInButton"></div>
+            <div id="loginStatus" class="status" style="display: none;"></div>
+        </div>
+        
+        <div class="section" id="apiSection" style="display: none;">
+            <h2>2. API操作</h2>
+            <button onclick="getUserInfo()">ユーザー情報取得</button>
+            <button onclick="getCharacterSheets()">キャラクターシート一覧</button>
+            <button onclick="logout()">ログアウト</button>
+            
+            <div id="apiResponse" style="margin-top: 20px;"></div>
+        </div>
+        
+        <div class="section">
+            <h2>3. デバッグ情報</h2>
+            <pre id="debugInfo">Google Sign-In初期化中...</pre>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let authToken = null;
+        let currentUser = null;
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        // Google Sign-In初期化
+        window.onload = function() {
+            google.accounts.id.initialize({
+                client_id: '456958275505-lgu362m6pl0seeqb8geuom5jf86c1ucn.apps.googleusercontent.com',
+                callback: handleCredentialResponse
+            });
+            
+            google.accounts.id.renderButton(
+                document.getElementById("googleSignInButton"),
+                { 
+                    theme: "outline", 
+                    size: "large",
+                    text: "signin_with",
+                    width: 280
+                }
+            );
+            
+            updateDebugInfo('Google Sign-In準備完了');
+            
+            // 保存されたトークンを確認
+            const savedToken = localStorage.getItem('arkhamAuthToken');
+            if (savedToken) {
+                authToken = savedToken;
+                showLoginStatus('info', '保存されたトークンを検出しました');
+                document.getElementById('apiSection').style.display = 'block';
+            }
+        };
+        
+        // Google認証レスポンス処理
+        async function handleCredentialResponse(response) {
+            updateDebugInfo('IDトークン取得成功');
+            showLoginStatus('info', 'バックエンドAPIに認証中...');
+            
+            try {
+                const apiResponse = await fetch(`${API_BASE_URL}/api/auth/google/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        id_token: response.credential
+                    })
+                });
+                
+                const data = await apiResponse.json();
+                
+                if (apiResponse.ok) {
+                    // 認証成功
+                    authToken = data.token;
+                    currentUser = data.user;
+                    
+                    // トークンを保存
+                    localStorage.setItem('arkhamAuthToken', authToken);
+                    
+                    showLoginStatus('success', `認証成功！ ようこそ、${currentUser.nickname || currentUser.email}さん`);
+                    document.getElementById('apiSection').style.display = 'block';
+                    
+                    updateDebugInfo(`認証成功
+トークン: ${authToken.substring(0, 20)}...
+ユーザーID: ${currentUser.id}
+メール: ${currentUser.email}
+新規ユーザー: ${data.created ? 'はい' : 'いいえ'}`);
+                } else {
+                    showLoginStatus('error', `認証エラー: ${data.error}`);
+                    updateDebugInfo(`エラー詳細: ${JSON.stringify(data, null, 2)}`);
+                }
+            } catch (error) {
+                showLoginStatus('error', `通信エラー: ${error.message}`);
+                updateDebugInfo(`通信エラー: ${error}`);
+            }
+        }
+        
+        // ユーザー情報取得
+        async function getUserInfo() {
+            if (!authToken) {
+                alert('先にログインしてください');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/user/`, {
+                    headers: {
+                        'Authorization': `Token ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const userData = await response.json();
+                    showApiResponse('ユーザー情報', userData);
+                } else {
+                    showApiResponse('エラー', { status: response.status, message: 'ユーザー情報の取得に失敗しました' });
+                }
+            } catch (error) {
+                showApiResponse('エラー', { message: error.message });
+            }
+        }
+        
+        // キャラクターシート一覧取得
+        async function getCharacterSheets() {
+            if (!authToken) {
+                alert('先にログインしてください');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/accounts/character-sheets/`, {
+                    headers: {
+                        'Authorization': `Token ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showApiResponse('キャラクターシート一覧', data);
+                } else {
+                    showApiResponse('エラー', { status: response.status, message: 'キャラクターシートの取得に失敗しました' });
+                }
+            } catch (error) {
+                showApiResponse('エラー', { message: error.message });
+            }
+        }
+        
+        // ログアウト
+        async function logout() {
+            if (!authToken) {
+                alert('既にログアウトしています');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/logout/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Token ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    authToken = null;
+                    currentUser = null;
+                    localStorage.removeItem('arkhamAuthToken');
+                    
+                    showLoginStatus('success', 'ログアウトしました');
+                    document.getElementById('apiSection').style.display = 'none';
+                    document.getElementById('apiResponse').innerHTML = '';
+                    
+                    // Google Sign-Inもログアウト
+                    google.accounts.id.disableAutoSelect();
+                } else {
+                    showApiResponse('エラー', { status: response.status, message: 'ログアウトに失敗しました' });
+                }
+            } catch (error) {
+                showApiResponse('エラー', { message: error.message });
+            }
+        }
+        
+        // UI更新関数
+        function showLoginStatus(type, message) {
+            const statusDiv = document.getElementById('loginStatus');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+        }
+        
+        function showApiResponse(title, data) {
+            const responseDiv = document.getElementById('apiResponse');
+            responseDiv.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        }
+        
+        function updateDebugInfo(message) {
+            document.getElementById('debugInfo').textContent = message;
+        }
+    </script>
+</body>
+</html>

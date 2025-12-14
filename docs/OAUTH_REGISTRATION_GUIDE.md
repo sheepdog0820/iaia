@@ -24,7 +24,7 @@
    - **アプリ名**: `Arkham Nexus`
    - **ユーザーサポートメール**: あなたのメールアドレス
    - **アプリのロゴ**: （オプション）
-   - **アプリケーションホームページ**: `http://localhost:8000`（開発用）
+   - **アプリケーションホームページ**: `http://127.0.0.1:8000`（開発用）
    - **アプリケーションプライバシーポリシー**: （本番環境では必須）
    - **アプリケーション利用規約**: （本番環境では必須）
    - **承認済みドメイン**: `localhost`（開発用）
@@ -50,13 +50,13 @@
 4. 名前: `Arkham Nexus Web Client`
 5. 承認済みの JavaScript 生成元:
    ```
-   http://localhost:8000
+   http://127.0.0.1:8000
    http://127.0.0.1:8000
    ```
 6. 承認済みのリダイレクト URI:
    ```
-   http://localhost:8000/auth/google/login/callback/
-   http://127.0.0.1:8000/auth/google/login/callback/
+   http://127.0.0.1:8000/accounts/google/login/callback/
+   http://127.0.0.1:8000/accounts/google/login/callback/
    ```
 7. 「作成」をクリック
 8. 表示される**クライアントID**と**クライアントシークレット**をメモ
@@ -111,10 +111,10 @@
 #### App info（アプリ情報）
 - **Callback URI / Redirect URL**:
   ```
-  http://localhost:8000/auth/twitter/login/callback/
-  http://127.0.0.1:8000/auth/twitter/login/callback/
+  http://127.0.0.1:8000/accounts/twitter/login/callback/
+  http://127.0.0.1:8000/accounts/twitter/login/callback/
   ```
-- **Website URL**: `http://localhost:8000`
+- **Website URL**: `http://127.0.0.1:8000`
 - **Terms of service**: （本番環境では必須）
 - **Privacy policy**: （本番環境では必須）
 
@@ -156,12 +156,12 @@ TWITTER_CLIENT_SECRET=取得したClient Secret
    python manage.py createsuperuser
    ```
 
-2. `http://localhost:8000/admin/` にアクセス
+2. `http://127.0.0.1:8000/admin/` にアクセス
 
 3. **Sites** の設定：
    - 「Sites」をクリック
    - `example.com` を編集
-   - Domain name: `localhost:8000`
+   - Domain name: `127.0.0.1:8000`
    - Display name: `Arkham Nexus Local`
    - 保存
 
@@ -175,7 +175,7 @@ TWITTER_CLIENT_SECRET=取得したClient Secret
    - Client id: `.env`のGOOGLE_CLIENT_ID
    - Secret key: `.env`のGOOGLE_CLIENT_SECRET
    - Key: （空欄でOK）
-3. 「Available sites」から`localhost:8000`を選択して「Chosen sites」に移動
+3. 「Available sites」から`127.0.0.1:8000`を選択して「Chosen sites」に移動
 4. 保存
 
 #### Twitter の設定
@@ -185,7 +185,7 @@ TWITTER_CLIENT_SECRET=取得したClient Secret
    - Name: `Twitter Login`
    - Client id: `.env`のTWITTER_CLIENT_ID
    - Secret key: `.env`のTWITTER_CLIENT_SECRET
-3. 「Available sites」から`localhost:8000`を選択して「Chosen sites」に移動
+3. 「Available sites」から`127.0.0.1:8000`を選択して「Chosen sites」に移動
 4. 保存
 
 ---
@@ -198,7 +198,7 @@ python manage.py runserver
 ```
 
 ### 2. ログインページへアクセス
-`http://localhost:8000/login/` にアクセス
+`http://127.0.0.1:8000/login/` にアクセス
 
 ### 3. ソーシャルログインのテスト
 - 「Googleでログイン」ボタンをクリック
@@ -257,8 +257,8 @@ python manage.py runserver
 ### 2. リダイレクトURIの更新
 Google/Twitter両方で本番環境のURLを追加：
 ```
-https://yourdomain.com/auth/google/login/callback/
-https://yourdomain.com/auth/twitter/login/callback/
+https://yourdomain.com/accounts/google/login/callback/
+https://yourdomain.com/accounts/twitter/login/callback/
 ```
 
 ### 3. 環境変数の更新

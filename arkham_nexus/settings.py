@@ -39,6 +39,11 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='').split(',')
 
+# CSRF設定（127.0.0.1統一）
+CSRF_TRUSTED_ORIGINS = [
+    "http://127.0.0.1:8000",
+]
+
 
 # Application definition
 
@@ -55,7 +60,7 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
-    'allauth.socialaccount.providers.twitter',
+    # 'allauth.socialaccount.providers.twitter',  # Twitter OAuth設定後に有効化
     'rest_framework',
     'rest_framework.authtoken',
     # 'corsheaders',  # 8000番ポート統一のため無効化
@@ -161,9 +166,13 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
+# Site設定（開発環境では動的にサイトを検出）
 SITE_ID = 1
 
-# Allauth settings
+# Allauth settings（django-allauth統一版）
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_LOGIN_ON_SIGNUP = True
 ACCOUNT_SIGNUP_FORM_CLASS = None
@@ -184,21 +193,17 @@ LOGOUT_REDIRECT_URL = '/'
 
 # Social account providers configuration
 SOCIALACCOUNT_PROVIDERS = {
-    'google': {
-        'SCOPE': [
-            'profile',
-            'email',
+    "google": {
+        "SCOPE": [
+            "profile",
+            "email",
         ],
-        'AUTH_PARAMS': {
-            'access_type': 'online',
+        "AUTH_PARAMS": {
+            "access_type": "online",
         },
-        'OAUTH_PKCE_ENABLED': True,
-    },
-    'twitter': {
-        # Twitter設定は後で追加
+        "OAUTH_PKCE_ENABLED": True,
     }
 }
-
 # Development settings for social auth
 DEVELOPMENT_MODE = DEBUG
 if DEVELOPMENT_MODE:

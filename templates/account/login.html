@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load socialaccount %}
 
 {% block title %}ログイン - Gate of Yog-Sothoth{% endblock %}
 
@@ -28,23 +29,23 @@
                         <i class="fas fa-lock text-primary fa-3x mb-3"></i>
                         <h5 class="text-primary mb-3">ソーシャルアカウントでログイン</h5>
                         <p class="text-muted">
-                            GoogleまたはTwitterアカウントを使用してログインしてください。<br>
+                            Googleアカウントを使用してログインしてください。<br>
                             初回ログイン時に自動でアカウントが作成されます。
                         </p>
                     </div>
 
-                    <!-- ソーシャルログイン -->
+                    <!-- ソーシャルログイン（django-allauth統一版） -->
                     <div class="d-grid gap-3">
-                        <a href="/accounts/google/login/" class="btn btn-danger btn-lg social-btn">
-                            <i class="fab fa-google fa-lg me-2"></i> 
+                        <a href="{% provider_login_url 'google' %}" class="btn btn-danger btn-lg social-btn">
+                            <i class="fab fa-google fa-lg me-2"></i>
                             <span>Googleでログイン</span>
                         </a>
-                        <a href="/auth/twitter/login/" class="btn btn-info btn-lg social-btn">
+                        <!-- Twitter OAuth設定後に有効化 -->
+                        <a href="" class="btn btn-info btn-lg social-btn">
                             <i class="fab fa-twitter fa-lg me-2"></i>
                             <span>X (Twitter)でログイン</span>
                         </a>
                     </div>
-
 
                     <hr class="my-4">
 

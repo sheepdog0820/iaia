@@ -17,7 +17,7 @@ Google OAuth認証で「エラー 400: redirect_uri_mismatch」が発生する�
 #### 承認済みのJavaScript生成元
 以下のURLをすべて追加してください：
 ```
-http://localhost:8000
+http://127.0.0.1:8000
 http://localhost:3000
 http://127.0.0.1:8000
 http://127.0.0.1:3000
@@ -26,11 +26,11 @@ http://127.0.0.1:3000
 #### 承認済みのリダイレクトURI
 以下のURLをすべて追加してください：
 ```
-http://localhost:8000/accounts/google/login/callback/
-http://localhost:8000/auth/google/callback/
+http://127.0.0.1:8000/accounts/google/login/callback/
+http://127.0.0.1:8000/accounts/google/login/callback/
 http://localhost:3000/auth/google/callback
 http://127.0.0.1:8000/accounts/google/login/callback/
-http://127.0.0.1:8000/auth/google/callback/
+http://127.0.0.1:8000/accounts/google/login/callback/
 http://127.0.0.1:3000/auth/google/callback
 ```
 

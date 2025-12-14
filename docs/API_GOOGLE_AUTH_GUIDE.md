@@ -45,7 +45,7 @@ function GoogleLoginButton() {
     
     // バックエンドAPIに送信
     try {
-      const apiResponse = await fetch('http://localhost:8000/api/auth/google/', {
+      const apiResponse = await fetch('http://127.0.0.1:8000/api/auth/google/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -87,7 +87,7 @@ APIは3つの認証方式をサポートしています：
 #### A. IDトークン方式（推奨）
 ```javascript
 // Google Sign-Inから取得したIDトークンを使用
-const response = await fetch('http://localhost:8000/api/auth/google/', {
+const response = await fetch('http://127.0.0.1:8000/api/auth/google/', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -101,7 +101,7 @@ const response = await fetch('http://localhost:8000/api/auth/google/', {
 #### B. アクセストークン方式
 ```javascript
 // Google OAuth Playgroundなどで取得したアクセストークンを使用
-const response = await fetch('http://localhost:8000/api/auth/google/', {
+const response = await fetch('http://127.0.0.1:8000/api/auth/google/', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -115,7 +115,7 @@ const response = await fetch('http://localhost:8000/api/auth/google/', {
 #### C. 認証コード方式
 ```javascript
 // OAuth2認証フローで取得した認証コードを使用
-const response = await fetch('http://localhost:8000/api/auth/google/', {
+const response = await fetch('http://127.0.0.1:8000/api/auth/google/', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -160,7 +160,7 @@ const response = await fetch('http://localhost:8000/api/auth/google/', {
 ```javascript
 const token = localStorage.getItem('authToken');
 
-const response = await fetch('http://localhost:8000/api/auth/user/', {
+const response = await fetch('http://127.0.0.1:8000/api/auth/user/', {
   headers: {
     'Authorization': `Token ${token}`
   }
@@ -174,14 +174,14 @@ console.log('現在のユーザー:', userData);
 
 ```javascript
 // キャラクターシート一覧取得
-const response = await fetch('http://localhost:8000/api/accounts/character-sheets/', {
+const response = await fetch('http://127.0.0.1:8000/api/accounts/character-sheets/', {
   headers: {
     'Authorization': `Token ${token}`
   }
 });
 
 // グループ一覧取得
-const response = await fetch('http://localhost:8000/api/accounts/groups/', {
+const response = await fetch('http://127.0.0.1:8000/api/accounts/groups/', {
   headers: {
     'Authorization': `Token ${token}`
   }
@@ -191,7 +191,7 @@ const response = await fetch('http://localhost:8000/api/accounts/groups/', {
 ### ログアウト
 
 ```javascript
-const response = await fetch('http://localhost:8000/api/auth/logout/', {
+const response = await fetch('http://127.0.0.1:8000/api/auth/logout/', {
   method: 'POST',
   headers: {
     'Authorization': `Token ${token}`
