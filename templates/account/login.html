@@ -36,15 +36,31 @@
 
                     <!-- ソーシャルログイン（django-allauth統一版） -->
                     <div class="d-grid gap-3">
-                        <a href="{% provider_login_url 'google' %}" class="btn btn-danger btn-lg social-btn">
-                            <i class="fab fa-google fa-lg me-2"></i>
-                            <span>Googleでログイン</span>
-                        </a>
+                        {% get_providers as socialaccount_providers %}
+                        {% for provider in socialaccount_providers %}
+                            {% if provider.id == "google" %}
+                                <a href="{% provider_login_url provider.id %}" class="btn btn-danger btn-lg social-btn">
+                                    <i class="fab fa-google fa-lg me-2"></i>
+                                    <span>Googleでログイン</span>
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if not socialaccount_providers %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>ソーシャルログインは未設定です</strong><br>
+                                <small>管理画面でGoogle SocialAppを登録してください</small>
+                            </div>
+                        {% endif %}
+
                         <!-- Twitter OAuth設定後に有効化 -->
+                        <!--
                         <a href="" class="btn btn-info btn-lg social-btn">
                             <i class="fab fa-twitter fa-lg me-2"></i>
                             <span>X (Twitter)でログイン</span>
                         </a>
+                        -->
                     </div>
 
                     <hr class="my-4">

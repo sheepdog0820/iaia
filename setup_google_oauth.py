@@ -21,42 +21,52 @@ GOOGLE_CLIENT_SECRET = config('GOOGLE_CLIENT_SECRET', default='')
 
 def setup_google_oauth():
     """Google OAuth用のSocialAppを設定"""
-    print("Google OAuth設定を開始します...")
+    print("Google OAuth設定を開始します...\n")
 
     # 環境変数チェック
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-        print("\n[ERROR] 環境変数が設定されていません")
+        print("[ERROR] 環境変数が設定されていません")
         print("以下の環境変数を.envファイルに設定してください:")
         print("  - GOOGLE_CLIENT_ID")
         print("  - GOOGLE_CLIENT_SECRET")
         sys.exit(1)
 
-    # 現在のサイトを取得
+    # Siteを127.0.0.1:8000に統一
     site = Site.objects.get_current()
-    print(f"現在のサイト: {site.domain}")
+    print(f"[1/3] サイト設定を確認中...")
+    print(f"  現在のドメイン: {site.domain}")
+
+    if site.domain != '127.0.0.1:8000':
+        site.domain = '127.0.0.1:8000'
+        site.name = 'Arkham Nexus (Local Development)'
+        site.save()
+        print(f"  ✓ ドメインを '127.0.0.1:8000' に更新しました")
+    else:
+        print(f"  ✓ ドメインは正しく設定されています")
 
     # 既存のGoogle Appを確認
+    print(f"\n[2/3] Google SocialApp設定を確認中...")
     try:
         google_app = SocialApp.objects.get(provider='google')
-        print(f"\nGoogle Appが既に存在します:")
-        print(f"  Client ID: {google_app.client_id}")
-        print(f"  Secret: {google_app.secret[:20]}...")
-        print(f"  Sites: {list(google_app.sites.all())}")
+        print(f"  Google SocialAppが既に存在します")
+        print(f"  Client ID: {google_app.client_id[:20]}...")
+        print(f"  Secret: {'*' * 20}... (セキュリティのため非表示)")
 
         # 設定を更新
         google_app.client_id = GOOGLE_CLIENT_ID
         google_app.secret = GOOGLE_CLIENT_SECRET
         google_app.save()
+        print(f"  ✓ 認証情報を更新しました")
 
         # サイトとの関連付けを確認
         if site not in google_app.sites.all():
             google_app.sites.add(site)
-            print(f"  サイト {site.domain} を追加しました")
-
-        print("\nGoogle App設定を更新しました！")
+            print(f"  ✓ サイト '{site.domain}' を追加しました")
+        else:
+            print(f"  ✓ サイトは正しく関連付けられています")
 
     except SocialApp.DoesNotExist:
-        print("\nGoogle Appが見つかりません。新規作成します...")
+        print(f"  Google SocialAppが見つかりません。新規作成します...")
 
         # Google Social Appを作成
         google_app = SocialApp.objects.create(
@@ -66,19 +76,21 @@ def setup_google_oauth():
             secret=GOOGLE_CLIENT_SECRET
         )
         google_app.sites.add(site)
+        print(f"  ✓ Google SocialAppを作成しました")
 
-        print("Google Social Appを作成しました！")
-    
-    # サイトのドメインが正しいか確認
-    if site.domain == 'example.com':
-        print(f"\n⚠️  警告: サイトドメインが 'example.com' になっています。")
-        print("以下のコマンドで修正してください:")
-        print("python3 manage.py shell")
-        print(">>> from django.contrib.sites.models import Site")
-        print(">>> site = Site.objects.get_current()")
-        print(">>> site.domain = 'localhost:8000'")
-        print(">>> site.name = 'Arkham Nexus'")
-        print(">>> site.save()")
+    # 最終確認
+    print(f"\n[3/3] 設定の最終確認...")
+    print(f"  サイトドメイン: {site.domain}")
+    print(f"  SocialApp: Google (ID: {google_app.id})")
+    print(f"  関連付けられたサイト数: {google_app.sites.count()}")
+
+    print(f"\n✅ セットアップ完了！")
+    print(f"\n次のステップ:")
+    print(f"1. 開発サーバーを起動: python manage.py runserver")
+    print(f"2. ブラウザで http://127.0.0.1:8000/accounts/login/ にアクセス")
+    print(f"3. 'Googleでログイン' ボタンをクリック")
+    print(f"\n⚠️  注意: Google Cloud ConsoleのリダイレクトURIに以下が登録されていることを確認してください:")
+    print(f"   http://127.0.0.1:8000/accounts/google/login/callback/")
 
 if __name__ == '__main__':
     setup_google_oauth()

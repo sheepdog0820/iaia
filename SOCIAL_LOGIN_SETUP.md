@@ -62,20 +62,58 @@ TWITTER_CLIENT_SECRET=your-actual-twitter-client-secret
    - Website URL: `http://127.0.0.1:8000`
 5. Client IDとClient Secretを `.env` に設定
 
-## 4. Django管理画面での設定
+## 4. SocialApp設定（2つの方法）
+
+### 方法A: 自動セットアップスクリプト（推奨）
+
+環境変数を `.env` に設定した後、以下のコマンドを実行：
+
+```bash
+python setup_google_oauth.py
+```
+
+このスクリプトは以下を自動的に行います：
+
+- Site設定を `127.0.0.1:8000` に統一
+- Google SocialAppの作成または更新
+- サイトとの関連付け
+
+実行後は以下のような出力が表示されます：
+
+```text
+Google OAuth設定を開始します...
+
+[1/3] サイト設定を確認中...
+  現在のドメイン: example.com
+  ✓ ドメインを '127.0.0.1:8000' に更新しました
+
+[2/3] Google SocialApp設定を確認中...
+  Google SocialAppが見つかりません。新規作成します...
+  ✓ Google SocialAppを作成しました
+
+[3/3] 設定の最終確認...
+  サイトドメイン: 127.0.0.1:8000
+  SocialApp: Google (ID: 1)
+  関連付けられたサイト数: 1
+
+✅ セットアップ完了！
+```
+
+### 方法B: Django管理画面で手動設定
 
 1. Django管理画面にアクセス: `http://127.0.0.1:8000/admin/`
 2. 「Sites」セクションで、ドメインを `127.0.0.1:8000` に変更
 3. 「Social applications」セクションで新規作成：
 
-### Google設定
+#### Google設定
 - Provider: Google
-- Name: Google OAuth2
+- Name: Google
 - Client id: (環境変数から取得)
 - Secret key: (環境変数から取得)
 - Sites: 127.0.0.1:8000 を選択
 
-### Twitter設定
+#### Twitter設定
+
 - Provider: Twitter
 - Name: Twitter OAuth2
 - Client id: (環境変数から取得)
