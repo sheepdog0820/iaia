@@ -183,3 +183,9 @@ tests/results/TEST_RESULTS_*.md
 /playwright-report/
 /playwright/.cache/
 /traces/
+
+# Backup directories
+.git_backup/
+
+# Temporary scripts with credentials
+clean_socialapps.py
