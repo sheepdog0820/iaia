@@ -1,110 +1,107 @@
 ﻿document.addEventListener('DOMContentLoaded', function() {
 
-    // 6迚亥渕譛ｬ謚閭ｽ繝・・繧ｿ・医き繝・ざ繝ｪ蛻・￠・・    const SKILLS_6TH = {
-        // 謌ｦ髣倡ｳｻ謚閭ｽ
-        "combat": {
-            "dodge": { base: "DEXﾃ・", name: "蝗樣∩" },
-            "martial_arts": { base: 1, name: "繝槭・繧ｷ繝｣繝ｫ繧｢繝ｼ繝・ },
-            "throw": { base: 25, name: "謚墓憧" },
-            "first_aid": { base: 30, name: "蠢懈･謇句ｽ・ },
-            "fist_punch": { base: 50, name: "縺薙・縺暦ｼ医ヱ繝ｳ繝・ｼ・ },
-            "head_butt": { base: 10, name: "鬆ｭ遯√″" },
-            "kick": { base: 25, name: "繧ｭ繝・け" },
-            "grapple": { base: 25, name: "邨・∩莉倥″" },
-            "knife": { base: 20, name: "繝翫う繝・ },
-            "club": { base: 25, name: "縺薙ｓ譽・ },
-            "handgun": { base: 20, name: "諡ｳ驫・ },
-            "rifle": { base: 25, name: "繝ｩ繧､繝輔Ν" },
-            "shotgun": { base: 30, name: "繧ｷ繝ｧ繝・ヨ繧ｬ繝ｳ" },
-            "submachine_gun": { base: 15, name: "繧ｵ繝悶・繧ｷ繝ｳ繧ｬ繝ｳ" },
-            "machine_gun": { base: 15, name: "繝槭す繝ｳ繧ｬ繝ｳ" },
-            "bow": { base: 15, name: "蠑・ },
-            "sword": { base: 20, name: "蜑｣" },
-            "spear": { base: 20, name: "讒・ },
-            "whip": { base: 5, name: "髷ｭ" }
+    
+    // 6th edition skill data
+    const SKILLS_6TH = {
+        combat: {
+            dodge: { base: "DEX*2", name: "\u56de\u907f" },
+            martial_arts: { base: 1, name: "\u30de\u30fc\u30b7\u30e3\u30eb\u30a2\u30fc\u30c4" },
+            throw: { base: 25, name: "\u6295\u64ae" },
+            first_aid: { base: 30, name: "\u5fdc\u6025\u624b\u5f53" },
+            fist_punch: { base: 50, name: "\u3053\u3076\u3057\uff08\u30d1\u30f3\u30c1\uff09" },
+            head_butt: { base: 10, name: "\u982d\u6483\u304d" },
+            kick: { base: 25, name: "\u30ad\u30c3\u30af" },
+            grapple: { base: 25, name: "\u7d44\u307f\u4ed8\u304d" },
+            knife: { base: 20, name: "\u30ca\u30a4\u30d5" },
+            club: { base: 25, name: "\u3053\u3093\u68d2" },
+            handgun: { base: 20, name: "\u62f3\u9283" },
+            rifle: { base: 25, name: "\u30e9\u30a4\u30d5\u30eb" },
+            shotgun: { base: 30, name: "\u30b7\u30e7\u30c3\u30c8\u30ac\u30f3" },
+            submachine_gun: { base: 15, name: "\u30b5\u30d6\u30de\u30b7\u30f3\u30ac\u30f3" },
+            machine_gun: { base: 15, name: "\u30de\u30b7\u30f3\u30ac\u30f3" },
+            bow: { base: 15, name: "\u5f13" },
+            sword: { base: 20, name: "\u5263" },
+            spear: { base: 20, name: "\u69cd" },
+            whip: { base: 5, name: "\u97a3" }
         },
-        // 謗｢邏｢謚閭ｽ
-        "exploration": {
-            "spot_hidden": { base: 25, name: "逶ｮ譏・ },
-            "listen": { base: 25, name: "閨槭″閠ｳ" },
-            "library_use": { base: 25, name: "蝗ｳ譖ｸ鬢ｨ" },
-            "track": { base: 10, name: "霑ｽ霍｡" },
-            "navigate": { base: 10, name: "繝翫ン繧ｲ繝ｼ繝・ },
-            "photography": { base: 10, name: "蜀咏悄陦・ }
+        exploration: {
+            spot_hidden: { base: 25, name: "\u76ee\u661f" },
+            listen: { base: 25, name: "\u805e\u304d\u8033" },
+            library_use: { base: 25, name: "\u56f3\u66f8\u9928" },
+            track: { base: 10, name: "\u8ffd\u8de1" },
+            navigate: { base: 10, name: "\u30ca\u30d3\u30b2\u30fc\u30c8" },
+            photography: { base: 10, name: "\u5199\u771f\u8853" }
         },
-        // 陦悟虚謚閭ｽ
-        "action": {
-            "climb": { base: 40, name: "逋ｻ謾" },
-            "jump": { base: 25, name: "霍ｳ霄・ },
-            "swim": { base: 25, name: "豌ｴ豕ｳ" },
-            "sneak": { base: 10, name: "蠢阪・豁ｩ縺・ },
-            "hide": { base: 10, name: "髫繧後ｋ" },
-            "conceal": { base: 15, name: "髫縺・ },
-            "locksmith": { base: 1, name: "骰ｵ髢九￠" },
-            "drive_auto": { base: 20, name: "驕玖ｻ｢" },
-            "pilot": { base: 1, name: "謫咲ｸｦ" },
-            "ride": { base: 5, name: "荵鈴ｦｬ" },
-            "electrical_repair": { base: 10, name: "髮ｻ豌嶺ｿｮ逅・ },
-            "electronics": { base: 1, name: "髮ｻ蟄仙ｷ･蟄ｦ" },
-            "mechanical_repair": { base: 20, name: "讖滓｢ｰ菫ｮ逅・ },
-            "operate_heavy_machine": { base: 1, name: "驥肴ｩ滓｢ｰ謫堺ｽ・ },
-            "disguise": { base: 1, name: "螟芽｣・ },
-            "sleight_of_hand": { base: 10, name: "謇九＆縺ｰ縺・ }
+        action: {
+            climb: { base: 40, name: "\u767b\u6500" },
+            jump: { base: 25, name: "\u8df3\u8e8d" },
+            swim: { base: 25, name: "\u6c34\u6cf3" },
+            sneak: { base: 10, name: "\u5fcd\u3073\u6b69\u304d" },
+            hide: { base: 10, name: "\u96a0\u308c\u308b" },
+            conceal: { base: 15, name: "\u96a0\u3059" },
+            locksmith: { base: 1, name: "\u9375\u958b\u3051" },
+            drive_auto: { base: 20, name: "\u904b\u8ee2" },
+            pilot: { base: 1, name: "\u64ae\u7d71" },
+            ride: { base: 5, name: "\u4e57\u99ac" },
+            electrical_repair: { base: 10, name: "\u96fb\u6c17\u4fee\u7406" },
+            electronics: { base: 1, name: "\u96fb\u5b50\u5de5\u5b66" },
+            mechanical_repair: { base: 20, name: "\u6a5f\u68b0\u4fee\u7406" },
+            operate_heavy_machine: { base: 1, name: "\u91cd\u6a5f\u68b0\u64cd\u4f5c" },
+            disguise: { base: 1, name: "\u5909\u88c5" },
+            sleight_of_hand: { base: 10, name: "\u624b\u3055\u3070\u304d" }
         },
-        // 莠､貂画橿閭ｽ
-        "social": {
-            "persuade": { base: 15, name: "隱ｬ蠕・ },
-            "fast_talk": { base: 5, name: "險縺・￥繧九ａ" },
-            "bargain": { base: 5, name: "蛟､蛻・ｊ" },
-            "psychology": { base: 5, name: "蠢・炊蟄ｦ" },
-            "psychoanalysis": { base: 1, name: "邊ｾ逾槫・譫・ },
-            "credit_rating": { base: 0, name: "菫｡逕ｨ" },
-            "language_own": { base: "EDUﾃ・", name: "豈榊嵜隱・ },
-            "language_other": { base: 1, name: "莉門嵜隱・ },
-            "intimidate": { base: 15, name: "螽∝嚊" },
-            "charm": { base: 15, name: "鬲・ヱ" }
+        social: {
+            persuade: { base: 15, name: "\u8aac\u5f97" },
+            fast_talk: { base: 5, name: "\u8a00\u3044\u304f\u308b\u3081" },
+            bargain: { base: 5, name: "\u5024\u5207\u308a" },
+            psychology: { base: 5, name: "\u5fc3\u7406\u5b66" },
+            psychoanalysis: { base: 1, name: "\u7cbe\u795e\u5206\u6790" },
+            credit_rating: { base: 0, name: "\u4fe1\u7528" },
+            language_own: { base: "EDU*5", name: "\u6bcd\u56fd\u8a9e" },
+            language_other: { base: 1, name: "\u4ed6\u56fd\u8a9e" },
+            intimidate: { base: 15, name: "\u5a01\u5687" },
+            charm: { base: 15, name: "\u9b45\u60d1" }
         },
-        // 遏･隴俶橿閭ｽ
-        "knowledge": {
-            "occult": { base: 5, name: "繧ｪ繧ｫ繝ｫ繝・ },
-            "cthulhu_mythos": { base: 0, name: "繧ｯ繝医ぇ繝ｫ繝慕･櫁ｩｱ" },
-            "archaeology": { base: 1, name: "閠・商蟄ｦ" },
-            "anthropology": { base: 1, name: "莠ｺ鬘槫ｭｦ" },
-            "history": { base: 20, name: "豁ｴ蜿ｲ" },
-            "natural_world": { base: 10, name: "蜊夂黄蟄ｦ" },
-            "geology": { base: 1, name: "蝨ｰ雉ｪ蟄ｦ" },
-            "astronomy": { base: 1, name: "螟ｩ譁・ｭｦ" },
-            "biology": { base: 1, name: "逕溽黄蟄ｦ" },
-            "chemistry": { base: 1, name: "蛹門ｭｦ" },
-            "physics": { base: 1, name: "迚ｩ逅・ｭｦ" },
-            "pharmacy": { base: 1, name: "阮ｬ蟄ｦ" },
-            "medicine": { base: 5, name: "蛹ｻ蟄ｦ" },
-            "law": { base: 5, name: "豕募ｾ・ },
-            "accounting": { base: 10, name: "邨檎炊" },
-            "computer_use": { base: 1, name: "繧ｳ繝ｳ繝斐Η繝ｼ繧ｿ繝ｼ" },
-            "appraise": { base: 5, name: "髑大ｮ・ },
-            "cryptography": { base: 1, name: "證怜捷" },
-            "forensics": { base: 1, name: "髑題ｭ・ }
+        knowledge: {
+            occult: { base: 5, name: "\u30aa\u30ab\u30eb\u30c8" },
+            cthulhu_mythos: { base: 0, name: "\u30af\u30c8\u30a5\u30eb\u30d5\u795e\u8a71" },
+            archaeology: { base: 1, name: "\u8003\u53e4\u5b66" },
+            anthropology: { base: 1, name: "\u4eba\u985e\u5b66" },
+            history: { base: 20, name: "\u6b74\u53f2" },
+            natural_world: { base: 10, name: "\u535a\u7269\u5b66" },
+            geology: { base: 1, name: "\u5730\u8cea\u5b66" },
+            astronomy: { base: 1, name: "\u5929\u6587\u5b66" },
+            biology: { base: 1, name: "\u751f\u7269\u5b66" },
+            chemistry: { base: 1, name: "\u5316\u5b66" },
+            physics: { base: 1, name: "\u7269\u7406\u5b66" },
+            pharmacy: { base: 1, name: "\u85ac\u5b66" },
+            medicine: { base: 5, name: "\u533b\u5b66" },
+            law: { base: 5, name: "\u6cd5\u5f8b" },
+            accounting: { base: 10, name: "\u7d4c\u7406" },
+            computer_use: { base: 1, name: "\u30b3\u30f3\u30d4\u30e5\u30fc\u30bf\u30fc" },
+            appraise: { base: 5, name: "\u9271\u5b9a" },
+            cryptography: { base: 1, name: "\u6697\u53f7" },
+            forensics: { base: 1, name: "\u6cd5\u533b\u5b66" }
         },
-        // 縺昴・莉匁橿閭ｽ
-        "other": {
-            "art": { base: 5, name: "闃ｸ陦・ },
-            "craft": { base: 5, name: "蟾･闃ｸ" },
-            "sing": { base: 5, name: "豁悟罰" },
-            "play_instrument": { base: 5, name: "讌ｽ蝎ｨ貍泌･・ },
-            "dance": { base: 5, name: "繝繝ｳ繧ｹ" },
-            "acting": { base: 5, name: "貍疲橿" },
-            "teach": { base: 10, name: "謨呵ご" },
-            "perform": { base: 5, name: "闃ｸ閭ｽ" },
-            "animal_handling": { base: 5, name: "蜍慕黄菴ｿ縺・ },
-            "survival": { base: 10, name: "繧ｵ繝舌う繝舌Ν" },
-            "hypnosis": { base: 1, name: "蛯ｬ逵陦・ },
-            "occult_folklore": { base: 5, name: "豌台ｿ怜ｭｦ" },
-            "gaming": { base: 5, name: "繧ｮ繝｣繝ｳ繝悶Ν" }
+        other: {
+            art: { base: 5, name: "\u82b8\u8853" },
+            craft: { base: 5, name: "\u5de5\u82b8" },
+            sing: { base: 5, name: "\u6b4c\u5531" },
+            play_instrument: { base: 5, name: "\u697d\u5668\u6f14\u594f" },
+            dance: { base: 5, name: "\u30c0\u30f3\u30b9" },
+            acting: { base: 5, name: "\u6f14\u6280" },
+            teach: { base: 10, name: "\u6559\u80b2" },
+            perform: { base: 5, name: "\u82b8\u80fd" },
+            animal_handling: { base: 5, name: "\u52d5\u7269\u4f7f\u3044" },
+            survival: { base: 10, name: "\u30b5\u30d0\u30a4\u30d0\u30eb" },
+            hypnosis: { base: 1, name: "\u50ac\u7720\u8853" },
+            occult_folklore: { base: 5, name: "\u6c11\u4fd7\u5b66" },
+            gaming: { base: 5, name: "\u30ae\u30e3\u30f3\u30d6\u30eb" }
         }
     };
     
-    // 蜈ｨ謚閭ｽ縺ｮ邨ｱ蜷医が繝悶ず繧ｧ繧ｯ繝茨ｼ亥ｾ梧婿莠呈鋤諤ｧ縺ｮ縺溘ａ・・    const ALL_SKILLS_6TH = {
+    // Combined skills map (backward compatibility)
+    const ALL_SKILLS_6TH = {
         ...SKILLS_6TH.combat,
         ...SKILLS_6TH.exploration,
         ...SKILLS_6TH.action,
@@ -113,8 +110,7 @@
         ...SKILLS_6TH.other
     };
 
-    // 蜈ｨ閭ｽ蜉帛､繝繧､繧ｹ險ｭ螳壹・譖ｴ譁ｰ
-    function updateGlobalDiceFormula() {
+function updateGlobalDiceFormula() {
         const count = parseInt(document.getElementById('globalDiceCount')?.value) || 3;
         const sides = parseInt(document.getElementById('globalDiceSides')?.value) || 6;
         const bonus = parseInt(document.getElementById('globalDiceBonus')?.value) || 0;
@@ -159,10 +155,12 @@
             }
         });
         
-        // 閾ｪ蜍戊ｨ育ｮ怜ｮ溯｡・        calculateDerivedStats();
+        // Update derived values after rolling
+        calculateDerivedStats();
     }
 
-    // 蜑ｯ谺｡繧ｹ繝・・繧ｿ繧ｹ閾ｪ蜍戊ｨ育ｮ・    function calculateDerivedStats() {
+    // Derived stats auto calculation
+    function calculateDerivedStats() {
         const str = parseInt(document.getElementById('str')?.value) || 0;
         const con = parseInt(document.getElementById('con')?.value) || 0;
         const pow = parseInt(document.getElementById('pow')?.value) || 0;
@@ -171,21 +169,22 @@
         const edu = parseInt(document.getElementById('edu')?.value) || 0;
         const siz = parseInt(document.getElementById('siz')?.value) || 0;
         
-        // 6迚郁ｨ育ｮ怜ｼ上↓蝓ｺ縺･縺擾ｼ育ｫｯ謨ｰ蛻・ｊ荳翫￡・・        const hp = Math.ceil((con + siz) / 2);
+        // 6th edition formulas (round up fractions)
+        const hp = Math.ceil((con + siz) / 2);
         const mp = pow;  // MP = POW
-        const san = pow * 5;  // SAN = POW ﾃ・5
+        const san = pow * 5;  // SAN = POW *5
         
         if (document.getElementById('hp')) document.getElementById('hp').value = hp;
         if (document.getElementById('mp')) document.getElementById('mp').value = mp;
         if (document.getElementById('san')) document.getElementById('san').value = san;
         
-        // 迴ｾ蝨ｨ蛟､繧ょ・譛溷､縺ｨ縺励※險ｭ螳・        if (document.getElementById('current_hp')) document.getElementById('current_hp').value = hp;
+        // Set current values as starting defaults
+        if (document.getElementById('current_hp')) document.getElementById('current_hp').value = hp;
         if (document.getElementById('current_mp')) document.getElementById('current_mp').value = mp;
         if (document.getElementById('current_san')) document.getElementById('current_san').value = san;
         
-        // 譛螟ｧSAN繧りｨｭ螳夲ｼ・迚医〒縺ｯ蛻晄悄蛟､縺ｨ蜷後§・・        if (document.getElementById('sanity_max')) document.getElementById('sanity_max').value = san;
+        if (document.getElementById('sanity_max')) document.getElementById('sanity_max').value = san;
         
-        // ????????
         const updateDisplay = (id, value) => {
             const el = document.getElementById(id);
             if (el) el.textContent = value;
@@ -194,30 +193,31 @@
         updateDisplay('mp_display', mp);
         updateDisplay('san_display', san);
         
-        // 6迚亥崋譛峨・險育ｮ・        calculateDerivedStats6th(str, con, pow, dex, int, edu, siz);
+        // 6th edition specific derived calculations
+        calculateDerivedStats6th(str, con, pow, dex, int, edu, siz);
         
-        // 謚閭ｽ繝昴う繝ｳ繝郁ｨ育ｮ・        calculateSkillPoints();
+        // Recalculate skill points after ability changes
+        calculateSkillPoints();
         
-        // 蜍慕噪蝓ｺ譛ｬ蛟､縺ｮ謚閭ｽ繧呈峩譁ｰ・・EX繧ЕDU縺ｮ螟画峩譎ゑｼ・        updateDynamicSkillBases();
+        // Refresh dynamic skill bases (DEX/EDU dependent)
+        updateDynamicSkillBases();
     }
-    
+
+    // Derived stats specific to 6th edition
     function calculateDerivedStats6th(str, con, pow, dex, int, edu, siz) {
-        // 繧｢繧､繝・い = INT ﾃ・5
+        // アイデア = INT*5
         if (document.getElementById('idea')) {
             document.getElementById('idea').value = int * 5;
         }
-        
-        // 蟷ｸ驕・= POW ﾃ・5
+        // 幸運 = POW*5
         if (document.getElementById('luck')) {
             document.getElementById('luck').value = pow * 5;
         }
-        
-        // 遏･隴・= EDU ﾃ・5
+        // 知識 = EDU*5
         if (document.getElementById('know')) {
             document.getElementById('know').value = edu * 5;
         }
 
-        // ????????
         const setDisplay = (id, value) => {
             const el = document.getElementById(id);
             if (el) el.textContent = value;
@@ -226,9 +226,9 @@
         setDisplay('luck_display', pow * 5);
         setDisplay('know_display', edu * 5);
 
-        // 繝繝｡繝ｼ繧ｸ繝懊・繝翫せ險育ｮ暦ｼ・迚茨ｼ・        const total = str + siz;
+        // ダメージボーナス（6版表に準拠）
+        const total = str + siz;
         let damageBonus;
-
         if (total <= 12) damageBonus = "-1d4";
         else if (total <= 16) damageBonus = "-1d2";
         else if (total <= 24) damageBonus = "+0";
@@ -246,7 +246,8 @@
         }
     }
 
-    // 閨ｷ讌ｭ謚閭ｽ繝昴う繝ｳ繝郁ｨ育ｮ玲婿蠑・    function calculateOccupationSkillPoints(method) {
+    // Occupation skill points calculation
+    function calculateOccupationSkillPoints(method) {
         const str = parseInt(document.getElementById('str')?.value) || 0;
         const con = parseInt(document.getElementById('con')?.value) || 0;
         const pow = parseInt(document.getElementById('pow')?.value) || 0;
@@ -254,57 +255,51 @@
         const app = parseInt(document.getElementById('app')?.value) || 0;
         const siz = parseInt(document.getElementById('siz')?.value) || 0;
         const edu = parseInt(document.getElementById('edu')?.value) || 0;
-        
+
         const calculationMethods = {
-            'edu20': edu * 20,
-            'edu10app10': edu * 10 + app * 10,
-            'edu10dex10': edu * 10 + dex * 10,
-            'edu10pow10': edu * 10 + pow * 10,
-            'edu10str10': edu * 10 + str * 10,
-            'edu10con10': edu * 10 + con * 10,
-            'edu10siz10': edu * 10 + siz * 10
+            edu20: edu * 20,
+            edu10app10: edu * 10 + app * 10,
+            edu10dex10: edu * 10 + dex * 10,
+            edu10pow10: edu * 10 + pow * 10,
+            edu10str10: edu * 10 + str * 10,
+            edu10con10: edu * 10 + con * 10,
+            edu10siz10: edu * 10 + siz * 10,
         };
-        
-        return calculationMethods[method] || edu * 20;
+
+        return calculationMethods[method] ?? edu * 20;
     }
-    
-    // 謚閭ｽ繝昴う繝ｳ繝郁ｨ育ｮ・    function calculateSkillPoints() {
-        const int = parseInt(document.getElementById('int')?.value) || 0;
+
+    // Total skill points calculation
+    function calculateSkillPoints() {
+        const intVal = parseInt(document.getElementById('int')?.value) || 0;
         const method = document.getElementById('occupationMethod')?.value || 'edu20';
-        
-        // 閨ｷ讌ｭ謚閭ｽ繝昴う繝ｳ繝・ 驕ｸ謚槭＆繧後◆險育ｮ玲婿蠑上↓繧医ｋ
+
         const occupationPoints = calculateOccupationSkillPoints(method);
-        
-        // 雜｣蜻ｳ謚閭ｽ繝昴う繝ｳ繝・ INT ﾃ・10
-        const interestPoints = int * 10;
-        
-        if (document.getElementById('occupationTotal')) {
-            document.getElementById('occupationTotal').value = occupationPoints;
-        }
+        const interestPoints = intVal * 10;
+
+        const occupationTotalEl = document.getElementById('occupationTotal');
+        if (occupationTotalEl) occupationTotalEl.value = occupationPoints;
+
         const occupationPointsDisplay = document.getElementById('occupation_points_display');
-        if (occupationPointsDisplay) {
-            occupationPointsDisplay.textContent = occupationPoints;
-        }
-        if (document.getElementById('interestTotal')) {
-            document.getElementById('interestTotal').value = interestPoints;
-        }
+        if (occupationPointsDisplay) occupationPointsDisplay.textContent = occupationPoints;
+
+        const interestTotalEl = document.getElementById('interestTotal');
+        if (interestTotalEl) interestTotalEl.value = interestPoints;
     }
 
-
-
-    // 謚閭ｽ繧｢繧､繝・ΒHTML逕滓・
+    // Skill item HTML generation
     function createSkillItemHTML(key, skill, category = 'all') {
         let baseValue = skill.base;
         if (typeof baseValue === 'string') {
-            // 蜍慕噪蝓ｺ譛ｬ蛟､險育ｮ・            if (baseValue === 'DEXﾃ・') {
+            if (baseValue === 'DEX*2') {
                 const dex = parseInt(document.getElementById('dex')?.value) || 0;
                 baseValue = dex * 2;
-            } else if (baseValue === 'EDUﾃ・') {
+            } else if (baseValue === 'EDU*5') {
                 const edu = parseInt(document.getElementById('edu')?.value) || 0;
                 baseValue = edu * 5;
             }
         }
-        
+
         return `
             <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
                 <div class="skill-item border rounded p-2">
@@ -312,7 +307,7 @@
                         <label for="skill_${key}" class="form-label small fw-bold mb-0">${skill.name}</label>
                         <button type="button" class="btn btn-outline-secondary btn-sm" 
                                 onclick="toggleSkillDiceSettings('${key}')" 
-                                title="繝繧､繧ｹ險ｭ螳・>
+                                title="Dice settings">
                             <i class="fas fa-dice-d6"></i>
                         </button>
                     </div>
@@ -359,7 +354,7 @@
                             <input type="number" class="form-control form-control-sm text-center skill-base" 
                                    id="base_${key}" value="${baseValue}" min="0" max="100" 
                                    data-skill="${key}" data-default="${skill.base}" 
-                                   title="蝓ｺ譛ｬ蛟､・医け繝ｪ繝・け縺ｧ邱ｨ髮・∝承繧ｯ繝ｪ繝・け縺ｧ繝ｪ繧ｻ繝・ヨ・・
+                                   title="Base value (left click to edit, right click to reset)"
                                    data-bs-toggle="tooltip"
                                    data-bs-placement="top">
                         </div>
@@ -383,118 +378,106 @@
             </div>
         `;
     }
-    
-    // 謚閭ｽ繝ｪ繧ｹ繝育函謌撰ｼ医き繝・ざ繝ｪ蛻･・・    function generateSkillsList() {
-        // 蜷・き繝・ざ繝ｪ縺ｮ繧ｳ繝ｳ繝・リ繧貞叙蠕暦ｼ育ｷｨ髮・・蜈ｨ陦ｨ遉ｺ繧ｿ繝悶ｒ蜚ｯ荳縺ｮ繧ｽ繝ｼ繧ｹ縺ｫ縺吶ｋ・・        const combatContainer = document.getElementById('combatSkills');
+    // Skill list generation (by category)
+    function generateSkillsList() {
+        const combatContainer = document.getElementById('combatSkills');
         const explorationContainer = document.getElementById('explorationSkills');
         const actionContainer = document.getElementById('actionSkills');
         const socialContainer = document.getElementById('socialSkills');
         const knowledgeContainer = document.getElementById('knowledgeSkills');
         const allContainer = document.getElementById('allSkills');
 
-        // 邱ｨ髮・畑縺ｮ謚閭ｽ陦後・蜈ｨ陦ｨ遉ｺ繧ｿ繝悶・縺ｿ逕滓・縺励！D驥崎､・ｒ髦ｲ縺・        if (allContainer) {
+        // Build the full skill list once (source for other tabs)
+        if (allContainer) {
             allContainer.innerHTML = '';
             Object.entries(ALL_SKILLS_6TH).forEach(([key, skill]) => {
                 allContainer.innerHTML += createSkillItemHTML(key, skill, 'all');
             });
         }
 
-        // 繧ｫ繝・ざ繝ｪ繧ｿ繝悶↓縺ｯ邱ｨ髮・ｸ榊庄縺ｮ譯亥・縺縺代ｒ陦ｨ遉ｺ
+        // Read-only notices for category tabs (use the All tab to edit values)
         const readOnlyNotice = `
             <div class="alert alert-secondary" role="alert">
-                <i class="fas fa-info-circle"></i> 蜷・橿閭ｽ縺ｮ邱ｨ髮・・縲悟・陦ｨ遉ｺ縲阪ち繝悶〒陦後▲縺ｦ縺上□縺輔＞縲・            </div>
+                <i class="fas fa-info-circle"></i> Use the "All" tab to edit skills.
+            </div>
         `;
         if (combatContainer) combatContainer.innerHTML = readOnlyNotice;
         if (explorationContainer) explorationContainer.innerHTML = readOnlyNotice;
         if (actionContainer) actionContainer.innerHTML = readOnlyNotice;
         if (socialContainer) socialContainer.innerHTML = readOnlyNotice;
         if (knowledgeContainer) knowledgeContainer.innerHTML = readOnlyNotice;
-        
-        // 謚閭ｽ蜈･蜉帙う繝吶Φ繝郁ｿｽ蜉・亥・陦ｨ遉ｺ繧ｿ繝悶・縺ｿ・・        addSkillInputEvents();
-        
-        // 繝・・繝ｫ繝√ャ繝励・蛻晄悄蛹・        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-        const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
     }
 
-    // 謚閭ｽ蜈･蜉帙う繝吶Φ繝・    function addSkillInputEvents() {
+    // Skill input event bindings
+    function addSkillInputEvents() {
         try {
             document.querySelectorAll('.occupation-skill, .interest-skill').forEach(input => {
                 input.addEventListener('input', updateSkillTotals);
             });
-            
-            // 蝓ｺ譛ｬ蛟､蜈･蜉帙う繝吶Φ繝医ｒ霑ｽ蜉
+
             document.querySelectorAll('.skill-base').forEach(input => {
                 input.addEventListener('input', function() {
                     try {
                         const skillKey = this.dataset.skill;
                         const value = parseInt(this.value) || 0;
-                        
-                        // 繧ｫ繧ｹ繧ｿ繝蝓ｺ譛ｬ蛟､繧剃ｿ晏ｭ・                        if (!window.customBaseValues) {
+
+                        if (!window.customBaseValues) {
                             window.customBaseValues = {};
                         }
                         window.customBaseValues[skillKey] = value;
-                        
-                        // 繧ｫ繧ｹ繧ｿ繝槭う繧ｺ縺輔ｌ縺溘％縺ｨ繧堤､ｺ縺吶け繝ｩ繧ｹ繧定ｿｽ蜉
+
                         this.classList.add('customized');
-                        
-                        // 謚閭ｽ蜷郁ｨ医ｒ譖ｴ譁ｰ
                         updateSkillTotals();
                     } catch (error) {
                         console.error('Error in skill base input handler:', error);
                     }
                 });
-            
-            // 蜿ｳ繧ｯ繝ｪ繝・け縺ｧ繝・ヵ繧ｩ繝ｫ繝亥､縺ｫ繝ｪ繧ｻ繝・ヨ
-            input.addEventListener('contextmenu', function(e) {
-                e.preventDefault();
-                try {
-                    const skillKey = this.dataset.skill;
-                    const defaultValue = this.dataset.default;
-                    
-                    // 繧ｫ繧ｹ繧ｿ繝蝓ｺ譛ｬ蛟､繧偵け繝ｪ繧｢
-                    if (window.customBaseValues && window.customBaseValues[skillKey]) {
-                        delete window.customBaseValues[skillKey];
-                    }
-                    
-                    // 繧ｫ繧ｹ繧ｿ繝槭う繧ｺ繧ｯ繝ｩ繧ｹ繧貞炎髯､
-                    this.classList.remove('customized');
-                    
-                    // 繝・ヵ繧ｩ繝ｫ繝亥､縺ｫ謌ｻ縺・                    const skill = ALL_SKILLS_6TH[skillKey];
-                    if (!skill) {
-                        console.warn(`Skill ${skillKey} not found in ALL_SKILLS_6TH`);
-                        return;
-                    }
-                    let baseValue = skill.base;
-                    if (typeof baseValue === 'string') {
-                        if (baseValue === 'DEXﾃ・') {
-                            const dex = parseInt(document.getElementById('dex')?.value) || 0;
-                            baseValue = dex * 2;
-                        } else if (baseValue === 'EDUﾃ・') {
-                            const edu = parseInt(document.getElementById('edu')?.value) || 0;
-                            baseValue = edu * 5;
+
+                input.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                    try {
+                        const skillKey = this.dataset.skill;
+
+                        if (window.customBaseValues && window.customBaseValues[skillKey]) {
+                            delete window.customBaseValues[skillKey];
                         }
+
+                        const skill = ALL_SKILLS_6TH[skillKey];
+                        if (!skill) {
+                            console.warn(`Skill ${skillKey} not found in ALL_SKILLS_6TH`);
+                            return;
+                        }
+
+                        let baseValue = skill.base;
+                        if (typeof baseValue === 'string') {
+                            if (baseValue === 'DEX*2') {
+                                const dex = parseInt(document.getElementById('dex')?.value) || 0;
+                                baseValue = dex * 2;
+                            } else if (baseValue === 'EDU*5') {
+                                const edu = parseInt(document.getElementById('edu')?.value) || 0;
+                                baseValue = edu * 5;
+                            }
+                        }
+
+                        this.value = baseValue;
+                        this.classList.remove('customized');
+                        updateSkillTotals();
+                        this.style.backgroundColor = '#d4edda';
+                        setTimeout(() => {
+                            this.style.backgroundColor = '';
+                        }, 300);
+                    } catch (error) {
+                        console.error('Error in skill base reset handler:', error);
                     }
-                    this.value = baseValue;
-                    
-                    // 謚閭ｽ蜷郁ｨ医ｒ譖ｴ譁ｰ
-                    updateSkillTotals();
-                    
-                    // 繝輔ぅ繝ｼ繝峨ヰ繝・け陦ｨ遉ｺ
-                    this.style.backgroundColor = '#d4edda';
-                    setTimeout(() => {
-                        this.style.backgroundColor = '';
-                    }, 300);
-                } catch (error) {
-                    console.error('Error in skill base reset handler:', error);
-                }
+                });
             });
-        });
         } catch (error) {
             console.error('Error in addSkillInputEvents:', error);
         }
     }
-    
-    // 謚閭ｽ蛻･繝繧､繧ｹ險ｭ螳壹・陦ｨ遉ｺ/髱櫁｡ｨ遉ｺ蛻・ｊ譖ｿ縺・    function toggleSkillDiceSettings(skillKey) {
+
+    // Toggle skill dice settings panel
+    function toggleSkillDiceSettings(skillKey) {
         const settingsDiv = document.getElementById(`diceSettings_${skillKey}`);
         if (settingsDiv) {
             if (settingsDiv.style.display === 'none') {
@@ -536,10 +519,10 @@
         
         // 謚閭ｽ蜷阪ｒ蜿門ｾ・        const skillName = ALL_SKILLS_6TH[skillKey]?.name || skillKey;
         
-        // 繝繧､繧｢繝ｭ繧ｰ縺ｧ謖ｯ繧雁・縺代ｒ驕ｸ謚・        const choice = confirm(
-            `${skillName}縺ｮ繝繧､繧ｹ繝ｭ繝ｼ繝ｫ邨先棡: ${total}\n\n` +
-            'OK: 閨ｷ讌ｭ謚閭ｽ縺ｫ險ｭ螳喀n' +
-            '繧ｭ繝｣繝ｳ繧ｻ繝ｫ: 雜｣蜻ｳ謚閭ｽ縺ｫ險ｭ螳・
+        const choice = confirm(
+            `${skillName} roll result: ${total}\n\n` +
+            'OK: set as occupation skill\n' +
+            'Cancel: set as interest skill'
         );
         
         if (choice && occInput) {
@@ -559,7 +542,8 @@
     // 蜍慕噪蝓ｺ譛ｬ蛟､繧呈戟縺､謚閭ｽ縺ｮ譖ｴ譁ｰ
     function updateDynamicSkillBases() {
         try {
-            // 蝗樣∩・・EXﾃ・・・            const dexEl = document.getElementById('dex');
+            // 蝗様�EDEX依存
+            const dexEl = document.getElementById('dex');
             if (!dexEl) {
                 console.warn('DEX element not found');
                 return;
@@ -570,7 +554,8 @@
                 dodgeBaseEl.value = dex * 2;
             }
             
-            // 豈榊嵜隱橸ｼ・DUﾃ・・・            const eduEl = document.getElementById('edu');
+            // 母国語 = EDU依存
+            const eduEl = document.getElementById('edu');
             if (!eduEl) {
                 console.warn('EDU element not found');
                 return;
@@ -600,54 +585,55 @@
         let allocatedCount = 0;
         const allocatedSkills = [];
         
+        
         Object.keys(ALL_SKILLS_6TH).forEach(key => {
             const occEl = document.getElementById(`occ_${key}`);
             const intEl = document.getElementById(`int_${key}`);
             const totalEl = document.getElementById(`total_${key}`);
             
-            if (occEl && intEl && totalEl) {
-                // 蝓ｺ譛ｬ蛟､繧貞叙蠕暦ｼ医き繧ｹ繧ｿ繝蛟､縺後≠繧句ｴ蜷医・縺昴ｌ繧剃ｽｿ逕ｨ・・                let base = 0;
-                if (window.customBaseValues && window.customBaseValues[key] !== undefined) {
-                    base = window.customBaseValues[key];
-                } else {
-                    // 繝・ヵ繧ｩ繝ｫ繝医・蝓ｺ譛ｬ蛟､繧貞虚逧・↓險育ｮ・                    const skill = ALL_SKILLS_6TH[key];
-                    let baseValue = skill.base;
-                    if (typeof baseValue === 'string') {
-                        if (baseValue === 'DEXﾃ・') {
-                            const dex = parseInt(document.getElementById('dex')?.value) || 0;
-                            baseValue = dex * 2;
-                        } else if (baseValue === 'EDUﾃ・') {
-                            const edu = parseInt(document.getElementById('edu')?.value) || 0;
-                            baseValue = edu * 5;
-                        }
+            if (!occEl || !intEl || !totalEl) return;
+
+            // Base value (prefer custom value if present)
+            let base = 0;
+            if (window.customBaseValues && window.customBaseValues[key] !== undefined) {
+                base = window.customBaseValues[key];
+            } else {
+                const skill = ALL_SKILLS_6TH[key];
+                let baseValue = skill?.base ?? 0;
+                if (typeof baseValue === 'string') {
+                    if (baseValue === 'DEX*2') {
+                        const dex = parseInt(document.getElementById('dex')?.value) || 0;
+                        baseValue = dex * 2;
+                    } else if (baseValue === 'EDU*5') {
+                        const edu = parseInt(document.getElementById('edu')?.value) || 0;
+                        baseValue = edu * 5;
                     }
-                    base = parseInt(baseValue) || 0;
                 }
-                const occ = parseInt(occEl.value) || 0;
-                const int = parseInt(intEl.value) || 0;
-                
-                const total = Math.min(base + occ + int, 90);
-                totalEl.textContent = total + '%';
-                
-                // 繝昴う繝ｳ繝医′謖ｯ繧雁・縺代ｉ繧後※縺・ｋ謚閭ｽ繧定ｨ倬鹸
-                if (occ > 0 || int > 0) {
-                    allocatedCount++;
-                    allocatedSkills.push({
-                    key: key,
-                    skill: ALL_SKILLS_6TH[key], // 竊・縺薙％繧剃ｿｮ豁｣・域悴螳夂ｾｩskill繧剃ｽｿ繧上↑縺・ｼ・                    base: base,
-                    occ: occ,
-                    int: int,
-                    total: total
-                    });
-                }
-                
-                occupationUsed += occ;
-                interestUsed += int;
+                base = parseInt(baseValue) || 0;
             }
+
+            const occ = parseInt(occEl.value) || 0;
+            const int = parseInt(intEl.value) || 0;
+            const total = Math.min(base + occ + int, 90);
+            totalEl.textContent = `${total}%`;
+            
+            if (occ > 0 || int > 0) {
+                allocatedCount++;
+                allocatedSkills.push({
+                    key,
+                    skill: ALL_SKILLS_6TH[key],
+                    base,
+                    occ,
+                    int,
+                    total,
+                });
+            }
+            
+            occupationUsed += occ;
+            interestUsed += int;
         });
-        
-        // 謖ｯ繧雁・縺第ｸ医∩謚閭ｽ繧ｿ繝悶・譖ｴ譁ｰ
-        updateAllocatedSkillsTab(allocatedSkills);
+
+updateAllocatedSkillsTab(allocatedSkills);
         
         // 謖ｯ繧雁・縺第ｸ医∩謚閭ｽ謨ｰ縺ｮ繝舌ャ繧ｸ譖ｴ譁ｰ
         const allocatedCountBadge = document.getElementById('allocatedCount');
@@ -695,21 +681,23 @@
         }
     }
     
-    // 謖ｯ繧雁・縺第ｸ医∩謚閭ｽ繧ｿ繝悶・譖ｴ譁ｰ
+    // Update allocated skills tab
     function updateAllocatedSkillsTab(allocatedSkills) {
         const allocatedContainer = document.getElementById('allocatedSkills');
         
         if (!allocatedContainer) return;
         
         if (allocatedSkills.length === 0) {
-            // 謖ｯ繧雁・縺代ｉ繧後◆謚閭ｽ縺後↑縺・ｴ蜷・            allocatedContainer.innerHTML = `
+            // Empty state message
+            allocatedContainer.innerHTML = `
                 <div class="col-12 text-center text-muted p-4" id="noAllocatedMessage">
                     <i class="fas fa-info-circle fa-2x mb-2"></i>
-                    <p>縺ｾ縺繝昴う繝ｳ繝医ｒ謖ｯ繧雁・縺代◆謚閭ｽ縺後≠繧翫∪縺帙ｓ縲・/p>
+                    <p>No skills have been allocated yet.</p>
                 </div>
             `;
         } else {
-            // 謖ｯ繧雁・縺代ｉ繧後◆謚閭ｽ繧偵し繝槭Μ繝ｼ陦ｨ遉ｺ・磯㍾隍⑩D繧帝∩縺代ｋ縺溘ａ蜈･蜉帶ｬ・・菴懊ｉ縺ｪ縺・ｼ・            allocatedContainer.innerHTML = '';
+            // Render allocated skill summaries (read-only)
+            allocatedContainer.innerHTML = '';
             allocatedSkills.forEach(item => {
                 allocatedContainer.innerHTML += `
                     <div class="col-xl-4 col-lg-6 col-md-6 mb-3">
@@ -719,7 +707,7 @@
                                 <span class="badge bg-primary">${item.total}%</span>
                             </div>
                             <div class="small text-muted mt-1">
-                                蝓ｺ譛ｬ:${item.base}% / 閨ｷ:${item.occ}% / 雜｣:${item.int}%
+                                ??: ${item.occupationPoints || 0}% / ??: ${item.interestPoints || 0}% / ???: ${item.skill.base}%
                             </div>
                         </div>
                     </div>
@@ -729,18 +717,20 @@
     }
 
 
-    // 繧､繝吶Φ繝医Μ繧ｹ繝翫・險ｭ螳・    document.getElementById('rollAllAbilities')?.addEventListener('click', rollAllAbilities);
+
+    // 全能力値ダイス（ボタン）
+    document.getElementById('rollAllAbilities')?.addEventListener('click', rollAllAbilities);
     
     // 蜈ｨ閭ｽ蜉帛､繝繧､繧ｹ險ｭ螳壹・螟画峩譎ゅ↓繝輔か繝ｼ繝溘Η繝ｩ繧呈峩譁ｰ
     document.getElementById('globalDiceCount')?.addEventListener('input', updateGlobalDiceFormula);
     document.getElementById('globalDiceSides')?.addEventListener('input', updateGlobalDiceFormula);
     document.getElementById('globalDiceBonus')?.addEventListener('input', updateGlobalDiceFormula);
     
-    // 閨ｷ讌ｭ謚閭ｽ繝昴う繝ｳ繝郁ｨ育ｮ玲婿蠑丞､画峩譎ゅ・繧､繝吶Φ繝・    document.getElementById('occupationMethod')?.addEventListener('change', function() {
+    // Recalculate when occupation method changes
+    document.getElementById('occupationMethod')?.addEventListener('change', function() {
         calculateSkillPoints();
         updateSkillTotals();
     });
-    
     
     // 繝輔ャ繧ｿ繝ｼ繝懊ち繝ｳ縺ｮ繧､繝吶Φ繝医Μ繧ｹ繝翫・
     document.getElementById('footerRollDice')?.addEventListener('click', function() {
@@ -766,106 +756,108 @@
     });
 
     // 閨ｷ讌ｭ繝・Φ繝励Ξ繝ｼ繝医ョ繝ｼ繧ｿ
+    
+    // Occupation template data (skill keys are mapped to display names later)
     const OCCUPATION_TEMPLATES = {
         academic: [
             {
-                name: "謨呎肢",
-                skills: ["蝗ｳ譖ｸ鬢ｨ", "蠢・炊蟄ｦ", "隱ｬ蠕・, "菫｡逕ｨ", "豁ｴ蜿ｲ", "蜊夂黄蟄ｦ", "莉門嵜隱・, "繧ｪ繧ｫ繝ｫ繝・],
+                name: "Professor",
+                skills: ["library_use", "psychology", "persuade", "credit_rating", "history", "natural_world", "language_other", "occult"],
                 multiplier: 20,
-                description: "螟ｧ蟄ｦ謨呎肢繧・皮ｩｶ閠・
+                description: "University faculty or researcher"
             },
             {
-                name: "閠・商蟄ｦ閠・, 
-                skills: ["閠・商蟄ｦ", "蝗ｳ譖ｸ鬢ｨ", "豁ｴ蜿ｲ", "逶ｮ譏・, "繝翫ン繧ｲ繝ｼ繝・, "蜀咏悄陦・, "莉門嵜隱・, "髑大ｮ・],
+                name: "Archaeologist",
+                skills: ["archaeology", "library_use", "history", "spot_hidden", "navigate", "photography", "language_other", "appraise"],
                 multiplier: 20,
-                description: "驕ｺ霍｡繧・商莉｣譁・・縺ｮ遐皮ｩｶ閠・
+                description: "Field researcher of ruins and artifacts"
             },
             {
-                name: "蝗ｳ譖ｸ鬢ｨ蜿ｸ譖ｸ",
-                skills: ["蝗ｳ譖ｸ鬢ｨ", "邨檎炊", "繧ｳ繝ｳ繝斐Η繝ｼ繧ｿ繝ｼ", "豁ｴ蜿ｲ", "蠢・炊蟄ｦ", "莉門嵜隱・, "逶ｮ譏・, "隱ｬ蠕・],
+                name: "Librarian",
+                skills: ["library_use", "accounting", "computer_use", "history", "psychology", "language_other", "spot_hidden", "persuade"],
                 multiplier: 20,
-                description: "蝗ｳ譖ｸ鬢ｨ繧・ｳ・侭鬢ｨ縺ｮ邂｡逅・・
+                description: "Library or archive specialist"
             }
         ],
         investigation: [
             {
-                name: "遘∫ｫ区爾蛛ｵ",
-                skills: ["逶ｮ譏・, "閨槭″閠ｳ", "霑ｽ霍｡", "蠢・炊蟄ｦ", "隱ｬ蠕・, "蜀咏悄陦・, "髫繧後ｋ", "豕募ｾ・],
+                name: "Private Detective",
+                skills: ["spot_hidden", "listen", "track", "psychology", "persuade", "photography", "hide", "law"],
                 multiplier: 20,
-                description: "豌鷹俣縺ｮ隱ｿ譟ｻ蜩｡"
+                description: "Independent investigator"
             },
             {
-                name: "繧ｸ繝｣繝ｼ繝翫Μ繧ｹ繝・,
-                skills: ["隱ｬ蠕・, "蠢・炊蟄ｦ", "逶ｮ譏・, "閨槭″閠ｳ", "蜀咏悄陦・, "險縺・￥繧九ａ", "蝗ｳ譖ｸ鬢ｨ", "莉門嵜隱・],
+                name: "Journalist",
+                skills: ["persuade", "psychology", "spot_hidden", "listen", "photography", "fast_talk", "library_use", "language_other"],
                 multiplier: 20,
-                description: "譁ｰ閨櫁ｨ倩・ｄ蝣ｱ驕馴未菫り・
+                description: "Reporter or writer"
             },
             {
-                name: "隴ｦ蟇溷ｮ・,
-                skills: ["豕募ｾ・, "逶ｮ譏・, "閨槭″閠ｳ", "螽∝嚊", "諡ｳ驫・, "邨・∩莉倥″", "驕玖ｻ｢", "蠢懈･謇句ｽ・],
+                name: "Police Officer",
+                skills: ["law", "spot_hidden", "listen", "intimidate", "handgun", "grapple", "drive_auto", "first_aid"],
                 multiplier: 20,
-                description: "豕募濤陦悟ｮ・
+                description: "Law enforcement officer"
             }
         ],
         combat: [
             {
-                name: "霆堺ｺｺ",
-                skills: ["繝ｩ繧､繝輔Ν", "諡ｳ驫・, "蝗樣∩", "蠢懈･謇句ｽ・, "螽∝嚊", "繧ｵ繝舌う繝舌Ν", "繝翫ン繧ｲ繝ｼ繝・, "驕玖ｻ｢"],
+                name: "Soldier",
+                skills: ["rifle", "handgun", "dodge", "first_aid", "intimidate", "survival", "navigate", "drive_auto"],
                 multiplier: 20,
-                description: "迴ｾ蠖ｹ縺ｾ縺溘・騾蠖ｹ霆堺ｺｺ"
+                description: "Active or former military"
             },
             {
-                name: "譬ｼ髣伜ｮｶ",
-                skills: ["繝槭・繧ｷ繝｣繝ｫ繧｢繝ｼ繝・, "蝗樣∩", "繧ｭ繝・け", "邨・∩莉倥″", "蠢・炊蟄ｦ", "螽∝嚊", "霍ｳ霄・, "蠢懈･謇句ｽ・],
+                name: "Martial Artist",
+                skills: ["martial_arts", "dodge", "kick", "grapple", "psychology", "intimidate", "jump", "first_aid"],
                 multiplier: 20,
-                description: "豁ｦ驕灘ｮｶ繧・・繧ｯ繧ｵ繝ｼ"
+                description: "Fighter or boxer"
             }
         ],
         medical: [
             {
-                name: "蛹ｻ蟶ｫ",
-                skills: ["蛹ｻ蟄ｦ", "蠢懈･謇句ｽ・, "逕溽黄蟄ｦ", "阮ｬ蟄ｦ", "蠢・炊蟄ｦ", "菫｡逕ｨ", "隱ｬ蠕・, "莉門嵜隱・],
+                name: "Doctor",
+                skills: ["medicine", "first_aid", "biology", "pharmacy", "psychology", "credit_rating", "persuade", "language_other"],
                 multiplier: 20,
-                description: "蛹ｻ閠・ｄ螟也ｧ大現"
+                description: "Physician or surgeon"
             },
             {
-                name: "逵玖ｭｷ蟶ｫ",
-                skills: ["蛹ｻ蟄ｦ", "蠢懈･謇句ｽ・, "逕溽黄蟄ｦ", "蠢・炊蟄ｦ", "隱ｬ蠕・, "閨槭″閠ｳ", "逶ｮ譏・, "阮ｬ蟄ｦ"],
+                name: "Nurse",
+                skills: ["medicine", "first_aid", "biology", "psychology", "persuade", "listen", "spot_hidden", "pharmacy"],
                 multiplier: 20,
-                description: "蛹ｻ逋ょｾ謎ｺ玖・
+                description: "Medical staff"
             }
         ],
         arts: [
             {
-                name: "闃ｸ陦灘ｮｶ",
-                skills: ["闃ｸ陦・, "蠢・炊蟄ｦ", "逶ｮ譏・, "豁ｴ蜿ｲ", "隱ｬ蠕・, "鬲・ヱ", "莉門嵜隱・, "髑大ｮ・],
+                name: "Artist",
+                skills: ["art", "psychology", "spot_hidden", "history", "persuade", "charm", "language_other", "appraise"],
                 multiplier: 20,
-                description: "逕ｻ螳ｶ縲∝ｽｫ蛻ｻ螳ｶ縺ｪ縺ｩ"
+                description: "Painter, sculptor, performer"
             },
             {
-                name: "菴懷ｮｶ",
-                skills: ["豈榊嵜隱・, "莉門嵜隱・, "蝗ｳ譖ｸ鬢ｨ", "蠢・炊蟄ｦ", "豁ｴ蜿ｲ", "繧ｪ繧ｫ繝ｫ繝・, "隱ｬ蠕・, "逶ｮ譏・],
+                name: "Writer",
+                skills: ["language_own", "language_other", "library_use", "psychology", "history", "occult", "persuade", "spot_hidden"],
                 multiplier: 20,
-                description: "蟆剰ｪｬ螳ｶ繧・・譛ｬ螳ｶ"
+                description: "Author or novelist"
             }
         ],
         others: [
             {
-                name: "迥ｯ鄂ｪ閠・,
-                skills: ["髫繧後ｋ", "蠢阪・豁ｩ縺・, "骰ｵ髢九￠", "謇九＆縺ｰ縺・, "逶ｮ譏・, "閨槭″閠ｳ", "蛟､蛻・ｊ", "螟芽｣・],
+                name: "Criminal",
+                skills: ["hide", "sneak", "locksmith", "sleight_of_hand", "spot_hidden", "listen", "bargain", "disguise"],
                 multiplier: 20,
-                description: "蜈・官鄂ｪ閠・ｄ陬冗､ｾ莨壹・莠ｺ髢・
+                description: "Career criminal or outlaw"
             },
             {
-                name: "繝・ぅ繝ｬ繝・ち繝ｳ繝・,
-                skills: ["菫｡逕ｨ", "荵鈴ｦｬ", "闃ｸ陦・, "莉門嵜隱・, "諡ｳ驫・, "豁ｴ蜿ｲ", "鬲・ヱ", "邨檎炊"],
+                name: "Collector",
+                skills: ["credit_rating", "ride", "art", "language_other", "handgun", "history", "charm", "accounting"],
                 multiplier: 20,
-                description: "雉・肇螳ｶ縲・％讌ｽ閠・
+                description: "Collector or enthusiast"
             }
         ]
     };
 
-    // 閨ｷ讌ｭ繝・Φ繝励Ξ繝ｼ繝域ｩ溯・縺ｮ蛻晄悄蛹・    function initOccupationTemplates() {
+function initOccupationTemplates() {
         const categoryLinks = document.querySelectorAll('#occupationCategories a');
         categoryLinks.forEach(link => {
             link.addEventListener('click', function(e) {
@@ -891,15 +883,18 @@
         
         let html = '<div class="list-group">';
         occupations.forEach(occ => {
+            const skillDisplay = (occ.skills || [])
+                .map(skillKey => ALL_SKILLS_6TH[skillKey]?.name || skillKey)
+                .join(', ');
             html += `
                 <a href="#" class="list-group-item list-group-item-action occupation-template-item" 
                    data-occupation='${JSON.stringify(occ)}'>
                     <div class="d-flex w-100 justify-content-between">
                         <h6 class="mb-1">${occ.name}</h6>
-                        <small>蛟咲紫: EDUﾃ・{occ.multiplier}</small>
+                        <small>倍率: EDU x${occ.multiplier}</small>
                     </div>
                     <p class="mb-1 text-muted small">${occ.description}</p>
-                    <small>謗ｨ螂ｨ謚閭ｽ: ${occ.skills.join(', ')}</small>
+                    <small>推奨技能: ${skillDisplay}</small>
                 </a>
             `;
         });
@@ -907,7 +902,8 @@
         
         occupationList.innerHTML = html;
         
-        // 繧ｯ繝ｪ繝・け繧､繝吶Φ繝医・險ｭ螳・        document.querySelectorAll('.occupation-template-item').forEach(item => {
+        // Occupation template click handlers
+        document.querySelectorAll('.occupation-template-item').forEach(item => {
             item.addEventListener('click', function(e) {
                 e.preventDefault();
                 const occupation = JSON.parse(this.dataset.occupation);
@@ -959,20 +955,19 @@
         imageInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
-                // 繝輔ぃ繧､繝ｫ繧ｵ繧､繧ｺ繝√ぉ繝・け・・MB・・                if (file.size > 5 * 1024 * 1024) {
-                    alert('繝輔ぃ繧､繝ｫ繧ｵ繧､繧ｺ縺ｯ5MB莉･荳九↓縺励※縺上□縺輔＞縲・);
+                // File size check (5MB limit)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('File size must be 5MB or less.');
                     imageInput.value = '';
                     return;
                 }
                 
-                // 繝輔ぃ繧､繝ｫ繧ｿ繧､繝励メ繧ｧ繝・け
+                // File type check
                 if (!file.type.match(/^image\/(jpeg|jpg|png|gif)$/)) {
-                    alert('JPG縲￣NG縲；IF蠖｢蠑上・逕ｻ蜒上ヵ繧｡繧､繝ｫ繧帝∈謚槭＠縺ｦ縺上□縺輔＞縲・);
+                    alert('Please select a JPG, PNG, or GIF image.');
                     imageInput.value = '';
                     return;
                 }
-                
-                // 繝励Ξ繝薙Η繝ｼ陦ｨ遉ｺ
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     previewImg.src = e.target.result;
@@ -990,18 +985,21 @@
         });
     }
     
-    // 蛻晄悄蛹・    updateGlobalDiceFormula();
+    // ???
+    updateGlobalDiceFormula();
     generateSkillsList();
-    addSkillInputEvents();  // 謚閭ｽ繝ｪ繧ｹ繝育函謌仙ｾ後↓繧､繝吶Φ繝医Μ繧ｹ繝翫・繧定ｿｽ蜉
+    addSkillInputEvents();  // ????????????????????
     
-    // 謚閭ｽ繝ｪ繧ｹ繝医′逕滓・縺輔ｌ縺溷ｾ後↓豢ｾ逕溘せ繝・・繧ｿ繧ｹ繧定ｨ育ｮ・    setTimeout(() => {
-        calculateDerivedStats();
-        updateSkillTotals();    // 蛻晄悄險育ｮ励ｒ螳溯｡・    }, 0);
+    // ??????????????????
+    setTimeout(() => {
+        rollAllAbilities();
+    }, 0);
     
     initOccupationTemplates(); // 閨ｷ讌ｭ繝・Φ繝励Ξ繝ｼ繝域ｩ溯・繧貞・譛溷喧
     initImageUpload(); // 逕ｻ蜒上い繝・・繝ｭ繝ｼ繝画ｩ溯・繧貞・譛溷喧
     
-    // 繝輔か繝ｼ繝騾∽ｿ｡蜃ｦ逅・    const characterForm = document.getElementById('character-sheet-form');
+    // Form submit handling
+    const characterForm = document.getElementById('character-sheet-form');
     if (characterForm) {
         characterForm.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -1009,19 +1007,21 @@
             const formData = new FormData(this);
             const data = {};
             
-            // FormData縺九ｉ繝・・繧ｿ繧貞叙蠕暦ｼ医ヵ繧｡繧､繝ｫ莉･螟厄ｼ・            for (let [key, value] of formData.entries()) {
+            // Collect form data (except file)
+            for (let [key, value] of formData.entries()) {
                 if (key !== 'character_image') {
                     data[key] = value;
                 }
             }
             
-            // 繝舌Μ繝・・繧ｷ繝ｧ繝ｳ
+            // Validation
             if (!data.name) {
-                alert('謗｢邏｢閠・錐縺ｯ蠢・医〒縺吶・);
+                alert('Character name is required.');
                 return;
             }
             
-            // 閭ｽ蜉帛､繝舌Μ繝・・繧ｷ繝ｧ繝ｳ・医ヵ繧｣繝ｼ繝ｫ繝牙錐繧剃ｿｮ豁｣・・            const abilities = ['str_value', 'con_value', 'pow_value', 'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value'];
+            // Ability validation
+            const abilities = ['str_value', 'con_value', 'pow_value', 'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value'];
             let hasAbilities = false;
             for (const ability of abilities) {
                 if (data[ability] && parseInt(data[ability]) > 0) {
@@ -1029,12 +1029,13 @@
                     break;
                 }
             }
+
             
             if (!hasAbilities) {
-                alert('閭ｽ蜉帛､繧定ｨｭ螳壹＠縺ｦ縺上□縺輔＞縲・);
+                alert('Please set ability scores.');
                 return;
             }
-            
+
             // 6迚育畑縺ｫAPI繧ｨ繝ｳ繝峨・繧､繝ｳ繝医↓騾∽ｿ｡
             const apiData = {
             edition: '6th',
@@ -1100,10 +1101,10 @@
                         if (skillData) {
                             let defaultBase = skillData.base;
                             if (typeof defaultBase === 'string') {
-                                if (defaultBase === 'DEXﾃ・') {
+                                if (defaultBase === 'DEX*2') {
                                     const dex = parseInt(document.getElementById('dex')?.value) || 0;
                                     defaultBase = dex * 2;
-                                } else if (defaultBase === 'EDUﾃ・') {
+                                } else if (defaultBase === 'EDU*5') {
                                     const edu = parseInt(document.getElementById('edu')?.value) || 0;
                                     defaultBase = edu * 5;
                                 }
@@ -1126,13 +1127,11 @@
                 apiData.skills = skills;
             }
             
-            // 逕ｻ蜒上ヵ繧｡繧､繝ｫ縺後≠繧句ｴ蜷医・FormData縺ｧ騾∽ｿ｡
+            // Send image when present
             const imageFile = formData.get('character_image');
             if (imageFile && imageFile.size > 0) {
-                // FormData繧剃ｽｿ逕ｨ縺励※逕ｻ蜒上ｒ蜷ｫ繧√※騾∽ｿ｡
                 const submitFormData = new FormData();
-                
-                // API繝・・繧ｿ縺ｮ蜷・ヵ繧｣繝ｼ繝ｫ繝峨ｒFormData縺ｫ霑ｽ蜉
+
                 Object.keys(apiData).forEach(key => {
                     if (key === 'skills' || key === 'equipment') {
                         submitFormData.append(key, JSON.stringify(apiData[key]));
@@ -1140,79 +1139,81 @@
                         submitFormData.append(key, apiData[key]);
                     }
                 });
-                
-                // 逕ｻ蜒上ヵ繧｡繧､繝ｫ繧定ｿｽ蜉
+
                 submitFormData.append('character_image', imageFile);
-                
-                // API縺ｫ騾∽ｿ｡・・ultipart/form-data・・                fetch('/accounts/character-sheets/create_6th_edition/', {
+
+                // Send to API with multipart/form-data
+                fetch('/accounts/character-sheets/create_6th_edition/', {
                     method: 'POST',
                     headers: {
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
                     },
-                    body: submitFormData
+                    body: submitFormData,
                 })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(err => Promise.reject(err));
-                    }
-                    return response.json();
-                })
-                .then(result => {
-                    // 謌仙粥譎ゅ・蜃ｦ逅・ｼ・PI縺ｯCharacterSheet繧ｪ繝悶ず繧ｧ繧ｯ繝医ｒ霑斐☆・・                    if (result.id) {
-                        alert('謗｢邏｢閠・す繝ｼ繝医′豁｣蟶ｸ縺ｫ菴懈・縺輔ｌ縺ｾ縺励◆・・);
-                        window.location.href = '/accounts/character/list/';
-                    } else {
-                        alert('繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆: 莠域悄縺励↑縺・Ξ繧ｹ繝昴Φ繧ｹ蠖｢蠑・);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    if (error.error) {
-                        alert('繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆: ' + error.error);
-                    } else {
-                        alert('繝阪ャ繝医Ρ繝ｼ繧ｯ繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆縲・);
-                    }
-                });
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(err => Promise.reject(err));
+                        }
+                        return response.json();
+                    })
+                    .then(result => {
+                        // Success: API returns CharacterSheet object
+                        if (result.id) {
+                            alert('Character sheet created successfully.');
+                            window.location.href = '/accounts/character/list/';
+                        } else {
+                            alert('Error: unexpected response format.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        if (error.error) {
+                            alert('Error: ' + error.error);
+                        } else {
+                            alert('Network error occurred.');
+                        }
+                    });
             } else {
-                // 逕ｻ蜒上↑縺励・蝣ｴ蜷医・JSON縺ｧ騾∽ｿ｡
+                // Send JSON payload without image
                 fetch('/accounts/character-sheets/create_6th_edition/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
                     },
-                    body: JSON.stringify(apiData)
+                    body: JSON.stringify(apiData),
                 })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(err => Promise.reject(err));
-                    }
-                    return response.json();
-                })
-                .then(result => {
-                    // 謌仙粥譎ゅ・蜃ｦ逅・ｼ・PI縺ｯCharacterSheet繧ｪ繝悶ず繧ｧ繧ｯ繝医ｒ霑斐☆・・                    if (result.id) {
-                        alert('謗｢邏｢閠・す繝ｼ繝医′豁｣蟶ｸ縺ｫ菴懈・縺輔ｌ縺ｾ縺励◆・・);
-                        window.location.href = '/accounts/character/list/';
-                    } else {
-                        alert('繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆: 莠域悄縺励↑縺・Ξ繧ｹ繝昴Φ繧ｹ蠖｢蠑・);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    if (error.error) {
-                        alert('繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆: ' + error.error);
-                    } else {
-                        alert('繝阪ャ繝医Ρ繝ｼ繧ｯ繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆縲・);
-                    }
-                });
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(err => Promise.reject(err));
+                        }
+                        return response.json();
+                    })
+                    .then(result => {
+                        // Success: API returns CharacterSheet object
+                        if (result.id) {
+                            alert('Character sheet created successfully.');
+                            window.location.href = '/accounts/character/list/';
+                        } else {
+                            alert('Error: unexpected response format.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        if (error.error) {
+                            alert('Error: ' + error.error);
+                        } else {
+                            alert('Network error occurred.');
+                        }
+                    });
             }
         });
     }
     const footerSaveBtn = document.getElementById('footerSaveCharacter');
     if (footerSaveBtn && characterForm) {
-    footerSaveBtn.addEventListener('click', () => {
-        // HTML5繝舌Μ繝・・繧ｷ繝ｧ繝ｳ繧りｵｰ繧峨○縺､縺､submit繧､繝吶Φ繝医ｒ逋ｺ轣ｫ
-        characterForm.requestSubmit();
-    });
+        footerSaveBtn.addEventListener('click', () => {
+            // Trigger submit with HTML5 validation
+            characterForm.requestSubmit();
+        });
     }
 });
