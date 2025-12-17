@@ -7,6 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
+from django.http import Http404
 from django.db import transaction
 from accounts.models import CharacterSheet, CharacterImage
 from accounts.serializers import CharacterImageSerializer
@@ -20,29 +21,34 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
     serializer_class = CharacterImageSerializer
     permission_classes = [IsAuthenticated]
 
-    def _get_character_sheet(self):
-        """URLのパラメータからキャラクターシートを取得"""
-        character_id = self.kwargs.get("character_sheet_id") or self.kwargs.get("character_id")
-        return get_object_or_404(CharacterSheet, pk=character_id)
+    _character_sheet = None
+
+    def _get_character_sheet(self, require_owner=False):
+        """URLパラメータからキャラクターシートを取得（必要に応じて所有者チェック）"""
+        if self._character_sheet is None:
+            character_id = self.kwargs.get("character_sheet_id") or self.kwargs.get("character_id")
+            self._character_sheet = get_object_or_404(CharacterSheet, pk=character_id)
+
+        if require_owner and self._character_sheet.user != self.request.user:
+            # 所有者以外は404として扱う
+            raise Http404()
+
+        return self._character_sheet
 
     def get_queryset(self):
-        """キャラクターに紐づく画像のクエリセット"""
-        character = self._get_character_sheet()
+        """キャラクターに紐づく画像のクエリセット（所有者のみ）"""
+        character = self._get_character_sheet(require_owner=True)
         return CharacterImage.objects.filter(character_sheet=character)
 
     def get_serializer_context(self):
         """シリアライザーのコンテキストにキャラクターシートを追加"""
         context = super().get_serializer_context()
-        context["character_sheet"] = self._get_character_sheet()
+        context["character_sheet"] = self._get_character_sheet(require_owner=True)
         return context
 
     def create(self, request, *args, **kwargs):
         """画像のアップロード"""
-        character = get_object_or_404(
-            CharacterSheet,
-            pk=self._get_character_sheet().id,
-            user=request.user,
-        )
+        character = self._get_character_sheet(require_owner=True)
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -91,11 +97,7 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["patch"], url_path="reorder")
     def reorder(self, request, **kwargs):
         """画像の並び順変更"""
-        character = get_object_or_404(
-            CharacterSheet,
-            pk=self._get_character_sheet().id,
-            user=request.user,
-        )
+        character = self._get_character_sheet(require_owner=True)
 
         order_data = request.data.get("order", [])
 
@@ -119,11 +121,7 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["patch"], url_path="set-main")
     def set_main(self, request, pk=None, **kwargs):
         """メイン画像の設定"""
-        character = get_object_or_404(
-            CharacterSheet,
-            pk=self._get_character_sheet().id,
-            user=request.user,
-        )
+        character = self._get_character_sheet(require_owner=True)
 
         image = get_object_or_404(CharacterImage, pk=pk, character_sheet=character)
 
