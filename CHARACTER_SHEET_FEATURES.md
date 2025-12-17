@@ -13,9 +13,7 @@
 - ✅ 出身地
 - ✅ 居住地
 - ✅ 精神障害（6版専用）
-- ✅ キャラクター画像アップロード（JPG/PNG/GIF、最大5MB）
-- ✅ 画像プレビュー機能
-- ✅ 画像削除機能
+- ✅ キャラクター画像（複数枚アップロード、メイン指定、並び替え、削除。詳細仕様は `CHARACTER_MULTIPLE_IMAGES_SPECIFICATION.md` を参照）
 
 ### 2. 能力値システム
 - ✅ 8つの基本能力値（STR、CON、POW、DEX、APP、SIZ、INT、EDU）

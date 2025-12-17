@@ -267,7 +267,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         
         return Response(summary)
     
-    @action(detail=True, methods=['get'], url_path='ccfolia-json')
+    @action(detail=True, methods=['get'], url_path='ccfolia_json')
     def ccfolia_json(self, request, pk=None):
         """Export to CCFOLIA format JSON"""
         sheet = self.get_object()

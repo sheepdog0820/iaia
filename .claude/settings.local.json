@@ -74,7 +74,24 @@
       "Bash(else echo \".env not found\")",
       "Bash(fi)",
       "Bash(netstat:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nchore: .gitignoreにバックアップディレクトリとクリーンアップスクリプトを追加\n\n- .git_backup/を除外（バックアップディレクトリ）\n- clean_socialapps.pyを除外（認証情報を含む一時スクリプト）\n- .env.production.exampleを追加（本番環境変数のテンプレート）\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(python manage.py runserver:*)",
+      "Bash(git rm:*)",
+      "Bash(python:*)",
+      "Bash(taskkill:*)",
+      "Bash(if [ -f \"Dockerfile\" ])",
+      "Bash(then cat Dockerfile)",
+      "Bash(else echo \"Dockerfile does not exist\")",
+      "Bash(if [ -f \"docker-compose.yml\" ])",
+      "Bash(then cat docker-compose.yml)",
+      "Bash(else echo \"docker-compose.yml does not exist\")",
+      "Bash(if [ -f \"docker/entrypoint.sh\" ])",
+      "Bash(then cat docker/entrypoint.sh)",
+      "Bash(else echo \"entrypoint.sh does not exist\")",
+      "Bash(if [ -f \".dockerignore\" ])",
+      "Bash(then cat .dockerignore)",
+      "Bash(else echo \".dockerignore does not exist\")"
     ],
     "deny": []
   }
