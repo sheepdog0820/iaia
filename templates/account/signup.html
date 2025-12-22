@@ -24,6 +24,83 @@
                         {% endfor %}
                     {% endif %}
 
+                    {% if form.errors %}
+                    <div class="alert alert-danger alert-dismissible fade show">
+                        <strong>エラーが発生しました:</strong>
+                        <ul class="mb-0">
+                            {% for field, errors in form.errors.items %}
+                                {% for error in errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                        </ul>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endif %}
+
+                    <div class="text-center mb-4">
+                        <i class="fas fa-envelope-open-text text-success fa-3x mb-3"></i>
+                        <h5 class="text-success mb-2">メールアドレスで登録</h5>
+                        <p class="text-muted mb-0">メールアドレスとパスワードでアカウントを作成します。</p>
+                    </div>
+
+                    <form method="post" id="email-signup-form">
+                        {% csrf_token %}
+
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label for="{{ form.username.id_for_label }}" class="form-label">
+                                    <i class="fas fa-user"></i> {{ form.username.label }}
+                                </label>
+                                {{ form.username }}
+                            </div>
+
+                            <div class="col-12">
+                                <label for="{{ form.email.id_for_label }}" class="form-label">
+                                    <i class="fas fa-at"></i> {{ form.email.label }}
+                                </label>
+                                {{ form.email }}
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="{{ form.password1.id_for_label }}" class="form-label">
+                                    <i class="fas fa-key"></i> {{ form.password1.label }}
+                                </label>
+                                {{ form.password1 }}
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="{{ form.password2.id_for_label }}" class="form-label">
+                                    <i class="fas fa-key"></i> {{ form.password2.label }}
+                                </label>
+                                {{ form.password2 }}
+                            </div>
+
+                            <div class="col-12">
+                                <label for="{{ form.nickname.id_for_label }}" class="form-label">
+                                    <i class="fas fa-user-tag"></i> {{ form.nickname.label }}
+                                </label>
+                                {{ form.nickname }}
+                                <div class="form-text">表示名として使います（任意）</div>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="{{ form.trpg_history.id_for_label }}" class="form-label">
+                                    <i class="fas fa-scroll"></i> {{ form.trpg_history.label }}
+                                </label>
+                                {{ form.trpg_history }}
+                            </div>
+                        </div>
+
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-success btn-lg" id="signup-btn">
+                                <i class="fas fa-user-plus"></i> 登録して開始
+                            </button>
+                        </div>
+                    </form>
+
+                    <hr class="my-4">
+
                     <div class="text-center mb-4">
                         <i class="fas fa-user-plus text-success fa-3x mb-3"></i>
                         <h5 class="text-success mb-3">ソーシャルアカウントで登録</h5>
@@ -98,6 +175,11 @@
     background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
 }
 
+.form-control:focus {
+    border-color: #3fb950;
+    box-shadow: 0 0 0 0.2rem rgba(63, 185, 80, 0.25);
+}
+
 .social-btn {
     position: relative;
     overflow: hidden;
@@ -162,6 +244,15 @@ document.addEventListener('DOMContentLoaded', function() {
             this.innerHTML = '<i class="fas fa-spinner fa-spin fa-lg me-2"></i>登録中...';
         });
     });
+
+    const signupForm = document.getElementById('email-signup-form');
+    const signupBtn = document.getElementById('signup-btn');
+    if (signupForm && signupBtn) {
+        signupForm.addEventListener('submit', function() {
+            signupBtn.disabled = true;
+            signupBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>登録中...';
+        });
+    }
 });
 </script>
 {% endblock %}

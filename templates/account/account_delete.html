@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}アカウント削除 - Arkham Nexus{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-lg danger-card">
+                <div class="card-header text-center bg-danger">
+                    <h4 class="card-title mb-0 eldritch-font">
+                        <i class="fas fa-exclamation-triangle"></i> アカウント削除
+                    </h4>
+                    <p class="mb-0 text-white-50 small">この操作は取り消せません</p>
+                </div>
+
+                <div class="card-body p-4">
+                    {% if messages %}
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <div class="alert alert-warning">
+                        <strong>注意:</strong> アカウントを削除すると、作成したデータにアクセスできなくなります。
+                    </div>
+
+                    <form method="post" id="delete-form">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="confirm" class="form-label">
+                                <i class="fas fa-keyboard"></i> 確認入力
+                            </label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="confirm"
+                                   name="confirm"
+                                   placeholder="DELETE と入力してください"
+                                   autocomplete="off"
+                                   required>
+                            <div class="form-text">誤操作防止のため「DELETE」と入力してください。</div>
+                        </div>
+
+                        {% if user.has_usable_password %}
+                        <div class="mb-3">
+                            <label for="password" class="form-label">
+                                <i class="fas fa-lock"></i> パスワード
+                            </label>
+                            <input type="password"
+                                   class="form-control"
+                                   id="password"
+                                   name="password"
+                                   placeholder="パスワード"
+                                   autocomplete="current-password"
+                                   required>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-1"></i>
+                            このアカウントはパスワード未設定のため、確認入力のみで削除できます。
+                        </div>
+                        {% endif %}
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'profile_edit' %}" class="btn btn-outline-secondary me-md-2">
+                                キャンセル
+                            </a>
+                            <button type="submit" class="btn btn-danger" id="delete-btn">
+                                <i class="fas fa-trash"></i> 削除する
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.danger-card {
+    border: 2px solid #dc3545;
+    background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('delete-form');
+    const btn = document.getElementById('delete-btn');
+    const confirmInput = document.getElementById('confirm');
+
+    if (!form || !btn || !confirmInput) return;
+
+    form.addEventListener('submit', function(e) {
+        const v = (confirmInput.value || '').trim().toLowerCase();
+        if (v !== 'delete') {
+            e.preventDefault();
+            alert('確認のため、DELETE と入力してください。');
+            return;
+        }
+        if (!confirm('本当にアカウントを削除しますか？この操作は取り消せません。')) {
+            e.preventDefault();
+            return;
+        }
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>削除中...';
+    });
+});
+</script>
+{% endblock %}
+

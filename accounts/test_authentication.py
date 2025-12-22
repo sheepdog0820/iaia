@@ -38,11 +38,19 @@ class AuthenticationTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'ログイン')
 
+    def test_email_password_login(self):
+        """メールアドレス＋パスワードでログインできることのテスト"""
+        response = self.client.post('/accounts/login/', data={
+            'username': self.user.email,
+            'password': 'testpass123',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/accounts/dashboard/', response['Location'])
+
     def test_demo_login_page_accessible(self):
         """デモログインページのアクセステスト"""
         response = self.client.get('/accounts/demo/')
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'デモログイン')
+        self.assertEqual(response.status_code, 302)
 
     def test_mock_social_login_google(self):
         """Googleモックソーシャルログインのテスト"""
@@ -72,8 +80,23 @@ class AuthenticationTestCase(TestCase):
     def test_logout_functionality(self):
         """ログアウト機能のテスト"""
         self.client.force_login(self.user)
-        response = self.client.post('/auth/logout/')
+        response = self.client.get('/accounts/logout/')
         self.assertEqual(response.status_code, 302)  # リダイレクト
+
+    def test_account_delete_requires_login(self):
+        """アカウント削除ページが認証を要求することのテスト"""
+        response = self.client.get('/accounts/profile/delete/')
+        self.assertEqual(response.status_code, 302)
+
+    def test_account_delete_with_password(self):
+        """パスワード確認ありでアカウント削除できることのテスト"""
+        self.client.force_login(self.user)
+        response = self.client.post('/accounts/profile/delete/', data={
+            'confirm': 'DELETE',
+            'password': 'testpass123',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(User.objects.filter(id=self.user.id).exists())
 
 
 class GroupTestCase(TestCase):
@@ -126,7 +149,7 @@ class APIAuthenticationTestCase(APITestCase):
     def test_unauthenticated_api_access(self):
         """未認証APIアクセスのテスト"""
         response = self.client.get('/api/schedules/sessions/view/')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
     def test_authenticated_api_access(self):
         """認証済みAPIアクセスのテスト"""

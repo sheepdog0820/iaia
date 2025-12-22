@@ -170,9 +170,9 @@ AUTHENTICATION_BACKENDS = [
 SITE_ID = 1
 
 # Allauth settings（django-allauth統一版）
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
+# NOTE: ACCOUNT_* の一部設定キーは非推奨になったため新キーへ移行
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_LOGIN_ON_SIGNUP = True
 ACCOUNT_SIGNUP_FORM_CLASS = None
@@ -187,7 +187,6 @@ SOCIALACCOUNT_ADAPTER = 'accounts.adapters.CustomSocialAccountAdapter'
 # Email settings for development
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-# Login/Logout URLs
 LOGIN_REDIRECT_URL = '/accounts/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
 
@@ -216,8 +215,6 @@ if DEVELOPMENT_MODE:
 
 # Authentication URLs
 LOGIN_URL = '/accounts/login/'
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
 
 # REST Framework settings
 REST_FRAMEWORK = {

@@ -63,6 +63,66 @@
 
                     <hr class="my-4">
 
+                    <!-- メールログイン -->
+                    <div class="mb-4">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-envelope text-info fa-2x mb-2"></i>
+                            <h6 class="text-info mb-1">メールアドレスでログイン</h6>
+                            <p class="text-muted small mb-0">
+                                メールアドレス＋パスワードでログインできます（パスワード未設定の場合はリセットで設定してください）
+                            </p>
+                        </div>
+
+                        <form method="post" action="{% url 'login' %}" id="email-login-form">
+                            {% csrf_token %}
+
+                            <div class="mb-3">
+                                <label for="{{ form.username.id_for_label }}" class="form-label">
+                                    <i class="fas fa-at"></i> {{ form.username.label }}
+                                </label>
+                                {{ form.username }}
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="{{ form.password.id_for_label }}" class="form-label">
+                                    <i class="fas fa-key"></i> {{ form.password.label }}
+                                </label>
+                                {{ form.password }}
+                            </div>
+
+                            <div class="form-check mb-3">
+                                {{ form.remember_me }}
+                                <label class="form-check-label" for="{{ form.remember_me.id_for_label }}">
+                                    {{ form.remember_me.label }}
+                                </label>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-outline-info">
+                                    <i class="fas fa-sign-in-alt"></i> メールでログイン
+                                </button>
+                            </div>
+
+                            {% if form.errors %}
+                            <div class="alert alert-danger mt-3 mb-0">
+                                {% for field, errors in form.errors.items %}
+                                    {% for error in errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </form>
+
+                        <div class="text-center mt-3">
+                            <a href="{% url 'account_reset_password' %}" class="text-decoration-none small">
+                                <i class="fas fa-unlock-alt"></i> パスワードを忘れた場合（リセット）
+                            </a>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
                     <div class="text-center">
                         <small class="text-muted">
                             <i class="fas fa-info-circle me-1"></i>

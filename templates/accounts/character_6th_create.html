@@ -124,10 +124,10 @@
                                           placeholder="探索者の背景、性格、特徴、動機などを記入してください..."></textarea>
                             </div>
                             <div class="col-12">
-                                <label for="character-image" class="form-label">キャラクター画像</label>
+                                <label for="character-images" class="form-label">キャラクター画像</label>
                                 <div class="row">
                                     <div class="col-md-8">
-                                        <input type="file" class="form-control" id="character-image" name="character_image" 
+                                        <input type="file" class="form-control" id="character-images" name="character_images" 
                                                accept="image/jpeg,image/jpg,image/png,image/gif">
                                         <small class="text-muted">対応形式: JPG, PNG, GIF (最大5MB)</small>
                                     </div>
@@ -339,7 +339,7 @@
                                         </div>
                                     </div>
                                     <div class="mt-2">
-                                        <small class="text-muted">隕九◆繧ゅ▲繧我棡繧呈欠螳・</small>
+                                        <small class="text-muted">ポイントを割り振ってください</small>
                                     </div>
                                 </div>
                             </div>
@@ -505,18 +505,18 @@
                         <div class="row">
                             <div class="col-md-3 mb-3">
                                 <label for="current_hp" class="form-label">現在HP</label>
-                                <input type="number" class="form-control" id="current_hp" name="hit_points_current" 
-                                       min="0" max="99" readonly>
+                                <input type="number" class="form-control" id="current_hp" name="hit_points_current"
+                                       min="0" max="999" readonly>
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label for="current_mp" class="form-label">現在MP</label>
-                                <input type="number" class="form-control" id="current_mp" name="magic_points_current" 
-                                       min="0" max="99" readonly>
+                                <input type="number" class="form-control" id="current_mp" name="magic_points_current"
+                                       min="0" max="999" readonly>
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label for="current_san" class="form-label">現在SAN</label>
-                                <input type="number" class="form-control" id="current_san" name="sanity_current" 
-                                       min="0" max="99" readonly>
+                                <input type="number" class="form-control" id="current_san" name="sanity_current"
+                                       min="0" max="9999" readonly>
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label for="armor" class="form-label">装甲値</label>
@@ -557,7 +557,7 @@
                         </div>
                         <div class="row">
                             <div class="col-12">
-                                <label for="items" class="form-label">謇謖∝刀繝｡繝｢</label>
+                                <label for="items" class="form-label">所持品メモ</label>
                                 <textarea class="form-control" id="items" name="items" rows="3" 
                                           placeholder="主要な所持品を記入してください..."></textarea>
                             </div>
@@ -613,6 +613,9 @@
                     <div class="col-12 text-center">
                         <button type="submit" class="btn btn-primary btn-lg">
                             <i class="fas fa-save"></i> 探索者を作成
+                        </button>
+                        <button type="button" class="btn btn-outline-primary btn-lg ms-2" id="createVersionButton" style="display: none;">
+                            <i class="fas fa-code-branch"></i> 新バージョン作成
                         </button>
                         <a href="/accounts/character/list/" class="btn btn-secondary btn-lg ms-2">
                             <i class="fas fa-times"></i> キャンセル
@@ -705,6 +708,9 @@
             
             <!-- 探索者保存 -->
             <div class="col-md-3 text-end">
+                <button type="button" class="btn btn-outline-primary me-2" id="footerCreateVersion" style="display: none;">
+                    <i class="fas fa-code-branch"></i> 新バージョン
+                </button>
                 <button type="button" class="btn btn-success" id="footerSaveCharacter">
                     <i class="fas fa-save"></i> 探索者保存
                 </button>

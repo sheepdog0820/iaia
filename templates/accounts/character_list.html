@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="position-relative">
                             <img src="${imageUrl}" 
                                  class="card-img-top" 
-                                 style="height: 200px; object-fit: contain; background-color: #f8f9fa;" 
+                                 style="height: 220px; object-fit: contain; background-color: #f8f9fa; padding: 8px;" 
                                  alt="${character.name}"
                                  onerror="this.src='${DEFAULT_CHARACTER_IMAGE}';">
                             ${character.status !== 'alive' ? 
@@ -252,15 +252,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         
                         <div class="card-footer bg-transparent">
-                            <div class="d-flex gap-2">
+                            <div class="d-flex gap-2 flex-wrap">
                                 <a href="/accounts/character/${character.id}/" class="btn btn-outline-primary btn-sm flex-fill">
                                     <i class="fas fa-eye"></i> 詳細
                                 </a>
                                 <a href="/accounts/character/create/6th/?id=${character.id}" class="btn btn-outline-secondary btn-sm flex-fill">
                                     <i class="fas fa-edit"></i> 編集
                                 </a>
-                                <button class="btn btn-outline-info btn-sm" onclick="createVersion(${character.id})">
+                                <button class="btn btn-outline-info btn-sm flex-fill" onclick="createVersion(${character.id})">
                                     <i class="fas fa-copy"></i> 複製
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm flex-fill" onclick='deleteCharacter(${character.id}, ${JSON.stringify(character.name)})'>
+                                    <i class="fas fa-trash"></i> 削除
                                 </button>
                             </div>
                         </div>
@@ -309,9 +312,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
         }
     }
+
+    function deleteCharacter(characterId, characterName) {
+        const name = characterName || `ID:${characterId}`;
+        if (!confirm(`「${name}」を削除しますか？\nこの操作は取り消せません。`)) return;
+
+        axios.delete(`/api/accounts/character-sheets/${characterId}/`)
+            .then(() => {
+                alert('削除しました。');
+                loadCharacters();
+            })
+            .catch(error => {
+                console.error('削除に失敗しました:', error);
+                alert('削除に失敗しました。');
+            });
+    }
     
     // グローバル関数として定義
     window.createVersion = createVersion;
+    window.deleteCharacter = deleteCharacter;
     
     // イベントリスナー
     document.querySelectorAll('input[name="edition"]').forEach(radio => {

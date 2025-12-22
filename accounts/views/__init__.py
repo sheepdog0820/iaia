@@ -8,7 +8,7 @@ from .base_views import BaseViewSet, PermissionMixin
 from .user_views import (
     UserViewSet, FriendViewSet, ProfileView, AddFriendView,
     CustomLoginView, CustomSignUpView, CustomLogoutView,
-    ProfileEditView, DashboardView, mock_social_login, demo_login_page
+    ProfileEditView, DashboardView, AccountDeleteView, mock_social_login, demo_login_page
 )
 
 # Group management views
@@ -25,7 +25,7 @@ __all__ = [
     'BaseViewSet', 'PermissionMixin',
     'UserViewSet', 'FriendViewSet', 'ProfileView', 'AddFriendView',
     'CustomLoginView', 'CustomSignUpView', 'CustomLogoutView',
-    'ProfileEditView', 'DashboardView', 'mock_social_login', 'demo_login_page',
+    'ProfileEditView', 'DashboardView', 'AccountDeleteView', 'mock_social_login', 'demo_login_page',
     'GroupViewSet', 'GroupInvitationViewSet',
     'CharacterSheetViewSet', 'CharacterSkillViewSet', 'CharacterEquipmentViewSet',
     'CharacterListView', 'CharacterDetailView', 'CharacterEditView', 'Character6thCreateView'

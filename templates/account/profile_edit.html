@@ -149,6 +149,23 @@
                             </p>
                         </div>
                     </div>
+
+                    <hr class="my-3">
+
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{% url 'account_email' %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-envelope"></i> メールアドレス管理
+                        </a>
+                        <a href="{% url 'socialaccount_connections' %}" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-link"></i> ソーシャル連携
+                        </a>
+                        <a href="{% url 'account_change_password' %}" class="btn btn-outline-warning btn-sm">
+                            <i class="fas fa-key"></i> パスワード変更
+                        </a>
+                        <a href="{% url 'account_delete' %}" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-user-slash"></i> アカウント削除
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

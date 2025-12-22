@@ -1,6 +1,8 @@
 """
 Character sheet management views
 """
+import json
+
 from .common_imports import *
 from .base_views import BaseViewSet, PermissionMixin
 from .mixins import CharacterSheetAccessMixin, CharacterNestedResourceMixin, ErrorHandlerMixin
@@ -506,6 +508,39 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
     @action(detail=False, methods=['post'])
     def create_6th_edition(self, request):
         """6th edition character creation endpoint (Cthulhu Mythos TRPG exclusive)"""
+        def parse_int(value, field_name, *, min_value=None, max_value=None, default=None):
+            if value is None or value == "":
+                if default is not None:
+                    return default
+                raise ValueError(f'{field_name} is required')
+
+            try:
+                int_value = int(value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f'{field_name} must be an integer') from exc
+
+            if min_value is not None and int_value < min_value:
+                raise ValueError(f'{field_name} must be between {min_value} and {max_value}')
+            if max_value is not None and int_value > max_value:
+                raise ValueError(f'{field_name} must be between {min_value} and {max_value}')
+
+            return int_value
+
+        def parse_json_list(value, field_name):
+            if value is None or value == "":
+                return []
+            if isinstance(value, list):
+                return value
+            if not isinstance(value, str):
+                raise ValueError(f'{field_name} must be valid JSON')
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f'{field_name} must be valid JSON') from exc
+            if not isinstance(parsed, list):
+                raise ValueError(f'{field_name} must be a JSON array')
+            return parsed
+
         # Data validation
         required_fields = ['name', 'str_value', 'con_value', 'pow_value', 'dex_value', 
                           'app_value', 'siz_value', 'int_value', 'edu_value']
@@ -521,13 +556,12 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         # Users should be able to input any value (1-999)
         ability_fields = ['str_value', 'con_value', 'pow_value', 'dex_value', 
                          'app_value', 'siz_value', 'int_value', 'edu_value']
+        parsed_abilities = {}
         for field in ability_fields:
-            value = request.data.get(field)
-            if not isinstance(value, int) or value < 1 or value > 999:
-                return Response(
-                    {'error': f'{field} must be between 1 and 999'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            try:
+                parsed_abilities[field] = parse_int(request.data.get(field), field, min_value=1, max_value=999)
+            except ValueError as exc:
+                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             
@@ -537,19 +571,19 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 'edition': '6th',
                 'name': request.data['name'],
                 'player_name': request.data.get('player_name', request.user.nickname or request.user.username),
-                'age': request.data.get('age', 25),
+                'age': parse_int(request.data.get('age', 25), 'age', min_value=0, max_value=999, default=25),
                 'gender': request.data.get('gender', ''),
                 'occupation': request.data.get('occupation', ''),
                 'birthplace': request.data.get('birthplace', ''),
                 'residence': request.data.get('residence', ''),
-                'str_value': request.data['str_value'],
-                'con_value': request.data['con_value'],
-                'pow_value': request.data['pow_value'],
-                'dex_value': request.data['dex_value'],
-                'app_value': request.data['app_value'],
-                'siz_value': request.data['siz_value'],
-                'int_value': request.data['int_value'],
-                'edu_value': request.data['edu_value'],
+                'str_value': parsed_abilities['str_value'],
+                'con_value': parsed_abilities['con_value'],
+                'pow_value': parsed_abilities['pow_value'],
+                'dex_value': parsed_abilities['dex_value'],
+                'app_value': parsed_abilities['app_value'],
+                'siz_value': parsed_abilities['siz_value'],
+                'int_value': parsed_abilities['int_value'],
+                'edu_value': parsed_abilities['edu_value'],
                 'notes': request.data.get('notes', ''),
                 'is_active': True
             }
@@ -583,31 +617,46 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             )
             
             # Create skills data if provided
-            skills_data = request.data.get('skills', [])
+            try:
+                skills_data = parse_json_list(request.data.get('skills', []), 'skills')
+            except ValueError as exc:
+                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
             for skill_data in skills_data:
-                if 'skill_name' in skill_data:
-                    # current_valueが提供されていない場合は、各ポイントの合計を計算
-                    base_value = skill_data.get('base_value', 0)
-                    occupation_points = skill_data.get('occupation_points', 0)
-                    interest_points = skill_data.get('interest_points', 0)
-                    other_points = skill_data.get('other_points', 0)
-                    current_value = skill_data.get('current_value', 
-                                                   base_value + occupation_points + interest_points + other_points)
-                    
-                    CharacterSkill.objects.create(
-                        character_sheet=character_sheet,
-                        skill_name=skill_data['skill_name'],
-                        base_value=base_value,
-                        occupation_points=occupation_points,
-                        interest_points=interest_points,
-                        other_points=other_points,
-                        current_value=current_value
-                    )
+                if not isinstance(skill_data, dict) or 'skill_name' not in skill_data:
+                    continue
+
+                base_value = parse_int(skill_data.get('base_value', 0), 'base_value', min_value=0, max_value=999, default=0)
+                occupation_points = parse_int(skill_data.get('occupation_points', 0), 'occupation_points', min_value=0, max_value=999, default=0)
+                interest_points = parse_int(skill_data.get('interest_points', 0), 'interest_points', min_value=0, max_value=999, default=0)
+                other_points = parse_int(skill_data.get('other_points', 0), 'other_points', min_value=0, max_value=999, default=0)
+                current_value = parse_int(
+                    skill_data.get('current_value', base_value + occupation_points + interest_points + other_points),
+                    'current_value',
+                    min_value=0,
+                    max_value=999,
+                    default=base_value + occupation_points + interest_points + other_points,
+                )
+
+                CharacterSkill.objects.create(
+                    character_sheet=character_sheet,
+                    skill_name=skill_data['skill_name'],
+                    base_value=base_value,
+                    occupation_points=occupation_points,
+                    interest_points=interest_points,
+                    other_points=other_points,
+                    current_value=current_value
+                )
             
             # Create equipment data if provided
-            equipment_data = request.data.get('equipment', [])
+            try:
+                equipment_data = parse_json_list(request.data.get('equipment', []), 'equipment')
+            except ValueError as exc:
+                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
             for equipment in equipment_data:
-                if 'name' in equipment:
+                if not isinstance(equipment, dict) or 'name' not in equipment:
+                    continue
                     CharacterEquipment.objects.create(
                         character_sheet=character_sheet,
                         item_type=equipment.get('item_type', 'item'),

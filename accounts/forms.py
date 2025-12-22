@@ -54,15 +54,31 @@ class CustomLoginForm(AuthenticationForm):
     )
 
     def clean_username(self):
-        username = self.cleaned_data.get('username')
-        if '@' in username:
-            # メールアドレスでの認証を試行
-            try:
-                user = CustomUser.objects.get(email=username)
-                return user.username
-            except CustomUser.DoesNotExist:
-                pass
-        return username
+        login = (self.cleaned_data.get('username') or '').strip()
+        if not login or '@' not in login:
+            return login
+
+        # メールアドレス入力の場合、usernameへ変換してAuthenticationFormの認証に渡す。
+        # allauthのEmailAddressを優先（主メール/検証状態を考慮）
+        try:
+            from allauth.account.models import EmailAddress
+
+            email_address = (
+                EmailAddress.objects.select_related('user')
+                .filter(email__iexact=login)
+                .order_by('-primary', '-verified')
+                .first()
+            )
+            if email_address and email_address.user:
+                return email_address.user.username
+        except Exception:
+            pass
+
+        try:
+            user = CustomUser.objects.get(email__iexact=login)
+            return user.username
+        except CustomUser.DoesNotExist:
+            return login
 
 
 class CustomSignUpForm(UserCreationForm):

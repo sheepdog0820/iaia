@@ -228,6 +228,10 @@ class TindalosMetricsView(APIView):
         
         # プレイ履歴
         recent_sessions = self._get_recent_sessions(user, limit=10)
+
+        # 曜日/時間帯の分布（グラフ用）
+        weekly_stats = self._get_weekly_stats(user, year)
+        hourly_stats = self._get_hourly_stats(user, year)
         
         return Response({
             'user': {
@@ -242,15 +246,53 @@ class TindalosMetricsView(APIView):
             'role_stats': role_stats,
             'group_stats': group_stats,
             'recent_sessions': recent_sessions,
+            'weekly_stats': weekly_stats,
+            'hourly_stats': hourly_stats,
         })
+
+    def _get_weekly_stats(self, user, year):
+        """曜日別セッション数（Sun..Sat の順）"""
+        sessions = TRPGSession.objects.filter(
+            Q(participants=user) | Q(gm=user),
+            date__year=year,
+            status='completed'
+        ).distinct()
+
+        counts = [0] * 7  # 0:Sun ... 6:Sat
+        for session in sessions:
+            # Python weekday: Mon=0..Sun=6 -> Sun=0..Sat=6
+            idx = (session.date.weekday() + 1) % 7
+            counts[idx] += 1
+
+        return {
+            'counts': counts,
+            'total': sum(counts),
+        }
+
+    def _get_hourly_stats(self, user, year):
+        """時間帯別セッション数（0..23）"""
+        sessions = TRPGSession.objects.filter(
+            Q(participants=user) | Q(gm=user),
+            date__year=year,
+            status='completed'
+        ).distinct()
+
+        counts = [0] * 24
+        for session in sessions:
+            counts[session.date.hour] += 1
+
+        return {
+            'counts': counts,
+            'total': sum(counts),
+        }
     
     def _get_yearly_stats(self, user, year):
         """年間統計データ"""
         sessions = TRPGSession.objects.filter(
-            participants=user,
+            (Q(participants=user) | Q(gm=user)),
             date__year=year,
             status='completed'
-        )
+        ).distinct()
         
         total_sessions = sessions.count()
         total_minutes = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
@@ -309,11 +351,11 @@ class TindalosMetricsView(APIView):
         
         for month in range(1, 13):
             sessions = TRPGSession.objects.filter(
-                participants=user,
+                (Q(participants=user) | Q(gm=user)),
                 date__year=year,
                 date__month=month,
                 status='completed'
-            )
+            ).distinct()
             
             session_count = sessions.count()
             total_minutes = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
@@ -404,10 +446,9 @@ class TindalosMetricsView(APIView):
         for group in user_groups:
             sessions = TRPGSession.objects.filter(
                 group=group,
-                participants=user,
                 date__year=year,
                 status='completed'
-            )
+            ).filter(Q(participants=user) | Q(gm=user)).distinct()
             
             session_count = sessions.count()
             total_minutes = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
@@ -426,9 +467,8 @@ class TindalosMetricsView(APIView):
     def _get_recent_sessions(self, user, limit=10):
         """最近のセッション履歴"""
         sessions = TRPGSession.objects.filter(
-            participants=user,
             status='completed'
-        ).select_related('group', 'gm').order_by('-date')[:limit]
+        ).filter(Q(participants=user) | Q(gm=user)).distinct().select_related('group', 'gm').order_by('-date')[:limit]
         
         result = []
         for session in sessions:
@@ -464,15 +504,15 @@ class TindalosMetricsView(APIView):
     def _calculate_completion_rate(self, user, year):
         """セッション完了率の計算"""
         total_planned = TRPGSession.objects.filter(
-            participants=user,
+            Q(participants=user) | Q(gm=user),
             date__year=year
-        ).count()
+        ).distinct().count()
         
         completed = TRPGSession.objects.filter(
-            participants=user,
+            Q(participants=user) | Q(gm=user),
             date__year=year,
             status='completed'
-        ).count()
+        ).distinct().count()
         
         if total_planned == 0:
             return 0.0
@@ -492,10 +532,9 @@ class TindalosMetricsView(APIView):
         # 最近の8週間のセッション情報を取得
         eight_weeks_ago = timezone.now() - timedelta(weeks=8)
         sessions = TRPGSession.objects.filter(
-            participants=user,
             date__gte=eight_weeks_ago,
             status='completed'
-        ).order_by('-date')
+        ).filter(Q(participants=user) | Q(gm=user)).distinct().order_by('-date')
         
         if not sessions:
             return 0
@@ -523,10 +562,9 @@ class TindalosMetricsView(APIView):
     def _calculate_longest_streak(self, user, year):
         """年間最長連続プレイ週数"""
         sessions = TRPGSession.objects.filter(
-            participants=user,
             date__year=year,
             status='completed'
-        ).order_by('date')
+        ).filter(Q(participants=user) | Q(gm=user)).distinct().order_by('date')
         
         if not sessions:
             return 0
@@ -554,10 +592,9 @@ class TindalosMetricsView(APIView):
     def _calculate_favorite_day_of_week(self, user, year):
         """お気に入りの曜日を計算"""
         sessions = TRPGSession.objects.filter(
-            participants=user,
             date__year=year,
             status='completed'
-        )
+        ).filter(Q(participants=user) | Q(gm=user)).distinct()
         
         day_counts = {}
         day_names = {
@@ -582,10 +619,9 @@ class TindalosMetricsView(APIView):
     def _calculate_peak_playing_hour(self, user, year):
         """ピークプレイ時間帯を計算"""
         sessions = TRPGSession.objects.filter(
-            participants=user,
             date__year=year,
             status='completed'
-        )
+        ).filter(Q(participants=user) | Q(gm=user)).distinct()
         
         hour_counts = {}
         

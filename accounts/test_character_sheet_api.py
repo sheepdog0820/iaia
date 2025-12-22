@@ -7,6 +7,7 @@
 import json
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APITestCase
 from rest_framework import status
 from .character_models import CharacterSheet, CharacterSheet6th, CharacterSkill, CharacterEquipment
@@ -114,6 +115,30 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(character.magic_points_max, 15)  # POW15
         
         return response.data['id']
+
+    def test_create_6th_edition_character_with_image(self):
+        """6版キャラクター作成（画像付き）のテスト"""
+        # minimal 1x1 gif
+        gif_bytes = (
+            b"GIF89a\x01\x00\x01\x00\x80\x00\x00"
+            b"\x00\x00\x00\xff\xff\xff!\xf9\x04\x01"
+            b"\x00\x00\x00\x00,\x00\x00\x00\x00\x01"
+            b"\x00\x01\x00\x00\x02\x02D\x01\x00;"
+        )
+        image = SimpleUploadedFile("test.gif", gif_bytes, content_type="image/gif")
+
+        data = dict(self.character_data_6th)
+        data["character_images"] = image
+
+        response = self.client.post(
+            "/api/accounts/character-sheets/create_6th_edition/",
+            data,
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        character = CharacterSheet.objects.get(id=response.data["id"])
+        self.assertTrue(character.images.exists())
     
     def test_create_7th_edition_character(self):
         """7版キャラクターシート作成テスト"""

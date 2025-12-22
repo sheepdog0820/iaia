@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}
+{% if process == "connect" %}
+メール/ソーシャル連携 - Arkham Nexus
+{% else %}
+Googleログイン - Arkham Nexus
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-7 col-lg-6">
+            <div class="card shadow-lg login-card">
+                <div class="card-header text-center header-gradient">
+                    <h4 class="card-title mb-0 eldritch-font">
+                        {% if process == "connect" %}
+                            <i class="fas fa-link"></i> アカウント連携
+                        {% else %}
+                            <i class="fas fa-user-shield"></i> ログイン
+                        {% endif %}
+                    </h4>
+                    <p class="mb-0 text-muted small">
+                        {% if process == "connect" %}
+                            外なる接続をあなたのアカウントに紐づけます
+                        {% else %}
+                            第三者アカウントでサインインします
+                        {% endif %}
+                    </p>
+                </div>
+
+                <div class="card-body p-4">
+                    {% if messages %}
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <div class="text-center mb-4">
+                        <div class="provider-badge mx-auto mb-3">
+                            <span class="google-g">G</span>
+                        </div>
+                        <h5 class="mb-2">
+                            {% if process == "connect" %}
+                                Googleを連携します
+                            {% else %}
+                                Googleでログインします
+                            {% endif %}
+                        </h5>
+                        <p class="text-muted mb-0">
+                            {% if process == "connect" %}
+                                続行すると、現在のアカウントにGoogleアカウントが紐づきます。
+                            {% else %}
+                                続行すると、Googleアカウントでログインします。
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    <form method="post" action="{{ request.get_full_path }}" id="provider-login-form">
+                        {% csrf_token %}
+                        {% if process %}
+                            <input type="hidden" name="process" value="{{ process }}">
+                        {% endif %}
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-google btn-lg" id="continue-btn">
+                                <i class="fab fa-google me-2"></i>
+                                {% if process == "connect" %}
+                                    Googleと連携して続行
+                                {% else %}
+                                    Googleで続行
+                                {% endif %}
+                            </button>
+                            {% if process == "connect" %}
+                                <a class="btn btn-outline-secondary" href="{% url 'socialaccount_connections' %}">
+                                    キャンセル
+                                </a>
+                            {% else %}
+                                <a class="btn btn-outline-secondary" href="{% url 'account_login' %}">
+                                    戻る
+                                </a>
+                            {% endif %}
+                        </div>
+                    </form>
+
+                    <hr class="my-4">
+
+                    <div class="small text-muted">
+                        <ul class="mb-0 ps-3">
+                            <li>ブラウザのポップアップ/リダイレクトがブロックされていないか確認してください。</li>
+                            <li>ログイン後、元の画面に戻るため自動でリダイレクトします。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <small class="text-muted eldritch-font">
+                    "The gate does not open without a price."
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.login-card {
+    border: 2px solid #dc2670;
+    background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+}
+
+.header-gradient {
+    background: linear-gradient(135deg, rgba(220, 38, 112, 0.15) 0%, rgba(13, 110, 253, 0.12) 100%);
+    border-bottom: 1px solid rgba(240, 246, 252, 0.12);
+}
+
+.provider-badge {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+.google-g {
+    font-weight: 800;
+    font-size: 28px;
+    letter-spacing: -1px;
+    color: #ffffff;
+}
+
+.btn-google {
+    color: #ffffff;
+    border: 2px solid #ea4335;
+    background: linear-gradient(135deg, #ea4335 0%, #d33b2c 100%);
+}
+
+.btn-google:hover {
+    color: #ffffff;
+    border-color: #d33b2c;
+    background: linear-gradient(135deg, #d33b2c 0%, #b52d20 100%);
+    box-shadow: 0 8px 25px rgba(234, 67, 53, 0.35);
+    transform: translateY(-1px);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('provider-login-form');
+    const btn = document.getElementById('continue-btn');
+    if (!form || !btn) return;
+    form.addEventListener('submit', function() {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>処理中...';
+    });
+});
+</script>
+{% endblock %}
+

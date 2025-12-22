@@ -2,6 +2,8 @@
 User and authentication related views
 """
 from .common_imports import *
+from django.contrib.auth import logout as auth_logout
+from django.views import View
 from .base_views import BaseViewSet
 from .mixins import UserOwnershipMixin, ErrorHandlerMixin
 
@@ -117,12 +119,29 @@ class CustomLoginView(FormView):
 
 class CustomSignUpView(FormView):
     """Custom signup view"""
-    template_name = 'registration/signup.html'
+    template_name = 'account/signup.html'
     form_class = CustomSignUpForm
     success_url = reverse_lazy('dashboard')
     
     def form_valid(self, form):
         user = form.save()
+
+        # Ensure allauth EmailAddress is in sync for email login & email management.
+        try:
+            from allauth.account.models import EmailAddress
+
+            EmailAddress.objects.update_or_create(
+                user=user,
+                email=user.email,
+                defaults={
+                    'primary': True,
+                    # Email verification is disabled in settings, so mark as verified.
+                    'verified': True,
+                },
+            )
+        except Exception:
+            pass
+
         user = authenticate(
             username=form.cleaned_data['username'],
             password=form.cleaned_data['password1']
@@ -131,15 +150,22 @@ class CustomSignUpView(FormView):
         return super().form_valid(form)
 
 
-class CustomLogoutView(TemplateView):
+class CustomLogoutView(View):
     """Custom logout view"""
-    template_name = 'registration/logged_out.html'
+
+    def get(self, request, *args, **kwargs):
+        auth_logout(request)
+        return redirect('home')
+
+    def post(self, request, *args, **kwargs):
+        auth_logout(request)
+        return redirect('home')
 
 
 @method_decorator(login_required, name='dispatch')
 class ProfileEditView(FormView):
     """Profile edit view"""
-    template_name = 'accounts/profile_edit.html'
+    template_name = 'account/profile_edit.html'
     form_class = ProfileEditForm
     success_url = reverse_lazy('dashboard')
     
@@ -164,15 +190,30 @@ class DashboardView(TemplateView):
         
         # Get user's sessions
         from schedules.models import TRPGSession
+        from django.db.models import Q, Sum
+
+        sessions_qs = TRPGSession.objects.filter(
+            Q(participants=self.request.user) | Q(gm=self.request.user)
+        ).distinct()
+
+        current_year = timezone.now().year
+        sessions_this_year_qs = sessions_qs.filter(date__year=current_year)
+        total_minutes = sessions_this_year_qs.aggregate(total=Sum('duration_minutes'))['total'] or 0
+
+        context['sessions_this_year'] = sessions_this_year_qs.count()
+        context['total_hours'] = round(total_minutes / 60, 1)
+        context['group_count'] = GroupMembership.objects.filter(user=self.request.user).count()
+        context['friend_count'] = Friend.objects.filter(user=self.request.user).count()
+
         context['upcoming_sessions'] = TRPGSession.objects.filter(
-            participants=self.request.user,
+            Q(participants=self.request.user) | Q(gm=self.request.user),
             date__gte=timezone.now()
-        ).order_by('date')[:5]
+        ).distinct().order_by('date')[:5]
         
         context['recent_sessions'] = TRPGSession.objects.filter(
-            participants=self.request.user,
+            Q(participants=self.request.user) | Q(gm=self.request.user),
             date__lt=timezone.now()
-        ).order_by('-date')[:5]
+        ).distinct().order_by('-date')[:5]
         
         # Get social accounts
         context['social_accounts'] = SocialAccount.objects.filter(
@@ -180,6 +221,33 @@ class DashboardView(TemplateView):
         )
         
         return context
+
+
+@method_decorator(login_required, name='dispatch')
+class AccountDeleteView(TemplateView):
+    template_name = 'account/account_delete.html'
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+
+        confirm = (request.POST.get('confirm') or '').strip().lower()
+        password = request.POST.get('password') or ''
+
+        if confirm != 'delete':
+            messages.error(request, '確認のため、入力欄に「DELETE」と入力してください。')
+            return redirect('account_delete')
+
+        if user.has_usable_password():
+            if not user.check_password(password):
+                messages.error(request, 'パスワードが正しくありません。')
+                return redirect('account_delete')
+
+        # Logout first so the session does not reference a deleted user.
+        auth_logout(request)
+        user.delete()
+
+        messages.success(request, 'アカウントを削除しました。ご利用ありがとうございました。')
+        return redirect('home')
 
 
 # Development/Demo Views

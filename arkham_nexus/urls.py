@@ -46,5 +46,6 @@ urlpatterns = [
     path('', TemplateView.as_view(template_name='home.html'), name='home'),
 ]
 
-if settings.DEBUG:
+# Serve uploaded media in non-production environments (local dev) even if DEBUG is false.
+if settings.DEBUG or getattr(settings, 'ENVIRONMENT', 'development') != 'production':
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

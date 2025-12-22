@@ -1,102 +1,106 @@
 ﻿document.addEventListener('DOMContentLoaded', function() {
 
     
+    const urlParams = new URLSearchParams(window.location.search);
+    const editCharacterId = urlParams.get('id');
+    const isEditMode = !!editCharacterId;
+
     // 6th edition skill data
     const SKILLS_6TH = {
         combat: {
-            dodge: { base: "DEX*2", name: "\u56de\u907f" },
-            martial_arts: { base: 1, name: "\u30de\u30fc\u30b7\u30e3\u30eb\u30a2\u30fc\u30c4" },
-            throw: { base: 25, name: "\u6295\u64ae" },
-            first_aid: { base: 30, name: "\u5fdc\u6025\u624b\u5f53" },
-            fist_punch: { base: 50, name: "\u3053\u3076\u3057\uff08\u30d1\u30f3\u30c1\uff09" },
-            head_butt: { base: 10, name: "\u982d\u6483\u304d" },
-            kick: { base: 25, name: "\u30ad\u30c3\u30af" },
-            grapple: { base: 25, name: "\u7d44\u307f\u4ed8\u304d" },
-            knife: { base: 20, name: "\u30ca\u30a4\u30d5" },
-            club: { base: 25, name: "\u3053\u3093\u68d2" },
-            handgun: { base: 20, name: "\u62f3\u9283" },
-            rifle: { base: 25, name: "\u30e9\u30a4\u30d5\u30eb" },
-            shotgun: { base: 30, name: "\u30b7\u30e7\u30c3\u30c8\u30ac\u30f3" },
-            submachine_gun: { base: 15, name: "\u30b5\u30d6\u30de\u30b7\u30f3\u30ac\u30f3" },
-            machine_gun: { base: 15, name: "\u30de\u30b7\u30f3\u30ac\u30f3" },
-            bow: { base: 15, name: "\u5f13" },
-            sword: { base: 20, name: "\u5263" },
-            spear: { base: 20, name: "\u69cd" },
-            whip: { base: 5, name: "\u97a3" }
+            dodge: { base: "DEX*2", name: "回避" },
+            martial_arts: { base: 1, name: "マーシャルアーツ" },
+            throw: { base: 25, name: "投擲" },
+            first_aid: { base: 30, name: "応急手当" },
+            fist_punch: { base: 50, name: "こぶし（パンチ）" },
+            head_butt: { base: 10, name: "頭突き" },
+            kick: { base: 25, name: "キック" },
+            grapple: { base: 25, name: "組み付き" },
+            knife: { base: 20, name: "ナイフ" },
+            club: { base: 25, name: "こん棒" },
+            handgun: { base: 20, name: "拳銃" },
+            rifle: { base: 25, name: "ライフル" },
+            shotgun: { base: 30, name: "ショットガン" },
+            submachine_gun: { base: 15, name: "サブマシンガン" },
+            machine_gun: { base: 15, name: "マシンガン" },
+            bow: { base: 15, name: "弓" },
+            sword: { base: 20, name: "剣" },
+            spear: { base: 20, name: "槍" },
+            whip: { base: 5, name: "鞭" }
         },
         exploration: {
-            spot_hidden: { base: 25, name: "\u76ee\u661f" },
-            listen: { base: 25, name: "\u805e\u304d\u8033" },
-            library_use: { base: 25, name: "\u56f3\u66f8\u9928" },
-            track: { base: 10, name: "\u8ffd\u8de1" },
-            navigate: { base: 10, name: "\u30ca\u30d3\u30b2\u30fc\u30c8" },
-            photography: { base: 10, name: "\u5199\u771f\u8853" }
+            spot_hidden: { base: 25, name: "目星" },
+            listen: { base: 25, name: "聞き耳" },
+            library_use: { base: 25, name: "図書館" },
+            track: { base: 10, name: "追跡" },
+            navigate: { base: 10, name: "ナビゲート" },
+            photography: { base: 10, name: "写真術" }
         },
         action: {
-            climb: { base: 40, name: "\u767b\u6500" },
-            jump: { base: 25, name: "\u8df3\u8e8d" },
-            swim: { base: 25, name: "\u6c34\u6cf3" },
-            sneak: { base: 10, name: "\u5fcd\u3073\u6b69\u304d" },
-            hide: { base: 10, name: "\u96a0\u308c\u308b" },
-            conceal: { base: 15, name: "\u96a0\u3059" },
-            locksmith: { base: 1, name: "\u9375\u958b\u3051" },
-            drive_auto: { base: 20, name: "\u904b\u8ee2" },
-            pilot: { base: 1, name: "\u64ae\u7d71" },
-            ride: { base: 5, name: "\u4e57\u99ac" },
-            electrical_repair: { base: 10, name: "\u96fb\u6c17\u4fee\u7406" },
-            electronics: { base: 1, name: "\u96fb\u5b50\u5de5\u5b66" },
-            mechanical_repair: { base: 20, name: "\u6a5f\u68b0\u4fee\u7406" },
-            operate_heavy_machine: { base: 1, name: "\u91cd\u6a5f\u68b0\u64cd\u4f5c" },
-            disguise: { base: 1, name: "\u5909\u88c5" },
-            sleight_of_hand: { base: 10, name: "\u624b\u3055\u3070\u304d" }
+            climb: { base: 40, name: "登攀" },
+            jump: { base: 25, name: "跳躍" },
+            swim: { base: 25, name: "水泳" },
+            sneak: { base: 10, name: "忍び歩き" },
+            hide: { base: 10, name: "隠れる" },
+            conceal: { base: 15, name: "隠す" },
+            locksmith: { base: 1, name: "鍵開け" },
+            drive_auto: { base: 20, name: "運転" },
+            pilot: { base: 1, name: "操縦" },
+            ride: { base: 5, name: "乗馬" },
+            electrical_repair: { base: 10, name: "電気修理" },
+            electronics: { base: 1, name: "電子工学" },
+            mechanical_repair: { base: 20, name: "機械修理" },
+            operate_heavy_machine: { base: 1, name: "重機械操作" },
+            disguise: { base: 1, name: "変装" },
+            sleight_of_hand: { base: 10, name: "手さばき" }
         },
         social: {
-            persuade: { base: 15, name: "\u8aac\u5f97" },
-            fast_talk: { base: 5, name: "\u8a00\u3044\u304f\u308b\u3081" },
-            bargain: { base: 5, name: "\u5024\u5207\u308a" },
-            psychology: { base: 5, name: "\u5fc3\u7406\u5b66" },
-            psychoanalysis: { base: 1, name: "\u7cbe\u795e\u5206\u6790" },
-            credit_rating: { base: 0, name: "\u4fe1\u7528" },
-            language_own: { base: "EDU*5", name: "\u6bcd\u56fd\u8a9e" },
-            language_other: { base: 1, name: "\u4ed6\u56fd\u8a9e" },
-            intimidate: { base: 15, name: "\u5a01\u5687" },
-            charm: { base: 15, name: "\u9b45\u60d1" }
+            persuade: { base: 15, name: "説得" },
+            fast_talk: { base: 5, name: "言いくるめ" },
+            bargain: { base: 5, name: "値切り" },
+            psychology: { base: 5, name: "心理学" },
+            psychoanalysis: { base: 1, name: "精神分析" },
+            credit_rating: { base: 0, name: "信用" },
+            language_own: { base: "EDU*5", name: "母国語" },
+            language_other: { base: 1, name: "他国語" },
+            intimidate: { base: 15, name: "威嚇" },
+            charm: { base: 15, name: "魅惑" }
         },
         knowledge: {
-            occult: { base: 5, name: "\u30aa\u30ab\u30eb\u30c8" },
-            cthulhu_mythos: { base: 0, name: "\u30af\u30c8\u30a5\u30eb\u30d5\u795e\u8a71" },
-            archaeology: { base: 1, name: "\u8003\u53e4\u5b66" },
-            anthropology: { base: 1, name: "\u4eba\u985e\u5b66" },
-            history: { base: 20, name: "\u6b74\u53f2" },
-            natural_world: { base: 10, name: "\u535a\u7269\u5b66" },
-            geology: { base: 1, name: "\u5730\u8cea\u5b66" },
-            astronomy: { base: 1, name: "\u5929\u6587\u5b66" },
-            biology: { base: 1, name: "\u751f\u7269\u5b66" },
-            chemistry: { base: 1, name: "\u5316\u5b66" },
-            physics: { base: 1, name: "\u7269\u7406\u5b66" },
-            pharmacy: { base: 1, name: "\u85ac\u5b66" },
-            medicine: { base: 5, name: "\u533b\u5b66" },
-            law: { base: 5, name: "\u6cd5\u5f8b" },
-            accounting: { base: 10, name: "\u7d4c\u7406" },
-            computer_use: { base: 1, name: "\u30b3\u30f3\u30d4\u30e5\u30fc\u30bf\u30fc" },
-            appraise: { base: 5, name: "\u9271\u5b9a" },
-            cryptography: { base: 1, name: "\u6697\u53f7" },
-            forensics: { base: 1, name: "\u6cd5\u533b\u5b66" }
+            occult: { base: 5, name: "オカルト" },
+            cthulhu_mythos: { base: 0, name: "クトゥルフ神話" },
+            archaeology: { base: 1, name: "考古学" },
+            anthropology: { base: 1, name: "人類学" },
+            history: { base: 20, name: "歴史" },
+            natural_world: { base: 10, name: "博物学" },
+            geology: { base: 1, name: "地質学" },
+            astronomy: { base: 1, name: "天文学" },
+            biology: { base: 1, name: "生物学" },
+            chemistry: { base: 1, name: "化学" },
+            physics: { base: 1, name: "物理学" },
+            pharmacy: { base: 1, name: "薬学" },
+            medicine: { base: 5, name: "医学" },
+            law: { base: 5, name: "法律" },
+            accounting: { base: 10, name: "経理" },
+            computer_use: { base: 1, name: "コンピューター" },
+            appraise: { base: 5, name: "鑑定" },
+            cryptography: { base: 1, name: "暗号" },
+            forensics: { base: 1, name: "法医学" }
         },
         other: {
-            art: { base: 5, name: "\u82b8\u8853" },
-            craft: { base: 5, name: "\u5de5\u82b8" },
-            sing: { base: 5, name: "\u6b4c\u5531" },
-            play_instrument: { base: 5, name: "\u697d\u5668\u6f14\u594f" },
-            dance: { base: 5, name: "\u30c0\u30f3\u30b9" },
-            acting: { base: 5, name: "\u6f14\u6280" },
-            teach: { base: 10, name: "\u6559\u80b2" },
-            perform: { base: 5, name: "\u82b8\u80fd" },
-            animal_handling: { base: 5, name: "\u52d5\u7269\u4f7f\u3044" },
-            survival: { base: 10, name: "\u30b5\u30d0\u30a4\u30d0\u30eb" },
-            hypnosis: { base: 1, name: "\u50ac\u7720\u8853" },
-            occult_folklore: { base: 5, name: "\u6c11\u4fd7\u5b66" },
-            gaming: { base: 5, name: "\u30ae\u30e3\u30f3\u30d6\u30eb" }
+            art: { base: 5, name: "芸術" },
+            craft: { base: 5, name: "工芸" },
+            sing: { base: 5, name: "歌唱" },
+            play_instrument: { base: 5, name: "楽器演奏" },
+            dance: { base: 5, name: "ダンス" },
+            acting: { base: 5, name: "演技" },
+            teach: { base: 10, name: "教育" },
+            perform: { base: 5, name: "芸能" },
+            animal_handling: { base: 5, name: "動物使い" },
+            survival: { base: 10, name: "サバイバル" },
+            hypnosis: { base: 1, name: "催眠術" },
+            occult_folklore: { base: 5, name: "民俗学" },
+            gaming: { base: 5, name: "ギャンブル" }
         }
     };
     
@@ -124,7 +128,7 @@ function updateGlobalDiceFormula() {
         return { count, sides, bonus };
     }
 
-    // 繝繧､繧ｹ繝ｭ繝ｼ繝ｫ髢｢謨ｰ
+    // ダイスロール関数
     function rollDice(count, sides, bonus) {
         let total = 0;
         for (let i = 0; i < count; i++) {
@@ -133,7 +137,7 @@ function updateGlobalDiceFormula() {
         return total + bonus;
     }
 
-    // 蜈ｨ閭ｽ蜉帛､繝ｭ繝ｼ繝ｫ
+    // 全能力値ロール
     function rollAllAbilities() {
         const { count, sides, bonus } = updateGlobalDiceFormula();
         const abilities = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu'];
@@ -149,7 +153,7 @@ function updateGlobalDiceFormula() {
             if (input) {
                 input.value = total;
                 
-                // 繧ｨ繝輔ぉ繧ｯ繝郁ｿｽ蜉
+                // ダイスロールした入力欄を短時間ハイライト
                 input.classList.add('dice-rolled');
                 setTimeout(() => input.classList.remove('dice-rolled'), 1000);
             }
@@ -160,7 +164,8 @@ function updateGlobalDiceFormula() {
     }
 
     // Derived stats auto calculation
-    function calculateDerivedStats() {
+    function calculateDerivedStats(options = {}) {
+        const { setCurrentDefaults = !isEditMode } = options;
         const str = parseInt(document.getElementById('str')?.value) || 0;
         const con = parseInt(document.getElementById('con')?.value) || 0;
         const pow = parseInt(document.getElementById('pow')?.value) || 0;
@@ -179,9 +184,12 @@ function updateGlobalDiceFormula() {
         if (document.getElementById('san')) document.getElementById('san').value = san;
         
         // Set current values as starting defaults
-        if (document.getElementById('current_hp')) document.getElementById('current_hp').value = hp;
-        if (document.getElementById('current_mp')) document.getElementById('current_mp').value = mp;
-        if (document.getElementById('current_san')) document.getElementById('current_san').value = san;
+        const currentHpEl = document.getElementById('current_hp');
+        const currentMpEl = document.getElementById('current_mp');
+        const currentSanEl = document.getElementById('current_san');
+        if (currentHpEl && (setCurrentDefaults || currentHpEl.value === '')) currentHpEl.value = hp;
+        if (currentMpEl && (setCurrentDefaults || currentMpEl.value === '')) currentMpEl.value = mp;
+        if (currentSanEl && (setCurrentDefaults || currentSanEl.value === '')) currentSanEl.value = san;
         
         if (document.getElementById('sanity_max')) document.getElementById('sanity_max').value = san;
         
@@ -299,60 +307,20 @@ function updateGlobalDiceFormula() {
                 baseValue = edu * 5;
             }
         }
+        baseValue = Math.min(parseInt(baseValue, 10) || 0, 999);
 
         return `
             <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
                 <div class="skill-item border rounded p-2">
                     <div class="d-flex justify-content-between align-items-center">
                         <label for="skill_${key}" class="form-label small fw-bold mb-0">${skill.name}</label>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" 
-                                onclick="toggleSkillDiceSettings('${key}')" 
-                                title="Dice settings">
-                            <i class="fas fa-dice-d6"></i>
-                        </button>
-                    </div>
-                    
-                    <!-- 繝繧､繧ｹ險ｭ螳壹お繝ｪ繧｢・亥・譛滄撼陦ｨ遉ｺ・・-->
-                    <div id="diceSettings_${key}" class="skill-dice-settings mt-2" style="display: none;">
-                        <div class="bg-light p-2 rounded">
-                            <div class="row g-1">
-                                <div class="col-4">
-                                    <label class="form-label small">蛟区焚</label>
-                                    <input type="number" class="form-control form-control-sm" 
-                                           id="skillDiceCount_${key}" min="1" max="10" value="3" 
-                                           onchange="updateSkillDiceFormula('${key}')">
-                                </div>
-                                <div class="col-4">
-                                    <label class="form-label small">髱｢謨ｰ</label>
-                                    <input type="number" class="form-control form-control-sm" 
-                                           id="skillDiceSides_${key}" min="2" max="100" value="6" 
-                                           onchange="updateSkillDiceFormula('${key}')">
-                                </div>
-                                <div class="col-4">
-                                    <label class="form-label small">繝懊・繝翫せ</label>
-                                    <input type="number" class="form-control form-control-sm" 
-                                           id="skillDiceBonus_${key}" min="-50" max="50" value="0" 
-                                           onchange="updateSkillDiceFormula('${key}')">
-                                </div>
-                            </div>
-                            <div class="row g-1 mt-1">
-                                <div class="col-8">
-                                    <span class="small text-muted">蠑・ <span id="skillDiceFormula_${key}">3d6+0</span></span>
-                                </div>
-                                <div class="col-4">
-                                    <button type="button" class="btn btn-primary btn-sm w-100" 
-                                            onclick="rollSkillValue('${key}')">
-                                        <i class="fas fa-dice"></i> 繝ｭ繝ｼ繝ｫ
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                        <span class="badge bg-secondary skill-total" id="total_${key}">${baseValue}%</span>
                     </div>
                     
                     <div class="row g-1 mt-2">
                         <div class="col-4">
                             <input type="number" class="form-control form-control-sm text-center skill-base" 
-                                   id="base_${key}" value="${baseValue}" min="0" max="100" 
+                                   id="base_${key}" value="${baseValue}" min="0" max="999" 
                                    data-skill="${key}" data-default="${skill.base}" 
                                    title="Base value (left click to edit, right click to reset)"
                                    data-bs-toggle="tooltip"
@@ -360,66 +328,100 @@ function updateGlobalDiceFormula() {
                         </div>
                         <div class="col-4">
                             <input type="number" class="form-control form-control-sm occupation-skill text-center" 
-                                   id="occ_${key}" min="0" max="90" value="0" placeholder="閨ｷ" 
-                                   data-skill="${key}" title="閨ｷ讌ｭ謚閭ｽ">
+                                   id="occ_${key}" min="0" max="999" value="0" placeholder="職" 
+                                   data-skill="${key}" title="職業技能">
                         </div>
                         <div class="col-4">
                             <input type="number" class="form-control form-control-sm interest-skill text-center" 
-                                   id="int_${key}" min="0" max="90" value="0" placeholder="雜｣" 
-                                   data-skill="${key}" title="雜｣蜻ｳ謚閭ｽ">
-                        </div>
-                    </div>
-                    <div class="row g-1 mt-1">
-                        <div class="col-12">
-                            <div class="skill-total fw-bold text-center" id="total_${key}">${baseValue}%</div>
+                                   id="int_${key}" min="0" max="999" value="0" placeholder="趣" 
+                                   data-skill="${key}" title="趣味技能">
                         </div>
                     </div>
                 </div>
             </div>
         `;
     }
-    // Skill list generation (by category)
+
+    // 保持用: 生成した技能カードDOM
+    let skillCards = [];
+    const skillCardByKey = new Map();
+    let skillTabContainers = null;
+
+    // Skill list generation (single source, moved per tab)
     function generateSkillsList() {
-        const combatContainer = document.getElementById('combatSkills');
-        const explorationContainer = document.getElementById('explorationSkills');
-        const actionContainer = document.getElementById('actionSkills');
-        const socialContainer = document.getElementById('socialSkills');
-        const knowledgeContainer = document.getElementById('knowledgeSkills');
-        const allContainer = document.getElementById('allSkills');
-
-        // Build the full skill list once (source for other tabs)
-        if (allContainer) {
-            allContainer.innerHTML = '';
-            Object.entries(ALL_SKILLS_6TH).forEach(([key, skill]) => {
-                allContainer.innerHTML += createSkillItemHTML(key, skill, 'all');
+        const containers = {
+            combat: document.getElementById('combatSkills'),
+            exploration: document.getElementById('explorationSkills'),
+            action: document.getElementById('actionSkills'),
+            social: document.getElementById('socialSkills'),
+            knowledge: document.getElementById('knowledgeSkills'),
+            all: document.getElementById('allSkills')
+        };
+        skillTabContainers = containers;
+        // Build cards once
+        skillCards = [];
+        skillCardByKey.clear();
+        Object.entries(SKILLS_6TH).forEach(([category, skills]) => {
+            Object.entries(skills).forEach(([key, skill]) => {
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = createSkillItemHTML(key, skill, category);
+                const card = wrapper.firstElementChild;
+                card.dataset.category = category;
+                card.dataset.skillKey = key;
+                skillCards.push({ key, category, card });
+                skillCardByKey.set(key, card);
             });
-        }
+        });
 
-        // Read-only notices for category tabs (use the All tab to edit values)
-        const readOnlyNotice = `
-            <div class="alert alert-secondary" role="alert">
-                <i class="fas fa-info-circle"></i> Use the "All" tab to edit skills.
-            </div>
-        `;
-        if (combatContainer) combatContainer.innerHTML = readOnlyNotice;
-        if (explorationContainer) explorationContainer.innerHTML = readOnlyNotice;
-        if (actionContainer) actionContainer.innerHTML = readOnlyNotice;
-        if (socialContainer) socialContainer.innerHTML = readOnlyNotice;
-        if (knowledgeContainer) knowledgeContainer.innerHTML = readOnlyNotice;
+        // Render all skills first soイベントが全カードに紐付く
+        renderSkillTab('all', containers);
+
+        // Tab switching: move cards into the active tab container
+        document.querySelectorAll('#skillTabs button').forEach(btn => {
+            btn.addEventListener('shown.bs.tab', function () {
+                const targetId = this.getAttribute('data-bs-target')?.replace('#', '') || 'combat';
+                renderSkillTab(targetId, containers);
+            });
+        });
+    }
+
+    function renderSkillTab(category, containers) {
+        const validCategories = ['combat', 'exploration', 'action', 'social', 'knowledge', 'all'];
+        const targetCategory = validCategories.includes(category) ? category : 'combat';
+
+        // Clear all containers
+        Object.values(containers).forEach(c => {
+            if (c) c.innerHTML = '';
+        });
+
+        // Select destination container
+        const dest = containers[targetCategory];
+        if (!dest) return;
+
+        // Append matching cards
+        skillCards.forEach(({ category: cardCategory, card }) => {
+            if (targetCategory === 'all' || cardCategory === targetCategory) {
+                dest.appendChild(card);
+            }
+        });
     }
 
     // Skill input event bindings
     function addSkillInputEvents() {
         try {
-            document.querySelectorAll('.occupation-skill, .interest-skill').forEach(input => {
-                input.addEventListener('input', updateSkillTotals);
+            skillCards.forEach(({ card }) => {
+                card.querySelectorAll('.occupation-skill, .interest-skill').forEach(input => {
+                    input.addEventListener('input', updateSkillTotals);
+                });
             });
 
-            document.querySelectorAll('.skill-base').forEach(input => {
+            skillCards.forEach(({ card }) => {
+                card.querySelectorAll('.skill-base').forEach(input => {
                 input.addEventListener('input', function() {
                     try {
                         const skillKey = this.dataset.skill;
-                        const value = parseInt(this.value) || 0;
+                        const value = Math.min(parseInt(this.value, 10) || 0, 999);
+                        this.value = value;
 
                         if (!window.customBaseValues) {
                             window.customBaseValues = {};
@@ -438,7 +440,7 @@ function updateGlobalDiceFormula() {
                     try {
                         const skillKey = this.dataset.skill;
 
-                        if (window.customBaseValues && window.customBaseValues[skillKey]) {
+                        if (window.customBaseValues && window.customBaseValues[skillKey] !== undefined) {
                             delete window.customBaseValues[skillKey];
                         }
 
@@ -470,90 +472,29 @@ function updateGlobalDiceFormula() {
                         console.error('Error in skill base reset handler:', error);
                     }
                 });
+                });
             });
         } catch (error) {
             console.error('Error in addSkillInputEvents:', error);
         }
     }
 
-    // Toggle skill dice settings panel
-    function toggleSkillDiceSettings(skillKey) {
-        const settingsDiv = document.getElementById(`diceSettings_${skillKey}`);
-        if (settingsDiv) {
-            if (settingsDiv.style.display === 'none') {
-                settingsDiv.style.display = 'block';
-                updateSkillDiceFormula(skillKey);
-            } else {
-                settingsDiv.style.display = 'none';
-            }
-        }
-    }
-    
-    // 謚閭ｽ蛻･繝繧､繧ｹ蠑上・譖ｴ譁ｰ
-    function updateSkillDiceFormula(skillKey) {
-        const count = parseInt(document.getElementById(`skillDiceCount_${skillKey}`)?.value) || 3;
-        const sides = parseInt(document.getElementById(`skillDiceSides_${skillKey}`)?.value) || 6;
-        const bonus = parseInt(document.getElementById(`skillDiceBonus_${skillKey}`)?.value) || 0;
-        
-        const formula = `${count}d${sides}${bonus >= 0 ? '+' : ''}${bonus}`;
-        const formulaSpan = document.getElementById(`skillDiceFormula_${skillKey}`);
-        if (formulaSpan) {
-            formulaSpan.textContent = formula;
-        }
-        
-        return { count, sides, bonus };
-    }
-    
-    // 謚閭ｽ蛟､縺ｮ繝繧､繧ｹ繝ｭ繝ｼ繝ｫ
-    function rollSkillValue(skillKey) {
-        const { count, sides, bonus } = updateSkillDiceFormula(skillKey);
-        
-        let total = 0;
-        for (let i = 0; i < count; i++) {
-            total += Math.floor(Math.random() * sides) + 1;
-        }
-        total += bonus;
-        
-        // 閨ｷ讌ｭ謚閭ｽ縺ｨ雜｣蜻ｳ謚閭ｽ縺ｮ蜈･蜉帶ｬ・↓蛟､繧定ｨｭ螳・        const occInput = document.getElementById(`occ_${skillKey}`);
-        const intInput = document.getElementById(`int_${skillKey}`);
-        
-        // 謚閭ｽ蜷阪ｒ蜿門ｾ・        const skillName = ALL_SKILLS_6TH[skillKey]?.name || skillKey;
-        
-        const choice = confirm(
-            `${skillName} roll result: ${total}\n\n` +
-            'OK: set as occupation skill\n' +
-            'Cancel: set as interest skill'
-        );
-        
-        if (choice && occInput) {
-            occInput.value = Math.min(total, 90);
-            occInput.classList.add('dice-rolled');
-            setTimeout(() => occInput.classList.remove('dice-rolled'), 1000);
-        } else if (!choice && intInput) {
-            intInput.value = Math.min(total, 90);
-            intInput.classList.add('dice-rolled');
-            setTimeout(() => intInput.classList.remove('dice-rolled'), 1000);
-        }
-        
-        // 謚閭ｽ蜷郁ｨ医ｒ譖ｴ譁ｰ
-        updateSkillTotals();
-    }
-    
-    // 蜍慕噪蝓ｺ譛ｬ蛟､繧呈戟縺､謚閭ｽ縺ｮ譖ｴ譁ｰ
+    // 動的基本値を持つ技能の更新
     function updateDynamicSkillBases() {
         try {
-            // 蝗様�EDEX依存
+            // 回避はDEX依存
             const dexEl = document.getElementById('dex');
             if (!dexEl) {
                 console.warn('DEX element not found');
                 return;
             }
             const dex = parseInt(dexEl.value) || 0;
-            const dodgeBaseEl = document.getElementById('base_dodge');
+            const dodgeCard = skillCardByKey.get('dodge');
+            const dodgeBaseEl = dodgeCard?.querySelector('.skill-base') || document.getElementById('base_dodge');
             if (dodgeBaseEl && (!window.customBaseValues || window.customBaseValues['dodge'] === undefined)) {
-                dodgeBaseEl.value = dex * 2;
+                dodgeBaseEl.value = Math.min(dex * 2, 999);
             }
-            
+
             // 母国語 = EDU依存
             const eduEl = document.getElementById('edu');
             if (!eduEl) {
@@ -561,87 +502,69 @@ function updateGlobalDiceFormula() {
                 return;
             }
             const edu = parseInt(eduEl.value) || 0;
-            const languageOwnBaseEl = document.getElementById('base_language_own');
+            const languageOwnCard = skillCardByKey.get('language_own');
+            const languageOwnBaseEl = languageOwnCard?.querySelector('.skill-base') || document.getElementById('base_language_own');
             if (languageOwnBaseEl && (!window.customBaseValues || window.customBaseValues['language_own'] === undefined)) {
-                languageOwnBaseEl.value = edu * 5;
+                languageOwnBaseEl.value = Math.min(edu * 5, 999);
             }
-            
-            // 謚閭ｽ蜷郁ｨ医ｂ譖ｴ譁ｰ
+
+            // 技能合計も更新
             updateSkillTotals();
         } catch (error) {
             console.error('Error in updateDynamicSkillBases:', error);
         }
     }
     
-    // 繧ｰ繝ｭ繝ｼ繝舌Ν髢｢謨ｰ縺ｨ縺励※螳夂ｾｩ・・TML縺九ｉ蜻ｼ縺ｳ蜃ｺ縺吶◆繧・ｼ・    window.toggleSkillDiceSettings = toggleSkillDiceSettings;
-    window.updateSkillDiceFormula = updateSkillDiceFormula;
-    window.rollSkillValue = rollSkillValue;
-
-    // 謚閭ｽ蜷郁ｨ域峩譁ｰ
+    // 技能合計の更新
     function updateSkillTotals() {
         // console.log('updateSkillTotals called');
         let occupationUsed = 0;
         let interestUsed = 0;
         let allocatedCount = 0;
         const allocatedSkills = [];
-        
-        
-        Object.keys(ALL_SKILLS_6TH).forEach(key => {
-            const occEl = document.getElementById(`occ_${key}`);
-            const intEl = document.getElementById(`int_${key}`);
-            const totalEl = document.getElementById(`total_${key}`);
-            
-            if (!occEl || !intEl || !totalEl) return;
 
-            // Base value (prefer custom value if present)
-            let base = 0;
-            if (window.customBaseValues && window.customBaseValues[key] !== undefined) {
-                base = window.customBaseValues[key];
-            } else {
-                const skill = ALL_SKILLS_6TH[key];
-                let baseValue = skill?.base ?? 0;
-                if (typeof baseValue === 'string') {
-                    if (baseValue === 'DEX*2') {
-                        const dex = parseInt(document.getElementById('dex')?.value) || 0;
-                        baseValue = dex * 2;
-                    } else if (baseValue === 'EDU*5') {
-                        const edu = parseInt(document.getElementById('edu')?.value) || 0;
-                        baseValue = edu * 5;
-                    }
-                }
-                base = parseInt(baseValue) || 0;
-            }
+        skillCards.forEach(({ key, card }) => {
+            const baseEl = card.querySelector('.skill-base');
+            const occEl = card.querySelector('.occupation-skill');
+            const intEl = card.querySelector('.interest-skill');
+            const totalEl = card.querySelector('.skill-total');
 
-            const occ = parseInt(occEl.value) || 0;
-            const int = parseInt(intEl.value) || 0;
-            const total = Math.min(base + occ + int, 90);
+            if (!baseEl || !occEl || !intEl || !totalEl) return;
+
+            const base = Math.min(parseInt(baseEl.value, 10) || 0, 999);
+            const occ = Math.min(parseInt(occEl.value, 10) || 0, 999);
+            const int = Math.min(parseInt(intEl.value, 10) || 0, 999);
+            if (parseInt(baseEl.value, 10) !== base) baseEl.value = base;
+            if (parseInt(occEl.value, 10) !== occ) occEl.value = occ;
+            if (parseInt(intEl.value, 10) !== int) intEl.value = int;
+            const total = Math.min(base + occ + int, 999);
             totalEl.textContent = `${total}%`;
-            
+
             if (occ > 0 || int > 0) {
                 allocatedCount++;
                 allocatedSkills.push({
                     key,
                     skill: ALL_SKILLS_6TH[key],
                     base,
-                    occ,
-                    int,
+                    occupationPoints: occ,
+                    interestPoints: int,
                     total,
                 });
             }
-            
+
             occupationUsed += occ;
             interestUsed += int;
         });
 
-updateAllocatedSkillsTab(allocatedSkills);
+        updateAllocatedSkillsTab(allocatedSkills);
         
-        // 謖ｯ繧雁・縺第ｸ医∩謚閭ｽ謨ｰ縺ｮ繝舌ャ繧ｸ譖ｴ譁ｰ
+        // 配分済み技能数のバッジ更新
         const allocatedCountBadge = document.getElementById('allocatedCount');
         if (allocatedCountBadge) {
             allocatedCountBadge.textContent = allocatedCount;
         }
         
-        // 繝昴う繝ｳ繝井ｽｿ逕ｨ迥ｶ豕∵峩譁ｰ
+        // 職業/趣味ポイントの残数表示を更新
         const occupationTotal = parseInt(document.getElementById('occupationTotal')?.value) || 0;
         const interestTotal = parseInt(document.getElementById('interestTotal')?.value) || 0;
         
@@ -666,7 +589,7 @@ updateAllocatedSkillsTab(allocatedSkills);
             interestRemainingEl.classList.toggle('bg-success', remainingInt !== 0);
         }
         
-        // 繝輔ャ繧ｿ繝ｼ縺ｮ謚閭ｽ繝昴う繝ｳ繝郁｡ｨ遉ｺ繧よ峩譁ｰ
+        // フッターの技能ポイント表示も更新
         if (document.getElementById('occupationUsedFooter')) {
             document.getElementById('occupationUsedFooter').textContent = occupationUsed;
         }
@@ -684,7 +607,7 @@ updateAllocatedSkillsTab(allocatedSkills);
     // Update allocated skills tab
     function updateAllocatedSkillsTab(allocatedSkills) {
         const allocatedContainer = document.getElementById('allocatedSkills');
-        
+
         if (!allocatedContainer) return;
         
         if (allocatedSkills.length === 0) {
@@ -707,7 +630,7 @@ updateAllocatedSkillsTab(allocatedSkills);
                                 <span class="badge bg-primary">${item.total}%</span>
                             </div>
                             <div class="small text-muted mt-1">
-                                ??: ${item.occupationPoints || 0}% / ??: ${item.interestPoints || 0}% / ???: ${item.skill.base}%
+                                職業: ${item.occupationPoints || 0}% / 趣味: ${item.interestPoints || 0}% / 基本値: ${item.base || 0}%
                             </div>
                         </div>
                     </div>
@@ -721,7 +644,7 @@ updateAllocatedSkillsTab(allocatedSkills);
     // 全能力値ダイス（ボタン）
     document.getElementById('rollAllAbilities')?.addEventListener('click', rollAllAbilities);
     
-    // 蜈ｨ閭ｽ蜉帛､繝繧､繧ｹ險ｭ螳壹・螟画峩譎ゅ↓繝輔か繝ｼ繝溘Η繝ｩ繧呈峩譁ｰ
+    // 全能力値ダイス設定の変更時にフォーミュラを更新
     document.getElementById('globalDiceCount')?.addEventListener('input', updateGlobalDiceFormula);
     document.getElementById('globalDiceSides')?.addEventListener('input', updateGlobalDiceFormula);
     document.getElementById('globalDiceBonus')?.addEventListener('input', updateGlobalDiceFormula);
@@ -732,20 +655,22 @@ updateAllocatedSkillsTab(allocatedSkills);
         updateSkillTotals();
     });
     
-    // 繝輔ャ繧ｿ繝ｼ繝懊ち繝ｳ縺ｮ繧､繝吶Φ繝医Μ繧ｹ繝翫・
+    // フッターのダイスボタンも連動
     document.getElementById('footerRollDice')?.addEventListener('click', function() {
         document.getElementById('rollAllAbilities')?.click();
     });
     
-    // 閭ｽ蜉帛､螟画峩譎ゅ↓蜑ｯ谺｡繧ｹ繝・・繧ｿ繧ｹ繧呈峩譁ｰ
+    // 能力値変更時に派生ステータスを更新
     document.querySelectorAll('.ability-score').forEach(input => {
         input.addEventListener('input', calculateDerivedStats);
     });
 
-    // 繝ｪ繧ｻ繝・ヨ繝ｻ險育ｮ励・繧ｿ繝ｳ
+    // リセットボタン
     document.getElementById('resetSkillPoints')?.addEventListener('click', function() {
-        document.querySelectorAll('.occupation-skill, .interest-skill').forEach(input => {
-            input.value = 0;
+        skillCards.forEach(({ card }) => {
+            card.querySelectorAll('.occupation-skill, .interest-skill').forEach(input => {
+                input.value = 0;
+            });
         });
         updateSkillTotals();
     });
@@ -755,7 +680,7 @@ updateAllocatedSkillsTab(allocatedSkills);
         updateSkillTotals();
     });
 
-    // 閨ｷ讌ｭ繝・Φ繝励Ξ繝ｼ繝医ョ繝ｼ繧ｿ
+    // 職業テンプレートデータ
     
     // Occupation template data (skill keys are mapped to display names later)
     const OCCUPATION_TEMPLATES = {
@@ -863,20 +788,21 @@ function initOccupationTemplates() {
             link.addEventListener('click', function(e) {
                 e.preventDefault();
                 
-                // 繧｢繧ｯ繝・ぅ繝悶け繝ｩ繧ｹ縺ｮ蛻・ｊ譖ｿ縺・                categoryLinks.forEach(l => l.classList.remove('active'));
+                // アクティブクラスの切り替え
+                categoryLinks.forEach(l => l.classList.remove('active'));
                 this.classList.add('active');
                 
-                // 繧ｫ繝・ざ繝ｪ繝ｼ縺ｮ閨ｷ讌ｭ繧定｡ｨ遉ｺ
+                // カテゴリの職業を表示
                 const category = this.dataset.category;
                 displayOccupations(category);
             });
         });
         
-        // 蛻晄悄陦ｨ遉ｺ
+        // 初期表示
         displayOccupations('academic');
     }
 
-    // 閨ｷ讌ｭ繝ｪ繧ｹ繝医・陦ｨ遉ｺ
+    // 職業リストを表示
     function displayOccupations(category) {
         const occupationList = document.getElementById('occupationList');
         const occupations = OCCUPATION_TEMPLATES[category] || [];
@@ -912,26 +838,30 @@ function initOccupationTemplates() {
         });
     }
 
-    // 閨ｷ讌ｭ繝・Φ繝励Ξ繝ｼ繝医・驕ｩ逕ｨ
+    // 職業テンプレートを適用
     function applyOccupationTemplate(occupation) {
-        // 閨ｷ讌ｭ蜷阪ｒ險ｭ螳・        document.getElementById('occupation').value = occupation.name;
+        // 職業名をセット
+        document.getElementById('occupation').value = occupation.name;
         
-        // 閨ｷ讌ｭ蛟咲紫繧定ｨｭ螳・        const methodSelect = document.getElementById('occupationMethod');
+        // 職業ポイント計算方法を設定
+        const methodSelect = document.getElementById('occupationMethod');
         if (methodSelect && occupation.multiplier === 20) {
             methodSelect.value = 'edu20';
         }
         
-        // 謗ｨ螂ｨ謚閭ｽ繧偵ワ繧､繝ｩ繧､繝茨ｼ亥ｮ溯｣・・逵∫払・・        // console.log('謗ｨ螂ｨ謚閭ｽ:', occupation.skills);
+        // 推奨技能をハイライト（必要なら実装）
+        // console.log('推奨技能:', occupation.skills);
         
-        // 繝｢繝ｼ繝繝ｫ繧帝哩縺倥ｋ
+        // モーダルを閉じる
         const modal = bootstrap.Modal.getInstance(document.getElementById('occupationTemplateModal'));
         modal.hide();
         
-        // 謚閭ｽ繝昴う繝ｳ繝医ｒ蜀崎ｨ育ｮ・        calculateSkillPoints();
+        // 技能ポイントを再計算
+        calculateSkillPoints();
         updateSkillTotals();
     }
 
-    // Bootstrap 繧ｿ繝門・譛溷喧
+    // Bootstrap タブ初期化
     const triggerTabList = [].slice.call(document.querySelectorAll('#skillTabs button'));
     triggerTabList.forEach(function (triggerEl) {
         const tabTrigger = new bootstrap.Tab(triggerEl);
@@ -942,16 +872,16 @@ function initOccupationTemplates() {
         });
     });
     
-    // 逕ｻ蜒上い繝・・繝ｭ繝ｼ繝画ｩ溯・
+    // 画像アップロード機能
     function initImageUpload() {
-        const imageInput = document.getElementById('character-image');
+        const imageInput = document.getElementById('character-images');
         const imagePreview = document.getElementById('image-preview');
         const previewImg = document.getElementById('preview-img');
         const removeBtn = document.getElementById('remove-image');
         
         if (!imageInput) return;
         
-        // 繝輔ぃ繧､繝ｫ驕ｸ謚樊凾縺ｮ繝励Ξ繝薙Η繝ｼ陦ｨ遉ｺ
+        // ファイル選択時のプレビュー表示
         imageInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
@@ -977,7 +907,7 @@ function initOccupationTemplates() {
             }
         });
         
-        // 逕ｻ蜒丞炎髯､
+        // 画像を削除
         removeBtn?.addEventListener('click', function() {
             imageInput.value = '';
             previewImg.src = '';
@@ -985,61 +915,172 @@ function initOccupationTemplates() {
         });
     }
     
-    // ???
+    // 初期化
     updateGlobalDiceFormula();
     generateSkillsList();
-    addSkillInputEvents();  // ????????????????????
-    
-    // ??????????????????
-    setTimeout(() => {
-        rollAllAbilities();
-    }, 0);
-    
-    initOccupationTemplates(); // 閨ｷ讌ｭ繝・Φ繝励Ξ繝ｼ繝域ｩ溯・繧貞・譛溷喧
-    initImageUpload(); // 逕ｻ蜒上い繝・・繝ｭ繝ｼ繝画ｩ溯・繧貞・譛溷喧
-    
-    // Form submit handling
-    const characterForm = document.getElementById('character-sheet-form');
-    if (characterForm) {
-        characterForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-        
-            const formData = new FormData(this);
-            const data = {};
-            
-            // Collect form data (except file)
-            for (let [key, value] of formData.entries()) {
-                if (key !== 'character_image') {
-                    data[key] = value;
-                }
-            }
-            
-            // Validation
-            if (!data.name) {
-                alert('Character name is required.');
-                return;
-            }
-            
-            // Ability validation
-            const abilities = ['str_value', 'con_value', 'pow_value', 'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value'];
-            let hasAbilities = false;
-            for (const ability of abilities) {
-                if (data[ability] && parseInt(data[ability]) > 0) {
-                    hasAbilities = true;
-                    break;
-                }
-            }
+    addSkillInputEvents();  // 技能リスト生成後にイベントリスナーを追加
+    // タブの初期表示を戦闘系に合わせる
+    renderSkillTab('combat', skillTabContainers);
 
-            
-            if (!hasAbilities) {
-                alert('Please set ability scores.');
-                return;
-            }
+    initOccupationTemplates(); // 職業テンプレート機能を初期化
+    initImageUpload(); // 画像アップロード機能を初期化
 
-            // 6迚育畑縺ｫAPI繧ｨ繝ｳ繝峨・繧､繝ｳ繝医↓騾∽ｿ｡
-            const apiData = {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+
+    function setValueById(id, value) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = value ?? '';
+    }
+
+    async function fetchJson(url, options = {}) {
+        const response = await fetch(url, { credentials: 'same-origin', ...options });
+        if (!response.ok) {
+            let err;
+            try {
+                err = await response.json();
+            } catch (_) {
+                err = { error: `HTTP ${response.status}` };
+            }
+            throw err;
+        }
+        if (response.status === 204) return null;
+        return response.json();
+    }
+
+    async function loadCharacterForEdit(characterId) {
+        const titleEl = document.querySelector('h1.eldritch-font');
+        if (titleEl) {
+            titleEl.innerHTML = '<i class="fas fa-user-ninja text-primary"></i> クトゥルフ神話TRPG 6版探索者編集';
+        }
+        document.title = 'クトゥルフ神話TRPG 6版探索者編集 - Arkham Nexus';
+        const submitBtn = document.querySelector('#character-sheet-form button[type="submit"]');
+        if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-save"></i> 探索者を更新';
+        const footerSaveBtnEl = document.getElementById('footerSaveCharacter');
+        if (footerSaveBtnEl) footerSaveBtnEl.innerHTML = '<i class="fas fa-save"></i> 探索者を更新';
+        const createVersionBtn = document.getElementById('createVersionButton');
+        if (createVersionBtn) createVersionBtn.style.display = '';
+        const footerCreateVersionBtn = document.getElementById('footerCreateVersion');
+        if (footerCreateVersionBtn) footerCreateVersionBtn.style.display = '';
+
+        const sheet = await fetchJson(`/accounts/character-sheets/${characterId}/`);
+        if (sheet.edition !== '6th') {
+            throw { error: 'この画面は6版キャラクター専用です。' };
+        }
+
+        // Basic info
+        setValueById('character-name', sheet.name);
+        setValueById('player-name', sheet.player_name);
+        setValueById('age', sheet.age);
+        setValueById('gender', sheet.gender);
+        setValueById('occupation', sheet.occupation);
+        setValueById('birthplace', sheet.birthplace);
+        setValueById('residence', sheet.residence);
+        setValueById('notes', sheet.notes);
+
+        // Abilities
+        setValueById('str', sheet.str_value);
+        setValueById('con', sheet.con_value);
+        setValueById('pow', sheet.pow_value);
+        setValueById('dex', sheet.dex_value);
+        setValueById('app', sheet.app_value);
+        setValueById('siz', sheet.siz_value);
+        setValueById('int', sheet.int_value);
+        setValueById('edu', sheet.edu_value);
+
+        // Current status (do not overwrite on derived recalculation)
+        setValueById('current_hp', sheet.hit_points_current);
+        setValueById('current_mp', sheet.magic_points_current);
+        setValueById('current_san', sheet.sanity_current);
+
+        calculateDerivedStats({ setCurrentDefaults: false });
+
+        // Financial data (6th)
+        try {
+            const fin = await fetchJson(`/accounts/character-sheets/${characterId}/financial_summary/`);
+            setValueById('money', fin.cash);
+            setValueById('assets', fin.assets);
+            setValueById('income', fin.annual_income);
+        } catch (_) {
+            // optional
+        }
+
+        // Skills
+        const nameToKey = new Map(
+            Object.entries(ALL_SKILLS_6TH)
+                .map(([key, skill]) => [skill?.name, key])
+                .filter(([name]) => !!name)
+        );
+
+        (sheet.skills || []).forEach(skill => {
+            const skillKey = nameToKey.get(skill.skill_name);
+            if (!skillKey) return;
+
+            const card = skillCardByKey.get(skillKey);
+            if (!card) return;
+
+            const occInput = card.querySelector('.occupation-skill');
+            const intInput = card.querySelector('.interest-skill');
+            const baseInput = card.querySelector('.skill-base');
+
+            if (occInput) occInput.value = skill.occupation_points ?? 0;
+            if (intInput) intInput.value = skill.interest_points ?? 0;
+            if (baseInput) baseInput.value = skill.base_value ?? 0;
+
+            const defaultBase = (() => {
+                const definitionBase = ALL_SKILLS_6TH[skillKey]?.base;
+                if (typeof definitionBase === 'number') return definitionBase;
+                if (definitionBase === 'DEX*2') {
+                    const dex = parseInt(document.getElementById('dex')?.value) || 0;
+                    return Math.min(dex * 2, 999);
+                }
+                if (definitionBase === 'EDU*5') {
+                    const edu = parseInt(document.getElementById('edu')?.value) || 0;
+                    return Math.min(edu * 5, 999);
+                }
+                return 0;
+            })();
+
+            if (skill.base_value != null && skill.base_value !== defaultBase) {
+                window.customBaseValues = window.customBaseValues || {};
+                window.customBaseValues[skillKey] = skill.base_value;
+            } else if (window.customBaseValues && window.customBaseValues[skillKey] !== undefined) {
+                delete window.customBaseValues[skillKey];
+            }
+        });
+
+        updateDynamicSkillBases();
+        updateSkillTotals();
+    }
+
+    function collectApiDataFromForm(form) {
+        const formData = new FormData(form);
+        const data = {};
+
+        for (let [key, value] of formData.entries()) {
+            if (key !== 'character_images') {
+                data[key] = value;
+            }
+        }
+
+        if (!data.name) {
+            throw { error: 'Character name is required.' };
+        }
+
+        const abilities = ['str_value', 'con_value', 'pow_value', 'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value'];
+        let hasAbilities = false;
+        for (const ability of abilities) {
+            if (data[ability] && parseInt(data[ability]) > 0) {
+                hasAbilities = true;
+                break;
+            }
+        }
+        if (!hasAbilities) {
+            throw { error: 'Please set ability scores.' };
+        }
+
+        const apiData = {
             edition: '6th',
-            // 笨・name縺ｯ繝輔か繝ｼ繝縺ｮname="name"
             name: data.name,
             player_name: data.player_name || '',
             age: data.age ? parseInt(data.age, 10) : null,
@@ -1048,7 +1089,6 @@ function initOccupationTemplates() {
             birthplace: data.birthplace || '',
             residence: data.residence || '',
 
-            // 笨・ability縺ｯ繝輔か繝ｼ繝縺ｮname="xxx_value"
             str_value: parseInt(data.str_value, 10),
             con_value: parseInt(data.con_value, 10),
             pow_value: parseInt(data.pow_value, 10),
@@ -1059,77 +1099,232 @@ function initOccupationTemplates() {
             edu_value: parseInt(data.edu_value, 10),
 
             notes: data.notes || ''
-            };
-            
-            // 謌ｦ髣倥せ繝・・繧ｿ繧ｹ
-            if (data.current_hp) apiData.hit_points_current = parseInt(data.current_hp);
-            if (data.current_mp) apiData.magic_points_current = parseInt(data.current_mp);
-            if (data.current_san) apiData.sanity_points_current = parseInt(data.current_san);
-            if (data.armor) apiData.armor = parseInt(data.armor) || 0;
-            
-            // 雋｡逕｣諠・ｱ
-            if (data.money) apiData.money = parseInt(data.money) || 0;
-            if (data.assets) apiData.assets = parseInt(data.assets) || 0;
-            if (data.income) apiData.income = parseInt(data.income) || 0;
-            
-            // 閭梧勹諠・ｱ繧地otes縺ｫ邨ｱ蜷・            const backgroundNotes = [];
-            if (data.backstory) backgroundNotes.push(`閭梧勹繧ｹ繝医・繝ｪ繝ｼ:\n${data.backstory}`);
-            if (data.appearance) backgroundNotes.push(`螟冶ｦ・\n${data.appearance}`);
-            if (data.ideals) backgroundNotes.push(`菫｡蠢ｵ繝ｻ菫｡譚｡:\n${data.ideals}`);
-            if (data.bonds) backgroundNotes.push(`驥崎ｦ√↑莠ｺ迚ｩ:\n${data.bonds}`);
-            if (data.flaws) backgroundNotes.push(`蠑ｱ轤ｹ繝ｻ諱先也裸:\n${data.flaws}`);
-            if (data.items) backgroundNotes.push(`謇謖∝刀:\n${data.items}`);
-            
-            if (backgroundNotes.length > 0) {
-                apiData.notes = (apiData.notes ? apiData.notes + '\n\n' : '') + backgroundNotes.join('\n\n');
-            }
-            
-            // 謚閭ｽ繝・・繧ｿ縺ｮ蜿朱寔
-            const skills = [];
-            document.querySelectorAll('.occupation-skill').forEach(input => {
-                const skillKey = input.dataset.skill;
-                const occValue = parseInt(input.value) || 0;
-                const intValue = parseInt(document.getElementById(`int_${skillKey}`)?.value) || 0;
-                
-                if (occValue > 0 || intValue > 0) {
-                    // 繧ｫ繧ｹ繧ｿ繝蝓ｺ譛ｬ蛟､縺後≠繧後・菴ｿ逕ｨ縲√↑縺代ｌ縺ｰ繝・ヵ繧ｩ繝ｫ繝亥､繧剃ｽｿ逕ｨ
-                    let baseValue = 0;
-                    if (window.customBaseValues && window.customBaseValues[skillKey] !== undefined) {
-                        baseValue = window.customBaseValues[skillKey];
-                    } else {
-                        const skillData = ALL_SKILLS_6TH[skillKey];
-                        if (skillData) {
-                            let defaultBase = skillData.base;
-                            if (typeof defaultBase === 'string') {
-                                if (defaultBase === 'DEX*2') {
-                                    const dex = parseInt(document.getElementById('dex')?.value) || 0;
-                                    defaultBase = dex * 2;
-                                } else if (defaultBase === 'EDU*5') {
-                                    const edu = parseInt(document.getElementById('edu')?.value) || 0;
-                                    defaultBase = edu * 5;
-                                }
-                            }
-                            baseValue = parseInt(defaultBase) || 0;
-                        }
-                    }
-                    
-                    skills.push({
-                        skill_name: ALL_SKILLS_6TH[skillKey]?.name || skillKey,
-                        base_value: baseValue,
-                        occupation_points: occValue,
-                        interest_points: intValue,
-                        other_points: 0
-                    });
+        };
+
+        // 戦闘ステータス
+        if (data.hit_points_current !== '' && data.hit_points_current != null) apiData.hit_points_current = parseInt(data.hit_points_current, 10) || 0;
+        if (data.magic_points_current !== '' && data.magic_points_current != null) apiData.magic_points_current = parseInt(data.magic_points_current, 10) || 0;
+        if (data.sanity_current !== '' && data.sanity_current != null) apiData.sanity_current = parseInt(data.sanity_current, 10) || 0;
+        if (data.armor !== '' && data.armor != null) apiData.armor = parseInt(data.armor, 10) || 0;
+
+        // 財産情報（保存時は update_financial_data を使用）
+        if (data.money !== '' && data.money != null) apiData.money = parseInt(data.money, 10) || 0;
+        if (data.assets !== '' && data.assets != null) apiData.assets = parseInt(data.assets, 10) || 0;
+        if (data.income !== '' && data.income != null) apiData.income = parseInt(data.income, 10) || 0;
+
+        // 背景情報をnotesに統合
+        const backgroundNotes = [];
+        if (data.backstory) backgroundNotes.push(`背景ストーリー:\n${data.backstory}`);
+        if (data.appearance) backgroundNotes.push(`外見:\n${data.appearance}`);
+        if (data.ideals) backgroundNotes.push(`信念・信条:\n${data.ideals}`);
+        if (data.bonds) backgroundNotes.push(`重要な人物:\n${data.bonds}`);
+        if (data.flaws) backgroundNotes.push(`弱点・恐怖症:\n${data.flaws}`);
+        if (data.items) backgroundNotes.push(`所持品:\n${data.items}`);
+        if (backgroundNotes.length > 0) {
+            apiData.notes = (apiData.notes ? apiData.notes + '\n\n' : '') + backgroundNotes.join('\n\n');
+        }
+
+        // 技能データの収集
+        const skills = [];
+        skillCards.forEach(({ key: skillKey, card }) => {
+            const occInput = card.querySelector('.occupation-skill');
+            const intInput = card.querySelector('.interest-skill');
+            const baseInput = card.querySelector('.skill-base');
+
+            const occValue = Math.min(parseInt(occInput?.value, 10) || 0, 999);
+            const intValue = Math.min(parseInt(intInput?.value, 10) || 0, 999);
+
+            if (occValue > 0 || intValue > 0) {
+                let baseValue = 0;
+                if (window.customBaseValues && window.customBaseValues[skillKey] !== undefined) {
+                    baseValue = window.customBaseValues[skillKey];
+                } else {
+                    baseValue = parseInt(baseInput?.value, 10) || 0;
                 }
-            });
-            
-            if (skills.length > 0) {
-                apiData.skills = skills;
+                baseValue = Math.min(baseValue, 999);
+
+                skills.push({
+                    skill_name: ALL_SKILLS_6TH[skillKey]?.name || skillKey,
+                    base_value: baseValue,
+                    occupation_points: occValue,
+                    interest_points: intValue,
+                    other_points: 0
+                });
             }
-            
-            // Send image when present
-            const imageFile = formData.get('character_image');
-            if (imageFile && imageFile.size > 0) {
+        });
+
+        if (skills.length > 0) apiData.skills = skills;
+
+        const imageFiles = formData
+            .getAll('character_images')
+            .filter(f => f instanceof File && f.size > 0 && f.name);
+
+        return { apiData, data, formData, imageFiles };
+    }
+
+    async function updateFinancialData(characterId, data) {
+        const payload = {};
+        if (data.money !== '' && data.money != null) payload.cash = parseInt(data.money, 10) || 0;
+        if (data.assets !== '' && data.assets != null) payload.assets = parseInt(data.assets, 10) || 0;
+        if (data.income !== '' && data.income != null) payload.annual_income = parseInt(data.income, 10) || 0;
+        if (Object.keys(payload).length === 0) return;
+
+        await fetchJson(`/accounts/character-sheets/${characterId}/update_financial_data/`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify(payload),
+        });
+    }
+
+    async function syncSkills(characterId, desiredSkills) {
+        const existingSkills = await fetchJson(`/accounts/character-sheets/${characterId}/skills/`);
+        const existingByName = new Map((existingSkills || []).map(s => [s.skill_name, s]));
+        const desiredByName = new Map((desiredSkills || []).map(s => [s.skill_name, s]));
+
+        for (const desired of (desiredSkills || [])) {
+            const existing = existingByName.get(desired.skill_name);
+            const payload = {
+                skill_name: desired.skill_name,
+                base_value: desired.base_value,
+                occupation_points: desired.occupation_points,
+                interest_points: desired.interest_points,
+                other_points: desired.other_points ?? 0,
+            };
+
+            if (existing?.id) {
+                await fetchJson(`/accounts/character-sheets/${characterId}/skills/${existing.id}/`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify(payload),
+                });
+            } else {
+                await fetchJson(`/accounts/character-sheets/${characterId}/skills/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify(payload),
+                });
+            }
+        }
+
+        for (const [name, existing] of existingByName.entries()) {
+            if (!desiredByName.has(name) && existing?.id) {
+                await fetchJson(`/accounts/character-sheets/${characterId}/skills/${existing.id}/`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRFToken': csrfToken },
+                });
+            }
+        }
+    }
+
+    async function replaceCharacterImages(characterId, imageFiles) {
+        if (!Array.isArray(imageFiles) || imageFiles.length === 0) return;
+
+        // Delete existing images first to avoid "main image" uniqueness conflicts
+        try {
+            const existing = await fetchJson(`/accounts/character-sheets/${characterId}/images/`);
+            const existingResults = Array.isArray(existing) ? existing : (existing?.results || []);
+            for (const img of existingResults) {
+                if (!img?.id) continue;
+                await fetchJson(`/accounts/character-sheets/${characterId}/images/${img.id}/`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRFToken': csrfToken },
+                });
+            }
+        } catch (_) {
+            // If listing/deleting fails, continue to try uploading new images
+        }
+
+        for (let index = 0; index < imageFiles.length; index++) {
+            const file = imageFiles[index];
+            const upload = new FormData();
+            upload.append('image', file);
+            upload.append('is_main', index === 0 ? 'true' : 'false');
+            upload.append('order', String(index));
+
+            await fetchJson(`/accounts/character-sheets/${characterId}/images/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: upload,
+            });
+        }
+    }
+
+    async function updateCharacterSheet(characterId, apiData, data, imageFiles = []) {
+        const updatePayload = {
+            name: apiData.name,
+            player_name: apiData.player_name,
+            gender: apiData.gender,
+            occupation: apiData.occupation,
+            birthplace: apiData.birthplace,
+            residence: apiData.residence,
+            str_value: apiData.str_value,
+            con_value: apiData.con_value,
+            pow_value: apiData.pow_value,
+            dex_value: apiData.dex_value,
+            app_value: apiData.app_value,
+            siz_value: apiData.siz_value,
+            int_value: apiData.int_value,
+            edu_value: apiData.edu_value,
+            notes: apiData.notes,
+        };
+
+        if (apiData.age != null) updatePayload.age = apiData.age;
+        if (apiData.hit_points_current != null) updatePayload.hit_points_current = apiData.hit_points_current;
+        if (apiData.magic_points_current != null) updatePayload.magic_points_current = apiData.magic_points_current;
+        if (apiData.sanity_current != null) updatePayload.sanity_current = apiData.sanity_current;
+
+        await fetchJson(`/accounts/character-sheets/${characterId}/`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify(updatePayload),
+        });
+
+        await updateFinancialData(characterId, data);
+        await syncSkills(characterId, apiData.skills || []);
+        await replaceCharacterImages(characterId, imageFiles);
+    }
+    
+    // Form submit handling
+    const characterForm = document.getElementById('character-sheet-form');
+    if (characterForm) {
+        characterForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            let collected;
+            try {
+                collected = collectApiDataFromForm(this);
+            } catch (error) {
+                alert(error?.error || 'Invalid form data.');
+                return;
+            }
+
+            const { apiData, data, formData, imageFiles } = collected;
+
+            if (isEditMode) {
+                try {
+                    await updateCharacterSheet(editCharacterId, apiData, data, imageFiles);
+                    alert('Character sheet updated successfully.');
+                    window.location.href = `/accounts/character/${editCharacterId}/`;
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert(error?.error ? ('Error: ' + error.error) : 'Network error occurred.');
+                }
+                return;
+            }
+
+            if (imageFiles.length > 0) {
                 const submitFormData = new FormData();
 
                 Object.keys(apiData).forEach(key => {
@@ -1140,14 +1335,15 @@ function initOccupationTemplates() {
                     }
                 });
 
-                submitFormData.append('character_image', imageFile);
+                imageFiles.forEach(file => submitFormData.append('character_images', file));
 
                 // Send to API with multipart/form-data
                 fetch('/accounts/character-sheets/create_6th_edition/', {
                     method: 'POST',
                     headers: {
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'X-CSRFToken': csrfToken,
                     },
+                    credentials: 'same-origin',
                     body: submitFormData,
                 })
                     .then(response => {
@@ -1179,8 +1375,9 @@ function initOccupationTemplates() {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'X-CSRFToken': csrfToken,
                     },
+                    credentials: 'same-origin',
                     body: JSON.stringify(apiData),
                 })
                     .then(response => {
@@ -1215,5 +1412,52 @@ function initOccupationTemplates() {
             // Trigger submit with HTML5 validation
             characterForm.requestSubmit();
         });
+    }
+
+    async function handleCreateVersion() {
+        if (!isEditMode || !characterForm) return;
+        if (!confirm('現在の入力内容を「新しいバージョン」として保存します。\n（既存バージョンは更新しません）')) return;
+
+        let collected;
+        try {
+            collected = collectApiDataFromForm(characterForm);
+        } catch (error) {
+            alert(error?.error || 'Invalid form data.');
+            return;
+        }
+
+        try {
+            const created = await fetchJson(`/accounts/character-sheets/${editCharacterId}/create_version/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+            });
+            const newId = created?.id;
+            if (!newId) throw { error: '新バージョンの作成に失敗しました。' };
+
+            await updateCharacterSheet(newId, collected.apiData, collected.data, collected.imageFiles);
+
+            alert('新バージョンを作成しました。');
+            window.location.href = `/accounts/character/${newId}/`;
+        } catch (error) {
+            console.error('Error:', error);
+            alert(error?.error ? ('Error: ' + error.error) : 'Network error occurred.');
+        }
+    }
+
+    const createVersionBtn = document.getElementById('createVersionButton');
+    if (createVersionBtn) createVersionBtn.addEventListener('click', handleCreateVersion);
+    const footerCreateVersionBtn = document.getElementById('footerCreateVersion');
+    if (footerCreateVersionBtn) footerCreateVersionBtn.addEventListener('click', handleCreateVersion);
+
+    if (isEditMode) {
+        loadCharacterForEdit(editCharacterId).catch(error => {
+            console.error('Failed to load character for edit:', error);
+            alert(error?.error || 'Failed to load character data.');
+        });
+    } else {
+        // 初期計算（常にロールして値を埋める）
+        setTimeout(() => {
+            rollAllAbilities();
+        }, 0);
     }
 });

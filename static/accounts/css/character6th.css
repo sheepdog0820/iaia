@@ -1,9 +1,9 @@
-﻿/* 繝輔ャ繧ｿ繝ｼ隱ｿ謨ｴ - 謾ｹ蝟・沿 */
+/* フッター調整 - 改良 */
 body {
-    padding-bottom: 120px; /* 繝輔ャ繧ｿ繝ｼ菴咏區繧呈僑螟ｧ */
+    padding-bottom: 120px; /* フッター余白を拡大 */
 }
 
-/* 邱ｨ髮・庄閭ｽ縺ｪ蝓ｺ譛ｬ蛟､縺ｮ繧ｹ繧ｿ繧､繝ｫ */
+/* 編集可能な基本値のスタイル */
 .skill-base {
     background-color: #f0f8ff;
     border: 1px solid #4169e1;
@@ -22,7 +22,7 @@ body {
     box-shadow: 0 0 0 0.2rem rgba(65, 105, 225, 0.25);
 }
 
-/* 繧ｫ繧ｹ繧ｿ繝槭う繧ｺ縺輔ｌ縺溷渕譛ｬ蛟､ */
+/* カスタマイズされた基本値 */
 .skill-base.customized {
     background-color: #fff3cd;
     border-color: #ffc107;
@@ -39,7 +39,7 @@ body {
     box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
 }
 
-/* 蠢・医ヵ繧｣繝ｼ繝ｫ繝峨・繝ｼ繧ｫ繝ｼ */
+/* 必須フィールドのマーカー */
 .form-label:has(+ input[required])::after,
 label[for="character-name"]::after {
     content: ' *';
@@ -47,10 +47,10 @@ label[for="character-name"]::after {
     font-weight: bold;
 }
 
-/* 繝｢繝舌う繝ｫ蟇ｾ蠢懊・謾ｹ蝟・*/
+/* モバイル対応・改良 */
 @media (max-width: 768px) {
     body {
-        padding-bottom: 160px; /* 繝｢繝舌う繝ｫ縺ｧ繧医ｊ螟ｧ縺阪↑菴咏區 */
+        padding-bottom: 160px; /* モバイルでより大きな余白 */
     }
     
     .container {
@@ -58,7 +58,7 @@ label[for="character-name"]::after {
         padding-right: 10px;
     }
     
-    /* iOS繧ｺ繝ｼ繝髦ｲ豁｢ */
+    /* iOSズーム防止 */
     .form-control, .form-select {
         font-size: 16px;
     }
@@ -192,7 +192,7 @@ hr {
     margin: 0.5rem 0 1rem 0;
 }
 
-/* 繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ蜉ｹ譫・*/
+/* アニメーション効果 */
 @keyframes pulse {
     0% { transform: scale(1); }
     50% { transform: scale(1.02); }
@@ -203,7 +203,7 @@ hr {
     animation: pulse 0.6s ease-in-out;
 }
 
-/* 繧ｿ繝悶せ繧ｿ繧､繝ｫ */
+/* タブスタイル */
 .nav-tabs .nav-link {
     color: #6c757d;
     border: 1px solid transparent;
@@ -235,7 +235,7 @@ hr {
     padding: 1rem;
 }
 
-/* 繝ｬ繧ｹ繝昴Φ繧ｷ繝冶ｪｿ謨ｴ */
+/* レスポンシブ調整 */
 @media (max-width: 768px) {
     .character-creator-header h2 {
         font-size: 1.5rem;
@@ -259,7 +259,7 @@ hr {
     }
 }
 
-/* 繝倥Ν繝励い繧ｳ繝ｼ繝・ぅ繧ｪ繝ｳ */
+/* ヘルプアコーディオン */
 .accordion-button:not(.collapsed) {
     background-color: rgba(25, 118, 210, 0.1);
     color: #1976d2;
@@ -270,7 +270,7 @@ hr {
     box-shadow: 0 0 0 0.25rem rgba(25, 118, 210, 0.25);
 }
 
-/* 逕ｻ蜒上・繝ｬ繝薙Η繝ｼ */
+/* 画像プレビュー */
 #image-preview {
     border: 1px dashed #dee2e6;
     padding: 10px;
@@ -282,7 +282,7 @@ hr {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-/* 閨ｷ讌ｭ繝・Φ繝励Ξ繝ｼ繝医Δ繝ｼ繝繝ｫ */
+/* 職業テンプレートモーダル */
 .occupation-template-item:hover {
     background-color: #f8f9fa;
 }
@@ -291,12 +291,12 @@ hr {
     background-color: #e3f2fd;
 }
 
-/* 繝昴う繝ｳ繝育ｮ｡逅・そ繧ｯ繧ｷ繝ｧ繝ｳ */
+/* ポイント管理セクション */
 .bg-light {
     border: 1px solid #dee2e6;
 }
 
-/* 閭ｽ蜉帛､蜈･蜉帙ヵ繧｣繝ｼ繝ｫ繝牙ｼｷ隱ｿ */
+/* 能力値入力フィールド強調 */
 .ability-score {
     font-size: 1.1rem;
 }
@@ -305,7 +305,7 @@ hr {
     background-color: #fff3cd;
 }
 
-/* 謌仙粥繝｡繝・そ繝ｼ繧ｸ縺ｮ繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ */
+/* 成功メッセージのアニメーション */
 @keyframes fadeInUp {
     from {
         opacity: 0;

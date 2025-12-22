@@ -29,6 +29,9 @@
                         <a href="/accounts/character/list/" class="btn btn-outline-secondary me-2">
                             <i class="fas fa-arrow-left"></i> 一覧に戻る
                         </a>
+                        <button type="button" id="createVersionAndEditButton" class="btn btn-outline-success me-2 d-none">
+                            <i class="fas fa-code-branch"></i> 新しいバージョンを作成して編集
+                        </button>
                         <a href="#" id="editButton" class="btn btn-outline-primary">
                             <i class="fas fa-edit"></i> 編集
                         </a>
@@ -321,6 +324,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     const characterId = window.location.pathname.split('/')[3];
     let character = null;
+
+    document.getElementById('createVersionAndEditButton')?.addEventListener('click', createVersionAndEdit);
     
     // ステータステキストを取得する関数
     function getStatusText(status) {
@@ -344,7 +349,12 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => {
                 character = response.data;
                 displayCharacter(character);
-                loadVersions();
+                // Prefer versions embedded in character detail if available
+                if (character && Array.isArray(character.versions) && character.versions.length > 0) {
+                    displayVersions(character.versions);
+                } else {
+                    loadVersions();
+                }
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('characterContent').classList.remove('d-none');
             })
@@ -364,6 +374,16 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 編集ボタン（キャラクター作成画面にパラメータ付きで遷移）
         document.getElementById('editButton').href = `/accounts/character/create/6th/?id=${character.id}`;
+
+        // 新しいバージョン作成ボタンは6版のみ表示（押すと新バージョンを作って編集へ）
+        const createVersionBtn = document.getElementById('createVersionAndEditButton');
+        if (createVersionBtn) {
+            if (character.edition === '6th') {
+                createVersionBtn.classList.remove('d-none');
+            } else {
+                createVersionBtn.classList.add('d-none');
+            }
+        }
         
         // 版バッジ
         const editionBadge = document.getElementById('editionBadge');
@@ -398,6 +418,34 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 版別固有情報
         displayEditionSpecific(character);
+    }
+
+    async function createVersionAndEdit() {
+        if (!character) return;
+        if (character.edition !== '6th') return;
+
+        const btn = document.getElementById('createVersionAndEditButton');
+        const originalHtml = btn ? btn.innerHTML : null;
+
+        try {
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> 新バージョン作成中...';
+            }
+
+            const response = await axios.post(`/accounts/character-sheets/${characterId}/create_version/`);
+            const newId = response?.data?.id;
+            if (!newId) throw new Error('No id returned');
+
+            window.location.href = `/accounts/character/create/6th/?id=${newId}`;
+        } catch (error) {
+            console.error('新バージョン作成に失敗しました:', error);
+            alert('新しいバージョンの作成に失敗しました。');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        }
     }
     
     // 基本情報表示
@@ -835,7 +883,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadVersions() {
         axios.get(`/api/accounts/character-sheets/${characterId}/versions/`)
             .then(response => {
-                displayVersions(response.data);
+                const versions = normalizeVersionsResponse(response.data);
+                displayVersions(versions);
             })
             .catch(error => {
                 console.error('バージョン履歴の読み込みに失敗しました:', error);
@@ -843,19 +892,29 @@ document.addEventListener('DOMContentLoaded', function() {
                     '<p class="text-muted">バージョン履歴を読み込めませんでした。</p>';
             });
     }
+
+    function normalizeVersionsResponse(data) {
+        if (Array.isArray(data)) return data;
+        if (data && Array.isArray(data.results)) return data.results;
+        if (data && Array.isArray(data.version_history)) return data.version_history;
+        return [];
+    }
     
     // バージョン履歴表示
     function displayVersions(versions) {
         const container = document.getElementById('versionsContainer');
         
-        if (versions.length === 0) {
+        if (!Array.isArray(versions) || versions.length === 0) {
             container.innerHTML = '<p class="text-muted">バージョン履歴がありません。</p>';
             return;
         }
         
+        const sorted = [...versions].sort((a, b) => (b.version || 0) - (a.version || 0));
         let html = '<div class="row">';
-        versions.forEach(version => {
-            const isCurrent = version.id == characterId;
+        sorted.forEach(version => {
+            const isCurrent = version.id == characterId || version.is_current === true;
+            const dateValue = version.updated_at || version.created_at;
+            const dateText = dateValue ? new Date(dateValue).toLocaleDateString('ja-JP') : '-';
             html += `
                 <div class="col-md-6 col-lg-4 mb-3">
                     <div class="card ${isCurrent ? 'border-primary' : ''}">
@@ -865,13 +924,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 ${isCurrent ? '<span class="badge bg-primary">現在</span>' : ''}
                             </div>
                             <div class="small text-muted mb-2">
-                                作成: ${new Date(version.created_at).toLocaleDateString('ja-JP')}
+                                更新: ${dateText}
                             </div>
-                            ${!isCurrent ? `
-                                <a href="/accounts/character/${version.id}/" class="btn btn-outline-primary btn-sm">
-                                    <i class="fas fa-eye"></i> 表示
-                                </a>
-                            ` : ''}
+                            <a href="/accounts/character/${version.id}/" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-eye"></i> 表示
+                            </a>
                         </div>
                     </div>
                 </div>

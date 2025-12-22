@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}メールアドレス管理 - Arkham Nexus{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-lg">
+                <div class="card-header bg-secondary text-center">
+                    <h4 class="card-title mb-0 eldritch-font">
+                        <i class="fas fa-envelope"></i> メールアドレス管理
+                    </h4>
+                    <p class="mb-0 text-muted">アカウントに紐づくメールアドレスを管理します</p>
+                </div>
+
+                <div class="card-body p-4">
+                    {% if messages %}
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    {% if emailaddresses %}
+                    <h6 class="mb-3">
+                        <i class="fas fa-list"></i> 登録済みメール
+                    </h6>
+
+                    <form method="post" action="{% url 'account_email' %}" id="email-actions-form">
+                        {% csrf_token %}
+
+                        <div class="list-group mb-3">
+                            {% for emailaddress in emailaddresses %}
+                            <label class="list-group-item d-flex justify-content-between align-items-center">
+                                <div class="form-check m-0">
+                                    <input class="form-check-input me-2"
+                                           type="radio"
+                                           name="email"
+                                           value="{{ emailaddress.email }}"
+                                           id="email_{{ forloop.counter }}"
+                                           {% if emailaddress.primary %}checked{% endif %}>
+                                    <span class="form-check-label" for="email_{{ forloop.counter }}">
+                                        {{ emailaddress.email }}
+                                        {% if emailaddress.primary %}
+                                            <span class="badge bg-primary ms-2">主</span>
+                                        {% endif %}
+                                        {% if emailaddress.verified %}
+                                            <span class="badge bg-success ms-2">確認済み</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark ms-2">未確認</span>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </label>
+                            {% endfor %}
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button class="btn btn-outline-primary" type="submit" name="action_primary">
+                                <i class="fas fa-star"></i> 主メールに設定
+                            </button>
+                            <button class="btn btn-outline-warning" type="submit" name="action_send">
+                                <i class="fas fa-paper-plane"></i> 確認メールを再送
+                            </button>
+                            <button class="btn btn-outline-danger" type="submit" name="action_remove" id="remove-email-btn">
+                                <i class="fas fa-trash"></i> 削除
+                            </button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        登録済みのメールアドレスがありません。
+                    </div>
+                    {% endif %}
+
+                    <hr class="my-4">
+
+                    <h6 class="mb-3">
+                        <i class="fas fa-plus"></i> 新しいメールを追加
+                    </h6>
+
+                    <form method="post" action="{% url 'account_email' %}">
+                        {% csrf_token %}
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-8">
+                                <label for="{{ form.email.id_for_label }}" class="form-label">
+                                    <i class="fas fa-at"></i> {{ form.email.label }}
+                                </label>
+                                {{ form.email }}
+                            </div>
+                            <div class="col-md-4 d-grid">
+                                <button class="btn btn-secondary" type="submit" name="action_add">
+                                    <i class="fas fa-link"></i> 追加して紐づけ
+                                </button>
+                            </div>
+                        </div>
+
+                        {% if form.errors %}
+                        <div class="alert alert-danger mt-3 mb-0">
+                            {% for field, errors in form.errors.items %}
+                                {% for error in errors %}
+                                    <div>{{ error }}</div>
+                                {% endfor %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </form>
+
+                    <div class="mt-4 d-flex flex-wrap gap-2">
+                        <a href="{% url 'profile_edit' %}" class="btn btn-outline-info">
+                            <i class="fas fa-user-edit"></i> プロフィール編集へ
+                        </a>
+                        <a href="{% url 'socialaccount_connections' %}" class="btn btn-outline-danger">
+                            <i class="fas fa-link"></i> ソーシャル連携
+                        </a>
+                        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> ダッシュボードへ
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card {
+    border: 2px solid #6c757d;
+    background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+}
+
+.form-control:focus {
+    border-color: #6c757d;
+    box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const removeBtn = document.getElementById('remove-email-btn');
+    if (removeBtn) {
+        removeBtn.addEventListener('click', function(e) {
+            if (!confirm('選択したメールアドレスを削除します。よろしいですか？')) {
+                e.preventDefault();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+

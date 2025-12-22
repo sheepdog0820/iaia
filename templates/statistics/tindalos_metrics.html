@@ -135,48 +135,10 @@
         </div>
     </div>
     
-    <!-- 詳細データテーブル -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> 月別活動推移</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="monthlyChart" height="400"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- 役割別統計 -->
+    <!-- グループ活動 / 最近のセッション -->
+    <div class="row mt-2">
         <div class="col-lg-4 mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-user-cog"></i> GM/PL比率</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="roleChart" height="400"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <!-- ゲームシステム別統計 -->
-        <div class="col-lg-8 mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-dice-d20"></i> ゲームシステム別プレイ統計</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="systemChart" height="300"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- グループ活動 -->
-        <div class="col-lg-4 mb-4">
-            <div class="card">
+            <div class="card h-100">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-users"></i> グループ活動</h5>
                 </div>
@@ -189,12 +151,9 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- 最近のセッション -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
+        <div class="col-lg-8 mb-4">
+            <div class="card h-100">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-history"></i> 最近のセッション履歴</h5>
                 </div>
@@ -212,11 +171,11 @@
     </div>
 
     <!-- ランキング -->
-    <div class="row mt-4">
+    <div class="row mt-2">
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <h5 class="mb-0"><i class="fas fa-trophy"></i> ランキング</h5>
                         <div class="btn-group btn-group-sm" role="group">
                             <input type="radio" class="btn-check" name="rankingType" id="rankingHours" checked>
@@ -244,8 +203,6 @@
 {% endblock %}
 
 {% block extra_css %}
-<!-- Chart.js CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 .stat-card {
     background: linear-gradient(135deg, rgba(220, 38, 127, 0.1) 0%, rgba(220, 38, 127, 0.2) 100%);
@@ -336,7 +293,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     let currentYear = new Date().getFullYear();
@@ -370,9 +327,9 @@ document.addEventListener('DOMContentLoaded', function() {
             renderMonthlyChart();
             renderRoleChart();
             renderSystemChart();
-            renderWeeklyPatternChart();
-            renderHourlyChart();
-            renderAchievementChart();
+            renderWeeklyPatternChartV2();
+            renderHourlyChartV2();
+            renderAchievementChartV2();
             renderGroupStats();
             renderRecentSessions();
             loadRanking();
@@ -686,10 +643,151 @@ document.addEventListener('DOMContentLoaded', function() {
         `).join('');
     }
 
+    function renderWeeklyPatternChartV2() {
+        const canvas = document.getElementById('weeklyPatternChart');
+        if (!canvas) return;
+
+        if (charts.weeklyPattern) {
+            charts.weeklyPattern.destroy();
+        }
+
+        const ctx = canvas.getContext('2d');
+        const labels = ['日', '月', '火', '水', '木', '金', '土'];
+        const counts = (currentData.weekly_stats && Array.isArray(currentData.weekly_stats.counts))
+            ? currentData.weekly_stats.counts
+            : Array(7).fill(0);
+
+        charts.weeklyPattern = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'セッション数',
+                    data: counts,
+                    borderColor: '#58a6ff',
+                    backgroundColor: 'rgba(88, 166, 255, 0.45)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { labels: { color: '#ffffff' } }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        ticks: { color: '#ffffff' }
+                    },
+                    x: {
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        ticks: { color: '#ffffff' }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderHourlyChartV2() {
+        const canvas = document.getElementById('hourlyChart');
+        if (!canvas) return;
+
+        if (charts.hourly) {
+            charts.hourly.destroy();
+        }
+
+        const ctx = canvas.getContext('2d');
+        const labels = Array.from({length: 24}, (_, i) => `${i}:00`);
+        const counts = (currentData.hourly_stats && Array.isArray(currentData.hourly_stats.counts))
+            ? currentData.hourly_stats.counts
+            : Array(24).fill(0);
+
+        charts.hourly = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'セッション開始回数',
+                    data: counts,
+                    borderColor: '#dc2670',
+                    backgroundColor: 'rgba(220, 38, 127, 0.1)',
+                    tension: 0.35,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        ticks: { color: '#ffffff' }
+                    },
+                    x: {
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        ticks: { color: '#ffffff' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#ffffff' } }
+                }
+            }
+        });
+    }
+
+    function renderAchievementChartV2() {
+        const canvas = document.getElementById('achievementChart');
+        if (!canvas) return;
+
+        if (charts.achievement) {
+            charts.achievement.destroy();
+        }
+
+        const ctx = canvas.getContext('2d');
+        const yearlyStats = currentData.yearly_stats || {};
+
+        charts.achievement = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['セッション数', 'プレイ時間', '完了率', 'GM経験', '新シナリオ', 'グループ活動'],
+                datasets: [{
+                    label: '達成度',
+                    data: [
+                        Math.min((yearlyStats.total_sessions || 0) * 2, 100),
+                        Math.min((yearlyStats.total_hours || 0), 100),
+                        yearlyStats.completion_rate || 0,
+                        Math.min((yearlyStats.gm_sessions || 0) * 5, 100),
+                        Math.min((yearlyStats.played_scenarios || 0) * 10, 100),
+                        Math.min((yearlyStats.active_groups || 0) * 25, 100)
+                    ],
+                    borderColor: '#dc2670',
+                    backgroundColor: 'rgba(220, 38, 127, 0.2)',
+                    pointBackgroundColor: '#dc2670'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        ticks: { color: '#ffffff' },
+                        pointLabels: { color: '#ffffff' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#ffffff' } }
+                }
+            }
+        });
+    }
+
     // グラフ描画関数
     let monthlyChart, roleChart, systemChart, weeklyPatternChart, hourlyChart, achievementChart;
 
-    function renderMonthlyChart() {
+    function renderMonthlyChartLegacy() {
         const ctx = document.getElementById('monthlyChart').getContext('2d');
         const monthlyStats = currentData.monthly_stats;
         
@@ -731,7 +829,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function renderRoleChart() {
+    function renderRoleChartLegacy() {
         const ctx = document.getElementById('roleChart').getContext('2d');
         const roleStats = currentData.role_stats;
         
@@ -759,7 +857,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function renderSystemChart() {
+    function renderSystemChartLegacy() {
         const ctx = document.getElementById('systemChart').getContext('2d');
         const systemStats = currentData.system_stats;
         
