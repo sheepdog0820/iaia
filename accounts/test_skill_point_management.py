@@ -132,20 +132,35 @@ class SkillPointValidationTestCase(TestCase):
         self.assertIn('occupation_points', str(cm.exception))
     
     def test_skill_value_cap_validation(self):
-        """技能値上限（90%）のバリデーション"""
+        """技能値上限（999）のバリデーション"""
+        high_cap_character = CharacterSheet.objects.create(
+            user=self.user,
+            name='High Cap Investigator',
+            edition='6th',
+            age=25,
+            str_value=10,
+            con_value=10,
+            pow_value=10,
+            dex_value=10,
+            app_value=10,
+            siz_value=10,
+            int_value=999,
+            edu_value=999
+        )
+
         skill = CharacterSkill(
-            character_sheet=self.character,
+            character_sheet=high_cap_character,
             skill_name='図書館',
             base_value=25,
-            occupation_points=50,
-            interest_points=30,  # 合計105%となる
+            occupation_points=500,
+            interest_points=500,  # 合計1025となる（上限999を超える）
             bonus_points=0
         )
         
         with self.assertRaises(ValidationError) as cm:
             skill.clean()
         
-        self.assertIn('技能値の合計は90%を超えることはできません', str(cm.exception))
+        self.assertIn('技能値の合計は999を超えることはできません。', str(cm.exception))
     
     def test_negative_skill_points_validation(self):
         """負の技能ポイントのバリデーション"""

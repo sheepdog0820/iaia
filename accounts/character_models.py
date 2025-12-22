@@ -666,10 +666,10 @@ class CharacterSkill(models.Model):
             value = getattr(self, field_name, 0)
             if value < 0:
                 raise ValidationError({field_name: f'{field_label}は0以上の値を入力してください。'})
-            if value > 100:
-                raise ValidationError({field_name: f'{field_label}は100以下の値を入力してください。'})
+            if value > 999:
+                raise ValidationError({field_name: f'{field_label}は999以下の値を入力してください。'})
         
-        # 技能値の合計チェック（6版は99%、7版は90%）
+        # 技能値の合計チェック（最大999）
         total_value = (
             self.base_value + 
             self.occupation_points + 
@@ -678,12 +678,10 @@ class CharacterSkill(models.Model):
             self.other_points
         )
         
-        # 6版かどうかを確認
-        is_6th_edition = self.character_sheet and self.character_sheet.edition == '6th'
-        max_skill_value = 99 if is_6th_edition else 90
+        max_skill_value = 999
         
         if total_value > max_skill_value:
-            raise ValidationError(f'技能値の合計は{max_skill_value}%を超えることはできません。')
+            raise ValidationError(f'技能値の合計は{max_skill_value}を超えることはできません。')
         
         # 技能ポイント過剰割り振りチェック
         if self.character_sheet:
@@ -714,7 +712,7 @@ class CharacterSkill(models.Model):
         # バリデーション実行
         self.full_clean()
         
-        # 現在値計算（6版は99、7版は90の上限）
+        # 現在値計算（最大999）
         total = (
             self.base_value + 
             self.occupation_points + 
@@ -723,9 +721,7 @@ class CharacterSkill(models.Model):
             self.other_points
         )
         
-        # 6版かどうかを確認
-        is_6th_edition = self.character_sheet and self.character_sheet.edition == '6th'
-        max_skill_value = 99 if is_6th_edition else 90
+        max_skill_value = 999
         
         self.current_value = min(total, max_skill_value)
         
@@ -1066,16 +1062,16 @@ class SkillGrowthRecord(models.Model):
     
     # 技能値の変化
     old_value = models.IntegerField(
-        validators=[MinValueValidator(0), MaxValueValidator(90)],
+        validators=[MinValueValidator(0), MaxValueValidator(999)],
         verbose_name="成長前技能値"
     )
     new_value = models.IntegerField(
-        validators=[MinValueValidator(0), MaxValueValidator(90)],
+        validators=[MinValueValidator(0), MaxValueValidator(999)],
         verbose_name="成長後技能値"
     )
     growth_amount = models.IntegerField(
         default=0,
-        validators=[MinValueValidator(0), MaxValueValidator(90)],
+        validators=[MinValueValidator(0), MaxValueValidator(999)],
         verbose_name="成長量"
     )
     
@@ -1100,11 +1096,11 @@ class SkillGrowthRecord(models.Model):
             raise ValidationError({'skill_name': '技能名は必須です。'})
         
         # 技能値の範囲チェック
-        if self.old_value < 0 or self.old_value > 90:
-            raise ValidationError({'old_value': '成長前技能値は0-90の範囲で入力してください。'})
+        if self.old_value < 0 or self.old_value > 999:
+            raise ValidationError({'old_value': '成長前技能値は0-999の範囲で入力してください。'})
         
-        if self.new_value < 0 or self.new_value > 90:
-            raise ValidationError({'new_value': '成長後技能値は0-90の範囲で入力してください。'})
+        if self.new_value < 0 or self.new_value > 999:
+            raise ValidationError({'new_value': '成長後技能値は0-999の範囲で入力してください。'})
         
         # 成長量の整合性チェック
         expected_growth = self.new_value - self.old_value

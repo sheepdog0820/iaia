@@ -94,18 +94,18 @@ test.describe('技能値設定機能の包括的E2Eテスト', () => {
     expect(parseInt(spotTotal)).toBe(30 + 25); // 趣味30 + 基本値25
   });
 
-  test('技能値の上限チェック（90%）', async ({ page }) => {
+  test('技能値の上限チェック（999）', async ({ page }) => {
     // 技能タブへ移動
     await page.click('button[role="tab"]:has-text("技能")');
     await page.waitForLoadState('networkidle');
     
-    // 技能に90を超える値を入力
+    // 技能に999を超える値を入力（表示上は999に丸められる）
     const firstSkill = page.locator('.skill-item-wrapper').first();
     const occupationInput = firstSkill.locator('input[name*="skill_occupation_"]');
     const hobbyInput = firstSkill.locator('input[name*="skill_interest_"]');
     
-    await occupationInput.fill('70');
-    await hobbyInput.fill('30'); // 合計100を超える
+    await occupationInput.fill('999');
+    await hobbyInput.fill('999'); // 合計が999を大きく超える
     
     await page.waitForTimeout(500);
     
@@ -113,8 +113,8 @@ test.describe('技能値設定機能の包括的E2Eテスト', () => {
     const skillTotal = await firstSkill.locator('.skill-total').textContent();
     const totalValue = parseInt(skillTotal);
     
-    // 90を超えないことを確認（実装によって異なる可能性）
-    expect(totalValue).toBeLessThanOrEqual(90);
+    // 999に丸められることを確認
+    expect(totalValue).toBe(999);
   });
 
   test('技能カテゴリフィルターの動作', async ({ page }) => {

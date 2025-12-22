@@ -52,7 +52,7 @@ class CharacterValidationTest(TestCase):
         
         # バリデーションエラーでフォームが戻ることを確認
         self.assertEqual(response.status_code, 200, "必須フィールド不足時はフォームに戻るべき")
-        print("✅ 必須フィールド不足時は正しく処理される")
+        print("OK 必須フィールド不足時は正しく処理される")
     
     def test_ability_value_range_validation(self):
         """能力値範囲のバリデーションテスト"""
@@ -79,7 +79,7 @@ class CharacterValidationTest(TestCase):
         
         # バリデーションエラーでフォームが戻ることを確認
         self.assertEqual(response.status_code, 200, "範囲外能力値はバリデーションエラーになるべき")
-        print("✅ 能力値範囲外エラーは正しく処理される")
+        print("OK 能力値範囲外エラーは正しく処理される")
     
     def test_age_validation(self):
         """年齢のバリデーションテスト"""
@@ -106,10 +106,10 @@ class CharacterValidationTest(TestCase):
         
         # バリデーションエラーでフォームが戻ることを確認
         self.assertEqual(response.status_code, 200, "範囲外年齢はバリデーションエラーになるべき")
-        print("✅ 年齢範囲外エラーは正しく処理される")
+        print("OK 年齢範囲外エラーは正しく処理される")
     
     def test_skill_value_limit_6th_edition(self):
-        """6版の技能値上限テスト（99%）"""
+        """6版の技能値上限テスト（999）"""
         print("\n=== 6版技能値上限テスト ===")
         
         # まず正常なキャラクターを作成
@@ -138,35 +138,35 @@ class CharacterValidationTest(TestCase):
             sanity_current=15,
         )
         
-        # 99%以下の技能は作成できるはず
+        # 999以下の技能は作成できるはず
         valid_skill = CharacterSkill(
             character_sheet=character,
-            skill_name='テスト技能99',
+            skill_name='テスト技能999',
             base_value=25,
-            occupation_points=74,  # 合計99
+            occupation_points=300,
             interest_points=0,
-            other_points=0
+            other_points=674  # 合計999
         )
         
         try:
             valid_skill.save()
-            print("✅ 99%技能の作成は成功")
+            print("OK 999技能の作成は成功")
         except ValidationError:
-            self.fail("99%技能の作成でエラーが発生")
-        
-        # 100%の技能は作成できないはず
+            self.fail("999技能の作成でエラーが発生")
+
+        # 1000の技能は作成できないはず
         invalid_skill = CharacterSkill(
             character_sheet=character,
-            skill_name='テスト技能100',
+            skill_name='テスト技能1000',
             base_value=25,
-            occupation_points=75,  # 合計100（6版でも上限99%）
+            occupation_points=300,
             interest_points=0,
-            other_points=0
+            other_points=675  # 合計1000（上限999）
         )
         
         with self.assertRaises(ValidationError):
             invalid_skill.save()
-        print("✅ 100%技能の作成は正しく拒否される")
+        print("OK 1000技能の作成は正しく拒否される")
     
     def test_duplicate_character_name_allowed(self):
         """同名キャラクター作成は許可されることのテスト"""
@@ -211,7 +211,7 @@ class CharacterValidationTest(TestCase):
         # 両方作成されていることを確認
         characters = CharacterSheet.objects.filter(user=self.user, name=base_name)
         self.assertEqual(characters.count(), 2, "同名キャラクターが2つ作成されるべき")
-        print("✅ 同名キャラクターの作成は正しく許可される")
+        print("OK 同名キャラクターの作成は正しく許可される")
 
 def run_validation_tests():
     """バリデーションテストの実行"""
@@ -237,9 +237,9 @@ def run_validation_tests():
     result = runner.run(suite)
     
     if result.wasSuccessful():
-        print("\n✅ 全バリデーションテストが成功しました！")
+        print("\nOK 全バリデーションテストが成功しました！")
     else:
-        print(f"\n❌ テスト失敗: {len(result.failures)} 個の失敗, {len(result.errors)} 個のエラー")
+        print(f"\nNG テスト失敗: {len(result.failures)} 個の失敗, {len(result.errors)} 個のエラー")
         for failure in result.failures:
             print(f"失敗: {failure[0]}")
             print(f"詳細: {failure[1]}")
