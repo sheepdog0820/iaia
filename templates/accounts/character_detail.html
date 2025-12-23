@@ -4,7 +4,7 @@
 {% block title %}{{ character.name }} - キャラクターシート詳細 - Arkham Nexus{% endblock %}
 
 {% block content %}
-<div class="container" id="characterDetailContainer">
+<div class="container character-detail" id="characterDetailContainer">
     <!-- ローディング -->
     <div class="text-center" id="loading">
         <div class="spinner-border text-primary" role="status">
@@ -20,12 +20,12 @@
         <!-- ヘッダー -->
         <div class="row mb-4">
             <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center">
+                <div class="character-header d-flex justify-content-between align-items-center">
                     <h2 id="characterName">
                         <i class="fas fa-user-ninja text-primary"></i>
                         <span class="character-name"></span>
                     </h2>
-                    <div>
+                    <div class="character-actions">
                         <a href="/accounts/character/list/" class="btn btn-outline-secondary me-2">
                             <i class="fas fa-arrow-left"></i> 一覧に戻る
                         </a>

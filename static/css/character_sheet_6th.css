@@ -23,6 +23,11 @@ body {
     margin-top: 20px;
 }
 
+.page-title {
+    line-height: 1.2;
+    word-break: break-word;
+}
+
 /* ===========================
    プログレスバー
    =========================== */
@@ -37,6 +42,10 @@ body {
     border-bottom: 2px solid #dee2e6;
     margin-bottom: 20px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.section-progress-scroll {
+    overflow: visible;
 }
 
 .section-progress {
@@ -719,6 +728,28 @@ body {
    =========================== */
 
 @media (max-width: 768px) {
+    .progress-container {
+        top: 70px;
+        padding: 10px 0;
+    }
+
+    .section-progress-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .section-progress {
+        flex-wrap: nowrap;
+        gap: 8px;
+        width: max-content;
+        min-width: 100%;
+    }
+
+    .section-indicator {
+        flex: 0 0 auto;
+        padding: 4px;
+    }
+
     .section-indicator span {
         display: none;
     }
@@ -727,6 +758,30 @@ body {
         width: 30px;
         height: 30px;
         font-size: 14px;
+    }
+
+    .indicator-line {
+        flex: 0 0 16px;
+    }
+
+    .page-title {
+        font-size: 1.5rem;
+    }
+
+    .character-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 6px;
+        padding-bottom: 4px;
+    }
+
+    .character-tabs .nav-item {
+        flex: 0 0 auto;
+    }
+
+    .character-tabs .nav-link {
+        white-space: nowrap;
     }
     
     .image-grid {
@@ -781,6 +836,10 @@ body {
         flex-direction: column;
         gap: 5px;
     }
+
+    .skill-points-display {
+        position: static;
+    }
 }
 
 @media (max-width: 576px) {
@@ -804,6 +863,38 @@ body {
     
     .derived-stat-value {
         font-size: 1.5em;
+    }
+
+    .page-title {
+        font-size: 1.25rem;
+    }
+
+    .indicator-line {
+        display: none;
+    }
+
+    .character-tabs .nav-link {
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+
+    .image-upload-area {
+        padding: 24px 12px;
+    }
+
+    .image-item img {
+        height: 100px;
+    }
+
+    .floating-save {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+    }
+
+    .floating-save .btn {
+        width: 100%;
+        justify-content: center;
     }
 }
 

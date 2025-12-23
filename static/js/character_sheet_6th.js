@@ -43,6 +43,8 @@ const DICE_PRESETS = {
     }
 };
 
+const DICE_SETTINGS_API_URL = '/api/accounts/dice-roll-settings/';
+
 // スキルカテゴリーとスキル定義
 const SKILL_CATEGORIES = {
     combat: {
@@ -82,6 +84,7 @@ let customSkillCounts = {
     negotiation: 0,
     knowledge: 0
 };
+let diceSettingCache = [];
 
 // ===========================
 // 初期化処理
@@ -90,6 +93,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeProgressBar();
     initializeImageUpload();
     initializeDiceSettings();
+    initializeDiceSettingManager();
     initializeAbilityListeners();
     initializeSkills();
     initializeFormValidation();
@@ -418,11 +422,90 @@ function generateDiceSettingsHTML() {
                     <span class="input-group-text">+</span>
                     <input type="number" class="form-control" id="dice-bonus-${ability}" min="-50" max="50" value="${currentDiceSettings[ability].bonus}">
                 </div>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">式</span>
+                    <input type="text" class="form-control" id="dice-formula-${ability}" value="${formatDiceFormula(currentDiceSettings[ability].count, currentDiceSettings[ability].sides, currentDiceSettings[ability].bonus)}" placeholder="3d6+0">
+                </div>
             </div>
         </div>
     `).join('');
     
     container.appendChild(row);
+    attachDiceSettingListeners();
+}
+
+function formatDiceFormula(count, sides, bonus) {
+    const sign = bonus >= 0 ? '+' : '';
+    return `${count}d${sides}${sign}${bonus}`;
+}
+
+function parseDiceFormula(formula) {
+    if (!formula) return null;
+    const match = formula.trim().match(/^(\d+)\s*[dD]\s*(\d+)\s*([+-]\s*\d+)?$/);
+    if (!match) return null;
+    const count = parseInt(match[1], 10);
+    const sides = parseInt(match[2], 10);
+    const bonus = match[3] ? parseInt(match[3].replace(/\s+/g, ''), 10) : 0;
+    if (!Number.isFinite(count) || !Number.isFinite(sides) || !Number.isFinite(bonus)) return null;
+    if (count < 1 || count > 10) return null;
+    if (sides < 2 || sides > 100) return null;
+    if (bonus < -50 || bonus > 50) return null;
+    return { count, sides, bonus };
+}
+
+function updateCurrentDiceSettingsFromInputs() {
+    ABILITIES.forEach(ability => {
+        const countInput = document.getElementById(`dice-count-${ability}`);
+        const sidesInput = document.getElementById(`dice-sides-${ability}`);
+        const bonusInput = document.getElementById(`dice-bonus-${ability}`);
+        if (!countInput || !sidesInput || !bonusInput) return;
+        currentDiceSettings[ability] = {
+            count: parseInt(countInput.value, 10) || currentDiceSettings[ability].count,
+            sides: parseInt(sidesInput.value, 10) || currentDiceSettings[ability].sides,
+            bonus: parseInt(bonusInput.value, 10) || 0
+        };
+    });
+}
+
+function attachDiceSettingListeners() {
+    ABILITIES.forEach(ability => {
+        const countInput = document.getElementById(`dice-count-${ability}`);
+        const sidesInput = document.getElementById(`dice-sides-${ability}`);
+        const bonusInput = document.getElementById(`dice-bonus-${ability}`);
+        const formulaInput = document.getElementById(`dice-formula-${ability}`);
+
+        const syncFormula = () => {
+            updateCurrentDiceSettingsFromInputs();
+            if (formulaInput) {
+                formulaInput.value = formatDiceFormula(
+                    currentDiceSettings[ability].count,
+                    currentDiceSettings[ability].sides,
+                    currentDiceSettings[ability].bonus
+                );
+                formulaInput.classList.remove('is-invalid');
+            }
+        };
+
+        if (countInput) countInput.addEventListener('input', syncFormula);
+        if (sidesInput) sidesInput.addEventListener('input', syncFormula);
+        if (bonusInput) bonusInput.addEventListener('input', syncFormula);
+
+        if (formulaInput) {
+            formulaInput.addEventListener('change', () => {
+                const parsed = parseDiceFormula(formulaInput.value);
+                if (!parsed) {
+                    formulaInput.classList.add('is-invalid');
+                    showToast('ダイス式は「3d6+0」形式で入力してください', 'warning');
+                    return;
+                }
+                formulaInput.classList.remove('is-invalid');
+                if (countInput) countInput.value = parsed.count;
+                if (sidesInput) sidesInput.value = parsed.sides;
+                if (bonusInput) bonusInput.value = parsed.bonus;
+                updateCurrentDiceSettingsFromInputs();
+            });
+        }
+    });
 }
 
 function toggleCustomDiceSettings() {
@@ -441,14 +524,224 @@ function applyDicePreset(preset) {
             const countInput = document.getElementById(`dice-count-${ability}`);
             const sidesInput = document.getElementById(`dice-sides-${ability}`);
             const bonusInput = document.getElementById(`dice-bonus-${ability}`);
+            const formulaInput = document.getElementById(`dice-formula-${ability}`);
             
             if (countInput) countInput.value = currentDiceSettings[ability].count;
             if (sidesInput) sidesInput.value = currentDiceSettings[ability].sides;
             if (bonusInput) bonusInput.value = currentDiceSettings[ability].bonus;
+            if (formulaInput) {
+                formulaInput.value = formatDiceFormula(
+                    currentDiceSettings[ability].count,
+                    currentDiceSettings[ability].sides,
+                    currentDiceSettings[ability].bonus
+                );
+                formulaInput.classList.remove('is-invalid');
+            }
         });
         
         showToast(`${preset === 'standard' ? '標準' : '高ステータス'}プリセットを適用しました`, 'success');
     }
+}
+
+function getCsrfToken() {
+    const match = document.cookie.match(/(?:^|; )csrftoken=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
+async function requestDiceSettings(url, options = {}) {
+    const headers = {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken()
+    };
+    const response = await fetch(url, {
+        credentials: 'same-origin',
+        ...options,
+        headers: { ...headers, ...(options.headers || {}) }
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || errorData.error || 'API request failed');
+    }
+    return response.status === 204 ? null : response.json();
+}
+
+function buildDiceSettingPayload() {
+    updateCurrentDiceSettingsFromInputs();
+    const nameInput = document.getElementById('dice-setting-name');
+    const descInput = document.getElementById('dice-setting-description');
+    const defaultCheck = document.getElementById('dice-save-default');
+    const settingName = nameInput ? nameInput.value.trim() : '';
+    const description = descInput ? descInput.value.trim() : '';
+    const payload = {
+        setting_name: settingName,
+        description: description,
+        is_default: defaultCheck ? defaultCheck.checked : false
+    };
+
+    ABILITIES.forEach(ability => {
+        const settings = currentDiceSettings[ability];
+        payload[`${ability}_dice_count`] = settings.count;
+        payload[`${ability}_dice_sides`] = settings.sides;
+        payload[`${ability}_bonus`] = settings.bonus;
+    });
+
+    return payload;
+}
+
+function applyDiceSettingToInputs(setting) {
+    if (!setting) return;
+    ABILITIES.forEach(ability => {
+        const countInput = document.getElementById(`dice-count-${ability}`);
+        const sidesInput = document.getElementById(`dice-sides-${ability}`);
+        const bonusInput = document.getElementById(`dice-bonus-${ability}`);
+        const formulaInput = document.getElementById(`dice-formula-${ability}`);
+        const count = setting[`${ability}_dice_count`];
+        const sides = setting[`${ability}_dice_sides`];
+        const bonus = setting[`${ability}_bonus`];
+        if (countInput) countInput.value = count;
+        if (sidesInput) sidesInput.value = sides;
+        if (bonusInput) bonusInput.value = bonus;
+        if (formulaInput) {
+            formulaInput.value = formatDiceFormula(count, sides, bonus);
+            formulaInput.classList.remove('is-invalid');
+        }
+        currentDiceSettings[ability] = { count, sides, bonus };
+    });
+}
+
+function populateDiceSettingSelect(settings, selectedId = '') {
+    const select = document.getElementById('dice-setting-select');
+    if (!select) return;
+    select.innerHTML = '';
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = settings.length ? '読み込み先を選択' : '保存済み設定なし';
+    select.appendChild(defaultOption);
+    settings.forEach(setting => {
+        const option = document.createElement('option');
+        option.value = setting.id;
+        option.textContent = `${setting.setting_name}${setting.is_default ? ' (既定)' : ''}`;
+        select.appendChild(option);
+    });
+    if (selectedId) {
+        select.value = selectedId;
+    }
+}
+
+function getSelectedSetting() {
+    const select = document.getElementById('dice-setting-select');
+    if (!select || !select.value) return null;
+    return diceSettingCache.find(setting => String(setting.id) === String(select.value));
+}
+
+async function loadDiceSettingList(selectedId = '') {
+    const settings = await requestDiceSettings(DICE_SETTINGS_API_URL);
+    diceSettingCache = Array.isArray(settings) ? settings : [];
+    populateDiceSettingSelect(diceSettingCache, selectedId);
+}
+
+function initializeDiceSettingManager() {
+    const select = document.getElementById('dice-setting-select');
+    if (!select) return;
+
+    loadDiceSettingList().catch(error => {
+        showToast(`ダイス設定の取得に失敗しました: ${error.message}`, 'error');
+    });
+
+    select.addEventListener('change', () => {
+        const selected = getSelectedSetting();
+        const nameInput = document.getElementById('dice-setting-name');
+        const descInput = document.getElementById('dice-setting-description');
+        const defaultCheck = document.getElementById('dice-save-default');
+        if (selected) {
+            if (nameInput) nameInput.value = selected.setting_name || '';
+            if (descInput) descInput.value = selected.description || '';
+            if (defaultCheck) defaultCheck.checked = !!selected.is_default;
+        }
+    });
+
+    document.getElementById('dice-load-btn')?.addEventListener('click', () => {
+        const selected = getSelectedSetting();
+        if (!selected) {
+            showToast('読み込む設定を選択してください', 'warning');
+            return;
+        }
+        applyDiceSettingToInputs(selected);
+        showToast('ダイス設定を読み込みました', 'success');
+    });
+
+    document.getElementById('dice-save-btn')?.addEventListener('click', async () => {
+        const payload = buildDiceSettingPayload();
+        if (!payload.setting_name) {
+            showToast('保存名を入力してください', 'warning');
+            return;
+        }
+        try {
+            const result = await requestDiceSettings(DICE_SETTINGS_API_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            await loadDiceSettingList(result?.id ? String(result.id) : '');
+            showToast('ダイス設定を保存しました', 'success');
+        } catch (error) {
+            showToast(`ダイス設定の保存に失敗しました: ${error.message}`, 'error');
+        }
+    });
+
+    document.getElementById('dice-overwrite-btn')?.addEventListener('click', async () => {
+        const selected = getSelectedSetting();
+        if (!selected) {
+            showToast('上書きする設定を選択してください', 'warning');
+            return;
+        }
+        const payload = buildDiceSettingPayload();
+        payload.setting_name = payload.setting_name || selected.setting_name;
+        try {
+            await requestDiceSettings(`${DICE_SETTINGS_API_URL}${selected.id}/`, {
+                method: 'PUT',
+                body: JSON.stringify(payload)
+            });
+            await loadDiceSettingList(String(selected.id));
+            showToast('ダイス設定を上書きしました', 'success');
+        } catch (error) {
+            showToast(`ダイス設定の上書きに失敗しました: ${error.message}`, 'error');
+        }
+    });
+
+    document.getElementById('dice-set-default-btn')?.addEventListener('click', async () => {
+        const selected = getSelectedSetting();
+        if (!selected) {
+            showToast('既定にする設定を選択してください', 'warning');
+            return;
+        }
+        try {
+            await requestDiceSettings(`${DICE_SETTINGS_API_URL}${selected.id}/set-default/`, {
+                method: 'POST'
+            });
+            await loadDiceSettingList(String(selected.id));
+            showToast('既定のダイス設定を更新しました', 'success');
+        } catch (error) {
+            showToast(`既定設定の更新に失敗しました: ${error.message}`, 'error');
+        }
+    });
+
+    document.getElementById('dice-delete-btn')?.addEventListener('click', async () => {
+        const selected = getSelectedSetting();
+        if (!selected) {
+            showToast('削除する設定を選択してください', 'warning');
+            return;
+        }
+        if (!confirm(`「${selected.setting_name}」を削除しますか？`)) return;
+        try {
+            await requestDiceSettings(`${DICE_SETTINGS_API_URL}${selected.id}/`, {
+                method: 'DELETE'
+            });
+            await loadDiceSettingList();
+            showToast('ダイス設定を削除しました', 'success');
+        } catch (error) {
+            showToast(`ダイス設定の削除に失敗しました: ${error.message}`, 'error');
+        }
+    });
 }
 
 function rollDice(count, sides, bonus = 0) {

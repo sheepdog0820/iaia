@@ -114,6 +114,19 @@
         ...SKILLS_6TH.other
     };
 
+    const ABILITIES_6TH = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu'];
+    const ABILITY_LABELS = {
+        str: 'STR（筋力）',
+        con: 'CON（体力）',
+        pow: 'POW（精神力）',
+        dex: 'DEX（敏捷性）',
+        app: 'APP（外見）',
+        siz: 'SIZ（体格）',
+        int: 'INT（知性）',
+        edu: 'EDU（教育）'
+    };
+    let abilityDiceSettings = {};
+
 function updateGlobalDiceFormula() {
         const count = parseInt(document.getElementById('globalDiceCount')?.value) || 3;
         const sides = parseInt(document.getElementById('globalDiceSides')?.value) || 6;
@@ -128,6 +141,141 @@ function updateGlobalDiceFormula() {
         return { count, sides, bonus };
     }
 
+    function formatDiceFormula(count, sides, bonus) {
+        const sign = bonus >= 0 ? '+' : '';
+        return `${count}d${sides}${sign}${bonus}`;
+    }
+
+    function parseDiceFormula(formula) {
+        if (!formula) return null;
+        const match = formula.trim().match(/^(\d+)\s*[dD]\s*(\d+)\s*([+-]\s*\d+)?$/);
+        if (!match) return null;
+        const count = parseInt(match[1], 10);
+        const sides = parseInt(match[2], 10);
+        const bonus = match[3] ? parseInt(match[3].replace(/\s+/g, ''), 10) : 0;
+        if (!Number.isFinite(count) || !Number.isFinite(sides) || !Number.isFinite(bonus)) return null;
+        if (count < 1 || count > 10) return null;
+        if (sides < 2 || sides > 100) return null;
+        if (bonus < -50 || bonus > 50) return null;
+        return { count, sides, bonus };
+    }
+
+    function setAbilityDiceSettingsFromGlobal() {
+        const globalSettings = updateGlobalDiceFormula();
+        ABILITIES_6TH.forEach(ability => {
+            abilityDiceSettings[ability] = { ...globalSettings };
+        });
+    }
+
+    function buildAbilityDiceSettingsHTML() {
+        const container = document.getElementById('ability-dice-settings');
+        if (!container) return;
+        if (!Object.keys(abilityDiceSettings).length) {
+            setAbilityDiceSettingsFromGlobal();
+        }
+        container.innerHTML = ABILITIES_6TH.map(ability => {
+            const settings = abilityDiceSettings[ability];
+            return `
+                <div class="col-md-3 mb-3">
+                    <div class="dice-setting-item border rounded p-2 h-100">
+                        <h6 class="mb-2">${ABILITY_LABELS[ability]}</h6>
+                        <div class="input-group input-group-sm mb-2">
+                            <input type="number" class="form-control" id="ability-dice-count-${ability}" min="1" max="10" value="${settings.count}">
+                            <span class="input-group-text">D</span>
+                            <input type="number" class="form-control" id="ability-dice-sides-${ability}" min="2" max="100" value="${settings.sides}">
+                            <span class="input-group-text">+</span>
+                            <input type="number" class="form-control" id="ability-dice-bonus-${ability}" min="-50" max="50" value="${settings.bonus}">
+                        </div>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">式</span>
+                            <input type="text" class="form-control" id="ability-dice-formula-${ability}" value="${formatDiceFormula(settings.count, settings.sides, settings.bonus)}" placeholder="3d6+0">
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        attachAbilityDiceSettingListeners();
+    }
+
+    function attachAbilityDiceSettingListeners() {
+        ABILITIES_6TH.forEach(ability => {
+            const countInput = document.getElementById(`ability-dice-count-${ability}`);
+            const sidesInput = document.getElementById(`ability-dice-sides-${ability}`);
+            const bonusInput = document.getElementById(`ability-dice-bonus-${ability}`);
+            const formulaInput = document.getElementById(`ability-dice-formula-${ability}`);
+
+            const syncFormula = () => {
+                const count = parseInt(countInput?.value, 10) || 1;
+                const sides = parseInt(sidesInput?.value, 10) || 2;
+                const bonus = parseInt(bonusInput?.value, 10) || 0;
+                abilityDiceSettings[ability] = { count, sides, bonus };
+                if (formulaInput) {
+                    formulaInput.value = formatDiceFormula(count, sides, bonus);
+                    formulaInput.classList.remove('is-invalid');
+                }
+            };
+
+            countInput?.addEventListener('input', syncFormula);
+            sidesInput?.addEventListener('input', syncFormula);
+            bonusInput?.addEventListener('input', syncFormula);
+
+            formulaInput?.addEventListener('change', () => {
+                const parsed = parseDiceFormula(formulaInput.value);
+                if (!parsed) {
+                    formulaInput.classList.add('is-invalid');
+                    return;
+                }
+                formulaInput.classList.remove('is-invalid');
+                if (countInput) countInput.value = parsed.count;
+                if (sidesInput) sidesInput.value = parsed.sides;
+                if (bonusInput) bonusInput.value = parsed.bonus;
+                abilityDiceSettings[ability] = parsed;
+            });
+        });
+    }
+
+    function isAbilityDiceEnabled() {
+        return document.getElementById('useAbilityDiceSettings')?.checked;
+    }
+
+    function getDiceSettingsForAbility(ability) {
+        if (isAbilityDiceEnabled() && abilityDiceSettings[ability]) {
+            return abilityDiceSettings[ability];
+        }
+        return updateGlobalDiceFormula();
+    }
+
+    function rollSingleAbility(ability) {
+        const settings = getDiceSettingsForAbility(ability);
+        const result = rollDice(settings.count, settings.sides, settings.bonus);
+        const input = document.getElementById(ability);
+        if (input) {
+            input.value = result;
+            input.classList.add('dice-rolled');
+            setTimeout(() => input.classList.remove('dice-rolled'), 1000);
+        }
+        calculateDerivedStats();
+    }
+
+    function initAbilityDiceSettings() {
+        buildAbilityDiceSettingsHTML();
+        document.getElementById('toggleAbilityDiceSettings')?.addEventListener('click', () => {
+            const wrapper = document.getElementById('ability-dice-settings-wrapper');
+            if (!wrapper) return;
+            wrapper.style.display = wrapper.style.display === 'none' ? 'block' : 'none';
+        });
+        document.getElementById('copyGlobalDiceSettings')?.addEventListener('click', () => {
+            setAbilityDiceSettingsFromGlobal();
+            buildAbilityDiceSettingsHTML();
+        });
+        document.querySelectorAll('.ability-roll-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const ability = button.dataset.ability;
+                if (ability) rollSingleAbility(ability);
+            });
+        });
+    }
+
     // ダイスロール関数
     function rollDice(count, sides, bonus) {
         let total = 0;
@@ -139,16 +287,9 @@ function updateGlobalDiceFormula() {
 
     // 全能力値ロール
     function rollAllAbilities() {
-        const { count, sides, bonus } = updateGlobalDiceFormula();
-        const abilities = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu'];
-        
-        abilities.forEach(abilityName => {
-            let total = 0;
-            for (let i = 0; i < count; i++) {
-                total += Math.floor(Math.random() * sides) + 1;
-            }
-            total += bonus;
-            
+        ABILITIES_6TH.forEach(abilityName => {
+            const settings = getDiceSettingsForAbility(abilityName);
+            const total = rollDice(settings.count, settings.sides, settings.bonus);
             const input = document.getElementById(abilityName);
             if (input) {
                 input.value = total;
@@ -917,6 +1058,7 @@ function initOccupationTemplates() {
     
     // 初期化
     updateGlobalDiceFormula();
+    initAbilityDiceSettings();
     generateSkillsList();
     addSkillInputEvents();  // 技能リスト生成後にイベントリスナーを追加
     // タブの初期表示を戦闘系に合わせる

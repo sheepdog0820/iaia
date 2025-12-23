@@ -64,8 +64,8 @@ class Character6thBasicUITest(TestCase):
         self.assertEqual(response.status_code, 200)
         # Check form elements exist
         self.assertIn(b'<form', response.content)
-        self.assertIn(b'name="str"', response.content)
-        self.assertIn(b'name="con"', response.content)
+        self.assertIn(b'name="str_value"', response.content)
+        self.assertIn(b'name="con_value"', response.content)
         
     def test_character_detail_view_requires_ownership(self):
         """Test character detail view checks ownership"""
@@ -80,9 +80,8 @@ class Character6thBasicUITest(TestCase):
         response = self.client.get(
             reverse('character_detail', kwargs={'character_id': character.id})
         )
-        # Should show the character detail (may be public or show limited info)
-        # The actual permission logic depends on the view implementation
-        self.assertIn(response.status_code, [200, 403, 404])
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="characterContent"')
         
     def test_character_creation_post(self):
         """Test character creation via POST"""
@@ -111,20 +110,13 @@ class Character6thBasicUITest(TestCase):
         }
         
         response = self.client.post(reverse('character_create_6th'), data)
-        
-        # Check if character was created
-        if response.status_code == 302:  # Redirect after successful creation
-            # Character was created successfully
-            character = CharacterSheet.objects.filter(
-                user=self.user, 
-                name='New Character'
-            ).first()
-            self.assertIsNotNone(character)
-            self.assertEqual(character.str_value, 13)
-        else:
-            # Form validation failed or other issue
-            # This is still a valid test case
-            self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 302)
+        character = CharacterSheet.objects.filter(
+            user=self.user,
+            name='New Character'
+        ).first()
+        self.assertIsNotNone(character)
+        self.assertEqual(character.str_value, 13)
             
     def test_authenticated_access_only(self):
         """Test pages require authentication"""
@@ -211,22 +203,12 @@ class Character6thAPIUITest(TestCase):
             occupation_points=70
         )
         
-        # Try different possible endpoints for CCFOLIA export
-        possible_endpoints = [
-            f'/api/accounts/character-sheets/{character.id}/ccfolia-json/',
-            f'/api/accounts/character-sheets/{character.id}/export/ccfolia/',
-            f'/api/accounts/character-sheets/{character.id}/ccfolia/'
-        ]
-        
-        success = False
-        for endpoint in possible_endpoints:
-            response = self.client.get(endpoint)
-            if response.status_code == 200:
-                success = True
-                break
-                
-        # If no endpoint works, skip this test
-        if not success:
+        try:
+            url = reverse('character-sheet-ccfolia-json', kwargs={'pk': character.id})
+        except Exception:
+            self.skipTest("CCFOLIA export endpoint not found")
+        response = self.client.get(url)
+        if response.status_code == 404:
             self.skipTest("CCFOLIA export endpoint not found")
         
         data = response.json()
@@ -267,7 +249,8 @@ class Character6thFormTest(TestCase):
             'sanity_starting': 50
         }
         
-        response = self.client.post(reverse('character_create_6th'), data)
+        with self.assertLogs('accounts.views.character_views', level='ERROR'):
+            response = self.client.post(reverse('character_create_6th'), data)
         # Form should not be valid
         self.assertEqual(response.status_code, 200)  # Stay on form page
         
@@ -289,6 +272,7 @@ class Character6thFormTest(TestCase):
             'sanity_starting': 50
         }
         
-        response = self.client.post(reverse('character_create_6th'), data)
+        with self.assertLogs('accounts.views.character_views', level='ERROR'):
+            response = self.client.post(reverse('character_create_6th'), data)
         # Form should not be valid
         self.assertEqual(response.status_code, 200)  # Stay on form page

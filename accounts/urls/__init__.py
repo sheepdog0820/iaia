@@ -17,6 +17,7 @@ router.register(r'groups', views.GroupViewSet, basename='group')
 router.register(r'friends', views.FriendViewSet, basename='friend')
 router.register(r'invitations', views.GroupInvitationViewSet, basename='invitation')
 router.register(r'character-sheets', views.CharacterSheetViewSet, basename='character-sheet')
+router.register(r'dice-roll-settings', views.DiceRollSettingViewSet, basename='dice-roll-setting')
 # Character skills and equipment are now handled as nested resources
 router.register(r'admin/users', AdminUserViewSet, basename='admin-user')
 

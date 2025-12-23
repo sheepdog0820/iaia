@@ -19,6 +19,7 @@ from .character_views import (
     CharacterSheetViewSet, CharacterSkillViewSet, CharacterEquipmentViewSet,
     CharacterListView, CharacterDetailView, CharacterEditView, Character6thCreateView
 )
+from .dice_roll_setting_views import DiceRollSettingViewSet
 
 # For backward compatibility, also provide imports at the module level
 __all__ = [
@@ -28,5 +29,6 @@ __all__ = [
     'ProfileEditView', 'DashboardView', 'AccountDeleteView', 'mock_social_login', 'demo_login_page',
     'GroupViewSet', 'GroupInvitationViewSet',
     'CharacterSheetViewSet', 'CharacterSkillViewSet', 'CharacterEquipmentViewSet',
-    'CharacterListView', 'CharacterDetailView', 'CharacterEditView', 'Character6thCreateView'
+    'CharacterListView', 'CharacterDetailView', 'CharacterEditView', 'Character6thCreateView',
+    'DiceRollSettingViewSet'
 ]

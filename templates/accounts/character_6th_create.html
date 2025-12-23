@@ -202,6 +202,43 @@
                     </div>
                 </div>
 
+                <!-- 能力別ダイス設定 -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-cog"></i> 能力別ダイス設定
+                                    </h6>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleAbilityDiceSettings">
+                                        <i class="fas fa-sliders-h"></i> 表示/非表示
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body" id="ability-dice-settings-wrapper" style="display: none;">
+                                <div class="row align-items-center g-3 mb-3">
+                                    <div class="col-md-4 form-check">
+                                        <input class="form-check-input" type="checkbox" id="useAbilityDiceSettings">
+                                        <label class="form-check-label" for="useAbilityDiceSettings">能力別設定を使用</label>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <button type="button" class="btn btn-outline-primary w-100" id="copyGlobalDiceSettings">
+                                            <i class="fas fa-copy"></i> 全能力値設定をコピー
+                                        </button>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <small class="text-muted">各能力ごとに個数/面数/ボーナスを設定できます。</small>
+                                    </div>
+                                </div>
+                                <div class="row" id="ability-dice-settings">
+                                    <!-- 能力別ダイス設定がここに動的生成される -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- ステータス（能力値と副次ステータス） -->
                 <div class="card mb-4">
                     <div class="card-header bg-primary text-white">
@@ -216,34 +253,58 @@
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="str" class="form-label">STR (筋力)</label>
                                 <input type="number" class="form-control ability-score" id="str" name="str_value" min="1" max="999" placeholder="1-999" required>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-1 ability-roll-btn" data-ability="str">
+                                    <i class="fas fa-dice"></i> ロール
+                                </button>
                             </div>
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="con" class="form-label">CON (体力)</label>
                                 <input type="number" class="form-control ability-score" id="con" name="con_value" min="1" max="999" placeholder="1-999" required>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-1 ability-roll-btn" data-ability="con">
+                                    <i class="fas fa-dice"></i> ロール
+                                </button>
                             </div>
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="pow" class="form-label">POW (精神力)</label>
                                 <input type="number" class="form-control ability-score" id="pow" name="pow_value" min="1" max="999" placeholder="1-999" required>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-1 ability-roll-btn" data-ability="pow">
+                                    <i class="fas fa-dice"></i> ロール
+                                </button>
                             </div>
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="dex" class="form-label">DEX (敏捷性)</label>
                                 <input type="number" class="form-control ability-score" id="dex" name="dex_value" min="1" max="999" placeholder="1-999" required>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-1 ability-roll-btn" data-ability="dex">
+                                    <i class="fas fa-dice"></i> ロール
+                                </button>
                             </div>
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="app" class="form-label">APP (外見)</label>
                                 <input type="number" class="form-control ability-score" id="app" name="app_value" min="1" max="999" placeholder="1-999" required>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-1 ability-roll-btn" data-ability="app">
+                                    <i class="fas fa-dice"></i> ロール
+                                </button>
                             </div>
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="siz" class="form-label">SIZ (体格)</label>
                                 <input type="number" class="form-control ability-score" id="siz" name="siz_value" min="1" max="999" placeholder="1-999" required>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-1 ability-roll-btn" data-ability="siz">
+                                    <i class="fas fa-dice"></i> ロール
+                                </button>
                             </div>
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="int" class="form-label">INT (知性)</label>
                                 <input type="number" class="form-control ability-score" id="int" name="int_value" min="1" max="999" placeholder="1-999" required>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-1 ability-roll-btn" data-ability="int">
+                                    <i class="fas fa-dice"></i> ロール
+                                </button>
                             </div>
                             <div class="col-md-3 col-sm-6 mb-3">
                                 <label for="edu" class="form-label">EDU (教育)</label>
                                 <input type="number" class="form-control ability-score" id="edu" name="edu_value" min="1" max="999" placeholder="1-999" required>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-1 ability-roll-btn" data-ability="edu">
+                                    <i class="fas fa-dice"></i> ロール
+                                </button>
                             </div>
                         </div>
                         

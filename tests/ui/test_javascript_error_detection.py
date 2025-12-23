@@ -9,6 +9,7 @@ from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 import time
+import unittest
 
 # Optional imports for Selenium tests
 try:
@@ -68,23 +69,13 @@ if SELENIUM_AVAILABLE:
             # Use dev login for testing
             self.selenium.get(f'{self.live_server_url}/accounts/dev-login/')
             
-            # Check if dev login is available
             try:
-                username_input = self.selenium.find_element(By.NAME, 'username')
-                password_input = self.selenium.find_element(By.NAME, 'password')
-                username_input.send_keys('testuser')
-                password_input.send_keys('testpass123')
-                submit_btn = self.selenium.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
-                submit_btn.click()
-            except NoSuchElementException:
-                # Fall back to standard login if dev login not available
-                self.selenium.get(f'{self.live_server_url}/accounts/login/')
-                # For social login, we'd need to mock or skip
-                # For now, create a session directly
-                from django.contrib.auth import login
-                from django.test import Client
-                client = Client()
-                client.login(username='testuser', password='testpass123')
+                login_btn = WebDriverWait(self.selenium, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'form button.login-btn:not([disabled])'))
+                )
+                login_btn.click()
+            except TimeoutException:
+                raise unittest.SkipTest("Dev login not available for Selenium tests")
                 
             # Wait for redirect or character list page
             try:
@@ -112,7 +103,7 @@ if SELENIUM_AVAILABLE:
             
             # Wait for page to fully load
             WebDriverWait(self.selenium, 10).until(
-                EC.presence_of_element_located((By.ID, 'character_name'))
+                EC.presence_of_element_located((By.ID, 'character-name'))
             )
             
             # Check for JavaScript errors
@@ -151,7 +142,7 @@ if SELENIUM_AVAILABLE:
             
             # Wait and click roll all button
             roll_all_btn = WebDriverWait(self.selenium, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, '[onclick="rollAllAbilities()"]'))
+                EC.element_to_be_clickable((By.ID, 'rollAllAbilities'))
             )
             roll_all_btn.click()
             
@@ -177,25 +168,16 @@ if SELENIUM_AVAILABLE:
             
             time.sleep(0.5)
             
-            # Try to allocate points to a skill
-            try:
-                skill_input = self.selenium.find_element(
-                    By.CSS_SELECTOR, 
-                    '[data-skill="archaeology"].skill-occupation-input'
-                )
-                skill_input.clear()
-                skill_input.send_keys('50')
-                skill_input.send_keys(Keys.TAB)
-            except NoSuchElementException:
-                # If specific skill not found, try any occupation input
-                skill_inputs = self.selenium.find_elements(
-                    By.CSS_SELECTOR, 
-                    '.skill-occupation-input'
-                )
-                if skill_inputs:
-                    skill_inputs[0].clear()
-                    skill_inputs[0].send_keys('50')
-                    skill_inputs[0].send_keys(Keys.TAB)
+            # Open skills tab and allocate points to any occupation skill
+            self.selenium.find_element(By.ID, 'skills-tab').click()
+            WebDriverWait(self.selenium, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, '#combatSkills .occupation-skill'))
+            )
+            skill_inputs = self.selenium.find_elements(By.CSS_SELECTOR, '.occupation-skill')
+            if skill_inputs:
+                skill_inputs[0].clear()
+                skill_inputs[0].send_keys('50')
+                skill_inputs[0].send_keys(Keys.TAB)
                     
             time.sleep(0.5)
             
@@ -211,25 +193,15 @@ if SELENIUM_AVAILABLE:
             
             # Wait for skills to load
             WebDriverWait(self.selenium, 10).until(
-                EC.presence_of_element_located((By.ID, 'skillsList'))
+                EC.presence_of_element_located((By.ID, 'combatSkills'))
             )
             
             # Try to edit a base value
-            try:
-                base_input = self.selenium.find_element(By.ID, 'base_archaeology')
-                base_input.clear()
-                base_input.send_keys('10')
-                base_input.send_keys(Keys.TAB)
-            except NoSuchElementException:
-                # If specific skill not found, try any base input
-                base_inputs = self.selenium.find_elements(
-                    By.CSS_SELECTOR, 
-                    '[id^="base_"]'
-                )
-                if base_inputs:
-                    base_inputs[0].clear()
-                    base_inputs[0].send_keys('10')
-                    base_inputs[0].send_keys(Keys.TAB)
+            base_inputs = self.selenium.find_elements(By.CSS_SELECTOR, '[id^="base_"]')
+            if base_inputs:
+                base_inputs[0].clear()
+                base_inputs[0].send_keys('10')
+                base_inputs[0].send_keys(Keys.TAB)
                     
             time.sleep(0.5)
             
@@ -245,19 +217,19 @@ if SELENIUM_AVAILABLE:
             
             # Fill minimum required fields
             WebDriverWait(self.selenium, 10).until(
-                EC.presence_of_element_located((By.ID, 'character_name'))
+                EC.presence_of_element_located((By.ID, 'character-name'))
             )
             
-            self.selenium.find_element(By.ID, 'character_name').send_keys('Error Test Character')
+            self.selenium.find_element(By.ID, 'character-name').send_keys('Error Test Character')
             
             # Roll abilities
-            roll_btn = self.selenium.find_element(By.CSS_SELECTOR, '[onclick="rollAllAbilities()"]')
+            roll_btn = self.selenium.find_element(By.ID, 'rollAllAbilities')
             roll_btn.click()
             
             time.sleep(1)
             
             # Try to submit (will be blocked by validation)
-            submit_btn = self.selenium.find_element(By.CSS_SELECTOR, '[onclick="validateAndSubmit()"]')
+            submit_btn = self.selenium.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
             submit_btn.click()
             
             # Accept any alert
@@ -283,15 +255,13 @@ if SELENIUM_AVAILABLE:
             )
             
             # Click through all tabs
-            tab_categories = ['all', 'combat', 'investigation', 'action', 'negotiation', 'knowledge', 'other', 'allocated']
+            tab_ids = ['combat-tab', 'exploration-tab', 'action-tab', 'social-tab',
+                       'knowledge-tab', 'all-tab', 'allocated-tab']
             
-            for category in tab_categories:
-                try:
-                    tab = self.selenium.find_element(By.CSS_SELECTOR, f'[data-category="{category}"]')
-                    tab.click()
-                    time.sleep(0.2)
-                except NoSuchElementException:
-                    continue
+            for tab_id in tab_ids:
+                tab = self.selenium.find_element(By.ID, tab_id)
+                tab.click()
+                time.sleep(0.2)
                     
             # Check for JavaScript errors
             errors = self.get_browser_errors()
@@ -303,26 +273,19 @@ if SELENIUM_AVAILABLE:
             self.login()
             self.selenium.get(f'{self.live_server_url}/accounts/character/create/6th/')
             
-            # Wait for occupation select
-            occupation_select = WebDriverWait(self.selenium, 10).until(
-                EC.presence_of_element_located((By.ID, 'occupationTemplate'))
+            # Open and close occupation template modal
+            open_btn = WebDriverWait(self.selenium, 10).until(
+                EC.element_to_be_clickable((By.ID, 'occupationTemplateBtn'))
             )
+            open_btn.click()
             
-            # Select different templates
-            templates = ['私立探偵', '考古学者', '医師', 'ジャーナリスト']
+            WebDriverWait(self.selenium, 10).until(
+                EC.visibility_of_element_located((By.ID, 'occupationTemplateModal'))
+            )
+            close_btn = self.selenium.find_element(By.CSS_SELECTOR, '#occupationTemplateModal .btn-close')
+            close_btn.click()
             
-            for template in templates:
-                try:
-                    from selenium.webdriver.support.ui import Select
-                    Select(occupation_select).select_by_value(template)
-                    
-                    # Apply template
-                    apply_btn = self.selenium.find_element(By.CSS_SELECTOR, '[onclick="applySelectedTemplate()"]')
-                    apply_btn.click()
-                    
-                    time.sleep(0.5)
-                except Exception:
-                    continue
+            time.sleep(0.5)
                     
             # Check for JavaScript errors
             errors = self.get_browser_errors()

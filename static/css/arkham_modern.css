@@ -854,3 +854,112 @@ a:focus,
     font-weight: 600;
     border-right: 3px solid var(--accent-primary);
 }
+
+/* Page-specific responsive adjustments */
+.home-page .welcome-section h1,
+.character-detail #characterName {
+    line-height: 1.2;
+    word-break: break-word;
+}
+
+@media (max-width: 768px) {
+    .home-page .welcome-section {
+        margin-bottom: 2rem;
+    }
+
+    .home-page .welcome-section h1 {
+        font-size: 1.75rem;
+    }
+
+    .home-page .welcome-section .lead {
+        font-size: 1rem;
+    }
+
+    .home-page .session-card {
+        padding: 1rem !important;
+    }
+
+    .home-page .session-card .d-flex {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .home-page .hero-section {
+        padding: 2.5rem 0;
+    }
+
+    .character-detail .character-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .character-detail .character-actions {
+        width: 100%;
+        display: grid;
+        gap: 0.5rem;
+    }
+
+    .character-detail .character-actions .btn {
+        width: 100%;
+        justify-content: center;
+        margin-right: 0 !important;
+    }
+
+    .character-detail #equipmentTabs,
+    .character-detail #historyTabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 0.5rem;
+        padding-bottom: 0.25rem;
+    }
+
+    .character-detail #equipmentTabs .nav-link,
+    .character-detail #historyTabs .nav-link {
+        white-space: nowrap;
+    }
+
+    .character-detail #equipmentTabs .nav-item,
+    .character-detail #historyTabs .nav-item {
+        flex: 0 0 auto;
+    }
+
+    .character-detail .main-character-image {
+        max-height: 240px !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .home-page .cta-section {
+        display: grid;
+        gap: 0.75rem;
+    }
+
+    .home-page .cta-section .btn {
+        width: 100%;
+        margin-right: 0 !important;
+        justify-content: center;
+    }
+
+    .home-page .feature-card {
+        padding: 1.25rem;
+    }
+
+    .character-detail #characterName {
+        font-size: 1.5rem;
+    }
+
+    .character-detail .skill-card .card-body {
+        padding: 0.75rem;
+    }
+
+    .character-detail .skill-card .row > [class*='col-'] {
+        flex: 0 0 50%;
+        max-width: 50%;
+        width: 50%;
+    }
+
+    .character-detail .thumbnail-image {
+        height: 56px !important;
+    }
+}

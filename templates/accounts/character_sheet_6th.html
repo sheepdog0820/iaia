@@ -9,50 +9,52 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid character-sheet">
     <!-- プログレスバー -->
     <div class="progress-container">
         <div class="container">
-            <div class="section-progress">
-                <div class="section-indicator active" data-tab="basic">
-                    <div class="indicator-circle">1</div>
-                    <span>基本情報</span>
-                </div>
-                <div class="indicator-line"></div>
-                
-                <div class="section-indicator" data-tab="abilities">
-                    <div class="indicator-circle">2</div>
-                    <span>能力値</span>
-                </div>
-                <div class="indicator-line"></div>
-                
-                <div class="section-indicator" data-tab="skills">
-                    <div class="indicator-circle">3</div>
-                    <span>技能</span>
-                </div>
-                <div class="indicator-line"></div>
-                
-                <div class="section-indicator" data-tab="combat">
-                    <div class="indicator-circle">4</div>
-                    <span>戦闘・装備</span>
-                </div>
-                <div class="indicator-line"></div>
-                
-                <div class="section-indicator" data-tab="inventory">
-                    <div class="indicator-circle">5</div>
-                    <span>所持品・財産</span>
-                </div>
-                <div class="indicator-line"></div>
-                
-                <div class="section-indicator" data-tab="background">
-                    <div class="indicator-circle">6</div>
-                    <span>背景情報</span>
-                </div>
-                <div class="indicator-line"></div>
-                
-                <div class="section-indicator" data-tab="history">
-                    <div class="indicator-circle">7</div>
-                    <span>成長記録</span>
+            <div class="section-progress-scroll">
+                <div class="section-progress">
+                    <div class="section-indicator active" data-tab="basic">
+                        <div class="indicator-circle">1</div>
+                        <span>基本情報</span>
+                    </div>
+                    <div class="indicator-line"></div>
+                    
+                    <div class="section-indicator" data-tab="abilities">
+                        <div class="indicator-circle">2</div>
+                        <span>能力値</span>
+                    </div>
+                    <div class="indicator-line"></div>
+                    
+                    <div class="section-indicator" data-tab="skills">
+                        <div class="indicator-circle">3</div>
+                        <span>技能</span>
+                    </div>
+                    <div class="indicator-line"></div>
+                    
+                    <div class="section-indicator" data-tab="combat">
+                        <div class="indicator-circle">4</div>
+                        <span>戦闘・装備</span>
+                    </div>
+                    <div class="indicator-line"></div>
+                    
+                    <div class="section-indicator" data-tab="inventory">
+                        <div class="indicator-circle">5</div>
+                        <span>所持品・財産</span>
+                    </div>
+                    <div class="indicator-line"></div>
+                    
+                    <div class="section-indicator" data-tab="background">
+                        <div class="indicator-circle">6</div>
+                        <span>背景情報</span>
+                    </div>
+                    <div class="indicator-line"></div>
+                    
+                    <div class="section-indicator" data-tab="history">
+                        <div class="indicator-circle">7</div>
+                        <span>成長記録</span>
+                    </div>
                 </div>
             </div>
             
@@ -63,7 +65,7 @@
     </div>
     
     <div class="container">
-        <h2 class="mb-4">
+        <h2 class="mb-4 page-title">
             <i class="fas fa-dice-d20"></i> クトゥルフ神話TRPG 6版 キャラクター作成
         </h2>
         
@@ -71,7 +73,7 @@
             {% csrf_token %}
             
             <!-- タブナビゲーション -->
-            <ul class="nav nav-tabs mb-4" id="characterTabs" role="tablist">
+            <ul class="nav nav-tabs mb-4 character-tabs" id="characterTabs" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="basic-tab" data-bs-toggle="tab" data-bs-target="#basic" type="button" role="tab">
                         <i class="fas fa-user"></i> 基本情報
@@ -236,6 +238,58 @@
                                 <button type="button" class="btn btn-outline-primary" onclick="toggleCustomDiceSettings()">
                                     <i class="fas fa-cog"></i> カスタム設定
                                 </button>
+                            </div>
+
+                            <div class="dice-setting-manager mb-3">
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-5">
+                                        <label for="dice-setting-select" class="form-label">保存済み設定</label>
+                                        <select class="form-select" id="dice-setting-select">
+                                            <option value="">読み込み先を選択</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 d-grid">
+                                        <button type="button" class="btn btn-outline-secondary" id="dice-load-btn">
+                                            <i class="fas fa-upload"></i> 読み込み
+                                        </button>
+                                    </div>
+                                    <div class="col-md-2 d-grid">
+                                        <button type="button" class="btn btn-outline-secondary" id="dice-set-default-btn">
+                                            <i class="fas fa-star"></i> 既定に
+                                        </button>
+                                    </div>
+                                    <div class="col-md-3 d-grid">
+                                        <button type="button" class="btn btn-outline-danger" id="dice-delete-btn">
+                                            <i class="fas fa-trash"></i> 削除
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="row g-2 align-items-end mt-2">
+                                    <div class="col-md-4">
+                                        <label for="dice-setting-name" class="form-label">保存名</label>
+                                        <input type="text" class="form-control" id="dice-setting-name" maxlength="100" placeholder="例: 6版標準">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="dice-setting-description" class="form-label">説明</label>
+                                        <input type="text" class="form-control" id="dice-setting-description" maxlength="500" placeholder="任意">
+                                    </div>
+                                    <div class="col-md-2 d-grid">
+                                        <button type="button" class="btn btn-outline-primary" id="dice-save-btn">
+                                            <i class="fas fa-save"></i> 保存
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="row g-2 align-items-end mt-2">
+                                    <div class="col-md-4 form-check">
+                                        <input class="form-check-input" type="checkbox" id="dice-save-default">
+                                        <label class="form-check-label" for="dice-save-default">保存時に既定へ設定</label>
+                                    </div>
+                                    <div class="col-md-8 d-grid">
+                                        <button type="button" class="btn btn-outline-primary" id="dice-overwrite-btn">
+                                            <i class="fas fa-save"></i> 選択中へ上書き保存
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                             
                             <div class="dice-setting-area" id="dice-settings" style="display: none;">

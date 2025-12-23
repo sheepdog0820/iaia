@@ -9,7 +9,7 @@ from .models import (
 from .character_models import (
     CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment, CharacterImage,
-    GrowthRecord, SkillGrowthRecord
+    GrowthRecord, SkillGrowthRecord, CharacterDiceRollSetting
 )
 
 
@@ -614,6 +614,26 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
                 validated_data['character_image'] = None
         
         return super().update(instance, validated_data)
+
+
+class CharacterDiceRollSettingSerializer(serializers.ModelSerializer):
+    """ダイスロール設定シリアライザー"""
+
+    class Meta:
+        model = CharacterDiceRollSetting
+        fields = [
+            'id', 'setting_name', 'description', 'is_default',
+            'str_dice_count', 'str_dice_sides', 'str_bonus',
+            'con_dice_count', 'con_dice_sides', 'con_bonus',
+            'pow_dice_count', 'pow_dice_sides', 'pow_bonus',
+            'dex_dice_count', 'dex_dice_sides', 'dex_bonus',
+            'app_dice_count', 'app_dice_sides', 'app_bonus',
+            'siz_dice_count', 'siz_dice_sides', 'siz_bonus',
+            'int_dice_count', 'int_dice_sides', 'int_bonus',
+            'edu_dice_count', 'edu_dice_sides', 'edu_bonus',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class CharacterImageSerializer(serializers.ModelSerializer):
