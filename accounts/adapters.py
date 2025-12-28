@@ -14,7 +14,7 @@ class CustomAccountAdapter(DefaultAccountAdapter):
     方針: このアプリケーションはソーシャルログイン専用
     - 通常のメール/パスワードサインアップは無効
     - Googleなどのソーシャルアカウントのみでサインアップ可能
-    - 開発環境では /accounts/dev-login/ で直接ログイン可能
+    - 開発環境は /accounts/dev-login/ で直接ログイン可能
     """
 
     def is_open_for_signup(self, request):
