@@ -113,6 +113,11 @@
         ...SKILLS_6TH.knowledge,
         ...SKILLS_6TH.other
     };
+    const SKILL_NAME_TO_KEY = new Map(
+        Object.entries(ALL_SKILLS_6TH)
+            .map(([key, skill]) => [skill?.name, key])
+            .filter(([name]) => !!name)
+    );
 
     const ABILITIES_6TH = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu'];
     const ABILITY_LABELS = {
@@ -454,7 +459,10 @@ function updateGlobalDiceFormula() {
             <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
                 <div class="skill-item border rounded p-2">
                     <div class="d-flex justify-content-between align-items-center">
-                        <label for="skill_${key}" class="form-label small fw-bold mb-0">${skill.name}</label>
+                        <div class="d-flex align-items-center gap-1">
+                            <label for="skill_${key}" class="form-label small fw-bold mb-0">${skill.name}</label>
+                            <span class="badge bg-info text-dark recommended-badge d-none">推奨</span>
+                        </div>
                         <span class="badge bg-secondary skill-total" id="total_${key}">${baseValue}%</span>
                     </div>
                     
@@ -487,6 +495,7 @@ function updateGlobalDiceFormula() {
     let skillCards = [];
     const skillCardByKey = new Map();
     let skillTabContainers = null;
+    let recommendedSkillKeys = new Set();
 
     // Skill list generation (single source, moved per tab)
     function generateSkillsList() {
@@ -496,7 +505,8 @@ function updateGlobalDiceFormula() {
             action: document.getElementById('actionSkills'),
             social: document.getElementById('socialSkills'),
             knowledge: document.getElementById('knowledgeSkills'),
-            all: document.getElementById('allSkills')
+            all: document.getElementById('allSkills'),
+            recommended: document.getElementById('recommendedSkills')
         };
         skillTabContainers = containers;
         // Build cards once
@@ -527,7 +537,7 @@ function updateGlobalDiceFormula() {
     }
 
     function renderSkillTab(category, containers) {
-        const validCategories = ['combat', 'exploration', 'action', 'social', 'knowledge', 'all'];
+        const validCategories = ['combat', 'exploration', 'action', 'social', 'knowledge', 'all', 'recommended'];
         const targetCategory = validCategories.includes(category) ? category : 'combat';
 
         // Clear all containers
@@ -539,11 +549,274 @@ function updateGlobalDiceFormula() {
         const dest = containers[targetCategory];
         if (!dest) return;
 
+        let appended = 0;
         // Append matching cards
-        skillCards.forEach(({ category: cardCategory, card }) => {
-            if (targetCategory === 'all' || cardCategory === targetCategory) {
+        skillCards.forEach(({ key, category: cardCategory, card }) => {
+            const isRecommended = recommendedSkillKeys.has(key);
+            const shouldShow = targetCategory === 'all'
+                || (targetCategory === 'recommended' && isRecommended)
+                || (targetCategory === cardCategory);
+
+            if (shouldShow) {
                 dest.appendChild(card);
+                appended += 1;
             }
+        });
+
+        if (targetCategory === 'recommended' && appended === 0) {
+            dest.innerHTML = `
+                <div class="col-12 text-center text-muted p-4">
+                    <i class="fas fa-star fa-2x mb-2"></i>
+                    <p class="mb-0">推奨技能が未設定です。上の入力欄から追加してください。</p>
+                </div>
+            `;
+        }
+    }
+
+    function setRecommendedSkills(skillKeys, options = {}) {
+        const { mode = 'replace', persist = false } = options;
+        const normalized = Array.isArray(skillKeys) ? skillKeys.filter(Boolean) : [];
+        const nextKeys = mode === 'merge'
+            ? new Set([...recommendedSkillKeys, ...normalized])
+            : new Set(normalized);
+        recommendedSkillKeys = nextKeys;
+
+        skillCards.forEach(({ key, card }) => {
+            const isRecommended = recommendedSkillKeys.has(key);
+            card.classList.toggle('skill-recommended', isRecommended);
+            const badge = card.querySelector('.recommended-badge');
+            if (badge) {
+                badge.classList.toggle('d-none', !isRecommended);
+            }
+        });
+
+        if (skillCardByKey.size > 0) {
+            const missing = Array.from(recommendedSkillKeys).filter(key => !skillCardByKey.has(key));
+            if (missing.length > 0) {
+                console.warn('Unknown recommended skills:', missing);
+            }
+        }
+
+        renderRecommendedChips();
+        refreshActiveSkillTab();
+        if (persist) persistCustomRecommendedSkills();
+    }
+
+    function safeGetLocalStorage(key) {
+        try {
+            return localStorage.getItem(key);
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function safeSetLocalStorage(key, value) {
+        try {
+            localStorage.setItem(key, value);
+        } catch (_) {
+            // Ignore storage errors
+        }
+    }
+
+    function parseSkillList(raw) {
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        if (typeof raw !== 'string') return [];
+        const trimmed = raw.trim();
+        if (!trimmed) return [];
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) return parsed;
+        } catch (_) {
+            // fall through to delimiter parsing
+        }
+        return trimmed.split(/[\n,、]+/).map(item => item.trim()).filter(Boolean);
+    }
+
+    function resolveSkillKey(value) {
+        if (!value) return null;
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+        if (ALL_SKILLS_6TH[trimmed]) return trimmed;
+        const lower = trimmed.toLowerCase();
+        if (ALL_SKILLS_6TH[lower]) return lower;
+        return SKILL_NAME_TO_KEY.get(trimmed) || null;
+    }
+
+    function resolveSkillKeys(values) {
+        const resolved = [];
+        const unknown = [];
+        (values || []).forEach(value => {
+            const key = resolveSkillKey(value);
+            if (key) {
+                resolved.push(key);
+            } else {
+                unknown.push(value);
+            }
+        });
+        return { resolved: Array.from(new Set(resolved)), unknown };
+    }
+
+    function buildRecommendedSkillOptions() {
+        const datalist = document.getElementById('recommendedSkillOptions');
+        if (!datalist) return;
+        datalist.innerHTML = '';
+        Object.values(ALL_SKILLS_6TH).forEach(skill => {
+            if (!skill?.name) return;
+            const option = document.createElement('option');
+            option.value = skill.name;
+            datalist.appendChild(option);
+        });
+    }
+
+    function renderRecommendedChips() {
+        const container = document.getElementById('recommendedSkillsChips');
+        if (!container) return;
+
+        if (recommendedSkillKeys.size === 0) {
+            container.innerHTML = '<span class="text-muted">推奨技能はまだ設定されていません。</span>';
+            return;
+        }
+
+        container.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+        Array.from(recommendedSkillKeys).forEach(key => {
+            const name = ALL_SKILLS_6TH[key]?.name || key;
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-info text-dark me-1 mb-1 recommended-chip';
+            badge.dataset.skill = key;
+            badge.textContent = name;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-link btn-sm p-0 ms-1 text-dark remove-recommended-skill';
+            removeBtn.setAttribute('aria-label', '削除');
+            removeBtn.dataset.skill = key;
+            removeBtn.innerHTML = '&times;';
+            badge.appendChild(removeBtn);
+
+            fragment.appendChild(badge);
+        });
+
+        container.appendChild(fragment);
+
+        container.querySelectorAll('.remove-recommended-skill').forEach(button => {
+            button.addEventListener('click', () => {
+                const skillKey = button.dataset.skill;
+                if (!skillKey) return;
+                const next = Array.from(recommendedSkillKeys).filter(key => key !== skillKey);
+                setRecommendedSkills(next, { persist: true });
+            });
+        });
+    }
+
+    function getActiveSkillTabCategory() {
+        const activeTab = document.querySelector('#skillTabs .nav-link.active');
+        const target = activeTab?.getAttribute('data-bs-target')?.replace('#', '');
+        return target || 'combat';
+    }
+
+    function refreshActiveSkillTab() {
+        if (!skillTabContainers) return;
+        const activeCategory = getActiveSkillTabCategory();
+        if (activeCategory === 'allocated') return;
+        renderSkillTab(activeCategory, skillTabContainers);
+    }
+
+    function persistCustomRecommendedSkills() {
+        safeSetLocalStorage('custom_recommended_skills', JSON.stringify(Array.from(recommendedSkillKeys)));
+    }
+
+    function loadCustomRecommendedSkills() {
+        const stored = safeGetLocalStorage('custom_recommended_skills');
+        if (!stored) return [];
+        try {
+            const parsed = JSON.parse(stored);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_) {
+            return parseSkillList(stored);
+        }
+    }
+
+    function getScenarioRecommendedSkillPayload() {
+        const params = new URLSearchParams(window.location.search);
+        const rawFromQuery = params.get('recommended_skills') || params.get('scenario_recommended_skills');
+        const titleFromQuery = params.get('scenario_title');
+        const rawFromStorage = safeGetLocalStorage('scenario_recommended_skills');
+        const titleFromStorage = safeGetLocalStorage('scenario_recommended_skills_title');
+        return {
+            raw: rawFromQuery || rawFromStorage || '',
+            title: titleFromQuery || titleFromStorage || '',
+            source: rawFromQuery ? 'query' : (rawFromStorage ? 'storage' : '')
+        };
+    }
+
+    function initRecommendedSkillControls() {
+        const input = document.getElementById('recommendedSkillInput');
+        const addBtn = document.getElementById('addRecommendedSkill');
+        const clearBtn = document.getElementById('clearRecommendedSkills');
+        const scenarioBtn = document.getElementById('loadScenarioRecommended');
+        const hintEl = document.getElementById('scenarioRecommendedHint');
+
+        if (!input) return;
+
+        buildRecommendedSkillOptions();
+
+        const scenarioPayload = getScenarioRecommendedSkillPayload();
+        const scenarioParsed = scenarioPayload.raw ? resolveSkillKeys(parseSkillList(scenarioPayload.raw)) : { resolved: [], unknown: [] };
+        if (scenarioParsed.unknown.length > 0) {
+            console.warn('Unknown scenario recommended skills:', scenarioParsed.unknown);
+        }
+
+        if (hintEl && scenarioPayload.raw) {
+            hintEl.textContent = scenarioPayload.title
+                ? `シナリオ推奨技能: ${scenarioPayload.title}`
+                : 'シナリオ推奨技能を読み込み可能';
+        }
+
+        if (scenarioParsed.resolved.length > 0) {
+            setRecommendedSkills(scenarioParsed.resolved, { persist: false });
+        } else {
+            const stored = loadCustomRecommendedSkills();
+            if (stored.length > 0) {
+                setRecommendedSkills(stored, { persist: false });
+            } else {
+                setRecommendedSkills([], { persist: false });
+            }
+        }
+
+        const addFromInput = () => {
+            const rawValue = input.value;
+            const parsed = resolveSkillKeys(parseSkillList(rawValue));
+            if (parsed.resolved.length === 0) {
+                alert('技能が見つかりません。名称またはキーを確認してください。');
+                return;
+            }
+            setRecommendedSkills(parsed.resolved, { mode: 'merge', persist: true });
+            input.value = '';
+            if (parsed.unknown.length > 0) {
+                alert(`未対応の技能: ${parsed.unknown.join(', ')}`);
+            }
+        };
+
+        addBtn?.addEventListener('click', addFromInput);
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                addFromInput();
+            }
+        });
+
+        clearBtn?.addEventListener('click', () => {
+            setRecommendedSkills([], { persist: true });
+        });
+
+        scenarioBtn?.addEventListener('click', () => {
+            if (scenarioParsed.resolved.length === 0) {
+                alert('シナリオ推奨技能が見つかりません。');
+                return;
+            }
+            setRecommendedSkills(scenarioParsed.resolved, { persist: true });
         });
     }
 
@@ -990,8 +1263,8 @@ function initOccupationTemplates() {
             methodSelect.value = 'edu20';
         }
         
-        // 推奨技能をハイライト（必要なら実装）
-        // console.log('推奨技能:', occupation.skills);
+        // Highlight recommended skills
+        setRecommendedSkills(occupation.skills || [], { persist: true });
         
         // モーダルを閉じる
         const modal = bootstrap.Modal.getInstance(document.getElementById('occupationTemplateModal'));
@@ -1063,6 +1336,7 @@ function initOccupationTemplates() {
     addSkillInputEvents();  // 技能リスト生成後にイベントリスナーを追加
     // タブの初期表示を戦闘系に合わせる
     renderSkillTab('combat', skillTabContainers);
+    initRecommendedSkillControls();
 
     initOccupationTemplates(); // 職業テンプレート機能を初期化
     initImageUpload(); // 画像アップロード機能を初期化
@@ -1119,6 +1393,7 @@ function initOccupationTemplates() {
         setValueById('birthplace', sheet.birthplace);
         setValueById('residence', sheet.residence);
         setValueById('notes', sheet.notes);
+        setRecommendedSkills(Array.isArray(sheet.recommended_skills) ? sheet.recommended_skills : [], { persist: false });
 
         // Abilities
         setValueById('str', sheet.str_value);
@@ -1242,6 +1517,7 @@ function initOccupationTemplates() {
 
             notes: data.notes || ''
         };
+        apiData.recommended_skills = Array.from(recommendedSkillKeys);
 
         // 戦闘ステータス
         if (data.hit_points_current !== '' && data.hit_points_current != null) apiData.hit_points_current = parseInt(data.hit_points_current, 10) || 0;
@@ -1470,7 +1746,7 @@ function initOccupationTemplates() {
                 const submitFormData = new FormData();
 
                 Object.keys(apiData).forEach(key => {
-                    if (key === 'skills' || key === 'equipment') {
+                    if (key === 'skills' || key === 'equipment' || key === 'recommended_skills') {
                         submitFormData.append(key, JSON.stringify(apiData[key]));
                     } else {
                         submitFormData.append(key, apiData[key]);

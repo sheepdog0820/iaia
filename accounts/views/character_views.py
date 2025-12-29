@@ -562,6 +562,11 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 parsed_abilities[field] = parse_int(request.data.get(field), field, min_value=1, max_value=999)
             except ValueError as exc:
                 return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            recommended_skills = parse_json_list(request.data.get('recommended_skills', []), 'recommended_skills')
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             
@@ -576,6 +581,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 'occupation': request.data.get('occupation', ''),
                 'birthplace': request.data.get('birthplace', ''),
                 'residence': request.data.get('residence', ''),
+                'recommended_skills': recommended_skills,
                 'str_value': parsed_abilities['str_value'],
                 'con_value': parsed_abilities['con_value'],
                 'pow_value': parsed_abilities['pow_value'],

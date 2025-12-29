@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.core.exceptions import ValidationError
 from django.db import models
 from PIL import Image
+import json
 import os
 from .models import (
     CustomUser, Friend, Group, GroupMembership, GroupInvitation
@@ -45,6 +46,19 @@ def validate_character_image(image):
         raise ValidationError("画像ファイルが破損しているか、サポートされていない形式です。")
     
     return image
+
+
+class JSONListField(serializers.ListField):
+    """JSON文字列または配列を受け取れるリストフィールド"""
+    def to_internal_value(self, data):
+        if data is None or data == '':
+            return []
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except json.JSONDecodeError as exc:
+                raise serializers.ValidationError('リスト形式のJSONを指定してください。') from exc
+        return super().to_internal_value(data)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -227,7 +241,7 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
         model = CharacterSheet
         fields = [
             'id', 'edition', 'name', 'player_name', 'age', 'gender', 'occupation',
-            'birthplace', 'residence', 'str_value', 'con_value', 'pow_value',
+            'birthplace', 'residence', 'recommended_skills', 'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_max', 'hit_points_current', 'magic_points_max',
             'magic_points_current', 'sanity_starting', 'sanity_max', 'sanity_current',
@@ -312,6 +326,8 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
     """キャラクターシート作成専用シリアライザー"""
     # 版別データ
     sixth_edition_data = CharacterSheet6thSerializer(required=False)
+
+    recommended_skills = JSONListField(child=serializers.CharField(), required=False)
     
     # スキルデータ
     skills = CharacterSkillSerializer(many=True, required=False)
@@ -341,7 +357,7 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
         model = CharacterSheet
         fields = [
             'id', 'edition', 'name', 'player_name', 'age', 'gender', 'occupation',
-            'birthplace', 'residence', 'str_value', 'con_value', 'pow_value',
+            'birthplace', 'residence', 'recommended_skills', 'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',
             'notes', 'is_public', 'sixth_edition_data',
@@ -567,12 +583,13 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
     hp_current = serializers.IntegerField(source='hit_points_current', required=False)
     mp_current = serializers.IntegerField(source='magic_points_current', required=False)
     san_current = serializers.IntegerField(source='sanity_current', required=False)
+    recommended_skills = JSONListField(child=serializers.CharField(), required=False)
     
     class Meta:
         model = CharacterSheet
         fields = [
             'name', 'player_name', 'age', 'gender', 'occupation',
-            'birthplace', 'residence', 'str_value', 'con_value', 'pow_value',
+            'birthplace', 'residence', 'recommended_skills', 'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',
             'hp_current', 'mp_current', 'san_current',  # エイリアス追加

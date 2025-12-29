@@ -32,6 +32,7 @@ class Scenario(models.Model):
     difficulty = models.CharField(max_length=20, choices=DIFFICULTY_CHOICES, default='intermediate')
     estimated_duration = models.CharField(max_length=20, choices=DURATION_CHOICES, default='medium')
     summary = models.TextField(blank=True)
+    recommended_skills = models.TextField(blank=True, help_text="推奨技能（カンマ区切り）")
     url = models.URLField(blank=True, help_text="参照URL")
     recommended_players = models.CharField(max_length=50, blank=True, help_text="推奨人数（例: 3-4人）")
     player_count = models.PositiveIntegerField(help_text="推奨プレイヤー数", null=True, blank=True)
@@ -41,6 +42,11 @@ class Scenario(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     
+    def save(self, *args, **kwargs):
+        if self.recommended_skills is not None:
+            self.recommended_skills = self.recommended_skills.strip()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.title
     

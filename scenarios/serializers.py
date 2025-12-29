@@ -7,11 +7,12 @@ class ScenarioSerializer(serializers.ModelSerializer):
     created_by_detail = UserSerializer(source='created_by', read_only=True)
     play_count = serializers.SerializerMethodField()
     total_play_time = serializers.SerializerMethodField()
+    recommended_skills = serializers.CharField(allow_blank=True, required=False)
     
     class Meta:
         model = Scenario
         fields = ['id', 'title', 'author', 'game_system', 'difficulty', 'estimated_duration',
-                 'summary', 'url', 'recommended_players', 'player_count', 'estimated_time', 
+                 'summary', 'recommended_skills', 'url', 'recommended_players', 'player_count', 'estimated_time',
                  'created_by', 'created_by_detail', 'created_at', 'updated_at', 
                  'play_count', 'total_play_time']
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
@@ -25,6 +26,11 @@ class ScenarioSerializer(serializers.ModelSerializer):
             session__duration_minutes__isnull=False
         ).aggregate(total=Sum('session__duration_minutes'))['total'] or 0
         return total_minutes
+
+    def validate_recommended_skills(self, value):
+        if value is None:
+            return ''
+        return value.strip()
 
 
 class ScenarioNoteSerializer(serializers.ModelSerializer):

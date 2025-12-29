@@ -44,6 +44,7 @@ class CharacterSheet(models.Model):
     occupation = models.CharField(max_length=100, blank=True, verbose_name="職業")
     birthplace = models.CharField(max_length=100, blank=True, verbose_name="出身地")
     residence = models.CharField(max_length=100, blank=True, verbose_name="居住地")
+    recommended_skills = models.JSONField(default=list, blank=True, verbose_name="推奨技能")
     
     # 能力値 (範囲制限なし - ユーザーの自由度を最大化)
     str_value = models.IntegerField(
@@ -224,6 +225,18 @@ class CharacterSheet(models.Model):
         """保存時に派生ステータスを自動計算"""
         from django.core.exceptions import ValidationError
         
+        # 推奨技能を正規化
+        if self.recommended_skills is None:
+            self.recommended_skills = []
+        elif isinstance(self.recommended_skills, list):
+            self.recommended_skills = [
+                str(skill).strip()
+                for skill in self.recommended_skills
+                if str(skill).strip()
+            ]
+        else:
+            self.recommended_skills = []
+
         # 循環参照の防止
         if self.parent_sheet:
             current = self.parent_sheet
@@ -1659,6 +1672,7 @@ class CharacterVersionManager:
             occupation=character.occupation,
             birthplace=character.birthplace,
             residence=character.residence,
+            recommended_skills=list(character.recommended_skills or []),
             str_value=character.str_value,
             con_value=character.con_value,
             pow_value=character.pow_value,
@@ -1805,6 +1819,7 @@ class CharacterVersionManager:
             occupation=target_version.occupation,
             birthplace=target_version.birthplace,
             residence=target_version.residence,
+            recommended_skills=list(target_version.recommended_skills or []),
             str_value=target_version.str_value,
             con_value=target_version.con_value,
             pow_value=target_version.pow_value,

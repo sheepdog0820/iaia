@@ -92,6 +92,30 @@ label[for="character-name"]::after {
     background-color: #ffffff;
 }
 
+.skill-item.skill-recommended {
+    border-color: #90caf9;
+    background-color: #eef6ff;
+}
+
+.skill-item.skill-recommended:hover {
+    background-color: #e3f2fd;
+}
+
+.recommended-badge {
+    font-size: 0.65rem;
+}
+
+.recommended-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.recommended-chip .remove-recommended-skill {
+    line-height: 1;
+    text-decoration: none;
+}
+
 .skill-dice-settings,
 .ability-dice-settings {
     border-top: 1px solid #dee2e6;

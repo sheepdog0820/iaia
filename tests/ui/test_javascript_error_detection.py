@@ -256,7 +256,7 @@ if SELENIUM_AVAILABLE:
             
             # Click through all tabs
             tab_ids = ['combat-tab', 'exploration-tab', 'action-tab', 'social-tab',
-                       'knowledge-tab', 'all-tab', 'allocated-tab']
+                       'knowledge-tab', 'all-tab', 'recommended-tab', 'allocated-tab']
             
             for tab_id in tab_ids:
                 tab = self.selenium.find_element(By.ID, tab_id)

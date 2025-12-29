@@ -199,6 +199,37 @@ class ScenarioAPITestCase(APITestCase):
             self.assertEqual(data['title'], 'Test Scenario')
             self.assertEqual(data['created_by'], self.user1.id)
 
+
+    def test_scenario_recommended_skills_blank(self):
+        """Allow blank recommended_skills on create and update."""
+        self.client.force_authenticate(user=self.user1)
+
+        scenario_data = {
+            'title': 'Blank Recommended Skills Scenario',
+            'author': 'Test Author',
+            'game_system': 'coc',
+            'difficulty': 'beginner',
+            'estimated_duration': 'short',
+            'summary': '',
+            'recommended_players': '',
+            'recommended_skills': '   ',
+            'url': ''
+        }
+
+        response = self.client.post('/api/scenarios/scenarios/', scenario_data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        data = response.json()
+        self.assertEqual(data.get('recommended_skills', ''), '')
+
+        scenario_id = data.get('id')
+        patch_response = self.client.patch(
+            f'/api/scenarios/scenarios/{scenario_id}/',
+            {'recommended_skills': '   '}
+        )
+        self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
+        patched = patch_response.json()
+        self.assertEqual(patched.get('recommended_skills', ''), '')
+
     def test_scenario_creation_permissions(self):
         """シナリオ作成権限テスト"""
         self.client.force_authenticate(user=self.user1)

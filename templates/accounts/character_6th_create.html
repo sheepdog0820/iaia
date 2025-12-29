@@ -453,6 +453,36 @@
                                 </ul>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
+
+                            <div class="border rounded p-3 bg-light mb-3" id="recommendedSkillsControl">
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-6">
+                                        <label for="recommendedSkillInput" class="form-label small">推奨技能を追加</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" class="form-control" id="recommendedSkillInput" list="recommendedSkillOptions" placeholder="例: 目星 / spot_hidden">
+                                            <button class="btn btn-outline-primary" type="button" id="addRecommendedSkill">
+                                                <i class="fas fa-plus"></i> 追加
+                                            </button>
+                                        </div>
+                                        <datalist id="recommendedSkillOptions"></datalist>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">セット操作</label>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" id="loadScenarioRecommended">
+                                                <i class="fas fa-book"></i> シナリオ反映
+                                            </button>
+                                            <button type="button" class="btn btn-outline-danger btn-sm" id="clearRecommendedSkills">
+                                                <i class="fas fa-eraser"></i> クリア
+                                            </button>
+                                        </div>
+                                        <small class="text-muted d-block mt-1" id="scenarioRecommendedHint"></small>
+                                    </div>
+                                </div>
+                                <div class="mt-2" id="recommendedSkillsChips">
+                                    <span class="text-muted">推奨技能はまだ設定されていません。</span>
+                                </div>
+                            </div>
                             
                             <!-- タブナビゲーション -->
                             <ul class="nav nav-tabs" id="skillTabs" role="tablist">
@@ -484,6 +514,11 @@
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab">
                                         <i class="fas fa-list"></i> 全表示
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="recommended-tab" data-bs-toggle="tab" data-bs-target="#recommended" type="button" role="tab">
+                                        <i class="fas fa-star"></i> 推奨
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
@@ -535,6 +570,13 @@
                                 <div class="tab-pane fade" id="all" role="tabpanel">
                                     <div class="row g-2 mt-2" id="allSkills">
                                         <!-- 全技能がここに動的生成される -->
+                                    </div>
+                                </div>
+
+                                <!-- 推奨 -->
+                                <div class="tab-pane fade" id="recommended" role="tabpanel">
+                                    <div class="row g-2 mt-2" id="recommendedSkills">
+                                        <!-- 推奨技能がここに動的生成される -->
                                     </div>
                                 </div>
                                 

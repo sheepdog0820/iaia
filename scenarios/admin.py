@@ -28,7 +28,7 @@ class ScenarioAdmin(admin.ModelAdmin):
             'fields': ('title', 'author', 'game_system')
         }),
         ('詳細', {
-            'fields': ('summary', 'player_count', 'estimated_time')
+            'fields': ('summary', 'recommended_skills', 'player_count', 'estimated_time')
         }),
     )
 
