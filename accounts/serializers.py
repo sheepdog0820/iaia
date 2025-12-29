@@ -159,12 +159,21 @@ class GroupInvitationSerializer(serializers.ModelSerializer):
     inviter_detail = UserSerializer(source='inviter', read_only=True)
     invitee_detail = UserSerializer(source='invitee', read_only=True)
     group_detail = GroupSerializer(source='group', read_only=True)
+    expires_at = serializers.SerializerMethodField()
+    is_expired = serializers.SerializerMethodField()
     
     class Meta:
         model = GroupInvitation
         fields = ['id', 'group', 'group_detail', 'inviter', 'inviter_detail', 
-                 'invitee', 'invitee_detail', 'status', 'message', 'created_at', 'responded_at']
-        read_only_fields = ['id', 'inviter', 'created_at', 'responded_at']
+                 'invitee', 'invitee_detail', 'status', 'message', 'created_at', 'responded_at',
+                 'expires_at', 'is_expired']
+        read_only_fields = ['id', 'inviter', 'created_at', 'responded_at', 'expires_at', 'is_expired']
+
+    def get_expires_at(self, obj):
+        return obj.expires_at
+
+    def get_is_expired(self, obj):
+        return obj.is_expired
 
 
 class FriendDetailSerializer(serializers.ModelSerializer):

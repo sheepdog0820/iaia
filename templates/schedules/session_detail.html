@@ -167,9 +167,19 @@
                                     <p class="mb-2">
                                         <i class="fas fa-mask"></i> <strong>キャラクター:</strong> {{ participant.character_name }}
                                     </p>
+                                    {% elif participant.character_sheet %}
+                                    <p class="mb-2">
+                                        <i class="fas fa-mask"></i> <strong>キャラクター:</strong> {{ participant.character_sheet.name }}
+                                    </p>
                                     {% endif %}
                                     
-                                    {% if participant.character_sheet_url %}
+                                    {% if participant.character_sheet %}
+                                    <p class="mb-2">
+                                        <a href="{% url 'character_detail' participant.character_sheet.id %}" class="btn btn-sm btn-outline-info">
+                                            <i class="fas fa-file-alt"></i> キャラクターシート
+                                        </a>
+                                    </p>
+                                    {% elif participant.character_sheet_url %}
                                     <p class="mb-2">
                                         <a href="{{ participant.character_sheet_url }}" target="_blank" class="btn btn-sm btn-outline-info">
                                             <i class="fas fa-file-alt"></i> キャラクターシート
@@ -178,7 +188,11 @@
                                     {% endif %}
                                     
                                     {% if is_gm and participant.role != 'gm' %}
-                                    <div class="mt-2">
+                                    <div class="mt-2 d-flex gap-2">
+                                        <button class="btn btn-sm btn-outline-primary"
+                                                onclick="openCharacterLinkModal({{ participant.id }}, {{ participant.user.id }}, {{ participant.character_sheet_id|default:'null' }})">
+                                            <i class="fas fa-link"></i> キャラクター設定
+                                        </button>
                                         <button class="btn btn-sm btn-outline-danger" 
                                                 onclick="removeParticipant({{ participant.id }})">
                                             <i class="fas fa-user-minus"></i> 除名
@@ -196,6 +210,87 @@
                     </div>
                 </div>
             </div>
+
+            {% if is_participant or is_gm %}
+            <!-- キャラクターステータス（参照のみ） -->
+            <div class="card mb-4" id="characterStatusCard">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-heartbeat"></i> キャラクターステータス（参照）
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        ココフォリアで管理するため、キャラクターシートの現在値を参照のみ表示します。HP/MP/SANはKPのみ閲覧できます。
+                    </p>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th>参加者</th>
+                                    <th>キャラクター</th>
+                                    <th>HP</th>
+                                    <th>MP</th>
+                                    <th>SAN</th>
+                                    <th>最終更新</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for participant in participants %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold">{{ participant.user.nickname|default:participant.user.username }}</div>
+                                        <span class="badge {% if participant.role == 'gm' %}bg-primary{% else %}bg-secondary{% endif %}">
+                                            {% if participant.role == 'gm' %}GM{% else %}PL{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if participant.character_name %}
+                                            {{ participant.character_name }}
+                                        {% elif participant.character_sheet %}
+                                            {{ participant.character_sheet.name }}
+                                        {% else %}
+                                            <span class="text-muted">未設定</span>
+                                        {% endif %}
+                                    </td>
+                                    {% if is_gm %}
+                                        {% if participant.character_sheet %}
+                                            <td>
+                                                {{ participant.character_sheet.hit_points_current|default_if_none:"-" }} / {{ participant.character_sheet.hit_points_max|default_if_none:"-" }}
+                                            </td>
+                                            <td>
+                                                {{ participant.character_sheet.magic_points_current|default_if_none:"-" }} / {{ participant.character_sheet.magic_points_max|default_if_none:"-" }}
+                                            </td>
+                                            <td>
+                                                {{ participant.character_sheet.sanity_current|default_if_none:"-" }} / {{ participant.character_sheet.sanity_max|default_if_none:"-" }}
+                                            </td>
+                                            <td class="small text-muted">
+                                                {{ participant.character_sheet.updated_at|date:"Y/m/d H:i" }}
+                                            </td>
+                                        {% else %}
+                                            <td class="text-muted">-</td>
+                                            <td class="text-muted">-</td>
+                                            <td class="text-muted">-</td>
+                                            <td class="text-muted">-</td>
+                                        {% endif %}
+                                    {% else %}
+                                        <td class="text-muted">非公開</td>
+                                        <td class="text-muted">非公開</td>
+                                        <td class="text-muted">非公開</td>
+                                        <td class="text-muted">-</td>
+                                    {% endif %}
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">参加者がいません</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
 
         <!-- サイドバー -->
@@ -398,6 +493,13 @@
                                placeholder="使用するキャラクター名を入力してください">
                     </div>
                     <div class="mb-3">
+                        <label for="character_sheet_id" class="form-label">キャラクターシート（内部）</label>
+                        <select class="form-select" id="character_sheet_id">
+                            <option value="">選択しない</option>
+                        </select>
+                        <div class="form-text">登録済みのキャラクターから選択できます</div>
+                    </div>
+                    <div class="mb-3">
                         <label for="character_sheet_url" class="form-label">キャラクターシートURL</label>
                         <input type="url" class="form-control" id="character_sheet_url" 
                                placeholder="キャラクターシートのURLを入力してください">
@@ -432,6 +534,13 @@
                                value="{{ user_participant.character_name }}">
                     </div>
                     <div class="mb-3">
+                        <label for="edit_character_sheet_id" class="form-label">キャラクターシート（内部）</label>
+                        <select class="form-select" id="edit_character_sheet_id" data-selected="{{ user_participant.character_sheet_id|default:'' }}">
+                            <option value="">選択しない</option>
+                        </select>
+                        <div class="form-text">登録済みのキャラクターから選択できます</div>
+                    </div>
+                    <div class="mb-3">
                         <label for="edit_character_sheet_url" class="form-label">キャラクターシートURL</label>
                         <input type="url" class="form-control" id="edit_character_sheet_url" 
                                value="{{ user_participant.character_sheet_url }}">
@@ -442,6 +551,36 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
                 <button type="button" class="btn btn-primary" onclick="updateParticipant()">
                     <i class="fas fa-save"></i> 更新
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if is_gm %}
+<div class="modal fade" id="linkCharacterModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">キャラクター設定</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="linkParticipantId">
+                <input type="hidden" id="linkParticipantUserId">
+                <div class="mb-3">
+                    <label for="linkCharacterSelect" class="form-label">キャラクターシート</label>
+                    <select class="form-select" id="linkCharacterSelect">
+                        <option value="">選択してください</option>
+                    </select>
+                    <div class="form-text">公開キャラクターのみ選択可能です</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="saveLinkedCharacter()">
+                    <i class="fas fa-save"></i> 保存
                 </button>
             </div>
         </div>
@@ -752,11 +891,82 @@ a:hover {
 .text-decoration-none:hover {
     text-decoration: underline !important;
 }
+
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+let characterSheets = [];
+const characterSheetMap = new Map();
+let groupMemberCharacters = new Map();
+let groupMemberNames = new Map();
+
+async function loadCharacterSheets() {
+    try {
+        const response = await axios.get('/api/accounts/character-sheets/');
+        characterSheets = response.data || [];
+        characterSheetMap.clear();
+        characterSheets.forEach(sheet => {
+            characterSheetMap.set(String(sheet.id), sheet);
+        });
+
+        populateCharacterSelect('character_sheet_id');
+        populateCharacterSelect('edit_character_sheet_id');
+        bindCharacterNameAutoFill('character_sheet_id', 'character_name');
+        bindCharacterNameAutoFill('edit_character_sheet_id', 'edit_character_name');
+    } catch (error) {
+        console.error('キャラクターシートの取得に失敗しました:', error);
+    }
+}
+
+function populateCharacterSelect(selectId) {
+    const selectEl = document.getElementById(selectId);
+    if (!selectEl) return;
+
+    const selected = selectEl.dataset.selected || '';
+    selectEl.innerHTML = '<option value="">選択しない</option>' +
+        characterSheets.map(sheet => (
+            `<option value="${sheet.id}">${sheet.name}</option>`
+        )).join('');
+
+    if (selected) {
+        selectEl.value = selected;
+    }
+}
+
+function bindCharacterNameAutoFill(selectId, inputId) {
+    const selectEl = document.getElementById(selectId);
+    const inputEl = document.getElementById(inputId);
+    if (!selectEl || !inputEl) return;
+
+    selectEl.addEventListener('change', () => {
+        if (inputEl.value.trim()) return;
+        const sheet = characterSheetMap.get(selectEl.value);
+        if (sheet && sheet.name) {
+            inputEl.value = sheet.name;
+        }
+    });
+}
+
+async function loadGroupMemberCharacters() {
+    {% if is_gm %}
+    try {
+        const response = await axios.get('/api/accounts/groups/{{ session.group.id }}/member_characters/');
+        const data = response.data || [];
+        groupMemberCharacters = new Map();
+        groupMemberNames = new Map();
+
+        data.forEach(member => {
+            groupMemberNames.set(String(member.user_id), member.nickname || member.username);
+            groupMemberCharacters.set(String(member.user_id), member.characters || []);
+        });
+    } catch (error) {
+        console.error('グループメンバーのキャラクター取得に失敗しました:', error);
+    }
+    {% endif %}
+}
+
 // セッション更新
 async function updateSession() {
     const data = {
@@ -781,10 +991,14 @@ async function updateSession() {
 
 // セッション参加
 async function joinSession() {
+    const characterSheetId = document.getElementById('character_sheet_id').value;
     const data = {
         character_name: document.getElementById('character_name').value,
         character_sheet_url: document.getElementById('character_sheet_url').value
     };
+    if (characterSheetId) {
+        data.character_sheet_id = characterSheetId;
+    }
 
     try {
         const response = await axios.post(`/api/schedules/sessions/{{ session.id }}/join/`, data);
@@ -797,10 +1011,16 @@ async function joinSession() {
 
 // 参加情報更新
 async function updateParticipant() {
+    const characterSheetId = document.getElementById('edit_character_sheet_id').value;
     const data = {
         character_name: document.getElementById('edit_character_name').value,
         character_sheet_url: document.getElementById('edit_character_sheet_url').value
     };
+    if (characterSheetId) {
+        data.character_sheet_id = characterSheetId;
+    } else {
+        data.character_sheet_id = '';
+    }
 
     try {
         {% if user_participant %}
@@ -812,6 +1032,58 @@ async function updateParticipant() {
         location.reload();
     } catch (error) {
         alert('更新に失敗しました: ' + (error.response?.data?.detail || error.message));
+    }
+}
+
+// GM: 参加者キャラクター設定
+function openCharacterLinkModal(participantId, userId, currentCharacterId) {
+    const modalEl = document.getElementById('linkCharacterModal');
+    const modal = new bootstrap.Modal(modalEl);
+    const selectEl = document.getElementById('linkCharacterSelect');
+
+    document.getElementById('linkParticipantId').value = participantId;
+    document.getElementById('linkParticipantUserId').value = userId;
+
+    const characters = groupMemberCharacters.get(String(userId)) || [];
+    if (characters.length === 0) {
+        selectEl.innerHTML = '<option value="">選択可能なキャラクターがありません</option>';
+    } else {
+        selectEl.innerHTML = '<option value="">選択してください</option>' + characters.map(char => (
+            `<option value="${char.id}">${char.name}</option>`
+        )).join('');
+    }
+
+    if (currentCharacterId) {
+        selectEl.value = String(currentCharacterId);
+    }
+
+    modal.show();
+}
+
+async function saveLinkedCharacter() {
+    const participantId = document.getElementById('linkParticipantId').value;
+    const userId = document.getElementById('linkParticipantUserId').value;
+    const characterId = document.getElementById('linkCharacterSelect').value;
+
+    if (!participantId) return;
+
+    const characters = groupMemberCharacters.get(String(userId)) || [];
+    const selected = characters.find(char => String(char.id) === String(characterId));
+
+    const data = {
+        character_sheet_id: characterId || ''
+    };
+
+    if (selected && selected.name) {
+        data.character_name = selected.name;
+    }
+
+    try {
+        await axios.patch(`/api/schedules/participants/${participantId}/`, data);
+        alert('キャラクターを更新しました');
+        location.reload();
+    } catch (error) {
+        alert('更新に失敗しました: ' + (error.response?.data?.error || error.message));
     }
 }
 
@@ -872,5 +1144,10 @@ async function removeParticipant(participantId) {
         alert('除名に失敗しました: ' + (error.response?.data?.detail || error.message));
     }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadCharacterSheets();
+    loadGroupMemberCharacters();
+});
 </script>
 {% endblock %}

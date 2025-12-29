@@ -139,6 +139,14 @@
                             <option value="private">プライベート</option>
                         </select>
                     </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">招待メンバー（任意）</label>
+                        <div class="form-text mb-2">グループメンバーをセッションに招待できます</div>
+                        <div id="sessionInviteMembers" class="border rounded p-2" style="min-height: 80px;">
+                            <span class="text-muted small">グループを選択してください</span>
+                        </div>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">
@@ -223,6 +231,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const calendarEl = document.getElementById('calendar');
     let calendar;
     let userGroups = [];
+    let groupMembers = [];
+    let selectedInvitees = new Set();
 
     // カレンダー初期化
     function initCalendar() {
@@ -235,6 +245,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 right: 'dayGridMonth,timeGridWeek,listWeek'
             },
             events: fetchEvents,
+            dateClick: handleDateClick,
             eventClick: handleEventClick,
             eventColor: '#161b22',
             height: 'auto'
@@ -315,6 +326,23 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleEventClick(info) {
         // セッション詳細ページに遷移
         window.location.href = `/api/schedules/sessions/${info.event.id}/detail/`;
+    }
+
+    function handleDateClick(info) {
+        const dateInput = document.getElementById('sessionDate');
+        if (!dateInput) return;
+
+        let value = info.dateStr;
+        if (!value.includes('T')) {
+            value = `${value}T19:00`;
+        } else {
+            value = value.slice(0, 16);
+        }
+
+        dateInput.value = value;
+        const modalEl = document.getElementById('newSessionModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
     }
 
     // セッション詳細表示
@@ -413,6 +441,47 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    async function loadGroupMembers(groupId) {
+        const container = document.getElementById('sessionInviteMembers');
+        if (!container) return;
+
+        if (!groupId) {
+            container.innerHTML = '<span class="text-muted small">グループを選択してください</span>';
+            return;
+        }
+
+        try {
+            const response = await axios.get(`/api/accounts/groups/${groupId}/members/`);
+            groupMembers = response.data || [];
+            selectedInvitees.clear();
+
+            const membersHtml = groupMembers
+                .filter(member => member.user !== window.CURRENT_USER.id)
+                .map(member => `
+                    <label class="d-flex align-items-center gap-2 mb-1">
+                        <input type="checkbox" class="form-check-input invite-member-checkbox" value="${member.user}">
+                        <span>${member.user_detail.nickname || member.user_detail.username}</span>
+                    </label>
+                `).join('');
+
+            container.innerHTML = membersHtml || '<span class="text-muted small">招待可能なメンバーがいません</span>';
+
+            container.querySelectorAll('.invite-member-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (event) => {
+                    const userId = parseInt(event.target.value, 10);
+                    if (event.target.checked) {
+                        selectedInvitees.add(userId);
+                    } else {
+                        selectedInvitees.delete(userId);
+                    }
+                });
+            });
+        } catch (error) {
+            console.error('Error loading group members:', error);
+            container.innerHTML = '<span class="text-muted small">メンバーの取得に失敗しました</span>';
+        }
+    }
+
     // 新規セッション保存
     document.getElementById('saveSessionBtn').addEventListener('click', async function() {
         const form = document.getElementById('newSessionForm');
@@ -433,10 +502,20 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         try {
-            await axios.post('/api/schedules/sessions/', data);
+            const response = await axios.post('/api/schedules/sessions/', data);
             alert('セッションを作成しました！');
+            const sessionId = response.data.id;
+
+            if (selectedInvitees.size > 0) {
+                const inviteRequests = Array.from(selectedInvitees).map(userId => (
+                    axios.post(`/api/schedules/sessions/${sessionId}/invite/`, { user_id: userId })
+                ));
+                await Promise.allSettled(inviteRequests);
+            }
             bootstrap.Modal.getInstance(document.getElementById('newSessionModal')).hide();
             form.reset();
+            selectedInvitees.clear();
+            document.getElementById('sessionInviteMembers').innerHTML = '<span class="text-muted small">グループを選択してください</span>';
             calendar.refetchEvents();
             loadUpcomingSessions();
         } catch (error) {
@@ -455,6 +534,10 @@ document.addEventListener('DOMContentLoaded', function() {
     initCalendar();
     loadUpcomingSessions();
     loadGroups();
+
+    document.getElementById('sessionGroup').addEventListener('change', (event) => {
+        loadGroupMembers(event.target.value);
+    });
 });
 </script>
 {% endblock %}

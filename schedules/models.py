@@ -104,6 +104,89 @@ class SessionParticipant(models.Model):
         return f"{self.user.nickname} in {self.session.title} ({self.role}){slot_display}"
 
 
+class SessionNote(models.Model):
+    """セッションノート（GM/参加者の記録）"""
+
+    NOTE_TYPE_CHOICES = [
+        ('gm_private', 'GMプライベート'),
+        ('public_summary', '公開サマリー'),
+        ('player_note', 'プレイヤーノート'),
+        ('npc_memo', 'NPCメモ'),
+        ('handover', '引き継ぎ事項'),
+    ]
+
+    session = models.ForeignKey(
+        TRPGSession,
+        on_delete=models.CASCADE,
+        related_name='notes'
+    )
+    author = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='session_notes'
+    )
+    note_type = models.CharField(
+        max_length=20,
+        choices=NOTE_TYPE_CHOICES,
+        default='player_note'
+    )
+    title = models.CharField(max_length=200, blank=True)
+    content = models.TextField()
+    is_pinned = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_pinned', '-updated_at', '-created_at']
+        indexes = [
+            models.Index(fields=['session', 'note_type']),
+            models.Index(fields=['author', '-created_at']),
+        ]
+
+    def __str__(self):
+        title_display = f" - {self.title}" if self.title else ""
+        return f"{self.session.title} ({self.note_type}){title_display}"
+
+
+class SessionLog(models.Model):
+    """セッションログ（時系列の出来事）"""
+
+    session = models.ForeignKey(
+        TRPGSession,
+        on_delete=models.CASCADE,
+        related_name='logs'
+    )
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='session_logs'
+    )
+    timestamp = models.DateTimeField(default=timezone.now)
+    event_type = models.CharField(max_length=50, default='general')
+    description = models.TextField()
+    related_character = models.ForeignKey(
+        'accounts.CharacterSheet',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='session_logs'
+    )
+
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['timestamp', 'created_at']
+        indexes = [
+            models.Index(fields=['session', 'timestamp']),
+            models.Index(fields=['created_by', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.session.title} - {self.event_type}"
+
+
 class HandoutInfo(models.Model):
     HANDOUT_NUMBER_CHOICES = [
         (1, 'HO1'),

@@ -10,6 +10,8 @@ router.register(r'sessions', views.TRPGSessionViewSet, basename='session')
 router.register(r'participants', views.SessionParticipantViewSet, basename='participant')
 router.register(r'handouts', views.HandoutInfoViewSet, basename='handout')
 router.register(r'session-images', views.SessionImageViewSet, basename='session-image')
+router.register(r'notes', views.SessionNoteViewSet, basename='session-note')
+router.register(r'logs', views.SessionLogViewSet, basename='session-log')
 router.register(r'youtube-links', views.SessionYouTubeLinkViewSet, basename='youtube-link')
 router.register(r'gm-handouts', handout_views.HandoutManagementViewSet, basename='gm_handout')
 router.register(r'notifications', notification_views.HandoutNotificationViewSet, basename='handoutnotification')
@@ -39,7 +41,15 @@ urlpatterns = [
     path('sessions/<int:session_id>/youtube-links/statistics/',
          views.SessionYouTubeLinkViewSet.as_view({'get': 'statistics'}),
          name='session-youtube-links-statistics'),
-    
+
+    # Session Notes & Logs
+    path('sessions/<int:session_id>/notes/',
+         views.SessionNoteViewSet.as_view({'get': 'list', 'post': 'create'}),
+         name='session-notes'),
+    path('sessions/<int:session_id>/logs/',
+         views.SessionLogViewSet.as_view({'get': 'list', 'post': 'create'}),
+         name='session-logs'),
+
     # GM Handout Management
     path('sessions/<int:session_id>/handouts/manage/', handout_views.GMHandoutManagementView.as_view(), name='gm_handout_management'),
     path('handout-templates/', handout_views.HandoutTemplateView.as_view(), name='handout_templates'),

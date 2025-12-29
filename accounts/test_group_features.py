@@ -1,0 +1,234 @@
+from datetime import timedelta
+import math
+
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from rest_framework.test import APITestCase
+from rest_framework import status
+
+from accounts.models import Group, GroupMembership, GroupInvitation
+from accounts.character_models import CharacterSheet
+
+
+User = get_user_model()
+
+
+class GroupSearchAPITestCase(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='search_user',
+            email='search@example.com',
+            password='pass123',
+            nickname='Search User'
+        )
+        self.owner = User.objects.create_user(
+            username='owner_user',
+            email='owner@example.com',
+            password='pass123',
+            nickname='Owner User'
+        )
+        self.client.force_authenticate(user=self.user)
+
+        self.public_group = Group.objects.create(
+            name='Arkham Seekers',
+            description='Public investigation group',
+            visibility='public',
+            created_by=self.owner
+        )
+        GroupMembership.objects.create(user=self.owner, group=self.public_group, role='admin')
+
+        self.private_group = Group.objects.create(
+            name='Arkham Secret',
+            description='Private group',
+            visibility='private',
+            created_by=self.owner
+        )
+        GroupMembership.objects.create(user=self.owner, group=self.private_group, role='admin')
+
+    def test_public_group_search(self):
+        response = self.client.get('/api/accounts/groups/search/?q=Arkham')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['id'], self.public_group.id)
+
+    def test_public_groups_filter(self):
+        response = self.client.get('/api/accounts/groups/public/?q=Secret')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+
+
+class GroupInvitationFlowAPITestCase(APITestCase):
+    def setUp(self):
+        self.inviter = User.objects.create_user(
+            username='inviter',
+            email='inviter@example.com',
+            password='pass123',
+            nickname='Inviter'
+        )
+        self.invitee1 = User.objects.create_user(
+            username='invitee1',
+            email='invitee1@example.com',
+            password='pass123',
+            nickname='Invitee1'
+        )
+        self.invitee2 = User.objects.create_user(
+            username='invitee2',
+            email='invitee2@example.com',
+            password='pass123',
+            nickname='Invitee2'
+        )
+        self.group = Group.objects.create(
+            name='Invite Group',
+            visibility='private',
+            created_by=self.inviter
+        )
+        GroupMembership.objects.create(user=self.inviter, group=self.group, role='admin')
+
+    def test_bulk_invite(self):
+        self.client.force_authenticate(user=self.inviter)
+        response = self.client.post(
+            f'/api/accounts/groups/{self.group.id}/invite/',
+            {
+                'invitee_ids': [self.invitee1.id, self.invitee2.id],
+                'message': 'Join us'
+            },
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['count'], 2)
+        self.assertEqual(len(response.data['results']), 2)
+        self.assertEqual(GroupInvitation.objects.filter(group=self.group).count(), 2)
+
+    def test_bulk_invite_skips_members(self):
+        GroupMembership.objects.create(user=self.invitee2, group=self.group, role='member')
+        self.client.force_authenticate(user=self.inviter)
+        response = self.client.post(
+            f'/api/accounts/groups/{self.group.id}/invite/',
+            {
+                'invitee_ids': [self.invitee1.id, self.invitee2.id],
+                'message': 'Join us'
+            },
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['count'], 1)
+        skipped = response.data['skipped']
+        self.assertTrue(any(item['reason'] == 'already_member' for item in skipped))
+
+    def test_invitation_expired_on_accept(self):
+        invitation = GroupInvitation.objects.create(
+            group=self.group,
+            inviter=self.inviter,
+            invitee=self.invitee1,
+            message='Join us'
+        )
+        invitation.created_at = timezone.now() - timedelta(days=8)
+        invitation.save(update_fields=['created_at'])
+
+        self.client.force_authenticate(user=self.invitee1)
+        response = self.client.post(f'/api/accounts/invitations/{invitation.id}/accept/')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        invitation.refresh_from_db()
+        self.assertEqual(invitation.status, 'expired')
+        self.assertIsNotNone(invitation.responded_at)
+
+    def test_invitation_list_marks_expired(self):
+        invitation = GroupInvitation.objects.create(
+            group=self.group,
+            inviter=self.inviter,
+            invitee=self.invitee1,
+            message='Join us'
+        )
+        invitation.created_at = timezone.now() - timedelta(days=8)
+        invitation.save(update_fields=['created_at'])
+
+        self.client.force_authenticate(user=self.invitee1)
+        response = self.client.get('/api/accounts/invitations/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]['status'], 'expired')
+
+
+class GroupMemberCharactersAPITestCase(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='admin_user',
+            email='admin@example.com',
+            password='pass123',
+            nickname='Admin User'
+        )
+        self.member = User.objects.create_user(
+            username='member_user',
+            email='member@example.com',
+            password='pass123',
+            nickname='Member User'
+        )
+        self.non_member = User.objects.create_user(
+            username='outsider',
+            email='outsider@example.com',
+            password='pass123',
+            nickname='Outsider'
+        )
+
+        self.group = Group.objects.create(
+            name='Character Group',
+            visibility='private',
+            created_by=self.admin
+        )
+        GroupMembership.objects.create(user=self.admin, group=self.group, role='admin')
+        GroupMembership.objects.create(user=self.member, group=self.group, role='member')
+
+        self.create_character(self.admin, 'Admin Public', is_public=True)
+        self.create_character(self.admin, 'Admin Private', is_public=False)
+        self.create_character(self.member, 'Member Public', is_public=True)
+        self.create_character(self.member, 'Member Private', is_public=False)
+
+    def create_character(self, user, name, is_public):
+        stats = {
+            'str_value': 10,
+            'con_value': 12,
+            'pow_value': 11,
+            'dex_value': 10,
+            'app_value': 9,
+            'siz_value': 11,
+            'int_value': 12,
+            'edu_value': 13
+        }
+        hp_max = math.ceil((stats['con_value'] + stats['siz_value']) / 2)
+        mp_max = stats['pow_value']
+        san_start = stats['pow_value'] * 5
+
+        return CharacterSheet.objects.create(
+            user=user,
+            edition='6th',
+            name=name,
+            age=25,
+            **stats,
+            hit_points_max=hp_max,
+            hit_points_current=hp_max,
+            magic_points_max=mp_max,
+            magic_points_current=mp_max,
+            sanity_starting=san_start,
+            sanity_max=99,
+            sanity_current=san_start,
+            is_public=is_public,
+            is_active=True
+        )
+
+    def test_member_characters_visibility(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(f'/api/accounts/groups/{self.group.id}/member_characters/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.data
+        admin_entry = next(item for item in data if item['user_id'] == self.admin.id)
+        member_entry = next(item for item in data if item['user_id'] == self.member.id)
+
+        self.assertEqual(len(admin_entry['characters']), 2)
+        self.assertEqual(len(member_entry['characters']), 1)
+        self.assertTrue(member_entry['characters'][0]['is_public'])
+
+    def test_member_characters_non_member_forbidden(self):
+        self.client.force_authenticate(user=self.non_member)
+        response = self.client.get(f'/api/accounts/groups/{self.group.id}/member_characters/')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

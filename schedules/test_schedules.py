@@ -1,8 +1,9 @@
+from datetime import timedelta
+
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework import status
-from datetime import timedelta
 from django.utils import timezone
 from .models import TRPGSession, SessionParticipant, HandoutInfo
 from accounts.models import Group as CustomGroup
@@ -131,7 +132,7 @@ class ScheduleAPITestCase(APITestCase):
     def test_sessions_list_unauthenticated(self):
         """未認証セッション一覧アクセステスト"""
         response = self.client.get('/api/schedules/sessions/view/')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_sessions_list_authenticated(self):
         """認証済みセッション一覧アクセステスト"""
@@ -223,7 +224,28 @@ class ScheduleAPITestCase(APITestCase):
         
         # 重複参加試行
         response = self.client.post(f'/api/schedules/sessions/{self.session.id}/join/')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_session_join_group_non_member_forbidden(self):
+        """グループ外メンバーの参加拒否テスト"""
+        outsider = User.objects.create_user(
+            username='outsider',
+            email='outsider@example.com',
+            password='pass123',
+            nickname='Outsider'
+        )
+        self.client.force_authenticate(user=outsider)
+        response = self.client.post(f'/api/schedules/sessions/{self.session.id}/join/')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_session_join_private_forbidden(self):
+        """プライベートセッション参加拒否テスト"""
+        self.session.visibility = 'private'
+        self.session.save(update_fields=['visibility'])
+        self.client.force_authenticate(user=self.user2)
+        response = self.client.post(f'/api/schedules/sessions/{self.session.id}/join/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
 
     def test_calendar_api(self):
         """カレンダーAPIテスト"""

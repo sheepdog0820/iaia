@@ -27,6 +27,21 @@
                 </div>
             </div>
 
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-envelope-open-text"></i> グループ招待</h5>
+                </div>
+                <div class="card-body">
+                    <div id="groupInvitations">
+                        <div class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-user-friends"></i> フレンド管理</h5>
@@ -262,6 +277,22 @@
     margin-bottom: 20px;
 }
 
+.invitation-item {
+    padding: 10px;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.05);
+    margin-bottom: 10px;
+}
+
+.invitation-item:last-child {
+    margin-bottom: 0;
+}
+
+.invitation-meta {
+    font-size: 0.8rem;
+    color: #8b949e;
+}
+
 .stat-item {
     text-align: center;
     padding: 15px;
@@ -291,6 +322,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentGroupId = null;
     let selectedFriends = new Set();
     let currentViewType = 'my';
+    let invitations = [];
 
     // グループ一覧読み込み
     async function loadGroups(viewType = 'my') {
@@ -324,6 +356,68 @@ document.addEventListener('DOMContentLoaded', function() {
                 '<div class="col-12"><div class="alert alert-danger">グループの読み込みに失敗しました</div></div>';
             ARKHAM.handleError(error);
         }
+    }
+
+    // 招待一覧読み込み
+    async function loadInvitations() {
+        const container = document.getElementById('groupInvitations');
+        if (!container) return;
+
+        try {
+            const response = await axios.get('/api/accounts/invitations/');
+            invitations = response.data || [];
+            renderInvitations();
+        } catch (error) {
+            console.error('Error loading invitations:', error);
+            container.innerHTML = '<p class="text-muted text-center">招待の読み込みに失敗しました</p>';
+        }
+    }
+
+    function renderInvitations() {
+        const container = document.getElementById('groupInvitations');
+        if (!container) return;
+
+        if (invitations.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center mb-0">招待はありません</p>';
+            return;
+        }
+
+        container.innerHTML = invitations.map(invite => {
+            const status = invite.status;
+            const isExpired = invite.is_expired || status === 'expired';
+            const canRespond = status === 'pending' && !isExpired;
+            const statusBadge = isExpired ? '期限切れ' : (
+                status === 'accepted' ? '承認済み' :
+                status === 'declined' ? '拒否' : '保留中'
+            );
+            const badgeClass = isExpired ? 'secondary' : (
+                status === 'accepted' ? 'success' :
+                status === 'declined' ? 'danger' : 'warning'
+            );
+
+            return `
+                <div class="invitation-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <strong>${invite.group_detail.name}</strong>
+                            <div class="invitation-meta">招待者: ${invite.inviter_detail.nickname}</div>
+                            ${invite.message ? `<div class="invitation-meta">メッセージ: ${invite.message}</div>` : ''}
+                        </div>
+                        <span class="badge bg-${badgeClass}">${statusBadge}</span>
+                    </div>
+                    ${canRespond ? `
+                        <div class="mt-2 d-flex gap-2">
+                            <button class="btn btn-sm btn-success" onclick="acceptInvitation(${invite.id})">
+                                <i class="fas fa-check"></i> 承認
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="declineInvitation(${invite.id})">
+                                <i class="fas fa-times"></i> 拒否
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
     }
 
     // フィルタ適用
@@ -633,11 +727,39 @@ document.addEventListener('DOMContentLoaded', function() {
             ARKHAM.showSuccess(`${inviteeIds.length}人に招待を送信しました`);
             bootstrap.Modal.getInstance(document.getElementById('inviteMemberModal')).hide();
             selectedFriends.clear();
+            loadInvitations();
         } catch (error) {
             console.error('Error sending invitations:', error);
             ARKHAM.handleError(error);
         }
     });
+
+    // 招待承認
+    window.acceptInvitation = async function(inviteId) {
+        try {
+            await axios.post(`/api/accounts/invitations/${inviteId}/accept/`);
+            ARKHAM.showSuccess('招待を承認しました');
+            loadInvitations();
+            loadGroups(currentViewType);
+        } catch (error) {
+            console.error('Error accepting invitation:', error);
+            ARKHAM.handleError(error);
+            loadInvitations();
+        }
+    };
+
+    // 招待拒否
+    window.declineInvitation = async function(inviteId) {
+        try {
+            await axios.post(`/api/accounts/invitations/${inviteId}/decline/`);
+            ARKHAM.showSuccess('招待を拒否しました');
+            loadInvitations();
+        } catch (error) {
+            console.error('Error declining invitation:', error);
+            ARKHAM.handleError(error);
+            loadInvitations();
+        }
+    };
 
     // グループ退出
     window.leaveGroup = async function(groupId) {
@@ -690,6 +812,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初期化
     loadGroups();
     loadFriends();
+    loadInvitations();
 });
 </script>
 {% endblock %}

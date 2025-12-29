@@ -7,15 +7,29 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from datetime import datetime, timedelta
-from .models import TRPGSession, SessionParticipant, HandoutInfo, SessionImage, SessionYouTubeLink
+from .models import (
+    TRPGSession,
+    SessionParticipant,
+    SessionNote,
+    SessionLog,
+    HandoutInfo,
+    SessionImage,
+    SessionYouTubeLink,
+)
 from .serializers import (
-    TRPGSessionSerializer, SessionParticipantSerializer, 
-    HandoutInfoSerializer, CalendarEventSerializer, SessionListSerializer,
-    SessionImageSerializer, SessionYouTubeLinkSerializer
+    TRPGSessionSerializer,
+    SessionParticipantSerializer,
+    SessionNoteSerializer,
+    SessionLogSerializer,
+    HandoutInfoSerializer,
+    CalendarEventSerializer,
+    SessionListSerializer,
+    SessionImageSerializer,
+    SessionYouTubeLinkSerializer,
 )
 from .services import YouTubeService
 from .notifications import SessionNotificationService
-from accounts.models import Group, CustomUser
+from accounts.models import Group, CustomUser, CharacterSheet
 
 
 class SessionsListView(APIView):
@@ -126,7 +140,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             notification_service.send_session_cancelled_notification(
                 instance, cancel_reason
             )
-        
+
         # セッション完了時の統計更新
         if old_status != 'completed' and instance.status == 'completed':
             self._update_session_statistics(instance)
@@ -174,10 +188,35 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def join(self, request, pk=None):
         session = self.get_object()
+
+        # 公開設定に応じた参加制限
+        if session.visibility == 'private' and session.gm != request.user:
+            return Response(
+                {'error': 'このセッションはプライベートです'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        if session.visibility == 'group':
+            if not session.group.members.filter(id=request.user.id).exists() and session.gm != request.user:
+                return Response(
+                    {'error': 'このセッションはグループメンバー限定です'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
         
         # プレイヤー枠とキャラクターシートを取得
         player_slot = request.data.get('player_slot')
-        character_sheet_id = request.data.get('character_sheet_id')
+        character_sheet_id = request.data.get('character_sheet_id') or request.data.get('character_sheet')
+        character_sheet = None
+        if character_sheet_id:
+            try:
+                character_sheet = CharacterSheet.objects.get(
+                    id=character_sheet_id,
+                    user=request.user
+                )
+            except CharacterSheet.DoesNotExist:
+                return Response(
+                    {'error': 'Character sheet not found or not owned by you'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         # プレイヤー枠の重複チェック
         if player_slot:
@@ -192,13 +231,19 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
         
+        character_name = request.data.get('character_name', '').strip()
+        if not character_name and character_sheet:
+            character_name = character_sheet.name
+
         participant, created = SessionParticipant.objects.get_or_create(
             session=session,
             user=request.user,
             defaults={
                 'role': 'player',
                 'player_slot': player_slot,
-                'character_sheet_id': character_sheet_id
+                'character_name': character_name,
+                'character_sheet_url': request.data.get('character_sheet_url', ''),
+                'character_sheet': character_sheet
             }
         )
         
@@ -206,8 +251,12 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             # 既存の参加者の情報を更新
             if player_slot:
                 participant.player_slot = player_slot
-            if character_sheet_id:
-                participant.character_sheet_id = character_sheet_id
+            if 'character_name' in request.data:
+                participant.character_name = request.data.get('character_name', '')
+            if 'character_sheet_url' in request.data:
+                participant.character_sheet_url = request.data.get('character_sheet_url', '')
+            if 'character_sheet_id' in request.data or 'character_sheet' in request.data:
+                participant.character_sheet = character_sheet
             participant.save()
         
         serializer = SessionParticipantSerializer(participant)
@@ -361,7 +410,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         
         player_slot = request.data.get('player_slot')
         user_id = request.data.get('user_id')
-        character_sheet_id = request.data.get('character_sheet_id')
+        character_sheet_id = request.data.get('character_sheet_id') or request.data.get('character_sheet')
         
         if not player_slot or not user_id:
             return Response(
@@ -397,6 +446,19 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        character_sheet = None
+        if character_sheet_id:
+            try:
+                character_sheet = CharacterSheet.objects.get(
+                    id=character_sheet_id,
+                    user=target_user
+                )
+            except CharacterSheet.DoesNotExist:
+                return Response(
+                    {'error': 'Character sheet not found or not owned by the user'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         # 参加者の作成または更新
         participant, created = SessionParticipant.objects.update_or_create(
             session=session,
@@ -404,7 +466,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             defaults={
                 'role': 'player',
                 'player_slot': player_slot,
-                'character_sheet_id': character_sheet_id
+                'character_sheet': character_sheet
             }
         )
         
@@ -462,7 +524,11 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # セッションIDでフィルタリング可能
         session_id = self.request.query_params.get('session_id')
-        queryset = SessionParticipant.objects.all()
+        queryset = SessionParticipant.objects.select_related(
+            'session',
+            'user',
+            'character_sheet'
+        )
         
         if session_id:
             queryset = queryset.filter(session_id=session_id)
@@ -563,7 +629,27 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        data = request.data.copy()
+        if hasattr(data, 'dict'):
+            data = data.dict()
+        if 'character_sheet_id' in data and 'character_sheet' not in data:
+            data['character_sheet'] = data.get('character_sheet_id')
+            data.pop('character_sheet_id', None)
+
+        if 'character_sheet' in data:
+            raw_value = data.get('character_sheet')
+            if raw_value in [None, '', 'null', 'None']:
+                data['character_sheet'] = None
+            else:
+                try:
+                    CharacterSheet.objects.get(id=raw_value, user=instance.user)
+                except CharacterSheet.DoesNotExist:
+                    return Response(
+                        {'error': 'Character sheet not found or not owned by participant'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+        serializer = self.get_serializer(instance, data=data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         
@@ -1138,7 +1224,9 @@ class SessionDetailView(APIView):
     
     def get_html_response(self, request, session, user):
         # 参加者情報
-        participants = SessionParticipant.objects.filter(session=session).select_related('user')
+        participants = SessionParticipant.objects.filter(
+            session=session
+        ).select_related('user', 'character_sheet')
         
         # ハンドアウト情報（権限に応じて）
         if session.gm == user:
@@ -1174,6 +1262,200 @@ class SessionDetailView(APIView):
         }
         
         return render(request, 'schedules/session_detail.html', context)
+
+
+class SessionNoteViewSet(viewsets.ModelViewSet):
+    """セッションノート管理ViewSet"""
+    serializer_class = SessionNoteSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        session_id = self.kwargs.get('session_id') or self.request.query_params.get('session_id')
+        queryset = SessionNote.objects.select_related('session', 'author')
+
+        if session_id:
+            session = get_object_or_404(TRPGSession, id=session_id)
+            if not self._has_session_access(session, user):
+                return SessionNote.objects.none()
+            if self._is_gm(session, user):
+                return queryset.filter(session=session)
+            return queryset.filter(session=session).filter(
+                Q(note_type__in=['public_summary', 'handover']) |
+                Q(note_type='player_note', author=user)
+            )
+
+        return queryset.filter(
+            Q(session__gm=user) |
+            (Q(session__participants=user) & (
+                Q(note_type__in=['public_summary', 'handover']) |
+                Q(note_type='player_note', author=user)
+            ))
+        ).distinct()
+
+    def create(self, request, *args, **kwargs):
+        session_id = self.kwargs.get('session_id') or request.data.get('session')
+        if not session_id:
+            return Response(
+                {'error': 'session is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        session = get_object_or_404(TRPGSession, id=session_id)
+        if not self._has_session_access(session, request.user):
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        is_gm = self._is_gm(session, request.user)
+        note_type = request.data.get('note_type') or 'player_note'
+
+        if not is_gm and note_type != 'player_note':
+            return Response(
+                {'error': 'Only GM can create this note type'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if not is_gm and str(request.data.get('is_pinned', '')).lower() in ['1', 'true', 'yes']:
+            return Response(
+                {'error': 'Only GM can pin notes'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(session=session, author=request.user)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        session = instance.session
+        user = self.request.user
+        is_gm = self._is_gm(session, user)
+
+        if not self._can_edit_note(instance, user):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only GM or author can update notes")
+
+        if not is_gm:
+            if 'note_type' in self.request.data and self.request.data['note_type'] != instance.note_type:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("Only GM can change note type")
+            if 'is_pinned' in self.request.data:
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("Only GM can pin notes")
+
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if not self._can_edit_note(instance, self.request.user):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only GM or author can delete notes")
+        instance.delete()
+
+    def _has_session_access(self, session, user):
+        return session.gm == user or session.participants.filter(id=user.id).exists()
+
+    def _is_gm(self, session, user):
+        return session.gm == user or SessionParticipant.objects.filter(
+            session=session,
+            user=user,
+            role='gm'
+        ).exists()
+
+    def _can_edit_note(self, note, user):
+        if self._is_gm(note.session, user):
+            return True
+        return note.author == user and note.note_type == 'player_note'
+
+
+class SessionLogViewSet(viewsets.ModelViewSet):
+    """セッションログ管理ViewSet"""
+    serializer_class = SessionLogSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        session_id = self.kwargs.get('session_id') or self.request.query_params.get('session_id')
+        queryset = SessionLog.objects.select_related(
+            'session',
+            'created_by',
+            'related_character'
+        )
+
+        if session_id:
+            session = get_object_or_404(TRPGSession, id=session_id)
+            if not self._has_session_access(session, user):
+                return SessionLog.objects.none()
+            return queryset.filter(session=session)
+
+        return queryset.filter(
+            Q(session__gm=user) | Q(session__participants=user)
+        ).distinct()
+
+    def create(self, request, *args, **kwargs):
+        session_id = self.kwargs.get('session_id') or request.data.get('session')
+        if not session_id:
+            return Response(
+                {'error': 'session is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        session = get_object_or_404(TRPGSession, id=session_id)
+        if not self._has_session_access(session, request.user):
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        data = request.data.copy()
+        related_character_id = data.get('related_character')
+        if related_character_id:
+            if not SessionParticipant.objects.filter(
+                session=session,
+                character_sheet_id=related_character_id
+            ).exists():
+                return Response(
+                    {'error': 'related_character is not part of this session'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(session=session, created_by=request.user)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        if not self._can_edit_log(instance, self.request.user):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only GM or creator can update logs")
+
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if not self._can_edit_log(instance, self.request.user):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only GM or creator can delete logs")
+        instance.delete()
+
+    def _has_session_access(self, session, user):
+        return session.gm == user or session.participants.filter(id=user.id).exists()
+
+    def _is_gm(self, session, user):
+        return session.gm == user or SessionParticipant.objects.filter(
+            session=session,
+            user=user,
+            role='gm'
+        ).exists()
+
+    def _can_edit_log(self, log, user):
+        if self._is_gm(log.session, user):
+            return True
+        return log.created_by == user
 
 
 class SessionImageViewSet(viewsets.ModelViewSet):

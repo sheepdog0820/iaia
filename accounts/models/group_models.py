@@ -3,6 +3,7 @@ Group-related models for accounts app
 """
 from django.db import models
 from django.utils import timezone
+from datetime import timedelta
 from .base_models import TimestampedModel
 from .user_models import CustomUser
 
@@ -45,6 +46,7 @@ class GroupMembership(models.Model):
 
 class GroupInvitation(models.Model):
     """Group invitation model with status tracking"""
+    INVITATION_EXPIRY_DAYS = 7
     STATUS_CHOICES = [
         ('pending', '保留中'),
         ('accepted', '承認済み'),
@@ -67,3 +69,26 @@ class GroupInvitation(models.Model):
     
     def __str__(self):
         return f"{self.inviter.nickname} invited {self.invitee.nickname} to {self.group.name}"
+
+    @property
+    def expires_at(self):
+        return self.created_at + timedelta(days=self.INVITATION_EXPIRY_DAYS)
+
+    @property
+    def is_expired(self):
+        return self.status == 'pending' and timezone.now() >= self.expires_at
+
+    def mark_expired(self, save=True):
+        self.status = 'expired'
+        self.responded_at = timezone.now()
+        if save:
+            self.save(update_fields=['status', 'responded_at'])
+
+    @classmethod
+    def expire_pending(cls):
+        """期限切れの招待を一括更新"""
+        cutoff = timezone.now() - timedelta(days=cls.INVITATION_EXPIRY_DAYS)
+        return cls.objects.filter(status='pending', created_at__lt=cutoff).update(
+            status='expired',
+            responded_at=timezone.now()
+        )
