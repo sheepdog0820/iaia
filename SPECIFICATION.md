@@ -271,6 +271,9 @@ arkham_nexus/
   - パブリックグループへの非メンバーアクセス制御修正
   - GroupViewSetのget_querysetメソッド改修
   - 管理者権限チェックの追加実装
+- **実装上の補足**
+  - 「リアルタイム」はAJAXによる再取得を指し、WebSocket等によるPush更新は未実装
+  - `DELETE /api/accounts/groups/<id>/remove_member/` は `user_id` または `username` の指定が必須
 
 ### 3.3 スケジュール管理機能
 
@@ -356,6 +359,7 @@ arkham_nexus/
 - `POST /api/accounts/groups/<id>/invite/` - メンバー招待
 - `POST /api/accounts/groups/<id>/leave/` - グループ退出
 - `DELETE /api/accounts/groups/<id>/remove_member/` - メンバー除名
+  - リクエストボディ: `user_id` または `username`
 - `GET/POST /api/accounts/friends/` - フレンド管理
 - `GET/POST /api/accounts/invitations/` - 招待管理（自動inviter設定）
 - `POST /api/accounts/invitations/<id>/accept/` - 招待受諾
@@ -367,6 +371,9 @@ arkham_nexus/
 - `GET /api/accounts/statistics/tindalos/` - Tindalos Metrics
 - `GET /api/accounts/statistics/ranking/` - ユーザーランキング
 - `GET /api/accounts/statistics/groups/` - グループ統計
+  - レスポンス: `group(id,name)` / `group_id` / `group_name` / `member_count` / `session_count` / `total_play_time`
+  - 追加: `total_hours` / `average_session_hours` / `active_members` / `top_gm` / `top_gm_sessions` / `member_contributions`
+  - 完了セッションが無いグループは返却対象外
 - `GET /api/accounts/export/statistics/` - 統計データエクスポート
 - `GET /api/accounts/export/formats/` - エクスポート形式一覧
 
@@ -541,6 +548,9 @@ arkham_nexus/
   - グループ別セッション数・プレイ時間
   - アクティブメンバー数
   - 上位GM情報
+- **メンバー別貢献度**
+  - GM/PL回数とプレイ時間の集計を返却
+  - 完了セッションが無いグループは返却対象外
 
 ## 7. 未実装機能
 

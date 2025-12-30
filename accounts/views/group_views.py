@@ -305,8 +305,17 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
         group = self.get_object()
         
         try:
+            user_id = request.data.get('user_id')
             username = request.data.get('username')
-            user = CustomUser.objects.get(username=username)
+            if user_id:
+                user = CustomUser.objects.get(id=user_id)
+            elif username:
+                user = CustomUser.objects.get(username=username)
+            else:
+                return Response(
+                    {'error': 'ユーザー指定が必要です'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             membership = GroupMembership.objects.get(user=user, group=group)
             
             # Cannot remove group creator

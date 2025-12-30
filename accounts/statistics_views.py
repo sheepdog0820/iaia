@@ -453,6 +453,17 @@ class TindalosMetricsView(APIView):
             session_count = sessions.count()
             total_minutes = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
             total_hours = round(total_minutes / 60, 1)
+            average_session_hours = round(total_hours / session_count, 1) if session_count > 0 else 0
+
+            participant_ids = SessionParticipant.objects.filter(
+                session__in=sessions
+            ).values_list('user_id', flat=True).distinct()
+            gm_ids = sessions.values_list('gm_id', flat=True).distinct()
+            active_members = len(set(participant_ids) | set(gm_ids))
+
+            top_gm = sessions.values('gm__nickname', 'gm__username').annotate(
+                gm_count=Count('id')
+            ).order_by('-gm_count').first()
             
             if session_count > 0:  # アクティブなグループのみ
                 group_data.append({
@@ -460,6 +471,11 @@ class TindalosMetricsView(APIView):
                     'group_name': group.name,
                     'session_count': session_count,
                     'total_hours': total_hours,
+                    'average_session_hours': average_session_hours,
+                    'active_members': active_members,
+                    'total_members': group.members.count(),
+                    'top_gm': (top_gm['gm__nickname'] or top_gm['gm__username']) if top_gm else None,
+                    'top_gm_sessions': top_gm['gm_count'] if top_gm else 0,
                 })
         
         return sorted(group_data, key=lambda x: x['session_count'], reverse=True)
@@ -794,14 +810,24 @@ class GroupStatisticsView(APIView):
         # テスト用に修正された構造
         groups_data = []
         for stats in group_stats:
+            total_hours = stats.get('total_hours', 0)
             group_info = {
                 'group': {
                     'id': stats['group_id'],
                     'name': stats['group_name']
                 },
+                'group_id': stats['group_id'],
+                'group_name': stats['group_name'],
                 'member_count': stats['total_members'],
+                'total_members': stats['total_members'],
                 'session_count': stats['session_count'],
-                'total_play_time': stats.get('total_hours', 0) * 60  # 分単位に変換
+                'total_play_time': total_hours * 60,  # 分単位に変換
+                'total_hours': total_hours,
+                'average_session_hours': stats.get('avg_session_hours', 0),
+                'active_members': stats.get('active_members', 0),
+                'top_gm': stats.get('top_gm'),
+                'top_gm_sessions': stats.get('top_gm_sessions', 0),
+                'member_contributions': stats.get('member_contributions', []),
             }
             groups_data.append(group_info)
         
@@ -822,14 +848,20 @@ class GroupStatisticsView(APIView):
         total_minutes = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
         total_hours = round(total_minutes / 60, 1)
         
-        # アクティブメンバー数（その年にセッションに参加したメンバー）
-        active_members = sessions.values('participants').distinct().count()
+        # アクティブメンバー数（GM + 参加者）
+        participant_ids = SessionParticipant.objects.filter(
+            session__in=sessions
+        ).values_list('user_id', flat=True).distinct()
+        gm_ids = sessions.values_list('gm_id', flat=True).distinct()
+        active_members = len(set(participant_ids) | set(gm_ids))
         
         # 最も活発なGM
         top_gm = sessions.values('gm__nickname', 'gm__username').annotate(
             gm_count=Count('id')
         ).order_by('-gm_count').first()
-        
+
+        member_contributions = self._get_member_contributions(group, sessions)
+
         return {
             'group_id': group.id,
             'group_name': group.name,
@@ -840,7 +872,82 @@ class GroupStatisticsView(APIView):
             'total_members': group.members.count(),
             'top_gm': (top_gm['gm__nickname'] or top_gm['gm__username']) if top_gm else None,
             'top_gm_sessions': top_gm['gm_count'] if top_gm else 0,
+            'member_contributions': member_contributions,
         }
+
+    def _get_member_contributions(self, group, sessions):
+        """メンバー別の貢献度（GM/PL回数とプレイ時間）"""
+        if not sessions.exists():
+            return []
+
+        member_ids = set(group.members.values_list('id', flat=True))
+        contributions = {}
+
+        gm_stats = sessions.values('gm_id').annotate(
+            session_count=Count('id'),
+            total_minutes=Sum('duration_minutes')
+        )
+        for gm_stat in gm_stats:
+            user_id = gm_stat['gm_id']
+            if user_id not in member_ids:
+                continue
+            data = contributions.setdefault(user_id, {
+                'user_id': user_id,
+                'nickname': None,
+                'gm_sessions': 0,
+                'player_sessions': 0,
+                'total_sessions': 0,
+                'total_play_minutes': 0,
+                'total_play_hours': 0,
+            })
+            gm_sessions = gm_stat['session_count'] or 0
+            gm_minutes = gm_stat['total_minutes'] or 0
+            data['gm_sessions'] += gm_sessions
+            data['total_sessions'] += gm_sessions
+            data['total_play_minutes'] += gm_minutes
+
+        player_stats = SessionParticipant.objects.filter(
+            session__in=sessions,
+            role='player'
+        ).values('user_id').annotate(
+            session_count=Count('session', distinct=True),
+            total_minutes=Sum('session__duration_minutes')
+        )
+        for player_stat in player_stats:
+            user_id = player_stat['user_id']
+            if user_id not in member_ids:
+                continue
+            data = contributions.setdefault(user_id, {
+                'user_id': user_id,
+                'nickname': None,
+                'gm_sessions': 0,
+                'player_sessions': 0,
+                'total_sessions': 0,
+                'total_play_minutes': 0,
+                'total_play_hours': 0,
+            })
+            player_sessions = player_stat['session_count'] or 0
+            player_minutes = player_stat['total_minutes'] or 0
+            data['player_sessions'] += player_sessions
+            data['total_sessions'] += player_sessions
+            data['total_play_minutes'] += player_minutes
+
+        if not contributions:
+            return []
+
+        users = CustomUser.objects.filter(id__in=contributions.keys()).values(
+            'id', 'nickname', 'username'
+        )
+        name_map = {u['id']: (u['nickname'] or u['username']) for u in users}
+
+        result = []
+        for user_id, data in contributions.items():
+            data['nickname'] = name_map.get(user_id)
+            data['total_play_hours'] = round(data['total_play_minutes'] / 60, 1) if data['total_play_minutes'] else 0
+            result.append(data)
+
+        result.sort(key=lambda item: item['total_play_minutes'], reverse=True)
+        return result
 
 
 class DetailedTindalosMetricsView(APIView):

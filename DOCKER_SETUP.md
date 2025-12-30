@@ -103,6 +103,16 @@ docker compose exec web python manage.py shell
 docker compose exec web python manage.py collectstatic --noinput
 ```
 
+### テスト実行
+
+```bash
+# コンテナ起動済みの場合
+docker compose exec web python manage.py test accounts.test_group_features
+
+# 使い捨てコンテナで実行する場合
+docker compose run --rm web python manage.py test accounts.test_group_features
+```
+
 ### データベース操作
 
 ```bash

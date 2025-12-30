@@ -2,9 +2,15 @@
 
 **Gate of Yog-Sothoth** - 時空を超えるTRPGスケジュール管理サービス
 
-![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
+![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
 ![Django](https://img.shields.io/badge/Django-4.2+-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+
+## 🧰 環境要件
+
+- Python 3.11+
+- ローカル開発のDBはSQLiteがデフォルト
+- Dockerでの起動は `DOCKER_SETUP.md` を参照
 
 ## 📖 概要
 
@@ -56,9 +62,18 @@ python3 -m venv venv
 source venv/bin/activate  # Windows: venv\\Scripts\\activate
 ```
 
+または conda を使う場合：
+
+```bash
+conda create -n iaia python=3.11
+conda activate iaia
+```
+
 3. **依存関係インストール**
 ```bash
 pip install -r requirements.txt
+# 開発・テスト用
+pip install -r requirements-dev.txt
 ```
 
 4. **環境変数設定**
@@ -90,6 +105,15 @@ python manage.py runserver
 ```
 
 アプリケーションは http://localhost:8000 でアクセスできます。
+
+### Docker で起動する場合
+
+Docker での起動手順は `DOCKER_SETUP.md` を参照してください。
+
+### 依存関係の注意
+
+- `mysqlclient` のビルドに失敗する場合は conda を推奨
+- `allauth` の Google プロバイダーを使う場合は `cryptography` が必要
 
 ### テストアカウント
 

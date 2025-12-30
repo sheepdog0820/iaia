@@ -555,6 +555,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     <small>${group.session_count}セッション</small>
                     <small>${group.total_hours}時間</small>
                 </div>
+                <div class="d-flex justify-content-between text-muted">
+                    <small>アクティブ: ${group.active_members ?? '—'}人</small>
+                    <small>上位GM: ${group.top_gm || '—'}</small>
+                </div>
             </div>
         `).join('');
     }

@@ -148,6 +148,47 @@
     </div>
 </div>
 
+<!-- グループ編集モーダル -->
+<div class="modal fade" id="editGroupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title eldritch-font">
+                    <i class="fas fa-pen"></i> グループ情報の編集
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editGroupForm">
+                    <div class="mb-3">
+                        <label for="editGroupName" class="form-label">グループ名</label>
+                        <input type="text" class="form-control" id="editGroupName" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editGroupDescription" class="form-label">説明</label>
+                        <textarea class="form-control" id="editGroupDescription" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editGroupVisibility" class="form-label">公開設定</label>
+                        <select class="form-select" id="editGroupVisibility">
+                            <option value="private">プライベート（招待制）</option>
+                            <option value="public">公開（誰でも参加可能）</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" id="updateGroupBtn">
+                    <i class="fas fa-save"></i> 変更を保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- グループ詳細モーダル -->
 <div class="modal fade" id="groupDetailModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -320,6 +361,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let displayGroups = [];
     let friends = [];
     let currentGroupId = null;
+    let currentGroupDetail = null;
+    let editingGroupId = null;
     let selectedFriends = new Set();
     let currentViewType = 'my';
     let invitations = [];
@@ -536,10 +579,70 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await axios.get(`/api/accounts/groups/${groupId}/`);
             const group = response.data;
+            currentGroupDetail = group;
             
             // メンバー情報取得
             const membersResponse = await axios.get(`/api/accounts/groups/${groupId}/members/`);
             const members = membersResponse.data;
+            const isAdmin = group.member_role === 'admin';
+            const isMember = group.is_member;
+            let actionButtons = '';
+
+            if (isAdmin) {
+                actionButtons = `
+                    <div class="mt-3">
+                        <button class="btn btn-primary w-100 mb-2" onclick="inviteMembers(${group.id})">
+                            <i class="fas fa-user-plus"></i> メンバーを招待
+                        </button>
+                        <button class="btn btn-outline-primary w-100 mb-2" onclick="openEditGroupModal()">
+                            <i class="fas fa-pen"></i> グループを編集
+                        </button>
+                        <button class="btn btn-outline-danger w-100" onclick="deleteGroup(${group.id})">
+                            <i class="fas fa-trash"></i> グループを削除
+                        </button>
+                    </div>
+                `;
+            } else if (isMember) {
+                actionButtons = `
+                    <div class="mt-3">
+                        <button class="btn btn-outline-danger w-100" onclick="leaveGroup(${group.id})">
+                            <i class="fas fa-sign-out-alt"></i> グループを退出
+                        </button>
+                    </div>
+                `;
+            } else if (group.visibility === 'public') {
+                actionButtons = `
+                    <div class="mt-3">
+                        <button class="btn btn-success w-100" onclick="joinGroup(${group.id})">
+                            <i class="fas fa-plus"></i> グループに参加
+                        </button>
+                    </div>
+                `;
+            }
+
+            const membersHtml = members.map(member => {
+                const displayName = member.user_detail.nickname || member.user_detail.username;
+                const joinedDate = new Date(member.joined_at).toLocaleDateString('ja-JP');
+                const canRemove = isAdmin &&
+                    member.user !== group.created_by &&
+                    member.user !== window.CURRENT_USER.id;
+                return `
+                    <div class="member-item">
+                        <div>
+                            <i class="fas fa-user-circle"></i> ${displayName}
+                            ${member.role === 'admin' ? '<span class="badge bg-primary ms-2 role-badge">管理者</span>' : ''}
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <small class="text-muted">参加: ${joinedDate}</small>
+                            ${canRemove ? `
+                                <button class="btn btn-sm btn-outline-danger" onclick="removeMember(${member.user})">
+                                    除名
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
             
             titleEl.textContent = group.name;
             bodyEl.innerHTML = `
@@ -564,15 +667,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         <h6 class="mt-4">メンバー一覧</h6>
                         <div class="members-list">
-                            ${members.map(member => `
-                                <div class="member-item">
-                                    <div>
-                                        <i class="fas fa-user-circle"></i> ${member.user_detail.nickname}
-                                        ${member.role === 'admin' ? '<span class="badge bg-primary ms-2 role-badge">管理者</span>' : ''}
-                                    </div>
-                                    <small class="text-muted">参加: ${new Date(member.joined_at).toLocaleDateString('ja-JP')}</small>
-                                </div>
-                            `).join('')}
+                            ${membersHtml || '<p class="text-muted mb-0">メンバーがいません</p>'}
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -593,23 +688,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </p>
                             </div>
                         </div>
-                        
-                        ${group.created_by === window.CURRENT_USER.id ? `
-                            <div class="mt-3">
-                                <button class="btn btn-primary w-100 mb-2" onclick="inviteMembers(${group.id})">
-                                    <i class="fas fa-user-plus"></i> メンバーを招待
-                                </button>
-                                <button class="btn btn-outline-danger w-100">
-                                    <i class="fas fa-trash"></i> グループを削除
-                                </button>
-                            </div>
-                        ` : `
-                            <div class="mt-3">
-                                <button class="btn btn-outline-danger w-100" onclick="leaveGroup(${group.id})">
-                                    <i class="fas fa-sign-out-alt"></i> グループを退出
-                                </button>
-                            </div>
-                        `}
+                        ${actionButtons}
                     </div>
                 </div>
             `;
@@ -621,10 +700,27 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
+    // グループ編集モーダル表示
+    window.openEditGroupModal = function() {
+        if (!currentGroupDetail) {
+            ARKHAM.showError('編集対象のグループが見つかりません');
+            return;
+        }
+
+        editingGroupId = currentGroupDetail.id;
+        document.getElementById('editGroupName').value = currentGroupDetail.name;
+        document.getElementById('editGroupDescription').value = currentGroupDetail.description || '';
+        document.getElementById('editGroupVisibility').value = currentGroupDetail.visibility;
+
+        const modal = new bootstrap.Modal(document.getElementById('editGroupModal'));
+        modal.show();
+    };
+
     // メンバー招待
     window.inviteMembers = async function(groupId) {
         const modal = new bootstrap.Modal(document.getElementById('inviteMemberModal'));
         const container = document.getElementById('inviteFriendsList');
+        selectedFriends.clear();
         
         // グループメンバーを取得
         const membersResponse = await axios.get(`/api/accounts/groups/${groupId}/members/`);
@@ -687,6 +783,37 @@ document.addEventListener('DOMContentLoaded', function() {
             loadGroups(currentViewType);
         } catch (error) {
             console.error('Error creating group:', error);
+            ARKHAM.handleError(error);
+        }
+    });
+
+    // グループ編集
+    document.getElementById('updateGroupBtn').addEventListener('click', async function() {
+        const form = document.getElementById('editGroupForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        if (!editingGroupId) {
+            ARKHAM.showError('編集対象のグループが見つかりません');
+            return;
+        }
+
+        const data = {
+            name: document.getElementById('editGroupName').value,
+            description: document.getElementById('editGroupDescription').value,
+            visibility: document.getElementById('editGroupVisibility').value
+        };
+
+        try {
+            await axios.patch(`/api/accounts/groups/${editingGroupId}/`, data);
+            ARKHAM.showSuccess('グループ情報を更新しました');
+            bootstrap.Modal.getInstance(document.getElementById('editGroupModal')).hide();
+            loadGroups(currentViewType);
+            showGroupDetail(editingGroupId);
+        } catch (error) {
+            console.error('Error updating group:', error);
             ARKHAM.handleError(error);
         }
     });
@@ -761,6 +888,47 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
+    // グループ削除
+    window.deleteGroup = async function(groupId) {
+        if (!confirm('本当にこのグループを削除しますか？')) {
+            return;
+        }
+
+        try {
+            await axios.delete(`/api/accounts/groups/${groupId}/`);
+            ARKHAM.showSuccess('グループを削除しました');
+            bootstrap.Modal.getInstance(document.getElementById('groupDetailModal')).hide();
+            loadGroups(currentViewType);
+        } catch (error) {
+            console.error('Error deleting group:', error);
+            ARKHAM.handleError(error);
+        }
+    };
+
+    // メンバー除名
+    window.removeMember = async function(userId) {
+        if (!currentGroupId) {
+            ARKHAM.showError('グループが選択されていません');
+            return;
+        }
+
+        if (!confirm('このメンバーを除名しますか？')) {
+            return;
+        }
+
+        try {
+            await axios.delete(`/api/accounts/groups/${currentGroupId}/remove_member/`, {
+                data: { user_id: userId }
+            });
+            ARKHAM.showSuccess('メンバーを除名しました');
+            showGroupDetail(currentGroupId);
+            loadGroups(currentViewType);
+        } catch (error) {
+            console.error('Error removing member:', error);
+            ARKHAM.handleError(error);
+        }
+    };
+
     // グループ退出
     window.leaveGroup = async function(groupId) {
         if (!confirm('本当にこのグループを退出しますか？')) {
@@ -782,7 +950,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.joinGroup = async function(groupId) {
         try {
             const response = await axios.post(`/api/accounts/groups/${groupId}/join/`);
-            ARKHAM.showSuccess(response.data.message);
+            ARKHAM.showSuccess(response.data.message || 'グループに参加しました');
             loadGroups(currentViewType); // 現在のビューを再読み込み
         } catch (error) {
             console.error('Error joining group:', error);

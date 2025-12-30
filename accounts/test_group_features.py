@@ -232,3 +232,94 @@ class GroupMemberCharactersAPITestCase(APITestCase):
         self.client.force_authenticate(user=self.non_member)
         response = self.client.get(f'/api/accounts/groups/{self.group.id}/member_characters/')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class GroupAdminActionsAPITestCase(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='admin_action_user',
+            email='admin_action@example.com',
+            password='pass123',
+            nickname='Admin Action'
+        )
+        self.member = User.objects.create_user(
+            username='member_action_user',
+            email='member_action@example.com',
+            password='pass123',
+            nickname='Member Action'
+        )
+        self.group = Group.objects.create(
+            name='Action Group',
+            description='Initial description',
+            visibility='private',
+            created_by=self.admin
+        )
+        GroupMembership.objects.create(user=self.admin, group=self.group, role='admin')
+        GroupMembership.objects.create(user=self.member, group=self.group, role='member')
+
+    def test_admin_can_update_group(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.patch(
+            f'/api/accounts/groups/{self.group.id}/',
+            {
+                'name': 'Updated Group',
+                'description': 'Updated description',
+                'visibility': 'public'
+            },
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.group.refresh_from_db()
+        self.assertEqual(self.group.name, 'Updated Group')
+        self.assertEqual(self.group.description, 'Updated description')
+        self.assertEqual(self.group.visibility, 'public')
+
+    def test_member_cannot_update_group(self):
+        self.client.force_authenticate(user=self.member)
+        response = self.client.patch(
+            f'/api/accounts/groups/{self.group.id}/',
+            {'name': 'Blocked Update'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_delete_group(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.delete(f'/api/accounts/groups/{self.group.id}/')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Group.objects.filter(id=self.group.id).exists())
+
+    def test_member_cannot_delete_group(self):
+        self.client.force_authenticate(user=self.member)
+        response = self.client.delete(f'/api/accounts/groups/{self.group.id}/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_remove_member_by_user_id(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.delete(
+            f'/api/accounts/groups/{self.group.id}/remove_member/',
+            data={'user_id': self.member.id},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(
+            GroupMembership.objects.filter(user=self.member, group=self.group).exists()
+        )
+
+    def test_remove_member_requires_user_identifier(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.delete(
+            f'/api/accounts/groups/{self.group.id}/remove_member/',
+            data={},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_member_cannot_remove_member(self):
+        self.client.force_authenticate(user=self.member)
+        response = self.client.delete(
+            f'/api/accounts/groups/{self.group.id}/remove_member/',
+            data={'user_id': self.admin.id},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
