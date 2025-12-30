@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
  * 既存のサーバーを使用する設定
  */
 export default defineConfig({
-  testDir: './tests/e2e',
+  testDir: './tests/e2e/flows',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
