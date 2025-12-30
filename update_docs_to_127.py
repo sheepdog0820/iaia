@@ -34,9 +34,9 @@ def update_localhost_to_127(file_path):
         content = content.replace('/auth/google/callback/', '/accounts/google/login/callback/')
         content = content.replace('/auth/google/login/callback/', '/accounts/google/login/callback/')
 
-        # /auth/twitter/callback/ -> /accounts/twitter/login/callback/
-        content = content.replace('/auth/twitter/callback/', '/accounts/twitter/login/callback/')
-        content = content.replace('/auth/twitter/login/callback/', '/accounts/twitter/login/callback/')
+        # /auth/twitter/callback/ -> /accounts/twitter_oauth2/login/callback/
+        content = content.replace('/auth/twitter/callback/', '/accounts/twitter_oauth2/login/callback/')
+        content = content.replace('/auth/twitter/login/callback/', '/accounts/twitter_oauth2/login/callback/')
 
         if content != original_content:
             with open(file_path, 'w', encoding='utf-8') as f:

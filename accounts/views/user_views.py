@@ -104,11 +104,16 @@ class CustomLoginView(FormView):
     success_url = reverse_lazy('dashboard')
 
     def get_context_data(self, **kwargs):
-        """Add google_configured flag to context"""
+        """Add social login configuration flags to context"""
         from allauth.socialaccount.models import SocialApp
 
         context = super().get_context_data(**kwargs)
-        context['google_configured'] = SocialApp.objects.filter(provider='google').exists()
+        providers = set(SocialApp.objects.filter(
+            provider__in=['google', 'twitter_oauth2']
+        ).values_list('provider', flat=True))
+        context['google_configured'] = 'google' in providers
+        context['twitter_configured'] = 'twitter_oauth2' in providers
+        context['social_login_available'] = bool(providers)
         return context
 
     def form_valid(self, form):
@@ -148,6 +153,19 @@ class CustomSignUpView(FormView):
         )
         login(self.request, user)
         return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        """Add social login configuration flags to context"""
+        from allauth.socialaccount.models import SocialApp
+
+        context = super().get_context_data(**kwargs)
+        providers = set(SocialApp.objects.filter(
+            provider__in=['google', 'twitter_oauth2']
+        ).values_list('provider', flat=True))
+        context['google_configured'] = 'google' in providers
+        context['twitter_configured'] = 'twitter_oauth2' in providers
+        context['social_login_available'] = bool(providers)
+        return context
 
 
 class CustomLogoutView(View):
@@ -216,9 +234,12 @@ class DashboardView(TemplateView):
         ).distinct().order_by('-date')[:5]
         
         # Get social accounts
-        context['social_accounts'] = SocialAccount.objects.filter(
-            user=self.request.user
-        )
+        social_accounts = SocialAccount.objects.filter(user=self.request.user)
+        context['social_accounts'] = social_accounts
+        context['social_login_connected'] = social_accounts.filter(
+            provider__in=['google', 'twitter_oauth2']
+        ).exists()
+        context['email_missing'] = not bool(self.request.user.email)
         
         return context
 
@@ -256,7 +277,7 @@ def demo_login_page(request):
     """Demo login page for development"""
     providers = [
         {'name': 'Google', 'id': 'google'},
-        {'name': 'Twitter', 'id': 'twitter'},
+        {'name': 'X', 'id': 'twitter_oauth2'},
     ]
     
     return render(request, 'accounts/demo_login.html', {
@@ -277,7 +298,7 @@ def mock_social_login(request, provider):
                 'nickname': 'Google Demo User'
             }
         )
-    elif provider == 'twitter':
+    elif provider == 'twitter_oauth2':
         user, created = User.objects.get_or_create(
             username='twitter_demo_user',
             defaults={

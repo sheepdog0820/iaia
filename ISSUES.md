@@ -5,28 +5,6 @@
 
 ---
 
-## 🔴 優先度: 高
-
-### ISSUE-022: X（Twitter）OAuth API認証の実装
-- **カテゴリ**: 新機能実装
-- **影響範囲**: API認証
-- **詳細**:
-  - X（Twitter）OAuthをAPI経由で利用するための認証機能
-  - django-allauthとDjango REST Frameworkの統合
-- **該当ファイル**:
-  - `arkham_nexus/settings.py` - X OAuth設定
-  - `accounts/views/auth_views.py` - X OAuth認証ビューの実装
-  - `accounts/serializers.py` - X OAuth認証シリアライザー
-- **実装内容**:
-  - ❌ **X Developer Portal設定** - OAuth 2.0アプリケーション作成
-  - ❌ **X OAuth APIエンドポイント** - /api/auth/twitter/
-  - ❌ **Xトークン検証** - X OAuth2 APIでのトークン検証
-  - ❌ **ユーザー情報取得** - Xプロフィール情報の取得
-  - ❌ **APIトークン生成** - 認証成功後のDRFトークン生成
-- **作成日**: 2025年7月3日
-
----
-
 ## 🟡 優先度: 中
 
 ### ISSUE-006: グループ統計APIの詳細実装

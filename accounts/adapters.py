@@ -64,16 +64,17 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
                 # プロフィール画像のURLを保存（実装は後で追加可能）
                 pass
                 
-        elif sociallogin.account.provider == 'twitter':
-            # Twitterアカウントからの情報取得
+        elif sociallogin.account.provider == 'twitter_oauth2':
+            # X (Twitter) アカウントからの情報取得
             if 'name' in extra_data:
                 names = extra_data['name'].split(' ', 1)
                 user.first_name = names[0]
                 if len(names) > 1:
                     user.last_name = names[1]
                     
-            if 'screen_name' in extra_data and not user.nickname:
-                user.nickname = extra_data['screen_name']
+            username = extra_data.get('username') or extra_data.get('screen_name')
+            if username and not user.nickname:
+                user.nickname = username
         
         # ニックネームが設定されていない場合はユーザー名を使用
         if not user.nickname:

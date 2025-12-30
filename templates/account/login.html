@@ -29,7 +29,7 @@
                         <i class="fas fa-lock text-primary fa-3x mb-3"></i>
                         <h5 class="text-primary mb-3">ソーシャルアカウントでログイン</h5>
                         <p class="text-muted">
-                            Googleアカウントを使用してログインしてください。<br>
+                            Google または X（Twitter）アカウントでログインできます。<br>
                             初回ログイン時に自動でアカウントが作成されます。
                         </p>
                     </div>
@@ -41,24 +41,25 @@
                                 <i class="fab fa-google fa-lg me-2"></i>
                                 <span>Googleでログイン</span>
                             </a>
-                        {% else %}
+                        {% endif %}
+
+                        {% if twitter_configured %}
+                            <a href="{% provider_login_url 'twitter_oauth2' %}" class="btn btn-info btn-lg social-btn">
+                                <i class="fab fa-twitter fa-lg me-2"></i>
+                                <span>X (Twitter)でログイン</span>
+                            </a>
+                        {% endif %}
+
+                        {% if not social_login_available %}
                             <div class="alert alert-warning">
                                 <i class="fas fa-exclamation-triangle me-2"></i>
                                 <strong>ソーシャルログインは未設定です</strong><br>
                                 <small>
-                                    管理者: 以下のコマンドでGoogle OAuth設定を行ってください<br>
-                                    <code>python setup_google_oauth.py</code>
+                                    管理者: Google は <code>python setup_google_oauth.py</code>、<br>
+                                    X は <code>python setup_twitter_oauth.py</code> で設定できます。
                                 </small>
                             </div>
                         {% endif %}
-
-                        <!-- Twitter OAuth設定後に有効化 -->
-                        <!--
-                        <a href="" class="btn btn-info btn-lg social-btn">
-                            <i class="fab fa-twitter fa-lg me-2"></i>
-                            <span>X (Twitter)でログイン</span>
-                        </a>
-                        -->
                     </div>
 
                     <hr class="my-4">

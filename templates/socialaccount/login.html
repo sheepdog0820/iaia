@@ -5,7 +5,7 @@
 {% if process == "connect" %}
 メール/ソーシャル連携 - Arkham Nexus
 {% else %}
-Googleログイン - Arkham Nexus
+{{ provider.name }}ログイン - Arkham Nexus
 {% endif %}
 {% endblock %}
 
@@ -43,20 +43,26 @@ Googleログイン - Arkham Nexus
 
                     <div class="text-center mb-4">
                         <div class="provider-badge mx-auto mb-3">
-                            <span class="google-g">G</span>
+                            {% if provider.id == 'google' %}
+                                <span class="google-g">G</span>
+                            {% elif provider.id == 'twitter_oauth2' %}
+                                <span class="twitter-x">X</span>
+                            {% else %}
+                                <span class="provider-initial">{{ provider.name|slice:":1" }}</span>
+                            {% endif %}
                         </div>
                         <h5 class="mb-2">
                             {% if process == "connect" %}
-                                Googleを連携します
+                                {{ provider.name }}を連携します
                             {% else %}
-                                Googleでログインします
+                                {{ provider.name }}でログインします
                             {% endif %}
                         </h5>
                         <p class="text-muted mb-0">
                             {% if process == "connect" %}
-                                続行すると、現在のアカウントにGoogleアカウントが紐づきます。
+                                続行すると、現在のアカウントに{{ provider.name }}アカウントが紐づきます。
                             {% else %}
-                                続行すると、Googleアカウントでログインします。
+                                続行すると、{{ provider.name }}アカウントでログインします。
                             {% endif %}
                         </p>
                     </div>
@@ -67,12 +73,18 @@ Googleログイン - Arkham Nexus
                             <input type="hidden" name="process" value="{{ process }}">
                         {% endif %}
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-google btn-lg" id="continue-btn">
-                                <i class="fab fa-google me-2"></i>
-                                {% if process == "connect" %}
-                                    Googleと連携して続行
+                            <button type="submit" class="btn {% if provider.id == 'google' %}btn-google{% elif provider.id == 'twitter_oauth2' %}btn-twitter{% else %}btn-secondary{% endif %} btn-lg" id="continue-btn">
+                                {% if provider.id == 'google' %}
+                                    <i class="fab fa-google me-2"></i>
+                                {% elif provider.id == 'twitter_oauth2' %}
+                                    <i class="fab fa-twitter me-2"></i>
                                 {% else %}
-                                    Googleで続行
+                                    <i class="fas fa-user me-2"></i>
+                                {% endif %}
+                                {% if process == "connect" %}
+                                    {{ provider.name }}と連携して続行
+                                {% else %}
+                                    {{ provider.name }}で続行
                                 {% endif %}
                             </button>
                             {% if process == "connect" %}
@@ -138,6 +150,14 @@ Googleログイン - Arkham Nexus
     color: #ffffff;
 }
 
+.twitter-x,
+.provider-initial {
+    font-weight: 800;
+    font-size: 28px;
+    letter-spacing: -1px;
+    color: #ffffff;
+}
+
 .btn-google {
     color: #ffffff;
     border: 2px solid #ea4335;
@@ -149,6 +169,20 @@ Googleログイン - Arkham Nexus
     border-color: #d33b2c;
     background: linear-gradient(135deg, #d33b2c 0%, #b52d20 100%);
     box-shadow: 0 8px 25px rgba(234, 67, 53, 0.35);
+    transform: translateY(-1px);
+}
+
+.btn-twitter {
+    color: #ffffff;
+    border: 2px solid #1da1f2;
+    background: linear-gradient(135deg, #1da1f2 0%, #0d8ddb 100%);
+}
+
+.btn-twitter:hover {
+    color: #ffffff;
+    border-color: #0d8ddb;
+    background: linear-gradient(135deg, #0d8ddb 0%, #0b7fc7 100%);
+    box-shadow: 0 8px 25px rgba(29, 161, 242, 0.35);
     transform: translateY(-1px);
 }
 </style>
@@ -167,4 +201,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-

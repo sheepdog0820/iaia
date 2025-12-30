@@ -24,7 +24,7 @@ Arkham NexusでGoogleとTwitter/Xのソーシャル認証を設定するため�
 3. App Settings → User authentication settings
 4. OAuth 2.0を有効化
 5. Callback URLに以下を追加：
-   - `http://localhost:8000/accounts/twitter/login/callback/`
+   - `http://localhost:8000/accounts/twitter_oauth2/login/callback/`
 6. Client IDとClient Secretを取得
 
 ### 3. 環境変数設定
@@ -41,7 +41,7 @@ ALLOWED_HOSTS=localhost,127.0.0.1
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 
-# Twitter OAuth
+# Twitter OAuth2
 TWITTER_CLIENT_ID=your-twitter-client-id
 TWITTER_CLIENT_SECRET=your-twitter-client-secret
 ```
@@ -67,7 +67,7 @@ google_app.secret = 'YOUR_GOOGLE_CLIENT_SECRET'
 google_app.save()
 
 # Twitter設定更新
-twitter_app = SocialApp.objects.get(provider='twitter')
+twitter_app = SocialApp.objects.get(provider='twitter_oauth2')
 twitter_app.client_id = 'YOUR_TWITTER_CLIENT_ID'
 twitter_app.secret = 'YOUR_TWITTER_CLIENT_SECRET'
 twitter_app.save()

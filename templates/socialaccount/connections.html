@@ -27,9 +27,9 @@
                                     {% if socialaccount.provider == 'google' %}
                                         <i class="fab fa-google text-danger fa-lg me-2"></i>
                                         <strong>Google</strong>
-                                    {% elif socialaccount.provider == 'twitter' %}
+                                    {% elif socialaccount.provider == 'twitter_oauth2' %}
                                         <i class="fab fa-twitter text-info fa-lg me-2"></i>
-                                        <strong>Twitter</strong>
+                                        <strong>X</strong>
                                     {% endif %}
                                     <br>
                                     <small class="text-muted">{{ socialaccount.extra_data.email|default:socialaccount.uid }}</small>
@@ -62,9 +62,9 @@
                                 <a href="{% provider_login_url provider.id next=request.path %}" class="btn btn-outline-danger">
                                     <i class="fab fa-google"></i> Googleアカウントを連携
                                 </a>
-                            {% elif provider.id == 'twitter' %}
+                            {% elif provider.id == 'twitter_oauth2' %}
                                 <a href="{% provider_login_url provider.id next=request.path %}" class="btn btn-outline-info">
-                                    <i class="fab fa-twitter"></i> Twitterアカウントを連携
+                                    <i class="fab fa-twitter"></i> Xアカウントを連携
                                 </a>
                             {% endif %}
                         {% endfor %}

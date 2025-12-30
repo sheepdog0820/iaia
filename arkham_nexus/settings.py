@@ -44,6 +44,10 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8000",
 ]
 
+# ngrok等のリバースプロキシ経由でHTTPSを判定する
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
+
 
 # Application definition
 
@@ -60,7 +64,7 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
-    # 'allauth.socialaccount.providers.twitter',  # Twitter OAuth設定後に有効化
+    'allauth.socialaccount.providers.twitter_oauth2',
     'rest_framework',
     'rest_framework.authtoken',
     # 'corsheaders',  # 8000番ポート統一のため無効化
@@ -179,6 +183,7 @@ ACCOUNT_SIGNUP_FORM_CLASS = None
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_ONLY = False  # 通常ログインとソーシャルログイン両方を許可
 ACCOUNT_PREVENT_ENUMERATION = False
+SOCIALACCOUNT_EMAIL_REQUIRED = False
 
 # Custom adapters
 ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
@@ -205,7 +210,8 @@ SOCIALACCOUNT_PROVIDERS = {
         "OAUTH_PKCE_ENABLED": True,
         "VERIFIED_EMAIL": True,
         "VERSION": "v2",
-    }
+    },
+    "twitter_oauth2": {},
 }
 # Development settings for social auth
 DEVELOPMENT_MODE = DEBUG
@@ -272,6 +278,10 @@ YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3'
 # Google OAuth API設定（API経由認証用）
 GOOGLE_OAUTH_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
 GOOGLE_OAUTH_CLIENT_SECRET = config('GOOGLE_CLIENT_SECRET', default='')
+# X (Twitter) OAuth API設定（API経由認証用）
+TWITTER_CLIENT_ID = config('TWITTER_CLIENT_ID', default='')
+TWITTER_CLIENT_SECRET = config('TWITTER_CLIENT_SECRET', default='')
+TWITTER_REDIRECT_URI = config('TWITTER_REDIRECT_URI', default='')
 # FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')  # 8000番ポート統一のため無効化
 
 # Logging configuration for debugging OAuth

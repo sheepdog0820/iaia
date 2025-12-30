@@ -111,8 +111,8 @@
 #### App info（アプリ情報）
 - **Callback URI / Redirect URL**:
   ```
-  http://127.0.0.1:8000/accounts/twitter/login/callback/
-  http://127.0.0.1:8000/accounts/twitter/login/callback/
+  http://127.0.0.1:8000/accounts/twitter_oauth2/login/callback/
+  http://127.0.0.1:8000/accounts/twitter_oauth2/login/callback/
   ```
 - **Website URL**: `http://127.0.0.1:8000`
 - **Terms of service**: （本番環境では必須）
@@ -258,7 +258,7 @@ python manage.py runserver
 Google/Twitter両方で本番環境のURLを追加：
 ```
 https://yourdomain.com/accounts/google/login/callback/
-https://yourdomain.com/accounts/twitter/login/callback/
+https://yourdomain.com/accounts/twitter_oauth2/login/callback/
 ```
 
 ### 3. 環境変数の更新

@@ -57,7 +57,7 @@ TWITTER_CLIENT_SECRET=your-actual-twitter-client-secret
    - Type of App: `Web App`
    - Callback URI:
      ```
-     http://127.0.0.1:8000/accounts/twitter/login/callback/
+     http://127.0.0.1:8000/accounts/twitter_oauth2/login/callback/
      ```
    - Website URL: `http://127.0.0.1:8000`
 5. Client IDとClient Secretを `.env` に設定
@@ -112,10 +112,10 @@ Google OAuth設定を開始します...
 - Secret key: (環境変数から取得)
 - Sites: 127.0.0.1:8000 を選択
 
-#### Twitter設定
+#### X (Twitter) 設定
 
-- Provider: Twitter
-- Name: Twitter OAuth2
+- Provider: X
+- Name: X
 - Client id: (環境変数から取得)
 - Secret key: (環境変数から取得)
 - Sites: 127.0.0.1:8000 を選択
@@ -147,7 +147,7 @@ Google OAuth設定を開始します...
 
 1. `/accounts/dev-login/` にアクセス
 2. テスト用アカウントでログイン
-3. または `/accounts/mock-social/google/` や `/accounts/mock-social/twitter/` でモックログイン
+3. または `/accounts/mock-social/google/` や `/accounts/mock-social/twitter_oauth2/` でモックログイン
 
 ## 本番環境への移行時の注意点
 

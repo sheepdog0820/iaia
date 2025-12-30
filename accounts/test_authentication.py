@@ -60,7 +60,7 @@ class AuthenticationTestCase(TestCase):
 
     def test_mock_social_login_twitter(self):
         """Twitterモックソーシャルログインのテスト"""
-        response = self.client.get('/accounts/mock-social/twitter/')
+        response = self.client.get('/accounts/mock-social/twitter_oauth2/')
         # リダイレクト（ログイン成功）またはダッシュボードを確認
         self.assertIn(response.status_code, [200, 302])
 

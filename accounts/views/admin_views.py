@@ -107,7 +107,7 @@ class AdminUserViewSet(viewsets.ModelViewSet):
         staff_users = User.objects.filter(is_staff=True).count()
         oauth_users = User.objects.filter(
             Q(socialaccount__provider='google') | 
-            Q(socialaccount__provider='twitter')
+            Q(socialaccount__provider='twitter_oauth2')
         ).distinct().count()
         
         recent_users = User.objects.filter(
