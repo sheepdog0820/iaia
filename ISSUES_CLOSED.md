@@ -80,6 +80,64 @@
 - **解決日**: 2025年6月18日
 - **仕様書記載箇所**: `SPECIFICATION.md` - 4.2.1 キャラクターシート機能、`CHARACTER_SHEET_COC6TH.md` - CCFOLIA連携
 
+### ✅ ISSUE-004: クトゥルフ神話TRPG 6版キャラクターシート機能強化（解決済み）
+- **カテゴリ**: 新機能実装
+- **影響範囲**: キャラクターシート機能
+- **詳細**:
+  - `CHARACTER_SHEET_COC6TH.md`仕様書に基づく機能拡張
+  - 現在基本的なキャラクター作成は実装済み、詳細機能が未実装
+- **該当ファイル**:
+  - `accounts/character_models.py` - CharacterSheet, CharacterSkill, CharacterEquipment
+  - `templates/accounts/character_sheet_6th.html` - 6版作成画面
+  - `accounts/views/character_views.py` - CharacterSheetViewSet
+- **実装内容**:
+  - ✅ **基本キャラクター作成機能** - 実装済み
+  - ✅ **CCFOLIA連携機能** - 実装済み（export_ccfolia_format）
+  - ✅ **カスタム技能追加機能** - 実装済み（create_custom_skill）
+  - ✅ **ダイスロール設定機能** - 実装済み（CharacterDiceRollSetting）
+  - ✅ **バージョン管理機能** - 実装済み（CharacterVersionManager）
+  - ✅ **職業テンプレート機能** - 部分実装（apply_occupation_template）
+  - ✅ **技能ポイント管理システム** - 実装完了（2025年6月20日）
+  - ✅ **戦闘データ管理** - 実装完了（2025年6月20日）
+  - ✅ **所持品・装備管理** - 実装完了（2025年6月20日）
+  - ✅ **背景情報詳細化** - 実装完了（2025年6月20日）
+  - ✅ **成長記録システム** - 実装完了（2025年7月13日）
+- **解決日**: 2025年7月13日
+
+### ✅ ISSUE-005: Tindalos統計APIの詳細実装（解決済み）
+- **カテゴリ**: 機能強化
+- **影響範囲**: 統計機能
+- **詳細**:
+  - `/api/accounts/statistics/tindalos/` - Tindalos指標API
+  - 現在基本実装済み、詳細機能の追加が必要
+- **該当ファイル**:
+  - `accounts/statistics_views.py` - SimpleTindalosMetricsView実装済み
+- **実装内容**:
+  - ✅ **基本統計機能** - 実装済み
+  - ✅ **年度・月別詳細集計** - 実装完了（2025年6月20日）
+  - ✅ **ゲームシステム別統計** - 実装完了（2025年6月20日）
+  - ✅ **期間指定フィルタ** - 実装完了（2025年6月20日）
+- **解決日**: 2025年6月20日
+
+### ✅ ISSUE-008: カレンダー統合APIの実装（解決済み）
+- **カテゴリ**: 新機能実装
+- **影響範囲**: スケジュール管理機能
+- **詳細**:
+  - `/api/schedules/calendar/view/` - カレンダービューAPI
+  - 現在Web画面は実装済み、API機能が未実装
+- **該当ファイル**:
+  - `schedules/views.py` - Web画面実装済み
+- **実装内容**:
+  - ✅ **カレンダーWeb画面** - 実装済み
+  - ✅ **月別イベント一覧API** - 実装完了（2025年6月20日）
+  - ✅ **セッション予定集約API** - 実装完了（2025年6月20日）
+  - ✅ **iCal形式エクスポート** - 実装完了（2025年6月20日）
+- **実装詳細**:
+  - MonthlyEventListView: 月別イベントを日付別にグループ化して返すAPI
+  - SessionAggregationView: セッションをグループ別、週別、役割別に集約
+  - ICalExportView: iCal形式でセッションをエクスポート（リマインダー付き）
+- **解決日**: 2025年6月20日
+
 ### ✅ ISSUE-009: ハンドアウト一括管理機能（実装済み）
 - **カテゴリ**: 機能強化
 - **影響範囲**: セッション管理機能
@@ -99,19 +157,102 @@
 - **解決日**: 2025年6月18日
 - **仕様書記載箇所**: `SPECIFICATION.md` - 6.5 ハンドアウト管理機能
 
+### ✅ ISSUE-015: キャラクターシートセッション統合（解決済み）
+- **カテゴリ**: 機能統合
+- **影響範囲**: セッション管理・キャラクター管理
+- **詳細**:
+  - キャラクターシートの現在値をセッション詳細で参照表示
+  - セッション運用はココフォリア想定（更新機能は不要）
+- **該当ファイル**:
+  - `templates/schedules/session_detail.html` - セッション詳細UI（参照のみ）
+- **実装内容**:
+  - ⚪️ **HP/MP/SANトラッキング** - 不要（ココフォリア運用想定）
+  - ⚪️ **ステータスエフェクト管理** - 不要（ココフォリア運用想定）
+  - ✅ **セッション詳細UIへの組み込み** - 参照のみ実装済み
+- **解決日**: 2025年12月30日（整理日）
+
+### ✅ ISSUE-020: Google OAuth API認証の実装（解決済み）
+- **カテゴリ**: 新機能実装
+- **影響範囲**: API認証
+- **詳細**:
+  - Google OAuthをAPI経由で利用するための認証機能
+  - django-allauthとDjango REST Frameworkの統合
+  - Google Cloud Consoleの設定確認（手動実施済み）
+- **該当ファイル**:
+  - `arkham_nexus/settings.py` - Google OAuth設定、rest_framework.authtokenの追加
+  - `accounts/views/api_auth_views.py` - Google OAuth認証API（code/access_token/id_token対応）
+  - `api/urls.py` - `/api/auth/google/` ルーティング
+  - `accounts/test_api_auth_google.py` - API向けテスト追加
+- **実装内容**:
+  - ✅ **Google OAuth APIエンドポイント** - /api/auth/google/
+  - ✅ **トークン検証** - IDトークン/アクセストークン/認証コードに対応
+  - ✅ **ユーザー情報取得** - Googleプロフィール情報取得
+  - ✅ **新規ユーザー自動作成** - 初回ログイン時の作成
+  - ✅ **DRFトークン発行** - 認証成功後のトークン生成
+  - ✅ **APIテスト追加** - 成功/失敗ケースの単体テスト
+- **解決日**: 2025年12月30日
+
+### ✅ ISSUE-021: リリース前必須タスク（解決済み）
+- **カテゴリ**: リリース準備
+- **影響範囲**: システム全体
+- **詳細**:
+  - キャラクター作成機能までの最小限リリースに必要なタスク
+  - 本番環境へのデプロイ準備
+- **該当ファイル**:
+  - `arkham_nexus/settings_production.py` - 本番設定、セキュリティ、ロギング
+  - `arkham_nexus/settings.py` - python-decouple導入、環境変数管理
+  - `deploy.sh` - マイグレーション/静的ファイル収集を含むデプロイ
+  - `templates/404.html` - 404エラーページ
+  - `templates/500.html` - 500エラーページ
+  - `accounts/views/admin_views.py` - 管理者ユーザー管理API
+  - `accounts/urls/__init__.py` - 管理者APIのルーティング
+- **実装内容**:
+  - ✅ **OAuth経由の新規ユーザー自動作成** - 初回OAuth認証時の自動作成
+  - ✅ **管理者用ユーザー管理API** - ユーザー管理・権限設定
+  - ✅ **本番環境設定** - PostgreSQL設定、セキュリティ設定
+  - ✅ **静的ファイル配信設定** - WhiteNoise設定
+  - ✅ **環境変数管理** - python-decouple導入
+  - ✅ **デプロイスクリプト** - マイグレーション、静的ファイル収集
+  - ✅ **セキュリティ設定** - DEBUG=False、ALLOWED_HOSTS設定
+  - ✅ **エラーページ作成** - 404、500エラーページ
+  - ✅ **ロギング設定** - 本番環境用ログ設定
+- **解決日**: 2025年12月30日
+
+### ✅ ISSUE-024: セッション機能の統合テスト失敗修正（解決済み）
+- **カテゴリ**: バグ修正
+- **影響範囲**: セッション機能、キャラクター管理
+- **備考**: 旧ISSUE-009（番号重複のため再割当）
+- **詳細**:
+  - セッション統合テストで多数の失敗が発生
+  - CharacterSheetモデルにリアルタイムステータス属性が不足
+  - APIエンドポイントの不具合
+- **該当ファイル**:
+  - `accounts/character_models.py` - hp_current, mp_current, san_current 追加
+  - `accounts/views/mixins.py` - character_sheet_id 処理修正
+  - `accounts/test_session_integration.py` - テストケース
+  - `schedules/views.py` - 参加権限/統計更新/協力GMの実装
+- **実装内容**:
+  - ✅ **リアルタイムステータス属性追加** - hp_current, mp_current, san_current（プロパティエイリアス）
+  - ✅ **character_sheet_id 取得ロジック修正** - IDから直接取得（リクエストデータからも取得可能）
+  - ✅ **クロス参加権限管理** - 公開/グループ/GMで参加制御
+  - ✅ **複数GM協力セッション** - add_co_gmと権限チェック
+  - ✅ **統計更新機能** - セッション完了時の統計処理
+  - ✅ **統合テスト通過** - `accounts.test_session_integration` / `tests.integration.test_character_session_integration`
+- **解決日**: 2025年12月30日
+
 ---
 
 ## 📊 完了済み課題統計
 
 ### 実装完了サマリー
-- **完了済み課題数**: 4件
-- **完了期間**: 2024年6月14日 〜 2025年6月18日
-- **主要カテゴリ**: バグ修正1件、新機能実装3件
+- **完了済み課題数**: 11件
+- **完了期間**: 2024年6月14日 〜 2025年12月30日
+- **主要カテゴリ**: バグ修正2件、新機能実装5件、機能強化2件、機能統合1件、リリース準備1件
 
 ### テスト結果
 - **統合テスト成功率**: 100% (16/16)
 - **CCFOLIA専用テスト**: 100% (28/28)
-- **機能カバレッジ**: グループ管理、エクスポート、CCFOLIA連携、ハンドアウト管理
+- **機能カバレッジ**: グループ管理、エクスポート、CCFOLIA連携、ハンドアウト管理、キャラクターシート6版強化、Tindalos詳細統計、カレンダー統合、セッション連携UI、Google OAuth API認証、リリース準備、セッション統合テスト修正
 
 ### 品質指標
 - **セキュリティチェック**: 全て合格
@@ -136,4 +277,4 @@
 
 ---
 
-*最終更新日: 2025年6月18日*
+*最終更新日: 2025年12月30日*
