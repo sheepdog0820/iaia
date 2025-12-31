@@ -86,6 +86,8 @@ class UINavigationTestCase(TestCase):
         response = self.client.get('/api/schedules/sessions/view/', HTTP_ACCEPT='text/html')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "R'lyeh Log")
+        detail_url = reverse('session_detail', kwargs={'pk': self.session.id})
+        self.assertContains(response, detail_url)
 
     def test_session_detail_navigation(self):
         """セッション詳細ページのナビゲーションテスト"""

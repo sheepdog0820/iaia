@@ -39,7 +39,7 @@
                                     {% for session in sessions %}
                                     <tr>
                                         <td>
-                                            <a href="/api/schedules/sessions/{{ session.id }}/detail/" class="text-decoration-none">
+                                            <a href="{% url 'session_detail' session.id %}" class="text-decoration-none">
                                                 <strong>{{ session.title }}</strong>
                                             </a>
                                             {% if session.description %}
