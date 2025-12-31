@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { devLogin } from './helpers';
+import { devLogin, setInputValue } from './helpers';
 
 function formatDateTimeLocal(date: Date): string {
   const pad = (value: number) => value.toString().padStart(2, '0');
@@ -16,12 +16,12 @@ test.describe('sessions', () => {
     await expect(page.locator('#newSessionModal')).toHaveClass(/show/);
 
     const sessionTitle = `E2E Session ${Date.now()}`;
-    const sessionDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const sessionDate = new Date(Date.now() + 5 * 60 * 1000);
 
-    await page.fill('#sessionTitle', sessionTitle);
-    await page.fill('#sessionDate', formatDateTimeLocal(sessionDate));
-    await page.fill('#sessionDuration', '120');
-    await page.fill('#sessionLocation', 'Online');
+    await setInputValue(page, '#sessionTitle', sessionTitle);
+    await setInputValue(page, '#sessionDate', formatDateTimeLocal(sessionDate));
+    await setInputValue(page, '#sessionDuration', '120');
+    await setInputValue(page, '#sessionLocation', 'Online');
 
     await page.waitForFunction(() =>
       document.querySelectorAll('#sessionGroup option:not([value=""])').length > 0
@@ -32,7 +32,7 @@ test.describe('sessions', () => {
     );
     await page.selectOption('#sessionGroup', groupValue);
 
-    await page.fill('#sessionDescription', 'Created by Playwright session test.');
+    await setInputValue(page, '#sessionDescription', 'Created by Playwright session test.');
     await page.selectOption('#sessionVisibility', 'public');
 
     page.once('dialog', async dialog => {

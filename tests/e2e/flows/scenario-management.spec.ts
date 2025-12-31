@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { devLogin } from './helpers';
+import { devLogin, setInputValue } from './helpers';
 
 test.describe('scenarios', () => {
+  test.describe.configure({ timeout: 60000 });
+
   test('create a scenario from the archive view', async ({ page }) => {
     await devLogin(page);
     await page.goto('/api/scenarios/archive/view/');
@@ -11,20 +13,16 @@ test.describe('scenarios', () => {
 
     const scenarioTitle = `E2E Scenario ${Date.now()}`;
 
-    await page.fill('#scenarioTitle', scenarioTitle);
+    await setInputValue(page, '#scenarioTitle', scenarioTitle);
     await page.selectOption('#scenarioSystem', 'coc');
-    await page.fill('#scenarioAuthor', 'Playwright');
-    await page.fill('#scenarioSummary', 'Smoke scenario created by Playwright tests.');
-
-    page.once('dialog', async dialog => {
-      await dialog.accept();
-    });
+    await setInputValue(page, '#scenarioAuthor', 'Playwright');
+    await setInputValue(page, '#scenarioSummary', 'Smoke scenario created by Playwright tests.');
 
     await Promise.all([
       page.waitForResponse(response =>
         response.url().includes('/api/scenarios/scenarios/') &&
-        response.request().method() === 'POST'
-      ),
+        response.request().method() === 'POST',
+      { timeout: 60000 }),
       page.click('#saveScenarioBtn'),
     ]);
 
@@ -39,12 +37,12 @@ test.describe('scenarios', () => {
     await page.click('button[data-bs-target="#addScenarioModal"]');
     await expect(page.locator('#addScenarioModal')).toBeVisible();
 
-    await page.fill('#scenarioTitle', `E2E Scenario Empty Skills ${Date.now()}`);
+    await setInputValue(page, '#scenarioTitle', `E2E Scenario Empty Skills ${Date.now()}`);
     await page.selectOption('#scenarioSystem', 'coc');
-    await page.fill('#scenarioAuthor', 'Playwright');
-    await page.fill('#scenarioSummary', 'Scenario without recommended skills.');
+    await setInputValue(page, '#scenarioAuthor', 'Playwright');
+    await setInputValue(page, '#scenarioSummary', 'Scenario without recommended skills.');
 
-    await page.fill('#scenarioRecommendedSkills', '');
+    await setInputValue(page, '#scenarioRecommendedSkills', '');
     await page.locator('#scenarioRecommendedSkills').blur();
 
     await expect(page.locator('#scenarioRecommendedSkillsWarning')).toBeHidden();

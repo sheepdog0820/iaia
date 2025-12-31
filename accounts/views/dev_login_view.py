@@ -76,7 +76,7 @@ class DevLoginView(View):
             messages.success(request, f'{user.nickname or user.username} としてログインしました。')
             
             # 適切なページにリダイレクト
-            next_url = request.GET.get('next', '/')
+            next_url = request.GET.get('next') or request.POST.get('next') or '/'
             return redirect(next_url)
             
         except User.DoesNotExist:

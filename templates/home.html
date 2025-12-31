@@ -67,15 +67,15 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <button class="btn btn-outline-primary" id="create-session-btn">
+                        <a class="btn btn-outline-primary" id="create-session-btn" href="/api/schedules/calendar/view/" role="button">
                             <i class="fas fa-plus"></i> セッション作成
-                        </button>
-                        <button class="btn btn-outline-info" id="join-session-btn">
+                        </a>
+                        <a class="btn btn-outline-info" id="join-session-btn" href="/api/schedules/sessions/view/" role="button">
                             <i class="fas fa-user-plus"></i> セッション参加
-                        </button>
-                        <button class="btn btn-outline-success" id="add-scenario-btn">
+                        </a>
+                        <a class="btn btn-outline-success" id="add-scenario-btn" href="/api/scenarios/archive/view/" role="button">
                             <i class="fas fa-book"></i> シナリオ追加
-                        </button>
+                        </a>
                         <button class="btn btn-outline-warning" id="create-character-btn" data-bs-toggle="modal" data-bs-target="#characterCreationModal">
                             <i class="fas fa-eye"></i> 探索者作成
                         </button>
@@ -415,29 +415,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // セッション作成ボタン
-    const createSessionBtn = document.getElementById('create-session-btn');
-    if (createSessionBtn) {
-        createSessionBtn.addEventListener('click', function() {
-            window.location.href = '/api/schedules/calendar/view/';
-        });
-    }
-    
-    // セッション参加ボタン
-    const joinSessionBtn = document.getElementById('join-session-btn');
-    if (joinSessionBtn) {
-        joinSessionBtn.addEventListener('click', function() {
-            window.location.href = '/api/schedules/sessions/view/';
-        });
-    }
-    
-    // シナリオ追加ボタン
-    const addScenarioBtn = document.getElementById('add-scenario-btn');
-    if (addScenarioBtn) {
-        addScenarioBtn.addEventListener('click', function() {
-            window.location.href = '/api/scenarios/archive/view/';
-        });
-    }
+    // セッション系はリンクで遷移するためイベントは不要
 });
 </script>
 

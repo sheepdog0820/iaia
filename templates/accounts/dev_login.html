@@ -161,6 +161,9 @@
                 <form method="post" action="{% url 'dev_login' %}">
                     {% csrf_token %}
                     <input type="hidden" name="username" value="{{ user.username }}">
+                    {% if request.GET.next %}
+                    <input type="hidden" name="next" value="{{ request.GET.next }}">
+                    {% endif %}
                     <button type="submit" class="login-btn" 
                             {% if current_user.username == user.username %}disabled{% endif %}>
                         {% if current_user.username == user.username %}

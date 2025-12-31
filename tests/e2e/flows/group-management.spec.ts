@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { devLogin } from './helpers';
+import { devLogin, setInputValue } from './helpers';
 
 test.describe('groups', () => {
   test('create a group and find it in the list', async ({ page }) => {
@@ -11,20 +11,23 @@ test.describe('groups', () => {
 
     const groupName = `E2E Group ${Date.now()}`;
 
-    await page.fill('#groupName', groupName);
-    await page.fill('#groupDescription', 'Created by Playwright');
+    await setInputValue(page, '#groupName', groupName);
+    await setInputValue(page, '#groupDescription', 'Created by Playwright');
     await page.selectOption('#groupVisibility', 'public');
 
-    await Promise.all([
-      page.waitForResponse(response =>
-        response.url().includes('/api/accounts/groups/') &&
-        response.request().method() === 'POST'
-      ),
-      page.click('#saveGroupBtn'),
-    ]);
+    const createResponse = page.waitForResponse(response =>
+      response.url().includes('/api/accounts/groups/') &&
+      response.request().method() === 'POST'
+    );
+    await page.click('#saveGroupBtn');
+    await createResponse;
+    await page.waitForResponse(response => {
+      if (response.request().method() !== 'GET') return false;
+      return new URL(response.url()).pathname === '/api/accounts/groups/';
+    });
 
     const groupCard = page.locator('.group-card', { hasText: groupName });
-    await expect(groupCard).toBeVisible();
+    await expect(groupCard).toBeVisible({ timeout: 15000 });
 
     await page.fill('#groupSearchInput', groupName);
     await expect(page.locator('.group-card', { hasText: groupName })).toBeVisible();

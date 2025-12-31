@@ -201,25 +201,46 @@ function setupQuickActions() {
     // セッション作成ボタン
     const createSessionBtn = document.getElementById('create-session-btn');
     if (createSessionBtn) {
-        createSessionBtn.addEventListener('click', function() {
-            showCreateSessionModal();
-        });
+        const isAnchor = createSessionBtn.tagName === 'A' && createSessionBtn.getAttribute('href');
+        if (!isAnchor) {
+            createSessionBtn.addEventListener('click', function() {
+            if (createSessionBtn.dataset.arkhamAction === 'modal') {
+                showCreateSessionModal();
+                return;
+            }
+            loadCalendarView();
+            });
+        }
     }
     
     // セッション参加ボタン
     const joinSessionBtn = document.getElementById('join-session-btn');
     if (joinSessionBtn) {
-        joinSessionBtn.addEventListener('click', function() {
-            showJoinSessionModal();
-        });
+        const isAnchor = joinSessionBtn.tagName === 'A' && joinSessionBtn.getAttribute('href');
+        if (!isAnchor) {
+            joinSessionBtn.addEventListener('click', function() {
+            if (joinSessionBtn.dataset.arkhamAction === 'modal') {
+                showJoinSessionModal();
+                return;
+            }
+            loadSessionsView();
+            });
+        }
     }
     
     // シナリオ追加ボタン
     const addScenarioBtn = document.getElementById('add-scenario-btn');
     if (addScenarioBtn) {
-        addScenarioBtn.addEventListener('click', function() {
-            showAddScenarioModal();
-        });
+        const isAnchor = addScenarioBtn.tagName === 'A' && addScenarioBtn.getAttribute('href');
+        if (!isAnchor) {
+            addScenarioBtn.addEventListener('click', function() {
+            if (addScenarioBtn.dataset.arkhamAction === 'modal') {
+                showAddScenarioModal();
+                return;
+            }
+            loadScenariosView();
+            });
+        }
     }
 }
 
