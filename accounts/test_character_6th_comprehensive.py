@@ -24,6 +24,7 @@ from accounts.character_models import (
     CharacterBackground, GrowthRecord, CharacterImage, CharacterDiceRollSetting
 )
 from accounts.views.character_views import CharacterSheetViewSet
+from scenarios.models import Scenario
 
 User = get_user_model()
 
@@ -546,6 +547,24 @@ class Character6thVersioningTestCase(TestCase):
             self.original.sixth_edition_data.damage_bonus
         )
 
+    def test_create_version_copies_scenario_metadata(self):
+        """Test scenario metadata is copied to new versions"""
+        scenario = Scenario.objects.create(
+            title='テストシナリオ',
+            game_system='coc',
+            created_by=self.user
+        )
+        self.original.source_scenario = scenario
+        self.original.source_scenario_title = scenario.title
+        self.original.source_scenario_game_system = scenario.game_system
+        self.original.save()
+
+        version = self.original.create_new_version()
+
+        self.assertEqual(version.source_scenario, scenario)
+        self.assertEqual(version.source_scenario_title, scenario.title)
+        self.assertEqual(version.source_scenario_game_system, scenario.game_system)
+
     def test_version_hierarchy(self):
         """Test multiple versions and hierarchy"""
         v2 = self.original.create_new_version()
@@ -615,6 +634,76 @@ class Character6thAPITestCase(APITestCase):
 
         self.assertTrue(CharacterSheet6th.objects.filter(character_sheet=character).exists())
         self.assertEqual(character.sixth_edition_data.idea_roll, 16 * 5)
+
+    def test_create_6th_edition_character_with_scenario_linkage(self):
+        """Test scenario metadata is stored when scenario_id is provided"""
+        scenario = Scenario.objects.create(
+            title='リンクシナリオ',
+            game_system='coc',
+            created_by=self.user
+        )
+        data = {
+            'name': 'Scenario Linked Character',
+            'age': 30,
+            'gender': 'male',
+            'occupation': 'Detective',
+            'birthplace': 'Tokyo',
+            'residence': 'Yokohama',
+            'str_value': 13,
+            'con_value': 12,
+            'pow_value': 14,
+            'dex_value': 11,
+            'app_value': 10,
+            'siz_value': 15,
+            'int_value': 16,
+            'edu_value': 17,
+            'scenario_id': scenario.id,
+            'scenario_title': '上書きされるタイトル',
+            'game_system': 'dnd'
+        }
+
+        response = self.client.post('/api/accounts/character-sheets/create_6th_edition/', data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        character = CharacterSheet.objects.get(id=response.data['id'])
+        self.assertEqual(character.source_scenario, scenario)
+        self.assertEqual(character.source_scenario_title, scenario.title)
+        self.assertEqual(character.source_scenario_game_system, scenario.game_system)
+        self.assertEqual(response.data['scenario_id'], scenario.id)
+        self.assertEqual(response.data['scenario_title'], scenario.title)
+        self.assertEqual(response.data['game_system'], scenario.game_system)
+
+    def test_create_6th_edition_character_with_scenario_fallback(self):
+        """Test scenario metadata fallback when scenario_id is absent"""
+        data = {
+            'name': 'Scenario Fallback Character',
+            'age': 29,
+            'gender': 'female',
+            'occupation': 'Writer',
+            'birthplace': 'Osaka',
+            'residence': 'Kyoto',
+            'str_value': 12,
+            'con_value': 11,
+            'pow_value': 13,
+            'dex_value': 14,
+            'app_value': 12,
+            'siz_value': 10,
+            'int_value': 15,
+            'edu_value': 16,
+            'scenario_title': '手入力シナリオ',
+            'game_system': 'coc'
+        }
+
+        response = self.client.post('/api/accounts/character-sheets/create_6th_edition/', data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        character = CharacterSheet.objects.get(id=response.data['id'])
+        self.assertIsNone(character.source_scenario)
+        self.assertEqual(character.source_scenario_title, '手入力シナリオ')
+        self.assertEqual(character.source_scenario_game_system, 'coc')
+        self.assertIsNone(response.data['scenario_id'])
+        self.assertEqual(response.data['scenario_title'], '手入力シナリオ')
+        self.assertEqual(response.data['game_system'], 'coc')
 
     def test_character_list_permissions(self):
         """Test character list shows only user's characters"""

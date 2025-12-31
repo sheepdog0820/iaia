@@ -109,6 +109,9 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             'occupation': original_sheet.occupation,
             'birthplace': original_sheet.birthplace,
             'residence': original_sheet.residence,
+            'source_scenario': original_sheet.source_scenario,
+            'source_scenario_title': original_sheet.source_scenario_title,
+            'source_scenario_game_system': original_sheet.source_scenario_game_system,
             'str_value': original_sheet.str_value,
             'con_value': original_sheet.con_value,
             'pow_value': original_sheet.pow_value,
@@ -567,6 +570,20 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             recommended_skills = parse_json_list(request.data.get('recommended_skills', []), 'recommended_skills')
         except ValueError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        scenario_id_raw = request.data.get('scenario_id')
+        scenario_title = (request.data.get('scenario_title') or '').strip()
+        scenario_game_system = (request.data.get('game_system') or '').strip()
+        scenario_obj = None
+        if scenario_id_raw not in (None, ''):
+            try:
+                scenario_id = int(scenario_id_raw)
+            except (TypeError, ValueError):
+                return Response({'error': 'scenario_id must be an integer'}, status=status.HTTP_400_BAD_REQUEST)
+            if scenario_id <= 0:
+                return Response({'error': 'scenario_id must be a positive integer'}, status=status.HTTP_400_BAD_REQUEST)
+            from scenarios.models import Scenario
+            scenario_obj = Scenario.objects.filter(id=scenario_id).first()
         
         try:
             
@@ -593,6 +610,15 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 'notes': request.data.get('notes', ''),
                 'is_active': True
             }
+            if scenario_obj:
+                character_data['source_scenario'] = scenario_obj
+                character_data['source_scenario_title'] = scenario_obj.title
+                character_data['source_scenario_game_system'] = scenario_obj.game_system
+            else:
+                if scenario_title:
+                    character_data['source_scenario_title'] = scenario_title
+                if scenario_game_system:
+                    character_data['source_scenario_game_system'] = scenario_game_system
             
             # Handle character image if provided
             if 'character_image' in request.FILES:

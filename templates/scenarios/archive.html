@@ -170,8 +170,10 @@
 
                     <div class="mb-3">
                         <label for="scenarioRecommendedSkills" class="form-label">推奨技能</label>
-                        <input type="text" class="form-control" id="scenarioRecommendedSkills" placeholder="例: 目星, 聞き耳">
+                        <input type="text" class="form-control" id="scenarioRecommendedSkills" placeholder="例: 目星, 聞き耳" list="scenarioSkillOptions">
+                        <datalist id="scenarioSkillOptions"></datalist>
                         <small class="text-muted">カンマ区切りで入力してください</small>
+                        <small class="text-warning d-block mt-1 d-none" id="scenarioRecommendedSkillsWarning"></small>
                     </div>
                     
                     <div class="mb-3">
@@ -293,6 +295,238 @@ document.addEventListener('DOMContentLoaded', function() {
     const saveScenarioBtn = document.getElementById('saveScenarioBtn');
     const defaultScenarioTitle = addScenarioTitle ? addScenarioTitle.innerHTML : '';
     const defaultScenarioSaveLabel = saveScenarioBtn ? saveScenarioBtn.innerHTML : '';
+    const COC6TH_SKILLS = {
+        dodge: '回避',
+        martial_arts: 'マーシャルアーツ',
+        throw: '投擲',
+        first_aid: '応急手当',
+        fist_punch: 'こぶし（パンチ）',
+        head_butt: '頭突き',
+        kick: 'キック',
+        grapple: '組み付き',
+        knife: 'ナイフ',
+        club: 'こん棒',
+        handgun: '拳銃',
+        rifle: 'ライフル',
+        shotgun: 'ショットガン',
+        submachine_gun: 'サブマシンガン',
+        machine_gun: 'マシンガン',
+        bow: '弓',
+        sword: '剣',
+        spear: '槍',
+        whip: '鞭',
+        spot_hidden: '目星',
+        listen: '聞き耳',
+        library_use: '図書館',
+        track: '追跡',
+        navigate: 'ナビゲート',
+        photography: '写真術',
+        climb: '登攀',
+        jump: '跳躍',
+        swim: '水泳',
+        sneak: '忍び歩き',
+        hide: '隠れる',
+        conceal: '隠す',
+        locksmith: '鍵開け',
+        drive_auto: '運転',
+        pilot: '操縦',
+        ride: '乗馬',
+        electrical_repair: '電気修理',
+        electronics: '電子工学',
+        mechanical_repair: '機械修理',
+        operate_heavy_machine: '重機械操作',
+        disguise: '変装',
+        sleight_of_hand: '手さばき',
+        persuade: '説得',
+        fast_talk: '言いくるめ',
+        bargain: '値切り',
+        psychology: '心理学',
+        psychoanalysis: '精神分析',
+        credit_rating: '信用',
+        language_own: '母国語',
+        language_other: '他国語',
+        intimidate: '威嚇',
+        charm: '魅惑',
+        occult: 'オカルト',
+        cthulhu_mythos: 'クトゥルフ神話',
+        archaeology: '考古学',
+        anthropology: '人類学',
+        history: '歴史',
+        natural_world: '博物学',
+        geology: '地質学',
+        astronomy: '天文学',
+        biology: '生物学',
+        chemistry: '化学',
+        physics: '物理学',
+        pharmacy: '薬学',
+        medicine: '医学',
+        law: '法律',
+        accounting: '経理',
+        computer_use: 'コンピューター',
+        appraise: '鑑定',
+        cryptography: '暗号',
+        forensics: '法医学',
+        art: '芸術',
+        craft: '工芸',
+        sing: '歌唱',
+        play_instrument: '楽器演奏',
+        dance: 'ダンス',
+        acting: '演技',
+        teach: '教育',
+        perform: '芸能',
+        animal_handling: '動物使い',
+        survival: 'サバイバル',
+        hypnosis: '催眠術',
+        occult_folklore: '民俗学',
+        gaming: 'ギャンブル'
+    };
+    const COC6TH_SKILL_NAMES = Object.values(COC6TH_SKILLS);
+    const COC6TH_SKILL_KEYS = Object.keys(COC6TH_SKILLS);
+    const COC6TH_SKILL_KEY_SET = new Set(COC6TH_SKILL_KEYS.map(key => key.toLowerCase()));
+    const COC6TH_SKILL_NAME_SET = new Set(COC6TH_SKILL_NAMES);
+    const COC6TH_SKILL_SIMPLIFIED = new Map();
+    const COC6TH_SKILL_ALIASES = {
+        '他の言語': '他国語'
+    };
+
+    function simplifySkillToken(value) {
+        if (!value) return '';
+        return value
+            .replace(/\u3000/g, ' ')
+            .replace(/[（(].*?[）)]/g, '')
+            .replace(/\s+/g, '')
+            .trim();
+    }
+
+    COC6TH_SKILL_NAMES.forEach(name => {
+        const simplified = simplifySkillToken(name);
+        if (simplified && simplified !== name && !COC6TH_SKILL_SIMPLIFIED.has(simplified)) {
+            COC6TH_SKILL_SIMPLIFIED.set(simplified, name);
+        }
+    });
+
+    function parseSkillList(raw) {
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw;
+        if (typeof raw !== 'string') return [];
+        const trimmed = raw.trim();
+        if (!trimmed) return [];
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) return parsed;
+        } catch (_) {
+            // fall through to delimiter parsing
+        }
+        return trimmed.split(/[\n,、，]+/).map(item => item.trim()).filter(Boolean);
+    }
+
+    function resolveCocSkillName(value) {
+        const cleaned = (value || '').replace(/\u3000/g, ' ').trim();
+        if (!cleaned) return null;
+        if (COC6TH_SKILL_NAME_SET.has(cleaned)) return cleaned;
+        const lower = cleaned.toLowerCase();
+        if (COC6TH_SKILL_KEY_SET.has(lower)) return COC6TH_SKILLS[lower];
+        const alias = COC6TH_SKILL_ALIASES[cleaned];
+        if (alias && COC6TH_SKILL_NAME_SET.has(alias)) return alias;
+        const simplified = simplifySkillToken(cleaned);
+        if (COC6TH_SKILL_NAME_SET.has(simplified)) return simplified;
+        const simplifiedAlias = COC6TH_SKILL_SIMPLIFIED.get(simplified);
+        if (simplifiedAlias) return simplifiedAlias;
+        return null;
+    }
+
+    function normalizeScenarioSkills(raw, system) {
+        const systemKey = (system || '').toLowerCase();
+        const isCoc = systemKey === 'coc';
+        const tokens = parseSkillList(raw);
+        const normalized = [];
+        const unknownSet = new Set();
+        const seen = new Set();
+
+        tokens.forEach(token => {
+            const cleaned = (token || '').replace(/\u3000/g, ' ').trim();
+            if (!cleaned) return;
+            let canonical = cleaned;
+            if (isCoc) {
+                const resolved = resolveCocSkillName(cleaned);
+                if (resolved) {
+                    canonical = resolved;
+                } else {
+                    unknownSet.add(cleaned);
+                }
+            }
+            if (!seen.has(canonical)) {
+                normalized.push(canonical);
+                seen.add(canonical);
+            }
+        });
+
+        return { normalized, unknown: Array.from(unknownSet) };
+    }
+
+    function updateScenarioSkillFeedback(input, warningEl, system, options = {}) {
+        if (!input) return { normalized: [], unknown: [] };
+        const { normalized, unknown } = normalizeScenarioSkills(input.value, system);
+        if (normalized.length === 0) {
+            if (warningEl) {
+                warningEl.textContent = '';
+                warningEl.classList.add('d-none');
+            }
+            input.classList.remove('is-invalid');
+            if (options.applyValue) {
+                input.value = '';
+            }
+            return { normalized: [], unknown: [] };
+        }
+        if (options.applyValue) {
+            input.value = normalized.join(', ');
+        }
+        const isCoc = (system || '').toLowerCase() === 'coc';
+        if (warningEl) {
+            if (isCoc && unknown.length > 0) {
+                warningEl.textContent = `未対応技能: ${unknown.join(', ')}`;
+                warningEl.classList.remove('d-none');
+                input.classList.add('is-invalid');
+            } else {
+                warningEl.textContent = '';
+                warningEl.classList.add('d-none');
+                input.classList.remove('is-invalid');
+            }
+        }
+        return { normalized, unknown };
+    }
+
+    function attachScenarioSkillInput(input, warningEl, systemGetter) {
+        if (!input) return;
+        const getSystem = typeof systemGetter === 'function' ? systemGetter : () => systemGetter;
+        input.addEventListener('input', () => {
+            updateScenarioSkillFeedback(input, warningEl, getSystem());
+        });
+        input.addEventListener('blur', () => {
+            updateScenarioSkillFeedback(input, warningEl, getSystem(), { applyValue: true });
+        });
+        updateScenarioSkillFeedback(input, warningEl, getSystem());
+    }
+
+    function initScenarioSkillInputs() {
+        const datalist = document.getElementById('scenarioSkillOptions');
+        if (datalist) {
+            datalist.innerHTML = '';
+            COC6TH_SKILL_NAMES.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                datalist.appendChild(option);
+            });
+        }
+        const skillsInput = document.getElementById('scenarioRecommendedSkills');
+        const warningEl = document.getElementById('scenarioRecommendedSkillsWarning');
+        const systemSelect = document.getElementById('scenarioSystem');
+        const getSystem = () => systemSelect?.value || '';
+        attachScenarioSkillInput(skillsInput, warningEl, getSystem);
+        systemSelect?.addEventListener('change', () => {
+            updateScenarioSkillFeedback(skillsInput, warningEl, getSystem());
+        });
+    }
 
     // シナリオ一覧読み込み
     async function loadScenarios() {
@@ -427,6 +661,11 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('scenarioRecommendedSkills').value = recommendedSkillsValue;
         document.getElementById('scenarioSummary').value = scenario.summary || '';
         document.getElementById('scenarioUrl').value = scenario.url || '';
+        updateScenarioSkillFeedback(
+            document.getElementById('scenarioRecommendedSkills'),
+            document.getElementById('scenarioRecommendedSkillsWarning'),
+            document.getElementById('scenarioSystem')?.value || ''
+        );
     }
 
     function setScenarioFormMode(isEdit, scenario) {
@@ -445,6 +684,10 @@ document.addEventListener('DOMContentLoaded', function() {
             fillScenarioForm(scenario);
         } else if (addScenarioForm) {
             addScenarioForm.reset();
+            const warningEl = document.getElementById('scenarioRecommendedSkillsWarning');
+            warningEl?.classList.add('d-none');
+            if (warningEl) warningEl.textContent = '';
+            document.getElementById('scenarioRecommendedSkills')?.classList.remove('is-invalid');
         }
     }
 
@@ -494,12 +737,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="mt-3">
                             <label class="form-label small text-muted">推奨技能を編集</label>
                             <div class="input-group input-group-sm">
-                                <input type="text" class="form-control" id="scenarioRecommendedSkillsEdit" placeholder="例: 目星, 図書館">
+                                <input type="text" class="form-control" id="scenarioRecommendedSkillsEdit" placeholder="例: 目星, 図書館" list="scenarioSkillOptions">
                                 <button class="btn btn-outline-primary" type="button" onclick="saveScenarioRecommendedSkills(${scenario.id})">
                                     <i class="fas fa-save"></i> 保存
                                 </button>
                             </div>
                             <div class="form-text">カンマ区切りで入力できます。</div>
+                            <small class="text-warning d-block mt-1 d-none" id="scenarioRecommendedSkillsEditWarning"></small>
                         </div>
                         
                         <h6 class="mt-4">あらすじ</h6>
@@ -553,8 +797,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 recommendedDisplay.textContent = recommendedValue || '未設定';
             }
             const recommendedInput = document.getElementById('scenarioRecommendedSkillsEdit');
+            const recommendedWarning = document.getElementById('scenarioRecommendedSkillsEditWarning');
             if (recommendedInput) {
                 recommendedInput.value = recommendedValue;
+                attachScenarioSkillInput(recommendedInput, recommendedWarning, () => scenario.game_system);
             }
 
             modal.show();
@@ -565,9 +811,39 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     // シナリオからセッション作成
-    window.createSessionFromScenario = function(scenarioId) {
-        alert('セッション作成機能は実装予定です');
-        // TODO: セッション作成画面へ遷移し、シナリオ情報を引き継ぐ
+    window.createSessionFromScenario = async function(scenarioId) {
+        let scenario = null;
+        if (window.currentScenario && window.currentScenario.id === scenarioId) {
+            scenario = window.currentScenario;
+        } else {
+            try {
+                const response = await axios.get(`/api/scenarios/scenarios/${scenarioId}/`);
+                scenario = response.data;
+            } catch (error) {
+                alert('シナリオ情報の取得に失敗しました。');
+                return;
+            }
+        }
+
+        if (!scenario) {
+            alert('シナリオ情報の取得に失敗しました。');
+            return;
+        }
+
+        try {
+            localStorage.setItem('session_scenario_id', scenario.id ? String(scenario.id) : '');
+            localStorage.setItem('session_scenario_title', scenario.title || '');
+            localStorage.setItem('session_scenario_game_system', scenario.game_system || '');
+        } catch (_) {
+            // ignore storage errors
+        }
+
+        const params = new URLSearchParams({
+            scenario_id: scenario.id ? String(scenario.id) : '',
+            scenario_title: scenario.title || '',
+            game_system: scenario.game_system || ''
+        });
+        window.location.href = `/api/schedules/calendar/view/?${params.toString()}`;
     };
 
     window.openScenarioEditModal = async function(scenarioId) {
@@ -603,7 +879,14 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('推奨技能の入力欄が見つかりませんでした。');
             return;
         }
-        const value = input.value.trim();
+        const warningEl = document.getElementById('scenarioRecommendedSkillsEditWarning');
+        const system = window.currentScenario?.game_system || '';
+        const { normalized, unknown } = updateScenarioSkillFeedback(input, warningEl, system, { applyValue: true });
+        if (system === 'coc' && unknown.length > 0) {
+            const proceed = confirm(`未対応技能: ${unknown.join(', ')}\nこのまま保存しますか？`);
+            if (!proceed) return;
+        }
+        const value = normalized.join(', ');
 
         try {
             await axios.patch(`/api/scenarios/scenarios/${scenarioId}/`, {
@@ -630,21 +913,20 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         const skills = (scenario.recommended_skills || '').trim();
-        if (!skills) {
-            alert('このシナリオには推奨技能が設定されていません。');
-            return;
-        }
-
         try {
             localStorage.setItem('scenario_recommended_skills', skills);
             localStorage.setItem('scenario_recommended_skills_title', scenario.title);
+            localStorage.setItem('scenario_recommended_skills_id', scenario.id ? String(scenario.id) : '');
+            localStorage.setItem('scenario_recommended_skills_system', scenario.game_system || '');
         } catch (_) {
             // ignore storage errors
         }
 
         const params = new URLSearchParams({
             recommended_skills: skills,
-            scenario_title: scenario.title
+            scenario_title: scenario.title,
+            scenario_id: scenario.id ? String(scenario.id) : '',
+            game_system: scenario.game_system || ''
         });
         window.location.href = `/accounts/character/create/6th/?${params.toString()}`;
     };
@@ -657,6 +939,16 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        const recommendedInput = document.getElementById('scenarioRecommendedSkills');
+        const warningEl = document.getElementById('scenarioRecommendedSkillsWarning');
+        const systemValue = document.getElementById('scenarioSystem')?.value || '';
+        const { normalized, unknown } = updateScenarioSkillFeedback(recommendedInput, warningEl, systemValue, { applyValue: true });
+        if (systemValue === 'coc' && unknown.length > 0) {
+            const proceed = confirm(`未対応技能: ${unknown.join(', ')}\nこのまま保存しますか？`);
+            if (!proceed) return;
+        }
+        const recommendedSkillsValue = normalized.join(', ');
+
         const data = {
             title: document.getElementById('scenarioTitle').value,
             game_system: document.getElementById('scenarioSystem').value,
@@ -664,7 +956,7 @@ document.addEventListener('DOMContentLoaded', function() {
             difficulty: document.getElementById('scenarioDifficulty').value,
             estimated_duration: document.getElementById('scenarioDuration').value,
             recommended_players: document.getElementById('scenarioPlayers').value,
-            recommended_skills: document.getElementById('scenarioRecommendedSkills').value.trim(),
+            recommended_skills: recommendedSkillsValue,
             summary: document.getElementById('scenarioSummary').value,
             url: document.getElementById('scenarioUrl').value
         };
@@ -725,6 +1017,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // 初期化
+    initScenarioSkillInputs();
     loadScenarios();
 });
 </script>

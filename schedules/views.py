@@ -106,7 +106,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             Q(group__members=user) | 
             Q(visibility='public') |
             Q(participants=user)
-        ).distinct().order_by('-date')
+        ).distinct().select_related('scenario').order_by('-date')
     
     def perform_create(self, serializer):
         serializer.save(gm=self.request.user)
@@ -159,15 +159,17 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             session=session
         ).select_related('user', 'character_sheet')
         
-        # ダミーシナリオを作成（実際のシナリオ関連は後で実装）
-        scenario, _ = Scenario.objects.get_or_create(
-            title=f"Session: {session.title}",
-            defaults={
-                'game_system': 'coc',
-                'created_by': session.gm,
-                'summary': session.description
-            }
-        )
+        scenario = session.scenario
+        if not scenario:
+            # ダミーシナリオを作成（シナリオ未連携時のフォールバック）
+            scenario, _ = Scenario.objects.get_or_create(
+                title=f"Session: {session.title}",
+                defaults={
+                    'game_system': 'coc',
+                    'created_by': session.gm,
+                    'summary': session.description
+                }
+            )
         
         for participant in participants:
             # プレイ履歴の作成
@@ -1147,7 +1149,7 @@ class UpcomingSessionsView(APIView):
             Q(participants=user),
             date__gte=now,
             date__lte=now + timedelta(days=7)
-        ).distinct().select_related('gm', 'group').order_by('date')[:5]
+        ).distinct().select_related('gm', 'group', 'scenario').order_by('date')[:5]
         
         serializer = SessionListSerializer(upcoming_sessions, many=True)
         return Response(serializer.data)
@@ -1187,7 +1189,7 @@ class SessionDetailView(APIView):
     def get(self, request, pk):
         # セッション詳細取得
         try:
-            session = TRPGSession.objects.get(pk=pk)
+            session = TRPGSession.objects.select_related('scenario').get(pk=pk)
         except TRPGSession.DoesNotExist:
             if 'application/json' in request.headers.get('Accept', ''):
                 return Response({'error': 'Session not found'}, status=404)

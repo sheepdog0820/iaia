@@ -7,6 +7,7 @@ import os
 from .models import (
     CustomUser, Friend, Group, GroupMembership, GroupInvitation
 )
+from scenarios.models import Scenario
 from .character_models import (
     CharacterSheet, CharacterSheet6th,
     CharacterSkill, CharacterEquipment, CharacterImage,
@@ -240,6 +241,10 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
     
     # ユーザー情報
     user_nickname = serializers.CharField(source='user.nickname', read_only=True)
+
+    scenario_id = serializers.IntegerField(source='source_scenario_id', read_only=True)
+    scenario_title = serializers.CharField(source='source_scenario_title', read_only=True)
+    game_system = serializers.CharField(source='source_scenario_game_system', read_only=True)
     
     # エイリアスフィールド（テスト互換性のため）
     hp_current = serializers.IntegerField(source='hit_points_current')
@@ -250,7 +255,8 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
         model = CharacterSheet
         fields = [
             'id', 'edition', 'name', 'player_name', 'age', 'gender', 'occupation',
-            'birthplace', 'residence', 'recommended_skills', 'str_value', 'con_value', 'pow_value',
+            'birthplace', 'residence', 'recommended_skills', 'scenario_id', 'scenario_title', 'game_system',
+            'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_max', 'hit_points_current', 'magic_points_max',
             'magic_points_current', 'sanity_starting', 'sanity_max', 'sanity_current',
@@ -337,6 +343,14 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
     sixth_edition_data = CharacterSheet6thSerializer(required=False)
 
     recommended_skills = JSONListField(child=serializers.CharField(), required=False)
+    scenario_id = serializers.PrimaryKeyRelatedField(
+        source='source_scenario',
+        queryset=Scenario.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    scenario_title = serializers.CharField(source='source_scenario_title', required=False, allow_blank=True)
+    game_system = serializers.CharField(source='source_scenario_game_system', required=False, allow_blank=True)
     
     # スキルデータ
     skills = CharacterSkillSerializer(many=True, required=False)
@@ -366,7 +380,8 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
         model = CharacterSheet
         fields = [
             'id', 'edition', 'name', 'player_name', 'age', 'gender', 'occupation',
-            'birthplace', 'residence', 'recommended_skills', 'str_value', 'con_value', 'pow_value',
+            'birthplace', 'residence', 'recommended_skills', 'scenario_id', 'scenario_title', 'game_system',
+            'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',
             'notes', 'is_public', 'sixth_edition_data',
@@ -593,12 +608,21 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
     mp_current = serializers.IntegerField(source='magic_points_current', required=False)
     san_current = serializers.IntegerField(source='sanity_current', required=False)
     recommended_skills = JSONListField(child=serializers.CharField(), required=False)
+    scenario_id = serializers.PrimaryKeyRelatedField(
+        source='source_scenario',
+        queryset=Scenario.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    scenario_title = serializers.CharField(source='source_scenario_title', required=False, allow_blank=True)
+    game_system = serializers.CharField(source='source_scenario_game_system', required=False, allow_blank=True)
     
     class Meta:
         model = CharacterSheet
         fields = [
             'name', 'player_name', 'age', 'gender', 'occupation',
-            'birthplace', 'residence', 'recommended_skills', 'str_value', 'con_value', 'pow_value',
+            'birthplace', 'residence', 'recommended_skills', 'scenario_id', 'scenario_title', 'game_system',
+            'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',
             'hp_current', 'mp_current', 'san_current',  # エイリアス追加

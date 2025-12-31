@@ -120,6 +120,16 @@
                             <option value="">グループを選択...</option>
                         </select>
                     </div>
+
+                    <div class="mb-3">
+                        <label for="sessionScenarioTitle" class="form-label">関連シナリオ</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="sessionScenarioTitle" placeholder="未設定" readonly>
+                            <button type="button" class="btn btn-outline-secondary" id="clearSessionScenario" disabled>解除</button>
+                        </div>
+                        <input type="hidden" id="sessionScenarioId">
+                        <div class="form-text">シナリオアーカイブから連携できます</div>
+                    </div>
                     
                     <div class="mb-3">
                         <label for="sessionDescription" class="form-label">説明</label>
@@ -233,6 +243,113 @@ document.addEventListener('DOMContentLoaded', function() {
     let userGroups = [];
     let groupMembers = [];
     let selectedInvitees = new Set();
+    const scenarioLinkKeys = {
+        id: 'session_scenario_id',
+        title: 'session_scenario_title',
+        system: 'session_scenario_game_system'
+    };
+
+    function safeGetStorage(key) {
+        try {
+            return localStorage.getItem(key);
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function safeSetStorage(key, value) {
+        try {
+            localStorage.setItem(key, value);
+        } catch (_) {
+            // ignore storage errors
+        }
+    }
+
+    function safeRemoveStorage(key) {
+        try {
+            localStorage.removeItem(key);
+        } catch (_) {
+            // ignore storage errors
+        }
+    }
+
+    function getScenarioLinkPayload() {
+        const params = new URLSearchParams(window.location.search);
+        const idFromQuery = params.get('scenario_id');
+        const titleFromQuery = params.get('scenario_title');
+        const systemFromQuery = params.get('game_system') || params.get('scenario_game_system');
+        const idFromStorage = safeGetStorage(scenarioLinkKeys.id);
+        const titleFromStorage = safeGetStorage(scenarioLinkKeys.title);
+        const systemFromStorage = safeGetStorage(scenarioLinkKeys.system);
+        return {
+            id: idFromQuery || idFromStorage || '',
+            title: titleFromQuery || titleFromStorage || '',
+            gameSystem: systemFromQuery || systemFromStorage || '',
+            hasQuery: Boolean(idFromQuery)
+        };
+    }
+
+    async function fetchScenarioDetail(scenarioId) {
+        const numericId = parseInt(scenarioId, 10);
+        if (!Number.isFinite(numericId) || numericId <= 0) return null;
+        try {
+            const response = await axios.get(`/api/scenarios/scenarios/${numericId}/`);
+            return response.data;
+        } catch (error) {
+            console.warn('Failed to load scenario detail:', error);
+            return null;
+        }
+    }
+
+    function applyScenarioToSessionForm(scenario) {
+        const idInput = document.getElementById('sessionScenarioId');
+        const titleInput = document.getElementById('sessionScenarioTitle');
+        const clearBtn = document.getElementById('clearSessionScenario');
+        if (!idInput || !titleInput) return;
+
+        if (!scenario || !scenario.id) {
+            idInput.value = '';
+            titleInput.value = '';
+            titleInput.placeholder = '未設定';
+            if (clearBtn) clearBtn.disabled = true;
+            return;
+        }
+
+        idInput.value = String(scenario.id);
+        titleInput.value = scenario.title || '';
+        if (clearBtn) clearBtn.disabled = false;
+    }
+
+    async function loadScenarioLink() {
+        const payload = getScenarioLinkPayload();
+        if (!payload.id) {
+            applyScenarioToSessionForm(null);
+            return payload;
+        }
+
+        if (payload.hasQuery) {
+            safeSetStorage(scenarioLinkKeys.id, payload.id);
+            safeSetStorage(scenarioLinkKeys.title, payload.title || '');
+            safeSetStorage(scenarioLinkKeys.system, payload.gameSystem || '');
+        }
+
+        let scenario = {
+            id: payload.id,
+            title: payload.title || ''
+        };
+
+        if (!scenario.title) {
+            const fetched = await fetchScenarioDetail(payload.id);
+            if (fetched) {
+                scenario = fetched;
+                safeSetStorage(scenarioLinkKeys.title, fetched.title || '');
+                safeSetStorage(scenarioLinkKeys.system, fetched.game_system || '');
+            }
+        }
+
+        applyScenarioToSessionForm(scenario);
+        return payload;
+    }
 
     // カレンダー初期化
     function initCalendar() {
@@ -500,6 +617,10 @@ document.addEventListener('DOMContentLoaded', function() {
             youtube_url: document.getElementById('sessionYoutube').value,
             visibility: document.getElementById('sessionVisibility').value
         };
+        const scenarioId = document.getElementById('sessionScenarioId')?.value;
+        if (scenarioId) {
+            data.scenario = parseInt(scenarioId, 10);
+        }
 
         try {
             const response = await axios.post('/api/schedules/sessions/', data);
@@ -514,6 +635,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             bootstrap.Modal.getInstance(document.getElementById('newSessionModal')).hide();
             form.reset();
+            loadScenarioLink();
             selectedInvitees.clear();
             document.getElementById('sessionInviteMembers').innerHTML = '<span class="text-muted small">グループを選択してください</span>';
             calendar.refetchEvents();
@@ -534,6 +656,25 @@ document.addEventListener('DOMContentLoaded', function() {
     initCalendar();
     loadUpcomingSessions();
     loadGroups();
+
+    const newSessionModalEl = document.getElementById('newSessionModal');
+    newSessionModalEl?.addEventListener('show.bs.modal', () => {
+        loadScenarioLink();
+    });
+
+    document.getElementById('clearSessionScenario')?.addEventListener('click', () => {
+        safeRemoveStorage(scenarioLinkKeys.id);
+        safeRemoveStorage(scenarioLinkKeys.title);
+        safeRemoveStorage(scenarioLinkKeys.system);
+        applyScenarioToSessionForm(null);
+    });
+
+    void loadScenarioLink().then(payload => {
+        if (payload.hasQuery && newSessionModalEl) {
+            const modal = new bootstrap.Modal(newSessionModalEl);
+            modal.show();
+        }
+    });
 
     document.getElementById('sessionGroup').addEventListener('change', (event) => {
         loadGroupMembers(event.target.value);

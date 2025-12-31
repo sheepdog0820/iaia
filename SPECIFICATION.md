@@ -157,6 +157,16 @@ arkham_nexus/
 - message: 招待メッセージ
 - created_at/responded_at: タイムスタンプ
 
+**CharacterSheet（キャラクターシート）**
+- user: 作成者（FK）
+- edition: 版（6th）
+- name: 探索者名
+- recommended_skills: 推奨技能（JSON）
+- source_scenario: 元シナリオ（FK、nullable）
+- source_scenario_title: 元シナリオ名（キャッシュ）
+- source_scenario_game_system: 元シナリオシステム（キャッシュ）
+- created_at/updated_at: タイムスタンプ
+
 #### 2.2.2 schedules アプリ
 
 **TRPGSession（セッション）**
@@ -169,6 +179,7 @@ arkham_nexus/
 - visibility: 可視性（private/group/public）
 - gm: GM（FK）
 - group: グループ（FK）
+- scenario: シナリオ（FK、nullable）
 - participants: 参加者（M2M through SessionParticipant）
 - duration_minutes: セッション時間（分）
 - created_at/updated_at: タイムスタンプ
@@ -197,6 +208,7 @@ arkham_nexus/
 - difficulty: 難易度（beginner/intermediate/advanced/expert）
 - estimated_duration: 推定プレイ時間（short/medium/long/campaign）
 - summary: 概要
+- recommended_skills: 推奨技能（カンマ区切り）
 - url: 参照URL
 - recommended_players: 推奨人数
 - player_count: 推奨プレイヤー数
@@ -282,6 +294,9 @@ arkham_nexus/
 - ステータス管理（予定/進行中/完了/キャンセル）
 - 可視性設定（プライベート/グループ内/公開）
 - YouTube配信URL対応（単一URL）
+- シナリオ連携（任意）
+  - シナリオからセッション作成時にscenario_idを保持
+  - セッション詳細で元シナリオ情報を表示
 - **セッション画像機能**（実装済み）
   - 複数画像のアップロード
   - 画像の表示順序管理
@@ -306,6 +321,7 @@ arkham_nexus/
 - 月間カレンダービュー
 - セッション一覧表示
 - 次回セッション表示
+- シナリオ連携時はクエリからシナリオ情報を受け取り、セッション作成モーダルを自動表示
 
 ### 3.4 シナリオ管理機能
 
@@ -313,6 +329,8 @@ arkham_nexus/
 - シナリオ情報登録・編集
 - ゲームシステム別分類
 - 難易度・推定プレイ時間設定
+- 詳細モーダルから「このシナリオでセッションを計画」導線
+  - scenario_id / scenario_title / game_system を引き継ぎ
 
 #### 3.4.2 プレイ履歴管理
 - GM/プレイヤーとしてのプレイ記録
@@ -323,6 +341,20 @@ arkham_nexus/
 - 個人用メモ（プライベート）
 - 共有メモ（パブリック）
 - シナリオ別管理
+
+#### 3.4.4 シナリオ→セッション→キャラ作成連携（推奨技能）
+- シナリオ詳細から「このシナリオでセッションを計画」でカレンダーへ遷移
+  - URLクエリとlocalStorageで scenario_id / scenario_title / game_system を保持
+- セッション作成時にscenario_idを保存し、セッション詳細でシナリオ情報を表示
+- セッション詳細から「探索者作成」でキャラクター作成へ遷移
+  - scenario_id / scenario_title / game_system / recommended_skills を引き継ぎ
+- キャラクター保存時に source_scenario / source_scenario_title / source_scenario_game_system を保持
+- 推奨技能はCoC 6版の技能キー/名称に対応（未知キーは警告対象）
+- 推奨技能が未指定の場合はscenario_idからAPI取得
+  - 非同期取得で操作を阻害しない
+  - 8秒タイムアウト、失敗時は再試行導線
+  - 推奨技能が空の場合は「推奨技能なし」のヒント表示
+- 推奨技能UI: 手動追加 / クリア / シナリオ反映（自動反映は未設定時のみ）
 
 ### 3.5 統計・分析機能
 
@@ -389,6 +421,8 @@ arkham_nexus/
 - `GET/POST /api/schedules/handouts/` - ハンドアウト管理
 - `GET /api/schedules/calendar/` - カレンダー情報
 - `POST /api/schedules/sessions/create/` - セッション作成
+- セッション作成/更新時に `scenario`（id）を指定可能
+- `GET /api/schedules/sessions/<id>/detail/` は `scenario_detail`（id/title/game_system/recommended_skills）を返却
 
 #### 4.4.1 Webビュー
 - `GET /schedules/calendar/view/` - カレンダービュー
@@ -434,8 +468,10 @@ arkham_nexus/
 - ダッシュボード（`/accounts/dashboard/`）
 - **グループ管理画面（`/accounts/groups/view/`）** - Cult Circle完全動作
 - セッション一覧（`/schedules/sessions/web/`）
+- セッション詳細（`/api/schedules/sessions/<id>/detail/`）
 - カレンダー（`/schedules/calendar/view/`）
 - シナリオアーカイブ（`/scenarios/archive/view/`）
+- 6版キャラクター作成（`/accounts/character/create/6th/`）
 - 統計画面（`/accounts/statistics/view/`）
 - GMハンドアウト管理（`/schedules/sessions/<int:session_id>/handouts/manage/`）
 

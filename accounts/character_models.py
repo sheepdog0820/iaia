@@ -45,6 +45,24 @@ class CharacterSheet(models.Model):
     birthplace = models.CharField(max_length=100, blank=True, verbose_name="出身地")
     residence = models.CharField(max_length=100, blank=True, verbose_name="居住地")
     recommended_skills = models.JSONField(default=list, blank=True, verbose_name="推奨技能")
+    source_scenario = models.ForeignKey(
+        'scenarios.Scenario',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='linked_characters',
+        verbose_name="元シナリオ"
+    )
+    source_scenario_title = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="元シナリオ名"
+    )
+    source_scenario_game_system = models.CharField(
+        max_length=10,
+        blank=True,
+        verbose_name="元シナリオシステム"
+    )
     
     # 能力値 (範囲制限なし - ユーザーの自由度を最大化)
     str_value = models.IntegerField(
@@ -1673,6 +1691,9 @@ class CharacterVersionManager:
             birthplace=character.birthplace,
             residence=character.residence,
             recommended_skills=list(character.recommended_skills or []),
+            source_scenario=character.source_scenario,
+            source_scenario_title=character.source_scenario_title,
+            source_scenario_game_system=character.source_scenario_game_system,
             str_value=character.str_value,
             con_value=character.con_value,
             pow_value=character.pow_value,
@@ -1820,6 +1841,9 @@ class CharacterVersionManager:
             birthplace=target_version.birthplace,
             residence=target_version.residence,
             recommended_skills=list(target_version.recommended_skills or []),
+            source_scenario=target_version.source_scenario,
+            source_scenario_title=target_version.source_scenario_title,
+            source_scenario_game_system=target_version.source_scenario_game_system,
             str_value=target_version.str_value,
             con_value=target_version.con_value,
             pow_value=target_version.pow_value,

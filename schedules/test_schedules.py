@@ -7,6 +7,7 @@ from rest_framework import status
 from django.utils import timezone
 from .models import TRPGSession, SessionParticipant, HandoutInfo
 from accounts.models import Group as CustomGroup
+from scenarios.models import Scenario
 
 User = get_user_model()
 
@@ -128,6 +129,11 @@ class ScheduleAPITestCase(APITestCase):
             group=self.group,
             duration_minutes=180
         )
+        self.scenario = Scenario.objects.create(
+            title='Linked Scenario',
+            game_system='coc',
+            created_by=self.user1
+        )
 
     def test_sessions_list_unauthenticated(self):
         """未認証セッション一覧アクセステスト"""
@@ -199,6 +205,29 @@ class ScheduleAPITestCase(APITestCase):
         created_session = TRPGSession.objects.get(title='New Session')
         self.assertEqual(created_session.gm, self.user1)
         self.assertEqual(created_session.duration_minutes, 240)
+
+    def test_session_creation_with_scenario(self):
+        """シナリオ連携付きセッション作成テスト"""
+        self.client.force_authenticate(user=self.user1)
+
+        session_data = {
+            'title': 'Scenario Session',
+            'description': 'Scenario Linked',
+            'date': (timezone.now() + timedelta(days=3)).isoformat(),
+            'location': 'Online',
+            'group': self.group.id,
+            'duration_minutes': 180,
+            'scenario': self.scenario.id
+        }
+
+        response = self.client.post('/api/schedules/sessions/', session_data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        created_session = TRPGSession.objects.get(title='Scenario Session')
+        self.assertEqual(created_session.scenario, self.scenario)
+        response_data = response.json()
+        self.assertEqual(response_data['scenario'], self.scenario.id)
+        self.assertEqual(response_data['scenario_detail']['title'], self.scenario.title)
 
     def test_session_join_functionality(self):
         """セッション参加機能テスト"""

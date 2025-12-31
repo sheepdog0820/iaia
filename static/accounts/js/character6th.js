@@ -742,37 +742,109 @@ function updateGlobalDiceFormula() {
         const params = new URLSearchParams(window.location.search);
         const rawFromQuery = params.get('recommended_skills') || params.get('scenario_recommended_skills');
         const titleFromQuery = params.get('scenario_title');
+        const idFromQuery = params.get('scenario_id');
+        const systemFromQuery = params.get('game_system') || params.get('scenario_game_system');
         const rawFromStorage = safeGetLocalStorage('scenario_recommended_skills');
         const titleFromStorage = safeGetLocalStorage('scenario_recommended_skills_title');
+        const idFromStorage = safeGetLocalStorage('scenario_recommended_skills_id');
+        const systemFromStorage = safeGetLocalStorage('scenario_recommended_skills_system');
         return {
             raw: rawFromQuery || rawFromStorage || '',
             title: titleFromQuery || titleFromStorage || '',
-            source: rawFromQuery ? 'query' : (rawFromStorage ? 'storage' : '')
+            source: rawFromQuery ? 'query' : (rawFromStorage ? 'storage' : ''),
+            scenarioId: idFromQuery || idFromStorage || '',
+            gameSystem: systemFromQuery || systemFromStorage || ''
         };
     }
 
-    function initRecommendedSkillControls() {
+    function persistScenarioRecommendedSkills(payload) {
+        if (!payload) return;
+        if (payload.scenarioId) {
+            safeSetLocalStorage('scenario_recommended_skills_id', String(payload.scenarioId));
+        }
+        safeSetLocalStorage('scenario_recommended_skills', payload.raw || '');
+        safeSetLocalStorage('scenario_recommended_skills_title', payload.title || '');
+        safeSetLocalStorage('scenario_recommended_skills_system', payload.gameSystem || '');
+    }
+
+    async function fetchScenarioPayload(scenarioId) {
+        const numericId = parseInt(scenarioId, 10);
+        if (!Number.isFinite(numericId) || numericId <= 0) return null;
+        try {
+            const response = await axios.get(`/api/scenarios/scenarios/${numericId}/`, {
+                timeout: 8000
+            });
+            return response.data;
+        } catch (error) {
+            console.warn('Failed to load scenario details:', error);
+            return null;
+        }
+    }
+
+    async function initRecommendedSkillControls() {
         const input = document.getElementById('recommendedSkillInput');
         const addBtn = document.getElementById('addRecommendedSkill');
         const clearBtn = document.getElementById('clearRecommendedSkills');
         const scenarioBtn = document.getElementById('loadScenarioRecommended');
+        const retryBtn = document.getElementById('retryScenarioRecommended');
         const hintEl = document.getElementById('scenarioRecommendedHint');
 
         if (!input) return;
 
         buildRecommendedSkillOptions();
 
-        const scenarioPayload = getScenarioRecommendedSkillPayload();
-        const scenarioParsed = scenarioPayload.raw ? resolveSkillKeys(parseSkillList(scenarioPayload.raw)) : { resolved: [], unknown: [] };
+        let scenarioPayload = getScenarioRecommendedSkillPayload();
+        let scenarioParsed = scenarioPayload.raw ? resolveSkillKeys(parseSkillList(scenarioPayload.raw)) : { resolved: [], unknown: [] };
+        let scenarioFetchPromise = null;
+        const updateScenarioHint = (message, { showRetry = false } = {}) => {
+            if (!hintEl) return;
+            hintEl.textContent = message || '';
+            if (retryBtn) {
+                retryBtn.classList.toggle('d-none', !showRetry);
+            }
+        };
+        const updateScenarioHintFromPayload = () => {
+            if (!hintEl) return;
+            if (scenarioPayload.raw) {
+                updateScenarioHint(
+                    scenarioPayload.title
+                        ? `シナリオ推奨技能: ${scenarioPayload.title}`
+                        : 'シナリオ推奨技能を読み込み可能'
+                );
+                return;
+            }
+            if (scenarioPayload.scenarioId && scenarioPayload.source !== 'api') {
+                updateScenarioHint('シナリオ推奨技能を読み込み可能');
+                return;
+            }
+            if (scenarioPayload.title) {
+                updateScenarioHint(`シナリオ「${scenarioPayload.title}」には推奨技能がありません。`);
+                return;
+            }
+            updateScenarioHint('');
+        };
+        const setScenarioFetchState = (isLoading) => {
+            if (!scenarioBtn) return;
+            if (!scenarioBtn.dataset.defaultLabel) {
+                scenarioBtn.dataset.defaultLabel = scenarioBtn.innerHTML;
+            }
+            scenarioBtn.disabled = isLoading;
+            if (isLoading) {
+                scenarioBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 取得中...';
+                scenarioBtn.setAttribute('aria-busy', 'true');
+            } else {
+                scenarioBtn.innerHTML = scenarioBtn.dataset.defaultLabel;
+                scenarioBtn.removeAttribute('aria-busy');
+            }
+            if (retryBtn) {
+                retryBtn.disabled = isLoading;
+            }
+        };
         if (scenarioParsed.unknown.length > 0) {
             console.warn('Unknown scenario recommended skills:', scenarioParsed.unknown);
         }
 
-        if (hintEl && scenarioPayload.raw) {
-            hintEl.textContent = scenarioPayload.title
-                ? `シナリオ推奨技能: ${scenarioPayload.title}`
-                : 'シナリオ推奨技能を読み込み可能';
-        }
+        updateScenarioHintFromPayload();
 
         if (scenarioParsed.resolved.length > 0) {
             setRecommendedSkills(scenarioParsed.resolved, { persist: false });
@@ -811,13 +883,68 @@ function updateGlobalDiceFormula() {
             setRecommendedSkills([], { persist: true });
         });
 
+        const fetchScenarioRecommended = async (autoApply = false) => {
+            if (!scenarioPayload.scenarioId) return null;
+            if (scenarioFetchPromise) return scenarioFetchPromise;
+            setScenarioFetchState(true);
+            updateScenarioHint('シナリオ推奨技能を取得中...');
+            scenarioFetchPromise = fetchScenarioPayload(scenarioPayload.scenarioId)
+                .then(scenarioData => {
+                    if (!scenarioData) {
+                        updateScenarioHint('シナリオ推奨技能の取得に失敗しました。再試行できます。', { showRetry: true });
+                        return null;
+                    }
+                    scenarioPayload = {
+                        ...scenarioPayload,
+                        raw: (scenarioData.recommended_skills || '').trim(),
+                        title: scenarioData.title || scenarioPayload.title,
+                        gameSystem: scenarioData.game_system || scenarioPayload.gameSystem,
+                        scenarioId: scenarioData.id ? String(scenarioData.id) : scenarioPayload.scenarioId,
+                        source: 'api'
+                    };
+                    persistScenarioRecommendedSkills(scenarioPayload);
+                    scenarioParsed = scenarioPayload.raw
+                        ? resolveSkillKeys(parseSkillList(scenarioPayload.raw))
+                        : { resolved: [], unknown: [] };
+                    if (scenarioParsed.unknown.length > 0) {
+                        console.warn('Unknown scenario recommended skills:', scenarioParsed.unknown);
+                    }
+                    updateScenarioHintFromPayload();
+                    if (autoApply && scenarioParsed.resolved.length > 0 && recommendedSkillKeys.size === 0) {
+                        setRecommendedSkills(scenarioParsed.resolved, { persist: false });
+                    }
+                    return scenarioParsed.resolved;
+                })
+                .finally(() => {
+                    scenarioFetchPromise = null;
+                    setScenarioFetchState(false);
+                });
+            return scenarioFetchPromise;
+        };
+
         scenarioBtn?.addEventListener('click', () => {
-            if (scenarioParsed.resolved.length === 0) {
-                alert('シナリオ推奨技能が見つかりません。');
+            if (scenarioParsed.resolved.length > 0) {
+                setRecommendedSkills(scenarioParsed.resolved, { persist: true });
                 return;
             }
-            setRecommendedSkills(scenarioParsed.resolved, { persist: true });
+            if (!scenarioPayload.scenarioId) {
+                updateScenarioHint('シナリオ推奨技能がありません。');
+                return;
+            }
+            void fetchScenarioRecommended().then(() => {
+                if (scenarioParsed.resolved.length > 0) {
+                    setRecommendedSkills(scenarioParsed.resolved, { persist: true });
+                }
+            });
         });
+        retryBtn?.addEventListener('click', () => {
+            if (!scenarioPayload.scenarioId) return;
+            void fetchScenarioRecommended();
+        });
+
+        if (!scenarioPayload.raw && scenarioPayload.scenarioId) {
+            void fetchScenarioRecommended(true);
+        }
     }
 
     // Skill input event bindings
@@ -1336,7 +1463,7 @@ function initOccupationTemplates() {
     addSkillInputEvents();  // 技能リスト生成後にイベントリスナーを追加
     // タブの初期表示を戦闘系に合わせる
     renderSkillTab('combat', skillTabContainers);
-    initRecommendedSkillControls();
+    void initRecommendedSkillControls();
 
     initOccupationTemplates(); // 職業テンプレート機能を初期化
     initImageUpload(); // 画像アップロード機能を初期化
@@ -1518,6 +1645,17 @@ function initOccupationTemplates() {
             notes: data.notes || ''
         };
         apiData.recommended_skills = Array.from(recommendedSkillKeys);
+        const scenarioPayload = getScenarioRecommendedSkillPayload();
+        const scenarioId = parseInt(scenarioPayload.scenarioId, 10);
+        if (!Number.isNaN(scenarioId)) {
+            apiData.scenario_id = scenarioId;
+        }
+        if (scenarioPayload.title) {
+            apiData.scenario_title = scenarioPayload.title;
+        }
+        if (scenarioPayload.gameSystem) {
+            apiData.game_system = scenarioPayload.gameSystem;
+        }
 
         // 戦闘ステータス
         if (data.hit_points_current !== '' && data.hit_points_current != null) apiData.hit_points_current = parseInt(data.hit_points_current, 10) || 0;

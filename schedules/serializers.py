@@ -12,6 +12,7 @@ from .models import (
 )
 from accounts.serializers import UserSerializer
 from accounts.models import CustomUser
+from scenarios.models import Scenario
 
 
 class SessionImageSerializer(serializers.ModelSerializer):
@@ -156,6 +157,12 @@ class HandoutInfoSerializer(serializers.ModelSerializer):
 
 class TRPGSessionSerializer(serializers.ModelSerializer):
     gm_detail = UserSerializer(source='gm', read_only=True)
+    scenario = serializers.PrimaryKeyRelatedField(
+        queryset=Scenario.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    scenario_detail = serializers.SerializerMethodField()
     participants_detail = SessionParticipantSerializer(
         source='sessionparticipant_set', 
         many=True, 
@@ -185,7 +192,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         model = TRPGSession
         fields = ['id', 'title', 'description', 'date', 'location', 
                  'youtube_url', 'status', 'visibility', 'gm', 'gm_detail',
-                 'group', 'duration_minutes', 'participants_detail', 
+                 'group', 'scenario', 'scenario_detail', 'duration_minutes', 'participants_detail', 
                  'handouts_detail', 'images_detail', 'youtube_links_detail',
                  'participant_count', 'youtube_total_duration', 
                  'youtube_total_duration_display', 'youtube_video_count',
@@ -194,6 +201,16 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
     
     def get_participant_count(self, obj):
         return obj.participants.count()
+
+    def get_scenario_detail(self, obj):
+        if not obj.scenario:
+            return None
+        return {
+            'id': obj.scenario.id,
+            'title': obj.scenario.title,
+            'game_system': obj.scenario.game_system,
+            'recommended_skills': obj.scenario.recommended_skills,
+        }
 
 
 class CalendarEventSerializer(serializers.ModelSerializer):

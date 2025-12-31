@@ -28,6 +28,13 @@ class TRPGSession(models.Model):
     
     gm = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='gm_sessions')
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='sessions')
+    scenario = models.ForeignKey(
+        'scenarios.Scenario',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sessions'
+    )
     participants = models.ManyToManyField(CustomUser, through='SessionParticipant', related_name='sessions')
     
     duration_minutes = models.PositiveIntegerField(default=0, help_text="セッション時間（分）")

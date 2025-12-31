@@ -31,4 +31,22 @@ test.describe('scenarios', () => {
     const scenarioCard = page.locator('.scenario-card', { hasText: scenarioTitle });
     await expect(scenarioCard).toBeVisible();
   });
+
+  test('recommended skills empty shows no warning', async ({ page }) => {
+    await devLogin(page);
+    await page.goto('/api/scenarios/archive/view/');
+
+    await page.click('button[data-bs-target="#addScenarioModal"]');
+    await expect(page.locator('#addScenarioModal')).toBeVisible();
+
+    await page.fill('#scenarioTitle', `E2E Scenario Empty Skills ${Date.now()}`);
+    await page.selectOption('#scenarioSystem', 'coc');
+    await page.fill('#scenarioAuthor', 'Playwright');
+    await page.fill('#scenarioSummary', 'Scenario without recommended skills.');
+
+    await page.fill('#scenarioRecommendedSkills', '');
+    await page.locator('#scenarioRecommendedSkills').blur();
+
+    await expect(page.locator('#scenarioRecommendedSkillsWarning')).toBeHidden();
+  });
 });

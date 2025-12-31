@@ -29,6 +29,17 @@
                     </nav>
                 </div>
                 <div>
+                    {% if session.scenario %}
+                        {% if is_participant or can_join or is_gm %}
+                            <button class="btn btn-outline-success"
+                                    id="createCharacterFromScenario"
+                                    data-scenario-id="{{ session.scenario.id }}"
+                                    data-scenario-title="{{ session.scenario.title }}"
+                                    data-scenario-system="{{ session.scenario.game_system }}">
+                                <i class="fas fa-user-plus"></i> 探索者作成
+                            </button>
+                        {% endif %}
+                    {% endif %}
                     {% if can_edit %}
                         <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editSessionModal">
                             <i class="fas fa-edit"></i> セッション編集
@@ -110,6 +121,14 @@
                                     <span class="badge bg-success"><i class="fas fa-globe"></i> 公開</span>
                                 {% endif %}
                             </p>
+
+                            {% if session.scenario %}
+                            <h6><i class="fas fa-book"></i> シナリオ</h6>
+                            <p class="mb-3">
+                                {{ session.scenario.title }}
+                                <span class="badge bg-secondary ms-2">{{ session.scenario.get_game_system_display }}</span>
+                            </p>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -901,6 +920,38 @@ let characterSheets = [];
 const characterSheetMap = new Map();
 let groupMemberCharacters = new Map();
 let groupMemberNames = new Map();
+
+function safeSetScenarioStorage(key, value) {
+    try {
+        localStorage.setItem(key, value);
+    } catch (_) {
+        // ignore storage errors
+    }
+}
+
+const createCharacterBtn = document.getElementById('createCharacterFromScenario');
+if (createCharacterBtn) {
+    createCharacterBtn.addEventListener('click', () => {
+        const scenarioId = createCharacterBtn.dataset.scenarioId || '';
+        const scenarioTitle = createCharacterBtn.dataset.scenarioTitle || '';
+        const scenarioSystem = createCharacterBtn.dataset.scenarioSystem || '';
+        if (!scenarioId) {
+            alert('シナリオ情報が取得できませんでした。');
+            return;
+        }
+
+        safeSetScenarioStorage('scenario_recommended_skills_id', scenarioId);
+        safeSetScenarioStorage('scenario_recommended_skills_title', scenarioTitle);
+        safeSetScenarioStorage('scenario_recommended_skills_system', scenarioSystem);
+
+        const params = new URLSearchParams({
+            scenario_id: scenarioId,
+            scenario_title: scenarioTitle,
+            game_system: scenarioSystem
+        });
+        window.location.href = `/accounts/character/create/6th/?${params.toString()}`;
+    });
+}
 
 async function loadCharacterSheets() {
     try {

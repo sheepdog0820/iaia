@@ -260,14 +260,60 @@
   - ✅ **統合テスト通過** - `accounts.test_session_integration` / `tests.integration.test_character_session_integration`
 - **解決日**: 2025年12月30日
 
+### ✅ ISSUE-024: シナリオ情報のキャラクター作成連携要件整理（解決済み）
+- **カテゴリ**: 機能統合
+- **影響範囲**: シナリオ管理・キャラクター作成・セッション管理
+- **備考**: ISSUE番号重複（別件）
+- **詳細**:
+  - シナリオの推奨技能やタイトル等をキャラ作成へ引き継ぐ連携仕様の整備
+  - セッション作成・詳細画面を含めたシナリオ連携導線を整備
+- **該当ファイル**:
+  - `templates/scenarios/archive.html`
+  - `static/accounts/js/character6th.js`
+  - `templates/accounts/character_6th_create.html`
+  - `accounts/character_models.py`
+  - `accounts/views/character_views.py`
+  - `accounts/serializers.py`
+  - `schedules/models.py`
+  - `schedules/serializers.py`
+  - `schedules/views.py`
+  - `templates/schedules/calendar.html`
+  - `templates/schedules/session_detail.html`
+  - `tests/e2e/flows/scenario-session-character.spec.ts`
+- **実装内容**:
+  - ✅ **最小連携セット定義** - `scenario_id` / `scenario_title` / `game_system` / `recommended_skills`
+  - ✅ **キャラクターへのシナリオ由来情報保存** - FK + スナップショット保持
+  - ✅ **推奨技能の取得強化** - `scenario_id` からのAPI取得に対応
+  - ✅ **セッション経由の連携導線** - シナリオ→セッション→探索者作成
+  - ✅ **連携フローのE2Eテスト追加** - Playwright
+- **解決日**: 2025年12月31日
+
+### ✅ ISSUE-025: シナリオ推奨技能入力の品質向上（解決済み）
+- **カテゴリ**: UI/UX改善
+- **影響範囲**: シナリオ管理・キャラクター作成
+- **詳細**:
+  - 推奨技能の入力補助とバリデーション強化
+  - 未対応技能の視覚フィードバックと正規化
+- **該当ファイル**:
+  - `templates/scenarios/archive.html`
+  - `static/accounts/js/character6th.js`
+  - `tests/e2e/flows/scenario-management.spec.ts`
+- **実装内容**:
+  - ✅ **推奨技能入力UIのオートコンプリート** - CoC 6版技能候補
+  - ✅ **推奨技能の正規化/検証** - 区切り/重複/表記ゆれ対応
+  - ✅ **未知技能のフィードバック表示** - 警告/確認フロー
+  - ✅ **空入力の警告除去** - 未入力でも導線を遮断しない
+  - ✅ **E2Eテスト追加** - 空入力時の警告非表示
+- **解決日**: 2025年12月31日
+
 ---
 
 ## 📊 完了済み課題統計
 
 ### 実装完了サマリー
-- **完了済み課題数**: 12件
+- **完了済み課題数**: 14件
 - **完了期間**: 2024年6月14日 〜 2025年12月31日
-- **主要カテゴリ**: バグ修正2件、新機能実装6件、機能強化2件、機能統合1件、リリース準備1件
+- **主要カテゴリ**: バグ修正2件、新機能実装6件、機能強化2件、機能統合2件、UI/UX改善1件、リリース準備1件
 
 ### テスト結果
 - **統合テスト成功率**: 100% (16/16)
