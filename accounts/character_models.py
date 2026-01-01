@@ -360,6 +360,11 @@ class CharacterSheet(models.Model):
     def export_ccfolia_format(self):
         """CCFOLIA形式でのデータエクスポート"""
         return CharacterExportManager.export_ccfolia_format(self)
+
+    @staticmethod
+    def bulk_export_ccfolia(character_ids):
+        """複数キャラクターの一括CCFOLIAエクスポート"""
+        return CharacterExportManager.bulk_export_ccfolia(character_ids)
     
     def sync_to_ccfolia(self):
         """CCFOLIAへの同期処理"""
