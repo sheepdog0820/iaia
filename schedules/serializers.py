@@ -150,7 +150,7 @@ class HandoutInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = HandoutInfo
         fields = ['id', 'session', 'participant', 'participant_detail', 
-                 'title', 'content', 'is_secret', 'handout_number',
+                 'title', 'content', 'recommended_skills', 'is_secret', 'handout_number',
                  'assigned_player_slot', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 

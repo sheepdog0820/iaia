@@ -35,7 +35,8 @@
                                     id="createCharacterFromScenario"
                                     data-scenario-id="{{ session.scenario.id }}"
                                     data-scenario-title="{{ session.scenario.title }}"
-                                    data-scenario-system="{{ session.scenario.game_system }}">
+                                    data-scenario-system="{{ session.scenario.game_system }}"
+                                    data-session-id="{{ session.id }}">
                                 <i class="fas fa-user-plus"></i> 探索者作成
                             </button>
                         {% endif %}
@@ -379,6 +380,12 @@
                                     <i class="fas fa-user"></i> {{ handout.participant.user.nickname|default:handout.participant.user.username }}
                                 </p>
                             {% endif %}
+                            {% if handout.recommended_skills %}
+                                <p class="small text-muted mb-2">
+                                    <strong>推奨技能:</strong>
+                                    {{ handout.recommended_skills|linebreaksbr }}
+                                </p>
+                            {% endif %}
                             <div class="small">
                                 {{ handout.content|linebreaks }}
                             </div>
@@ -634,6 +641,11 @@
                     <div class="mb-3">
                         <label for="handout_content" class="form-label">内容</label>
                         <textarea class="form-control" id="handout_content" rows="4" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="handout_recommended_skills" class="form-label">推奨技能</label>
+                        <textarea class="form-control" id="handout_recommended_skills" rows="2" placeholder="例: 目星, 図書館"></textarea>
+                        <small class="text-muted">カンマ/改行区切りで入力できます</small>
                     </div>
                     <div class="mb-3 form-check">
                         <input type="checkbox" class="form-check-input" id="handout_is_secret" checked>
@@ -935,6 +947,7 @@ if (createCharacterBtn) {
         const scenarioId = createCharacterBtn.dataset.scenarioId || '';
         const scenarioTitle = createCharacterBtn.dataset.scenarioTitle || '';
         const scenarioSystem = createCharacterBtn.dataset.scenarioSystem || '';
+        const sessionId = createCharacterBtn.dataset.sessionId || '';
         if (!scenarioId) {
             alert('シナリオ情報が取得できませんでした。');
             return;
@@ -947,7 +960,8 @@ if (createCharacterBtn) {
         const params = new URLSearchParams({
             scenario_id: scenarioId,
             scenario_title: scenarioTitle,
-            game_system: scenarioSystem
+            game_system: scenarioSystem,
+            session_id: sessionId
         });
         window.location.href = `/accounts/character/create/6th/?${params.toString()}`;
     });
@@ -1158,6 +1172,7 @@ async function createHandout() {
         participant: document.getElementById('handout_participant').value,
         title: document.getElementById('handout_title').value,
         content: document.getElementById('handout_content').value,
+        recommended_skills: document.getElementById('handout_recommended_skills').value,
         is_secret: document.getElementById('handout_is_secret').checked
     };
 

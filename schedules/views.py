@@ -705,6 +705,28 @@ class HandoutInfoViewSet(viewsets.ModelViewSet):
         
         serializer.save()
 
+    @action(detail=False, methods=['post'])
+    def toggle_visibility(self, request):
+        """ハンドアウトの公開/秘匿切り替え（GMのみ）"""
+        handout_id = request.data.get('handout_id')
+
+        if not handout_id:
+            return Response({'error': 'handout_idが必要です'}, status=status.HTTP_400_BAD_REQUEST)
+
+        handout = get_object_or_404(HandoutInfo, id=handout_id)
+
+        if handout.session.gm != request.user:
+            return Response({'error': 'GM権限が必要です'}, status=status.HTTP_403_FORBIDDEN)
+
+        handout.is_secret = not handout.is_secret
+        handout.save()
+
+        serializer = HandoutInfoSerializer(handout)
+        return Response({
+            'handout': serializer.data,
+            'message': f'ハンドアウトを{"秘匿" if handout.is_secret else "公開"}に設定しました'
+        })
+
 
 class CalendarView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1153,6 +1175,66 @@ class UpcomingSessionsView(APIView):
         
         serializer = SessionListSerializer(upcoming_sessions, many=True)
         return Response(serializer.data)
+
+
+class NextSessionContextView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        now = timezone.now()
+
+        session_id = request.query_params.get('session_id')
+        if session_id:
+            try:
+                session_id = int(session_id)
+            except (TypeError, ValueError):
+                return Response({'error': 'session_id must be an integer'}, status=status.HTTP_400_BAD_REQUEST)
+
+            session = TRPGSession.objects.select_related('scenario').filter(id=session_id).first()
+            if not session:
+                return Response({'error': 'Session not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            if session.gm != user and not session.participants.filter(id=user.id).exists():
+                return Response({'error': 'このセッションにアクセスする権限がありません'}, status=status.HTTP_403_FORBIDDEN)
+        else:
+            session = TRPGSession.objects.filter(
+                Q(gm=user) | Q(participants=user),
+                date__gte=now,
+                status='planned'
+            ).select_related('scenario').order_by('date').first()
+
+        if not session:
+            return Response({'session_id': None})
+
+        scenario = session.scenario
+        scenario_data = None
+        if scenario:
+            scenario_data = {
+                'id': scenario.id,
+                'title': scenario.title,
+                'game_system': scenario.game_system,
+                'recommended_skills': scenario.recommended_skills or '',
+            }
+
+        participant = SessionParticipant.objects.filter(session=session, user=user).first()
+        handout_skills = []
+        handout_titles = []
+        if participant:
+            handouts = HandoutInfo.objects.filter(session=session, participant=participant)
+            for handout in handouts:
+                if handout.recommended_skills:
+                    handout_skills.append(handout.recommended_skills)
+                    handout_titles.append(handout.title)
+
+        return Response({
+            'session_id': session.id,
+            'session_title': session.title,
+            'session_date': session.date,
+            'scenario': scenario_data,
+            'handout_recommended_skills': handout_skills,
+            'handout_titles': handout_titles,
+        })
 
 
 class SessionStatisticsView(APIView):

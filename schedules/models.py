@@ -206,6 +206,11 @@ class HandoutInfo(models.Model):
     participant = models.ForeignKey(SessionParticipant, on_delete=models.CASCADE, related_name='handouts')
     title = models.CharField(max_length=100)
     content = models.TextField()
+    recommended_skills = models.TextField(
+        blank=True,
+        default='',
+        help_text="推奨技能（カンマ/改行区切り）"
+    )
     is_secret = models.BooleanField(default=True, help_text="秘匿ハンドアウトかどうか")
     
     # 新規フィールド: ハンドアウト番号

@@ -288,7 +288,7 @@ class HandoutManagementDetailTestCase(APITestCase):
                 'title': 'Custom Handout Title',
                 'is_secret': True
             }
-        })
+        }, format='json')
         
         if response.status_code == status.HTTP_201_CREATED:
             data = response.json()

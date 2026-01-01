@@ -496,6 +496,7 @@ function updateGlobalDiceFormula() {
     const skillCardByKey = new Map();
     let skillTabContainers = null;
     let recommendedSkillKeys = new Set();
+    let userTouchedRecommended = false;
 
     // Skill list generation (single source, moved per tab)
     function generateSkillsList() {
@@ -704,6 +705,7 @@ function updateGlobalDiceFormula() {
             button.addEventListener('click', () => {
                 const skillKey = button.dataset.skill;
                 if (!skillKey) return;
+                userTouchedRecommended = true;
                 const next = Array.from(recommendedSkillKeys).filter(key => key !== skillKey);
                 setRecommendedSkills(next, { persist: true });
             });
@@ -748,10 +750,12 @@ function updateGlobalDiceFormula() {
         const titleFromStorage = safeGetLocalStorage('scenario_recommended_skills_title');
         const idFromStorage = safeGetLocalStorage('scenario_recommended_skills_id');
         const systemFromStorage = safeGetLocalStorage('scenario_recommended_skills_system');
+        const hasQueryScenario = !!(rawFromQuery || idFromQuery || titleFromQuery || systemFromQuery);
+        const hasStorageScenario = !!(rawFromStorage || idFromStorage || titleFromStorage || systemFromStorage);
         return {
             raw: rawFromQuery || rawFromStorage || '',
             title: titleFromQuery || titleFromStorage || '',
-            source: rawFromQuery ? 'query' : (rawFromStorage ? 'storage' : ''),
+            source: hasQueryScenario ? 'query' : (hasStorageScenario ? 'storage' : ''),
             scenarioId: idFromQuery || idFromStorage || '',
             gameSystem: systemFromQuery || systemFromStorage || ''
         };
@@ -781,6 +785,25 @@ function updateGlobalDiceFormula() {
         }
     }
 
+    async function fetchNextSessionContext(sessionId) {
+        try {
+            const params = new URLSearchParams();
+            if (sessionId) {
+                params.set('session_id', sessionId);
+            }
+            const url = params.toString()
+                ? `/api/schedules/sessions/next-context/?${params.toString()}`
+                : '/api/schedules/sessions/next-context/';
+            const response = await axios.get(url, {
+                timeout: 8000
+            });
+            return response.data;
+        } catch (error) {
+            console.warn('Failed to load next session context:', error);
+            return null;
+        }
+    }
+
     async function initRecommendedSkillControls() {
         const input = document.getElementById('recommendedSkillInput');
         const addBtn = document.getElementById('addRecommendedSkill');
@@ -788,6 +811,8 @@ function updateGlobalDiceFormula() {
         const scenarioBtn = document.getElementById('loadScenarioRecommended');
         const retryBtn = document.getElementById('retryScenarioRecommended');
         const hintEl = document.getElementById('scenarioRecommendedHint');
+        const sessionParams = new URLSearchParams(window.location.search);
+        const sessionIdFromQuery = sessionParams.get('session_id');
 
         if (!input) return;
 
@@ -795,7 +820,18 @@ function updateGlobalDiceFormula() {
 
         let scenarioPayload = getScenarioRecommendedSkillPayload();
         let scenarioParsed = scenarioPayload.raw ? resolveSkillKeys(parseSkillList(scenarioPayload.raw)) : { resolved: [], unknown: [] };
+        let handoutPayload = { rawList: [], titles: [] };
+        let handoutParsed = { resolved: [], unknown: [] };
         let scenarioFetchPromise = null;
+        const appendHandoutHint = (message) => {
+            if (!handoutPayload.rawList.length) return message || '';
+            const suffix = '秘匿推奨技能あり';
+            if (!message) return suffix;
+            return `${message} / ${suffix}`;
+        };
+        const getCombinedRecommendedKeys = () => (
+            Array.from(new Set([...scenarioParsed.resolved, ...handoutParsed.resolved]))
+        );
         const updateScenarioHint = (message, { showRetry = false } = {}) => {
             if (!hintEl) return;
             hintEl.textContent = message || '';
@@ -805,23 +841,27 @@ function updateGlobalDiceFormula() {
         };
         const updateScenarioHintFromPayload = () => {
             if (!hintEl) return;
+            let message = '';
             if (scenarioPayload.raw) {
-                updateScenarioHint(
-                    scenarioPayload.title
-                        ? `シナリオ推奨技能: ${scenarioPayload.title}`
-                        : 'シナリオ推奨技能を読み込み可能'
-                );
-                return;
+                message = scenarioPayload.title
+                    ? `シナリオ推奨技能: ${scenarioPayload.title}`
+                    : 'シナリオ推奨技能を読み込み可能';
+            } else if (scenarioPayload.scenarioId && scenarioPayload.source !== 'api') {
+                message = 'シナリオ推奨技能を読み込み可能';
+            } else if (scenarioPayload.title) {
+                message = `シナリオ「${scenarioPayload.title}」には推奨技能がありません。`;
             }
-            if (scenarioPayload.scenarioId && scenarioPayload.source !== 'api') {
-                updateScenarioHint('シナリオ推奨技能を読み込み可能');
-                return;
+            updateScenarioHint(appendHandoutHint(message));
+        };
+        const parseHandoutRecommendedSkills = (rawList) => {
+            if (!Array.isArray(rawList) || rawList.length === 0) {
+                return { resolved: [], unknown: [] };
             }
-            if (scenarioPayload.title) {
-                updateScenarioHint(`シナリオ「${scenarioPayload.title}」には推奨技能がありません。`);
-                return;
-            }
-            updateScenarioHint('');
+            const combined = [];
+            rawList.forEach(raw => {
+                combined.push(...parseSkillList(raw));
+            });
+            return resolveSkillKeys(combined);
         };
         const setScenarioFetchState = (isLoading) => {
             if (!scenarioBtn) return;
@@ -857,6 +897,54 @@ function updateGlobalDiceFormula() {
             }
         }
 
+        const applyNextSessionContext = async () => {
+            const context = await fetchNextSessionContext(sessionIdFromQuery);
+            if (!context || !context.session_id) return;
+
+            if (context.scenario && scenarioPayload.source !== 'query') {
+                const scenarioRaw = (context.scenario.recommended_skills || '').trim();
+                scenarioPayload = {
+                    ...scenarioPayload,
+                    raw: scenarioRaw,
+                    title: context.scenario.title || scenarioPayload.title,
+                    gameSystem: context.scenario.game_system || scenarioPayload.gameSystem,
+                    scenarioId: context.scenario.id ? String(context.scenario.id) : scenarioPayload.scenarioId,
+                    source: 'session'
+                };
+                persistScenarioRecommendedSkills(scenarioPayload);
+                scenarioParsed = scenarioRaw
+                    ? resolveSkillKeys(parseSkillList(scenarioRaw))
+                    : { resolved: [], unknown: [] };
+                if (scenarioParsed.unknown.length > 0) {
+                    console.warn('Unknown scenario recommended skills:', scenarioParsed.unknown);
+                }
+            }
+
+            handoutPayload = {
+                rawList: Array.isArray(context.handout_recommended_skills)
+                    ? context.handout_recommended_skills.map(raw => (raw || '').trim()).filter(Boolean)
+                    : [],
+                titles: Array.isArray(context.handout_titles)
+                    ? context.handout_titles.map(title => (title || '').trim()).filter(Boolean)
+                    : []
+            };
+            handoutParsed = parseHandoutRecommendedSkills(handoutPayload.rawList);
+            if (handoutParsed.unknown.length > 0) {
+                console.warn('Unknown handout recommended skills:', handoutParsed.unknown);
+            }
+
+            updateScenarioHintFromPayload();
+
+            const combined = getCombinedRecommendedKeys();
+            if (combined.length > 0 && !userTouchedRecommended) {
+                setRecommendedSkills(combined, { persist: false });
+            }
+        };
+
+        if (!isEditMode && (sessionIdFromQuery || scenarioPayload.source !== 'query')) {
+            void applyNextSessionContext();
+        }
+
         const addFromInput = () => {
             const rawValue = input.value;
             const parsed = resolveSkillKeys(parseSkillList(rawValue));
@@ -864,6 +952,7 @@ function updateGlobalDiceFormula() {
                 alert('技能が見つかりません。名称またはキーを確認してください。');
                 return;
             }
+            userTouchedRecommended = true;
             setRecommendedSkills(parsed.resolved, { mode: 'merge', persist: true });
             input.value = '';
             if (parsed.unknown.length > 0) {
@@ -880,6 +969,7 @@ function updateGlobalDiceFormula() {
         });
 
         clearBtn?.addEventListener('click', () => {
+            userTouchedRecommended = true;
             setRecommendedSkills([], { persist: true });
         });
 
@@ -910,8 +1000,9 @@ function updateGlobalDiceFormula() {
                         console.warn('Unknown scenario recommended skills:', scenarioParsed.unknown);
                     }
                     updateScenarioHintFromPayload();
-                    if (autoApply && scenarioParsed.resolved.length > 0 && recommendedSkillKeys.size === 0) {
-                        setRecommendedSkills(scenarioParsed.resolved, { persist: false });
+                    const combined = getCombinedRecommendedKeys();
+                    if (autoApply && combined.length > 0 && !userTouchedRecommended) {
+                        setRecommendedSkills(combined, { persist: false });
                     }
                     return scenarioParsed.resolved;
                 })
@@ -923,8 +1014,10 @@ function updateGlobalDiceFormula() {
         };
 
         scenarioBtn?.addEventListener('click', () => {
-            if (scenarioParsed.resolved.length > 0) {
-                setRecommendedSkills(scenarioParsed.resolved, { persist: true });
+            userTouchedRecommended = true;
+            const combined = getCombinedRecommendedKeys();
+            if (combined.length > 0) {
+                setRecommendedSkills(combined, { persist: true });
                 return;
             }
             if (!scenarioPayload.scenarioId) {
@@ -932,8 +1025,9 @@ function updateGlobalDiceFormula() {
                 return;
             }
             void fetchScenarioRecommended().then(() => {
-                if (scenarioParsed.resolved.length > 0) {
-                    setRecommendedSkills(scenarioParsed.resolved, { persist: true });
+                const refreshed = getCombinedRecommendedKeys();
+                if (refreshed.length > 0) {
+                    setRecommendedSkills(refreshed, { persist: true });
                 }
             });
         });
@@ -942,7 +1036,7 @@ function updateGlobalDiceFormula() {
             void fetchScenarioRecommended();
         });
 
-        if (!scenarioPayload.raw && scenarioPayload.scenarioId) {
+        if (!isEditMode && !scenarioPayload.raw && scenarioPayload.scenarioId) {
             void fetchScenarioRecommended(true);
         }
     }
@@ -1391,6 +1485,7 @@ function initOccupationTemplates() {
         }
         
         // Highlight recommended skills
+        userTouchedRecommended = true;
         setRecommendedSkills(occupation.skills || [], { persist: true });
         
         // モーダルを閉じる

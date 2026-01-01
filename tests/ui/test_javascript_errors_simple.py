@@ -53,6 +53,23 @@ class SimpleJavaScriptErrorTest(TestCase):
         self.assertIn('id="skillTabContent"', content)
         self.assertIn('id="combatSkills"', content)
         self.assertIn('id="explorationSkills"', content)
+
+    def test_recommended_skill_controls_exist(self):
+        """Check that recommended skill controls exist for JS interactions"""
+        response = self.client.get('/accounts/character/create/6th/')
+        content = response.content.decode('utf-8')
+
+        for field_id in [
+            'recommendedSkillsControl',
+            'recommendedSkillInput',
+            'addRecommendedSkill',
+            'loadScenarioRecommended',
+            'clearRecommendedSkills',
+            'recommendedSkillsChips',
+            'scenarioRecommendedHint',
+            'retryScenarioRecommended',
+        ]:
+            self.assertIn(f'id="{field_id}"', content)
         
     def test_derived_stat_targets_exist(self):
         """Check that derived stat targets exist for JS updates"""
@@ -66,3 +83,11 @@ class SimpleJavaScriptErrorTest(TestCase):
         self.assertIn('id="luck_display"', content)
         self.assertIn('id="know_display"', content)
         self.assertIn('id="damage_bonus_display"', content)
+
+    def test_character6th_js_includes_session_context_loader(self):
+        """Check that JS includes next session context loader"""
+        with open('static/accounts/js/character6th.js', 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        self.assertIn('fetchNextSessionContext', content)
+        self.assertIn('/api/schedules/sessions/next-context/', content)
