@@ -257,6 +257,12 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 'used': hobby_used,
                 'remaining': hobby_total - hobby_used
             },
+            'total_occupation_points': occupation_total,
+            'used_occupation_points': occupation_used,
+            'remaining_occupation_points': occupation_total - occupation_used,
+            'total_hobby_points': hobby_total,
+            'used_hobby_points': hobby_used,
+            'remaining_hobby_points': hobby_total - hobby_used,
             'skills': [
                 {
                     'name': skill.skill_name,
