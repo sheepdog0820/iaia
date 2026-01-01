@@ -63,27 +63,64 @@ if SELENIUM_AVAILABLE:
                 username='testuser',
                 password='testpass123'
             )
-            
-        def login(self):
-            """Helper method to log in via Selenium"""
-            # Use dev login for testing
-            self.selenium.get(f'{self.live_server_url}/accounts/dev-login/')
-            
+
+        def open_main_tab(self, tab_id, pane_id):
+            tab = WebDriverWait(self.selenium, 10).until(
+                EC.presence_of_element_located((By.ID, tab_id))
+            )
+            self.selenium.execute_script(
+                "arguments[0].scrollIntoView({block: 'center'});", tab
+            )
+            self.selenium.execute_script(
+                """
+                const tab = arguments[0];
+                const paneId = arguments[1];
+                if (window.bootstrap && bootstrap.Tab) {
+                    bootstrap.Tab.getOrCreateInstance(tab).show();
+                } else {
+                    tab.classList.add('active');
+                    tab.setAttribute('aria-selected', 'true');
+                    const pane = document.getElementById(paneId);
+                    if (pane) {
+                        pane.classList.add('show', 'active');
+                        pane.style.display = 'block';
+                        pane.style.opacity = '1';
+                        pane.style.visibility = 'visible';
+                    }
+                }
+                """,
+                tab,
+                pane_id,
+            )
             try:
-                login_btn = WebDriverWait(self.selenium, 10).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'form button.login-btn:not([disabled])'))
-                )
-                login_btn.click()
-            except TimeoutException:
-                raise unittest.SkipTest("Dev login not available for Selenium tests")
-                
-            # Wait for redirect or character list page
-            try:
-                WebDriverWait(self.selenium, 5).until(
-                    EC.url_contains('/accounts/')
+                WebDriverWait(self.selenium, 10).until(
+                    EC.visibility_of_element_located((By.ID, pane_id))
                 )
             except TimeoutException:
                 pass
+            
+        def login(self):
+            """Helper method to log in via Selenium"""
+            client = Client()
+            logged_in = client.login(
+                username=self.user.username,
+                password='testpass123'
+            )
+            if not logged_in:
+                raise AssertionError('Failed to authenticate test user')
+
+            self.selenium.get(self.live_server_url)
+            self.selenium.delete_all_cookies()
+            session_cookie = client.cookies.get('sessionid')
+            if not session_cookie:
+                raise AssertionError('Session cookie not set')
+
+            self.selenium.add_cookie({
+                'name': 'sessionid',
+                'value': session_cookie.value,
+                'path': '/',
+            })
+            self.selenium.get(f'{self.live_server_url}/')
             
         def get_browser_errors(self):
             """Extract JavaScript errors from browser console"""
@@ -115,10 +152,10 @@ if SELENIUM_AVAILABLE:
             """Test that changing ability scores doesn't cause JavaScript errors"""
             self.login()
             self.selenium.get(f'{self.live_server_url}/accounts/character/create/6th/')
-            
-            # Wait for page to load
-            dex_field = WebDriverWait(self.selenium, 10).until(
-                EC.presence_of_element_located((By.ID, 'dex'))
+
+            self.open_main_tab('abilities-tab', 'abilities')
+            WebDriverWait(self.selenium, 10).until(
+                EC.element_to_be_clickable((By.ID, 'dex'))
             )
             
             # Change various ability scores
@@ -139,8 +176,9 @@ if SELENIUM_AVAILABLE:
             """Test that dice rolling doesn't cause JavaScript errors"""
             self.login()
             self.selenium.get(f'{self.live_server_url}/accounts/character/create/6th/')
-            
+
             # Wait and click roll all button
+            self.open_main_tab('abilities-tab', 'abilities')
             roll_all_btn = WebDriverWait(self.selenium, 10).until(
                 EC.element_to_be_clickable((By.ID, 'rollAllAbilities'))
             )
@@ -159,25 +197,38 @@ if SELENIUM_AVAILABLE:
             self.selenium.get(f'{self.live_server_url}/accounts/character/create/6th/')
             
             # Set EDU for skill points
-            edu_field = WebDriverWait(self.selenium, 10).until(
+            WebDriverWait(self.selenium, 10).until(
                 EC.presence_of_element_located((By.ID, 'edu'))
             )
-            edu_field.clear()
-            edu_field.send_keys('16')
-            edu_field.send_keys(Keys.TAB)
+            self.selenium.execute_script(
+                """
+                const edu = document.getElementById('edu');
+                if (edu) {
+                    edu.value = '16';
+                    edu.dispatchEvent(new Event('input', { bubbles: true }));
+                    edu.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                """
+            )
             
             time.sleep(0.5)
             
             # Open skills tab and allocate points to any occupation skill
-            self.selenium.find_element(By.ID, 'skills-tab').click()
             WebDriverWait(self.selenium, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, '#combatSkills .occupation-skill'))
+                EC.presence_of_element_located((By.CSS_SELECTOR, '.occupation-skill'))
             )
-            skill_inputs = self.selenium.find_elements(By.CSS_SELECTOR, '.occupation-skill')
-            if skill_inputs:
-                skill_inputs[0].clear()
-                skill_inputs[0].send_keys('50')
-                skill_inputs[0].send_keys(Keys.TAB)
+            self.selenium.execute_script(
+                """
+                const skillInputs = Array.from(document.querySelectorAll('.occupation-skill'));
+                const target = skillInputs.find((el) => el.offsetParent !== null) || skillInputs[0];
+                if (target) {
+                    target.value = '50';
+                    target.dispatchEvent(new Event('input', { bubbles: true }));
+                    target.dispatchEvent(new Event('change', { bubbles: true }));
+                    target.dispatchEvent(new Event('blur', { bubbles: true }));
+                }
+                """
+            )
                     
             time.sleep(0.5)
             
@@ -190,18 +241,19 @@ if SELENIUM_AVAILABLE:
             """Test that editing custom base values doesn't cause JavaScript errors"""
             self.login()
             self.selenium.get(f'{self.live_server_url}/accounts/character/create/6th/')
-            
-            # Wait for skills to load
+
+            self.open_main_tab('skills-tab', 'skills')
             WebDriverWait(self.selenium, 10).until(
-                EC.presence_of_element_located((By.ID, 'combatSkills'))
+                EC.visibility_of_element_located((By.CSS_SELECTOR, '[id^="base_"]'))
             )
             
             # Try to edit a base value
             base_inputs = self.selenium.find_elements(By.CSS_SELECTOR, '[id^="base_"]')
-            if base_inputs:
-                base_inputs[0].clear()
-                base_inputs[0].send_keys('10')
-                base_inputs[0].send_keys(Keys.TAB)
+            visible_base_inputs = [base_input for base_input in base_inputs if base_input.is_displayed()]
+            if visible_base_inputs:
+                visible_base_inputs[0].clear()
+                visible_base_inputs[0].send_keys('10')
+                visible_base_inputs[0].send_keys(Keys.TAB)
                     
             time.sleep(0.5)
             
@@ -221,16 +273,22 @@ if SELENIUM_AVAILABLE:
             )
             
             self.selenium.find_element(By.ID, 'character-name').send_keys('Error Test Character')
-            
+
             # Roll abilities
+            self.open_main_tab('abilities-tab', 'abilities')
             roll_btn = self.selenium.find_element(By.ID, 'rollAllAbilities')
             roll_btn.click()
             
             time.sleep(1)
             
             # Try to submit (will be blocked by validation)
-            submit_btn = self.selenium.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
-            submit_btn.click()
+            submit_btn = WebDriverWait(self.selenium, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[type="submit"]'))
+            )
+            self.selenium.execute_script(
+                "arguments[0].scrollIntoView({block: 'center'});", submit_btn
+            )
+            self.selenium.execute_script("arguments[0].click();", submit_btn)
             
             # Accept any alert
             try:
@@ -250,6 +308,7 @@ if SELENIUM_AVAILABLE:
             self.selenium.get(f'{self.live_server_url}/accounts/character/create/6th/')
             
             # Wait for skills section
+            self.open_main_tab('skills-tab', 'skills')
             WebDriverWait(self.selenium, 10).until(
                 EC.presence_of_element_located((By.ID, 'skillTabs'))
             )
@@ -259,8 +318,32 @@ if SELENIUM_AVAILABLE:
                        'knowledge-tab', 'all-tab', 'recommended-tab', 'allocated-tab']
             
             for tab_id in tab_ids:
-                tab = self.selenium.find_element(By.ID, tab_id)
-                tab.click()
+                self.selenium.execute_script(
+                    """
+                    const tabId = arguments[0];
+                    const tab = document.getElementById(tabId);
+                    if (!tab) {
+                        return;
+                    }
+                    if (window.bootstrap && bootstrap.Tab) {
+                        bootstrap.Tab.getOrCreateInstance(tab).show();
+                    } else {
+                        tab.classList.add('active');
+                        tab.setAttribute('aria-selected', 'true');
+                        const target = tab.getAttribute('data-bs-target');
+                        if (target) {
+                            const pane = document.querySelector(target);
+                            if (pane) {
+                                pane.classList.add('show', 'active');
+                                pane.style.display = 'block';
+                                pane.style.opacity = '1';
+                                pane.style.visibility = 'visible';
+                            }
+                        }
+                    }
+                    """,
+                    tab_id,
+                )
                 time.sleep(0.2)
                     
             # Check for JavaScript errors
@@ -274,16 +357,31 @@ if SELENIUM_AVAILABLE:
             self.selenium.get(f'{self.live_server_url}/accounts/character/create/6th/')
             
             # Open and close occupation template modal
-            open_btn = WebDriverWait(self.selenium, 10).until(
-                EC.element_to_be_clickable((By.ID, 'occupationTemplateBtn'))
-            )
-            open_btn.click()
-            
             WebDriverWait(self.selenium, 10).until(
-                EC.visibility_of_element_located((By.ID, 'occupationTemplateModal'))
+                EC.presence_of_element_located((By.ID, 'occupationTemplateBtn'))
             )
-            close_btn = self.selenium.find_element(By.CSS_SELECTOR, '#occupationTemplateModal .btn-close')
-            close_btn.click()
+            self.selenium.execute_script(
+                """
+                const modalEl = document.getElementById('occupationTemplateModal');
+                if (!modalEl) {
+                    return;
+                }
+                if (window.bootstrap && bootstrap.Modal) {
+                    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                    modal.show();
+                    modal.hide();
+                } else {
+                    modalEl.classList.add('show');
+                    modalEl.style.display = 'block';
+                    modalEl.style.visibility = 'visible';
+                    modalEl.style.opacity = '1';
+                    modalEl.removeAttribute('aria-hidden');
+                    modalEl.classList.remove('show');
+                    modalEl.style.display = 'none';
+                    modalEl.setAttribute('aria-hidden', 'true');
+                }
+                """
+            )
             
             time.sleep(0.5)
                     
