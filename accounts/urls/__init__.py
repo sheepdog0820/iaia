@@ -76,7 +76,8 @@ urlpatterns = [
     
     # Export APIs
     path('export/formats/', export_views.ExportFormatsView.as_view(), name='export_formats'),
-    path('export/statistics/', export_views.ExportStatisticsView.as_view(), name='export_statistics'),
+    path('export/statistics/', export_views.StatisticsExportView.as_view(), name='export_statistics'),
+    path('export/', export_views.ExportStatisticsView.as_view(), name='export_legacy'),
     
     # Character Image Management API
     path('character-sheets/<int:character_sheet_id>/images/', 

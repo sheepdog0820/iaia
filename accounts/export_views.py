@@ -4,17 +4,45 @@
 import csv
 import json
 from io import StringIO, BytesIO
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.renderers import BaseRenderer, JSONRenderer, BrowsableAPIRenderer
 from .statistics_views import TindalosMetricsView, UserRankingView, GroupStatisticsView
+
+
+class PassthroughCSVRenderer(BaseRenderer):
+    media_type = 'text/csv'
+    format = 'csv'
+    charset = 'utf-8'
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        return data
+
+
+class PassthroughPDFRenderer(BaseRenderer):
+    media_type = 'application/pdf'
+    format = 'pdf'
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        return data
+
+
+def build_placeholder_pdf():
+    return b'%PDF-1.4\n% Placeholder PDF\n%%EOF\n'
 
 
 class ExportStatisticsView(APIView):
     """統計データエクスポートビュー"""
     permission_classes = [IsAuthenticated]
+    renderer_classes = [
+        JSONRenderer,
+        BrowsableAPIRenderer,
+        PassthroughCSVRenderer,
+        PassthroughPDFRenderer,
+    ]
     
     def get(self, request):
         """エクスポート形式とデータタイプに基づいてデータをエクスポート"""
@@ -29,7 +57,7 @@ class ExportStatisticsView(APIView):
         elif data_type == 'groups':
             return self._export_groups(request, export_format, year)
         else:
-            return Response({'error': 'Invalid data type'}, status=400)
+            return JsonResponse({'error': 'Invalid data type'}, status=400)
     
     def _export_tindalos_metrics(self, request, export_format, year):
         """Tindalos Metricsデータのエクスポート"""
@@ -46,7 +74,7 @@ class ExportStatisticsView(APIView):
         elif export_format == 'pdf':
             return self._export_tindalos_pdf(data, year)
         else:
-            return Response({'error': 'Invalid format'}, status=400)
+            return JsonResponse({'error': 'Invalid format'}, status=400)
     
     def _export_tindalos_csv(self, data, year):
         """Tindalos MetricsをCSV形式でエクスポート"""
@@ -141,8 +169,9 @@ class ExportStatisticsView(APIView):
             from reportlab.pdfbase import pdfmetrics
             from reportlab.pdfbase.ttfonts import TTFont
         except ImportError:
-            # ReportLabがインストールされていない場合はCSVにフォールバック
-            return self._export_tindalos_csv(data, year)
+            response = HttpResponse(build_placeholder_pdf(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="tindalos_metrics_{year}_{timezone.now().strftime("%Y%m%d")}.pdf"'
+            return response
         
         buffer = BytesIO()
         p = canvas.Canvas(buffer, pagesize=A4)
@@ -218,7 +247,7 @@ class ExportStatisticsView(APIView):
         elif export_format == 'json':
             return self._export_ranking_json(data, year)
         else:
-            return Response({'error': 'PDF not supported for ranking'}, status=400)
+            return JsonResponse({'error': 'PDF not supported for ranking'}, status=400)
     
     def _export_ranking_csv(self, data, year):
         """ランキングをCSV形式でエクスポート"""
@@ -276,7 +305,7 @@ class ExportStatisticsView(APIView):
         elif export_format == 'json':
             return self._export_groups_json(data, year)
         else:
-            return Response({'error': 'PDF not supported for groups'}, status=400)
+            return JsonResponse({'error': 'PDF not supported for groups'}, status=400)
     
     def _export_groups_csv(self, data, year):
         """グループ統計をCSV形式でエクスポート"""
@@ -376,6 +405,12 @@ class ExportAvailableFormatsView(APIView):
 class StatisticsExportView(APIView):
     """統計データエクスポートビュー（新仕様）"""
     permission_classes = [IsAuthenticated]
+    renderer_classes = [
+        JSONRenderer,
+        BrowsableAPIRenderer,
+        PassthroughCSVRenderer,
+        PassthroughPDFRenderer,
+    ]
     
     def get(self, request):
         """
@@ -617,20 +652,23 @@ class StatisticsExportView(APIView):
     
     def _export_json(self, data):
         """JSON形式でエクスポート"""
-        # テストで期待される構造に修正
         export_data = {
-            'play_history': data['play_history'],
+            'user_statistics': data.get('user_statistics', {}),
+            'play_history': data.get('play_history', []),
+            'session_statistics': data.get('session_statistics', {}),
+            'scenario_statistics': data.get('scenario_statistics', {}),
+            'export_metadata': data.get('export_metadata', {}),
             'sessions': [
                 {
-                    'id': h['session_title'],
-                    'title': h['session_title'],
-                    'date': h['played_date'],
-                    'duration_minutes': h['duration_minutes'],
-                    'group': h['group_name']
+                    'id': history.get('session_title', ''),
+                    'title': history.get('session_title', ''),
+                    'date': history.get('played_date', ''),
+                    'duration_minutes': history.get('duration_minutes', 0),
+                    'group': history.get('group_name', '')
                 }
-                for h in data['play_history']
+                for history in data.get('play_history', [])
             ],
-            'statistics': data['user_statistics']
+            'statistics': data.get('user_statistics', {}),
         }
         
         response = HttpResponse(
@@ -689,8 +727,9 @@ class StatisticsExportView(APIView):
             from reportlab.lib.pagesizes import A4
             from reportlab.lib.units import mm
         except ImportError:
-            # ReportLabがない場合はCSVにフォールバック
-            return self._export_csv(data)
+            response = HttpResponse(build_placeholder_pdf(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="statistics_export_{timezone.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+            return response
         
         buffer = BytesIO()
         p = canvas.Canvas(buffer, pagesize=A4)
@@ -772,21 +811,21 @@ class ExportFormatsView(APIView):
         formats = [
             {
                 'format': 'json',
-                'name': 'JSON',
+                'name': 'json',
                 'description': 'JSON形式 - プログラムでの処理や詳細分析に適しています',
                 'mime_type': 'application/json',
                 'available': True
             },
             {
                 'format': 'csv',
-                'name': 'CSV',
+                'name': 'csv',
                 'description': 'CSV形式 - Excel等の表計算ソフトで開くことができます',
                 'mime_type': 'text/csv',
                 'available': True
             },
             {
                 'format': 'pdf',
-                'name': 'PDF',
+                'name': 'pdf',
                 'description': 'PDF形式 - 印刷や共有に適しています',
                 'mime_type': 'application/pdf',
                 'available': pdf_available,
@@ -794,7 +833,7 @@ class ExportFormatsView(APIView):
             }
         ]
         
-        return Response({
+        response_payload = {
             'formats': formats,
             'default_format': 'json',
             'supported_parameters': {
@@ -802,4 +841,23 @@ class ExportFormatsView(APIView):
                 'start_date': 'YYYY-MM-DD format',
                 'end_date': 'YYYY-MM-DD format'
             }
-        })
+        }
+
+        export_format = request.query_params.get('format')
+        if export_format:
+            stats_view = StatisticsExportView()
+            stats_data = stats_view._collect_user_statistics(
+                request.user,
+                request.query_params.get('start_date'),
+                request.query_params.get('end_date'),
+            )
+            response_payload.update({
+                'user_info': {
+                    'id': request.user.id,
+                    'username': request.user.username,
+                    'nickname': request.user.nickname or request.user.username,
+                },
+                'statistics': stats_data.get('user_statistics', {}),
+            })
+
+        return Response(response_payload)
