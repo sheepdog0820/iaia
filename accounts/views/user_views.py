@@ -3,7 +3,10 @@ User and authentication related views
 """
 from .common_imports import *
 from django.contrib.auth import logout as auth_logout
+from django.conf import settings
+from django.contrib.sites.models import Site
 from django.views import View
+from allauth.socialaccount.models import SocialApp
 from .base_views import BaseViewSet
 from .mixins import UserOwnershipMixin, ErrorHandlerMixin
 
@@ -95,6 +98,71 @@ class AddFriendView(APIView):
             )
 
 
+def _is_placeholder(value, placeholders):
+    return not value or value in placeholders
+
+
+def _ensure_social_apps():
+    providers = set(SocialApp.objects.filter(
+        provider__in=['google', 'twitter_oauth2']
+    ).values_list('provider', flat=True))
+    site = Site.objects.get_current()
+
+    google_client_id = getattr(settings, 'GOOGLE_OAUTH_CLIENT_ID', '')
+    google_secret = getattr(settings, 'GOOGLE_OAUTH_CLIENT_SECRET', '')
+    google_placeholders = {'your-google-client-id', 'your-google-client-secret'}
+    if not _is_placeholder(google_client_id, google_placeholders) and not _is_placeholder(google_secret, google_placeholders):
+        google_app, created = SocialApp.objects.get_or_create(
+            provider='google',
+            defaults={
+                'name': 'Google',
+                'client_id': google_client_id,
+                'secret': google_secret
+            }
+        )
+        if not created:
+            updated = False
+            if google_app.client_id != google_client_id:
+                google_app.client_id = google_client_id
+                updated = True
+            if google_app.secret != google_secret:
+                google_app.secret = google_secret
+                updated = True
+            if updated:
+                google_app.save(update_fields=['client_id', 'secret'])
+        if site not in google_app.sites.all():
+            google_app.sites.add(site)
+        providers.add('google')
+
+    twitter_client_id = getattr(settings, 'TWITTER_CLIENT_ID', '')
+    twitter_secret = getattr(settings, 'TWITTER_CLIENT_SECRET', '')
+    twitter_placeholders = {'your-twitter-client-id', 'your-twitter-client-secret'}
+    if not _is_placeholder(twitter_client_id, twitter_placeholders) and not _is_placeholder(twitter_secret, twitter_placeholders):
+        twitter_app, created = SocialApp.objects.get_or_create(
+            provider='twitter_oauth2',
+            defaults={
+                'name': 'X',
+                'client_id': twitter_client_id,
+                'secret': twitter_secret
+            }
+        )
+        if not created:
+            updated = False
+            if twitter_app.client_id != twitter_client_id:
+                twitter_app.client_id = twitter_client_id
+                updated = True
+            if twitter_app.secret != twitter_secret:
+                twitter_app.secret = twitter_secret
+                updated = True
+            if updated:
+                twitter_app.save(update_fields=['client_id', 'secret'])
+        if site not in twitter_app.sites.all():
+            twitter_app.sites.add(site)
+        providers.add('twitter_oauth2')
+
+    return providers
+
+
 # Django Web Views
 
 class CustomLoginView(FormView):
@@ -105,12 +173,8 @@ class CustomLoginView(FormView):
 
     def get_context_data(self, **kwargs):
         """Add social login configuration flags to context"""
-        from allauth.socialaccount.models import SocialApp
-
         context = super().get_context_data(**kwargs)
-        providers = set(SocialApp.objects.filter(
-            provider__in=['google', 'twitter_oauth2']
-        ).values_list('provider', flat=True))
+        providers = _ensure_social_apps()
         context['google_configured'] = 'google' in providers
         context['twitter_configured'] = 'twitter_oauth2' in providers
         context['social_login_available'] = bool(providers)
@@ -156,12 +220,8 @@ class CustomSignUpView(FormView):
 
     def get_context_data(self, **kwargs):
         """Add social login configuration flags to context"""
-        from allauth.socialaccount.models import SocialApp
-
         context = super().get_context_data(**kwargs)
-        providers = set(SocialApp.objects.filter(
-            provider__in=['google', 'twitter_oauth2']
-        ).values_list('provider', flat=True))
+        providers = _ensure_social_apps()
         context['google_configured'] = 'google' in providers
         context['twitter_configured'] = 'twitter_oauth2' in providers
         context['social_login_available'] = bool(providers)
