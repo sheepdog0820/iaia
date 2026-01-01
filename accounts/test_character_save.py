@@ -263,11 +263,10 @@ class CharacterSheetSaveTestCase(APITestCase):
         
         # 派生ステータスが自動計算されているか確認
         character = CharacterSheet.objects.get(id=response.data['id'])
-        # 6版の値は内部的に×5で保存されている
-        self.assertEqual(character.hit_points_max, 14)  # (14*5 + 15*5) / 10 = 14.5 -> 14
-        self.assertEqual(character.magic_points_max, 11)  # 11*5 / 5 = 11
-        self.assertEqual(character.sanity_starting, 55)  # POW*5と同じ
-        self.assertEqual(character.sanity_max, 55)  # POW*5と同じ（99以下）
+        self.assertEqual(character.hit_points_max, 15)  # (14 + 15) / 2 = 14.5 -> 15
+        self.assertEqual(character.magic_points_max, 11)  # POWと同じ
+        self.assertEqual(character.sanity_starting, 55)  # POW*5
+        self.assertEqual(character.sanity_max, 99)  # 初期値は99
 
     def test_save_6th_edition_specific_data(self):
         """正常系: 6版固有データの保存"""
@@ -297,11 +296,10 @@ class CharacterSheetSaveTestCase(APITestCase):
         self.assertTrue(hasattr(character, 'sixth_edition_data'))
         self.assertEqual(character.sixth_edition_data.mental_disorder, '恐怖症（高所）')
         
-        # 6版の自動計算値が正しいか確認（内部的には能力値は×5で保存されている）
-        # idea_roll = INT(16*5=80) * 5 = 400
-        self.assertEqual(character.sixth_edition_data.idea_roll, 400)  # INT * 5 （内部値）
-        self.assertEqual(character.sixth_edition_data.luck_roll, 275)  # POW * 5 （内部値）
-        self.assertEqual(character.sixth_edition_data.know_roll, 350)  # EDU * 5 （内部値）
+        # 6版の自動計算値が正しいか確認
+        self.assertEqual(character.sixth_edition_data.idea_roll, 80)  # INT(16) * 5
+        self.assertEqual(character.sixth_edition_data.luck_roll, 55)  # POW(11) * 5
+        self.assertEqual(character.sixth_edition_data.know_roll, 70)  # EDU(14) * 5
 
     def test_character_permission_check(self):
         """認可: 他人のキャラクターへのアクセス拒否"""

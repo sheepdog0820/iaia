@@ -436,8 +436,10 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             if not sixth_data:
                 sixth_data = {}
             # mental_disorder を直接リクエストから取得
-            mental_disorder = request.data.get('mental_disorder', '') if request else ''
-            sixth_data['mental_disorder'] = mental_disorder
+            if request and 'mental_disorder' in request.data:
+                sixth_data['mental_disorder'] = request.data.get('mental_disorder', '')
+            else:
+                sixth_data.setdefault('mental_disorder', '')
         
         # フロントエンドからのスキルデータを処理
         if request and 'skills_data' in request.data:
