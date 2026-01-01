@@ -29,7 +29,18 @@ from .serializers import (
 )
 from .services import YouTubeService
 from .notifications import SessionNotificationService
-from accounts.models import Group, CustomUser, CharacterSheet
+from accounts.models import Group, GroupMembership, CustomUser, CharacterSheet
+
+
+def _visible_sessions_for(user):
+    group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
+    participant_session_ids = SessionParticipant.objects.filter(user=user).values_list('session_id', flat=True)
+    return TRPGSession.objects.filter(
+        Q(gm=user) |
+        Q(visibility='public') |
+        Q(group_id__in=group_ids) |
+        Q(id__in=participant_session_ids)
+    ).distinct()
 
 
 class SessionsListView(APIView):
@@ -44,11 +55,7 @@ class SessionsListView(APIView):
     
     def get_json_response(self, request):
         user = request.user
-        sessions = TRPGSession.objects.filter(
-            Q(group__members=user) | 
-            Q(visibility='public') |
-            Q(participants=user)
-        ).distinct().select_related('gm', 'group').order_by('-date')
+        sessions = _visible_sessions_for(user).select_related('gm', 'group').order_by('-date')
         
         # ページネーション対応
         limit = int(request.query_params.get('limit', 20))
@@ -70,11 +77,7 @@ class SessionsListView(APIView):
     
     def get_html_response(self, request):
         user = request.user
-        sessions = TRPGSession.objects.filter(
-            Q(group__members=user) | 
-            Q(visibility='public') |
-            Q(participants=user)
-        ).distinct().select_related('gm', 'group').order_by('-date')
+        sessions = _visible_sessions_for(user).select_related('gm', 'group').order_by('-date')
         
         # ページネーション対応
         limit = int(request.GET.get('limit', 20))
@@ -102,11 +105,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         # ユーザーが参加しているグループのセッション、または公開セッション
-        return TRPGSession.objects.filter(
-            Q(group__members=user) | 
-            Q(visibility='public') |
-            Q(participants=user)
-        ).distinct().select_related('scenario').order_by('-date')
+        return _visible_sessions_for(user).select_related('scenario').order_by('-date')
     
     def perform_create(self, serializer):
         serializer.save(gm=self.request.user)
@@ -767,12 +766,9 @@ class CalendarView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        sessions = TRPGSession.objects.filter(
-            Q(group__members=request.user) | 
-            Q(visibility='public') |
-            Q(participants=request.user),
+        sessions = _visible_sessions_for(request.user).filter(
             date__range=[start_date, end_date]
-        ).distinct()
+        )
         
         # イベント形式に変換
         events = []
@@ -844,12 +840,9 @@ class MonthlyEventListView(APIView):
             )
         
         # セッションを取得
-        sessions = TRPGSession.objects.filter(
-            Q(group__members=request.user) | 
-            Q(visibility='public') |
-            Q(participants=request.user),
+        sessions = _visible_sessions_for(request.user).filter(
             date__range=[start_date, end_date]
-        ).distinct().select_related('gm', 'group').prefetch_related('participants')
+        ).select_related('gm', 'group').prefetch_related('participants')
         
         # 日付別にグループ化
         events_by_date = {}
@@ -917,13 +910,10 @@ class SessionAggregationView(APIView):
         end_date = start_date + timedelta(days=days)
         
         # ユーザーのセッションを取得
-        sessions = TRPGSession.objects.filter(
-            Q(group__members=request.user) | 
-            Q(visibility='public') |
-            Q(participants=request.user),
+        sessions = _visible_sessions_for(request.user).filter(
             date__range=[start_date, end_date],
             status__in=['planned', 'ongoing']
-        ).distinct().select_related('gm', 'group')
+        ).select_related('gm', 'group')
         
         # グループ別、システム別に集約
         aggregations = {
@@ -1011,12 +1001,9 @@ class ICalExportView(APIView):
         end_date = start_date + timedelta(days=days)
         
         # セッションを取得
-        sessions = TRPGSession.objects.filter(
-            Q(group__members=request.user) | 
-            Q(visibility='public') |
-            Q(participants=request.user),
+        sessions = _visible_sessions_for(request.user).filter(
             date__range=[start_date, end_date]
-        ).distinct().select_related('gm', 'group')
+        ).select_related('gm', 'group')
         
         # iCal形式の生成
         lines = []
@@ -1165,13 +1152,10 @@ class UpcomingSessionsView(APIView):
         now = timezone.now()
         
         # 今日から7日以内のセッション
-        upcoming_sessions = TRPGSession.objects.filter(
-            Q(group__members=user) | 
-            Q(visibility='public') |
-            Q(participants=user),
+        upcoming_sessions = _visible_sessions_for(user).filter(
             date__gte=now,
             date__lte=now + timedelta(days=7)
-        ).distinct().select_related('gm', 'group', 'scenario').order_by('date')[:5]
+        ).select_related('gm', 'group', 'scenario').order_by('date')[:5]
         
         serializer = SessionListSerializer(upcoming_sessions, many=True)
         return Response(serializer.data)
