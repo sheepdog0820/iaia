@@ -20,7 +20,7 @@ class DevLoginView(View):
         if not settings.DEBUG:
             raise PermissionDenied("This feature is only available in development.")
         
-        # テストユーザー一覧
+        # テストユーザー一覧（既存データに合わせて動的に整形）
         test_users = [
             {
                 'category': 'ゲームマスター',
@@ -52,9 +52,50 @@ class DevLoginView(View):
                 ]
             }
         ]
+
+        # 既存ユーザーのみ表示（未作成ユーザーは除外）
+        usernames = [u['username'] for category in test_users for u in category['users']]
+        existing_usernames = set(
+            User.objects.filter(username__in=usernames).values_list('username', flat=True)
+        )
+        filtered_categories = []
+        for category in test_users:
+            users = [u for u in category['users'] if u['username'] in existing_usernames]
+            if users:
+                filtered_categories.append({'category': category['category'], 'users': users})
+
+        # QAテストユーザー（動的）
+        qa_users = User.objects.filter(username__startswith='qa_').order_by('username')
+        if qa_users.exists():
+            filtered_categories.append({
+                'category': 'QA テストユーザー',
+                'users': [
+                    {
+                        'username': user.username,
+                        'nickname': user.nickname or user.username,
+                        'description': 'QAデータ確認用'
+                    }
+                    for user in qa_users
+                ]
+            })
+
+        # デモユーザー（動的）
+        demo_users = User.objects.filter(username__startswith='demo_').order_by('username')
+        if demo_users.exists():
+            filtered_categories.append({
+                'category': 'デモユーザー',
+                'users': [
+                    {
+                        'username': user.username,
+                        'nickname': user.nickname or user.username,
+                        'description': 'デモデータ確認用'
+                    }
+                    for user in demo_users
+                ]
+            })
         
         context = {
-            'test_users': test_users,
+            'test_users': filtered_categories,
             'current_user': request.user if request.user.is_authenticated else None
         }
         
