@@ -288,6 +288,12 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
+    function shouldOpenCreateModal() {
+        const params = new URLSearchParams(window.location.search);
+        const openCreate = params.get('open_create');
+        return openCreate === '1' || openCreate === 'true';
+    }
+
     async function fetchScenarioDetail(scenarioId) {
         const numericId = parseInt(scenarioId, 10);
         if (!Number.isFinite(numericId) || numericId <= 0) return null;
@@ -669,7 +675,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     void loadScenarioLink().then(payload => {
-        if (payload.hasQuery && newSessionModalEl) {
+        if ((payload.hasQuery || shouldOpenCreateModal()) && newSessionModalEl) {
             const modal = new bootstrap.Modal(newSessionModalEl);
             modal.show();
         }
