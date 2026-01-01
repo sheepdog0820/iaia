@@ -71,6 +71,7 @@ urlpatterns = [
     # Statistics APIs
     path('statistics/tindalos/', statistics_views.TindalosMetricsView.as_view(), name='tindalos_metrics'),
     path('statistics/tindalos/<int:year>/', statistics_views.TindalosMetricsView.as_view(), name='tindalos_metrics_year'),
+    path('statistics/tindalos/detailed/', statistics_views.DetailedTindalosMetricsView.as_view(), name='tindalos_metrics_detailed'),
     path('statistics/ranking/', statistics_views.UserRankingView.as_view(), name='user_ranking'),
     path('statistics/groups/', statistics_views.GroupStatisticsView.as_view(), name='group_statistics'),
     

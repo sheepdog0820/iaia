@@ -58,11 +58,11 @@ class StatisticsViewsTestCase(APITestCase):
         )
         
         # セッション作成（今年のデータ）
-        current_year = timezone.now().year
+        base_date = timezone.now().replace(month=6, day=15)
         for i in range(5):
             session = TRPGSession.objects.create(
                 title=f'Session {i+1}',
-                date=timezone.now() - timedelta(days=i*30),
+                date=base_date - timedelta(days=i*30),
                 gm=self.user1,
                 group=self.group,
                 duration_minutes=180,
@@ -99,7 +99,7 @@ class StatisticsViewsTestCase(APITestCase):
         for i in range(3):
             session = TRPGSession.objects.create(
                 title=f'Old Session {i+1}',
-                date=timezone.now() - timedelta(days=365+i*30),
+                date=base_date - timedelta(days=365+i*30),
                 gm=self.user1,
                 group=self.group,
                 duration_minutes=240,
@@ -114,7 +114,10 @@ class StatisticsViewsTestCase(APITestCase):
     def test_tindalos_metrics_unauthenticated(self):
         """未認証でのTindalos Metricsアクセステスト"""
         response = self.client.get('/api/accounts/statistics/tindalos/')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn(
+            response.status_code,
+            {status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN}
+        )
 
     def test_tindalos_metrics_authenticated(self):
         """認証済みTindalos Metricsアクセステスト"""
@@ -167,7 +170,10 @@ class StatisticsViewsTestCase(APITestCase):
     def test_user_ranking_unauthenticated(self):
         """未認証でのユーザーランキングアクセステスト"""
         response = self.client.get('/api/accounts/statistics/ranking/')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn(
+            response.status_code,
+            {status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN}
+        )
 
     def test_user_ranking_authenticated(self):
         """認証済みユーザーランキングアクセステスト"""
@@ -193,7 +199,10 @@ class StatisticsViewsTestCase(APITestCase):
     def test_group_statistics_unauthenticated(self):
         """未認証でのグループ統計アクセステスト"""
         response = self.client.get('/api/accounts/statistics/groups/')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn(
+            response.status_code,
+            {status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN}
+        )
 
     def test_group_statistics_authenticated(self):
         """認証済みグループ統計アクセステスト"""

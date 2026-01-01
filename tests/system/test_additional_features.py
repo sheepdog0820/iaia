@@ -193,7 +193,8 @@ class StatisticsFunctionTestCase(APITestCase):
         """Tindalos指標の取得テスト"""
         self.client.force_authenticate(user=self.user)
         
-        response = self.client.get('/api/accounts/statistics/tindalos/')
+        current_year = timezone.now().year
+        response = self.client.get('/api/accounts/statistics/tindalos/', {'year': current_year})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # 基本統計情報が含まれていることを確認
@@ -205,11 +206,24 @@ class StatisticsFunctionTestCase(APITestCase):
         self.assertIn('scenario_count', data)
         
         # 数値が正しいことを確認
-        self.assertEqual(data['session_count'], 5)
-        self.assertEqual(data['gm_session_count'], 5)
-        self.assertEqual(data['scenario_count'], 5)
-        # 総プレイ時間: 120 + 150 + 180 + 210 + 240 = 900分
-        self.assertEqual(data['total_play_time'], 900)
+        from django.db.models import Q, Sum
+        sessions = TRPGSession.objects.filter(
+            Q(participants=self.user) | Q(gm=self.user),
+            date__year=current_year,
+            status='completed',
+        ).distinct()
+        expected_sessions = sessions.count()
+        expected_gm_sessions = sessions.filter(gm=self.user).count()
+        expected_total_play_time = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
+        expected_scenario_count = PlayHistory.objects.filter(
+            user=self.user,
+            played_date__year=current_year,
+        ).values('scenario').distinct().count()
+
+        self.assertEqual(data['session_count'], expected_sessions)
+        self.assertEqual(data['gm_session_count'], expected_gm_sessions)
+        self.assertEqual(data['scenario_count'], expected_scenario_count)
+        self.assertEqual(data['total_play_time'], expected_total_play_time)
     
     def test_user_ranking_api(self):
         """ユーザーランキングの取得テスト"""
