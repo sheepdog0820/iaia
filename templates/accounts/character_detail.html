@@ -43,6 +43,13 @@
         <!-- キャラクター基本情報 -->
         <div class="row mb-4">
             <div class="col-md-3" id="characterImageContainer">
+                {% if character.images.all %}
+                    <div class="d-none" id="characterImageFileNames">
+                        {% for image in character.images.all %}
+                            <span>{{ image.image.name }}</span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
                 <!-- 画像が表示されます -->
             </div>
             <div class="col-md-9">

@@ -87,6 +87,12 @@ urlpatterns = [
              'post': 'create'
          }), 
          name='character-images-list'),
+    path('character-sheets/<int:character_id>/images/',
+         CharacterImageViewSet.as_view({
+             'get': 'list',
+             'post': 'create'
+         }),
+         name='character-image-list'),
     path('character-sheets/<int:character_sheet_id>/images/<int:pk>/', 
          CharacterImageViewSet.as_view({
              'get': 'retrieve',
@@ -95,12 +101,26 @@ urlpatterns = [
              'delete': 'destroy'
          }), 
          name='character-images-detail'),
-    path('character-sheets/<int:character_sheet_id>/images/<int:pk>/set_main/', 
-         CharacterImageViewSet.as_view({'post': 'set_main'}), 
+    path('character-sheets/<int:character_id>/images/<int:pk>/',
+         CharacterImageViewSet.as_view({
+             'get': 'retrieve',
+             'put': 'update',
+             'patch': 'partial_update',
+             'delete': 'destroy'
+         }),
+         name='character-image-detail'),
+    path('character-sheets/<int:character_sheet_id>/images/<int:pk>/set_main/',
+         CharacterImageViewSet.as_view({'post': 'set_main', 'patch': 'set_main'}),
          name='character-images-set-main'),
-    path('character-sheets/<int:character_sheet_id>/images/reorder/', 
-         CharacterImageViewSet.as_view({'post': 'reorder'}), 
+    path('character-sheets/<int:character_id>/images/<int:pk>/set_main/',
+         CharacterImageViewSet.as_view({'post': 'set_main', 'patch': 'set_main'}),
+         name='character-image-set-main'),
+    path('character-sheets/<int:character_sheet_id>/images/reorder/',
+         CharacterImageViewSet.as_view({'patch': 'reorder'}),
          name='character-images-reorder'),
+    path('character-sheets/<int:character_id>/images/reorder/',
+         CharacterImageViewSet.as_view({'patch': 'reorder'}),
+         name='character-image-reorder'),
     
     # Character Skill Management API
     path('character-sheets/<int:character_sheet_id>/skills/', 

@@ -6,6 +6,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 from django.db import transaction
@@ -30,8 +31,7 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
             self._character_sheet = get_object_or_404(CharacterSheet, pk=character_id)
 
         if require_owner and self._character_sheet.user != self.request.user:
-            # 所有者以外は404として扱う
-            raise Http404()
+            raise PermissionDenied("このキャラクターの画像にはアクセスできません。")
 
         return self._character_sheet
 

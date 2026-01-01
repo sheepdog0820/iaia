@@ -453,7 +453,16 @@ class CharacterImageIntegrationTestCase(TestCase):
         character = CharacterSheet.objects.create(
             user=self.user,
             name='テストキャラクター',
-            edition='6th'
+            edition='6th',
+            age=25,
+            str_value=50,
+            con_value=60,
+            pow_value=55,
+            dex_value=65,
+            app_value=50,
+            siz_value=60,
+            int_value=70,
+            edu_value=75
         )
         
         for i in range(3):
@@ -466,7 +475,7 @@ class CharacterImageIntegrationTestCase(TestCase):
         
         # 詳細画面を表示
         response = self.client.get(
-            reverse('character_detail', kwargs={'pk': character.pk})
+            reverse('character_detail', kwargs={'character_id': character.pk})
         )
         
         self.assertEqual(response.status_code, 200)
@@ -480,7 +489,16 @@ class CharacterImageIntegrationTestCase(TestCase):
         character = CharacterSheet.objects.create(
             user=self.user,
             name='テストキャラクター',
-            edition='6th'
+            edition='6th',
+            age=25,
+            str_value=50,
+            con_value=60,
+            pow_value=55,
+            dex_value=65,
+            app_value=50,
+            siz_value=60,
+            int_value=70,
+            edu_value=75
         )
         
         CharacterImage.objects.create(
@@ -491,7 +509,7 @@ class CharacterImageIntegrationTestCase(TestCase):
         
         # 編集画面を表示
         response = self.client.get(
-            reverse('character_edit', kwargs={'pk': character.pk})
+            reverse('character_edit', kwargs={'character_id': character.pk})
         )
         
         self.assertEqual(response.status_code, 200)
@@ -502,12 +520,21 @@ class CharacterImageIntegrationTestCase(TestCase):
         character = CharacterSheet.objects.create(
             user=self.user,
             name='テストキャラクター',
-            edition='6th'
+            edition='6th',
+            age=25,
+            str_value=50,
+            con_value=60,
+            pow_value=55,
+            dex_value=65,
+            app_value=50,
+            siz_value=60,
+            int_value=70,
+            edu_value=75
         )
         
         # ドラッグ&ドロップエリアの存在確認
         response = self.client.get(
-            reverse('character_edit', kwargs={'pk': character.pk})
+            reverse('character_edit', kwargs={'character_id': character.pk})
         )
         
         self.assertContains(response, 'drop-zone')

@@ -1622,9 +1622,10 @@ class CharacterImage(models.Model):
         import uuid
         
         # ファイル拡張子を取得
-        ext = os.path.splitext(filename)[1]
+        base_name = os.path.basename(filename)
+        ext = os.path.splitext(base_name)[1]
         # 一意なファイル名を生成
-        unique_filename = f"{instance.character_sheet.id}_{uuid.uuid4().hex[:8]}{ext}"
+        unique_filename = f"{instance.character_sheet.id}_{uuid.uuid4().hex[:8]}_{base_name}"
         # 日付ベースのパスに保存
         return f"character_images/{timezone.now().year}/{timezone.now().month:02d}/{unique_filename}"
     

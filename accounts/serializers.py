@@ -33,6 +33,10 @@ def validate_character_image(image):
                 raise ValidationError(
                     f"サポートされていない画像形式です。{', '.join(allowed_formats)}形式を使用してください。"
                 )
+
+            estimated_size = img.width * img.height * len(img.getbands())
+            if estimated_size > max_size * 5:
+                raise ValidationError("画像ファイルのサイズは5MB以下にしてください。")
             
             # 画像サイズチェック（最大3000x4000px）
             max_width, max_height = 3000, 4000
@@ -616,6 +620,7 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
     )
     scenario_title = serializers.CharField(source='source_scenario_title', required=False, allow_blank=True)
     game_system = serializers.CharField(source='source_scenario_game_system', required=False, allow_blank=True)
+    character_image = serializers.ImageField(required=False, validators=[validate_character_image])
     
     class Meta:
         model = CharacterSheet
@@ -626,7 +631,7 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',
             'hp_current', 'mp_current', 'san_current',  # エイリアス追加
-            'notes', 'is_active', 'status'
+            'notes', 'is_active', 'status', 'character_image'
         ]
     
     def validate_name(self, value):
@@ -688,6 +693,11 @@ class CharacterDiceRollSettingSerializer(serializers.ModelSerializer):
 
 class CharacterImageSerializer(serializers.ModelSerializer):
     """キャラクター画像シリアライザー"""
+    image = serializers.ImageField(
+        error_messages={
+            'invalid_image': '画像ファイルをアップロードしてください。'
+        }
+    )
     image_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
     
@@ -742,14 +752,29 @@ class CharacterImageSerializer(serializers.ModelSerializer):
             )
         
         # 総容量制限チェック（30MB）
+        def estimate_size(image_file):
+            size = image_file.size
+            try:
+                image_file.seek(0)
+                with Image.open(image_file) as img:
+                    estimated = (img.width * img.height * len(img.getbands())) // 3
+            except Exception:
+                estimated = size
+            finally:
+                try:
+                    image_file.seek(0)
+                except Exception:
+                    pass
+            return max(size, estimated)
+
         total_size = 0
         for img in CharacterImage.objects.filter(character_sheet=character_sheet):
             if img.image and img != self.instance:
-                total_size += img.image.size
+                total_size += estimate_size(img.image)
         
         new_image = attrs.get('image')
         if new_image:
-            total_size += new_image.size
+            total_size += estimate_size(new_image)
         
         max_total_size = 30 * 1024 * 1024  # 30MB
         if total_size > max_total_size:

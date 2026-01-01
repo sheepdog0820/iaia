@@ -278,6 +278,16 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- 画像アップロード -->
+                    <div class="form-section">
+                        <h4><i class="fas fa-images"></i> 画像</h4>
+                        <div id="drop-zone" class="drop-zone p-3 text-center border border-secondary rounded">
+                            <p class="mb-2">画像をここにドラッグ&ドロップ</p>
+                            <input type="file" class="form-control" id="imageUpload" name="images" multiple>
+                        </div>
+                        <div id="image-preview" class="image-preview mt-2"></div>
+                    </div>
                     
                     <!-- 能力値 -->
                     <div class="form-section">
@@ -506,6 +516,26 @@ document.querySelectorAll('input[name="edition"]').forEach(radio => {
         updateCalculatedValues();
     });
 });
+
+// ドラッグ&ドロップ画像アップロード
+const dropZone = document.getElementById('drop-zone');
+if (dropZone) {
+    dropZone.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+    dropZone.addEventListener('drop', (event) => {
+        event.preventDefault();
+        dropZone.classList.remove('dragover');
+        const input = document.getElementById('imageUpload');
+        if (input && event.dataTransfer?.files?.length) {
+            input.files = event.dataTransfer.files;
+        }
+    });
+}
 
 // エディション固有セクションの表示切り替え
 function toggleEditionSections(edition) {

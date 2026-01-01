@@ -552,10 +552,12 @@ class CharacterSheet6thForm(forms.ModelForm):
         # フォームから複数画像を取得
         logger.info(f"Available files in form: {list(self.files.keys())}")
         images = self.files.getlist('character_images')
+        if not images:
+            images = self.files.getlist('images')
         logger.info(f"Images from getlist: {images}")
         if not images:
             # 単一ファイルとして試す
-            single_image = self.files.get('character_images')
+            single_image = self.files.get('character_images') or self.files.get('images')
             if single_image:
                 images = [single_image]
                 logger.info(f"Single image found: {single_image}")
