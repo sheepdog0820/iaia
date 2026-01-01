@@ -607,7 +607,7 @@ class CharacterSheet6th(models.Model):
         elif 13 <= total <= 16:
             return "-1D4"
         elif 17 <= total <= 24:
-            return "0"  # +0 ではなく 0
+            return "+0"
         elif 25 <= total <= 32:
             return "+1D4"
         elif 33 <= total <= 40:

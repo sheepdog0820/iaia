@@ -271,7 +271,7 @@ class Character6thCalculationTestCase(TestCase):
             # (STR, SIZ, expected_damage_bonus)
             (6, 6, "-1D6"),      # 12 total
             (8, 8, "-1D4"),      # 16 total
-            (10, 10, "0"),       # 20 total
+            (10, 10, "+0"),      # 20 total
             (15, 15, "+1D4"),    # 30 total
             (18, 18, "+1D6"),    # 36 total
             (20, 25, "+2D6"),    # 45 total
