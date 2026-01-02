@@ -22,7 +22,7 @@
 
 補足:
 - Stg/Prod は `DJANGO_SETTINGS_MODULE=tableno.settings_production` を使用します。
-- `.env.development` / `.env.staging` / `.env.production` を使い分けます。
+- `.env.*` は `ENV_FILE` で明示指定（Compose の `env_file` を切り替え）します。
 
 ## 📖 概要
 
@@ -93,6 +93,8 @@ pip install -r requirements-dev.txt
 # 開発環境用の設定ファイルをコピー
 cp .env.example .env.development
 # .env.developmentファイルを編集して必要な設定を行う
+# 実行時に明示指定（settings.py は自動で .env を読まない）
+export ENV_FILE=.env.development
 ```
 
 5. **データベースセットアップ**
@@ -113,7 +115,7 @@ python manage.py create_sample_data
 
 8. **開発サーバー起動**
 ```bash
-python manage.py runserver
+ENV_FILE=.env.development python manage.py runserver
 ```
 
 アプリケーションは http://localhost:8000 でアクセスできます。
@@ -124,10 +126,11 @@ Docker での起動手順は `DOCKER_SETUP.md` を参照してください。
 
 ### ステージング/本番環境の準備
 
-1. `.env.production.example` を `.env.production` にコピーして値を設定  
-2. `.env.staging.example` を `.env.staging` にコピーして値を設定  
+1. Stg: `.env.staging.example` → `.env.staging` を作成  
+2. Prod: `.env.production.example` → `.env.production` を作成  
 3. Stg/Prod は `DJANGO_SETTINGS_MODULE=tableno.settings_production` を利用  
-4. Docker Compose で環境を切り替える場合:
+4. `ALLOWED_HOSTS` と `CSRF_TRUSTED_ORIGINS` を必ず設定  
+5. Docker Compose で環境を切り替える場合:
 
 ```bash
 # Stg
@@ -261,20 +264,16 @@ Atmospheric dark design with Cthulhu Mythos styling
 
 ### 開発環境
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-### 本番環境
+### ステージング/本番環境
 ```bash
-# 環境変数を設定
-cp .env.example .env.production
-# .env.production を編集
+# Stg
+ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
 
-# 本番環境として起動
-DJANGO_ENV=production python manage.py runserver
-
-# デプロイ実行
-./deploy.sh production
+# Prod
+ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
 ```
 
 ## 🔧 技術スタック
@@ -295,7 +294,6 @@ DJANGO_ENV=production python manage.py runserver
 - **Docker & Docker Compose**
 - **Nginx** - リバースプロキシ
 - **Gunicorn** - WSGIサーバー
-- **systemd** - サービス管理
 
 ### 認証・セキュリティ
 - **django-allauth** - Google/X（Twitter）OAuth認証
@@ -329,7 +327,7 @@ iaia/
 ├── test_*.py              # 包括的テストスイート
 ├── requirements.txt       # Python依存関係
 ├── docker-compose.yml     # Docker設定
-└── deploy.sh             # デプロイスクリプト
+└── deploy.sh             # 旧デプロイスクリプト（Phase1では未使用）
 ```
 
 ## 🌐 API エンドポイント
@@ -407,26 +405,17 @@ python manage.py loaddata backup.json
 ### ログ確認
 
 ```bash
-# アプリケーションログ
-sudo journalctl -u tableno -f
-
-# Nginxログ
-sudo tail -f /var/log/nginx/access.log
-sudo tail -f /var/log/nginx/error.log
-
-# Django ログ
-tail -f /var/log/tableno/django.log
+# アプリケーション/プロキシログ
+docker compose -f docker-compose.mysql.yml logs -f web
+docker compose -f docker-compose.mysql.yml logs -f nginx
 ```
 
 ### パフォーマンス監視
 
 ```bash
-# システム状態確認
-sudo systemctl status tableno
-sudo systemctl status tableno_celery
-sudo systemctl status postgresql
-sudo systemctl status redis
-sudo systemctl status nginx
+# コンテナ状態確認
+docker compose -f docker-compose.mysql.yml ps
+docker compose -f docker-compose.mysql.yml top
 ```
 
 ## 🌐 環境設定管理
@@ -436,20 +425,21 @@ sudo systemctl status nginx
 本プロジェクトでは環境に応じて異なる設定ファイルを使用します：
 
 - **開発環境**: `.env.development`
+- **ステージング環境**: `.env.staging`
 - **本番環境**: `.env.production`
 - **テンプレート**: `.env.example`
 
 ### 環境の切り替え方法
 
 ```bash
-# 開発環境（デフォルト）
-python manage.py runserver
+# 開発環境（ENV_FILE で明示指定）
+ENV_FILE=.env.development python manage.py runserver
 
-# 本番環境
-DJANGO_ENV=production python manage.py runserver
+# Stg/Prod（settings_production を使用）
+ENV_FILE=.env.staging python manage.py migrate --settings=tableno.settings_production
 
 # Dockerを使用する場合
-DJANGO_ENV=production docker-compose up
+ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
 ```
 
 ### 設定ファイルの準備
@@ -458,11 +448,15 @@ DJANGO_ENV=production docker-compose up
 # 開発環境用
 cp .env.example .env.development
 
+# ステージング環境用
+cp .env.staging.example .env.staging
+
 # 本番環境用
-cp .env.example .env.production
+cp .env.production.example .env.production
 ```
 
-環境変数`DJANGO_ENV`によって、Djangoが読み込む設定ファイルが自動的に切り替わります。
+`settings.py` は `.env` を自動で読み込まないため、`ENV_FILE` で明示的に指定してください。
+※ 実際に使う環境のファイルだけ用意すればOKです。
 
 ## 🔒 セキュリティ
 
@@ -470,10 +464,14 @@ cp .env.example .env.production
 
 1. **SSL証明書の設定**
 ```bash
-# Let's Encrypt
-sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com
+# Let's Encrypt (webroot)
+sudo apt install certbot
+sudo certbot certonly --webroot -w /path/to/repo/certbot/www -d app.tableno.jp
+sudo cp /etc/letsencrypt/live/app.tableno.jp/fullchain.pem ./ssl/fullchain.pem
+sudo cp /etc/letsencrypt/live/app.tableno.jp/privkey.pem ./ssl/privkey.pem
+docker compose -f docker-compose.mysql.yml restart nginx
 ```
+詳細は `docs/DEPLOYMENT_GUIDE.md` を参照してください。
 
 2. **ファイアウォール設定**
 ```bash
@@ -493,10 +491,10 @@ sudo ufw enable
 
 ```bash
 # テスト実行
-python manage.py test
+ENV_FILE=.env.development python manage.py test
 
 # カバレッジ付きテスト
-coverage run manage.py test
+ENV_FILE=.env.development coverage run manage.py test
 coverage report
 coverage html
 ```
@@ -560,39 +558,26 @@ permission_classes = [IsAuthenticated]
 
 ## 📈 デプロイ
 
-### 本番環境デプロイ
+### ステージング/本番デプロイ（Docker Compose）
 
 1. **サーバー準備**
+   - Lightsail（Ubuntu）に Docker / Docker Compose / certbot を導入
+
+2. **環境変数の準備**
+   - `.env.staging` / `.env.production` を作成して必要値を設定
+   - `ALLOWED_HOSTS` と `CSRF_TRUSTED_ORIGINS` は必須
+
+3. **起動**
 ```bash
-# Ubuntu/Debian
-sudo apt update
-sudo apt install python3 python3-venv postgresql redis-server nginx git
+# Stg
+ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
+
+# Prod
+ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
 ```
 
-2. **デプロイ実行**
-```bash
-chmod +x deploy.sh
-./deploy.sh production
-```
-
-3. **SSL設定**
-```bash
-sudo certbot --nginx -d your-domain.com
-```
-
-### 環境変数
-
-本番環境では以下の環境変数を設定してください：
-
-```bash
-SECRET_KEY=your-secret-key
-DEBUG=False
-ALLOWED_HOSTS=your-domain.com
-DB_NAME=tableno_prod
-DB_USER=tableno_user
-DB_PASSWORD=secure-password
-# その他の設定...
-```
+4. **SSL設定**
+   - `docs/DEPLOYMENT_GUIDE.md` の手順に従って証明書取得と自動更新を設定
 
 ## 🤝 コントリビューション
 

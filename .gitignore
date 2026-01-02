@@ -160,6 +160,7 @@ Thumbs.db
 
 # SSL certificates
 ssl/
+certbot/
 *.pem
 *.key
 *.crt

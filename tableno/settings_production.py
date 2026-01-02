@@ -13,14 +13,7 @@ def _split_env_list(value):
 DEBUG = False
 ALLOWED_HOSTS = _split_env_list(os.environ.get('ALLOWED_HOSTS', ''))
 if not ALLOWED_HOSTS:
-    ALLOWED_HOSTS = [
-        'app.tableno.jp',
-        'tableno.jp',
-        'www.tableno.jp',
-        'stg.tableno.jp',
-        'localhost',
-        '127.0.0.1',
-    ]
+    raise RuntimeError('ALLOWED_HOSTS is required for production/staging')
 
 # セキュリティヘッダー
 SECURE_SSL_REDIRECT = True
@@ -34,7 +27,7 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
 # データベース設定（MySQL / PostgreSQL）
-DB_ENGINE = os.environ.get('DB_ENGINE', 'postgresql').lower()
+DB_ENGINE = os.environ.get('DB_ENGINE', 'mysql').lower()
 if DB_ENGINE in ('mysql', 'mariadb'):
     db_engine = 'django.db.backends.mysql'
     db_port = '3306'
@@ -175,23 +168,11 @@ if 'GOOGLE_OAUTH_CLIENT_ID' in os.environ:
 
 # CORS設定（必要に応じて）
 CORS_ALLOWED_ORIGINS = _split_env_list(os.environ.get('CORS_ALLOWED_ORIGINS', ''))
-if not CORS_ALLOWED_ORIGINS:
-    CORS_ALLOWED_ORIGINS = [
-        "https://app.tableno.jp",
-        "https://tableno.jp",
-        "https://www.tableno.jp",
-        "https://stg.tableno.jp",
-    ]
 
 # CSRFトークン設定
 CSRF_TRUSTED_ORIGINS = _split_env_list(os.environ.get('CSRF_TRUSTED_ORIGINS', ''))
 if not CSRF_TRUSTED_ORIGINS:
-    CSRF_TRUSTED_ORIGINS = [
-        "https://app.tableno.jp",
-        "https://tableno.jp",
-        "https://www.tableno.jp",
-        "https://stg.tableno.jp",
-    ]
+    raise RuntimeError('CSRF_TRUSTED_ORIGINS is required for production/staging')
 
 # ファイルアップロード設定
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB

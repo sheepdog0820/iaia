@@ -13,7 +13,7 @@
 - **Frontend**: Bootstrap 5, カスタムCSS/JS（クトゥルフテーマ）
 - **認証**: django-allauth（Google/X OAuth）+ Django REST Framework（API経由）
 - **インフラ**: Docker, Nginx, Gunicorn, Redis, Celery
-- **環境設定**: python-decouple（環境別設定管理）
+- **環境設定**: ENV_FILE による明示的な環境切り替え
 
 ### 1.3 開発環境データベース
 
@@ -54,17 +54,17 @@ python3 manage.py create_sample_data
 
 #### 環境切り替え方法
 ```bash
-# 開発環境（デフォルト）
-python3 manage.py runserver
+# 開発環境（ENV_FILE で明示指定）
+ENV_FILE=.env.development python3 manage.py runserver
 
-# 本番環境
-DJANGO_ENV=production python3 manage.py runserver
+# Stg/Prod（settings_production を使用）
+ENV_FILE=.env.production python3 manage.py migrate --settings=tableno.settings_production
 ```
 
 #### 設定ファイル構成
-- `settings.py`が環境変数`DJANGO_ENV`を参照
-- デフォルトは`development`（開発環境）
-- `python-decouple`を使用して環境別の`.env`ファイルを読み込み
+- `settings.py` は `.env` を自動で読み込まない
+- `ENV_FILE` を指定した場合のみ `.env` を読み込み
+- Stg/Prod は `ENV_FILE` + `tableno.settings_production` で明示的に切り替え
 
 ## 2. システムアーキテクチャ
 
@@ -736,10 +736,10 @@ mysql -u tableno_user -p tableno_prod < backup_file.sql
 python manage.py flush --settings=tableno.settings_production
 
 # Docker ComposeでMySQL版を起動
-docker-compose -f docker-compose.mysql.yml up -d
+ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
 
 # Docker ComposeでPostgreSQL版を起動（互換性用）
-docker-compose up -d
+docker compose up -d
 ```
 
 #### 8.3.2 環境別設定ファイル

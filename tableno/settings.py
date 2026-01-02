@@ -12,43 +12,62 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
-from decouple import Config, RepositoryEnv, RepositoryEmpty
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# 環境に応じた.envファイルを選択
-ENVIRONMENT = os.environ.get('DJANGO_ENV', 'development')
-if ENVIRONMENT == 'production':
-    env_file = '.env.production'
-elif ENVIRONMENT == 'staging':
-    env_file = '.env.staging'
-else:
-    env_file = '.env.development'
+def _load_env_file():
+    env_file = os.environ.get('ENV_FILE')
+    if not env_file:
+        return
+    env_path = Path(env_file)
+    if not env_path.is_absolute():
+        env_path = BASE_DIR / env_path
+    if not env_path.exists():
+        raise RuntimeError(f'ENV_FILE not found: {env_path}')
+    with env_path.open() as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            key, value = line.split('=', 1)
+            key = key.strip()
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+                value = value[1:-1]
+            os.environ.setdefault(key, value)
 
-# 設定ファイルのパスを指定してConfigインスタンスを作成
-env_path = BASE_DIR / env_file
-if env_path.exists():
-    config = Config(RepositoryEnv(env_path))
-else:
-    config = Config(RepositoryEmpty())
+
+def _get_bool(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.lower() in ('1', 'true', 'yes', 'on')
+
+
+def _split_env_list(value):
+    return [item.strip() for item in value.split(',') if item.strip()]
+
+
+_load_env_file()
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY')
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise RuntimeError('SECRET_KEY is required')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = _get_bool('DEBUG', default=True)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='').split(',')
+ALLOWED_HOSTS = _split_env_list(os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1'))
 
-# CSRF設定（127.0.0.1統一）
-CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1:8000",
-]
+CSRF_TRUSTED_ORIGINS = _split_env_list(
+    os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://127.0.0.1:8000,http://localhost:8000')
+)
 
 # ngrok等のリバースプロキシ経由でHTTPSを判定する
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -177,7 +196,7 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 # Site設定（開発環境では動的にサイトを検出）
-SITE_ID = 1
+SITE_ID = int(os.environ.get('SITE_ID', '1'))
 
 # Allauth settings（django-allauth統一版）
 # NOTE: ACCOUNT_* の一部設定キーは非推奨になったため新キーへ移行
@@ -282,13 +301,13 @@ YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY', '')
 YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3'
 
 # Google OAuth API設定（API経由認証用）
-GOOGLE_OAUTH_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
-GOOGLE_OAUTH_CLIENT_SECRET = config('GOOGLE_CLIENT_SECRET', default='')
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 # X (Twitter) OAuth API設定（API経由認証用）
-TWITTER_CLIENT_ID = config('TWITTER_CLIENT_ID', default='')
-TWITTER_CLIENT_SECRET = config('TWITTER_CLIENT_SECRET', default='')
-TWITTER_REDIRECT_URI = config('TWITTER_REDIRECT_URI', default='')
-# FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')  # 8000番ポート統一のため無効化
+TWITTER_CLIENT_ID = os.environ.get('TWITTER_CLIENT_ID', '')
+TWITTER_CLIENT_SECRET = os.environ.get('TWITTER_CLIENT_SECRET', '')
+TWITTER_REDIRECT_URI = os.environ.get('TWITTER_REDIRECT_URI', '')
+# FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')  # 8000番ポート統一のため無効化
 
 # Logging configuration for debugging OAuth
 LOGGING = {
