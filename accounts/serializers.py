@@ -205,12 +205,23 @@ class CharacterSkillSerializer(serializers.ModelSerializer):
 
 class CharacterEquipmentSerializer(serializers.ModelSerializer):
     """キャラクター装備シリアライザー"""
+    equipment_type = serializers.CharField(write_only=True, required=False)
+    armor_value = serializers.IntegerField(write_only=True, required=False)
+
+    def to_internal_value(self, data):
+        payload = data.copy()
+        if 'equipment_type' in payload and 'item_type' not in payload:
+            payload['item_type'] = payload.get('equipment_type')
+        if 'armor_value' in payload and 'armor_points' not in payload:
+            payload['armor_points'] = payload.get('armor_value')
+        return super().to_internal_value(payload)
+
     class Meta:
         model = CharacterEquipment
         fields = [
             'id', 'item_type', 'name', 'skill_name', 'damage', 'base_range',
             'attacks_per_round', 'ammo', 'malfunction_number', 'armor_points',
-            'description', 'quantity'
+            'description', 'quantity', 'weight', 'equipment_type', 'armor_value'
         ]
         read_only_fields = ['id']
 
@@ -561,14 +572,23 @@ class CharacterSheetListSerializer(serializers.ModelSerializer):
     
     def get_skill_count(self, obj):
         """スキル数を返す"""
+        annotated = getattr(obj, 'skill_count', None)
+        if annotated is not None:
+            return annotated
         return obj.skills.count()
     
     def get_equipment_count(self, obj):
         """装備数を返す"""
+        annotated = getattr(obj, 'equipment_count', None)
+        if annotated is not None:
+            return annotated
         return obj.equipment.count()
     
     def get_latest_version(self, obj):
         """最新バージョン番号を返す"""
+        annotated = getattr(obj, 'latest_version', None)
+        if annotated is not None:
+            return annotated
         if obj.parent_sheet:
             base_sheet = obj.parent_sheet
         else:

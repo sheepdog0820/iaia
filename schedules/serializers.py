@@ -11,8 +11,10 @@ from .models import (
     SessionYouTubeLink,
 )
 from accounts.serializers import UserSerializer
-from accounts.models import CustomUser
+from accounts.models import CustomUser, Group
 from scenarios.models import Scenario
+from django.utils import timezone
+from datetime import datetime, time as time_cls
 
 
 class SessionImageSerializer(serializers.ModelSerializer):
@@ -145,17 +147,59 @@ class SessionLogSerializer(serializers.ModelSerializer):
 
 
 class HandoutInfoSerializer(serializers.ModelSerializer):
+    participant = serializers.PrimaryKeyRelatedField(
+        queryset=SessionParticipant.objects.all(),
+        required=False,
+        allow_null=True
+    )
     participant_detail = SessionParticipantSerializer(source='participant', read_only=True)
+    recipient = serializers.PrimaryKeyRelatedField(
+        queryset=CustomUser.objects.all(),
+        write_only=True,
+        required=False
+    )
     
     class Meta:
         model = HandoutInfo
         fields = ['id', 'session', 'participant', 'participant_detail', 
                  'title', 'content', 'recommended_skills', 'is_secret', 'handout_number',
-                 'assigned_player_slot', 'created_at', 'updated_at']
+                 'assigned_player_slot', 'created_at', 'updated_at', 'recipient']
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate(self, attrs):
+        recipient = attrs.pop('recipient', None)
+        participant = attrs.get('participant')
+        session = attrs.get('session')
+
+        if recipient and not participant:
+            if not session:
+                raise serializers.ValidationError({'session': 'session is required when using recipient'})
+            participant = SessionParticipant.objects.filter(
+                session=session,
+                user=recipient
+            ).first()
+            if not participant:
+                raise serializers.ValidationError({'recipient': 'Recipient is not a participant in this session'})
+            attrs['participant'] = participant
+
+        if not attrs.get('participant') and not getattr(self.instance, 'participant', None):
+            raise serializers.ValidationError({'participant': 'participant or recipient is required'})
+
+        return attrs
 
 
 class TRPGSessionSerializer(serializers.ModelSerializer):
+    date = serializers.DateTimeField(required=False)
+    group = serializers.PrimaryKeyRelatedField(
+        queryset=Group.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    session_date = serializers.DateField(write_only=True, required=False)
+    start_time = serializers.TimeField(write_only=True, required=False)
+    estimated_hours = serializers.FloatField(write_only=True, required=False)
+    min_players = serializers.IntegerField(write_only=True, required=False)
+    max_players = serializers.IntegerField(write_only=True, required=False)
     gm_detail = UserSerializer(source='gm', read_only=True)
     scenario = serializers.PrimaryKeyRelatedField(
         queryset=Scenario.objects.all(),
@@ -163,6 +207,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         allow_null=True
     )
     scenario_detail = serializers.SerializerMethodField()
+    participants = serializers.SerializerMethodField()
     participants_detail = SessionParticipantSerializer(
         source='sessionparticipant_set', 
         many=True, 
@@ -192,11 +237,12 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         model = TRPGSession
         fields = ['id', 'title', 'description', 'date', 'location', 
                  'youtube_url', 'status', 'visibility', 'gm', 'gm_detail',
-                 'group', 'scenario', 'scenario_detail', 'duration_minutes', 'participants_detail', 
+                 'group', 'scenario', 'scenario_detail', 'duration_minutes', 'participants', 'participants_detail', 
                  'handouts_detail', 'images_detail', 'youtube_links_detail',
                  'participant_count', 'youtube_total_duration', 
                  'youtube_total_duration_display', 'youtube_video_count',
-                 'created_at', 'updated_at']
+                 'created_at', 'updated_at', 'session_date', 'start_time',
+                 'estimated_hours', 'min_players', 'max_players']
         read_only_fields = ['id', 'gm', 'created_at', 'updated_at']
     
     def get_participant_count(self, obj):
@@ -211,6 +257,40 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
             'game_system': obj.scenario.game_system,
             'recommended_skills': obj.scenario.recommended_skills,
         }
+
+    def get_participants(self, obj):
+        participants = SessionParticipantSerializer(
+            obj.sessionparticipant_set.all(),
+            many=True
+        ).data
+        for participant in participants:
+            detail = participant.get('character_sheet_detail')
+            if detail:
+                participant['character_sheet'] = detail
+        return participants
+
+    def validate(self, attrs):
+        session_date = attrs.pop('session_date', None)
+        start_time = attrs.pop('start_time', None)
+        estimated_hours = attrs.pop('estimated_hours', None)
+        attrs.pop('min_players', None)
+        attrs.pop('max_players', None)
+
+        if session_date and 'date' not in attrs:
+            if not start_time:
+                start_time = time_cls(0, 0)
+            session_dt = datetime.combine(session_date, start_time)
+            if timezone.is_naive(session_dt):
+                session_dt = timezone.make_aware(session_dt, timezone.get_current_timezone())
+            attrs['date'] = session_dt
+
+        if estimated_hours is not None and 'duration_minutes' not in attrs:
+            attrs['duration_minutes'] = int(float(estimated_hours) * 60)
+
+        if self.instance is None and 'date' not in attrs:
+            raise serializers.ValidationError({'date': 'date or session_date is required'})
+
+        return attrs
 
 
 class CalendarEventSerializer(serializers.ModelSerializer):

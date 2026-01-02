@@ -3,6 +3,7 @@ from django.db.models import Q, Sum, Count
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -172,13 +173,15 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         
         for participant in participants:
             # プレイ履歴の作成
-            PlayHistory.objects.create(
+            PlayHistory.objects.get_or_create(
                 user=participant.user,
-                scenario=scenario,
                 session=session,
-                played_date=session.date,
                 role=participant.role,
-                notes=f"Character: {participant.character_name}"
+                defaults={
+                    'scenario': scenario,
+                    'played_date': session.date,
+                    'notes': f"Character: {participant.character_name}"
+                }
             )
             
             # キャラクターのセッション数増加
@@ -265,6 +268,14 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             serializer.data, 
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
         )
+
+    @action(detail=True, methods=['post'])
+    def register(self, request, pk=None):
+        """join の互換エンドポイント"""
+        response = self.join(request, pk=pk)
+        if response.status_code == status.HTTP_201_CREATED:
+            response.status_code = status.HTTP_200_OK
+        return response
     
     @action(detail=True, methods=['delete'])
     def leave(self, request, pk=None):
@@ -555,11 +566,31 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
             )
         
         # セッションへのアクセス権限チェック
-        user = request.user
+        target_user_id = request.data.get('user') or request.user.id
+        try:
+            target_user = CustomUser.objects.get(id=target_user_id)
+        except CustomUser.DoesNotExist:
+            return Response(
+                {'error': 'User not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        is_gm = session.gm == request.user or SessionParticipant.objects.filter(
+            session=session,
+            user=request.user,
+            role='gm'
+        ).exists()
+
+        if target_user != request.user and not is_gm:
+            return Response(
+                {'error': 'You do not have permission to add other participants'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         can_participate = (
             session.visibility == 'public' or  # 公開セッション
-            session.group.members.filter(id=user.id).exists() or  # グループメンバー
-            session.gm == user  # GM
+            session.group.members.filter(id=target_user.id).exists() or  # グループメンバー
+            session.gm == target_user  # GM
         )
         
         if not can_participate:
@@ -569,7 +600,7 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
             )
         
         # 既に参加している場合
-        if SessionParticipant.objects.filter(session=session, user=user).exists():
+        if SessionParticipant.objects.filter(session=session, user=target_user).exists():
             return Response(
                 {'error': 'You are already participating in this session'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -582,7 +613,7 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
             try:
                 character_sheet = CharacterSheet.objects.get(
                     id=character_sheet_id,
-                    user=user
+                    user=target_user
                 )
             except CharacterSheet.DoesNotExist:
                 return Response(
@@ -591,12 +622,16 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
                 )
         
         # 参加者作成
+        role = request.data.get('role', 'player')
+        if role not in ['player', 'gm']:
+            role = 'player'
+
         serializer = self.get_serializer(data={
             'session': session.id,
-            'user': user.id,
+            'user': target_user.id,
             'character_name': request.data.get('character_name', ''),
             'character_sheet': character_sheet.id if character_sheet else None,
-            'role': 'player'
+            'role': role
         })
         
         serializer.is_valid(raise_exception=True)
@@ -660,6 +695,13 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
 class HandoutInfoViewSet(viewsets.ModelViewSet):
     serializer_class = HandoutInfoSerializer
     permission_classes = [IsAuthenticated]
+
+    class DefaultPagination(PageNumberPagination):
+        page_size = 20
+        page_size_query_param = 'page_size'
+        max_page_size = 100
+
+    pagination_class = DefaultPagination
     
     def get_queryset(self):
         user = self.request.user
@@ -1009,10 +1051,10 @@ class ICalExportView(APIView):
         lines = []
         lines.append('BEGIN:VCALENDAR')
         lines.append('VERSION:2.0')
-        lines.append('PRODID:-//Arkham Nexus//TRPG Session Calendar//JP')
+        lines.append('PRODID:-//タブレノ//TRPG Session Calendar//JP')
         lines.append('CALSCALE:GREGORIAN')
         lines.append('METHOD:PUBLISH')
-        lines.append(f'X-WR-CALNAME:Arkham Nexus - {request.user.nickname or request.user.username}')
+        lines.append(f'X-WR-CALNAME:タブレノ - {request.user.nickname or request.user.username}')
         lines.append('X-WR-TIMEZONE:Asia/Tokyo')
         
         for session in sessions:
@@ -1025,7 +1067,7 @@ class ICalExportView(APIView):
             role = 'GM' if is_gm else 'Player'
             
             lines.append('BEGIN:VEVENT')
-            lines.append(f'UID:{uuid.uuid4()}@arkham-nexus.com')
+            lines.append(f'UID:{uuid.uuid4()}@tableno.jp')
             lines.append(f'DTSTAMP:{timezone.now().strftime("%Y%m%dT%H%M%SZ")}')
             lines.append(f'DTSTART:{dtstart.strftime("%Y%m%dT%H%M%S")}')
             lines.append(f'DTEND:{dtend.strftime("%Y%m%dT%H%M%S")}')
@@ -1083,7 +1125,7 @@ class ICalExportView(APIView):
             '\r\n'.join(lines),
             content_type='text/calendar; charset=utf-8'
         )
-        response['Content-Disposition'] = f'attachment; filename="arkham_nexus_sessions_{timezone.now().strftime("%Y%m%d")}.ics"'
+        response['Content-Disposition'] = f'attachment; filename="tableno_sessions_{timezone.now().strftime("%Y%m%d")}.ics"'
         
         return response
 

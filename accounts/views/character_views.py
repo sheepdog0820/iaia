@@ -2,13 +2,16 @@
 Character sheet management views
 """
 import json
+import time
 
 from .common_imports import *
 from .base_views import BaseViewSet, PermissionMixin
 from .mixins import CharacterSheetAccessMixin, CharacterNestedResourceMixin, ErrorHandlerMixin
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework import status
+from django.db import OperationalError, IntegrityError
 from ..character_models import GrowthRecord
 from ..serializers import GrowthRecordSerializer
 
@@ -17,20 +20,46 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
     """Character sheet management ViewSet"""
     permission_classes = [IsAuthenticated]
     
+    class OptionalPagination(PageNumberPagination):
+        page_size = None
+        page_size_query_param = 'page_size'
+        max_page_size = 100
+
+    pagination_class = OptionalPagination
+    
     def get_queryset(self):
         """Get user's character sheets only"""
-        from django.db.models import Q
+        from django.db.models import Q, Count, Max, OuterRef, Subquery, IntegerField, PositiveIntegerField, F
+        from django.db.models.functions import Coalesce
         
-        # 認証ユーザーの自分のキャラクターのみを取得
-        queryset = CharacterSheet.objects.filter(
-            user=self.request.user
-        ).select_related(
+        queryset = CharacterSheet.objects.select_related(
             'parent_sheet', 'sixth_edition_data', 'user'
-        ).prefetch_related(
-            'skills', 'equipment'
         ).order_by('-updated_at')
+
+        if self.action not in ['list', 'active', 'by_edition']:
+            queryset = queryset.prefetch_related('skills', 'equipment')
+        else:
+            base_sheet_ref = Coalesce(OuterRef('parent_sheet_id'), OuterRef('id'))
+            latest_version_subquery = CharacterSheet.objects.filter(
+                parent_sheet_id=base_sheet_ref
+            ).values('parent_sheet_id').annotate(
+                max_version=Max('version')
+            ).values('max_version')[:1]
+
+            queryset = queryset.annotate(
+                latest_version=Coalesce(
+                    Subquery(latest_version_subquery, output_field=PositiveIntegerField()),
+                    F('version'),
+                    output_field=PositiveIntegerField()
+                ),
+                skill_count=Count('skills', distinct=True),
+                equipment_count=Count('equipment', distinct=True)
+            )
         
-        return queryset
+        if self.action in ['list', 'active', 'by_edition']:
+            return queryset.filter(user=self.request.user)
+
+        return queryset.filter(Q(user=self.request.user) | Q(is_public=True))
     
     def get_serializer_class(self):
         """Action-based serializer selection"""
@@ -277,6 +306,11 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         }
         
         return Response(summary)
+
+    @action(detail=True, methods=['get'], url_path='skill_points_summary')
+    def skill_points_summary_alias(self, request, pk=None):
+        """Compatibility alias for skill_points_summary"""
+        return self.skill_points_summary(request, pk=pk)
     
     @action(detail=True, methods=['get'], url_path='ccfolia_json')
     def ccfolia_json(self, request, pk=None):
@@ -740,6 +774,38 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    def _get_or_create_skill_with_retry(self, sheet, skill_name, base_value, skip_point_validation):
+        """SQLiteのロックに備えて技能の作成をリトライする。"""
+        max_attempts = 5
+        for attempt in range(max_attempts):
+            try:
+                skill = CharacterSkill.objects.filter(
+                    character_sheet=sheet,
+                    skill_name=skill_name
+                ).first()
+                if skill:
+                    return skill, False
+
+                skill = CharacterSkill(
+                    character_sheet=sheet,
+                    skill_name=skill_name,
+                    base_value=base_value
+                )
+                skill.save(skip_point_validation=skip_point_validation)
+                return skill, True
+            except IntegrityError:
+                skill = CharacterSkill.objects.filter(
+                    character_sheet=sheet,
+                    skill_name=skill_name
+                ).first()
+                if skill:
+                    return skill, False
+                raise
+            except OperationalError:
+                if attempt == max_attempts - 1:
+                    raise
+                time.sleep(0.05 * (attempt + 1))
+
     
     @action(detail=True, methods=['post'])
     def allocate_skill_points(self, request, pk=None):
@@ -747,43 +813,78 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         sheet = self.get_object()
         
         skill_id = request.data.get('skill_id')
+        skill_name = request.data.get('skill_name')
+        base_value_present = 'base_value' in request.data
+        base_value = request.data.get('base_value', 0)
         occupation_points = request.data.get('occupation_points', 0)
         interest_points = request.data.get('interest_points', 0)
-        
-        if not skill_id:
-            return Response(
-                {'error': 'skill_id is required'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+
+        def coerce_int(value, field_name):
+            if value in [None, '', 'null', 'None']:
+                return 0
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                try:
+                    return int(float(value))
+                except (TypeError, ValueError):
+                    raise DRFValidationError({field_name: '有効な数値を指定してください'})
+
         try:
-            skill = CharacterSkill.objects.get(
-                id=skill_id,
-                character_sheet=sheet
-            )
-        except CharacterSkill.DoesNotExist:
-            return Response(
-                {'error': '技能が見つかりません'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
+            base_value = coerce_int(base_value, 'base_value')
+            occupation_points = coerce_int(occupation_points, 'occupation_points')
+            interest_points = coerce_int(interest_points, 'interest_points')
+        except DRFValidationError as exc:
+            return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
         
-        # ポイント不足チェック
-        if occupation_points > sheet.calculate_remaining_occupation_points() + skill.occupation_points:
+        if not skill_id and not skill_name:
             return Response(
-                {'error': '職業技能ポイントが不足しています'}, 
+                {'error': 'skill_id or skill_name is required'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        if interest_points > sheet.calculate_remaining_hobby_points() + skill.interest_points:
-            return Response(
-                {'error': '趣味技能ポイントが不足しています'}, 
-                status=status.HTTP_400_BAD_REQUEST
+
+        enforce_limits = True
+        if skill_id:
+            try:
+                skill = CharacterSkill.objects.get(
+                    id=skill_id,
+                    character_sheet=sheet
+                )
+            except CharacterSkill.DoesNotExist:
+                return Response(
+                    {'error': '技能が見つかりません'}, 
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        else:
+            skill, _ = self._get_or_create_skill_with_retry(
+                sheet=sheet,
+                skill_name=skill_name,
+                base_value=base_value if base_value_present else 0,
+                skip_point_validation=True
             )
+            enforce_limits = False
+
+        if base_value_present:
+            skill.base_value = base_value
+
+        if enforce_limits:
+            # ポイント不足チェック
+            if occupation_points > sheet.calculate_remaining_occupation_points() + skill.occupation_points:
+                return Response(
+                    {'error': '職業技能ポイントが不足しています'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if interest_points > sheet.calculate_remaining_hobby_points() + skill.interest_points:
+                return Response(
+                    {'error': '趣味技能ポイントが不足しています'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         # ポイント更新
         skill.occupation_points = occupation_points
         skill.interest_points = interest_points
-        skill.save()
+        skill.save(skip_point_validation=not enforce_limits)
         
         # 更新された技能データを返す
         serializer = CharacterSkillSerializer(skill)
@@ -793,42 +894,94 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
     def batch_allocate_skill_points(self, request, pk=None):
         """一括技能ポイント割り振りAPI"""
         sheet = self.get_object()
-        allocations = request.data.get('allocations', [])
-        
+        allocations = request.data.get('allocations')
+        skills_data = request.data.get('skills')
+
+        if not allocations and skills_data:
+            allocations = skills_data
+            skip_point_validation = True
+        else:
+            skip_point_validation = False
+
         if not allocations:
             return Response(
-                {'error': 'allocations are required'}, 
+                {'error': 'allocations or skills are required'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         updated_count = 0
         total_occupation_used = 0
         total_hobby_used = 0
-        
+        errors = []
+
+        def coerce_int(value, field_name):
+            if value in [None, '', 'null', 'None']:
+                return 0
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                try:
+                    return int(float(value))
+                except (TypeError, ValueError):
+                    raise DRFValidationError({field_name: '有効な数値を指定してください'})
+
         for allocation in allocations:
             skill_id = allocation.get('skill_id')
+            skill_name = allocation.get('skill_name')
+            base_value_present = 'base_value' in allocation
+            base_value = allocation.get('base_value', 0)
             occupation_points = allocation.get('occupation_points', 0)
             interest_points = allocation.get('interest_points', 0)
-            
-            if not skill_id:
-                continue
-            
+            other_points = allocation.get('other_points', 0)
+
             try:
-                skill = CharacterSkill.objects.get(
-                    id=skill_id,
-                    character_sheet=sheet
-                )
-                
-                skill.occupation_points = occupation_points
-                skill.interest_points = interest_points
-                skill.save()
-                
-                updated_count += 1
-                total_occupation_used += occupation_points
-                total_hobby_used += interest_points
-                
-            except CharacterSkill.DoesNotExist:
+                base_value = coerce_int(base_value, 'base_value')
+                occupation_points = coerce_int(occupation_points, 'occupation_points')
+                interest_points = coerce_int(interest_points, 'interest_points')
+                other_points = coerce_int(other_points, 'other_points')
+            except DRFValidationError as exc:
+                return Response(exc.detail, status=status.HTTP_400_BAD_REQUEST)
+
+            if skip_point_validation:
+                interest_points = (interest_points // 10) * 10
+            
+            if not skill_id and not skill_name:
                 continue
+
+            if skill_id:
+                try:
+                    skill = CharacterSkill.objects.get(
+                        id=skill_id,
+                        character_sheet=sheet
+                    )
+                except CharacterSkill.DoesNotExist:
+                    continue
+            else:
+                skill, _ = self._get_or_create_skill_with_retry(
+                    sheet=sheet,
+                    skill_name=skill_name,
+                    base_value=base_value if base_value_present else 0,
+                    skip_point_validation=skip_point_validation
+                )
+
+            if base_value_present:
+                skill.base_value = base_value
+
+            skill.occupation_points = occupation_points
+            skill.interest_points = interest_points
+            skill.other_points = other_points
+            try:
+                skill.save(skip_point_validation=skip_point_validation)
+            except ValidationError as exc:
+                errors.append(str(exc))
+                break
+
+            updated_count += 1
+            total_occupation_used += occupation_points
+            total_hobby_used += interest_points
+
+        if errors:
+            return Response({'error': errors[0]}, status=status.HTTP_400_BAD_REQUEST)
         
         # 残りポイントを計算
         remaining_occupation = sheet.calculate_occupation_points() - sheet.calculate_used_occupation_points()
@@ -870,13 +1023,21 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         )
         
         # ダメージボーナスの取得
-        damage_bonus = "+0"
-        if sheet.edition == '6th' and hasattr(sheet, 'sixth_edition_data'):
-            damage_bonus = sheet.sixth_edition_data.damage_bonus
+        damage_bonus = sheet.damage_bonus
         
         # 総防護点の計算
         total_armor_points = sum(armor.armor_points or 0 for armor in armors)
         
+        armor_items = [
+            {
+                'id': armor.id,
+                'name': armor.name,
+                'armor_points': armor.armor_points,
+                'description': armor.description
+            }
+            for armor in armors
+        ]
+
         summary = {
             'damage_bonus': damage_bonus,
             'total_armor_points': total_armor_points,
@@ -895,15 +1056,11 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 }
                 for weapon in weapons
             ],
-            'armors': [
-                {
-                    'id': armor.id,
-                    'name': armor.name,
-                    'armor_points': armor.armor_points,
-                    'description': armor.description
-                }
-                for armor in armors
-            ]
+            'armors': armor_items,
+            'armor': {
+                'total_armor': total_armor_points,
+                'items': armor_items
+            }
         }
         
         return Response(summary)
@@ -1313,10 +1470,15 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         
         sheet = self.get_object()
         
-        growth_records = GrowthRecord.objects.filter(character_sheet=sheet)
+        growth_records = GrowthRecord.objects.filter(
+            character_sheet=sheet
+        ).order_by('-session_date')
         
         # 基本統計
-        total_sessions = growth_records.count()
+        record_count = growth_records.count()
+        total_sessions = record_count
+        if sheet.session_count:
+            total_sessions = max(sheet.session_count, record_count)
         total_sanity_lost = sum(record.sanity_lost for record in growth_records)
         total_sanity_gained = sum(record.sanity_gained for record in growth_records)
         total_experience = sum(record.experience_gained for record in growth_records)
@@ -1329,6 +1491,22 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 'scenario': record.scenario_name,
                 'sanity_change': record.calculate_net_sanity_change()
             })
+
+        # バージョン数
+        base_sheet = sheet.parent_sheet or sheet
+        version_count = 1 + CharacterSheet.objects.filter(
+            parent_sheet=base_sheet
+        ).count()
+
+        growth_records_payload = []
+        for record in growth_records:
+            session_date = record.session_date.isoformat() if hasattr(record.session_date, 'isoformat') else str(record.session_date)
+            growth_records_payload.append({
+                'session_date': session_date,
+                'session_title': record.session_title,
+                'changes': record.changes,
+                'notes': record.notes
+            })
         
         summary = {
             'total_sessions': total_sessions,
@@ -1337,7 +1515,9 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             'net_sanity_change': total_sanity_gained - total_sanity_lost,
             'total_experience': total_experience,
             'recent_scenarios': recent_scenarios,
-            'average_sanity_loss_per_session': total_sanity_lost / total_sessions if total_sessions > 0 else 0
+            'average_sanity_loss_per_session': total_sanity_lost / total_sessions if total_sessions > 0 else 0,
+            'version_count': version_count,
+            'growth_records': growth_records_payload
         }
         
         return Response(summary)

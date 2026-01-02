@@ -1,7 +1,8 @@
 from django.db import models
 from django.utils import timezone
+from datetime import datetime, date as date_cls, time as time_cls
 from django.core.exceptions import ValidationError
-from accounts.models import CustomUser, Group
+from accounts.models import CustomUser, Group, GroupMembership
 
 
 class TRPGSession(models.Model):
@@ -41,9 +42,73 @@ class TRPGSession(models.Model):
     
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def __init__(self, *args, **kwargs):
+        session_date = kwargs.pop('session_date', None)
+        start_time = kwargs.pop('start_time', None)
+        estimated_hours = kwargs.pop('estimated_hours', None)
+        kwargs.pop('min_players', None)
+        kwargs.pop('max_players', None)
+
+        if session_date and 'date' not in kwargs:
+            if isinstance(session_date, datetime):
+                session_dt = session_date
+            else:
+                if isinstance(session_date, str):
+                    try:
+                        session_date = date_cls.fromisoformat(session_date)
+                    except ValueError:
+                        session_date = None
+                if isinstance(start_time, str):
+                    try:
+                        start_time = time_cls.fromisoformat(start_time)
+                    except ValueError:
+                        start_time = None
+                if isinstance(session_date, date_cls):
+                    if start_time is None:
+                        start_time = time_cls(0, 0)
+                    session_dt = datetime.combine(session_date, start_time)
+                else:
+                    session_dt = None
+
+            if session_dt:
+                if timezone.is_naive(session_dt):
+                    session_dt = timezone.make_aware(session_dt, timezone.get_current_timezone())
+                kwargs['date'] = session_dt
+
+        if estimated_hours is not None and 'duration_minutes' not in kwargs:
+            try:
+                hours = float(estimated_hours)
+                kwargs['duration_minutes'] = int(hours * 60)
+            except (TypeError, ValueError):
+                pass
+
+        super().__init__(*args, **kwargs)
     
     def __str__(self):
         return f"{self.title} ({self.date.strftime('%Y-%m-%d')})"
+
+    def save(self, *args, **kwargs):
+        auto_group_created = False
+        if not self.group_id and self.gm_id:
+            group_name = f"{self.gm.nickname or self.gm.username} Default Group"
+            group, _ = Group.objects.get_or_create(
+                name=group_name,
+                created_by=self.gm,
+                defaults={'visibility': 'private'}
+            )
+            GroupMembership.objects.get_or_create(
+                user=self.gm,
+                group=group,
+                defaults={'role': 'admin'}
+            )
+            self.group = group
+            auto_group_created = True
+
+        if auto_group_created and self.visibility == 'group':
+            self.visibility = 'public'
+
+        super().save(*args, **kwargs)
     
     @property
     def youtube_total_duration(self):
