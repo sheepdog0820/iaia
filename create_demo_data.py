@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 
 # Django設定
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 from django.contrib.auth import get_user_model

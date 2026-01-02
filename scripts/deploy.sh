@@ -3,7 +3,7 @@
 
 set -e  # エラーが発生したら停止
 
-echo "=== Arkham Nexus デプロイ開始 ==="
+echo "=== タブレノ デプロイ開始 ==="
 
 # 環境変数のチェック
 if [ -z "$DJANGO_ENV" ]; then

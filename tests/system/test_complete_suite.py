@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-完全テストスイート - Arkham Nexus全機能包括テスト
+完全テストスイート - タブレノ全機能包括テスト
 統合テスト・個別機能テスト・追加機能テストの統合実行
 """
 
@@ -14,14 +14,14 @@ from django.core.management import execute_from_command_line
 
 def setup_django():
     """Django環境のセットアップ"""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
     django.setup()
 
 
 def run_complete_test_suite():
     """完全テストスイートの実行"""
     
-    print("🌟 Arkham Nexus - Complete Test Suite")
+    print("🌟 タブレノ - Complete Test Suite")
     print("=" * 70)
     print("🧪 包括的テスト実行：統合テスト・機能テスト・追加機能テスト")
     print("=" * 70)
@@ -293,7 +293,7 @@ def main():
             setup_django()
             return run_specific_category(command)
         elif command == '--help':
-            print("Arkham Nexus Complete Test Suite")
+            print("タブレノ Complete Test Suite")
             print("Usage:")
             print("  python test_complete_suite.py                    # Run all tests")
             print("  python test_complete_suite.py integration        # Integration tests only")

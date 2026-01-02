@@ -1,4 +1,4 @@
-# 🌟 Arkham Nexus - TRPGスケジュール管理システム
+# 🌟 タブレノ - TRPGスケジュール管理システム
 
 **Gate of Yog-Sothoth** - 時空を超えるTRPGスケジュール管理サービス
 
@@ -12,9 +12,21 @@
 - ローカル開発のDBはSQLiteがデフォルト
 - Dockerでの起動は `DOCKER_SETUP.md` を参照
 
+## 🌐 環境構成（Dev / Stg / Prod）
+
+| 環境 | 役割 | 例URL | 特徴 |
+| --- | --- | --- | --- |
+| 開発（Dev） | 作りながら動かす | `http://127.0.0.1:8000` | DEBUG=True / ローカル |
+| ステージング（Stg） | 本番リハーサル | `https://stg.tableno.jp` | 本番と同構成 |
+| 本番（Prod） | 実ユーザー向け | `https://app.tableno.jp` | 安定・安全重視 |
+
+補足:
+- Stg/Prod は `DJANGO_SETTINGS_MODULE=tableno.settings_production` を使用します。
+- `.env.development` / `.env.staging` / `.env.production` を使い分けます。
+
 ## 📖 概要
 
-Arkham Nexusは、クトゥルフ神話をテーマにしたTRPGスケジュール管理Webサービスです。TRPGセッションの管理、参加者の管理、プレイ履歴の記録など、TRPGライフを豊かにする機能を提供します。
+タブレノは、クトゥルフ神話をテーマにしたTRPGスケジュール管理Webサービスです。TRPGセッションの管理、参加者の管理、プレイ履歴の記録など、TRPGライフを豊かにする機能を提供します。
 
 ### 🎭 主要機能
 
@@ -109,6 +121,21 @@ python manage.py runserver
 ### Docker で起動する場合
 
 Docker での起動手順は `DOCKER_SETUP.md` を参照してください。
+
+### ステージング/本番環境の準備
+
+1. `.env.production.example` を `.env.production` にコピーして値を設定  
+2. `.env.staging.example` を `.env.staging` にコピーして値を設定  
+3. Stg/Prod は `DJANGO_SETTINGS_MODULE=tableno.settings_production` を利用  
+4. Docker Compose で環境を切り替える場合:
+
+```bash
+# Stg
+ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
+
+# Prod
+ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
+```
 
 ### 依存関係の注意
 
@@ -281,7 +308,7 @@ DJANGO_ENV=production python manage.py runserver
 
 ```
 iaia/
-├── arkham_nexus/          # Django設定
+├── tableno/          # Django設定
 ├── accounts/              # ユーザー管理・キャラクターシート
 │   ├── models.py          # ユーザー・グループ・キャラクターシートモデル
 │   ├── views.py           # REST APIビュー・キャラクター作成
@@ -381,22 +408,22 @@ python manage.py loaddata backup.json
 
 ```bash
 # アプリケーションログ
-sudo journalctl -u arkham_nexus -f
+sudo journalctl -u tableno -f
 
 # Nginxログ
 sudo tail -f /var/log/nginx/access.log
 sudo tail -f /var/log/nginx/error.log
 
 # Django ログ
-tail -f /var/log/arkham_nexus/django.log
+tail -f /var/log/tableno/django.log
 ```
 
 ### パフォーマンス監視
 
 ```bash
 # システム状態確認
-sudo systemctl status arkham_nexus
-sudo systemctl status arkham_nexus_celery
+sudo systemctl status tableno
+sudo systemctl status tableno_celery
 sudo systemctl status postgresql
 sudo systemctl status redis
 sudo systemctl status nginx
@@ -561,8 +588,8 @@ sudo certbot --nginx -d your-domain.com
 SECRET_KEY=your-secret-key
 DEBUG=False
 ALLOWED_HOSTS=your-domain.com
-DB_NAME=arkham_nexus_prod
-DB_USER=arkham_user
+DB_NAME=tableno_prod
+DB_USER=tableno_user
 DB_PASSWORD=secure-password
 # その他の設定...
 ```

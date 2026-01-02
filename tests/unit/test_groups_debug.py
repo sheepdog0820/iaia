@@ -10,7 +10,7 @@ from django.test import Client
 from django.contrib.auth import get_user_model
 
 # Django設定
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 def test_groups_page_access():
@@ -108,7 +108,7 @@ def check_template_exists():
 def main():
     """メイン実行関数"""
     print("=" * 60)
-    print("🦑 Arkham Nexus - グループ管理デバッグツール")
+    print("🦑 タブレノ - グループ管理デバッグツール")
     print("=" * 60)
     
     check_url_patterns()

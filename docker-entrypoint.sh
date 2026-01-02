@@ -10,7 +10,7 @@ echo "Database started"
 
 # データベースマイグレーション実行
 echo "Running database migrations..."
-python manage.py migrate --settings=arkham_nexus.settings_production
+python manage.py migrate --settings=tableno.settings_production
 
 # スーパーユーザー作成（環境変数が設定されている場合）
 if [ "$DJANGO_SUPERUSER_USERNAME" ] && [ "$DJANGO_SUPERUSER_PASSWORD" ] && [ "$DJANGO_SUPERUSER_EMAIL" ]; then
@@ -19,17 +19,17 @@ if [ "$DJANGO_SUPERUSER_USERNAME" ] && [ "$DJANGO_SUPERUSER_PASSWORD" ] && [ "$D
         --noinput \
         --username $DJANGO_SUPERUSER_USERNAME \
         --email $DJANGO_SUPERUSER_EMAIL \
-        --settings=arkham_nexus.settings_production || true
+        --settings=tableno.settings_production || true
 fi
 
 # 静的ファイル収集
 echo "Collecting static files..."
-python manage.py collectstatic --noinput --settings=arkham_nexus.settings_production
+python manage.py collectstatic --noinput --settings=tableno.settings_production
 
 # サンプルデータ作成（開発環境の場合）
 if [ "$CREATE_SAMPLE_DATA" = "true" ]; then
     echo "Creating sample data..."
-    python manage.py create_sample_data --settings=arkham_nexus.settings_production
+    python manage.py create_sample_data --settings=tableno.settings_production
 fi
 
 exec "$@"

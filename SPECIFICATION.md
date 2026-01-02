@@ -1,11 +1,11 @@
-# Arkham Nexus - システム仕様書
+# タブレノ - システム仕様書
 
 **Gate of Yog-Sothoth** - 時空を超えるTRPGスケジュール管理サービス
 
 ## 1. システム概要
 
 ### 1.1 プロジェクト概要
-Arkham Nexusは、クトゥルフ神話をテーマにしたTRPGスケジュール管理Webサービスです。TRPGセッションの管理、参加者の管理、プレイ履歴の記録など、TRPGライフを豊かにする機能を提供します。
+タブレノは、クトゥルフ神話をテーマにしたTRPGスケジュール管理Webサービスです。TRPGセッションの管理、参加者の管理、プレイ履歴の記録など、TRPGライフを豊かにする機能を提供します。
 
 ### 1.2 技術スタック
 - **Backend**: Django 4.2+, Django REST Framework
@@ -70,7 +70,7 @@ DJANGO_ENV=production python3 manage.py runserver
 
 ### 2.1 アプリケーション構成
 ```
-arkham_nexus/
+tableno/
 ├── accounts/      # ユーザー管理アプリ
 ├── schedules/     # スケジュール管理アプリ  
 ├── scenarios/     # シナリオ管理アプリ
@@ -674,8 +674,8 @@ arkham_nexus/
   DATABASES = {
       'default': {
           'ENGINE': 'django.db.backends.mysql',
-          'NAME': 'arkham_nexus_prod',
-          'USER': 'arkham_user',
+          'NAME': 'tableno_prod',
+          'USER': 'tableno_user',
           'PASSWORD': os.environ.get('DB_PASSWORD'),
           'HOST': os.environ.get('DB_HOST', 'localhost'),
           'PORT': '3306',
@@ -698,11 +698,11 @@ arkham_nexus/
 #### 8.2.3 データベース初期化手順
 ```sql
 -- データベース作成
-CREATE DATABASE arkham_nexus_prod CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE tableno_prod CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- ユーザー作成と権限付与
-CREATE USER 'arkham_user'@'%' IDENTIFIED BY 'secure_password';
-GRANT ALL PRIVILEGES ON arkham_nexus_prod.* TO 'arkham_user'@'%';
+CREATE USER 'tableno_user'@'%' IDENTIFIED BY 'secure_password';
+GRANT ALL PRIVILEGES ON tableno_prod.* TO 'tableno_user'@'%';
 FLUSH PRIVILEGES;
 ```
 
@@ -710,10 +710,10 @@ FLUSH PRIVILEGES;
 ```bash
 # 本番環境でのマイグレーション
 python manage.py makemigrations
-python manage.py migrate --settings=arkham_nexus.settings_production
+python manage.py migrate --settings=tableno.settings_production
 
 # 初期データ作成
-python manage.py create_sample_data --settings=arkham_nexus.settings_production
+python manage.py create_sample_data --settings=tableno.settings_production
 ```
 
 ### 8.3 管理コマンド
@@ -724,16 +724,16 @@ python manage.py create_sample_data --settings=arkham_nexus.settings_production
 #### 8.3.1 本番環境専用コマンド
 ```bash
 # MySQL接続テスト
-python manage.py dbshell --settings=arkham_nexus.settings_production
+python manage.py dbshell --settings=tableno.settings_production
 
 # データベースバックアップ
-mysqldump -u arkham_user -p arkham_nexus_prod > backup_$(date +%Y%m%d_%H%M%S).sql
+mysqldump -u tableno_user -p tableno_prod > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # データベース復元
-mysql -u arkham_user -p arkham_nexus_prod < backup_file.sql
+mysql -u tableno_user -p tableno_prod < backup_file.sql
 
 # 本番環境でのテストデータクリア
-python manage.py flush --settings=arkham_nexus.settings_production
+python manage.py flush --settings=tableno.settings_production
 
 # Docker ComposeでMySQL版を起動
 docker-compose -f docker-compose.mysql.yml up -d
@@ -746,7 +746,7 @@ docker-compose up -d
 - **.env.example** - 環境変数テンプレート
 - **requirements.txt** - Python依存ライブラリ（mysqlclient含む）
 - **docker-compose.mysql.yml** - MySQL版Docker構成
-- **arkham_nexus/settings_production.py** - MySQL対応本番設定
+- **tableno/settings_production.py** - MySQL対応本番設定
 
 ### 8.4 テスト**【✅ 包括的テストスイート実装済み】**
 - **ユニットテスト** - 各アプリの個別機能テスト

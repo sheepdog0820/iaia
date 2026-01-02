@@ -128,7 +128,7 @@ class ExportFunctionalityTestCase(APITestCase):
             
             # CSV内容の基本的な確認
             content = response.content.decode('utf-8')
-            self.assertIn('Arkham Nexus - Tindalos Metrics Export', content)
+            self.assertIn('タブレノ - Tindalos Metrics Export', content)
             self.assertIn('Export User', content)
 
     def test_tindalos_json_export(self):

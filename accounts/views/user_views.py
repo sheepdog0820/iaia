@@ -340,7 +340,7 @@ def demo_login_page(request):
         {'name': 'X', 'id': 'twitter_oauth2'},
     ]
     
-    return render(request, 'accounts/demo_login.html', {
+    return render(request, 'account/demo_login.html', {
         'providers': providers,
         'demo_mode': True
     })
@@ -352,7 +352,7 @@ def mock_social_login(request, provider):
         user, created = User.objects.get_or_create(
             username='google_demo_user',
             defaults={
-                'email': 'demo@google.com',
+                'email': 'demo.google@example.com',
                 'first_name': 'Google',
                 'last_name': 'Demo',
                 'nickname': 'Google Demo User'
@@ -362,7 +362,7 @@ def mock_social_login(request, provider):
         user, created = User.objects.get_or_create(
             username='twitter_demo_user',
             defaults={
-                'email': 'demo@twitter.com',
+                'email': 'demo.twitter@example.com',
                 'first_name': 'Twitter',
                 'last_name': 'Demo',
                 'nickname': 'Twitter Demo User'

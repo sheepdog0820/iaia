@@ -9,7 +9,7 @@ from django.test import Client
 from django.contrib.auth import get_user_model
 
 # Django設定の初期化
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 User = get_user_model()

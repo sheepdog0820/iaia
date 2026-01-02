@@ -1,4 +1,4 @@
-# Arkham Nexus Test Suite
+# タブレノ Test Suite
 """
 テストスイートの構成:
 - unit/: 単体テスト（個別の関数、クラス、モデルのテスト）

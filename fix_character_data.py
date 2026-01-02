@@ -6,7 +6,7 @@ import sys
 import django
 
 # Django setup
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 from accounts.character_models import CharacterSheet

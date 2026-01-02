@@ -8,7 +8,7 @@ import django
 
 # Django設定を読み込み
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 from django.contrib.auth import get_user_model
@@ -33,7 +33,7 @@ def create_superuser():
             email=email,
             password=password,
             nickname=nickname,
-            trpg_history='Arkham Nexusの管理者。すべての権限を持つ。'
+            trpg_history='タブレノの管理者。すべての権限を持つ。'
         )
         print(f'スーパーユーザー "{username}" を作成しました。')
         print(f'Email: {email}')

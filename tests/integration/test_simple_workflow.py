@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 簡易動線テスト - 主要機能の動作確認
-Arkham Nexus TRPGスケジュール管理システム
+タブレノ TRPGスケジュール管理システム
 """
 
 import os
@@ -15,7 +15,7 @@ from datetime import timedelta
 from django.utils import timezone
 
 # Django設定
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 from accounts.models import CustomUser, Group as CustomGroup
@@ -27,7 +27,7 @@ User = get_user_model()
 
 def test_basic_workflow():
     """基本的な動線テスト"""
-    print("🚀 Arkham Nexus 基本動線テスト開始")
+    print("🚀 タブレノ 基本動線テスト開始")
     print("=" * 50)
     
     client = APIClient()
@@ -335,7 +335,7 @@ if __name__ == '__main__':
         
         if success1 and success2:
             print("\\n🎉 全ての動線テストが成功しました!")
-            print("✨ Arkham Nexus システムの主要機能が正常に動作しています")
+            print("✨ タブレノ システムの主要機能が正常に動作しています")
         else:
             print("\\n⚠️ 一部のテストで問題が発生しました")
         

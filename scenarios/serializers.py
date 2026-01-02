@@ -8,10 +8,13 @@ class ScenarioSerializer(serializers.ModelSerializer):
     play_count = serializers.SerializerMethodField()
     total_play_time = serializers.SerializerMethodField()
     recommended_skills = serializers.CharField(allow_blank=True, required=False)
+    system = serializers.CharField(write_only=True, required=False)
+    difficulty = serializers.CharField(required=False)
+    estimated_duration = serializers.CharField(required=False)
     
     class Meta:
         model = Scenario
-        fields = ['id', 'title', 'author', 'game_system', 'difficulty', 'estimated_duration',
+        fields = ['id', 'title', 'author', 'game_system', 'system', 'difficulty', 'estimated_duration',
                  'summary', 'recommended_skills', 'url', 'recommended_players', 'player_count', 'estimated_time',
                  'created_by', 'created_by_detail', 'created_at', 'updated_at', 
                  'play_count', 'total_play_time']
@@ -31,6 +34,59 @@ class ScenarioSerializer(serializers.ModelSerializer):
         if value is None:
             return ''
         return value.strip()
+
+    def validate(self, attrs):
+        system = attrs.pop('system', None)
+        if system and not attrs.get('game_system'):
+            normalized = system.strip().lower()
+            if normalized in ['cthulhu', 'coc', 'クトゥルフ', 'クトゥルフ神話', 'クトゥルフ神話trpg']:
+                attrs['game_system'] = 'coc'
+            elif normalized in ['dnd', 'd&d', 'ダンジョンズ&ドラゴンズ']:
+                attrs['game_system'] = 'dnd'
+            elif normalized in ['sw', 'swordworld', 'ソードワールド']:
+                attrs['game_system'] = 'sw'
+            elif normalized in ['insane', 'インセイン']:
+                attrs['game_system'] = 'insane'
+            else:
+                attrs['game_system'] = 'other'
+
+        if 'difficulty' in attrs:
+            difficulty = attrs['difficulty']
+            normalized = str(difficulty).strip().lower()
+            difficulty_map = {
+                'easy': 'beginner',
+                'beginner': 'beginner',
+                'medium': 'intermediate',
+                'intermediate': 'intermediate',
+                'hard': 'advanced',
+                'advanced': 'advanced',
+                'expert': 'expert',
+            }
+            mapped = difficulty_map.get(normalized, attrs['difficulty'])
+            if mapped not in dict(Scenario.DIFFICULTY_CHOICES):
+                raise serializers.ValidationError({'difficulty': 'Invalid difficulty value.'})
+            attrs['difficulty'] = mapped
+
+        if 'estimated_duration' in attrs:
+            duration_value = attrs['estimated_duration']
+            try:
+                minutes = int(duration_value)
+            except (TypeError, ValueError):
+                minutes = None
+
+            if minutes is not None:
+                if minutes <= 180:
+                    attrs['estimated_duration'] = 'short'
+                elif minutes <= 360:
+                    attrs['estimated_duration'] = 'medium'
+                elif minutes <= 720:
+                    attrs['estimated_duration'] = 'long'
+                else:
+                    attrs['estimated_duration'] = 'campaign'
+            elif str(duration_value).strip().lower() not in dict(Scenario.DURATION_CHOICES):
+                raise serializers.ValidationError({'estimated_duration': 'Invalid estimated_duration value.'})
+
+        return attrs
 
 
 class ScenarioNoteSerializer(serializers.ModelSerializer):

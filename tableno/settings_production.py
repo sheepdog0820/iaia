@@ -5,13 +5,22 @@ from .settings import *
 import os
 from pathlib import Path
 
+# 環境変数のリスト分割ヘルパー
+def _split_env_list(value):
+    return [item.strip() for item in value.split(',') if item.strip()]
+
 # セキュリティ設定
 DEBUG = False
-ALLOWED_HOSTS = [
-    '.yourdomain.com',  # 実際のドメイン名に置き換える
-    'localhost',
-    '127.0.0.1',
-]
+ALLOWED_HOSTS = _split_env_list(os.environ.get('ALLOWED_HOSTS', ''))
+if not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = [
+        'app.tableno.jp',
+        'tableno.jp',
+        'www.tableno.jp',
+        'stg.tableno.jp',
+        'localhost',
+        '127.0.0.1',
+    ]
 
 # セキュリティヘッダー
 SECURE_SSL_REDIRECT = True
@@ -24,16 +33,29 @@ SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
-# データベース設定（PostgreSQL）
+# データベース設定（MySQL / PostgreSQL）
+DB_ENGINE = os.environ.get('DB_ENGINE', 'postgresql').lower()
+if DB_ENGINE in ('mysql', 'mariadb'):
+    db_engine = 'django.db.backends.mysql'
+    db_port = '3306'
+    db_options = {'charset': 'utf8mb4'}
+elif DB_ENGINE in ('postgres', 'postgresql'):
+    db_engine = 'django.db.backends.postgresql'
+    db_port = '5432'
+    db_options = {}
+else:
+    raise ValueError(f'Unsupported DB_ENGINE: {DB_ENGINE}')
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'arkham_nexus'),
-        'USER': os.environ.get('DB_USER', 'arkham_user'),
+        'ENGINE': db_engine,
+        'NAME': os.environ.get('DB_NAME', 'tableno'),
+        'USER': os.environ.get('DB_USER', 'tableno_user'),
         'PASSWORD': os.environ.get('DB_PASSWORD'),
         'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
+        'PORT': os.environ.get('DB_PORT', db_port),
         'CONN_MAX_AGE': 60,  # 接続プーリング
+        'OPTIONS': db_options,
     }
 }
 
@@ -46,7 +68,7 @@ CACHES = {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
             'CONNECTION_POOL_KWARGS': {'max_connections': 50},
         },
-        'KEY_PREFIX': 'arkham',
+        'KEY_PREFIX': 'tableno',
         'TIMEOUT': 300,  # 5分
     }
 }
@@ -73,6 +95,7 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@yourdomain.com')
 
 # ロギング設定
+LOG_DIR = os.environ.get('LOG_DIR', os.path.join(BASE_DIR, 'logs'))
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -95,7 +118,7 @@ LOGGING = {
         'file': {
             'level': 'INFO',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'arkham_nexus.log'),
+            'filename': os.path.join(LOG_DIR, 'tableno.log'),
             'maxBytes': 1024 * 1024 * 10,  # 10MB
             'backupCount': 10,
             'formatter': 'verbose',
@@ -103,7 +126,7 @@ LOGGING = {
         'error_file': {
             'level': 'ERROR',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'errors.log'),
+            'filename': os.path.join(LOG_DIR, 'errors.log'),
             'maxBytes': 1024 * 1024 * 10,  # 10MB
             'backupCount': 10,
             'formatter': 'verbose',
@@ -131,7 +154,7 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': False,
         },
-        'arkham_nexus': {
+        'tableno': {
             'handlers': ['file', 'console'],
             'level': 'INFO',
             'propagate': False,
@@ -151,16 +174,24 @@ if 'GOOGLE_OAUTH_CLIENT_ID' in os.environ:
     GOOGLE_OAUTH_CLIENT_SECRET = os.environ['GOOGLE_OAUTH_CLIENT_SECRET']
 
 # CORS設定（必要に応じて）
-CORS_ALLOWED_ORIGINS = [
-    "https://yourdomain.com",
-    "https://www.yourdomain.com",
-]
+CORS_ALLOWED_ORIGINS = _split_env_list(os.environ.get('CORS_ALLOWED_ORIGINS', ''))
+if not CORS_ALLOWED_ORIGINS:
+    CORS_ALLOWED_ORIGINS = [
+        "https://app.tableno.jp",
+        "https://tableno.jp",
+        "https://www.tableno.jp",
+        "https://stg.tableno.jp",
+    ]
 
 # CSRFトークン設定
-CSRF_TRUSTED_ORIGINS = [
-    "https://yourdomain.com",
-    "https://www.yourdomain.com",
-]
+CSRF_TRUSTED_ORIGINS = _split_env_list(os.environ.get('CSRF_TRUSTED_ORIGINS', ''))
+if not CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS = [
+        "https://app.tableno.jp",
+        "https://tableno.jp",
+        "https://www.tableno.jp",
+        "https://stg.tableno.jp",
+    ]
 
 # ファイルアップロード設定
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB
@@ -201,7 +232,13 @@ WHITENOISE_COMPRESS_OFFLINE = True
 
 # Django Compressor設定（CSSとJSの圧縮）
 INSTALLED_APPS.append('compressor')
-STATICFILES_FINDERS.append('compressor.finders.CompressorFinder')
+if 'STATICFILES_FINDERS' not in globals():
+    STATICFILES_FINDERS = [
+        'django.contrib.staticfiles.finders.FileSystemFinder',
+        'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+    ]
+if 'compressor.finders.CompressorFinder' not in STATICFILES_FINDERS:
+    STATICFILES_FINDERS.append('compressor.finders.CompressorFinder')
 
 COMPRESS_ENABLED = True
 COMPRESS_CSS_FILTERS = ['compressor.filters.css_default.CssAbsoluteFilter',

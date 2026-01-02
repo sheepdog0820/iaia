@@ -346,7 +346,7 @@ class ICalExportViewTestCase(APITestCase):
         self.assertIn('BEGIN:VCALENDAR', content)
         self.assertIn('END:VCALENDAR', content)
         self.assertIn('VERSION:2.0', content)
-        self.assertIn('PRODID:-//Arkham Nexus//TRPG Session Calendar//JP', content)
+        self.assertIn('PRODID:-//タブレノ//TRPG Session Calendar//JP', content)
         
         # イベント情報の確認
         self.assertIn('BEGIN:VEVENT', content)

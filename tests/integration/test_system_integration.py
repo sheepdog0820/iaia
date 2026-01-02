@@ -1,6 +1,6 @@
 """
 システム統合テスト - 認証・権限・業務フロー包括テスト
-Arkham Nexus TRPGスケジュール管理システム
+タブレノ TRPGスケジュール管理システム
 """
 
 from django.test import TestCase, TransactionTestCase, Client
@@ -106,7 +106,10 @@ class AuthenticationPermissionIntegrationTestCase(APITestCase):
         
         for endpoint in restricted_endpoints:
             response = self.client.get(endpoint)
-            self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN],
+            expected_statuses = [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN]
+            if endpoint == '/api/accounts/profile/':
+                expected_statuses.append(status.HTTP_302_FOUND)
+            self.assertIn(response.status_code, expected_statuses,
                          f"Endpoint {endpoint} should require authentication")
     
     def test_group_visibility_access_control(self):

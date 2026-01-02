@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 """
-Arkham Nexus 開発サーバー起動スクリプト
+タブレノ 開発サーバー起動スクリプト
 """
 import os
 import sys
 
 if __name__ == '__main__':
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
     
     print('🦑' * 20)
-    print('     Arkham Nexus - TRPG管理システム')
+    print('     タブレノ - TRPG管理システム')
     print('🦑' * 20)
     print()
     print('📋 準備完了：')

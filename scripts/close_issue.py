@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Arkham Nexus Issue Closure Management Script
+タブレノ Issue Closure Management Script
 
 This script manages the process of closing completed issues:
 1. Moves completed issues from ISSUES.md to ISSUES_CLOSED.md
@@ -233,7 +233,7 @@ class IssueClosureManager:
         return True
 
 def main():
-    parser = argparse.ArgumentParser(description='Manage Arkham Nexus issue closure')
+    parser = argparse.ArgumentParser(description='Manage タブレノ issue closure')
     parser.add_argument('issue_id', nargs='?', help='Issue ID to close (e.g., ISSUE-001)')
     parser.add_argument('--list-pending', action='store_true', help='List pending completed issues')
     

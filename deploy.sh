@@ -1,15 +1,15 @@
 #!/bin/bash
-# Arkham Nexus - Production Deployment Script
+# タブレノ - Production Deployment Script
 
 set -e
 
-echo "🌟 Starting Arkham Nexus deployment..."
+echo "🌟 Starting タブレノ deployment..."
 
 # 設定読み込み
 DEPLOY_ENV="${1:-production}"
-PROJECT_DIR="/opt/arkham_nexus"
-BACKUP_DIR="/opt/backups/arkham_nexus"
-LOG_FILE="/var/log/arkham_nexus/deploy.log"
+PROJECT_DIR="/opt/tableno"
+BACKUP_DIR="/opt/backups/tableno"
+LOG_FILE="/var/log/tableno/deploy.log"
 
 # ログ関数
 log() {
@@ -21,10 +21,10 @@ handle_error() {
     log "❌ Error occurred during deployment. Rolling back..."
     if [ -d "$BACKUP_DIR/current" ]; then
         log "🔄 Restoring from backup..."
-        sudo systemctl stop arkham_nexus
+        sudo systemctl stop tableno
         rm -rf "$PROJECT_DIR"
         mv "$BACKUP_DIR/current" "$PROJECT_DIR"
-        sudo systemctl start arkham_nexus
+        sudo systemctl start tableno
         log "✅ Rollback completed"
     fi
     exit 1
@@ -53,7 +53,7 @@ fi
 # 3. 最新コードを取得
 log "📥 Pulling latest code..."
 if [ ! -d "$PROJECT_DIR/.git" ]; then
-    git clone https://github.com/your-username/arkham_nexus.git "$PROJECT_DIR"
+    git clone https://github.com/your-username/tableno.git "$PROJECT_DIR"
 else
     cd "$PROJECT_DIR"
     git fetch origin
@@ -80,11 +80,11 @@ fi
 
 # 6. データベースマイグレーション
 log "🗄️ Running database migrations..."
-python manage.py migrate --settings=arkham_nexus.settings_production
+python manage.py migrate --settings=tableno.settings_production
 
 # 7. 静的ファイル収集
 log "📦 Collecting static files..."
-python manage.py collectstatic --noinput --settings=arkham_nexus.settings_production
+python manage.py collectstatic --noinput --settings=tableno.settings_production
 
 # 8. 依存サービス起動確認
 log "🔧 Checking services..."
@@ -94,9 +94,9 @@ sudo systemctl is-active --quiet nginx || sudo systemctl start nginx
 
 # 9. Gunicorn設定
 log "🚀 Setting up Gunicorn..."
-sudo tee /etc/systemd/system/arkham_nexus.service > /dev/null <<EOF
+sudo tee /etc/systemd/system/tableno.service > /dev/null <<EOF
 [Unit]
-Description=Arkham Nexus TRPG Management System
+Description=タブレノ TRPG Management System
 After=network.target postgresql.service redis.service
 
 [Service]
@@ -104,7 +104,7 @@ Type=notify
 User=$USER
 Group=$USER
 WorkingDirectory=$PROJECT_DIR
-Environment="DJANGO_SETTINGS_MODULE=arkham_nexus.settings_production"
+Environment="DJANGO_SETTINGS_MODULE=tableno.settings_production"
 EnvironmentFile=$PROJECT_DIR/.env.production
 ExecStart=$PROJECT_DIR/venv/bin/gunicorn \\
     --bind 127.0.0.1:8000 \\
@@ -118,9 +118,9 @@ ExecStart=$PROJECT_DIR/venv/bin/gunicorn \\
     --user $USER \\
     --group $USER \\
     --log-level info \\
-    --access-logfile /var/log/arkham_nexus/access.log \\
-    --error-logfile /var/log/arkham_nexus/error.log \\
-    arkham_nexus.wsgi:application
+    --access-logfile /var/log/tableno/access.log \\
+    --error-logfile /var/log/tableno/error.log \\
+    tableno.wsgi:application
 ExecReload=/bin/kill -s HUP \$MAINPID
 KillMode=mixed
 TimeoutStopSec=5
@@ -134,9 +134,9 @@ EOF
 
 # 10. Celery設定
 log "🔄 Setting up Celery..."
-sudo tee /etc/systemd/system/arkham_nexus_celery.service > /dev/null <<EOF
+sudo tee /etc/systemd/system/tableno_celery.service > /dev/null <<EOF
 [Unit]
-Description=Arkham Nexus Celery Worker
+Description=タブレノ Celery Worker
 After=network.target redis.service
 
 [Service]
@@ -144,9 +144,9 @@ Type=forking
 User=$USER
 Group=$USER
 WorkingDirectory=$PROJECT_DIR
-Environment="DJANGO_SETTINGS_MODULE=arkham_nexus.settings_production"
+Environment="DJANGO_SETTINGS_MODULE=tableno.settings_production"
 EnvironmentFile=$PROJECT_DIR/.env.production
-ExecStart=$PROJECT_DIR/venv/bin/celery -A arkham_nexus worker --loglevel=info --detach
+ExecStart=$PROJECT_DIR/venv/bin/celery -A tableno worker --loglevel=info --detach
 ExecStop=/bin/kill -s TERM \$MAINPID
 Restart=always
 RestartSec=10
@@ -161,14 +161,14 @@ sudo systemctl daemon-reload
 
 # 12. サービス起動
 log "▶️ Starting services..."
-sudo systemctl enable arkham_nexus
-sudo systemctl enable arkham_nexus_celery
-sudo systemctl restart arkham_nexus
-sudo systemctl restart arkham_nexus_celery
+sudo systemctl enable tableno
+sudo systemctl enable tableno_celery
+sudo systemctl restart tableno
+sudo systemctl restart tableno_celery
 
 # 13. Nginx設定
 log "🌐 Configuring Nginx..."
-sudo tee /etc/nginx/sites-available/arkham_nexus > /dev/null <<EOF
+sudo tee /etc/nginx/sites-available/tableno > /dev/null <<EOF
 server {
     listen 80;
     server_name your-domain.com www.your-domain.com;
@@ -202,7 +202,7 @@ server {
 }
 EOF
 
-sudo ln -sf /etc/nginx/sites-available/arkham_nexus /etc/nginx/sites-enabled/
+sudo ln -sf /etc/nginx/sites-available/tableno /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 
@@ -223,11 +223,11 @@ find "$BACKUP_DIR" -type d -mtime +7 -exec rm -rf {} + 2>/dev/null || true
 # 16. 完了
 log "🎉 Deployment completed successfully!"
 log "📊 Service status:"
-sudo systemctl status arkham_nexus --no-pager -l
-sudo systemctl status arkham_nexus_celery --no-pager -l
+sudo systemctl status tableno --no-pager -l
+sudo systemctl status tableno_celery --no-pager -l
 
 echo "
-🌟 Arkham Nexus deployment completed!
+🌟 タブレノ deployment completed!
 
 📋 Post-deployment checklist:
 1. Update DNS settings if needed
@@ -242,7 +242,7 @@ echo "
    - Main site: http://your-domain.com/
 
 📚 Useful commands:
-   - View logs: sudo journalctl -u arkham_nexus -f
-   - Restart service: sudo systemctl restart arkham_nexus
-   - Check status: sudo systemctl status arkham_nexus
+   - View logs: sudo journalctl -u tableno -f
+   - Restart service: sudo systemctl restart tableno
+   - Check status: sudo systemctl status tableno
 "

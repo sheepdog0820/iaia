@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ character.name }} - キャラクターシート詳細 - Arkham Nexus{% endblock %}
+{% block title %}{{ character.name }} - キャラクターシート詳細 - タブレノ{% endblock %}
 
 {% block content %}
 <div class="container character-detail" id="characterDetailContainer">
@@ -377,7 +377,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function displayCharacter(character) {
         // 名前
         document.querySelector('.character-name').textContent = character.name;
-        document.title = `${character.name} - キャラクターシート詳細 - Arkham Nexus`;
+        document.title = `${character.name} - キャラクターシート詳細 - タブレノ`;
         
         // 編集ボタン（キャラクター作成画面にパラメータ付きで遷移）
         document.getElementById('editButton').href = `/accounts/character/create/6th/?id=${character.id}`;

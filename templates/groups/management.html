@@ -848,7 +848,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const inviteeIds = Array.from(selectedFriends);
             const response = await axios.post(`/api/accounts/groups/${currentGroupId}/invite/`, {
                 invitee_ids: inviteeIds.map(id => parseInt(id)),
-                message: 'Arkham Nexusでのセッションに参加しませんか？'
+                message: 'タブレノでのセッションに参加しませんか？'
             });
             
             ARKHAM.showSuccess(`${inviteeIds.length}人に招待を送信しました`);

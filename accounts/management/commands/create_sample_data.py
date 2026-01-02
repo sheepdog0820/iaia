@@ -10,7 +10,7 @@ import random
 User = get_user_model()
 
 class Command(BaseCommand):
-    help = 'Create sample data for Arkham Nexus'
+    help = 'Create sample data for タブレノ'
 
     def add_arguments(self, parser):
         parser.add_argument(

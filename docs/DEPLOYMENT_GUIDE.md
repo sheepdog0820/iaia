@@ -1,8 +1,8 @@
-# 📦 Arkham Nexus デプロイメントガイド
+# 📦 タブレノ デプロイメントガイド
 
 ## 概要
 
-このガイドでは、Arkham Nexusを本番環境にデプロイする手順を説明します。
+このガイドでは、タブレノを本番環境にデプロイする手順を説明します。
 
 ## 🎯 前提条件
 
@@ -36,9 +36,9 @@ sudo apt install -y nodejs
 sudo -u postgres psql
 
 # データベースとユーザーの作成
-CREATE DATABASE arkham_nexus;
-CREATE USER arkham_user WITH PASSWORD 'your_secure_password';
-GRANT ALL PRIVILEGES ON DATABASE arkham_nexus TO arkham_user;
+CREATE DATABASE tableno;
+CREATE USER tableno_user WITH PASSWORD 'your_secure_password';
+GRANT ALL PRIVILEGES ON DATABASE tableno TO tableno_user;
 \q
 ```
 
@@ -46,13 +46,13 @@ GRANT ALL PRIVILEGES ON DATABASE arkham_nexus TO arkham_user;
 
 ```bash
 # アプリケーション用ディレクトリの作成
-sudo mkdir -p /var/www/arkham_nexus
-sudo chown $USER:$USER /var/www/arkham_nexus
+sudo mkdir -p /var/www/tableno
+sudo chown $USER:$USER /var/www/tableno
 
 # リポジトリのクローン
 cd /var/www
-git clone https://github.com/yourusername/arkham_nexus.git
-cd arkham_nexus
+git clone https://github.com/yourusername/tableno.git
+cd tableno
 
 # 仮想環境の作成と有効化
 python3 -m venv venv
@@ -76,8 +76,8 @@ DEBUG=False
 ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
 
 # データベース
-DB_NAME=arkham_nexus
-DB_USER=arkham_user
+DB_NAME=tableno
+DB_USER=tableno_user
 DB_PASSWORD=your_secure_password
 DB_HOST=localhost
 DB_PORT=5432
@@ -111,28 +111,28 @@ python manage.py createsuperuser
 
 ```bash
 # systemdサービスファイルのコピー
-sudo cp scripts/arkham_nexus.service /etc/systemd/system/
+sudo cp scripts/tableno.service /etc/systemd/system/
 
 # サービスファイルの編集（パスを適切に設定）
-sudo nano /etc/systemd/system/arkham_nexus.service
+sudo nano /etc/systemd/system/tableno.service
 
 # サービスの有効化と開始
-sudo systemctl enable arkham_nexus
-sudo systemctl start arkham_nexus
-sudo systemctl status arkham_nexus
+sudo systemctl enable tableno
+sudo systemctl start tableno
+sudo systemctl status tableno
 ```
 
 ### 7. Nginxの設定
 
 ```bash
 # Nginx設定ファイルのコピー
-sudo cp scripts/nginx.conf /etc/nginx/sites-available/arkham_nexus
+sudo cp scripts/nginx.conf /etc/nginx/sites-available/tableno
 
 # 設定ファイルの編集（ドメイン名とパスを設定）
-sudo nano /etc/nginx/sites-available/arkham_nexus
+sudo nano /etc/nginx/sites-available/tableno
 
 # シンボリックリンクの作成
-sudo ln -s /etc/nginx/sites-available/arkham_nexus /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/tableno /etc/nginx/sites-enabled/
 
 # デフォルトサイトの無効化（必要に応じて）
 sudo rm /etc/nginx/sites-enabled/default
@@ -172,7 +172,7 @@ sudo ufw enable
 ### アプリケーションの更新
 
 ```bash
-cd /var/www/arkham_nexus
+cd /var/www/tableno
 git pull origin main
 source venv/bin/activate
 ./scripts/deploy.sh
@@ -186,19 +186,19 @@ tail -f logs/gunicorn_access.log
 tail -f logs/gunicorn_error.log
 
 # Djangoログ
-tail -f logs/arkham_nexus.log
+tail -f logs/tableno.log
 tail -f logs/errors.log
 
 # Nginxログ
-tail -f /var/log/nginx/arkham_nexus_access.log
-tail -f /var/log/nginx/arkham_nexus_error.log
+tail -f /var/log/nginx/tableno_access.log
+tail -f /var/log/nginx/tableno_error.log
 ```
 
 ### バックアップ
 
 ```bash
 # データベースバックアップ
-pg_dump -U arkham_user arkham_nexus > backup_$(date +%Y%m%d_%H%M%S).sql
+pg_dump -U tableno_user tableno > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # メディアファイルのバックアップ
 tar -czf media_backup_$(date +%Y%m%d_%H%M%S).tar.gz media/
@@ -210,12 +210,12 @@ tar -czf media_backup_$(date +%Y%m%d_%H%M%S).tar.gz media/
 
 1. Gunicornが起動しているか確認
    ```bash
-   sudo systemctl status arkham_nexus
+   sudo systemctl status tableno
    ```
 
 2. ソケットファイルの権限確認
    ```bash
-   ls -la /var/www/arkham_nexus/gunicorn.sock
+   ls -la /var/www/tableno/gunicorn.sock
    ```
 
 ### 静的ファイルが表示されない

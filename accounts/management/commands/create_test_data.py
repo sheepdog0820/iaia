@@ -9,7 +9,7 @@ from schedules.models import TRPGSession, SessionParticipant, HandoutInfo
 
 
 class Command(BaseCommand):
-    help = 'Arkham Nexus用のテストデータを作成します'
+    help = 'タブレノ用のテストデータを作成します'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -33,7 +33,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         with transaction.atomic():
-            self.stdout.write(self.style.SUCCESS('🦑 Arkham Nexusテストデータ作成開始...'))
+            self.stdout.write(self.style.SUCCESS('🦑 タブレノテストデータ作成開始...'))
             
             # テストデータ削除（既存のテストデータをクリア）
             self.clear_test_data()
@@ -67,7 +67,7 @@ class Command(BaseCommand):
             self.stdout.write('✅ グループ招待を作成しました')
             
             self.stdout.write(
-                self.style.SUCCESS('🎭 Arkham Nexusテストデータ作成完了！深淵の準備が整いました。')
+                self.style.SUCCESS('🎭 タブレノテストデータ作成完了！深淵の準備が整いました。')
             )
 
     def clear_test_data(self):

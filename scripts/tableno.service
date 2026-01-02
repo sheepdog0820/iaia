@@ -1,0 +1,20 @@
+[Unit]
+Description=Tableno Gunicorn Service
+After=network.target
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+RuntimeDirectory=gunicorn
+WorkingDirectory=/path/to/tableno
+ExecStart=/path/to/venv/bin/gunicorn tableno.wsgi:application -c gunicorn.conf.py
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Environment="DJANGO_SETTINGS_MODULE=tableno.settings_production"
+Environment="DJANGO_ENV=production"
+
+[Install]
+WantedBy=multi-user.target

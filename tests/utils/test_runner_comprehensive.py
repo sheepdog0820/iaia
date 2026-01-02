@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-包括的テストランナー - Arkham Nexus統合テストスイート
+包括的テストランナー - タブレノ統合テストスイート
 複数機能連携のSTテスト実行スクリプト
 """
 
@@ -14,14 +14,14 @@ from django.core.management import execute_from_command_line
 
 def setup_django():
     """Django環境のセットアップ"""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
     django.setup()
 
 
 def run_integration_tests():
     """統合テストスイートの実行"""
     
-    print("🌟 Arkham Nexus - Comprehensive Integration Test Suite")
+    print("🌟 タブレノ - Comprehensive Integration Test Suite")
     print("=" * 60)
     
     # テストクラスの定義
@@ -168,7 +168,7 @@ def main():
             run_individual_test_modules()
             return 0
         elif command == '--help':
-            print("Arkham Nexus Test Runner")
+            print("タブレノ Test Runner")
             print("Usage:")
             print("  python test_runner_comprehensive.py                # Run all tests")
             print("  python test_runner_comprehensive.py --integration-only  # Integration tests only")

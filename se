@@ -2,7 +2,7 @@ Performing system checks...
 
 System check identified no issues (0 silenced).
 July 25, 2025 - 13:10:03
-Django version 5.2.3, using settings 'arkham_nexus.settings'
+Django version 5.2.3, using settings 'tableno.settings'
 Starting development server at http://0.0.0.0:8000/
 Quit the server with CONTROL-C.
 

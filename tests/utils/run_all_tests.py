@@ -43,7 +43,7 @@ def run_test_category(category, description):
 
 def main():
     """メイン実行関数"""
-    print("Arkham Nexus テストスイート実行")
+    print("タブレノ テストスイート実行")
     print(f"開始時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     # テストカテゴリの定義

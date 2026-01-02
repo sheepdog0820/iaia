@@ -7,11 +7,11 @@ Google OAuth認証で「エラー 400: redirect_uri_mismatch」が発生する�
 
 ### 1. Google Cloud Consoleにアクセス
 1. [Google Cloud Console](https://console.cloud.google.com/)にログイン
-2. プロジェクト「Arkham Nexus」を選択
+2. プロジェクト「タブレノ」を選択
 3. 左側メニューから「APIとサービス」→「認証情報」を選択
 
 ### 2. OAuth 2.0 クライアントIDを編集
-1. 作成済みのOAuthクライアント「Arkham Nexus API Client」をクリック
+1. 作成済みのOAuthクライアント「タブレノ API Client」をクリック
 2. 以下の設定を確認・更新します：
 
 #### 承認済みのJavaScript生成元

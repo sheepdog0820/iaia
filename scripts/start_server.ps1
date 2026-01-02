@@ -41,7 +41,7 @@ $python = Resolve-PythonPath
 $args = @("manage.py", "runserver", "$HostAddress`:$Port")
 if ($NoReload) { $args += "--noreload" }
 
-$env:DJANGO_SETTINGS_MODULE = "arkham_nexus.settings"
+$env:DJANGO_SETTINGS_MODULE = "tableno.settings"
 
 Write-Host "Starting Django dev server: $python $($args -join ' ')"
 $proc = Start-Process -FilePath $python -ArgumentList $args -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog -PassThru

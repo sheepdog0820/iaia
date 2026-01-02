@@ -214,7 +214,7 @@ echo "✅ 課題XXX完了 - ISSUES.md更新済み" && echo -e "\a\a\a"
 # 品質ゲート通過通知
 echo "✅ 品質ゲート通過 - 実装完了!" && echo -e "\a\a\a"
 
-# Arkham Nexus機能完全実装通知
+# タブレノ機能完全実装通知
 echo "🐙 クトゥルフ神話TRPG機能実装完了!" && \
 for i in {1..3}; do echo -e "\a"; sleep 0.5; done
 ```

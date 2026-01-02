@@ -1,6 +1,6 @@
 """
 追加機能テストスイート - エクスポート・統計・その他機能
-Arkham Nexus TRPGスケジュール管理システム
+タブレノ TRPGスケジュール管理システム
 """
 
 import unittest

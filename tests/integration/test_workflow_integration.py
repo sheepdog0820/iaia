@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ワークフロー統合テストスイート - ユーザー動線の完全テスト
-Arkham Nexus TRPGスケジュール管理システム
+タブレノ TRPGスケジュール管理システム
 
 このテストスイートは、実際のユーザーが行う一連の操作をシミュレートし、
 システム全体の動作を検証します。
@@ -22,7 +22,7 @@ from io import StringIO
 
 # Django設定
 if __name__ == '__main__':
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
     django.setup()
 
 from accounts.models import CustomUser, Friend, Group as CustomGroup, GroupMembership, GroupInvitation
@@ -898,7 +898,7 @@ def run_workflow_tests():
     from django.test.runner import DiscoverRunner
     from django.conf import settings
     
-    print("🚀 Arkham Nexus ワークフロー統合テスト実行開始")
+    print("🚀 タブレノ ワークフロー統合テスト実行開始")
     print("=" * 60)
     
     # テスト環境セットアップ

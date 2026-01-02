@@ -7,7 +7,7 @@ import django
 import json
 
 # Django setup
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 from django.contrib.auth import get_user_model

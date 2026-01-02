@@ -11,7 +11,7 @@ from django.conf import settings
 from django.core.management import execute_from_command_line
 
 # Django設定
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 from django.contrib.auth import get_user_model
@@ -225,7 +225,7 @@ def test_group_creation():
 def main():
     """メイン実行関数"""
     print("=" * 50)
-    print("🦑 Arkham Nexus - グループ機能テスト")
+    print("🦑 タブレノ - グループ機能テスト")
     print("=" * 50)
     
     # テストデータ作成

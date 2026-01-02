@@ -10,7 +10,7 @@ import django
 from django.db import transaction
 
 # Django設定
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 from accounts.models import CharacterSheet, CharacterImage

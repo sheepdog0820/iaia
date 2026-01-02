@@ -1,6 +1,6 @@
 """
 統合テストスイート - 複数機能の連携テスト
-Arkham Nexus TRPGスケジュール管理システム
+タブレノ TRPGスケジュール管理システム
 """
 
 from django.test import TestCase, TransactionTestCase
@@ -200,7 +200,8 @@ class SessionScenarioIntegrationTestCase(APITestCase):
             'status': 'planned',
             'visibility': 'group',
             'group': self.group.id,
-            'duration_minutes': 240
+            'duration_minutes': 240,
+            'scenario': self.scenario.id
         }
         response = self.client.post('/api/schedules/sessions/', session_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

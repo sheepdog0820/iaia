@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Arkham Nexus サーバー管理スクリプト
+# タブレノ サーバー管理スクリプト
 # 使用方法: ./server.sh [start|stop|restart|status|logs]
 
 # 設定
@@ -215,7 +215,7 @@ show_logs() {
 
 # 使用方法表示
 show_usage() {
-    echo "🎮 Arkham Nexus サーバー管理スクリプト"
+    echo "🎮 タブレノ サーバー管理スクリプト"
     echo ""
     echo "使用方法: $0 [コマンド]"
     echo ""

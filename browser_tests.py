@@ -22,7 +22,7 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 class ArkhamNexusBrowserTests(unittest.TestCase):
     """
-    Arkham Nexus Webアプリケーションのブラウザテスト
+    タブレノ Webアプリケーションのブラウザテスト
     """
     
     @classmethod
@@ -59,7 +59,7 @@ class ArkhamNexusBrowserTests(unittest.TestCase):
         self.driver.get(self.base_url)
         
         # タイトル確認
-        self.assertIn("Arkham Nexus", self.driver.title)
+        self.assertIn("タブレノ", self.driver.title)
         
         # ナビゲーションバー確認
         navbar = self.wait.until(

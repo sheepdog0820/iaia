@@ -3,7 +3,7 @@ import os
 import django
 
 # Django設定の初期化
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 from accounts.models import CustomUser

@@ -8,7 +8,7 @@ from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 
 # Django設定の初期化
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 from accounts.character_models import CharacterSheet, CharacterSkill
@@ -146,11 +146,12 @@ class CharacterSkillsIntegrationTest(TestCase):
         
         character = self.test_character_creation_with_skills()
         
-        # HP計算 (CON + SIZ) / 2
-        expected_hp = (character.con_value + character.siz_value) // 2
+        # HP計算 (CON + SIZ) / 2（端数切り上げ）
+        import math
+        expected_hp = math.ceil((character.con_value + character.siz_value) / 2)
         self.assertEqual(character.hit_points_max, expected_hp, "最大HP計算が正しくない")
         self.assertEqual(character.hit_points_current, expected_hp, "現在HP初期値が正しくない")
-        print(f"  ✅ HP: {character.hit_points_current}/{character.hit_points_max} = (CON{character.con_value} + SIZ{character.siz_value}) / 2")
+        print(f"  ✅ HP: {character.hit_points_current}/{character.hit_points_max} = ceil((CON{character.con_value} + SIZ{character.siz_value}) / 2)")
         
         # MP計算 POW
         expected_mp = character.pow_value
@@ -158,12 +159,12 @@ class CharacterSkillsIntegrationTest(TestCase):
         self.assertEqual(character.magic_points_current, expected_mp, "現在MP初期値が正しくない")
         print(f"  ✅ MP: {character.magic_points_current}/{character.magic_points_max} = POW{character.pow_value}")
         
-        # 正気度計算 POW
-        expected_sanity = character.pow_value
-        self.assertEqual(character.sanity_starting, expected_sanity, "初期正気度計算が正しくない")
-        self.assertEqual(character.sanity_max, expected_sanity, "最大正気度計算が正しくない")
-        self.assertEqual(character.sanity_current, expected_sanity, "現在正気度初期値が正しくない")
-        print(f"  ✅ 正気度: {character.sanity_current}/{character.sanity_max} (初期:{character.sanity_starting}) = POW{character.pow_value}")
+        # 正気度計算（6版: POW × 5）
+        expected_sanity_start = character.pow_value * 5
+        self.assertEqual(character.sanity_starting, expected_sanity_start, "初期正気度計算が正しくない")
+        self.assertEqual(character.sanity_max, expected_sanity_start, "最大正気度計算が正しくない")
+        self.assertEqual(character.sanity_current, expected_sanity_start, "現在正気度初期値が正しくない")
+        print(f"  ✅ 正気度: {character.sanity_current}/{character.sanity_max} (初期:{character.sanity_starting}) = POW{character.pow_value} × 5")
 
 def run_tests():
     """テストの実行"""

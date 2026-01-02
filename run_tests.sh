@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Arkham Nexus 自動テスト実行スクリプト
+# タブレノ 自動テスト実行スクリプト
 # 使用方法: ./run_tests.sh [オプション]
 
 set -e  # エラー時に停止
@@ -17,7 +17,7 @@ NC='\033[0m' # No Color
 
 # ヘルプ表示
 show_help() {
-    echo "Arkham Nexus 自動テストスイート"
+    echo "タブレノ 自動テストスイート"
     echo ""
     echo "使用方法: $0 [オプション]"
     echo ""

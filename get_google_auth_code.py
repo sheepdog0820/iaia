@@ -34,7 +34,7 @@ def main():
     print("📋 手順:")
     print("1. 以下のURLをブラウザで開きます（自動的に開きます）")
     print("2. Googleアカウントでログインします")
-    print("3. 'Arkham Nexus Development'へのアクセスを許可します")
+    print("3. 'タブレノ Development'へのアクセスを許可します")
     print("4. リダイレクト後のURLから認証コードをコピーします\n")
     
     print(f"🔗 認証URL:\n{auth_url}\n")

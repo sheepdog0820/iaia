@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import django
 import os
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 from django.test import Client

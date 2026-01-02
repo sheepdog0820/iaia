@@ -226,9 +226,9 @@ class HandoutNotificationService:
                 logger.warning("メール設定が見つかりません")
                 return False
             
-            subject = f"[Arkham Nexus] {notification.get_notification_type_display()}"
+            subject = f"[タブレノ] {notification.get_notification_type_display()}"
             message = notification.message
-            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@arkham-nexus.com')
+            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@tableno.jp')
             recipient_list = [notification.recipient.email]
             
             send_mail(

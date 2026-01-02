@@ -10,7 +10,7 @@
 1. 上部のプロジェクト選択ドロップダウンをクリック
 2. 「新しいプロジェクト」をクリック
 3. プロジェクト情報を入力：
-   - プロジェクト名: `Arkham Nexus`
+   - プロジェクト名: `タブレノ`
    - 組織: （個人の場合は「組織なし」）
 4. 「作成」をクリック
 
@@ -21,7 +21,7 @@
    - **内部**: G Suite組織内のみの場合
 3. 「作成」をクリック
 4. アプリ情報を入力：
-   - **アプリ名**: `Arkham Nexus`
+   - **アプリ名**: `タブレノ`
    - **ユーザーサポートメール**: あなたのメールアドレス
    - **アプリのロゴ**: （オプション）
    - **アプリケーションホームページ**: `http://127.0.0.1:8000`（開発用）
@@ -47,7 +47,7 @@
 1. 左側メニューから「APIとサービス」→「認証情報」を選択
 2. 「+ 認証情報を作成」→「OAuth クライアント ID」を選択
 3. アプリケーションの種類: **ウェブアプリケーション**
-4. 名前: `Arkham Nexus Web Client`
+4. 名前: `タブレノ Web Client`
 5. 承認済みの JavaScript 生成元:
    ```
    http://127.0.0.1:8000
@@ -86,7 +86,7 @@
 ### 3. プロジェクトとアプリの作成
 1. Developer Portalで「+ Create Project」をクリック
 2. プロジェクト情報を入力：
-   - **Project name**: `Arkham Nexus Project`
+   - **Project name**: `タブレノ Project`
    - **Use case**: `Exploring the API`
    - **Project description**: TRPG session management application
 3. 「Next」をクリック
@@ -162,7 +162,7 @@ TWITTER_CLIENT_SECRET=取得したClient Secret
    - 「Sites」をクリック
    - `example.com` を編集
    - Domain name: `127.0.0.1:8000`
-   - Display name: `Arkham Nexus Local`
+   - Display name: `タブレノ Local`
    - 保存
 
 4. **Social Applications** の追加：

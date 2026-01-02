@@ -36,7 +36,7 @@ TWITTER_CLIENT_SECRET=your-actual-twitter-client-secret
 4. 「認証情報を作成」→「OAuth クライアント ID」を選択
 5. アプリケーションの種類：「ウェブアプリケーション」を選択
 6. 以下の情報を設定：
-   - 名前: `Arkham Nexus Development`
+   - 名前: `タブレノ Development`
    - 承認済みの JavaScript 生成元:
      ```
      http://127.0.0.1:8000

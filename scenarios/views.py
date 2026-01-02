@@ -106,8 +106,44 @@ class PlayHistoryViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return PlayHistory.objects.filter(user=self.request.user).order_by('-played_date')
     
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        if 'played_date' not in data and 'session_date' in data:
+            data['played_date'] = data['session_date']
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+
+        session = serializer.validated_data.get('session')
+        scenario = serializer.validated_data.get('scenario')
+        role = serializer.validated_data.get('role')
+        played_date = serializer.validated_data.get('played_date')
+        notes_provided = 'notes' in serializer.validated_data
+        notes = serializer.validated_data.get('notes', '')
+
+        if session:
+            existing = PlayHistory.objects.filter(
+                user=request.user,
+                session=session,
+                role=role
+            ).first()
+            if existing:
+                existing.scenario = scenario
+                existing.played_date = played_date
+                if notes_provided:
+                    existing.notes = notes
+                update_fields = ['scenario', 'played_date']
+                if notes_provided:
+                    update_fields.append('notes')
+                existing.save(update_fields=update_fields)
+                output = self.get_serializer(existing)
+                headers = self.get_success_headers(output.data)
+                return Response(output.data, status=status.HTTP_201_CREATED, headers=headers)
+
+        instance = serializer.save(user=request.user)
+        output = self.get_serializer(instance)
+        headers = self.get_success_headers(output.data)
+        return Response(output.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class ScenarioArchiveView(APIView):

@@ -2,7 +2,7 @@
 
 ## 概要
 
-このガイドでは、フロントエンドアプリケーション（React/Vue/Angular等）からGoogle OAuth認証を使用してArkham Nexus APIにアクセスする方法を説明します。
+このガイドでは、フロントエンドアプリケーション（React/Vue/Angular等）からGoogle OAuth認証を使用してタブレノ APIにアクセスする方法を説明します。
 
 ## 認証フロー
 

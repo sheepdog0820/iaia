@@ -10,7 +10,7 @@ import django
 from decouple import config
 
 # Django設定を読み込み
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 from django.contrib.sites.models import Site
@@ -20,7 +20,7 @@ from allauth.socialaccount.models import SocialApp
 GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
 GOOGLE_CLIENT_SECRET = config('GOOGLE_CLIENT_SECRET', default='')
 DEFAULT_SITE_DOMAIN = config('SITE_DOMAIN', default='127.0.0.1:8000')
-DEFAULT_SITE_NAME = config('SITE_NAME', default='Arkham Nexus (Local Development)')
+DEFAULT_SITE_NAME = config('SITE_NAME', default='タブレノ (Local Development)')
 
 def default_scheme(domain: str) -> str:
     if domain.startswith('localhost') or domain.startswith('127.0.0.1'):

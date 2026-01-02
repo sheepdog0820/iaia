@@ -8,7 +8,7 @@ import django
 from decouple import config
 
 # Django設定を読み込み
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 from django.contrib.sites.models import Site

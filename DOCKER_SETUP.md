@@ -60,9 +60,9 @@ http://127.0.0.1:8000/
 ## 📁 プロジェクト構造
 
 ```
-プロジェクト名: arkham_nexus
-Settings Module: arkham_nexus.settings
-WSGI Module: arkham_nexus.wsgi
+プロジェクト名: tableno
+Settings Module: tableno.settings
+WSGI Module: tableno.wsgi
 ```
 
 ## 🔧 主要コマンド
@@ -157,8 +157,8 @@ media_volume:     # メディアファイル
 
 | 変数名 | 説明 | デフォルト値 |
 |--------|------|--------------|
-| `DJANGO_SETTINGS_MODULE` | Django設定モジュール | `arkham_nexus.settings` |
-| `DJANGO_WSGI_MODULE` | WSGIモジュール | `arkham_nexus.wsgi` |
+| `DJANGO_SETTINGS_MODULE` | Django設定モジュール | `tableno.settings` |
+| `DJANGO_WSGI_MODULE` | WSGIモジュール | `tableno.wsgi` |
 | `DEBUG` | デバッグモード | `0` (本番は必ず0) |
 | `SECRET_KEY` | Django秘密鍵 | _(変更必須)_ |
 | `ALLOWED_HOSTS` | 許可ホスト | `127.0.0.1,localhost` |

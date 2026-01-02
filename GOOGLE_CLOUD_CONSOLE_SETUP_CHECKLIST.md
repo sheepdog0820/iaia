@@ -16,7 +16,7 @@ http://127.0.0.1:8000/accounts/google/login/callback/
 ### ステップ1: Google Cloud Console にアクセス
 
 1. [Google Cloud Console](https://console.cloud.google.com/) を開く
-2. 正しいプロジェクト（Arkham Nexus）が選択されているか確認
+2. 正しいプロジェクト（タブレノ）が選択されているか確認
 
 ### ステップ2: 認証情報ページへ移動
 
@@ -25,7 +25,7 @@ http://127.0.0.1:8000/accounts/google/login/callback/
 
 ### ステップ3: OAuth 2.0 クライアントIDを編集
 
-1. 既存のOAuth 2.0 クライアントIDをクリック（名前: Arkham Nexus Web Client など）
+1. 既存のOAuth 2.0 クライアントIDをクリック（名前: タブレノ Web Client など）
 2. または、新規作成する場合は「+ 認証情報を作成」→「OAuth クライアント ID」を選択
 
 ### ステップ4: 設定内容を確認・修正

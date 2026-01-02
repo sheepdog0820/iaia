@@ -60,15 +60,16 @@ urlpatterns = [
     path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
     
     # Social Auth Mock URLs
-    path('demo/', 
-         method_decorator(login_required, name='dispatch')(TemplateView).as_view(template_name='accounts/demo_login.html'), 
+    path('demo/',
+         views.demo_login_page,
          name='demo_login'),
-    path('mock-social/<str:provider>/', 
-         method_decorator(login_required, name='dispatch')(TemplateView).as_view(template_name='accounts/mock_social.html'), 
+    path('mock-social/<str:provider>/',
+         views.mock_social_login,
          name='mock_social_login'),
     
     
     # Statistics APIs
+    path('statistics/simple/', statistics_views.SimpleTindalosMetricsView.as_view(), name='statistics_simple'),
     path('statistics/tindalos/', statistics_views.TindalosMetricsView.as_view(), name='tindalos_metrics'),
     path('statistics/tindalos/<int:year>/', statistics_views.TindalosMetricsView.as_view(), name='tindalos_metrics_year'),
     path('statistics/tindalos/detailed/', statistics_views.DetailedTindalosMetricsView.as_view(), name='tindalos_metrics_detailed'),

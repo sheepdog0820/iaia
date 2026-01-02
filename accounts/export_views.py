@@ -82,7 +82,7 @@ class ExportStatisticsView(APIView):
         writer = csv.writer(output)
         
         # ヘッダー情報
-        writer.writerow(['Arkham Nexus - Tindalos Metrics Export'])
+        writer.writerow(['タブレノ - Tindalos Metrics Export'])
         writer.writerow([f'Year: {year}'])
         writer.writerow([f'User: {data["user"]["nickname"]}'])
         writer.writerow([f'Export Date: {timezone.now().strftime("%Y-%m-%d %H:%M:%S")}'])
@@ -179,7 +179,7 @@ class ExportStatisticsView(APIView):
         
         # タイトル
         p.setFont("Helvetica-Bold", 16)
-        p.drawString(50, height - 50, f"Arkham Nexus - Tindalos Metrics {year}")
+        p.drawString(50, height - 50, f"タブレノ - Tindalos Metrics {year}")
         
         # ユーザー情報
         p.setFont("Helvetica", 12)
@@ -254,7 +254,7 @@ class ExportStatisticsView(APIView):
         output = StringIO()
         writer = csv.writer(output)
         
-        writer.writerow(['Arkham Nexus - User Ranking Export'])
+        writer.writerow(['タブレノ - User Ranking Export'])
         writer.writerow([f'Year: {year}'])
         writer.writerow([f'Type: {data["type"]}'])
         writer.writerow([f'Export Date: {timezone.now().strftime("%Y-%m-%d %H:%M:%S")}'])
@@ -312,7 +312,7 @@ class ExportStatisticsView(APIView):
         output = StringIO()
         writer = csv.writer(output)
         
-        writer.writerow(['Arkham Nexus - Group Statistics Export'])
+        writer.writerow(['タブレノ - Group Statistics Export'])
         writer.writerow([f'Year: {year}'])
         writer.writerow([f'Export Date: {timezone.now().strftime("%Y-%m-%d %H:%M:%S")}'])
         writer.writerow([])
@@ -686,7 +686,7 @@ class StatisticsExportView(APIView):
             writer = csv.writer(output)
             
             # ヘッダー情報
-            writer.writerow(['Arkham Nexus - Statistics Export'])
+            writer.writerow(['タブレノ - Statistics Export'])
             writer.writerow([f'User: {data["user_statistics"]["nickname"]}'])
             writer.writerow([f'Export Date: {data["export_metadata"]["export_date"]}'])
             writer.writerow([f'Total Records: {data["export_metadata"]["total_records"]}'])
@@ -737,7 +737,7 @@ class StatisticsExportView(APIView):
         
         # タイトル
         p.setFont("Helvetica-Bold", 16)
-        p.drawString(50, height - 50, "Arkham Nexus - Statistics Export")
+        p.drawString(50, height - 50, "タブレノ - Statistics Export")
         
         # ユーザー情報
         p.setFont("Helvetica", 12)

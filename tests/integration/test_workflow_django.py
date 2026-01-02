@@ -1,6 +1,6 @@
 """
 Django Test Case形式の動線テスト
-Arkham Nexus TRPGスケジュール管理システム
+タブレノ TRPGスケジュール管理システム
 """
 
 from django.test import TestCase
@@ -387,4 +387,4 @@ class WorkflowIntegrationTestCase(TestCase):
         print("\\n📊 エクスポート・統計動線テスト完了!")
         
         print("\\n🎉 全ての動線テストが正常に完了しました!")
-        print("✨ Arkham Nexus システムの機能が期待通りに動作しています")
+        print("✨ タブレノ システムの機能が期待通りに動作しています")

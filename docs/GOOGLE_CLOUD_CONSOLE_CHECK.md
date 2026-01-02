@@ -67,7 +67,7 @@
 ### 新しいクライアントIDを作成する場合
 1. 「認証情報を作成」→「OAuth クライアント ID」
 2. アプリケーションの種類：「ウェブ アプリケーション」
-3. 名前：`Arkham Nexus Development`
+3. 名前：`タブレノ Development`
 4. 承認済みのJavaScript生成元：`http://localhost:3000`
 5. 承認済みのリダイレクトURI：`http://localhost:3000/auth/callback`
 6. 作成後、新しいクライアントIDとシークレットを`.env.development`に更新

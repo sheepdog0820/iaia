@@ -1,4 +1,4 @@
-// Arkham Nexus - Main JavaScript File
+// タブレノ - Main JavaScript File
 
 // CSRFトークンの設定
 function getCookie(name) {

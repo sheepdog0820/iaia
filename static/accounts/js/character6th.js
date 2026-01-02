@@ -118,6 +118,9 @@
             .map(([key, skill]) => [skill?.name, key])
             .filter(([name]) => !!name)
     );
+    const CUSTOM_SKILL_CATEGORIES = ['combat', 'exploration', 'action', 'social', 'knowledge', 'all'];
+    const CUSTOM_SKILL_DEFAULT_CATEGORY = 'knowledge';
+    let customSkillCounter = 0;
 
     const ABILITIES_6TH = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu'];
     const ABILITY_LABELS = {
@@ -442,9 +445,16 @@ function updateGlobalDiceFormula() {
     }
 
     // Skill item HTML generation
-    function createSkillItemHTML(key, skill, category = 'all') {
-        let baseValue = skill.base;
-        if (typeof baseValue === 'string') {
+    function createSkillItemHTML(key, skill, category = 'all', options = {}) {
+        const { isCustom = false, displayName = null, baseValueOverride = null } = options;
+        const skillName = displayName || skill?.name || key;
+        let baseValue = baseValueOverride;
+
+        if (typeof baseValue !== 'number') {
+            baseValue = skill?.base ?? 0;
+        }
+
+        if (!isCustom && typeof baseValue === 'string') {
             if (baseValue === 'DEX*2') {
                 const dex = parseInt(document.getElementById('dex')?.value) || 0;
                 baseValue = dex * 2;
@@ -455,22 +465,33 @@ function updateGlobalDiceFormula() {
         }
         baseValue = Math.min(parseInt(baseValue, 10) || 0, 999);
 
+        const customClass = isCustom ? ' custom-skill' : '';
+        const nameMarkup = isCustom
+            ? `<input type="text" class="form-control form-control-sm custom-skill-name" value="${skillName}" data-skill="${key}">`
+            : `<label for="skill_${key}" class="form-label small fw-bold mb-0">${skillName}</label>`;
+        const deleteButton = isCustom
+            ? `<button type="button" class="btn btn-outline-danger btn-sm custom-skill-remove" data-skill="${key}" aria-label="削除"><i class="fas fa-times"></i></button>`
+            : '';
+
         return `
-            <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
+            <div class="col-xl-3 col-lg-4 col-md-6 mb-3${customClass}">
                 <div class="skill-item border rounded p-2">
                     <div class="d-flex justify-content-between align-items-center">
                         <div class="d-flex align-items-center gap-1">
-                            <label for="skill_${key}" class="form-label small fw-bold mb-0">${skill.name}</label>
+                            ${nameMarkup}
                             <span class="badge bg-info text-dark recommended-badge d-none">推奨</span>
                         </div>
-                        <span class="badge bg-secondary skill-total" id="total_${key}">${baseValue}%</span>
+                        <div class="d-flex align-items-center gap-1">
+                            ${deleteButton}
+                            <span class="badge bg-secondary skill-total" id="total_${key}">${baseValue}%</span>
+                        </div>
                     </div>
                     
                     <div class="row g-1 mt-2">
                         <div class="col-4">
                             <input type="number" class="form-control form-control-sm text-center skill-base" 
                                    id="base_${key}" value="${baseValue}" min="0" max="999" 
-                                   data-skill="${key}" data-default="${skill.base}" 
+                                   data-skill="${key}" data-default="${skill?.base ?? 0}" 
                                    title="Base value (left click to edit, right click to reset)"
                                    data-bs-toggle="tooltip"
                                    data-bs-placement="top">
@@ -489,6 +510,126 @@ function updateGlobalDiceFormula() {
                 </div>
             </div>
         `;
+    }
+
+    function createCustomSkillItemHTML(skillName, category) {
+        return createSkillItemHTML('custom_preview', { name: skillName, base: 0 }, category, {
+            isCustom: true,
+            displayName: skillName,
+            baseValueOverride: 0
+        });
+    }
+
+    function createAddCustomSkillButton(category) {
+        return `
+            <div class="col-12 text-center mt-3 custom-skill-button" data-custom-skill-category="${category}">
+                <button type="button" class="btn btn-outline-primary" data-custom-skill-category="${category}">
+                    <i class="fas fa-plus"></i> カスタム技能を追加
+                </button>
+            </div>
+        `;
+    }
+
+    function buildSkillCardElement(key, skill, category, options = {}) {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = createSkillItemHTML(key, skill, category, options);
+        return wrapper.firstElementChild;
+    }
+
+    function registerSkillCard({ key, category, card, skillName = '' }) {
+        card.dataset.category = category;
+        card.dataset.skillKey = key;
+        if (skillName) {
+            card.dataset.skillName = skillName;
+        }
+        skillCards.push({ key, category, card });
+        skillCardByKey.set(key, card);
+    }
+
+    function getSkillDisplayName(key, card) {
+        const input = card.querySelector('.custom-skill-name');
+        const fromInput = input?.value?.trim();
+        if (fromInput) return fromInput;
+        const fromDataset = card.dataset.skillName;
+        if (fromDataset) return fromDataset;
+        return ALL_SKILLS_6TH[key]?.name || key;
+    }
+
+    function bindSkillCardEvents(card) {
+        card.querySelectorAll('.occupation-skill, .interest-skill').forEach(input => {
+            input.addEventListener('input', updateSkillTotals);
+        });
+
+        card.querySelectorAll('.skill-base').forEach(input => {
+            input.addEventListener('input', function() {
+                try {
+                    const skillKey = this.dataset.skill;
+                    const value = Math.min(parseInt(this.value, 10) || 0, 999);
+                    this.value = value;
+
+                    if (!window.customBaseValues) {
+                        window.customBaseValues = {};
+                    }
+                    window.customBaseValues[skillKey] = value;
+
+                    this.classList.add('customized');
+                    updateSkillTotals();
+                } catch (error) {
+                    console.error('Error in skill base input handler:', error);
+                }
+            });
+
+            input.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                try {
+                    const skillKey = this.dataset.skill;
+
+                    if (window.customBaseValues && window.customBaseValues[skillKey] !== undefined) {
+                        delete window.customBaseValues[skillKey];
+                    }
+
+                    const skill = ALL_SKILLS_6TH[skillKey];
+                    if (!skill) {
+                        return;
+                    }
+
+                    let baseValue = skill.base;
+                    if (typeof baseValue === 'string') {
+                        if (baseValue === 'DEX*2') {
+                            const dex = parseInt(document.getElementById('dex')?.value) || 0;
+                            baseValue = dex * 2;
+                        } else if (baseValue === 'EDU*5') {
+                            const edu = parseInt(document.getElementById('edu')?.value) || 0;
+                            baseValue = edu * 5;
+                        }
+                    }
+
+                    this.value = baseValue;
+                    this.classList.remove('customized');
+                    updateSkillTotals();
+                    this.style.backgroundColor = '#d4edda';
+                    setTimeout(() => {
+                        this.style.backgroundColor = '';
+                    }, 300);
+                } catch (error) {
+                    console.error('Error in skill base reset handler:', error);
+                }
+            });
+        });
+
+        const nameInput = card.querySelector('.custom-skill-name');
+        if (nameInput) {
+            nameInput.addEventListener('input', function() {
+                updateCustomSkillName(this);
+            });
+        }
+
+        const removeButton = card.querySelector('.custom-skill-remove');
+        if (removeButton) {
+            removeButton.addEventListener('click', function() {
+                removeCustomSkill(this.dataset.skill || this);
+            });
+        }
     }
 
     // 保持用: 生成した技能カードDOM
@@ -515,13 +656,8 @@ function updateGlobalDiceFormula() {
         skillCardByKey.clear();
         Object.entries(SKILLS_6TH).forEach(([category, skills]) => {
             Object.entries(skills).forEach(([key, skill]) => {
-                const wrapper = document.createElement('div');
-                wrapper.innerHTML = createSkillItemHTML(key, skill, category);
-                const card = wrapper.firstElementChild;
-                card.dataset.category = category;
-                card.dataset.skillKey = key;
-                skillCards.push({ key, category, card });
-                skillCardByKey.set(key, card);
+                const card = buildSkillCardElement(key, skill, category);
+                registerSkillCard({ key, category, card, skillName: skill?.name || key });
             });
         });
 
@@ -564,6 +700,10 @@ function updateGlobalDiceFormula() {
             }
         });
 
+        if (CUSTOM_SKILL_CATEGORIES.includes(targetCategory)) {
+            appendCustomSkillButton(dest, targetCategory);
+        }
+
         if (targetCategory === 'recommended' && appended === 0) {
             dest.innerHTML = `
                 <div class="col-12 text-center text-muted p-4">
@@ -572,6 +712,91 @@ function updateGlobalDiceFormula() {
                 </div>
             `;
         }
+    }
+
+    function appendCustomSkillButton(container, category) {
+        if (!container) return;
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = createAddCustomSkillButton(category);
+        const buttonWrapper = wrapper.firstElementChild;
+        if (!buttonWrapper) return;
+        const button = buttonWrapper.querySelector('button');
+        if (button) {
+            button.addEventListener('click', () => addCustomSkill(category));
+        }
+        container.appendChild(buttonWrapper);
+    }
+
+    function addCustomSkill(category, options = {}) {
+        const targetCategory = category === 'all' ? CUSTOM_SKILL_DEFAULT_CATEGORY : category;
+        customSkillCounter += 1;
+        const defaultName = `カスタム技能${customSkillCounter}`;
+        const skillName = (options.name || defaultName).trim() || defaultName;
+        const baseValue = Math.min(parseInt(options.baseValue, 10) || 0, 999);
+        const occupationPoints = Math.min(parseInt(options.occupationPoints, 10) || 0, 999);
+        const interestPoints = Math.min(parseInt(options.interestPoints, 10) || 0, 999);
+
+        const skillKey = `custom_${Date.now()}_${customSkillCounter}`;
+        const card = buildSkillCardElement(
+            skillKey,
+            { name: skillName, base: baseValue },
+            targetCategory,
+            { isCustom: true, displayName: skillName, baseValueOverride: baseValue }
+        );
+
+        registerSkillCard({ key: skillKey, category: targetCategory, card, skillName });
+        bindSkillCardEvents(card);
+
+        const baseInput = card.querySelector('.skill-base');
+        if (baseInput) {
+            baseInput.value = baseValue;
+            baseInput.classList.add('customized');
+        }
+        const occInput = card.querySelector('.occupation-skill');
+        if (occInput) occInput.value = occupationPoints;
+        const intInput = card.querySelector('.interest-skill');
+        if (intInput) intInput.value = interestPoints;
+
+        if (options.render !== false) {
+            refreshActiveSkillTab();
+            updateSkillTotals();
+        }
+
+        return card;
+    }
+
+    function removeCustomSkill(target) {
+        let card = null;
+        let skillKey = null;
+
+        if (typeof target === 'string') {
+            skillKey = target;
+            card = skillCardByKey.get(skillKey);
+        } else if (target instanceof Element) {
+            card = target.closest('.custom-skill') || target.closest('[data-skill-key]');
+            skillKey = target.dataset?.skill || card?.dataset?.skillKey || null;
+        }
+
+        if (!card) return;
+        if (!skillKey) skillKey = card.dataset?.skillKey || null;
+        if (!skillKey) return;
+
+        skillCards = skillCards.filter(entry => entry.key !== skillKey);
+        skillCardByKey.delete(skillKey);
+        card.remove();
+        updateSkillTotals();
+    }
+
+    function updateCustomSkillName(input) {
+        const card = input.closest('.custom-skill');
+        if (!card) return;
+        const nextName = input.value.trim();
+        if (nextName) {
+            card.dataset.skillName = nextName;
+        } else {
+            card.dataset.skillName = 'カスタム技能';
+        }
+        updateSkillTotals();
     }
 
     function setRecommendedSkills(skillKeys, options = {}) {
@@ -1045,69 +1270,7 @@ function updateGlobalDiceFormula() {
     function addSkillInputEvents() {
         try {
             skillCards.forEach(({ card }) => {
-                card.querySelectorAll('.occupation-skill, .interest-skill').forEach(input => {
-                    input.addEventListener('input', updateSkillTotals);
-                });
-            });
-
-            skillCards.forEach(({ card }) => {
-                card.querySelectorAll('.skill-base').forEach(input => {
-                input.addEventListener('input', function() {
-                    try {
-                        const skillKey = this.dataset.skill;
-                        const value = Math.min(parseInt(this.value, 10) || 0, 999);
-                        this.value = value;
-
-                        if (!window.customBaseValues) {
-                            window.customBaseValues = {};
-                        }
-                        window.customBaseValues[skillKey] = value;
-
-                        this.classList.add('customized');
-                        updateSkillTotals();
-                    } catch (error) {
-                        console.error('Error in skill base input handler:', error);
-                    }
-                });
-
-                input.addEventListener('contextmenu', function(e) {
-                    e.preventDefault();
-                    try {
-                        const skillKey = this.dataset.skill;
-
-                        if (window.customBaseValues && window.customBaseValues[skillKey] !== undefined) {
-                            delete window.customBaseValues[skillKey];
-                        }
-
-                        const skill = ALL_SKILLS_6TH[skillKey];
-                        if (!skill) {
-                            console.warn(`Skill ${skillKey} not found in ALL_SKILLS_6TH`);
-                            return;
-                        }
-
-                        let baseValue = skill.base;
-                        if (typeof baseValue === 'string') {
-                            if (baseValue === 'DEX*2') {
-                                const dex = parseInt(document.getElementById('dex')?.value) || 0;
-                                baseValue = dex * 2;
-                            } else if (baseValue === 'EDU*5') {
-                                const edu = parseInt(document.getElementById('edu')?.value) || 0;
-                                baseValue = edu * 5;
-                            }
-                        }
-
-                        this.value = baseValue;
-                        this.classList.remove('customized');
-                        updateSkillTotals();
-                        this.style.backgroundColor = '#d4edda';
-                        setTimeout(() => {
-                            this.style.backgroundColor = '';
-                        }, 300);
-                    } catch (error) {
-                        console.error('Error in skill base reset handler:', error);
-                    }
-                });
-                });
+                bindSkillCardEvents(card);
             });
         } catch (error) {
             console.error('Error in addSkillInputEvents:', error);
@@ -1177,9 +1340,10 @@ function updateGlobalDiceFormula() {
 
             if (occ > 0 || int > 0) {
                 allocatedCount++;
+                const displayName = getSkillDisplayName(key, card);
                 allocatedSkills.push({
                     key,
-                    skill: ALL_SKILLS_6TH[key],
+                    skillName: displayName,
                     base,
                     occupationPoints: occ,
                     interestPoints: int,
@@ -1261,7 +1425,7 @@ function updateGlobalDiceFormula() {
                     <div class="col-xl-4 col-lg-6 col-md-6 mb-3">
                         <div class="skill-item border rounded p-2">
                             <div class="d-flex justify-content-between align-items-center">
-                                <span class="fw-bold">${item.skill.name || item.key}</span>
+                                <span class="fw-bold">${item.skillName || item.key}</span>
                                 <span class="badge bg-primary">${item.total}%</span>
                             </div>
                             <div class="small text-muted mt-1">
@@ -1563,6 +1727,12 @@ function initOccupationTemplates() {
     initOccupationTemplates(); // 職業テンプレート機能を初期化
     initImageUpload(); // 画像アップロード機能を初期化
 
+    window.addCustomSkill = addCustomSkill;
+    window.removeCustomSkill = removeCustomSkill;
+    window.updateCustomSkillName = updateCustomSkillName;
+    window.createAddCustomSkillButton = createAddCustomSkillButton;
+    window.createCustomSkillItemHTML = createCustomSkillItemHTML;
+
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
 
     function setValueById(id, value) {
@@ -1591,7 +1761,7 @@ function initOccupationTemplates() {
         if (titleEl) {
             titleEl.innerHTML = '<i class="fas fa-user-ninja text-primary"></i> クトゥルフ神話TRPG 6版探索者編集';
         }
-        document.title = 'クトゥルフ神話TRPG 6版探索者編集 - Arkham Nexus';
+        document.title = 'クトゥルフ神話TRPG 6版探索者編集 - タブレノ';
         const submitBtn = document.querySelector('#character-sheet-form button[type="submit"]');
         if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-save"></i> 探索者を更新';
         const footerSaveBtnEl = document.getElementById('footerSaveCharacter');
@@ -1651,9 +1821,13 @@ function initOccupationTemplates() {
                 .filter(([name]) => !!name)
         );
 
+        const customSkillsToAdd = [];
         (sheet.skills || []).forEach(skill => {
             const skillKey = nameToKey.get(skill.skill_name);
-            if (!skillKey) return;
+            if (!skillKey) {
+                customSkillsToAdd.push(skill);
+                return;
+            }
 
             const card = skillCardByKey.get(skillKey);
             if (!card) return;
@@ -1687,6 +1861,20 @@ function initOccupationTemplates() {
                 delete window.customBaseValues[skillKey];
             }
         });
+
+        if (customSkillsToAdd.length > 0) {
+            customSkillsToAdd.forEach(customSkill => {
+                addCustomSkill(CUSTOM_SKILL_DEFAULT_CATEGORY, {
+                    name: customSkill.skill_name,
+                    baseValue: customSkill.base_value,
+                    occupationPoints: customSkill.occupation_points,
+                    interestPoints: customSkill.interest_points,
+                    render: false
+                });
+            });
+            refreshActiveSkillTab();
+            updateSkillTotals();
+        }
 
         updateDynamicSkillBases();
         updateSkillTotals();
@@ -1795,7 +1983,7 @@ function initOccupationTemplates() {
                 baseValue = Math.min(baseValue, 999);
 
                 skills.push({
-                    skill_name: ALL_SKILLS_6TH[skillKey]?.name || skillKey,
+                    skill_name: getSkillDisplayName(skillKey, card),
                     base_value: baseValue,
                     occupation_points: occValue,
                     interest_points: intValue,

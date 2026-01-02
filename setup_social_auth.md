@@ -1,7 +1,7 @@
 # ソーシャル認証セットアップガイド
 
 ## 概要
-Arkham NexusでGoogleとTwitter/Xのソーシャル認証を設定するためのガイドです。
+タブレノでGoogleとTwitter/Xのソーシャル認証を設定するためのガイドです。
 
 ## 必要な手順
 
@@ -57,7 +57,7 @@ from django.conf import settings
 # サイト設定
 site = Site.objects.get_current()
 site.domain = 'localhost:8000'
-site.name = 'Arkham Nexus'
+site.name = 'タブレノ'
 site.save()
 
 # Google設定更新

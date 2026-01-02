@@ -4,7 +4,7 @@ SocialAppとSiteの紐付け確認スクリプト
 import os
 import django
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 from allauth.socialaccount.models import SocialApp

@@ -1,4 +1,4 @@
-# 🎯 Arkham Nexus - 完了済み課題アーカイブ
+# 🎯 タブレノ - 完了済み課題アーカイブ
 
 ## 📋 概要
 完了済みの課題とチケットのアーカイブです。現在進行中の課題は`ISSUES.md`を参照してください。
@@ -179,7 +179,7 @@
   - django-allauthとDjango REST Frameworkの統合
   - Google Cloud Consoleの設定確認（手動実施済み）
 - **該当ファイル**:
-  - `arkham_nexus/settings.py` - Google OAuth設定、rest_framework.authtokenの追加
+  - `tableno/settings.py` - Google OAuth設定、rest_framework.authtokenの追加
   - `accounts/views/api_auth_views.py` - Google OAuth認証API（code/access_token/id_token対応）
   - `api/urls.py` - `/api/auth/google/` ルーティング
   - `accounts/test_api_auth_google.py` - API向けテスト追加
@@ -199,8 +199,8 @@
   - キャラクター作成機能までの最小限リリースに必要なタスク
   - 本番環境へのデプロイ準備
 - **該当ファイル**:
-  - `arkham_nexus/settings_production.py` - 本番設定、セキュリティ、ロギング
-  - `arkham_nexus/settings.py` - python-decouple導入、環境変数管理
+  - `tableno/settings_production.py` - 本番設定、セキュリティ、ロギング
+  - `tableno/settings.py` - python-decouple導入、環境変数管理
   - `deploy.sh` - マイグレーション/静的ファイル収集を含むデプロイ
   - `templates/404.html` - 404エラーページ
   - `templates/500.html` - 500エラーページ
@@ -225,7 +225,7 @@
   - X（Twitter）OAuthをAPI経由で利用するための認証機能
   - django-allauthとDjango REST Frameworkの統合
 - **該当ファイル**:
-  - `arkham_nexus/settings.py` - X OAuth設定
+  - `tableno/settings.py` - X OAuth設定
   - `accounts/views/api_auth_views.py` - X OAuth認証API実装
   - `api/urls.py` - ルーティング追加
   - `accounts/test_api_auth_twitter.py` - APIテスト追加

@@ -1,10 +1,10 @@
 """
 カスタム技能機能の統合テスト
 """
+import json
 import time
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
-from django.urls import reverse
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -286,31 +286,22 @@ class CustomSkillFormTest(TestCase):
         """カスタム技能を含むキャラクターの保存テスト"""
         # フォームデータ作成
         character_data = {
-            'character_name': 'カスタム技能テスト探索者',
+            'name': 'カスタム技能テスト探索者',
             'player_name': 'テストプレイヤー',
             'age': 30,
             'gender': '男性',
             'occupation': 'オカルト研究者',
             'birthplace': '東京',
-            'str': 12,
-            'con': 14,
-            'pow': 16,
-            'dex': 10,
-            'app': 12,
-            'siz': 13,
-            'int': 17,
-            'edu': 18,
-            'hp_max': 14,
-            'mp_max': 16,
-            'san_max': 80,
-            'san_current': 80,
-            'damage_bonus': '+1d4',
-            'dodge_value': 20,
-            'idea': 85,
-            'luck': 80,
-            'knowledge': 90,
             'notes': 'テスト用のキャラクター',
-            'skills': '''[
+            'str_value': 12,
+            'con_value': 14,
+            'pow_value': 16,
+            'dex_value': 10,
+            'app_value': 12,
+            'siz_value': 13,
+            'int_value': 17,
+            'edu_value': 18,
+            'skills': json.dumps([
                 {
                     "skill_name": "カスタム魔術知識",
                     "base_value": 5,
@@ -335,24 +326,20 @@ class CustomSkillFormTest(TestCase):
                     "other_points": 0,
                     "current_value": 45
                 }
-            ]'''
+            ])
         }
         
         # フォーム送信
-        response = self.client.post(
-            reverse('character_create_6th'),
-            data=character_data,
-            follow=True
-        )
+        response = self.client.post('/api/accounts/character-sheets/create_6th_edition/', data=character_data)
         
         # レスポンスの確認
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 201)
         
         # 保存されたキャラクターの確認
-        from accounts.models import Character6th
-        character = Character6th.objects.filter(character_name='カスタム技能テスト探索者').first()
+        from accounts.models import CharacterSheet
+        character = CharacterSheet.objects.filter(name='カスタム技能テスト探索者').first()
         self.assertIsNotNone(character)
-        self.assertEqual(character.owner, self.user)
+        self.assertEqual(character.user, self.user)
         
         # カスタム技能が保存されているか確認
         skills = character.skills.all()

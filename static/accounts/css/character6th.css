@@ -101,6 +101,15 @@ label[for="character-name"]::after {
     background-color: #e3f2fd;
 }
 
+.custom-skill .skill-item {
+    background-color: #fff3cd;
+    border-color: #ffeeba;
+}
+
+.custom-skill .custom-skill-name {
+    max-width: 160px;
+}
+
 .recommended-badge {
     font-size: 0.65rem;
 }

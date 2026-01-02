@@ -62,7 +62,7 @@ python3 test_selenium.py
 ### 3. プロジェクトでのテスト実行
 
 ```bash
-# Arkham Nexus の UI テストを実行
+# タブレノ の UI テストを実行
 python3 manage.py test tests.ui.test_character_6th_ui_simple -v 2
 ```
 

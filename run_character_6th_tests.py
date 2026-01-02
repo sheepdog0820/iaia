@@ -16,7 +16,7 @@ from django.core.management import call_command
 from django.conf import settings
 
 # Setup Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 

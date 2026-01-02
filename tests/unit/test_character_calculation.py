@@ -8,7 +8,7 @@ import sys
 import django
 
 # Django設定をロード
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'arkham_nexus.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
 from django.test import TestCase, Client
