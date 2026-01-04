@@ -5,103 +5,167 @@
     const editCharacterId = urlParams.get('id');
     const isEditMode = !!editCharacterId;
 
+    const bodyEl = document.body;
+    if (bodyEl) {
+        bodyEl.classList.add('character-create-page');
+    }
+
+    const autosizeTextareas = () => {
+        document.querySelectorAll('.autosize-textarea').forEach(textarea => {
+            const resize = () => {
+                textarea.style.height = 'auto';
+                textarea.style.height = `${textarea.scrollHeight}px`;
+            };
+            if (!textarea.dataset.autosizeBound) {
+                textarea.addEventListener('input', resize);
+                textarea.dataset.autosizeBound = 'true';
+            }
+            resize();
+        });
+    };
+    autosizeTextareas();
+
+    const initTooltips = () => {
+        if (!window.bootstrap?.Tooltip) return;
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+            if (el.dataset.tooltipBound) return;
+            new bootstrap.Tooltip(el);
+            el.dataset.tooltipBound = 'true';
+        });
+    };
+    initTooltips();
+
+    const initTabs = () => {
+        document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tabButton => {
+            if (tabButton.dataset.tabBound) return;
+
+            tabButton.addEventListener('click', event => {
+                const bootstrapTab = window.bootstrap?.Tab;
+                if (bootstrapTab) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    try {
+                        const instance = bootstrapTab.getOrCreateInstance
+                            ? bootstrapTab.getOrCreateInstance(tabButton)
+                            : new bootstrapTab(tabButton);
+                        instance.show();
+                        return;
+                    } catch {}
+                }
+
+                event.preventDefault();
+
+                const targetSelector = tabButton.getAttribute('data-bs-target');
+                if (!targetSelector) return;
+
+                const targetPane = document.querySelector(targetSelector);
+                if (!targetPane) return;
+
+                const tabList = tabButton.closest('[role="tablist"]') || tabButton.closest('.nav');
+                const tabContent = targetPane.closest('.tab-content');
+
+                if (tabList) {
+                    tabList.querySelectorAll('[data-bs-toggle="tab"]').forEach(btn => {
+                        btn.classList.remove('active');
+                        btn.setAttribute('aria-selected', 'false');
+                    });
+                }
+
+                if (tabContent) {
+                    tabContent.querySelectorAll('.tab-pane').forEach(pane => {
+                        pane.classList.remove('active', 'show');
+                    });
+                }
+
+                tabButton.classList.add('active');
+                tabButton.setAttribute('aria-selected', 'true');
+                targetPane.classList.add('active', 'show');
+            });
+
+            tabButton.dataset.tabBound = 'true';
+        });
+    };
+    initTabs();
+
     // 6th edition skill data
     const SKILLS_6TH = {
         combat: {
             dodge: { base: "DEX*2", name: "回避" },
-            martial_arts: { base: 1, name: "マーシャルアーツ" },
-            throw: { base: 25, name: "投擲" },
-            first_aid: { base: 30, name: "応急手当" },
-            fist_punch: { base: 50, name: "こぶし（パンチ）" },
-            head_butt: { base: 10, name: "頭突き" },
             kick: { base: 25, name: "キック" },
             grapple: { base: 25, name: "組み付き" },
-            knife: { base: 20, name: "ナイフ" },
-            club: { base: 25, name: "こん棒" },
+            fist_punch: { base: 50, name: "こぶし（パンチ）" },
+            head_butt: { base: 10, name: "頭突き" },
+            throw: { base: 25, name: "投擲" },
+            martial_arts: { base: 1, name: "マーシャルアーツ" },
             handgun: { base: 20, name: "拳銃" },
-            rifle: { base: 25, name: "ライフル" },
-            shotgun: { base: 30, name: "ショットガン" },
             submachine_gun: { base: 15, name: "サブマシンガン" },
+            shotgun: { base: 30, name: "ショットガン" },
             machine_gun: { base: 15, name: "マシンガン" },
-            bow: { base: 15, name: "弓" },
-            sword: { base: 20, name: "剣" },
-            spear: { base: 20, name: "槍" },
-            whip: { base: 5, name: "鞭" }
+            rifle: { base: 25, name: "ライフル" }
         },
         exploration: {
-            spot_hidden: { base: 25, name: "目星" },
+            first_aid: { base: 30, name: "応急手当" },
+            locksmith: { base: 1, name: "鍵開け" },
+            conceal: { base: 15, name: "隠す" },
+            hide: { base: 10, name: "隠れる" },
             listen: { base: 25, name: "聞き耳" },
-            library_use: { base: 25, name: "図書館" },
+            sneak: { base: 10, name: "忍び歩き" },
+            photography: { base: 10, name: "写真術" },
+            psychoanalysis: { base: 1, name: "精神分析" },
             track: { base: 10, name: "追跡" },
-            navigate: { base: 10, name: "ナビゲート" },
-            photography: { base: 10, name: "写真術" }
+            climb: { base: 40, name: "登攀" },
+            library_use: { base: 25, name: "図書館" },
+            spot_hidden: { base: 25, name: "目星" }
         },
         action: {
-            climb: { base: 40, name: "登攀" },
-            jump: { base: 25, name: "跳躍" },
-            swim: { base: 25, name: "水泳" },
-            sneak: { base: 10, name: "忍び歩き" },
-            hide: { base: 10, name: "隠れる" },
-            conceal: { base: 15, name: "隠す" },
-            locksmith: { base: 1, name: "鍵開け" },
             drive_auto: { base: 20, name: "運転" },
-            pilot: { base: 1, name: "操縦" },
-            ride: { base: 5, name: "乗馬" },
-            electrical_repair: { base: 10, name: "電気修理" },
-            electronics: { base: 1, name: "電子工学" },
             mechanical_repair: { base: 20, name: "機械修理" },
             operate_heavy_machine: { base: 1, name: "重機械操作" },
-            disguise: { base: 1, name: "変装" },
-            sleight_of_hand: { base: 10, name: "手さばき" }
+            ride: { base: 5, name: "乗馬" },
+            swim: { base: 25, name: "水泳" },
+            craft: { base: 5, name: "製作" },
+            pilot: { base: 1, name: "操縦" },
+            jump: { base: 25, name: "跳躍" },
+            electrical_repair: { base: 10, name: "電気修理" },
+            navigate: { base: 10, name: "ナビゲート" },
+            disguise: { base: 1, name: "変装" }
         },
         social: {
-            persuade: { base: 15, name: "説得" },
             fast_talk: { base: 5, name: "言いくるめ" },
-            bargain: { base: 5, name: "値切り" },
-            psychology: { base: 5, name: "心理学" },
-            psychoanalysis: { base: 1, name: "精神分析" },
             credit_rating: { base: 0, name: "信用" },
-            language_own: { base: "EDU*5", name: "母国語" },
-            language_other: { base: 1, name: "他国語" },
-            intimidate: { base: 15, name: "威嚇" },
-            charm: { base: 15, name: "魅惑" }
+            persuade: { base: 15, name: "説得" },
+            bargain: { base: 5, name: "値切り" },
+            language_own: { base: "EDU*5", name: "母国語" }
         },
         knowledge: {
-            occult: { base: 5, name: "オカルト" },
-            cthulhu_mythos: { base: 0, name: "クトゥルフ神話" },
-            archaeology: { base: 1, name: "考古学" },
-            anthropology: { base: 1, name: "人類学" },
-            history: { base: 20, name: "歴史" },
-            natural_world: { base: 10, name: "博物学" },
-            geology: { base: 1, name: "地質学" },
-            astronomy: { base: 1, name: "天文学" },
-            biology: { base: 1, name: "生物学" },
-            chemistry: { base: 1, name: "化学" },
-            physics: { base: 1, name: "物理学" },
-            pharmacy: { base: 1, name: "薬学" },
             medicine: { base: 5, name: "医学" },
-            law: { base: 5, name: "法律" },
-            accounting: { base: 10, name: "経理" },
-            computer_use: { base: 1, name: "コンピューター" },
-            appraise: { base: 5, name: "鑑定" },
-            cryptography: { base: 1, name: "暗号" },
-            forensics: { base: 1, name: "法医学" }
-        },
-        other: {
+            occult: { base: 5, name: "オカルト" },
+            chemistry: { base: 1, name: "化学" },
+            cthulhu_mythos: { base: 0, name: "クトゥルフ神話" },
             art: { base: 5, name: "芸術" },
-            craft: { base: 5, name: "工芸" },
-            sing: { base: 5, name: "歌唱" },
-            play_instrument: { base: 5, name: "楽器演奏" },
-            dance: { base: 5, name: "ダンス" },
-            acting: { base: 5, name: "演技" },
-            teach: { base: 10, name: "教育" },
-            perform: { base: 5, name: "芸能" },
-            animal_handling: { base: 5, name: "動物使い" },
-            survival: { base: 10, name: "サバイバル" },
-            hypnosis: { base: 1, name: "催眠術" },
-            occult_folklore: { base: 5, name: "民俗学" },
-            gaming: { base: 5, name: "ギャンブル" }
+            accounting: { base: 10, name: "経理" },
+            archaeology: { base: 1, name: "考古学" },
+            computer_use: { base: 1, name: "コンピューター" },
+            psychology: { base: 5, name: "心理学" },
+            anthropology: { base: 1, name: "人類学" },
+            biology: { base: 1, name: "生物学" },
+            geology: { base: 1, name: "地質学" },
+            electronics: { base: 1, name: "電子工学" },
+            astronomy: { base: 1, name: "天文学" },
+            natural_world: { base: 10, name: "博物学" },
+            physics: { base: 1, name: "物理学" },
+            law: { base: 5, name: "法律" },
+            pharmacy: { base: 1, name: "薬学" },
+            history: { base: 20, name: "歴史" }
         }
+    };
+
+    const SKILL_CATEGORY_KEYS = {
+        combat: new Set(Object.keys(SKILLS_6TH.combat)),
+        exploration: new Set(Object.keys(SKILLS_6TH.exploration)),
+        action: new Set(Object.keys(SKILLS_6TH.action)),
+        social: new Set(Object.keys(SKILLS_6TH.social)),
+        knowledge: new Set(Object.keys(SKILLS_6TH.knowledge))
     };
     
     // Combined skills map (backward compatibility)
@@ -110,8 +174,7 @@
         ...SKILLS_6TH.exploration,
         ...SKILLS_6TH.action,
         ...SKILLS_6TH.social,
-        ...SKILLS_6TH.knowledge,
-        ...SKILLS_6TH.other
+        ...SKILLS_6TH.knowledge
     };
     const SKILL_NAME_TO_KEY = new Map(
         Object.entries(ALL_SKILLS_6TH)
@@ -468,43 +531,50 @@ function updateGlobalDiceFormula() {
         const customClass = isCustom ? ' custom-skill' : '';
         const nameMarkup = isCustom
             ? `<input type="text" class="form-control form-control-sm custom-skill-name" value="${skillName}" data-skill="${key}">`
-            : `<label for="skill_${key}" class="form-label small fw-bold mb-0">${skillName}</label>`;
+            : `<label for="base_${key}" class="form-label small fw-bold mb-0 skill-name" title="${skillName}">${skillName}</label>`;
         const deleteButton = isCustom
             ? `<button type="button" class="btn btn-outline-danger btn-sm custom-skill-remove" data-skill="${key}" aria-label="削除"><i class="fas fa-times"></i></button>`
             : '';
 
         return `
-            <div class="col-xl-3 col-lg-4 col-md-6 mb-3${customClass}">
-                <div class="skill-item border rounded p-2">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-center gap-1">
+            <div class="col-6 col-sm-6 col-md-4 col-lg-3 col-xl-2${customClass}">
+                <div class="skill-item border rounded p-1">
+                    <div class="d-flex justify-content-between align-items-center skill-item-header">
+                        <div class="d-flex align-items-center gap-1 skill-item-title">
                             ${nameMarkup}
                             <span class="badge bg-info text-dark recommended-badge d-none">推奨</span>
                         </div>
-                        <div class="d-flex align-items-center gap-1">
+                        <div class="d-flex align-items-center gap-1 skill-item-actions">
                             ${deleteButton}
-                            <span class="badge bg-secondary skill-total" id="total_${key}">${baseValue}%</span>
+                            <span class="badge skill-total" id="total_${key}">${baseValue}%</span>
                         </div>
                     </div>
                     
-                    <div class="row g-1 mt-2">
+                    <div class="row g-1 mt-1">
                         <div class="col-4">
-                            <input type="number" class="form-control form-control-sm text-center skill-base" 
-                                   id="base_${key}" value="${baseValue}" min="0" max="999" 
-                                   data-skill="${key}" data-default="${skill?.base ?? 0}" 
-                                   title="Base value (left click to edit, right click to reset)"
-                                   data-bs-toggle="tooltip"
-                                   data-bs-placement="top">
+                            <div class="input-group input-group-sm skill-input-group skill-input-group-base" data-skill-kind="初" title="初期値">
+                                <input type="number" class="form-control form-control-sm text-center skill-base"
+                                       id="base_${key}" value="${baseValue}" min="0" max="999"
+                                       data-skill="${key}" data-default="${skill?.base ?? 0}"
+                                       aria-label="${skillName} 初期値"
+                                       title="Base value (left click to edit, right click to reset)"
+                                       data-bs-toggle="tooltip"
+                                       data-bs-placement="top">
+                            </div>
                         </div>
                         <div class="col-4">
-                            <input type="number" class="form-control form-control-sm occupation-skill text-center" 
-                                   id="occ_${key}" min="0" max="999" value="0" placeholder="職" 
-                                   data-skill="${key}" title="職業技能">
+                            <div class="input-group input-group-sm skill-input-group skill-input-group-occ" data-skill-kind="職" title="職業">
+                                <input type="number" class="form-control form-control-sm occupation-skill text-center"
+                                       id="occ_${key}" min="0" max="999" value="0"
+                                       data-skill="${key}" aria-label="${skillName} 職業" title="職業技能">
+                            </div>
                         </div>
                         <div class="col-4">
-                            <input type="number" class="form-control form-control-sm interest-skill text-center" 
-                                   id="int_${key}" min="0" max="999" value="0" placeholder="趣" 
-                                   data-skill="${key}" title="趣味技能">
+                            <div class="input-group input-group-sm skill-input-group skill-input-group-int" data-skill-kind="趣" title="趣味">
+                                <input type="number" class="form-control form-control-sm interest-skill text-center"
+                                       id="int_${key}" min="0" max="999" value="0"
+                                       data-skill="${key}" aria-label="${skillName} 趣味" title="趣味技能">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -522,8 +592,8 @@ function updateGlobalDiceFormula() {
 
     function createAddCustomSkillButton(category) {
         return `
-            <div class="col-12 text-center mt-3 custom-skill-button" data-custom-skill-category="${category}">
-                <button type="button" class="btn btn-outline-primary" data-custom-skill-category="${category}">
+            <div class="col-12 text-center mt-2 custom-skill-button" data-custom-skill-category="${category}">
+                <button type="button" class="btn btn-outline-primary btn-sm" data-custom-skill-category="${category}">
                     <i class="fas fa-plus"></i> カスタム技能を追加
                 </button>
             </div>
@@ -690,9 +760,10 @@ function updateGlobalDiceFormula() {
         // Append matching cards
         skillCards.forEach(({ key, category: cardCategory, card }) => {
             const isRecommended = recommendedSkillKeys.has(key);
+            const categorySet = SKILL_CATEGORY_KEYS[targetCategory];
             const shouldShow = targetCategory === 'all'
                 || (targetCategory === 'recommended' && isRecommended)
-                || (targetCategory === cardCategory);
+                || (categorySet ? categorySet.has(key) : targetCategory === cardCategory);
 
             if (shouldShow) {
                 dest.appendChild(card);
@@ -712,6 +783,8 @@ function updateGlobalDiceFormula() {
                 </div>
             `;
         }
+
+        initTooltips();
     }
 
     function appendCustomSkillButton(container, category) {
@@ -1442,6 +1515,7 @@ function updateGlobalDiceFormula() {
 
     // 全能力値ダイス（ボタン）
     document.getElementById('rollAllAbilities')?.addEventListener('click', rollAllAbilities);
+    document.getElementById('statusRollAllAbilities')?.addEventListener('click', rollAllAbilities);
     
     // 全能力値ダイス設定の変更時にフォーミュラを更新
     document.getElementById('globalDiceCount')?.addEventListener('input', updateGlobalDiceFormula);
@@ -1454,30 +1528,28 @@ function updateGlobalDiceFormula() {
         updateSkillTotals();
     });
     
-    // フッターのダイスボタンも連動
-    document.getElementById('footerRollDice')?.addEventListener('click', function() {
-        document.getElementById('rollAllAbilities')?.click();
-    });
-    
     // 能力値変更時に派生ステータスを更新
     document.querySelectorAll('.ability-score').forEach(input => {
         input.addEventListener('input', calculateDerivedStats);
     });
 
-    // リセットボタン
-    document.getElementById('resetSkillPoints')?.addEventListener('click', function() {
+    const resetSkillAllocations = () => {
         skillCards.forEach(({ card }) => {
             card.querySelectorAll('.occupation-skill, .interest-skill').forEach(input => {
                 input.value = 0;
             });
         });
         updateSkillTotals();
-    });
+    };
 
-    document.getElementById('calculateSkills')?.addEventListener('click', function() {
-        calculateSkillPoints();
-        updateSkillTotals();
-    });
+    // リセットボタン（誤操作防止の確認つき）
+    const confirmAndResetSkills = () => {
+        const ok = window.confirm('技能ポイントの割り振り（職業/趣味）をリセットします。よろしいですか？');
+        if (!ok) return;
+        resetSkillAllocations();
+    };
+    document.getElementById('resetSkillPoints')?.addEventListener('click', confirmAndResetSkills);
+    document.getElementById('footerResetSkills')?.addEventListener('click', confirmAndResetSkills);
 
     // 職業テンプレートデータ
     
@@ -2289,10 +2361,12 @@ function initOccupationTemplates() {
     if (footerCreateVersionBtn) footerCreateVersionBtn.addEventListener('click', handleCreateVersion);
 
     if (isEditMode) {
-        loadCharacterForEdit(editCharacterId).catch(error => {
-            console.error('Failed to load character for edit:', error);
-            alert(error?.error || 'Failed to load character data.');
-        });
+        loadCharacterForEdit(editCharacterId)
+            .then(() => autosizeTextareas())
+            .catch(error => {
+                console.error('Failed to load character for edit:', error);
+                alert(error?.error || 'Failed to load character data.');
+            });
     } else {
         // 初期計算（常にロールして値を埋める）
         setTimeout(() => {

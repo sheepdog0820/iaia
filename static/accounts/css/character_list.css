@@ -1,0 +1,65 @@
+/* キャラクターシート一覧: 余白を減らして密度を上げる */
+
+body.character-list-page .app-main {
+    max-width: 100%;
+    padding: 16px;
+}
+
+body.character-list-page .container.character-list {
+    max-width: 100%;
+}
+
+.character-list .page-header {
+    margin-bottom: 0.75rem;
+}
+
+.character-list .filters-row {
+    margin-bottom: 0.5rem;
+}
+
+.character-list .character-card .card-body {
+    padding: 0.75rem;
+}
+
+.character-list .character-card .card-footer {
+    padding: 0.5rem 0.75rem;
+}
+
+.character-list .character-card-img {
+    height: 160px;
+    object-fit: contain;
+    background-color: #f8f9fa;
+    padding: 6px;
+}
+
+.character-list .character-card .card-title {
+    font-size: 1rem;
+}
+
+.character-list .character-meta {
+    margin-bottom: 0.5rem !important;
+}
+
+.character-list .character-stats {
+    margin-bottom: 0.5rem !important;
+}
+
+.character-list .character-date {
+    margin-bottom: 0 !important;
+}
+
+.character-list .character-card-actions .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+.character-list .character-card-actions .dropdown-toggle::after {
+    margin-left: 0.35rem;
+}
+
+@media (max-width: 576px) {
+    body.character-list-page .app-main {
+        padding: 12px;
+    }
+}
+

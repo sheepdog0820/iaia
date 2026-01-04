@@ -3,7 +3,9 @@ Param(
     [string]$HostAddress = "0.0.0.0",
     [switch]$NoReload = $true,
     [int]$WaitSeconds = 10,
-    [int]$HealthTimeoutSeconds = 5
+    [int]$HealthTimeoutSeconds = 5,
+    [string]$EnvFile = ".env.development",
+    [bool]$ForceUtf8 = $true
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,6 +16,12 @@ Set-Location $repoRoot
 $pidFile = Join-Path $repoRoot ".server.pid"
 $stdoutLog = Join-Path $repoRoot "server.log"
 $stderrLog = Join-Path $repoRoot "server_err.log"
+
+function Resolve-EnvFilePath([string]$path) {
+    if (-not $path) { return $null }
+    if ([System.IO.Path]::IsPathRooted($path)) { return $path }
+    return (Join-Path $repoRoot $path)
+}
 
 function Get-ListeningPid([int]$p) {
     try {
@@ -28,6 +36,19 @@ function Resolve-PythonPath() {
     $venvPython = Join-Path $repoRoot "venv\\Scripts\\python.exe"
     if (Test-Path $venvPython) { return $venvPython }
     return "python"
+}
+
+$resolvedEnvFile = Resolve-EnvFilePath -path $EnvFile
+if ($EnvFile) {
+    if (-not (Test-Path $resolvedEnvFile)) {
+        Write-Host "Env file not found: $resolvedEnvFile"
+        exit 1
+    }
+    $env:ENV_FILE = $EnvFile
+}
+
+if ($ForceUtf8 -and -not $env:PYTHONUTF8) {
+    $env:PYTHONUTF8 = "1"
 }
 
 $existingListenPid = Get-ListeningPid -p $Port

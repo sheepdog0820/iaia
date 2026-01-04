@@ -806,7 +806,19 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                     raise
                 time.sleep(0.05 * (attempt + 1))
 
-    
+    def _save_skill_with_retry(self, skill, *, skip_point_validation):
+        """SQLiteのロックに備えて技能の保存をリトライする。"""
+        max_attempts = 5
+        for attempt in range(max_attempts):
+            try:
+                skill.save(skip_point_validation=skip_point_validation)
+                return
+            except OperationalError:
+                if attempt == max_attempts - 1:
+                    raise
+                time.sleep(0.05 * (attempt + 1))
+
+     
     @action(detail=True, methods=['post'])
     def allocate_skill_points(self, request, pk=None):
         """技能ポイント割り振りAPI"""
@@ -884,8 +896,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         # ポイント更新
         skill.occupation_points = occupation_points
         skill.interest_points = interest_points
-        skill.save(skip_point_validation=not enforce_limits)
-        
+        self._save_skill_with_retry(skill, skip_point_validation=not enforce_limits)
+         
         # 更新された技能データを返す
         serializer = CharacterSkillSerializer(skill)
         return Response(serializer.data)
@@ -966,12 +978,12 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
 
             if base_value_present:
                 skill.base_value = base_value
-
+            
             skill.occupation_points = occupation_points
             skill.interest_points = interest_points
             skill.other_points = other_points
             try:
-                skill.save(skip_point_validation=skip_point_validation)
+                self._save_skill_with_retry(skill, skip_point_validation=skip_point_validation)
             except ValidationError as exc:
                 errors.append(str(exc))
                 break

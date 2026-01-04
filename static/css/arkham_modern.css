@@ -49,6 +49,18 @@
     --gradient-info: linear-gradient(135deg, var(--accent-info) 0%, #0891b2 100%);
     --gradient-warning: linear-gradient(135deg, var(--accent-warning) 0%, #d97706 100%);
     --gradient-danger: linear-gradient(135deg, var(--accent-danger) 0%, #dc2626 100%);
+
+    --base-font-size: 13.5px;
+    --base-line-height: 1.5;
+    --nav-offset: 64px;
+    --content-max-width: 1600px;
+    --content-padding-x: 24px;
+    --content-padding-y: 20px;
+    --card-padding: 1.25rem;
+    --card-header-padding: 0.85rem 1.25rem;
+    --control-font-size: 0.95rem;
+    --control-padding-y: 0.5rem;
+    --control-padding-x: 0.85rem;
 }
 
 /* ダークモード対応 */
@@ -74,10 +86,32 @@ body {
     background: var(--primary-bg);
     color: var(--text-primary);
     font-family: 'Inter', sans-serif;
-    line-height: 1.6;
-    font-size: 14px;
+    line-height: var(--base-line-height);
+    font-size: var(--base-font-size);
     transition: all 0.3s ease;
-    padding-top: 70px; /* Fixed navbarのための余白 */
+    padding-top: var(--nav-offset); /* Fixed navbarのための余白 */
+}
+
+.app-main {
+    width: 100%;
+    max-width: var(--content-max-width);
+    margin: 0 auto;
+    padding: var(--content-padding-y) var(--content-padding-x);
+}
+
+.app-main > .container,
+.app-main > .container-fluid {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.container,
+.container-sm,
+.container-md,
+.container-lg,
+.container-xl,
+.container-xxl {
+    max-width: var(--content-max-width);
 }
 
 /* 美しいタイトルフォント */
@@ -88,7 +122,7 @@ body {
 }
 
 .brand-font.display-3 {
-    font-size: 3rem;
+    font-size: 2.2rem;
     font-weight: 700;
     background: var(--gradient-primary);
     -webkit-background-clip: text;
@@ -117,19 +151,19 @@ body {
     border-bottom: none;
     font-weight: 600;
     color: white !important;
-    padding: 1rem 1.5rem;
-    font-size: 1rem;
+    padding: var(--card-header-padding);
+    font-size: 0.95rem;
 }
 
 .card-body {
-    padding: 1.5rem;
+    padding: var(--card-padding);
     color: var(--text-secondary);
 }
 
 .card-footer {
     background: var(--sidebar-bg) !important;
     border-top: 1px solid var(--border-color);
-    padding: 1rem 1.5rem;
+    padding: 0.85rem 1.25rem;
 }
 
 /* ナビゲーションバー - 美しく洗練された外観 */
@@ -137,11 +171,11 @@ body {
     background: var(--secondary-bg) !important;
     border-bottom: 1px solid var(--border-color);
     box-shadow: var(--shadow-sm);
-    padding: 1rem 0;
+    padding: 0.75rem 0;
 }
 
 .navbar-brand {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     font-weight: 700;
     color: var(--text-primary) !important;
     font-family: 'Poppins', sans-serif;
@@ -153,9 +187,10 @@ body {
     font-weight: 500;
     transition: all 0.3s ease;
     position: relative;
-    padding: 0.5rem 1rem;
+    padding: 0.4rem 0.85rem;
     border-radius: 8px;
-    margin: 0 0.25rem;
+    margin: 0 0.15rem;
+    font-size: 0.95rem;
 }
 
 .navbar-nav .nav-link:hover {
@@ -173,10 +208,10 @@ body {
 .btn {
     border-radius: 8px;
     font-weight: 500;
-    padding: 0.625rem 1.25rem;
+    padding: 0.55rem 1rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border: none;
-    font-size: 0.875rem;
+    font-size: 0.95rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -303,7 +338,7 @@ body {
 
 .hero-section .lead {
     color: var(--text-secondary);
-    font-size: 1.25rem;
+    font-size: 1.05rem;
     margin-bottom: 2rem;
 }
 
@@ -422,7 +457,9 @@ body {
     color: var(--text-primary);
     border-radius: 8px;
     transition: all 0.3s ease;
-    padding: 0.625rem 1rem;
+    padding: var(--control-padding-y) var(--control-padding-x);
+    font-size: var(--control-font-size);
+    line-height: 1.4;
 }
 
 .form-control:focus,
@@ -450,6 +487,7 @@ body {
     --bs-table-color: var(--text-primary);
     border-radius: 8px;
     overflow: hidden;
+    font-size: 0.95rem;
 }
 
 .table thead th {
@@ -688,30 +726,67 @@ body {
 
 /* レスポンシブデザイン */
 @media (max-width: 768px) {
+    :root {
+        --base-font-size: 13px;
+        --nav-offset: 56px;
+        --content-max-width: 100%;
+        --content-padding-x: 12px;
+        --content-padding-y: 12px;
+        --card-padding: 1rem;
+        --card-header-padding: 0.75rem 1rem;
+        --control-padding-x: 0.75rem;
+    }
+
     .hero-section {
         padding: 2rem 0;
     }
     
     .hero-section h1 {
-        font-size: 2.5rem;
+        font-size: 2.25rem;
     }
     
     .feature-card {
-        padding: 1.5rem;
+        padding: 1.25rem;
         margin-bottom: 1rem;
     }
     
     .card-body {
-        padding: 1rem;
+        padding: var(--card-padding);
     }
     
     .btn {
-        padding: 0.75rem 1rem;
-        font-size: 0.875rem;
+        padding: 0.65rem 0.9rem;
+        font-size: 0.95rem;
+    }
+
+    .navbar {
+        padding: 0.5rem 0;
+    }
+
+    .navbar-brand {
+        font-size: 1.15rem;
     }
     
     .navbar-nav {
-        margin-top: 1rem;
+        margin-top: 0.75rem;
+    }
+
+    .navbar-nav .nav-link {
+        margin: 0;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .navbar-collapse {
+        background: var(--secondary-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 0.75rem;
+        box-shadow: var(--shadow-md);
+    }
+
+    .card:hover {
+        transform: none;
+        box-shadow: var(--shadow-sm);
     }
     
     .modal-body,
@@ -722,12 +797,16 @@ body {
 }
 
 @media (max-width: 576px) {
+    .brand-font.display-3 {
+        font-size: 1.8rem;
+    }
+
     .hero-section h1 {
         font-size: 2rem;
     }
     
     .navbar-brand {
-        font-size: 1.25rem;
+        font-size: 1.05rem;
     }
     
     .calendar-day {
@@ -862,7 +941,20 @@ a:focus,
     word-break: break-word;
 }
 
+.app-main h1 {
+    font-size: 1.75rem;
+}
+
+.home-page .welcome-section .lead,
+.home-page .hero-section .lead {
+    font-size: 0.95rem;
+}
+
 @media (max-width: 768px) {
+    .brand-font.display-3 {
+        font-size: 2rem;
+    }
+
     .home-page .welcome-section {
         margin-bottom: 2rem;
     }

@@ -32,10 +32,9 @@ class CharacterSheetAccessMixin:
         
         # 他人のキャラクターの場合
         if self.action in ['retrieve', 'list']:
-            # デバッグ用: 一時的に全て許可
-            # 本来は: if hasattr(obj, 'is_public') and obj.is_public:
-            return obj
-            # raise PermissionDenied("このキャラクターシートは非公開です。")
+            if hasattr(obj, 'is_public') and obj.is_public:
+                return obj
+            raise PermissionDenied("このキャラクターシートは非公開です。")
         else:
             # 更新・削除系アクション（PUT, PATCH, DELETE）は所有者のみ
             raise PermissionDenied("このキャラクターシートを編集する権限がありません。")

@@ -591,17 +591,16 @@ class CharacterAPIPermissionTestCase(TestCase):
         response = self.api_client.get(
             f'/api/accounts/character-sheets/{self.private_character.id}/'
         )
-        # 404 (Not Found) または 403 (Forbidden) を期待
-        # ViewSetのget_querysetで除外されるため404になる可能性もある
-        self.assertIn(response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+        # ViewSetのget_querysetで除外されるため404を期待
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         print("OK 他ユーザーの非公開キャラクター: アクセス拒否")
         
         # 公開キャラクターへの参照は可能
         response = self.api_client.get(
             f'/api/accounts/character-sheets/{self.public_character.id}/'
         )
-        self.assertIn(response.status_code, [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN])
-        print("OK 他ユーザーの公開キャラクター: 参照不可")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        print("OK 他ユーザーの公開キャラクター: 参照可能")
         
         # 公開キャラクターの編集は拒否
         response = self.api_client.patch(
@@ -609,14 +608,14 @@ class CharacterAPIPermissionTestCase(TestCase):
             {'name': '編集しようとする名前'},
             format='json'
         )
-        self.assertIn(response.status_code, [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN])
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         print("OK 他ユーザーの公開キャラクター編集: アクセス拒否")
         
         # 削除も拒否
         response = self.api_client.delete(
             f'/api/accounts/character-sheets/{self.public_character.id}/'
         )
-        self.assertIn(response.status_code, [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN])
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         print("OK 他ユーザーのキャラクター削除: 拒否")
 
 

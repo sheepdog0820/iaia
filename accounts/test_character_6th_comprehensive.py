@@ -731,9 +731,8 @@ class Character6thAPITestCase(APITestCase):
             response = self.client.get(f'/api/accounts/character-sheets/{private_char.id}/')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-        with self.assertLogs('django.request', level='WARNING'):
-            response = self.client.get(f'/api/accounts/character-sheets/{public_char.id}/')
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        response = self.client.get(f'/api/accounts/character-sheets/{public_char.id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_skill_points_allocation_api(self):
         """Test skill point allocation endpoints"""

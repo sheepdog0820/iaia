@@ -424,19 +424,29 @@ class Character6thJavaScriptTest(StaticLiveServerTestCase):
             )
         except TimeoutException:
             raise unittest.SkipTest("Login failed or dashboard not reachable")
+
+    def open_character_create_6th(self):
+        self.selenium.get(f'{self.live_server_url}/accounts/character/create/6th/')
+        WebDriverWait(self.selenium, 10).until(
+            lambda d: 'character-create-page' in (d.find_element(By.TAG_NAME, 'body').get_attribute('class') or '')
+        )
+
+    def activate_tab(self, tab_id, pane_id):
+        tab = WebDriverWait(self.selenium, 10).until(
+            EC.element_to_be_clickable((By.ID, tab_id))
+        )
+        self.selenium.execute_script("arguments[0].click();", tab)
+        WebDriverWait(self.selenium, 10).until(
+            lambda d: 'active' in (d.find_element(By.ID, pane_id).get_attribute('class') or '')
+        )
         
     def test_ability_calculations(self):
         """Test automatic calculation of derived stats"""
         self.login()
         
         # Navigate to character creation
-        self.selenium.get(f'{self.live_server_url}/accounts/character/create/6th/')
-        WebDriverWait(self.selenium, 10).until(
-            EC.element_to_be_clickable((By.ID, 'abilities-tab'))
-        ).click()
-        WebDriverWait(self.selenium, 10).until(
-            lambda d: 'show' in d.find_element(By.ID, 'abilities').get_attribute('class')
-        )
+        self.open_character_create_6th()
+        self.activate_tab('abilities-tab', 'abilities')
         
         # Enter ability values
         abilities = {
@@ -495,10 +505,8 @@ class Character6thJavaScriptTest(StaticLiveServerTestCase):
         """Test occupation points calculation based on occupation type"""
         self.login()
         
-        self.selenium.get(f'{self.live_server_url}/accounts/character/create/6th/')
-        WebDriverWait(self.selenium, 10).until(
-            EC.element_to_be_clickable((By.ID, 'abilities-tab'))
-        ).click()
+        self.open_character_create_6th()
+        self.activate_tab('abilities-tab', 'abilities')
         WebDriverWait(self.selenium, 10).until(
             EC.presence_of_element_located((By.ID, 'edu'))
         )
@@ -523,7 +531,7 @@ class Character6thJavaScriptTest(StaticLiveServerTestCase):
         self.selenium.execute_script(
             "arguments[0].scrollIntoView({block: 'center'});", skills_tab
         )
-        skills_tab.click()
+        self.activate_tab('skills-tab', 'skills')
         WebDriverWait(self.selenium, 10).until(
             EC.presence_of_element_located((By.ID, 'occupationMethod'))
         )
@@ -547,14 +555,14 @@ class Character6thJavaScriptTest(StaticLiveServerTestCase):
         self.login()
         
         # Navigate to character creation and open skills tab
-        self.selenium.get(f'{self.live_server_url}/accounts/character/create/6th/')
+        self.open_character_create_6th()
         skill_tab = WebDriverWait(self.selenium, 10).until(
             EC.element_to_be_clickable((By.ID, 'skills-tab'))
         )
         self.selenium.execute_script(
             "arguments[0].scrollIntoView({block: 'center'});", skill_tab
         )
-        skill_tab.click()
+        self.activate_tab('skills-tab', 'skills')
         
         WebDriverWait(self.selenium, 10).until(
             EC.visibility_of_element_located((By.ID, 'skillsContainer'))
@@ -565,10 +573,8 @@ class Character6thJavaScriptTest(StaticLiveServerTestCase):
         """Test dice rolling interface"""
         self.login()
         
-        self.selenium.get(f'{self.live_server_url}/accounts/character/create/6th/')
-        WebDriverWait(self.selenium, 10).until(
-            EC.element_to_be_clickable((By.ID, 'abilities-tab'))
-        ).click()
+        self.open_character_create_6th()
+        self.activate_tab('abilities-tab', 'abilities')
         roll_all_btn = WebDriverWait(self.selenium, 10).until(
             EC.element_to_be_clickable((By.ID, 'rollAllAbilities'))
         )
@@ -590,7 +596,7 @@ class Character6thJavaScriptTest(StaticLiveServerTestCase):
         
         # Test mobile size
         self.selenium.set_window_size(375, 667)  # iPhone size
-        self.selenium.get(f'{self.live_server_url}/accounts/character/create/6th/')
+        self.open_character_create_6th()
         
         # Check navbar toggler exists
         mobile_menu = WebDriverWait(self.selenium, 10).until(

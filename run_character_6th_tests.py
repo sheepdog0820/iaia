@@ -59,15 +59,15 @@ def run_tests():
             failures = test_runner.run_tests([module])
             
             if failures == 0:
-                print(f"✅ {description}: ALL TESTS PASSED")
+                print(f"[PASS] {description}: ALL TESTS PASSED")
                 results[module] = 'PASSED'
             else:
-                print(f"❌ {description}: {failures} TESTS FAILED")
+                print(f"[FAIL] {description}: {failures} TESTS FAILED")
                 results[module] = f'FAILED ({failures})'
                 failed_tests += failures
                 
         except Exception as e:
-            print(f"❌ Error running {module}: {str(e)}")
+            print(f"[ERROR] Error running {module}: {str(e)}")
             results[module] = f'ERROR: {str(e)}'
             failed_tests += 1
     
@@ -77,15 +77,15 @@ def run_tests():
     print("=" * 80)
     
     for module, result in results.items():
-        status_icon = "✅" if result == 'PASSED' else "❌"
+        status_icon = "[PASS]" if result == 'PASSED' else "[FAIL]"
         print(f"{status_icon} {module}: {result}")
     
     print("\n" + "=" * 80)
     if failed_tests == 0:
-        print("🎉 ALL TESTS PASSED! 🎉")
+        print("ALL TESTS PASSED!")
         print("Character Sheet 6th Edition is fully tested and working correctly.")
     else:
-        print(f"❌ {failed_tests} TESTS FAILED")
+        print(f"{failed_tests} TESTS FAILED")
         print("Please fix the failing tests before proceeding.")
     print("=" * 80)
     

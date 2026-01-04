@@ -25,7 +25,7 @@ def _load_env_file():
         env_path = BASE_DIR / env_path
     if not env_path.exists():
         raise RuntimeError(f'ENV_FILE not found: {env_path}')
-    with env_path.open() as handle:
+    with env_path.open(encoding='utf-8') as handle:
         for raw_line in handle:
             line = raw_line.strip()
             if not line or line.startswith('#') or '=' not in line:
