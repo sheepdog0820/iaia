@@ -4,50 +4,64 @@
 {% block title %}認証エラー - タブレノ{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-5">
-            <div class="card shadow-lg">
-                <div class="card-header bg-danger text-white text-center">
-                    <h4 class="card-title mb-0 eldritch-font">
-                        <i class="fas fa-exclamation-circle"></i> 認証エラー
-                    </h4>
-                    <p class="mb-0">深淵からの拒絶</p>
-                </div>
-                <div class="card-body p-4 text-center">
-                    <i class="fas fa-ban text-danger fa-4x mb-3"></i>
-                    <h5 class="text-danger mb-3">認証に失敗しました</h5>
-                    <p class="text-muted mb-4">
-                        ソーシャルアカウントでの認証中にエラーが発生しました。<br>
-                        以下の原因が考えられます：
-                    </p>
-                    
-                    <div class="alert alert-info text-start">
-                        <ul class="mb-0">
-                            <li>ネットワーク接続の問題</li>
-                            <li>ソーシャルアカウントの設定問題</li>
-                            <li>一時的なサービス障害</li>
-                            <li>アプリケーションの設定問題</li>
-                        </ul>
+<div class="auth-page">
+    <div class="auth-card card auth-error-card">
+        <div class="card-body">
+            <div class="auth-brand mb-3">
+                <div class="auth-brand-row">
+                    <div class="auth-brand-icon auth-brand-icon-danger" aria-hidden="true">
+                        <i class="fas fa-exclamation-circle"></i>
                     </div>
-                    
-                    <div class="d-grid gap-2">
-                        <a href="{% url 'account_login' %}" class="btn btn-primary btn-lg">
-                            <i class="fas fa-redo"></i> 再度ログインを試す
-                        </a>
-                        <a href="{% url 'home' %}" class="btn btn-outline-secondary">
-                            <i class="fas fa-home"></i> ホームに戻る
-                        </a>
+                    <div class="auth-brand-text">
+                        <div class="auth-brand-title">認証に失敗しました</div>
+                        <div class="auth-brand-subtitle text-muted d-none d-md-block">もう一度お試しください</div>
                     </div>
                 </div>
             </div>
 
-            <div class="text-center mt-4">
-                <small class="text-muted eldritch-font">
-                    "The ancient ones do not always answer our calls..."
-                    <br>古き者たちは常に我々の呼びかけに応えるとは限らない
-                </small>
+            <p class="text-muted small mb-3">
+                ソーシャルログインの処理中にエラーが発生しました。
+            </p>
+
+            <div class="alert alert-info small mb-3">
+                <div class="fw-semibold mb-1">よくある原因</div>
+                <ul class="mb-0 ps-3">
+                    <li>OAuth設定（Client ID / Secret / Redirect URI）の不一致</li>
+                    <li>ネットワーク接続の問題</li>
+                    <li>ブラウザのCookie設定によりセッションが保持されない</li>
+                </ul>
             </div>
+
+            <div class="d-grid gap-2">
+                <a href="{% url 'account_login' %}" class="btn btn-primary auth-provider-btn">
+                    <i class="fas fa-redo"></i> ログイン画面へ
+                </a>
+                <a href="{% url 'home' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-home"></i> ホームへ
+                </a>
+            </div>
+
+            {% if debug %}
+            <details class="alert alert-secondary text-start small mt-3 mb-0">
+                <summary class="fw-semibold">DEBUG情報</summary>
+                <div class="mt-2">
+                    <div><span class="fw-semibold">provider:</span> {{ auth_error.provider.id }} {{ auth_error.provider.name }} {{ auth_error.provider }}</div>
+                    <div><span class="fw-semibold">code:</span> {{ auth_error.code }}</div>
+                    <div><span class="fw-semibold">exception:</span> {{ auth_error.exception|default:"(none)" }}</div>
+                    <hr class="my-2">
+                    <div><span class="fw-semibold">host:</span> {{ request.get_host }}</div>
+                    <div><span class="fw-semibold">path:</span> {{ request.get_full_path }}</div>
+                    <div><span class="fw-semibold">state:</span> {{ request.GET.state }}</div>
+                    <div><span class="fw-semibold">code:</span> {% if request.GET.code %}present{% else %}missing{% endif %}</div>
+                    <div><span class="fw-semibold">error:</span> {{ request.GET.error|default:"(none)" }}</div>
+                    <div><span class="fw-semibold">session cookie:</span> {% if request.COOKIES.sessionid %}present{% else %}missing{% endif %}</div>
+                    <div><span class="fw-semibold">session key:</span> {% if request.session.session_key %}present{% else %}missing{% endif %}</div>
+                </div>
+                <div class="mt-2 text-muted">
+                    セッションが missing の場合は、アクセスURLの表記ゆれ（`127.0.0.1` / `localhost`）やCookieブロックで state を復元できていない可能性が高いです。
+                </div>
+            </details>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -55,9 +69,91 @@
 
 {% block extra_css %}
 <style>
-.card {
+.auth-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - var(--nav-offset, 0px));
+    padding: 1rem;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 420px;
+}
+
+.auth-card .card-body {
+    padding: 1rem;
+}
+
+.auth-error-card {
     border: 2px solid #dc3545;
     background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+}
+
+.auth-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.auth-brand-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+.auth-brand-icon-danger {
+    background: rgba(220, 53, 69, 0.16);
+    color: #dc3545;
+    border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+.auth-brand-title {
+    font-size: 1.05rem;
+    line-height: 1.2;
+    margin: 0;
+    color: var(--text-primary, #f8fafc);
+}
+
+.auth-provider-btn {
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-weight: 600;
+}
+
+@media (max-width: 767.98px) {
+    body {
+        padding-top: 0 !important;
+    }
+
+    .navbar,
+    footer {
+        display: none !important;
+    }
+
+    .app-main {
+        padding: 0.75rem !important;
+    }
+
+    .auth-page {
+        min-height: 100vh;
+        justify-content: flex-start;
+        padding-top: 1rem;
+        padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+    }
+
+    .auth-card .card-body {
+        padding: 0.9rem;
+    }
 }
 </style>
 {% endblock %}

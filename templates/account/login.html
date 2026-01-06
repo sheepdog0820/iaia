@@ -5,199 +5,261 @@
 {% block title %}ログイン - Gate of Yog-Sothoth{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-5">
-            <div class="card shadow-lg">
-                <div class="card-header bg-primary text-center">
-                    <h4 class="card-title mb-0 eldritch-font">
-                        <i class="fas fa-eye"></i> Gate of Yog-Sothoth
-                    </h4>
-                    <p class="mb-0 text-muted">時空の門を開き、深淵へ</p>
+<div class="auth-page">
+    <div class="auth-card card">
+        <div class="card-body">
+            <div class="auth-brand">
+                <div class="auth-brand-row">
+                    <div class="auth-brand-icon" aria-hidden="true">
+                        <i class="fas fa-eye"></i>
+                    </div>
+                    <div class="auth-brand-text">
+                        <div class="auth-brand-title eldritch-font">Gate of Yog-Sothoth</div>
+                        <div class="auth-brand-subtitle text-muted d-none d-md-block">時空の門を開き、深淵へ</div>
+                    </div>
                 </div>
-                <div class="card-body p-4">
-                    {% if messages %}
-                        {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                        {% endfor %}
+            </div>
+
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-2">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="auth-section">
+                <div class="d-flex align-items-end justify-content-between mb-2">
+                    <h6 class="mb-0">ソーシャルでログイン</h6>
+                    <small class="text-muted d-none d-md-inline">初回は自動でアカウント作成</small>
+                </div>
+
+                <div class="d-grid gap-2">
+                    {% if google_configured %}
+                        <a href="{% provider_login_url 'google' %}" class="btn auth-provider-btn btn-google social-btn">
+                            <i class="fab fa-google"></i>
+                            <span>Google</span>
+                        </a>
                     {% endif %}
 
-                    <div class="text-center mb-4">
-                        <i class="fas fa-lock text-primary fa-3x mb-3"></i>
-                        <h5 class="text-primary mb-3">ソーシャルアカウントでログイン</h5>
-                        <p class="text-muted">
-                            Google または X（Twitter）アカウントでログインできます。<br>
-                            初回ログイン時に自動でアカウントが作成されます。
-                        </p>
-                    </div>
+                    {% if twitter_configured %}
+                        <a href="{% provider_login_url 'twitter_oauth2' %}" class="btn auth-provider-btn btn-x social-btn">
+                            <i class="fab fa-twitter"></i>
+                            <span>X (Twitter)</span>
+                        </a>
+                    {% endif %}
 
-                    <!-- ソーシャルログイン（django-allauth統一版） -->
-                    <div class="d-grid gap-3">
-                        {% if google_configured %}
-                            <a href="{% provider_login_url 'google' %}" class="btn btn-danger btn-lg social-btn">
-                                <i class="fab fa-google fa-lg me-2"></i>
-                                <span>Googleでログイン</span>
-                            </a>
-                        {% endif %}
-
-                        {% if twitter_configured %}
-                            <a href="{% provider_login_url 'twitter_oauth2' %}" class="btn btn-info btn-lg social-btn">
-                                <i class="fab fa-twitter fa-lg me-2"></i>
-                                <span>X (Twitter)でログイン</span>
-                            </a>
-                        {% endif %}
-
-                        {% if not social_login_available %}
-                            <div class="alert alert-warning">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                <strong>ソーシャルログインは未設定です</strong><br>
-                                <small>
-                                    管理者: Google は <code>python setup_google_oauth.py</code>、<br>
-                                    X は <code>python setup_twitter_oauth.py</code> で設定できます。
-                                </small>
+                    {% if not social_login_available %}
+                        <div class="alert alert-warning py-2 mb-0 small">
+                            <div class="fw-semibold mb-1">
+                                <i class="fas fa-triangle-exclamation me-1"></i>
+                                ソーシャルログインは未設定です
                             </div>
-                        {% endif %}
-                    </div>
+                            <div class="text-muted">
+                                Google: <code>python setup_google_oauth.py</code><br>
+                                X: <code>python setup_twitter_oauth.py</code>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
 
-                    <hr class="my-4">
+            <div class="auth-divider" role="separator" aria-label="または">
+                <span>または</span>
+            </div>
 
-                    <!-- メールログイン -->
-                    <div class="mb-4">
-                        <div class="text-center mb-3">
-                            <i class="fas fa-envelope text-info fa-2x mb-2"></i>
-                            <h6 class="text-info mb-1">メールアドレスでログイン</h6>
-                            <p class="text-muted small mb-0">
-                                メールアドレス＋パスワードでログインできます（パスワード未設定の場合はリセットで設定してください）
-                            </p>
+            <div class="auth-section">
+                <button class="btn btn-outline-secondary btn-sm w-100 d-md-none mb-2"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#emailLoginCollapse"
+                        aria-expanded="false"
+                        aria-controls="emailLoginCollapse">
+                    <i class="fas fa-envelope"></i>
+                    メールでログイン
+                </button>
+
+                <div class="collapse show" id="emailLoginCollapse" data-has-errors="{% if form.errors %}1{% else %}0{% endif %}">
+                    <form method="post" id="email-login-form" class="auth-form">
+                        {% csrf_token %}
+
+                        <div class="mb-2">
+                            <label for="{{ form.username.id_for_label }}" class="form-label small mb-1">
+                                <i class="fas fa-at"></i> {{ form.username.label }}
+                            </label>
+                            {{ form.username }}
                         </div>
 
-                        <form method="post" action="{% url 'login' %}" id="email-login-form">
-                            {% csrf_token %}
+                        <div class="mb-2">
+                            <label for="{{ form.password.id_for_label }}" class="form-label small mb-1">
+                                <i class="fas fa-key"></i> {{ form.password.label }}
+                            </label>
+                            {{ form.password }}
+                        </div>
 
-                            <div class="mb-3">
-                                <label for="{{ form.username.id_for_label }}" class="form-label">
-                                    <i class="fas fa-at"></i> {{ form.username.label }}
-                                </label>
-                                {{ form.username }}
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="{{ form.password.id_for_label }}" class="form-label">
-                                    <i class="fas fa-key"></i> {{ form.password.label }}
-                                </label>
-                                {{ form.password }}
-                            </div>
-
-                            <div class="form-check mb-3">
+                        <div class="d-flex align-items-center justify-content-between gap-3 mb-2">
+                            <div class="form-check m-0">
                                 {{ form.remember_me }}
-                                <label class="form-check-label" for="{{ form.remember_me.id_for_label }}">
+                                <label class="form-check-label small" for="{{ form.remember_me.id_for_label }}">
                                     {{ form.remember_me.label }}
                                 </label>
                             </div>
-
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-outline-info">
-                                    <i class="fas fa-sign-in-alt"></i> メールでログイン
-                                </button>
-                            </div>
-
-                            {% if form.errors %}
-                            <div class="alert alert-danger mt-3 mb-0">
-                                {% for field, errors in form.errors.items %}
-                                    {% for error in errors %}
-                                        <div>{{ error }}</div>
-                                    {% endfor %}
-                                {% endfor %}
-                            </div>
-                            {% endif %}
-                        </form>
-
-                        <div class="text-center mt-3">
-                            <a href="{% url 'account_reset_password' %}" class="text-decoration-none small">
-                                <i class="fas fa-unlock-alt"></i> パスワードを忘れた場合（リセット）
+                            <a href="{% url 'account_reset_password' %}" class="small text-decoration-none">
+                                パスワードを忘れた
                             </a>
                         </div>
-                    </div>
 
-                    <hr class="my-4">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-sign-in-alt"></i>
+                            ログイン
+                        </button>
 
-                    <div class="text-center">
-                        <small class="text-muted">
-                            <i class="fas fa-info-circle me-1"></i>
-                            初回ログイン時に自動でアカウントが作成されます。<br>
-                            利用規約とプライバシーポリシーに同意の上、ご利用ください。
-                        </small>
-                        
-                        <hr class="my-3">
-                        
-                        {% if debug %}
-                        <div class="development-only">
-                            <small class="text-warning">
-                                <i class="fas fa-flask me-1"></i>
-                                <strong>開発環境:</strong> 
-                                <a href="{% url 'dev_login' %}" class="text-warning text-decoration-none">
-                                    開発用クイックログイン
-                                </a>
-                            </small>
+                        {% if form.errors %}
+                        <div class="alert alert-danger mt-2 mb-0 small">
+                            {% for field, errors in form.errors.items %}
+                                {% for error in errors %}
+                                    <div>{{ error }}</div>
+                                {% endfor %}
+                            {% endfor %}
                         </div>
                         {% endif %}
-                    </div>
+                    </form>
                 </div>
             </div>
 
-            <div class="text-center mt-4">
-                <small class="text-muted eldritch-font">
-                    "The oldest and strongest emotion of mankind is fear, and the oldest and strongest kind of fear is fear of the unknown."
-                    <br>- H.P. Lovecraft
-                </small>
+            <div class="auth-meta">
+                <div class="text-muted small">
+                    <i class="fas fa-info-circle me-1"></i>
+                    初回ログイン時に自動でアカウントが作成されます
+                </div>
+
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2">
+                    <a href="{% url 'account_signup' %}" class="small text-decoration-none">
+                        <i class="fas fa-user-plus"></i> アカウント作成
+                    </a>
+                    {% if debug %}
+                    <a href="{% url 'dev_login' %}" class="small text-warning text-decoration-none">
+                        <i class="fas fa-flask"></i> 開発用クイックログイン
+                    </a>
+                    {% endif %}
+                </div>
             </div>
         </div>
+    </div>
+
+    <div class="auth-quote d-none d-lg-block text-center mt-3">
+        <small class="text-muted eldritch-font">
+            "The oldest and strongest emotion of mankind is fear, and the oldest and strongest kind of fear is fear of the unknown."
+            <br>- H.P. Lovecraft
+        </small>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.card {
-    border: 2px solid #dc2670;
-    background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+.auth-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - var(--nav-offset, 0px));
+    padding: 1rem;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 420px;
+}
+
+.auth-card .card-body {
+    padding: 1rem;
+}
+
+.auth-brand {
+    margin-bottom: 0.75rem;
+}
+
+.auth-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.auth-brand-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--accent-primary, #3b82f6);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    flex: 0 0 auto;
+}
+
+.auth-brand-title {
+    font-size: 1.1rem;
+    line-height: 1.2;
+    margin: 0;
+    color: var(--text-primary, #f8fafc);
+}
+
+.auth-provider-btn {
+    height: 44px;
+    justify-content: center;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+
+.btn-google {
+    background: linear-gradient(135deg, #ea4335 0%, #d33b2c 100%);
+    color: #fff;
+}
+
+.btn-google:hover {
+    background: linear-gradient(135deg, #d33b2c 0%, #b52d20 100%);
+    color: #fff;
+}
+
+.btn-x {
+    background: linear-gradient(135deg, #1da1f2 0%, #0d8bd9 100%);
+    color: #fff;
+}
+
+.btn-x:hover {
+    background: linear-gradient(135deg, #0d8bd9 0%, #0a73b5 100%);
+    color: #fff;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.85rem 0;
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.85rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: var(--border-color, #475569);
+    opacity: 0.7;
 }
 
 .social-btn {
     position: relative;
     overflow: hidden;
-    transition: all 0.3s ease;
-    border: 2px solid transparent;
+    transition: all 0.25s ease;
 }
 
 .social-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-}
-
-.btn-danger {
-    background: linear-gradient(135deg, #ea4335 0%, #d33b2c 100%);
-    border-color: #ea4335;
-}
-
-.btn-danger:hover {
-    background: linear-gradient(135deg, #d33b2c 0%, #b52d20 100%);
-    border-color: #d33b2c;
-    box-shadow: 0 8px 25px rgba(234, 67, 53, 0.4);
-}
-
-.btn-info {
-    background: linear-gradient(135deg, #1da1f2 0%, #0d8bd9 100%);
-    border-color: #1da1f2;
-}
-
-.btn-info:hover {
-    background: linear-gradient(135deg, #0d8bd9 0%, #0a73b5 100%);
-    border-color: #0d8bd9;
-    box-shadow: 0 8px 25px rgba(29, 161, 242, 0.4);
+    transform: translateY(-1px);
 }
 
 .social-btn::before {
@@ -216,15 +278,36 @@
     left: 100%;
 }
 
-.development-only {
-    padding: 10px;
-    background: rgba(255, 193, 7, 0.1);
-    border: 1px solid #ffc107;
-    border-radius: 5px;
+.auth-meta {
+    margin-top: 0.85rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color, #475569);
 }
 
-.development-only a:hover {
-    text-decoration: underline !important;
+@media (max-width: 767.98px) {
+    body {
+        padding-top: 0 !important;
+    }
+
+    .navbar,
+    footer {
+        display: none !important;
+    }
+
+    .app-main {
+        padding: 0.75rem !important;
+    }
+
+    .auth-page {
+        min-height: 100vh;
+        justify-content: flex-start;
+        padding-top: 1rem;
+        padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+    }
+
+    .auth-card .card-body {
+        padding: 0.9rem;
+    }
 }
 </style>
 {% endblock %}
@@ -233,14 +316,25 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // ソーシャルログインボタンにローディング効果を追加
-    const socialBtns = document.querySelectorAll('.social-btn');
-    
-    socialBtns.forEach(btn => {
+    document.querySelectorAll('.social-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             this.style.pointerEvents = 'none';
-            this.innerHTML = '<i class="fas fa-spinner fa-spin fa-lg me-2"></i>ログイン中...';
+            this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>ログイン中...';
         });
     });
+
+    // モバイルではメールログインを折りたたむ（エラー時は展開）
+    const emailCollapseEl = document.getElementById('emailLoginCollapse');
+    if (emailCollapseEl && window.bootstrap?.Collapse) {
+        const collapse = bootstrap.Collapse.getOrCreateInstance(emailCollapseEl, { toggle: false });
+        const isMobile = window.matchMedia('(max-width: 767.98px)').matches;
+        const hasErrors = emailCollapseEl.dataset.hasErrors === '1';
+        if (isMobile && !hasErrors) {
+            collapse.hide();
+        } else {
+            collapse.show();
+        }
+    }
 });
 </script>
 {% endblock %}

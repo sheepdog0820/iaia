@@ -1,119 +1,109 @@
-{% extends "base.html" %}
-{% load i18n %}
+{% extends 'base.html' %}
+{% load static %}
 
 {% block title %}
-{% if process == "connect" %}
-メール/ソーシャル連携 - タブレノ
+{% if process == 'connect' %}
+アカウント連携 - タブレノ
 {% else %}
-{{ provider.name }}ログイン - タブレノ
+{{ provider.name }}でログイン - タブレノ
 {% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-7 col-lg-6">
-            <div class="card shadow-lg login-card">
-                <div class="card-header text-center header-gradient">
-                    <h4 class="card-title mb-0 eldritch-font">
-                        {% if process == "connect" %}
-                            <i class="fas fa-link"></i> アカウント連携
-                        {% else %}
-                            <i class="fas fa-user-shield"></i> ログイン
-                        {% endif %}
-                    </h4>
-                    <p class="mb-0 text-muted small">
-                        {% if process == "connect" %}
-                            外なる接続をあなたのアカウントに紐づけます
-                        {% else %}
-                            第三者アカウントでサインインします
-                        {% endif %}
-                    </p>
-                </div>
-
-                <div class="card-body p-4">
-                    {% if messages %}
-                        {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                        {% endfor %}
-                    {% endif %}
-
-                    <div class="text-center mb-4">
-                        <div class="provider-badge mx-auto mb-3">
-                            {% if provider.id == 'google' %}
-                                <span class="google-g">G</span>
-                            {% elif provider.id == 'twitter_oauth2' %}
-                                <span class="twitter-x">X</span>
-                            {% else %}
-                                <span class="provider-initial">{{ provider.name|slice:":1" }}</span>
-                            {% endif %}
-                        </div>
-                        <h5 class="mb-2">
-                            {% if process == "connect" %}
-                                {{ provider.name }}を連携します
-                            {% else %}
-                                {{ provider.name }}でログインします
-                            {% endif %}
-                        </h5>
-                        <p class="text-muted mb-0">
-                            {% if process == "connect" %}
-                                続行すると、現在のアカウントに{{ provider.name }}アカウントが紐づきます。
-                            {% else %}
-                                続行すると、{{ provider.name }}アカウントでログインします。
-                            {% endif %}
-                        </p>
+<div class="auth-page">
+    <div class="auth-card card">
+        <div class="card-body">
+            <div class="auth-brand">
+                <div class="auth-brand-row">
+                    <div class="auth-brand-icon" aria-hidden="true">
+                        <i class="fas fa-user-shield"></i>
                     </div>
-
-                    <form method="post" action="{{ request.get_full_path }}" id="provider-login-form">
-                        {% csrf_token %}
-                        {% if process %}
-                            <input type="hidden" name="process" value="{{ process }}">
-                        {% endif %}
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn {% if provider.id == 'google' %}btn-google{% elif provider.id == 'twitter_oauth2' %}btn-twitter{% else %}btn-secondary{% endif %} btn-lg" id="continue-btn">
-                                {% if provider.id == 'google' %}
-                                    <i class="fab fa-google me-2"></i>
-                                {% elif provider.id == 'twitter_oauth2' %}
-                                    <i class="fab fa-twitter me-2"></i>
-                                {% else %}
-                                    <i class="fas fa-user me-2"></i>
-                                {% endif %}
-                                {% if process == "connect" %}
-                                    {{ provider.name }}と連携して続行
-                                {% else %}
-                                    {{ provider.name }}で続行
-                                {% endif %}
-                            </button>
-                            {% if process == "connect" %}
-                                <a class="btn btn-outline-secondary" href="{% url 'socialaccount_connections' %}">
-                                    キャンセル
-                                </a>
+                    <div class="auth-brand-text">
+                        <div class="auth-brand-title">ソーシャルログイン</div>
+                        <div class="auth-brand-subtitle text-muted d-none d-md-block">
+                            {% if process == 'connect' %}
+                                アカウントを連携します
                             {% else %}
-                                <a class="btn btn-outline-secondary" href="{% url 'account_login' %}">
-                                    戻る
-                                </a>
+                                続行すると認証ページへ移動します
                             {% endif %}
                         </div>
-                    </form>
-
-                    <hr class="my-4">
-
-                    <div class="small text-muted">
-                        <ul class="mb-0 ps-3">
-                            <li>ブラウザのポップアップ/リダイレクトがブロックされていないか確認してください。</li>
-                            <li>ログイン後、元の画面に戻るため自動でリダイレクトします。</li>
-                        </ul>
                     </div>
                 </div>
             </div>
 
-            <div class="text-center mt-4">
-                <small class="text-muted eldritch-font">
-                    "The gate does not open without a price."
-                </small>
+            {% if messages %}
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-2">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="auth-section">
+                <div class="provider-panel text-center mb-3">
+                    <div class="provider-mark mx-auto mb-2" aria-hidden="true">
+                        {% if provider.id == 'google' %}
+                            <i class="fab fa-google"></i>
+                        {% elif provider.id == 'twitter_oauth2' %}
+                            <i class="fab fa-twitter"></i>
+                        {% else %}
+                            <i class="fas fa-user"></i>
+                        {% endif %}
+                    </div>
+                    <h6 class="mb-1">
+                        {% if process == 'connect' %}
+                            {{ provider.name }}を連携します
+                        {% else %}
+                            {{ provider.name }}でログインします
+                        {% endif %}
+                    </h6>
+                    <p class="text-muted small mb-0">
+                        {% if process == 'connect' %}
+                            連携すると、次回から {{ provider.name }} を使ってログインできます。
+                        {% else %}
+                            この操作により、{{ provider.name }} の認証画面へ移動します。
+                        {% endif %}
+                    </p>
+                </div>
+
+                <form method="post" action="{{ request.get_full_path }}" id="provider-login-form">
+                    {% csrf_token %}
+                    {% if process %}
+                        <input type="hidden" name="process" value="{{ process }}">
+                    {% endif %}
+
+                    <div class="d-grid gap-2">
+                        <button type="submit"
+                                class="btn auth-provider-btn {% if provider.id == 'google' %}btn-google{% elif provider.id == 'twitter_oauth2' %}btn-x{% else %}btn-primary{% endif %} social-btn"
+                                id="continue-btn">
+                            {% if provider.id == 'google' %}
+                                <i class="fab fa-google"></i>
+                            {% elif provider.id == 'twitter_oauth2' %}
+                                <i class="fab fa-twitter"></i>
+                            {% else %}
+                                <i class="fas fa-user"></i>
+                            {% endif %}
+                            <span>
+                                {% if process == 'connect' %}
+                                    連携して続行
+                                {% else %}
+                                    {{ provider.name }}で続行
+                                {% endif %}
+                            </span>
+                        </button>
+
+                        {% if process == 'connect' %}
+                            <a class="btn btn-outline-secondary" href="{% url 'socialaccount_connections' %}">
+                                戻る
+                            </a>
+                        {% else %}
+                            <a class="btn btn-outline-secondary" href="{% url 'account_login' %}">
+                                ログイン画面に戻る
+                            </a>
+                        {% endif %}
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -122,68 +112,147 @@
 
 {% block extra_css %}
 <style>
-.login-card {
-    border: 2px solid #dc2670;
-    background: linear-gradient(135deg, #161b22 0%, #21262d 100%);
+.auth-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - var(--nav-offset, 0px));
+    padding: 1rem;
 }
 
-.header-gradient {
-    background: linear-gradient(135deg, rgba(220, 38, 112, 0.15) 0%, rgba(13, 110, 253, 0.12) 100%);
-    border-bottom: 1px solid rgba(240, 246, 252, 0.12);
+.auth-card {
+    width: 100%;
+    max-width: 420px;
 }
 
-.provider-badge {
-    width: 64px;
-    height: 64px;
+.auth-card .card-body {
+    padding: 1rem;
+}
+
+.auth-brand {
+    margin-bottom: 0.75rem;
+}
+
+.auth-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.auth-brand-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--accent-primary, #3b82f6);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    flex: 0 0 auto;
+}
+
+.auth-brand-title {
+    font-size: 1.05rem;
+    line-height: 1.2;
+    margin: 0;
+    color: var(--text-primary, #f8fafc);
+}
+
+.auth-provider-btn {
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+
+.provider-mark {
+    width: 54px;
+    height: 54px;
     border-radius: 16px;
-    display: grid;
-    place-items: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
-}
-
-.google-g {
-    font-weight: 800;
-    font-size: 28px;
-    letter-spacing: -1px;
     color: #ffffff;
-}
-
-.twitter-x,
-.provider-initial {
-    font-weight: 800;
-    font-size: 28px;
-    letter-spacing: -1px;
-    color: #ffffff;
+    font-size: 1.35rem;
 }
 
 .btn-google {
-    color: #ffffff;
-    border: 2px solid #ea4335;
     background: linear-gradient(135deg, #ea4335 0%, #d33b2c 100%);
+    color: #fff;
 }
 
 .btn-google:hover {
-    color: #ffffff;
-    border-color: #d33b2c;
     background: linear-gradient(135deg, #d33b2c 0%, #b52d20 100%);
-    box-shadow: 0 8px 25px rgba(234, 67, 53, 0.35);
+    color: #fff;
+}
+
+.btn-x {
+    background: linear-gradient(135deg, #1da1f2 0%, #0d8bd9 100%);
+    color: #fff;
+}
+
+.btn-x:hover {
+    background: linear-gradient(135deg, #0d8bd9 0%, #0a73b5 100%);
+    color: #fff;
+}
+
+.social-btn {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.25s ease;
+}
+
+.social-btn:hover {
     transform: translateY(-1px);
 }
 
-.btn-twitter {
-    color: #ffffff;
-    border: 2px solid #1da1f2;
-    background: linear-gradient(135deg, #1da1f2 0%, #0d8ddb 100%);
+.social-btn::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transform: translateY(-50%);
+    transition: left 0.6s ease;
 }
 
-.btn-twitter:hover {
-    color: #ffffff;
-    border-color: #0d8ddb;
-    background: linear-gradient(135deg, #0d8ddb 0%, #0b7fc7 100%);
-    box-shadow: 0 8px 25px rgba(29, 161, 242, 0.35);
-    transform: translateY(-1px);
+.social-btn:hover::before {
+    left: 100%;
+}
+
+@media (max-width: 767.98px) {
+    body {
+        padding-top: 0 !important;
+    }
+
+    .navbar,
+    footer {
+        display: none !important;
+    }
+
+    .app-main {
+        padding: 0.75rem !important;
+    }
+
+    .auth-page {
+        min-height: 100vh;
+        justify-content: flex-start;
+        padding-top: 1rem;
+        padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+    }
+
+    .auth-card .card-body {
+        padding: 0.9rem;
+    }
 }
 </style>
 {% endblock %}
@@ -196,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!form || !btn) return;
     form.addEventListener('submit', function() {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>処理中...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>処理中...</span>';
     });
 });
 </script>
