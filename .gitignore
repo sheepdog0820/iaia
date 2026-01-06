@@ -191,3 +191,7 @@ tests/results/TEST_RESULTS_*.md
 
 # Temporary scripts with credentials
 clean_socialapps.py
+
+# Runtime artifacts
+.server.pid
+node_modules/.package-lock.json
