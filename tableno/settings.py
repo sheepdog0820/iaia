@@ -48,6 +48,13 @@ def _get_bool(name, default=False):
 def _split_env_list(value):
     return [item.strip() for item in value.split(',') if item.strip()]
 
+def _get_first_env(*names, default=''):
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return default
+
 
 _load_env_file()
 
@@ -301,12 +308,42 @@ YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY', '')
 YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3'
 
 # Google OAuth API設定（API経由認証用）
-GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
-GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+GOOGLE_OAUTH_CLIENT_ID = _get_first_env(
+    'GOOGLE_CLIENT_ID',
+    'GOOGLE_OAUTH_CLIENT_ID',
+    'GOOGLE_OAUTH2_CLIENT_ID',
+    'CLIENT_ID',
+    default='',
+)
+GOOGLE_OAUTH_CLIENT_SECRET = _get_first_env(
+    'GOOGLE_CLIENT_SECRET',
+    'GOOGLE_OAUTH_CLIENT_SECRET',
+    'GOOGLE_OAUTH2_CLIENT_SECRET',
+    'CLIENT_SECRET',
+    default='',
+)
 # X (Twitter) OAuth API設定（API経由認証用）
-TWITTER_CLIENT_ID = os.environ.get('TWITTER_CLIENT_ID', '')
-TWITTER_CLIENT_SECRET = os.environ.get('TWITTER_CLIENT_SECRET', '')
-TWITTER_REDIRECT_URI = os.environ.get('TWITTER_REDIRECT_URI', '')
+TWITTER_CLIENT_ID = _get_first_env(
+    'TWITTER_CLIENT_ID',
+    'TWITTER_OAUTH_CLIENT_ID',
+    'TWITTER_OAUTH2_CLIENT_ID',
+    'X_CLIENT_ID',
+    default='',
+)
+TWITTER_CLIENT_SECRET = _get_first_env(
+    'TWITTER_CLIENT_SECRET',
+    'TWITTER_OAUTH_CLIENT_SECRET',
+    'TWITTER_OAUTH2_CLIENT_SECRET',
+    'X_CLIENT_SECRET',
+    default='',
+)
+TWITTER_REDIRECT_URI = _get_first_env(
+    'TWITTER_REDIRECT_URI',
+    'TWITTER_OAUTH_REDIRECT_URI',
+    'TWITTER_OAUTH2_REDIRECT_URI',
+    'X_REDIRECT_URI',
+    default='',
+)
 # FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')  # 8000番ポート統一のため無効化
 
 # Logging configuration for debugging OAuth
