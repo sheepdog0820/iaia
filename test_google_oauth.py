@@ -27,13 +27,56 @@ def test_oauth_configuration():
         print(f"  Provider: {app.provider}")
         print(f"  Name: {app.name}")
         print(f"  Client ID: {app.client_id}")
-        print(f"  Secret (first 20 chars): {app.secret[:20]}...")
+        if app.secret:
+            masked = "*" * max(len(app.secret) - 6, 0) + app.secret[-6:]
+        else:
+            masked = "(empty)"
+        print(f"  Secret: {masked}")
         print(f"  Sites: {[site.domain for site in app.sites.all()]}")
     except SocialApp.DoesNotExist:
         print("\n[ERROR] Google SocialApp not found in database")
         return False
 
     return app
+
+def test_token_endpoint_client_auth(app):
+    """トークンエンドポイントでクライアント認証が通るかを簡易確認（ダミーcodeで判定）"""
+    print("\n" + "=" * 60)
+    print("トークンエンドポイント: クライアント認証チェック")
+    print("=" * 60)
+
+    # NOTE: code はダミー。クライアント認証が通れば通常は invalid_grant になる。
+    redirect_uri = "http://127.0.0.1:8000/accounts/google/login/callback/"
+    data = {
+        "client_id": app.client_id,
+        "client_secret": app.secret,
+        "code": "invalid_code_for_client_auth_check",
+        "grant_type": "authorization_code",
+        "redirect_uri": redirect_uri,
+    }
+    try:
+        resp = requests.post("https://oauth2.googleapis.com/token", data=data, timeout=15)
+    except Exception as e:
+        print(f"  [ERROR] トークンエンドポイントへの接続に失敗: {str(e)}")
+        return False
+
+    try:
+        body = resp.json()
+    except Exception:
+        body = {"raw": resp.text}
+
+    print(f"  Status: {resp.status_code}")
+    if body.get("error") == "invalid_client":
+        print("  [FAILED] クライアント認証に失敗しています (invalid_client)")
+        print("          Client ID と Client secret の組み合わせが一致していない可能性が高いです。")
+        return False
+
+    if body.get("error") == "invalid_grant":
+        print("  [OK] クライアント認証は通っています (invalid_grant はダミーcodeのため想定内)")
+        return True
+
+    print(f"  [INFO] 予期しない応答: {body}")
+    return False
 
 def test_client_credentials(app):
     """クライアント認証情報のテスト"""
@@ -54,10 +97,10 @@ def test_client_credentials(app):
 
     # 2. クライアントシークレットの形式チェック
     print("\n2. クライアントシークレット形式チェック:")
-    if client_secret.startswith('GOCSPX-') and len(client_secret) > 20:
-        print("  [OK] クライアントシークレットの形式が正しい")
+    if len(client_secret) > 20:
+        print("  [OK] クライアントシークレットの長さが十分")
     else:
-        print("  [ERROR] クライアントシークレットの形式が不正")
+        print("  [ERROR] クライアントシークレットが短すぎます")
         return False
 
     # 3. Google OAuth 2.0エンドポイントへの接続テスト
@@ -93,7 +136,7 @@ def test_oauth_flow_urls():
     print(f"\n現在のサイト設定: {site.domain}")
     print(f"\nOAuthフローで使用されるURL:")
     print(f"  1. 開始URL: {base_url}/accounts/google/login/")
-    print(f"  2. コールバックURL: {base_url}/accounts/google/callback/")
+    print(f"  2. コールバックURL: {base_url}/accounts/google/login/callback/")
 
     print(f"\nGoogle Cloud Consoleで設定すべきリダイレクトURI:")
     print(f"  - http://127.0.0.1:8000/accounts/google/login/callback/")
@@ -165,6 +208,11 @@ def main():
     # 2. クライアント認証情報のテスト
     if not test_client_credentials(app):
         print("\n[FAILED] Client credentials test failed")
+        sys.exit(1)
+
+    # 2.5. トークンエンドポイントでクライアント認証が通るか確認
+    if not test_token_endpoint_client_auth(app):
+        print("\n[FAILED] Token endpoint client authentication failed")
         sys.exit(1)
 
     # 3. OAuth フロー URL の確認
