@@ -1263,6 +1263,65 @@ class NextSessionContextView(APIView):
         })
 
 
+class ParticipatingScenarioChoicesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        now = timezone.now()
+
+        try:
+            days = int(request.query_params.get('days', 365))
+        except (TypeError, ValueError):
+            days = 365
+        try:
+            limit = int(request.query_params.get('limit', 50))
+        except (TypeError, ValueError):
+            limit = 50
+
+        if days < 1:
+            days = 1
+        if days > 365:
+            days = 365
+        if limit < 1:
+            limit = 1
+        if limit > 100:
+            limit = 100
+
+        sessions = TRPGSession.objects.filter(
+            Q(gm=user) | Q(participants=user),
+            date__gte=now,
+            date__lte=now + timedelta(days=days),
+            status='planned',
+            scenario__isnull=False,
+        ).select_related('scenario', 'group').order_by('date')[:limit]
+
+        results = []
+        for session in sessions:
+            scenario = session.scenario
+            if not scenario:
+                continue
+
+            session_date_display = None
+            if session.date:
+                session_date_display = session.date.strftime('%Y/%m/%d %H:%M')
+
+            results.append({
+                'session_id': session.id,
+                'session_title': session.title,
+                'session_date': session.date,
+                'session_date_display': session_date_display,
+                'group_name': session.group.name if session.group else '',
+                'scenario': {
+                    'id': scenario.id,
+                    'title': scenario.title,
+                    'game_system': scenario.game_system,
+                }
+            })
+
+        return Response(results)
+
+
 class SessionStatisticsView(APIView):
     permission_classes = [IsAuthenticated]
     

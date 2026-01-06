@@ -21,6 +21,7 @@ urlpatterns = [
     # API URLs
     path('sessions/view/', views.SessionsListView.as_view(), name='sessions_api_view'),
     path('sessions/next-context/', views.NextSessionContextView.as_view(), name='next_session_context'),
+    path('sessions/participating-scenarios/', views.ParticipatingScenarioChoicesView.as_view(), name='participating_scenarios'),
     path('sessions/upcoming/', views.UpcomingSessionsView.as_view(), name='upcoming_sessions'),
     path('sessions/statistics/', views.SessionStatisticsView.as_view(), name='session_statistics'),
     path('sessions/<int:pk>/detail/', views.SessionDetailView.as_view(), name='session_detail'),

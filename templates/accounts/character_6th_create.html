@@ -155,83 +155,33 @@
 
                     <!-- 能力値タブ -->
                     <div class="tab-pane fade" id="abilities" role="tabpanel">
-                        <!-- 全能力値ダイスロール設定 -->
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header bg-warning text-dark">
-                                <div class="d-flex align-items-center gap-2">
-                                    <h6 class="mb-0 flex-grow-1">
-                                        <i class="fas fa-dice-d20"></i> 全能力値ダイスロール設定
-                                    </h6>
-                                    <button type="button" class="btn btn-link p-0 text-dark dice-settings-info"
-                                            data-bs-toggle="tooltip"
-                                            title="全ての基本能力値を一括でダイスロールします。設定したダイス式が全能力値に適用されます。"
-                                            aria-label="全能力値ロールの説明">
-                                        <i class="fas fa-circle-question"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="card-body">
-                                <div class="dice-settings-row">
-                                    <div class="input-group input-group-sm dice-setting-group">
-                                        <span class="input-group-text">個数</span>
-                                        <input type="number" class="form-control dice-setting-input"
-                                               id="globalDiceCount" min="1" max="10" value="3">
-                                    </div>
-                                    <div class="input-group input-group-sm dice-setting-group">
-                                        <span class="input-group-text">面数</span>
-                                        <input type="number" class="form-control dice-setting-input"
-                                               id="globalDiceSides" min="2" max="100" value="6">
-                                    </div>
-                                    <div class="input-group input-group-sm dice-setting-group">
-                                        <span class="input-group-text">ボーナス</span>
-                                        <input type="number" class="form-control dice-setting-input"
-                                               id="globalDiceBonus" min="-50" max="50" value="0">
-                                    </div>
-                                    <div class="dice-setting-formula dice-setting-group">
-                                        <span class="dice-setting-label">式</span>
-                                        <div class="dice-setting-formula-value">
-                                            <span id="globalDiceFormula" class="fw-bold text-primary">3d6+0</span>
-                                        </div>
-                                    </div>
-                                    <div class="dice-setting-action">
-                                        <button type="button" class="btn btn-primary btn-sm" id="rollAllAbilities">
-                                            <i class="fas fa-dice-d20"></i> 全能力値ロール
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- 能力別ダイス設定 -->
                 <div class="row mb-4">
                     <div class="col-12">
                         <div class="card">
                             <div class="card-header bg-light">
-                                <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                                     <h6 class="mb-0">
                                         <i class="fas fa-cog"></i> 能力別ダイス設定
                                     </h6>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleAbilityDiceSettings">
-                                        <i class="fas fa-sliders-h"></i> 表示/非表示
-                                    </button>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-sm btn-primary" id="rollAllAbilities">
+                                            <i class="fas fa-dice-d20"></i> 全能力値ロール
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleAbilityDiceSettings">
+                                            <i class="fas fa-sliders-h"></i> 表示/非表示
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="card-body" id="ability-dice-settings-wrapper" style="display: none;">
                                 <div class="row align-items-center g-3 mb-3">
-                                    <div class="col-md-4 form-check">
-                                        <input class="form-check-input" type="checkbox" id="useAbilityDiceSettings">
-                                        <label class="form-check-label" for="useAbilityDiceSettings">能力別設定を使用</label>
-                                    </div>
                                     <div class="col-md-4">
-                                        <button type="button" class="btn btn-outline-primary w-100" id="copyGlobalDiceSettings">
-                                            <i class="fas fa-copy"></i> 全能力値設定をコピー
+                                        <button type="button" class="btn btn-outline-secondary w-100" id="resetAbilityDiceSettings">
+                                            <i class="fas fa-rotate-left"></i> 標準設定に戻す
                                         </button>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-8">
                                         <small class="text-muted">各能力ごとに個数/面数/ボーナスを設定できます。</small>
                                     </div>
                                 </div>
@@ -251,10 +201,6 @@
                                 <i class="fas fa-chart-bar"></i> ステータス
                             </h5>
                             <span class="badge bg-light text-primary status-card-badge ms-auto">CoC6 / 能力値</span>
-                            <button type="button" class="btn btn-sm btn-outline-light status-roll-btn" id="statusRollAllAbilities">
-                                <i class="fas fa-dice-d20"></i>
-                                <span class="status-roll-label">一括ロール</span>
-                            </button>
                         </div>
                     </div>
                     <div class="card-body">
@@ -538,6 +484,9 @@
                                      <div class="col-md-6">
                                          <label class="form-label small">セット操作</label>
                                          <div class="d-flex flex-wrap gap-1">
+                                             <button type="button" class="btn btn-outline-primary btn-sm" id="selectScenarioRecommended">
+                                                 <i class="fas fa-list"></i> シナリオ選択
+                                             </button>
                                              <button type="button" class="btn btn-outline-secondary btn-sm" id="loadScenarioRecommended">
                                                  <i class="fas fa-book"></i> シナリオ反映
                                              </button>
@@ -553,6 +502,34 @@
                                  </div>
                                  <div class="mt-1" id="recommendedSkillsChips">
                                      <span class="text-muted">推奨技能はまだ設定されていません。</span>
+                                 </div>
+                             </div>
+
+                             <!-- シナリオ選択モーダル -->
+                             <div class="modal fade" id="scenarioSelectModal" tabindex="-1" aria-labelledby="scenarioSelectModalLabel" aria-hidden="true">
+                                 <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                     <div class="modal-content">
+                                         <div class="modal-header">
+                                             <h5 class="modal-title" id="scenarioSelectModalLabel">
+                                                 <i class="fas fa-book-open"></i> 参加予定のシナリオ
+                                             </h5>
+                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                         </div>
+                                         <div class="modal-body">
+                                             <div class="d-flex justify-content-between align-items-center mb-2">
+                                                 <small class="text-muted" id="scenarioSelectStatus">読み込み中...</small>
+                                                 <button type="button" class="btn btn-outline-secondary btn-sm d-none" id="scenarioSelectReload">
+                                                     <i class="fas fa-rotate-right"></i> 再読み込み
+                                                 </button>
+                                             </div>
+                                             <div class="list-group" id="scenarioSelectList">
+                                                 <!-- 参加予定のシナリオがここに動的生成される -->
+                                             </div>
+                                         </div>
+                                         <div class="modal-footer">
+                                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                                         </div>
+                                     </div>
                                  </div>
                              </div>
                              

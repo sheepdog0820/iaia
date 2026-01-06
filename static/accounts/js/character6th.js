@@ -196,6 +196,16 @@
         int: 'INT（知性）',
         edu: 'EDU（教育）'
     };
+    const DEFAULT_ABILITY_DICE_SETTINGS_6TH = {
+        str: { count: 3, sides: 6, bonus: 0 },
+        con: { count: 3, sides: 6, bonus: 0 },
+        pow: { count: 3, sides: 6, bonus: 0 },
+        dex: { count: 3, sides: 6, bonus: 0 },
+        app: { count: 3, sides: 6, bonus: 0 },
+        siz: { count: 2, sides: 6, bonus: 6 },
+        int: { count: 2, sides: 6, bonus: 6 },
+        edu: { count: 3, sides: 6, bonus: 3 }
+    };
     let abilityDiceSettings = {};
 
 function updateGlobalDiceFormula() {
@@ -238,11 +248,20 @@ function updateGlobalDiceFormula() {
         });
     }
 
+    function setAbilityDiceSettingsToDefault6th() {
+        abilityDiceSettings = Object.fromEntries(
+            ABILITIES_6TH.map(ability => [
+                ability,
+                { ...(DEFAULT_ABILITY_DICE_SETTINGS_6TH[ability] ?? updateGlobalDiceFormula()) }
+            ])
+        );
+    }
+
     function buildAbilityDiceSettingsHTML() {
         const container = document.getElementById('ability-dice-settings');
         if (!container) return;
         if (!Object.keys(abilityDiceSettings).length) {
-            setAbilityDiceSettingsFromGlobal();
+            setAbilityDiceSettingsToDefault6th();
         }
         container.innerHTML = ABILITIES_6TH.map(ability => {
             const settings = abilityDiceSettings[ability];
@@ -306,7 +325,9 @@ function updateGlobalDiceFormula() {
     }
 
     function isAbilityDiceEnabled() {
-        return document.getElementById('useAbilityDiceSettings')?.checked;
+        const checkbox = document.getElementById('useAbilityDiceSettings');
+        if (!checkbox) return true;
+        return checkbox.checked;
     }
 
     function getDiceSettingsForAbility(ability) {
@@ -335,8 +356,8 @@ function updateGlobalDiceFormula() {
             if (!wrapper) return;
             wrapper.style.display = wrapper.style.display === 'none' ? 'block' : 'none';
         });
-        document.getElementById('copyGlobalDiceSettings')?.addEventListener('click', () => {
-            setAbilityDiceSettingsFromGlobal();
+        document.getElementById('resetAbilityDiceSettings')?.addEventListener('click', () => {
+            setAbilityDiceSettingsToDefault6th();
             buildAbilityDiceSettingsHTML();
         });
         document.querySelectorAll('.ability-roll-btn').forEach(button => {
@@ -1102,11 +1123,32 @@ function updateGlobalDiceFormula() {
         }
     }
 
+    async function fetchParticipatingScenarios({ days = 365, limit = 50 } = {}) {
+        try {
+            const params = new URLSearchParams();
+            if (Number.isFinite(days)) params.set('days', String(days));
+            if (Number.isFinite(limit)) params.set('limit', String(limit));
+            const url = params.toString()
+                ? `/api/schedules/sessions/participating-scenarios/?${params.toString()}`
+                : '/api/schedules/sessions/participating-scenarios/';
+            const response = await axios.get(url, { timeout: 8000 });
+            return response.data;
+        } catch (error) {
+            console.warn('Failed to load participating scenarios:', error);
+            return null;
+        }
+    }
+
     async function initRecommendedSkillControls() {
         const input = document.getElementById('recommendedSkillInput');
         const addBtn = document.getElementById('addRecommendedSkill');
         const clearBtn = document.getElementById('clearRecommendedSkills');
         const scenarioBtn = document.getElementById('loadScenarioRecommended');
+        const selectScenarioBtn = document.getElementById('selectScenarioRecommended');
+        const scenarioSelectModalEl = document.getElementById('scenarioSelectModal');
+        const scenarioSelectListEl = document.getElementById('scenarioSelectList');
+        const scenarioSelectStatusEl = document.getElementById('scenarioSelectStatus');
+        const scenarioSelectReloadBtn = document.getElementById('scenarioSelectReload');
         const retryBtn = document.getElementById('retryScenarioRecommended');
         const hintEl = document.getElementById('scenarioRecommendedHint');
         const sessionParams = new URLSearchParams(window.location.search);
@@ -1117,6 +1159,8 @@ function updateGlobalDiceFormula() {
         buildRecommendedSkillOptions();
 
         let scenarioPayload = getScenarioRecommendedSkillPayload();
+        const storedSessionId = safeGetLocalStorage('scenario_recommended_session_id');
+        const sessionIdForContext = sessionIdFromQuery || (scenarioPayload.source === 'query' ? null : storedSessionId);
         let scenarioParsed = scenarioPayload.raw ? resolveSkillKeys(parseSkillList(scenarioPayload.raw)) : { resolved: [], unknown: [] };
         let handoutPayload = { rawList: [], titles: [] };
         let handoutParsed = { resolved: [], unknown: [] };
@@ -1195,11 +1239,19 @@ function updateGlobalDiceFormula() {
             }
         }
 
-        const applyNextSessionContext = async () => {
-            const context = await fetchNextSessionContext(sessionIdFromQuery);
-            if (!context || !context.session_id) return;
+        const applySessionContext = async (sessionId, options = {}) => {
+            const { forceScenario = false, autoApply = false, persistSelection = false } = options;
+            const context = await fetchNextSessionContext(sessionId);
+            if (!context || !context.session_id) {
+                updateScenarioHint('セッション情報の取得に失敗しました。');
+                return false;
+            }
 
-            if (context.scenario && scenarioPayload.source !== 'query') {
+            if (persistSelection) {
+                safeSetLocalStorage('scenario_recommended_session_id', String(context.session_id));
+            }
+
+            if (context.scenario && (forceScenario || scenarioPayload.source !== 'query')) {
                 const scenarioRaw = (context.scenario.recommended_skills || '').trim();
                 scenarioPayload = {
                     ...scenarioPayload,
@@ -1234,13 +1286,18 @@ function updateGlobalDiceFormula() {
             updateScenarioHintFromPayload();
 
             const combined = getCombinedRecommendedKeys();
-            if (combined.length > 0 && !userTouchedRecommended) {
+            if (autoApply && combined.length > 0) {
+                userTouchedRecommended = true;
+                setRecommendedSkills(combined, { mode: 'merge', persist: true });
+            } else if (combined.length > 0 && !userTouchedRecommended) {
                 setRecommendedSkills(combined, { persist: false });
             }
+
+            return true;
         };
 
-        if (!isEditMode && (sessionIdFromQuery || scenarioPayload.source !== 'query')) {
-            void applyNextSessionContext();
+        if (!isEditMode && (sessionIdForContext || scenarioPayload.source !== 'query')) {
+            void applySessionContext(sessionIdForContext);
         }
 
         const addFromInput = () => {
@@ -1269,6 +1326,129 @@ function updateGlobalDiceFormula() {
         clearBtn?.addEventListener('click', () => {
             userTouchedRecommended = true;
             setRecommendedSkills([], { persist: true });
+        });
+
+        const scenarioSelectModal = scenarioSelectModalEl && window.bootstrap?.Modal
+            ? (bootstrap.Modal.getOrCreateInstance
+                ? bootstrap.Modal.getOrCreateInstance(scenarioSelectModalEl)
+                : new bootstrap.Modal(scenarioSelectModalEl))
+            : null;
+
+        const setScenarioSelectStatus = (message, { showReload = false } = {}) => {
+            if (scenarioSelectStatusEl) scenarioSelectStatusEl.textContent = message || '';
+            if (scenarioSelectReloadBtn) {
+                scenarioSelectReloadBtn.classList.toggle('d-none', !showReload);
+            }
+        };
+
+        const buildScenarioSelectItem = (choice) => {
+            const sessionId = choice?.session_id ? String(choice.session_id) : '';
+            const scenarioId = choice?.scenario?.id ? String(choice.scenario.id) : '';
+            if (!sessionId || !scenarioId) return null;
+
+            const scenarioTitle = choice?.scenario?.title || '（無題シナリオ）';
+            const gameSystem = choice?.scenario?.game_system || '';
+            const groupName = choice?.group_name || '';
+            const sessionTitle = choice?.session_title || '';
+            const sessionDateDisplay = choice?.session_date_display || '';
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'list-group-item list-group-item-action';
+            button.dataset.sessionId = sessionId;
+            button.dataset.scenarioId = scenarioId;
+            button.dataset.scenarioTitle = scenarioTitle;
+            button.dataset.gameSystem = gameSystem;
+
+            const header = document.createElement('div');
+            header.className = 'd-flex w-100 justify-content-between align-items-start gap-2';
+
+            const textWrap = document.createElement('div');
+            textWrap.style.minWidth = '0';
+
+            const titleEl = document.createElement('div');
+            titleEl.className = 'fw-semibold text-truncate';
+            titleEl.textContent = scenarioTitle;
+
+            const metaEl = document.createElement('small');
+            metaEl.className = 'text-muted d-block text-truncate';
+            const metaParts = [sessionDateDisplay, sessionTitle, groupName].filter(Boolean);
+            metaEl.textContent = metaParts.join(' / ');
+
+            textWrap.appendChild(titleEl);
+            textWrap.appendChild(metaEl);
+
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-secondary flex-shrink-0';
+            badge.textContent = gameSystem;
+
+            header.appendChild(textWrap);
+            header.appendChild(badge);
+            button.appendChild(header);
+
+            const activeSessionId = safeGetLocalStorage('scenario_recommended_session_id');
+            if (activeSessionId && String(activeSessionId) === sessionId) {
+                button.classList.add('active');
+            }
+
+            button.addEventListener('click', () => {
+                void applySessionContext(sessionId, { forceScenario: true, autoApply: true, persistSelection: true })
+                    .then(success => {
+                        if (success) scenarioSelectModal?.hide();
+                    });
+            });
+
+            return button;
+        };
+
+        const loadScenarioChoices = async () => {
+            if (!scenarioSelectListEl) return;
+            scenarioSelectListEl.innerHTML = '';
+            setScenarioSelectStatus('読み込み中...');
+
+            const choices = await fetchParticipatingScenarios({ days: 365, limit: 50 });
+            if (!Array.isArray(choices)) {
+                const errorEl = document.createElement('div');
+                errorEl.className = 'text-center text-muted py-3';
+                errorEl.textContent = '参加予定のシナリオの取得に失敗しました。';
+                scenarioSelectListEl.appendChild(errorEl);
+                setScenarioSelectStatus('取得に失敗しました。', { showReload: true });
+                return;
+            }
+
+            const list = choices;
+            if (list.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'text-center text-muted py-3';
+                empty.textContent = '参加予定のシナリオがありません。';
+                scenarioSelectListEl.appendChild(empty);
+                setScenarioSelectStatus('0件');
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            let added = 0;
+            list.forEach(choice => {
+                const item = buildScenarioSelectItem(choice);
+                if (!item) return;
+                fragment.appendChild(item);
+                added += 1;
+            });
+            scenarioSelectListEl.appendChild(fragment);
+            setScenarioSelectStatus(`${added}件`);
+        };
+
+        const openScenarioSelectModal = async () => {
+            if (!scenarioSelectModal) return;
+            scenarioSelectModal.show();
+            await loadScenarioChoices();
+        };
+
+        selectScenarioBtn?.addEventListener('click', () => {
+            void openScenarioSelectModal();
+        });
+        scenarioSelectReloadBtn?.addEventListener('click', () => {
+            void loadScenarioChoices();
         });
 
         const fetchScenarioRecommended = async (autoApply = false) => {
@@ -1315,7 +1495,7 @@ function updateGlobalDiceFormula() {
             userTouchedRecommended = true;
             const combined = getCombinedRecommendedKeys();
             if (combined.length > 0) {
-                setRecommendedSkills(combined, { persist: true });
+                setRecommendedSkills(combined, { mode: 'merge', persist: true });
                 return;
             }
             if (!scenarioPayload.scenarioId) {
@@ -1325,7 +1505,7 @@ function updateGlobalDiceFormula() {
             void fetchScenarioRecommended().then(() => {
                 const refreshed = getCombinedRecommendedKeys();
                 if (refreshed.length > 0) {
-                    setRecommendedSkills(refreshed, { persist: true });
+                    setRecommendedSkills(refreshed, { mode: 'merge', persist: true });
                 }
             });
         });
