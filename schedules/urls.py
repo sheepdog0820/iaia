@@ -7,6 +7,7 @@ from . import notification_views
 
 router = DefaultRouter()
 router.register(r'sessions', views.TRPGSessionViewSet, basename='session')
+router.register(r'session-invitations', views.SessionInvitationViewSet, basename='session-invitation')
 router.register(r'participants', views.SessionParticipantViewSet, basename='participant')
 router.register(r'handouts', views.HandoutInfoViewSet, basename='handout')
 router.register(r'session-images', views.SessionImageViewSet, basename='session-image')

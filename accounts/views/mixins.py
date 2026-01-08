@@ -174,7 +174,7 @@ class GroupAccessMixin:
         action = getattr(self, 'action', None)
         
         # 管理者のみアクセス可能なアクション
-        admin_only_actions = ['update', 'partial_update', 'destroy', 'invite', 'remove_member']
+        admin_only_actions = ['update', 'partial_update', 'destroy', 'invite', 'remove_member', 'set_member_role']
         if action in admin_only_actions:
             if not self.check_admin_permission(obj, self.request.user):
                 raise PermissionDenied("この操作には管理者権限が必要です")

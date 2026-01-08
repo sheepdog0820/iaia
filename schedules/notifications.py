@@ -250,7 +250,7 @@ class HandoutNotificationService:
 class SessionNotificationService(HandoutNotificationService):
     """セッション関連通知サービスクラス（ISSUE-013実装）"""
     
-    def send_session_invitation_notification(self, session, inviter, invitee):
+    def send_session_invitation_notification(self, session, inviter, invitee, invitation_id=None):
         """
         セッション招待通知を送信
         
@@ -285,6 +285,7 @@ class SessionNotificationService(HandoutNotificationService):
             # metadataは後から設定
             if hasattr(notification, 'metadata'):
                 notification.metadata = {
+                    'session_invitation_id': invitation_id,
                     'session_id': session.id,
                     'session_title': session.title,
                     'session_date': session.date.isoformat(),
@@ -519,3 +520,64 @@ class SessionNotificationService(HandoutNotificationService):
             f"GM: {session.gm.nickname or session.gm.username}\n"
             f"場所: {session.location or 'オンライン'}"
         )
+
+
+class GroupNotificationService(HandoutNotificationService):
+    """グループ招待などの通知サービス"""
+
+    def send_group_invitation_notification(self, group, inviter, invitee, invitation_message: str = "") -> bool:
+        """
+        グループ招待通知を送信する
+
+        Args:
+            group (Group): 招待対象のグループ
+            inviter (CustomUser): 招待を送ったユーザー
+            invitee (CustomUser): 招待を受けるユーザー
+            invitation_message (str): 招待メッセージ（任意）
+
+        Returns:
+            bool: 通知を送信した場合は True、それ以外は False
+        """
+        try:
+            preferences = UserNotificationPreferences.get_or_create_for_user(invitee)
+            if hasattr(preferences, "group_notifications_enabled") and not preferences.group_notifications_enabled:
+                logger.info(f"グループ通知が無効のため送信しません: user={invitee.id}")
+                return False
+
+            message = self._create_group_invitation_message(group, inviter, invitation_message)
+
+            notification = HandoutNotification.objects.create(
+                handout_id=0,
+                recipient=invitee,
+                sender=inviter,
+                notification_type="group_invitation",
+                message=message,
+                is_read=False,
+                metadata={
+                    "group_id": group.id,
+                    "group_name": group.name,
+                    "inviter_name": inviter.nickname or inviter.username,
+                    "message": invitation_message or "",
+                },
+            )
+
+            if preferences.email_notifications_enabled:
+                self._send_email_notification(notification)
+
+            logger.info(f"グループ招待通知を送信しました: group={group.id}, invitee={invitee.id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"グループ招待通知の送信に失敗しました: {e}")
+            return False
+
+    def _create_group_invitation_message(self, group, inviter, invitation_message: str = "") -> str:
+        """グループ招待通知メッセージを生成"""
+        lines = [
+            "【グループ招待】",
+            f"{inviter.nickname or inviter.username}さんから招待が届いています。",
+            f"グループ: {group.name}",
+        ]
+        if invitation_message:
+            lines.append(f"メッセージ: {invitation_message}")
+        return "\n".join(lines)

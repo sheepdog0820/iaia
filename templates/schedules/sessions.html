@@ -58,6 +58,19 @@
                 </div>
             </div>
 
+            <div class="card mt-3" id="sessionInvitationsCard" style="display: none;">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-envelope-open-text"></i> セッション招待</h5>
+                </div>
+                <div class="card-body" id="sessionInvitationsContainer">
+                    <div class="text-center py-2">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="card mt-3">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-chart-line"></i> 統計情報</h5>
@@ -361,6 +374,72 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // セッション招待読み込み
+    async function loadSessionInvitations() {
+        const card = document.getElementById('sessionInvitationsCard');
+        const container = document.getElementById('sessionInvitationsContainer');
+
+        try {
+            const response = await axios.get('/api/schedules/session-invitations/?status=pending');
+            const invitations = response.data.results || response.data;
+
+            if (!Array.isArray(invitations) || invitations.length === 0) {
+                card.style.display = 'none';
+                return;
+            }
+
+            card.style.display = 'block';
+            container.innerHTML = invitations.map(inv => `
+                <div class="mb-3">
+                    <div class="fw-bold">${inv.session_title}</div>
+                    <div class="text-muted small">
+                        <i class="fas fa-calendar"></i> ${new Date(inv.session_date).toLocaleString('ja-JP')}
+                        <span class="ms-2"><i class="fas fa-user"></i> ${inv.inviter?.nickname || inv.inviter?.username || ''}</span>
+                    </div>
+                    ${inv.message ? `<div class="small mt-1">${escapeHtml(inv.message)}</div>` : ''}
+                    <div class="mt-2 d-flex gap-2">
+                        <button class="btn btn-sm btn-primary" onclick="acceptSessionInvitation(${inv.id}, ${inv.session_id})">承認して参加</button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="declineSessionInvitation(${inv.id})">辞退</button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading session invitations:', error);
+            card.style.display = 'none';
+        }
+    }
+
+    window.acceptSessionInvitation = async function(invitationId, sessionId) {
+        if (!confirm('この招待を承認してセッションに参加しますか？')) return;
+        try {
+            await axios.post(`/api/schedules/session-invitations/${invitationId}/accept/`);
+            await loadSessionInvitations();
+            loadSessions(currentPage);
+            window.location.href = `/api/schedules/sessions/${sessionId}/detail/`;
+        } catch (error) {
+            alert('承認に失敗しました: ' + (error.response?.data?.error || error.response?.data?.detail || error.message));
+        }
+    };
+
+    window.declineSessionInvitation = async function(invitationId) {
+        if (!confirm('この招待を辞退しますか？')) return;
+        try {
+            await axios.post(`/api/schedules/session-invitations/${invitationId}/decline/`);
+            await loadSessionInvitations();
+        } catch (error) {
+            alert('辞退に失敗しました: ' + (error.response?.data?.error || error.response?.data?.detail || error.message));
+        }
+    };
+
+    function escapeHtml(str) {
+        return String(str)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
     // セッション編集
     window.editSession = async function(sessionId) {
         currentSessionId = sessionId;
@@ -492,6 +571,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 初期化
     loadSessions();
+    loadSessionInvitations();
     loadStatistics();
 });
 </script>

@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils import timezone
-from datetime import datetime, date as date_cls, time as time_cls
+from datetime import datetime, date as date_cls, time as time_cls, timedelta
 from django.core.exceptions import ValidationError
 from accounts.models import CustomUser, Group, GroupMembership
 
@@ -176,6 +176,58 @@ class SessionParticipant(models.Model):
         return f"{self.user.nickname} in {self.session.title} ({self.role}){slot_display}"
 
 
+class SessionInvitation(models.Model):
+    """セッション招待（受諾/辞退/期限切れを管理）"""
+
+    INVITATION_EXPIRY_DAYS = 7
+    STATUS_CHOICES = [
+        ('pending', '保留'),
+        ('accepted', '受諾'),
+        ('declined', '辞退'),
+        ('expired', '期限切れ'),
+    ]
+
+    session = models.ForeignKey(TRPGSession, on_delete=models.CASCADE, related_name='invitations')
+    inviter = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='sent_session_invitations')
+    invitee = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='received_session_invitations')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    message = models.TextField(blank=True, help_text="招待メッセージ")
+
+    created_at = models.DateTimeField(default=timezone.now)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('session', 'invitee')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        inviter_name = self.inviter.nickname or self.inviter.username
+        invitee_name = self.invitee.nickname or self.invitee.username
+        return f"{inviter_name} invited {invitee_name} to {self.session.title}"
+
+    @property
+    def expires_at(self):
+        return self.created_at + timedelta(days=self.INVITATION_EXPIRY_DAYS)
+
+    @property
+    def is_expired(self):
+        return self.status == 'pending' and timezone.now() >= self.expires_at
+
+    def mark_expired(self, save=True):
+        self.status = 'expired'
+        self.responded_at = timezone.now()
+        if save:
+            self.save(update_fields=['status', 'responded_at'])
+
+    @classmethod
+    def expire_pending(cls):
+        cutoff = timezone.now() - timedelta(days=cls.INVITATION_EXPIRY_DAYS)
+        return cls.objects.filter(status='pending', created_at__lt=cutoff).update(
+            status='expired',
+            responded_at=timezone.now()
+        )
+
+
 class SessionNote(models.Model):
     """セッションノート（GM/参加者の記録）"""
 
@@ -320,6 +372,7 @@ class HandoutNotification(models.Model):
         ('schedule_change', 'スケジュール変更'),
         ('session_cancelled', 'セッションキャンセル'),
         ('session_reminder', 'セッションリマインダー'),
+        ('group_invitation', 'グループ招待'),
     ]
     
     handout_id = models.PositiveIntegerField(help_text="対象ハンドアウトのID（セッション通知の場合は0）")
@@ -357,6 +410,7 @@ class UserNotificationPreferences(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='notification_preferences')
     handout_notifications_enabled = models.BooleanField(default=True, help_text="ハンドアウト通知を有効にする")
     session_notifications_enabled = models.BooleanField(default=True, help_text="セッション通知を有効にする")
+    group_notifications_enabled = models.BooleanField(default=True, help_text="グループ通知を有効にする")
     email_notifications_enabled = models.BooleanField(default=False, help_text="メール通知を有効にする")
     browser_notifications_enabled = models.BooleanField(default=True, help_text="ブラウザ通知を有効にする")
     
@@ -374,6 +428,7 @@ class UserNotificationPreferences(models.Model):
             defaults={
                 'handout_notifications_enabled': True,
                 'session_notifications_enabled': True,
+                'group_notifications_enabled': True,
                 'email_notifications_enabled': False,
                 'browser_notifications_enabled': True,
             }

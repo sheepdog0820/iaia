@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.utils import timezone
-from .models import TRPGSession, SessionParticipant, HandoutInfo
+from .models import TRPGSession, SessionParticipant, HandoutInfo, SessionInvitation
 from accounts.models import Group as CustomGroup
 from scenarios.models import Scenario
 
@@ -276,6 +276,87 @@ class ScheduleAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
+    def test_participant_create_role_gm_forbidden(self):
+        """一般ユーザーが参加者作成でGM権限を指定できない"""
+        self.client.force_authenticate(user=self.user2)
+        response = self.client.post(
+            '/api/schedules/participants/',
+            {'session': self.session.id, 'role': 'gm'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_participant_update_role_gm_forbidden(self):
+        """一般ユーザーが自分の参加情報をGMに昇格できない"""
+        participant = SessionParticipant.objects.create(
+            session=self.session,
+            user=self.user2,
+            role='player'
+        )
+
+        self.client.force_authenticate(user=self.user2)
+        response = self.client.patch(
+            f'/api/schedules/participants/{participant.id}/',
+            {'role': 'gm'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_participant_delete_other_forbidden(self):
+        """GM以外が他人の参加情報を削除できない"""
+        user3 = User.objects.create_user(
+            username='member3',
+            email='member3@example.com',
+            password='pass123',
+            nickname='Member3'
+        )
+        self.group.members.add(user3)
+
+        participant = SessionParticipant.objects.create(
+            session=self.session,
+            user=self.user2,
+            role='player'
+        )
+
+        self.client.force_authenticate(user=user3)
+        response = self.client.delete(f'/api/schedules/participants/{participant.id}/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_gm_can_delete_other_participant(self):
+        """GMは参加者を除名できる"""
+        participant = SessionParticipant.objects.create(
+            session=self.session,
+            user=self.user2,
+            role='player'
+        )
+
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.delete(f'/api/schedules/participants/{participant.id}/')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_player_slot_conflict_on_update(self):
+        """プレイヤー枠の重複は更新時も拒否される"""
+        SessionParticipant.objects.create(
+            session=self.session,
+            user=self.user1,
+            role='gm',
+            player_slot=1
+        )
+        p2 = SessionParticipant.objects.create(
+            session=self.session,
+            user=self.user2,
+            role='player',
+            player_slot=2
+        )
+
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.patch(
+            f'/api/schedules/participants/{p2.id}/',
+            {'player_slot': 1},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_calendar_api(self):
         """カレンダーAPIテスト"""
         self.client.force_authenticate(user=self.user1)
@@ -332,3 +413,100 @@ class ScheduleAPITestCase(APITestCase):
         
         response = self.client.get('/api/schedules/handouts/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_session_invitation_accept_creates_participant(self):
+        """セッション招待の受諾で参加者が作成される"""
+        self.client.force_authenticate(user=self.user1)
+        invite_res = self.client.post(
+            f'/api/schedules/sessions/{self.session.id}/invite/',
+            {'user_id': self.user2.id},
+            format='json'
+        )
+        self.assertEqual(invite_res.status_code, status.HTTP_200_OK)
+        invitation_id = invite_res.data['invitation_id']
+
+        self.client.force_authenticate(user=self.user2)
+        accept_res = self.client.post(f'/api/schedules/session-invitations/{invitation_id}/accept/')
+        self.assertEqual(accept_res.status_code, status.HTTP_200_OK)
+
+        self.assertTrue(SessionParticipant.objects.filter(session=self.session, user=self.user2).exists())
+
+        inv = SessionInvitation.objects.get(id=invitation_id)
+        self.assertEqual(inv.status, 'accepted')
+        self.assertIsNotNone(inv.responded_at)
+
+    def test_session_invitation_decline_does_not_create_participant(self):
+        """セッション招待の辞退では参加者が作成されない"""
+        self.client.force_authenticate(user=self.user1)
+        invite_res = self.client.post(
+            f'/api/schedules/sessions/{self.session.id}/invite/',
+            {'user_id': self.user2.id},
+            format='json'
+        )
+        invitation_id = invite_res.data['invitation_id']
+
+        self.client.force_authenticate(user=self.user2)
+        decline_res = self.client.post(f'/api/schedules/session-invitations/{invitation_id}/decline/')
+        self.assertEqual(decline_res.status_code, status.HTTP_200_OK)
+
+        self.assertFalse(SessionParticipant.objects.filter(session=self.session, user=self.user2).exists())
+
+        inv = SessionInvitation.objects.get(id=invitation_id)
+        self.assertEqual(inv.status, 'declined')
+        self.assertIsNotNone(inv.responded_at)
+
+    def test_session_invitation_accept_expired_rejected(self):
+        """期限切れの招待は受諾できない"""
+        invitation = SessionInvitation.objects.create(
+            session=self.session,
+            inviter=self.user1,
+            invitee=self.user2,
+            status='pending',
+        )
+        invitation.created_at = timezone.now() - timedelta(days=invitation.INVITATION_EXPIRY_DAYS + 1)
+        invitation.save(update_fields=['created_at'])
+
+        self.client.force_authenticate(user=self.user2)
+        res = self.client.post(f'/api/schedules/session-invitations/{invitation.id}/accept/')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+        invitation.refresh_from_db()
+        self.assertEqual(invitation.status, 'expired')
+
+    def test_session_invitation_only_invitee_can_accept(self):
+        """招待は被招待者のみ受諾できる"""
+        self.client.force_authenticate(user=self.user1)
+        invite_res = self.client.post(
+            f'/api/schedules/sessions/{self.session.id}/invite/',
+            {'user_id': self.user2.id},
+            format='json'
+        )
+        invitation_id = invite_res.data['invitation_id']
+
+        user3 = User.objects.create_user(
+            username='member3',
+            email='member3@example.com',
+            password='pass123',
+            nickname='Member3'
+        )
+        self.client.force_authenticate(user=user3)
+        res = self.client.post(f'/api/schedules/session-invitations/{invitation_id}/accept/')
+        self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_private_session_invitation_accept_allowed(self):
+        """プライベートセッションは招待受諾で参加できる"""
+        self.session.visibility = 'private'
+        self.session.save(update_fields=['visibility'])
+
+        self.client.force_authenticate(user=self.user1)
+        invite_res = self.client.post(
+            f'/api/schedules/sessions/{self.session.id}/invite/',
+            {'user_id': self.user2.id},
+            format='json'
+        )
+        invitation_id = invite_res.data['invitation_id']
+
+        self.client.force_authenticate(user=self.user2)
+        accept_res = self.client.post(f'/api/schedules/session-invitations/{invitation_id}/accept/')
+        self.assertEqual(accept_res.status_code, status.HTTP_200_OK)
+        self.assertTrue(SessionParticipant.objects.filter(session=self.session, user=self.user2).exists())

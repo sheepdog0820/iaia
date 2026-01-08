@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from .models import (
     TRPGSession,
     SessionParticipant,
+    SessionInvitation,
     SessionNote,
     SessionLog,
     HandoutInfo,
@@ -20,6 +21,7 @@ from .models import (
 from .serializers import (
     TRPGSessionSerializer,
     SessionParticipantSerializer,
+    SessionInvitationSerializer,
     SessionNoteSerializer,
     SessionLogSerializer,
     HandoutInfoSerializer,
@@ -390,23 +392,44 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                 {'error': 'User is already a participant'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # 通知送信
-        notification_service = SessionNotificationService()
-        success = notification_service.send_session_invitation_notification(
-            session, request.user, invitee
+
+        message = (request.data.get('message') or '').strip()
+
+        invitation, created = SessionInvitation.objects.get_or_create(
+            session=session,
+            invitee=invitee,
+            defaults={
+                'inviter': request.user,
+                'status': 'pending',
+                'message': message,
+            }
         )
-        
-        if success:
-            return Response({
-                'status': 'success',
-                'message': f'Invitation sent to {invitee.nickname or invitee.username}'
-            })
-        else:
-            return Response(
-                {'error': 'Failed to send invitation'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+
+        if not created:
+            invitation.inviter = request.user
+            invitation.status = 'pending'
+            invitation.message = message
+            invitation.created_at = timezone.now()
+            invitation.responded_at = None
+            invitation.save(update_fields=[
+                'inviter',
+                'status',
+                'message',
+                'created_at',
+                'responded_at',
+            ])
+
+        notification_service = SessionNotificationService()
+        notification_sent = notification_service.send_session_invitation_notification(
+            session, request.user, invitee, invitation_id=invitation.id
+        )
+
+        return Response({
+            'status': 'success',
+            'invitation_id': invitation.id,
+            'notification_sent': bool(notification_sent),
+            'message': f'Invitation created for {invitee.nickname or invitee.username}'
+        })
     
     @action(detail=True, methods=['post'])
     def assign_player(self, request, pk=None):
@@ -529,6 +552,97 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         })
 
 
+class SessionInvitationViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = SessionInvitationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = SessionInvitation.objects.filter(
+            invitee=self.request.user
+        ).select_related(
+            'session',
+            'session__group',
+            'inviter',
+        )
+
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+
+        return queryset.order_by('-created_at')
+
+    @action(detail=True, methods=['post'])
+    def accept(self, request, pk=None):
+        invitation = self.get_object()
+
+        if invitation.is_expired:
+            invitation.mark_expired()
+            return Response(
+                {'error': '招待の期限が切れています'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if invitation.status == 'accepted':
+            participant = SessionParticipant.objects.filter(
+                session=invitation.session,
+                user=request.user
+            ).first()
+            return Response({
+                'status': 'already_accepted',
+                'session_id': invitation.session.id,
+                'participant_id': participant.id if participant else None,
+            })
+
+        if invitation.status != 'pending':
+            return Response(
+                {'error': 'この招待は保留状態ではありません'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        participant, created = SessionParticipant.objects.get_or_create(
+            session=invitation.session,
+            user=request.user,
+            defaults={'role': 'player'}
+        )
+
+        invitation.status = 'accepted'
+        invitation.responded_at = timezone.now()
+        invitation.save(update_fields=['status', 'responded_at'])
+
+        return Response({
+            'status': 'success',
+            'session_id': invitation.session.id,
+            'participant_id': participant.id,
+            'already_participating': not created,
+        })
+
+    @action(detail=True, methods=['post'])
+    def decline(self, request, pk=None):
+        invitation = self.get_object()
+
+        if invitation.is_expired:
+            invitation.mark_expired()
+            return Response(
+                {'error': '招待の期限が切れています'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if invitation.status == 'declined':
+            return Response({'status': 'already_declined'})
+
+        if invitation.status != 'pending':
+            return Response(
+                {'error': 'この招待は保留状態ではありません'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        invitation.status = 'declined'
+        invitation.responded_at = timezone.now()
+        invitation.save(update_fields=['status', 'responded_at'])
+
+        return Response({'status': 'success'})
+
+
 class SessionParticipantViewSet(viewsets.ModelViewSet):
     serializer_class = SessionParticipantSerializer
     permission_classes = [IsAuthenticated]
@@ -626,6 +740,13 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
         if role not in ['player', 'gm']:
             role = 'player'
 
+        # 権限昇格防止: メインGM以外は role='gm' を指定できない
+        if role == 'gm' and session.gm != request.user:
+            return Response(
+                {'error': 'Only main GM can assign GM role'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         serializer = self.get_serializer(data={
             'session': session.id,
             'user': target_user.id,
@@ -659,15 +780,46 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
             )
         
         # ステータス変更はGMのみ
-        if 'status' in request.data and not is_gm:
-            return Response(
-                {'error': 'Only GM can change participant status'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
         data = request.data.copy()
         if hasattr(data, 'dict'):
             data = data.dict()
+
+        # session/user の変更は禁止（データ改ざん防止）
+        for immutable_field in ['session', 'user']:
+            if immutable_field in data:
+                return Response(
+                    {'error': f'{immutable_field} cannot be changed'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # role 変更はメインGMのみ（権限昇格防止）
+        if 'role' in data and not is_main_gm:
+            return Response(
+                {'error': 'Only main GM can change participant role'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # プレイヤー枠の重複チェック（joinと同等）
+        if 'player_slot' in data:
+            raw_slot = data.get('player_slot')
+            slot_value = None
+            if raw_slot not in [None, '', 'null', 'None']:
+                try:
+                    slot_value = int(raw_slot)
+                except (TypeError, ValueError):
+                    slot_value = None
+
+            if slot_value:
+                existing_slot = SessionParticipant.objects.filter(
+                    session=instance.session,
+                    player_slot=slot_value
+                ).exclude(id=instance.id).exists()
+
+                if existing_slot:
+                    return Response(
+                        {'error': f'Player slot {slot_value} is already taken'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
         if 'character_sheet_id' in data and 'character_sheet' not in data:
             data['character_sheet'] = data.get('character_sheet_id')
             data.pop('character_sheet_id', None)
@@ -690,6 +842,37 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
         self.perform_update(serializer)
         
         return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        """参加者削除（本人の脱退 or GMによる除名のみ許可）"""
+        instance = self.get_object()
+
+        is_main_gm = instance.session.gm == request.user
+        is_co_gm = SessionParticipant.objects.filter(
+            session=instance.session,
+            user=request.user,
+            role='gm'
+        ).exists()
+
+        # 本人は自分の参加情報を削除できる（脱退）
+        if instance.user == request.user:
+            instance.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        # GM（メイン/協力）のみ他人を削除できる
+        if is_main_gm or is_co_gm:
+            if instance.user == instance.session.gm:
+                return Response(
+                    {'error': 'Cannot remove main GM'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            instance.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        return Response(
+            {'error': 'Only GM can remove other participants'},
+            status=status.HTTP_403_FORBIDDEN
+        )
 
 
 class HandoutInfoViewSet(viewsets.ModelViewSet):
@@ -1414,9 +1597,11 @@ class SessionDetailView(APIView):
         is_participant = participants.filter(user=user).exists()
         can_edit = is_gm
         can_join = (
-            not is_participant and 
-            session.status == 'planned' and 
-            (session.visibility != 'private' or session.group.members.filter(id=user.id).exists())
+            (not is_gm) and
+            (not is_participant) and
+            session.status == 'planned' and
+            session.visibility != 'private' and
+            (session.visibility != 'group' or session.group.members.filter(id=user.id).exists())
         )
         
         context = {

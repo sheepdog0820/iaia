@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import (
     TRPGSession,
     SessionParticipant,
+    SessionInvitation,
     SessionNote,
     SessionLog,
     HandoutInfo,
@@ -458,12 +459,12 @@ class HandoutNotificationSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'handout_id', 'recipient', 'sender', 
             'notification_type', 'notification_type_display',
-            'message', 'is_read', 'created_at', 'read_at',
+            'message', 'metadata', 'is_read', 'created_at', 'read_at',
             'handout_info', 'time_since_created'
         ]
         read_only_fields = [
             'id', 'handout_id', 'recipient', 'sender',
-            'notification_type', 'message', 'created_at'
+            'notification_type', 'message', 'metadata', 'created_at'
         ]
     
     def get_handout_info(self, obj):
@@ -503,6 +504,7 @@ class UserNotificationPreferencesSerializer(serializers.ModelSerializer):
         model = UserNotificationPreferences
         fields = [
             'id', 'user', 'handout_notifications_enabled',
+            'session_notifications_enabled', 'group_notifications_enabled',
             'email_notifications_enabled', 'browser_notifications_enabled',
             'created_at', 'updated_at'
         ]
@@ -510,14 +512,77 @@ class UserNotificationPreferencesSerializer(serializers.ModelSerializer):
     
     def validate(self, data):
         """通知設定のバリデーション"""
-        # 少なくとも一つの通知方法は有効にする必要がある
-        if not any([
-            data.get('handout_notifications_enabled', False),
-            data.get('email_notifications_enabled', False),
-            data.get('browser_notifications_enabled', False)
-        ]):
+        # 少なくとも一つの通知方法または通知種別を有効にする必要がある
+        current = {
+            'handout': data.get(
+                'handout_notifications_enabled',
+                getattr(self.instance, 'handout_notifications_enabled', False)
+            ),
+            'session': data.get(
+                'session_notifications_enabled',
+                getattr(self.instance, 'session_notifications_enabled', False)
+            ),
+            'group': data.get(
+                'group_notifications_enabled',
+                getattr(self.instance, 'group_notifications_enabled', False)
+            ),
+            'email': data.get(
+                'email_notifications_enabled',
+                getattr(self.instance, 'email_notifications_enabled', False)
+            ),
+            'browser': data.get(
+                'browser_notifications_enabled',
+                getattr(self.instance, 'browser_notifications_enabled', False)
+            ),
+        }
+
+        if not any(current.values()):
             raise serializers.ValidationError(
                 "少なくとも一つの通知方法を有効にしてください"
             )
         
         return data
+
+
+class SessionInvitationSerializer(serializers.ModelSerializer):
+    """セッション招待シリアライザー（一覧表示＋受諾/辞退導線用）"""
+
+    inviter = UserBasicSerializer(read_only=True)
+    session_id = serializers.IntegerField(source='session.id', read_only=True)
+    session_title = serializers.CharField(source='session.title', read_only=True)
+    session_date = serializers.DateTimeField(source='session.date', read_only=True)
+    session_visibility = serializers.CharField(source='session.visibility', read_only=True)
+    session_group = serializers.SerializerMethodField()
+    expires_at = serializers.SerializerMethodField()
+    is_expired = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SessionInvitation
+        fields = [
+            'id',
+            'session_id',
+            'session_title',
+            'session_date',
+            'session_visibility',
+            'session_group',
+            'inviter',
+            'status',
+            'message',
+            'created_at',
+            'responded_at',
+            'expires_at',
+            'is_expired',
+        ]
+        read_only_fields = fields
+
+    def get_session_group(self, obj):
+        group = getattr(obj.session, 'group', None)
+        if not group:
+            return None
+        return {'id': group.id, 'name': group.name}
+
+    def get_expires_at(self, obj):
+        return obj.expires_at.isoformat() if obj.expires_at else None
+
+    def get_is_expired(self, obj):
+        return obj.is_expired

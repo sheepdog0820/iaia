@@ -586,6 +586,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const members = membersResponse.data;
             const isAdmin = group.member_role === 'admin';
             const isMember = group.is_member;
+            const adminCount = members.filter(member => member.role === 'admin').length;
             let actionButtons = '';
 
             if (isAdmin) {
@@ -623,9 +624,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const membersHtml = members.map(member => {
                 const displayName = member.user_detail.nickname || member.user_detail.username;
                 const joinedDate = new Date(member.joined_at).toLocaleDateString('ja-JP');
-                const canRemove = isAdmin &&
-                    member.user !== group.created_by &&
-                    member.user !== window.CURRENT_USER.id;
+                const isCreator = member.user === group.created_by;
+                const isSelf = member.user === window.CURRENT_USER.id;
+                const canRemove = isAdmin && !isCreator && !isSelf;
+                const targetRole = member.role === 'admin' ? 'member' : 'admin';
+                const canToggleRole = isAdmin && !isCreator && !isSelf && !(member.role === 'admin' && adminCount <= 1);
                 return `
                     <div class="member-item">
                         <div>
@@ -634,6 +637,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="d-flex align-items-center gap-2">
                             <small class="text-muted">参加: ${joinedDate}</small>
+                            ${canToggleRole ? `
+                                <button class="btn btn-sm btn-outline-secondary" onclick="setMemberRole(${member.user}, '${targetRole}')">
+                                    ${targetRole === 'admin' ? '管理者にする' : '管理者解除'}
+                                </button>
+                            ` : ''}
                             ${canRemove ? `
                                 <button class="btn btn-sm btn-outline-danger" onclick="removeMember(${member.user})">
                                     除名
@@ -906,6 +914,31 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     // メンバー除名
+    window.setMemberRole = async function(userId, role) {
+        if (!currentGroupId) {
+            ARKHAM.showError('グループが選択されていません');
+            return;
+        }
+
+        const roleLabel = role === 'admin' ? '管理者' : 'メンバー';
+        if (!confirm(`このメンバーの権限を「${roleLabel}」に変更しますか？`)) {
+            return;
+        }
+
+        try {
+            const response = await axios.post(`/api/accounts/groups/${currentGroupId}/set_member_role/`, {
+                user_id: userId,
+                role: role
+            });
+            ARKHAM.showSuccess(response.data.message || 'メンバー権限を更新しました');
+            showGroupDetail(currentGroupId);
+            loadGroups(currentViewType);
+        } catch (error) {
+            console.error('Error updating member role:', error);
+            ARKHAM.handleError(error);
+        }
+    };
+
     window.removeMember = async function(userId) {
         if (!currentGroupId) {
             ARKHAM.showError('グループが選択されていません');

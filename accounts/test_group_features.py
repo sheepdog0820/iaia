@@ -8,6 +8,7 @@ from rest_framework import status
 
 from accounts.models import Group, GroupMembership, GroupInvitation
 from accounts.character_models import CharacterSheet
+from schedules.models import HandoutNotification, UserNotificationPreferences
 
 
 User = get_user_model()
@@ -147,6 +148,172 @@ class GroupInvitationFlowAPITestCase(APITestCase):
         response = self.client.get('/api/accounts/invitations/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data[0]['status'], 'expired')
+
+
+class GroupInvitationNotificationTestCase(APITestCase):
+    """グループ招待時の通知生成テスト"""
+
+    def setUp(self):
+        self.inviter = User.objects.create_user(
+            username='inviter_notify',
+            email='inviter_notify@example.com',
+            password='pass123',
+            nickname='InviterNotify'
+        )
+        self.invitee = User.objects.create_user(
+            username='invitee_notify',
+            email='invitee_notify@example.com',
+            password='pass123',
+            nickname='InviteeNotify'
+        )
+        self.group = Group.objects.create(
+            name='Notify Group',
+            visibility='private',
+            created_by=self.inviter
+        )
+        GroupMembership.objects.create(user=self.inviter, group=self.group, role='admin')
+        self.client.force_authenticate(user=self.inviter)
+
+    def test_notification_created_on_invite(self):
+        response = self.client.post(
+            f'/api/accounts/groups/{self.group.id}/invite/',
+            {'user_id': self.invitee.id},
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        notification = HandoutNotification.objects.filter(
+            recipient=self.invitee,
+            notification_type='group_invitation'
+        ).first()
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.sender, self.inviter)
+        self.assertEqual(notification.metadata.get('group_id'), self.group.id)
+        self.assertEqual(notification.metadata.get('group_name'), self.group.name)
+
+    def test_notification_respects_user_preferences(self):
+        prefs = UserNotificationPreferences.get_or_create_for_user(self.invitee)
+        prefs.group_notifications_enabled = False
+        prefs.save()
+
+        response = self.client.post(
+            f'/api/accounts/groups/{self.group.id}/invite/',
+            {'user_id': self.invitee.id},
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(
+            HandoutNotification.objects.filter(
+                recipient=self.invitee,
+                notification_type='group_invitation'
+            ).exists()
+        )
+
+
+class GroupMemberRoleManagementTestCase(APITestCase):
+    """グループのメンバー権限（管理者/メンバー）変更テスト"""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            username='role_owner',
+            email='role_owner@example.com',
+            password='pass123',
+            nickname='RoleOwner'
+        )
+        self.member = User.objects.create_user(
+            username='role_member',
+            email='role_member@example.com',
+            password='pass123',
+            nickname='RoleMember'
+        )
+
+        self.group = Group.objects.create(
+            name='Role Group',
+            visibility='private',
+            created_by=self.owner
+        )
+        GroupMembership.objects.create(user=self.owner, group=self.group, role='admin')
+        GroupMembership.objects.create(user=self.member, group=self.group, role='member')
+
+    def test_admin_can_promote_and_demote_member(self):
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.post(
+            f'/api/accounts/groups/{self.group.id}/set_member_role/',
+            {'user_id': self.member.id, 'role': 'admin'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(
+            GroupMembership.objects.filter(group=self.group, user=self.member, role='admin').exists()
+        )
+
+        response = self.client.post(
+            f'/api/accounts/groups/{self.group.id}/set_member_role/',
+            {'user_id': self.member.id, 'role': 'member'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(
+            GroupMembership.objects.filter(group=self.group, user=self.member, role='member').exists()
+        )
+
+    def test_non_admin_cannot_change_roles(self):
+        self.client.force_authenticate(user=self.member)
+        response = self.client.post(
+            f'/api/accounts/groups/{self.group.id}/set_member_role/',
+            {'user_id': self.member.id, 'role': 'admin'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cannot_demote_creator(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(
+            f'/api/accounts/groups/{self.group.id}/set_member_role/',
+            {'user_id': self.owner.id, 'role': 'member'},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class GroupLeaveSafetyTestCase(APITestCase):
+    """退出時の安全対策（作成者/管理者）テスト"""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            username='leave_owner',
+            email='leave_owner@example.com',
+            password='pass123',
+            nickname='LeaveOwner'
+        )
+        self.member = User.objects.create_user(
+            username='leave_member',
+            email='leave_member@example.com',
+            password='pass123',
+            nickname='LeaveMember'
+        )
+
+        self.group = Group.objects.create(
+            name='Leave Group',
+            visibility='private',
+            created_by=self.owner
+        )
+        GroupMembership.objects.create(user=self.owner, group=self.group, role='admin')
+        GroupMembership.objects.create(user=self.member, group=self.group, role='member')
+
+    def test_creator_cannot_leave(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(f'/api/accounts/groups/{self.group.id}/leave/', format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(GroupMembership.objects.filter(group=self.group, user=self.owner).exists())
+
+    def test_member_can_leave(self):
+        self.client.force_authenticate(user=self.member)
+        response = self.client.post(f'/api/accounts/groups/{self.group.id}/leave/', format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(GroupMembership.objects.filter(group=self.group, user=self.member).exists())
 
 
 class GroupMemberCharactersAPITestCase(APITestCase):

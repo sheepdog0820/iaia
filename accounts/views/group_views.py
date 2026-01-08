@@ -4,6 +4,7 @@ Group management views
 from .common_imports import *
 from .base_views import PermissionMixin
 from .mixins import GroupAccessMixin, ErrorHandlerMixin
+from schedules.notifications import GroupNotificationService
 
 
 class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewsets.ModelViewSet):
@@ -26,7 +27,7 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
         action = getattr(self, 'action', None)
         
         # 管理者のみアクセス可能なアクション
-        admin_only_actions = ['update', 'partial_update', 'destroy', 'invite', 'remove_member']
+        admin_only_actions = ['update', 'partial_update', 'destroy', 'invite', 'remove_member', 'set_member_role']
         if action in admin_only_actions:
             self.check_admin_permission(obj, self.request.user)
         
@@ -93,7 +94,10 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
             role='member'
         )
         
-        return Response({'success': True}, status=status.HTTP_201_CREATED)
+        return Response(
+            {'success': True, 'message': 'グループに参加しました'},
+            status=status.HTTP_201_CREATED
+        )
     
     @action(detail=False, methods=['get'])
     def all_groups(self, request):
@@ -185,6 +189,7 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
     def invite(self, request, pk=None):
         """Invite user to group (admin only)"""
         group = self.get_object()
+        notification_service = GroupNotificationService()
         
         try:
             GroupInvitation.expire_pending()
@@ -229,6 +234,14 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
                         )
 
                     invitations.append(invitation)
+
+                    # Send notification (best-effort; does not block invite flow)
+                    notification_service.send_group_invitation_notification(
+                        group=group,
+                        inviter=request.user,
+                        invitee=invitee,
+                        invitation_message=message
+                    )
 
                 serializer = GroupInvitationSerializer(invitations, many=True)
                 return Response(
@@ -275,6 +288,14 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
                     message=message
                 )
 
+            # Send notification for single invite
+            notification_service.send_group_invitation_notification(
+                group=group,
+                inviter=request.user,
+                invitee=invitee,
+                invitation_message=message
+            )
+
             serializer = GroupInvitationSerializer(invitation)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
             
@@ -291,14 +312,92 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
         
         try:
             membership = GroupMembership.objects.get(user=request.user, group=group)
+
+            # 作成者が退出するとグループが管理不能になりやすいので禁止
+            if request.user == group.created_by:
+                return Response(
+                    {'error': 'グループ作成者は退出できません（削除するか、別の管理者へ移譲してください）'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # 最後の管理者は退出できない（管理不能防止）
+            if membership.role == 'admin':
+                admin_count = GroupMembership.objects.filter(group=group, role='admin').count()
+                if admin_count <= 1:
+                    return Response(
+                        {'error': '最後の管理者は退出できません（他のメンバーを管理者にしてから退出してください）'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
             membership.delete()
-            return Response({'success': True}, status=status.HTTP_200_OK)
+            return Response(
+                {'success': True, 'message': 'グループから退出しました'},
+                status=status.HTTP_200_OK
+            )
         except GroupMembership.DoesNotExist:
             return Response(
                 {'error': 'メンバーではありません'},
                 status=status.HTTP_400_BAD_REQUEST
             )
     
+    @action(detail=True, methods=['post'])
+    def set_member_role(self, request, pk=None):
+        """Set member role (admin only)"""
+        group = self.get_object()
+
+        user_id = request.data.get('user_id')
+        role = request.data.get('role')
+
+        if not user_id or not role:
+            return Response(
+                {'error': 'user_id and role are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if role not in ['admin', 'member']:
+            return Response(
+                {'error': 'role must be admin or member'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            membership = GroupMembership.objects.get(group=group, user_id=user_id)
+        except GroupMembership.DoesNotExist:
+            return Response(
+                {'error': 'Member not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # 作成者は常に管理者（安全対策）
+        if membership.user == group.created_by and role != 'admin':
+            return Response(
+                {'error': 'グループ作成者の管理者権限は解除できません'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if membership.role == role:
+            return Response(
+                {'success': True, 'message': '変更はありません'},
+                status=status.HTTP_200_OK
+            )
+
+        # 最後の管理者の権限は解除できない（管理不能防止）
+        if membership.role == 'admin' and role == 'member':
+            admin_count = GroupMembership.objects.filter(group=group, role='admin').count()
+            if admin_count <= 1:
+                return Response(
+                    {'error': '最後の管理者の権限は解除できません'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        membership.role = role
+        membership.save(update_fields=['role'])
+
+        return Response(
+            {'success': True, 'message': 'メンバー権限を更新しました'},
+            status=status.HTTP_200_OK
+        )
+
     @action(detail=True, methods=['delete'])
     def remove_member(self, request, pk=None):
         """Remove member from group (admin only)"""
