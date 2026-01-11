@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "description": "Tableno - TRPG Session Management System",
   "scripts": {
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:debug": "playwright test --debug",
-    "test:e2e:headed": "playwright test --headed",
-    "test:e2e:report": "playwright show-report",
-    "test:e2e:codegen": "playwright codegen http://localhost:8000"
+    "test:e2e": "node ./node_modules/playwright/cli.js test",
+    "test:e2e:ui": "node ./node_modules/playwright/cli.js test --ui",
+    "test:e2e:debug": "node ./node_modules/playwright/cli.js test --debug",
+    "test:e2e:headed": "node ./node_modules/playwright/cli.js test --headed",
+    "test:e2e:report": "node ./node_modules/playwright/cli.js show-report",
+    "test:e2e:codegen": "node ./node_modules/playwright/cli.js codegen http://localhost:8000"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.1"

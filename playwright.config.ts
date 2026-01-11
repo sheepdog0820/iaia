@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
+
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
@@ -78,9 +80,13 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'python3 manage.py runserver --noreload',
+    command: `${pythonCommand} manage.py migrate && ${pythonCommand} manage.py runserver --noreload`,
     url: 'http://localhost:8000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
+    env: {
+      ...process.env,
+      ENV_FILE: process.env.ENV_FILE ?? '.env',
+    },
   },
 });

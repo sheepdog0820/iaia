@@ -35,6 +35,13 @@
                             data-share-url="{{ public_session_url }}">
                         <i class="fas fa-link"></i> リンクをコピー
                     </button>
+                    {% if is_gm and session.status == 'planned' %}
+                        <button class="btn btn-warning"
+                                type="button"
+                                id="startSessionBtn">
+                            <i class="fas fa-play"></i> セッション開始
+                        </button>
+                    {% endif %}
                     {% if session.scenario %}
                         {% if is_participant or can_join or is_gm %}
                             <button class="btn btn-outline-success"
@@ -1283,6 +1290,25 @@ async function updateSession() {
     }
 }
 
+async function startSession() {
+    if (!confirm('セッションを開始しますか？')) return;
+
+    try {
+        await axios.patch(`/api/schedules/sessions/{{ session.id }}/`, { status: 'ongoing' });
+        alert('セッションを開始しました');
+        location.reload();
+    } catch (error) {
+        alert('開始に失敗しました: ' + (error.response?.data?.detail || error.message));
+    }
+}
+
+function setupSessionLifecycleButtons() {
+    const startButton = document.getElementById('startSessionBtn');
+    if (startButton) {
+        startButton.addEventListener('click', startSession);
+    }
+}
+
 function escapeHtml(value) {
     if (value === null || value === undefined) return '';
     return String(value)
@@ -1828,6 +1854,7 @@ async function removeParticipant(participantId) {
 
 document.addEventListener('DOMContentLoaded', () => {
     setupCopyPublicSessionLinkButton();
+    setupSessionLifecycleButtons();
 
     if (IS_PUBLIC_VIEW) return;
 
