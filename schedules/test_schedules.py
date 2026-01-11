@@ -532,6 +532,8 @@ class PublicSessionLinkTestCase(APITestCase):
             name='Share Test Group',
             created_by=self.gm
         )
+        self.group.description = 'PUBLIC_VIEW_SHOULD_NOT_SHOW_THIS'
+        self.group.save(update_fields=['description'])
         self.group.members.add(self.gm, self.player)
 
         self.session = TRPGSession.objects.create(
@@ -554,6 +556,10 @@ class PublicSessionLinkTestCase(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertContains(response, self.session.title)
+        self.assertContains(response, self.group.name)
+        self.assertNotContains(response, self.group.description)
+        self.assertContains(response, self.player.nickname)
+        self.assertNotContains(response, 'alt="プロフィール"')
 
     def test_public_session_detail_invalid_token_404(self):
         url = reverse('public_session_detail', kwargs={'share_token': uuid.uuid4()})

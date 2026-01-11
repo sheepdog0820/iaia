@@ -253,6 +253,34 @@
             {% endif %}
 
             <!-- 参加者一覧 -->
+            {% if is_public_view %}
+            <div class="card mb-4">
+                <div class="card-header bg-info">
+                    <h5 class="mb-0">
+                        <i class="fas fa-users"></i> 参加者 ({{ participants.count }}人)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <span class="badge bg-primary">GM</span>
+                        <span class="ms-2">{{ session.gm.nickname|default:session.gm.username }}</span>
+                    </div>
+
+                    <div class="small text-muted mb-2">PL</div>
+                    {% if participants %}
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for participant in participants %}
+                                {% if participant.role != 'gm' %}
+                                    <span class="badge bg-secondary">{{ participant.user.nickname|default:participant.user.username }}</span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">参加者がいません</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
             <div class="card mb-4">
                 <div class="card-header bg-info">
                     <h5 class="mb-0">
@@ -329,6 +357,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
 
             {% if is_participant or is_gm %}
             <!-- キャラクターステータス（参照のみ） -->
@@ -421,8 +450,10 @@
                 </div>
                 <div class="card-body">
                     <h6>{{ session.group.name }}</h6>
-                    {% if session.group.description %}
-                        <p class="text-muted small">{{ session.group.description|truncatechars:100 }}</p>
+                    {% if not is_public_view %}
+                        {% if session.group.description %}
+                            <p class="text-muted small">{{ session.group.description|truncatechars:100 }}</p>
+                        {% endif %}
                     {% endif %}
                     <p class="mb-0">
                         <i class="fas fa-user"></i> メンバー: {{ session.group.members.count }}人
