@@ -138,11 +138,9 @@
                             </div>
                         {% endif %}
                         <h5>{{ user.nickname|default:user.username }}</h5>
-                        {% if user.email %}
-                            <p class="text-muted">{{ user.email }}</p>
-                        {% else %}
-                            <p class="text-muted">メール未登録</p>
-                        {% endif %}
+                        <p class="text-muted small mb-0">
+                            メールアドレスはセキュリティのため表示しません（管理はプロフィールから行えます）
+                        </p>
                     </div>
 
                     <div class="profile-details">
