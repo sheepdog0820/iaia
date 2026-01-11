@@ -60,6 +60,8 @@ class SessionYouTubeLinkModelTestCase(TestCase):
             ('https://youtu.be/dQw4w9WgXcQ', 'dQw4w9WgXcQ'),
             ('https://youtube.com/watch?v=dQw4w9WgXcQ&feature=share', 'dQw4w9WgXcQ'),
             ('https://www.youtube.com/embed/dQw4w9WgXcQ', 'dQw4w9WgXcQ'),
+            ('https://www.youtube.com/live/dQw4w9WgXcQ?feature=share', 'dQw4w9WgXcQ'),
+            ('https://www.youtube.com/shorts/dQw4w9WgXcQ', 'dQw4w9WgXcQ'),
         ]
         
         for url, expected_id in urls:
@@ -256,7 +258,9 @@ class SessionYouTubeLinkAPITestCase(APITestCase):
         
         data = {
             'youtube_url': 'https://www.youtube.com/watch?v=test123',
-            'description': 'セッションのハイライト'
+            'description': 'セッションのハイライト',
+            'perspective': 'GM視点',
+            'part_number': 1,
         }
         
         response = self.client.post(
@@ -271,6 +275,8 @@ class SessionYouTubeLinkAPITestCase(APITestCase):
         self.assertEqual(response.data['duration_seconds'], 213)
         self.assertEqual(response.data['duration_display'], '3:33')
         self.assertEqual(response.data['description'], 'セッションのハイライト')
+        self.assertEqual(response.data['perspective'], 'GM視点')
+        self.assertEqual(response.data['part_number'], 1)
         self.assertEqual(response.data['added_by'], self.gm.id)
     
     @patch('schedules.services.YouTubeService.fetch_video_info')
@@ -287,7 +293,9 @@ class SessionYouTubeLinkAPITestCase(APITestCase):
         
         data = {
             'youtube_url': 'https://youtu.be/player123',
-            'description': 'プレイヤー視点の動画'
+            'description': 'プレイヤー視点の動画',
+            'perspective': 'PL1視点',
+            'part_number': 2,
         }
         
         response = self.client.post(
@@ -299,6 +307,29 @@ class SessionYouTubeLinkAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['video_id'], 'player123')
         self.assertEqual(response.data['added_by'], self.player1.id)
+        self.assertEqual(response.data['perspective'], 'PL1視点')
+        self.assertEqual(response.data['part_number'], 2)
+
+    @patch('schedules.services.YouTubeService.fetch_video_info')
+    def test_part_number_validation(self, mock_fetch):
+        """パート番号は1以上でなければならない"""
+        self.client.force_authenticate(user=self.gm)
+
+        mock_fetch.return_value = {
+            'title': 'Test Video Title',
+            'channel_name': 'Test Channel',
+            'thumbnail_url': 'https://i.ytimg.com/vi/test/maxresdefault.jpg',
+            'duration': 213
+        }
+
+        response = self.client.post(
+            f'/api/schedules/sessions/{self.session.id}/youtube-links/',
+            {'youtube_url': 'https://www.youtube.com/watch?v=part0', 'part_number': 0},
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('part_number', response.data)
     
     def test_non_participant_cannot_add_youtube_link(self):
         """非参加者はYouTube動画を追加できない"""

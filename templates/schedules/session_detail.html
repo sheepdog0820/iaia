@@ -153,6 +153,99 @@
                 </div>
             </div>
 
+            {% if is_participant or is_gm %}
+            <!-- YouTube動画リンク（複数） -->
+            <div class="card mb-4" id="youtubeLinksCard">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fab fa-youtube"></i> YouTube動画リンク
+                        <small class="ms-2 text-white-50" id="youtubeLinksHeaderSummary"></small>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="youtubeLinksMessages"></div>
+
+                    <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                        <div class="badge bg-secondary" id="youtubeLinksCountBadge">読み込み中...</div>
+                        <div class="badge bg-dark" id="youtubeLinksTotalDurationBadge"></div>
+                    </div>
+
+                    <div id="youtubeLinksContainer">
+                        <div class="text-center py-3">
+                            <div class="spinner-border text-danger" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="accordion" id="youtubeLinksAddAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="youtubeLinksAddHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#youtubeLinksAddCollapse" aria-expanded="false" aria-controls="youtubeLinksAddCollapse">
+                                    <i class="fas fa-plus me-2"></i> YouTubeリンクを追加
+                                </button>
+                            </h2>
+                            <div id="youtubeLinksAddCollapse" class="accordion-collapse collapse" aria-labelledby="youtubeLinksAddHeading" data-bs-parent="#youtubeLinksAddAccordion">
+                                <div class="accordion-body">
+                                    <form id="youtubeLinkAddForm" class="mb-4">
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label for="youtube_link_perspective" class="form-label">視点（任意）</label>
+                                                <input type="text" class="form-control" id="youtube_link_perspective" placeholder="例: GM視点 / PL1視点 / 全体">
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label for="youtube_link_part_number" class="form-label">パート番号（任意）</label>
+                                                <input type="number" class="form-control" id="youtube_link_part_number" min="1" step="1" placeholder="例: 1">
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="youtube_link_url" class="form-label">YouTube URL</label>
+                                            <input type="url" class="form-control" id="youtube_link_url" required placeholder="https://www.youtube.com/watch?v=...">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="youtube_link_description" class="form-label">備考（任意）</label>
+                                            <textarea class="form-control" id="youtube_link_description" rows="2" placeholder="この動画についてのメモ"></textarea>
+                                        </div>
+                                        <button type="submit" class="btn btn-danger" id="youtubeLinkAddBtn">
+                                            <i class="fas fa-save"></i> 追加
+                                        </button>
+                                    </form>
+
+                                    <h6 class="mb-3"><i class="fas fa-layer-group"></i> 分割動画をまとめて追加</h6>
+                                    <form id="youtubeLinkBulkAddForm">
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label for="youtube_bulk_perspective" class="form-label">視点（任意）</label>
+                                                <input type="text" class="form-control" id="youtube_bulk_perspective" placeholder="例: GM視点 / PL1視点 / 全体">
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label for="youtube_bulk_start_part" class="form-label">開始パート番号（任意）</label>
+                                                <input type="number" class="form-control" id="youtube_bulk_start_part" min="1" step="1" placeholder="例: 1">
+                                                <div class="form-text">指定すると、上から順にパート番号を自動で付与します</div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="youtube_bulk_urls" class="form-label">YouTube URL（複数可）</label>
+                                            <textarea class="form-control" id="youtube_bulk_urls" rows="4" placeholder="1行に1URL（または空白区切りでもOK）" required></textarea>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="youtube_bulk_description" class="form-label">備考（任意）</label>
+                                            <textarea class="form-control" id="youtube_bulk_description" rows="2" placeholder="全ての動画に同じ備考を付けます（必要なら後で編集）"></textarea>
+                                        </div>
+                                        <button type="submit" class="btn btn-outline-danger" id="youtubeLinkBulkAddBtn">
+                                            <i class="fas fa-upload"></i> まとめて追加
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- 参加者一覧 -->
             <div class="card mb-4">
                 <div class="card-header bg-info">
@@ -665,6 +758,49 @@
     </div>
 </div>
 {% endif %}
+
+{% if is_participant or is_gm %}
+<!-- YouTubeリンク編集モーダル -->
+<div class="modal fade" id="editYouTubeLinkModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fab fa-youtube"></i> YouTubeリンク編集</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit_youtube_link_id">
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="edit_youtube_link_perspective" class="form-label">視点（任意）</label>
+                        <input type="text" class="form-control" id="edit_youtube_link_perspective" placeholder="例: GM視点 / PL1視点 / 全体">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="edit_youtube_link_part_number" class="form-label">パート番号（任意）</label>
+                        <input type="number" class="form-control" id="edit_youtube_link_part_number" min="1" step="1" placeholder="例: 1">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="edit_youtube_link_description" class="form-label">備考（任意）</label>
+                    <textarea class="form-control" id="edit_youtube_link_description" rows="3"></textarea>
+                </div>
+
+                <div class="form-text">
+                    タイトル/時間/サムネはYouTubeから自動取得されます。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-danger" id="saveYouTubeLinkBtn" onclick="saveYouTubeLinkEdits()">
+                    <i class="fas fa-save"></i> 保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_css %}
@@ -694,9 +830,30 @@
     color: white !important;
 }
 
+.card-header.bg-danger {
+    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important;
+    color: white !important;
+}
+
 .badge.fs-6 {
     font-size: 1rem !important;
     padding: 0.5em 0.75em;
+}
+
+.youtube-link-item {
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+}
+
+.youtube-link-thumb {
+    width: 140px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.youtube-link-description {
+    white-space: pre-wrap;
 }
 
 .breadcrumb {
@@ -932,6 +1089,9 @@ let characterSheets = [];
 const characterSheetMap = new Map();
 let groupMemberCharacters = new Map();
 let groupMemberNames = new Map();
+const SESSION_ID = {{ session.id }};
+const IS_GM = {% if is_gm %}true{% else %}false{% endif %};
+const youtubeLinkMap = new Map();
 
 function safeSetScenarioStorage(key, value) {
     try {
@@ -1051,6 +1211,392 @@ async function updateSession() {
         location.reload();
     } catch (error) {
         alert('更新に失敗しました: ' + (error.response?.data?.detail || error.message));
+    }
+}
+
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function formatDurationSeconds(seconds) {
+    const total = Number(seconds) || 0;
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const secs = total % 60;
+
+    if (hours > 0) {
+        return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+    return `${minutes}:${String(secs).padStart(2, '0')}`;
+}
+
+function showYouTubeLinksMessage(message, type = 'info') {
+    const container = document.getElementById('youtubeLinksMessages');
+    if (!container) return;
+    const safeMessage = escapeHtml(message);
+    container.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${safeMessage}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+}
+
+function buildYouTubeGroupKey(link) {
+    const perspective = (link?.perspective || '').trim();
+    return perspective || '（視点未設定）';
+}
+
+function canManageYouTubeLink(link) {
+    const currentUserId = window.CURRENT_USER?.id;
+    if (IS_GM) return true;
+    if (!currentUserId) return false;
+    return Number(link?.added_by) === Number(currentUserId);
+}
+
+function renderYouTubeLinks(links) {
+    const container = document.getElementById('youtubeLinksContainer');
+    if (!container) return;
+
+    youtubeLinkMap.clear();
+    (links || []).forEach(link => {
+        if (link?.id !== undefined && link?.id !== null) {
+            youtubeLinkMap.set(String(link.id), link);
+        }
+    });
+
+    if (!links || links.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center mb-0">YouTubeリンクがありません</p>';
+        return;
+    }
+
+    // グループ順: 最小order順（なければ作成順）
+    const groupsMap = new Map();
+    for (const link of links) {
+        const key = buildYouTubeGroupKey(link);
+        if (!groupsMap.has(key)) {
+            groupsMap.set(key, []);
+        }
+        groupsMap.get(key).push(link);
+    }
+
+    const groups = Array.from(groupsMap.entries()).map(([key, groupLinks]) => {
+        const minOrder = Math.min(...groupLinks.map(l => Number(l.order) || Number.MAX_SAFE_INTEGER));
+        const totalDuration = groupLinks.reduce((sum, l) => sum + (Number(l.duration_seconds) || 0), 0);
+        return { key, links: groupLinks, minOrder, totalDuration };
+    }).sort((a, b) => (a.minOrder - b.minOrder) || a.key.localeCompare(b.key, 'ja'));
+
+    const html = groups.map(group => {
+        const sortedLinks = [...group.links].sort((a, b) => {
+            const partA = a.part_number === null || a.part_number === undefined ? Number.MAX_SAFE_INTEGER : Number(a.part_number);
+            const partB = b.part_number === null || b.part_number === undefined ? Number.MAX_SAFE_INTEGER : Number(b.part_number);
+            if (partA !== partB) return partA - partB;
+            const orderA = Number(a.order) || Number.MAX_SAFE_INTEGER;
+            const orderB = Number(b.order) || Number.MAX_SAFE_INTEGER;
+            if (orderA !== orderB) return orderA - orderB;
+            return Number(a.id) - Number(b.id);
+        });
+
+        const groupTitle = escapeHtml(group.key);
+        const groupMeta = `${sortedLinks.length}本 / 合計 ${formatDurationSeconds(group.totalDuration)}`;
+
+        const items = sortedLinks.map(link => {
+            const safeTitle = escapeHtml(link.title || '(タイトル未取得)');
+            const safeUrl = escapeHtml(link.youtube_url || '#');
+            const safeChannel = escapeHtml(link.channel_name || '');
+            const duration = escapeHtml(link.duration_display || formatDurationSeconds(link.duration_seconds));
+            const safeDescription = escapeHtml(link.description || '');
+            const safePerspective = escapeHtml((link.perspective || '').trim());
+            const partBadge = link.part_number ? `<span class="badge bg-dark">Part ${escapeHtml(link.part_number)}</span>` : '';
+            const perspectiveBadge = safePerspective ? `<span class="badge bg-secondary">${safePerspective}</span>` : '';
+
+            const thumbnailUrl = link.thumbnail_url || (link.video_id ? `https://i.ytimg.com/vi/${encodeURIComponent(link.video_id)}/hqdefault.jpg` : '');
+            const thumbnailHtml = thumbnailUrl
+                ? `<img src="${escapeHtml(thumbnailUrl)}" alt="thumbnail" class="youtube-link-thumb" loading="lazy">`
+                : `<div class="youtube-link-thumb" style="background-color: var(--card-bg);"></div>`;
+
+            const addedBy = link.added_by_detail?.nickname || link.added_by_detail?.username || '';
+            const safeAddedBy = escapeHtml(addedBy);
+
+            const manageButtons = canManageYouTubeLink(link) ? `
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-secondary" onclick="openEditYouTubeLinkModal(${link.id})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-danger" onclick="deleteYouTubeLink(${link.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            ` : '';
+
+            return `
+                <div class="youtube-link-item rounded p-2 mb-2">
+                    <div class="d-flex gap-3 align-items-start">
+                        <a href="${safeUrl}" target="_blank" rel="noopener noreferrer">
+                            ${thumbnailHtml}
+                        </a>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between gap-2">
+                                <div>
+                                    <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="fw-bold text-decoration-none">
+                                        ${safeTitle}
+                                    </a>
+                                    <div class="text-muted small mt-1">
+                                        ${safeChannel ? `${safeChannel} / ` : ''}${duration}
+                                        ${safeAddedBy ? ` / 追加: ${safeAddedBy}` : ''}
+                                    </div>
+                                    <div class="mt-2 d-flex flex-wrap gap-2">
+                                        ${perspectiveBadge}
+                                        ${partBadge}
+                                    </div>
+                                </div>
+                                <div>
+                                    ${manageButtons}
+                                </div>
+                            </div>
+                            ${safeDescription ? `<div class="youtube-link-description small mt-2">${safeDescription}</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="mb-3">
+                <h6 class="mb-2">
+                    <i class="fas fa-video"></i> ${groupTitle}
+                    <small class="text-muted ms-2">${escapeHtml(groupMeta)}</small>
+                </h6>
+                ${items}
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = html;
+}
+
+async function loadYouTubeLinks() {
+    const container = document.getElementById('youtubeLinksContainer');
+    if (!container) return;
+
+    try {
+        const response = await axios.get(`/api/schedules/sessions/${SESSION_ID}/youtube-links/`);
+        renderYouTubeLinks(response.data || []);
+    } catch (error) {
+        console.error('YouTubeリンクの取得に失敗しました:', error);
+        container.innerHTML = '<p class="text-muted text-center mb-0">YouTubeリンクの取得に失敗しました</p>';
+    }
+}
+
+async function loadYouTubeLinkStatistics() {
+    const countBadge = document.getElementById('youtubeLinksCountBadge');
+    const totalBadge = document.getElementById('youtubeLinksTotalDurationBadge');
+    const headerSummary = document.getElementById('youtubeLinksHeaderSummary');
+    if (!countBadge || !totalBadge || !headerSummary) return;
+
+    try {
+        const response = await axios.get(`/api/schedules/sessions/${SESSION_ID}/youtube-links/statistics/`);
+        const stats = response.data || {};
+        const count = Number(stats.video_count) || 0;
+        const totalDisplay = stats.total_duration_display || formatDurationSeconds(stats.total_duration_seconds);
+
+        countBadge.textContent = `${count}本`;
+        totalBadge.textContent = `合計 ${totalDisplay}`;
+        headerSummary.textContent = `(${count}本 / ${totalDisplay})`;
+    } catch (error) {
+        totalBadge.textContent = '';
+        headerSummary.textContent = '';
+        countBadge.textContent = '統計取得失敗';
+    }
+}
+
+async function addYouTubeLink(event) {
+    event.preventDefault();
+
+    const addBtn = document.getElementById('youtubeLinkAddBtn');
+    const urlEl = document.getElementById('youtube_link_url');
+    const perspectiveEl = document.getElementById('youtube_link_perspective');
+    const partEl = document.getElementById('youtube_link_part_number');
+    const descriptionEl = document.getElementById('youtube_link_description');
+
+    const youtubeUrl = (urlEl?.value || '').trim();
+    const perspective = (perspectiveEl?.value || '').trim();
+    const partValue = (partEl?.value || '').trim();
+    const description = (descriptionEl?.value || '').trim();
+
+    if (!youtubeUrl) {
+        showYouTubeLinksMessage('YouTube URLを入力してください', 'warning');
+        return;
+    }
+
+    const payload = { youtube_url: youtubeUrl };
+    if (perspective) payload.perspective = perspective;
+    if (description) payload.description = description;
+    if (partValue) payload.part_number = Number(partValue);
+
+    try {
+        if (addBtn) addBtn.disabled = true;
+        await axios.post(`/api/schedules/sessions/${SESSION_ID}/youtube-links/`, payload);
+        showYouTubeLinksMessage('YouTubeリンクを追加しました', 'success');
+
+        if (urlEl) urlEl.value = '';
+        if (partEl) partEl.value = '';
+        if (descriptionEl) descriptionEl.value = '';
+
+        await loadYouTubeLinks();
+        await loadYouTubeLinkStatistics();
+    } catch (error) {
+        const message = error.response?.data?.error || error.response?.data?.detail || error.message;
+        showYouTubeLinksMessage(`追加に失敗しました: ${message}`, 'danger');
+    } finally {
+        if (addBtn) addBtn.disabled = false;
+    }
+}
+
+function parseBulkUrls(text) {
+    return (text || '')
+        .split(/\s+/)
+        .map(v => v.trim())
+        .filter(Boolean);
+}
+
+async function bulkAddYouTubeLinks(event) {
+    event.preventDefault();
+
+    const bulkBtn = document.getElementById('youtubeLinkBulkAddBtn');
+    const urlsEl = document.getElementById('youtube_bulk_urls');
+    const perspectiveEl = document.getElementById('youtube_bulk_perspective');
+    const startPartEl = document.getElementById('youtube_bulk_start_part');
+    const descriptionEl = document.getElementById('youtube_bulk_description');
+
+    const urls = parseBulkUrls(urlsEl?.value || '');
+    const perspective = (perspectiveEl?.value || '').trim();
+    const startPartValue = (startPartEl?.value || '').trim();
+    const description = (descriptionEl?.value || '').trim();
+
+    if (urls.length === 0) {
+        showYouTubeLinksMessage('YouTube URLを1つ以上入力してください', 'warning');
+        return;
+    }
+
+    const startPart = startPartValue ? Number(startPartValue) : null;
+    if (startPartValue && (!Number.isInteger(startPart) || startPart < 1)) {
+        showYouTubeLinksMessage('開始パート番号は1以上の整数で入力してください', 'warning');
+        return;
+    }
+
+    let successCount = 0;
+    const errors = [];
+
+    try {
+        if (bulkBtn) bulkBtn.disabled = true;
+
+        for (let i = 0; i < urls.length; i += 1) {
+            const payload = { youtube_url: urls[i] };
+            if (perspective) payload.perspective = perspective;
+            if (description) payload.description = description;
+            if (startPart) payload.part_number = startPart + i;
+
+            try {
+                await axios.post(`/api/schedules/sessions/${SESSION_ID}/youtube-links/`, payload);
+                successCount += 1;
+            } catch (error) {
+                const message = error.response?.data?.error || error.response?.data?.detail || error.message;
+                errors.push(`${urls[i]}: ${message}`);
+            }
+        }
+
+        if (successCount > 0) {
+            showYouTubeLinksMessage(`追加しました: ${successCount}件`, errors.length ? 'warning' : 'success');
+        } else {
+            showYouTubeLinksMessage('追加できませんでした', 'danger');
+        }
+
+        if (errors.length) {
+            console.warn('YouTubeリンク追加エラー:', errors);
+        }
+
+        if (urlsEl) urlsEl.value = '';
+        if (startPartEl) startPartEl.value = '';
+        if (descriptionEl) descriptionEl.value = '';
+
+        await loadYouTubeLinks();
+        await loadYouTubeLinkStatistics();
+    } finally {
+        if (bulkBtn) bulkBtn.disabled = false;
+    }
+}
+
+function openEditYouTubeLinkModal(linkId) {
+    const link = youtubeLinkMap.get(String(linkId));
+    if (!link) return;
+
+    const idEl = document.getElementById('edit_youtube_link_id');
+    const perspectiveEl = document.getElementById('edit_youtube_link_perspective');
+    const partEl = document.getElementById('edit_youtube_link_part_number');
+    const descriptionEl = document.getElementById('edit_youtube_link_description');
+
+    if (idEl) idEl.value = link.id;
+    if (perspectiveEl) perspectiveEl.value = link.perspective || '';
+    if (partEl) partEl.value = link.part_number || '';
+    if (descriptionEl) descriptionEl.value = link.description || '';
+
+    const modalEl = document.getElementById('editYouTubeLinkModal');
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+}
+
+async function saveYouTubeLinkEdits() {
+    const id = document.getElementById('edit_youtube_link_id')?.value;
+    if (!id) return;
+
+    const saveBtn = document.getElementById('saveYouTubeLinkBtn');
+    const perspective = (document.getElementById('edit_youtube_link_perspective')?.value || '').trim();
+    const partValue = (document.getElementById('edit_youtube_link_part_number')?.value || '').trim();
+    const description = (document.getElementById('edit_youtube_link_description')?.value || '').trim();
+
+    const payload = {
+        perspective: perspective,
+        description: description,
+        part_number: partValue ? Number(partValue) : null
+    };
+
+    try {
+        if (saveBtn) saveBtn.disabled = true;
+        await axios.patch(`/api/schedules/youtube-links/${id}/`, payload);
+
+        const modalEl = document.getElementById('editYouTubeLinkModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        showYouTubeLinksMessage('YouTubeリンクを更新しました', 'success');
+        await loadYouTubeLinks();
+        await loadYouTubeLinkStatistics();
+    } catch (error) {
+        const message = error.response?.data?.error || error.response?.data?.detail || error.message;
+        showYouTubeLinksMessage(`更新に失敗しました: ${message}`, 'danger');
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+    }
+}
+
+async function deleteYouTubeLink(linkId) {
+    if (!confirm('このYouTubeリンクを削除しますか？')) return;
+
+    try {
+        await axios.delete(`/api/schedules/youtube-links/${linkId}/`);
+        showYouTubeLinksMessage('YouTubeリンクを削除しました', 'success');
+        await loadYouTubeLinks();
+        await loadYouTubeLinkStatistics();
+    } catch (error) {
+        const message = error.response?.data?.error || error.response?.data?.detail || error.message;
+        showYouTubeLinksMessage(`削除に失敗しました: ${message}`, 'danger');
     }
 }
 
@@ -1214,6 +1760,18 @@ async function removeParticipant(participantId) {
 document.addEventListener('DOMContentLoaded', () => {
     loadCharacterSheets();
     loadGroupMemberCharacters();
+
+    const youtubeContainer = document.getElementById('youtubeLinksContainer');
+    if (youtubeContainer) {
+        const addForm = document.getElementById('youtubeLinkAddForm');
+        if (addForm) addForm.addEventListener('submit', addYouTubeLink);
+
+        const bulkForm = document.getElementById('youtubeLinkBulkAddForm');
+        if (bulkForm) bulkForm.addEventListener('submit', bulkAddYouTubeLinks);
+
+        loadYouTubeLinks();
+        loadYouTubeLinkStatistics();
+    }
 });
 </script>
 {% endblock %}

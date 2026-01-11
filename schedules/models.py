@@ -710,6 +710,18 @@ class SessionYouTubeLink(models.Model):
     thumbnail_url = models.URLField(max_length=500, blank=True)
     
     # メタ情報
+    perspective = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="視点",
+        help_text="例: GM視点 / PL1視点 / 全体"
+    )
+    part_number = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="パート番号",
+        help_text="分割されている場合のパート番号（例: 1,2,3）"
+    )
     description = models.TextField(
         blank=True,
         verbose_name="備考",
@@ -770,6 +782,8 @@ class SessionYouTubeLink(models.Model):
         patterns = [
             r'(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?]+)',
             r'(?:youtube\.com\/embed\/)([^&\n?]+)',
+            r'(?:youtube\.com\/live\/)([^&\n?/]+)',
+            r'(?:youtube\.com\/shorts\/)([^&\n?/]+)',
         ]
         for pattern in patterns:
             match = re.search(pattern, url)

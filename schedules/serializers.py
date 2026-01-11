@@ -18,6 +18,15 @@ from django.utils import timezone
 from datetime import datetime, time as time_cls
 
 
+class NullableIntegerField(serializers.IntegerField):
+    """空文字をnullとして扱えるIntegerField（フォーム送信対策）"""
+
+    def to_internal_value(self, data):
+        if data == '':
+            data = None
+        return super().to_internal_value(data)
+
+
 class SessionImageSerializer(serializers.ModelSerializer):
     """セッション画像シリアライザー"""
     uploaded_by_detail = UserSerializer(source='uploaded_by', read_only=True)
@@ -42,12 +51,14 @@ class SessionImageSerializer(serializers.ModelSerializer):
 class SessionYouTubeLinkSerializer(serializers.ModelSerializer):
     """セッションYouTube動画リンクシリアライザー"""
     added_by_detail = UserSerializer(source='added_by', read_only=True)
+    part_number = NullableIntegerField(min_value=1, required=False, allow_null=True)
     
     class Meta:
         model = SessionYouTubeLink
         fields = ['id', 'youtube_url', 'video_id', 'title', 'duration_seconds',
                  'duration_display', 'channel_name', 'thumbnail_url', 'description',
-                 'order', 'added_by', 'added_by_detail', 'created_at', 'updated_at']
+                 'perspective', 'part_number', 'order', 'added_by', 'added_by_detail',
+                 'created_at', 'updated_at']
         read_only_fields = ['id', 'video_id', 'title', 'duration_seconds', 
                            'channel_name', 'thumbnail_url', 'added_by', 
                            'created_at', 'updated_at']
