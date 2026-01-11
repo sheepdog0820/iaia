@@ -258,6 +258,38 @@ class Character6thAPITestCase(APITestCase):
         self.assertTrue(imported.skills.filter(skill_name='目星').exists())
         self.assertTrue(imported.skills.filter(skill_name='母国語').exists())
         self.assertTrue(imported.skills.filter(skill_name='クトゥルフ神話').exists())
+
+        # エクスポート（出力）も同じCCFOLIA形式で確認（import→export の往復）
+        export_url = reverse('character-sheet-ccfolia-json', kwargs={'pk': imported.id})
+        export_response = self.client.get(export_url)
+        self.assertEqual(export_response.status_code, status.HTTP_200_OK)
+
+        exported = export_response.json()
+        self.assertEqual(exported.get('kind'), 'character')
+        self.assertIn('data', exported)
+
+        exported_data = exported['data']
+        self.assertEqual(exported_data.get('name'), "東雲　日和 (しののめ　ひより)")
+
+        exported_params = exported_data.get('params', [])
+        self.assertTrue(any(p.get('label') == 'STR' and p.get('value') == '5' for p in exported_params))
+        self.assertTrue(any(p.get('label') == 'DEX' and p.get('value') == '6' for p in exported_params))
+
+        exported_status = exported_data.get('status', [])
+        hp = next(s for s in exported_status if s.get('label') == 'HP')
+        mp = next(s for s in exported_status if s.get('label') == 'MP')
+        san = next(s for s in exported_status if s.get('label') == 'SAN')
+        self.assertEqual(hp.get('value'), 10)
+        self.assertEqual(hp.get('max'), 10)
+        self.assertEqual(mp.get('value'), 8)
+        self.assertEqual(mp.get('max'), 8)
+        self.assertEqual(san.get('value'), 40)
+
+        exported_commands = exported_data.get('commands', '')
+        self.assertIn('【正気度ロール】', exported_commands)
+        self.assertIn('CCB<=75 【目星】', exported_commands)
+        self.assertIn('CCB<=70 【母国語】', exported_commands)
+        self.assertIn('CCB<=0 【クトゥルフ神話】', exported_commands)
     
     def test_api_authentication_required(self):
         """API認証必須テスト"""
