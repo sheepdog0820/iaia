@@ -2,7 +2,10 @@
 Character sheet management views
 """
 import json
+import math
+import re
 import time
+from collections.abc import Mapping
 
 from .common_imports import *
 from .base_views import BaseViewSet, PermissionMixin
@@ -11,7 +14,7 @@ from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework import status
-from django.db import OperationalError, IntegrityError
+from django.db import OperationalError, IntegrityError, transaction
 from ..character_models import GrowthRecord
 from ..serializers import GrowthRecordSerializer
 
@@ -321,6 +324,318 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         ccfolia_data = sheet.export_ccfolia_format()
         
         return Response(ccfolia_data)
+
+    @action(detail=False, methods=['post'], url_path='import_ccfolia_json')
+    def import_ccfolia_json(self, request):
+        """Import a character sheet from CCFOLIA format JSON"""
+        try:
+            ccfolia_payload = self._extract_ccfolia_payload(request.data)
+            parsed = self._parse_ccfolia_character(ccfolia_payload)
+        except DRFValidationError:
+            raise
+        except Exception as exc:
+            raise DRFValidationError({'ccfolia': f'Invalid payload: {exc}'}) from exc
+
+        age = request.data.get('age', 20)
+        try:
+            age = int(age)
+        except (TypeError, ValueError) as exc:
+            raise DRFValidationError({'age': 'age must be an integer'}) from exc
+        if age < 15 or age > 90:
+            raise DRFValidationError({'age': 'age must be between 15 and 90'})
+
+        user = request.user
+
+        external_url = parsed.get('external_url') or ''
+        icon_url = parsed.get('icon_url') or ''
+        import_notes = []
+        if external_url:
+            import_notes.append(f'外部URL: {external_url}')
+        if icon_url:
+            import_notes.append(f'アイコンURL: {icon_url}')
+        notes = '\n'.join(import_notes)
+
+        name = parsed['name']
+        abilities = parsed['abilities']
+        status_values = parsed.get('status') or {}
+        skill_totals = parsed.get('skills') or {}
+
+        hp_value = status_values.get('HP', {}).get('value')
+        hp_max = status_values.get('HP', {}).get('max')
+        mp_value = status_values.get('MP', {}).get('value')
+        mp_max = status_values.get('MP', {}).get('max')
+        san_value = status_values.get('SAN', {}).get('value')
+        san_start = status_values.get('SAN', {}).get('max')
+
+        computed_hp_max = math.ceil((abilities['CON'] + abilities['SIZ']) / 2)
+        computed_mp_max = abilities['POW']
+        computed_san_start = abilities['POW'] * 5
+
+        hit_points_max = int(hp_max) if hp_max is not None else computed_hp_max
+        hit_points_current = int(hp_value) if hp_value is not None else hit_points_max
+        magic_points_max = int(mp_max) if mp_max is not None else computed_mp_max
+        magic_points_current = int(mp_value) if mp_value is not None else magic_points_max
+        sanity_starting = int(san_start) if san_start is not None else computed_san_start
+        sanity_current = int(san_value) if san_value is not None else sanity_starting
+
+        mythos = int(skill_totals.get('クトゥルフ神話', 0) or 0)
+        sanity_max = max(0, 99 - mythos)
+
+        existing_chars = CharacterSheet.objects.filter(user=user, name=name)
+        if existing_chars.exists():
+            latest_version = existing_chars.order_by('-version').first().version
+            version = latest_version + 1
+            parent_sheet = existing_chars.order_by('version').first()
+        else:
+            version = 1
+            parent_sheet = None
+
+        with transaction.atomic():
+            character_sheet = CharacterSheet.objects.create(
+                user=user,
+                edition='6th',
+                name=name,
+                player_name='',
+                age=age,
+                gender='',
+                occupation='',
+                birthplace='',
+                residence='',
+                recommended_skills=[],
+                str_value=abilities['STR'],
+                con_value=abilities['CON'],
+                pow_value=abilities['POW'],
+                dex_value=abilities['DEX'],
+                app_value=abilities['APP'],
+                siz_value=abilities['SIZ'],
+                int_value=abilities['INT'],
+                edu_value=abilities['EDU'],
+                hit_points_max=hit_points_max,
+                hit_points_current=hit_points_current,
+                magic_points_max=magic_points_max,
+                magic_points_current=magic_points_current,
+                sanity_starting=sanity_starting,
+                sanity_max=sanity_max,
+                sanity_current=sanity_current,
+                notes=notes,
+                version=version,
+                parent_sheet=parent_sheet,
+            )
+
+            CharacterSheet6th.objects.create(
+                character_sheet=character_sheet,
+                mental_disorder=''
+            )
+
+            for skill_name, total_value in skill_totals.items():
+                if not skill_name:
+                    continue
+                try:
+                    total_value = int(total_value)
+                except (TypeError, ValueError):
+                    continue
+
+                normalized = self._normalize_skill_name(skill_name)
+                base_name = self._base_skill_name(normalized)
+
+                inferred_base = character_sheet._get_skill_base_value(base_name)
+                base_value = inferred_base if inferred_base <= total_value else total_value
+                other_points = max(total_value - base_value, 0)
+
+                category = character_sheet._get_skill_category(base_name)
+                skill = CharacterSkill(
+                    character_sheet=character_sheet,
+                    skill_name=normalized,
+                    category=category,
+                    base_value=base_value,
+                    occupation_points=0,
+                    interest_points=0,
+                    bonus_points=0,
+                    other_points=other_points,
+                )
+                try:
+                    skill.save(skip_point_validation=True)
+                except IntegrityError:
+                    continue
+
+        response_serializer = CharacterSheetSerializer(character_sheet, context={'request': request})
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def _extract_ccfolia_payload(request_data):
+        # Prefer explicit "ccfolia" key
+        payload = request_data.get('ccfolia') if isinstance(request_data, Mapping) else None
+        if payload is None and isinstance(request_data, Mapping) and 'ccfolia_json' in request_data:
+            payload = request_data.get('ccfolia_json')
+        if payload is None and isinstance(request_data, Mapping) and 'kind' in request_data and 'data' in request_data:
+            payload = {'kind': request_data.get('kind'), 'data': request_data.get('data')}
+
+        if payload is None:
+            raise DRFValidationError({'ccfolia': 'ccfolia is required'})
+
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except json.JSONDecodeError as exc:
+                raise DRFValidationError({'ccfolia': 'ccfolia must be valid JSON'}) from exc
+
+        if not isinstance(payload, dict):
+            raise DRFValidationError({'ccfolia': 'ccfolia must be an object'})
+
+        return payload
+
+    @staticmethod
+    def _parse_ccfolia_character(payload):
+        if payload.get('kind') and payload.get('kind') != 'character':
+            raise DRFValidationError({'ccfolia': 'kind must be "character"'})
+
+        data = payload.get('data') if isinstance(payload.get('data'), dict) else payload
+        if not isinstance(data, dict):
+            raise DRFValidationError({'ccfolia': 'data must be an object'})
+
+        name = (data.get('name') or '').strip()
+        if not name:
+            raise DRFValidationError({'ccfolia': 'data.name is required'})
+
+        params = data.get('params')
+        if not isinstance(params, list):
+            params = payload.get('params')
+        abilities = CharacterSheetViewSet._parse_ccfolia_params(params)
+
+        status_list = data.get('status')
+        status_values = CharacterSheetViewSet._parse_ccfolia_status(status_list)
+
+        skills = CharacterSheetViewSet._extract_skill_totals(payload, data)
+
+        return {
+            'name': name,
+            'external_url': (data.get('externalUrl') or '').strip(),
+            'icon_url': (data.get('iconUrl') or '').strip(),
+            'abilities': abilities,
+            'status': status_values,
+            'skills': skills,
+        }
+
+    @staticmethod
+    def _parse_ccfolia_params(params):
+        if not isinstance(params, list):
+            raise DRFValidationError({'ccfolia': 'data.params is required'})
+
+        wanted = {'STR', 'CON', 'POW', 'DEX', 'APP', 'SIZ', 'INT', 'EDU'}
+        values = {}
+
+        for item in params:
+            if not isinstance(item, dict):
+                continue
+            label = (item.get('label') or '').strip().upper()
+            if label not in wanted:
+                continue
+            raw_value = item.get('value')
+            try:
+                parsed = int(raw_value)
+            except (TypeError, ValueError):
+                raise DRFValidationError({'ccfolia': f'Invalid ability value for {label}'}) from None
+            if parsed < 1 or parsed > 999:
+                raise DRFValidationError({'ccfolia': f'Ability {label} must be between 1 and 999'})
+            values[label] = parsed
+
+        missing = sorted(wanted - set(values.keys()))
+        if missing:
+            raise DRFValidationError({'ccfolia': f'Missing abilities: {", ".join(missing)}'})
+
+        return values
+
+    @staticmethod
+    def _parse_ccfolia_status(status_list):
+        if status_list is None:
+            return {}
+        if not isinstance(status_list, list):
+            raise DRFValidationError({'ccfolia': 'data.status must be an array'})
+
+        allowed = {'HP', 'MP', 'SAN'}
+        result = {}
+
+        for item in status_list:
+            if not isinstance(item, dict):
+                continue
+            label = (item.get('label') or '').strip().upper()
+            if label not in allowed:
+                continue
+            raw_value = item.get('value')
+            raw_max = item.get('max')
+
+            entry = {}
+            if raw_value is not None:
+                try:
+                    entry['value'] = int(raw_value)
+                except (TypeError, ValueError):
+                    raise DRFValidationError({'ccfolia': f'Invalid status value for {label}'}) from None
+            if raw_max is not None:
+                try:
+                    entry['max'] = int(raw_max)
+                except (TypeError, ValueError):
+                    raise DRFValidationError({'ccfolia': f'Invalid status max for {label}'}) from None
+
+            result[label] = entry
+
+        return result
+
+    @staticmethod
+    def _extract_skill_totals(payload, data):
+        # Prefer explicit skills list (Tableno export extension)
+        skills = payload.get('skills')
+        if isinstance(skills, list):
+            totals = {}
+            for skill in skills:
+                if not isinstance(skill, dict):
+                    continue
+                name = (skill.get('name') or '').strip()
+                if not name:
+                    continue
+                try:
+                    totals[name] = int(skill.get('value'))
+                except (TypeError, ValueError):
+                    continue
+            return totals
+
+        commands = data.get('commands')
+        if not isinstance(commands, str) or not commands.strip():
+            return {}
+
+        ccb_re = re.compile(r'^CCB<=\s*(\d+)\s*【(.+?)】')
+        ignore = {'正気度ロール', 'アイデア', '幸運', '知識'}
+        totals = {}
+
+        for raw_line in commands.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            match = ccb_re.match(line)
+            if not match:
+                continue
+            value = int(match.group(1))
+            label = match.group(2).strip()
+            if not label or label in ignore:
+                continue
+            if '×' in label or re.search(r'(?i)x\s*\d', label):
+                continue
+
+            existing = totals.get(label)
+            if existing is None or value > existing:
+                totals[label] = value
+
+        return totals
+
+    @staticmethod
+    def _normalize_skill_name(skill_name):
+        return (skill_name or '').strip()
+
+    @staticmethod
+    def _base_skill_name(skill_name):
+        name = (skill_name or '').strip()
+        if '（' in name and '）' in name:
+            return name.split('（', 1)[0].strip()
+        return name
     
     @action(detail=True, methods=['post'], url_path='allocate-skill-points')
     def allocate_skill_points(self, request, pk=None):

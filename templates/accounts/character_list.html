@@ -24,6 +24,12 @@
                         <li><a class="dropdown-item" href="{% url 'character_create_6th' %}">
                             <i class="fas fa-book text-primary"></i> 6版キャラクター作成
                         </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#ccfoliaImportModal">
+                                <i class="fas fa-file-import text-danger"></i> CCFOLIAインポート
+                            </button>
+                        </li>
                     </ul>
                 </div>
             </div>
@@ -78,6 +84,42 @@
                     <a href="{% url 'character_create_6th' %}">こちらから6版キャラクターを作成</a>
                     できます。
                 </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CCFOLIAインポートモーダル -->
+<div class="modal fade" id="ccfoliaImportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-file-import text-danger"></i> CCFOLIAキャラクターインポート
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="ccfoliaImportForm">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="ccfoliaImportAge" class="form-label">年齢（未記載の場合）</label>
+                            <input type="number" class="form-control" id="ccfoliaImportAge" min="15" max="90" value="20" required>
+                        </div>
+                        <div class="col-md-8 mb-3">
+                            <div class="alert alert-secondary mb-0" role="alert">
+                                ココフォリアの「キャラクター出力」JSON（<code>{"kind":"character","data":{...}}</code>）を貼り付けてください。
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="ccfoliaImportJson" class="form-label">CCFOLIA JSON</label>
+                        <textarea class="form-control" id="ccfoliaImportJson" rows="10" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-danger" id="ccfoliaImportSubmitBtn">
+                        <i class="fas fa-upload"></i> インポート
+                    </button>
+                </form>
             </div>
         </div>
     </div>
@@ -359,6 +401,56 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 初期読み込み
     loadCharacters();
+
+    // CCFOLIAインポート
+    const importForm = document.getElementById('ccfoliaImportForm');
+    if (importForm) {
+        importForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const submitBtn = document.getElementById('ccfoliaImportSubmitBtn');
+            const ageEl = document.getElementById('ccfoliaImportAge');
+            const jsonEl = document.getElementById('ccfoliaImportJson');
+
+            const age = ageEl ? ageEl.value : '20';
+            const jsonText = (jsonEl ? jsonEl.value : '').trim();
+            if (!jsonText) {
+                alert('CCFOLIA JSONを入力してください。');
+                return;
+            }
+
+            let payload;
+            try {
+                payload = JSON.parse(jsonText);
+            } catch (error) {
+                alert('JSONの形式が正しくありません。');
+                return;
+            }
+
+            try {
+                if (submitBtn) submitBtn.disabled = true;
+                await axios.post('/api/accounts/character-sheets/import_ccfolia_json/', {
+                    ccfolia: payload,
+                    age: age
+                });
+
+                alert('キャラクターをインポートしました。');
+                if (jsonEl) jsonEl.value = '';
+
+                const modalEl = document.getElementById('ccfoliaImportModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+
+                loadCharacters();
+            } catch (error) {
+                console.error('CCFOLIAインポートに失敗しました:', error);
+                const message = error.response?.data?.ccfolia || error.response?.data?.detail || error.message;
+                alert(`インポートに失敗しました: ${typeof message === 'string' ? message : '入力内容を確認してください'}`);
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

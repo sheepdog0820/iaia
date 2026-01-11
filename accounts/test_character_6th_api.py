@@ -188,6 +188,76 @@ class Character6thAPITestCase(APITestCase):
         self.assertIn('commands', character_data)
         self.assertIn('status', character_data)
         self.assertIn('params', character_data)
+
+    def test_ccfolia_import_api_endpoint(self):
+        """CCFOLIA JSONインポートAPIテスト"""
+        url = reverse('character-sheet-import-ccfolia-json')
+
+        ccfolia_payload = {
+            "kind": "character",
+            "data": {
+                "name": "東雲　日和 (しののめ　ひより)",
+                "initiative": 6,
+                "externalUrl": "https://iachara.com/view/13055362",
+                "iconUrl": "https://image.iaproject.app/example",
+                "commands": "\n".join([
+                    "1d100<={SAN} 【正気度ロール】",
+                    "CCB<=75 【目星】",
+                    "CCB<=70 【母国語】",
+                    "CCB<=0 【クトゥルフ神話】",
+                    "CCB<={STR}*5 【STR × 5】"
+                ]),
+                "status": [
+                    {"label": "HP", "value": 10, "max": 10},
+                    {"label": "MP", "value": 8, "max": 8},
+                    {"label": "SAN", "value": 40, "max": 40},
+                ],
+                "params": [
+                    {"label": "STR", "value": "5"},
+                    {"label": "CON", "value": "9"},
+                    {"label": "POW", "value": "8"},
+                    {"label": "DEX", "value": "6"},
+                    {"label": "APP", "value": "13"},
+                    {"label": "SIZ", "value": "10"},
+                    {"label": "INT", "value": "14"},
+                    {"label": "EDU", "value": "14"},
+                ],
+            }
+        }
+
+        response = self.client.post(
+            url,
+            {"ccfolia": ccfolia_payload, "age": 20},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn('id', response.data)
+
+        imported = CharacterSheet.objects.get(id=response.data['id'])
+        self.assertEqual(imported.name, "東雲　日和 (しののめ　ひより)")
+        self.assertEqual(imported.edition, '6th')
+        self.assertEqual(imported.age, 20)
+
+        self.assertEqual(imported.str_value, 5)
+        self.assertEqual(imported.con_value, 9)
+        self.assertEqual(imported.pow_value, 8)
+        self.assertEqual(imported.dex_value, 6)
+        self.assertEqual(imported.app_value, 13)
+        self.assertEqual(imported.siz_value, 10)
+        self.assertEqual(imported.int_value, 14)
+        self.assertEqual(imported.edu_value, 14)
+
+        self.assertEqual(imported.hit_points_current, 10)
+        self.assertEqual(imported.hit_points_max, 10)
+        self.assertEqual(imported.magic_points_current, 8)
+        self.assertEqual(imported.magic_points_max, 8)
+        self.assertEqual(imported.sanity_current, 40)
+        self.assertEqual(imported.sanity_max, 99)  # 99 - クトゥルフ神話(0)
+
+        self.assertTrue(hasattr(imported, 'sixth_edition_data'))
+        self.assertTrue(imported.skills.filter(skill_name='目星').exists())
+        self.assertTrue(imported.skills.filter(skill_name='母国語').exists())
+        self.assertTrue(imported.skills.filter(skill_name='クトゥルフ神話').exists())
     
     def test_api_authentication_required(self):
         """API認証必須テスト"""
