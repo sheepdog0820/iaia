@@ -1,7 +1,9 @@
+import uuid
 from datetime import timedelta
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.utils import timezone
@@ -510,3 +512,60 @@ class ScheduleAPITestCase(APITestCase):
         accept_res = self.client.post(f'/api/schedules/session-invitations/{invitation_id}/accept/')
         self.assertEqual(accept_res.status_code, status.HTTP_200_OK)
         self.assertTrue(SessionParticipant.objects.filter(session=self.session, user=self.user2).exists())
+
+
+class PublicSessionLinkTestCase(APITestCase):
+    def setUp(self):
+        self.gm = User.objects.create_user(
+            username='gm_share',
+            email='gm_share@example.com',
+            password='pass123',
+            nickname='GM Share'
+        )
+        self.player = User.objects.create_user(
+            username='player_share',
+            email='player_share@example.com',
+            password='pass123',
+            nickname='Player Share'
+        )
+        self.group = CustomGroup.objects.create(
+            name='Share Test Group',
+            created_by=self.gm
+        )
+        self.group.members.add(self.gm, self.player)
+
+        self.session = TRPGSession.objects.create(
+            title='Share Session',
+            description='Share Description',
+            date=timezone.now() + timedelta(days=1),
+            location='Online',
+            gm=self.gm,
+            group=self.group,
+            visibility='private',
+        )
+        SessionParticipant.objects.create(
+            session=self.session,
+            user=self.player,
+            role='player',
+        )
+
+    def test_public_session_detail_accessible_without_login(self):
+        url = reverse('public_session_detail', kwargs={'share_token': self.session.share_token})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, self.session.title)
+
+    def test_public_session_detail_invalid_token_404(self):
+        url = reverse('public_session_detail', kwargs={'share_token': uuid.uuid4()})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_session_detail_requires_login(self):
+        response = self.client.get(f'/api/schedules/sessions/{self.session.id}/detail/', HTTP_ACCEPT='text/html')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_session_detail_has_copy_link_button(self):
+        self.client.force_authenticate(user=self.gm)
+        response = self.client.get(f'/api/schedules/sessions/{self.session.id}/detail/', HTTP_ACCEPT='text/html')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, f"/s/{self.session.share_token}/")

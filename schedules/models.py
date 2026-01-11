@@ -2,6 +2,7 @@ from django.db import models
 from django.utils import timezone
 from datetime import datetime, date as date_cls, time as time_cls, timedelta
 from django.core.exceptions import ValidationError
+import uuid
 from accounts.models import CustomUser, Group, GroupMembership
 
 
@@ -39,6 +40,8 @@ class TRPGSession(models.Model):
     participants = models.ManyToManyField(CustomUser, through='SessionParticipant', related_name='sessions')
     
     duration_minutes = models.PositiveIntegerField(default=0, help_text="セッション時間（分）")
+
+    share_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
     
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)

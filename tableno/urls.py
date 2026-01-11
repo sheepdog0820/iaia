@@ -21,6 +21,7 @@ from django.conf.urls.static import static
 from django.views.generic import TemplateView
 
 from accounts.views import CustomLoginView, CustomSignUpView
+from schedules.views import PublicSessionDetailView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -34,6 +35,9 @@ urlpatterns = [
     path('api/accounts/', include('accounts.urls')),
     path('api/schedules/', include('schedules.urls')),
     path('api/scenarios/', include('scenarios.urls')),
+
+    # Public share URLs
+    path('s/<uuid:share_token>/', PublicSessionDetailView.as_view(), name='public_session_detail'),
     
     # Web URLs
     path('accounts/', include('accounts.urls')),

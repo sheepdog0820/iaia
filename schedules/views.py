@@ -6,7 +6,8 @@ from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.urls import reverse
 from datetime import datetime, timedelta
 from .models import (
     TRPGSession,
@@ -1603,6 +1604,10 @@ class SessionDetailView(APIView):
             session.visibility != 'private' and
             (session.visibility != 'group' or session.group.members.filter(id=user.id).exists())
         )
+
+        public_session_url = request.build_absolute_uri(
+            reverse('public_session_detail', kwargs={'share_token': session.share_token})
+        )
         
         context = {
             'session': session,
@@ -1613,8 +1618,43 @@ class SessionDetailView(APIView):
             'can_edit': can_edit,
             'can_join': can_join,
             'user_participant': participants.filter(user=user).first(),
+            'public_session_url': public_session_url,
+            'is_public_view': False,
         }
         
+        return render(request, 'schedules/session_detail.html', context)
+
+
+class PublicSessionDetailView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, share_token):
+        session = get_object_or_404(
+            TRPGSession.objects.select_related('scenario', 'gm', 'group'),
+            share_token=share_token,
+        )
+
+        participants = SessionParticipant.objects.filter(
+            session=session
+        ).select_related('user', 'character_sheet')
+
+        public_session_url = request.build_absolute_uri(
+            reverse('public_session_detail', kwargs={'share_token': session.share_token})
+        )
+
+        context = {
+            'session': session,
+            'participants': participants,
+            'handouts': HandoutInfo.objects.none(),
+            'is_gm': False,
+            'is_participant': False,
+            'can_edit': False,
+            'can_join': False,
+            'user_participant': None,
+            'public_session_url': public_session_url,
+            'is_public_view': True,
+        }
+
         return render(request, 'schedules/session_detail.html', context)
 
 
