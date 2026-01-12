@@ -696,13 +696,24 @@ label[for="character-name"]::after {
     background-color: #ffffff;
 }
 
-.skill-item.skill-recommended {
+.skill-item.skill-recommended,
+.skill-recommended .skill-item {
     border-color: #90caf9;
     background-color: #eef6ff;
 }
 
-.skill-item.skill-recommended:hover {
+.skill-item.skill-recommended:hover,
+.skill-recommended .skill-item:hover {
     background-color: #e3f2fd;
+}
+
+.skill-occupation .skill-item {
+    border-color: #ffe08a;
+    background-color: #fff8e1;
+}
+
+.skill-occupation .skill-item:hover {
+    background-color: #ffecb3;
 }
 
 .custom-skill .skill-item {
@@ -718,6 +729,10 @@ label[for="character-name"]::after {
     font-size: 0.65rem;
 }
 
+.occupation-badge {
+    font-size: 0.65rem;
+}
+
 .recommended-chip {
     display: inline-flex;
     align-items: center;
@@ -725,6 +740,17 @@ label[for="character-name"]::after {
 }
 
 .recommended-chip .remove-recommended-skill {
+    line-height: 1;
+    text-decoration: none;
+}
+
+.occupation-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.occupation-chip .remove-occupation-skill {
     line-height: 1;
     text-decoration: none;
 }

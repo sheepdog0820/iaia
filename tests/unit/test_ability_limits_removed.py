@@ -61,7 +61,7 @@ class AbilityLimitsRemovedTest(TestCase):
         self.assertEqual(character.str_value, 999, "STR値が正しく保存されていない")
         self.assertEqual(character.int_value, 999, "INT値が正しく保存されていない")
         
-        print(f"✅ 高い能力値キャラクター作成成功: {character.name}")
+        print(f"[OK] 高い能力値キャラクター作成成功: {character.name}")
         print(f"  - STR={character.str_value}, INT={character.int_value}, EDU={character.edu_value}")
     
     def test_low_ability_values_allowed(self):
@@ -96,7 +96,7 @@ class AbilityLimitsRemovedTest(TestCase):
         self.assertEqual(character.str_value, 1, "STR値が正しく保存されていない")
         self.assertEqual(character.int_value, 1, "INT値が正しく保存されていない")
         
-        print(f"✅ 低い能力値キャラクター作成成功: {character.name}")
+        print(f"[OK] 低い能力値キャラクター作成成功: {character.name}")
         print(f"  - STR={character.str_value}, INT={character.int_value}, EDU={character.edu_value}")
     
     def test_duplicate_character_names_allowed(self):
@@ -167,7 +167,7 @@ class AbilityLimitsRemovedTest(TestCase):
         self.assertNotEqual(char1.str_value, char2.str_value, "キャラクターが区別されていない")
         self.assertNotEqual(char2.str_value, char3.str_value, "キャラクターが区別されていない")
         
-        print(f"✅ 同名キャラクター3つの作成成功:")
+        print("[OK] 同名キャラクター3つの作成成功:")
         print(f"  - {char1.name} (ID:{char1.id}) STR={char1.str_value}")
         print(f"  - {char2.name} (ID:{char2.id}) STR={char2.str_value}")
         print(f"  - {char3.name} (ID:{char3.id}) STR={char3.str_value}")
@@ -194,9 +194,9 @@ def run_ability_tests():
     result = runner.run(suite)
     
     if result.wasSuccessful():
-        print("\\n✅ 全ての能力値制限削除テストが成功しました！")
+        print("\\n[OK] 全ての能力値制限削除テストが成功しました！")
     else:
-        print(f"\\n❌ テスト失敗: {len(result.failures)} 個の失敗, {len(result.errors)} 個のエラー")
+        print(f"\\n[FAIL] テスト失敗: {len(result.failures)} 個の失敗, {len(result.errors)} 個のエラー")
         for failure in result.failures:
             print(f"失敗: {failure[0]}")
             print(f"詳細: {failure[1]}")

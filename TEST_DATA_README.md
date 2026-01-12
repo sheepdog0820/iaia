@@ -122,3 +122,19 @@ http://localhost:8000/admin/
 # 既存データを削除して再作成
 echo "yes" | python3 manage.py create_session_test_data
 ```
+
+## 追加: シナリオ→セッション→探索者（技能/推奨技能/ハンドアウト）導線テストデータ
+
+以下のコマンドで、推奨技能付きシナリオ + シナリオ紐付けセッション + 技能設定済み探索者 + HO1〜HO4（秘匿）+ 共通（公開）ハンドアウトのテストデータを作成できます。
+
+```bash
+python manage.py create_flow_test_data
+```
+
+### ログイン情報
+- **flow_gm** / flowpass123
+- **flow_pl1** / flowpass123（PL2〜PL4も同様）
+
+### 作成データ
+- **シナリオ**: 【FLOWTEST】推奨技能ありシナリオ（推奨技能あり）
+- **セッション**: 【FLOWTEST】シナリオ起点セッション（シナリオ紐付け）

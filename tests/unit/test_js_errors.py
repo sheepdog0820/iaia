@@ -1,78 +1,75 @@
 #!/usr/bin/env python3
 """
-キャラクター作成画面のJavaScriptエラーチェック
+キャラクター作成画面の JavaScript 参照チェック（手動実行用）
+
+注意:
+- Django の `manage.py test` からは実行されない想定です（テストケース未定義）。
+- 手動で実行する場合は `python tests/unit/test_js_errors.py` を使用してください。
 """
 
+from __future__ import annotations
+
 import re
+from pathlib import Path
 
-# HTMLファイルを読み込む
-with open('templates/accounts/character_sheet_6th.html', 'r', encoding='utf-8') as f:
-    content = f.read()
 
-# getElementById呼び出しを抽出
-get_element_pattern = r'getElementById\([\'"]([^\'\"]+)[\'"]\)'
-element_ids = re.findall(get_element_pattern, content)
+def run(template_path: str = "templates/accounts/character_sheet_6th.html") -> int:
+    content = Path(template_path).read_text(encoding="utf-8")
 
-# HTML内のid属性を抽出
-id_pattern = r'id=[\'"]([^\'\"]+)[\'"]'
-defined_ids = re.findall(id_pattern, content)
+    # getElementById 呼び出しを抽出
+    element_ids = re.findall(r"getElementById\\(['\\\"]([^'\\\"]+)['\\\"]\\)", content)
 
-# 不足している要素を特定
-missing_elements = []
-for elem_id in element_ids:
-    if elem_id not in defined_ids:
-        missing_elements.append(elem_id)
+    # HTML 内の id 属性を抽出
+    defined_ids = re.findall(r"id=['\\\"]([^'\\\"]+)['\\\"]", content)
 
-# 結果を表示
-print("=== JavaScript要素チェック結果 ===")
-print(f"JavaScript内で参照されている要素: {len(element_ids)}個")
-print(f"HTML内で定義されている要素: {len(defined_ids)}個")
+    missing_elements = sorted({elem_id for elem_id in element_ids if elem_id not in defined_ids})
 
-if missing_elements:
-    print(f"\n❌ 不足している要素 ({len(set(missing_elements))}個):")
-    for elem in sorted(set(missing_elements)):
-        print(f"  - {elem}")
-else:
-    print("\n✅ すべての要素が正しく定義されています！")
+    print("=== JavaScript要素チェック結果 ===")
+    print(f"JavaScript内で参照されている要素: {len(element_ids)}個")
+    print(f"HTML内で定義されている要素: {len(defined_ids)}個")
 
-# onclick/onchangeハンドラーで使用される関数を確認
-onclick_pattern = r'on(?:click|change)=[\'"]([^\'\"]+)\([^)]*\)'
-onclick_functions = re.findall(onclick_pattern, content)
+    exit_code = 0
+    if missing_elements:
+        exit_code = 1
+        print(f"\n[NG] 不足している要素 ({len(missing_elements)}個):")
+        for elem in missing_elements:
+            print(f"  - {elem}")
+    else:
+        print("\n[OK] すべての要素が正しく定義されています！")
 
-# JavaScript内で定義されている関数を抽出
-function_pattern = r'function\s+(\w+)\s*\('
-defined_functions = re.findall(function_pattern, content)
+    # onclick/onchange ハンドラーで使用される関数を確認
+    onclick_functions = re.findall(r"on(?:click|change)=['\\\"]([^'\\\"]+)\\([^)]*\\)", content)
+    defined_functions = re.findall(r"function\\s+(\\w+)\\s*\\(", content)
 
-# 不足している関数を特定
-missing_functions = []
-for func in onclick_functions:
-    # 関数名のみを抽出（引数を除く）
-    func_name = func.split('(')[0].strip()
-    if func_name and func_name not in defined_functions:
-        missing_functions.append(func_name)
+    missing_functions = sorted(
+        {
+            func.split("(")[0].strip()
+            for func in onclick_functions
+            if func.split("(")[0].strip() and func.split("(")[0].strip() not in defined_functions
+        }
+    )
 
-print(f"\n=== JavaScript関数チェック結果 ===")
-print(f"イベントハンドラーで呼び出される関数: {len(onclick_functions)}個")
-print(f"定義されている関数: {len(defined_functions)}個")
+    print("\n=== JavaScript関数チェック結果 ===")
+    print(f"イベントハンドラーで呼び出される関数: {len(onclick_functions)}個")
+    print(f"定義されている関数: {len(defined_functions)}個")
 
-if missing_functions:
-    print(f"\n❌ 不足している関数 ({len(set(missing_functions))}個):")
-    for func in sorted(set(missing_functions)):
-        print(f"  - {func}")
-else:
-    print("\n✅ すべての関数が正しく定義されています！")
+    if missing_functions:
+        exit_code = 1
+        print(f"\n[NG] 不足している関数 ({len(missing_functions)}個):")
+        for func in missing_functions:
+            print(f"  - {func}")
+    else:
+        print("\n[OK] すべての関数が正しく定義されています！")
 
-# 重複定義のチェック
-duplicate_functions = []
-func_counts = {}
-for func in defined_functions:
-    func_counts[func] = func_counts.get(func, 0) + 1
-    
-for func, count in func_counts.items():
-    if count > 1:
-        duplicate_functions.append((func, count))
+    duplicates = sorted({func for func in defined_functions if defined_functions.count(func) > 1})
+    if duplicates:
+        exit_code = 1
+        print("\n[WARN] 重複定義されている関数:")
+        for func in duplicates:
+            print(f"  - {func}: {defined_functions.count(func)}回定義")
 
-if duplicate_functions:
-    print(f"\n⚠️  重複定義されている関数:")
-    for func, count in duplicate_functions:
-        print(f"  - {func}: {count}回定義")
+    return exit_code
+
+
+if __name__ == "__main__":
+    raise SystemExit(run())

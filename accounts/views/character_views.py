@@ -926,6 +926,11 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         except ValueError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
+        try:
+            occupation_skills = parse_json_list(request.data.get('occupation_skills', []), 'occupation_skills')
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
         scenario_id_raw = request.data.get('scenario_id')
         scenario_title = (request.data.get('scenario_title') or '').strip()
         scenario_game_system = (request.data.get('game_system') or '').strip()
@@ -954,6 +959,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 'birthplace': request.data.get('birthplace', ''),
                 'residence': request.data.get('residence', ''),
                 'recommended_skills': recommended_skills,
+                'occupation_skills': occupation_skills,
                 'str_value': parsed_abilities['str_value'],
                 'con_value': parsed_abilities['con_value'],
                 'pow_value': parsed_abilities['pow_value'],
@@ -2336,7 +2342,17 @@ class Character6thCreateView(FormView):
 class GrowthRecordViewSet(CharacterNestedResourceMixin, viewsets.ModelViewSet):
     """成長記録管理ViewSet"""
     permission_classes = [IsAuthenticated]
-    
+
+    def get_character_sheet(self):
+        character_sheet_id = self.get_character_sheet_id()
+        if not character_sheet_id:
+            raise ValidationError("character_sheet_id is required")
+        return get_object_or_404(
+            CharacterSheet,
+            id=character_sheet_id,
+            user=self.request.user,
+        )
+
     def get_serializer_class(self):
         """アクションベースのシリアライザー選択"""
         if self.action == 'create':

@@ -278,6 +278,25 @@
     border-radius: 8px;
     border-left: 3px solid #dc2670;
 }
+
+.scenario-image-tile {
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 0.5rem;
+}
+
+.scenario-image-thumb {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    border: 1px solid var(--border-color);
+    background-color: var(--secondary-bg);
+}
+
+.scenario-image-tile a:hover .scenario-image-thumb {
+    filter: brightness(0.95);
+}
 </style>
 {% endblock %}
 
@@ -691,6 +710,123 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    function canManageScenarioImage(image, scenario) {
+        const currentUserId = window.CURRENT_USER?.id;
+        if (!currentUserId) return false;
+        if (Number(scenario?.created_by) === Number(currentUserId)) return true;
+        return Number(image?.uploaded_by) === Number(currentUserId);
+    }
+
+    function renderScenarioImages(images, scenario) {
+        const gridEl = document.getElementById('scenarioImagesGrid');
+        if (!gridEl) return;
+
+        if (!Array.isArray(images) || images.length === 0) {
+            gridEl.innerHTML = '<div class="col-12"><p class="text-muted text-center mb-0">画像がありません</p></div>';
+            return;
+        }
+
+        gridEl.innerHTML = images.map(image => {
+            const imageUrl = image?.image_url || '';
+            const title = image?.title || '';
+            const canDelete = canManageScenarioImage(image, scenario);
+            const deleteButton = canDelete
+                ? `<button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteScenarioImage(${image.id}, ${scenario.id})"><i class="fas fa-trash"></i></button>`
+                : '';
+
+            return `
+                <div class="col-6 col-md-4">
+                    <div class="scenario-image-tile">
+                        <a href="${imageUrl}" target="_blank" rel="noopener noreferrer" class="d-block">
+                            <img src="${imageUrl}" alt="${title || 'シナリオ画像'}" class="img-fluid rounded scenario-image-thumb" loading="lazy">
+                        </a>
+                        <div class="d-flex justify-content-between align-items-center gap-2 mt-2">
+                            <small class="text-muted text-truncate" title="${title}">${title || '(無題)'}</small>
+                            ${deleteButton}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function loadScenarioImages(scenarioId) {
+        const gridEl = document.getElementById('scenarioImagesGrid');
+        if (!gridEl) return;
+
+        gridEl.innerHTML = `
+            <div class="col-12 text-center py-2">
+                <div class="spinner-border text-info" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        `;
+
+        try {
+            const response = await axios.get('/api/scenarios/scenario-images/', {
+                params: { scenario_id: scenarioId }
+            });
+            const images = response.data || [];
+            renderScenarioImages(images, window.currentScenario);
+        } catch (error) {
+            console.error('Error loading scenario images:', error);
+            gridEl.innerHTML = '<div class="col-12"><div class="alert alert-danger mb-0">画像の読み込みに失敗しました</div></div>';
+        }
+    }
+
+    window.uploadScenarioImages = async function(scenarioId) {
+        const inputEl = document.getElementById('scenarioImagesInput');
+        const uploadBtn = document.getElementById('uploadScenarioImagesBtn');
+        if (!inputEl || !uploadBtn) return;
+
+        const files = Array.from(inputEl.files || []);
+        if (files.length === 0) {
+            alert('アップロードする画像を選択してください');
+            return;
+        }
+        if (files.length > 10) {
+            alert('一度にアップロードできるのは最大10枚です');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('scenario_id', String(scenarioId));
+        for (const file of files) {
+            if (!file?.type?.startsWith('image/')) {
+                alert(`画像以外のファイルが含まれています: ${file?.name || 'unknown'}`);
+                return;
+            }
+            formData.append('images', file);
+        }
+
+        const originalHtml = uploadBtn.innerHTML;
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>アップロード中...';
+        try {
+            await axios.post('/api/scenarios/scenario-images/bulk_upload/', formData);
+            alert('画像をアップロードしました');
+            inputEl.value = '';
+            await loadScenarioImages(scenarioId);
+        } catch (error) {
+            alert('アップロードに失敗しました: ' + (error.response?.data?.error || error.response?.data?.detail || error.message));
+        } finally {
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = originalHtml;
+        }
+    };
+
+    window.deleteScenarioImage = async function(imageId, scenarioId) {
+        if (!confirm('この画像を削除しますか？')) return;
+
+        try {
+            await axios.delete(`/api/scenarios/scenario-images/${encodeURIComponent(imageId)}/`);
+            alert('画像を削除しました');
+            await loadScenarioImages(scenarioId);
+        } catch (error) {
+            alert('削除に失敗しました: ' + (error.response?.data?.error || error.response?.data?.detail || error.message));
+        }
+    };
+
     // シナリオ詳細表示
     window.showScenarioDetail = async function(scenarioId) {
         const modal = new bootstrap.Modal(document.getElementById('scenarioDetailModal'));
@@ -748,6 +884,24 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         <h6 class="mt-4">あらすじ</h6>
                         <p>${scenario.summary || 'なし'}</p>
+
+                        <h6 class="mt-4"><i class="fas fa-images"></i> 画像</h6>
+                        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                            <input type="file"
+                                   class="form-control form-control-sm"
+                                   id="scenarioImagesInput"
+                                   accept="image/*"
+                                   multiple
+                                   style="max-width: 320px;">
+                            <button type="button"
+                                    class="btn btn-sm btn-info text-white"
+                                    id="uploadScenarioImagesBtn"
+                                    onclick="uploadScenarioImages(${scenario.id})">
+                                <i class="fas fa-upload"></i> アップロード
+                            </button>
+                            <small class="text-muted">最大10枚/1回</small>
+                        </div>
+                        <div class="row g-2" id="scenarioImagesGrid"></div>
                         
                         ${scenario.url ? `<p><a href="${scenario.url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fas fa-external-link-alt"></i> 参照URLを開く</a></p>` : ''}
                     </div>
@@ -803,6 +957,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 attachScenarioSkillInput(recommendedInput, recommendedWarning, () => scenario.game_system);
             }
 
+            await loadScenarioImages(scenario.id);
             modal.show();
         } catch (error) {
             console.error('Error loading scenario details:', error);

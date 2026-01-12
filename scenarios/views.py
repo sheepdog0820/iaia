@@ -6,8 +6,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from datetime import datetime
-from .models import Scenario, ScenarioNote, PlayHistory
-from .serializers import ScenarioSerializer, ScenarioNoteSerializer, PlayHistorySerializer
+from .models import Scenario, ScenarioNote, PlayHistory, ScenarioImage
+from .serializers import (
+    ScenarioSerializer,
+    ScenarioNoteSerializer,
+    PlayHistorySerializer,
+    ScenarioImageSerializer,
+)
 
 
 class ScenarioViewSet(viewsets.ModelViewSet):
@@ -70,6 +75,117 @@ class ScenarioViewSet(viewsets.ModelViewSet):
         )
         serializer = PlayHistorySerializer(history, many=True)
         return Response(serializer.data)
+
+
+class ScenarioImageViewSet(viewsets.ModelViewSet):
+    """シナリオ画像ViewSet"""
+
+    serializer_class = ScenarioImageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = ScenarioImage.objects.select_related('scenario', 'uploaded_by')
+        scenario_id = self.request.query_params.get('scenario_id') or self.request.query_params.get('scenario')
+        if scenario_id:
+            queryset = queryset.filter(scenario_id=scenario_id)
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        scenario_id = request.data.get('scenario')
+        if not scenario_id:
+            return Response(
+                {'error': 'scenario is required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            Scenario.objects.get(id=scenario_id)
+        except Scenario.DoesNotExist:
+            return Response(
+                {'error': 'Scenario not found'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return super().create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        scenario_id = self.request.data.get('scenario')
+        scenario = Scenario.objects.get(id=scenario_id)
+        serializer.save(uploaded_by=self.request.user, scenario=scenario)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+
+        # シナリオ作成者またはアップロード者のみ編集可能
+        if instance.scenario.created_by != self.request.user and instance.uploaded_by != self.request.user:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only scenario creator or uploader can edit images")
+
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        # シナリオ作成者またはアップロード者のみ削除可能
+        if instance.scenario.created_by != self.request.user and instance.uploaded_by != self.request.user:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only scenario creator or uploader can delete images")
+
+        instance.delete()
+
+    @action(detail=False, methods=['post'])
+    def bulk_upload(self, request):
+        """複数画像の一括アップロード"""
+        scenario_id = request.data.get('scenario_id')
+        images = request.FILES.getlist('images', [])
+
+        if not scenario_id:
+            return Response(
+                {'error': 'scenario_id is required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            scenario = Scenario.objects.get(id=scenario_id)
+        except Scenario.DoesNotExist:
+            return Response(
+                {'error': 'Scenario not found'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        created_images = []
+        for image_file in images[:10]:  # 最大10枚まで
+            scenario_image = ScenarioImage.objects.create(
+                scenario=scenario,
+                image=image_file,
+                title=image_file.name,
+                uploaded_by=request.user,
+            )
+            created_images.append(scenario_image)
+
+        serializer = ScenarioImageSerializer(created_images, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def reorder(self, request, pk=None):
+        """画像の表示順序変更（シナリオ作成者のみ）"""
+        image = self.get_object()
+        new_order = request.data.get('order')
+
+        if new_order is None:
+            return Response(
+                {'error': 'order is required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if image.scenario.created_by != request.user:
+            return Response(
+                {'error': 'Only scenario creator can reorder images'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        image.order = new_order
+        image.save()
+
+        return Response({'status': 'success', 'order': image.order})
 
 
 class ScenarioNoteViewSet(viewsets.ModelViewSet):

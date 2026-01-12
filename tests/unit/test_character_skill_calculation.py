@@ -69,7 +69,7 @@ class CharacterSkillCalculationTest(TestCase):
         # 最大SANの確認
         self.assertEqual(character.sanity_max, 94)  # 99 - 5
         
-        print(f"✅ 最大SAN計算テスト成功")
+        print("[OK] 最大SAN計算テスト成功")
         print(f"  - クトゥルフ神話技能: 5")
         print(f"  - 最大SAN: {character.sanity_max} (99 - 5)")
     
@@ -111,7 +111,7 @@ class CharacterSkillCalculationTest(TestCase):
         # 技能データの確認（データベースに保存されているか）
         # 注: 現在の実装では技能データは別テーブルに保存される可能性があります
         
-        print(f"✅ 技能合計値計算テスト成功")
+        print("[OK] 技能合計値計算テスト成功")
         print(f"  - 図書館技能: 基本25 + 職業30 + 趣味20 + ボーナス5 = 80")
 
 if __name__ == '__main__':

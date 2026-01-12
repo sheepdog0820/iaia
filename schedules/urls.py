@@ -3,6 +3,7 @@ from django.views.generic import TemplateView
 from rest_framework.routers import DefaultRouter
 from . import views
 from . import handout_views
+from . import attachment_views
 from . import notification_views
 
 router = DefaultRouter()
@@ -26,6 +27,13 @@ urlpatterns = [
     path('sessions/upcoming/', views.UpcomingSessionsView.as_view(), name='upcoming_sessions'),
     path('sessions/statistics/', views.SessionStatisticsView.as_view(), name='session_statistics'),
     path('sessions/<int:pk>/detail/', views.SessionDetailView.as_view(), name='session_detail'),
+    path('handouts/<int:handout_id>/attachments/', attachment_views.HandoutAttachmentListCreateView.as_view(), name='handout_attachments'),
+    path('attachments/<int:pk>/', attachment_views.HandoutAttachmentDetailView.as_view(), name='handout_attachment_detail'),
+    path(
+        'notification-preferences/',
+        notification_views.UserNotificationPreferencesViewSet.as_view({'get': 'list', 'patch': 'partial_update'}),
+        name='notification_preferences',
+    ),
     path('', include(router.urls)),
     path('calendar/', views.CalendarView.as_view(), name='calendar'),
     

@@ -213,11 +213,35 @@ class Command(BaseCommand):
             
             # 技能を追加
             for skill_name, value in char_info['skills']:
-                CharacterSkill.objects.create(
+                try:
+                    desired_total = int(value)
+                except (TypeError, ValueError):
+                    continue
+
+                base_value = character._get_skill_base_value(skill_name)
+                if base_value is None:
+                    base_value = 0
+                try:
+                    base_value = int(base_value)
+                except (TypeError, ValueError):
+                    base_value = 0
+
+                if desired_total < base_value:
+                    base_value = desired_total
+                    occupation_points = 0
+                else:
+                    occupation_points = desired_total - base_value
+
+                skill = CharacterSkill(
                     character_sheet=character,
                     skill_name=skill_name,
-                    current_value=value
+                    category=character._get_skill_category(skill_name),
+                    base_value=base_value,
+                    occupation_points=occupation_points,
+                    interest_points=0,
+                    other_points=0,
                 )
+                skill.save(skip_point_validation=True)
             
             characters.append(character)
         

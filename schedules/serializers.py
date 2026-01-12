@@ -6,6 +6,7 @@ from .models import (
     SessionNote,
     SessionLog,
     HandoutInfo,
+    HandoutAttachment,
     HandoutNotification,
     UserNotificationPreferences,
     SessionImage,
@@ -198,6 +199,50 @@ class HandoutInfoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'participant': 'participant or recipient is required'})
 
         return attrs
+
+
+class HandoutAttachmentSerializer(serializers.ModelSerializer):
+    """ハンドアウト添付ファイルシリアライザー"""
+
+    uploaded_by_detail = UserSerializer(source='uploaded_by', read_only=True)
+    file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = HandoutAttachment
+        fields = [
+            'id',
+            'handout',
+            'file',
+            'file_url',
+            'original_filename',
+            'file_type',
+            'file_size',
+            'content_type',
+            'description',
+            'uploaded_by',
+            'uploaded_by_detail',
+            'created_at',
+        ]
+        read_only_fields = [
+            'id',
+            'handout',
+            'file_url',
+            'original_filename',
+            'file_type',
+            'file_size',
+            'content_type',
+            'uploaded_by',
+            'uploaded_by_detail',
+            'created_at',
+        ]
+
+    def get_file_url(self, obj):
+        if not obj.file:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.file.url)
+        return obj.file.url
 
 
 class TRPGSessionSerializer(serializers.ModelSerializer):

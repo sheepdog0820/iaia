@@ -374,12 +374,13 @@
 ### 4.11 セッション画像（添付画像）
 
 - **内容**
-  - セッションへの画像アップロード（単体/一括、並び替え）
+  - セッションへの画像アップロード（単体/一括）
+  - セッション詳細画面での画像一覧表示/削除
 - **API（代表）**
   - `/api/schedules/session-images/`
-  - `/api/schedules/session-images/{id}/bulk_upload/`
+  - `/api/schedules/session-images/bulk_upload/`
   - `/api/schedules/session-images/{id}/reorder/`
-- **状態**: **一部完成**（API/DBはあるが、専用UIは未整備）
+- **状態**: **一部完成**（UI: セッション詳細でアップロード/表示/削除、並び替えUIは未整備）
 
 ### 4.12 YouTube連携
 
@@ -424,11 +425,15 @@
   - シナリオCRUD（タイトル、作者、ゲームシステム、難易度、想定時間、推奨技能、URLなど）
   - 検索（title/author/summary）
   - フィルタ（ゲームシステム、難易度、想定時間、人数など）
+  - シナリオ画像（添付画像）：アップロード（単体/一括）、一覧表示、削除
 - **画面**
   - `/api/scenarios/archive/view/`（一覧 + 登録モーダル + フィルタ）
 - **API（代表）**
   - `/api/scenarios/scenarios/`
-- **状態**: **完成**
+  - `/api/scenarios/scenario-images/`
+  - `/api/scenarios/scenario-images/bulk_upload/`
+  - `/api/scenarios/scenario-images/{id}/reorder/`
+- **状態**: **一部完成**（画像の並び替えUIは未整備）
 
 ### 5.2 シナリオメモ（GMメモ/公開メモ）
 

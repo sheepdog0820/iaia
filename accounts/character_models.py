@@ -72,6 +72,7 @@ class CharacterSheet(models.Model):
     birthplace = models.CharField(max_length=100, blank=True, verbose_name="出身地")
     residence = models.CharField(max_length=100, blank=True, verbose_name="居住地")
     recommended_skills = models.JSONField(default=list, blank=True, verbose_name="推奨技能")
+    occupation_skills = models.JSONField(default=list, blank=True, verbose_name="職業技能")
     source_scenario = models.ForeignKey(
         'scenarios.Scenario',
         on_delete=models.SET_NULL,
@@ -332,6 +333,18 @@ class CharacterSheet(models.Model):
         else:
             self.recommended_skills = []
 
+        # 職業技能を正規化
+        if self.occupation_skills is None:
+            self.occupation_skills = []
+        elif isinstance(self.occupation_skills, list):
+            self.occupation_skills = [
+                str(skill).strip()
+                for skill in self.occupation_skills
+                if str(skill).strip()
+            ]
+        else:
+            self.occupation_skills = []
+
         # 循環参照の防止
         if self.parent_sheet:
             current = self.parent_sheet
@@ -573,7 +586,7 @@ class CharacterSheet(models.Model):
             '教育': 20, '歴史': 20, '人類学': 1, '説得': 15,
             '拳銃': 20, '格闘技': 25, '聞き耳': 25, '目星': 25,
             '運転': 20, '法律': 5, '威圧': 15, '隠れる': 10,
-            '忍び歩き': 10, '写真術': 10, '考古学': 1,
+            '忍び歩き': 10, '写真術': 10, '考古学': 1, '鍵開け': 1,
             '登攀': 40, '機械修理': 20, 'ナビゲート': 10
         }
         
@@ -588,7 +601,7 @@ class CharacterSheet(models.Model):
             '教育': '対人系', '歴史': '知識系', '人類学': '知識系', '説得': '対人系',
             '拳銃': '戦闘系', '格闘技': '戦闘系', '聞き耳': '探索系', '目星': '探索系',
             '運転': '行動系', '法律': '知識系', '威圧': '対人系', '隠れる': '探索系',
-            '忍び歩き': '探索系', '写真術': '技術系', '考古学': '知識系',
+            '忍び歩き': '探索系', '写真術': '技術系', '考古学': '知識系', '鍵開け': '探索系',
             '登攀': '行動系', '機械修理': '技術系', 'ナビゲート': '行動系'
         }
         
@@ -2023,6 +2036,7 @@ class CharacterVersionManager:
             birthplace=character.birthplace,
             residence=character.residence,
             recommended_skills=list(character.recommended_skills or []),
+            occupation_skills=list(character.occupation_skills or []),
             source_scenario=character.source_scenario,
             source_scenario_title=character.source_scenario_title,
             source_scenario_game_system=character.source_scenario_game_system,
@@ -2173,6 +2187,7 @@ class CharacterVersionManager:
             birthplace=target_version.birthplace,
             residence=target_version.residence,
             recommended_skills=list(target_version.recommended_skills or []),
+            occupation_skills=list(target_version.occupation_skills or []),
             source_scenario=target_version.source_scenario,
             source_scenario_title=target_version.source_scenario_title,
             source_scenario_game_system=target_version.source_scenario_game_system,

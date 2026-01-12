@@ -65,7 +65,7 @@ class CharacterCalculationTest(TestCase):
         self.assertEqual(character.sanity_max, 99)  # デフォルト値
         self.assertEqual(character.sanity_current, 70)  # 初期値
         
-        print(f"✅ SAN値計算テスト成功")
+        print("[OK] SAN値計算テスト成功")
         print(f"  - 初期SAN: {character.sanity_starting}")
         print(f"  - 最大SAN: {character.sanity_max}")
         print(f"  - 現在SAN: {character.sanity_current}")
@@ -104,7 +104,7 @@ class CharacterCalculationTest(TestCase):
         self.assertEqual(character.sanity_max, 94)
         self.assertEqual(character.sanity_current, 45)  # カスタム値
         
-        print(f"✅ カスタムSAN値テスト成功")
+        print("[OK] カスタムSAN値テスト成功")
         print(f"  - 初期SAN: {character.sanity_starting}")
         print(f"  - 最大SAN: {character.sanity_max}")
         print(f"  - 現在SAN: {character.sanity_current}")

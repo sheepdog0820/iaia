@@ -35,13 +35,6 @@
                             data-share-url="{{ public_session_url }}">
                         <i class="fas fa-link"></i> リンクをコピー
                     </button>
-                    {% if is_gm and session.status == 'planned' %}
-                        <button class="btn btn-warning"
-                                type="button"
-                                id="startSessionBtn">
-                            <i class="fas fa-play"></i> セッション開始
-                        </button>
-                    {% endif %}
                     {% if session.scenario %}
                         {% if is_participant or can_join or is_gm %}
                             <button class="btn btn-outline-success"
@@ -138,10 +131,28 @@
 
                             {% if session.scenario %}
                             <h6><i class="fas fa-book"></i> シナリオ</h6>
-                            <p class="mb-3">
-                                {{ session.scenario.title }}
+                            <p class="mb-2">
+                                <span class="fw-semibold">{{ session.scenario.title }}</span>
                                 <span class="badge bg-secondary ms-2">{{ session.scenario.get_game_system_display }}</span>
                             </p>
+                            <div class="border rounded p-2 mb-2" style="background-color: var(--secondary-bg);">
+                                <div class="small text-muted mb-1"><i class="fas fa-align-left"></i> あらすじ</div>
+                                {% if session.scenario.summary %}
+                                    <div>{{ session.scenario.summary|linebreaks }}</div>
+                                {% else %}
+                                    <div class="text-muted small">未設定</div>
+                                {% endif %}
+                            </div>
+                            <div class="small">
+                                <div class="fw-semibold"><i class="fas fa-star"></i> 推奨技能</div>
+                                <div class="text-muted">
+                                    {% if session.scenario.recommended_skills %}
+                                        {{ session.scenario.recommended_skills|linebreaksbr }}
+                                    {% else %}
+                                        未設定
+                                    {% endif %}
+                                </div>
+                            </div>
                             {% endif %}
                         </div>
                     </div>
@@ -167,6 +178,61 @@
             </div>
 
             {% if is_participant or is_gm %}
+            <!-- セッション画像（添付画像） -->
+            <div class="card mb-4" id="sessionImagesCard">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-images"></i> セッション画像
+                        <small class="ms-2 text-white-50">複数枚アップロード可</small>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                        <input type="file"
+                               class="form-control"
+                               id="sessionImagesInput"
+                               accept="image/*"
+                               multiple
+                               style="max-width: 420px;">
+                        <button type="button" class="btn btn-info text-white" id="uploadSessionImagesBtn">
+                            <i class="fas fa-upload"></i> アップロード
+                        </button>
+                        <div class="text-muted small">最大10枚/1回</div>
+                    </div>
+
+                    <div class="row g-3" id="sessionImagesGrid">
+                        {% for image in session.images.all %}
+                            <div class="col-6 col-md-4">
+                                <div class="session-image-tile">
+                                    <a href="{{ image.image.url }}" target="_blank" rel="noopener noreferrer" class="d-block">
+                                        <img src="{{ image.image.url }}"
+                                             alt="{{ image.title|default:'セッション画像' }}"
+                                             class="img-fluid rounded session-image-thumb"
+                                             loading="lazy">
+                                    </a>
+                                    <div class="d-flex justify-content-between align-items-center gap-2 mt-2">
+                                        <small class="text-muted text-truncate" title="{{ image.title|default:image.image.name }}">
+                                            {{ image.title|default:image.image.name }}
+                                        </small>
+                                        {% if is_gm or image.uploaded_by_id == user.id %}
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    onclick="deleteSessionImage({{ image.id }})">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="col-12">
+                                <p class="text-muted text-center mb-0">画像がありません</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
             <!-- YouTube動画リンク（複数） -->
             <div class="card mb-4" id="youtubeLinksCard">
                 <div class="card-header bg-danger text-white">
@@ -374,86 +440,6 @@
             </div>
             {% endif %}
 
-            {% if is_participant or is_gm %}
-            <!-- キャラクターステータス（参照のみ） -->
-            <div class="card mb-4" id="characterStatusCard">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-heartbeat"></i> キャラクターステータス（参照）
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted small mb-3">
-                        ココフォリアで管理するため、キャラクターシートの現在値を参照のみ表示します。HP/MP/SANはKPのみ閲覧できます。
-                    </p>
-                    <div class="table-responsive">
-                        <table class="table table-dark table-striped align-middle">
-                            <thead>
-                                <tr>
-                                    <th>参加者</th>
-                                    <th>キャラクター</th>
-                                    <th>HP</th>
-                                    <th>MP</th>
-                                    <th>SAN</th>
-                                    <th>最終更新</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for participant in participants %}
-                                <tr>
-                                    <td>
-                                        <div class="fw-semibold">{{ participant.user.nickname|default:participant.user.username }}</div>
-                                        <span class="badge {% if participant.role == 'gm' %}bg-primary{% else %}bg-secondary{% endif %}">
-                                            {% if participant.role == 'gm' %}GM{% else %}PL{% endif %}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {% if participant.character_name %}
-                                            {{ participant.character_name }}
-                                        {% elif participant.character_sheet %}
-                                            {{ participant.character_sheet.name }}
-                                        {% else %}
-                                            <span class="text-muted">未設定</span>
-                                        {% endif %}
-                                    </td>
-                                    {% if is_gm %}
-                                        {% if participant.character_sheet %}
-                                            <td>
-                                                {{ participant.character_sheet.hit_points_current|default_if_none:"-" }} / {{ participant.character_sheet.hit_points_max|default_if_none:"-" }}
-                                            </td>
-                                            <td>
-                                                {{ participant.character_sheet.magic_points_current|default_if_none:"-" }} / {{ participant.character_sheet.magic_points_max|default_if_none:"-" }}
-                                            </td>
-                                            <td>
-                                                {{ participant.character_sheet.sanity_current|default_if_none:"-" }} / {{ participant.character_sheet.sanity_max|default_if_none:"-" }}
-                                            </td>
-                                            <td class="small text-muted">
-                                                {{ participant.character_sheet.updated_at|date:"Y/m/d H:i" }}
-                                            </td>
-                                        {% else %}
-                                            <td class="text-muted">-</td>
-                                            <td class="text-muted">-</td>
-                                            <td class="text-muted">-</td>
-                                            <td class="text-muted">-</td>
-                                        {% endif %}
-                                    {% else %}
-                                        <td class="text-muted">非公開</td>
-                                        <td class="text-muted">非公開</td>
-                                        <td class="text-muted">非公開</td>
-                                        <td class="text-muted">-</td>
-                                    {% endif %}
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="6" class="text-center text-muted">参加者がいません</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
         </div>
 
         <!-- サイドバー -->
@@ -908,6 +894,25 @@
     white-space: pre-wrap;
 }
 
+.session-image-tile {
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 0.5rem;
+}
+
+.session-image-thumb {
+    width: 100%;
+    height: 160px;
+    object-fit: cover;
+    border: 1px solid var(--border-color);
+    background-color: var(--secondary-bg);
+}
+
+.session-image-tile a:hover .session-image-thumb {
+    filter: brightness(0.95);
+}
+
 .breadcrumb {
     background-color: var(--secondary-bg);
     border-radius: 8px;
@@ -1316,22 +1321,58 @@ async function updateSession() {
     }
 }
 
-async function startSession() {
-    if (!confirm('セッションを開始しますか？')) return;
+// セッション画像アップロード（複数）
+async function uploadSessionImages() {
+    const inputEl = document.getElementById('sessionImagesInput');
+    const uploadBtn = document.getElementById('uploadSessionImagesBtn');
+    if (!inputEl || !uploadBtn) return;
 
+    const files = Array.from(inputEl.files || []);
+    if (files.length === 0) {
+        alert('アップロードする画像を選択してください');
+        return;
+    }
+    if (files.length > 10) {
+        alert('一度にアップロードできるのは最大10枚です');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('session_id', String(SESSION_ID));
+    for (const file of files) {
+        if (!file?.type?.startsWith('image/')) {
+            alert(`画像以外のファイルが含まれています: ${file?.name || 'unknown'}`);
+            return;
+        }
+        formData.append('images', file);
+    }
+
+    const originalHtml = uploadBtn.innerHTML;
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>アップロード中...';
     try {
-        await axios.patch(`/api/schedules/sessions/{{ session.id }}/`, { status: 'ongoing' });
-        alert('セッションを開始しました');
+        await axios.post('/api/schedules/session-images/bulk_upload/', formData);
+        alert('画像をアップロードしました');
         location.reload();
     } catch (error) {
-        alert('開始に失敗しました: ' + (error.response?.data?.detail || error.message));
+        alert('アップロードに失敗しました: ' + (error.response?.data?.error || error.response?.data?.detail || error.message));
+    } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = originalHtml;
+        inputEl.value = '';
     }
 }
 
-function setupSessionLifecycleButtons() {
-    const startButton = document.getElementById('startSessionBtn');
-    if (startButton) {
-        startButton.addEventListener('click', startSession);
+// セッション画像削除
+async function deleteSessionImage(imageId) {
+    if (!confirm('この画像を削除しますか？')) return;
+
+    try {
+        await axios.delete(`/api/schedules/session-images/${encodeURIComponent(imageId)}/`);
+        alert('画像を削除しました');
+        location.reload();
+    } catch (error) {
+        alert('削除に失敗しました: ' + (error.response?.data?.error || error.response?.data?.detail || error.message));
     }
 }
 
@@ -1880,9 +1921,11 @@ async function removeParticipant(participantId) {
 
 document.addEventListener('DOMContentLoaded', () => {
     setupCopyPublicSessionLinkButton();
-    setupSessionLifecycleButtons();
 
     if (IS_PUBLIC_VIEW) return;
+
+    const uploadImagesBtn = document.getElementById('uploadSessionImagesBtn');
+    if (uploadImagesBtn) uploadImagesBtn.addEventListener('click', uploadSessionImages);
 
     loadCharacterSheets();
     loadGroupMemberCharacters();

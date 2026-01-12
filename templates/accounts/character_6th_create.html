@@ -469,6 +469,32 @@
                          
                          <!-- 技能タブとコンテンツ -->
                          <div id="skillsContainer">
+                             <div class="border rounded p-2 bg-light mb-2 occupation-skills-control" id="occupationSkillsControl">
+                                 <div class="row g-2 align-items-end">
+                                     <div class="col-md-6">
+                                         <label for="occupationSkillInput" class="form-label small">職業技能を追加</label>
+                                         <div class="input-group input-group-sm">
+                                             <input type="text" class="form-control" id="occupationSkillInput" list="occupationSkillOptions" placeholder="例: 目星 / spot_hidden">
+                                             <button class="btn btn-outline-primary" type="button" id="addOccupationSkill">
+                                                 <i class="fas fa-plus"></i> 追加
+                                             </button>
+                                         </div>
+                                         <datalist id="occupationSkillOptions"></datalist>
+                                     </div>
+                                     <div class="col-md-6">
+                                         <label class="form-label small">セット操作</label>
+                                         <div class="d-flex flex-wrap gap-1">
+                                             <button type="button" class="btn btn-outline-danger btn-sm" id="clearOccupationSkills">
+                                                 <i class="fas fa-eraser"></i> クリア
+                                             </button>
+                                         </div>
+                                         <small class="text-muted d-block mt-1" id="occupationSkillsHint">職業テンプレートを選択すると自動で職業技能が追加されます。</small>
+                                     </div>
+                                 </div>
+                                 <div class="mt-1" id="occupationSkillsChips">
+                                     <span class="text-muted">職業技能はまだ設定されていません。</span>
+                                 </div>
+                             </div>
                              <div class="border rounded p-2 bg-light mb-2 recommended-skills-control" id="recommendedSkillsControl">
                                  <div class="row g-2 align-items-end">
                                      <div class="col-md-6">
@@ -566,6 +592,11 @@
                                     </button>
                                 </li>
                                 <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="occupation-skill-tab" data-bs-toggle="tab" data-bs-target="#occupationSkill" type="button" role="tab">
+                                        <i class="fas fa-briefcase"></i> 職業技能
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
                                     <button class="nav-link" id="recommended-tab" data-bs-toggle="tab" data-bs-target="#recommended" type="button" role="tab">
                                         <i class="fas fa-star"></i> 推奨
                                     </button>
@@ -619,6 +650,16 @@
                                 <div class="tab-pane fade" id="all" role="tabpanel">
                                     <div class="row g-2 mt-1" id="allSkills">
                                         <!-- 全技能がここに動的生成される -->
+                                    </div>
+                                </div>
+
+                                <!-- 職業技能 -->
+                                <div class="tab-pane fade" id="occupationSkill" role="tabpanel">
+                                    <div class="row g-2 mt-1" id="occupationSkillSkills">
+                                         <div class="col-12 text-center text-muted p-4">
+                                             <i class="fas fa-briefcase fa-2x mb-2"></i>
+                                             <p class="mb-0">職業技能が未設定です。上の入力欄か職業テンプレートから追加してください。</p>
+                                         </div>
                                     </div>
                                 </div>
 

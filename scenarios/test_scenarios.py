@@ -143,8 +143,8 @@ class ScenarioAPITestCase(APITestCase):
     def test_scenario_list_unauthenticated(self):
         """未認証シナリオ一覧アクセステスト"""
         response = self.client.get('/api/scenarios/scenarios/')
-        # 認証が必要なため403を期待
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        # 認証が必要（TokenAuthenticationが有効なため未認証は401）
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_scenario_list_authenticated(self):
         """認証済みシナリオ一覧アクセステスト"""
@@ -158,7 +158,8 @@ class ScenarioAPITestCase(APITestCase):
     def test_play_history_unauthenticated(self):
         """未認証プレイ履歴アクセステスト"""
         response = self.client.get('/api/scenarios/history/')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        # 認証が必要（TokenAuthenticationが有効なため未認証は401）
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_play_history_authenticated(self):
         """認証済みプレイ履歴アクセステスト"""

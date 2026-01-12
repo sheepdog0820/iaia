@@ -106,6 +106,7 @@
         exploration: {
             first_aid: { base: 30, name: "応急手当" },
             locksmith: { base: 1, name: "鍵開け" },
+            appraise: { base: 5, name: "鑑定" },
             conceal: { base: 15, name: "隠す" },
             hide: { base: 10, name: "隠れる" },
             listen: { base: 25, name: "聞き耳" },
@@ -128,13 +129,18 @@
             jump: { base: 25, name: "跳躍" },
             electrical_repair: { base: 10, name: "電気修理" },
             navigate: { base: 10, name: "ナビゲート" },
+            sleight_of_hand: { base: 10, name: "手さばき" },
+            survival: { base: 10, name: "サバイバル" },
             disguise: { base: 1, name: "変装" }
         },
         social: {
             fast_talk: { base: 5, name: "言いくるめ" },
-            credit_rating: { base: 0, name: "信用" },
+            charm: { base: 15, name: "魅惑" },
+            credit_rating: { base: 15, name: "信用" },
             persuade: { base: 15, name: "説得" },
             bargain: { base: 5, name: "値切り" },
+            intimidate: { base: 15, name: "威圧" },
+            language_other: { base: 1, name: "他の言語" },
             language_own: { base: "EDU*5", name: "母国語" }
         },
         knowledge: {
@@ -564,6 +570,7 @@ function updateGlobalDiceFormula() {
                         <div class="d-flex align-items-center gap-1 skill-item-title">
                             ${nameMarkup}
                             <span class="badge bg-info text-dark recommended-badge d-none">推奨</span>
+                            <span class="badge bg-warning text-dark occupation-badge d-none">職業</span>
                         </div>
                         <div class="d-flex align-items-center gap-1 skill-item-actions">
                             ${deleteButton}
@@ -728,7 +735,9 @@ function updateGlobalDiceFormula() {
     const skillCardByKey = new Map();
     let skillTabContainers = null;
     let recommendedSkillKeys = new Set();
+    let occupationSkillKeys = new Set();
     let userTouchedRecommended = false;
+    let userTouchedOccupation = false;
 
     // Skill list generation (single source, moved per tab)
     function generateSkillsList() {
@@ -739,7 +748,9 @@ function updateGlobalDiceFormula() {
             social: document.getElementById('socialSkills'),
             knowledge: document.getElementById('knowledgeSkills'),
             all: document.getElementById('allSkills'),
-            recommended: document.getElementById('recommendedSkills')
+            occupationSkill: document.getElementById('occupationSkillSkills'),
+            recommended: document.getElementById('recommendedSkills'),
+            allocated: document.getElementById('allocatedSkills')
         };
         skillTabContainers = containers;
         // Build cards once
@@ -765,7 +776,7 @@ function updateGlobalDiceFormula() {
     }
 
     function renderSkillTab(category, containers) {
-        const validCategories = ['combat', 'exploration', 'action', 'social', 'knowledge', 'all', 'recommended'];
+        const validCategories = ['combat', 'exploration', 'action', 'social', 'knowledge', 'all', 'occupationSkill', 'recommended', 'allocated'];
         const targetCategory = validCategories.includes(category) ? category : 'combat';
 
         // Clear all containers
@@ -781,9 +792,15 @@ function updateGlobalDiceFormula() {
         // Append matching cards
         skillCards.forEach(({ key, category: cardCategory, card }) => {
             const isRecommended = recommendedSkillKeys.has(key);
+            const isOccupationSkill = occupationSkillKeys.has(key);
             const isCustomSkill = key.startsWith('custom_');
             const categorySet = SKILL_CATEGORY_KEYS[targetCategory];
+            const isAllocated = targetCategory === 'allocated'
+                && ((parseInt(card.querySelector('.occupation-skill')?.value, 10) || 0) > 0
+                    || (parseInt(card.querySelector('.interest-skill')?.value, 10) || 0) > 0);
             const shouldShow = targetCategory === 'all'
+                || (targetCategory === 'allocated' && isAllocated)
+                || (targetCategory === 'occupationSkill' && isOccupationSkill)
                 || (targetCategory === 'recommended' && isRecommended)
                 || (isCustomSkill && cardCategory === targetCategory)
                 || (categorySet ? categorySet.has(key) : targetCategory === cardCategory);
@@ -803,6 +820,24 @@ function updateGlobalDiceFormula() {
                 <div class="col-12 text-center text-muted p-4">
                     <i class="fas fa-star fa-2x mb-2"></i>
                     <p class="mb-0">推奨技能が未設定です。上の入力欄から追加してください。</p>
+                </div>
+            `;
+        }
+
+        if (targetCategory === 'occupationSkill' && appended === 0) {
+            dest.innerHTML = `
+                <div class="col-12 text-center text-muted p-4">
+                    <i class="fas fa-briefcase fa-2x mb-2"></i>
+                    <p class="mb-0">職業技能が未設定です。上の入力欄か職業テンプレートから追加してください。</p>
+                </div>
+            `;
+        }
+
+        if (targetCategory === 'allocated' && appended === 0) {
+            dest.innerHTML = `
+                <div class="col-12 text-center text-muted p-3" id="noAllocatedMessage">
+                    <i class="fas fa-info-circle fa-lg mb-1"></i>
+                    <p class="mb-0 small">まだポイントを振り分けた技能がありません。</p>
                 </div>
             `;
         }
@@ -920,8 +955,41 @@ function updateGlobalDiceFormula() {
         }
 
         renderRecommendedChips();
-        refreshActiveSkillTab();
+        if (getActiveSkillTabCategory() === 'recommended') {
+            refreshActiveSkillTab();
+        }
         if (persist) persistCustomRecommendedSkills();
+    }
+
+    function setOccupationSkills(skillKeys, options = {}) {
+        const { mode = 'replace', persist = false } = options;
+        const normalized = Array.isArray(skillKeys) ? skillKeys.filter(Boolean) : [];
+        const nextKeys = mode === 'merge'
+            ? new Set([...occupationSkillKeys, ...normalized])
+            : new Set(normalized);
+        occupationSkillKeys = nextKeys;
+
+        skillCards.forEach(({ key, card }) => {
+            const isOccupation = occupationSkillKeys.has(key);
+            card.classList.toggle('skill-occupation', isOccupation);
+            const badge = card.querySelector('.occupation-badge');
+            if (badge) {
+                badge.classList.toggle('d-none', !isOccupation);
+            }
+        });
+
+        if (skillCardByKey.size > 0) {
+            const missing = Array.from(occupationSkillKeys).filter(key => !skillCardByKey.has(key));
+            if (missing.length > 0) {
+                console.warn('Unknown occupation skills:', missing);
+            }
+        }
+
+        renderOccupationChips();
+        if (getActiveSkillTabCategory() === 'occupationSkill') {
+            refreshActiveSkillTab();
+        }
+        if (persist) persistCustomOccupationSkills();
     }
 
     function safeGetLocalStorage(key) {
@@ -991,6 +1059,18 @@ function updateGlobalDiceFormula() {
         });
     }
 
+    function buildOccupationSkillOptions() {
+        const datalist = document.getElementById('occupationSkillOptions');
+        if (!datalist) return;
+        datalist.innerHTML = '';
+        Object.values(ALL_SKILLS_6TH).forEach(skill => {
+            if (!skill?.name) return;
+            const option = document.createElement('option');
+            option.value = skill.name;
+            datalist.appendChild(option);
+        });
+    }
+
     function renderRecommendedChips() {
         const container = document.getElementById('recommendedSkillsChips');
         if (!container) return;
@@ -1033,6 +1113,48 @@ function updateGlobalDiceFormula() {
         });
     }
 
+    function renderOccupationChips() {
+        const container = document.getElementById('occupationSkillsChips');
+        if (!container) return;
+
+        if (occupationSkillKeys.size === 0) {
+            container.innerHTML = '<span class="text-muted">職業技能はまだ設定されていません。</span>';
+            return;
+        }
+
+        container.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+        Array.from(occupationSkillKeys).forEach(key => {
+            const name = ALL_SKILLS_6TH[key]?.name || key;
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-warning text-dark me-1 mb-1 occupation-chip';
+            badge.dataset.skill = key;
+            badge.textContent = name;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-link btn-sm p-0 ms-1 text-dark remove-occupation-skill';
+            removeBtn.setAttribute('aria-label', '削除');
+            removeBtn.dataset.skill = key;
+            removeBtn.innerHTML = '&times;';
+            badge.appendChild(removeBtn);
+
+            fragment.appendChild(badge);
+        });
+
+        container.appendChild(fragment);
+
+        container.querySelectorAll('.remove-occupation-skill').forEach(button => {
+            button.addEventListener('click', () => {
+                const skillKey = button.dataset.skill;
+                if (!skillKey) return;
+                userTouchedOccupation = true;
+                const next = Array.from(occupationSkillKeys).filter(key => key !== skillKey);
+                setOccupationSkills(next, { persist: true });
+            });
+        });
+    }
+
     function getActiveSkillTabCategory() {
         const activeTab = document.querySelector('#skillTabs .nav-link.active');
         const target = activeTab?.getAttribute('data-bs-target')?.replace('#', '');
@@ -1042,12 +1164,15 @@ function updateGlobalDiceFormula() {
     function refreshActiveSkillTab() {
         if (!skillTabContainers) return;
         const activeCategory = getActiveSkillTabCategory();
-        if (activeCategory === 'allocated') return;
         renderSkillTab(activeCategory, skillTabContainers);
     }
 
     function persistCustomRecommendedSkills() {
         safeSetLocalStorage('custom_recommended_skills', JSON.stringify(Array.from(recommendedSkillKeys)));
+    }
+
+    function persistCustomOccupationSkills() {
+        safeSetLocalStorage('custom_occupation_skills', JSON.stringify(Array.from(occupationSkillKeys)));
     }
 
     function loadCustomRecommendedSkills() {
@@ -1125,6 +1250,17 @@ function updateGlobalDiceFormula() {
         }
     }
 
+    function loadCustomOccupationSkills() {
+        const stored = safeGetLocalStorage('custom_occupation_skills');
+        if (!stored) return [];
+        try {
+            const parsed = JSON.parse(stored);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_) {
+            return parseSkillList(stored);
+        }
+    }
+
     async function fetchParticipatingScenarios({ days = 365, limit = 50 } = {}) {
         try {
             const params = new URLSearchParams();
@@ -1139,6 +1275,51 @@ function updateGlobalDiceFormula() {
             console.warn('Failed to load participating scenarios:', error);
             return null;
         }
+    }
+
+    function initOccupationSkillControls() {
+        const input = document.getElementById('occupationSkillInput');
+        const addBtn = document.getElementById('addOccupationSkill');
+        const clearBtn = document.getElementById('clearOccupationSkills');
+
+        if (!input) return;
+
+        buildOccupationSkillOptions();
+
+        const stored = loadCustomOccupationSkills();
+        if (stored.length > 0) {
+            setOccupationSkills(stored, { persist: false });
+        } else {
+            setOccupationSkills([], { persist: false });
+        }
+
+        const addFromInput = () => {
+            const rawValue = input.value;
+            const parsed = resolveSkillKeys(parseSkillList(rawValue));
+            if (parsed.resolved.length === 0) {
+                alert('技能が見つかりません。名称またはキーを確認してください。');
+                return;
+            }
+            userTouchedOccupation = true;
+            setOccupationSkills(parsed.resolved, { mode: 'merge', persist: true });
+            input.value = '';
+            if (parsed.unknown.length > 0) {
+                alert(`未対応の技能: ${parsed.unknown.join(', ')}`);
+            }
+        };
+
+        addBtn?.addEventListener('click', addFromInput);
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                addFromInput();
+            }
+        });
+
+        clearBtn?.addEventListener('click', () => {
+            userTouchedOccupation = true;
+            setOccupationSkills([], { persist: true });
+        });
     }
 
     async function initRecommendedSkillControls() {
@@ -1157,6 +1338,11 @@ function updateGlobalDiceFormula() {
         const sessionIdFromQuery = sessionParams.get('session_id');
 
         if (!input) return;
+
+        // Bootstrap modal works best when it is a direct child of <body> (avoid stacking-context/layout issues).
+        if (scenarioSelectModalEl && scenarioSelectModalEl.parentElement !== document.body) {
+            document.body.appendChild(scenarioSelectModalEl);
+        }
 
         buildRecommendedSkillOptions();
 
@@ -1253,7 +1439,8 @@ function updateGlobalDiceFormula() {
                 safeSetLocalStorage('scenario_recommended_session_id', String(context.session_id));
             }
 
-            if (context.scenario && (forceScenario || scenarioPayload.source !== 'query')) {
+            const hasScenarioRaw = !!(scenarioPayload.raw || '').trim();
+            if (context.scenario && (forceScenario || scenarioPayload.source !== 'query' || !hasScenarioRaw)) {
                 const scenarioRaw = (context.scenario.recommended_skills || '').trim();
                 scenarioPayload = {
                     ...scenarioPayload,
@@ -1298,8 +1485,13 @@ function updateGlobalDiceFormula() {
             return true;
         };
 
-        if (!isEditMode && (sessionIdForContext || scenarioPayload.source !== 'query')) {
-            void applySessionContext(sessionIdForContext);
+        const shouldApplySessionContext = !isEditMode && (sessionIdForContext || scenarioPayload.source !== 'query');
+        if (shouldApplySessionContext) {
+            void applySessionContext(sessionIdForContext).then(success => {
+                if (!success && !scenarioPayload.raw && scenarioPayload.scenarioId) {
+                    void fetchScenarioRecommended(true);
+                }
+            });
         }
 
         const addFromInput = () => {
@@ -1516,7 +1708,7 @@ function updateGlobalDiceFormula() {
             void fetchScenarioRecommended();
         });
 
-        if (!isEditMode && !scenarioPayload.raw && scenarioPayload.scenarioId) {
+        if (!isEditMode && !scenarioPayload.raw && scenarioPayload.scenarioId && !shouldApplySessionContext) {
             void fetchScenarioRecommended(true);
         }
     }
@@ -1574,7 +1766,6 @@ function updateGlobalDiceFormula() {
         let occupationUsed = 0;
         let interestUsed = 0;
         let allocatedCount = 0;
-        const allocatedSkills = [];
 
         skillCards.forEach(({ key, card }) => {
             const baseEl = card.querySelector('.skill-base');
@@ -1595,22 +1786,11 @@ function updateGlobalDiceFormula() {
 
             if (occ > 0 || int > 0) {
                 allocatedCount++;
-                const displayName = getSkillDisplayName(key, card);
-                allocatedSkills.push({
-                    key,
-                    skillName: displayName,
-                    base,
-                    occupationPoints: occ,
-                    interestPoints: int,
-                    total,
-                });
             }
 
             occupationUsed += occ;
             interestUsed += int;
         });
-
-        updateAllocatedSkillsTab(allocatedSkills);
         
         // 配分済み技能数のバッジ更新
         const allocatedCountBadge = document.getElementById('allocatedCount');
@@ -1657,43 +1837,6 @@ function updateGlobalDiceFormula() {
             document.getElementById('interestTotalFooter').textContent = interestTotal;
         }
     }
-    
-    // Update allocated skills tab
-    function updateAllocatedSkillsTab(allocatedSkills) {
-        const allocatedContainer = document.getElementById('allocatedSkills');
-
-        if (!allocatedContainer) return;
-        
-        if (allocatedSkills.length === 0) {
-            // Empty state message
-            allocatedContainer.innerHTML = `
-                <div class="col-12 text-center text-muted p-4" id="noAllocatedMessage">
-                    <i class="fas fa-info-circle fa-2x mb-2"></i>
-                    <p>No skills have been allocated yet.</p>
-                </div>
-            `;
-        } else {
-            // Render allocated skill summaries (read-only)
-            allocatedContainer.innerHTML = '';
-            allocatedSkills.forEach(item => {
-                allocatedContainer.innerHTML += `
-                    <div class="col-xl-4 col-lg-6 col-md-6 mb-3">
-                        <div class="skill-item border rounded p-2">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="fw-bold">${item.skillName || item.key}</span>
-                                <span class="badge bg-primary">${item.total}%</span>
-                            </div>
-                            <div class="small text-muted mt-1">
-                                職業: ${item.occupationPoints || 0}% / 趣味: ${item.interestPoints || 0}% / 基本値: ${item.base || 0}%
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-    }
-
-
 
     // 全能力値ダイス（ボタン）
     document.getElementById('rollAllAbilities')?.addEventListener('click', rollAllAbilities);
@@ -1739,98 +1882,98 @@ function updateGlobalDiceFormula() {
     const OCCUPATION_TEMPLATES = {
         academic: [
             {
-                name: "Professor",
+                name: "大学教授",
                 skills: ["library_use", "psychology", "persuade", "credit_rating", "history", "natural_world", "language_other", "occult"],
                 multiplier: 20,
-                description: "University faculty or researcher"
+                description: "大学の教員・研究者"
             },
             {
-                name: "Archaeologist",
+                name: "考古学者",
                 skills: ["archaeology", "library_use", "history", "spot_hidden", "navigate", "photography", "language_other", "appraise"],
                 multiplier: 20,
-                description: "Field researcher of ruins and artifacts"
+                description: "遺跡や遺物の調査研究者"
             },
             {
-                name: "Librarian",
+                name: "司書",
                 skills: ["library_use", "accounting", "computer_use", "history", "psychology", "language_other", "spot_hidden", "persuade"],
                 multiplier: 20,
-                description: "Library or archive specialist"
+                description: "図書館・文書館の専門職"
             }
         ],
         investigation: [
             {
-                name: "Private Detective",
+                name: "私立探偵",
                 skills: ["spot_hidden", "listen", "track", "psychology", "persuade", "photography", "hide", "law"],
                 multiplier: 20,
-                description: "Independent investigator"
+                description: "独立系の調査員"
             },
             {
-                name: "Journalist",
+                name: "記者",
                 skills: ["persuade", "psychology", "spot_hidden", "listen", "photography", "fast_talk", "library_use", "language_other"],
                 multiplier: 20,
-                description: "Reporter or writer"
+                description: "新聞記者・雑誌ライター"
             },
             {
-                name: "Police Officer",
+                name: "警察官",
                 skills: ["law", "spot_hidden", "listen", "intimidate", "handgun", "grapple", "drive_auto", "first_aid"],
                 multiplier: 20,
-                description: "Law enforcement officer"
+                description: "法執行機関の職員"
             }
         ],
         combat: [
             {
-                name: "Soldier",
+                name: "軍人",
                 skills: ["rifle", "handgun", "dodge", "first_aid", "intimidate", "survival", "navigate", "drive_auto"],
                 multiplier: 20,
-                description: "Active or former military"
+                description: "現役または元軍人"
             },
             {
-                name: "Martial Artist",
+                name: "格闘家",
                 skills: ["martial_arts", "dodge", "kick", "grapple", "psychology", "intimidate", "jump", "first_aid"],
                 multiplier: 20,
-                description: "Fighter or boxer"
+                description: "武道家・ボクサー等"
             }
         ],
         medical: [
             {
-                name: "Doctor",
+                name: "医師",
                 skills: ["medicine", "first_aid", "biology", "pharmacy", "psychology", "credit_rating", "persuade", "language_other"],
                 multiplier: 20,
-                description: "Physician or surgeon"
+                description: "医師・外科医"
             },
             {
-                name: "Nurse",
+                name: "看護師",
                 skills: ["medicine", "first_aid", "biology", "psychology", "persuade", "listen", "spot_hidden", "pharmacy"],
                 multiplier: 20,
-                description: "Medical staff"
+                description: "医療スタッフ"
             }
         ],
         arts: [
             {
-                name: "Artist",
+                name: "芸術家",
                 skills: ["art", "psychology", "spot_hidden", "history", "persuade", "charm", "language_other", "appraise"],
                 multiplier: 20,
-                description: "Painter, sculptor, performer"
+                description: "画家・彫刻家・演者など"
             },
             {
-                name: "Writer",
+                name: "作家",
                 skills: ["language_own", "language_other", "library_use", "psychology", "history", "occult", "persuade", "spot_hidden"],
                 multiplier: 20,
-                description: "Author or novelist"
+                description: "小説家・著述家"
             }
         ],
         others: [
             {
-                name: "Criminal",
+                name: "犯罪者",
                 skills: ["hide", "sneak", "locksmith", "sleight_of_hand", "spot_hidden", "listen", "bargain", "disguise"],
                 multiplier: 20,
-                description: "Career criminal or outlaw"
+                description: "常習犯・無法者"
             },
             {
-                name: "Collector",
+                name: "コレクター",
                 skills: ["credit_rating", "ride", "art", "language_other", "handgun", "history", "charm", "accounting"],
                 multiplier: 20,
-                description: "Collector or enthusiast"
+                description: "収集家・愛好家"
             }
         ]
     };
@@ -1902,9 +2045,9 @@ function initOccupationTemplates() {
             methodSelect.value = 'edu20';
         }
         
-        // Highlight recommended skills
-        userTouchedRecommended = true;
-        setRecommendedSkills(occupation.skills || [], { persist: true });
+        // 職業技能をセット
+        userTouchedOccupation = true;
+        setOccupationSkills(occupation.skills || [], { persist: true });
         
         // モーダルを閉じる
         const modal = bootstrap.Modal.getInstance(document.getElementById('occupationTemplateModal'));
@@ -1974,8 +2117,9 @@ function initOccupationTemplates() {
     initAbilityDiceSettings();
     generateSkillsList();
     addSkillInputEvents();  // 技能リスト生成後にイベントリスナーを追加
-    // タブの初期表示を戦闘系に合わせる
-    renderSkillTab('combat', skillTabContainers);
+    // アクティブな技能タブを初期描画
+    refreshActiveSkillTab();
+    initOccupationSkillControls();
     void initRecommendedSkillControls();
 
     initOccupationTemplates(); // 職業テンプレート機能を初期化
@@ -2040,6 +2184,7 @@ function initOccupationTemplates() {
         setValueById('residence', sheet.residence);
         setValueById('notes', sheet.notes);
         setRecommendedSkills(Array.isArray(sheet.recommended_skills) ? sheet.recommended_skills : [], { persist: false });
+        setOccupationSkills(Array.isArray(sheet.occupation_skills) ? sheet.occupation_skills : [], { persist: false });
 
         // Abilities
         setValueById('str', sheet.str_value);
@@ -2182,6 +2327,7 @@ function initOccupationTemplates() {
             notes: data.notes || ''
         };
         apiData.recommended_skills = Array.from(recommendedSkillKeys);
+        apiData.occupation_skills = Array.from(occupationSkillKeys);
         const scenarioPayload = getScenarioRecommendedSkillPayload();
         const scenarioId = parseInt(scenarioPayload.scenarioId, 10);
         if (!Number.isNaN(scenarioId)) {
@@ -2359,6 +2505,8 @@ function initOccupationTemplates() {
             occupation: apiData.occupation,
             birthplace: apiData.birthplace,
             residence: apiData.residence,
+            recommended_skills: apiData.recommended_skills || [],
+            occupation_skills: apiData.occupation_skills || [],
             str_value: apiData.str_value,
             con_value: apiData.con_value,
             pow_value: apiData.pow_value,
@@ -2421,7 +2569,7 @@ function initOccupationTemplates() {
                 const submitFormData = new FormData();
 
                 Object.keys(apiData).forEach(key => {
-                    if (key === 'skills' || key === 'equipment' || key === 'recommended_skills') {
+                    if (key === 'skills' || key === 'equipment' || key === 'recommended_skills' || key === 'occupation_skills') {
                         submitFormData.append(key, JSON.stringify(apiData[key]));
                     } else {
                         submitFormData.append(key, apiData[key]);

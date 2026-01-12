@@ -270,7 +270,7 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
         model = CharacterSheet
         fields = [
             'id', 'edition', 'name', 'player_name', 'age', 'gender', 'occupation',
-            'birthplace', 'residence', 'recommended_skills', 'scenario_id', 'scenario_title', 'game_system',
+            'birthplace', 'residence', 'recommended_skills', 'occupation_skills', 'scenario_id', 'scenario_title', 'game_system',
             'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_max', 'hit_points_current', 'magic_points_max',
@@ -358,6 +358,7 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
     sixth_edition_data = CharacterSheet6thSerializer(required=False)
 
     recommended_skills = JSONListField(child=serializers.CharField(), required=False)
+    occupation_skills = JSONListField(child=serializers.CharField(), required=False)
     scenario_id = serializers.PrimaryKeyRelatedField(
         source='source_scenario',
         queryset=Scenario.objects.all(),
@@ -395,7 +396,7 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
         model = CharacterSheet
         fields = [
             'id', 'edition', 'name', 'player_name', 'age', 'gender', 'occupation',
-            'birthplace', 'residence', 'recommended_skills', 'scenario_id', 'scenario_title', 'game_system',
+            'birthplace', 'residence', 'recommended_skills', 'occupation_skills', 'scenario_id', 'scenario_title', 'game_system',
             'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',
@@ -634,6 +635,7 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
     mp_current = serializers.IntegerField(source='magic_points_current', required=False)
     san_current = serializers.IntegerField(source='sanity_current', required=False)
     recommended_skills = JSONListField(child=serializers.CharField(), required=False)
+    occupation_skills = JSONListField(child=serializers.CharField(), required=False)
     scenario_id = serializers.PrimaryKeyRelatedField(
         source='source_scenario',
         queryset=Scenario.objects.all(),
@@ -648,7 +650,7 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
         model = CharacterSheet
         fields = [
             'name', 'player_name', 'age', 'gender', 'occupation',
-            'birthplace', 'residence', 'recommended_skills', 'scenario_id', 'scenario_title', 'game_system',
+            'birthplace', 'residence', 'recommended_skills', 'occupation_skills', 'scenario_id', 'scenario_title', 'game_system',
             'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',

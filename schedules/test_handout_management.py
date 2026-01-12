@@ -391,7 +391,8 @@ class HandoutManagementDetailTestCase(APITestCase):
         response = self.client.get('/api/schedules/handouts/')
         if response.status_code == status.HTTP_200_OK:
             data = response.json()
-            handout_titles = [h['title'] for h in data]
+            handouts = data.get('results', data) if isinstance(data, dict) else data
+            handout_titles = [h['title'] for h in handouts]
             self.assertIn('My Handout', handout_titles)
             self.assertNotIn('Other Handout', handout_titles)  # 他のセッションは見えない
 

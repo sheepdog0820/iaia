@@ -385,7 +385,7 @@ class CalendarExportIntegrationTestCase(APITestCase):
         # 今月の残りと来月の一部が含まれる
         total_in_30days = len([
             s for s in self.sessions 
-            if s.date >= now and s.date <= now + timedelta(days=30)
+            if s.date >= now and s.date <= now + timedelta(days=30) and s.status in ['planned', 'ongoing']
         ])
         self.assertEqual(response.data['total_sessions'], total_in_30days)
         

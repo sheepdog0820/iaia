@@ -54,6 +54,71 @@ class Scenario(models.Model):
         ordering = ['title']
 
 
+class ScenarioImage(models.Model):
+    """シナリオ添付画像モデル"""
+
+    scenario = models.ForeignKey(
+        Scenario,
+        on_delete=models.CASCADE,
+        related_name='images',
+    )
+    image = models.ImageField(
+        upload_to='scenario_images/%Y/%m/%d/',
+        help_text='シナリオに関連する画像',
+    )
+    title = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text='画像のタイトル',
+    )
+    description = models.TextField(
+        blank=True,
+        help_text='画像の説明',
+    )
+    order = models.PositiveIntegerField(
+        default=0,
+        help_text='表示順序',
+    )
+    uploaded_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='uploaded_scenario_images',
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'created_at']
+        indexes = [
+            models.Index(fields=['scenario', 'order']),
+        ]
+
+    def __str__(self):
+        return f"{self.scenario.title} - {self.title or f'画像{self.order + 1}'}"
+
+    def save(self, *args, **kwargs):
+        # 新規作成時、orderを自動設定
+        if not self.pk and self.order == 0 and hasattr(self, 'scenario_id') and self.scenario_id:
+            max_order = ScenarioImage.objects.filter(
+                scenario_id=self.scenario_id,
+            ).aggregate(
+                max_order=models.Max('order'),
+            )['max_order']
+            self.order = (max_order or 0) + 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        """削除時に画像ファイルも削除"""
+        if self.image:
+            try:
+                if self.image.storage.exists(self.image.name):
+                    self.image.delete(save=False)
+            except Exception:
+                pass
+        super().delete(*args, **kwargs)
+
+
 class ScenarioNote(models.Model):
     scenario = models.ForeignKey(Scenario, on_delete=models.CASCADE, related_name='notes')
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)

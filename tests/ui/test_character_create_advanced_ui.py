@@ -316,7 +316,7 @@ if SELENIUM_AVAILABLE:
             archaeologist_item = WebDriverWait(self.selenium, 10).until(
                 EC.element_to_be_clickable((
                     By.XPATH,
-                    "//a[contains(@class,'occupation-template-item')][.//h6[normalize-space()='Archaeologist']]",
+                    "//a[contains(@class,'occupation-template-item')][.//h6[normalize-space()='考古学者']]",
                 ))
             )
             archaeologist_item.click()

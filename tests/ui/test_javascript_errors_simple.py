@@ -53,6 +53,7 @@ class SimpleJavaScriptErrorTest(TestCase):
         self.assertIn('id="skillTabContent"', content)
         self.assertIn('id="combatSkills"', content)
         self.assertIn('id="explorationSkills"', content)
+        self.assertIn('id="occupationSkillSkills"', content)
 
     def test_recommended_skill_controls_exist(self):
         """Check that recommended skill controls exist for JS interactions"""

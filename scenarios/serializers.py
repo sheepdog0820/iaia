@@ -1,6 +1,37 @@
 from rest_framework import serializers
-from .models import Scenario, ScenarioNote, PlayHistory
+from .models import Scenario, ScenarioNote, PlayHistory, ScenarioImage
 from accounts.serializers import UserSerializer
+
+
+class ScenarioImageSerializer(serializers.ModelSerializer):
+    """シナリオ画像シリアライザー"""
+
+    uploaded_by_detail = UserSerializer(source='uploaded_by', read_only=True)
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ScenarioImage
+        fields = [
+            'id',
+            'image',
+            'image_url',
+            'title',
+            'description',
+            'order',
+            'uploaded_by',
+            'uploaded_by_detail',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'uploaded_by', 'created_at', 'updated_at']
+
+    def get_image_url(self, obj):
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
 
 
 class ScenarioSerializer(serializers.ModelSerializer):
