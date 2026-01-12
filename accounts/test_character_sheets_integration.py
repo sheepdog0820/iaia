@@ -63,13 +63,15 @@ class CharacterSheetModelTestCase(TestCase):
         self.assertTrue(character.is_active)
         
         # 自動計算値の確認
-        expected_hp = (character.con_value + character.siz_value) // 10
-        expected_mp = character.pow_value // 5
+        import math
+
+        expected_hp = math.ceil((character.con_value + character.siz_value) / 2)
+        expected_mp = character.pow_value
         self.assertEqual(character.hit_points_max, expected_hp)
         self.assertEqual(character.magic_points_max, expected_mp)
     
     def test_character_sheet_creation_7th(self):
-        """7版キャラクターシート作成テスト"""
+        """未対応の版は6版へ正規化される"""
         character = CharacterSheet.objects.create(
             user=self.user1,
             edition='7th',
@@ -86,7 +88,7 @@ class CharacterSheetModelTestCase(TestCase):
             edu_value=90
         )
         
-        self.assertEqual(character.edition, '7th')
+        self.assertEqual(character.edition, '6th')
         self.assertEqual(character.name, 'テスト探索者7版')
         self.assertEqual(character.version, 1)
     
@@ -268,11 +270,10 @@ class CharacterSheetAPITestCase(APITestCase):
         self.client.force_authenticate(user=self.user1)
         
         response = self.client.get(f'/api/accounts/character-sheets/{self.character2.id}/')
-        self.assertIn(response.status_code, [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN])
-        if response.status_code == status.HTTP_200_OK:
-            data = response.json()
-            self.assertEqual(data['name'], 'APIテスト探索者2')
-            self.assertEqual(data['edition'], '7th')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data['name'], 'APIテスト探索者2')
+        self.assertEqual(data['edition'], '6th')
     
     def test_character_edit_permission_denied(self):
         """キャラクター編集API - 他ユーザーのキャラクター編集拒否テスト"""
@@ -428,7 +429,7 @@ class CharacterSheetWebViewTestCase(TestCase):
         self.client.force_login(self.user1)
         
         # user2のキャラクターを参照
-        response = self.client.get(f'/accounts/character/{self.character2.id}/')
+        response = self.client.get(f'/accounts/character/6th/{self.character2.id}/')
         self.assertEqual(response.status_code, 200)
         
         self.assertContains(response, 'Webテスト探索者2')
@@ -475,7 +476,7 @@ class CharacterSheetWebViewTestCase(TestCase):
         response = self.client.get('/accounts/character/list/')
         self.assertEqual(response.status_code, 302)
         
-        response = self.client.get(f'/accounts/character/{self.character1.id}/')
+        response = self.client.get(f'/accounts/character/6th/{self.character1.id}/')
         self.assertEqual(response.status_code, 302)
 
 
@@ -564,7 +565,7 @@ class CharacterSheetIntegrationTestCase(TestCase):
         # 4. 他ユーザーから参照可能かテスト
         api_client.force_authenticate(user=self.user2)
         response = api_client.get(f'/api/accounts/character-sheets/{character_id}/')
-        self.assertIn(response.status_code, [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # 5. 他ユーザーから編集試行（失敗）
         update_data = {'name': '変更しようとした名前'}
@@ -614,9 +615,9 @@ class CharacterSheetIntegrationTestCase(TestCase):
         # user2の権限テスト
         api_client.force_authenticate(user=self.user2)
         
-        # 参照 - 失敗（所有者のみ）
+        # 参照 - 成功（閲覧は全ユーザー可）
         response = api_client.get(f'/api/accounts/character-sheets/{character.id}/')
-        self.assertIn(response.status_code, [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # 更新 - 失敗
         response = api_client.patch(

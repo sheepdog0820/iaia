@@ -3,7 +3,7 @@
 タブレノ TRPGスケジュール管理システム
 """
 
-from django.test import TestCase, TransactionTestCase, Client
+from django.test import TestCase, TransactionTestCase, Client, override_settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
@@ -317,7 +317,7 @@ class CompleteWorkflowIntegrationTestCase(TransactionTestCase):
         response = self.client.post('/api/accounts/groups/', circle_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         circle_id = response.data['id']
-        print(f"✓ Circle created: {response.data['name']}")
+        print(f"[OK] Circle created: {response.data['name']}")
         
         # 2. メンバー招待システムのテスト
         invitation_results = []
@@ -335,7 +335,7 @@ class CompleteWorkflowIntegrationTestCase(TransactionTestCase):
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
             invitation_results.append(response.data['id'])
         
-        print(f"✓ Sent {len(invitation_results)} invitations")
+        print(f"[OK] Sent {len(invitation_results)} invitations")
         
         # 3. 招待受諾プロセス
         accepted_count = 0
@@ -351,7 +351,7 @@ class CompleteWorkflowIntegrationTestCase(TransactionTestCase):
                 response = self.client.post(f'/api/accounts/invitations/{invitation_id}/decline/')
                 self.assertEqual(response.status_code, status.HTTP_200_OK)
         
-        print(f"✓ {accepted_count} members joined the circle")
+        print(f"[OK] {accepted_count} members joined the circle")
         
         # ===== Phase 2: キャンペーン企画とシナリオ準備 =====
         self.client.force_authenticate(user=self.gm)
@@ -372,7 +372,7 @@ class CompleteWorkflowIntegrationTestCase(TransactionTestCase):
         response = self.client.post('/api/scenarios/scenarios/', campaign_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         campaign_id = response.data['id']
-        print(f"✓ Campaign scenario registered: {response.data['title']}")
+        print(f"[OK] Campaign scenario registered: {response.data['title']}")
         
         # 5. GM事前準備メモ
         prep_notes = [
@@ -398,7 +398,7 @@ class CompleteWorkflowIntegrationTestCase(TransactionTestCase):
             response = self.client.post('/api/scenarios/notes/', note_data)
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
-        print(f"✓ Created {len(prep_notes)} preparation notes")
+        print(f"[OK] Created {len(prep_notes)} preparation notes")
         
         # ===== Phase 3: セッション実行（複数回） =====
         print("\n=== Phase 3: Session Execution ===")
@@ -495,7 +495,7 @@ class CompleteWorkflowIntegrationTestCase(TransactionTestCase):
                                        {'status': 'completed'})
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             
-            print(f"✓ Completed session: {session_info['title']}")
+            print(f"[OK] Completed session: {session_info['title']}")
         
         # ===== Phase 4: プレイ履歴とフィードバック記録 =====
         print("\n=== Phase 4: Play History Recording ===")
@@ -542,7 +542,7 @@ class CompleteWorkflowIntegrationTestCase(TransactionTestCase):
             response = self.client.post('/api/scenarios/notes/', session_note_data)
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
-        print(f"✓ Recorded {total_play_histories} play history entries")
+        print(f"[OK] Recorded {total_play_histories} play history entries")
         
         # ===== Phase 5: キャンペーン終了と総評 =====
         print("\n=== Phase 5: Campaign Conclusion ===")
@@ -572,43 +572,43 @@ class CompleteWorkflowIntegrationTestCase(TransactionTestCase):
         # 12. 作成されたデータの整合性確認
         circle = CustomGroup.objects.get(id=circle_id)
         self.assertEqual(circle.members.count(), 4)  # GM + 3 accepted players
-        print(f"✓ Circle has {circle.members.count()} members")
+        print(f"[OK] Circle has {circle.members.count()} members")
         
         completed_sessions = TRPGSession.objects.filter(
             group=circle, 
             status='completed'
         )
         self.assertEqual(completed_sessions.count(), 3)
-        print(f"✓ {completed_sessions.count()} sessions completed")
+        print(f"[OK] {completed_sessions.count()} sessions completed")
         
         total_duration = sum(session.duration_minutes for session in completed_sessions)
         self.assertEqual(total_duration, 1080)  # 3 sessions * 360 minutes
-        print(f"✓ Total play time: {total_duration} minutes ({total_duration/60} hours)")
+        print(f"[OK] Total play time: {total_duration} minutes ({total_duration/60} hours)")
         
         # プレイ履歴の確認
         campaign_histories = PlayHistory.objects.filter(scenario_id=campaign_id)
         expected_histories = len(session_ids) * (len(active_players) + 1)  # players + GM per session
         self.assertEqual(campaign_histories.count(), expected_histories)
-        print(f"✓ {campaign_histories.count()} play history records created")
+        print(f"[OK] {campaign_histories.count()} play history records created")
         
         # ハンドアウトの確認
         total_handouts = HandoutInfo.objects.filter(session__in=session_ids)
         # 各セッションに秘匿ハンドアウト3個 + 共通ハンドアウト1個 = 4個 * 3セッション = 12個
         self.assertEqual(total_handouts.count(), 12)
-        print(f"✓ {total_handouts.count()} handouts created")
+        print(f"[OK] {total_handouts.count()} handouts created")
         
         secret_handouts = total_handouts.filter(is_secret=True)
         self.assertEqual(secret_handouts.count(), 9)  # 3 players * 3 sessions
-        print(f"✓ {secret_handouts.count()} secret handouts")
+        print(f"[OK] {secret_handouts.count()} secret handouts")
         
         # シナリオメモの確認
         scenario_notes = ScenarioNote.objects.filter(scenario_id=campaign_id)
         self.assertEqual(scenario_notes.count(), 8)  # 3 prep + 3 session + 2 final notes
-        print(f"✓ {scenario_notes.count()} scenario notes created")
+        print(f"[OK] {scenario_notes.count()} scenario notes created")
         
         private_notes = scenario_notes.filter(is_private=True)
         self.assertEqual(private_notes.count(), 6)  # Private notes
-        print(f"✓ {private_notes.count()} private notes for GM only")
+        print(f"[OK] {private_notes.count()} private notes for GM only")
         
         # ===== Phase 7: 統計データ検証（将来実装を想定）=====
         print("\n=== Phase 7: Statistics Validation ===")
@@ -637,7 +637,7 @@ class CompleteWorkflowIntegrationTestCase(TransactionTestCase):
         )
         self.assertEqual(gm_histories.count(), 3)  # GMed 3 sessions
         
-        print("✅ Complete TRPG Circle Lifecycle Test Passed Successfully!")
+        print("[OK] Complete TRPG Circle Lifecycle Test Passed Successfully!")
         print("\n=== Final Summary ===")
         print(f"Circle: {circle.name} ({circle.members.count()} members)")
         print(f"Campaign: {campaign_data['title']}")
@@ -648,6 +648,7 @@ class CompleteWorkflowIntegrationTestCase(TransactionTestCase):
         print(f"Notes: {scenario_notes.count()} ({private_notes.count()} private)")
 
 
+@override_settings(DEBUG=True)
 class DemoLoginIntegrationTestCase(TestCase):
     """デモログイン機能の統合テスト"""
     
@@ -684,7 +685,7 @@ class DemoLoginIntegrationTestCase(TestCase):
         users_count = User.objects.filter(email='demo.google@example.com').count()
         self.assertEqual(users_count, 1)  # 重複作成されていない
         
-        print("✅ Demo Login Integration Test Passed!")
+        print("[OK] Demo Login Integration Test Passed!")
 
 
 class APIErrorHandlingIntegrationTestCase(APITestCase):
@@ -750,7 +751,7 @@ class APIErrorHandlingIntegrationTestCase(APITestCase):
         # response = self.client.post('/api/accounts/memberships/', duplicate_membership_data)
         # self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         
-        print("✅ API Error Handling Integration Test Passed!")
+        print("[OK] API Error Handling Integration Test Passed!")
 
 
 if __name__ == '__main__':

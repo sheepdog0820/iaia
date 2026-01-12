@@ -73,6 +73,11 @@
         font-size: 14px;
         color: #777;
         margin-bottom: 10px;
+        white-space: pre-line;
+    }
+
+    .badges {
+        margin-bottom: 8px;
     }
     
     .login-btn {
@@ -150,12 +155,19 @@
         <h3>{{ category.category }}</h3>
         <div class="user-grid">
             {% for user in category.users %}
-            <div class="user-card {% if current_user.username == user.username %}current-user{% endif %}">
+            <div class="user-card {% if current_user and current_user.username == user.username %}current-user{% endif %}">
                 <div class="user-info">
                     <div class="username">
                         <i class="fas fa-user"></i> {{ user.username }}
                     </div>
                     <div class="nickname">{{ user.nickname }}</div>
+                    {% if user.badges %}
+                    <div class="badges">
+                        {% for badge in user.badges %}
+                        <span class="badge {{ badge.class }} me-1">{{ badge.label }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                     <div class="description">{{ user.description }}</div>
                 </div>
                 <form method="post" action="{% url 'dev_login' %}">
@@ -165,8 +177,8 @@
                     <input type="hidden" name="next" value="{{ request.GET.next }}">
                     {% endif %}
                     <button type="submit" class="login-btn" 
-                            {% if current_user.username == user.username %}disabled{% endif %}>
-                        {% if current_user.username == user.username %}
+                            {% if current_user and current_user.username == user.username %}disabled{% endif %}>
+                        {% if current_user and current_user.username == user.username %}
                             <i class="fas fa-check"></i> 現在ログイン中
                         {% else %}
                             <i class="fas fa-sign-in-alt"></i> このユーザーでログイン

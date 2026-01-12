@@ -475,7 +475,7 @@ class CharacterImageIntegrationTestCase(TestCase):
         
         # 詳細画面を表示
         response = self.client.get(
-            reverse('character_detail', kwargs={'character_id': character.pk})
+            reverse('character_detail_6th', kwargs={'character_id': character.pk})
         )
         
         self.assertEqual(response.status_code, 200)

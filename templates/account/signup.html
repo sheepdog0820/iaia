@@ -120,6 +120,11 @@
                                     <i class="fab fa-google fa-lg me-2"></i> 
                                     <span>Googleで登録</span>
                                 </a>
+                            {% elif provider.id == 'discord' and discord_configured %}
+                                <a href="{% provider_login_url provider.id %}" class="btn btn-discord btn-lg social-btn">
+                                    <i class="fab fa-discord fa-lg me-2"></i>
+                                    <span>Discordで登録</span>
+                                </a>
                             {% elif provider.id == 'twitter_oauth2' and twitter_configured %}
                                 <a href="{% provider_login_url provider.id %}" class="btn btn-info btn-lg social-btn">
                                     <i class="fab fa-twitter fa-lg me-2"></i>
@@ -201,6 +206,17 @@
     background: linear-gradient(135deg, #d33b2c 0%, #b52d20 100%);
     border-color: #d33b2c;
     box-shadow: 0 8px 25px rgba(234, 67, 53, 0.4);
+}
+
+.btn-discord {
+    background: linear-gradient(135deg, #5865f2 0%, #4b55d6 100%);
+    border-color: #5865f2;
+}
+
+.btn-discord:hover {
+    background: linear-gradient(135deg, #4b55d6 0%, #3c45b8 100%);
+    border-color: #4b55d6;
+    box-shadow: 0 8px 25px rgba(88, 101, 242, 0.35);
 }
 
 .btn-info {

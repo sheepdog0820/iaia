@@ -43,6 +43,13 @@
                         </a>
                     {% endif %}
 
+                    {% if discord_configured %}
+                        <a href="{% provider_login_url 'discord' %}" class="btn auth-provider-btn btn-discord social-btn">
+                            <i class="fab fa-discord"></i>
+                            <span>Discord</span>
+                        </a>
+                    {% endif %}
+
                     {% if twitter_configured %}
                         <a href="{% provider_login_url 'twitter_oauth2' %}" class="btn auth-provider-btn btn-x social-btn">
                             <i class="fab fa-twitter"></i>
@@ -58,6 +65,7 @@
                             </div>
                             <div class="text-muted">
                                 Google: <code>python setup_google_oauth.py</code><br>
+                                Discord: <code>python setup_discord_oauth.py</code><br>
                                 X: <code>python setup_twitter_oauth.py</code>
                             </div>
                         </div>
@@ -221,6 +229,16 @@
 
 .btn-google:hover {
     background: linear-gradient(135deg, #d33b2c 0%, #b52d20 100%);
+    color: #fff;
+}
+
+.btn-discord {
+    background: linear-gradient(135deg, #5865f2 0%, #4b55d6 100%);
+    color: #fff;
+}
+
+.btn-discord:hover {
+    background: linear-gradient(135deg, #4b55d6 0%, #3c45b8 100%);
     color: #fff;
 }
 

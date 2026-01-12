@@ -6,21 +6,42 @@ django-allauthのSocialAppを設定します
 import os
 import sys
 import argparse
+from pathlib import Path
 import django
-from decouple import config
+
+REPO_ROOT = Path(__file__).resolve().parent
+
+
+def _ensure_default_env_file():
+    """
+    Prefer the repo's `.env.development` when ENV_FILE isn't set.
+
+    The Django settings loader only reads an env file when `ENV_FILE` is set.
+    """
+    if os.environ.get('ENV_FILE'):
+        return
+    for candidate in ('.env.development', '.env'):
+        env_path = REPO_ROOT / candidate
+        if env_path.exists():
+            os.environ['ENV_FILE'] = str(env_path)
+            return
+
+
+_ensure_default_env_file()
 
 # Django設定を読み込み
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
+from django.conf import settings as django_settings
 from django.contrib.sites.models import Site
 from allauth.socialaccount.models import SocialApp
 
 # 環境変数から認証情報を取得
-TWITTER_CLIENT_ID = config('TWITTER_CLIENT_ID', default='')
-TWITTER_CLIENT_SECRET = config('TWITTER_CLIENT_SECRET', default='')
-DEFAULT_SITE_DOMAIN = config('SITE_DOMAIN', default='127.0.0.1:8000')
-DEFAULT_SITE_NAME = config('SITE_NAME', default='タブレノ (Local Development)')
+TWITTER_CLIENT_ID = getattr(django_settings, 'TWITTER_CLIENT_ID', '')
+TWITTER_CLIENT_SECRET = getattr(django_settings, 'TWITTER_CLIENT_SECRET', '')
+DEFAULT_SITE_DOMAIN = os.environ.get('SITE_DOMAIN', '127.0.0.1:8000')
+DEFAULT_SITE_NAME = os.environ.get('SITE_NAME', 'タブレノ (Local Development)')
 
 def default_scheme(domain: str) -> str:
     if domain.startswith('localhost') or domain.startswith('127.0.0.1'):
@@ -61,9 +82,10 @@ def setup_twitter_oauth(site_domain: str, site_name: str, site_scheme: str):
         client_secret = TWITTER_CLIENT_SECRET
     else:
         print("[ERROR] 環境変数が設定されていません")
-        print("以下の環境変数を.envファイルに設定してください:")
-        print("  - TWITTER_CLIENT_ID")
-        print("  - TWITTER_CLIENT_SECRET")
+        print("以下の環境変数を ENV_FILE で指定した環境ファイルに設定してください:")
+        print("  - TWITTER_CLIENT_ID (or X_CLIENT_ID)")
+        print("  - TWITTER_CLIENT_SECRET (or X_CLIENT_SECRET)")
+        print("ヒント: ENV_FILE 未指定の場合、このスクリプトは .env.development -> .env の順で自動検出します。")
         sys.exit(1)
 
     # Siteを指定ドメインに統一
@@ -75,9 +97,9 @@ def setup_twitter_oauth(site_domain: str, site_name: str, site_scheme: str):
         site.domain = site_domain
         site.name = site_name
         site.save()
-        print(f"  ✓ ドメインを '{site_domain}' に更新しました")
+        print(f"  [OK] ドメインを '{site_domain}' に更新しました")
     else:
-        print("  ✓ ドメインは正しく設定されています")
+        print("  [OK] ドメインは正しく設定されています")
 
     # 既存のTwitter Appを確認
     print("\n[2/3] X (Twitter) SocialApp設定を確認中...")
@@ -91,14 +113,14 @@ def setup_twitter_oauth(site_domain: str, site_name: str, site_scheme: str):
         twitter_app.client_id = client_id
         twitter_app.secret = client_secret
         twitter_app.save()
-        print("  ✓ 認証情報を更新しました")
+        print("  [OK] 認証情報を更新しました")
 
         # サイトとの関連付けを確認
         if site not in twitter_app.sites.all():
             twitter_app.sites.add(site)
-            print(f"  ✓ サイト '{site.domain}' を追加しました")
+            print(f"  [OK] サイト '{site.domain}' を追加しました")
         else:
-            print("  ✓ サイトは正しく関連付けられています")
+            print("  [OK] サイトは正しく関連付けられています")
 
     except SocialApp.DoesNotExist:
         print("  X (Twitter) SocialAppが見つかりません。新規作成します...")
@@ -111,7 +133,7 @@ def setup_twitter_oauth(site_domain: str, site_name: str, site_scheme: str):
             secret=client_secret
         )
         twitter_app.sites.add(site)
-        print("  ✓ X (Twitter) SocialAppを作成しました")
+        print("  [OK] X (Twitter) SocialAppを作成しました")
 
     # 最終確認
     print("\n[3/3] 設定の最終確認...")
@@ -119,14 +141,14 @@ def setup_twitter_oauth(site_domain: str, site_name: str, site_scheme: str):
     print(f"  SocialApp: X (ID: {twitter_app.id})")
     print(f"  関連付けられたサイト数: {twitter_app.sites.count()}")
 
-    print("\n✅ セットアップ完了！")
+    print("\n[OK] セットアップ完了！")
 
     base_url = f"{site_scheme}://{site_domain}"
     print("\n次のステップ:")
     print("1. 開発サーバーを起動: python manage.py runserver")
     print(f"2. ブラウザで {base_url}/accounts/login/ にアクセス")
     print("3. 'X (Twitter)でログイン' ボタンをクリック")
-    print("\n⚠️  注意: X Developer PortalのコールバックURLに以下が登録されていることを確認してください:")
+    print("\n[NOTE] 注意: X Developer PortalのコールバックURLに以下が登録されていることを確認してください:")
     print(f"   {base_url}/accounts/twitter_oauth2/login/callback/")
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Google OAuth設定スクリプト
+Discord OAuth設定スクリプト
 django-allauthのSocialAppを設定します
 """
 import os
@@ -33,24 +33,25 @@ _ensure_default_env_file()
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
 
-from django.conf import settings as django_settings
-from django.contrib.sites.models import Site
-from allauth.socialaccount.models import SocialApp
+from django.conf import settings as django_settings  # noqa: E402
+from django.contrib.sites.models import Site  # noqa: E402
+from allauth.socialaccount.models import SocialApp  # noqa: E402
 
 # 環境変数から認証情報を取得
-GOOGLE_CLIENT_ID = getattr(django_settings, 'GOOGLE_OAUTH_CLIENT_ID', '')
-GOOGLE_CLIENT_SECRET = getattr(django_settings, 'GOOGLE_OAUTH_CLIENT_SECRET', '')
+DISCORD_CLIENT_ID = getattr(django_settings, 'DISCORD_CLIENT_ID', '')
+DISCORD_CLIENT_SECRET = getattr(django_settings, 'DISCORD_CLIENT_SECRET', '')
 DEFAULT_SITE_DOMAIN = os.environ.get('SITE_DOMAIN', '127.0.0.1:8000')
 DEFAULT_SITE_NAME = os.environ.get('SITE_NAME', 'タブレノ (Local Development)')
 
+
 def default_scheme(domain: str) -> str:
-    if domain.startswith('localhost') or domain.startswith('127.0.0.1'):
+    if domain.startswith(('localhost', '127.0.0.1')):
         return 'http'
     return 'https'
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Google OAuth設定スクリプト')
+    parser = argparse.ArgumentParser(description='Discord OAuth設定スクリプト')
     parser.add_argument(
         '--domain',
         default=DEFAULT_SITE_DOMAIN,
@@ -73,16 +74,16 @@ def parse_args():
     return args
 
 
-def setup_google_oauth(site_domain: str, site_name: str, site_scheme: str):
-    """Google OAuth用のSocialAppを設定"""
-    print("Google OAuth設定を開始します...\n")
+def setup_discord_oauth(site_domain: str, site_name: str, site_scheme: str):
+    """Discord OAuth用のSocialAppを設定"""
+    print("Discord OAuth設定を開始します..\n")
 
     # 環境変数チェック
-    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+    if not DISCORD_CLIENT_ID or not DISCORD_CLIENT_SECRET:
         print("[ERROR] 環境変数が設定されていません")
         print("以下の環境変数を ENV_FILE で指定した環境ファイルに設定してください:")
-        print("  - GOOGLE_CLIENT_ID")
-        print("  - GOOGLE_CLIENT_SECRET")
+        print("  - DISCORD_CLIENT_ID")
+        print("  - DISCORD_CLIENT_SECRET")
         print("ヒント: ENV_FILE 未指定の場合、このスクリプトは .env.development -> .env の順で自動検出します。")
         sys.exit(1)
 
@@ -99,56 +100,57 @@ def setup_google_oauth(site_domain: str, site_name: str, site_scheme: str):
     else:
         print(f"  [OK] ドメインは正しく設定されています")
 
-    # 既存のGoogle Appを確認
-    print(f"\n[2/3] Google SocialApp設定を確認中...")
+    # 既存のDiscord Appを確認
+    print(f"\n[2/3] Discord SocialApp設定を確認中...")
     try:
-        google_app = SocialApp.objects.get(provider='google')
-        print(f"  Google SocialAppが既に存在します")
-        print(f"  Client ID: {google_app.client_id[:20]}...")
+        discord_app = SocialApp.objects.get(provider='discord')
+        print("  Discord SocialAppが既に存在します")
+        print(f"  Client ID: {discord_app.client_id[:20]}...")
         print(f"  Secret: {'*' * 20}... (セキュリティのため非表示)")
 
         # 設定を更新
-        google_app.client_id = GOOGLE_CLIENT_ID
-        google_app.secret = GOOGLE_CLIENT_SECRET
-        google_app.save()
-        print(f"  [OK] 認証情報を更新しました")
+        discord_app.client_id = DISCORD_CLIENT_ID
+        discord_app.secret = DISCORD_CLIENT_SECRET
+        discord_app.save()
+        print("  [OK] 認証情報を更新しました")
 
         # サイトとの関連付けを確認
-        if site not in google_app.sites.all():
-            google_app.sites.add(site)
+        if site not in discord_app.sites.all():
+            discord_app.sites.add(site)
             print(f"  [OK] サイト '{site.domain}' を追加しました")
         else:
-            print(f"  [OK] サイトは正しく関連付けられています")
+            print("  [OK] サイトと正しく関連付けられています")
 
     except SocialApp.DoesNotExist:
-        print(f"  Google SocialAppが見つかりません。新規作成します...")
+        print("  Discord SocialAppが見つかりません。新規作成します..")
 
-        # Google Social Appを作成
-        google_app = SocialApp.objects.create(
-            provider='google',
-            name='Google',
-            client_id=GOOGLE_CLIENT_ID,
-            secret=GOOGLE_CLIENT_SECRET
+        # Discord Social Appを作成
+        discord_app = SocialApp.objects.create(
+            provider='discord',
+            name='Discord',
+            client_id=DISCORD_CLIENT_ID,
+            secret=DISCORD_CLIENT_SECRET
         )
-        google_app.sites.add(site)
-        print(f"  [OK] Google SocialAppを作成しました")
+        discord_app.sites.add(site)
+        print("  [OK] Discord SocialAppを作成しました")
 
     # 最終確認
-    print(f"\n[3/3] 設定の最終確認...")
+    print(f"\n[3/3] 設定の最終確認..")
     print(f"  サイトドメイン: {site.domain}")
-    print(f"  SocialApp: Google (ID: {google_app.id})")
-    print(f"  関連付けられたサイト数: {google_app.sites.count()}")
+    print(f"  SocialApp: Discord (ID: {discord_app.id})")
+    print(f"  関連付けられたサイト数: {discord_app.sites.count()}")
 
-    print(f"\n[OK] セットアップ完了！")
+    print("\n[OK] セットアップ完了です！")
 
     base_url = f"{site_scheme}://{site_domain}"
-    print(f"\n次のステップ:")
-    print(f"1. 開発サーバーを起動: python manage.py runserver")
+    print("\n次のステップ:")
+    print("1. 開発サーバーを起動: python manage.py runserver")
     print(f"2. ブラウザで {base_url}/accounts/login/ にアクセス")
-    print(f"3. 'Googleでログイン' ボタンをクリック")
-    print(f"\n[NOTE] 注意: Google Cloud ConsoleのリダイレクトURIに以下が登録されていることを確認してください:")
-    print(f"   {base_url}/accounts/google/login/callback/")
+    print("3. 'Discordでログイン' ボタンをクリック")
+    print("\n[NOTE] Discord Developer Portal の Redirect に以下が登録されていることを確認してください:")
+    print(f"   {base_url}/accounts/discord/login/callback/")
+
 
 if __name__ == '__main__':
     args = parse_args()
-    setup_google_oauth(args.domain, args.name, args.scheme)
+    setup_discord_oauth(args.domain, args.name, args.scheme)

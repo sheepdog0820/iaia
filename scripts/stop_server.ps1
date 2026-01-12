@@ -8,6 +8,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
 
 $pidFile = Join-Path $repoRoot ".server.pid"
+$ngrokPidFile = Join-Path $repoRoot ".ngrok.pid"
 
 function Get-ListeningPid([int]$p) {
     try {
@@ -32,6 +33,13 @@ function Stop-Pid([int]$pidToStop) {
 if (Test-Path $pidFile) {
     $serverPid = (Get-Content $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
     if ($serverPid -match '^\d+$') { [void](Stop-Pid -pidToStop ([int]$serverPid)) }
+}
+
+# Stop ngrok if started by our scripts
+if (Test-Path $ngrokPidFile) {
+    $ngrokPid = (Get-Content $ngrokPidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if ($ngrokPid -match '^\d+$') { [void](Stop-Pid -pidToStop ([int]$ngrokPid)) }
+    Remove-Item -Path $ngrokPidFile -Force -ErrorAction SilentlyContinue
 }
 
 # Then ensure the port is free (kill any remaining listener/holders).

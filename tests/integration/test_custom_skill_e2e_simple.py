@@ -145,23 +145,32 @@ class CustomSkillE2EDebugTest(StaticLiveServerTestCase):
     
     def test_custom_skill_functionality(self):
         """カスタム技能機能の簡易テスト"""
-        # 開発用ログインを使用
-        self.selenium.get(f"{self.live_server_url}/accounts/dev-login/")
-        time.sleep(1)
-        
-        try:
-            # adminでログイン
-            user_select = self.selenium.find_element(By.NAME, "username")
-            user_select.send_keys("admin")
-            login_button = self.selenium.find_element(By.CSS_SELECTOR, "button[type='submit']")
-            login_button.click()
-            time.sleep(2)
-        except:
-            print("ログインをスキップ")
+        # Seleniumログインはdev-login UIに依存しない（POST形式変更に追従するため）
+        client = Client()
+        logged_in = client.login(username='admin', password='admin123')
+        if not logged_in:
+            logged_in = client.login(username='testuser', password='testpass123')
+        if not logged_in:
+            raise AssertionError('Failed to authenticate test user')
+
+        self.selenium.get(self.live_server_url)
+        self.selenium.delete_all_cookies()
+        session_cookie = client.cookies.get('sessionid')
+        if not session_cookie:
+            raise AssertionError('Session cookie not set')
+
+        self.selenium.add_cookie({
+            'name': 'sessionid',
+            'value': session_cookie.value,
+            'path': '/',
+        })
+        self.selenium.get(f"{self.live_server_url}/accounts/dashboard/")
         
         # キャラクター作成画面に直接アクセス
         self.selenium.get(f"{self.live_server_url}/accounts/character/create/6th/")
-        time.sleep(3)
+        WebDriverWait(self.selenium, 20).until(
+            EC.presence_of_element_located((By.ID, "character-name"))
+        )
         
         # 基本情報を入力
         try:
@@ -169,15 +178,29 @@ class CustomSkillE2EDebugTest(StaticLiveServerTestCase):
             self.selenium.find_element(By.ID, "age").send_keys("25")
             
             # 能力値を入力
+            abilities_tab = WebDriverWait(self.selenium, 20).until(
+                EC.element_to_be_clickable((By.ID, "abilities-tab"))
+            )
+            self.selenium.execute_script("arguments[0].click();", abilities_tab)
+            WebDriverWait(self.selenium, 20).until(
+                EC.visibility_of_element_located((By.ID, "abilities"))
+            )
             abilities = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu']
             for ability in abilities:
-                element = self.selenium.find_element(By.ID, ability)
+                element = WebDriverWait(self.selenium, 20).until(
+                    EC.element_to_be_clickable((By.ID, ability))
+                )
                 element.clear()
                 element.send_keys("10")
             
             # 技能タブをクリック
-            self.selenium.find_element(By.ID, "skills-tab").click()
-            time.sleep(2)
+            skills_tab = WebDriverWait(self.selenium, 20).until(
+                EC.element_to_be_clickable((By.ID, "skills-tab"))
+            )
+            self.selenium.execute_script("arguments[0].click();", skills_tab)
+            WebDriverWait(self.selenium, 20).until(
+                EC.visibility_of_element_located((By.ID, "skills"))
+            )
             
             # JavaScriptが読み込まれているか確認
             result = self.selenium.execute_script("return typeof addCustomSkill")

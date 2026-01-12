@@ -17,7 +17,8 @@ from .group_views import GroupViewSet, GroupInvitationViewSet
 # Character management views
 from .character_views import (
     CharacterSheetViewSet, CharacterSkillViewSet, CharacterEquipmentViewSet,
-    CharacterListView, CharacterDetailView, CharacterEditView, Character6thCreateView
+    CharacterListView, CharacterDetailView, CharacterDetailRedirectView, Character6thDetailView,
+    CharacterEditView, Character6thCreateView
 )
 from .dice_roll_setting_views import DiceRollSettingViewSet
 
@@ -29,6 +30,7 @@ __all__ = [
     'ProfileEditView', 'DashboardView', 'AccountDeleteView', 'mock_social_login', 'demo_login_page',
     'GroupViewSet', 'GroupInvitationViewSet',
     'CharacterSheetViewSet', 'CharacterSkillViewSet', 'CharacterEquipmentViewSet',
-    'CharacterListView', 'CharacterDetailView', 'CharacterEditView', 'Character6thCreateView',
+    'CharacterListView', 'CharacterDetailView', 'CharacterDetailRedirectView', 'Character6thDetailView',
+    'CharacterEditView', 'Character6thCreateView',
     'DiceRollSettingViewSet'
 ]

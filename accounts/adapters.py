@@ -77,7 +77,15 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
             username = extra_data.get('username') or extra_data.get('screen_name')
             if username and not user.nickname:
                 user.nickname = username
-        
+        elif sociallogin.account.provider == 'discord':
+            display_name = extra_data.get('global_name') or extra_data.get('username')
+            if display_name:
+                user.first_name = display_name
+            if extra_data.get('email') and extra_data.get('verified', False) and not user.email:
+                user.email = extra_data['email']
+            if display_name and not user.nickname:
+                user.nickname = display_name
+
         # ニックネームが設定されていない場合はユーザー名を使用
         if not user.nickname:
             user.nickname = user.username
@@ -91,9 +99,10 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         既存のユーザーとの紐付けなどを行う
         """
         # メールアドレスが一致する既存ユーザーがいる場合は連携
-        if sociallogin.account.provider == 'google':
+        if sociallogin.account.provider in ('google', 'discord'):
             email = sociallogin.account.extra_data.get('email')
-            if email:
+            verified = sociallogin.account.extra_data.get('verified', False)
+            if email and (sociallogin.account.provider == 'google' or verified):
                 try:
                     existing_user = User.objects.get(email=email)
                     sociallogin.connect(request, existing_user)

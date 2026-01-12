@@ -23,6 +23,12 @@
 GOOGLE_CLIENT_ID=your-actual-google-client-id
 GOOGLE_CLIENT_SECRET=your-actual-google-client-secret
 
+# Discord OAuth2設定
+DISCORD_CLIENT_ID=your-actual-discord-client-id
+DISCORD_CLIENT_SECRET=your-actual-discord-client-secret
+DISCORD_REDIRECT_URI=http://127.0.0.1:8000/accounts/discord/login/callback/
+
+
 # X (Twitter) OAuth2設定  
 TWITTER_CLIENT_ID=your-actual-twitter-client-id
 TWITTER_CLIENT_SECRET=your-actual-twitter-client-secret
@@ -47,7 +53,18 @@ TWITTER_CLIENT_SECRET=your-actual-twitter-client-secret
      ```
 7. 作成されたクライアントIDとシークレットを `.env` に設定
 
-## 3. X (Twitter) OAuth2 設定手順
+## 3. Discord OAuth2 設定手順
+
+1. [Discord Developer Portal](https://discord.com/developers/applications) にアクセスし、アプリを作成または選択
+2. OAuth2 → General で `Client ID` / `Client Secret` を確認
+3. OAuth2 → Redirects に以下を追加
+   ```
+   http://127.0.0.1:8000/accounts/discord/login/callback/
+   ```
+4. Scopes は `identify` と `email` を付与（必要に応じて）
+5. `.env` に `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` / `DISCORD_REDIRECT_URI` を設定
+
+## 4. X (Twitter) OAuth2 設定手順
 
 1. [Twitter Developer Portal](https://developer.twitter.com/en/portal/dashboard) にアクセス
 2. アプリを作成または既存のアプリを選択
@@ -62,7 +79,7 @@ TWITTER_CLIENT_SECRET=your-actual-twitter-client-secret
    - Website URL: `http://127.0.0.1:8000`
 5. Client IDとClient Secretを `.env` に設定
 
-## 4. SocialApp設定（2つの方法）
+## 5. SocialApp設定（2つの方法）
 
 ### 方法A: 自動セットアップスクリプト（推奨）
 
@@ -70,6 +87,8 @@ TWITTER_CLIENT_SECRET=your-actual-twitter-client-secret
 
 ```bash
 python setup_google_oauth.py
+python setup_discord_oauth.py
+python setup_twitter_oauth.py
 ```
 
 このスクリプトは以下を自動的に行います：
@@ -112,6 +131,14 @@ Google OAuth設定を開始します...
 - Secret key: (環境変数から取得)
 - Sites: 127.0.0.1:8000 を選択
 
+#### Discord設定
+
+- Provider: Discord
+- Name: Discord
+- Client id: (環境変数から取得)
+- Secret key: (環境変数から取得)
+- Sites: 127.0.0.1:8000 を選択
+
 #### X (Twitter) 設定
 
 - Provider: X
@@ -120,7 +147,7 @@ Google OAuth設定を開始します...
 - Secret key: (環境変数から取得)
 - Sites: 127.0.0.1:8000 を選択
 
-## 5. 動作確認
+## 6. 動作確認
 
 1. ログインページにアクセス: `http://127.0.0.1:8000/accounts/login/`
 2. 「Googleでログイン」または「X (Twitter)でログイン」ボタンをクリック

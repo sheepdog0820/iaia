@@ -328,17 +328,25 @@
                                     {% endif %}
                                     
                                     {% if participant.character_sheet %}
-                                    <p class="mb-2">
-                                        <a href="{% url 'character_detail' participant.character_sheet.id %}" class="btn btn-sm btn-outline-info">
-                                            <i class="fas fa-file-alt"></i> キャラクターシート
-                                        </a>
-                                    </p>
+                                        <p class="mb-2 d-flex gap-2">
+                                            <a href="{% url 'character_detail_6th' participant.character_sheet.id %}" class="btn btn-sm btn-outline-info flex-grow-1">
+                                                <i class="fas fa-file-alt"></i> キャラクターシート
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                    onclick="copyUrl('{% url 'character_detail_6th' participant.character_sheet.id %}', 'キャラクターURL')">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                        </p>
                                     {% elif participant.character_sheet_url %}
-                                    <p class="mb-2">
-                                        <a href="{{ participant.character_sheet_url }}" target="_blank" class="btn btn-sm btn-outline-info">
-                                            <i class="fas fa-file-alt"></i> キャラクターシート
-                                        </a>
-                                    </p>
+                                        <p class="mb-2 d-flex gap-2">
+                                            <a href="{{ participant.character_sheet_url }}" target="_blank" class="btn btn-sm btn-outline-info flex-grow-1">
+                                                <i class="fas fa-file-alt"></i> キャラクターシート
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                    onclick="copyUrl('{{ participant.character_sheet_url|escapejs }}', 'キャラクターURL')">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                        </p>
                                     {% endif %}
                                     
                                     {% if is_gm and participant.role != 'gm' %}
@@ -1139,6 +1147,42 @@ const IS_PUBLIC_VIEW = {% if is_public_view %}true{% else %}false{% endif %};
 const PUBLIC_SESSION_URL = "{{ public_session_url|escapejs }}";
 const youtubeLinkMap = new Map();
 
+function toAbsoluteUrl(url) {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return window.location.origin + url;
+}
+
+async function copyTextToClipboard(text) {
+    if (!text) return;
+    if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'absolute';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+}
+
+async function copyUrl(url, label = 'リンク') {
+    const resolvedUrl = toAbsoluteUrl(url);
+    try {
+        await copyTextToClipboard(resolvedUrl);
+        alert(`${label}をコピーしました`);
+    } catch (error) {
+        alert(`コピーに失敗しました。手動でコピーしてください: ${resolvedUrl}`);
+    }
+}
+
+window.copyUrl = copyUrl;
+
 function setupCopyPublicSessionLinkButton() {
     const button = document.getElementById('copyPublicSessionLinkBtn');
     if (!button) return;
@@ -1147,25 +1191,7 @@ function setupCopyPublicSessionLinkButton() {
         const shareUrl = button.dataset.shareUrl || PUBLIC_SESSION_URL;
         if (!shareUrl) return;
 
-        try {
-            if (navigator.clipboard?.writeText) {
-                await navigator.clipboard.writeText(shareUrl);
-            } else {
-                const textarea = document.createElement('textarea');
-                textarea.value = shareUrl;
-                textarea.setAttribute('readonly', '');
-                textarea.style.position = 'absolute';
-                textarea.style.left = '-9999px';
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-            }
-
-            alert('リンクをコピーしました');
-        } catch (error) {
-            alert('コピーに失敗しました。手動でコピーしてください: ' + shareUrl);
-        }
+        await copyUrl(shareUrl, 'リンク');
     });
 }
 

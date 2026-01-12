@@ -76,16 +76,24 @@ class CustomSkillIntegrationTest(StaticLiveServerTestCase):
     def test_add_custom_skill_to_combat_category(self):
         """戦闘カテゴリーにカスタム技能を追加するテスト"""
         # キャラクター作成画面を開く
-        self.selenium.get(f"{self.live_server_url}/accounts/character/6th/create/")
+        self.selenium.get(f"{self.live_server_url}/accounts/character/create/6th/")
         
         # 基本情報を入力
         self.selenium.find_element(By.ID, "character-name").send_keys("テスト探索者")
         self.selenium.find_element(By.ID, "age").send_keys("25")
         
-        # 能力値を入力
+        # 能力値を入力（能力値タブへ移動してから）
+        self.selenium.find_element(By.ID, "abilities-tab").click()
+        WebDriverWait(self.selenium, 10).until(
+            EC.visibility_of_element_located((By.ID, "abilities"))
+        )
         abilities = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu']
         for ability in abilities:
-            self.selenium.find_element(By.ID, ability).send_keys("10")
+            ability_input = WebDriverWait(self.selenium, 10).until(
+                EC.element_to_be_clickable((By.ID, ability))
+            )
+            ability_input.clear()
+            ability_input.send_keys("10")
         
         # 技能タブに移動
         self.selenium.find_element(By.ID, "skills-tab").click()
@@ -96,10 +104,10 @@ class CustomSkillIntegrationTest(StaticLiveServerTestCase):
         time.sleep(1)
         
         # カスタム技能追加ボタンをクリック
-        add_button = WebDriverWait(self.selenium, 10).until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'カスタム技能を追加')]"))
+        add_button = WebDriverWait(self.selenium, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "#combat button[data-custom-skill-category='combat']"))
         )
-        add_button.click()
+        self.selenium.execute_script("arguments[0].click();", add_button)
         time.sleep(1)
         
         # カスタム技能が追加されたことを確認
@@ -118,24 +126,32 @@ class CustomSkillIntegrationTest(StaticLiveServerTestCase):
         
         # 職業ポイントを割り振り
         occ_input = custom_skill.find_element(By.CSS_SELECTOR, ".occupation-skill")
+        occ_input.clear()
         occ_input.send_keys("20")
         
         # 合計値が正しく計算されることを確認
-        total_element = custom_skill.find_element(By.CSS_SELECTOR, ".skill-total")
-        WebDriverWait(self.selenium, 5).until(
-            lambda driver: "35%" in total_element.text
+        WebDriverWait(self.selenium, 20).until(
+            lambda driver: "35%" in custom_skill.find_element(By.CSS_SELECTOR, ".skill-total").text
         )
     
     def test_add_multiple_custom_skills(self):
         """複数のカスタム技能を追加するテスト"""
         # キャラクター作成画面を開く
-        self.selenium.get(f"{self.live_server_url}/accounts/character/6th/create/")
+        self.selenium.get(f"{self.live_server_url}/accounts/character/create/6th/")
         
         # 基本情報と能力値を入力
         self.selenium.find_element(By.ID, "character-name").send_keys("テスト探索者2")
+        self.selenium.find_element(By.ID, "abilities-tab").click()
+        WebDriverWait(self.selenium, 10).until(
+            EC.visibility_of_element_located((By.ID, "abilities"))
+        )
         abilities = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu']
         for ability in abilities:
-            self.selenium.find_element(By.ID, ability).send_keys("12")
+            ability_input = WebDriverWait(self.selenium, 10).until(
+                EC.element_to_be_clickable((By.ID, ability))
+            )
+            ability_input.clear()
+            ability_input.send_keys("12")
         
         # 技能タブに移動
         self.selenium.find_element(By.ID, "skills-tab").click()
@@ -147,8 +163,10 @@ class CustomSkillIntegrationTest(StaticLiveServerTestCase):
         
         # 3つのカスタム技能を追加
         for i in range(3):
-            add_button = self.selenium.find_element(By.XPATH, "//div[@id='knowledge']//button[contains(text(), 'カスタム技能を追加')]")
-            add_button.click()
+            add_button = WebDriverWait(self.selenium, 20).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "#knowledge button[data-custom-skill-category='knowledge']"))
+            )
+            self.selenium.execute_script("arguments[0].click();", add_button)
             time.sleep(0.5)
         
         # カスタム技能が3つ追加されたことを確認
@@ -165,21 +183,31 @@ class CustomSkillIntegrationTest(StaticLiveServerTestCase):
     def test_remove_custom_skill(self):
         """カスタム技能を削除するテスト"""
         # キャラクター作成画面を開く
-        self.selenium.get(f"{self.live_server_url}/accounts/character/6th/create/")
+        self.selenium.get(f"{self.live_server_url}/accounts/character/create/6th/")
         
         # 基本情報と能力値を入力
         self.selenium.find_element(By.ID, "character-name").send_keys("テスト探索者3")
+        self.selenium.find_element(By.ID, "abilities-tab").click()
+        WebDriverWait(self.selenium, 10).until(
+            EC.visibility_of_element_located((By.ID, "abilities"))
+        )
         abilities = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu']
         for ability in abilities:
-            self.selenium.find_element(By.ID, ability).send_keys("10")
+            ability_input = WebDriverWait(self.selenium, 10).until(
+                EC.element_to_be_clickable((By.ID, ability))
+            )
+            ability_input.clear()
+            ability_input.send_keys("10")
         
         # 技能タブに移動
         self.selenium.find_element(By.ID, "skills-tab").click()
         time.sleep(1)
         
         # カスタム技能を追加
-        add_button = self.selenium.find_element(By.XPATH, "//button[contains(text(), 'カスタム技能を追加')]")
-        add_button.click()
+        add_button = WebDriverWait(self.selenium, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "#combat button[data-custom-skill-category='combat']"))
+        )
+        self.selenium.execute_script("arguments[0].click();", add_button)
         time.sleep(1)
         
         # カスタム技能が追加されたことを確認
@@ -198,13 +226,21 @@ class CustomSkillIntegrationTest(StaticLiveServerTestCase):
     def test_custom_skill_appears_in_all_skills_tab(self):
         """カスタム技能が全表示タブにも表示されることを確認"""
         # キャラクター作成画面を開く
-        self.selenium.get(f"{self.live_server_url}/accounts/character/6th/create/")
+        self.selenium.get(f"{self.live_server_url}/accounts/character/create/6th/")
         
         # 基本情報と能力値を入力
         self.selenium.find_element(By.ID, "character-name").send_keys("テスト探索者4")
+        self.selenium.find_element(By.ID, "abilities-tab").click()
+        WebDriverWait(self.selenium, 10).until(
+            EC.visibility_of_element_located((By.ID, "abilities"))
+        )
         abilities = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu']
         for ability in abilities:
-            self.selenium.find_element(By.ID, ability).send_keys("10")
+            ability_input = WebDriverWait(self.selenium, 10).until(
+                EC.element_to_be_clickable((By.ID, ability))
+            )
+            ability_input.clear()
+            ability_input.send_keys("10")
         
         # 技能タブに移動
         self.selenium.find_element(By.ID, "skills-tab").click()
@@ -214,8 +250,10 @@ class CustomSkillIntegrationTest(StaticLiveServerTestCase):
         self.selenium.find_element(By.ID, "exploration-tab").click()
         time.sleep(1)
         
-        add_button = self.selenium.find_element(By.XPATH, "//div[@id='exploration']//button[contains(text(), 'カスタム技能を追加')]")
-        add_button.click()
+        add_button = WebDriverWait(self.selenium, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "#exploration button[data-custom-skill-category='exploration']"))
+        )
+        self.selenium.execute_script("arguments[0].click();", add_button)
         time.sleep(1)
         
         # カスタム技能名を設定
@@ -226,30 +264,47 @@ class CustomSkillIntegrationTest(StaticLiveServerTestCase):
         
         # 全表示タブに移動
         self.selenium.find_element(By.ID, "all-tab").click()
-        time.sleep(1)
+        WebDriverWait(self.selenium, 20).until(
+            EC.visibility_of_element_located((By.ID, "all"))
+        )
         
         # カスタム技能が全表示タブにも存在することを確認
-        all_custom_skills = self.selenium.find_elements(By.XPATH, "//div[@id='all']//input[@value='特殊追跡']")
-        self.assertGreater(len(all_custom_skills), 0)
+        name_inputs = WebDriverWait(self.selenium, 20).until(
+            lambda driver: driver.find_elements(By.CSS_SELECTOR, "#all .custom-skill-name")
+        )
+        self.assertTrue(
+            any(inp.get_attribute("value") == "特殊追跡" for inp in name_inputs),
+            "全表示タブにカスタム技能が表示されていません",
+        )
     
     def test_custom_skill_with_allocated_points_appears_in_allocated_tab(self):
         """ポイントを振ったカスタム技能が振り分け済みタブに表示されることを確認"""
         # キャラクター作成画面を開く
-        self.selenium.get(f"{self.live_server_url}/accounts/character/6th/create/")
+        self.selenium.get(f"{self.live_server_url}/accounts/character/create/6th/")
         
         # 基本情報と能力値を入力
         self.selenium.find_element(By.ID, "character-name").send_keys("テスト探索者5")
+        self.selenium.find_element(By.ID, "abilities-tab").click()
+        WebDriverWait(self.selenium, 10).until(
+            EC.visibility_of_element_located((By.ID, "abilities"))
+        )
         abilities = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu']
         for ability in abilities:
-            self.selenium.find_element(By.ID, ability).send_keys("15")
+            ability_input = WebDriverWait(self.selenium, 10).until(
+                EC.element_to_be_clickable((By.ID, ability))
+            )
+            ability_input.clear()
+            ability_input.send_keys("15")
         
         # 技能タブに移動
         self.selenium.find_element(By.ID, "skills-tab").click()
         time.sleep(1)
         
         # カスタム技能を追加
-        add_button = self.selenium.find_element(By.XPATH, "//button[contains(text(), 'カスタム技能を追加')]")
-        add_button.click()
+        add_button = WebDriverWait(self.selenium, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "#combat button[data-custom-skill-category='combat']"))
+        )
+        self.selenium.execute_script("arguments[0].click();", add_button)
         time.sleep(1)
         
         # カスタム技能にポイントを割り振り

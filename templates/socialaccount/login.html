@@ -45,6 +45,8 @@
                     <div class="provider-mark mx-auto mb-2" aria-hidden="true">
                         {% if provider.id == 'google' %}
                             <i class="fab fa-google"></i>
+                        {% elif provider.id == 'discord' %}
+                            <i class="fab fa-discord"></i>
                         {% elif provider.id == 'twitter_oauth2' %}
                             <i class="fab fa-twitter"></i>
                         {% else %}
@@ -75,10 +77,12 @@
 
                     <div class="d-grid gap-2">
                         <button type="submit"
-                                class="btn auth-provider-btn {% if provider.id == 'google' %}btn-google{% elif provider.id == 'twitter_oauth2' %}btn-x{% else %}btn-primary{% endif %} social-btn"
+                                class="btn auth-provider-btn {% if provider.id == 'google' %}btn-google{% elif provider.id == 'discord' %}btn-discord{% elif provider.id == 'twitter_oauth2' %}btn-x{% else %}btn-primary{% endif %} social-btn"
                                 id="continue-btn">
                             {% if provider.id == 'google' %}
                                 <i class="fab fa-google"></i>
+                            {% elif provider.id == 'discord' %}
+                                <i class="fab fa-discord"></i>
                             {% elif provider.id == 'twitter_oauth2' %}
                                 <i class="fab fa-twitter"></i>
                             {% else %}
@@ -190,6 +194,16 @@
 
 .btn-google:hover {
     background: linear-gradient(135deg, #d33b2c 0%, #b52d20 100%);
+    color: #fff;
+}
+
+.btn-discord {
+    background: linear-gradient(135deg, #5865f2 0%, #4b55d6 100%);
+    color: #fff;
+}
+
+.btn-discord:hover {
+    background: linear-gradient(135deg, #4b55d6 0%, #3c45b8 100%);
     color: #fff;
 }
 

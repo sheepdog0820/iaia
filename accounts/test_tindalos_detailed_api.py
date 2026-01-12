@@ -79,7 +79,7 @@ class SimpleTindalosMetricsDetailedTestCase(APITestCase):
                 )
         
         # 詳細データをリクエスト
-        response = self.client.get('/api/accounts/statistics/tindalos/?detailed=true')
+        response = self.client.get('/api/accounts/statistics/simple/?detailed=true')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('yearly_trends', response.data)
@@ -121,7 +121,7 @@ class SimpleTindalosMetricsDetailedTestCase(APITestCase):
                 role='player' if month % 2 == 0 else 'gm'
             )
         
-        response = self.client.get(f'/api/accounts/statistics/tindalos/?detailed=true&year={year}')
+        response = self.client.get(f'/api/accounts/statistics/simple/?detailed=true&year={year}')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('monthly_details', response.data)
@@ -179,7 +179,7 @@ class SimpleTindalosMetricsDetailedTestCase(APITestCase):
                 role='player'
             )
         
-        response = self.client.get('/api/accounts/statistics/tindalos/?detailed=true')
+        response = self.client.get('/api/accounts/statistics/simple/?detailed=true')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('popular_scenarios', response.data)
@@ -242,7 +242,7 @@ class SimpleTindalosMetricsDetailedTestCase(APITestCase):
                     role='player'
                 )
         
-        response = self.client.get('/api/accounts/statistics/tindalos/?detailed=true')
+        response = self.client.get('/api/accounts/statistics/simple/?detailed=true')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('system_trends', response.data)
@@ -520,7 +520,7 @@ class TindalosMetricsFilterTestCase(APITestCase):
             session.participants.add(self.user)
         
         # 特定年度でフィルタ
-        response = self.client.get('/api/accounts/statistics/tindalos/?year=2023')
+        response = self.client.get('/api/accounts/statistics/simple/?year=2023')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['session_count'], 1)
@@ -561,7 +561,7 @@ class TindalosMetricsFilterTestCase(APITestCase):
             )
         
         # CoCでフィルタ
-        response = self.client.get('/api/accounts/statistics/tindalos/?game_system=coc')
+        response = self.client.get('/api/accounts/statistics/simple/?game_system=coc')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['scenario_count'], 1)

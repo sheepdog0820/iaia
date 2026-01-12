@@ -4,7 +4,7 @@
 {% block title %}{{ character.name }} - キャラクターシート詳細 - タブレノ{% endblock %}
 
 {% block content %}
-<div class="container character-detail" id="characterDetailContainer">
+<div class="container character-detail" id="characterDetailContainer" data-character-id="{{ character.id }}">
     <!-- ローディング -->
     <div class="text-center" id="loading">
         <div class="spinner-border text-primary" role="status">
@@ -329,8 +329,16 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const characterId = window.location.pathname.split('/')[3];
+    const containerEl = document.getElementById('characterDetailContainer');
+    const characterId = containerEl?.dataset?.characterId;
     let character = null;
+
+    if (!characterId) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('errorMessage').textContent = 'キャラクターIDが取得できませんでした';
+        document.getElementById('errorMessage').classList.remove('d-none');
+        return;
+    }
 
     document.getElementById('createVersionAndEditButton')?.addEventListener('click', createVersionAndEdit);
     
@@ -933,7 +941,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="small text-muted mb-2">
                                 更新: ${dateText}
                             </div>
-                            <a href="/accounts/character/${version.id}/" class="btn btn-outline-primary btn-sm">
+                            <a href="/accounts/character/${version.edition || '6th'}/${version.id}/" class="btn btn-outline-primary btn-sm">
                                 <i class="fas fa-eye"></i> 表示
                             </a>
                         </div>

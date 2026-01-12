@@ -161,17 +161,450 @@ class CustomPasswordResetForm(PasswordResetForm):
 
 class ProfileEditForm(forms.ModelForm):
     """プロフィール編集フォーム"""
+    TRPG_ENVIRONMENT_CHOICES = [
+        ('online', 'オンライン'),
+        ('offline', 'オフライン'),
+    ]
+
+    TRPG_SYSTEM_CHOICES = [
+        ('coc6', 'クトゥルフ神話TRPG 6版'),
+        ('coc7', 'クトゥルフ神話TRPG 7版'),
+        ('dnd', 'D&D'),
+        ('sw', 'ソード・ワールド'),
+        ('insane', 'インセイン'),
+        ('other', 'その他'),
+    ]
+
+    SCENARIO_STRUCTURE_CHOICES = [
+        ('linear', '一本道'),
+        ('semi_free', '半自由'),
+        ('free', '完全自由'),
+        ('any', 'こだわりなし'),
+    ]
+    SCENARIO_PLAY_FEEL_CHOICES = [
+        ('escalator', 'エスカレーター型'),
+        ('exploration', '探索重視'),
+        ('balanced', 'バランス'),
+        ('any', 'こだわりなし'),
+    ]
+    SCENARIO_VOLUME_CHOICES = [
+        ('short', '短編'),
+        ('medium', '中編'),
+        ('long', '長編'),
+        ('campaign', 'キャンペーン'),
+        ('any', 'こだわりなし'),
+    ]
+    STORY_PREFERENCE_CHOICES = [
+        ('story', 'ストーリー重視'),
+        ('roleplay', 'キャラロール重視'),
+        ('puzzle', 'ギミック・謎解き重視'),
+        ('battle', 'バトル・戦闘重視'),
+        ('horror', 'ホラー演出重視'),
+    ]
+    ENDING_PREFERENCE_CHOICES = [
+        ('happy', 'ハッピー'),
+        ('bitter', 'ビター'),
+        ('bad', 'バッド'),
+        ('any', 'こだわりなし'),
+    ]
+    LOSS_PREFERENCE_CHOICES = [
+        ('ok', 'OK'),
+        ('conditional', '条件付きOK'),
+        ('ng', 'NG'),
+    ]
+
+    RP_STYLE_CHOICES = [
+        ('talkative', '積極的に喋る'),
+        ('reserved', '控えめ'),
+        ('inner', '内面描写が好き'),
+        ('lines', 'セリフ重視'),
+        ('action', '行動重視'),
+    ]
+    ROLE_PREFERENCE_CHOICES = [
+        ('mood', 'ムードメーカー'),
+        ('tsukkomi', 'ツッコミ役'),
+        ('serious', 'シリアス枠'),
+        ('madness', '狂気・異常枠'),
+        ('support', 'サポート役'),
+    ]
+
+    OK_NG_CHOICES = [
+        ('ok', 'OK'),
+        ('ng', 'NG'),
+    ]
+    OK_CONDITIONAL_NG_CHOICES = [
+        ('ok', 'OK'),
+        ('conditional', '条件付きOK'),
+        ('ng', 'NG'),
+    ]
+
+    NG_EXPRESSION_CHOICES = [
+        ('gore', '過度なグロ表現'),
+        ('sexual', '性的表現'),
+        ('child_abuse', '児童への加害描写'),
+        ('mental_illness', '精神疾患の強調描写'),
+        ('animal_abuse', '動物虐待描写'),
+        ('other', 'その他'),
+    ]
+    NG_PLAY_CHOICES = [
+        ('insult', 'PL間の煽り・暴言'),
+        ('character_denial', 'キャラ否定'),
+        ('unauthorized_pvp', '無断PvP'),
+        ('forced_loss', '強制ロスト'),
+        ('other', 'その他'),
+    ]
+    NG_SHARE_METHOD_CHOICES = [
+        ('share_before', 'セッション前に共有してほしい'),
+        ('kp_only', 'KPのみ把握でOK'),
+    ]
+
+    SESSION_TEMPO_CHOICES = [
+        ('slow', 'ゆっくり'),
+        ('normal', '普通'),
+        ('fast', 'テンポ重視'),
+    ]
+    DIRECTION_AMOUNT_CHOICES = [
+        ('many', '多め'),
+        ('normal', '普通'),
+        ('minimal', '最小限'),
+    ]
+    KP_RULING_CHOICES = [
+        ('respect', 'KP裁定を尊重する'),
+        ('discuss', '相談しながら進めたい'),
+    ]
+
+    PROFILE_VISIBILITY_CHOICES = [
+        ('public', '全体公開'),
+        ('participants', '卓参加者のみ'),
+        ('kp_only', 'KPのみ'),
+    ]
+
+    trpg_env = forms.MultipleChoiceField(
+        required=False,
+        choices=TRPG_ENVIRONMENT_CHOICES,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='主なプレイ環境'
+    )
+    trpg_tools = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-sm',
+            'placeholder': 'Discord / CCFOLIA / Roll20 など（自由記述）',
+        }),
+        label='使用ツール'
+    )
+
+    trpg_systems_played = forms.MultipleChoiceField(
+        required=False,
+        choices=TRPG_SYSTEM_CHOICES,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='プレイ経験システム'
+    )
+    trpg_systems_favorite = forms.MultipleChoiceField(
+        required=False,
+        choices=TRPG_SYSTEM_CHOICES,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='得意・好きなシステム'
+    )
+    trpg_systems_other = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-sm',
+            'placeholder': 'その他システム（自由記述）',
+        }),
+        label='その他（システム）'
+    )
+
+    trpg_scenario_structure = forms.ChoiceField(
+        required=False,
+        choices=SCENARIO_STRUCTURE_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+        label='シナリオ構造'
+    )
+    trpg_scenario_play_feel = forms.ChoiceField(
+        required=False,
+        choices=SCENARIO_PLAY_FEEL_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+        label='プレイ感'
+    )
+    trpg_scenario_volume = forms.ChoiceField(
+        required=False,
+        choices=SCENARIO_VOLUME_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+        label='ボリューム'
+    )
+    trpg_story_preferences = forms.MultipleChoiceField(
+        required=False,
+        choices=STORY_PREFERENCE_CHOICES,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='物語・展開の嗜好'
+    )
+    trpg_ending_preference = forms.ChoiceField(
+        required=False,
+        choices=ENDING_PREFERENCE_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+        label='エンディング傾向'
+    )
+    trpg_loss_preference = forms.ChoiceField(
+        required=False,
+        choices=LOSS_PREFERENCE_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+        label='ロスト'
+    )
+    trpg_loss_preference_note = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-sm',
+            'placeholder': '条件付きOKの場合の補足',
+        }),
+        label='ロスト補足（任意）'
+    )
+
+    trpg_rp_style = forms.MultipleChoiceField(
+        required=False,
+        choices=RP_STYLE_CHOICES,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='ロールプレイスタイル'
+    )
+    trpg_role_preference = forms.MultipleChoiceField(
+        required=False,
+        choices=ROLE_PREFERENCE_CHOICES,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='得意・好きな役割'
+    )
+
+    trpg_light_conflict = forms.ChoiceField(
+        required=False,
+        choices=OK_NG_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+        label='軽度の対立'
+    )
+    trpg_pvp = forms.ChoiceField(
+        required=False,
+        choices=OK_CONDITIONAL_NG_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+        label='PvP'
+    )
+    trpg_betrayal = forms.ChoiceField(
+        required=False,
+        choices=OK_CONDITIONAL_NG_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+        label='裏切り・秘密'
+    )
+    trpg_conflict_note = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-sm',
+            'placeholder': '条件付きOKの場合の補足',
+        }),
+        label='対立補足（任意）'
+    )
+
+    trpg_ng_expression = forms.MultipleChoiceField(
+        required=False,
+        choices=NG_EXPRESSION_CHOICES,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='表現面のNG'
+    )
+    trpg_ng_expression_other = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-sm',
+            'placeholder': 'その他（表現面のNG）',
+        }),
+        label='表現面のNG（その他）'
+    )
+    trpg_ng_play = forms.MultipleChoiceField(
+        required=False,
+        choices=NG_PLAY_CHOICES,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        label='プレイ面のNG'
+    )
+    trpg_ng_play_other = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-sm',
+            'placeholder': 'その他（プレイ面のNG）',
+        }),
+        label='プレイ面のNG（その他）'
+    )
+    trpg_ng_share_method = forms.ChoiceField(
+        required=False,
+        choices=NG_SHARE_METHOD_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+        label='事前共有方法'
+    )
+
+    trpg_session_tempo = forms.ChoiceField(
+        required=False,
+        choices=SESSION_TEMPO_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+        label='セッションテンポ'
+    )
+    trpg_direction_amount = forms.ChoiceField(
+        required=False,
+        choices=DIRECTION_AMOUNT_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+        label='演出量'
+    )
+    trpg_kp_ruling = forms.ChoiceField(
+        required=False,
+        choices=KP_RULING_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+        label='KP裁定へのスタンス'
+    )
+
+    trpg_free_comment = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control form-control-sm',
+            'rows': 4,
+            'placeholder': '自己PR / KPへの一言 / 好きな傾向の補足 など',
+        }),
+        label='フリーコメント'
+    )
+
+    trpg_profile_visibility = forms.ChoiceField(
+        required=False,
+        choices=PROFILE_VISIBILITY_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'}),
+        label='公開範囲'
+    )
+
+    @staticmethod
+    def _get_sheet_value(sheet, *path, default=None):
+        current = sheet or {}
+        for key in path:
+            if not isinstance(current, dict) or key not in current:
+                return default
+            current = current.get(key)
+        return current if current is not None else default
+
+    @staticmethod
+    def _prune_sheet(value):
+        if isinstance(value, str):
+            return value.strip()
+        if isinstance(value, list):
+            items = []
+            for item in value:
+                pruned = ProfileEditForm._prune_sheet(item)
+                if pruned in (None, '', [], {}):
+                    continue
+                items.append(pruned)
+            return items
+        if isinstance(value, dict):
+            result = {}
+            for key, item in value.items():
+                pruned = ProfileEditForm._prune_sheet(item)
+                if pruned in (None, '', [], {}):
+                    continue
+                result[key] = pruned
+            return result
+        return value
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        sheet = getattr(self.instance, 'trpg_introduction_sheet', None) or {}
+        self.fields['trpg_env'].initial = self._get_sheet_value(sheet, 'basic', 'environment', default=[])
+        self.fields['trpg_tools'].initial = self._get_sheet_value(sheet, 'basic', 'tools', default='')
+
+        self.fields['trpg_systems_played'].initial = self._get_sheet_value(sheet, 'systems', 'played', default=[])
+        self.fields['trpg_systems_favorite'].initial = self._get_sheet_value(sheet, 'systems', 'favorite', default=[])
+        self.fields['trpg_systems_other'].initial = self._get_sheet_value(sheet, 'systems', 'other', default='')
+
+        self.fields['trpg_scenario_structure'].initial = self._get_sheet_value(sheet, 'scenario', 'structure', default='')
+        self.fields['trpg_scenario_play_feel'].initial = self._get_sheet_value(sheet, 'scenario', 'play_feel', default='')
+        self.fields['trpg_scenario_volume'].initial = self._get_sheet_value(sheet, 'scenario', 'volume', default='')
+        self.fields['trpg_story_preferences'].initial = self._get_sheet_value(sheet, 'scenario', 'preferences', default=[])
+        self.fields['trpg_ending_preference'].initial = self._get_sheet_value(sheet, 'scenario', 'ending', default='')
+        self.fields['trpg_loss_preference'].initial = self._get_sheet_value(sheet, 'scenario', 'loss', default='')
+        self.fields['trpg_loss_preference_note'].initial = self._get_sheet_value(sheet, 'scenario', 'loss_note', default='')
+
+        self.fields['trpg_rp_style'].initial = self._get_sheet_value(sheet, 'character_play', 'rp_style', default=[])
+        self.fields['trpg_role_preference'].initial = self._get_sheet_value(sheet, 'character_play', 'role_preference', default=[])
+
+        self.fields['trpg_light_conflict'].initial = self._get_sheet_value(sheet, 'conflict', 'light', default='')
+        self.fields['trpg_pvp'].initial = self._get_sheet_value(sheet, 'conflict', 'pvp', default='')
+        self.fields['trpg_betrayal'].initial = self._get_sheet_value(sheet, 'conflict', 'betrayal', default='')
+        self.fields['trpg_conflict_note'].initial = self._get_sheet_value(sheet, 'conflict', 'note', default='')
+
+        self.fields['trpg_ng_expression'].initial = self._get_sheet_value(sheet, 'ng', 'expression', default=[])
+        self.fields['trpg_ng_expression_other'].initial = self._get_sheet_value(sheet, 'ng', 'expression_other', default='')
+        self.fields['trpg_ng_play'].initial = self._get_sheet_value(sheet, 'ng', 'play', default=[])
+        self.fields['trpg_ng_play_other'].initial = self._get_sheet_value(sheet, 'ng', 'play_other', default='')
+        self.fields['trpg_ng_share_method'].initial = self._get_sheet_value(sheet, 'ng', 'share_method', default='')
+
+        self.fields['trpg_session_tempo'].initial = self._get_sheet_value(sheet, 'session', 'tempo', default='')
+        self.fields['trpg_direction_amount'].initial = self._get_sheet_value(sheet, 'session', 'direction_amount', default='')
+        self.fields['trpg_kp_ruling'].initial = self._get_sheet_value(sheet, 'session', 'kp_ruling', default='')
+
+        self.fields['trpg_free_comment'].initial = self._get_sheet_value(sheet, 'free', 'comment', default='')
+        self.fields['trpg_profile_visibility'].initial = self._get_sheet_value(sheet, 'visibility', default='')
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+
+        sheet = {
+            'basic': {
+                'environment': self.cleaned_data.get('trpg_env', []),
+                'tools': self.cleaned_data.get('trpg_tools', ''),
+            },
+            'systems': {
+                'played': self.cleaned_data.get('trpg_systems_played', []),
+                'favorite': self.cleaned_data.get('trpg_systems_favorite', []),
+                'other': self.cleaned_data.get('trpg_systems_other', ''),
+            },
+            'scenario': {
+                'structure': self.cleaned_data.get('trpg_scenario_structure', ''),
+                'play_feel': self.cleaned_data.get('trpg_scenario_play_feel', ''),
+                'volume': self.cleaned_data.get('trpg_scenario_volume', ''),
+                'preferences': self.cleaned_data.get('trpg_story_preferences', []),
+                'ending': self.cleaned_data.get('trpg_ending_preference', ''),
+                'loss': self.cleaned_data.get('trpg_loss_preference', ''),
+                'loss_note': self.cleaned_data.get('trpg_loss_preference_note', ''),
+            },
+            'character_play': {
+                'rp_style': self.cleaned_data.get('trpg_rp_style', []),
+                'role_preference': self.cleaned_data.get('trpg_role_preference', []),
+            },
+            'conflict': {
+                'light': self.cleaned_data.get('trpg_light_conflict', ''),
+                'pvp': self.cleaned_data.get('trpg_pvp', ''),
+                'betrayal': self.cleaned_data.get('trpg_betrayal', ''),
+                'note': self.cleaned_data.get('trpg_conflict_note', ''),
+            },
+            'ng': {
+                'expression': self.cleaned_data.get('trpg_ng_expression', []),
+                'expression_other': self.cleaned_data.get('trpg_ng_expression_other', ''),
+                'play': self.cleaned_data.get('trpg_ng_play', []),
+                'play_other': self.cleaned_data.get('trpg_ng_play_other', ''),
+                'share_method': self.cleaned_data.get('trpg_ng_share_method', ''),
+            },
+            'session': {
+                'tempo': self.cleaned_data.get('trpg_session_tempo', ''),
+                'direction_amount': self.cleaned_data.get('trpg_direction_amount', ''),
+                'kp_ruling': self.cleaned_data.get('trpg_kp_ruling', ''),
+            },
+            'free': {
+                'comment': self.cleaned_data.get('trpg_free_comment', ''),
+            },
+            'visibility': self.cleaned_data.get('trpg_profile_visibility', ''),
+        }
+
+        user.trpg_introduction_sheet = self._prune_sheet(sheet)
+
+        if commit:
+            user.save()
+        return user
+
     class Meta:
         model = CustomUser
-        fields = ['nickname', 'email', 'first_name', 'last_name', 'trpg_history', 'profile_image']
+        fields = ['nickname', 'first_name', 'last_name', 'trpg_history', 'profile_image']
         widgets = {
             'nickname': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'ニックネーム'
-            }),
-            'email': forms.EmailInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'メールアドレス'
             }),
             'first_name': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -193,7 +626,6 @@ class ProfileEditForm(forms.ModelForm):
         }
         labels = {
             'nickname': 'ニックネーム',
-            'email': 'メールアドレス',
             'first_name': '名前',
             'last_name': '姓',
             'trpg_history': 'TRPG歴',

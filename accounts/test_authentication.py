@@ -1,4 +1,4 @@
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.conf import settings
@@ -47,17 +47,20 @@ class AuthenticationTestCase(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn('/accounts/dashboard/', response['Location'])
 
+    @override_settings(DEBUG=True)
     def test_demo_login_page_accessible(self):
         """デモログインページのアクセステスト"""
         response = self.client.get('/accounts/demo/')
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 200)
 
+    @override_settings(DEBUG=True)
     def test_mock_social_login_google(self):
         """Googleモックソーシャルログインのテスト"""
         response = self.client.get('/accounts/mock-social/google/')
         # リダイレクト（ログイン成功）またはダッシュボードを確認
         self.assertIn(response.status_code, [200, 302])
 
+    @override_settings(DEBUG=True)
     def test_mock_social_login_twitter(self):
         """Twitterモックソーシャルログインのテスト"""
         response = self.client.get('/accounts/mock-social/twitter_oauth2/')

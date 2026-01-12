@@ -6,7 +6,7 @@
 {% block content %}
 <div class="container">
     <div class="row justify-content-center">
-        <div class="col-lg-8">
+        <div class="col-lg-10 col-xl-9">
             <div class="card shadow-lg">
                 <div class="card-header bg-info text-center">
                     <h4 class="card-title mb-0 eldritch-font">
@@ -54,10 +54,12 @@
                             
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="{{ form.email.id_for_label }}" class="form-label">
-                                        <i class="fas fa-envelope"></i> {{ form.email.label }}
+                                    <label class="form-label">
+                                        <i class="fas fa-envelope"></i> メールアドレス
                                     </label>
-                                    {{ form.email }}
+                                    <div class="form-control form-control-sm bg-dark text-muted">
+                                        セキュリティのため非表示（変更は「メールアドレス管理」から）
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -88,6 +90,425 @@
                             </label>
                             {{ form.trpg_history }}
                             <div class="form-text">TRPG歴やゲーム経験、好きなシステムなどを記入してください</div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h5 class="mb-0">
+                                <i class="fas fa-dice-d20 text-info"></i> TRPG自己紹介シート
+                            </h5>
+                            <small class="text-muted">任意</small>
+                        </div>
+                        <p class="text-muted small mb-3">
+                            卓マッチングやKPの調整に役立つ情報（嗜好/地雷/許容範囲など）を入力できます。
+                        </p>
+
+                        <div class="accordion trpg-sheet-accordion mb-4" id="trpgSheetAccordion">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="trpgSheetHeadingBasic">
+                                    <button class="accordion-button py-2" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#trpgSheetCollapseBasic"
+                                            aria-expanded="true" aria-controls="trpgSheetCollapseBasic">
+                                        基本情報
+                                    </button>
+                                </h2>
+                                <div id="trpgSheetCollapseBasic" class="accordion-collapse collapse show"
+                                     aria-labelledby="trpgSheetHeadingBasic">
+                                    <div class="accordion-body py-3">
+                                        <div class="row g-3">
+                                            <div class="col-12">
+                                                <label class="form-label small mb-1">
+                                                    <i class="fas fa-laptop"></i> {{ form.trpg_env.label }}
+                                                </label>
+                                                <div class="row row-cols-2 row-cols-md-3 g-1">
+                                                    {% for checkbox in form.trpg_env %}
+                                                        <div class="col">
+                                                            <div class="form-check">
+                                                                {{ checkbox.tag }}
+                                                                <label class="form-check-label small" for="{{ checkbox.id_for_label }}">
+                                                                    {{ checkbox.choice_label }}
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12">
+                                                <label for="{{ form.trpg_tools.id_for_label }}" class="form-label small mb-1">
+                                                    <i class="fas fa-tools"></i> {{ form.trpg_tools.label }}
+                                                </label>
+                                                {{ form.trpg_tools }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 対応システム -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="trpgSheetHeadingSystems">
+                                    <button class="accordion-button py-2" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#trpgSheetCollapseSystems"
+                                            aria-expanded="true" aria-controls="trpgSheetCollapseSystems">
+                                        対応システム
+                                    </button>
+                                </h2>
+                                <div id="trpgSheetCollapseSystems" class="accordion-collapse collapse show"
+                                     aria-labelledby="trpgSheetHeadingSystems">
+                                    <div class="accordion-body py-3">
+                                        <div class="row g-3">
+                                            <div class="col-lg-6">
+                                                <label class="form-label small mb-1">
+                                                    <i class="fas fa-check-square"></i> {{ form.trpg_systems_played.label }}
+                                                </label>
+                                                <div class="row row-cols-2 g-1">
+                                                    {% for checkbox in form.trpg_systems_played %}
+                                                        <div class="col">
+                                                            <div class="form-check">
+                                                                {{ checkbox.tag }}
+                                                                <label class="form-check-label small" for="{{ checkbox.id_for_label }}">
+                                                                    {{ checkbox.choice_label }}
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                            <div class="col-lg-6">
+                                                <label class="form-label small mb-1">
+                                                    <i class="fas fa-star"></i> {{ form.trpg_systems_favorite.label }}
+                                                </label>
+                                                <div class="row row-cols-2 g-1">
+                                                    {% for checkbox in form.trpg_systems_favorite %}
+                                                        <div class="col">
+                                                            <div class="form-check">
+                                                                {{ checkbox.tag }}
+                                                                <label class="form-check-label small" for="{{ checkbox.id_for_label }}">
+                                                                    {{ checkbox.choice_label }}
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12">
+                                                <label for="{{ form.trpg_systems_other.id_for_label }}" class="form-label small mb-1">
+                                                    <i class="fas fa-pen"></i> {{ form.trpg_systems_other.label }}
+                                                </label>
+                                                {{ form.trpg_systems_other }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- シナリオ傾向 -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="trpgSheetHeadingScenario">
+                                    <button class="accordion-button py-2" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#trpgSheetCollapseScenario"
+                                            aria-expanded="true" aria-controls="trpgSheetCollapseScenario">
+                                        シナリオ傾向（重要）
+                                    </button>
+                                </h2>
+                                <div id="trpgSheetCollapseScenario" class="accordion-collapse collapse show"
+                                     aria-labelledby="trpgSheetHeadingScenario">
+                                    <div class="accordion-body py-3">
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label for="{{ form.trpg_scenario_structure.id_for_label }}" class="form-label small mb-1">
+                                                    <i class="fas fa-route"></i> {{ form.trpg_scenario_structure.label }}
+                                                </label>
+                                                {{ form.trpg_scenario_structure }}
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="{{ form.trpg_scenario_play_feel.id_for_label }}" class="form-label small mb-1">
+                                                    <i class="fas fa-compass"></i> {{ form.trpg_scenario_play_feel.label }}
+                                                </label>
+                                                {{ form.trpg_scenario_play_feel }}
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="{{ form.trpg_scenario_volume.id_for_label }}" class="form-label small mb-1">
+                                                    <i class="fas fa-hourglass-half"></i> {{ form.trpg_scenario_volume.label }}
+                                                </label>
+                                                {{ form.trpg_scenario_volume }}
+                                            </div>
+
+                                            <div class="col-12">
+                                                <label class="form-label small mb-1">
+                                                    <i class="fas fa-list-check"></i> {{ form.trpg_story_preferences.label }}
+                                                </label>
+                                                <div class="row row-cols-2 row-cols-md-3 g-1">
+                                                    {% for checkbox in form.trpg_story_preferences %}
+                                                        <div class="col">
+                                                            <div class="form-check">
+                                                                {{ checkbox.tag }}
+                                                                <label class="form-check-label small" for="{{ checkbox.id_for_label }}">
+                                                                    {{ checkbox.choice_label }}
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+
+                                            <div class="col-md-6">
+                                                <label for="{{ form.trpg_ending_preference.id_for_label }}" class="form-label small mb-1">
+                                                    <i class="fas fa-flag-checkered"></i> {{ form.trpg_ending_preference.label }}
+                                                </label>
+                                                {{ form.trpg_ending_preference }}
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="{{ form.trpg_loss_preference.id_for_label }}" class="form-label small mb-1">
+                                                    <i class="fas fa-skull"></i> {{ form.trpg_loss_preference.label }}
+                                                </label>
+                                                {{ form.trpg_loss_preference }}
+                                            </div>
+                                            <div class="col-12">
+                                                <label for="{{ form.trpg_loss_preference_note.id_for_label }}" class="form-label small mb-1">
+                                                    <i class="fas fa-comment-dots"></i> {{ form.trpg_loss_preference_note.label }}
+                                                </label>
+                                                {{ form.trpg_loss_preference_note }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- キャラクタープレイ傾向 -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="trpgSheetHeadingRoleplay">
+                                    <button class="accordion-button py-2" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#trpgSheetCollapseRoleplay"
+                                            aria-expanded="true" aria-controls="trpgSheetCollapseRoleplay">
+                                        キャラクタープレイ傾向
+                                    </button>
+                                </h2>
+                                <div id="trpgSheetCollapseRoleplay" class="accordion-collapse collapse show"
+                                     aria-labelledby="trpgSheetHeadingRoleplay">
+                                    <div class="accordion-body py-3">
+                                        <div class="row g-3">
+                                            <div class="col-lg-6">
+                                                <label class="form-label small mb-1">
+                                                    <i class="fas fa-theater-masks"></i> {{ form.trpg_rp_style.label }}
+                                                </label>
+                                                <div class="row row-cols-2 g-1">
+                                                    {% for checkbox in form.trpg_rp_style %}
+                                                        <div class="col">
+                                                            <div class="form-check">
+                                                                {{ checkbox.tag }}
+                                                                <label class="form-check-label small" for="{{ checkbox.id_for_label }}">
+                                                                    {{ checkbox.choice_label }}
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                            <div class="col-lg-6">
+                                                <label class="form-label small mb-1">
+                                                    <i class="fas fa-user-tag"></i> {{ form.trpg_role_preference.label }}
+                                                </label>
+                                                <div class="row row-cols-2 g-1">
+                                                    {% for checkbox in form.trpg_role_preference %}
+                                                        <div class="col">
+                                                            <div class="form-check">
+                                                                {{ checkbox.tag }}
+                                                                <label class="form-check-label small" for="{{ checkbox.id_for_label }}">
+                                                                    {{ checkbox.choice_label }}
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- PvP・対立 -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="trpgSheetHeadingConflict">
+                                    <button class="accordion-button py-2" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#trpgSheetCollapseConflict"
+                                            aria-expanded="true" aria-controls="trpgSheetCollapseConflict">
+                                        PvP・対立要素
+                                    </button>
+                                </h2>
+                                <div id="trpgSheetCollapseConflict" class="accordion-collapse collapse show"
+                                     aria-labelledby="trpgSheetHeadingConflict">
+                                    <div class="accordion-body py-3">
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label for="{{ form.trpg_light_conflict.id_for_label }}" class="form-label small mb-1">
+                                                    {{ form.trpg_light_conflict.label }}
+                                                </label>
+                                                {{ form.trpg_light_conflict }}
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="{{ form.trpg_pvp.id_for_label }}" class="form-label small mb-1">
+                                                    {{ form.trpg_pvp.label }}
+                                                </label>
+                                                {{ form.trpg_pvp }}
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="{{ form.trpg_betrayal.id_for_label }}" class="form-label small mb-1">
+                                                    {{ form.trpg_betrayal.label }}
+                                                </label>
+                                                {{ form.trpg_betrayal }}
+                                            </div>
+                                            <div class="col-12">
+                                                <label for="{{ form.trpg_conflict_note.id_for_label }}" class="form-label small mb-1">
+                                                    <i class="fas fa-comment"></i> {{ form.trpg_conflict_note.label }}
+                                                </label>
+                                                {{ form.trpg_conflict_note }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- NG・地雷 -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="trpgSheetHeadingNg">
+                                    <button class="accordion-button py-2" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#trpgSheetCollapseNg"
+                                            aria-expanded="true" aria-controls="trpgSheetCollapseNg">
+                                        地雷・NG要素
+                                    </button>
+                                </h2>
+                                <div id="trpgSheetCollapseNg" class="accordion-collapse collapse show"
+                                     aria-labelledby="trpgSheetHeadingNg">
+                                    <div class="accordion-body py-3">
+                                        <div class="row g-3">
+                                            <div class="col-lg-6">
+                                                <label class="form-label small mb-1">
+                                                    <i class="fas fa-ban"></i> {{ form.trpg_ng_expression.label }}
+                                                </label>
+                                                <div class="row row-cols-2 g-1">
+                                                    {% for checkbox in form.trpg_ng_expression %}
+                                                        <div class="col">
+                                                            <div class="form-check">
+                                                                {{ checkbox.tag }}
+                                                                <label class="form-check-label small" for="{{ checkbox.id_for_label }}">
+                                                                    {{ checkbox.choice_label }}
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                                <div class="mt-2">
+                                                    <label for="{{ form.trpg_ng_expression_other.id_for_label }}" class="form-label small mb-1">
+                                                        {{ form.trpg_ng_expression_other.label }}
+                                                    </label>
+                                                    {{ form.trpg_ng_expression_other }}
+                                                </div>
+                                            </div>
+
+                                            <div class="col-lg-6">
+                                                <label class="form-label small mb-1">
+                                                    <i class="fas fa-ban"></i> {{ form.trpg_ng_play.label }}
+                                                </label>
+                                                <div class="row row-cols-2 g-1">
+                                                    {% for checkbox in form.trpg_ng_play %}
+                                                        <div class="col">
+                                                            <div class="form-check">
+                                                                {{ checkbox.tag }}
+                                                                <label class="form-check-label small" for="{{ checkbox.id_for_label }}">
+                                                                    {{ checkbox.choice_label }}
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                                <div class="mt-2">
+                                                    <label for="{{ form.trpg_ng_play_other.id_for_label }}" class="form-label small mb-1">
+                                                        {{ form.trpg_ng_play_other.label }}
+                                                    </label>
+                                                    {{ form.trpg_ng_play_other }}
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12">
+                                                <label for="{{ form.trpg_ng_share_method.id_for_label }}" class="form-label small mb-1">
+                                                    <i class="fas fa-shield-alt"></i> {{ form.trpg_ng_share_method.label }}
+                                                </label>
+                                                {{ form.trpg_ng_share_method }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- セッション進行 -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="trpgSheetHeadingSession">
+                                    <button class="accordion-button py-2" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#trpgSheetCollapseSession"
+                                            aria-expanded="true" aria-controls="trpgSheetCollapseSession">
+                                        セッション進行の希望
+                                    </button>
+                                </h2>
+                                <div id="trpgSheetCollapseSession" class="accordion-collapse collapse show"
+                                     aria-labelledby="trpgSheetHeadingSession">
+                                    <div class="accordion-body py-3">
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label for="{{ form.trpg_session_tempo.id_for_label }}" class="form-label small mb-1">
+                                                    {{ form.trpg_session_tempo.label }}
+                                                </label>
+                                                {{ form.trpg_session_tempo }}
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="{{ form.trpg_direction_amount.id_for_label }}" class="form-label small mb-1">
+                                                    {{ form.trpg_direction_amount.label }}
+                                                </label>
+                                                {{ form.trpg_direction_amount }}
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="{{ form.trpg_kp_ruling.id_for_label }}" class="form-label small mb-1">
+                                                    {{ form.trpg_kp_ruling.label }}
+                                                </label>
+                                                {{ form.trpg_kp_ruling }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- フリーコメント -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="trpgSheetHeadingFree">
+                                    <button class="accordion-button py-2" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#trpgSheetCollapseFree"
+                                            aria-expanded="true" aria-controls="trpgSheetCollapseFree">
+                                        フリーコメント・公開範囲
+                                    </button>
+                                </h2>
+                                <div id="trpgSheetCollapseFree" class="accordion-collapse collapse show"
+                                     aria-labelledby="trpgSheetHeadingFree">
+                                    <div class="accordion-body py-3">
+                                        <div class="row g-3">
+                                            <div class="col-12">
+                                                <label for="{{ form.trpg_free_comment.id_for_label }}" class="form-label small mb-1">
+                                                    <i class="fas fa-comment-dots"></i> {{ form.trpg_free_comment.label }}
+                                                </label>
+                                                {{ form.trpg_free_comment }}
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="{{ form.trpg_profile_visibility.id_for_label }}" class="form-label small mb-1">
+                                                    <i class="fas fa-eye"></i> {{ form.trpg_profile_visibility.label }}
+                                                </label>
+                                                {{ form.trpg_profile_visibility }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="mb-4">
@@ -216,6 +637,31 @@
 
 .img-thumbnail {
     border: 2px solid #0dcaf0;
+}
+
+.trpg-sheet-accordion .accordion-item {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+}
+
+.trpg-sheet-accordion .accordion-button {
+    background-color: var(--secondary-bg);
+    color: var(--text-primary);
+}
+
+.trpg-sheet-accordion .accordion-button:not(.collapsed) {
+    background-color: rgba(13, 202, 240, 0.12);
+    color: var(--accent-info);
+    box-shadow: none;
+}
+
+.trpg-sheet-accordion .accordion-body {
+    background-color: var(--secondary-bg);
+    color: var(--text-primary);
+}
+
+.trpg-sheet-accordion .accordion-button:focus {
+    box-shadow: 0 0 0 0.2rem rgba(13, 202, 240, 0.15);
 }
 </style>
 {% endblock %}

@@ -334,6 +334,7 @@ iaia/
 
 ### 認証
 - `POST /api/auth/google/` - Google OAuth認証（API経由）
+- `POST /api/auth/discord/` - Discord OAuth認証（API経由）
 - `POST /api/auth/twitter/` - X（Twitter）OAuth認証（API経由）
 - `POST /api/auth/logout/` - APIログアウト（トークン無効化）
 - `GET /api/auth/user/` - 現在のユーザー情報取得

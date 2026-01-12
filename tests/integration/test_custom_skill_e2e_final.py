@@ -60,37 +60,30 @@ class CustomSkillE2EFinalTest(StaticLiveServerTestCase):
     
     def test_custom_skill_add_and_remove(self):
         """カスタム技能の追加と削除のE2Eテスト"""
-        # 1. 開発用ログインページにアクセス
-        self.selenium.get(f"{self.live_server_url}/accounts/dev-login/")
-        time.sleep(2)
-        
-        # 2. adminユーザーをクリックしてログイン
-        try:
-            # adminユーザーのリンクを探してクリック
-            admin_link = self.selenium.find_element(
-                By.XPATH, 
-                "//a[contains(@href, 'username=admin')]"
-            )
-            admin_link.click()
-            time.sleep(2)
-            print("管理者でログインしました")
-        except Exception as e:
-            print(f"ログインエラー: {e}")
-            # スクリーンショットを保存
-            self.selenium.save_screenshot("/tmp/selenium_debug/login_error.png")
+        # Seleniumログインはdev-login UIに依存しない（POST形式変更に追従するため）
+        client = Client()
+        logged_in = client.login(username='admin', password='admin123')
+        if not logged_in:
+            raise AssertionError('Failed to authenticate test user')
+
+        self.selenium.get(self.live_server_url)
+        self.selenium.delete_all_cookies()
+        session_cookie = client.cookies.get('sessionid')
+        if not session_cookie:
+            raise AssertionError('Session cookie not set')
+
+        self.selenium.add_cookie({
+            'name': 'sessionid',
+            'value': session_cookie.value,
+            'path': '/',
+        })
+        self.selenium.get(f"{self.live_server_url}/accounts/dashboard/")
         
         # 3. キャラクター作成画面に移動
         self.selenium.get(f"{self.live_server_url}/accounts/character/create/6th/")
-        time.sleep(3)
-        
-        # 現在のURLを確認
-        current_url = self.selenium.current_url
-        print(f"現在のURL: {current_url}")
-        
-        # ログインしていない場合はテストをスキップ
-        if "login" in current_url:
-            print("ログインが必要です。テストをスキップします。")
-            return
+        WebDriverWait(self.selenium, 20).until(
+            EC.presence_of_element_located((By.ID, "character-name"))
+        )
         
         # 4. 基本情報を入力
         try:
@@ -102,10 +95,19 @@ class CustomSkillE2EFinalTest(StaticLiveServerTestCase):
             age_input = self.selenium.find_element(By.ID, "age")
             age_input.send_keys("30")
             
-            # 能力値を入力
+            # 能力値を入力（能力値タブへ移動してから）
+            abilities_tab = WebDriverWait(self.selenium, 20).until(
+                EC.element_to_be_clickable((By.ID, "abilities-tab"))
+            )
+            self.selenium.execute_script("arguments[0].click();", abilities_tab)
+            WebDriverWait(self.selenium, 20).until(
+                EC.visibility_of_element_located((By.ID, "abilities"))
+            )
             abilities = ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu']
             for ability in abilities:
-                element = self.selenium.find_element(By.ID, ability)
+                element = WebDriverWait(self.selenium, 20).until(
+                    EC.element_to_be_clickable((By.ID, ability))
+                )
                 element.clear()
                 element.send_keys("12")
             
@@ -118,8 +120,10 @@ class CustomSkillE2EFinalTest(StaticLiveServerTestCase):
         # 5. 技能タブに移動
         try:
             skills_tab = self.selenium.find_element(By.ID, "skills-tab")
-            skills_tab.click()
-            time.sleep(2)
+            self.selenium.execute_script("arguments[0].click();", skills_tab)
+            WebDriverWait(self.selenium, 20).until(
+                EC.visibility_of_element_located((By.ID, "skills"))
+            )
             print("技能タブに移動しました")
         except Exception as e:
             print(f"技能タブエラー: {e}")
@@ -128,32 +132,16 @@ class CustomSkillE2EFinalTest(StaticLiveServerTestCase):
         
         # 6. カスタム技能追加ボタンを探す
         try:
-            # JavaScriptでaddCustomSkill関数が存在するか確認
-            has_function = self.selenium.execute_script(
-                "return typeof addCustomSkill === 'function'"
+            self.selenium.execute_script("arguments[0].click();", self.selenium.find_element(By.ID, "combat-tab"))
+
+            add_button = WebDriverWait(self.selenium, 20).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "#combat button[data-custom-skill-category='combat']"))
             )
-            print(f"addCustomSkill関数の存在: {has_function}")
-            
-            # カスタム技能追加ボタンを探す
-            custom_buttons = self.selenium.find_elements(
-                By.XPATH, 
-                "//button[contains(text(), 'カスタム技能を追加')]"
+            self.selenium.execute_script("arguments[0].click();", add_button)
+
+            custom_skills = WebDriverWait(self.selenium, 20).until(
+                lambda driver: driver.find_elements(By.CSS_SELECTOR, "#combat .custom-skill")
             )
-            print(f"カスタム技能追加ボタンの数: {len(custom_buttons)}")
-            
-            if not custom_buttons:
-                # JavaScriptで直接実行
-                self.selenium.execute_script("addCustomSkill('combat')")
-                time.sleep(1)
-                print("JavaScriptで直接カスタム技能を追加しました")
-            else:
-                # 最初のボタンをクリック
-                custom_buttons[0].click()
-                time.sleep(1)
-                print("カスタム技能追加ボタンをクリックしました")
-            
-            # カスタム技能が追加されたか確認
-            custom_skills = self.selenium.find_elements(By.CSS_SELECTOR, ".custom-skill")
             print(f"追加されたカスタム技能の数: {len(custom_skills)}")
             
             # スクリーンショットを保存

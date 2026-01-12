@@ -141,7 +141,7 @@ class Character6thTemplateRenderingTest(TestCase):
         )
         
         response = self.client.get(
-            reverse('character_detail', kwargs={'character_id': character.id})
+            reverse('character_detail_6th', kwargs={'character_id': character.id})
         )
         self.assertEqual(response.status_code, 200)
         
@@ -192,7 +192,7 @@ class Character6thTemplateRenderingTest(TestCase):
         
         # Detail view is accessible (no ownership filter in view)
         response = self.client.get(
-            reverse('character_detail', kwargs={'character_id': character.id})
+            reverse('character_detail_6th', kwargs={'character_id': character.id})
         )
         self.assertEqual(response.status_code, 200)
         
@@ -655,7 +655,7 @@ class Character6thAccessibilityTest(TestCase):
         )
         
         response = self.client.get(
-            reverse('character_detail', kwargs={'character_id': character.id})
+            reverse('character_detail_6th', kwargs={'character_id': character.id})
         )
         
         # Check screen reader support in loading spinners

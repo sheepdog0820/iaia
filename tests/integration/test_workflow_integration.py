@@ -65,24 +65,24 @@ class PlayerWorkflowIntegrationTest(APITestCase):
         
     def test_complete_player_workflow(self):
         """プレイヤーの完全な動線テスト"""
-        print("\\n🎭 プレイヤー動線統合テスト開始")
+        print("\\n[FLOW] プレイヤー動線統合テスト開始")
         
         # 1. ログイン
-        print("\\n1️⃣ ユーザーログイン")
+        print("\\n1) ユーザーログイン")
         self.client.force_authenticate(user=self.player)
         
         # 2. ホーム画面データ取得
-        print("\\n2️⃣ ホーム画面データ取得")
+        print("\\n2) ホーム画面データ取得")
         response = self.client.get('/api/schedules/sessions/upcoming/')
         self.assertEqual(response.status_code, 200)
-        print(f"   ✅ 次回セッション取得: {len(response.data)}件")
+        print(f"   [OK] 次回セッション取得: {len(response.data)}件")
         
         response = self.client.get('/api/schedules/sessions/statistics/')
         self.assertEqual(response.status_code, 200)
-        print(f"   ✅ プレイ統計取得: {response.data}")
+        print(f"   [OK] プレイ統計取得: {response.data}")
         
         # 3. グループ参加
-        print("\\n3️⃣ グループ機能")
+        print("\\n3) グループ機能")
         
         # GM用グループ作成（GMの操作）
         self.client.force_authenticate(user=self.gm)
@@ -94,22 +94,22 @@ class PlayerWorkflowIntegrationTest(APITestCase):
         response = self.client.post('/api/accounts/groups/', group_data)
         self.assertEqual(response.status_code, 201)
         group_id = response.data['id']
-        print(f"   ✅ グループ作成: {response.data['name']}")
+        print(f"   [OK] グループ作成: {response.data['name']}")
         
         # プレイヤーがグループに参加
         self.client.force_authenticate(user=self.player)
         response = self.client.post(f'/api/accounts/groups/{group_id}/join/')
         self.assertEqual(response.status_code, 201)
-        print(f"   ✅ グループ参加成功")
+        print(f"   [OK] グループ参加成功")
         
         # グループ一覧確認
         response = self.client.get('/api/accounts/groups/')
         self.assertEqual(response.status_code, 200)
         self.assertTrue(any(g['id'] == group_id for g in response.data))
-        print(f"   ✅ グループ一覧取得: {len(response.data)}件")
+        print(f"   [OK] グループ一覧取得: {len(response.data)}件")
         
         # 4. セッション作成（GMの操作）
-        print("\\n4️⃣ セッション作成")
+        print("\\n4) セッション作成")
         self.client.force_authenticate(user=self.gm)
         
         session_data = {
@@ -125,16 +125,16 @@ class PlayerWorkflowIntegrationTest(APITestCase):
         response = self.client.post('/api/schedules/sessions/', session_data)
         self.assertEqual(response.status_code, 201)
         session_id = response.data['id']
-        print(f"   ✅ セッション作成: {response.data['title']}")
+        print(f"   [OK] セッション作成: {response.data['title']}")
         
         # 5. セッション参加（プレイヤーの操作）
-        print("\\n5️⃣ セッション参加")
+        print("\\n5) セッション参加")
         self.client.force_authenticate(user=self.player)
         
         # セッション一覧確認
         response = self.client.get('/api/schedules/sessions/')
         self.assertEqual(response.status_code, 200)
-        print(f"   ✅ セッション一覧取得: {len(response.data)}件")
+        print(f"   [OK] セッション一覧取得: {len(response.data)}件")
         
         # セッション参加
         join_data = {
@@ -143,10 +143,10 @@ class PlayerWorkflowIntegrationTest(APITestCase):
         }
         response = self.client.post(f'/api/schedules/sessions/{session_id}/join/', join_data)
         self.assertEqual(response.status_code, 201)
-        print(f"   ✅ セッション参加成功: {response.data['character_name']}")
+        print(f"   [OK] セッション参加成功: {response.data['character_name']}")
         
         # 6. カレンダー表示確認
-        print("\\n6️⃣ カレンダー機能")
+        print("\\n6) カレンダー機能")
         start_date = timezone.now().date()
         end_date = (timezone.now() + timedelta(days=30)).date()
         
@@ -156,10 +156,10 @@ class PlayerWorkflowIntegrationTest(APITestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertTrue(any(event['id'] == session_id for event in response.data))
-        print(f"   ✅ カレンダーイベント取得: {len(response.data)}件")
+        print(f"   [OK] カレンダーイベント取得: {len(response.data)}件")
         
         # 7. シナリオ機能
-        print("\\n7️⃣ シナリオ機能")
+        print("\\n7) シナリオ機能")
         
         # シナリオ作成（GMの操作）
         self.client.force_authenticate(user=self.gm)
@@ -178,16 +178,16 @@ class PlayerWorkflowIntegrationTest(APITestCase):
             print(f"Scenario creation failed: {response.status_code} - {response.data}")
         self.assertEqual(response.status_code, 201)
         scenario_id = response.data['id']
-        print(f"   ✅ シナリオ作成: {response.data['title']}")
+        print(f"   [OK] シナリオ作成: {response.data['title']}")
         
         # シナリオ一覧取得（プレイヤーの操作）
         self.client.force_authenticate(user=self.player)
         response = self.client.get('/api/scenarios/scenarios/')
         self.assertEqual(response.status_code, 200)
-        print(f"   ✅ シナリオ一覧取得: {len(response.data)}件")
+        print(f"   [OK] シナリオ一覧取得: {len(response.data)}件")
         
         # 8. 統計・エクスポート機能
-        print("\\n8️⃣ 統計・エクスポート機能")
+        print("\\n8) 統計・エクスポート機能")
         
         # プレイ履歴作成（セッション完了想定）
         self.client.force_authenticate(user=self.gm)
@@ -200,21 +200,21 @@ class PlayerWorkflowIntegrationTest(APITestCase):
         }
         response = self.client.post('/api/scenarios/history/', history_data)
         self.assertEqual(response.status_code, 201)
-        print(f"   ✅ プレイ履歴作成: {response.data['role']}")
+        print(f"   [OK] プレイ履歴作成: {response.data['role']}")
         
         # 統計データ取得
         self.client.force_authenticate(user=self.player)
         response = self.client.get('/api/accounts/statistics/simple/')
         self.assertEqual(response.status_code, 200)
-        print(f"   ✅ 統計データ取得: {response.data}")
+        print(f"   [OK] 統計データ取得: {response.data}")
         
         # エクスポート機能テスト（JSON）
         response = self.client.get('/api/accounts/export/formats/?format=json')
         self.assertEqual(response.status_code, 200)
-        print(f"   ✅ JSONエクスポート成功")
+        print(f"   [OK] JSONエクスポート成功")
         
         # 9. ハンドアウト機能
-        print("\\n9️⃣ ハンドアウト機能")
+        print("\\n9) ハンドアウト機能")
         
         # ハンドアウト作成（GMの操作）
         self.client.force_authenticate(user=self.gm)
@@ -234,15 +234,15 @@ class PlayerWorkflowIntegrationTest(APITestCase):
             }
             response = self.client.post('/api/schedules/handouts/', handout_data)
             self.assertEqual(response.status_code, 201)
-            print(f"   ✅ ハンドアウト作成: {response.data['title']}")
+            print(f"   [OK] ハンドアウト作成: {response.data['title']}")
             
             # ハンドアウト取得（プレイヤーの操作）
             self.client.force_authenticate(user=self.player)
             response = self.client.get('/api/schedules/handouts/')
             self.assertEqual(response.status_code, 200)
-            print(f"   ✅ ハンドアウト取得: {len(response.data)}件")
+            print(f"   [OK] ハンドアウト取得: {len(response.data)}件")
         
-        print("\\n🎉 プレイヤー動線統合テスト完了!")
+        print("\\n[DONE] プレイヤー動線統合テスト完了!")
         return True
 
 
@@ -278,14 +278,14 @@ class GMWorkflowIntegrationTest(APITestCase):
         
     def test_complete_gm_workflow(self):
         """GMの完全な動線テスト"""
-        print("\\n🎩 GM動線統合テスト開始")
+        print("\\n[FLOW] GM動線統合テスト開始")
         
         # 1. GMログイン
-        print("\\n1️⃣ GMログイン")
+        print("\\n1) GMログイン")
         self.client.force_authenticate(user=self.gm)
         
         # 2. グループ作成・管理
-        print("\\n2️⃣ グループ作成・管理")
+        print("\\n2) グループ作成・管理")
         group_data = {
             'name': 'GM主催TRPGサークル',
             'description': 'GM主催のテストグループ',
@@ -294,7 +294,7 @@ class GMWorkflowIntegrationTest(APITestCase):
         response = self.client.post('/api/accounts/groups/', group_data)
         self.assertEqual(response.status_code, 201)
         group_id = response.data['id']
-        print(f"   ✅ グループ作成: {response.data['name']}")
+        print(f"   [OK] グループ作成: {response.data['name']}")
         
         # プレイヤーをグループに招待
         self.client.force_authenticate(user=self.player1)
@@ -304,10 +304,10 @@ class GMWorkflowIntegrationTest(APITestCase):
         self.client.force_authenticate(user=self.player2)
         response = self.client.post(f'/api/accounts/groups/{group_id}/join/')
         self.assertEqual(response.status_code, 201)
-        print(f"   ✅ プレイヤー招待完了")
+        print(f"   [OK] プレイヤー招待完了")
         
         # 3. シナリオ準備
-        print("\\n3️⃣ シナリオ準備")
+        print("\\n3) シナリオ準備")
         self.client.force_authenticate(user=self.gm)
         
         scenario_data = {
@@ -325,7 +325,7 @@ class GMWorkflowIntegrationTest(APITestCase):
             print(f"Scenario creation failed: {response.status_code} - {response.data}")
         self.assertEqual(response.status_code, 201)
         scenario_id = response.data['id']
-        print(f"   ✅ シナリオ作成: {response.data['title']}")
+        print(f"   [OK] シナリオ作成: {response.data['title']}")
         
         # シナリオメモ作成
         note_data = {
@@ -336,10 +336,10 @@ class GMWorkflowIntegrationTest(APITestCase):
         }
         response = self.client.post('/api/scenarios/notes/', note_data)
         self.assertEqual(response.status_code, 201)
-        print(f"   ✅ GMメモ作成: {response.data['title']}")
+        print(f"   [OK] GMメモ作成: {response.data['title']}")
         
         # 4. セッション作成・設定
-        print("\\n4️⃣ セッション作成・設定")
+        print("\\n4) セッション作成・設定")
         
         session_data = {
             'title': 'インスマウスの影 - 第1話',
@@ -355,7 +355,7 @@ class GMWorkflowIntegrationTest(APITestCase):
         response = self.client.post('/api/schedules/sessions/', session_data)
         self.assertEqual(response.status_code, 201)
         session_id = response.data['id']
-        print(f"   ✅ セッション作成: {response.data['title']}")
+        print(f"   [OK] セッション作成: {response.data['title']}")
         
         # プレイヤーがセッションに参加
         self.client.force_authenticate(user=self.player1)
@@ -373,10 +373,10 @@ class GMWorkflowIntegrationTest(APITestCase):
         }
         response = self.client.post(f'/api/schedules/sessions/{session_id}/join/', join_data)
         self.assertEqual(response.status_code, 201)
-        print(f"   ✅ プレイヤー参加完了")
+        print(f"   [OK] プレイヤー参加完了")
         
         # 5. ハンドアウト作成・配布
-        print("\\n5️⃣ ハンドアウト作成・配布")
+        print("\\n5) ハンドアウト作成・配布")
         self.client.force_authenticate(user=self.gm)
         
         # 参加者情報取得
@@ -395,7 +395,7 @@ class GMWorkflowIntegrationTest(APITestCase):
                 }
                 response = self.client.post('/api/schedules/handouts/', handout_data)
                 self.assertEqual(response.status_code, 201)
-                print(f"   ✅ ハンドアウト作成: {participant['user_detail']['nickname']}用")
+                print(f"   [OK] ハンドアウト作成: {participant['user_detail']['nickname']}用")
         
         # 公開ハンドアウト作成
         public_handout_data = {
@@ -407,10 +407,10 @@ class GMWorkflowIntegrationTest(APITestCase):
         }
         response = self.client.post('/api/schedules/handouts/', public_handout_data)
         self.assertEqual(response.status_code, 201)
-        print(f"   ✅ 公開ハンドアウト作成")
+        print(f"   [OK] 公開ハンドアウト作成")
         
         # 6. セッション実行（カレンダー確認）
-        print("\\n6️⃣ セッション実行準備")
+        print("\\n6) セッション実行準備")
         
         # カレンダーでセッション確認
         start_date = timezone.now().date()
@@ -423,10 +423,10 @@ class GMWorkflowIntegrationTest(APITestCase):
         self.assertEqual(response.status_code, 200)
         session_events = [e for e in response.data if e['id'] == session_id]
         self.assertTrue(len(session_events) > 0)
-        print(f"   ✅ カレンダーでセッション確認")
+        print(f"   [OK] カレンダーでセッション確認")
         
         # 7. セッション完了・履歴記録
-        print("\\n7️⃣ セッション完了・履歴記録")
+        print("\\n7) セッション完了・履歴記録")
         
         # 各プレイヤーの履歴記録
         for participant in participants:
@@ -451,7 +451,7 @@ class GMWorkflowIntegrationTest(APITestCase):
         }
         response = self.client.post('/api/scenarios/history/', gm_history_data)
         self.assertEqual(response.status_code, 201)
-        print(f"   ✅ プレイ履歴記録完了")
+        print(f"   [OK] プレイ履歴記録完了")
         
         # セッションステータス更新
         session_update_data = {
@@ -459,17 +459,17 @@ class GMWorkflowIntegrationTest(APITestCase):
         }
         response = self.client.patch(f'/api/schedules/sessions/{session_id}/', session_update_data)
         self.assertEqual(response.status_code, 200)
-        print(f"   ✅ セッション完了処理")
+        print(f"   [OK] セッション完了処理")
         
         # 8. 統計確認
-        print("\\n8️⃣ 統計確認")
+        print("\\n8) 統計確認")
         
         response = self.client.get('/api/accounts/statistics/simple/')
         self.assertEqual(response.status_code, 200)
         stats = response.data
-        print(f"   ✅ GM統計: GM={stats.get('gm_session_count', 0)}回, PL={stats.get('player_session_count', 0)}回")
+        print(f"   [OK] GM統計: GM={stats.get('gm_session_count', 0)}回, PL={stats.get('player_session_count', 0)}回")
         
-        print("\\n🎉 GM動線統合テスト完了!")
+        print("\\n[DONE] GM動線統合テスト完了!")
         return True
 
 
@@ -504,12 +504,12 @@ class CalendarFilterIntegrationTest(APITestCase):
         
     def test_calendar_filter_functionality(self):
         """カレンダーフィルター機能の動作テスト"""
-        print("\\n📅 カレンダーフィルター統合テスト開始")
+        print("\\n[CAL] カレンダーフィルター統合テスト開始")
         
         self.client.force_authenticate(user=self.user)
         
         # 1. テストデータ作成
-        print("\\n1️⃣ テストデータ作成")
+        print("\\n1) テストデータ作成")
         
         # グループ作成
         self.client.force_authenticate(user=self.gm)
@@ -527,7 +527,7 @@ class CalendarFilterIntegrationTest(APITestCase):
         self.assertEqual(response.status_code, 201)
         
         # 2. 異なるタイプのセッション作成
-        print("\\n2️⃣ 異なるタイプのセッション作成")
+        print("\\n2) 異なるタイプのセッション作成")
         
         # 自分がGMのセッション
         session_data = {
@@ -542,7 +542,7 @@ class CalendarFilterIntegrationTest(APITestCase):
         response = self.client.post('/api/schedules/sessions/', session_data)
         self.assertEqual(response.status_code, 201)
         gm_session_id = response.data['id']
-        print(f"   ✅ GMセッション作成: {gm_session_id}")
+        print(f"   [OK] GMセッション作成: {gm_session_id}")
         
         # 参加するセッション（他のGM）
         self.client.force_authenticate(user=self.gm)
@@ -563,7 +563,7 @@ class CalendarFilterIntegrationTest(APITestCase):
         join_data = {'character_name': 'テストキャラ'}
         response = self.client.post(f'/api/schedules/sessions/{participant_session_id}/join/', join_data)
         self.assertEqual(response.status_code, 201)
-        print(f"   ✅ 参加セッション作成: {participant_session_id}")
+        print(f"   [OK] 参加セッション作成: {participant_session_id}")
         
         # 公開セッション（参加していない）
         self.client.force_authenticate(user=self.other_user)
@@ -586,10 +586,10 @@ class CalendarFilterIntegrationTest(APITestCase):
         }
         response = self.client.post('/api/schedules/sessions/', session_data)
         public_session_id = response.data['id']
-        print(f"   ✅ 公開セッション作成: {public_session_id}")
+        print(f"   [OK] 公開セッション作成: {public_session_id}")
         
         # 3. カレンダーAPI動作確認
-        print("\\n3️⃣ カレンダーAPI動作確認")
+        print("\\n3) カレンダーAPI動作確認")
         self.client.force_authenticate(user=self.user)
         
         start_date = timezone.now().date()
@@ -606,32 +606,32 @@ class CalendarFilterIntegrationTest(APITestCase):
         participant_events = [e for e in events if e.get('is_participant')]
         public_events = [e for e in events if e.get('is_public_only')]
         
-        print(f"   ✅ 総イベント数: {len(events)}")
-        print(f"   ✅ GMイベント: {len(gm_events)}")
-        print(f"   ✅ 参加イベント: {len(participant_events)}")
-        print(f"   ✅ 公開イベント: {len(public_events)}")
+        print(f"   [OK] 総イベント数: {len(events)}")
+        print(f"   [OK] GMイベント: {len(gm_events)}")
+        print(f"   [OK] 参加イベント: {len(participant_events)}")
+        print(f"   [OK] 公開イベント: {len(public_events)}")
         
         # 4. フィルター機能検証
-        print("\\n4️⃣ フィルター機能検証")
+        print("\\n4) フィルター機能検証")
         
         # 各セッションタイプが正しく分類されているか確認
         for event in events:
             if event['id'] == gm_session_id:
                 self.assertTrue(event.get('is_gm', False), "GMセッションがis_gm=Trueでない")
                 self.assertEqual(event['type'], 'gm', "GMセッションのtypeが'gm'でない")
-                print(f"   ✅ GMセッション分類確認: {event['title']}")
+                print(f"   [OK] GMセッション分類確認: {event['title']}")
             
             elif event['id'] == participant_session_id:
                 self.assertTrue(event.get('is_participant', False), "参加セッションがis_participant=Trueでない")
                 self.assertEqual(event['type'], 'participant', "参加セッションのtypeが'participant'でない")
-                print(f"   ✅ 参加セッション分類確認: {event['title']}")
+                print(f"   [OK] 参加セッション分類確認: {event['title']}")
             
             elif event['id'] == public_session_id:
                 self.assertTrue(event.get('is_public_only', False), "公開セッションがis_public_only=Trueでない")
                 self.assertEqual(event['type'], 'public', "公開セッションのtypeが'public'でない")
-                print(f"   ✅ 公開セッション分類確認: {event['title']}")
+                print(f"   [OK] 公開セッション分類確認: {event['title']}")
         
-        print("\\n🎉 カレンダーフィルター統合テスト完了!")
+        print("\\n[DONE] カレンダーフィルター統合テスト完了!")
         return True
 
 
@@ -736,60 +736,60 @@ class ExportStatisticsIntegrationTest(APITestCase):
             
     def test_statistics_functionality(self):
         """統計機能の動作テスト"""
-        print("\\n📊 統計機能統合テスト開始")
+        print("\\n[STATS] 統計機能統合テスト開始")
         
         self.client.force_authenticate(user=self.user)
         
         # 1. 基本統計取得
-        print("\\n1️⃣ 基本統計取得")
+        print("\\n1) 基本統計取得")
         response = self.client.get('/api/accounts/statistics/simple/')
         self.assertEqual(response.status_code, 200)
         stats = response.data
         
-        print(f"   ✅ セッション数: {stats.get('session_count', 0)}")
-        print(f"   ✅ GM回数: {stats.get('gm_session_count', 0)}")
-        print(f"   ✅ プレイヤー回数: {stats.get('player_session_count', 0)}")
-        print(f"   ✅ 総プレイ時間: {stats.get('total_play_time', 0)}時間")
-        print(f"   ✅ シナリオ数: {stats.get('scenario_count', 0)}")
+        print(f"   [OK] セッション数: {stats.get('session_count', 0)}")
+        print(f"   [OK] GM回数: {stats.get('gm_session_count', 0)}")
+        print(f"   [OK] プレイヤー回数: {stats.get('player_session_count', 0)}")
+        print(f"   [OK] 総プレイ時間: {stats.get('total_play_time', 0)}時間")
+        print(f"   [OK] シナリオ数: {stats.get('scenario_count', 0)}")
         
         # 統計データの整合性確認
         self.assertGreaterEqual(stats.get('session_count', 0), 0)
         self.assertGreaterEqual(stats.get('total_play_time', 0), 0)
         
         # 2. セッション統計取得
-        print("\\n2️⃣ セッション統計取得")
+        print("\\n2) セッション統計取得")
         response = self.client.get('/api/schedules/sessions/statistics/')
         self.assertEqual(response.status_code, 200)
         session_stats = response.data
         
-        print(f"   ✅ 年間セッション数: {session_stats.get('session_count', 0)}")
-        print(f"   ✅ 年間プレイ時間: {session_stats.get('total_hours', 0)}時間")
+        print(f"   [OK] 年間セッション数: {session_stats.get('session_count', 0)}")
+        print(f"   [OK] 年間プレイ時間: {session_stats.get('total_hours', 0)}時間")
         
         # 3. プレイ履歴取得
-        print("\\n3️⃣ プレイ履歴取得")
+        print("\\n3) プレイ履歴取得")
         response = self.client.get('/api/scenarios/history/')
         self.assertEqual(response.status_code, 200)
         histories = response.data
         
-        print(f"   ✅ プレイ履歴数: {len(histories)}")
+        print(f"   [OK] プレイ履歴数: {len(histories)}")
         
         if histories:
             for history in histories[:3]:  # 最初の3件を表示
                 history_data = history if isinstance(history, dict) else history
                 role = history_data.get('role', 'unknown')
                 notes = history_data.get('notes', 'メモなし')
-                print(f"   📝 履歴: {role} - {notes}")
+                print(f"   [NOTE] 履歴: {role} - {notes}")
         
         return True
     
     def test_export_functionality(self):
         """エクスポート機能の動作テスト"""
-        print("\\n💾 エクスポート機能統合テスト開始")
+        print("\\n[EXPORT] エクスポート機能統合テスト開始")
         
         self.client.force_authenticate(user=self.user)
         
         # 1. JSONエクスポート
-        print("\\n1️⃣ JSONエクスポート")
+        print("\\n1) JSONエクスポート")
         response = self.client.get('/api/accounts/export/formats/?format=json')
         self.assertEqual(response.status_code, 200)
         
@@ -797,56 +797,56 @@ class ExportStatisticsIntegrationTest(APITestCase):
         json_data = response.json()
         self.assertIn('user_info', json_data)
         self.assertIn('statistics', json_data)
-        print(f"   ✅ JSONエクスポート成功 - ユーザー: {json_data['user_info']['username']}")
+        print(f"   [OK] JSONエクスポート成功 - ユーザー: {json_data['user_info']['username']}")
         
         # 2. CSV エクスポート（統計データ）
-        print("\\n2️⃣ CSVエクスポート")
+        print("\\n2) CSVエクスポート")
         response = self.client.get('/api/accounts/export/statistics/?format=csv')
         # CSV エクスポートは現在404エラーの既知の問題があるため、
         # ステータスコードのチェックを調整
         if response.status_code == 200:
             self.assertEqual(response['Content-Type'], 'text/csv')
-            print(f"   ✅ CSVエクスポート成功")
+            print(f"   [OK] CSVエクスポート成功")
         elif response.status_code == 404:
-            print(f"   ⚠️ CSVエクスポート: 既知の404エラー（ルーティング問題）")
+            print(f"   [WARN] CSVエクスポート: 既知の404エラー（ルーティング問題）")
         else:
-            print(f"   ❌ CSVエクスポート: 予期しないエラー {response.status_code}")
+            print(f"   [FAIL] CSVエクスポート: 予期しないエラー {response.status_code}")
         
         # 3. エクスポート形式一覧取得
-        print("\\n3️⃣ エクスポート形式一覧")
+        print("\\n3) エクスポート形式一覧")
         response = self.client.get('/api/accounts/export/formats/')
         self.assertEqual(response.status_code, 200)
         formats = response.data
         
         if isinstance(formats, dict) and 'available_formats' in formats:
             available_formats = formats['available_formats']
-            print(f"   ✅ 利用可能な形式: {', '.join(available_formats)}")
+            print(f"   [OK] 利用可能な形式: {', '.join(available_formats)}")
         else:
-            print(f"   ✅ エクスポート形式取得成功")
+            print(f"   [OK] エクスポート形式取得成功")
         
         return True
     
     def test_complete_export_statistics_workflow(self):
         """エクスポート・統計機能の完全な動線テスト"""
-        print("\\n🔄 エクスポート・統計完全動線テスト開始")
+        print("\\n[FLOW] エクスポート・統計完全動線テスト開始")
         
         self.client.force_authenticate(user=self.user)
         
         # 1. データ蓄積確認
-        print("\\n1️⃣ データ蓄積確認")
+        print("\\n1) データ蓄積確認")
         
         # セッション一覧確認
         response = self.client.get('/api/schedules/sessions/')
         sessions = response.data
-        print(f"   ✅ セッション数: {len(sessions)}")
+        print(f"   [OK] セッション数: {len(sessions)}")
         
         # プレイ履歴確認
         response = self.client.get('/api/scenarios/history/')
         histories = response.data
-        print(f"   ✅ プレイ履歴数: {len(histories)}")
+        print(f"   [OK] プレイ履歴数: {len(histories)}")
         
         # 2. 統計分析
-        print("\\n2️⃣ 統計分析")
+        print("\\n2) 統計分析")
         
         # 年間統計
         response = self.client.get('/api/accounts/statistics/simple/')
@@ -856,12 +856,12 @@ class ExportStatisticsIntegrationTest(APITestCase):
         player_count = stats.get('player_session_count', 0)
         total_time = stats.get('total_play_time', 0)
         
-        print(f"   📊 GM経験: {gm_count}回")
-        print(f"   📊 プレイヤー経験: {player_count}回")
-        print(f"   📊 総プレイ時間: {total_time}時間")
+        print(f"   [STATS] GM経験: {gm_count}回")
+        print(f"   [STATS] プレイヤー経験: {player_count}回")
+        print(f"   [STATS] 総プレイ時間: {total_time}時間")
         
         # 3. データエクスポート
-        print("\\n3️⃣ データエクスポート")
+        print("\\n3) データエクスポート")
         
         # JSON形式でのフルエクスポート
         response = self.client.get('/api/accounts/export/formats/?format=json')
@@ -870,24 +870,24 @@ class ExportStatisticsIntegrationTest(APITestCase):
             
             # エクスポートデータの整合性確認
             self.assertEqual(export_data['user_info']['id'], self.user.id)
-            print(f"   ✅ フルデータエクスポート成功")
-            print(f"   📊 エクスポート統計: {export_data.get('statistics', {})}")
+            print(f"   [OK] フルデータエクスポート成功")
+            print(f"   [STATS] エクスポート統計: {export_data.get('statistics', {})}")
             
             # エクスポートサイズ確認
             import json
             export_size = len(json.dumps(export_data))
-            print(f"   📊 エクスポートサイズ: {export_size:,} bytes")
+            print(f"   [STATS] エクスポートサイズ: {export_size:,} bytes")
         
         # 4. 統計の可視化準備データ
-        print("\\n4️⃣ 統計可視化データ")
+        print("\\n4) 統計可視化データ")
         
         # 月間統計取得
         response = self.client.get('/api/schedules/sessions/statistics/?year=2025')
         if response.status_code == 200:
             monthly_stats = response.data
-            print(f"   📈 2025年統計: {monthly_stats}")
+            print(f"   [STATS] 2025年統計: {monthly_stats}")
         
-        print("\\n🎉 エクスポート・統計完全動線テスト完了!")
+        print("\\n[DONE] エクスポート・統計完全動線テスト完了!")
         return True
 
 
@@ -898,7 +898,7 @@ def run_workflow_tests():
     from django.test.runner import DiscoverRunner
     from django.conf import settings
     
-    print("🚀 タブレノ ワークフロー統合テスト実行開始")
+    print("[RUN] タブレノ ワークフロー統合テスト実行開始")
     print("=" * 60)
     
     # テスト環境セットアップ
@@ -920,26 +920,26 @@ def run_workflow_tests():
     
     # 結果サマリー
     print("\\n" + "=" * 60)
-    print("📊 テスト結果サマリー")
+    print("[STATS] テスト結果サマリー")
     print(f"実行テスト数: {result.testsRun}")
     print(f"失敗: {len(result.failures)}")
     print(f"エラー: {len(result.errors)}")
     print(f"成功率: {((result.testsRun - len(result.failures) - len(result.errors)) / result.testsRun * 100):.1f}%")
     
     if result.failures:
-        print("\\n❌ 失敗したテスト:")
+        print("\\n[FAIL] 失敗したテスト:")
         for test, traceback in result.failures:
             print(f"  - {test}: {traceback}")
     
     if result.errors:
-        print("\\n🚨 エラーが発生したテスト:")
+        print("\\n[ERROR] エラーが発生したテスト:")
         for test, traceback in result.errors:
             print(f"  - {test}: {traceback}")
     
     if result.wasSuccessful():
-        print("\\n🎉 全ての統合テストが成功しました!")
+        print("\\n[OK] 全ての統合テストが成功しました!")
     else:
-        print("\\n⚠️  一部のテストで問題が発生しました。")
+        print("\\n[WARN] 一部のテストで問題が発生しました。")
     
     teardown_test_environment()
     

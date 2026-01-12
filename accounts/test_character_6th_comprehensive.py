@@ -727,9 +727,8 @@ class Character6thAPITestCase(APITestCase):
         private_char = create_test_character(self.other_user, name='Private Character', is_public=False)
         public_char = create_test_character(self.other_user, name='Public Character', is_public=True)
 
-        with self.assertLogs('django.request', level='WARNING'):
-            response = self.client.get(f'/api/accounts/character-sheets/{private_char.id}/')
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        response = self.client.get(f'/api/accounts/character-sheets/{private_char.id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         response = self.client.get(f'/api/accounts/character-sheets/{public_char.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)

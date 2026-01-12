@@ -194,4 +194,8 @@ clean_socialapps.py
 
 # Runtime artifacts
 .server.pid
+.ngrok.pid
+ngrok.log
+ngrok_err.log
+ngrok.exe
 node_modules/.package-lock.json

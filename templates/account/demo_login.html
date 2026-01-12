@@ -36,6 +36,12 @@
                             <span>デモGoogleでログイン</span>
                             <small class="d-block mt-1 opacity-75">demo.google@example.com</small>
                         </a>
+                        <a href="{% url 'mock_social_login' 'discord' %}" class="btn btn-discord btn-lg demo-btn">
+                            <i class="fab fa-discord fa-lg me-2"></i>
+                            <span>テストDiscordでログイン</span>
+                            <small class="d-block mt-1 opacity-75">discord_demo_user</small>
+                        </a>
+
                         
                         <a href="{% url 'mock_social_login' 'twitter_oauth2' %}" class="btn btn-info btn-lg demo-btn">
                             <i class="fab fa-twitter fa-lg me-2"></i>
@@ -53,26 +59,38 @@
                         </h6>
                         
                         <div class="row text-start">
-                            <div class="col-6">
+                            <div class="col-6 col-md-4">
                                 <div class="card bg-light text-dark">
                                     <div class="card-body p-2">
                                         <small>
                                             <strong>Google Demo:</strong><br>
                                             Name: Google User<br>
                                             Email: demo.google@example.com<br>
-                                            Avatar: 自動生成
+                                            Avatar: (未設定)
                                         </small>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-6">
+                            <div class="col-6 col-md-4">
+                                <div class="card bg-light text-dark">
+                                    <div class="card-body p-2">
+                                        <small>
+                                            <strong>Discord Demo:</strong><br>
+                                            Name: Discord User<br>
+                                            Handle: discord_demo_user<br>
+                                            Avatar: (未設定)
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-4">
                                 <div class="card bg-light text-dark">
                                     <div class="card-body p-2">
                                         <small>
                                             <strong>Twitter Demo:</strong><br>
                                             Name: Twitter User<br>
                                             Handle: @TwitterDemo<br>
-                                            Avatar: 自動生成
+                                            Avatar: (未設定)
                                         </small>
                                     </div>
                                 </div>
@@ -141,6 +159,17 @@
     background: linear-gradient(135deg, #d33b2c 0%, #b52d20 100%);
     border-color: #d33b2c;
     box-shadow: 0 8px 25px rgba(234, 67, 53, 0.4);
+}
+
+.btn-discord {
+    background: linear-gradient(135deg, #5865f2 0%, #4b55d6 100%);
+    border-color: #5865f2;
+}
+
+.btn-discord:hover {
+    background: linear-gradient(135deg, #4b55d6 0%, #3c45b8 100%);
+    border-color: #4b55d6;
+    box-shadow: 0 8px 25px rgba(88, 101, 242, 0.35);
 }
 
 .btn-info {

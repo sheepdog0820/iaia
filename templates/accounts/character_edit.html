@@ -188,7 +188,7 @@
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{% url 'character_list' %}">キャラクター一覧</a></li>
                     {% if mode == 'edit' %}
-                        <li class="breadcrumb-item"><a href="{% url 'character_detail' character.id %}">{{ character.name }}</a></li>
+                        <li class="breadcrumb-item"><a href="{% url 'character_detail_6th' character.id %}">{{ character.name }}</a></li>
                         <li class="breadcrumb-item active">編集</li>
                     {% else %}
                         <li class="breadcrumb-item active">新規作成</li>
@@ -204,7 +204,7 @@
                 </h1>
                 <div class="btn-group">
                     {% if mode == 'edit' %}
-                        <a href="{% url 'character_detail' character.id %}" class="btn btn-outline-secondary">
+                        <a href="{% url 'character_detail_6th' character.id %}" class="btn btn-outline-secondary">
                             <i class="fas fa-times"></i> キャンセル
                         </a>
                     {% else %}
@@ -482,7 +482,7 @@
                             {% if mode == 'create' %}作成{% else %}保存{% endif %}
                         </button>
                         {% if mode == 'edit' %}
-                            <a href="{% url 'character_detail' character.id %}" class="btn btn-outline-secondary btn-lg">
+                            <a href="{% url 'character_detail_6th' character.id %}" class="btn btn-outline-secondary btn-lg">
                                 <i class="fas fa-times"></i> キャンセル
                             </a>
                         {% else %}

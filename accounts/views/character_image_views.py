@@ -24,6 +24,9 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
 
     _character_sheet = None
 
+    def _requires_owner(self):
+        return self.request.method not in ["GET", "HEAD", "OPTIONS"]
+
     def _get_character_sheet(self, require_owner=False):
         """URLパラメータからキャラクターシートを取得（必要に応じて所有者チェック）"""
         if self._character_sheet is None:
@@ -37,13 +40,13 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """キャラクターに紐づく画像のクエリセット（所有者のみ）"""
-        character = self._get_character_sheet(require_owner=True)
+        character = self._get_character_sheet(require_owner=self._requires_owner())
         return CharacterImage.objects.filter(character_sheet=character)
 
     def get_serializer_context(self):
         """シリアライザーのコンテキストにキャラクターシートを追加"""
         context = super().get_serializer_context()
-        context["character_sheet"] = self._get_character_sheet(require_owner=True)
+        context["character_sheet"] = self._get_character_sheet(require_owner=self._requires_owner())
         return context
 
     def create(self, request, *args, **kwargs):

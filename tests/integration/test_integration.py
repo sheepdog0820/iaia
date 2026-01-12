@@ -549,7 +549,7 @@ class EndToEndBusinessFlowTestCase(TransactionTestCase):
         response = self.client.post('/api/scenarios/notes/', final_note_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
-        print("✅ Complete TRPG Campaign Workflow Test Passed")
+        print("[OK] Complete TRPG Campaign Workflow Test Passed")
         print(f"   - Group created with {group.members.count()} members")
         print(f"   - {sessions.count()} sessions completed")
         print(f"   - {total_play_histories.count()} play history records created")

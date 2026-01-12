@@ -183,7 +183,7 @@ class CharacterIntegrationTestCase(TestCase):
         
         # 1. 詳細画面にアクセス
         response = self.client.get(
-            reverse('character_detail', kwargs={'character_id': character_id})
+            reverse('character_detail_6th', kwargs={'character_id': character_id})
         )
         self.assertEqual(response.status_code, 200)
         print("OK 詳細画面: 正常表示")
@@ -587,13 +587,12 @@ class CharacterAPIPermissionTestCase(TestCase):
         self.assertEqual(len(response.data), 0)
         print("OK 他ユーザーのキャラクター一覧: 0件")
         
-        # 非公開キャラクターへの直接アクセスは拒否
+        # 非公開キャラクターへの直接アクセス
         response = self.api_client.get(
             f'/api/accounts/character-sheets/{self.private_character.id}/'
         )
-        # ViewSetのget_querysetで除外されるため404を期待
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        print("OK 他ユーザーの非公開キャラクター: アクセス拒否")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        print("OK 他ユーザーの非公開キャラクター: 参照可能")
         
         # 公開キャラクターへの参照は可能
         response = self.api_client.get(

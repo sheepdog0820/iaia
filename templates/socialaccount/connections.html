@@ -27,6 +27,9 @@
                                     {% if socialaccount.provider == 'google' %}
                                         <i class="fab fa-google text-danger fa-lg me-2"></i>
                                         <strong>Google</strong>
+                                    {% elif socialaccount.provider == 'discord' %}
+                                        <i class="fab fa-discord text-primary fa-lg me-2"></i>
+                                        <strong>Discord</strong>
                                     {% elif socialaccount.provider == 'twitter_oauth2' %}
                                         <i class="fab fa-twitter text-info fa-lg me-2"></i>
                                         <strong>X</strong>
@@ -61,6 +64,10 @@
                             {% if provider.id == 'google' %}
                                 <a href="{% provider_login_url provider.id next=request.path %}" class="btn btn-outline-danger">
                                     <i class="fab fa-google"></i> Googleアカウントを連携
+                                </a>
+                            {% elif provider.id == 'discord' %}
+                                <a href="{% provider_login_url provider.id next=request.path %}" class="btn btn-outline-primary">
+                                    <i class="fab fa-discord"></i> Discordアカウントを連携
                                 </a>
                             {% elif provider.id == 'twitter_oauth2' %}
                                 <a href="{% provider_login_url provider.id next=request.path %}" class="btn btn-outline-info">

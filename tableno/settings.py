@@ -96,6 +96,7 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.discord',
     'allauth.socialaccount.providers.twitter_oauth2',
     'rest_framework',
     'rest_framework.authtoken',
@@ -148,6 +149,12 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        'OPTIONS': {
+            # NOTE: Disable sqlite statement cache to avoid rare KeyError crashes under
+            # multi-threaded test servers (e.g. LiveServer/Selenium).
+            'cached_statements': 0,
+            'timeout': 20,
+        },
     }
 }
 
@@ -243,6 +250,13 @@ SOCIALACCOUNT_PROVIDERS = {
         "VERIFIED_EMAIL": True,
         "VERSION": "v2",
     },
+    "discord": {
+        "SCOPE": [
+            "identify",
+            "email",
+        ],
+        "OAUTH_PKCE_ENABLED": True,
+    },
     "twitter_oauth2": {},
 }
 # Development settings for social auth
@@ -307,7 +321,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY', '')
 YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3'
 
-# Google OAuth API設定（API経由認証用）
+# Google OAuth API認証（API経由）設定
 GOOGLE_OAUTH_CLIENT_ID = _get_first_env(
     'GOOGLE_CLIENT_ID',
     'GOOGLE_OAUTH_CLIENT_ID',
@@ -322,7 +336,24 @@ GOOGLE_OAUTH_CLIENT_SECRET = _get_first_env(
     'CLIENT_SECRET',
     default='',
 )
-# X (Twitter) OAuth API設定（API経由認証用）
+
+# Discord OAuth API認証（API経由）設定
+DISCORD_CLIENT_ID = _get_first_env(
+    'DISCORD_CLIENT_ID',
+    'DISCORD_OAUTH_CLIENT_ID',
+    default='',
+)
+DISCORD_CLIENT_SECRET = _get_first_env(
+    'DISCORD_CLIENT_SECRET',
+    'DISCORD_OAUTH_CLIENT_SECRET',
+    default='',
+)
+DISCORD_REDIRECT_URI = _get_first_env(
+    'DISCORD_REDIRECT_URI',
+    default='',
+)
+
+# X (Twitter) OAuth API認証（API経由）設定
 TWITTER_CLIENT_ID = _get_first_env(
     'TWITTER_CLIENT_ID',
     'TWITTER_OAUTH_CLIENT_ID',

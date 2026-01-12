@@ -85,8 +85,8 @@ class CharacterSkillsIntegrationTest(TestCase):
             'skill_図書館_total': '75',
         }
         
-        print(f"✅ テストキャラクター名: {unique_name}")
-        print(f"📝 技能データ数: {len([k for k in form_data.keys() if k.startswith('skill_') and k.endswith('_name')])}")
+        print(f"[OK] テストキャラクター名: {unique_name}")
+        print(f"[INFO] 技能データ数: {len([k for k in form_data.keys() if k.startswith('skill_') and k.endswith('_name')])}")
         
         # フォーム送信
         response = self.client.post('/accounts/character/create/6th/', form_data)
@@ -100,7 +100,7 @@ class CharacterSkillsIntegrationTest(TestCase):
         character = CharacterSheet.objects.filter(user=self.user, name=unique_name).first()
         self.assertIsNotNone(character, "キャラクターが作成されていない")
         
-        print(f"✅ キャラクター作成成功: {character.name}")
+        print(f"[OK] キャラクター作成成功: {character.name}")
         print(f"  - 能力値: STR={character.str_value}, DEX={character.dex_value}, INT={character.int_value}, EDU={character.edu_value}")
         
         # 技能データ確認
@@ -123,7 +123,7 @@ class CharacterSkillsIntegrationTest(TestCase):
             expected_dodge_base = character.dex_value * 2
             self.assertEqual(dodge_skill.base_value, expected_dodge_base, 
                            f"回避技能の基本値が正しくない。期待値:{expected_dodge_base}, 実際:{dodge_skill.base_value}")
-            print(f"  ✅ 回避技能の基本値が正しく設定されています: {dodge_skill.base_value} (DEX×2)")
+            print(f"  [OK] 回避技能の基本値が正しく設定されています: {dodge_skill.base_value} (DEX×2)")
         
         return character
     
@@ -138,7 +138,7 @@ class CharacterSkillsIntegrationTest(TestCase):
             expected_total = skill.base_value + skill.occupation_points + skill.interest_points + skill.other_points
             self.assertEqual(skill.current_value, expected_total, 
                            f"技能「{skill.skill_name}」の合計値が正しくない")
-            print(f"  ✅ {skill.skill_name}: {skill.base_value}+{skill.occupation_points}+{skill.interest_points}+{skill.other_points}={skill.current_value}")
+            print(f"  [OK] {skill.skill_name}: {skill.base_value}+{skill.occupation_points}+{skill.interest_points}+{skill.other_points}={skill.current_value}")
     
     def test_derived_stats_calculation(self):
         """副次ステータス計算のテスト"""
@@ -151,24 +151,24 @@ class CharacterSkillsIntegrationTest(TestCase):
         expected_hp = math.ceil((character.con_value + character.siz_value) / 2)
         self.assertEqual(character.hit_points_max, expected_hp, "最大HP計算が正しくない")
         self.assertEqual(character.hit_points_current, expected_hp, "現在HP初期値が正しくない")
-        print(f"  ✅ HP: {character.hit_points_current}/{character.hit_points_max} = ceil((CON{character.con_value} + SIZ{character.siz_value}) / 2)")
+        print(f"  [OK] HP: {character.hit_points_current}/{character.hit_points_max} = ceil((CON{character.con_value} + SIZ{character.siz_value}) / 2)")
         
         # MP計算 POW
         expected_mp = character.pow_value
         self.assertEqual(character.magic_points_max, expected_mp, "最大MP計算が正しくない")
         self.assertEqual(character.magic_points_current, expected_mp, "現在MP初期値が正しくない")
-        print(f"  ✅ MP: {character.magic_points_current}/{character.magic_points_max} = POW{character.pow_value}")
+        print(f"  [OK] MP: {character.magic_points_current}/{character.magic_points_max} = POW{character.pow_value}")
         
         # 正気度計算（6版: POW × 5）
         expected_sanity_start = character.pow_value * 5
         self.assertEqual(character.sanity_starting, expected_sanity_start, "初期正気度計算が正しくない")
         self.assertEqual(character.sanity_max, expected_sanity_start, "最大正気度計算が正しくない")
         self.assertEqual(character.sanity_current, expected_sanity_start, "現在正気度初期値が正しくない")
-        print(f"  ✅ 正気度: {character.sanity_current}/{character.sanity_max} (初期:{character.sanity_starting}) = POW{character.pow_value} × 5")
+        print(f"  [OK] 正気度: {character.sanity_current}/{character.sanity_max} (初期:{character.sanity_starting}) = POW{character.pow_value} × 5")
 
 def run_tests():
     """テストの実行"""
-    print("🧪 キャラクター技能データ統合テストを開始します...\n")
+    print("[TEST] キャラクター技能データ統合テストを開始します...\n")
     
     from django.test.utils import get_runner
     from django.conf import settings
@@ -188,9 +188,9 @@ def run_tests():
     result = runner.run(suite)
     
     if result.wasSuccessful():
-        print("\n✅ 全テストが成功しました！")
+        print("\n[OK] 全テストが成功しました！")
     else:
-        print(f"\n❌ テスト失敗: {len(result.failures)} 個の失敗, {len(result.errors)} 個のエラー")
+        print(f"\n[FAIL] テスト失敗: {len(result.failures)} 個の失敗, {len(result.errors)} 個のエラー")
         for failure in result.failures:
             print(f"失敗: {failure[0]}")
             print(f"詳細: {failure[1]}")

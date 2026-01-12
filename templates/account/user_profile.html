@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}プロフィール - タブレノ{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h2 class="eldritch-font mb-0">
+            <i class="fas fa-user text-info"></i>
+            {{ profile_user.nickname|default:profile_user.username }} のプロフィール
+        </h2>
+        <a href="{% url 'groups_view' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-users"></i> グループに戻る
+        </a>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="d-flex align-items-center gap-3">
+                {% if profile_user.profile_image %}
+                    <img src="{{ profile_user.profile_image.url }}" alt="プロフィール画像"
+                         class="rounded-circle img-thumbnail" style="width: 72px; height: 72px; object-fit: cover;">
+                {% else %}
+                    <div class="bg-secondary rounded-circle d-inline-flex align-items-center justify-content-center"
+                         style="width: 72px; height: 72px;">
+                        <i class="fas fa-user fa-2x text-white"></i>
+                    </div>
+                {% endif %}
+                <div style="min-width: 0;">
+                    <div class="fw-bold fs-5 text-truncate">{{ profile_user.nickname|default:profile_user.username }}</div>
+                    <div class="text-muted text-truncate">@{{ profile_user.username }}</div>
+                    <div class="text-muted small">メールアドレスはセキュリティのため表示しません</div>
+                </div>
+            </div>
+
+            {% if profile_user.trpg_history %}
+                <hr>
+                <div>
+                    <div class="fw-bold small mb-1"><i class="fas fa-scroll"></i> TRPG歴</div>
+                    <div class="text-muted small">{{ profile_user.trpg_history|linebreaksbr }}</div>
+                </div>
+            {% endif %}
+
+            {% if shared_groups %}
+                <hr>
+                <div class="small">
+                    <span class="text-muted">共通グループ:</span>
+                    {% for membership in shared_groups %}
+                        <span class="badge bg-dark ms-1">{{ membership.group.name }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="fas fa-dice-d20"></i> TRPG自己紹介シート
+                </h6>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if show_trpg_sheet %}
+                {% if trpg_sheet_sections %}
+                    {% for section in trpg_sheet_sections %}
+                        <div class="mb-3">
+                            <div class="fw-bold text-info small mb-1">{{ section.title }}</div>
+                            <ul class="list-unstyled small mb-0">
+                                {% for item in section.items %}
+                                    <li class="mb-1">
+                                        <span class="text-muted">{{ item.label }}:</span> {{ item.value }}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted mb-0">自己紹介シートは未入力です。</p>
+                {% endif %}
+            {% else %}
+                <p class="text-muted mb-0">自己紹介シートは公開範囲の設定により表示できません。</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -914,17 +914,19 @@ class CrossUserCollaborationTestCase(TestCase):
         # 受信者の確認
         self.client.force_authenticate(user=players[0])
         response = self.client.get(f'/api/schedules/handouts/?session={session.id}')
+        handouts = response.data.get('results', []) if isinstance(response.data, dict) else response.data
         
         # 秘密情報と公開情報の両方が見える
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(len(handouts), 2)
         
         # 他のプレイヤーの確認
         self.client.force_authenticate(user=players[1])
         response = self.client.get(f'/api/schedules/handouts/?session={session.id}')
+        handouts = response.data.get('results', []) if isinstance(response.data, dict) else response.data
         
         # 公開情報のみ見える
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['title'], '全体への情報')
+        self.assertEqual(len(handouts), 1)
+        self.assertEqual(handouts[0]['title'], '全体への情報')
     
     def test_multi_gm_collaboration(self):
         """複数GMの協力セッション"""

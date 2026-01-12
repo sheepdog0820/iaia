@@ -30,14 +30,12 @@ class CharacterSheetAccessMixin:
         if hasattr(obj, 'user') and obj.user == self.request.user:
             return obj
         
-        # 他人のキャラクターの場合
-        if self.action in ['retrieve', 'list']:
-            if hasattr(obj, 'is_public') and obj.is_public:
-                return obj
-            raise PermissionDenied("このキャラクターシートは非公開です。")
-        else:
-            # 更新・削除系アクション（PUT, PATCH, DELETE）は所有者のみ
-            raise PermissionDenied("このキャラクターシートを編集する権限がありません。")
+        # 他人のキャラクターの場合（閲覧は許可）
+        if self.request.method in ['GET', 'HEAD', 'OPTIONS']:
+            return obj
+
+        # 更新・削除系アクション（PUT, PATCH, DELETE）は所有者のみ
+        raise PermissionDenied("このキャラクターシートを編集する権限がありません。")
         
         return obj
 
@@ -72,11 +70,12 @@ class CharacterNestedResourceMixin:
             else:
                 raise ValidationError("character_sheet_id is required")
         
+        queryset = CharacterSheet.objects
+        if self.request.method not in ['GET', 'HEAD', 'OPTIONS']:
+            queryset = queryset.filter(user=self.request.user)
+
         try:
-            return CharacterSheet.objects.get(
-                id=character_sheet_id,
-                user=self.request.user
-            )
+            return queryset.get(id=character_sheet_id)
         except CharacterSheet.DoesNotExist:
             raise Http404("Character sheet not found")
     

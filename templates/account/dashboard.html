@@ -6,25 +6,31 @@
 {% block content %}
 <div class="container-fluid">
     <!-- ヘッダー -->
-    <div class="row mb-4">
+    <div class="row mb-3">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
                 <div>
-                    <h1 class="eldritch-font">
+                    <h2 class="eldritch-font mb-1">
                         <i class="fas fa-tachometer-alt text-primary"></i> ダッシュボード
-                    </h1>
-                    <p class="text-muted lead">
+                    </h2>
+                    <p class="text-muted mb-0">
                         ようこそ、{{ user.nickname|default:user.username }}さん。深淵からの記録をご覧ください。
                     </p>
                     {% if social_login_connected and email_missing %}
-                        <div class="alert alert-info mb-0">
+                        <div class="alert alert-info mt-2 mb-0 py-2">
                             <i class="fas fa-info-circle me-2"></i>
                             ソーシャルログイン（Google / X）の場合、メールアドレスの登録は必須ではありません。必要ならプロフィールから追加できます。
                         </div>
                     {% endif %}
                 </div>
-                <div>
-                    <a href="{% url 'profile_edit' %}" class="btn btn-outline-info">
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{% url 'calendar_view' %}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-calendar"></i> カレンダー
+                    </a>
+                    <a href="{% url 'sessions_view' %}" class="btn btn-outline-success btn-sm">
+                        <i class="fas fa-list"></i> セッション
+                    </a>
+                    <a href="{% url 'profile_edit' %}" class="btn btn-outline-info btn-sm">
                         <i class="fas fa-user-edit"></i> プロフィール編集
                     </a>
                 </div>
@@ -33,161 +39,159 @@
     </div>
 
     <!-- 統計カード -->
-    <div class="row g-4 mb-4">
-        <div class="col-lg-3 col-md-6">
-            <div class="card bg-primary text-white h-100">
-                <div class="card-body text-center">
-                    <i class="fas fa-calendar-check fa-3x mb-3"></i>
-                    <h2 class="card-title">{{ sessions_this_year }}</h2>
-                    <p class="card-text">今年のセッション数</p>
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-lg-3">
+            <div class="card bg-primary text-white h-100 dashboard-stat">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="small opacity-75">今年のセッション</div>
+                            <div class="h4 mb-0 fw-bold">{{ sessions_this_year }}</div>
+                        </div>
+                        <i class="fas fa-calendar-check fa-2x opacity-75"></i>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-3 col-md-6">
-            <div class="card bg-success text-white h-100">
-                <div class="card-body text-center">
-                    <i class="fas fa-clock fa-3x mb-3"></i>
-                    <h2 class="card-title">{{ total_hours }}h</h2>
-                    <p class="card-text">今年のプレイ時間</p>
+        <div class="col-6 col-lg-3">
+            <div class="card bg-success text-white h-100 dashboard-stat">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="small opacity-75">今年のプレイ時間</div>
+                            <div class="h4 mb-0 fw-bold">{{ total_hours }}h</div>
+                        </div>
+                        <i class="fas fa-clock fa-2x opacity-75"></i>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-3 col-md-6">
-            <div class="card bg-info text-white h-100">
-                <div class="card-body text-center">
-                    <i class="fas fa-users fa-3x mb-3"></i>
-                    <h2 class="card-title">{{ group_count }}</h2>
-                    <p class="card-text">参加グループ数</p>
+        <div class="col-6 col-lg-3">
+            <div class="card bg-info text-white h-100 dashboard-stat">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="small opacity-75">参加グループ</div>
+                            <div class="h4 mb-0 fw-bold">{{ group_count }}</div>
+                        </div>
+                        <i class="fas fa-users fa-2x opacity-75"></i>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-3 col-md-6">
-            <div class="card bg-warning text-dark h-100">
-                <div class="card-body text-center">
-                    <i class="fas fa-user-friends fa-3x mb-3"></i>
-                    <h2 class="card-title">{{ friend_count }}</h2>
-                    <p class="card-text">フレンド数</p>
+        <div class="col-6 col-lg-3">
+            <div class="card bg-warning text-dark h-100 dashboard-stat">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="small opacity-75">フレンド</div>
+                            <div class="h4 mb-0 fw-bold">{{ friend_count }}</div>
+                        </div>
+                        <i class="fas fa-user-friends fa-2x opacity-75"></i>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row g-4">
+    <div class="row g-3">
         <!-- 次回セッション -->
-        <div class="col-lg-6">
-            <div class="card h-100">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-forward"></i> 次回セッション
-                    </h5>
+        <div class="col-lg-4">
+            <div class="card h-100 dashboard-panel">
+                <div class="card-header bg-primary text-white py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-forward"></i> 次回セッション
+                        </h6>
+                        <a href="{% url 'calendar_view' %}?open_create=1" class="btn btn-sm btn-outline-light">
+                            <i class="fas fa-plus"></i>
+                        </a>
+                    </div>
                 </div>
-                <div class="card-body">
+                <div class="card-body dashboard-scroll">
                     {% if upcoming_sessions %}
                         {% for session in upcoming_sessions %}
-                        <div class="session-item mb-3 p-3 border rounded">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <h6 class="mb-1 text-primary">{{ session.title }}</h6>
-                                    <p class="text-muted mb-1">
-                                        <i class="fas fa-calendar"></i> {{ session.date|date:"n月j日 H:i" }}
-                                    </p>
-                                    <p class="text-muted mb-0">
-                                        <i class="fas fa-user"></i> GM: {{ session.gm.nickname|default:session.gm.username }}
-                                    </p>
+                            <a href="{% url 'session_detail' session.id %}" class="text-decoration-none">
+                                <div class="session-item mb-2 p-2 border rounded">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div class="text-truncate">
+                                            <div class="fw-bold text-primary text-truncate">{{ session.title }}</div>
+                                            <div class="text-muted small">
+                                                <i class="fas fa-calendar"></i> {{ session.date|date:"n月j日 H:i" }}
+                                            </div>
+                                        </div>
+                                        <span class="badge bg-primary">{{ session.get_status_display }}</span>
+                                    </div>
                                 </div>
-                                <span class="badge bg-primary">{{ session.get_status_display }}</span>
-                            </div>
-                            {% if session.description %}
-                            <p class="mt-2 mb-0 small">{{ session.description|truncatewords:15 }}</p>
-                            {% endif %}
-                        </div>
+                            </a>
                         {% endfor %}
                     {% else %}
-                        <div class="text-center text-muted py-4">
-                            <i class="fas fa-calendar-times fa-3x mb-3"></i>
-                            <p>予定されているセッションはありません</p>
-                            <a href="{% url 'calendar_view' %}?open_create=1" class="btn btn-outline-primary">
-                                <i class="fas fa-plus"></i> セッションを作成
-                            </a>
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-calendar-times fa-2x mb-2"></i>
+                            <div class="small">予定されているセッションはありません</div>
                         </div>
                     {% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- プロフィール情報 -->
-        <div class="col-lg-6">
-            <div class="card h-100">
-                <div class="card-header bg-info text-white">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-user"></i> プロフィール情報
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="text-center mb-3">
-                        {% if user.profile_image %}
-                            <img src="{{ user.profile_image.url }}" alt="プロフィール画像" 
-                                 class="rounded-circle img-thumbnail mb-3" style="width: 100px; height: 100px; object-fit: cover;">
-                        {% else %}
-                            <div class="bg-secondary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
-                                 style="width: 100px; height: 100px;">
-                                <i class="fas fa-user fa-3x text-white"></i>
-                            </div>
-                        {% endif %}
-                        <h5>{{ user.nickname|default:user.username }}</h5>
-                        <p class="text-muted small mb-0">
-                            メールアドレスはセキュリティのため表示しません（管理はプロフィールから行えます）
-                        </p>
-                    </div>
-
-                    <div class="profile-details">
-                        <div class="row mb-2">
-                            <div class="col-4"><strong>ユーザー名:</strong></div>
-                            <div class="col-8">{{ user.username }}</div>
-                        </div>
-                        
-                        {% if user.first_name or user.last_name %}
-                        <div class="row mb-2">
-                            <div class="col-4"><strong>氏名:</strong></div>
-                            <div class="col-8">{{ user.first_name }} {{ user.last_name }}</div>
-                        </div>
-                        {% endif %}
-                        
-                        <div class="row mb-2">
-                            <div class="col-4"><strong>登録日:</strong></div>
-                            <div class="col-8">{{ user.date_joined|date:"Y年n月j日" }}</div>
-                        </div>
-                        
-                        {% if user.trpg_history %}
-                        <div class="mt-3">
-                            <strong>TRPG歴:</strong>
-                            <p class="mt-1 small">{{ user.trpg_history|truncatewords:30 }}</p>
-                        </div>
-                        {% endif %}
+        <!-- 最近のセッション -->
+        <div class="col-lg-4">
+            <div class="card h-100 dashboard-panel">
+                <div class="card-header bg-secondary text-white py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-history"></i> 最近のセッション
+                        </h6>
+                        <a href="{% url 'sessions_view' %}" class="btn btn-sm btn-outline-light">
+                            <i class="fas fa-list"></i>
+                        </a>
                     </div>
                 </div>
-                <div class="card-footer">
-                    <a href="{% url 'profile_edit' %}" class="btn btn-outline-info btn-sm">
-                        <i class="fas fa-edit"></i> 編集
-                    </a>
+                <div class="card-body dashboard-scroll">
+                    {% if recent_sessions %}
+                        {% for session in recent_sessions %}
+                            <a href="{% url 'session_detail' session.id %}" class="text-decoration-none">
+                                <div class="session-item mb-2 p-2 border rounded">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div class="text-truncate">
+                                            <div class="fw-bold text-info text-truncate">{{ session.title }}</div>
+                                            <div class="text-muted small">
+                                                <i class="fas fa-calendar"></i> {{ session.date|date:"n月j日 H:i" }}
+                                            </div>
+                                        </div>
+                                        <span class="badge bg-secondary">{{ session.get_status_display }}</span>
+                                    </div>
+                                </div>
+                            </a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-clipboard fa-2x mb-2"></i>
+                            <div class="small">最近のセッションはありません</div>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- アクティビティフィード -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-history"></i> 最近のアクティビティ
-                    </h5>
+        <!-- 最近のアクティビティ -->
+        <div class="col-lg-4">
+            <div class="card h-100 dashboard-panel">
+                <div class="card-header bg-secondary text-white py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-history"></i> 最近のアクティビティ
+                        </h6>
+                        <button type="button" class="btn btn-sm btn-outline-light" onclick="loadActivityFeed()">
+                            <i class="fas fa-sync"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="card-body" id="activity-feed">
+                <div class="card-body dashboard-scroll dashboard-activity" id="activity-feed">
                     <div class="text-center">
                         <div class="spinner-border text-secondary" role="status">
                             <span class="visually-hidden">Loading...</span>
@@ -198,6 +202,7 @@
             </div>
         </div>
     </div>
+
 </div>
 {% endblock %}
 
@@ -211,7 +216,7 @@
 .session-item:hover {
     background-color: rgba(13, 202, 240, 0.1);
     border-color: #0dcaf0 !important;
-    transform: translateY(-2px);
+    transform: none;
 }
 
 .profile-details {
@@ -230,6 +235,23 @@
 .img-thumbnail {
     border: 3px solid #0dcaf0;
 }
+
+.dashboard-stat .card-body {
+    min-height: 72px;
+}
+
+.dashboard-panel .card-body {
+    padding: 0.75rem;
+}
+
+.dashboard-scroll {
+    max-height: 360px;
+    overflow-y: auto;
+}
+
+.dashboard-activity {
+    max-height: 260px;
+}
 </style>
 {% endblock %}
 
@@ -241,17 +263,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function loadActivityFeed() {
     // 最近のプレイ履歴を読み込み
-    axios.get('/api/scenarios/history/?limit=10')
+    axios.get('/api/scenarios/history/?limit=8')
         .then(response => {
             const activities = response.data.results || [];
             const container = document.getElementById('activity-feed');
             
             if (activities.length === 0) {
                 container.innerHTML = `
-                    <div class="text-center text-muted py-4">
-                        <i class="fas fa-history fa-3x mb-3"></i>
-                        <p>まだアクティビティがありません</p>
-                        <p class="small">TRPGセッションに参加すると、ここに履歴が表示されます</p>
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-history fa-2x mb-2"></i>
+                        <p class="mb-1">まだアクティビティがありません</p>
+                        <p class="small mb-0">TRPGセッションに参加すると、ここに履歴が表示されます</p>
                     </div>
                 `;
                 return;
@@ -264,7 +286,7 @@ function loadActivityFeed() {
                 const roleIcon = activity.role === 'gm' ? 'fa-crown' : 'fa-user';
                 
                 html += `
-                    <div class="activity-item d-flex align-items-center py-2 border-bottom">
+                    <div class="activity-item d-flex align-items-center py-1 border-bottom">
                         <div class="activity-icon me-3">
                             <span class="badge bg-${roleClass} rounded-pill">
                                 <i class="fas ${roleIcon}"></i>

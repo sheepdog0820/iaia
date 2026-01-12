@@ -629,6 +629,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const canRemove = isAdmin && !isCreator && !isSelf;
                 const targetRole = member.role === 'admin' ? 'member' : 'admin';
                 const canToggleRole = isAdmin && !isCreator && !isSelf && !(member.role === 'admin' && adminCount <= 1);
+                const canViewProfiles = isMember;
                 return `
                     <div class="member-item">
                         <div>
@@ -637,6 +638,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="d-flex align-items-center gap-2">
                             <small class="text-muted">参加: ${joinedDate}</small>
+                            ${canViewProfiles ? `
+                                <a class="btn btn-sm btn-outline-info" href="/accounts/users/${member.user}/profile/" target="_blank" rel="noopener">
+                                    プロフィール
+                                </a>
+                            ` : ''}
                             ${canToggleRole ? `
                                 <button class="btn btn-sm btn-outline-secondary" onclick="setMemberRole(${member.user}, '${targetRole}')">
                                     ${targetRole === 'admin' ? '管理者にする' : '管理者解除'}

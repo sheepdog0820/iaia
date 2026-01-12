@@ -781,9 +781,11 @@ function updateGlobalDiceFormula() {
         // Append matching cards
         skillCards.forEach(({ key, category: cardCategory, card }) => {
             const isRecommended = recommendedSkillKeys.has(key);
+            const isCustomSkill = key.startsWith('custom_');
             const categorySet = SKILL_CATEGORY_KEYS[targetCategory];
             const shouldShow = targetCategory === 'all'
                 || (targetCategory === 'recommended' && isRecommended)
+                || (isCustomSkill && cardCategory === targetCategory)
                 || (categorySet ? categorySet.has(key) : targetCategory === cardCategory);
 
             if (shouldShow) {

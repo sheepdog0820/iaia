@@ -192,6 +192,7 @@ class Command(BaseCommand):
                 name=char_info['name'],
                 occupation=char_info['occupation'],
                 age=char_info['age'],
+                recommended_skills=[skill_name for skill_name, _ in (char_info.get('skills') or [])],
                 edition='6th',
                 str_value=random.randint(8, 15),
                 con_value=random.randint(8, 15),
@@ -253,6 +254,12 @@ class Command(BaseCommand):
             ('あなたの祖父が残した日記に、この屋敷についての不穏な記述がある。'),
             ('地元の新聞社から、屋敷の調査を依頼された。過去にも失踪事件があったという。')
         ]
+        handout_recommended_skills1 = [
+            '目星, 聞き耳, 図書館',
+            '医学, 応急手当, 薬学',
+            '図書館, 歴史, 考古学',
+            'オカルト, 目星, 図書館',
+        ]
         
         for i in range(4):
             participant = SessionParticipant.objects.get(session=session1, player_slot=i+1)
@@ -261,6 +268,7 @@ class Command(BaseCommand):
                 participant=participant,
                 title=f'HO{i+1}: 個人的な動機',
                 content=handout_contents1[i],
+                recommended_skills=handout_recommended_skills1[i],
                 is_secret=True,
                 handout_number=i+1,
                 assigned_player_slot=i+1
@@ -288,6 +296,28 @@ class Command(BaseCommand):
                 player_slot=i+1,
                 character_sheet=characters[i*2+1]  # 各プレイヤーの2つ目のキャラクター
             )
+
+        # セッション2のハンドアウト（参加者分だけ）
+        handout_contents2 = [
+            'あなたはインスマスの村で目覚めた。記憶が曖昧で、身体には潮の匂いが残っている。',
+            'あなたは村の外れで奇妙な儀式を目撃した。誰にも言わない方がよい気がしている。',
+        ]
+        handout_recommended_skills2 = [
+            '考古学, 歴史, 図書館',
+            '言いくるめ, 説得, 写真術',
+        ]
+        for i in range(2):
+            participant = SessionParticipant.objects.get(session=session2, player_slot=i+1)
+            HandoutInfo.objects.create(
+                session=session2,
+                participant=participant,
+                title=f'HO{i+1}: 目覚め',
+                content=handout_contents2[i],
+                recommended_skills=handout_recommended_skills2[i],
+                is_secret=True,
+                handout_number=i+1,
+                assigned_player_slot=i+1,
+            )
         
         # セッション3: 完了したセッション
         session3 = TRPGSession.objects.create(
@@ -304,12 +334,38 @@ class Command(BaseCommand):
         
         # 参加者を追加
         participants = [players[2], players[3], players[4]]
+        session3_character_sheets = [characters[5], characters[6], characters[7]]
         for i, player in enumerate(participants):
             SessionParticipant.objects.create(
                 session=session3,
                 user=player,
                 role='player',
-                player_slot=i+1
+                player_slot=i+1,
+                character_sheet=session3_character_sheets[i],
+            )
+
+        # セッション3のハンドアウト
+        handout_contents3 = [
+            'あなたは大学内の警備を担当している。最近、夜間に奇妙な足音が聞こえるという噂がある。',
+            'あなたは古書店で禁書の噂を耳にした。依頼を受け、真相を探ることにした。',
+            'あなたは星の観測中に異様な座標を記録した。大学の図書館で手がかりを探したい。',
+        ]
+        handout_recommended_skills3 = [
+            '拳銃, 格闘, 法律',
+            'オカルト, 図書館, 目星',
+            '天文学, 物理学, 数学',
+        ]
+        for i in range(3):
+            participant = SessionParticipant.objects.get(session=session3, player_slot=i+1)
+            HandoutInfo.objects.create(
+                session=session3,
+                participant=participant,
+                title=f'HO{i+1}: 秘匿情報',
+                content=handout_contents3[i],
+                recommended_skills=handout_recommended_skills3[i],
+                is_secret=True,
+                handout_number=i+1,
+                assigned_player_slot=i+1,
             )
         
         # セッション4: 今日の夜のセッション

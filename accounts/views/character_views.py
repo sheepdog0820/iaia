@@ -62,7 +62,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         if self.action in ['list', 'active', 'by_edition']:
             return queryset.filter(user=self.request.user)
 
-        return queryset.filter(Q(user=self.request.user) | Q(is_public=True))
+        return queryset
     
     def get_serializer_class(self):
         """Action-based serializer selection"""
@@ -2111,6 +2111,27 @@ class CharacterListView(TemplateView):
 
 
 @method_decorator(login_required, name='dispatch')
+class CharacterDetailRedirectView(TemplateView):
+    """Character sheet detail view dispatcher (legacy URL)"""
+
+    template_name = 'accounts/character_detail.html'
+
+    def get(self, request, *args, **kwargs):
+        character_id = kwargs.get('character_id')
+
+        try:
+            character = CharacterSheet.objects.only('id', 'edition').get(id=character_id)
+        except CharacterSheet.DoesNotExist:
+            raise Http404("キャラクターシートが見つかりません")
+
+        if character.edition == '6th':
+            return redirect('character_detail_6th', character_id=character.id)
+
+        # Fallback: treat as 6th until other rule screens are implemented.
+        return redirect('character_detail_6th', character_id=character.id)
+
+
+@method_decorator(login_required, name='dispatch')
 class CharacterDetailView(TemplateView):
     """Character sheet detail view"""
     template_name = 'accounts/character_detail.html'
@@ -2118,15 +2139,14 @@ class CharacterDetailView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         character_id = kwargs.get('character_id')
-        
-        
+
         try:
             character = CharacterSheet.objects.select_related(
                 'parent_sheet', 'sixth_edition_data', 'user'
             ).prefetch_related(
                 'skills', 'equipment', 'versions'
             ).get(id=character_id)
-            
+
             # Filter skills to those above base value only
             from django.db import models as django_models
             assigned_skills = character.skills.filter(
@@ -2151,6 +2171,7 @@ class CharacterDetailView(TemplateView):
             
             context.update({
                 'character': character,
+                'character_id': character.id,
                 'assigned_skills': assigned_skills,
                 'weapons': weapons,
                 'armor': armor,
@@ -2162,6 +2183,12 @@ class CharacterDetailView(TemplateView):
             raise Http404("キャラクターシートが見つかりません")
         
         return context
+
+
+class Character6thDetailView(CharacterDetailView):
+    """クトゥルフ神話TRPG 6版キャラクター詳細ビュー"""
+
+    pass
 
 
 @method_decorator(login_required, name='dispatch')
@@ -2264,7 +2291,7 @@ class Character6thCreateView(FormView):
             
             # 作成したキャラクターの詳細画面にリダイレクト
             logger.info(f"Redirecting to character detail page: {character_sheet.id}")
-            return redirect('character_detail', character_id=character_sheet.id)
+            return redirect('character_detail_6th', character_id=character_sheet.id)
             
         except Exception as e:
             logger.error(f"Error in form_valid: {str(e)}", exc_info=True)

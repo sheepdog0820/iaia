@@ -9,6 +9,7 @@ from .. import export_views
 from ..views.character_image_views import CharacterImageViewSet
 from ..views.character_views import GrowthRecordViewSet
 from ..views.dev_login_view import DevLoginView
+from ..views.user_profile_view import UserProfileView
 from ..views.admin_views import AdminUserViewSet
 
 router = DefaultRouter()
@@ -46,7 +47,8 @@ urlpatterns = [
     
     # Character Sheet Web Views
     path('character/list/', views.CharacterListView.as_view(), name='character_list'),
-    path('character/<int:character_id>/', views.CharacterDetailView.as_view(), name='character_detail'),
+    path('character/6th/<int:character_id>/', views.Character6thDetailView.as_view(), name='character_detail_6th'),
+    path('character/<int:character_id>/', views.CharacterDetailRedirectView.as_view(), name='character_detail'),
     path('character/<int:character_id>/edit/', views.CharacterEditView.as_view(), name='character_edit'),
     path('character/new/', views.CharacterEditView.as_view(), name='character_new'),
     
@@ -54,6 +56,7 @@ urlpatterns = [
     path('', include(router.urls)),
     
     # Profile URLs
+    path('users/<int:user_id>/profile/', UserProfileView.as_view(), name='user_profile'),
     path('profile/', views.ProfileEditView.as_view(), name='profile_detail'),
     path('profile/edit/', views.ProfileEditView.as_view(), name='profile_edit'),
     path('profile/delete/', views.AccountDeleteView.as_view(), name='account_delete'),

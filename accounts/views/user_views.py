@@ -104,7 +104,7 @@ def _is_placeholder(value, placeholders):
 
 def _ensure_social_apps():
     providers = set(SocialApp.objects.filter(
-        provider__in=['google', 'twitter_oauth2']
+        provider__in=['google', 'twitter_oauth2', 'discord']
     ).values_list('provider', flat=True))
     site = Site.objects.get_current()
 
@@ -133,6 +133,32 @@ def _ensure_social_apps():
         if site not in google_app.sites.all():
             google_app.sites.add(site)
         providers.add('google')
+
+    discord_client_id = getattr(settings, 'DISCORD_CLIENT_ID', '')
+    discord_secret = getattr(settings, 'DISCORD_CLIENT_SECRET', '')
+    discord_placeholders = {'your-discord-client-id', 'your-discord-client-secret'}
+    if not _is_placeholder(discord_client_id, discord_placeholders) and not _is_placeholder(discord_secret, discord_placeholders):
+        discord_app, created = SocialApp.objects.get_or_create(
+            provider='discord',
+            defaults={
+                'name': 'Discord',
+                'client_id': discord_client_id,
+                'secret': discord_secret
+            }
+        )
+        if not created:
+            updated = False
+            if discord_app.client_id != discord_client_id:
+                discord_app.client_id = discord_client_id
+                updated = True
+            if discord_app.secret != discord_secret:
+                discord_app.secret = discord_secret
+                updated = True
+            if updated:
+                discord_app.save(update_fields=['client_id', 'secret'])
+        if site not in discord_app.sites.all():
+            discord_app.sites.add(site)
+        providers.add('discord')
 
     twitter_client_id = getattr(settings, 'TWITTER_CLIENT_ID', '')
     twitter_secret = getattr(settings, 'TWITTER_CLIENT_SECRET', '')
@@ -177,6 +203,7 @@ class CustomLoginView(FormView):
         providers = _ensure_social_apps()
         context['google_configured'] = 'google' in providers
         context['twitter_configured'] = 'twitter_oauth2' in providers
+        context['discord_configured'] = 'discord' in providers
         context['social_login_available'] = bool(providers)
         return context
 
@@ -224,6 +251,7 @@ class CustomSignUpView(FormView):
         providers = _ensure_social_apps()
         context['google_configured'] = 'google' in providers
         context['twitter_configured'] = 'twitter_oauth2' in providers
+        context['discord_configured'] = 'discord' in providers
         context['social_login_available'] = bool(providers)
         return context
 
@@ -297,7 +325,7 @@ class DashboardView(TemplateView):
         social_accounts = SocialAccount.objects.filter(user=self.request.user)
         context['social_accounts'] = social_accounts
         context['social_login_connected'] = social_accounts.filter(
-            provider__in=['google', 'twitter_oauth2']
+            provider__in=['google', 'twitter_oauth2', 'discord']
         ).exists()
         context['email_missing'] = not bool(self.request.user.email)
         
@@ -335,9 +363,12 @@ class AccountDeleteView(TemplateView):
 
 def demo_login_page(request):
     """Demo login page for development"""
+    if not settings.DEBUG:
+        raise Http404
     providers = [
         {'name': 'Google', 'id': 'google'},
         {'name': 'X', 'id': 'twitter_oauth2'},
+        {'name': 'Discord', 'id': 'discord'},
     ]
     
     return render(request, 'account/demo_login.html', {
@@ -348,6 +379,8 @@ def demo_login_page(request):
 
 def mock_social_login(request, provider):
     """Mock social login for development"""
+    if not settings.DEBUG:
+        raise Http404
     if provider == 'google':
         user, created = User.objects.get_or_create(
             username='google_demo_user',
@@ -366,6 +399,16 @@ def mock_social_login(request, provider):
                 'first_name': 'Twitter',
                 'last_name': 'Demo',
                 'nickname': 'Twitter Demo User'
+            }
+        )
+    elif provider == 'discord':
+        user, created = User.objects.get_or_create(
+            username='discord_demo_user',
+            defaults={
+                'email': 'demo.discord@example.com',
+                'first_name': 'Discord',
+                'last_name': 'Demo',
+                'nickname': 'Discord Demo User'
             }
         )
     else:

@@ -43,7 +43,7 @@
   - プロフィール編集（ニックネーム、TRPG歴、プロフィール画像）
   - ダッシュボード（今年のセッション数/時間、参加グループ数、フレンド数、最近履歴など）
     - メールアドレスはセキュリティのため非表示
-  - TRPG自己紹介シート（プレイスタイル/嗜好/NG要素など）※仕様あり、未実装
+  - TRPG自己紹介シート（プレイスタイル/嗜好/NG要素など）※プロフィール編集から入力可能
   - アカウント削除（確認語 + パスワード確認 ※パスワードを持つ場合）
 - **画面**
   - ダッシュボード: `/accounts/dashboard/`
@@ -75,14 +75,18 @@
   - allauth の `SocialApp` 設定
 - **状態**: **一部完成**（実装はあるが、OAuth設定がないと利用不可）
 
-### 1.5 ??????????Discord?
-- **??**:
-  - **Web**: django-allauth ???? Discord OAuth ????
-  - **API**: `POST /api/auth/discord/`?code + code_verifier ??? access_token ? DRF???????
-- **??????????**
+### 1.5 ソーシャルログイン（Discord OAuth2）
+
+- **内容**
+  - **Web**: django-allauth を用いた Discord OAuth ログイン
+  - **API**: `POST /api/auth/discord/`（`code` + `code_verifier` または `access_token` → DRFトークン発行）
+  - **APIでの手動連携**:
+    - 認証済みユーザーが `POST /api/auth/discord/` を叩くと、現在ユーザーへ Discord を紐付け
+    - 既に別ユーザーへ紐付いている場合は 409（Conflict）
+- **必要設定（代表）**
   - `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` / `DISCORD_REDIRECT_URI`
-  - allauth ? `SocialApp` ????????/????????
-- **??**: **????**????????OAuth???????????
+  - allauth の `SocialApp` 設定（スクリプト/管理画面で作成）
+- **状態**: **一部完成**（実装はあるが、OAuth設定がないと利用不可）
 
 ### 1.6 ソーシャルアカウント連携/解除（Web）
 

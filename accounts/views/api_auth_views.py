@@ -1,5 +1,5 @@
 """
-API用認証ビュー（Google OAuth対応）
+API用認証ビュー（Google / X / Discord OAuth対応）
 """
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -400,6 +400,178 @@ def twitter_auth(request):
         }, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"X OAuth認証エラー: {e}")
+        return Response({
+            'error': '認証処理中にエラーが発生しました',
+            'detail': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def discord_auth(request):
+    """
+    Discord OAuth認証API
+
+    - `code`（+ `redirect_uri`, `code_verifier` 任意）でトークン交換 → ユーザー情報取得
+    - `access_token` 直接指定でもユーザー情報取得可能
+    - 認証後は DRF トークンを発行して返却
+    """
+    code = request.data.get('code')
+    access_token = request.data.get('access_token')
+    code_verifier = request.data.get('code_verifier')
+    redirect_uri = request.data.get('redirect_uri') or getattr(settings, 'DISCORD_REDIRECT_URI', '')
+
+    if not code and not access_token:
+        return Response({
+            'error': 'code または access_token が必要です。'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        if not access_token:
+            if not getattr(settings, 'DISCORD_CLIENT_ID', ''):
+                return Response({
+                    'error': 'DISCORD_CLIENT_ID が設定されていません。'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            if not redirect_uri:
+                return Response({
+                    'error': 'redirect_uri が設定されていません。'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            token_payload = {
+                'client_id': settings.DISCORD_CLIENT_ID,
+                'grant_type': 'authorization_code',
+                'code': code,
+                'redirect_uri': redirect_uri,
+            }
+
+            if code_verifier:
+                token_payload['code_verifier'] = code_verifier
+            elif getattr(settings, 'DISCORD_CLIENT_SECRET', ''):
+                token_payload['client_secret'] = settings.DISCORD_CLIENT_SECRET
+            else:
+                return Response({
+                    'error': 'client_secret または code_verifier が必要です。'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            token_response = requests.post(
+                'https://discord.com/api/oauth2/token',
+                data=token_payload,
+                headers={'Content-Type': 'application/x-www-form-urlencoded'},
+                timeout=10,
+            )
+
+            if token_response.status_code != 200:
+                logger.error(f"Discord OAuthトークン取得失敗: {token_response.text}")
+                return Response({
+                    'error': '認証コードの処理に失敗しました。'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            token_data = token_response.json()
+            access_token = token_data.get('access_token')
+            if not access_token:
+                return Response({
+                    'error': 'アクセストークンが取得できませんでした。'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        user_response = requests.get(
+            'https://discord.com/api/users/@me',
+            headers={'Authorization': f'Bearer {access_token}'},
+            timeout=10,
+        )
+
+        if user_response.status_code != 200:
+            logger.error(f"Discord OAuthユーザー取得失敗: {user_response.text}")
+            return Response({
+                'error': 'ユーザー情報の取得に失敗しました。'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        user_data = user_response.json()
+        discord_id = user_data.get('id')
+        if not discord_id:
+            return Response({
+                'error': 'DiscordのユーザーIDが取得できませんでした。'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        email = user_data.get('email') or ''
+        email_verified = bool(user_data.get('verified', False))
+        username = user_data.get('username') or f'discord_{discord_id}'
+        display_name = user_data.get('global_name') or username
+
+        social_account = SocialAccount.objects.filter(
+            provider='discord',
+            uid=discord_id
+        ).first()
+
+        created = False
+        linked = False
+
+        if request.user.is_authenticated:
+            if social_account and social_account.user != request.user:
+                return Response({
+                    'error': 'このDiscordアカウントは別のユーザーに連携済みです。'
+                }, status=status.HTTP_409_CONFLICT)
+
+            user = request.user
+            linked = True
+
+            if social_account:
+                social_account.extra_data = user_data
+                social_account.save(update_fields=['extra_data'])
+            else:
+                SocialAccount.objects.create(
+                    user=user,
+                    provider='discord',
+                    uid=discord_id,
+                    extra_data=user_data
+                )
+        else:
+            if social_account:
+                user = social_account.user
+                social_account.extra_data = user_data
+                social_account.save(update_fields=['extra_data'])
+            else:
+                base_username = username
+                unique_username = _build_unique_username(base_username)
+                user = User.objects.create_user(
+                    username=unique_username,
+                    email=email_verified and email or '',
+                )
+                user.set_unusable_password()
+                if display_name and not user.nickname:
+                    user.nickname = display_name
+                user.save()
+                created = True
+
+                SocialAccount.objects.create(
+                    user=user,
+                    provider='discord',
+                    uid=discord_id,
+                    extra_data=user_data
+                )
+
+        updates = {}
+        if not user.nickname and display_name:
+            updates['nickname'] = display_name
+        if email and email_verified and not user.email:
+            updates['email'] = email
+        if updates:
+            for field, value in updates.items():
+                setattr(user, field, value)
+            user.save(update_fields=list(updates.keys()))
+
+        token, _ = Token.objects.get_or_create(user=user)
+
+        return Response({
+            'token': token.key,
+            'user': UserSerializer(user).data,
+            'created': created,
+            'linked': linked
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        logger.error(f"Discord OAuth認証エラー: {e}")
         return Response({
             'error': '認証処理中にエラーが発生しました',
             'detail': str(e)
