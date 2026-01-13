@@ -579,7 +579,7 @@ function updateGlobalDiceFormula() {
                     </div>
                     
                     <div class="row g-1 mt-1">
-                        <div class="col-4">
+                        <div class="col-6 col-lg-3">
                             <div class="input-group input-group-sm skill-input-group skill-input-group-base" data-skill-kind="初" title="初期値">
                                 <input type="number" class="form-control form-control-sm text-center skill-base"
                                        id="base_${key}" value="${baseValue}" min="0" max="999"
@@ -590,18 +590,25 @@ function updateGlobalDiceFormula() {
                                        data-bs-placement="top">
                             </div>
                         </div>
-                        <div class="col-4">
+                        <div class="col-6 col-lg-3">
                             <div class="input-group input-group-sm skill-input-group skill-input-group-occ" data-skill-kind="職" title="職業">
                                 <input type="number" class="form-control form-control-sm occupation-skill text-center"
                                        id="occ_${key}" min="0" max="999" value="0"
                                        data-skill="${key}" aria-label="${skillName} 職業" title="職業技能">
                             </div>
                         </div>
-                        <div class="col-4">
+                        <div class="col-6 col-lg-3">
                             <div class="input-group input-group-sm skill-input-group skill-input-group-int" data-skill-kind="趣" title="趣味">
                                 <input type="number" class="form-control form-control-sm interest-skill text-center"
                                        id="int_${key}" min="0" max="999" value="0"
                                        data-skill="${key}" aria-label="${skillName} 趣味" title="趣味技能">
+                            </div>
+                        </div>
+                        <div class="col-6 col-lg-3">
+                            <div class="input-group input-group-sm skill-input-group skill-input-group-other" data-skill-kind="他" title="その他">
+                                <input type="number" class="form-control form-control-sm other-skill text-center"
+                                       id="other_${key}" min="0" max="999" value="0"
+                                       data-skill="${key}" aria-label="${skillName} その他" title="その他">
                             </div>
                         </div>
                     </div>
@@ -654,7 +661,7 @@ function updateGlobalDiceFormula() {
     }
 
     function bindSkillCardEvents(card) {
-        card.querySelectorAll('.occupation-skill, .interest-skill').forEach(input => {
+        card.querySelectorAll('.occupation-skill, .interest-skill, .other-skill').forEach(input => {
             input.addEventListener('input', updateSkillTotals);
         });
 
@@ -797,7 +804,8 @@ function updateGlobalDiceFormula() {
             const categorySet = SKILL_CATEGORY_KEYS[targetCategory];
             const isAllocated = targetCategory === 'allocated'
                 && ((parseInt(card.querySelector('.occupation-skill')?.value, 10) || 0) > 0
-                    || (parseInt(card.querySelector('.interest-skill')?.value, 10) || 0) > 0);
+                    || (parseInt(card.querySelector('.interest-skill')?.value, 10) || 0) > 0
+                    || (parseInt(card.querySelector('.other-skill')?.value, 10) || 0) > 0);
             const shouldShow = targetCategory === 'all'
                 || (targetCategory === 'allocated' && isAllocated)
                 || (targetCategory === 'occupationSkill' && isOccupationSkill)
@@ -866,6 +874,7 @@ function updateGlobalDiceFormula() {
         const baseValue = Math.min(parseInt(options.baseValue, 10) || 0, 999);
         const occupationPoints = Math.min(parseInt(options.occupationPoints, 10) || 0, 999);
         const interestPoints = Math.min(parseInt(options.interestPoints, 10) || 0, 999);
+        const otherPoints = Math.min(parseInt(options.otherPoints, 10) || 0, 999);
 
         const skillKey = `custom_${Date.now()}_${customSkillCounter}`;
         const card = buildSkillCardElement(
@@ -887,6 +896,8 @@ function updateGlobalDiceFormula() {
         if (occInput) occInput.value = occupationPoints;
         const intInput = card.querySelector('.interest-skill');
         if (intInput) intInput.value = interestPoints;
+        const otherInput = card.querySelector('.other-skill');
+        if (otherInput) otherInput.value = otherPoints;
 
         if (options.render !== false) {
             refreshActiveSkillTab();
@@ -1771,20 +1782,23 @@ function updateGlobalDiceFormula() {
             const baseEl = card.querySelector('.skill-base');
             const occEl = card.querySelector('.occupation-skill');
             const intEl = card.querySelector('.interest-skill');
+            const otherEl = card.querySelector('.other-skill');
             const totalEl = card.querySelector('.skill-total');
 
-            if (!baseEl || !occEl || !intEl || !totalEl) return;
+            if (!baseEl || !occEl || !intEl || !otherEl || !totalEl) return;
 
             const base = Math.min(parseInt(baseEl.value, 10) || 0, 999);
             const occ = Math.min(parseInt(occEl.value, 10) || 0, 999);
             const int = Math.min(parseInt(intEl.value, 10) || 0, 999);
+            const other = Math.min(parseInt(otherEl.value, 10) || 0, 999);
             if (parseInt(baseEl.value, 10) !== base) baseEl.value = base;
             if (parseInt(occEl.value, 10) !== occ) occEl.value = occ;
             if (parseInt(intEl.value, 10) !== int) intEl.value = int;
-            const total = Math.min(base + occ + int, 999);
+            if (parseInt(otherEl.value, 10) !== other) otherEl.value = other;
+            const total = Math.min(base + occ + int + other, 999);
             totalEl.textContent = `${total}%`;
 
-            if (occ > 0 || int > 0) {
+            if (occ > 0 || int > 0 || other > 0) {
                 allocatedCount++;
             }
 
@@ -1873,7 +1887,7 @@ function updateGlobalDiceFormula() {
         if (!ok) return;
         resetSkillAllocations();
     };
-    document.getElementById('resetSkillPoints')?.addEventListener('click', confirmAndResetSkills);
+    document.getElementById('footerResetSkills')?.addEventListener('click', confirmAndResetSkills);
 
     // 職業テンプレートデータ
     
@@ -2233,10 +2247,12 @@ function initOccupationTemplates() {
             const occInput = card.querySelector('.occupation-skill');
             const intInput = card.querySelector('.interest-skill');
             const baseInput = card.querySelector('.skill-base');
+            const otherInput = card.querySelector('.other-skill');
 
             if (occInput) occInput.value = skill.occupation_points ?? 0;
             if (intInput) intInput.value = skill.interest_points ?? 0;
             if (baseInput) baseInput.value = skill.base_value ?? 0;
+            if (otherInput) otherInput.value = skill.other_points ?? 0;
 
             const defaultBase = (() => {
                 const definitionBase = ALL_SKILLS_6TH[skillKey]?.base;
@@ -2267,6 +2283,7 @@ function initOccupationTemplates() {
                     baseValue: customSkill.base_value,
                     occupationPoints: customSkill.occupation_points,
                     interestPoints: customSkill.interest_points,
+                    otherPoints: customSkill.other_points,
                     render: false
                 });
             });
@@ -2368,11 +2385,14 @@ function initOccupationTemplates() {
             const occInput = card.querySelector('.occupation-skill');
             const intInput = card.querySelector('.interest-skill');
             const baseInput = card.querySelector('.skill-base');
+            const otherInput = card.querySelector('.other-skill');
 
             const occValue = Math.min(parseInt(occInput?.value, 10) || 0, 999);
             const intValue = Math.min(parseInt(intInput?.value, 10) || 0, 999);
+            const otherValue = Math.min(parseInt(otherInput?.value, 10) || 0, 999);
 
-            if (occValue > 0 || intValue > 0) {
+            const hasCustomBase = !!(window.customBaseValues && window.customBaseValues[skillKey] !== undefined);
+            if (occValue > 0 || intValue > 0 || otherValue > 0 || hasCustomBase) {
                 let baseValue = 0;
                 if (window.customBaseValues && window.customBaseValues[skillKey] !== undefined) {
                     baseValue = window.customBaseValues[skillKey];
@@ -2386,7 +2406,7 @@ function initOccupationTemplates() {
                     base_value: baseValue,
                     occupation_points: occValue,
                     interest_points: intValue,
-                    other_points: 0
+                    other_points: otherValue
                 });
             }
         });

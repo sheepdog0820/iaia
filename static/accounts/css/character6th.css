@@ -622,6 +622,12 @@ label[for="character-name"]::after {
     border: 1px solid rgba(255, 193, 7, 0.35);
 }
 
+.skills-tab .skill-input-group-other::before {
+    color: #6f42c1;
+    background-color: rgba(111, 66, 193, 0.12);
+    border: 1px solid rgba(111, 66, 193, 0.25);
+}
+
 .skills-tab .skill-input-group .form-control {
     min-width: 45px !important;
     flex: 1 1 45px;
@@ -638,7 +644,7 @@ label[for="character-name"]::after {
     line-height: 1.1;
 }
 
-.skills-tab .skill-item .row.g-1 > .col-4 {
+.skills-tab .skill-item .row.g-1 > [class^="col-"] {
     min-width: 45px;
 }
 
@@ -668,6 +674,11 @@ label[for="character-name"]::after {
 .skills-tab .interest-skill {
     background-color: rgba(255, 193, 7, 0.08);
     border-color: rgba(255, 193, 7, 0.35);
+}
+
+.skills-tab .other-skill {
+    background-color: rgba(111, 66, 193, 0.05);
+    border-color: rgba(111, 66, 193, 0.25);
 }
 
 .skills-tab .custom-skill .custom-skill-name {

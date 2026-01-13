@@ -728,19 +728,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="card-body p-3">
                             <h6 class="card-title mb-2">${skill.skill_name}</h6>
                             <div class="row g-1 small">
-                                <div class="col-3">
+                                <div class="col-4">
                                     <div class="text-muted">基本</div>
                                     <div>${skill.base_value}</div>
                                 </div>
-                                <div class="col-3">
+                                <div class="col-4">
                                     <div class="text-muted">職業</div>
                                     <div class="text-primary">${occupationPoints}</div>
                                 </div>
-                                <div class="col-3">
+                                <div class="col-4">
                                     <div class="text-muted">趣味</div>
                                     <div class="text-success">${interestPoints}</div>
                                 </div>
-                                <div class="col-3">
+                                <div class="col-6">
+                                    <div class="text-muted">その他</div>
+                                    <div class="text-secondary">${otherPoints}</div>
+                                </div>
+                                <div class="col-6">
                                     <div class="text-muted">合計</div>
                                     <div class="fw-bold text-warning">${skill.current_value}</div>
                                 </div>

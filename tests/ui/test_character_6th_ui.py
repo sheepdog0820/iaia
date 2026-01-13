@@ -408,9 +408,11 @@ class Character6thJavaScriptTest(StaticLiveServerTestCase):
         """Helper method to log in"""
         self.selenium.get(f'{self.live_server_url}/accounts/login/')
         username_input = WebDriverWait(self.selenium, 10).until(
-            EC.element_to_be_clickable((By.NAME, 'username'))
+            EC.element_to_be_clickable((By.CSS_SELECTOR, '#email-login-form [name=\"username\"]'))
         )
-        password_input = self.selenium.find_element(By.NAME, 'password')
+        password_input = WebDriverWait(self.selenium, 10).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, '#email-login-form [name=\"password\"]'))
+        )
         username_input.clear()
         password_input.clear()
         username_input.send_keys('testuser')
