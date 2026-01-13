@@ -155,7 +155,7 @@ class PlayerWorkflowIntegrationTest(APITestCase):
             'end': f'{end_date}T23:59:59+09:00'
         })
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(any(event['id'] == session_id for event in response.data))
+        self.assertTrue(any(event.get('session_id') == session_id for event in response.data))
         print(f"   [OK] カレンダーイベント取得: {len(response.data)}件")
         
         # 7. シナリオ機能
@@ -421,7 +421,7 @@ class GMWorkflowIntegrationTest(APITestCase):
             'end': f'{end_date}T23:59:59+09:00'
         })
         self.assertEqual(response.status_code, 200)
-        session_events = [e for e in response.data if e['id'] == session_id]
+        session_events = [e for e in response.data if e.get('session_id') == session_id]
         self.assertTrue(len(session_events) > 0)
         print(f"   [OK] カレンダーでセッション確認")
         

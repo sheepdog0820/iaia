@@ -103,7 +103,7 @@ def test_basic_workflow():
     
     if response.status_code == 200:
         events = response.data
-        session_event = next((e for e in events if e['id'] == session_id), None)
+        session_event = next((e for e in events if e.get('session_id') == session_id), None)
         if session_event:
             print(f"   ✅ カレンダー取得成功: {len(events)}件のイベント")
             print(f"   📅 作成セッション確認: {session_event['title']}")

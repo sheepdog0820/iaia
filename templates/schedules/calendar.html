@@ -94,6 +94,27 @@
             <div class="modal-body">
                 <form id="newSessionForm">
                     <div class="mb-3">
+                        <label class="form-label">作成方法</label>
+                        <div class="d-flex flex-wrap gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="sessionCreateMode" id="createModeNew" value="new" checked>
+                                <label class="form-check-label" for="createModeNew">新規セッション</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="sessionCreateMode" id="createModeExisting" value="existing">
+                                <label class="form-check-label" for="createModeExisting">既存セッションに日程を追加</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3 d-none" id="existingSessionWrapper">
+                        <label for="existingSessionId" class="form-label">既存セッション</label>
+                        <select class="form-select" id="existingSessionId" disabled>
+                            <option value="">読み込み中...</option>
+                        </select>
+                        <div class="form-text">GMが作成したセッションのみ表示されます。</div>
+                    </div>
+                    <div class="mb-3">
                         <label for="sessionTitle" class="form-label">セッションタイトル</label>
                         <input type="text" class="form-control" id="sessionTitle" required>
                     </div>
@@ -447,7 +468,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // イベントクリック処理
     function handleEventClick(info) {
         // セッション詳細ページに遷移
-        window.location.href = `/api/schedules/sessions/${info.event.id}/detail/`;
+        const sessionId = info.event.extendedProps?.session_id || info.event.extendedProps?.id || info.event.id;
+        window.location.href = `/api/schedules/sessions/${sessionId}/detail/`;
     }
 
     function handleDateClick(info) {
@@ -462,6 +484,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         dateInput.value = value;
+        setCreateMode('new');
         const modalEl = document.getElementById('newSessionModal');
         const modal = new bootstrap.Modal(modalEl);
         modal.show();
@@ -605,10 +628,145 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 新規セッション保存
+    let editableSessions = [];
+
+    function getCreateMode() {
+        const selected = document.querySelector('input[name="sessionCreateMode"]:checked');
+        return selected ? selected.value : 'new';
+    }
+
+    async function loadEditableSessions() {
+        const select = document.getElementById('existingSessionId');
+        if (!select) return;
+
+        select.innerHTML = '<option value=\"\">読み込み中...</option>';
+        try {
+            const response = await axios.get('/api/schedules/sessions/editable-choices/');
+            editableSessions = response.data || [];
+
+            if (editableSessions.length === 0) {
+                select.innerHTML = '<option value=\"\">該当するセッションがありません</option>';
+                return;
+            }
+
+            select.innerHTML = '<option value=\"\">選択してください</option>' + editableSessions
+                .map(session => `<option value=\"${session.id}\">${session.title}</option>`)
+                .join('');
+        } catch (error) {
+            console.error('Error loading editable sessions:', error);
+            select.innerHTML = '<option value=\"\">取得に失敗しました</option>';
+        }
+    }
+
+    function toggleFieldVisibility(element, hidden) {
+        if (!element) return;
+        const wrapper = element.closest('.mb-3') || element.closest('.col-md-6') || element;
+        wrapper.classList.toggle('d-none', hidden);
+    }
+
+    function setCreateMode(mode) {
+        const isExisting = mode === 'existing';
+        const existingWrapper = document.getElementById('existingSessionWrapper');
+        const existingSelect = document.getElementById('existingSessionId');
+
+        existingWrapper?.classList.toggle('d-none', !isExisting);
+        if (existingSelect) {
+            existingSelect.disabled = !isExisting;
+            existingSelect.required = isExisting;
+        }
+
+        const titleInput = document.getElementById('sessionTitle');
+        const groupSelect = document.getElementById('sessionGroup');
+
+        if (titleInput) {
+            titleInput.disabled = isExisting;
+            titleInput.required = !isExisting;
+            toggleFieldVisibility(titleInput, isExisting);
+        }
+
+        if (groupSelect) {
+            groupSelect.disabled = isExisting;
+            groupSelect.required = !isExisting;
+            toggleFieldVisibility(groupSelect, isExisting);
+        }
+
+        [
+            'sessionDuration',
+            'sessionLocation',
+            'sessionScenarioTitle',
+            'clearSessionScenario',
+            'sessionDescription',
+            'sessionYoutube',
+            'sessionVisibility',
+        ].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.disabled = isExisting;
+            toggleFieldVisibility(el, isExisting);
+        });
+
+        const inviteContainer = document.getElementById('sessionInviteMembers');
+        toggleFieldVisibility(inviteContainer, isExisting);
+        if (isExisting) {
+            selectedInvitees.clear();
+        }
+
+        const saveBtn = document.getElementById('saveSessionBtn');
+        if (saveBtn) {
+            saveBtn.innerHTML = isExisting
+                ? '<i class=\"fas fa-plus\"></i> 日程を追加'
+                : '<i class=\"fas fa-save\"></i> セッションを作成';
+        }
+
+        if (isExisting) {
+            void loadEditableSessions();
+        } else {
+            const selectedGroupId = document.getElementById('sessionGroup')?.value;
+            if (selectedGroupId) {
+                void loadGroupMembers(selectedGroupId);
+            }
+        }
+    }
+
+    document.querySelectorAll('input[name=\"sessionCreateMode\"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            setCreateMode(getCreateMode());
+        });
+    });
+
+    setCreateMode(getCreateMode());
+
     document.getElementById('saveSessionBtn').addEventListener('click', async function() {
         const form = document.getElementById('newSessionForm');
         if (!form.checkValidity()) {
             form.reportValidity();
+            return;
+        }
+
+        const mode = getCreateMode();
+        if (mode === 'existing') {
+            const existingSessionId = parseInt(document.getElementById('existingSessionId').value, 10);
+            if (!existingSessionId) {
+                alert('既存セッションを選択してください');
+                return;
+            }
+
+            try {
+                await axios.post('/api/schedules/occurrences/', {
+                    session: existingSessionId,
+                    start_at: document.getElementById('sessionDate').value,
+                    content: '',
+                });
+
+                alert('日程を追加しました');
+                bootstrap.Modal.getInstance(document.getElementById('newSessionModal')).hide();
+                form.reset();
+                setCreateMode('new');
+                calendar.refetchEvents();
+                loadUpcomingSessions();
+            } catch (error) {
+                alert('日程の追加に失敗しました: ' + (error.response?.data?.detail || error.message));
+            }
             return;
         }
 
@@ -664,6 +822,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const newSessionModalEl = document.getElementById('newSessionModal');
     newSessionModalEl?.addEventListener('show.bs.modal', () => {
+        setCreateMode('new');
         loadScenarioLink();
     });
 

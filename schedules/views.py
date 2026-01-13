@@ -6,11 +6,13 @@ from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.urls import reverse
 from datetime import datetime, timedelta
 from .models import (
     TRPGSession,
+    SessionOccurrence,
     SessionParticipant,
     SessionInvitation,
     SessionNote,
@@ -21,6 +23,7 @@ from .models import (
 )
 from .serializers import (
     TRPGSessionSerializer,
+    SessionOccurrenceSerializer,
     SessionParticipantSerializer,
     SessionInvitationSerializer,
     SessionNoteSerializer,
@@ -552,6 +555,19 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             'average_session_hours': round(total_hours / session_count, 1) if session_count > 0 else 0
         })
 
+    @action(detail=False, methods=['get'], url_path='editable-choices')
+    def editable_choices(self, request):
+        sessions = self.get_queryset().filter(gm=request.user).select_related('group')[:200]
+        return Response([
+            {
+                'id': session.id,
+                'title': session.title,
+                'group_id': session.group_id,
+                'group_name': session.group.name if session.group_id else '',
+            }
+            for session in sessions
+        ])
+
 
 class SessionInvitationViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = SessionInvitationSerializer
@@ -642,6 +658,63 @@ class SessionInvitationViewSet(viewsets.ReadOnlyModelViewSet):
         invitation.save(update_fields=['status', 'responded_at'])
 
         return Response({'status': 'success'})
+
+
+class SessionOccurrenceViewSet(viewsets.ModelViewSet):
+    serializer_class = SessionOccurrenceSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        visible_session_ids = _visible_sessions_for(user).values_list('id', flat=True)
+
+        queryset = SessionOccurrence.objects.select_related(
+            'session',
+            'session__gm',
+            'session__group',
+        ).prefetch_related('participants').filter(session_id__in=visible_session_ids)
+
+        session_id = self.request.query_params.get('session_id')
+        if session_id:
+            queryset = queryset.filter(session_id=session_id)
+
+        return queryset.order_by('start_at', 'id')
+
+    def perform_create(self, serializer):
+        session = serializer.validated_data.get('session')
+        if not session or session.gm_id != self.request.user.id:
+            raise PermissionDenied('Only the GM can add session dates.')
+        serializer.save()
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        if instance.session.gm_id != self.request.user.id:
+            raise PermissionDenied('Only the GM can edit session dates.')
+
+        old_start_at = instance.start_at
+        new_session = serializer.validated_data.get('session')
+        if new_session and new_session.id != instance.session_id:
+            raise ValidationError({'session': 'Cannot change the session of an occurrence.'})
+
+        serializer.save()
+
+        if (
+            instance.is_primary
+            and 'start_at' in serializer.validated_data
+            and old_start_at != instance.start_at
+            and instance.session.date != instance.start_at
+        ):
+            session = instance.session
+            session.date = instance.start_at
+            session.save(update_fields=['date', 'updated_at'])
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.session.gm_id != request.user.id:
+            raise PermissionDenied('Only the GM can delete session dates.')
+        if instance.is_primary:
+            raise ValidationError({'detail': 'Cannot delete the primary session date.'})
+        return super().destroy(request, *args, **kwargs)
 
 
 class SessionParticipantViewSet(viewsets.ModelViewSet):
@@ -957,51 +1030,68 @@ class CalendarView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
-        start_date = request.query_params.get('start')
-        end_date = request.query_params.get('end')
+        start_raw = request.query_params.get('start')
+        end_raw = request.query_params.get('end')
         month_str = request.query_params.get('month')
         
         # 月指定の場合
-        if month_str and not (start_date or end_date):
+        if month_str and not (start_raw or end_raw):
             try:
                 # YYYY-MM形式をパース
                 year, month = map(int, month_str.split('-'))
-                start_date = datetime(year, month, 1)
-                # 月末を計算
+                tz = timezone.get_current_timezone()
+                start_date = timezone.make_aware(datetime(year, month, 1), tz)
                 if month == 12:
-                    end_date = datetime(year + 1, 1, 1) - timedelta(days=1)
+                    month_end = datetime(year + 1, 1, 1)
                 else:
-                    end_date = datetime(year, month + 1, 1) - timedelta(days=1)
+                    month_end = datetime(year, month + 1, 1)
+                end_date = timezone.make_aware(month_end, tz) - timedelta(microseconds=1)
             except (ValueError, AttributeError):
                 return Response(
                     {'error': 'Invalid month format. Use YYYY-MM format'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-        elif start_date and end_date:
+        elif start_raw and end_raw:
             try:
-                start_date = datetime.fromisoformat(start_date)
-                end_date = datetime.fromisoformat(end_date)
+                start_date = datetime.fromisoformat(start_raw)
+                end_date = datetime.fromisoformat(end_raw)
             except ValueError:
                 return Response(
                     {'error': 'Invalid date format'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
+
+            tz = timezone.get_current_timezone()
+            if timezone.is_naive(start_date):
+                start_date = timezone.make_aware(start_date, tz)
+            if timezone.is_naive(end_date):
+                if 'T' not in end_raw:
+                    end_date = end_date + timedelta(days=1) - timedelta(microseconds=1)
+                end_date = timezone.make_aware(end_date, tz)
         else:
             return Response(
                 {'error': 'Either month or both start and end parameters are required'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        sessions = _visible_sessions_for(request.user).filter(
-            date__range=[start_date, end_date]
+        visible_session_ids = _visible_sessions_for(request.user).values_list('id', flat=True)
+        participant_session_ids = set(
+            SessionParticipant.objects.filter(user=request.user).values_list('session_id', flat=True)
         )
+
+        occurrences = SessionOccurrence.objects.filter(
+            session_id__in=visible_session_ids,
+            start_at__range=[start_date, end_date],
+        ).select_related('session', 'session__gm', 'session__group').order_by('start_at', 'id')
         
         # イベント形式に変換
         events = []
-        for session in sessions:
+        for occurrence in occurrences:
+            session = occurrence.session
             # ユーザーのセッションとの関係を判定
             is_gm = session.gm == request.user
-            is_participant = session.participants.filter(id=request.user.id).exists() and not is_gm
+            is_gm = session.gm_id == request.user.id
+            is_participant = (session.id in participant_session_ids) and not is_gm
             is_public_only = not is_gm and not is_participant and session.visibility == 'public'
             
             # セッションタイプを決定
@@ -1013,15 +1103,18 @@ class CalendarView(APIView):
                 session_type = 'public'
             
             event = {
-                'id': session.id,
+                'id': occurrence.id,
+                'session_id': session.id,
+                'occurrence_id': occurrence.id,
                 'title': session.title,
-                'date': session.date.isoformat(),
+                'date': occurrence.start_at.isoformat(),
                 'type': session_type,
                 'status': session.status,
                 'visibility': session.visibility,
                 'gm_id': session.gm.id,
                 'gm_name': session.gm.nickname or session.gm.username,
                 'location': session.location or '',
+                'content': occurrence.content or '',
                 'is_gm': is_gm,
                 'is_participant': is_participant,
                 'is_public_only': is_public_only
@@ -1053,12 +1146,13 @@ class MonthlyEventListView(APIView):
         
         try:
             year, month = map(int, month_str.split('-'))
-            start_date = datetime(year, month, 1)
-            # 月末を計算
+            tz = timezone.get_current_timezone()
+            start_date = timezone.make_aware(datetime(year, month, 1), tz)
             if month == 12:
-                end_date = datetime(year + 1, 1, 1) - timedelta(days=1)
+                month_end = datetime(year + 1, 1, 1)
             else:
-                end_date = datetime(year, month + 1, 1) - timedelta(days=1)
+                month_end = datetime(year, month + 1, 1)
+            end_date = timezone.make_aware(month_end, tz) - timedelta(microseconds=1)
         except (ValueError, AttributeError):
             return Response(
                 {'error': 'Invalid month format. Use YYYY-MM format'},
@@ -1066,14 +1160,21 @@ class MonthlyEventListView(APIView):
             )
         
         # セッションを取得
-        sessions = _visible_sessions_for(request.user).filter(
-            date__range=[start_date, end_date]
-        ).select_related('gm', 'group').prefetch_related('participants')
+        visible_session_ids = _visible_sessions_for(request.user).values_list('id', flat=True)
+        participant_session_ids = set(
+            SessionParticipant.objects.filter(user=request.user).values_list('session_id', flat=True)
+        )
+
+        occurrences = SessionOccurrence.objects.filter(
+            session_id__in=visible_session_ids,
+            start_at__range=[start_date, end_date],
+        ).select_related('session', 'session__gm', 'session__group').prefetch_related('participants').order_by('start_at', 'id')
         
         # 日付別にグループ化
         events_by_date = {}
-        for session in sessions:
-            date_str = session.date.strftime('%Y-%m-%d')
+        for occurrence in occurrences:
+            session = occurrence.session
+            date_str = occurrence.start_at.strftime('%Y-%m-%d')
             if date_str not in events_by_date:
                 events_by_date[date_str] = {
                     'date': date_str,
@@ -1081,13 +1182,15 @@ class MonthlyEventListView(APIView):
                 }
             
             # ユーザーとの関係を判定
-            is_gm = session.gm == request.user
-            is_participant = session.participants.filter(id=request.user.id).exists()
+            is_gm = session.gm_id == request.user.id
+            is_participant = (session.id in participant_session_ids) and not is_gm
             
             event_data = {
-                'id': session.id,
+                'id': occurrence.id,
+                'session_id': session.id,
+                'occurrence_id': occurrence.id,
                 'title': session.title,
-                'time': session.date.strftime('%H:%M'),
+                'time': occurrence.start_at.strftime('%H:%M'),
                 'duration_minutes': session.duration_minutes,
                 'status': session.status,
                 'visibility': session.visibility,
@@ -1099,10 +1202,11 @@ class MonthlyEventListView(APIView):
                     'id': session.gm.id,
                     'name': session.gm.nickname or session.gm.username
                 },
-                'participant_count': session.participants.count(),
+                'participant_count': len(occurrence.participants.all()),
                 'is_gm': is_gm,
                 'is_participant': is_participant,
-                'location': session.location or ''
+                'location': session.location or '',
+                'content': occurrence.content or '',
             }
             
             events_by_date[date_str]['events'].append(event_data)
@@ -1115,12 +1219,12 @@ class MonthlyEventListView(APIView):
             'year': year,
             'month_name': f"{year}年{month}月",
             'dates': sorted_dates,
-            'total_sessions': sessions.count(),
+            'total_sessions': occurrences.count(),
             'summary': {
-                'planned': sessions.filter(status='planned').count(),
-                'ongoing': sessions.filter(status='ongoing').count(),
-                'completed': sessions.filter(status='completed').count(),
-                'cancelled': sessions.filter(status='cancelled').count()
+                'planned': occurrences.filter(session__status='planned').count(),
+                'ongoing': occurrences.filter(session__status='ongoing').count(),
+                'completed': occurrences.filter(session__status='completed').count(),
+                'cancelled': occurrences.filter(session__status='cancelled').count()
             }
         })
 
@@ -1136,10 +1240,16 @@ class SessionAggregationView(APIView):
         end_date = start_date + timedelta(days=days)
         
         # ユーザーのセッションを取得
-        sessions = _visible_sessions_for(request.user).filter(
-            date__range=[start_date, end_date],
-            status__in=['planned', 'ongoing']
-        ).select_related('gm', 'group')
+        visible_session_ids = _visible_sessions_for(request.user).values_list('id', flat=True)
+        participant_session_ids = set(
+            SessionParticipant.objects.filter(user=request.user).values_list('session_id', flat=True)
+        )
+
+        occurrences = SessionOccurrence.objects.filter(
+            session_id__in=visible_session_ids,
+            start_at__range=[start_date, end_date],
+            session__status__in=['planned', 'ongoing'],
+        ).select_related('session', 'session__gm', 'session__group').order_by('start_at', 'id')
         
         # グループ別、システム別に集約
         aggregations = {
@@ -1152,7 +1262,8 @@ class SessionAggregationView(APIView):
             }
         }
         
-        for session in sessions:
+        for occurrence in occurrences:
+            session = occurrence.session
             # グループ別集約
             if session.group:
                 group_key = session.group.id
@@ -1163,38 +1274,46 @@ class SessionAggregationView(APIView):
                         'sessions': []
                     }
                 aggregations['by_group'][group_key]['sessions'].append({
-                    'id': session.id,
+                    'id': occurrence.id,
+                    'session_id': session.id,
+                    'occurrence_id': occurrence.id,
                     'title': session.title,
-                    'date': session.date.isoformat()
+                    'date': occurrence.start_at.isoformat()
                 })
             
             # 週別集約
-            week_key = session.date.strftime('%Y-W%U')
+            week_key = occurrence.start_at.strftime('%Y-W%U')
             if week_key not in aggregations['by_week']:
                 aggregations['by_week'][week_key] = {
                     'week': week_key,
-                    'start_date': (session.date - timedelta(days=session.date.weekday())).strftime('%Y-%m-%d'),
+                    'start_date': (occurrence.start_at - timedelta(days=occurrence.start_at.weekday())).strftime('%Y-%m-%d'),
                     'sessions': []
                 }
             aggregations['by_week'][week_key]['sessions'].append({
-                'id': session.id,
+                'id': occurrence.id,
+                'session_id': session.id,
+                'occurrence_id': occurrence.id,
                 'title': session.title,
-                'date': session.date.isoformat()
+                'date': occurrence.start_at.isoformat()
             })
             
             # 役割別集約
-            if session.gm == request.user:
+            if session.gm_id == request.user.id:
                 aggregations['by_role']['as_gm'].append({
-                    'id': session.id,
+                    'id': occurrence.id,
+                    'session_id': session.id,
+                    'occurrence_id': occurrence.id,
                     'title': session.title,
-                    'date': session.date.isoformat(),
+                    'date': occurrence.start_at.isoformat(),
                     'participant_count': session.participants.count()
                 })
-            elif session.participants.filter(id=request.user.id).exists():
+            elif session.id in participant_session_ids:
                 aggregations['by_role']['as_player'].append({
-                    'id': session.id,
+                    'id': occurrence.id,
+                    'session_id': session.id,
+                    'occurrence_id': occurrence.id,
                     'title': session.title,
-                    'date': session.date.isoformat(),
+                    'date': occurrence.start_at.isoformat(),
                     'gm_name': session.gm.nickname or session.gm.username
                 })
         
@@ -1204,12 +1323,18 @@ class SessionAggregationView(APIView):
                 'end': end_date.isoformat(),
                 'days': days
             },
-            'total_sessions': sessions.count(),
+            'total_sessions': occurrences.count(),
             'aggregations': aggregations,
-            'upcoming_sessions': SessionListSerializer(
-                sessions.order_by('date')[:5], 
-                many=True
-            ).data
+            'upcoming_sessions': [
+                {
+                    'id': upcoming.id,
+                    'session_id': upcoming.session.id,
+                    'occurrence_id': upcoming.id,
+                    'title': upcoming.session.title,
+                    'date': upcoming.start_at.isoformat(),
+                }
+                for upcoming in occurrences.order_by('start_at')[:5]
+            ]
         })
 
 
@@ -1227,9 +1352,11 @@ class ICalExportView(APIView):
         end_date = start_date + timedelta(days=days)
         
         # セッションを取得
-        sessions = _visible_sessions_for(request.user).filter(
-            date__range=[start_date, end_date]
-        ).select_related('gm', 'group')
+        visible_session_ids = _visible_sessions_for(request.user).values_list('id', flat=True)
+        occurrences = SessionOccurrence.objects.filter(
+            session_id__in=visible_session_ids,
+            start_at__range=[start_date, end_date],
+        ).select_related('session', 'session__gm', 'session__group').order_by('start_at', 'id')
         
         # iCal形式の生成
         lines = []
@@ -1241,13 +1368,14 @@ class ICalExportView(APIView):
         lines.append(f'X-WR-CALNAME:タブレノ - {request.user.nickname or request.user.username}')
         lines.append('X-WR-TIMEZONE:Asia/Tokyo')
         
-        for session in sessions:
+        for occurrence in occurrences:
             # イベントの開始・終了時刻
-            dtstart = session.date
+            session = occurrence.session
+            dtstart = occurrence.start_at
             dtend = dtstart + timedelta(minutes=session.duration_minutes or 180)
             
             # ユーザーとの関係
-            is_gm = session.gm == request.user
+            is_gm = session.gm_id == request.user.id
             role = 'GM' if is_gm else 'Player'
             
             lines.append('BEGIN:VEVENT')
@@ -1378,13 +1506,80 @@ class UpcomingSessionsView(APIView):
         now = timezone.now()
         
         # 今日から7日以内のセッション
-        upcoming_sessions = _visible_sessions_for(user).filter(
-            date__gte=now,
-            date__lte=now + timedelta(days=7)
-        ).select_related('gm', 'group', 'scenario').order_by('date')[:5]
-        
-        serializer = SessionListSerializer(upcoming_sessions, many=True)
-        return Response(serializer.data)
+        def format_duration(minutes):
+            if not minutes:
+                return None
+            hours = minutes // 60
+            mins = minutes % 60
+            if hours > 0 and mins > 0:
+                return f"{hours}時間{mins}分"
+            if hours > 0:
+                return f"{hours}時間"
+            return f"{mins}分"
+
+        def format_date_display(dt):
+            if not dt:
+                return None
+            local_dt = dt.replace(tzinfo=None) if getattr(dt, 'tzinfo', None) else dt
+            local_now = now.replace(tzinfo=None) if getattr(now, 'tzinfo', None) else now
+
+            if local_dt.date() == local_now.date():
+                return f"今日 {dt.strftime('%H:%M')}"
+            if local_dt.date() == (local_now + timedelta(days=1)).date():
+                return f"明日 {dt.strftime('%H:%M')}"
+            if local_dt.date() <= (local_now + timedelta(days=7)).date():
+                weekdays = ['月', '火', '水', '木', '金', '土', '日']
+                weekday = weekdays[local_dt.weekday()]
+                return f"{local_dt.strftime('%m/%d')}({weekday}) {dt.strftime('%H:%M')}"
+            return dt.strftime('%Y年%m月%d日 %H:%M')
+
+        visible_session_ids = _visible_sessions_for(user).values_list('id', flat=True)
+        occurrences = SessionOccurrence.objects.filter(
+            session_id__in=visible_session_ids,
+            start_at__gte=now,
+            start_at__lte=now + timedelta(days=7),
+        ).select_related(
+            'session',
+            'session__gm',
+            'session__group',
+            'session__scenario',
+        ).prefetch_related(
+            'session__sessionparticipant_set__user',
+        ).order_by('start_at', 'id')[:5]
+
+        results = []
+        for occurrence in occurrences:
+            session = occurrence.session
+            participants = list(session.sessionparticipant_set.all())
+            players = [p for p in participants if p.user_id != session.gm_id]
+
+            if len(players) == 0:
+                participants_summary = "GM のみ"
+            elif len(players) <= 3:
+                participants_summary = ", ".join([p.user.nickname or p.user.username for p in players])
+            else:
+                names = [p.user.nickname or p.user.username for p in players[:2]]
+                participants_summary = f"{', '.join(names)} 他{len(players) - 2}人"
+
+            results.append({
+                'id': session.id,
+                'session_id': session.id,
+                'occurrence_id': occurrence.id,
+                'title': session.title,
+                'date': occurrence.start_at.isoformat(),
+                'date_formatted': occurrence.start_at.strftime('%Y年%m月%d日 %H:%M'),
+                'date_display': format_date_display(occurrence.start_at),
+                'location': session.location or '',
+                'status': session.status,
+                'gm_name': session.gm.nickname or session.gm.username,
+                'group_name': session.group.name if session.group_id else '',
+                'participant_count': len(participants),
+                'participants_summary': participants_summary,
+                'duration_minutes': session.duration_minutes,
+                'duration_display': format_duration(session.duration_minutes),
+            })
+
+        return Response(results)
 
 
 class NextSessionContextView(APIView):
@@ -1393,6 +1588,7 @@ class NextSessionContextView(APIView):
     def get(self, request):
         user = request.user
         now = timezone.now()
+        occurrence = None
 
         session_id = request.query_params.get('session_id')
         if session_id:
@@ -1408,14 +1604,21 @@ class NextSessionContextView(APIView):
             if session.gm != user and not session.participants.filter(id=user.id).exists():
                 return Response({'error': 'このセッションにアクセスする権限がありません'}, status=status.HTTP_403_FORBIDDEN)
         else:
-            session = TRPGSession.objects.filter(
-                Q(gm=user) | Q(participants=user),
-                date__gte=now,
-                status='planned'
-            ).select_related('scenario').order_by('date').first()
+            occurrence = SessionOccurrence.objects.filter(
+                Q(session__gm=user) | Q(session__participants=user),
+                start_at__gte=now,
+                session__status='planned',
+            ).select_related('session', 'session__scenario').order_by('start_at', 'id').first()
+            session = occurrence.session if occurrence else None
 
         if not session:
             return Response({'session_id': None})
+
+        if occurrence is None:
+            occurrence = (
+                session.occurrences.filter(start_at__gte=now).order_by('start_at', 'id').first()
+                or session.occurrences.order_by('start_at', 'id').first()
+            )
 
         scenario = session.scenario
         scenario_data = None
@@ -1440,7 +1643,8 @@ class NextSessionContextView(APIView):
         return Response({
             'session_id': session.id,
             'session_title': session.title,
-            'session_date': session.date,
+            'session_date': occurrence.start_at if occurrence else session.date,
+            'occurrence_id': occurrence.id if occurrence else None,
             'scenario': scenario_data,
             'handout_recommended_skills': handout_skills,
             'handout_titles': handout_titles,
@@ -1453,6 +1657,7 @@ class ParticipatingScenarioChoicesView(APIView):
     def get(self, request):
         user = request.user
         now = timezone.now()
+        occurrence = None
 
         try:
             days = int(request.query_params.get('days', 365))
@@ -1472,28 +1677,30 @@ class ParticipatingScenarioChoicesView(APIView):
         if limit > 100:
             limit = 100
 
-        sessions = TRPGSession.objects.filter(
-            Q(gm=user) | Q(participants=user),
-            date__gte=now,
-            date__lte=now + timedelta(days=days),
-            status='planned',
-            scenario__isnull=False,
-        ).select_related('scenario', 'group').order_by('date')[:limit]
+        occurrences = SessionOccurrence.objects.filter(
+            Q(session__gm=user) | Q(session__participants=user),
+            start_at__gte=now,
+            start_at__lte=now + timedelta(days=days),
+            session__status='planned',
+            session__scenario__isnull=False,
+        ).select_related('session', 'session__scenario', 'session__group').order_by('start_at', 'id')[:limit]
 
         results = []
-        for session in sessions:
+        for occurrence in occurrences:
+            session = occurrence.session
             scenario = session.scenario
             if not scenario:
                 continue
 
             session_date_display = None
-            if session.date:
-                session_date_display = session.date.strftime('%Y/%m/%d %H:%M')
+            if occurrence.start_at:
+                session_date_display = occurrence.start_at.strftime('%Y/%m/%d %H:%M')
 
             results.append({
                 'session_id': session.id,
+                'occurrence_id': occurrence.id,
                 'session_title': session.title,
-                'session_date': session.date,
+                'session_date': occurrence.start_at,
                 'session_date_display': session_date_display,
                 'group_name': session.group.name if session.group else '',
                 'scenario': {
@@ -1580,6 +1787,8 @@ class SessionDetailView(APIView):
         participants = SessionParticipant.objects.filter(
             session=session
         ).select_related('user', 'character_sheet')
+
+        occurrences = session.occurrences.prefetch_related('participants').order_by('start_at', 'id')
         
         # ハンドアウト情報（権限に応じて）
         if session.gm == user:
@@ -1612,6 +1821,7 @@ class SessionDetailView(APIView):
         context = {
             'session': session,
             'participants': participants,
+            'occurrences': occurrences,
             'handouts': handouts,
             'is_gm': is_gm,
             'is_participant': is_participant,
@@ -1638,6 +1848,8 @@ class PublicSessionDetailView(APIView):
             session=session
         ).select_related('user', 'character_sheet')
 
+        occurrences = session.occurrences.prefetch_related('participants').order_by('start_at', 'id')
+
         public_session_url = request.build_absolute_uri(
             reverse('public_session_detail', kwargs={'share_token': session.share_token})
         )
@@ -1645,6 +1857,7 @@ class PublicSessionDetailView(APIView):
         context = {
             'session': session,
             'participants': participants,
+            'occurrences': occurrences,
             'handouts': HandoutInfo.objects.none(),
             'is_gm': False,
             'is_participant': False,

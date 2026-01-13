@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import (
     TRPGSession,
+    SessionOccurrence,
     SessionParticipant,
     SessionInvitation,
     SessionNote,
@@ -346,6 +347,55 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
 
         if self.instance is None and 'date' not in attrs:
             raise serializers.ValidationError({'date': 'date or session_date is required'})
+
+        return attrs
+
+
+class SessionOccurrenceSerializer(serializers.ModelSerializer):
+    session_title = serializers.CharField(source='session.title', read_only=True)
+    participants = serializers.PrimaryKeyRelatedField(
+        queryset=CustomUser.objects.all(),
+        many=True,
+        required=False,
+    )
+    participants_detail = UserSerializer(source='participants', many=True, read_only=True)
+
+    class Meta:
+        model = SessionOccurrence
+        fields = [
+            'id',
+            'session',
+            'session_title',
+            'start_at',
+            'content',
+            'is_primary',
+            'participants',
+            'participants_detail',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'is_primary',
+            'created_at',
+            'updated_at',
+            'session_title',
+        ]
+
+    def validate(self, attrs):
+        session = attrs.get('session') or getattr(self.instance, 'session', None)
+        participants = attrs.get('participants')
+
+        if session and participants is not None and getattr(session, 'group_id', None):
+            allowed_ids = set(session.group.members.values_list('id', flat=True))
+            if getattr(session, 'gm_id', None):
+                allowed_ids.add(session.gm_id)
+
+            invalid_ids = [user.id for user in participants if user.id not in allowed_ids]
+            if invalid_ids:
+                raise serializers.ValidationError(
+                    {'participants': 'All participants must belong to the session group.'}
+                )
 
         return attrs
 

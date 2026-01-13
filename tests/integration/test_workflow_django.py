@@ -108,7 +108,7 @@ class WorkflowIntegrationTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         
         events = response.data
-        session_events = [e for e in events if e['id'] == session_id]
+        session_events = [e for e in events if e.get('session_id') == session_id]
         self.assertTrue(len(session_events) > 0)
         
         session_event = session_events[0]

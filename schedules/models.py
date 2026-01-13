@@ -92,6 +92,16 @@ class TRPGSession(models.Model):
         return f"{self.title} ({self.date.strftime('%Y-%m-%d')})"
 
     def save(self, *args, **kwargs):
+        creating = self.pk is None
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            update_fields = set(update_fields)
+        date_will_update = creating or update_fields is None or 'date' in update_fields
+
+        old_date = None
+        if not creating and date_will_update:
+            old_date = TRPGSession.objects.filter(pk=self.pk).values_list('date', flat=True).first()
+
         auto_group_created = False
         if not self.group_id and self.gm_id:
             group_name = f"{self.gm.nickname or self.gm.username} Default Group"
@@ -112,6 +122,41 @@ class TRPGSession(models.Model):
             self.visibility = 'public'
 
         super().save(*args, **kwargs)
+
+        # Keep backward compatibility with the legacy single `date` field by ensuring
+        # a primary occurrence exists and stays in sync when `date` changes.
+        if self.date is None or not date_will_update:
+            return
+
+        if creating:
+            if not self.occurrences.filter(is_primary=True).exists():
+                SessionOccurrence.objects.create(
+                    session=self,
+                    start_at=self.date,
+                    is_primary=True,
+                )
+            return
+
+        if old_date != self.date:
+            primary = self.occurrences.filter(is_primary=True).first()
+            if primary:
+                primary.start_at = self.date
+                primary.save(update_fields=['start_at', 'updated_at'])
+                return
+
+            matching = self.occurrences.filter(start_at=old_date).order_by('id').first()
+            if matching:
+                self.occurrences.exclude(id=matching.id).filter(is_primary=True).update(is_primary=False)
+                matching.start_at = self.date
+                matching.is_primary = True
+                matching.save(update_fields=['start_at', 'is_primary', 'updated_at'])
+                return
+
+            SessionOccurrence.objects.create(
+                session=self,
+                start_at=self.date,
+                is_primary=True,
+            )
     
     @property
     def youtube_total_duration(self):
@@ -130,6 +175,57 @@ class TRPGSession(models.Model):
     
     class Meta:
         ordering = ['-date']
+
+
+class SessionOccurrence(models.Model):
+    """A scheduled occurrence of a session (allows multiple dates per TRPGSession)."""
+
+    session = models.ForeignKey(
+        TRPGSession,
+        on_delete=models.CASCADE,
+        related_name='occurrences',
+    )
+    start_at = models.DateTimeField(db_index=True)
+    content = models.TextField(blank=True, default='')
+    is_primary = models.BooleanField(default=False, db_index=True)
+
+    participants = models.ManyToManyField(
+        CustomUser,
+        through='SessionOccurrenceParticipant',
+        related_name='session_occurrences',
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['start_at', 'id']
+        indexes = [
+            models.Index(fields=['session', 'start_at']),
+            models.Index(fields=['session', 'is_primary']),
+        ]
+
+    def __str__(self):
+        return f"{self.session.title} @ {self.start_at.strftime('%Y-%m-%d %H:%M')}"
+
+
+class SessionOccurrenceParticipant(models.Model):
+    occurrence = models.ForeignKey(SessionOccurrence, on_delete=models.CASCADE)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = [
+            ['occurrence', 'user'],
+        ]
+        indexes = [
+            models.Index(fields=['occurrence', 'user']),
+            models.Index(fields=['user', 'occurrence']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.nickname or self.user.username} in {self.occurrence}"
 
 
 class SessionParticipant(models.Model):

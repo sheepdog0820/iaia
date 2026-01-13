@@ -75,8 +75,53 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6">
-                            <h6><i class="fas fa-calendar"></i> 開催日時</h6>
-                            <p class="mb-3">{{ session.date|date:"Y年m月d日 H:i" }}</p>
+                            <h6><i class="fas fa-calendar"></i> 開催日程</h6>
+                            {% if occurrences %}
+                                <div class="mb-3" id="occurrencesList">
+                                    {% for occ in occurrences %}
+                                        <div class="border rounded p-2 mb-2" style="background-color: var(--secondary-bg);">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <span class="fw-semibold">{{ occ.start_at|date:"Y年m月d日 H:i" }}</span>
+                                                    {% if occ.is_primary %}
+                                                        <span class="badge bg-secondary ms-2">代表</span>
+                                                    {% endif %}
+                                                </div>
+                                                {% if can_edit and not is_public_view %}
+                                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="openOccurrenceModal({{ occ.id }})">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                {% endif %}
+                                            </div>
+                                            <div class="mt-1 small">
+                                                <span class="text-muted">参加者:</span>
+                                                {% if occ.participants.all %}
+                                                    {% for attendee in occ.participants.all %}
+                                                        <span class="badge bg-dark me-1">{{ attendee.nickname|default:attendee.username }}</span>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <span class="text-muted">未設定</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="mt-1 small">
+                                                <span class="text-muted">内容:</span>
+                                                {% if occ.content %}
+                                                    {{ occ.content|linebreaksbr }}
+                                                {% else %}
+                                                    <span class="text-muted">なし</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="mb-3">{{ session.date|date:"Y年m月d日 H:i" }}</p>
+                            {% endif %}
+                            {% if can_edit and not is_public_view %}
+                                <button type="button" class="btn btn-sm btn-outline-success mb-3" onclick="openOccurrenceModal(null)">
+                                    <i class="fas fa-plus"></i> 日程を追加
+                                </button>
+                            {% endif %}
 
                             <h6><i class="fas fa-map-marker-alt"></i> 場所</h6>
                             <p class="mb-3">{{ session.location|default:"未設定" }}</p>
@@ -633,6 +678,45 @@
 </div>
 {% endif %}
 
+{% if can_edit and not is_public_view %}
+<div class="modal fade" id="occurrenceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">日程</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="occurrenceId">
+
+                <div class="mb-3">
+                    <label for="occurrenceStartAt" class="form-label">日時</label>
+                    <input type="datetime-local" class="form-control" id="occurrenceStartAt" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">参加者</label>
+                    <div id="occurrenceParticipants" class="border rounded p-2" style="min-height: 80px;">
+                        <span class="text-muted small">読み込み中...</span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="occurrenceContent" class="form-label">内容（任意）</label>
+                    <textarea class="form-control" id="occurrenceContent" rows="4" placeholder="内容は空でも登録できます"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="saveOccurrence()">
+                    <i class="fas fa-save"></i> 保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- 参加申請モーダル -->
 {% if can_join %}
 <div class="modal fade" id="joinSessionModal" tabindex="-1">
@@ -1147,6 +1231,7 @@ const characterSheetMap = new Map();
 let groupMemberCharacters = new Map();
 let groupMemberNames = new Map();
 const SESSION_ID = {{ session.id }};
+const GROUP_ID = {{ session.group.id }};
 const IS_GM = {% if is_gm %}true{% else %}false{% endif %};
 const IS_PUBLIC_VIEW = {% if is_public_view %}true{% else %}false{% endif %};
 const PUBLIC_SESSION_URL = "{{ public_session_url|escapejs }}";
@@ -1187,6 +1272,135 @@ async function copyUrl(url, label = 'リンク') {
 }
 
 window.copyUrl = copyUrl;
+
+let occurrenceGroupMembersLoaded = false;
+let occurrenceGroupMembers = [];
+
+function toDateTimeLocalValue(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const pad = (num) => String(num).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+        `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+async function ensureOccurrenceGroupMembers() {
+    if (occurrenceGroupMembersLoaded) return;
+    if (IS_PUBLIC_VIEW) return;
+
+    const container = document.getElementById('occurrenceParticipants');
+    if (container) {
+        container.innerHTML = '<span class="text-muted small">読み込み中...</span>';
+    }
+
+    try {
+        const response = await axios.get(`/api/accounts/groups/${GROUP_ID}/members/`);
+        occurrenceGroupMembers = response.data || [];
+        occurrenceGroupMembersLoaded = true;
+    } catch (error) {
+        console.error('Failed to load group members:', error);
+        if (container) {
+            container.innerHTML = '<span class="text-muted small">参加者の取得に失敗しました</span>';
+        }
+    }
+}
+
+function renderOccurrenceParticipants(selectedIds) {
+    const container = document.getElementById('occurrenceParticipants');
+    if (!container) return;
+
+    const selected = new Set((selectedIds || []).map(id => parseInt(id, 10)));
+    const html = occurrenceGroupMembers.map(member => {
+        const userId = parseInt(member.user, 10);
+        const name = member.user_detail?.nickname || member.user_detail?.username || String(userId);
+        const checked = selected.has(userId) ? 'checked' : '';
+        return `
+            <label class="d-flex align-items-center gap-2 mb-1">
+                <input type="checkbox" class="form-check-input" value="${userId}" ${checked}>
+                <span>${name}</span>
+            </label>
+        `;
+    }).join('');
+
+    container.innerHTML = html || '<span class="text-muted small">参加可能なメンバーがいません</span>';
+}
+
+async function openOccurrenceModal(occurrenceId) {
+    if (IS_PUBLIC_VIEW || !IS_GM) return;
+
+    const modalEl = document.getElementById('occurrenceModal');
+    if (!modalEl) return;
+
+    const idInput = document.getElementById('occurrenceId');
+    const startInput = document.getElementById('occurrenceStartAt');
+    const contentInput = document.getElementById('occurrenceContent');
+
+    if (!idInput || !startInput || !contentInput) return;
+
+    idInput.value = occurrenceId ? String(occurrenceId) : '';
+    contentInput.value = '';
+
+    await ensureOccurrenceGroupMembers();
+
+    let selectedParticipants = [];
+    if (occurrenceId) {
+        try {
+            const response = await axios.get(`/api/schedules/occurrences/${encodeURIComponent(occurrenceId)}/`);
+            const occurrence = response.data;
+            startInput.value = toDateTimeLocalValue(occurrence.start_at);
+            contentInput.value = occurrence.content || '';
+            selectedParticipants = occurrence.participants || [];
+        } catch (error) {
+            alert('日程の取得に失敗しました: ' + (error.response?.data?.detail || error.message));
+            return;
+        }
+    } else {
+        startInput.value = toDateTimeLocalValue(new Date());
+    }
+
+    renderOccurrenceParticipants(selectedParticipants);
+
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+}
+
+window.openOccurrenceModal = openOccurrenceModal;
+
+async function saveOccurrence() {
+    if (IS_PUBLIC_VIEW || !IS_GM) return;
+
+    const id = document.getElementById('occurrenceId')?.value?.trim();
+    const startAt = document.getElementById('occurrenceStartAt')?.value;
+    const content = document.getElementById('occurrenceContent')?.value || '';
+    const participantIds = Array.from(document.querySelectorAll('#occurrenceParticipants input[type=\"checkbox\"]:checked'))
+        .map(input => parseInt(input.value, 10))
+        .filter(idValue => Number.isFinite(idValue));
+
+    if (!startAt) {
+        alert('日時を入力してください');
+        return;
+    }
+
+    const payload = {
+        session: SESSION_ID,
+        start_at: startAt,
+        content,
+        participants: participantIds,
+    };
+
+    try {
+        if (id) {
+            await axios.patch(`/api/schedules/occurrences/${encodeURIComponent(id)}/`, payload);
+        } else {
+            await axios.post('/api/schedules/occurrences/', payload);
+        }
+        location.reload();
+    } catch (error) {
+        alert('日程の保存に失敗しました: ' + (error.response?.data?.detail || error.message));
+    }
+}
+
+window.saveOccurrence = saveOccurrence;
 
 function setupCopyPublicSessionLinkButton() {
     const button = document.getElementById('copyPublicSessionLinkBtn');
