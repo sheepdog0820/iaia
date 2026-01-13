@@ -39,6 +39,15 @@ class Command(BaseCommand):
         scenario_title = '【FLOWTEST】推奨技能ありシナリオ'
         session_title = '【FLOWTEST】シナリオ起点セッション'
 
+        usernames = [f'{prefix}gm'] + [f'{prefix}pl{i}' for i in range(1, 5)]
+        if options.get('reset'):
+            self._reset_data(
+                group_name=group_name,
+                scenario_title=scenario_title,
+                session_title=session_title,
+                usernames=usernames,
+            )
+
         gm = self._get_or_create_user(
             username=f'{prefix}gm',
             nickname='フローテストGM',
@@ -53,14 +62,6 @@ class Command(BaseCommand):
             )
             for i in range(1, 5)
         ]
-
-        if options.get('reset'):
-            self._reset_data(
-                group_name=group_name,
-                scenario_title=scenario_title,
-                session_title=session_title,
-                usernames=[gm.username] + [u.username for u in players],
-            )
 
         group = self._get_or_create_group(group_name, created_by=gm, members=[gm, *players])
 
