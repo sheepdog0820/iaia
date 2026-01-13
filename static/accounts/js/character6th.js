@@ -1874,7 +1874,6 @@ function updateGlobalDiceFormula() {
         resetSkillAllocations();
     };
     document.getElementById('resetSkillPoints')?.addEventListener('click', confirmAndResetSkills);
-    document.getElementById('footerResetSkills')?.addEventListener('click', confirmAndResetSkills);
 
     // 職業テンプレートデータ
     

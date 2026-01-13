@@ -328,18 +328,6 @@ body.character-create-page.footer-collapsed {
     border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.character-footer .footer-details {
-    transition: opacity 0.2s ease;
-}
-
-.character-footer.is-collapsed .footer-details {
-    display: none;
-}
-
-.character-footer .footer-toggle i {
-    transition: transform 0.2s ease;
-}
-
 @media (max-width: 768px) {
     body.character-create-page {
         padding-bottom: 120px;
@@ -514,9 +502,9 @@ label[for="character-name"]::after {
 }
 
 .skills-tab .skills-point-actions {
-    flex: 0 0 auto;
     display: flex;
-    align-items: flex-end;
+    justify-content: flex-end;
+    align-items: center;
     gap: 0.5rem;
 }
 
@@ -1081,10 +1069,6 @@ hr {
     .character-footer {
         padding-top: 0.25rem !important;
         padding-bottom: 0.25rem !important;
-    }
-
-    .character-footer .footer-details .row {
-        margin-top: 0.25rem !important;
     }
 
     .character-footer .btn-sm {

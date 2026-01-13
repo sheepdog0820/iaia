@@ -460,74 +460,80 @@
                                  </div>
                              </div>
 
-                             <div class="skills-point-actions">
-                                 <button type="button" class="btn btn-outline-danger btn-sm" id="resetSkillPoints">
-                                     <i class="fas fa-undo"></i> 技能リセット
-                                 </button>
-                             </div>
+                         </div>
+                         <div class="skills-point-actions mb-3">
+                             <button type="button" class="btn btn-outline-danger btn-sm" id="resetSkillPoints">
+                                 <i class="fas fa-undo"></i> 技能リセット
+                             </button>
                          </div>
                          
                          <!-- 技能タブとコンテンツ -->
                          <div id="skillsContainer">
-                             <div class="border rounded p-2 bg-light mb-2 occupation-skills-control" id="occupationSkillsControl">
-                                 <div class="row g-2 align-items-end">
-                                     <div class="col-md-6">
-                                         <label for="occupationSkillInput" class="form-label small">職業技能を追加</label>
-                                         <div class="input-group input-group-sm">
+                             <div class="row g-2 mb-2">
+                                 <div class="col-lg-6">
+                                     <div class="skills-control-panel bg-light p-2 rounded occupation-skills-control" id="occupationSkillsControl">
+                                         <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                                             <h6 class="mb-0 text-success d-flex align-items-center gap-1">
+                                                 <i class="fas fa-briefcase"></i>
+                                                 <span>職業技能を追加</span>
+                                             </h6>
+                                             <button type="button" class="btn btn-outline-danger btn-sm" id="clearOccupationSkills">
+                                                 <i class="fas fa-eraser"></i> クリア
+                                             </button>
+                                         </div>
+ 
+                                         <label for="occupationSkillInput" class="visually-hidden">職業技能を追加</label>
+                                         <div class="input-group input-group-sm mt-2">
                                              <input type="text" class="form-control" id="occupationSkillInput" list="occupationSkillOptions" placeholder="例: 目星 / spot_hidden">
                                              <button class="btn btn-outline-primary" type="button" id="addOccupationSkill">
                                                  <i class="fas fa-plus"></i> 追加
                                              </button>
                                          </div>
                                          <datalist id="occupationSkillOptions"></datalist>
-                                     </div>
-                                     <div class="col-md-6">
-                                         <label class="form-label small">セット操作</label>
-                                         <div class="d-flex flex-wrap gap-1">
-                                             <button type="button" class="btn btn-outline-danger btn-sm" id="clearOccupationSkills">
-                                                 <i class="fas fa-eraser"></i> クリア
-                                             </button>
-                                         </div>
+ 
                                          <small class="text-muted d-block mt-1" id="occupationSkillsHint">職業テンプレートを選択すると自動で職業技能が追加されます。</small>
-                                     </div>
-                                 </div>
-                                 <div class="mt-1" id="occupationSkillsChips">
-                                     <span class="text-muted">職業技能はまだ設定されていません。</span>
-                                 </div>
-                             </div>
-                             <div class="border rounded p-2 bg-light mb-2 recommended-skills-control" id="recommendedSkillsControl">
-                                 <div class="row g-2 align-items-end">
-                                     <div class="col-md-6">
-                                         <label for="recommendedSkillInput" class="form-label small">推奨技能を追加</label>
-                                         <div class="input-group input-group-sm">
-                                             <input type="text" class="form-control" id="recommendedSkillInput" list="recommendedSkillOptions" placeholder="例: 目星 / spot_hidden">
-                                            <button class="btn btn-outline-primary" type="button" id="addRecommendedSkill">
-                                                <i class="fas fa-plus"></i> 追加
-                                            </button>
-                                        </div>
-                                        <datalist id="recommendedSkillOptions"></datalist>
-                                     </div>
-                                     <div class="col-md-6">
-                                         <label class="form-label small">セット操作</label>
-                                         <div class="d-flex flex-wrap gap-1">
-                                             <button type="button" class="btn btn-outline-primary btn-sm" id="selectScenarioRecommended">
-                                                 <i class="fas fa-list"></i> シナリオ選択
-                                             </button>
-                                             <button type="button" class="btn btn-outline-secondary btn-sm" id="loadScenarioRecommended">
-                                                 <i class="fas fa-book"></i> シナリオ反映
-                                             </button>
-                                             <button type="button" class="btn btn-outline-danger btn-sm" id="clearRecommendedSkills">
-                                                <i class="fas fa-eraser"></i> クリア
-                                            </button>
+                                         <div class="mt-2" id="occupationSkillsChips">
+                                             <span class="text-muted">職業技能はまだ設定されていません。</span>
                                          </div>
+                                     </div>
+                                 </div>
+                                 <div class="col-lg-6">
+                                     <div class="skills-control-panel bg-light p-2 rounded recommended-skills-control" id="recommendedSkillsControl">
+                                         <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                                             <h6 class="mb-0 text-primary d-flex align-items-center gap-1">
+                                                 <i class="fas fa-star"></i>
+                                                 <span>推奨技能を追加</span>
+                                             </h6>
+                                             <div class="d-flex flex-wrap gap-1 justify-content-end">
+                                                 <button type="button" class="btn btn-outline-primary btn-sm" id="selectScenarioRecommended">
+                                                     <i class="fas fa-list"></i> シナリオ選択
+                                                 </button>
+                                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="loadScenarioRecommended">
+                                                     <i class="fas fa-book"></i> シナリオ反映
+                                                 </button>
+                                                 <button type="button" class="btn btn-outline-danger btn-sm" id="clearRecommendedSkills">
+                                                     <i class="fas fa-eraser"></i> クリア
+                                                 </button>
+                                             </div>
+                                         </div>
+ 
+                                         <label for="recommendedSkillInput" class="visually-hidden">推奨技能を追加</label>
+                                         <div class="input-group input-group-sm mt-2">
+                                             <input type="text" class="form-control" id="recommendedSkillInput" list="recommendedSkillOptions" placeholder="例: 目星 / spot_hidden">
+                                             <button class="btn btn-outline-primary" type="button" id="addRecommendedSkill">
+                                                 <i class="fas fa-plus"></i> 追加
+                                             </button>
+                                         </div>
+                                         <datalist id="recommendedSkillOptions"></datalist>
+ 
                                          <small class="text-muted d-block mt-1" id="scenarioRecommendedHint"></small>
                                          <button type="button" class="btn btn-link btn-sm p-0 mt-1 d-none" id="retryScenarioRecommended">
                                              <i class="fas fa-rotate-right"></i> 再試行
                                          </button>
+                                         <div class="mt-2" id="recommendedSkillsChips">
+                                             <span class="text-muted">推奨技能はまだ設定されていません。</span>
+                                         </div>
                                      </div>
-                                 </div>
-                                 <div class="mt-1" id="recommendedSkillsChips">
-                                     <span class="text-muted">推奨技能はまだ設定されていません。</span>
                                  </div>
                              </div>
 
@@ -856,7 +862,7 @@
 <!-- 固定フッター -->
 <div class="character-footer fixed-bottom bg-dark text-light py-2" id="characterFooter">
     <div class="container">
-        <div class="footer-summary d-flex flex-wrap align-items-center gap-2">
+        <div class="footer-bar d-flex flex-wrap flex-md-nowrap align-items-center justify-content-between gap-2">
             <div class="footer-points d-flex flex-wrap align-items-center gap-3">
                 <div class="d-flex align-items-center">
                     <span class="me-2 small">職業技能</span>
@@ -871,25 +877,14 @@
                     <span class="badge bg-info ms-1" id="interestTotalFooter">0</span>
                 </div>
             </div>
-        </div>
 
-        <div class="footer-details">
-            <div class="row align-items-center mt-2">
-                <div class="col-md-4">
-                    <div class="d-flex flex-wrap gap-2">
-                        <button type="button" class="btn btn-outline-danger btn-sm" id="footerResetSkills">
-                            <i class="fas fa-undo"></i> 技能リセット
-                        </button>
-                    </div>
-                </div>
-                <div class="col-md-8 text-md-end mt-2 mt-md-0">
-                    <button type="button" class="btn btn-outline-primary btn-sm me-2" id="footerCreateVersion" style="display: none;">
-                        <i class="fas fa-code-branch"></i> 新バージョン
-                    </button>
-                    <button type="button" class="btn btn-success btn-sm" id="footerSaveCharacter">
-                        <i class="fas fa-save"></i> 探索者保存
-                    </button>
-                </div>
+            <div class="footer-actions d-flex flex-wrap align-items-center justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="footerCreateVersion" style="display: none;">
+                    <i class="fas fa-code-branch"></i> 新バージョン
+                </button>
+                <button type="button" class="btn btn-success btn-sm" id="footerSaveCharacter">
+                    <i class="fas fa-save"></i> 探索者保存
+                </button>
             </div>
         </div>
     </div>
