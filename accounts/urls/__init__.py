@@ -44,6 +44,9 @@ urlpatterns = [
     path('character/create/6th/', 
          views.Character6thCreateView.as_view(), 
          name='character_create_6th'),
+    path('character/create/7th/',
+         views.Character7thCreateView.as_view(),
+         name='character_create_7th'),
     
     # Character Sheet Web Views
     path('character/list/', views.CharacterListView.as_view(), name='character_list'),

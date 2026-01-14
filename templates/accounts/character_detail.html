@@ -388,7 +388,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.title = `${character.name} - キャラクターシート詳細 - タブレノ`;
         
         // 編集ボタン（キャラクター作成画面にパラメータ付きで遷移）
-        document.getElementById('editButton').href = `/accounts/character/create/6th/?id=${character.id}`;
+        const editEdition = character.edition === '7th' ? '7th' : '6th';
+        document.getElementById('editButton').href = `/accounts/character/create/${editEdition}/?id=${character.id}`;
 
         // 新しいバージョン作成ボタンは6版のみ表示（押すと新バージョンを作って編集へ）
         const createVersionBtn = document.getElementById('createVersionAndEditButton');

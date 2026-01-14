@@ -23,7 +23,11 @@ try:
     from selenium.webdriver.support.ui import WebDriverWait, Select
     from selenium.webdriver.support import expected_conditions as EC
     from selenium.webdriver.common.keys import Keys
-    from selenium.common.exceptions import TimeoutException, NoSuchElementException
+    from selenium.common.exceptions import (
+        TimeoutException,
+        NoSuchElementException,
+        ElementNotInteractableException,
+    )
     SELENIUM_AVAILABLE = True
 except ImportError:
     SELENIUM_AVAILABLE = False
@@ -407,17 +411,52 @@ class Character6thJavaScriptTest(StaticLiveServerTestCase):
     def login(self):
         """Helper method to log in"""
         self.selenium.get(f'{self.live_server_url}/accounts/login/')
+
+        # Ensure the email login form is expanded and stable (Bootstrap collapse can be mid-transition)
+        WebDriverWait(self.selenium, 10).until(
+            lambda d: 'show' in (d.find_element(By.ID, 'emailLoginCollapse').get_attribute('class') or '')
+        )
+
         username_input = WebDriverWait(self.selenium, 10).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, '#email-login-form [name=\"username\"]'))
+            EC.presence_of_element_located((By.CSS_SELECTOR, '#email-login-form [name=\"username\"]'))
         )
         password_input = WebDriverWait(self.selenium, 10).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, '#email-login-form [name=\"password\"]'))
+            EC.presence_of_element_located((By.CSS_SELECTOR, '#email-login-form [name=\"password\"]'))
         )
-        username_input.clear()
-        password_input.clear()
-        username_input.send_keys('testuser')
-        password_input.send_keys('testpass123')
-        password_input.send_keys(Keys.RETURN)
+
+        self.selenium.execute_script("arguments[0].scrollIntoView({block: 'center'});", username_input)
+        self.selenium.execute_script("arguments[0].scrollIntoView({block: 'center'});", password_input)
+
+        try:
+            username_input.clear()
+            password_input.clear()
+            username_input.send_keys('testuser')
+            password_input.send_keys('testpass123')
+        except ElementNotInteractableException:
+            # Some environments (headless/animated collapse) intermittently report inputs as non-interactable.
+            self.selenium.execute_script(
+                "arguments[0].value = arguments[1];"
+                "arguments[0].dispatchEvent(new Event('input'));"
+                "arguments[0].dispatchEvent(new Event('change'));",
+                username_input,
+                'testuser',
+            )
+            self.selenium.execute_script(
+                "arguments[0].value = arguments[1];"
+                "arguments[0].dispatchEvent(new Event('input'));"
+                "arguments[0].dispatchEvent(new Event('change'));",
+                password_input,
+                'testpass123',
+            )
+
+        # Submit login (prefer click/submit over Keys.RETURN for robustness)
+        try:
+            submit_button = WebDriverWait(self.selenium, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, '#email-login-form button[type=\"submit\"]'))
+            )
+            self.selenium.execute_script("arguments[0].click();", submit_button)
+        except (TimeoutException, ElementNotInteractableException):
+            self.selenium.execute_script("document.getElementById('email-login-form').submit();")
         
         # Wait for dashboard redirect; skip if login fails in this environment
         try:

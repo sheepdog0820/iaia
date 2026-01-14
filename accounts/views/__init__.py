@@ -18,7 +18,7 @@ from .group_views import GroupViewSet, GroupInvitationViewSet
 from .character_views import (
     CharacterSheetViewSet, CharacterSkillViewSet, CharacterEquipmentViewSet,
     CharacterListView, CharacterDetailView, CharacterDetailRedirectView, Character6thDetailView,
-    CharacterEditView, Character6thCreateView
+    CharacterEditView, Character6thCreateView, Character7thCreateView
 )
 from .dice_roll_setting_views import DiceRollSettingViewSet
 
@@ -31,6 +31,6 @@ __all__ = [
     'GroupViewSet', 'GroupInvitationViewSet',
     'CharacterSheetViewSet', 'CharacterSkillViewSet', 'CharacterEquipmentViewSet',
     'CharacterListView', 'CharacterDetailView', 'CharacterDetailRedirectView', 'Character6thDetailView',
-    'CharacterEditView', 'Character6thCreateView',
+    'CharacterEditView', 'Character6thCreateView', 'Character7thCreateView',
     'DiceRollSettingViewSet'
 ]

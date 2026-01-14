@@ -81,9 +81,10 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
     def by_edition(self, request):
         """Get character sheets by edition"""
         edition = request.query_params.get('edition')
-        if not edition or edition not in ['6th']:
+        supported_editions = {'6th', '7th'}
+        if not edition or edition not in supported_editions:
             return Response(
-                {'error': 'edition parameter is required (6th)'}, 
+                {'error': 'edition parameter is required (6th or 7th)'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -1050,20 +1051,20 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             for equipment in equipment_data:
                 if not isinstance(equipment, dict) or 'name' not in equipment:
                     continue
-                    CharacterEquipment.objects.create(
-                        character_sheet=character_sheet,
-                        item_type=equipment.get('item_type', 'item'),
-                        name=equipment['name'],
-                        skill_name=equipment.get('skill_name', ''),
-                        damage=equipment.get('damage', ''),
-                        base_range=equipment.get('base_range', ''),
-                        attacks_per_round=equipment.get('attacks_per_round'),
-                        ammo=equipment.get('ammo'),
-                        malfunction_number=equipment.get('malfunction_number'),
-                        armor_points=equipment.get('armor_points'),
-                        description=equipment.get('description', ''),
-                        quantity=equipment.get('quantity', 1)
-                    )
+                CharacterEquipment.objects.create(
+                    character_sheet=character_sheet,
+                    item_type=equipment.get('item_type', 'item'),
+                    name=equipment['name'],
+                    skill_name=equipment.get('skill_name', ''),
+                    damage=equipment.get('damage', ''),
+                    base_range=equipment.get('base_range', ''),
+                    attacks_per_round=equipment.get('attacks_per_round'),
+                    ammo=equipment.get('ammo'),
+                    malfunction_number=equipment.get('malfunction_number'),
+                    armor_points=equipment.get('armor_points'),
+                    description=equipment.get('description', ''),
+                    quantity=equipment.get('quantity', 1)
+                )
             
             # Handle multiple character images
             image_files = []
@@ -1095,6 +1096,244 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @action(detail=False, methods=['post'])
+    def create_7th_edition(self, request):
+        """7th edition character creation endpoint (Cthulhu Mythos TRPG exclusive)"""
+
+        def parse_int(value, field_name, *, min_value=None, max_value=None, default=None):
+            if value is None or value == "":
+                if default is not None:
+                    return default
+                raise ValueError(f'{field_name} is required')
+
+            try:
+                int_value = int(value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f'{field_name} must be an integer') from exc
+
+            if min_value is not None and int_value < min_value:
+                raise ValueError(f'{field_name} must be between {min_value} and {max_value}')
+            if max_value is not None and int_value > max_value:
+                raise ValueError(f'{field_name} must be between {min_value} and {max_value}')
+
+            return int_value
+
+        def parse_json_list(value, field_name):
+            if value is None or value == "":
+                return []
+            if isinstance(value, list):
+                return value
+            if not isinstance(value, str):
+                raise ValueError(f'{field_name} must be valid JSON')
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f'{field_name} must be valid JSON') from exc
+            if not isinstance(parsed, list):
+                raise ValueError(f'{field_name} must be a JSON array')
+            return parsed
+
+        required_fields = [
+            'name',
+            'str_value',
+            'con_value',
+            'pow_value',
+            'dex_value',
+            'app_value',
+            'siz_value',
+            'int_value',
+            'edu_value',
+        ]
+
+        for field in required_fields:
+            if field not in request.data:
+                return Response(
+                    {'error': f'{field} is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        ability_fields = [
+            'str_value',
+            'con_value',
+            'pow_value',
+            'dex_value',
+            'app_value',
+            'siz_value',
+            'int_value',
+            'edu_value',
+        ]
+        parsed_abilities = {}
+        for field in ability_fields:
+            try:
+                parsed_abilities[field] = parse_int(
+                    request.data.get(field),
+                    field,
+                    min_value=1,
+                    max_value=999
+                )
+            except ValueError as exc:
+                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            recommended_skills = parse_json_list(request.data.get('recommended_skills', []), 'recommended_skills')
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            occupation_skills = parse_json_list(request.data.get('occupation_skills', []), 'occupation_skills')
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        scenario_id_raw = request.data.get('scenario_id')
+        scenario_title = (request.data.get('scenario_title') or '').strip()
+        scenario_game_system = (request.data.get('game_system') or '').strip()
+        scenario_obj = None
+        if scenario_id_raw not in (None, ''):
+            try:
+                scenario_id = int(scenario_id_raw)
+            except (TypeError, ValueError):
+                return Response({'error': 'scenario_id must be an integer'}, status=status.HTTP_400_BAD_REQUEST)
+            if scenario_id <= 0:
+                return Response({'error': 'scenario_id must be a positive integer'}, status=status.HTTP_400_BAD_REQUEST)
+            from scenarios.models import Scenario
+            scenario_obj = Scenario.objects.filter(id=scenario_id).first()
+
+        try:
+            character_data = {
+                'user': request.user,
+                'edition': '7th',
+                'name': request.data['name'],
+                'player_name': request.data.get('player_name', request.user.nickname or request.user.username),
+                'age': parse_int(
+                    request.data.get('age'),
+                    'age',
+                    min_value=15,
+                    max_value=999,
+                    default=25
+                ),
+                'gender': request.data.get('gender', ''),
+                'occupation': request.data.get('occupation', ''),
+                'birthplace': request.data.get('birthplace', ''),
+                'residence': request.data.get('residence', ''),
+                'recommended_skills': recommended_skills,
+                'occupation_skills': occupation_skills,
+                'str_value': parsed_abilities['str_value'],
+                'con_value': parsed_abilities['con_value'],
+                'pow_value': parsed_abilities['pow_value'],
+                'dex_value': parsed_abilities['dex_value'],
+                'app_value': parsed_abilities['app_value'],
+                'siz_value': parsed_abilities['siz_value'],
+                'int_value': parsed_abilities['int_value'],
+                'edu_value': parsed_abilities['edu_value'],
+                'notes': request.data.get('notes', ''),
+                'is_active': True
+            }
+            if scenario_obj:
+                character_data['source_scenario'] = scenario_obj
+                character_data['source_scenario_title'] = scenario_obj.title
+                character_data['source_scenario_game_system'] = scenario_obj.game_system
+            else:
+                if scenario_title:
+                    character_data['source_scenario_title'] = scenario_title
+                if scenario_game_system:
+                    character_data['source_scenario_game_system'] = scenario_game_system
+
+            if 'character_image' in request.FILES:
+                character_data['character_image'] = request.FILES['character_image']
+
+            character_sheet = CharacterSheet(**character_data)
+
+            stats = character_sheet.calculate_derived_stats()
+
+            character_sheet.hit_points_max = stats['hit_points_max']
+            character_sheet.hit_points_current = stats['hit_points_max']
+            character_sheet.magic_points_max = stats['magic_points_max']
+            character_sheet.magic_points_current = stats['magic_points_max']
+            character_sheet.sanity_starting = stats['sanity_starting']
+            character_sheet.sanity_current = stats['sanity_starting']
+            character_sheet.sanity_max = stats['sanity_max']
+
+            character_sheet.save()
+
+            try:
+                skills_data = parse_json_list(request.data.get('skills', []), 'skills')
+            except ValueError as exc:
+                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+            for skill_data in skills_data:
+                if not isinstance(skill_data, dict) or 'skill_name' not in skill_data:
+                    continue
+
+                base_value = parse_int(skill_data.get('base_value', 0), 'base_value', min_value=0, max_value=999, default=0)
+                occupation_points = parse_int(skill_data.get('occupation_points', 0), 'occupation_points', min_value=0, max_value=999, default=0)
+                interest_points = parse_int(skill_data.get('interest_points', 0), 'interest_points', min_value=0, max_value=999, default=0)
+                other_points = parse_int(skill_data.get('other_points', 0), 'other_points', min_value=0, max_value=999, default=0)
+                current_value = parse_int(
+                    skill_data.get('current_value', base_value + occupation_points + interest_points + other_points),
+                    'current_value',
+                    min_value=0,
+                    max_value=999,
+                    default=base_value + occupation_points + interest_points + other_points,
+                )
+
+                CharacterSkill.objects.create(
+                    character_sheet=character_sheet,
+                    skill_name=skill_data['skill_name'],
+                    base_value=base_value,
+                    occupation_points=occupation_points,
+                    interest_points=interest_points,
+                    other_points=other_points,
+                    current_value=current_value
+                )
+
+            try:
+                equipment_data = parse_json_list(request.data.get('equipment', []), 'equipment')
+            except ValueError as exc:
+                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+            for equipment in equipment_data:
+                if not isinstance(equipment, dict) or 'name' not in equipment:
+                    continue
+                CharacterEquipment.objects.create(
+                    character_sheet=character_sheet,
+                    item_type=equipment.get('item_type', 'item'),
+                    name=equipment['name'],
+                    skill_name=equipment.get('skill_name', ''),
+                    damage=equipment.get('damage', ''),
+                    base_range=equipment.get('base_range', ''),
+                    attacks_per_round=equipment.get('attacks_per_round'),
+                    ammo=equipment.get('ammo'),
+                    malfunction_number=equipment.get('malfunction_number'),
+                    armor_points=equipment.get('armor_points'),
+                    description=equipment.get('description', ''),
+                    quantity=equipment.get('quantity', 1)
+                )
+
+            image_files = []
+            if 'character_image' in request.FILES:
+                image_files.append(request.FILES['character_image'])
+
+            if 'character_images' in request.FILES:
+                for image in request.FILES.getlist('character_images'):
+                    image_files.append(image)
+
+            for index, image_file in enumerate(image_files):
+                CharacterImage.objects.create(
+                    character_sheet=character_sheet,
+                    image=image_file,
+                    is_main=(index == 0),
+                    order=index
+                )
+
+            response_serializer = CharacterSheetSerializer(character_sheet)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response(
+                {'error': f'Character sheet creation failed: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
     def _get_or_create_skill_with_retry(self, sheet, skill_name, base_value, skip_point_validation):
         """SQLiteのロックに備えて技能の作成をリトライする。"""
         max_attempts = 5
@@ -2091,7 +2330,7 @@ class CharacterListView(TemplateView):
         ).prefetch_related('skills', 'equipment').order_by('-updated_at')
         
         # Apply filters
-        if edition in ['6th']:
+        if edition in ['6th', '7th']:
             queryset = queryset.filter(edition=edition)
         
         if is_active == 'active':
@@ -2337,6 +2576,13 @@ class Character6thCreateView(FormView):
                 '探索者の作成に失敗しました。入力内容を確認してください。'
             )
         return super().form_invalid(form)
+
+
+@method_decorator(login_required, name='dispatch')
+class Character7thCreateView(TemplateView):
+    """Cthulhu Mythos TRPG 7th edition character creation view"""
+
+    template_name = 'accounts/character_7th_create.html'
 
 
 class GrowthRecordViewSet(CharacterNestedResourceMixin, viewsets.ModelViewSet):

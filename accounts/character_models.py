@@ -1,6 +1,6 @@
 """
 キャラクターシート関連モデル
-クトゥルフ神話TRPG 6版専用のモデル定義
+クトゥルフ神話TRPG 6版・7版のモデル定義
 """
 from django.db import models
 from django.utils import timezone
@@ -14,7 +14,7 @@ class CharacterSheetManager(models.Manager):
     def bulk_create(self, objs, **kwargs):
         for obj in objs:
             edition = getattr(obj, 'edition', None)
-            if edition not in {'6th'}:
+            if edition not in {'6th', '7th'}:
                 obj.edition = '6th'
 
             stats = obj.calculate_derived_stats()
@@ -44,6 +44,7 @@ class CharacterSheet(models.Model):
     """
     EDITION_CHOICES = [
         ('6th', '6版'),
+        ('7th', '7版'),
     ]
     
     STATUS_CHOICES = [
@@ -318,7 +319,7 @@ class CharacterSheet(models.Model):
         """保存時に派生ステータスを自動計算"""
         from django.core.exceptions import ValidationError
 
-        if self.edition not in {'6th'}:
+        if self.edition not in {'6th', '7th'}:
             self.edition = '6th'
         
         # 推奨技能を正規化

@@ -71,7 +71,7 @@ class CharacterSheetModelTestCase(TestCase):
         self.assertEqual(character.magic_points_max, expected_mp)
     
     def test_character_sheet_creation_7th(self):
-        """未対応の版は6版へ正規化される"""
+        """7版キャラクターシート作成テスト"""
         character = CharacterSheet.objects.create(
             user=self.user1,
             edition='7th',
@@ -88,9 +88,22 @@ class CharacterSheetModelTestCase(TestCase):
             edu_value=90
         )
         
-        self.assertEqual(character.edition, '6th')
+        self.assertEqual(character.edition, '7th')
         self.assertEqual(character.name, 'テスト探索者7版')
         self.assertEqual(character.version, 1)
+        self.assertIsNone(character.parent_sheet)
+        self.assertTrue(character.is_active)
+
+        expected_hp = (character.con_value + character.siz_value) // 10
+        expected_mp = character.pow_value // 5
+        expected_san = character.pow_value
+        self.assertEqual(character.hit_points_max, expected_hp)
+        self.assertEqual(character.hit_points_current, expected_hp)
+        self.assertEqual(character.magic_points_max, expected_mp)
+        self.assertEqual(character.magic_points_current, expected_mp)
+        self.assertEqual(character.sanity_starting, expected_san)
+        self.assertEqual(character.sanity_current, expected_san)
+        self.assertEqual(character.sanity_max, 99)
     
     def test_version_creation(self):
         """バージョン作成テスト"""
@@ -273,7 +286,7 @@ class CharacterSheetAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
         self.assertEqual(data['name'], 'APIテスト探索者2')
-        self.assertEqual(data['edition'], '6th')
+        self.assertEqual(data['edition'], '7th')
     
     def test_character_edit_permission_denied(self):
         """キャラクター編集API - 他ユーザーのキャラクター編集拒否テスト"""
@@ -468,7 +481,8 @@ class CharacterSheetWebViewTestCase(TestCase):
         
         # 7版作成フォーム
         response = self.client.get('/accounts/character/create/7th/')
-        self.assertIn(response.status_code, [404, 302])
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '7版')
     
     def test_unauthenticated_web_access_redirect(self):
         """未認証Webアクセスリダイレクトテスト"""

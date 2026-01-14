@@ -142,8 +142,19 @@ class CharacterSheetAPITest(APITestCase):
     
     def test_create_7th_edition_character(self):
         """7版キャラクターシート作成テスト"""
-        # 7版は現在開発保留中のためスキップ
-        self.skipTest("7版の開発は保留中です。6版の完成後に開発を開始します。")
+        url = '/api/accounts/character-sheets/create_7th_edition/'
+        response = self.client.post(url, self.character_data_7th, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['edition'], '7th')
+        self.assertEqual(response.data['name'], 'テスト探索者7版')
+
+        character = CharacterSheet.objects.get(id=response.data['id'])
+        self.assertEqual(character.edition, '7th')
+        self.assertEqual(character.hit_points_max, (character.con_value + character.siz_value) // 10)
+        self.assertEqual(character.magic_points_max, character.pow_value // 5)
+        self.assertEqual(character.sanity_starting, character.pow_value)
+        self.assertFalse(CharacterSheet6th.objects.filter(character_sheet=character).exists())
     
     def test_list_character_sheets(self):
         """キャラクターシート一覧取得テスト"""
@@ -238,7 +249,7 @@ class CharacterSheetAPITest(APITestCase):
         """版別フィルタリングテスト"""
         # 両版のキャラクター作成
         self.client.post('/api/accounts/character-sheets/', self.character_data_6th, format='json')
-        # 7版は現在サポートされていないため、6版のみでテスト
+        self.client.post('/api/accounts/character-sheets/create_7th_edition/', self.character_data_7th, format='json')
         
         # 6版のみ取得
         url = '/api/accounts/character-sheets/by_edition/?edition=6th'
@@ -247,6 +258,14 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['edition'], '6th')
+
+        # 7版のみ取得
+        url = '/api/accounts/character-sheets/by_edition/?edition=7th'
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['edition'], '7th')
     
     def test_character_skills(self):
         """キャラクタースキルテスト"""

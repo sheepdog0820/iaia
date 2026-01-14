@@ -1,0 +1,898 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}クトゥルフ神話TRPG 7版探索者作成 - タブレノ{% endblock %}
+
+{% block content %}
+<div class="container character-creator">
+    <!-- ヘッダー -->
+    <div class="row mb-2 align-items-center character-creator-header">
+        <div class="col-12 text-lg-end">
+            <div class="character-creator-actions d-inline-flex align-items-center gap-2">
+                <button type="submit" class="btn btn-primary btn-sm" form="character-sheet-form">
+                    <i class="fas fa-save"></i> 保存
+                </button>
+                <button type="button" class="btn btn-outline-primary btn-sm" id="createVersionButton" style="display: none;">
+                    <i class="fas fa-code-branch"></i> 新バージョン
+                </button>
+                <a href="/accounts/character/list/" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-times"></i> キャンセル
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- フォーム -->
+    <div class="row">
+        <div class="col-12">
+            <form method="post" id="character-sheet-form" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <!-- システム情報フィールド(非表示) -->
+                <input type="hidden" id="system" name="system" value="cthulhu_7th">
+                <!-- 自動計算されるフィールド(非表示) -->
+                <input type="hidden" id="sanity_max" name="sanity_max">
+                
+                <!-- メインタブナビゲーション -->
+                <ul class="nav nav-tabs mb-2" id="mainTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="basic-info-tab" data-bs-toggle="tab" data-bs-target="#basic-info" type="button" role="tab">
+                            <i class="fas fa-user"></i> 基本情報
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="abilities-tab" data-bs-toggle="tab" data-bs-target="#abilities" type="button" role="tab">
+                            <i class="fas fa-dice"></i> 能力値
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="skills-tab" data-bs-toggle="tab" data-bs-target="#skills" type="button" role="tab">
+                            <i class="fas fa-graduation-cap"></i> 技能
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="combat-equipment-tab" data-bs-toggle="tab" data-bs-target="#combat-equipment" type="button" role="tab">
+                            <i class="fas fa-shield-alt"></i> 戦闘・装備
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="background-tab" data-bs-toggle="tab" data-bs-target="#background" type="button" role="tab">
+                            <i class="fas fa-book"></i> 背景情報
+                        </button>
+                    </li>
+                </ul>
+                
+                <!-- タブコンテンツ -->
+                <div class="tab-content" id="mainTabContent">
+                    <!-- 基本情報タブ -->
+                    <div class="tab-pane fade show active" id="basic-info" role="tabpanel">
+                        <!-- 探索者情報 -->
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white character-info-header">
+                        <div class="d-flex align-items-center gap-2">
+                            <h5 class="mb-0 character-info-title">
+                                <i class="fas fa-id-card"></i> 探索者情報
+                            </h5>
+                            <span class="badge bg-light text-primary character-info-badge ms-auto">CoC7 / 探索者作成</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-lg-4 col-md-6">
+                                <label for="character-name" class="form-label">探索者名 *</label>
+                                <input type="text" class="form-control" id="character-name" name="name" 
+                                       placeholder="例: 高島 静雄" required>
+                            </div>
+                            <div class="col-lg-4 col-md-6">
+                                <label for="player-name" class="form-label">プレイヤー名</label>
+                                <input type="text" class="form-control" id="player-name" name="player_name" 
+                                       placeholder="あなたの名前">
+                            </div>
+                            <div class="col-6 col-md-6 col-lg-4">
+                                <label for="age" class="form-label">年齢</label>
+                                <input type="number" class="form-control" id="age" name="age" min="15" max="90" placeholder="28">
+                            </div>
+                            <div class="col-6 col-md-6 col-lg-4">
+                                <label for="gender" class="form-label">性別</label>
+                                <select class="form-select" id="gender" name="gender">
+                                    <option value="">選択してください</option>
+                                    <option value="男性">男性</option>
+                                    <option value="女性">女性</option>
+                                    <option value="その他">その他</option>
+                                </select>
+                            </div>
+                            <div class="col-lg-4 col-md-6">
+                                <label for="occupation" class="form-label">職業</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="occupation" name="occupation" 
+                                           placeholder="例: 私立探偵">
+                                    <button class="btn btn-outline-secondary" type="button" id="occupationTemplateBtn" 
+                                            data-bs-toggle="modal" data-bs-target="#occupationTemplateModal">
+                                        <i class="fas fa-list"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-lg-4 col-md-6">
+                                <label for="birthplace" class="form-label">出身地</label>
+                                <input type="text" class="form-control" id="birthplace" name="birthplace" 
+                                       placeholder="例: 東京">
+                            </div>
+                            <div class="col-12">
+                                <label for="residence" class="form-label">現住所</label>
+                                <input type="text" class="form-control" id="residence" name="residence" 
+                                       placeholder="例: 大阪">
+                            </div>
+                            <div class="col-12">
+                                <label for="notes" class="form-label">背景・特徴</label>
+                                <textarea class="form-control autosize-textarea" id="notes" name="notes" rows="2" 
+                                          placeholder="探索者の背景、性格、特徴、動機などを記入してください..."></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label for="character-images" class="form-label">キャラクター画像</label>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <input type="file" class="form-control" id="character-images" name="character_images" 
+                                               accept="image/jpeg,image/jpg,image/png,image/gif">
+                                        <small class="text-muted">対応形式: JPG, PNG, GIF (最大5MB)</small>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div id="image-preview" class="text-center" style="display: none;">
+                                            <img id="preview-img" src="" alt="プレビュー" class="img-fluid rounded" 
+                                                 style="max-height: 150px;">
+                                            <div class="mt-2">
+                                                <button type="button" class="btn btn-sm btn-danger" id="remove-image">
+                                                    <i class="fas fa-trash"></i> 削除
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                    </div> <!-- 基本情報タブ終了 -->
+
+                    <!-- 能力値タブ -->
+                    <div class="tab-pane fade" id="abilities" role="tabpanel">
+                <!-- 能力別ダイス設定 -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-cog"></i> 能力別ダイス設定
+                                    </h6>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-sm btn-primary" id="rollAllAbilities">
+                                            <i class="fas fa-dice-d20"></i> 全能力値ロール
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleAbilityDiceSettings">
+                                            <i class="fas fa-sliders-h"></i> 表示/非表示
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body" id="ability-dice-settings-wrapper" style="display: none;">
+                                <div class="row align-items-center g-3 mb-3">
+                                    <div class="col-md-4">
+                                        <button type="button" class="btn btn-outline-secondary w-100" id="resetAbilityDiceSettings">
+                                            <i class="fas fa-rotate-left"></i> 標準設定に戻す
+                                        </button>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <small class="text-muted">各能力ごとに個数/面数/ボーナスを設定できます。</small>
+                                    </div>
+                                </div>
+                                <div class="row" id="ability-dice-settings">
+                                    <!-- 能力別ダイス設定がここに動的生成される -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ステータス（能力値と副次ステータス） -->
+                <div class="card mb-4 status-card" id="statusCard">
+                    <div class="card-header bg-primary text-white">
+                        <div class="d-flex align-items-center gap-2 status-card-header">
+                            <h5 class="mb-0 status-card-title">
+                                <i class="fas fa-chart-bar"></i> ステータス
+                            </h5>
+                            <span class="badge bg-light text-primary status-card-badge ms-auto">CoC7 / 能力値</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="text-primary border-bottom pb-2 mb-2">基本能力値</h6>
+                        <!-- 能力値入力エリア -->
+                        <div class="row g-2 ability-grid">
+                            <div class="col-6 col-sm-6 col-md-3">
+                                <div class="ability-row">
+                                    <label for="str" class="form-label ability-label">STR (筋力)</label>
+                                    <div class="input-group input-group-sm ability-input-group">
+                                        <input type="number" class="form-control ability-score" id="str" name="str_value" min="1" max="999" placeholder="1-999" required>
+                                        <button type="button" class="btn btn-outline-secondary ability-roll-btn" data-ability="str" aria-label="STRをロール">
+                                            <i class="fas fa-dice"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-6 col-md-3">
+                                <div class="ability-row">
+                                    <label for="con" class="form-label ability-label">CON (体力)</label>
+                                    <div class="input-group input-group-sm ability-input-group">
+                                        <input type="number" class="form-control ability-score" id="con" name="con_value" min="1" max="999" placeholder="1-999" required>
+                                        <button type="button" class="btn btn-outline-secondary ability-roll-btn" data-ability="con" aria-label="CONをロール">
+                                            <i class="fas fa-dice"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-6 col-md-3">
+                                <div class="ability-row">
+                                    <label for="pow" class="form-label ability-label">POW (精神力)</label>
+                                    <div class="input-group input-group-sm ability-input-group">
+                                        <input type="number" class="form-control ability-score" id="pow" name="pow_value" min="1" max="999" placeholder="1-999" required>
+                                        <button type="button" class="btn btn-outline-secondary ability-roll-btn" data-ability="pow" aria-label="POWをロール">
+                                            <i class="fas fa-dice"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-6 col-md-3">
+                                <div class="ability-row">
+                                    <label for="dex" class="form-label ability-label">DEX (敏捷性)</label>
+                                    <div class="input-group input-group-sm ability-input-group">
+                                        <input type="number" class="form-control ability-score" id="dex" name="dex_value" min="1" max="999" placeholder="1-999" required>
+                                        <button type="button" class="btn btn-outline-secondary ability-roll-btn" data-ability="dex" aria-label="DEXをロール">
+                                            <i class="fas fa-dice"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-6 col-md-3">
+                                <div class="ability-row">
+                                    <label for="app" class="form-label ability-label">APP (外見)</label>
+                                    <div class="input-group input-group-sm ability-input-group">
+                                        <input type="number" class="form-control ability-score" id="app" name="app_value" min="1" max="999" placeholder="1-999" required>
+                                        <button type="button" class="btn btn-outline-secondary ability-roll-btn" data-ability="app" aria-label="APPをロール">
+                                            <i class="fas fa-dice"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-6 col-md-3">
+                                <div class="ability-row">
+                                    <label for="siz" class="form-label ability-label">SIZ (体格)</label>
+                                    <div class="input-group input-group-sm ability-input-group">
+                                        <input type="number" class="form-control ability-score" id="siz" name="siz_value" min="1" max="999" placeholder="1-999" required>
+                                        <button type="button" class="btn btn-outline-secondary ability-roll-btn" data-ability="siz" aria-label="SIZをロール">
+                                            <i class="fas fa-dice"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-6 col-md-3">
+                                <div class="ability-row">
+                                    <label for="int" class="form-label ability-label">INT (知性)</label>
+                                    <div class="input-group input-group-sm ability-input-group">
+                                        <input type="number" class="form-control ability-score" id="int" name="int_value" min="1" max="999" placeholder="1-999" required>
+                                        <button type="button" class="btn btn-outline-secondary ability-roll-btn" data-ability="int" aria-label="INTをロール">
+                                            <i class="fas fa-dice"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-6 col-md-3">
+                                <div class="ability-row">
+                                    <label for="edu" class="form-label ability-label">EDU (教育)</label>
+                                    <div class="input-group input-group-sm ability-input-group">
+                                        <input type="number" class="form-control ability-score" id="edu" name="edu_value" min="1" max="999" placeholder="1-999" required>
+                                        <button type="button" class="btn btn-outline-secondary ability-roll-btn" data-ability="edu" aria-label="EDUをロール">
+                                            <i class="fas fa-dice"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="derived-section-header mt-3">
+                            <h6 class="mb-0 text-info">副次ステータス</h6>
+                            <span class="badge bg-light text-secondary derived-section-badge">CoC7 / 自動計算</span>
+                        </div>
+                        <div class="derived-grid" aria-label="副次ステータス">
+                            <div class="derived-card d-none">
+                                <div class="derived-card-header">
+                                    <span class="derived-label">HP</span>
+                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="(CON+SIZ)/2" aria-label="HP計算式">
+                                        <i class="fas fa-circle-question"></i>
+                                    </button>
+                                </div>
+                                <div class="derived-value" id="hp_display">--</div>
+                                <input type="hidden" id="hp" name="hit_points_max">
+                            </div>
+                            <div class="derived-card d-none">
+                                <div class="derived-card-header">
+                                    <span class="derived-label">MP</span>
+                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="POW" aria-label="MP計算式">
+                                        <i class="fas fa-circle-question"></i>
+                                    </button>
+                                </div>
+                                <div class="derived-value" id="mp_display">--</div>
+                                <input type="hidden" id="mp" name="magic_points_max">
+                            </div>
+                            <div class="derived-card d-none">
+                                <div class="derived-card-header">
+                                    <span class="derived-label">SAN</span>
+                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="POW×5" aria-label="SAN計算式">
+                                        <i class="fas fa-circle-question"></i>
+                                    </button>
+                                </div>
+                                <div class="derived-value" id="san_display">--</div>
+                                <input type="hidden" id="san" name="sanity_starting">
+                            </div>
+                            <div class="derived-card">
+                                <div class="derived-card-header">
+                                    <span class="derived-label">アイデア</span>
+                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="INT×5" aria-label="アイデア計算式">
+                                        <i class="fas fa-circle-question"></i>
+                                    </button>
+                                </div>
+                                <div class="derived-value" id="idea_display">--</div>
+                                <input type="hidden" id="idea" name="idea">
+                            </div>
+                            <div class="derived-card">
+                                <div class="derived-card-header">
+                                    <span class="derived-label">幸運</span>
+                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="POW×5" aria-label="幸運計算式">
+                                        <i class="fas fa-circle-question"></i>
+                                    </button>
+                                </div>
+                                <div class="derived-value" id="luck_display">--</div>
+                                <input type="hidden" id="luck" name="luck">
+                            </div>
+                            <div class="derived-card">
+                                <div class="derived-card-header">
+                                    <span class="derived-label">知識</span>
+                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="EDU×5" aria-label="知識計算式">
+                                        <i class="fas fa-circle-question"></i>
+                                    </button>
+                                </div>
+                                <div class="derived-value" id="know_display">--</div>
+                                <input type="hidden" id="know" name="know">
+                            </div>
+                            <div class="derived-card">
+                                <div class="derived-card-header">
+                                    <span class="derived-label">DB</span>
+                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="STR+SIZ" aria-label="ダメージボーナス計算式">
+                                        <i class="fas fa-circle-question"></i>
+                                    </button>
+                                </div>
+                                <div class="derived-value" id="damage_bonus_display">--</div>
+                                <input type="hidden" id="damage-bonus" name="damage_bonus">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                    </div> <!-- 能力値タブ終了 -->
+
+                    <!-- 技能タブ -->
+                    <div class="tab-pane fade skills-tab" id="skills" role="tabpanel">
+                         <!-- 技能システム -->
+                <div class="card mb-4 skills-system-card">
+                     <div class="card-header bg-warning text-dark d-flex align-items-center justify-content-between gap-2">
+                         <h5 class="mb-0 d-flex align-items-center gap-2">
+                             <i class="fas fa-tools"></i>
+                             <span>技能システム（7版）</span>
+                         </h5>
+                         <button type="button"
+                                 class="btn btn-link p-0 text-dark skills-help-icon"
+                                 data-bs-toggle="tooltip"
+                                 data-bs-placement="left"
+                                 data-bs-html="true"
+                                 data-bs-custom-class="skills-help-tooltip"
+                                 aria-label="技能の基本値編集の説明"
+                                 title="<div class='text-start'><strong>技能の基本値編集</strong><br>&bull; 基本値（青色の入力欄）をクリックしてカスタム値を入力できます<br>&bull; 右クリックするとデフォルト値にリセットされます<br>&bull; DEX÷2やEDUなどの動的な基本値も上書き可能です</div>">
+                             <i class="fas fa-circle-question"></i>
+                         </button>
+                     </div>
+                     <div class="card-body skills-system-body">
+                         <!-- ポイント管理 -->
+                         <div class="skills-points-bar mb-2">
+                             <div class="skills-point-panel bg-light p-2 rounded">
+                                 <div class="skills-point-header">
+                                     <h6 class="text-primary mb-0">職業技能ポイント</h6>
+                                     <div class="skills-point-method">
+                                         <small class="text-muted">方式</small>
+                                          <select class="form-select form-select-sm" id="occupationMethod" aria-label="職業技能ポイント計算方式">
+                                              <option value="edu4">EDU×4</option>
+                                              <option value="edu2app2">EDU×2＋APP×2</option>
+                                              <option value="edu2dex2">EDU×2＋DEX×2</option>
+                                              <option value="edu2pow2">EDU×2＋POW×2</option>
+                                              <option value="edu2str2">EDU×2＋STR×2</option>
+                                              <option value="edu2con2">EDU×2＋CON×2</option>
+                                              <option value="edu2siz2">EDU×2＋SIZ×2</option>
+                                          </select>
+                                     </div>
+                                 </div>
+                                 <div class="skills-point-grid">
+                                     <div class="skills-point-total">
+                                         <div class="input-group input-group-sm">
+                                             <span class="input-group-text">総</span>
+                                             <input type="number" class="form-control form-control-sm" id="occupationTotal" readonly>
+                                         </div>
+                                     </div>
+                                     <div class="skills-point-metric-inline">
+                                         <small class="text-muted">使用</small>
+                                         <span id="occupationUsed" class="badge bg-primary skill-point-badge">0</span>
+                                     </div>
+                                     <div class="skills-point-metric-inline">
+                                         <small class="text-muted">残</small>
+                                         <span id="occupationRemaining" class="badge bg-success skill-point-badge">0</span>
+                                     </div>
+                                 </div>
+                             </div>
+
+                             <div class="skills-point-panel bg-light p-2 rounded">
+                                 <div class="skills-point-header">
+                                     <h6 class="text-info mb-0">趣味技能ポイント</h6>
+                                     <div class="skills-point-method">
+                                         <small class="text-muted">方式</small>
+                                         <small class="text-muted"><strong>INT×2</strong></small>
+                                     </div>
+                                 </div>
+                                 <div class="skills-point-grid">
+                                     <div class="skills-point-total">
+                                         <div class="input-group input-group-sm">
+                                             <span class="input-group-text">総</span>
+                                             <input type="number" class="form-control form-control-sm" id="interestTotal" readonly>
+                                         </div>
+                                     </div>
+                                     <div class="skills-point-metric-inline">
+                                         <small class="text-muted">使用</small>
+                                         <span id="interestUsed" class="badge bg-primary skill-point-badge">0</span>
+                                     </div>
+                                     <div class="skills-point-metric-inline">
+                                         <small class="text-muted">残</small>
+                                         <span id="interestRemaining" class="badge bg-success skill-point-badge">0</span>
+                                     </div>
+                                 </div>
+                             </div>
+
+                         </div>
+                         <!-- 技能タブとコンテンツ -->
+                         <div id="skillsContainer">
+                             <div class="row g-2 mb-2">
+                                 <div class="col-lg-6">
+                                     <div class="skills-control-panel bg-light p-2 rounded occupation-skills-control" id="occupationSkillsControl">
+                                         <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                                             <h6 class="mb-0 text-success d-flex align-items-center gap-1">
+                                                 <i class="fas fa-briefcase"></i>
+                                                 <span>職業技能を追加</span>
+                                             </h6>
+                                             <button type="button" class="btn btn-outline-danger btn-sm" id="clearOccupationSkills">
+                                                 <i class="fas fa-eraser"></i> クリア
+                                             </button>
+                                         </div>
+ 
+                                         <label for="occupationSkillInput" class="visually-hidden">職業技能を追加</label>
+                                         <div class="input-group input-group-sm mt-2">
+                                             <input type="text" class="form-control" id="occupationSkillInput" list="occupationSkillOptions" placeholder="例: 目星 / spot_hidden">
+                                             <button class="btn btn-outline-primary" type="button" id="addOccupationSkill">
+                                                 <i class="fas fa-plus"></i> 追加
+                                             </button>
+                                         </div>
+                                         <datalist id="occupationSkillOptions"></datalist>
+ 
+                                         <small class="text-muted d-block mt-1" id="occupationSkillsHint">職業テンプレートを選択すると自動で職業技能が追加されます。</small>
+                                         <div class="mt-2" id="occupationSkillsChips">
+                                             <span class="text-muted">職業技能はまだ設定されていません。</span>
+                                         </div>
+                                     </div>
+                                 </div>
+                                 <div class="col-lg-6">
+                                     <div class="skills-control-panel bg-light p-2 rounded recommended-skills-control" id="recommendedSkillsControl">
+                                         <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                                             <h6 class="mb-0 text-primary d-flex align-items-center gap-1">
+                                                 <i class="fas fa-star"></i>
+                                                 <span>推奨技能を追加</span>
+                                             </h6>
+                                             <div class="d-flex flex-wrap gap-1 justify-content-end">
+                                                 <button type="button" class="btn btn-outline-primary btn-sm" id="selectScenarioRecommended">
+                                                     <i class="fas fa-list"></i> シナリオ選択
+                                                 </button>
+                                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="loadScenarioRecommended">
+                                                     <i class="fas fa-book"></i> シナリオ反映
+                                                 </button>
+                                                 <button type="button" class="btn btn-outline-danger btn-sm" id="clearRecommendedSkills">
+                                                     <i class="fas fa-eraser"></i> クリア
+                                                 </button>
+                                             </div>
+                                         </div>
+ 
+                                         <label for="recommendedSkillInput" class="visually-hidden">推奨技能を追加</label>
+                                         <div class="input-group input-group-sm mt-2">
+                                             <input type="text" class="form-control" id="recommendedSkillInput" list="recommendedSkillOptions" placeholder="例: 目星 / spot_hidden">
+                                             <button class="btn btn-outline-primary" type="button" id="addRecommendedSkill">
+                                                 <i class="fas fa-plus"></i> 追加
+                                             </button>
+                                         </div>
+                                         <datalist id="recommendedSkillOptions"></datalist>
+ 
+                                         <small class="text-muted d-block mt-1" id="scenarioRecommendedHint"></small>
+                                         <button type="button" class="btn btn-link btn-sm p-0 mt-1 d-none" id="retryScenarioRecommended">
+                                             <i class="fas fa-rotate-right"></i> 再試行
+                                         </button>
+                                         <div class="mt-2" id="recommendedSkillsChips">
+                                             <span class="text-muted">推奨技能はまだ設定されていません。</span>
+                                         </div>
+                                     </div>
+                                 </div>
+                             </div>
+
+                             <!-- シナリオ選択モーダル -->
+                             <div class="modal fade" id="scenarioSelectModal" tabindex="-1" aria-labelledby="scenarioSelectModalLabel" aria-hidden="true">
+                                 <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                     <div class="modal-content">
+                                         <div class="modal-header">
+                                             <h5 class="modal-title" id="scenarioSelectModalLabel">
+                                                 <i class="fas fa-book-open"></i> 参加予定のシナリオ
+                                             </h5>
+                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                         </div>
+                                         <div class="modal-body">
+                                             <div class="d-flex justify-content-between align-items-center mb-2">
+                                                 <small class="text-muted" id="scenarioSelectStatus">読み込み中...</small>
+                                                 <button type="button" class="btn btn-outline-secondary btn-sm d-none" id="scenarioSelectReload">
+                                                     <i class="fas fa-rotate-right"></i> 再読み込み
+                                                 </button>
+                                             </div>
+                                             <div class="list-group" id="scenarioSelectList">
+                                                 <!-- 参加予定のシナリオがここに動的生成される -->
+                                             </div>
+                                         </div>
+                                         <div class="modal-footer">
+                                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                                         </div>
+                                     </div>
+                                 </div>
+                             </div>
+                             
+                             <!-- タブナビゲーション -->
+                            <ul class="nav nav-tabs flex-nowrap skills-nav" id="skillTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="combat-tab" data-bs-toggle="tab" data-bs-target="#combat" type="button" role="tab">
+                                        <i class="fas fa-sword"></i> 戦闘技能
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="exploration-tab" data-bs-toggle="tab" data-bs-target="#exploration" type="button" role="tab">
+                                        <i class="fas fa-search"></i> 探索技能
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="action-tab" data-bs-toggle="tab" data-bs-target="#action" type="button" role="tab">
+                                        <i class="fas fa-running"></i> 行動型技能
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="social-tab" data-bs-toggle="tab" data-bs-target="#social" type="button" role="tab">
+                                        <i class="fas fa-comments"></i> 交渉系
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="knowledge-tab" data-bs-toggle="tab" data-bs-target="#knowledge" type="button" role="tab">
+                                        <i class="fas fa-book"></i> 知識技能
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab">
+                                        <i class="fas fa-list"></i> 全表示
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="occupation-skill-tab" data-bs-toggle="tab" data-bs-target="#occupationSkill" type="button" role="tab">
+                                        <i class="fas fa-briefcase"></i> 職業技能
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="recommended-tab" data-bs-toggle="tab" data-bs-target="#recommended" type="button" role="tab">
+                                        <i class="fas fa-star"></i> 推奨
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="allocated-tab" data-bs-toggle="tab" data-bs-target="#allocated" type="button" role="tab">
+                                        <i class="fas fa-check-circle"></i> 振り分け済み
+                                        <span class="badge bg-success ms-1" id="allocatedCount">0</span>
+                                    </button>
+                                </li>
+                            </ul>
+                            
+                            <!-- タブコンテンツ -->
+                            <div class="tab-content" id="skillTabContent">
+                                <!-- 戦闘技能 -->
+                                <div class="tab-pane fade show active" id="combat" role="tabpanel">
+                                    <div class="row g-2 mt-1" id="combatSkills">
+                                        <!-- 戦闘技能がここに動的生成される -->
+                                    </div>
+                                </div>
+
+                                <!-- 探索技能 -->
+                                <div class="tab-pane fade" id="exploration" role="tabpanel">
+                                    <div class="row g-2 mt-1" id="explorationSkills">
+                                        <!-- 探索技能がここに動的生成される -->
+                                    </div>
+                                </div>
+                                
+                                <!-- 行動型技能 -->
+                                <div class="tab-pane fade" id="action" role="tabpanel">
+                                    <div class="row g-2 mt-1" id="actionSkills">
+                                        <!-- 行動型技能がここに動的生成される -->
+                                    </div>
+                                </div>
+                                
+                                <!-- 交渉系 -->
+                                <div class="tab-pane fade" id="social" role="tabpanel">
+                                    <div class="row g-2 mt-1" id="socialSkills">
+                                        <!-- 交渉系がここに動的生成される -->
+                                    </div>
+                                </div>
+                                
+                                <!-- 知識技能 -->
+                                <div class="tab-pane fade" id="knowledge" role="tabpanel">
+                                    <div class="row g-2 mt-1" id="knowledgeSkills">
+                                        <!-- 知識技能がここに動的生成される -->
+                                    </div>
+                                </div>
+                                
+                                <!-- 全表示 -->
+                                <div class="tab-pane fade" id="all" role="tabpanel">
+                                    <div class="row g-2 mt-1" id="allSkills">
+                                        <!-- 全技能がここに動的生成される -->
+                                    </div>
+                                </div>
+
+                                <!-- 職業技能 -->
+                                <div class="tab-pane fade" id="occupationSkill" role="tabpanel">
+                                    <div class="row g-2 mt-1" id="occupationSkillSkills">
+                                         <div class="col-12 text-center text-muted p-4">
+                                             <i class="fas fa-briefcase fa-2x mb-2"></i>
+                                             <p class="mb-0">職業技能が未設定です。上の入力欄か職業テンプレートから追加してください。</p>
+                                         </div>
+                                    </div>
+                                </div>
+
+                                <!-- 推奨 -->
+                                <div class="tab-pane fade" id="recommended" role="tabpanel">
+                                    <div class="row g-2 mt-1" id="recommendedSkills">
+                                        <!-- 推奨技能がここに動的生成される -->
+                                    </div>
+                                </div>
+                                
+                                <!-- 振り分け済み -->
+                                 <div class="tab-pane fade" id="allocated" role="tabpanel">
+                                    <div class="row g-2 mt-1" id="allocatedSkills">
+                                         <div class="col-12 text-center text-muted p-3" id="noAllocatedMessage">
+                                             <i class="fas fa-info-circle fa-lg mb-1"></i>
+                                             <p class="mb-0 small">まだポイントを振り分けた技能がありません。</p>
+                                         </div>
+                                     </div>
+                                 </div>
+                             </div>
+                         </div>
+                    </div>
+                </div>
+                    </div> <!-- 技能タブ終了 -->
+
+                    <!-- 戦闘・装備タブ -->
+                    <div class="tab-pane fade" id="combat-equipment" role="tabpanel">
+                        <!-- 戦闘・装備 -->
+                <div class="card mb-4">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-shield-alt"></i> 戦闘・装備
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6 col-md-3 mb-3">
+                                <label for="current_hp" class="form-label">現在HP</label>
+                                <input type="number" class="form-control" id="current_hp" name="hit_points_current"
+                                       min="0" max="999">
+                            </div>
+                            <div class="col-6 col-md-3 mb-3">
+                                <label for="current_mp" class="form-label">現在MP</label>
+                                <input type="number" class="form-control" id="current_mp" name="magic_points_current"
+                                       min="0" max="999">
+                            </div>
+                            <div class="col-6 col-md-3 mb-3">
+                                <label for="current_san" class="form-label">現在正気度</label>
+                                <input type="number" class="form-control" id="current_san" name="sanity_current"
+                                       min="0" max="9999">
+                            </div>
+                            <div class="col-6 col-md-3 mb-3">
+                                <label for="armor" class="form-label">装甲値</label>
+                                <input type="number" class="form-control" id="armor" name="armor" 
+                                       min="0" max="50" value="0">
+                            </div>
+                        </div>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> 武器・防具の詳細は作成後に編集画面で設定できます。
+                        </div>
+                    </div>
+                </div>
+
+                <!-- インベントリ・財産 -->
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-coins"></i> インベントリ・財産
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="money" class="form-label">所持金</label>
+                                <input type="number" class="form-control" id="money" name="money" 
+                                       min="0" placeholder="0">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="assets" class="form-label">総資産</label>
+                                <input type="number" class="form-control" id="assets" name="assets" 
+                                       min="0" placeholder="0">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="income" class="form-label">年収</label>
+                                <input type="number" class="form-control" id="income" name="income" 
+                                       min="0" placeholder="0">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12">
+                                <label for="items" class="form-label">所持品メモ</label>
+                                <textarea class="form-control" id="items" name="items" rows="3" 
+                                          placeholder="主要な所持品を記入してください..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                    </div> <!-- 戦闘・装備タブ終了 -->
+
+                    <!-- 背景情報タブ -->
+                    <div class="tab-pane fade" id="background" role="tabpanel">
+                        <!-- 背景情報 -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-user-clock"></i> 背景情報
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="appearance" class="form-label">外見の描写</label>
+                                <textarea class="form-control" id="appearance" name="appearance" rows="2" 
+                                          placeholder="身長、体型、髪の色、特徴的な外見など..."></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="ideals" class="form-label">信念・信条</label>
+                                <textarea class="form-control" id="ideals" name="ideals" rows="2" 
+                                          placeholder="キャラクターが大切にしている価値観や信念..."></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="bonds" class="form-label">重要な人物</label>
+                                <textarea class="form-control" id="bonds" name="bonds" rows="2" 
+                                          placeholder="家族、友人、恩人など..."></textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="flaws" class="form-label">弱点・恐怖症</label>
+                                <textarea class="form-control" id="flaws" name="flaws" rows="2" 
+                                          placeholder="性格的な弱点、恐怖症、トラウマなど..."></textarea>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label for="backstory" class="form-label">背景ストーリー</label>
+                                <textarea class="form-control" id="backstory" name="backstory" rows="4" 
+                                          placeholder="探索者の生い立ち、経歴、現在に至るまでの物語..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                    </div> <!-- 背景情報タブ終了 -->
+                </div> <!-- タブコンテンツ終了 -->
+
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 職業テンプレートモーダル -->
+<div class="modal fade" id="occupationTemplateModal" tabindex="-1" aria-labelledby="occupationTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="occupationTemplateModalLabel">
+                    <i class="fas fa-briefcase"></i> 職業テンプレート選択
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="list-group" id="occupationCategories">
+                            <a href="#" class="list-group-item list-group-item-action active" data-category="academic">
+                                <i class="fas fa-graduation-cap"></i> 学術系
+                            </a>
+                            <a href="#" class="list-group-item list-group-item-action" data-category="investigation">
+                                <i class="fas fa-search"></i> 調査系
+                            </a>
+                            <a href="#" class="list-group-item list-group-item-action" data-category="combat">
+                                <i class="fas fa-shield-alt"></i> 戦闘系
+                            </a>
+                            <a href="#" class="list-group-item list-group-item-action" data-category="medical">
+                                <i class="fas fa-heartbeat"></i> 医療系
+                            </a>
+                            <a href="#" class="list-group-item list-group-item-action" data-category="arts">
+                                <i class="fas fa-palette"></i> 芸術系
+                            </a>
+                            <a href="#" class="list-group-item list-group-item-action" data-category="others">
+                                <i class="fas fa-users"></i> その他                            </a>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div id="occupationList">
+                            <!-- 職業リストがここに動的生成される -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 固定フッター -->
+<div class="character-footer fixed-bottom bg-dark text-light py-2" id="characterFooter">
+    <div class="container">
+        <div class="footer-bar d-flex flex-wrap flex-md-nowrap align-items-center justify-content-between gap-2">
+            <div class="footer-points d-flex flex-wrap align-items-center gap-3">
+                <div class="d-flex align-items-center">
+                    <span class="me-2 small">職業技能</span>
+                    <span class="badge bg-success me-1" id="occupationUsedFooter">0</span>
+                    <span class="small">/</span>
+                    <span class="badge bg-primary ms-1" id="occupationTotalFooter">0</span>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="me-2 small">趣味技能</span>
+                    <span class="badge bg-warning text-dark me-1" id="interestUsedFooter">0</span>
+                    <span class="small">/</span>
+                    <span class="badge bg-info ms-1" id="interestTotalFooter">0</span>
+                </div>
+            </div>
+
+            <div class="footer-actions d-flex flex-wrap align-items-center justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-danger btn-sm" id="footerResetSkills">
+                    <i class="fas fa-undo"></i> 技能リセット
+                </button>
+                <button type="button" class="btn btn-outline-primary btn-sm" id="footerCreateVersion" style="display: none;">
+                    <i class="fas fa-code-branch"></i> 新バージョン
+                </button>
+                <button type="button" class="btn btn-success btn-sm" id="footerSaveCharacter">
+                    <i class="fas fa-save"></i> 探索者保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'accounts/css/character6th.css' %}">
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'accounts/js/character7th.js' %}"></script>
+{% endblock %}

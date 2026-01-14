@@ -24,6 +24,9 @@
                         <li><a class="dropdown-item" href="{% url 'character_create_6th' %}">
                             <i class="fas fa-book text-primary"></i> 6版キャラクター作成
                         </a></li>
+                        <li><a class="dropdown-item" href="{% url 'character_create_7th' %}">
+                            <i class="fas fa-book-open text-success"></i> 7版キャラクター作成
+                        </a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#ccfoliaImportModal">
@@ -43,6 +46,9 @@
                         
                         <input type="radio" class="btn-check" name="edition" id="6th" value="6th">
                         <label class="btn btn-outline-primary" for="6th">6版</label>
+
+                        <input type="radio" class="btn-check" name="edition" id="7th" value="7th">
+                        <label class="btn btn-outline-primary" for="7th">7版</label>
                     </div>
                 </div>
                 <div class="col-md-6">
@@ -71,9 +77,14 @@
                     <i class="fas fa-user-plus fa-3x text-muted mb-3"></i>
                     <h4 class="text-muted">キャラクターシートがありません</h4>
                     <p class="text-muted">新しいキャラクターシートを作成してください。</p>
-                    <a href="{% url 'character_create_6th' %}" class="btn btn-primary">
-                        <i class="fas fa-book"></i> 6版キャラクター作成
-                    </a>
+                    <div class="d-flex justify-content-center gap-2 flex-wrap">
+                        <a href="{% url 'character_create_6th' %}" class="btn btn-primary">
+                            <i class="fas fa-book"></i> 6版キャラクター作成
+                        </a>
+                        <a href="{% url 'character_create_7th' %}" class="btn btn-success">
+                            <i class="fas fa-book-open"></i> 7版キャラクター作成
+                        </a>
+                    </div>
                 </div>
             </div>
             
@@ -81,7 +92,8 @@
             <div class="text-center mt-3">
                 <small class="text-muted">
                     ドロップダウンが動作しない場合は
-                    <a href="{% url 'character_create_6th' %}">こちらから6版キャラクターを作成</a>
+                    <a href="{% url 'character_create_6th' %}">こちらから6版キャラクターを作成</a> /
+                    <a href="{% url 'character_create_7th' %}">こちらから7版キャラクターを作成</a>
                     できます。
                 </small>
             </div>
@@ -302,21 +314,21 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         <div class="card-footer bg-transparent">
                             <div class="d-flex align-items-center gap-2 character-card-actions">
-                                <div class="btn-group flex-grow-1" role="group">
-                                    <a href="/accounts/character/${character.edition || '6th'}/${character.id}/" class="btn btn-outline-primary btn-sm">
+                                 <div class="btn-group flex-grow-1" role="group">
+                                    <a href="/accounts/character/${character.id}/" class="btn btn-outline-primary btn-sm">
                                         <i class="fas fa-eye"></i> 詳細
                                     </a>
-                                    <a href="/accounts/character/create/6th/?id=${character.id}" class="btn btn-outline-secondary btn-sm">
+                                    <a href="/accounts/character/create/${character.edition || '6th'}/?id=${character.id}" class="btn btn-outline-secondary btn-sm">
                                         <i class="fas fa-edit"></i> 編集
                                     </a>
-                                </div>
+                                 </div>
                                 <div class="dropdown">
                                      <button class="btn btn-outline-dark btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="その他">
                                          <i class="fas fa-ellipsis-h"></i>
                                      </button>
                                          <ul class="dropdown-menu dropdown-menu-end">
                                         <li>
-                                            <button type="button" class="dropdown-item" onclick="copyCharacterUrl(${character.id}, '${character.edition || '6th'}')">
+                                            <button type="button" class="dropdown-item" onclick="copyCharacterUrl(${character.id})">
                                                 <i class="fas fa-link me-2"></i> URLをコピー
                                             </button>
                                         </li>
@@ -421,11 +433,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.removeChild(textarea);
     }
 
-    async function copyCharacterUrl(characterId, edition = '6th') {
-        const resolvedEdition = edition || '6th';
-        const path = resolvedEdition
-            ? `/accounts/character/${resolvedEdition}/${characterId}/`
-            : `/accounts/character/${characterId}/`;
+    async function copyCharacterUrl(characterId) {
+        const path = `/accounts/character/${characterId}/`;
         const url = toAbsoluteUrl(path);
         try {
             await copyTextToClipboard(url);
