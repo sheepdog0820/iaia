@@ -368,6 +368,103 @@
                     </div>
                 </div>
             </div>
+
+            <!-- セッションノート / ログ（ISSUE-014） -->
+            <div class="card mb-4" id="sessionNotesLogsCard">
+                <div class="card-header bg-secondary text-white">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                        <h5 class="mb-0">
+                            <i class="fas fa-sticky-note"></i> セッションノート / ログ
+                        </h5>
+                        <div class="d-flex align-items-center gap-2 small">
+                            <span class="badge bg-dark" id="sessionNotesCountBadge">Notes: -</span>
+                            <span class="badge bg-dark" id="sessionLogsCountBadge">Logs: -</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <ul class="nav nav-tabs" id="notesLogsTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="session-notes-tab" data-bs-toggle="tab" data-bs-target="#session-notes-pane" type="button" role="tab">
+                                <i class="fas fa-sticky-note"></i> ノート
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="session-logs-tab" data-bs-toggle="tab" data-bs-target="#session-logs-pane" type="button" role="tab">
+                                <i class="fas fa-stream"></i> ログ
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content pt-3" id="notesLogsTabContent">
+                        <!-- Notes -->
+                        <div class="tab-pane fade show active" id="session-notes-pane" role="tabpanel" aria-labelledby="session-notes-tab">
+                            <div id="sessionNotesMessages"></div>
+
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                <div class="btn-group btn-group-sm" role="group" id="sessionNoteTypeFilters">
+                                    <button type="button" class="btn btn-outline-primary active" data-note-type="all">全て</button>
+                                    {% if is_gm %}
+                                        <button type="button" class="btn btn-outline-primary" data-note-type="gm_private">GMプライベート</button>
+                                        <button type="button" class="btn btn-outline-primary" data-note-type="public_summary">公開サマリー</button>
+                                        <button type="button" class="btn btn-outline-primary" data-note-type="handover">引き継ぎ</button>
+                                        <button type="button" class="btn btn-outline-primary" data-note-type="npc_memo">NPCメモ</button>
+                                        <button type="button" class="btn btn-outline-primary" data-note-type="player_note">プレイヤーノート</button>
+                                    {% else %}
+                                        <button type="button" class="btn btn-outline-primary" data-note-type="public_summary">公開サマリー</button>
+                                        <button type="button" class="btn btn-outline-primary" data-note-type="handover">引き継ぎ</button>
+                                        <button type="button" class="btn btn-outline-primary" data-note-type="player_note">自分のノート</button>
+                                    {% endif %}
+                                </div>
+
+                                <div class="ms-auto d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="reloadSessionNotesBtn">
+                                        <i class="fas fa-sync"></i> 再読み込み
+                                    </button>
+                                    <button type="button" class="btn btn-primary btn-sm" id="openSessionNoteModalBtn">
+                                        <i class="fas fa-plus"></i> ノート追加
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="small text-muted mb-2" id="sessionNotesSummary"></div>
+
+                            <div id="sessionNotesContainer">
+                                <div class="text-center py-3">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Logs -->
+                        <div class="tab-pane fade" id="session-logs-pane" role="tabpanel" aria-labelledby="session-logs-tab">
+                            <div id="sessionLogsMessages"></div>
+
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                <div class="small text-muted" id="sessionLogsSummary"></div>
+                                <div class="ms-auto d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="reloadSessionLogsBtn">
+                                        <i class="fas fa-sync"></i> 再読み込み
+                                    </button>
+                                    <button type="button" class="btn btn-success btn-sm" id="openSessionLogModalBtn">
+                                        <i class="fas fa-plus"></i> ログ追加
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="sessionLogsContainer">
+                                <div class="text-center py-3">
+                                    <div class="spinner-border text-success" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             {% endif %}
 
             <!-- 参加者一覧 -->
@@ -882,6 +979,132 @@
 {% endif %}
 
 {% if is_participant or is_gm %}
+<!-- セッションノート / ログ モーダル（ISSUE-014） -->
+<div class="modal fade" id="sessionNoteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sessionNoteModalTitle">
+                    <i class="fas fa-sticky-note"></i> ノート
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="sessionNoteModalMessages"></div>
+                <input type="hidden" id="sessionNoteId">
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="sessionNoteType" class="form-label">種別</label>
+                        <select class="form-select" id="sessionNoteType" {% if not is_gm %}disabled{% endif %}>
+                            {% if is_gm %}
+                                <option value="gm_private">GMプライベート</option>
+                                <option value="public_summary">公開サマリー</option>
+                                <option value="handover">引き継ぎ事項</option>
+                                <option value="npc_memo">NPCメモ</option>
+                                <option value="player_note">プレイヤーノート</option>
+                            {% else %}
+                                <option value="player_note">プレイヤーノート</option>
+                            {% endif %}
+                        </select>
+                        {% if not is_gm %}
+                            <div class="form-text">プレイヤーノートのみ作成できます（公開サマリー等はGMのみ）</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="sessionNoteTitle" class="form-label">タイトル（任意）</label>
+                        <input type="text" class="form-control" id="sessionNoteTitle" maxlength="200" placeholder="例: 今回の要点 / 次回への宿題">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="sessionNoteContent" class="form-label">内容 *</label>
+                    <textarea class="form-control" id="sessionNoteContent" rows="8" placeholder="ここにノートを書きます" required></textarea>
+                </div>
+
+                {% if is_gm %}
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="sessionNotePinned">
+                    <label class="form-check-label" for="sessionNotePinned">
+                        ピン留め（上部に固定）
+                    </label>
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" id="saveSessionNoteBtn">
+                    <i class="fas fa-save"></i> 保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="sessionLogModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sessionLogModalTitle">
+                    <i class="fas fa-stream"></i> ログ
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="sessionLogModalMessages"></div>
+                <input type="hidden" id="sessionLogId">
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="sessionLogTimestamp" class="form-label">日時</label>
+                        <input type="datetime-local" class="form-control" id="sessionLogTimestamp" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="sessionLogEventType" class="form-label">種別</label>
+                        <input type="text" class="form-control" id="sessionLogEventType" list="sessionLogEventTypeOptions" placeholder="general / battle / clue ...">
+                        <datalist id="sessionLogEventTypeOptions">
+                            <option value="general"></option>
+                            <option value="battle"></option>
+                            <option value="clue"></option>
+                            <option value="npc"></option>
+                            <option value="scene"></option>
+                            <option value="san"></option>
+                            <option value="hp"></option>
+                            <option value="mp"></option>
+                        </datalist>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="sessionLogRelatedCharacter" class="form-label">関連キャラクター（任意）</label>
+                    <select class="form-select" id="sessionLogRelatedCharacter">
+                        <option value="">なし</option>
+                        {% for participant in participants %}
+                            {% if participant.character_sheet %}
+                                <option value="{{ participant.character_sheet.id }}">
+                                    {{ participant.character_sheet.name }}（{{ participant.user.nickname|default:participant.user.username }}）
+                                </option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">セッション参加者として紐付いているキャラクターのみ選択できます</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="sessionLogDescription" class="form-label">内容 *</label>
+                    <textarea class="form-control" id="sessionLogDescription" rows="8" placeholder="例: 目星に成功して手がかりを発見 / SANチェック(1/1d6)" required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-success" id="saveSessionLogBtn">
+                    <i class="fas fa-save"></i> 保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- YouTubeリンク編集モーダル -->
 <div class="modal fade" id="editYouTubeLinkModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -1233,9 +1456,16 @@ let groupMemberNames = new Map();
 const SESSION_ID = {{ session.id }};
 const GROUP_ID = {{ session.group.id }};
 const IS_GM = {% if is_gm %}true{% else %}false{% endif %};
+const IS_PARTICIPANT = {% if is_participant %}true{% else %}false{% endif %};
 const IS_PUBLIC_VIEW = {% if is_public_view %}true{% else %}false{% endif %};
 const PUBLIC_SESSION_URL = "{{ public_session_url|escapejs }}";
 const youtubeLinkMap = new Map();
+
+let sessionNotes = [];
+const sessionNoteMap = new Map();
+let sessionLogs = [];
+const sessionLogMap = new Map();
+let currentSessionNoteFilter = 'all';
 
 function toAbsoluteUrl(url) {
     if (!url) return '';
@@ -1976,6 +2206,634 @@ async function deleteYouTubeLink(linkId) {
     }
 }
 
+// セッションノート / ログ（ISSUE-014）
+const SESSION_NOTE_TYPE_LABELS = {
+    gm_private: 'GMプライベート',
+    public_summary: '公開サマリー',
+    player_note: 'プレイヤーノート',
+    npc_memo: 'NPCメモ',
+    handover: '引き継ぎ',
+};
+
+function formatDateTimeDisplay(value) {
+    if (!value) return '';
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
+function nl2br(value) {
+    return escapeHtml(value).replace(/\r?\n/g, '<br>');
+}
+
+function showSessionNotesMessage(message, type = 'info') {
+    const container = document.getElementById('sessionNotesMessages');
+    if (!container) return;
+    const safe = escapeHtml(message);
+    container.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${safe}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+}
+
+function showSessionLogsMessage(message, type = 'info') {
+    const container = document.getElementById('sessionLogsMessages');
+    if (!container) return;
+    const safe = escapeHtml(message);
+    container.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${safe}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+}
+
+function showSessionNoteModalMessage(message, type = 'danger') {
+    const container = document.getElementById('sessionNoteModalMessages');
+    if (!container) return;
+    const safe = escapeHtml(message);
+    container.innerHTML = `<div class="alert alert-${type} mb-0" role="alert">${safe}</div>`;
+}
+
+function showSessionLogModalMessage(message, type = 'danger') {
+    const container = document.getElementById('sessionLogModalMessages');
+    if (!container) return;
+    const safe = escapeHtml(message);
+    container.innerHTML = `<div class="alert alert-${type} mb-0" role="alert">${safe}</div>`;
+}
+
+function clearSessionNoteModalMessage() {
+    const container = document.getElementById('sessionNoteModalMessages');
+    if (container) container.innerHTML = '';
+}
+
+function clearSessionLogModalMessage() {
+    const container = document.getElementById('sessionLogModalMessages');
+    if (container) container.innerHTML = '';
+}
+
+function canEditSessionNote(note) {
+    const currentUserId = window.CURRENT_USER?.id;
+    if (!currentUserId) return false;
+    if (IS_GM) return true;
+    return note?.note_type === 'player_note' && Number(note?.author) === Number(currentUserId);
+}
+
+function canEditSessionLog(log) {
+    const currentUserId = window.CURRENT_USER?.id;
+    if (!currentUserId) return false;
+    if (IS_GM) return true;
+    return Number(log?.created_by) === Number(currentUserId);
+}
+
+function updateNotesLogsCountBadges() {
+    const notesBadge = document.getElementById('sessionNotesCountBadge');
+    const logsBadge = document.getElementById('sessionLogsCountBadge');
+    if (notesBadge) notesBadge.textContent = `Notes: ${sessionNotes.length}`;
+    if (logsBadge) logsBadge.textContent = `Logs: ${sessionLogs.length}`;
+}
+
+function buildNotesSummaryText(notes) {
+    if (!notes || notes.length === 0) return 'ノートがありません';
+    const pinnedCount = notes.filter(n => !!n.is_pinned).length;
+    const summary = [];
+    if (pinnedCount > 0) summary.push(`ピン留め: ${pinnedCount}`);
+    summary.push(`合計: ${notes.length}`);
+    return summary.join(' / ');
+}
+
+function buildLogsSummaryText(logs) {
+    if (!logs || logs.length === 0) return 'ログがありません';
+    return `合計: ${logs.length}`;
+}
+
+function getSessionNoteTypeLabel(noteType) {
+    return SESSION_NOTE_TYPE_LABELS[noteType] || noteType || '';
+}
+
+function renderSessionNotes() {
+    const container = document.getElementById('sessionNotesContainer');
+    if (!container) return;
+
+    const summaryEl = document.getElementById('sessionNotesSummary');
+    if (summaryEl) summaryEl.textContent = buildNotesSummaryText(sessionNotes);
+
+    const filterType = currentSessionNoteFilter || 'all';
+    const filtered = filterType === 'all'
+        ? sessionNotes
+        : sessionNotes.filter(note => note.note_type === filterType);
+
+    if (!filtered || filtered.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center mb-0">表示できるノートがありません</p>';
+        return;
+    }
+
+    const html = filtered.map(note => {
+        const title = (note.title || '').trim();
+        const typeLabel = getSessionNoteTypeLabel(note.note_type);
+        const safeTitle = escapeHtml(title || typeLabel || 'ノート');
+        const safeType = escapeHtml(typeLabel);
+        const safeAuthor = escapeHtml(note.author_detail?.nickname || note.author_detail?.username || '');
+        const updatedAt = formatDateTimeDisplay(note.updated_at || note.created_at);
+        const canEdit = canEditSessionNote(note);
+        const pinBtn = IS_GM
+            ? `
+                <button type="button"
+                        class="btn btn-sm btn-outline-${note.is_pinned ? 'warning' : 'secondary'}"
+                        onclick="togglePinSessionNote(${note.id})">
+                    <i class="fas fa-thumbtack"></i>
+                </button>
+            `
+            : '';
+        const editBtn = canEdit
+            ? `
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="openSessionNoteModal(${note.id})">
+                    <i class="fas fa-edit"></i>
+                </button>
+            `
+            : '';
+        const deleteBtn = canEdit
+            ? `
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteSessionNote(${note.id})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `
+            : '';
+
+        const badgeClasses = note.is_pinned ? 'bg-warning text-dark' : 'bg-primary';
+        const pinnedBadge = note.is_pinned ? '<span class="badge bg-warning text-dark ms-1"><i class="fas fa-thumbtack"></i> ピン</span>' : '';
+        const typeBadge = safeType ? `<span class="badge ${badgeClasses}">${safeType}</span>` : '';
+
+        return `
+            <div class="border rounded p-3 mb-2 session-note-item">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div class="flex-grow-1">
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            ${typeBadge}
+                            ${pinnedBadge}
+                            <span class="fw-semibold">${safeTitle}</span>
+                        </div>
+                        <div class="small text-muted mt-1">
+                            ${safeAuthor ? `${safeAuthor} / ` : ''}更新: ${escapeHtml(updatedAt)}
+                        </div>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        ${pinBtn}
+                        ${editBtn}
+                        ${deleteBtn}
+                    </div>
+                </div>
+                <div class="mt-2 session-note-content">${nl2br(note.content || '')}</div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = html;
+}
+
+function renderSessionLogs() {
+    const container = document.getElementById('sessionLogsContainer');
+    if (!container) return;
+
+    const summaryEl = document.getElementById('sessionLogsSummary');
+    if (summaryEl) summaryEl.textContent = buildLogsSummaryText(sessionLogs);
+
+    if (!sessionLogs || sessionLogs.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center mb-0">ログがありません</p>';
+        return;
+    }
+
+    const html = sessionLogs.map(log => {
+        const timestamp = formatDateTimeDisplay(log.timestamp || log.created_at);
+        const safeTimestamp = escapeHtml(timestamp);
+        const safeType = escapeHtml((log.event_type || 'general').trim() || 'general');
+        const safeCreator = escapeHtml(log.created_by_detail?.nickname || log.created_by_detail?.username || '');
+        const safeRelated = escapeHtml((log.related_character_name || '').trim());
+        const canEdit = canEditSessionLog(log);
+
+        const relatedBadge = safeRelated
+            ? `<span class="badge bg-dark ms-1"><i class="fas fa-user-ninja"></i> ${safeRelated}</span>`
+            : '';
+
+        const editBtn = canEdit
+            ? `
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="openSessionLogModal(${log.id})">
+                    <i class="fas fa-edit"></i>
+                </button>
+            `
+            : '';
+        const deleteBtn = canEdit
+            ? `
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteSessionLog(${log.id})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `
+            : '';
+
+        return `
+            <div class="border rounded p-3 mb-2 session-log-item">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div class="flex-grow-1">
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <span class="fw-semibold">${safeTimestamp}</span>
+                            <span class="badge bg-success">${safeType}</span>
+                            ${relatedBadge}
+                        </div>
+                        <div class="small text-muted mt-1">
+                            ${safeCreator ? `${safeCreator}` : ''}
+                        </div>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        ${editBtn}
+                        ${deleteBtn}
+                    </div>
+                </div>
+                <div class="mt-2 session-log-content">${nl2br(log.description || '')}</div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = html;
+}
+
+function setSessionNoteFilter(filterType) {
+    currentSessionNoteFilter = filterType || 'all';
+    const group = document.getElementById('sessionNoteTypeFilters');
+    if (group) {
+        group.querySelectorAll('button[data-note-type]').forEach(btn => {
+            const active = btn.dataset.noteType === currentSessionNoteFilter;
+            btn.classList.toggle('active', active);
+        });
+    }
+    renderSessionNotes();
+}
+
+async function loadSessionNotes() {
+    const container = document.getElementById('sessionNotesContainer');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="text-center py-3">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    `;
+
+    try {
+        const response = await axios.get(`/api/schedules/sessions/${SESSION_ID}/notes/`);
+        sessionNotes = response.data || [];
+        sessionNoteMap.clear();
+        for (const note of sessionNotes) {
+            if (note?.id !== undefined && note?.id !== null) {
+                sessionNoteMap.set(String(note.id), note);
+            }
+        }
+        updateNotesLogsCountBadges();
+        renderSessionNotes();
+    } catch (error) {
+        sessionNotes = [];
+        sessionNoteMap.clear();
+        updateNotesLogsCountBadges();
+        container.innerHTML = '<p class="text-muted text-center mb-0">ノートの読み込みに失敗しました</p>';
+        showSessionNotesMessage(error.response?.data?.detail || error.message || 'ノートの読み込みに失敗しました', 'danger');
+    }
+}
+
+async function loadSessionLogs() {
+    const container = document.getElementById('sessionLogsContainer');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="text-center py-3">
+            <div class="spinner-border text-success" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    `;
+
+    try {
+        const response = await axios.get(`/api/schedules/sessions/${SESSION_ID}/logs/`);
+        sessionLogs = response.data || [];
+        sessionLogMap.clear();
+        for (const log of sessionLogs) {
+            if (log?.id !== undefined && log?.id !== null) {
+                sessionLogMap.set(String(log.id), log);
+            }
+        }
+        updateNotesLogsCountBadges();
+        renderSessionLogs();
+    } catch (error) {
+        sessionLogs = [];
+        sessionLogMap.clear();
+        updateNotesLogsCountBadges();
+        container.innerHTML = '<p class="text-muted text-center mb-0">ログの読み込みに失敗しました</p>';
+        showSessionLogsMessage(error.response?.data?.detail || error.message || 'ログの読み込みに失敗しました', 'danger');
+    }
+}
+
+function openSessionNoteModal(noteId = null) {
+    if (IS_PUBLIC_VIEW || (!IS_GM && !IS_PARTICIPANT)) return;
+
+    clearSessionNoteModalMessage();
+
+    const modalEl = document.getElementById('sessionNoteModal');
+    if (!modalEl) return;
+
+    const idEl = document.getElementById('sessionNoteId');
+    const typeEl = document.getElementById('sessionNoteType');
+    const titleEl = document.getElementById('sessionNoteTitle');
+    const contentEl = document.getElementById('sessionNoteContent');
+    const pinnedEl = document.getElementById('sessionNotePinned');
+    const titleLabelEl = document.getElementById('sessionNoteModalTitle');
+
+    if (!idEl || !typeEl || !titleEl || !contentEl) return;
+
+    const isEdit = noteId !== null && noteId !== undefined;
+    if (isEdit) {
+        const note = sessionNoteMap.get(String(noteId));
+        if (!note) return;
+
+        if (!canEditSessionNote(note)) {
+            showSessionNotesMessage('このノートを編集する権限がありません', 'warning');
+            return;
+        }
+
+        idEl.value = String(note.id);
+        if (titleLabelEl) titleLabelEl.innerHTML = '<i class="fas fa-sticky-note"></i> ノート編集';
+        titleEl.value = note.title || '';
+        contentEl.value = note.content || '';
+        if (typeEl) typeEl.value = note.note_type || 'player_note';
+        if (pinnedEl) pinnedEl.checked = !!note.is_pinned;
+    } else {
+        idEl.value = '';
+        if (titleLabelEl) titleLabelEl.innerHTML = '<i class="fas fa-sticky-note"></i> ノート追加';
+        titleEl.value = '';
+        contentEl.value = '';
+        const initialType = IS_GM && currentSessionNoteFilter !== 'all'
+            ? currentSessionNoteFilter
+            : 'player_note';
+        typeEl.value = initialType;
+        if (pinnedEl) pinnedEl.checked = false;
+    }
+
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+}
+
+async function saveSessionNote() {
+    clearSessionNoteModalMessage();
+
+    const idEl = document.getElementById('sessionNoteId');
+    const typeEl = document.getElementById('sessionNoteType');
+    const titleEl = document.getElementById('sessionNoteTitle');
+    const contentEl = document.getElementById('sessionNoteContent');
+    const pinnedEl = document.getElementById('sessionNotePinned');
+    const saveBtn = document.getElementById('saveSessionNoteBtn');
+
+    if (!idEl || !typeEl || !titleEl || !contentEl) return;
+
+    const noteId = (idEl.value || '').trim();
+    const noteType = (typeEl.value || 'player_note').trim();
+    const title = (titleEl.value || '').trim();
+    const content = (contentEl.value || '').trim();
+    const isPinned = pinnedEl ? !!pinnedEl.checked : false;
+
+    if (!content) {
+        showSessionNoteModalMessage('内容を入力してください', 'warning');
+        return;
+    }
+
+    const payload = {
+        title,
+        content,
+    };
+
+    if (IS_GM) {
+        payload.note_type = noteType;
+        payload.is_pinned = isPinned;
+    }
+
+    try {
+        if (saveBtn) saveBtn.disabled = true;
+        if (noteId) {
+            await axios.patch(`/api/schedules/notes/${encodeURIComponent(noteId)}/`, payload);
+        } else {
+            const createPayload = { ...payload };
+            if (IS_GM) {
+                createPayload.note_type = noteType;
+                createPayload.is_pinned = isPinned;
+            } else {
+                createPayload.note_type = 'player_note';
+            }
+            await axios.post(`/api/schedules/sessions/${SESSION_ID}/notes/`, createPayload);
+        }
+
+        const modalEl = document.getElementById('sessionNoteModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        await loadSessionNotes();
+        showSessionNotesMessage('ノートを保存しました', 'success');
+    } catch (error) {
+        const message = error.response?.data?.error || error.response?.data?.detail || error.message;
+        showSessionNoteModalMessage(`保存に失敗しました: ${message}`, 'danger');
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+    }
+}
+
+async function togglePinSessionNote(noteId) {
+    if (!IS_GM) return;
+    const note = sessionNoteMap.get(String(noteId));
+    if (!note) return;
+
+    try {
+        await axios.patch(`/api/schedules/notes/${encodeURIComponent(noteId)}/`, {
+            is_pinned: !note.is_pinned,
+        });
+        await loadSessionNotes();
+    } catch (error) {
+        const message = error.response?.data?.error || error.response?.data?.detail || error.message;
+        showSessionNotesMessage(`ピン留めの更新に失敗しました: ${message}`, 'danger');
+    }
+}
+
+async function deleteSessionNote(noteId) {
+    const note = sessionNoteMap.get(String(noteId));
+    if (!note) return;
+    if (!canEditSessionNote(note)) {
+        showSessionNotesMessage('このノートを削除する権限がありません', 'warning');
+        return;
+    }
+    if (!confirm('このノートを削除しますか？')) return;
+
+    try {
+        await axios.delete(`/api/schedules/notes/${encodeURIComponent(noteId)}/`);
+        await loadSessionNotes();
+        showSessionNotesMessage('ノートを削除しました', 'success');
+    } catch (error) {
+        const message = error.response?.data?.error || error.response?.data?.detail || error.message;
+        showSessionNotesMessage(`削除に失敗しました: ${message}`, 'danger');
+    }
+}
+
+function openSessionLogModal(logId = null) {
+    if (IS_PUBLIC_VIEW || (!IS_GM && !IS_PARTICIPANT)) return;
+
+    clearSessionLogModalMessage();
+
+    const modalEl = document.getElementById('sessionLogModal');
+    if (!modalEl) return;
+
+    const idEl = document.getElementById('sessionLogId');
+    const timestampEl = document.getElementById('sessionLogTimestamp');
+    const typeEl = document.getElementById('sessionLogEventType');
+    const relatedEl = document.getElementById('sessionLogRelatedCharacter');
+    const descEl = document.getElementById('sessionLogDescription');
+    const titleLabelEl = document.getElementById('sessionLogModalTitle');
+
+    if (!idEl || !timestampEl || !typeEl || !relatedEl || !descEl) return;
+
+    const isEdit = logId !== null && logId !== undefined;
+    if (isEdit) {
+        const log = sessionLogMap.get(String(logId));
+        if (!log) return;
+        if (!canEditSessionLog(log)) {
+            showSessionLogsMessage('このログを編集する権限がありません', 'warning');
+            return;
+        }
+        idEl.value = String(log.id);
+        if (titleLabelEl) titleLabelEl.innerHTML = '<i class="fas fa-stream"></i> ログ編集';
+        timestampEl.value = toDateTimeLocalValue(log.timestamp || log.created_at);
+        typeEl.value = (log.event_type || 'general').trim();
+        relatedEl.value = log.related_character ? String(log.related_character) : '';
+        descEl.value = log.description || '';
+    } else {
+        idEl.value = '';
+        if (titleLabelEl) titleLabelEl.innerHTML = '<i class="fas fa-stream"></i> ログ追加';
+        timestampEl.value = toDateTimeLocalValue(new Date());
+        typeEl.value = 'general';
+        relatedEl.value = '';
+        descEl.value = '';
+    }
+
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+}
+
+async function saveSessionLog() {
+    clearSessionLogModalMessage();
+
+    const idEl = document.getElementById('sessionLogId');
+    const timestampEl = document.getElementById('sessionLogTimestamp');
+    const typeEl = document.getElementById('sessionLogEventType');
+    const relatedEl = document.getElementById('sessionLogRelatedCharacter');
+    const descEl = document.getElementById('sessionLogDescription');
+    const saveBtn = document.getElementById('saveSessionLogBtn');
+
+    if (!idEl || !timestampEl || !typeEl || !relatedEl || !descEl) return;
+
+    const logId = (idEl.value || '').trim();
+    const timestamp = (timestampEl.value || '').trim();
+    const eventType = (typeEl.value || 'general').trim() || 'general';
+    const relatedCharacterValue = (relatedEl.value || '').trim();
+    const description = (descEl.value || '').trim();
+
+    if (!timestamp) {
+        showSessionLogModalMessage('日時を入力してください', 'warning');
+        return;
+    }
+    if (!description) {
+        showSessionLogModalMessage('内容を入力してください', 'warning');
+        return;
+    }
+
+    const payload = {
+        timestamp,
+        event_type: eventType,
+        description,
+        related_character: relatedCharacterValue ? Number(relatedCharacterValue) : null,
+    };
+
+    try {
+        if (saveBtn) saveBtn.disabled = true;
+        if (logId) {
+            await axios.patch(`/api/schedules/logs/${encodeURIComponent(logId)}/`, payload);
+        } else {
+            await axios.post(`/api/schedules/sessions/${SESSION_ID}/logs/`, payload);
+        }
+
+        const modalEl = document.getElementById('sessionLogModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        await loadSessionLogs();
+        showSessionLogsMessage('ログを保存しました', 'success');
+    } catch (error) {
+        const message = error.response?.data?.error || error.response?.data?.detail || error.message;
+        showSessionLogModalMessage(`保存に失敗しました: ${message}`, 'danger');
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+    }
+}
+
+async function deleteSessionLog(logId) {
+    const log = sessionLogMap.get(String(logId));
+    if (!log) return;
+    if (!canEditSessionLog(log)) {
+        showSessionLogsMessage('このログを削除する権限がありません', 'warning');
+        return;
+    }
+    if (!confirm('このログを削除しますか？')) return;
+
+    try {
+        await axios.delete(`/api/schedules/logs/${encodeURIComponent(logId)}/`);
+        await loadSessionLogs();
+        showSessionLogsMessage('ログを削除しました', 'success');
+    } catch (error) {
+        const message = error.response?.data?.error || error.response?.data?.detail || error.message;
+        showSessionLogsMessage(`削除に失敗しました: ${message}`, 'danger');
+    }
+}
+
+function setupSessionNotesLogsUi() {
+    const noteFilters = document.getElementById('sessionNoteTypeFilters');
+    if (noteFilters) {
+        noteFilters.addEventListener('click', (event) => {
+            const btn = event.target?.closest('button[data-note-type]');
+            if (!btn) return;
+            setSessionNoteFilter(btn.dataset.noteType || 'all');
+        });
+    }
+
+    const openNoteBtn = document.getElementById('openSessionNoteModalBtn');
+    if (openNoteBtn) openNoteBtn.addEventListener('click', () => openSessionNoteModal(null));
+
+    const openLogBtn = document.getElementById('openSessionLogModalBtn');
+    if (openLogBtn) openLogBtn.addEventListener('click', () => openSessionLogModal(null));
+
+    const saveNoteBtn = document.getElementById('saveSessionNoteBtn');
+    if (saveNoteBtn) saveNoteBtn.addEventListener('click', saveSessionNote);
+
+    const saveLogBtn = document.getElementById('saveSessionLogBtn');
+    if (saveLogBtn) saveLogBtn.addEventListener('click', saveSessionLog);
+
+    const reloadNotesBtn = document.getElementById('reloadSessionNotesBtn');
+    if (reloadNotesBtn) reloadNotesBtn.addEventListener('click', loadSessionNotes);
+
+    const reloadLogsBtn = document.getElementById('reloadSessionLogsBtn');
+    if (reloadLogsBtn) reloadLogsBtn.addEventListener('click', loadSessionLogs);
+}
+
 // セッション参加
 async function joinSession() {
     const characterSheetId = document.getElementById('character_sheet_id').value;
@@ -2140,6 +2998,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const uploadImagesBtn = document.getElementById('uploadSessionImagesBtn');
     if (uploadImagesBtn) uploadImagesBtn.addEventListener('click', uploadSessionImages);
+
+    const notesLogsCard = document.getElementById('sessionNotesLogsCard');
+    if (notesLogsCard) {
+        setupSessionNotesLogsUi();
+        loadSessionNotes();
+        loadSessionLogs();
+    }
 
     loadCharacterSheets();
     loadGroupMemberCharacters();

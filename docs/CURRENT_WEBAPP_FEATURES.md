@@ -369,7 +369,7 @@
 - **API（代表）**
   - `/api/schedules/notes/` / `/api/schedules/logs/`
   - `/api/schedules/sessions/{session_id}/notes/` / `/api/schedules/sessions/{session_id}/logs/`
-- **状態**: **一部完成**（API/DBはあるが、UIは未整備）
+- **状態**: **完成**（API/DB/UI）
 
 ### 4.11 セッション画像（添付画像）
 
