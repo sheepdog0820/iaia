@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404
-from django.db.models import Q, Sum, Count
+from django.db.models import Q, Sum, Count, Case, When, Value, IntegerField, DateTimeField, F
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -516,7 +516,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
     def upcoming(self, request):
         from .serializers import UpcomingSessionSerializer
         from django.utils import timezone
-        
+
         now = timezone.now()
         sessions = self.get_queryset().filter(
             date__gte=now,
@@ -524,10 +524,122 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         ).select_related('gm', 'group').prefetch_related(
             'sessionparticipant_set__user'
         ).order_by('date')[:5]
-        
+
         serializer = UpcomingSessionSerializer(sessions, many=True)
         return Response(serializer.data)
-    
+
+    @action(detail=False, methods=['get'], url_path='my-sessions')
+    def my_sessions(self, request):
+        """参加予定セッション一覧API（ISSUE-030）
+
+        フィルター:
+        - role: gm/player（デフォルト: すべて）
+        - status: planned/ongoing/completed/cancelled（デフォルト: planned,ongoing）
+        - period: future/past7/past30/past90（デフォルト: future、空の場合はすべて）
+        """
+        user = request.user
+        now = timezone.now()
+
+        # 基本クエリ: ユーザーが参加しているセッション
+        participant_session_ids = SessionParticipant.objects.filter(
+            user=user
+        ).values_list('session_id', flat=True)
+
+        sessions = TRPGSession.objects.filter(
+            Q(gm=user) | Q(id__in=participant_session_ids)
+        ).select_related('gm', 'group', 'scenario').prefetch_related(
+            'sessionparticipant_set__user'
+        ).distinct()
+
+        # ロールフィルター
+        role = request.query_params.get('role', '')
+        if role == 'gm':
+            sessions = sessions.filter(gm=user)
+        elif role == 'player':
+            sessions = sessions.filter(id__in=participant_session_ids).exclude(gm=user)
+
+        # ステータスフィルター
+        status_filter = request.query_params.get('status', '')
+        if status_filter:
+            sessions = sessions.filter(status=status_filter)
+        else:
+            # デフォルト: 予定と進行中
+            sessions = sessions.filter(status__in=['planned', 'ongoing'])
+
+        # 期間フィルター
+        period = request.query_params.get('period', 'future')
+        if period == 'future':
+            sessions = sessions.filter(date__gte=now)
+        elif period == 'past7':
+            sessions = sessions.filter(date__gte=now - timedelta(days=7), date__lt=now)
+        elif period == 'past30':
+            sessions = sessions.filter(date__gte=now - timedelta(days=30), date__lt=now)
+        elif period == 'past90':
+            sessions = sessions.filter(date__gte=now - timedelta(days=90), date__lt=now)
+        # period='' の場合はフィルターなし（すべて）
+
+        # ソート: futureは昇順、past系は降順、allは未来→過去の順
+        if period == 'future':
+            sessions = sessions.order_by('date')
+        elif period in {'past7', 'past30', 'past90'}:
+            sessions = sessions.order_by('-date')
+        else:
+            sessions = sessions.annotate(
+                _period_sort_group=Case(
+                    When(date__gte=now, then=Value(0)),
+                    default=Value(1),
+                    output_field=IntegerField(),
+                ),
+                _future_date=Case(
+                    When(date__gte=now, then=F('date')),
+                    default=Value(None),
+                    output_field=DateTimeField(),
+                ),
+                _past_date=Case(
+                    When(date__lt=now, then=F('date')),
+                    default=Value(None),
+                    output_field=DateTimeField(),
+                ),
+            ).order_by('_period_sort_group', '_future_date', '-_past_date')
+
+        # ページネーション
+        def _safe_positive_int(value, default, *, max_value=None):
+            try:
+                parsed = int(value)
+            except (TypeError, ValueError):
+                return default
+            if parsed < 1:
+                return default
+            if max_value is not None and parsed > max_value:
+                return max_value
+            return parsed
+
+        page = _safe_positive_int(request.query_params.get('page', 1), 1)
+        page_size = _safe_positive_int(request.query_params.get('page_size', 20), 20, max_value=100)
+        offset = (page - 1) * page_size
+
+        total_count = sessions.count()
+        sessions_page = sessions[offset:offset + page_size]
+
+        # ユーザーのロール情報を付加してシリアライズ
+        result = []
+        for session in sessions_page:
+            session_data = TRPGSessionSerializer(session, context={'request': request}).data
+            # ユーザーのロールを追加
+            if session.gm_id == user.id:
+                session_data['my_role'] = 'gm'
+            else:
+                session_data['my_role'] = 'player'
+            result.append(session_data)
+
+        return Response({
+            'count': total_count,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': (total_count + page_size - 1) // page_size,
+            'results': result
+        })
+
     @action(detail=False, methods=['get'])
     def statistics(self, request):
         user = request.user

@@ -581,3 +581,114 @@ class GroupNotificationService(HandoutNotificationService):
         if invitation_message:
             lines.append(f"メッセージ: {invitation_message}")
         return "\n".join(lines)
+
+
+class FriendNotificationService(HandoutNotificationService):
+    """フレンドリクエスト通知サービスクラス（ISSUE-013）"""
+
+    def send_friend_request_notification(self, sender, recipient):
+        """
+        フレンドリクエスト送信通知
+
+        Args:
+            sender (CustomUser): リクエストを送った人
+            recipient (CustomUser): リクエストを受け取る人
+
+        Returns:
+            bool: 通知送信成功時True、失敗時False
+        """
+        try:
+            # 通知設定を確認
+            preferences = UserNotificationPreferences.get_or_create_for_user(recipient)
+            if hasattr(preferences, 'friend_notifications_enabled') and not preferences.friend_notifications_enabled:
+                logger.info(f"フレンド通知が無効のためスキップ: user={recipient.id}")
+                return False
+
+            # 通知メッセージ作成
+            message = self._create_friend_request_message(sender)
+
+            # 通知レコード作成
+            notification = HandoutNotification.objects.create(
+                handout_id=0,  # フレンド通知なのでhandout_idは0
+                recipient=recipient,
+                sender=sender,
+                notification_type='friend_request',
+                message=message,
+                is_read=False,
+                metadata={
+                    'sender_id': sender.id,
+                    'sender_name': sender.nickname or sender.username,
+                }
+            )
+
+            # メール通知（設定が有効な場合）
+            if preferences.email_notifications_enabled:
+                self._send_email_notification(notification)
+
+            logger.info(f"フレンドリクエスト通知送信完了: sender={sender.id}, recipient={recipient.id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"フレンドリクエスト通知送信エラー: {e}")
+            return False
+
+    def send_friend_request_accepted_notification(self, accepter, original_sender):
+        """
+        フレンドリクエスト承認通知
+
+        Args:
+            accepter (CustomUser): リクエストを承認した人
+            original_sender (CustomUser): リクエストを送った人（通知を受け取る人）
+
+        Returns:
+            bool: 通知送信成功時True、失敗時False
+        """
+        try:
+            # 通知設定を確認
+            preferences = UserNotificationPreferences.get_or_create_for_user(original_sender)
+            if hasattr(preferences, 'friend_notifications_enabled') and not preferences.friend_notifications_enabled:
+                logger.info(f"フレンド通知が無効のためスキップ: user={original_sender.id}")
+                return False
+
+            # 通知メッセージ作成
+            message = self._create_friend_request_accepted_message(accepter)
+
+            # 通知レコード作成
+            notification = HandoutNotification.objects.create(
+                handout_id=0,  # フレンド通知なのでhandout_idは0
+                recipient=original_sender,
+                sender=accepter,
+                notification_type='friend_request_accepted',
+                message=message,
+                is_read=False,
+                metadata={
+                    'accepter_id': accepter.id,
+                    'accepter_name': accepter.nickname or accepter.username,
+                }
+            )
+
+            # メール通知（設定が有効な場合）
+            if preferences.email_notifications_enabled:
+                self._send_email_notification(notification)
+
+            logger.info(f"フレンドリクエスト承認通知送信完了: accepter={accepter.id}, recipient={original_sender.id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"フレンドリクエスト承認通知送信エラー: {e}")
+            return False
+
+    def _create_friend_request_message(self, sender):
+        """フレンドリクエスト通知メッセージの作成"""
+        return (
+            f"【フレンドリクエスト】\n"
+            f"{sender.nickname or sender.username}さんからフレンドリクエストが届いています。"
+        )
+
+    def _create_friend_request_accepted_message(self, accepter):
+        """フレンドリクエスト承認通知メッセージの作成"""
+        return (
+            f"【フレンドリクエスト承認】\n"
+            f"{accepter.nickname or accepter.username}さんがフレンドリクエストを承認しました。\n"
+            f"これでフレンドになりました！"
+        )

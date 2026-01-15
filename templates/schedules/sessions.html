@@ -35,8 +35,8 @@
                     <div class="mb-3">
                         <label class="form-label">期間</label>
                         <select class="form-select" id="periodFilter">
+                            <option value="future" selected>今後の予定</option>
                             <option value="">すべて</option>
-                            <option value="future">今後の予定</option>
                             <option value="past7">過去7日間</option>
                             <option value="past30">過去30日間</option>
                             <option value="past90">過去90日間</option>
@@ -86,25 +86,65 @@
         </div>
         
         <div class="col-md-9">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="mb-0">セッション一覧</h4>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newSessionModal">
-                    <i class="fas fa-plus"></i> 新規セッション
-                </button>
-            </div>
+            <!-- タブナビゲーション -->
+            <ul class="nav nav-tabs mb-3" id="sessionsTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="my-sessions-tab" data-bs-toggle="tab" data-bs-target="#my-sessions-pane" type="button" role="tab">
+                        <i class="fas fa-user-check"></i> 参加予定
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="all-sessions-tab" data-bs-toggle="tab" data-bs-target="#all-sessions-pane" type="button" role="tab">
+                        <i class="fas fa-list"></i> すべて
+                    </button>
+                </li>
+            </ul>
 
-            <div id="sessionsList">
-                <div class="text-center py-5">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
+            <div class="tab-content" id="sessionsTabContent">
+                <!-- 参加予定タブ -->
+                <div class="tab-pane fade show active" id="my-sessions-pane" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <span class="text-muted" id="mySessionsCount"></span>
+                        </div>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newSessionModal">
+                            <i class="fas fa-plus"></i> 新規セッション
+                        </button>
                     </div>
+                    <div id="mySessionsList">
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center" id="mySessionsPagination"></ul>
+                    </nav>
+                </div>
+
+                <!-- すべてのセッションタブ -->
+                <div class="tab-pane fade" id="all-sessions-pane" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <span class="text-muted" id="allSessionsCount"></span>
+                        </div>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newSessionModal">
+                            <i class="fas fa-plus"></i> 新規セッション
+                        </button>
+                    </div>
+                    <div id="sessionsList">
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center" id="pagination"></ul>
+                    </nav>
                 </div>
             </div>
-
-            <nav aria-label="Page navigation" class="mt-4">
-                <ul class="pagination justify-content-center" id="pagination">
-                </ul>
-            </nav>
         </div>
     </div>
 </div>
@@ -257,73 +297,128 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     let currentPage = 1;
+    let mySessionsPage = 1;
     let currentFilters = {};
     let currentSessionId = null;
+    const userId = {{ user.id }};
 
-    // セッション一覧読み込み
+    // 参加予定セッション読み込み（ISSUE-030）
+    async function loadMySessions(page = 1) {
+        const container = document.getElementById('mySessionsList');
+        const countEl = document.getElementById('mySessionsCount');
+
+        try {
+            const params = new URLSearchParams({
+                page: page,
+                page_size: 20,
+                ...currentFilters
+            });
+
+            const response = await axios.get(`/api/schedules/sessions/my-sessions/?${params}`);
+            const data = response.data;
+            const sessions = data.results || [];
+
+            countEl.textContent = `${data.count}件の参加予定セッション`;
+
+            if (sessions.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        参加予定のセッションはありません
+                    </div>
+                `;
+                updateMySessionsPagination(0, 20, 1);
+                return;
+            }
+
+            container.innerHTML = sessions.map(session => renderSessionCard(session, true)).join('');
+            updateMySessionsPagination(data.count, data.page_size, page);
+
+        } catch (error) {
+            console.error('Error loading my sessions:', error);
+            container.innerHTML = '<div class="alert alert-danger">参加予定セッションの読み込みに失敗しました</div>';
+        }
+    }
+
+    // すべてのセッション読み込み
     async function loadSessions(page = 1) {
+        const container = document.getElementById('sessionsList');
+        const countEl = document.getElementById('allSessionsCount');
+
         try {
             const params = new URLSearchParams({
                 page: page,
                 ...currentFilters
             });
-            
+
             const response = await axios.get(`/api/schedules/sessions/?${params}`);
             const sessions = response.data.results || response.data;
-            
-            const container = document.getElementById('sessionsList');
-            
+
+            if (countEl) {
+                countEl.textContent = `${response.data.count || sessions.length}件のセッション`;
+            }
+
             if (sessions.length === 0) {
                 container.innerHTML = '<div class="alert alert-info">セッションが見つかりませんでした</div>';
                 return;
             }
-            
-            container.innerHTML = sessions.map(session => `
-                <div class="card session-card status-${session.status} mb-3">
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-8">
-                                <h5 class="card-title">${session.title}</h5>
-                                <p class="text-muted mb-2">
-                                    <i class="fas fa-calendar"></i> ${new Date(session.date).toLocaleString('ja-JP')}
-                                    ${session.duration_minutes > 0 ? `<span class="ms-3"><i class="fas fa-clock"></i> ${session.duration_minutes}分</span>` : ''}
-                                </p>
-                                <p class="mb-2">
-                                    <i class="fas fa-user"></i> GM: ${session.gm_detail.nickname}
-                                    <span class="ms-3"><i class="fas fa-users"></i> 参加者: ${session.participant_count}人</span>
-                                </p>
-                                ${session.location ? `<p class="mb-1"><i class="fas fa-map-marker-alt"></i> ${session.location}</p>` : ''}
-                                ${session.youtube_url ? `<p class="mb-1"><i class="fab fa-youtube"></i> <a href="${session.youtube_url}" target="_blank">配信を見る</a></p>` : ''}
-                            </div>
-                            <div class="col-md-4 text-end">
-                                <span class="badge bg-${getStatusColor(session.status)} mb-2">${getStatusLabel(session.status)}</span>
-                                <div>
-                                    ${session.gm === '{{ user.id }}' ? `
-                                        <button class="btn btn-sm btn-outline-primary" onclick="editSession(${session.id})">
-                                            <i class="fas fa-edit"></i> 編集
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-info" onclick="manageParticipants(${session.id})">
-                                            <i class="fas fa-users-cog"></i> 参加者
-                                        </button>
-                                    ` : ''}
-                                    <a class="btn btn-sm btn-outline-secondary" href="/api/schedules/sessions/${session.id}/detail/">
-                                        <i class="fas fa-eye"></i> 詳細
-                                    </a>
-                                </div>
+
+            container.innerHTML = sessions.map(session => renderSessionCard(session, false)).join('');
+            updatePagination(response.data.count || sessions.length, response.data.page_size || 10, page);
+
+        } catch (error) {
+            console.error('Error loading sessions:', error);
+            container.innerHTML = '<div class="alert alert-danger">セッションの読み込みに失敗しました</div>';
+        }
+    }
+
+    // セッションカードのレンダリング
+    function renderSessionCard(session, showRole = false) {
+        const gmNickname = session.gm_detail?.nickname || session.gm_detail?.username || 'GM';
+        const isGm = session.gm === userId || session.my_role === 'gm';
+        const roleLabel = showRole && session.my_role
+            ? `<span class="badge ${session.my_role === 'gm' ? 'bg-primary' : 'bg-secondary'} me-2">${session.my_role === 'gm' ? 'GM' : 'PL'}</span>`
+            : '';
+
+        return `
+            <div class="card session-card status-${session.status} mb-3">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h5 class="card-title">
+                                ${roleLabel}${escapeHtml(session.title)}
+                            </h5>
+                            <p class="text-muted mb-2">
+                                <i class="fas fa-calendar"></i> ${new Date(session.date).toLocaleString('ja-JP')}
+                                ${session.duration_minutes > 0 ? `<span class="ms-3"><i class="fas fa-clock"></i> ${session.duration_minutes}分</span>` : ''}
+                            </p>
+                            <p class="mb-2">
+                                <i class="fas fa-user"></i> GM: ${escapeHtml(gmNickname)}
+                                <span class="ms-3"><i class="fas fa-users"></i> 参加者: ${session.participant_count || 0}人</span>
+                            </p>
+                            ${session.location ? `<p class="mb-1"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(session.location)}</p>` : ''}
+                            ${session.youtube_url ? `<p class="mb-1"><i class="fab fa-youtube"></i> <a href="${escapeHtml(session.youtube_url)}" target="_blank">配信を見る</a></p>` : ''}
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <span class="badge bg-${getStatusColor(session.status)} mb-2">${getStatusLabel(session.status)}</span>
+                            <div>
+                                ${isGm ? `
+                                    <button class="btn btn-sm btn-outline-primary" onclick="editSession(${session.id})">
+                                        <i class="fas fa-edit"></i> 編集
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-info" onclick="manageParticipants(${session.id})">
+                                        <i class="fas fa-users-cog"></i> 参加者
+                                    </button>
+                                ` : ''}
+                                <a class="btn btn-sm btn-outline-secondary" href="/api/schedules/sessions/${session.id}/detail/">
+                                    <i class="fas fa-eye"></i> 詳細
+                                </a>
                             </div>
                         </div>
                     </div>
                 </div>
-            `).join('');
-            
-            // ページネーション更新
-            updatePagination(response.count, response.page_size || 10, page);
-            
-        } catch (error) {
-            console.error('Error loading sessions:', error);
-            document.getElementById('sessionsList').innerHTML = 
-                '<div class="alert alert-danger">セッションの読み込みに失敗しました</div>';
-        }
+            </div>
+        `;
     }
 
     // ステータスの色を取得
@@ -531,46 +626,100 @@ document.addEventListener('DOMContentLoaded', function() {
             role: document.getElementById('roleFilter').value
         };
         currentPage = 1;
-        loadSessions(1);
+        mySessionsPage = 1;
+
+        // 現在アクティブなタブに応じてリロード
+        const activeTab = document.querySelector('#sessionsTab .nav-link.active');
+        if (activeTab && activeTab.id === 'my-sessions-tab') {
+            loadMySessions(1);
+        } else {
+            loadSessions(1);
+        }
     });
 
-    // ページネーション更新
-    function updatePagination(total, pageSize, currentPage) {
+    // ページネーション更新（すべてのセッション用）
+    function updatePagination(total, pageSize, page) {
         const totalPages = Math.ceil(total / pageSize);
         const pagination = document.getElementById('pagination');
-        
+
         let html = '';
-        
+
         if (totalPages > 1) {
-            html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
-                <a class="page-link" href="#" onclick="changePage(${currentPage - 1})">前へ</a>
+            html += `<li class="page-item ${page === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changePage(${page - 1}); return false;">前へ</a>
             </li>`;
-            
+
             for (let i = 1; i <= totalPages; i++) {
-                if (i === 1 || i === totalPages || Math.abs(i - currentPage) <= 2) {
-                    html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
-                        <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+                if (i === 1 || i === totalPages || Math.abs(i - page) <= 2) {
+                    html += `<li class="page-item ${i === page ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>
                     </li>`;
                 }
             }
-            
-            html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
-                <a class="page-link" href="#" onclick="changePage(${currentPage + 1})">次へ</a>
+
+            html += `<li class="page-item ${page === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changePage(${page + 1}); return false;">次へ</a>
             </li>`;
         }
-        
+
         pagination.innerHTML = html;
     }
 
-    // ページ変更
+    // ページネーション更新（参加予定セッション用）
+    function updateMySessionsPagination(total, pageSize, page) {
+        const totalPages = Math.ceil(total / pageSize);
+        const pagination = document.getElementById('mySessionsPagination');
+
+        let html = '';
+
+        if (totalPages > 1) {
+            html += `<li class="page-item ${page === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changeMySessionsPage(${page - 1}); return false;">前へ</a>
+            </li>`;
+
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || Math.abs(i - page) <= 2) {
+                    html += `<li class="page-item ${i === page ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="changeMySessionsPage(${i}); return false;">${i}</a>
+                    </li>`;
+                }
+            }
+
+            html += `<li class="page-item ${page === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changeMySessionsPage(${page + 1}); return false;">次へ</a>
+            </li>`;
+        }
+
+        pagination.innerHTML = html;
+    }
+
+    // ページ変更（すべてのセッション用）
     window.changePage = function(page) {
         currentPage = page;
         loadSessions(page);
         window.scrollTo(0, 0);
     };
 
-    // 初期化
-    loadSessions();
+    // ページ変更（参加予定セッション用）
+    window.changeMySessionsPage = function(page) {
+        mySessionsPage = page;
+        loadMySessions(page);
+        window.scrollTo(0, 0);
+    };
+
+    // タブ切り替え時のイベント
+    document.querySelectorAll('#sessionsTab .nav-link').forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function(event) {
+            if (event.target.id === 'my-sessions-tab') {
+                loadMySessions(mySessionsPage);
+            } else if (event.target.id === 'all-sessions-tab') {
+                loadSessions(currentPage);
+            }
+        });
+    });
+
+    // 初期化 - 参加予定タブを最初に読み込み
+    loadMySessions();
     loadSessionInvitations();
     loadStatistics();
 });

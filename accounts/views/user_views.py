@@ -42,17 +42,29 @@ class UserViewSet(viewsets.ModelViewSet):
 class FriendViewSet(viewsets.ModelViewSet):
     """Friend management ViewSet"""
     permission_classes = [IsAuthenticated]
-    
+
     def get_serializer_class(self):
         if self.action == 'list' or self.action == 'retrieve':
             return FriendDetailSerializer
         return FriendSerializer
-    
+
     def get_queryset(self):
         return Friend.objects.filter(user=self.request.user).select_related('friend')
-    
+
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        friend = serializer.save(user=self.request.user)
+        # フレンドリクエスト通知を送信（ISSUE-013）
+        try:
+            from schedules.notifications import FriendNotificationService
+            notification_service = FriendNotificationService()
+            notification_service.send_friend_request_notification(
+                sender=self.request.user,
+                recipient=friend.friend
+            )
+        except Exception as e:
+            # 通知送信に失敗してもフレンド追加自体は成功させる
+            import logging
+            logging.getLogger(__name__).warning(f"フレンドリクエスト通知送信に失敗: {e}")
 
 
 class ProfileView(APIView):
@@ -74,26 +86,39 @@ class ProfileView(APIView):
 class AddFriendView(APIView):
     """Add friend API view"""
     permission_classes = [IsAuthenticated]
-    
+
     def post(self, request):
         try:
             friend_username = request.data.get('username')
             friend = User.objects.get(username=friend_username)
-            
+
             # Check if already friends
             if Friend.objects.filter(user=request.user, friend=friend).exists():
                 return Response(
-                    {'error': 'Already friends'}, 
+                    {'error': 'Already friends'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             # Create friendship
             Friend.objects.create(user=request.user, friend=friend)
+
+            # フレンドリクエスト通知を送信（ISSUE-013）
+            try:
+                from schedules.notifications import FriendNotificationService
+                notification_service = FriendNotificationService()
+                notification_service.send_friend_request_notification(
+                    sender=request.user,
+                    recipient=friend
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"フレンドリクエスト通知送信に失敗: {e}")
+
             return Response({'success': True}, status=status.HTTP_201_CREATED)
-            
+
         except User.DoesNotExist:
             return Response(
-                {'error': 'User not found'}, 
+                {'error': 'User not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
 

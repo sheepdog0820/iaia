@@ -91,7 +91,10 @@
       "Bash(else echo \"entrypoint.sh does not exist\")",
       "Bash(if [ -f \".dockerignore\" ])",
       "Bash(then cat .dockerignore)",
-      "Bash(else echo \".dockerignore does not exist\")"
+      "Bash(else echo \".dockerignore does not exist\")",
+      "Bash(set \"SECRET_KEY=test-secret-key-for-development\")",
+      "Bash(set \"ENV_FILE=.env.development\")",
+      "Bash(powershell -Command:*)"
     ],
     "deny": []
   }

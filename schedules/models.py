@@ -472,6 +472,9 @@ class HandoutNotification(models.Model):
         ('session_cancelled', 'セッションキャンセル'),
         ('session_reminder', 'セッションリマインダー'),
         ('group_invitation', 'グループ招待'),
+        # フレンドリクエスト通知（ISSUE-013）
+        ('friend_request', 'フレンドリクエスト'),
+        ('friend_request_accepted', 'フレンドリクエスト承認'),
     ]
     
     handout_id = models.PositiveIntegerField(help_text="対象ハンドアウトのID（セッション通知の場合は0）")
@@ -510,6 +513,7 @@ class UserNotificationPreferences(models.Model):
     handout_notifications_enabled = models.BooleanField(default=True, help_text="ハンドアウト通知を有効にする")
     session_notifications_enabled = models.BooleanField(default=True, help_text="セッション通知を有効にする")
     group_notifications_enabled = models.BooleanField(default=True, help_text="グループ通知を有効にする")
+    friend_notifications_enabled = models.BooleanField(default=True, help_text="フレンド通知を有効にする")
     email_notifications_enabled = models.BooleanField(default=False, help_text="メール通知を有効にする")
     browser_notifications_enabled = models.BooleanField(default=True, help_text="ブラウザ通知を有効にする")
     

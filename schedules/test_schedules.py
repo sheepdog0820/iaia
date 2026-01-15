@@ -188,6 +188,103 @@ class ScheduleAPITestCase(APITestCase):
         self.assertEqual(data['title'], 'Test Session')
         self.assertEqual(data['gm'], self.user1.id)
 
+    def test_my_sessions_default_future_period(self):
+        """参加予定セッション一覧: period未指定はfuture扱い"""
+        self.client.force_authenticate(user=self.user2)
+
+        now = timezone.now()
+        future_soon = TRPGSession.objects.create(
+            title='Future Soon Session',
+            date=now + timedelta(days=1),
+            gm=self.user1,
+            group=self.group,
+        )
+        future_far = TRPGSession.objects.create(
+            title='Future Far Session',
+            date=now + timedelta(days=10),
+            gm=self.user1,
+            group=self.group,
+        )
+        past_recent = TRPGSession.objects.create(
+            title='Past Recent Session',
+            date=now - timedelta(days=1),
+            gm=self.user1,
+            group=self.group,
+        )
+        past_old = TRPGSession.objects.create(
+            title='Past Old Session',
+            date=now - timedelta(days=10),
+            gm=self.user1,
+            group=self.group,
+        )
+
+        for session in [future_soon, future_far, past_recent, past_old]:
+            SessionParticipant.objects.create(
+                session=session,
+                user=self.user2,
+                role='player',
+            )
+
+        response = self.client.get('/api/schedules/sessions/my-sessions/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        self.assertEqual(data['count'], 2)
+        self.assertEqual([s['id'] for s in data['results']], [future_soon.id, future_far.id])
+        self.assertEqual(data['results'][0]['my_role'], 'player')
+
+    def test_my_sessions_all_period_sorting_and_invalid_pagination(self):
+        """参加予定セッション一覧: all(空)は未来→過去、page系は安全に解釈"""
+        self.client.force_authenticate(user=self.user2)
+
+        now = timezone.now()
+        future_soon = TRPGSession.objects.create(
+            title='Future Soon Session',
+            date=now + timedelta(days=1),
+            gm=self.user1,
+            group=self.group,
+        )
+        future_far = TRPGSession.objects.create(
+            title='Future Far Session',
+            date=now + timedelta(days=10),
+            gm=self.user1,
+            group=self.group,
+        )
+        past_recent = TRPGSession.objects.create(
+            title='Past Recent Session',
+            date=now - timedelta(days=1),
+            gm=self.user1,
+            group=self.group,
+        )
+        past_old = TRPGSession.objects.create(
+            title='Past Old Session',
+            date=now - timedelta(days=10),
+            gm=self.user1,
+            group=self.group,
+        )
+
+        for session in [future_soon, future_far, past_recent, past_old]:
+            SessionParticipant.objects.create(
+                session=session,
+                user=self.user2,
+                role='player',
+            )
+
+        response = self.client.get(
+            '/api/schedules/sessions/my-sessions/',
+            {'period': '', 'page': 'abc', 'page_size': '9999'},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        self.assertEqual(data['page'], 1)
+        self.assertEqual(data['page_size'], 100)
+        self.assertEqual(data['count'], 4)
+        self.assertEqual(
+            [s['id'] for s in data['results']],
+            [future_soon.id, future_far.id, past_recent.id, past_old.id],
+        )
+
     def test_session_creation_via_api(self):
         """API経由セッション作成テスト"""
         self.client.force_authenticate(user=self.user1)

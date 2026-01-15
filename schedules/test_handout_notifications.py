@@ -328,13 +328,20 @@ class HandoutNotificationAPITest(TestCase):
         # 通知設定の取得
         response = client.get('/api/schedules/notification-preferences/')
         self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('friend_notifications_enabled', data)
         
         # 通知設定の更新
         response = client.patch('/api/schedules/notification-preferences/', {
             'handout_notifications_enabled': False,
-            'email_notifications_enabled': True
+            'email_notifications_enabled': True,
+            'friend_notifications_enabled': False,
         }, content_type='application/json')
         self.assertEqual(response.status_code, 200)
+        updated = response.json()
+        self.assertIn('data', updated)
+        self.assertIn('friend_notifications_enabled', updated['data'])
+        self.assertFalse(updated['data']['friend_notifications_enabled'])
 
 
 @unittest.skip("Integration test - will be implemented after basic functionality")

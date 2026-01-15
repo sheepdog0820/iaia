@@ -106,9 +106,14 @@
                         <h6 class="card-title mb-0">
                             <i class="fas fa-forward"></i> 次回セッション
                         </h6>
-                        <a href="{% url 'calendar_view' %}?open_create=1" class="btn btn-sm btn-outline-light">
-                            <i class="fas fa-plus"></i>
-                        </a>
+                        <div>
+                            <a href="{% url 'sessions_view' %}" class="btn btn-sm btn-outline-light me-1" title="参加予定一覧">
+                                <i class="fas fa-list"></i>
+                            </a>
+                            <a href="{% url 'calendar_view' %}?open_create=1" class="btn btn-sm btn-outline-light" title="新規作成">
+                                <i class="fas fa-plus"></i>
+                            </a>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body dashboard-scroll">
@@ -128,6 +133,11 @@
                                 </div>
                             </a>
                         {% endfor %}
+                        <div class="text-center mt-2">
+                            <a href="{% url 'sessions_view' %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-list"></i> すべての参加予定を見る
+                            </a>
+                        </div>
                     {% else %}
                         <div class="text-center text-muted py-3">
                             <i class="fas fa-calendar-times fa-2x mb-2"></i>

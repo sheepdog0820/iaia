@@ -611,6 +611,7 @@ class UserNotificationPreferencesSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'handout_notifications_enabled',
             'session_notifications_enabled', 'group_notifications_enabled',
+            'friend_notifications_enabled',
             'email_notifications_enabled', 'browser_notifications_enabled',
             'created_at', 'updated_at'
         ]
@@ -631,6 +632,10 @@ class UserNotificationPreferencesSerializer(serializers.ModelSerializer):
             'group': data.get(
                 'group_notifications_enabled',
                 getattr(self.instance, 'group_notifications_enabled', False)
+            ),
+            'friend': data.get(
+                'friend_notifications_enabled',
+                getattr(self.instance, 'friend_notifications_enabled', False)
             ),
             'email': data.get(
                 'email_notifications_enabled',
