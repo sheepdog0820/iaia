@@ -138,3 +138,28 @@ python manage.py create_flow_test_data
 ### 作成データ
 - **シナリオ**: 【FLOWTEST】推奨技能ありシナリオ（推奨技能あり）
 - **セッション**: 【FLOWTEST】シナリオ起点セッション（シナリオ紐付け）
+
+## 追加: ISSUE-017 高度なスケジューリング（セッションシリーズ/日程調整/参加可能日投票）テストデータ
+
+以下のコマンドで、ISSUE-017 の API を手動確認できるテストデータを作成できます。
+
+```bash
+# 既存のADVTESTデータを削除して作り直し
+python manage.py create_advanced_scheduling_test_data --reset
+```
+
+### 作成されるデータ
+- グループ: `【ADVTEST】高度なスケジューリング`
+- セッションシリーズ: weekly / biweekly / monthly / custom（近日の日程が出るように設定）
+- 日程調整（DatePoll）: `【ADVTEST】日程調整(オープン)` / `【ADVTEST】日程調整(確定済み)`
+- 参加可能日投票（SessionAvailability）: session/occurrence の両方を作成
+
+### ログイン情報
+- `keeper1 / keeper123` と `investigator1-3 / player123` が存在する場合はそれらを利用します
+- 存在しない場合は `adv_gm / advpass123` と `adv_pl1-3 / advpass123` を作成します
+
+### API エンドポイント例
+- `/api/schedules/session-series/`
+- `/api/schedules/session-series/<id>/generate_sessions/`
+- `/api/schedules/date-polls/`
+- `/api/schedules/availability/vote/`
