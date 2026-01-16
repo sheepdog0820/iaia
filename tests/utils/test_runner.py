@@ -11,6 +11,11 @@ import subprocess
 from django.conf import settings
 from django.test.utils import get_runner
 
+# Ensure project root is on sys.path so `tableno` can be imported when running as a script.
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 # Django設定
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
 django.setup()
@@ -38,6 +43,7 @@ def run_tests(test_labels=None, verbosity=2, keepdb=False, failfast=False):
         test_labels = [
             'accounts.test_authentication',
             'schedules.test_schedules',
+            'schedules.test_advanced_scheduling',
             'scenarios.test_scenarios'
         ]
     
@@ -92,9 +98,9 @@ def run_linting():
     try:
         result = subprocess.run(['flake8', '.'], capture_output=True, text=True)
         if result.returncode == 0:
-            print("✓ Flake8: No issues found")
+            print("[OK] Flake8: No issues found")
         else:
-            print("✗ Flake8 issues:")
+            print("[FAIL] Flake8 issues:")
             print(result.stdout)
     except FileNotFoundError:
         print("- Flake8 not installed, skipping...")
@@ -103,9 +109,9 @@ def run_linting():
     try:
         result = subprocess.run(['black', '--check', '.'], capture_output=True, text=True)
         if result.returncode == 0:
-            print("✓ Black: Code formatting is correct")
+            print("[OK] Black: Code formatting is correct")
         else:
-            print("✗ Black: Code formatting issues found")
+            print("[FAIL] Black: Code formatting issues found")
     except FileNotFoundError:
         print("- Black not installed, skipping...")
 
@@ -123,9 +129,9 @@ def run_security_checks():
         result = subprocess.run(['python', 'manage.py', 'check', '--deploy'], 
                               capture_output=True, text=True)
         if result.returncode == 0:
-            print("✓ Django security check: Passed")
+            print("[OK] Django security check: Passed")
         else:
-            print("✗ Django security issues:")
+            print("[FAIL] Django security issues:")
             print(result.stdout)
             print(result.stderr)
     except Exception as e:
@@ -136,9 +142,9 @@ def run_security_checks():
         result = subprocess.run(['bandit', '-r', '.', '-x', './venv/'], 
                               capture_output=True, text=True)
         if result.returncode == 0:
-            print("✓ Bandit: No security issues found")
+            print("[OK] Bandit: No security issues found")
         else:
-            print("✗ Bandit security issues:")
+            print("[FAIL] Bandit security issues:")
             print(result.stdout)
     except FileNotFoundError:
         print("- Bandit not installed, skipping...")
@@ -201,10 +207,10 @@ def main():
     print("="*50)
     
     if failures:
-        print(f"✗ Tests failed: {failures} failure(s)")
+        print(f"[FAIL] Tests failed: {failures} failure(s)")
         sys.exit(1)
     else:
-        print("✓ All tests passed!")
+        print("[OK] All tests passed!")
         sys.exit(0)
 
 

@@ -19,6 +19,10 @@ router.register(r'youtube-links', views.SessionYouTubeLinkViewSet, basename='you
 router.register(r'gm-handouts', handout_views.HandoutManagementViewSet, basename='gm_handout')
 router.register(r'notifications', notification_views.HandoutNotificationViewSet, basename='handoutnotification')
 router.register(r'notification-preferences', notification_views.UserNotificationPreferencesViewSet, basename='notificationpreferences')
+# 高度なスケジューリング機能（ISSUE-017）
+router.register(r'session-series', views.SessionSeriesViewSet, basename='session-series')
+router.register(r'availability', views.SessionAvailabilityViewSet, basename='availability')
+router.register(r'date-polls', views.DatePollViewSet, basename='date-poll')
 
 urlpatterns = [
     # API URLs

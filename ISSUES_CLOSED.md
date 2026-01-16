@@ -215,6 +215,28 @@
   - ✅ **遷移チェックの更新** - テスト追加済み
 - **解決日**: 2026年1月1日
 
+### ✅ ISSUE-017: 高度なスケジューリング機能（解決済み）
+
+- **カテゴリ**: 新機能実装
+- **影響範囲**: スケジュール管理機能
+- **詳細**:
+  - 定期セッション設定、キャンペーン管理
+  - 参加可能日投票、日程調整投票機能
+- **該当ファイル**:
+  - `schedules/models.py` - SessionSeries, SessionAvailability, DatePoll, DatePollOption, DatePollVoteモデル追加
+  - `schedules/serializers.py` - 各種シリアライザ追加
+  - `schedules/views.py` - SessionSeriesViewSet, SessionAvailabilityViewSet, DatePollViewSet追加
+  - `schedules/urls.py` - ルーティング追加
+  - `schedules/migrations/0020_advanced_scheduling.py` - マイグレーション
+- **実装内容**:
+  - ✅ **SessionSeriesモデル** - 定期セッション/キャンペーン管理（毎週/隔週/毎月/カスタム間隔対応）
+  - ✅ **定期セッション自動作成** - get_next_session_dates(), create_session_for_date()
+  - ✅ **参加可能日投票機能** - SessionAvailabilityモデル（available/maybe/unavailable）
+  - ✅ **日程調整投票機能** - DatePoll, DatePollOption, DatePollVote（投票サマリー、日程確定機能）
+  - ✅ **APIエンドポイント** - session-series, availability, date-polls ViewSets
+- **解決日**: 2026年1月16日
+- **備考**: UIは別課題として実装予定、タイムゾーン変換は既存のDjango設定を利用
+
 ### ✅ ISSUE-014: セッションノート・ログシステム（UI統合）（解決済み）
 - **カテゴリ**: 新機能実装
 - **影響範囲**: セッション管理機能（セッション詳細）
@@ -391,14 +413,14 @@
 
 ### 実装完了サマリー
 
-- **完了済み課題数**: 17件
+- **完了済み課題数**: 18件
 - **完了期間**: 2024年6月14日 〜 2026年1月16日
-- **主要カテゴリ**: バグ修正3件、新機能実装7件、機能強化2件、機能統合2件、UI/UX改善2件、リリース準備1件
+- **主要カテゴリ**: バグ修正3件、新機能実装8件、機能強化2件、機能統合2件、UI/UX改善2件、リリース準備1件
 
 ### テスト結果
 - **統合テスト成功率**: 100% (16/16)
 - **CCFOLIA専用テスト**: 100% (28/28)
-- **機能カバレッジ**: グループ管理、エクスポート、CCFOLIA連携、ハンドアウト管理、キャラクターシート6版強化、Tindalos詳細統計、カレンダー統合、セッション連携UI、Google/X OAuth API認証、リリース準備、セッション統合テスト修正
+- **機能カバレッジ**: グループ管理、エクスポート、CCFOLIA連携、ハンドアウト管理、キャラクターシート6版強化、Tindalos詳細統計、カレンダー統合、セッション連携UI、Google/X OAuth API認証、リリース準備、セッション統合テスト修正、高度なスケジューリング機能
 
 ### 品質指標
 - **セキュリティチェック**: 全て合格

@@ -20,6 +20,12 @@ from .models import (
     HandoutInfo,
     SessionImage,
     SessionYouTubeLink,
+    # 高度なスケジューリング機能（ISSUE-017）
+    SessionSeries,
+    SessionAvailability,
+    DatePoll,
+    DatePollOption,
+    DatePollVote,
 )
 from .serializers import (
     TRPGSessionSerializer,
@@ -33,6 +39,14 @@ from .serializers import (
     SessionListSerializer,
     SessionImageSerializer,
     SessionYouTubeLinkSerializer,
+    # 高度なスケジューリング機能（ISSUE-017）
+    SessionSeriesSerializer,
+    SessionSeriesCreateSerializer,
+    SessionAvailabilitySerializer,
+    DatePollSerializer,
+    DatePollCreateSerializer,
+    DatePollOptionSerializer,
+    DatePollVoteSerializer,
 )
 from .services import YouTubeService
 from .notifications import SessionNotificationService
@@ -2518,5 +2532,286 @@ class SessionYouTubeLinkViewSet(viewsets.ModelViewSet):
         
         # 統計情報取得
         statistics = SessionYouTubeLink.get_session_statistics(session)
-        
+
         return Response(statistics)
+
+
+# =====================================================
+# 高度なスケジューリング機能（ISSUE-017）
+# =====================================================
+
+
+class SessionSeriesViewSet(viewsets.ModelViewSet):
+    """セッションシリーズ/キャンペーン管理ViewSet（ISSUE-017）"""
+
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return SessionSeriesCreateSerializer
+        return SessionSeriesSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+
+        output_serializer = SessionSeriesSerializer(instance, context=self.get_serializer_context())
+        headers = self.get_success_headers(output_serializer.data)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def get_queryset(self):
+        user = self.request.user
+        # GMとして作成したシリーズ、または参加グループのシリーズ
+        group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
+        return SessionSeries.objects.filter(
+            Q(gm=user) | Q(group_id__in=group_ids)
+        ).select_related('gm', 'group', 'scenario').distinct()
+
+    @action(detail=True, methods=['post'])
+    def generate_sessions(self, request, pk=None):
+        """定期セッションを生成"""
+        series = self.get_object()
+
+        if series.gm != request.user:
+            raise PermissionDenied("シリーズのGMのみが生成できます")
+
+        try:
+            count = int(request.data.get('count', 4))
+        except (TypeError, ValueError):
+            raise ValidationError({'count': 'count must be an integer'})
+        if count <= 0:
+            raise ValidationError({'count': 'count must be positive'})
+        dates = series.get_next_session_dates(count=count)
+
+        created_sessions = []
+        existing_dates = set(
+            series.sessions.values_list('date__date', flat=True)
+        )
+
+        for d in dates:
+            if d not in existing_dates:
+                session = series.create_session_for_date(d)
+                created_sessions.append({
+                    'id': session.id,
+                    'title': session.title,
+                    'date': session.date.isoformat(),
+                })
+
+        return Response({
+            'created_count': len(created_sessions),
+            'sessions': created_sessions,
+        })
+
+    @action(detail=True, methods=['get'])
+    def sessions(self, request, pk=None):
+        """シリーズに属するセッション一覧"""
+        series = self.get_object()
+        sessions = series.sessions.order_by('date')
+        serializer = SessionListSerializer(sessions, many=True, context={'request': request})
+        return Response(serializer.data)
+
+
+class SessionAvailabilityViewSet(viewsets.ModelViewSet):
+    """参加可能日投票ViewSet（ISSUE-017）"""
+
+    serializer_class = SessionAvailabilitySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return SessionAvailability.objects.filter(user=user).select_related(
+            'session', 'occurrence', 'user'
+        )
+
+    @action(detail=False, methods=['get'])
+    def for_session(self, request):
+        """セッションの投票一覧"""
+        session_id = request.query_params.get('session_id')
+        if not session_id:
+            raise ValidationError({'session_id': 'session_id is required'})
+
+        session = get_object_or_404(_visible_sessions_for(request.user), id=session_id)
+        votes = SessionAvailability.objects.filter(
+            session=session
+        ).select_related('user')
+        serializer = self.get_serializer(votes, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def vote(self, request):
+        """投票する/更新する"""
+        session_id = request.data.get('session_id')
+        occurrence_id = request.data.get('occurrence_id')
+        vote_status = request.data.get('status', 'available')
+        comment = request.data.get('comment', '')
+
+        if session_id:
+            get_object_or_404(_visible_sessions_for(request.user), id=session_id)
+            vote, created = SessionAvailability.objects.update_or_create(
+                session_id=session_id,
+                user=request.user,
+                defaults={'status': vote_status, 'comment': comment}
+            )
+        elif occurrence_id:
+            visible_session_ids = _visible_sessions_for(request.user).values_list('id', flat=True)
+            get_object_or_404(SessionOccurrence, id=occurrence_id, session_id__in=visible_session_ids)
+            vote, created = SessionAvailability.objects.update_or_create(
+                occurrence_id=occurrence_id,
+                user=request.user,
+                defaults={'status': vote_status, 'comment': comment}
+            )
+        else:
+            raise ValidationError({'error': 'session_id or occurrence_id is required'})
+
+        serializer = self.get_serializer(vote)
+        return Response(serializer.data, status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED)
+
+
+class DatePollViewSet(viewsets.ModelViewSet):
+    """日程調整ViewSet（ISSUE-017）"""
+
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return DatePollCreateSerializer
+        return DatePollSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+
+        output_serializer = DatePollSerializer(instance, context=self.get_serializer_context())
+        headers = self.get_success_headers(output_serializer.data)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def get_queryset(self):
+        user = self.request.user
+        group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
+        return DatePoll.objects.filter(
+            Q(created_by=user) | Q(group_id__in=group_ids)
+        ).select_related('created_by', 'group', 'session').prefetch_related(
+            'options__votes__user'
+        ).distinct()
+
+    @action(detail=True, methods=['post'])
+    def vote(self, request, pk=None):
+        """日程調整に投票"""
+        poll = self.get_object()
+
+        if poll.is_closed:
+            raise ValidationError({'error': '投票は締め切られています'})
+
+        votes_data = request.data.get('votes', [])
+        if not votes_data:
+            raise ValidationError({'votes': '投票データが必要です'})
+
+        results = []
+        for vote_data in votes_data:
+            option_id = vote_data.get('option_id')
+            vote_status = vote_data.get('status', 'available')
+            comment = vote_data.get('comment', '')
+
+            try:
+                option = poll.options.get(id=option_id)
+            except DatePollOption.DoesNotExist:
+                continue
+
+            vote, _ = DatePollVote.objects.update_or_create(
+                option=option,
+                user=request.user,
+                defaults={'status': vote_status, 'comment': comment}
+            )
+            results.append(DatePollVoteSerializer(vote).data)
+
+        return Response({'votes': results})
+
+    @action(detail=True, methods=['post'])
+    def confirm(self, request, pk=None):
+        """日程を確定"""
+        poll = self.get_object()
+
+        if poll.created_by != request.user:
+            raise PermissionDenied("作成者のみが確定できます")
+
+        if poll.is_closed:
+            raise ValidationError({'error': '投票は締め切られています'})
+
+        option_id = request.data.get('option_id')
+        if not option_id:
+            raise ValidationError({'option_id': '確定する候補日を指定してください'})
+
+        try:
+            option = poll.options.get(id=option_id)
+        except DatePollOption.DoesNotExist:
+            raise ValidationError({'option_id': '候補日が見つかりません'})
+
+        session = poll.confirm_date(option)
+
+        serializer = self.get_serializer(poll)
+        response_data = serializer.data
+        if session:
+            response_data['created_session'] = {
+                'id': session.id,
+                'title': session.title,
+                'date': session.date.isoformat(),
+            }
+
+        return Response(response_data)
+
+    @action(detail=True, methods=['post'])
+    def add_option(self, request, pk=None):
+        """候補日を追加"""
+        poll = self.get_object()
+
+        if poll.is_closed:
+            raise ValidationError({'error': '投票は締め切られています'})
+
+        datetime_str = request.data.get('datetime')
+        note = request.data.get('note', '')
+
+        if not datetime_str:
+            raise ValidationError({'datetime': '日時を指定してください'})
+
+        from django.utils.dateparse import parse_datetime
+
+        parsed_datetime = parse_datetime(datetime_str)
+        if parsed_datetime is None:
+            raise ValidationError({'datetime': 'Invalid datetime format'})
+        if timezone.is_naive(parsed_datetime):
+            parsed_datetime = timezone.make_aware(parsed_datetime, timezone.get_current_timezone())
+
+        option = DatePollOption.objects.create(
+            poll=poll,
+            datetime=parsed_datetime,
+            note=note,
+        )
+
+        return Response(DatePollOptionSerializer(option).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['get'])
+    def summary(self, request, pk=None):
+        """投票サマリーを取得"""
+        poll = self.get_object()
+        options = poll.get_vote_summary()
+
+        result = []
+        for opt in options:
+            result.append({
+                'id': opt.id,
+                'datetime': opt.datetime.isoformat(),
+                'note': opt.note,
+                'available_count': opt.available_count,
+                'maybe_count': opt.maybe_count,
+                'unavailable_count': opt.unavailable_count,
+            })
+
+        return Response({
+            'poll_id': poll.id,
+            'title': poll.title,
+            'is_closed': poll.is_closed,
+            'selected_date': poll.selected_date.isoformat() if poll.selected_date else None,
+            'options': result,
+        })

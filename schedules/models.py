@@ -38,7 +38,17 @@ class TRPGSession(models.Model):
         related_name='sessions'
     )
     participants = models.ManyToManyField(CustomUser, through='SessionParticipant', related_name='sessions')
-    
+
+    # 定期セッション/キャンペーン（ISSUE-017）
+    series = models.ForeignKey(
+        'SessionSeries',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sessions',
+        help_text="所属するセッションシリーズ"
+    )
+
     duration_minutes = models.PositiveIntegerField(default=0, help_text="セッション時間（分）")
 
     share_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
@@ -936,8 +946,472 @@ class SessionYouTubeLink(models.Model):
         hours = seconds // 3600
         minutes = (seconds % 3600) // 60
         secs = seconds % 60
-        
+
         if hours > 0:
             return f"{hours}:{minutes:02d}:{secs:02d}"
         else:
             return f"{minutes}:{secs:02d}"
+
+
+# =====================================================
+# 高度なスケジューリング機能（ISSUE-017）
+# =====================================================
+
+
+class SessionSeries(models.Model):
+    """定期セッション・キャンペーン管理モデル（ISSUE-017）"""
+
+    RECURRENCE_CHOICES = [
+        ('none', '単発'),
+        ('weekly', '毎週'),
+        ('biweekly', '隔週'),
+        ('monthly', '毎月'),
+        ('custom', 'カスタム'),
+    ]
+
+    WEEKDAY_CHOICES = [
+        (0, '月曜日'),
+        (1, '火曜日'),
+        (2, '水曜日'),
+        (3, '木曜日'),
+        (4, '金曜日'),
+        (5, '土曜日'),
+        (6, '日曜日'),
+    ]
+
+    title = models.CharField(max_length=200, help_text="シリーズ/キャンペーン名")
+    description = models.TextField(blank=True, help_text="シリーズの説明")
+
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        related_name='session_series'
+    )
+    gm = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='gm_session_series'
+    )
+    scenario = models.ForeignKey(
+        'scenarios.Scenario',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='session_series'
+    )
+
+    # 定期開催設定
+    recurrence = models.CharField(
+        max_length=10,
+        choices=RECURRENCE_CHOICES,
+        default='none',
+        help_text="繰り返しパターン"
+    )
+    weekday = models.IntegerField(
+        choices=WEEKDAY_CHOICES,
+        null=True,
+        blank=True,
+        help_text="曜日（毎週/隔週の場合）"
+    )
+    day_of_month = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="日（毎月の場合、1-31）"
+    )
+    start_time = models.TimeField(
+        null=True,
+        blank=True,
+        help_text="開始時刻"
+    )
+    duration_minutes = models.PositiveIntegerField(
+        default=180,
+        help_text="予定時間（分）"
+    )
+
+    # カスタム間隔
+    custom_interval_days = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="カスタム間隔（日数）"
+    )
+
+    # 期間
+    start_date = models.DateField(help_text="シリーズ開始日")
+    end_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="シリーズ終了日（空の場合は無期限）"
+    )
+
+    # 自動生成設定
+    auto_create_sessions = models.BooleanField(
+        default=True,
+        help_text="セッションを自動生成する"
+    )
+    auto_create_weeks_ahead = models.PositiveIntegerField(
+        default=4,
+        help_text="何週間先まで自動生成するか"
+    )
+
+    is_active = models.BooleanField(default=True, help_text="シリーズがアクティブか")
+
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "セッションシリーズ"
+        verbose_name_plural = "セッションシリーズ"
+
+    def __str__(self):
+        return f"{self.title} ({self.get_recurrence_display()})"
+
+    def get_next_session_dates(self, count=5):
+        """次回以降のセッション日程を計算"""
+        import calendar
+        from datetime import date as date_cls, timedelta
+
+        if not count or count <= 0:
+            return []
+
+        if self.recurrence == 'none':
+            return []
+
+        today = timezone.localdate()
+        start_date = self.start_date
+
+        def _in_range(target_date):
+            if target_date < start_date:
+                return False
+            if self.end_date and target_date > self.end_date:
+                return False
+            return True
+
+        dates = []
+
+        if self.recurrence in ('weekly', 'biweekly'):
+            if self.weekday is None:
+                return []
+
+            interval_days = 7 if self.recurrence == 'weekly' else 14
+            days_until = (self.weekday - start_date.weekday()) % 7
+            first = start_date + timedelta(days=days_until)
+
+            if first <= today:
+                days_since = (today - first).days
+                steps = (days_since // interval_days) + 1
+                first = first + timedelta(days=steps * interval_days)
+
+            current = first
+            while len(dates) < count and _in_range(current):
+                dates.append(current)
+                current = current + timedelta(days=interval_days)
+
+            return dates
+
+        if self.recurrence == 'monthly':
+            if not self.day_of_month:
+                return []
+
+            def _next_month(year, month):
+                if month == 12:
+                    return year + 1, 1
+                return year, month + 1
+
+            def _month_candidate(year, month):
+                last_day = calendar.monthrange(year, month)[1]
+                return date_cls(year, month, min(self.day_of_month, last_day))
+
+            year = start_date.year
+            month = start_date.month
+            candidate = _month_candidate(year, month)
+            if candidate < start_date:
+                year, month = _next_month(year, month)
+                candidate = _month_candidate(year, month)
+
+            while candidate <= today:
+                year, month = _next_month(year, month)
+                candidate = _month_candidate(year, month)
+
+            current = candidate
+            while len(dates) < count and _in_range(current):
+                dates.append(current)
+                year, month = _next_month(year, month)
+                current = _month_candidate(year, month)
+
+            return dates
+
+        if self.recurrence == 'custom':
+            interval_days = self.custom_interval_days
+            if not interval_days:
+                return []
+
+            first = start_date
+            if first <= today:
+                days_since = (today - first).days
+                steps = (days_since // interval_days) + 1
+                first = first + timedelta(days=steps * interval_days)
+
+            current = first
+            while len(dates) < count and _in_range(current):
+                dates.append(current)
+                current = current + timedelta(days=interval_days)
+
+            return dates
+
+        return []
+
+    def create_session_for_date(self, session_date):
+        """指定日のセッションを作成"""
+        from datetime import datetime
+
+        if self.start_time:
+            session_datetime = datetime.combine(session_date, self.start_time)
+            if timezone.is_naive(session_datetime):
+                session_datetime = timezone.make_aware(
+                    session_datetime, timezone.get_current_timezone()
+                )
+        else:
+            session_datetime = timezone.make_aware(
+                datetime.combine(session_date, time_cls(19, 0)),
+                timezone.get_current_timezone()
+            )
+
+        session = TRPGSession.objects.create(
+            title=f"{self.title} #{self.sessions.count() + 1}",
+            description=self.description,
+            date=session_datetime,
+            gm=self.gm,
+            group=self.group,
+            scenario=self.scenario,
+            duration_minutes=self.duration_minutes,
+            status='planned',
+            visibility='group',
+        )
+        session.series = self
+        session.save()
+        return session
+
+
+class SessionAvailability(models.Model):
+    """参加可能日投票モデル（ISSUE-017）"""
+
+    AVAILABILITY_CHOICES = [
+        ('available', '参加可能'),
+        ('maybe', '未定'),
+        ('unavailable', '参加不可'),
+    ]
+
+    session = models.ForeignKey(
+        TRPGSession,
+        on_delete=models.CASCADE,
+        related_name='availability_votes',
+        null=True,
+        blank=True,
+    )
+    occurrence = models.ForeignKey(
+        SessionOccurrence,
+        on_delete=models.CASCADE,
+        related_name='availability_votes',
+        null=True,
+        blank=True,
+    )
+    proposed_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="候補日時（セッション/オカレンスが未確定の場合）"
+    )
+
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='availability_votes'
+    )
+    status = models.CharField(
+        max_length=15,
+        choices=AVAILABILITY_CHOICES,
+        default='available'
+    )
+    comment = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="コメント（遅刻/早退など）"
+    )
+
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['proposed_date', 'created_at']
+        unique_together = [
+            ('session', 'user'),
+            ('occurrence', 'user'),
+        ]
+        indexes = [
+            models.Index(fields=['session', 'user']),
+            models.Index(fields=['occurrence', 'user']),
+            models.Index(fields=['proposed_date']),
+        ]
+
+    def __str__(self):
+        target = self.session or self.occurrence or self.proposed_date
+        return f"{self.user.nickname or self.user.username}: {self.get_status_display()} ({target})"
+
+
+class DatePoll(models.Model):
+    """日程調整投票モデル（ISSUE-017）"""
+
+    title = models.CharField(max_length=200, help_text="投票タイトル")
+    description = models.TextField(blank=True, help_text="説明")
+
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        related_name='date_polls'
+    )
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='created_date_polls'
+    )
+
+    deadline = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="投票締め切り"
+    )
+    is_closed = models.BooleanField(default=False, help_text="投票が締め切られたか")
+    selected_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="確定日時"
+    )
+
+    # 投票から自動でセッションを作成するか
+    create_session_on_confirm = models.BooleanField(
+        default=True,
+        help_text="確定時にセッションを作成"
+    )
+    session = models.ForeignKey(
+        TRPGSession,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='date_polls',
+        help_text="作成されたセッション"
+    )
+
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "日程調整"
+        verbose_name_plural = "日程調整"
+
+    def __str__(self):
+        return self.title
+
+    def get_vote_summary(self):
+        """投票サマリーを取得"""
+        from django.db.models import Count, Case, When, IntegerField
+
+        options = self.options.annotate(
+            available_count=Count(
+                Case(When(votes__status='available', then=1), output_field=IntegerField())
+            ),
+            maybe_count=Count(
+                Case(When(votes__status='maybe', then=1), output_field=IntegerField())
+            ),
+            unavailable_count=Count(
+                Case(When(votes__status='unavailable', then=1), output_field=IntegerField())
+            ),
+        ).order_by('-available_count', '-maybe_count', 'datetime')
+
+        return options
+
+    def confirm_date(self, selected_option):
+        """日程を確定する"""
+        self.selected_date = selected_option.datetime
+        self.is_closed = True
+        self.save()
+
+        if self.create_session_on_confirm and not self.session:
+            session = TRPGSession.objects.create(
+                title=self.title,
+                description=self.description,
+                date=self.selected_date,
+                gm=self.created_by,
+                group=self.group,
+                status='planned',
+                visibility='group',
+            )
+            self.session = session
+            self.save()
+            return session
+        return None
+
+
+class DatePollOption(models.Model):
+    """日程調整の候補日モデル（ISSUE-017）"""
+
+    poll = models.ForeignKey(
+        DatePoll,
+        on_delete=models.CASCADE,
+        related_name='options'
+    )
+    datetime = models.DateTimeField(help_text="候補日時")
+    note = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="備考"
+    )
+
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['datetime']
+
+    def __str__(self):
+        return f"{self.poll.title}: {self.datetime.strftime('%Y-%m-%d %H:%M')}"
+
+
+class DatePollVote(models.Model):
+    """日程調整への投票モデル（ISSUE-017）"""
+
+    VOTE_CHOICES = [
+        ('available', '◯ 参加可能'),
+        ('maybe', '△ 未定'),
+        ('unavailable', '✕ 参加不可'),
+    ]
+
+    option = models.ForeignKey(
+        DatePollOption,
+        on_delete=models.CASCADE,
+        related_name='votes'
+    )
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='date_poll_votes'
+    )
+    status = models.CharField(
+        max_length=15,
+        choices=VOTE_CHOICES,
+        default='available'
+    )
+    comment = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="コメント"
+    )
+
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['option', 'user']
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.user.nickname or self.user.username}: {self.get_status_display()}"

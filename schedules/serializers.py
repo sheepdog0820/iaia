@@ -12,6 +12,12 @@ from .models import (
     UserNotificationPreferences,
     SessionImage,
     SessionYouTubeLink,
+    # 高度なスケジューリング機能（ISSUE-017）
+    SessionSeries,
+    SessionAvailability,
+    DatePoll,
+    DatePollOption,
+    DatePollVote,
 )
 from accounts.serializers import UserSerializer
 from accounts.models import CustomUser, Group
@@ -697,3 +703,239 @@ class SessionInvitationSerializer(serializers.ModelSerializer):
 
     def get_is_expired(self, obj):
         return obj.is_expired
+
+
+# =====================================================
+# 高度なスケジューリング機能（ISSUE-017）
+# =====================================================
+
+
+class SessionSeriesSerializer(serializers.ModelSerializer):
+    """セッションシリーズ/キャンペーン シリアライザ"""
+
+    gm_detail = UserSerializer(source='gm', read_only=True)
+    group_name = serializers.CharField(source='group.name', read_only=True)
+    recurrence_display = serializers.CharField(source='get_recurrence_display', read_only=True)
+    weekday_display = serializers.CharField(source='get_weekday_display', read_only=True)
+    session_count = serializers.SerializerMethodField()
+    next_session_dates = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SessionSeries
+        fields = [
+            'id', 'title', 'description',
+            'group', 'group_name', 'gm', 'gm_detail', 'scenario',
+            'recurrence', 'recurrence_display',
+            'weekday', 'weekday_display', 'day_of_month',
+            'start_time', 'duration_minutes',
+            'custom_interval_days',
+            'start_date', 'end_date',
+            'auto_create_sessions', 'auto_create_weeks_ahead',
+            'is_active', 'session_count', 'next_session_dates',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_session_count(self, obj):
+        return obj.sessions.count()
+
+    def get_next_session_dates(self, obj):
+        dates = obj.get_next_session_dates(count=3)
+        return [d.isoformat() for d in dates]
+
+
+class SessionSeriesCreateSerializer(serializers.ModelSerializer):
+    """セッションシリーズ作成用シリアライザ"""
+
+    class Meta:
+        model = SessionSeries
+        fields = [
+            'title', 'description', 'group', 'scenario',
+            'recurrence', 'weekday', 'day_of_month',
+            'start_time', 'duration_minutes',
+            'custom_interval_days',
+            'start_date', 'end_date',
+            'auto_create_sessions', 'auto_create_weeks_ahead',
+        ]
+
+    def validate(self, attrs):
+        recurrence = attrs.get('recurrence', 'none')
+
+        if recurrence in ['weekly', 'biweekly'] and attrs.get('weekday') is None:
+            raise serializers.ValidationError({
+                'weekday': '毎週/隔週の場合は曜日を指定してください'
+            })
+
+        if recurrence == 'monthly' and attrs.get('day_of_month') is None:
+            raise serializers.ValidationError({
+                'day_of_month': '毎月の場合は日を指定してください'
+            })
+
+        if recurrence == 'custom' and not attrs.get('custom_interval_days'):
+            raise serializers.ValidationError({
+                'custom_interval_days': 'カスタムの場合は間隔を指定してください'
+            })
+
+        group = attrs.get('group')
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if group and user and user.is_authenticated:
+            if not (group.created_by_id == user.id or group.members.filter(id=user.id).exists()):
+                raise serializers.ValidationError({
+                    'group': 'このグループでシリーズを作成する権限がありません'
+                })
+
+        return attrs
+
+    def create(self, validated_data):
+        validated_data['gm'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class SessionAvailabilitySerializer(serializers.ModelSerializer):
+    """参加可能日投票シリアライザ"""
+
+    user_detail = UserSerializer(source='user', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = SessionAvailability
+        fields = [
+            'id', 'session', 'occurrence', 'proposed_date',
+            'user', 'user_detail', 'status', 'status_display', 'comment',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class DatePollVoteSerializer(serializers.ModelSerializer):
+    """日程調整投票シリアライザ"""
+
+    user_detail = UserSerializer(source='user', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = DatePollVote
+        fields = [
+            'id', 'option', 'user', 'user_detail',
+            'status', 'status_display', 'comment',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class DatePollOptionSerializer(serializers.ModelSerializer):
+    """日程調整候補日シリアライザ"""
+
+    votes = DatePollVoteSerializer(many=True, read_only=True)
+    available_count = serializers.SerializerMethodField()
+    maybe_count = serializers.SerializerMethodField()
+    unavailable_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DatePollOption
+        fields = [
+            'id', 'poll', 'datetime', 'note',
+            'votes', 'available_count', 'maybe_count', 'unavailable_count',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'created_at']
+
+    def get_available_count(self, obj):
+        return obj.votes.filter(status='available').count()
+
+    def get_maybe_count(self, obj):
+        return obj.votes.filter(status='maybe').count()
+
+    def get_unavailable_count(self, obj):
+        return obj.votes.filter(status='unavailable').count()
+
+
+class DatePollSerializer(serializers.ModelSerializer):
+    """日程調整シリアライザ"""
+
+    created_by_detail = UserSerializer(source='created_by', read_only=True)
+    group_name = serializers.CharField(source='group.name', read_only=True)
+    options = DatePollOptionSerializer(many=True, read_only=True)
+    session_detail = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DatePoll
+        fields = [
+            'id', 'title', 'description',
+            'group', 'group_name', 'created_by', 'created_by_detail',
+            'deadline', 'is_closed', 'selected_date',
+            'create_session_on_confirm', 'session', 'session_detail',
+            'options',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_by', 'session', 'created_at', 'updated_at']
+
+    def get_session_detail(self, obj):
+        if obj.session:
+            return {
+                'id': obj.session.id,
+                'title': obj.session.title,
+                'date': obj.session.date.isoformat(),
+            }
+        return None
+
+
+class DatePollOptionCreateSerializer(serializers.Serializer):
+    """日程調整候補日（作成用）"""
+
+    datetime = serializers.DateTimeField()
+    note = serializers.CharField(required=False, allow_blank=True, max_length=100)
+
+
+class DatePollCreateSerializer(serializers.ModelSerializer):
+    """日程調整作成用シリアライザ"""
+
+    options = DatePollOptionCreateSerializer(
+        many=True,
+        write_only=True,
+        allow_empty=False,
+        help_text="候補日リスト [{'datetime': '2024-01-01T19:00:00', 'note': '備考'}]"
+    )
+
+    class Meta:
+        model = DatePoll
+        fields = [
+            'title', 'description', 'group',
+            'deadline', 'create_session_on_confirm',
+            'options',
+        ]
+
+    def validate(self, attrs):
+        group = attrs.get('group')
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if group and user and user.is_authenticated:
+            if not (group.created_by_id == user.id or group.members.filter(id=user.id).exists()):
+                raise serializers.ValidationError({
+                    'group': 'このグループで日程調整を作成する権限がありません'
+                })
+        return attrs
+
+    def create(self, validated_data):
+        options_data = validated_data.pop('options')
+        validated_data['created_by'] = self.context['request'].user
+
+        poll = DatePoll.objects.create(**validated_data)
+
+        for option_data in options_data:
+            DatePollOption.objects.create(
+                poll=poll,
+                datetime=option_data['datetime'],
+                note=option_data.get('note', ''),
+            )
+
+        return poll
