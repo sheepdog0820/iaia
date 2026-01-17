@@ -938,6 +938,14 @@ class DatePollCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'session': 'セッションのGMのみが日程調整を作成できます'
                 })
+            if session.date is not None:
+                raise serializers.ValidationError({
+                    'session': '日程が確定済みのセッションには日程調整を作成できません'
+                })
+            if DatePoll.objects.filter(session=session, is_closed=False).exists():
+                raise serializers.ValidationError({
+                    'session': 'このセッションには未締め切りの日程調整が既にあります'
+                })
         return attrs
 
     def create(self, validated_data):

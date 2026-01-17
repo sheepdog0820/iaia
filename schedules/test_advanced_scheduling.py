@@ -258,6 +258,21 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         self.assertTrue(poll.is_closed)
         self.assertIsNotNone(poll.session)
 
+        confirm_again = self.client.post(
+            f'/api/schedules/date-polls/{poll.id}/confirm/',
+            {'option_id': option.id},
+            format='json',
+        )
+        self.assertEqual(confirm_again.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.force_authenticate(user=self.member)
+        confirm_not_creator = self.client.post(
+            f'/api/schedules/date-polls/{poll.id}/confirm/',
+            {'option_id': option.id},
+            format='json',
+        )
+        self.assertEqual(confirm_not_creator.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_date_poll_confirm_updates_linked_session_date(self):
         self.client.force_authenticate(user=self.gm)
 
@@ -302,17 +317,107 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         self.assertEqual(undated_session.occurrences.filter(is_primary=True).count(), 1)
         self.assertEqual(undated_session.occurrences.get(is_primary=True).start_at, option_dt)
 
-        confirm_again = self.client.post(
-            f'/api/schedules/date-polls/{poll.id}/confirm/',
-            {'option_id': option.id},
-            format='json',
-        )
-        self.assertEqual(confirm_again.status_code, status.HTTP_400_BAD_REQUEST)
+    def test_date_poll_list_can_filter_by_session_id(self):
+        self.client.force_authenticate(user=self.gm)
 
-        self.client.force_authenticate(user=self.member)
-        confirm_not_creator = self.client.post(
-            f'/api/schedules/date-polls/{poll.id}/confirm/',
-            {'option_id': option.id},
+        undated_session1 = TRPGSession.objects.create(
+            title='Undated Session 1',
+            date=None,
+            gm=self.gm,
+            group=self.group,
+            visibility='group',
+            status='planned',
+        )
+        undated_session2 = TRPGSession.objects.create(
+            title='Undated Session 2',
+            date=None,
+            gm=self.gm,
+            group=self.group,
+            visibility='group',
+            status='planned',
+        )
+
+        option_dt = (timezone.now() + timedelta(days=10)).replace(microsecond=0)
+        create_payload = {
+            'title': 'Poll',
+            'description': '',
+            'group': self.group.id,
+            'create_session_on_confirm': False,
+            'options': [{'datetime': option_dt.isoformat(), 'note': 'A'}],
+        }
+
+        response1 = self.client.post(
+            '/api/schedules/date-polls/',
+            {**create_payload, 'session': undated_session1.id, 'title': 'Poll 1'},
             format='json',
         )
-        self.assertEqual(confirm_not_creator.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
+
+        response2 = self.client.post(
+            '/api/schedules/date-polls/',
+            {**create_payload, 'session': undated_session2.id, 'title': 'Poll 2'},
+            format='json',
+        )
+        self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
+
+        list_response = self.client.get(f'/api/schedules/date-polls/?session_id={undated_session1.id}')
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(list_response.data[0]['session'], undated_session1.id)
+
+    def test_date_poll_create_rejects_when_session_already_has_date(self):
+        self.client.force_authenticate(user=self.gm)
+
+        dated_session = TRPGSession.objects.create(
+            title='Dated Session',
+            date=timezone.now() + timedelta(days=1),
+            gm=self.gm,
+            group=self.group,
+            visibility='group',
+            status='planned',
+        )
+
+        option_dt = (timezone.now() + timedelta(days=10)).replace(microsecond=0)
+        response = self.client.post(
+            '/api/schedules/date-polls/',
+            {
+                'title': 'Poll for Dated Session',
+                'description': '',
+                'group': self.group.id,
+                'session': dated_session.id,
+                'create_session_on_confirm': False,
+                'options': [{'datetime': option_dt.isoformat(), 'note': 'A'}],
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('session', response.data)
+
+    def test_date_poll_create_rejects_duplicate_open_poll_for_session(self):
+        self.client.force_authenticate(user=self.gm)
+
+        undated_session = TRPGSession.objects.create(
+            title='Undated Session',
+            date=None,
+            gm=self.gm,
+            group=self.group,
+            visibility='group',
+            status='planned',
+        )
+
+        option_dt = (timezone.now() + timedelta(days=10)).replace(microsecond=0)
+        payload = {
+            'title': 'Poll 1',
+            'description': '',
+            'group': self.group.id,
+            'session': undated_session.id,
+            'create_session_on_confirm': False,
+            'options': [{'datetime': option_dt.isoformat(), 'note': 'A'}],
+        }
+
+        response1 = self.client.post('/api/schedules/date-polls/', payload, format='json')
+        self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
+
+        response2 = self.client.post('/api/schedules/date-polls/', {**payload, 'title': 'Poll 2'}, format='json')
+        self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('session', response2.data)

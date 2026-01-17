@@ -2701,11 +2701,31 @@ class DatePollViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
-        return DatePoll.objects.filter(
+        queryset = DatePoll.objects.filter(
             Q(created_by=user) | Q(group_id__in=group_ids)
         ).select_related('created_by', 'group', 'session').prefetch_related(
             'options__votes__user'
         ).distinct()
+
+        session_id = self.request.query_params.get('session_id')
+        if session_id:
+            try:
+                session_id = int(session_id)
+            except (TypeError, ValueError):
+                raise ValidationError({'session_id': 'session_id must be an integer'})
+            queryset = queryset.filter(session_id=session_id)
+
+        is_closed_param = self.request.query_params.get('is_closed')
+        if is_closed_param is not None:
+            is_closed_str = str(is_closed_param).strip().lower()
+            if is_closed_str in ('true', '1', 'yes'):
+                queryset = queryset.filter(is_closed=True)
+            elif is_closed_str in ('false', '0', 'no'):
+                queryset = queryset.filter(is_closed=False)
+            else:
+                raise ValidationError({'is_closed': 'is_closed must be a boolean'})
+
+        return queryset
 
     @action(detail=True, methods=['post'])
     def vote(self, request, pk=None):

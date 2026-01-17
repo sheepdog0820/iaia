@@ -121,6 +121,18 @@
                                     <p class="mb-3"><span class="text-muted">未定</span></p>
                                 {% endif %}
                             {% endif %}
+                            {% if not is_public_view and not session.date %}
+                                <div class="card bg-dark border-secondary mb-3" id="datePollCard">
+                                    <div class="card-header">
+                                        <h6 class="mb-0"><i class="fas fa-poll"></i> 日程調整</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="datePollContainer">
+                                            <span class="text-muted small">読み込み中...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
                             {% if can_edit and not is_public_view %}
                                 <button type="button" class="btn btn-sm btn-outline-success mb-3" onclick="openOccurrenceModal(null)">
                                     <i class="fas fa-plus"></i> 日程を追加
@@ -1464,6 +1476,247 @@ const IS_PARTICIPANT = {% if is_participant %}true{% else %}false{% endif %};
 const IS_PUBLIC_VIEW = {% if is_public_view %}true{% else %}false{% endif %};
 const PUBLIC_SESSION_URL = "{{ public_session_url|escapejs }}";
 const youtubeLinkMap = new Map();
+
+function formatPollDateTime(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString('ja-JP');
+}
+
+function getMyPollVote(option) {
+    const currentUserId = window.CURRENT_USER?.id;
+    if (!currentUserId || !option?.votes) return null;
+    return option.votes.find(vote => vote.user === currentUserId) || null;
+}
+
+function renderDatePollCreateForm() {
+    if (!IS_GM) {
+        return '<span class="text-muted small">GMが日程調整を作成するまでお待ちください。</span>';
+    }
+
+    return `
+        <div class="mb-3">
+            <label class="form-label">タイトル</label>
+            <input type="text" class="form-control" id="datePollCreateTitle" value="日程調整" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">説明</label>
+            <textarea class="form-control" id="datePollCreateDescription" rows="2" placeholder="任意"></textarea>
+        </div>
+        <div class="mb-2 d-flex justify-content-between align-items-center">
+            <span class="fw-bold">候補日</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addDatePollCreateOptionRow()">
+                <i class="fas fa-plus"></i> 追加
+            </button>
+        </div>
+        <div id="datePollCreateOptions" class="mb-3"></div>
+        <div class="d-flex justify-content-end">
+            <button type="button" class="btn btn-sm btn-primary" onclick="createDatePollForSession()">
+                <i class="fas fa-save"></i> 日程調整を作成
+            </button>
+        </div>
+    `;
+}
+
+function addDatePollCreateOptionRow(initial = {}) {
+    const container = document.getElementById('datePollCreateOptions');
+    if (!container) return;
+    const row = document.createElement('div');
+    row.className = 'row g-2 mb-2 date-poll-option-row';
+    row.innerHTML = `
+        <div class="col-md-6">
+            <input type="datetime-local" class="form-control form-control-sm date-poll-option-datetime" value="${escapeHtml(initial.datetime || '')}" required>
+        </div>
+        <div class="col-md-5">
+            <input type="text" class="form-control form-control-sm date-poll-option-note" value="${escapeHtml(initial.note || '')}" placeholder="備考（任意）">
+        </div>
+        <div class="col-md-1 d-grid">
+            <button type="button" class="btn btn-sm btn-outline-danger" title="削除" onclick="this.closest('.date-poll-option-row')?.remove()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    container.appendChild(row);
+}
+
+async function loadDatePollSection() {
+    const container = document.getElementById('datePollContainer');
+    if (!container || IS_PUBLIC_VIEW) return;
+
+    container.innerHTML = '<span class="text-muted small">読み込み中...</span>';
+
+    try {
+        const response = await axios.get('/api/schedules/date-polls/', {
+            params: { session_id: SESSION_ID },
+        });
+
+        const polls = Array.isArray(response.data) ? response.data : [];
+        const poll = polls.find(p => !p.is_closed) || polls[0] || null;
+
+        if (!poll) {
+            container.innerHTML = renderDatePollCreateForm();
+            addDatePollCreateOptionRow();
+            return;
+        }
+
+        const optionsHtml = (poll.options || []).map(option => {
+            const myVote = getMyPollVote(option);
+            const myStatus = myVote?.status || '';
+
+            const voteButton = (status, label, btnClass) => {
+                const active = myStatus === status ? '' : '-outline';
+                return `
+                    <button type="button" class="btn btn-sm btn${active}-${btnClass} me-1" onclick="voteDatePollOption(${poll.id}, ${option.id}, '${status}')">
+                        ${label}
+                    </button>
+                `;
+            };
+
+            return `
+                <div class="border rounded p-2 mb-2">
+                    <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                        <div>
+                            <div class="fw-bold">${formatPollDateTime(option.datetime)} ${option.note ? `<span class="text-muted small">(${escapeHtml(option.note)})</span>` : ''}</div>
+                            <div class="small text-muted">
+                                ◯ ${option.available_count} / △ ${option.maybe_count} / ✕ ${option.unavailable_count}
+                            </div>
+                            ${myVote ? `<div class="small">あなた: <span class="text-muted">${escapeHtml(myVote.status_display)}</span></div>` : '<div class="small text-muted">あなた: 未投票</div>'}
+                        </div>
+                        <div class="text-end">
+                            <div class="mb-1">
+                                ${voteButton('available', '◯', 'success')}
+                                ${voteButton('maybe', '△', 'warning')}
+                                ${voteButton('unavailable', '✕', 'danger')}
+                            </div>
+                            ${IS_GM ? `
+                                <button type="button" class="btn btn-sm btn-primary" ${poll.is_closed ? 'disabled' : ''} onclick="confirmDatePollOption(${poll.id}, ${option.id})">
+                                    <i class="fas fa-check"></i> 確定
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const addOptionHtml = poll.is_closed ? '' : `
+            <div class="mt-3 border-top pt-3">
+                <div class="mb-2 fw-bold">候補日を追加</div>
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">日時</label>
+                        <input type="datetime-local" class="form-control form-control-sm" id="datePollAddDatetime">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small mb-1">備考（任意）</label>
+                        <input type="text" class="form-control form-control-sm" id="datePollAddNote">
+                    </div>
+                    <div class="col-md-2 d-grid">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addDatePollOption(${poll.id})">
+                            <i class="fas fa-plus"></i> 追加
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const closedHtml = poll.is_closed ? `
+            <div class="alert alert-info py-2 mt-3 mb-0">
+                確定日: <strong>${poll.selected_date ? formatPollDateTime(poll.selected_date) : '未設定'}</strong>
+            </div>
+        ` : '';
+
+        container.innerHTML = `
+            <div class="mb-2">
+                <div class="fw-bold">${escapeHtml(poll.title || '日程調整')}</div>
+                ${poll.description ? `<div class="text-muted small">${escapeHtml(poll.description)}</div>` : ''}
+            </div>
+            ${optionsHtml || '<div class="text-muted small">候補日がありません。追加してください。</div>'}
+            ${addOptionHtml}
+            ${closedHtml}
+        `;
+    } catch (error) {
+        container.innerHTML = '<span class="text-danger small">日程調整の読み込みに失敗しました。</span>';
+        console.error('Failed to load date poll:', error);
+    }
+}
+
+window.createDatePollForSession = async function() {
+    if (!IS_GM) return;
+    const title = document.getElementById('datePollCreateTitle')?.value?.trim() || '日程調整';
+    const description = document.getElementById('datePollCreateDescription')?.value || '';
+    const optionRows = Array.from(document.querySelectorAll('#datePollCreateOptions .date-poll-option-row'));
+    const options = optionRows.map(row => {
+        const datetime = row.querySelector('.date-poll-option-datetime')?.value;
+        const note = row.querySelector('.date-poll-option-note')?.value || '';
+        return { datetime, note };
+    }).filter(opt => opt.datetime);
+
+    if (options.length === 0) {
+        alert('候補日を1つ以上入力してください');
+        return;
+    }
+
+    const payload = {
+        title,
+        description,
+        group: GROUP_ID,
+        session: SESSION_ID,
+        create_session_on_confirm: false,
+        options,
+    };
+
+    try {
+        await axios.post('/api/schedules/date-polls/', payload, { headers: { 'Content-Type': 'application/json' } });
+        await loadDatePollSection();
+    } catch (error) {
+        alert('日程調整の作成に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.session || error.response?.data?.group || error.message));
+    }
+};
+
+window.addDatePollOption = async function(pollId) {
+    const datetime = document.getElementById('datePollAddDatetime')?.value;
+    const note = document.getElementById('datePollAddNote')?.value || '';
+    if (!datetime) {
+        alert('日時を入力してください');
+        return;
+    }
+    try {
+        await axios.post(`/api/schedules/date-polls/${encodeURIComponent(pollId)}/add_option/`, { datetime, note });
+        await loadDatePollSection();
+    } catch (error) {
+        alert('候補日の追加に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.datetime || error.message));
+    }
+};
+
+window.voteDatePollOption = async function(pollId, optionId, status) {
+    try {
+        await axios.post(
+            `/api/schedules/date-polls/${encodeURIComponent(pollId)}/vote/`,
+            { votes: [{ option_id: optionId, status, comment: '' }] },
+            { headers: { 'Content-Type': 'application/json' } },
+        );
+        await loadDatePollSection();
+    } catch (error) {
+        alert('投票に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.error || error.message));
+    }
+};
+
+window.confirmDatePollOption = async function(pollId, optionId) {
+    if (!IS_GM) return;
+    if (!confirm('この候補日で確定しますか？')) return;
+    try {
+        await axios.post(
+            `/api/schedules/date-polls/${encodeURIComponent(pollId)}/confirm/`,
+            { option_id: optionId },
+            { headers: { 'Content-Type': 'application/json' } },
+        );
+        location.reload();
+    } catch (error) {
+        alert('確定に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.error || error.message));
+    }
+};
 
 let sessionNotes = [];
 const sessionNoteMap = new Map();
@@ -2999,6 +3252,11 @@ document.addEventListener('DOMContentLoaded', () => {
     setupCopyPublicSessionLinkButton();
 
     if (IS_PUBLIC_VIEW) return;
+
+    const datePollContainer = document.getElementById('datePollContainer');
+    if (datePollContainer) {
+        loadDatePollSection();
+    }
 
     const uploadImagesBtn = document.getElementById('uploadSessionImagesBtn');
     if (uploadImagesBtn) uploadImagesBtn.addEventListener('click', uploadSessionImages);
