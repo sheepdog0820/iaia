@@ -168,7 +168,7 @@
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="editSessionDate" class="form-label">日時</label>
-                            <input type="datetime-local" class="form-control" id="editSessionDate" required>
+                            <input type="datetime-local" class="form-control" id="editSessionDate">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="editSessionDuration" class="form-label">実施時間（分）</label>
@@ -389,7 +389,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 ${roleLabel}${escapeHtml(session.title)}
                             </h5>
                             <p class="text-muted mb-2">
-                                <i class="fas fa-calendar"></i> ${new Date(session.date).toLocaleString('ja-JP')}
+                                <i class="fas fa-calendar"></i> ${session.date ? new Date(session.date).toLocaleString('ja-JP') : '未定'}
                                 ${session.duration_minutes > 0 ? `<span class="ms-3"><i class="fas fa-clock"></i> ${session.duration_minutes}分</span>` : ''}
                             </p>
                             <p class="mb-2">
@@ -544,7 +544,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             document.getElementById('editSessionId').value = session.id;
             document.getElementById('editSessionTitle').value = session.title;
-            document.getElementById('editSessionDate').value = session.date.slice(0, 16);
+            document.getElementById('editSessionDate').value = session.date ? session.date.slice(0, 16) : '';
             document.getElementById('editSessionDuration').value = session.duration_minutes;
             document.getElementById('editSessionStatus').value = session.status;
             document.getElementById('editSessionLocation').value = session.location || '';
@@ -561,7 +561,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('updateSessionBtn').addEventListener('click', async function() {
         const data = {
             title: document.getElementById('editSessionTitle').value,
-            date: document.getElementById('editSessionDate').value,
+            date: document.getElementById('editSessionDate').value || null,
             duration_minutes: document.getElementById('editSessionDuration').value,
             status: document.getElementById('editSessionStatus').value,
             location: document.getElementById('editSessionLocation').value,

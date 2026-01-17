@@ -501,7 +501,7 @@ class TindalosMetricsView(APIView):
             result.append({
                 'id': session.id,
                 'title': session.title,
-                'date': session.date.isoformat(),
+                'date': session.date.isoformat() if session.date else None,
                 'duration_hours': round(session.duration_minutes / 60, 1) if session.duration_minutes else 0,
                 'group_name': session.group.name if session.group else '',
                 'gm_name': session.gm.nickname or session.gm.username,
@@ -514,7 +514,8 @@ class TindalosMetricsView(APIView):
     def _get_trpg_start_year(self, user):
         """TRPG開始年を推定"""
         earliest_session = TRPGSession.objects.filter(
-            participants=user
+            participants=user,
+            date__isnull=False,
         ).order_by('date').first()
         
         if earliest_session:

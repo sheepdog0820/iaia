@@ -47,8 +47,12 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            {{ session.date|date:"Y/m/d H:i" }}
-                                            <br><small class="text-muted">{{ session.date|timesince }}前</small>
+                                            {% if session.date %}
+                                                {{ session.date|date:"Y/m/d H:i" }}
+                                                <br><small class="text-muted">{{ session.date|timesince }}前</small>
+                                            {% else %}
+                                                <span class="text-muted">未定</span>
+                                            {% endif %}
                                         </td>
                                         <td>
                                             {% if session.gm.profile_image %}

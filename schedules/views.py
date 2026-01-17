@@ -192,6 +192,11 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             )
         
         for participant in participants:
+            played_at = session.date
+            if not played_at:
+                occurrence = session.occurrences.order_by('start_at', 'id').first()
+                played_at = occurrence.start_at if occurrence else timezone.now()
+
             # プレイ履歴の作成
             PlayHistory.objects.get_or_create(
                 user=participant.user,
@@ -199,7 +204,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                 role=participant.role,
                 defaults={
                     'scenario': scenario,
-                    'played_date': session.date,
+                    'played_date': played_at,
                     'notes': f"Character: {participant.character_name}"
                 }
             )
@@ -810,7 +815,13 @@ class SessionOccurrenceViewSet(viewsets.ModelViewSet):
         session = serializer.validated_data.get('session')
         if not session or session.gm_id != self.request.user.id:
             raise PermissionDenied('Only the GM can add session dates.')
-        serializer.save()
+
+        is_primary = session.date is None and not session.occurrences.filter(is_primary=True).exists()
+        occurrence = serializer.save(is_primary=is_primary)
+
+        if is_primary:
+            session.date = occurrence.start_at
+            session.save(update_fields=['date', 'updated_at'])
 
     def perform_update(self, serializer):
         instance = serializer.instance
@@ -2756,7 +2767,7 @@ class DatePollViewSet(viewsets.ModelViewSet):
             response_data['created_session'] = {
                 'id': session.id,
                 'title': session.title,
-                'date': session.date.isoformat(),
+                'date': session.date.isoformat() if session.date else None,
             }
 
         return Response(response_data)

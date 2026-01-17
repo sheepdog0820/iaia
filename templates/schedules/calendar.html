@@ -122,7 +122,8 @@
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="sessionDate" class="form-label">日時</label>
-                            <input type="datetime-local" class="form-control" id="sessionDate" required>
+                            <input type="datetime-local" class="form-control" id="sessionDate">
+                            <div class="form-text">未入力の場合は日付未定として作成し、後から日程調整/日程追加で確定できます。</div>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="sessionDuration" class="form-label">予定時間（分）</label>
@@ -504,7 +505,7 @@ document.addEventListener('DOMContentLoaded', function() {
             bodyEl.innerHTML = `
                 <div class="row">
                     <div class="col-md-8">
-                        <p><i class="fas fa-calendar"></i> ${new Date(session.date).toLocaleString('ja-JP')}</p>
+                        <p><i class="fas fa-calendar"></i> ${session.date ? new Date(session.date).toLocaleString('ja-JP') : '未定'}</p>
                         <p><i class="fas fa-clock"></i> ${session.duration_minutes}分</p>
                         <p><i class="fas fa-map-marker-alt"></i> ${session.location || '未定'}</p>
                         <p><i class="fas fa-user"></i> GM: ${session.gm_detail.nickname}</p>
@@ -677,6 +678,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const titleInput = document.getElementById('sessionTitle');
         const groupSelect = document.getElementById('sessionGroup');
+        const dateInput = document.getElementById('sessionDate');
 
         if (titleInput) {
             titleInput.disabled = isExisting;
@@ -688,6 +690,10 @@ document.addEventListener('DOMContentLoaded', function() {
             groupSelect.disabled = isExisting;
             groupSelect.required = !isExisting;
             toggleFieldVisibility(groupSelect, isExisting);
+        }
+
+        if (dateInput) {
+            dateInput.required = isExisting;
         }
 
         [
@@ -772,7 +778,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const data = {
             title: document.getElementById('sessionTitle').value,
-            date: document.getElementById('sessionDate').value,
+            date: document.getElementById('sessionDate').value || null,
             duration_minutes: document.getElementById('sessionDuration').value,
             location: document.getElementById('sessionLocation').value,
             group: document.getElementById('sessionGroup').value,

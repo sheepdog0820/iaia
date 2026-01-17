@@ -288,7 +288,7 @@ class SessionNotificationService(HandoutNotificationService):
                     'session_invitation_id': invitation_id,
                     'session_id': session.id,
                     'session_title': session.title,
-                    'session_date': session.date.isoformat(),
+                    'session_date': session.date.isoformat() if session.date else None,
                     'inviter_name': inviter.nickname or inviter.username
                 }
                 notification.save()
@@ -345,8 +345,8 @@ class SessionNotificationService(HandoutNotificationService):
                     notification.metadata = {
                         'session_id': session.id,
                         'session_title': session.title,
-                        'old_date': old_date.isoformat(),
-                        'new_date': new_date.isoformat(),
+                        'old_date': old_date.isoformat() if old_date else None,
+                        'new_date': new_date.isoformat() if new_date else None,
                         'gm_name': session.gm.nickname or session.gm.username
                     }
                     notification.save()
@@ -400,7 +400,7 @@ class SessionNotificationService(HandoutNotificationService):
                     metadata={
                         'session_id': session.id,
                         'session_title': session.title,
-                        'session_date': session.date.isoformat(),
+                        'session_date': session.date.isoformat() if session.date else None,
                         'gm_name': session.gm.nickname or session.gm.username,
                         'cancel_reason': reason or ''
                     }
@@ -458,7 +458,7 @@ class SessionNotificationService(HandoutNotificationService):
                     metadata={
                         'session_id': session.id,
                         'session_title': session.title,
-                        'session_date': session.date.isoformat(),
+                        'session_date': session.date.isoformat() if session.date else None,
                         'hours_before': hours_before,
                         'gm_name': session.gm.nickname or session.gm.username
                     }
@@ -479,31 +479,35 @@ class SessionNotificationService(HandoutNotificationService):
     
     def _create_session_invitation_message(self, session, inviter):
         """セッション招待通知メッセージの作成"""
+        date_label = session.date.strftime('%Y年%m月%d日 %H:%M') if session.date else '未定'
         return (
             f"【セッション招待】\n"
             f"{inviter.nickname or inviter.username}さんからセッションに招待されました。\n\n"
             f"セッション: {session.title}\n"
-            f"日時: {session.date.strftime('%Y年%m月%d日 %H:%M')}\n"
+            f"日時: {date_label}\n"
             f"GM: {session.gm.nickname or session.gm.username}\n"
             f"場所: {session.location or 'オンライン'}"
         )
     
     def _create_schedule_change_message(self, session, old_date, new_date):
         """スケジュール変更通知メッセージの作成"""
+        old_label = old_date.strftime('%Y年%m月%d日 %H:%M') if old_date else '未定'
+        new_label = new_date.strftime('%Y年%m月%d日 %H:%M') if new_date else '未定'
         return (
             f"【スケジュール変更】\n"
             f"セッション「{session.title}」の開催日時が変更されました。\n\n"
-            f"変更前: {old_date.strftime('%Y年%m月%d日 %H:%M')}\n"
-            f"変更後: {new_date.strftime('%Y年%m月%d日 %H:%M')}\n"
+            f"変更前: {old_label}\n"
+            f"変更後: {new_label}\n"
             f"GM: {session.gm.nickname or session.gm.username}"
         )
     
     def _create_session_cancelled_message(self, session, reason=None):
         """セッションキャンセル通知メッセージの作成"""
+        date_label = session.date.strftime('%Y年%m月%d日 %H:%M') if session.date else '未定'
         message = (
             f"【セッションキャンセル】\n"
             f"セッション「{session.title}」がキャンセルされました。\n\n"
-            f"予定日時: {session.date.strftime('%Y年%m月%d日 %H:%M')}\n"
+            f"予定日時: {date_label}\n"
             f"GM: {session.gm.nickname or session.gm.username}"
         )
         if reason:
@@ -512,11 +516,12 @@ class SessionNotificationService(HandoutNotificationService):
     
     def _create_session_reminder_message(self, session, hours_before):
         """セッションリマインダー通知メッセージの作成"""
+        date_label = session.date.strftime('%Y年%m月%d日 %H:%M') if session.date else '未定'
         return (
             f"【セッションリマインダー】\n"
             f"{hours_before}時間後にセッションが開催されます。\n\n"
             f"セッション: {session.title}\n"
-            f"日時: {session.date.strftime('%Y年%m月%d日 %H:%M')}\n"
+            f"日時: {date_label}\n"
             f"GM: {session.gm.nickname or session.gm.username}\n"
             f"場所: {session.location or 'オンライン'}"
         )

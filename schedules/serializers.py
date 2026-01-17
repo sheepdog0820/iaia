@@ -253,7 +253,7 @@ class HandoutAttachmentSerializer(serializers.ModelSerializer):
 
 
 class TRPGSessionSerializer(serializers.ModelSerializer):
-    date = serializers.DateTimeField(required=False)
+    date = serializers.DateTimeField(required=False, allow_null=True)
     group = serializers.PrimaryKeyRelatedField(
         queryset=Group.objects.all(),
         required=False,
@@ -350,9 +350,6 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
 
         if estimated_hours is not None and 'duration_minutes' not in attrs:
             attrs['duration_minutes'] = int(float(estimated_hours) * 60)
-
-        if self.instance is None and 'date' not in attrs:
-            raise serializers.ValidationError({'date': 'date or session_date is required'})
 
         return attrs
 
@@ -884,7 +881,7 @@ class DatePollSerializer(serializers.ModelSerializer):
             return {
                 'id': obj.session.id,
                 'title': obj.session.title,
-                'date': obj.session.date.isoformat(),
+                'date': obj.session.date.isoformat() if obj.session.date else None,
             }
         return None
 
@@ -899,6 +896,12 @@ class DatePollOptionCreateSerializer(serializers.Serializer):
 class DatePollCreateSerializer(serializers.ModelSerializer):
     """日程調整作成用シリアライザ"""
 
+    session = serializers.PrimaryKeyRelatedField(
+        queryset=TRPGSession.objects.all(),
+        required=False,
+        allow_null=True,
+        help_text='既存セッションに紐付ける場合のセッションID',
+    )
     options = DatePollOptionCreateSerializer(
         many=True,
         write_only=True,
@@ -911,17 +914,29 @@ class DatePollCreateSerializer(serializers.ModelSerializer):
         fields = [
             'title', 'description', 'group',
             'deadline', 'create_session_on_confirm',
+            'session',
             'options',
         ]
 
     def validate(self, attrs):
         group = attrs.get('group')
+        session = attrs.get('session')
         request = self.context.get('request')
         user = getattr(request, 'user', None)
         if group and user and user.is_authenticated:
             if not (group.created_by_id == user.id or group.members.filter(id=user.id).exists()):
                 raise serializers.ValidationError({
                     'group': 'このグループで日程調整を作成する権限がありません'
+                })
+
+        if session:
+            if group and session.group_id != group.id:
+                raise serializers.ValidationError({
+                    'session': 'セッションと日程調整のグループが一致しません'
+                })
+            if user and user.is_authenticated and session.gm_id != user.id:
+                raise serializers.ValidationError({
+                    'session': 'セッションのGMのみが日程調整を作成できます'
                 })
         return attrs
 

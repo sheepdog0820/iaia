@@ -588,7 +588,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${sessions.map(session => `
                         <tr>
                             <td>${session.title}</td>
-                            <td>${new Date(session.date).toLocaleDateString('ja-JP')}</td>
+                            <td>${session.date ? new Date(session.date).toLocaleDateString('ja-JP') : '未定'}</td>
                             <td>${session.group_name}</td>
                             <td>${session.gm_name}</td>
                             <td><span class="badge bg-${session.role === 'gm' ? 'warning' : 'info'}">${session.role.toUpperCase()}</span></td>

@@ -38,7 +38,13 @@
                     <div class="row">
                         <div class="col-md-6">
                             <p><strong>タイトル:</strong> {{ session.title }}</p>
-                            <p><strong>開催日時:</strong> {{ session.date|date:"Y年m月d日 H:i" }}</p>
+                            <p><strong>開催日時:</strong>
+                                {% if session.date %}
+                                    {{ session.date|date:"Y年m月d日 H:i" }}
+                                {% else %}
+                                    <span class="text-muted">未定</span>
+                                {% endif %}
+                            </p>
                             <p><strong>ステータス:</strong> 
                                 <span class="badge bg-{{ session.status|yesno:'success,warning,secondary' }}">
                                     {{ session.get_status_display }}

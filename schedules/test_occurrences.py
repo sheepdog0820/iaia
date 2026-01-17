@@ -69,6 +69,38 @@ class SessionOccurrenceAPITestCase(APITestCase):
         self.assertEqual(self.primary_occurrence.start_at, new_start_at)
         self.assertEqual(self.session.date, new_start_at)
 
+    def test_create_occurrence_sets_primary_when_session_date_is_none(self):
+        self.client.force_authenticate(user=self.gm_user)
+        undated_session = TRPGSession.objects.create(
+            title='Undated Session',
+            description='',
+            date=None,
+            duration_minutes=0,
+            location='',
+            gm=self.gm_user,
+            group=self.group,
+            status='planned',
+            visibility='group',
+        )
+
+        start_at = (timezone.now() + timedelta(days=5)).replace(microsecond=0)
+        response = self.client.post(
+            '/api/schedules/occurrences/',
+            {'session': undated_session.id, 'start_at': start_at.isoformat(), 'content': ''},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        undated_session.refresh_from_db()
+        occurrence = SessionOccurrence.objects.get(id=response.data['id'])
+        self.assertTrue(occurrence.is_primary)
+        self.assertEqual(occurrence.start_at, start_at)
+        self.assertEqual(undated_session.date, start_at)
+        self.assertEqual(
+            SessionOccurrence.objects.filter(session=undated_session, is_primary=True).count(),
+            1,
+        )
+
     def test_create_occurrence_allows_blank_content(self):
         self.client.force_authenticate(user=self.gm_user)
         start_at = (self.session.date + timedelta(days=1)).replace(microsecond=0)

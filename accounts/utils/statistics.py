@@ -200,6 +200,10 @@ class ExportStatistics:
         # グループ統計
         user_groups = Group.objects.filter(members=user)
         group_stats = GroupStatistics.calculate_group_stats(user_groups, user)
+
+        dated_sessions = user_sessions.exclude(date__isnull=True)
+        first_session = dated_sessions.order_by('date').first()
+        latest_session = dated_sessions.order_by('-date').first()
         
         return {
             'user_info': {
@@ -215,8 +219,8 @@ class ExportStatistics:
             'group_statistics': group_stats,
             'summary': {
                 'total_activity_years': user_sessions.dates('date', 'year').count(),
-                'first_session_date': user_sessions.order_by('date').first().date.isoformat() if user_sessions.exists() else None,
-                'latest_session_date': user_sessions.order_by('-date').first().date.isoformat() if user_sessions.exists() else None,
+                'first_session_date': first_session.date.isoformat() if first_session and first_session.date else None,
+                'latest_session_date': latest_session.date.isoformat() if latest_session and latest_session.date else None,
             }
         }
 

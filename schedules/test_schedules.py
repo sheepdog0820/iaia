@@ -305,6 +305,27 @@ class ScheduleAPITestCase(APITestCase):
         self.assertEqual(created_session.gm, self.user1)
         self.assertEqual(created_session.duration_minutes, 240)
 
+    def test_session_creation_without_date_via_api(self):
+        self.client.force_authenticate(user=self.user1)
+
+        session_data = {
+            'title': 'Undated Session',
+            'description': 'No date yet',
+            'location': 'Online',
+            'group': self.group.id,
+            'duration_minutes': 0
+        }
+
+        response = self.client.post('/api/schedules/sessions/', session_data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        response_data = response.json()
+        self.assertIsNone(response_data.get('date'))
+
+        created_session = TRPGSession.objects.get(id=response_data['id'])
+        self.assertIsNone(created_session.date)
+        self.assertEqual(created_session.occurrences.count(), 0)
+
     def test_session_creation_with_scenario(self):
         """シナリオ連携付きセッション作成テスト"""
         self.client.force_authenticate(user=self.user1)

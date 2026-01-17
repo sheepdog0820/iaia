@@ -22,7 +22,7 @@ class TRPGSession(models.Model):
     
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    date = models.DateTimeField()
+    date = models.DateTimeField(null=True, blank=True)
     location = models.CharField(max_length=200, blank=True)
     youtube_url = models.URLField(blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='planned')
@@ -99,6 +99,8 @@ class TRPGSession(models.Model):
         super().__init__(*args, **kwargs)
     
     def __str__(self):
+        if not self.date:
+            return f"{self.title} (日付未定)"
         return f"{self.title} ({self.date.strftime('%Y-%m-%d')})"
 
     def save(self, *args, **kwargs):
@@ -1332,9 +1334,19 @@ class DatePoll(models.Model):
 
     def confirm_date(self, selected_option):
         """日程を確定する"""
-        self.selected_date = selected_option.datetime
+        selected_dt = selected_option.datetime
+        if selected_dt and timezone.is_naive(selected_dt):
+            selected_dt = timezone.make_aware(selected_dt, timezone.get_current_timezone())
+
+        self.selected_date = selected_dt
         self.is_closed = True
         self.save()
+
+        if self.session:
+            session = self.session
+            session.date = self.selected_date
+            session.save(update_fields=['date', 'updated_at'])
+            return session
 
         if self.create_session_on_confirm and not self.session:
             session = TRPGSession.objects.create(

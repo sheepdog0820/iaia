@@ -115,7 +115,11 @@
                                     {% endfor %}
                                 </div>
                             {% else %}
-                                <p class="mb-3">{{ session.date|date:"Y年m月d日 H:i" }}</p>
+                                {% if session.date %}
+                                    <p class="mb-3">{{ session.date|date:"Y年m月d日 H:i" }}</p>
+                                {% else %}
+                                    <p class="mb-3"><span class="text-muted">未定</span></p>
+                                {% endif %}
                             {% endif %}
                             {% if can_edit and not is_public_view %}
                                 <button type="button" class="btn btn-sm btn-outline-success mb-3" onclick="openOccurrenceModal(null)">
@@ -729,7 +733,7 @@
                         <div class="col-md-6 mb-3">
                             <label for="date" class="form-label">開催日時</label>
                             <input type="datetime-local" class="form-control" id="date" 
-                                   value="{{ session.date|date:'Y-m-d\TH:i' }}" required>
+                                   value="{{ session.date|date:'Y-m-d\TH:i' }}">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="duration_minutes" class="form-label">セッション時間（分）</label>
@@ -1747,7 +1751,7 @@ async function loadGroupMemberCharacters() {
 async function updateSession() {
     const data = {
         title: document.getElementById('title').value,
-        date: document.getElementById('date').value,
+        date: document.getElementById('date').value || null,
         duration_minutes: document.getElementById('duration_minutes').value,
         location: document.getElementById('location').value,
         visibility: document.getElementById('visibility').value,
