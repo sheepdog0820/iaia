@@ -126,7 +126,12 @@
                     <h5 class="mb-0">
                         <i class="fas fa-comments"></i> コメント
                     </h5>
-                    <small class="opacity-75" id="datePollChatStatus"></small>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-light btn-sm" id="datePollChatReloadBtn" disabled>
+                            <i class="fas fa-rotate-right"></i> 更新
+                        </button>
+                        <small class="opacity-75" id="datePollChatStatus"></small>
+                    </div>
                 </div>
                 <div class="card-body p-0 date-poll-chat-wrap">
                     <div class="p-3 date-poll-chat-log" id="datePollChatLog">
@@ -225,7 +230,6 @@ const IS_GM = {% if is_gm %}true{% else %}false{% endif %};
 const IS_PUBLIC_VIEW = false;
 const SESSION_DATE_IS_SET = {% if session.date %}true{% else %}false{% endif %};
 let ACTIVE_DATE_POLL_ID = null;
-let DATE_POLL_COMMENT_TIMER = null;
 
 function escapeHtml(str) {
     return String(str)
@@ -269,20 +273,9 @@ function setChatEnabled(enabled, statusText = '') {
     if (statusEl) statusEl.textContent = statusText || '';
 }
 
-function stopDatePollCommentTimer() {
-    if (DATE_POLL_COMMENT_TIMER) {
-        clearInterval(DATE_POLL_COMMENT_TIMER);
-        DATE_POLL_COMMENT_TIMER = null;
-    }
-}
-
-function startDatePollCommentTimer(pollId) {
-    stopDatePollCommentTimer();
-    if (!pollId) return;
-    DATE_POLL_COMMENT_TIMER = setInterval(() => {
-        if (ACTIVE_DATE_POLL_ID !== pollId) return;
-        loadDatePollComments(pollId, { scroll: false });
-    }, 5000);
+function setChatReloadEnabled(enabled) {
+    const reloadBtn = document.getElementById('datePollChatReloadBtn');
+    if (reloadBtn) reloadBtn.disabled = !enabled;
 }
 
 function shouldStickToBottom(container) {
@@ -340,6 +333,7 @@ async function loadDatePollComments(pollId, { scroll = false } = {}) {
     if (!pollId) {
         container.innerHTML = renderChatPlaceholder('日程募集が作成されるとコメントできます。');
         setChatEnabled(false, '');
+        setChatReloadEnabled(false);
         return;
     }
 
@@ -350,11 +344,13 @@ async function loadDatePollComments(pollId, { scroll = false } = {}) {
         const comments = Array.isArray(response.data) ? response.data : [];
         renderDatePollChatComments(comments);
         setChatEnabled(true, '');
+        setChatReloadEnabled(true);
         if (scroll) scrollToBottom(container);
     } catch (error) {
         console.error('Failed to load date poll comments:', error);
         container.innerHTML = renderChatPlaceholder('コメントの読み込みに失敗しました。');
-        setChatEnabled(false, '読み込み失敗');
+        setChatEnabled(true, '読み込み失敗');
+        setChatReloadEnabled(true);
     }
 }
 
@@ -460,7 +456,6 @@ async function loadDatePollSection() {
             container.innerHTML = renderDatePollCreateForm();
             if (IS_GM && !SESSION_DATE_IS_SET) addDatePollCreateOptionRow();
             ACTIVE_DATE_POLL_ID = null;
-            stopDatePollCommentTimer();
             await loadDatePollComments(null);
             return;
         }
@@ -468,8 +463,8 @@ async function loadDatePollSection() {
         if (ACTIVE_DATE_POLL_ID !== poll.id) {
             ACTIVE_DATE_POLL_ID = poll.id;
             setChatEnabled(false, '読み込み中...');
+            setChatReloadEnabled(false);
             await loadDatePollComments(poll.id, { scroll: true });
-            startDatePollCommentTimer(poll.id);
         }
 
         const statusBadgeClass = (status) => {
@@ -722,6 +717,15 @@ window.confirmDatePollOption = async function(pollId, optionId) {
 
 document.addEventListener('DOMContentLoaded', function() {
     loadDatePollSection();
+
+    const reloadBtn = document.getElementById('datePollChatReloadBtn');
+    if (reloadBtn) {
+        reloadBtn.addEventListener('click', async () => {
+            if (!ACTIVE_DATE_POLL_ID) return;
+            setChatEnabled(true, '更新中...');
+            await loadDatePollComments(ACTIVE_DATE_POLL_ID, { scroll: false });
+        });
+    }
 
     const chatInput = document.getElementById('datePollChatInput');
     if (chatInput) {
