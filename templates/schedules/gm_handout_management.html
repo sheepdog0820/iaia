@@ -191,6 +191,22 @@
 
                     <div class="mb-3">
                         <label for="handoutRecommendedSkills" class="form-label">推奨技能</label>
+                        <div class="bg-light p-2 rounded mb-2">
+                            <div class="d-flex justify-content-end">
+                                <button type="button" class="btn btn-outline-danger btn-sm" id="handoutClearRecommendedSkills">
+                                    <i class="fas fa-eraser"></i> クリア
+                                </button>
+                            </div>
+                            <div class="input-group input-group-sm mt-2">
+                                <input type="text" class="form-control" id="handoutRecommendedSkillInput" list="handoutRecommendedSkillOptions" placeholder="例: 目星">
+                                <button class="btn btn-outline-primary" type="button" id="handoutAddRecommendedSkill">
+                                    <i class="fas fa-plus"></i> 追加
+                                </button>
+                            </div>
+                            <datalist id="handoutRecommendedSkillOptions"></datalist>
+                            <div class="mt-2 d-flex flex-wrap gap-1" id="handoutRecommendedSkillsSuggestions"></div>
+                            <div class="mt-2" id="handoutRecommendedSkillsChips"></div>
+                        </div>
                         <textarea class="form-control" id="handoutRecommendedSkills" rows="2" placeholder="例: 目星, 図書館"></textarea>
                         <small class="text-muted">カンマ/改行区切りで入力できます</small>
                     </div>
@@ -263,6 +279,22 @@
 
                     <div class="mb-3">
                         <label for="editHandoutRecommendedSkills" class="form-label">推奨技能</label>
+                        <div class="bg-light p-2 rounded mb-2">
+                            <div class="d-flex justify-content-end">
+                                <button type="button" class="btn btn-outline-danger btn-sm" id="editHandoutClearRecommendedSkills">
+                                    <i class="fas fa-eraser"></i> クリア
+                                </button>
+                            </div>
+                            <div class="input-group input-group-sm mt-2">
+                                <input type="text" class="form-control" id="editHandoutRecommendedSkillInput" list="editHandoutRecommendedSkillOptions" placeholder="例: 目星">
+                                <button class="btn btn-outline-primary" type="button" id="editHandoutAddRecommendedSkill">
+                                    <i class="fas fa-plus"></i> 追加
+                                </button>
+                            </div>
+                            <datalist id="editHandoutRecommendedSkillOptions"></datalist>
+                            <div class="mt-2 d-flex flex-wrap gap-1" id="editHandoutRecommendedSkillsSuggestions"></div>
+                            <div class="mt-2" id="editHandoutRecommendedSkillsChips"></div>
+                        </div>
                         <textarea class="form-control" id="editHandoutRecommendedSkills" rows="2" placeholder="例: 目星, 図書館"></textarea>
                         <small class="text-muted">カンマ/改行区切りで入力できます</small>
                     </div>
@@ -355,11 +387,45 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/handout_skill_picker.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const sessionId = {{ session.id }};
     let templates = [];
     let currentEditId = null;
+    let createRecommendedSkillPicker = null;
+    let editRecommendedSkillPicker = null;
+
+    if (window.HandoutSkillPicker) {
+        const pickerBaseConfig = {
+            gameSystem: "{{ session.scenario.game_system|default:''|escapejs }}",
+            scenarioRecommendedSkills: "{{ session.scenario.recommended_skills|default:''|escapejs }}",
+        };
+
+        createRecommendedSkillPicker = window.HandoutSkillPicker.attach({
+            ...pickerBaseConfig,
+            modal: 'createHandoutModal',
+            textarea: 'handoutRecommendedSkills',
+            input: 'handoutRecommendedSkillInput',
+            addButton: 'handoutAddRecommendedSkill',
+            datalist: 'handoutRecommendedSkillOptions',
+            chips: 'handoutRecommendedSkillsChips',
+            suggestions: 'handoutRecommendedSkillsSuggestions',
+            clearButton: 'handoutClearRecommendedSkills',
+        });
+
+        editRecommendedSkillPicker = window.HandoutSkillPicker.attach({
+            ...pickerBaseConfig,
+            modal: 'editHandoutModal',
+            textarea: 'editHandoutRecommendedSkills',
+            input: 'editHandoutRecommendedSkillInput',
+            addButton: 'editHandoutAddRecommendedSkill',
+            datalist: 'editHandoutRecommendedSkillOptions',
+            chips: 'editHandoutRecommendedSkillsChips',
+            suggestions: 'editHandoutRecommendedSkillsSuggestions',
+            clearButton: 'editHandoutClearRecommendedSkills',
+        });
+    }
 
     // テンプレート読み込み
     async function loadTemplates() {
@@ -449,7 +515,8 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('editHandoutContent').value = handout.content;
             document.getElementById('editHandoutRecommendedSkills').value = handout.recommended_skills || '';
             document.getElementById('editHandoutSecret').checked = handout.is_secret;
-            
+            editRecommendedSkillPicker?.syncFromTextarea();
+             
             currentEditId = handoutId;
             bootstrap.Modal.getOrCreateInstance(document.getElementById('editHandoutModal')).show();
         } catch (error) {

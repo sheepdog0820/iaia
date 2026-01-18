@@ -1026,6 +1026,22 @@
                     </div>
                     <div class="mb-3">
                         <label for="handout_recommended_skills" class="form-label">推奨技能</label>
+                        <div class="bg-light p-2 rounded mb-2">
+                            <div class="d-flex justify-content-end">
+                                <button type="button" class="btn btn-outline-danger btn-sm" id="handoutClearRecommendedSkills">
+                                    <i class="fas fa-eraser"></i> クリア
+                                </button>
+                            </div>
+                            <div class="input-group input-group-sm mt-2">
+                                <input type="text" class="form-control" id="handoutRecommendedSkillInput" list="handoutRecommendedSkillOptions" placeholder="例: 目星">
+                                <button class="btn btn-outline-primary" type="button" id="handoutAddRecommendedSkill">
+                                    <i class="fas fa-plus"></i> 追加
+                                </button>
+                            </div>
+                            <datalist id="handoutRecommendedSkillOptions"></datalist>
+                            <div class="mt-2 d-flex flex-wrap gap-1" id="handoutRecommendedSkillsSuggestions"></div>
+                            <div class="mt-2" id="handoutRecommendedSkillsChips"></div>
+                        </div>
                         <textarea class="form-control" id="handout_recommended_skills" rows="2" placeholder="例: 目星, 図書館"></textarea>
                         <small class="text-muted">カンマ/改行区切りで入力できます</small>
                     </div>
@@ -1518,6 +1534,7 @@ a:hover {
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/handout_skill_picker.js' %}"></script>
 <script>
 let characterSheets = [];
 const characterSheetMap = new Map();
@@ -3550,6 +3567,21 @@ document.addEventListener('DOMContentLoaded', () => {
     setupCopyPublicSessionLinkButton();
 
     if (IS_PUBLIC_VIEW) return;
+
+    if (IS_GM && window.HandoutSkillPicker) {
+        window.HandoutSkillPicker.attach({
+            modal: 'createHandoutModal',
+            textarea: 'handout_recommended_skills',
+            input: 'handoutRecommendedSkillInput',
+            addButton: 'handoutAddRecommendedSkill',
+            datalist: 'handoutRecommendedSkillOptions',
+            chips: 'handoutRecommendedSkillsChips',
+            suggestions: 'handoutRecommendedSkillsSuggestions',
+            clearButton: 'handoutClearRecommendedSkills',
+            gameSystem: "{{ session.scenario.game_system|default:''|escapejs }}",
+            scenarioRecommendedSkills: "{{ session.scenario.recommended_skills|default:''|escapejs }}",
+        });
+    }
 
     const datePollContainer = document.getElementById('datePollContainer');
     if (datePollContainer) {
