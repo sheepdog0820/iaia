@@ -152,6 +152,15 @@
                         <input type="hidden" id="sessionScenarioId">
                         <div class="form-text">シナリオアーカイブから連携できます</div>
                     </div>
+
+                    <div class="mb-3">
+                        <label for="sessionCocEdition" class="form-label">システム（クトゥルフ神話TRPG）</label>
+                        <select class="form-select" id="sessionCocEdition">
+                            <option value="6th" selected>6版</option>
+                            <option value="7th">7版</option>
+                        </select>
+                        <div class="form-text">探索者作成画面の版選択に使用します。</div>
+                    </div>
                     
                     <div class="mb-3">
                         <label for="sessionDescription" class="form-label">説明</label>
@@ -701,6 +710,7 @@ document.addEventListener('DOMContentLoaded', function() {
             'sessionLocation',
             'sessionScenarioTitle',
             'clearSessionScenario',
+            'sessionCocEdition',
             'sessionDescription',
             'sessionYoutube',
             'sessionVisibility',
@@ -784,7 +794,8 @@ document.addEventListener('DOMContentLoaded', function() {
             group: document.getElementById('sessionGroup').value,
             description: document.getElementById('sessionDescription').value,
             youtube_url: document.getElementById('sessionYoutube').value,
-            visibility: document.getElementById('sessionVisibility').value
+            visibility: document.getElementById('sessionVisibility').value,
+            coc_edition: document.getElementById('sessionCocEdition').value
         };
         const scenarioId = document.getElementById('sessionScenarioId')?.value;
         if (scenarioId) {

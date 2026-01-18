@@ -20,6 +20,11 @@ class TRPGSession(models.Model):
         ('public', '公開'),
     ]
     
+    COC_EDITION_CHOICES = [
+        ('6th', 'CoC 6版'),
+        ('7th', 'CoC 7版'),
+    ]
+
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     date = models.DateTimeField(null=True, blank=True)
@@ -36,6 +41,12 @@ class TRPGSession(models.Model):
         null=True,
         blank=True,
         related_name='sessions'
+    )
+    coc_edition = models.CharField(
+        max_length=3,
+        choices=COC_EDITION_CHOICES,
+        default='6th',
+        help_text="クトゥルフ神話TRPGの版（探索者作成で使用）",
     )
     participants = models.ManyToManyField(CustomUser, through='SessionParticipant', related_name='sessions')
 

@@ -302,7 +302,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         model = TRPGSession
         fields = ['id', 'title', 'description', 'date', 'location', 
                  'youtube_url', 'status', 'visibility', 'gm', 'gm_detail',
-                 'group', 'scenario', 'scenario_detail', 'duration_minutes', 'participants', 'participants_detail', 
+                 'group', 'scenario', 'coc_edition', 'scenario_detail', 'duration_minutes', 'participants', 'participants_detail', 
                  'handouts_detail', 'images_detail', 'youtube_links_detail',
                  'participant_count', 'youtube_total_duration', 
                  'youtube_total_duration_display', 'youtube_video_count',

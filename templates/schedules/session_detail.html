@@ -42,6 +42,7 @@
                                     data-scenario-id="{{ session.scenario.id }}"
                                     data-scenario-title="{{ session.scenario.title }}"
                                     data-scenario-system="{{ session.scenario.game_system }}"
+                                    data-coc-edition="{{ session.coc_edition }}"
                                     data-session-id="{{ session.id }}">
                                 <i class="fas fa-user-plus"></i> 探索者作成
                             </button>
@@ -211,6 +212,11 @@
                             <p class="mb-2">
                                 <span class="fw-semibold">{{ session.scenario.title }}</span>
                                 <span class="badge bg-secondary ms-2">{{ session.scenario.get_game_system_display }}</span>
+                                {% if session.scenario.game_system == 'coc' %}
+                                    <span class="badge bg-dark ms-1">
+                                        {% if session.coc_edition == '7th' %}CoC7{% else %}CoC6{% endif %}
+                                    </span>
+                                {% endif %}
                             </p>
                             <div class="border rounded p-2 mb-2" style="background-color: var(--secondary-bg);">
                                 <div class="small text-muted mb-1"><i class="fas fa-align-left"></i> あらすじ</div>
@@ -783,6 +789,14 @@
                                 <option value="public" {% if session.visibility == 'public' %}selected{% endif %}>公開</option>
                             </select>
                         </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="coc_edition" class="form-label">システム（クトゥルフ神話TRPG）</label>
+                        <select class="form-select" id="coc_edition">
+                            <option value="6th" {% if session.coc_edition != '7th' %}selected{% endif %}>6版</option>
+                            <option value="7th" {% if session.coc_edition == '7th' %}selected{% endif %}>7版</option>
+                        </select>
                     </div>
                     
                     <div class="mb-3">
@@ -2083,6 +2097,7 @@ if (createCharacterBtn) {
         const scenarioId = createCharacterBtn.dataset.scenarioId || '';
         const scenarioTitle = createCharacterBtn.dataset.scenarioTitle || '';
         const scenarioSystem = createCharacterBtn.dataset.scenarioSystem || '';
+        const cocEdition = (createCharacterBtn.dataset.cocEdition || '6th').trim();
         const sessionId = createCharacterBtn.dataset.sessionId || '';
         if (!scenarioId) {
             alert('シナリオ情報が取得できませんでした。');
@@ -2099,7 +2114,8 @@ if (createCharacterBtn) {
             game_system: scenarioSystem,
             session_id: sessionId
         });
-        window.location.href = `/accounts/character/create/6th/?${params.toString()}`;
+        const editionPath = cocEdition === '7th' ? '7th' : '6th';
+        window.location.href = `/accounts/character/create/${editionPath}/?${params.toString()}`;
     });
 }
 
@@ -2176,6 +2192,7 @@ async function updateSession() {
         duration_minutes: document.getElementById('duration_minutes').value,
         location: document.getElementById('location').value,
         visibility: document.getElementById('visibility').value,
+        coc_edition: document.getElementById('coc_edition').value,
         youtube_url: document.getElementById('youtube_url').value,
         description: document.getElementById('description').value,
         status: document.getElementById('status').value

@@ -72,6 +72,27 @@ class BasicScheduleTestCase(TestCase):
         self.assertEqual(participant.user, self.user2)
         self.assertEqual(participant.role, 'player')
 
+    def test_session_coc_edition_default(self):
+        """セッションのCoC版デフォルト値のテスト"""
+        session = TRPGSession.objects.create(
+            title='Edition Default Session',
+            date=timezone.now() + timedelta(days=1),
+            gm=self.user1,
+            group=self.group
+        )
+        self.assertEqual(session.coc_edition, '6th')
+
+    def test_session_coc_edition_can_set(self):
+        """セッションのCoC版を指定できることのテスト"""
+        session = TRPGSession.objects.create(
+            title='Edition 7th Session',
+            date=timezone.now() + timedelta(days=1),
+            gm=self.user1,
+            group=self.group,
+            coc_edition='7th',
+        )
+        self.assertEqual(session.coc_edition, '7th')
+
     def test_handout_creation(self):
         """ハンドアウト作成のテスト"""
         session = TRPGSession.objects.create(

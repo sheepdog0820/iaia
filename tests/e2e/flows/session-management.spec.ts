@@ -61,7 +61,9 @@ test.describe('sessions', () => {
     await page.goto(`/api/schedules/sessions/${session.id}/detail/`);
     await expect(page.locator('h3', { hasText: sessionTitle }).first()).toBeVisible();
 
-    await expect(page.locator('#startSessionBtn')).toBeVisible();
+    await page.click('button[data-bs-target="#editSessionModal"]');
+    await expect(page.locator('#editSessionModal')).toHaveClass(/show/);
+    await page.selectOption('#status', 'ongoing');
 
     await Promise.all([
       page.waitForResponse(response =>
@@ -70,7 +72,7 @@ test.describe('sessions', () => {
         response.status() === 200
       ),
       page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-      page.click('#startSessionBtn'),
+      page.click('#editSessionModal button[onclick="updateSession()"]'),
     ]);
 
     await expect(page.locator('span.badge', { hasText: '進行中' }).first()).toBeVisible();
