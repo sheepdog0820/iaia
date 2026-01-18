@@ -1941,8 +1941,10 @@ class SessionDetailView(APIView):
         
         # ユーザーの権限
         is_gm = session.gm == user
+        is_co_gm = participants.filter(user=user, role='gm').exists()
         is_participant = participants.filter(user=user).exists()
         can_edit = is_gm
+        can_invite = is_gm or is_co_gm
         can_join = (
             (not is_gm) and
             (not is_participant) and
@@ -1950,6 +1952,8 @@ class SessionDetailView(APIView):
             session.visibility != 'private' and
             (session.visibility != 'group' or session.group.members.filter(id=user.id).exists())
         )
+
+        open_date_poll = DatePoll.objects.filter(session=session, is_closed=False).first()
 
         public_session_url = request.build_absolute_uri(
             reverse('public_session_detail', kwargs={'share_token': session.share_token})
@@ -1961,12 +1965,15 @@ class SessionDetailView(APIView):
             'occurrences': occurrences,
             'handouts': handouts,
             'is_gm': is_gm,
+            'is_co_gm': is_co_gm,
             'is_participant': is_participant,
             'can_edit': can_edit,
+            'can_invite': can_invite,
             'can_join': can_join,
             'user_participant': participants.filter(user=user).first(),
             'public_session_url': public_session_url,
             'is_public_view': False,
+            'open_date_poll': open_date_poll,
         }
         
         return render(request, 'schedules/session_detail.html', context)

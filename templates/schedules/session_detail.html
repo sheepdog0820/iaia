@@ -47,6 +47,11 @@
                             </button>
                         {% endif %}
                     {% endif %}
+                    {% if can_invite and not is_public_view %}
+                        <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#inviteMembersModal">
+                            <i class="fas fa-user-plus"></i> 招待
+                        </button>
+                    {% endif %}
                     {% if can_edit %}
                         <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editSessionModal">
                             <i class="fas fa-edit"></i> セッション編集
@@ -131,13 +136,21 @@
                                             <a class="btn btn-sm btn-outline-warning" href="/api/schedules/sessions/{{ session.id }}/date-poll/">
                                                 <i class="fas fa-poll"></i> 日程募集
                                             </a>
+                                            {% if open_date_poll %}
+                                                <span class="badge bg-success align-self-center" data-testid="openDatePollBadge">募集中</span>
+                                                <span class="text-muted small align-self-center">候補日: {{ open_date_poll.options.count }}</span>
+                                            {% endif %}
                                         {% endif %}
                                     </div>
                                 {% elif not session.date %}
-                                    <div class="mb-3">
+                                    <div class="d-flex gap-2 flex-wrap align-items-center mb-3">
                                         <a class="btn btn-sm btn-outline-warning" href="/api/schedules/sessions/{{ session.id }}/date-poll/">
                                             <i class="fas fa-poll"></i> 日程募集
                                         </a>
+                                        {% if open_date_poll %}
+                                            <span class="badge bg-success" data-testid="openDatePollBadge">募集中</span>
+                                            <span class="text-muted small">候補日: {{ open_date_poll.options.count }}</span>
+                                        {% endif %}
                                     </div>
                                 {% endif %}
                             {% endif %}
@@ -874,6 +887,44 @@
 </div>
 {% endif %}
 
+<!-- 参加者招待モーダル -->
+{% if can_invite and not is_public_view %}
+<div class="modal fade" id="inviteMembersModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">参加者を招待</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">メンバー検索</label>
+                    <input type="text" class="form-control" id="inviteMemberSearch" placeholder="ニックネーム/ユーザー名">
+                </div>
+                <div class="d-flex gap-2 mb-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectAllInviteCandidates(true)">全選択</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectAllInviteCandidates(false)">全解除</button>
+                </div>
+                <div id="inviteMembersList" class="border rounded p-2" style="max-height: 320px; overflow: auto;">
+                    <span class="text-muted small">読み込み中...</span>
+                </div>
+                <div class="mt-3">
+                    <label class="form-label">メッセージ（任意）</label>
+                    <textarea class="form-control" id="inviteMessage" rows="2" placeholder="招待メッセージ"></textarea>
+                </div>
+                <div class="mt-3" id="inviteResults"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                <button type="button" class="btn btn-primary" id="sendInvitesBtn" onclick="sendSessionInvitations()">
+                    <i class="fas fa-paper-plane"></i> 招待を送信
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- 参加情報編集モーダル -->
 {% if user_participant %}
 <div class="modal fade" id="editParticipantModal" tabindex="-1">
@@ -1475,10 +1526,16 @@ let groupMemberNames = new Map();
 const SESSION_ID = {{ session.id }};
 const GROUP_ID = {{ session.group.id }};
 const IS_GM = {% if is_gm %}true{% else %}false{% endif %};
+const CAN_INVITE = {% if can_invite %}true{% else %}false{% endif %};
 const IS_PARTICIPANT = {% if is_participant %}true{% else %}false{% endif %};
 const IS_PUBLIC_VIEW = {% if is_public_view %}true{% else %}false{% endif %};
 const PUBLIC_SESSION_URL = "{{ public_session_url|escapejs }}";
 const youtubeLinkMap = new Map();
+
+const SESSION_EXISTING_MEMBER_IDS = new Set([
+    {{ session.gm.id }},
+    {% for participant in participants %}{{ participant.user.id }},{% endfor %}
+]);
 
 function formatPollDateTime(value) {
     if (!value) return '';
@@ -3341,6 +3398,133 @@ async function removeParticipant(participantId) {
     }
 }
 
+async function loadInviteMembersList() {
+    const container = document.getElementById('inviteMembersList');
+    if (!container) return;
+    if (!CAN_INVITE || IS_PUBLIC_VIEW) return;
+
+    container.innerHTML = '<span class="text-muted small">読み込み中...</span>';
+
+    await ensureOccurrenceGroupMembers();
+    renderInviteMembersList(document.getElementById('inviteMemberSearch')?.value || '');
+}
+
+function renderInviteMembersList(filterText = '') {
+    const container = document.getElementById('inviteMembersList');
+    if (!container) return;
+    if (!CAN_INVITE || IS_PUBLIC_VIEW) return;
+
+    const normalizedFilter = String(filterText || '').trim().toLowerCase();
+    const candidates = (occurrenceGroupMembers || []).map(member => {
+        const userId = parseInt(member.user, 10);
+        const nickname = member.user_detail?.nickname || '';
+        const username = member.user_detail?.username || '';
+        const name = nickname || username || String(userId);
+        return {
+            userId,
+            name,
+            nickname,
+            username,
+        };
+    }).filter(c => Number.isFinite(c.userId) && !SESSION_EXISTING_MEMBER_IDS.has(c.userId));
+
+    const filtered = normalizedFilter
+        ? candidates.filter(c => `${c.nickname} ${c.username} ${c.name}`.toLowerCase().includes(normalizedFilter))
+        : candidates;
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<span class="text-muted small">招待できるメンバーがいません</span>';
+        return;
+    }
+
+    const rowsHtml = filtered.map(c => `
+        <label class="d-flex align-items-center gap-2 mb-1">
+            <input type="checkbox" class="form-check-input invite-member-checkbox" value="${c.userId}">
+            <span>${escapeHtml(c.name)}</span>
+        </label>
+    `).join('');
+
+    container.innerHTML = `
+        <div class="small text-muted mb-2">招待候補: ${filtered.length}人</div>
+        ${rowsHtml}
+    `;
+}
+
+window.selectAllInviteCandidates = function(selectAll) {
+    const container = document.getElementById('inviteMembersList');
+    if (!container) return;
+    container.querySelectorAll('input.invite-member-checkbox').forEach(cb => {
+        cb.checked = Boolean(selectAll);
+    });
+};
+
+window.sendSessionInvitations = async function() {
+    if (!CAN_INVITE || IS_PUBLIC_VIEW) return;
+
+    const listContainer = document.getElementById('inviteMembersList');
+    const message = document.getElementById('inviteMessage')?.value || '';
+    const resultsEl = document.getElementById('inviteResults');
+    const sendBtn = document.getElementById('sendInvitesBtn');
+
+    const selected = Array.from(listContainer?.querySelectorAll('input.invite-member-checkbox:checked') || [])
+        .map(el => parseInt(el.value, 10))
+        .filter(id => Number.isFinite(id));
+
+    if (selected.length === 0) {
+        alert('招待するメンバーを選択してください');
+        return;
+    }
+
+    if (sendBtn) sendBtn.disabled = true;
+    if (resultsEl) resultsEl.innerHTML = '<span class="text-muted small">送信中...</span>';
+
+    let successCount = 0;
+    const errors = [];
+
+    for (let index = 0; index < selected.length; index += 1) {
+        const userId = selected[index];
+        try {
+            await axios.post(
+                `/api/schedules/sessions/${encodeURIComponent(SESSION_ID)}/invite/`,
+                { user_id: userId, message },
+                { headers: { 'Content-Type': 'application/json' } },
+            );
+            successCount += 1;
+        } catch (error) {
+            errors.push({
+                userId,
+                message: error.response?.data?.error || error.response?.data?.detail || error.message,
+            });
+        }
+
+        if (resultsEl) {
+            resultsEl.innerHTML = `<span class="text-muted small">送信中... (${index + 1}/${selected.length})</span>`;
+        }
+    }
+
+    if (sendBtn) sendBtn.disabled = false;
+
+    if (resultsEl) {
+        const errorHtml = errors.length ? `
+            <div class="alert alert-warning py-2 mt-2 mb-0">
+                <div class="fw-bold mb-1">一部送信に失敗しました</div>
+                <ul class="mb-0">
+                    ${errors.map(e => `<li>${escapeHtml(String(e.userId))}: ${escapeHtml(e.message)}</li>`).join('')}
+                </ul>
+            </div>
+        ` : '';
+
+        resultsEl.innerHTML = `
+            <div class="alert alert-${errors.length ? 'warning' : 'success'} py-2 mb-0">
+                送信完了: ${successCount}/${selected.length}
+            </div>
+            ${errorHtml}
+        `;
+    }
+
+    await loadInviteMembersList();
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     setupCopyPublicSessionLinkButton();
 
@@ -3374,6 +3558,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         loadYouTubeLinks();
         loadYouTubeLinkStatistics();
+    }
+
+    const inviteModalEl = document.getElementById('inviteMembersModal');
+    if (inviteModalEl) {
+        inviteModalEl.addEventListener('shown.bs.modal', async () => {
+            const searchEl = document.getElementById('inviteMemberSearch');
+            const resultsEl = document.getElementById('inviteResults');
+            const messageEl = document.getElementById('inviteMessage');
+            if (searchEl) searchEl.value = '';
+            if (messageEl) messageEl.value = '';
+            if (resultsEl) resultsEl.innerHTML = '';
+            await loadInviteMembersList();
+        });
+    }
+
+    const inviteSearchEl = document.getElementById('inviteMemberSearch');
+    if (inviteSearchEl) {
+        inviteSearchEl.addEventListener('input', () => {
+            renderInviteMembersList(inviteSearchEl.value);
+        });
     }
 });
 </script>

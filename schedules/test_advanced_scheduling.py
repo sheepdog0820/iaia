@@ -457,3 +457,37 @@ class AdvancedSchedulingAPITestCase(APITestCase):
             HTTP_ACCEPT='text/html',
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_session_detail_shows_open_date_poll_badge(self):
+        undated_session = TRPGSession.objects.create(
+            title='Undated Session',
+            date=None,
+            gm=self.gm,
+            group=self.group,
+            visibility='group',
+            status='planned',
+        )
+
+        poll = DatePoll.objects.create(
+            title='Poll for Session',
+            description='Pick a date',
+            group=self.group,
+            created_by=self.gm,
+            deadline=timezone.now() + timedelta(days=1),
+            create_session_on_confirm=False,
+            session=undated_session,
+            is_closed=False,
+        )
+        DatePollOption.objects.create(
+            poll=poll,
+            datetime=(timezone.now() + timedelta(days=10)).replace(microsecond=0),
+            note='A',
+        )
+
+        self.client.force_authenticate(user=self.member)
+        response = self.client.get(
+            f'/api/schedules/sessions/{undated_session.id}/detail/',
+            HTTP_ACCEPT='text/html',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, 'data-testid="openDatePollBadge"')
