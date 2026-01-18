@@ -1972,6 +1972,58 @@ class SessionDetailView(APIView):
         return render(request, 'schedules/session_detail.html', context)
 
 
+class SessionDatePollView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            session = TRPGSession.objects.select_related('scenario', 'gm', 'group').get(pk=pk)
+        except TRPGSession.DoesNotExist:
+            if 'application/json' in request.headers.get('Accept', ''):
+                return Response({'error': 'Session not found'}, status=404)
+            else:
+                from django.http import Http404
+                raise Http404("Session not found")
+
+        user = request.user
+        has_access = (
+            session.visibility == 'public' or
+            session.gm == user or
+            session.group.members.filter(id=user.id).exists() or
+            session.participants.filter(id=user.id).exists()
+        )
+
+        if not has_access:
+            if 'application/json' in request.headers.get('Accept', ''):
+                return Response({'error': 'Permission denied'}, status=403)
+            raise PermissionDenied("このセッションにアクセスする権限がありません")
+
+        is_gm = session.gm == user
+        is_participant = session.participants.filter(id=user.id).exists()
+        can_edit = is_gm
+
+        if 'application/json' in request.headers.get('Accept', ''):
+            return Response({
+                'id': session.id,
+                'title': session.title,
+                'date': session.date.isoformat() if session.date else None,
+                'group': session.group_id,
+                'is_gm': is_gm,
+                'is_participant': is_participant,
+                'can_edit': can_edit,
+            })
+
+        context = {
+            'session': session,
+            'is_gm': is_gm,
+            'is_participant': is_participant,
+            'can_edit': can_edit,
+            'is_public_view': False,
+        }
+
+        return render(request, 'schedules/session_date_poll.html', context)
+
+
 class PublicSessionDetailView(APIView):
     permission_classes = [AllowAny]
 

@@ -128,31 +128,18 @@
                                             <i class="fas fa-plus"></i> 日程を追加
                                         </button>
                                         {% if not session.date %}
-                                            <a class="btn btn-sm btn-outline-warning" href="#datePollCard">
+                                            <a class="btn btn-sm btn-outline-warning" href="/api/schedules/sessions/{{ session.id }}/date-poll/">
                                                 <i class="fas fa-poll"></i> 日程募集
                                             </a>
                                         {% endif %}
                                     </div>
                                 {% elif not session.date %}
                                     <div class="mb-3">
-                                        <a class="btn btn-sm btn-outline-warning" href="#datePollCard">
+                                        <a class="btn btn-sm btn-outline-warning" href="/api/schedules/sessions/{{ session.id }}/date-poll/">
                                             <i class="fas fa-poll"></i> 日程募集
                                         </a>
                                     </div>
                                 {% endif %}
-                            {% endif %}
-
-                            {% if not is_public_view and not session.date %}
-                                <div class="card bg-dark border-secondary mb-3" id="datePollCard">
-                                    <div class="card-header">
-                                        <h6 class="mb-0"><i class="fas fa-poll"></i> 日程募集・投票</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div id="datePollContainer">
-                                            <span class="text-muted small">読み込み中...</span>
-                                        </div>
-                                    </div>
-                                </div>
                             {% endif %}
 
                             <h6><i class="fas fa-map-marker-alt"></i> 場所</h6>

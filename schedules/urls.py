@@ -32,6 +32,7 @@ urlpatterns = [
     path('sessions/upcoming/', views.UpcomingSessionsView.as_view(), name='upcoming_sessions'),
     path('sessions/statistics/', views.SessionStatisticsView.as_view(), name='session_statistics'),
     path('sessions/<int:pk>/detail/', views.SessionDetailView.as_view(), name='session_detail'),
+    path('sessions/<int:pk>/date-poll/', views.SessionDatePollView.as_view(), name='session_date_poll'),
     path('handouts/<int:handout_id>/attachments/', attachment_views.HandoutAttachmentListCreateView.as_view(), name='handout_attachments'),
     path('attachments/<int:pk>/', attachment_views.HandoutAttachmentDetailView.as_view(), name='handout_attachment_detail'),
     path(

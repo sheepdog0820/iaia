@@ -1,0 +1,493 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}日程募集・投票 - {{ session.title }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item">
+                                <a href="/">
+                                    <i class="fas fa-home"></i> ホーム
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item">
+                                <a href="/api/schedules/sessions/view/">
+                                    <i class="fas fa-scroll"></i> セッション一覧
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item">
+                                <a href="/api/schedules/sessions/{{ session.id }}/detail/">
+                                    <i class="fas fa-eye"></i> {{ session.title }}
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item active">
+                                <i class="fas fa-poll"></i> 日程募集・投票
+                            </li>
+                        </ol>
+                    </nav>
+                </div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <a class="btn btn-outline-secondary" href="/api/schedules/sessions/{{ session.id }}/detail/">
+                        <i class="fas fa-arrow-left"></i> セッション詳細へ
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h3 class="mb-0 eldritch-font">
+                        <i class="fas fa-poll"></i> 日程募集・投票
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div id="datePollContainer">
+                        <span class="text-muted small">読み込み中...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header bg-primary">
+                    <h5 class="mb-0">
+                        <i class="fas fa-scroll"></i> セッション概要
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="fw-semibold mb-2">{{ session.title }}</div>
+
+                    <div class="small text-muted mb-2">
+                        <i class="fas fa-users"></i> グループ: {{ session.group.name }}
+                    </div>
+
+                    <div class="mb-2">
+                        <div class="small text-muted"><i class="fas fa-calendar"></i> 開催日</div>
+                        {% if session.date %}
+                            <div class="fw-semibold">{{ session.date|date:"Y年m月d日 H:i" }}</div>
+                        {% else %}
+                            <div class="text-muted">未定</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-2">
+                        <div class="small text-muted"><i class="fas fa-user"></i> GM</div>
+                        <div>{{ session.gm.nickname|default:session.gm.username }}</div>
+                    </div>
+
+                    <div class="mb-2">
+                        <div class="small text-muted"><i class="fas fa-flag"></i> ステータス</div>
+                        <div>
+                            {% if session.status == 'planned' %}
+                                <span class="badge bg-primary"><i class="fas fa-clock"></i> 予定</span>
+                            {% elif session.status == 'ongoing' %}
+                                <span class="badge bg-warning text-dark"><i class="fas fa-play"></i> 進行中</span>
+                            {% elif session.status == 'completed' %}
+                                <span class="badge bg-success"><i class="fas fa-check"></i> 完了</span>
+                            {% elif session.status == 'cancelled' %}
+                                <span class="badge bg-danger"><i class="fas fa-times"></i> キャンセル</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ session.status }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if session.duration_minutes %}
+                        <div class="mb-2">
+                            <div class="small text-muted"><i class="fas fa-clock"></i> セッション時間</div>
+                            <div>{{ session.duration_minutes }}分</div>
+                        </div>
+                    {% endif %}
+
+                    {% if session.location %}
+                        <div class="mb-2">
+                            <div class="small text-muted"><i class="fas fa-map-marker-alt"></i> 場所</div>
+                            <div>{{ session.location }}</div>
+                        </div>
+                    {% endif %}
+
+                    {% if session.scenario %}
+                        <div class="mb-0">
+                            <div class="small text-muted"><i class="fas fa-book"></i> シナリオ</div>
+                            <div>{{ session.scenario.title }}</div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const SESSION_ID = {{ session.id }};
+const GROUP_ID = {{ session.group.id }};
+const IS_GM = {% if is_gm %}true{% else %}false{% endif %};
+const IS_PUBLIC_VIEW = false;
+const SESSION_DATE_IS_SET = {% if session.date %}true{% else %}false{% endif %};
+
+function escapeHtml(str) {
+    return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
+
+function formatPollDateTime(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString('ja-JP');
+}
+
+function getMyPollVote(option) {
+    const currentUserId = window.CURRENT_USER?.id;
+    if (!currentUserId || !option?.votes) return null;
+    return option.votes.find(vote => vote.user === currentUserId) || null;
+}
+
+function renderDatePollCreateForm() {
+    if (SESSION_DATE_IS_SET) {
+        return `
+            <div class="alert alert-info mb-0">
+                すでにセッション日程が確定しているため、日程募集は作成できません。
+            </div>
+        `;
+    }
+
+    if (!IS_GM) {
+        return '<span class="text-muted small">GMが日程募集を開始するまでお待ちください。</span>';
+    }
+
+    return `
+        <div class="mb-3">
+            <label class="form-label">タイトル</label>
+            <input type="text" class="form-control" id="datePollCreateTitle" value="日程募集" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">説明</label>
+            <textarea class="form-control" id="datePollCreateDescription" rows="2" placeholder="任意"></textarea>
+        </div>
+        <div class="mb-2 d-flex justify-content-between align-items-center">
+            <span class="fw-bold">候補日</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addDatePollCreateOptionRow()">
+                <i class="fas fa-plus"></i> 追加
+            </button>
+        </div>
+        <div id="datePollCreateOptions" class="mb-3"></div>
+        <div class="d-flex justify-content-end">
+            <button type="button" class="btn btn-sm btn-primary" onclick="createDatePollForSession()">
+                <i class="fas fa-save"></i> 日程募集を作成
+            </button>
+        </div>
+    `;
+}
+
+function addDatePollCreateOptionRow(initial = {}) {
+    const container = document.getElementById('datePollCreateOptions');
+    if (!container) return;
+    const row = document.createElement('div');
+    row.className = 'row g-2 mb-2 date-poll-option-row';
+    row.innerHTML = `
+        <div class="col-md-6">
+            <input type="datetime-local" class="form-control form-control-sm date-poll-option-datetime" value="${escapeHtml(initial.datetime || '')}" required>
+        </div>
+        <div class="col-md-5">
+            <input type="text" class="form-control form-control-sm date-poll-option-note" value="${escapeHtml(initial.note || '')}" placeholder="備考（任意）">
+        </div>
+        <div class="col-md-1 d-grid">
+            <button type="button" class="btn btn-sm btn-outline-danger" title="削除" onclick="this.closest('.date-poll-option-row')?.remove()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    container.appendChild(row);
+}
+
+async function loadDatePollSection() {
+    const container = document.getElementById('datePollContainer');
+    if (!container || IS_PUBLIC_VIEW) return;
+
+    container.innerHTML = '<span class="text-muted small">読み込み中...</span>';
+
+    try {
+        const response = await axios.get('/api/schedules/date-polls/', {
+            params: { session_id: SESSION_ID },
+        });
+
+        const polls = Array.isArray(response.data) ? response.data : [];
+        const poll = polls.find(p => !p.is_closed) || polls[0] || null;
+
+        if (!poll) {
+            container.innerHTML = renderDatePollCreateForm();
+            if (IS_GM && !SESSION_DATE_IS_SET) addDatePollCreateOptionRow();
+            return;
+        }
+
+        const statusBadgeClass = (status) => {
+            if (status === 'available') return 'bg-success';
+            if (status === 'maybe') return 'bg-warning text-dark';
+            if (status === 'unavailable') return 'bg-danger';
+            return 'bg-secondary';
+        };
+
+        const getVoterName = (vote) => vote?.user_detail?.nickname || vote?.user_detail?.username || '';
+
+        const renderVoteDetails = (option) => {
+            const votes = Array.isArray(option?.votes) ? option.votes : [];
+            if (votes.length === 0) return '';
+
+            const byStatus = {
+                available: [],
+                maybe: [],
+                unavailable: [],
+            };
+
+            for (const vote of votes) {
+                if (!vote?.status || !(vote.status in byStatus)) continue;
+                const name = getVoterName(vote);
+                if (name) byStatus[vote.status].push(name);
+            }
+
+            const renderLine = (status, label, badgeClass) => {
+                const names = byStatus[status] || [];
+                const namesHtml = names.length
+                    ? names.map(n => `<span class="badge bg-secondary me-1">${escapeHtml(n)}</span>`).join('')
+                    : '<span class="text-muted small">なし</span>';
+                return `<div class="mb-1"><span class="badge ${badgeClass} me-2">${label}</span>${namesHtml}</div>`;
+            };
+
+            return `
+                <details class="mt-2">
+                    <summary class="small text-muted">投票詳細</summary>
+                    <div class="small mt-2">
+                        ${renderLine('available', '◯', 'bg-success')}
+                        ${renderLine('maybe', '△', 'bg-warning text-dark')}
+                        ${renderLine('unavailable', '✕', 'bg-danger')}
+                    </div>
+                </details>
+            `;
+        };
+
+        const options = Array.isArray(poll.options) ? poll.options : [];
+        const rowsHtml = options.map(option => {
+            const myVote = getMyPollVote(option);
+            const myStatus = myVote?.status || '';
+
+            const voteButton = (status, label, btnClass) => {
+                const active = myStatus === status ? '' : '-outline';
+                const disabled = poll.is_closed ? 'disabled' : '';
+                return `
+                    <button type="button" class="btn btn${active}-${btnClass}" ${disabled} onclick="voteDatePollOption(${poll.id}, ${option.id}, '${status}')">
+                        ${label}
+                    </button>
+                `;
+            };
+
+            const isSelected = poll.selected_date
+                ? new Date(option.datetime).getTime() === new Date(poll.selected_date).getTime()
+                : false;
+
+            const myVoteHtml = myVote
+                ? `<span class="badge ${statusBadgeClass(myVote.status)}">${escapeHtml(myVote.status_display)}</span>`
+                : '<span class="text-muted small">未投票</span>';
+
+            return `
+                <tr>
+                    <td>
+                        <div class="fw-semibold">
+                            ${formatPollDateTime(option.datetime)}
+                            ${isSelected ? '<span class="badge bg-success ms-2">確定</span>' : ''}
+                        </div>
+                        ${option.note ? `<div class="text-muted small">${escapeHtml(option.note)}</div>` : ''}
+                    </td>
+                    <td>
+                        <div class="mb-1">
+                            <span class="badge bg-success me-1">◯ ${option.available_count}</span>
+                            <span class="badge bg-warning text-dark me-1">△ ${option.maybe_count}</span>
+                            <span class="badge bg-danger">✕ ${option.unavailable_count}</span>
+                        </div>
+                        <div class="small">あなた: ${myVoteHtml}</div>
+                        ${renderVoteDetails(option)}
+                    </td>
+                    <td class="text-end">
+                        <div class="d-flex justify-content-end gap-2 flex-wrap">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="vote">
+                                ${voteButton('available', '◯', 'success')}
+                                ${voteButton('maybe', '△', 'warning')}
+                                ${voteButton('unavailable', '✕', 'danger')}
+                            </div>
+                            ${IS_GM && !poll.is_closed ? `
+                                <button type="button" class="btn btn-sm btn-primary" onclick="confirmDatePollOption(${poll.id}, ${option.id})">
+                                    <i class="fas fa-check"></i> 確定
+                                </button>
+                            ` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        const optionsHtml = options.length ? `
+            <div class="table-responsive">
+                <table class="table table-dark table-striped table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th style="min-width: 220px;">候補日</th>
+                            <th style="min-width: 220px;">投票状況</th>
+                            <th class="text-end" style="min-width: 220px;">投票</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            </div>
+        ` : '<div class="text-muted small">候補日がありません。追加してください。</div>';
+
+        const addOptionHtml = poll.is_closed ? '' : `
+            <div class="mt-3 border-top pt-3">
+                <div class="mb-2 fw-bold">候補日を追加</div>
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1">日時</label>
+                        <input type="datetime-local" class="form-control form-control-sm" id="datePollAddDatetime">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small mb-1">備考（任意）</label>
+                        <input type="text" class="form-control form-control-sm" id="datePollAddNote">
+                    </div>
+                    <div class="col-md-2 d-grid">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addDatePollOption(${poll.id})">
+                            <i class="fas fa-plus"></i> 追加
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const pollStateBadge = poll.is_closed
+            ? '<span class="badge bg-secondary ms-2">締切</span>'
+            : '<span class="badge bg-success ms-2">募集中</span>';
+
+        const deadlineHtml = poll.deadline
+            ? `<div class="text-muted small">締切: ${formatPollDateTime(poll.deadline)}</div>`
+            : '';
+
+        const closedHtml = poll.is_closed ? `
+            <div class="alert alert-info py-2 mt-3 mb-0">
+                確定日: <strong>${poll.selected_date ? formatPollDateTime(poll.selected_date) : '未設定'}</strong>
+            </div>
+        ` : '';
+
+        container.innerHTML = `
+            <div class="mb-2">
+                <div class="fw-bold">${escapeHtml(poll.title || '日程募集')}${pollStateBadge}</div>
+                ${poll.description ? `<div class="text-muted small">${escapeHtml(poll.description)}</div>` : ''}
+                ${deadlineHtml}
+            </div>
+            ${optionsHtml}
+            ${addOptionHtml}
+            ${closedHtml}
+        `;
+    } catch (error) {
+        container.innerHTML = '<span class="text-danger small">日程募集の読み込みに失敗しました。</span>';
+        console.error('Failed to load date poll:', error);
+    }
+}
+
+window.createDatePollForSession = async function() {
+    if (!IS_GM || SESSION_DATE_IS_SET) return;
+    const title = document.getElementById('datePollCreateTitle')?.value?.trim() || '日程募集';
+    const description = document.getElementById('datePollCreateDescription')?.value || '';
+    const optionRows = Array.from(document.querySelectorAll('#datePollCreateOptions .date-poll-option-row'));
+    const options = optionRows.map(row => {
+        const datetime = row.querySelector('.date-poll-option-datetime')?.value;
+        const note = row.querySelector('.date-poll-option-note')?.value || '';
+        return { datetime, note };
+    }).filter(opt => opt.datetime);
+
+    if (options.length === 0) {
+        alert('候補日を1つ以上入力してください');
+        return;
+    }
+
+    const payload = {
+        title,
+        description,
+        group: GROUP_ID,
+        session: SESSION_ID,
+        create_session_on_confirm: false,
+        options,
+    };
+
+    try {
+        await axios.post('/api/schedules/date-polls/', payload, { headers: { 'Content-Type': 'application/json' } });
+        await loadDatePollSection();
+    } catch (error) {
+        alert('日程募集の作成に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.session || error.response?.data?.group || error.message));
+    }
+};
+
+window.addDatePollOption = async function(pollId) {
+    const datetime = document.getElementById('datePollAddDatetime')?.value;
+    const note = document.getElementById('datePollAddNote')?.value || '';
+    if (!datetime) {
+        alert('日時を入力してください');
+        return;
+    }
+    try {
+        await axios.post(`/api/schedules/date-polls/${encodeURIComponent(pollId)}/add_option/`, { datetime, note });
+        await loadDatePollSection();
+    } catch (error) {
+        alert('候補日の追加に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.datetime || error.message));
+    }
+};
+
+window.voteDatePollOption = async function(pollId, optionId, status) {
+    try {
+        await axios.post(
+            `/api/schedules/date-polls/${encodeURIComponent(pollId)}/vote/`,
+            { votes: [{ option_id: optionId, status, comment: '' }] },
+            { headers: { 'Content-Type': 'application/json' } },
+        );
+        await loadDatePollSection();
+    } catch (error) {
+        alert('投票に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.error || error.message));
+    }
+};
+
+window.confirmDatePollOption = async function(pollId, optionId) {
+    if (!IS_GM) return;
+    if (!confirm('この候補日で確定しますか？')) return;
+    try {
+        await axios.post(
+            `/api/schedules/date-polls/${encodeURIComponent(pollId)}/confirm/`,
+            { option_id: optionId },
+            { headers: { 'Content-Type': 'application/json' } },
+        );
+        location.reload();
+    } catch (error) {
+        alert('確定に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.error || error.message));
+    }
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadDatePollSection();
+});
+</script>
+{% endblock %}
+

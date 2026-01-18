@@ -421,3 +421,39 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         response2 = self.client.post('/api/schedules/date-polls/', {**payload, 'title': 'Poll 2'}, format='json')
         self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('session', response2.data)
+
+    def test_session_date_poll_view_renders_for_group_member(self):
+        undated_session = TRPGSession.objects.create(
+            title='Undated Session',
+            date=None,
+            gm=self.gm,
+            group=self.group,
+            visibility='group',
+            status='planned',
+        )
+
+        self.client.force_authenticate(user=self.member)
+        response = self.client.get(
+            f'/api/schedules/sessions/{undated_session.id}/date-poll/',
+            HTTP_ACCEPT='text/html',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, '日程募集・投票')
+        self.assertContains(response, undated_session.title)
+
+    def test_session_date_poll_view_denies_outsider(self):
+        undated_session = TRPGSession.objects.create(
+            title='Undated Session',
+            date=None,
+            gm=self.gm,
+            group=self.group,
+            visibility='group',
+            status='planned',
+        )
+
+        self.client.force_authenticate(user=self.outsider)
+        response = self.client.get(
+            f'/api/schedules/sessions/{undated_session.id}/date-poll/',
+            HTTP_ACCEPT='text/html',
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
