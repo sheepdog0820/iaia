@@ -27,6 +27,7 @@ from .models import (
     DatePoll,
     DatePollOption,
     DatePollVote,
+    DatePollComment,
 )
 from .serializers import (
     TRPGSessionSerializer,
@@ -48,6 +49,7 @@ from .serializers import (
     DatePollCreateSerializer,
     DatePollOptionSerializer,
     DatePollVoteSerializer,
+    DatePollCommentSerializer,
 )
 from .services import YouTubeService
 from .notifications import SessionNotificationService
@@ -2912,3 +2914,33 @@ class DatePollViewSet(viewsets.ModelViewSet):
             'selected_date': poll.selected_date.isoformat() if poll.selected_date else None,
             'options': result,
         })
+
+    @action(detail=True, methods=['get', 'post'])
+    def comments(self, request, pk=None):
+        """日程調整のコメント（チャット）一覧/投稿"""
+        poll = self.get_object()
+
+        if request.method == 'GET':
+            limit_param = request.query_params.get('limit', 200)
+            try:
+                limit = int(limit_param)
+            except (TypeError, ValueError):
+                raise ValidationError({'limit': 'limit must be an integer'})
+
+            limit = max(1, min(limit, 500))
+            qs = poll.comments.select_related('user').order_by('-created_at', '-id')[:limit]
+            comments = list(qs)[::-1]
+            return Response(DatePollCommentSerializer(comments, many=True).data)
+
+        content = (request.data.get('content') or '').strip()
+        if not content:
+            raise ValidationError({'content': 'コメントを入力してください'})
+        if len(content) > 500:
+            raise ValidationError({'content': 'コメントは500文字以内で入力してください'})
+
+        comment = DatePollComment.objects.create(
+            poll=poll,
+            user=request.user,
+            content=content,
+        )
+        return Response(DatePollCommentSerializer(comment).data, status=status.HTTP_201_CREATED)

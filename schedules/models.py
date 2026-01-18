@@ -1427,3 +1427,33 @@ class DatePollVote(models.Model):
 
     def __str__(self):
         return f"{self.user.nickname or self.user.username}: {self.get_status_display()}"
+
+
+class DatePollComment(models.Model):
+    """日程調整のコメント（チャット）モデル（ISSUE-017）"""
+
+    poll = models.ForeignKey(
+        DatePoll,
+        on_delete=models.CASCADE,
+        related_name='comments',
+    )
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='date_poll_comments',
+    )
+    content = models.TextField(help_text="コメント本文")
+
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+        indexes = [
+            models.Index(fields=['poll', 'created_at']),
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+    def __str__(self):
+        user_display = self.user.nickname or self.user.username
+        return f"{self.poll.title}: {user_display}"

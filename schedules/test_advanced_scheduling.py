@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import Group as CustomGroup
-from .models import TRPGSession, SessionSeries, SessionAvailability, DatePoll, DatePollOption
+from .models import TRPGSession, SessionSeries, SessionAvailability, DatePoll, DatePollOption, DatePollComment
 
 
 User = get_user_model()
@@ -364,6 +364,85 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(list_response.data), 1)
         self.assertEqual(list_response.data[0]['session'], undated_session1.id)
+
+    def test_date_poll_comments_create_and_list(self):
+        self.client.force_authenticate(user=self.gm)
+
+        undated_session = TRPGSession.objects.create(
+            title='Undated Session',
+            date=None,
+            gm=self.gm,
+            group=self.group,
+            visibility='group',
+            status='planned',
+        )
+
+        option_dt = (timezone.now() + timedelta(days=7)).replace(microsecond=0)
+        create_response = self.client.post(
+            '/api/schedules/date-polls/',
+            {
+                'title': 'Poll With Comments',
+                'description': 'Discuss schedule',
+                'group': self.group.id,
+                'session': undated_session.id,
+                'create_session_on_confirm': False,
+                'options': [{'datetime': option_dt.isoformat(), 'note': 'A'}],
+            },
+            format='json',
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        poll = DatePoll.objects.get(title='Poll With Comments')
+
+        self.client.force_authenticate(user=self.member)
+        post_response = self.client.post(
+            f'/api/schedules/date-polls/{poll.id}/comments/',
+            {'content': 'この日なら参加できます！'},
+            format='json',
+        )
+        self.assertEqual(post_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(post_response.data.get('content'), 'この日なら参加できます！')
+        self.assertEqual(post_response.data.get('user'), self.member.id)
+        self.assertIn('user_detail', post_response.data)
+
+        blank_response = self.client.post(
+            f'/api/schedules/date-polls/{poll.id}/comments/',
+            {'content': '   '},
+            format='json',
+        )
+        self.assertEqual(blank_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        long_response = self.client.post(
+            f'/api/schedules/date-polls/{poll.id}/comments/',
+            {'content': 'a' * 501},
+            format='json',
+        )
+        self.assertEqual(long_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.force_authenticate(user=self.gm)
+        post_response2 = self.client.post(
+            f'/api/schedules/date-polls/{poll.id}/comments/',
+            {'content': '了解です。候補を増やします。'},
+            format='json',
+        )
+        self.assertEqual(post_response2.status_code, status.HTTP_201_CREATED)
+
+        self.assertEqual(DatePollComment.objects.filter(poll=poll).count(), 2)
+
+        self.client.force_authenticate(user=self.member)
+        list_response = self.client.get(
+            f'/api/schedules/date-polls/{poll.id}/comments/',
+        )
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data), 2)
+        self.assertEqual(list_response.data[0].get('content'), 'この日なら参加できます！')
+        self.assertEqual(list_response.data[1].get('content'), '了解です。候補を増やします。')
+
+        self.client.force_authenticate(user=self.outsider)
+        outsider_response = self.client.get(
+            f'/api/schedules/date-polls/{poll.id}/comments/',
+        )
+        self.assertEqual(outsider_response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_date_poll_create_rejects_when_session_already_has_date(self):
         self.client.force_authenticate(user=self.gm)

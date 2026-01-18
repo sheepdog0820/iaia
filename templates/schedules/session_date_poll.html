@@ -3,6 +3,71 @@
 
 {% block title %}日程募集・投票 - {{ session.title }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .date-poll-chat-wrap {
+        background: #e9f2ff;
+    }
+
+    .date-poll-chat-log {
+        height: 420px;
+        overflow-y: auto;
+    }
+
+    .date-poll-chat-row {
+        display: flex;
+        margin-bottom: 10px;
+    }
+
+    .date-poll-chat-row.mine {
+        justify-content: flex-end;
+    }
+
+    .date-poll-chat-row.other {
+        justify-content: flex-start;
+    }
+
+    .date-poll-chat-bubble {
+        max-width: 75%;
+        padding: 8px 12px;
+        border-radius: 18px;
+        line-height: 1.35;
+        word-break: break-word;
+        white-space: normal;
+    }
+
+    .date-poll-chat-bubble.mine {
+        background: #8de055;
+        color: #111;
+        border-bottom-right-radius: 6px;
+    }
+
+    .date-poll-chat-bubble.other {
+        background: #ffffff;
+        color: #111;
+        border-bottom-left-radius: 6px;
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    .date-poll-chat-meta {
+        font-size: 0.75rem;
+        color: rgba(0, 0, 0, 0.55);
+        margin-top: 4px;
+        display: flex;
+        gap: 6px;
+        align-items: baseline;
+    }
+
+    .date-poll-chat-meta.mine {
+        justify-content: flex-end;
+    }
+
+    .date-poll-chat-meta.other {
+        justify-content: flex-start;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <div class="row mb-4">
@@ -53,6 +118,29 @@
                     <div id="datePollContainer">
                         <span class="text-muted small">読み込み中...</span>
                     </div>
+                </div>
+            </div>
+
+            <div class="card mb-4" id="datePollChatCard">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-comments"></i> コメント
+                    </h5>
+                    <small class="opacity-75" id="datePollChatStatus"></small>
+                </div>
+                <div class="card-body p-0 date-poll-chat-wrap">
+                    <div class="p-3 date-poll-chat-log" id="datePollChatLog">
+                        <span class="text-muted small">日程募集を読み込み中...</span>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="input-group">
+                        <textarea class="form-control" id="datePollChatInput" rows="1" maxlength="500" placeholder="コメントを入力（Enterで送信 / Shift+Enterで改行）" disabled></textarea>
+                        <button class="btn btn-success" type="button" id="datePollChatSendBtn" onclick="sendDatePollComment()" disabled>
+                            <i class="fas fa-paper-plane"></i> 送信
+                        </button>
+                    </div>
+                    <small class="text-muted d-block mt-1">最大500文字</small>
                 </div>
             </div>
         </div>
@@ -136,6 +224,8 @@ const GROUP_ID = {{ session.group.id }};
 const IS_GM = {% if is_gm %}true{% else %}false{% endif %};
 const IS_PUBLIC_VIEW = false;
 const SESSION_DATE_IS_SET = {% if session.date %}true{% else %}false{% endif %};
+let ACTIVE_DATE_POLL_ID = null;
+let DATE_POLL_COMMENT_TIMER = null;
 
 function escapeHtml(str) {
     return String(str)
@@ -158,6 +248,141 @@ function getMyPollVote(option) {
     if (!currentUserId || !option?.votes) return null;
     return option.votes.find(vote => vote.user === currentUserId) || null;
 }
+
+function formatChatTimestamp(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function renderChatPlaceholder(message) {
+    return `<span class="text-muted small">${escapeHtml(message || '')}</span>`;
+}
+
+function setChatEnabled(enabled, statusText = '') {
+    const input = document.getElementById('datePollChatInput');
+    const sendBtn = document.getElementById('datePollChatSendBtn');
+    const statusEl = document.getElementById('datePollChatStatus');
+    if (input) input.disabled = !enabled;
+    if (sendBtn) sendBtn.disabled = !enabled;
+    if (statusEl) statusEl.textContent = statusText || '';
+}
+
+function stopDatePollCommentTimer() {
+    if (DATE_POLL_COMMENT_TIMER) {
+        clearInterval(DATE_POLL_COMMENT_TIMER);
+        DATE_POLL_COMMENT_TIMER = null;
+    }
+}
+
+function startDatePollCommentTimer(pollId) {
+    stopDatePollCommentTimer();
+    if (!pollId) return;
+    DATE_POLL_COMMENT_TIMER = setInterval(() => {
+        if (ACTIVE_DATE_POLL_ID !== pollId) return;
+        loadDatePollComments(pollId, { scroll: false });
+    }, 5000);
+}
+
+function shouldStickToBottom(container) {
+    if (!container) return true;
+    const threshold = 80;
+    return (container.scrollHeight - container.scrollTop - container.clientHeight) < threshold;
+}
+
+function scrollToBottom(container) {
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+}
+
+function renderDatePollChatComments(comments) {
+    const container = document.getElementById('datePollChatLog');
+    if (!container) return;
+
+    const stickToBottom = shouldStickToBottom(container);
+
+    if (!Array.isArray(comments) || comments.length === 0) {
+        container.innerHTML = renderChatPlaceholder('まだコメントがありません。');
+        return;
+    }
+
+    const currentUserId = window.CURRENT_USER?.id;
+    container.innerHTML = comments.map(comment => {
+        const isMine = currentUserId && comment.user === currentUserId;
+        const rowClass = isMine ? 'mine' : 'other';
+        const displayName = comment?.user_detail?.nickname || comment?.user_detail?.username || '';
+        const contentHtml = escapeHtml(comment?.content || '').replaceAll('\n', '<br>');
+        const timestamp = formatChatTimestamp(comment?.created_at);
+
+        const nameLine = isMine ? '' : `<div class="small text-muted mb-1">${escapeHtml(displayName)}</div>`;
+        return `
+            <div class="date-poll-chat-row ${rowClass}">
+                <div>
+                    ${nameLine}
+                    <div class="date-poll-chat-bubble ${rowClass}">
+                        ${contentHtml}
+                    </div>
+                    <div class="date-poll-chat-meta ${rowClass}">
+                        <span>${escapeHtml(timestamp)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    if (stickToBottom) scrollToBottom(container);
+}
+
+async function loadDatePollComments(pollId, { scroll = false } = {}) {
+    const container = document.getElementById('datePollChatLog');
+    if (!container) return;
+    if (!pollId) {
+        container.innerHTML = renderChatPlaceholder('日程募集が作成されるとコメントできます。');
+        setChatEnabled(false, '');
+        return;
+    }
+
+    try {
+        const response = await axios.get(`/api/schedules/date-polls/${encodeURIComponent(pollId)}/comments/`, {
+            params: { limit: 200 },
+        });
+        const comments = Array.isArray(response.data) ? response.data : [];
+        renderDatePollChatComments(comments);
+        setChatEnabled(true, '');
+        if (scroll) scrollToBottom(container);
+    } catch (error) {
+        console.error('Failed to load date poll comments:', error);
+        container.innerHTML = renderChatPlaceholder('コメントの読み込みに失敗しました。');
+        setChatEnabled(false, '読み込み失敗');
+    }
+}
+
+window.sendDatePollComment = async function() {
+    if (!ACTIVE_DATE_POLL_ID) return;
+    const input = document.getElementById('datePollChatInput');
+    const sendBtn = document.getElementById('datePollChatSendBtn');
+    const content = input?.value || '';
+    const trimmed = content.trim();
+    if (!trimmed) return;
+
+    if (sendBtn) sendBtn.disabled = true;
+    if (input) input.disabled = true;
+
+    try {
+        await axios.post(
+            `/api/schedules/date-polls/${encodeURIComponent(ACTIVE_DATE_POLL_ID)}/comments/`,
+            { content },
+            { headers: { 'Content-Type': 'application/json' } },
+        );
+        if (input) input.value = '';
+        await loadDatePollComments(ACTIVE_DATE_POLL_ID, { scroll: true });
+    } catch (error) {
+        alert('コメントの送信に失敗しました: ' + (error.response?.data?.content || error.response?.data?.detail || error.message));
+    } finally {
+        setChatEnabled(true, '');
+    }
+};
 
 function renderDatePollCreateForm() {
     if (SESSION_DATE_IS_SET) {
@@ -234,7 +459,17 @@ async function loadDatePollSection() {
         if (!poll) {
             container.innerHTML = renderDatePollCreateForm();
             if (IS_GM && !SESSION_DATE_IS_SET) addDatePollCreateOptionRow();
+            ACTIVE_DATE_POLL_ID = null;
+            stopDatePollCommentTimer();
+            await loadDatePollComments(null);
             return;
+        }
+
+        if (ACTIVE_DATE_POLL_ID !== poll.id) {
+            ACTIVE_DATE_POLL_ID = poll.id;
+            setChatEnabled(false, '読み込み中...');
+            await loadDatePollComments(poll.id, { scroll: true });
+            startDatePollCommentTimer(poll.id);
         }
 
         const statusBadgeClass = (status) => {
@@ -487,7 +722,16 @@ window.confirmDatePollOption = async function(pollId, optionId) {
 
 document.addEventListener('DOMContentLoaded', function() {
     loadDatePollSection();
+
+    const chatInput = document.getElementById('datePollChatInput');
+    if (chatInput) {
+        chatInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendDatePollComment();
+            }
+        });
+    }
 });
 </script>
 {% endblock %}
-

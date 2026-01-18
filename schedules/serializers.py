@@ -18,6 +18,7 @@ from .models import (
     DatePoll,
     DatePollOption,
     DatePollVote,
+    DatePollComment,
 )
 from accounts.serializers import UserSerializer
 from accounts.models import CustomUser, Group
@@ -827,6 +828,25 @@ class DatePollVoteSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['user'] = self.context['request'].user
         return super().create(validated_data)
+
+
+class DatePollCommentSerializer(serializers.ModelSerializer):
+    """日程調整コメント（チャット）シリアライザ"""
+
+    user_detail = UserSerializer(source='user', read_only=True)
+
+    class Meta:
+        model = DatePollComment
+        fields = [
+            'id',
+            'poll',
+            'user',
+            'user_detail',
+            'content',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'poll', 'user', 'created_at', 'updated_at']
 
 
 class DatePollOptionSerializer(serializers.ModelSerializer):
