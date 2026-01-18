@@ -1,3 +1,4 @@
+import json
 from django.shortcuts import render, get_object_or_404
 from django.db.models import Q, Sum, Count, Case, When, Value, IntegerField, DateTimeField, F
 from django.utils import timezone
@@ -1954,6 +1955,11 @@ class SessionDetailView(APIView):
         )
 
         open_date_poll = DatePoll.objects.filter(session=session, is_closed=False).first()
+        invitation_status_by_user_id = {}
+        for invitation in session.invitations.exclude(status='accepted'):
+            status_value = 'expired' if invitation.is_expired else invitation.status
+            invitation_status_by_user_id[str(invitation.invitee_id)] = status_value
+        invitation_status_by_user_id_json = json.dumps(invitation_status_by_user_id)
 
         public_session_url = request.build_absolute_uri(
             reverse('public_session_detail', kwargs={'share_token': session.share_token})
@@ -1974,6 +1980,7 @@ class SessionDetailView(APIView):
             'public_session_url': public_session_url,
             'is_public_view': False,
             'open_date_poll': open_date_poll,
+            'invitation_status_by_user_id_json': invitation_status_by_user_id_json,
         }
         
         return render(request, 'schedules/session_detail.html', context)

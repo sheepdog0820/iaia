@@ -555,6 +555,23 @@ class ScheduleAPITestCase(APITestCase):
         self.assertEqual(inv.status, 'accepted')
         self.assertIsNotNone(inv.responded_at)
 
+    def test_session_detail_marks_invited_users_as_pending(self):
+        """招待済みユーザーをセッション詳細で招待済み（pending）として扱えるようにする"""
+        SessionInvitation.objects.create(
+            session=self.session,
+            inviter=self.user1,
+            invitee=self.user2,
+            status='pending',
+        )
+
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.get(
+            f'/api/schedules/sessions/{self.session.id}/detail/',
+            HTTP_ACCEPT='text/html',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, f'\"{self.user2.id}\": \"pending\"')
+
     def test_session_invitation_decline_does_not_create_participant(self):
         """セッション招待の辞退では参加者が作成されない"""
         self.client.force_authenticate(user=self.user1)

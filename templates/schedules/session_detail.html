@@ -1536,6 +1536,7 @@ const SESSION_EXISTING_MEMBER_IDS = new Set([
     {{ session.gm.id }},
     {% for participant in participants %}{{ participant.user.id }},{% endfor %}
 ]);
+const SESSION_INVITATION_STATUS_BY_USER_ID = {{ invitation_status_by_user_id_json|default:"{}"|safe }};
 
 function formatPollDateTime(value) {
     if (!value) return '';
@@ -3437,15 +3438,34 @@ function renderInviteMembersList(filterText = '') {
         return;
     }
 
-    const rowsHtml = filtered.map(c => `
-        <label class="d-flex align-items-center gap-2 mb-1">
-            <input type="checkbox" class="form-check-input invite-member-checkbox" value="${c.userId}">
-            <span>${escapeHtml(c.name)}</span>
-        </label>
-    `).join('');
+    let invitedCount = 0;
+    const rowsHtml = filtered.map(c => {
+        const invitationStatus = SESSION_INVITATION_STATUS_BY_USER_ID[String(c.userId)] || '';
+        const isInvited = invitationStatus === 'pending';
+        const isExpired = invitationStatus === 'expired';
+        const isDeclined = invitationStatus === 'declined';
+        if (isInvited) invitedCount += 1;
 
+        const badgeHtml = isInvited
+            ? '<span class="badge bg-secondary ms-2">招待済み</span>'
+            : isExpired
+                ? '<span class="badge bg-warning text-dark ms-2">期限切れ</span>'
+                : isDeclined
+                    ? '<span class="badge bg-secondary ms-2">辞退</span>'
+                    : '';
+
+        const disabledAttr = isInvited ? 'disabled' : '';
+        return `
+            <label class="d-flex align-items-center gap-2 mb-1">
+                <input type="checkbox" class="form-check-input invite-member-checkbox" value="${c.userId}" ${disabledAttr}>
+                <span>${escapeHtml(c.name)}${badgeHtml}</span>
+            </label>
+        `;
+    }).join('');
+
+    const selectableCount = Math.max(0, filtered.length - invitedCount);
     container.innerHTML = `
-        <div class="small text-muted mb-2">招待候補: ${filtered.length}人</div>
+        <div class="small text-muted mb-2">招待候補: ${selectableCount}人 / 招待済み: ${invitedCount}人</div>
         ${rowsHtml}
     `;
 }
@@ -3453,7 +3473,7 @@ function renderInviteMembersList(filterText = '') {
 window.selectAllInviteCandidates = function(selectAll) {
     const container = document.getElementById('inviteMembersList');
     if (!container) return;
-    container.querySelectorAll('input.invite-member-checkbox').forEach(cb => {
+    container.querySelectorAll('input.invite-member-checkbox:not(:disabled)').forEach(cb => {
         cb.checked = Boolean(selectAll);
     });
 };
@@ -3490,6 +3510,7 @@ window.sendSessionInvitations = async function() {
                 { headers: { 'Content-Type': 'application/json' } },
             );
             successCount += 1;
+            SESSION_INVITATION_STATUS_BY_USER_ID[String(userId)] = 'pending';
         } catch (error) {
             errors.push({
                 userId,
