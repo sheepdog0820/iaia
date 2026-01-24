@@ -1301,6 +1301,37 @@
     white-space: pre-wrap;
 }
 
+.youtube-link-group-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.youtube-link-item.dragging {
+    opacity: 0.6;
+}
+
+.youtube-link-drag-handle {
+    cursor: grab;
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    color: var(--text-muted);
+}
+
+.youtube-link-drag-handle:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-primary);
+}
+
+.youtube-link-drag-handle:active {
+    cursor: grabbing;
+}
+
 .session-image-tile {
     background-color: var(--secondary-bg);
     border: 1px solid var(--border-color);
@@ -1562,6 +1593,10 @@ const IS_PARTICIPANT = {% if is_participant %}true{% else %}false{% endif %};
 const IS_PUBLIC_VIEW = {% if is_public_view %}true{% else %}false{% endif %};
 const PUBLIC_SESSION_URL = "{{ public_session_url|escapejs }}";
 const youtubeLinkMap = new Map();
+let youtubeLinkOrderCache = [];
+let youtubeLinkReorderSaving = false;
+let youtubeLinkDraggingItem = null;
+let youtubeLinkDraggingGroupKey = null;
 
 const SESSION_EXISTING_MEMBER_IDS = new Set([
     {{ session.gm.id }},
@@ -2308,6 +2343,140 @@ function canManageYouTubeLink(link) {
     return Number(link?.added_by) === Number(currentUserId);
 }
 
+function getYouTubeLinkIdsInDomOrder() {
+    const container = document.getElementById('youtubeLinksContainer');
+    if (!container) return [];
+    return Array.from(container.querySelectorAll('.youtube-link-item[data-youtube-link-id]'))
+        .map(el => el.dataset.youtubeLinkId)
+        .filter(Boolean);
+}
+
+function isSameYouTubeLinkOrder(nextOrder, prevOrder) {
+    if (!Array.isArray(nextOrder) || !Array.isArray(prevOrder)) return false;
+    if (nextOrder.length !== prevOrder.length) return false;
+    for (let i = 0; i < nextOrder.length; i++) {
+        if (String(nextOrder[i]) !== String(prevOrder[i])) return false;
+    }
+    return true;
+}
+
+function getDragAfterElement(container, y) {
+    const elements = Array.from(container.querySelectorAll('.youtube-link-item:not(.dragging)'));
+    let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+
+    for (const element of elements) {
+        const box = element.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+            closest = { offset, element };
+        }
+    }
+
+    return closest.element;
+}
+
+function initializeYouTubeLinkReorder() {
+    if (!IS_GM) return;
+    const container = document.getElementById('youtubeLinksContainer');
+    if (!container) return;
+
+    const groupLists = container.querySelectorAll('.youtube-link-group-list[data-youtube-group-key]');
+    groupLists.forEach(groupList => {
+        groupList.addEventListener('dragover', event => {
+            if (!youtubeLinkDraggingItem) return;
+            if ((groupList.dataset.youtubeGroupKey || '') !== (youtubeLinkDraggingGroupKey || '')) return;
+
+            event.preventDefault();
+            const afterElement = getDragAfterElement(groupList, event.clientY);
+            if (!afterElement) {
+                groupList.appendChild(youtubeLinkDraggingItem);
+            } else {
+                groupList.insertBefore(youtubeLinkDraggingItem, afterElement);
+            }
+        });
+
+        groupList.addEventListener('drop', event => {
+            if (!youtubeLinkDraggingItem) return;
+            if ((groupList.dataset.youtubeGroupKey || '') !== (youtubeLinkDraggingGroupKey || '')) return;
+            event.preventDefault();
+        });
+    });
+
+    const handles = container.querySelectorAll('.youtube-link-drag-handle[draggable="true"]');
+    handles.forEach(handle => {
+        handle.addEventListener('dragstart', event => {
+            const item = handle.closest('.youtube-link-item[data-youtube-link-id]');
+            const groupList = handle.closest('.youtube-link-group-list[data-youtube-group-key]');
+            const linkId = item?.dataset.youtubeLinkId;
+
+            if (!item || !groupList || !linkId) {
+                event.preventDefault();
+                return;
+            }
+
+            youtubeLinkDraggingItem = item;
+            youtubeLinkDraggingGroupKey = groupList.dataset.youtubeGroupKey || '';
+            item.classList.add('dragging');
+
+            if (event.dataTransfer) {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', linkId);
+                try {
+                    event.dataTransfer.setDragImage(item, 24, 24);
+                } catch (e) {
+                    // ignore
+                }
+            }
+        });
+
+        handle.addEventListener('dragend', async () => {
+            if (youtubeLinkDraggingItem) {
+                youtubeLinkDraggingItem.classList.remove('dragging');
+            }
+
+            youtubeLinkDraggingItem = null;
+            youtubeLinkDraggingGroupKey = null;
+
+            await persistYouTubeLinkOrder();
+        });
+    });
+
+    youtubeLinkOrderCache = getYouTubeLinkIdsInDomOrder();
+}
+
+async function persistYouTubeLinkOrder() {
+    if (!IS_GM) return;
+    if (youtubeLinkReorderSaving) return;
+
+    const nextOrder = getYouTubeLinkIdsInDomOrder();
+    if (nextOrder.length === 0) return;
+    if (isSameYouTubeLinkOrder(nextOrder, youtubeLinkOrderCache)) return;
+
+    youtubeLinkReorderSaving = true;
+    showYouTubeLinksMessage('並び替えを保存中...', 'info');
+
+    try {
+        const requests = nextOrder.map((id, index) =>
+            axios.post(`/api/schedules/youtube-links/${encodeURIComponent(id)}/reorder/`, { order: index + 1 })
+        );
+        await Promise.all(requests);
+
+        youtubeLinkOrderCache = nextOrder;
+        showYouTubeLinksMessage('並び替えを保存しました', 'success');
+
+        await loadYouTubeLinks();
+        await loadYouTubeLinkStatistics();
+    } catch (error) {
+        const message = error.response?.data?.error || error.response?.data?.detail || error.message;
+        showYouTubeLinksMessage(`並び替えの保存に失敗しました: ${message}`, 'danger');
+
+        await loadYouTubeLinks();
+        await loadYouTubeLinkStatistics();
+    } finally {
+        youtubeLinkReorderSaving = false;
+    }
+}
+
 function renderYouTubeLinks(links) {
     const container = document.getElementById('youtubeLinksContainer');
     if (!container) return;
@@ -2342,12 +2511,12 @@ function renderYouTubeLinks(links) {
 
     const html = groups.map(group => {
         const sortedLinks = [...group.links].sort((a, b) => {
-            const partA = a.part_number === null || a.part_number === undefined ? Number.MAX_SAFE_INTEGER : Number(a.part_number);
-            const partB = b.part_number === null || b.part_number === undefined ? Number.MAX_SAFE_INTEGER : Number(b.part_number);
-            if (partA !== partB) return partA - partB;
             const orderA = Number(a.order) || Number.MAX_SAFE_INTEGER;
             const orderB = Number(b.order) || Number.MAX_SAFE_INTEGER;
             if (orderA !== orderB) return orderA - orderB;
+            const partA = a.part_number === null || a.part_number === undefined ? Number.MAX_SAFE_INTEGER : Number(a.part_number);
+            const partB = b.part_number === null || b.part_number === undefined ? Number.MAX_SAFE_INTEGER : Number(b.part_number);
+            if (partA !== partB) return partA - partB;
             return Number(a.id) - Number(b.id);
         });
 
@@ -2372,6 +2541,12 @@ function renderYouTubeLinks(links) {
             const addedBy = link.added_by_detail?.nickname || link.added_by_detail?.username || '';
             const safeAddedBy = escapeHtml(addedBy);
 
+            const dragHandle = IS_GM ? `
+                <span class="youtube-link-drag-handle" draggable="true" role="button" title="ドラッグで並び替え" aria-label="ドラッグで並び替え">
+                    <i class="fas fa-grip-vertical"></i>
+                </span>
+            ` : '';
+
             const manageButtons = canManageYouTubeLink(link) ? `
                 <div class="btn-group btn-group-sm">
                     <button type="button" class="btn btn-outline-secondary" onclick="openEditYouTubeLinkModal(${link.id})">
@@ -2384,24 +2559,27 @@ function renderYouTubeLinks(links) {
             ` : '';
 
             return `
-                <div class="youtube-link-item rounded p-2 mb-2">
+                <div class="youtube-link-item rounded p-2 mb-2" data-youtube-link-id="${escapeHtml(link.id)}">
                     <div class="d-flex gap-3 align-items-start">
                         <a href="${safeUrl}" target="_blank" rel="noopener noreferrer">
                             ${thumbnailHtml}
                         </a>
                         <div class="flex-grow-1">
                             <div class="d-flex justify-content-between gap-2">
-                                <div>
-                                    <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="fw-bold text-decoration-none">
-                                        ${safeTitle}
-                                    </a>
-                                    <div class="text-muted small mt-1">
-                                        ${safeChannel ? `${safeChannel} / ` : ''}${duration}
-                                        ${safeAddedBy ? ` / 追加: ${safeAddedBy}` : ''}
-                                    </div>
-                                    <div class="mt-2 d-flex flex-wrap gap-2">
-                                        ${perspectiveBadge}
-                                        ${partBadge}
+                                <div class="d-flex gap-2 align-items-start">
+                                    ${dragHandle}
+                                    <div>
+                                        <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="fw-bold text-decoration-none">
+                                            ${safeTitle}
+                                        </a>
+                                        <div class="text-muted small mt-1">
+                                            ${safeChannel ? `${safeChannel} / ` : ''}${duration}
+                                            ${safeAddedBy ? ` / 追加: ${safeAddedBy}` : ''}
+                                        </div>
+                                        <div class="mt-2 d-flex flex-wrap gap-2">
+                                            ${perspectiveBadge}
+                                            ${partBadge}
+                                        </div>
                                     </div>
                                 </div>
                                 <div>
@@ -2421,12 +2599,17 @@ function renderYouTubeLinks(links) {
                     <i class="fas fa-video"></i> ${groupTitle}
                     <small class="text-muted ms-2">${escapeHtml(groupMeta)}</small>
                 </h6>
-                ${items}
+                <div class="youtube-link-group-list" data-youtube-group-key="${groupTitle}">
+                    ${items}
+                </div>
             </div>
         `;
     }).join('');
 
     container.innerHTML = html;
+    if (IS_GM) {
+        initializeYouTubeLinkReorder();
+    }
 }
 
 async function loadYouTubeLinks() {

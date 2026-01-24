@@ -10,8 +10,8 @@
 ### 1.2 技術スタック
 - **Backend**: Django 4.2+, Django REST Framework
 - **Database**: SQLite3（開発環境）, MySQL/PostgreSQL（本番環境）
-- **Frontend**: Bootstrap 5, カスタムCSS/JS（クトゥルフテーマ）
-- **認証**: django-allauth（Google/X OAuth）+ Django REST Framework（API経由）
+- **Frontend**: Bootstrap 5, カスタムCSS/JS（クトゥルフテーマ）, FullCalendar
+- **認証**: django-allauth（Google/X/Discord OAuth）+ Django REST Framework（API経由）
 - **インフラ**: Docker, Nginx, Gunicorn, Redis, Celery
 - **環境設定**: ENV_FILE による明示的な環境切り替え
 
@@ -103,10 +103,23 @@ tableno/
 **スケジュール関連テーブル**
 - `schedules_trpgsession` - TRPGセッション
 - `schedules_sessionparticipant` - セッション参加者
+- `schedules_sessioninvitation` - セッション招待
+- `schedules_sessionoccurrence` - セッション出現（複数日程対応）
+- `schedules_sessionoccurrenceparticipant` - セッション出現参加者
+- `schedules_sessionnote` - セッションノート
+- `schedules_sessionlog` - セッションログ
+- `schedules_sessionimage` - セッション画像
+- `schedules_sessionyoutubelink` - YouTubeリンク
 - `schedules_handoutinfo` - ハンドアウト情報
 - `schedules_handoutattachment` - ハンドアウト添付ファイル
-- `schedules_handoutnotification` - ハンドアウト通知
+- `schedules_handoutnotification` - ハンドアウト/セッション通知
 - `schedules_usernotificationpreferences` - ユーザー通知設定
+- `schedules_sessionseries` - 定期セッション/キャンペーン
+- `schedules_sessionavailability` - 参加可能日投票
+- `schedules_datepoll` - 日程調整投票
+- `schedules_datepolloption` - 日程調整候補日時
+- `schedules_datepollvote` - 日程調整投票記録
+- `schedules_datepollcomment` - 日程調整コメント
 
 **シナリオ関連テーブル**
 - `scenarios_scenario` - シナリオ
@@ -170,34 +183,174 @@ tableno/
 #### 2.2.2 schedules アプリ
 
 **TRPGSession（セッション）**
+
 - title: タイトル
 - description: 説明
-- date: 開催日時
+- date: 開催日時（nullable、日程未定対応）
 - location: 場所
-- youtube_url: YouTube配信URL
+- youtube_url: YouTube配信URL（単一URL）
 - status: ステータス（planned/ongoing/completed/cancelled）
 - visibility: 可視性（private/group/public）
+- coc_edition: CoC版（6th/7th）
 - gm: GM（FK）
 - group: グループ（FK）
 - scenario: シナリオ（FK、nullable）
+- series: 定期セッションシリーズ（FK、nullable）
 - participants: 参加者（M2M through SessionParticipant）
 - duration_minutes: セッション時間（分）
+- share_token: 公開共有トークン（UUID）
 - created_at/updated_at: タイムスタンプ
 
 **SessionParticipant（セッション参加者）**
+
 - session: セッション（FK）
 - user: ユーザー（FK）
 - role: 役割（gm/player）
-- character_name: キャラクター名
-- character_sheet_url: キャラクターシートURL
+- player_slot: プレイヤー枠（1-4）
+- character_sheet: キャラクターシート（FK、nullable）
 
-**HandoutInfo（ハンドアウト情報）**
+**SessionInvitation（セッション招待）**
+
 - session: セッション（FK）
-- participant: 参加者（FK）
+- inviter: 招待者（FK）
+- invitee: 被招待者（FK）
+- status: ステータス（pending/accepted/declined/expired）
+- created_at/responded_at: タイムスタンプ
+
+**SessionOccurrence（セッション出現・複数日程対応）**
+
+- session: セッション（FK）
+- start_at: 開始日時
+- content: セッション内容
+- is_primary: プライマリ出現フラグ
+- participants: 参加者（M2M）
+
+**SessionNote（セッションノート）**
+
+- session: セッション（FK）
+- user: 作成者（FK）
+- note_type: 種別（gm_private/public_summary/player_note/npc_memo/handover）
 - title: タイトル
 - content: 内容
+- is_pinned: ピン留めフラグ
+
+**SessionLog（セッションログ）**
+
+- session: セッション（FK）
+- user: 作成者（FK）
+- event_type: イベント種別
+- content: 内容
+- timestamp: イベント時刻
+
+**SessionImage（セッション画像）**
+
+- session: セッション（FK）
+- image: 画像ファイル
+- order: 表示順序
+- uploaded_by: アップロード者（FK）
+
+**SessionYouTubeLink（YouTubeリンク）**
+
+- session: セッション（FK）
+- url: YouTube URL
+- video_id: 動画ID
+- title: タイトル
+- duration_seconds: 再生時間
+- thumbnail_url: サムネイルURL
+- perspective: 視点（GM/PL1/全体など）
+- part_number: パート番号
+- note: 備考
+
+**HandoutInfo（ハンドアウト情報）**
+
+- session: セッション（FK）
+- handout_number: ハンドアウト番号（HO1-HO4）
+- assigned_player_slot: 割り当てプレイヤー枠
+- title: タイトル
+- content: 内容
+- recommended_skills: 推奨技能
 - is_secret: 秘匿フラグ
 - created_at/updated_at: タイムスタンプ
+
+**HandoutAttachment（ハンドアウト添付ファイル）**
+
+- handout: ハンドアウト（FK）
+- file: ファイル
+- file_type: ファイルタイプ（image/pdf/audio/video/document）
+- file_size: ファイルサイズ
+
+**HandoutNotification（通知）**
+
+- user: ユーザー（FK）
+- notification_type: 通知種別（handout_created/published/updated/session_invitation/schedule_change/session_cancelled/session_reminder/group_invitation/friend_request/friend_request_accepted）
+- is_read: 既読フラグ
+- read_at: 既読日時
+- metadata: メタデータ（JSON）
+
+**UserNotificationPreferences（通知設定）**
+
+- user: ユーザー（OneToOne）
+- handout_notifications_enabled: ハンドアウト通知
+- session_notifications_enabled: セッション通知
+- group_notifications_enabled: グループ通知
+- friend_notifications_enabled: フレンド通知
+- email_notifications_enabled: メール通知
+- browser_notifications_enabled: ブラウザ通知
+
+**SessionSeries（定期セッション・キャンペーン）**
+
+- name: 名称
+- group: グループ（FK）
+- scenario: シナリオ（FK、nullable）
+- recurrence: 繰り返しパターン（none/weekly/biweekly/monthly/custom）
+- weekday: 曜日（毎週/隔週の場合）
+- day_of_month: 日（毎月の場合）
+- start_time: 開始時刻
+- duration_minutes: 予定時間
+- custom_interval_days: カスタム間隔（日数）
+- start_date/end_date: シリーズ期間
+- auto_create_sessions: 自動生成フラグ
+- auto_create_weeks_ahead: 自動生成週数
+
+**SessionAvailability（参加可能日投票）**
+
+- user: ユーザー（FK）
+- session: セッション（FK、nullable）
+- occurrence: セッション出現（FK、nullable）
+- proposed_date: 候補日時（nullable）
+- status: ステータス（available/maybe/unavailable）
+- comment: コメント
+
+**DatePoll（日程調整投票）**
+
+- title: タイトル
+- description: 説明
+- group: グループ（FK）
+- created_by: 作成者（FK）
+- deadline: 投票締め切り
+- is_closed: 締め切りフラグ
+- selected_date: 確定日時
+- create_session_on_confirm: 確定時にセッション自動作成
+
+**DatePollOption（日程調整候補）**
+
+- poll: 投票（FK）
+- datetime: 候補日時
+- note: 備考
+
+**DatePollVote（日程調整投票記録）**
+
+- option: 候補（FK）
+- user: ユーザー（FK）
+- status: ステータス（available/maybe/unavailable）
+- comment: コメント
+
+**DatePollComment（日程調整コメント）**
+
+- poll: 投票（FK）
+- user: ユーザー（FK）
+- content: コメント内容
+- created_at: 作成日時
 
 #### 2.2.3 scenarios アプリ
 
@@ -342,38 +495,88 @@ tableno/
 ### 3.3 スケジュール管理機能
 
 #### 3.3.1 セッション管理
+
 - セッション作成・編集・削除
 - ステータス管理（予定/進行中/完了/キャンセル）
 - 可視性設定（プライベート/グループ内/公開）
+- 日程未定セッション対応（date nullable）
+- CoC版指定（6th/7th）
 - YouTube配信URL対応（単一URL）
 - シナリオ連携（任意）
   - シナリオからセッション作成時にscenario_idを保持
   - セッション詳細で元シナリオ情報を表示
-- **セッション画像機能**（実装済み）
-  - 複数画像のアップロード
+- **セッション画像機能**【✅ 実装済み】
+  - 複数画像のアップロード（単体/一括）
   - 画像の表示順序管理
   - 権限ベースの削除機能
-- **YouTubeリンク機能**（設計済み、実装予定）
+- **YouTubeリンク機能**【✅ 実装済み】
   - 複数のYouTube動画リンク管理
   - 動画情報の自動取得（タイトル、再生時間、サムネイル）
+  - 視点情報（GM視点/PL視点など）
+  - パート番号管理（分割動画対応）
   - 各動画への備考追加
-  - 表示順序の管理
+  - UI実装済み（並び替えUI含む）
+- **セッションノート・ログ機能**【✅ 実装済み】
+  - GMプライベートノート、公開サマリー、プレイヤーノート
+  - NPCメモ、引き継ぎノート
+  - 時系列イベントログ
+  - ピン留め機能
+- **公開共有機能**【✅ 実装済み】
+  - share_tokenによる認証なし閲覧
 
 #### 3.3.2 参加者管理
+
 - GM/プレイヤー役割管理
-- キャラクター情報管理
-- キャラクターシートURL登録
+- プレイヤー枠（1-4）と重複チェック
+- キャラクターシート直接紐付け
+- 協力GM（Co-GM）追加機能
+- セッション招待機能（通知連携）
 
 #### 3.3.3 ハンドアウト機能
-- セッション別ハンドアウト作成
+
+- セッション別ハンドアウト作成（HO1-HO4）
 - 秘匿ハンドアウト機能
-- 参加者別の閲覧権限管理
+- プレイヤー枠への割り当て
+- 推奨技能設定
+- 添付ファイル機能（画像/PDF/音声/動画/文書）
+- ファイルサイズ制限・MIMEタイプ検証
 
 #### 3.3.4 カレンダー表示
-- 月間カレンダービュー
+
+- 月間カレンダービュー（FullCalendar）
 - セッション一覧表示
 - 次回セッション表示
 - シナリオ連携時はクエリからシナリオ情報を受け取り、セッション作成モーダルを自動表示
+- iCalエクスポート機能
+
+#### 3.3.5 高度なスケジューリング機能【✅ 実装済み】
+
+- **定期セッション（SessionSeries）**
+  - 繰り返しパターン（毎週/隔週/毎月/カスタム）
+  - 自動セッション生成
+  - キャンペーン管理
+- **参加可能日投票（SessionAvailability）**
+  - ◯/△/✕での回答
+  - コメント機能（遅刻/早退など）
+- **日程調整投票（DatePoll）**
+  - 複数候補日時への投票
+  - 投票サマリー取得
+  - 日程確定時にセッション自動作成
+  - チャットコメント機能
+- **セッション出現（SessionOccurrence）**
+  - 単一セッションで複数日程対応
+
+#### 3.3.6 通知機能【✅ 実装済み】
+
+- **通知種別**
+  - ハンドアウト作成/公開/更新通知
+  - セッション招待/スケジュール変更/キャンセル/リマインダー通知
+  - グループ招待通知
+  - フレンドリクエスト/承認通知
+- **通知管理**
+  - 未読/既読管理
+  - 通知設定（種別ごとのON/OFF）
+  - メール/ブラウザ通知設定
 
 ### 3.4 シナリオ管理機能
 
@@ -461,14 +664,20 @@ tableno/
 - `GET /api/accounts/export/statistics/` - 統計データエクスポート
 - `GET /api/accounts/export/formats/` - エクスポート形式一覧
 
-### 4.4 セッション関連**【✅ 実装済み】**
+### 4.4 セッション関連【✅ 実装済み】
+
 - `GET/POST /api/schedules/sessions/` - セッション管理
 - `GET /api/schedules/sessions/view/` - セッション一覧API
 - `GET /api/schedules/sessions/upcoming/` - 次回セッション
 - `GET /api/schedules/sessions/statistics/` - セッション統計
 - `GET /api/schedules/sessions/<id>/detail/` - セッション詳細
+- `GET /api/schedules/sessions/<id>/date-poll/` - セッション日程調整投票
 - `POST /api/schedules/sessions/<id>/join/` - セッション参加
+- `POST /api/schedules/sessions/<id>/register/` - セッション登録
 - `DELETE /api/schedules/sessions/<id>/leave/` - セッション離脱
+- `POST /api/schedules/sessions/<id>/invite/` - 参加者招待
+- `POST /api/schedules/sessions/<id>/add_co_gm/` - 協力GM追加
+- `POST /api/schedules/sessions/<id>/assign_player/` - プレイヤー枠割り当て
 - `GET/POST /api/schedules/participants/` - 参加者管理
 - `GET/POST /api/schedules/handouts/` - ハンドアウト管理
 - `GET /api/schedules/calendar/` - カレンダー情報
@@ -476,9 +685,78 @@ tableno/
 - セッション作成/更新時に `scenario`（id）を指定可能
 - `GET /api/schedules/sessions/<id>/detail/` は `scenario_detail`（id/title/game_system/recommended_skills）を返却
 
-#### 4.4.1 Webビュー
+#### 4.4.1 セッション出現（複数日程）
+
+- `GET/POST /api/schedules/occurrences/` - 出現一覧・作成
+- `GET/PATCH/DELETE /api/schedules/occurrences/<id>/` - 出現詳細・更新・削除
+
+#### 4.4.2 セッション招待
+
+- `GET /api/schedules/session-invitations/` - 招待一覧
+- `POST /api/schedules/session-invitations/<id>/accept/` - 招待受諾
+- `POST /api/schedules/session-invitations/<id>/decline/` - 招待辞退
+
+#### 4.4.3 セッションノート・ログ
+
+- `GET/POST /api/schedules/notes/` - ノート一覧・作成
+- `GET/POST /api/schedules/sessions/<id>/notes/` - セッションのノート一覧・作成
+- `GET/POST /api/schedules/logs/` - ログ一覧・作成
+- `GET/POST /api/schedules/sessions/<id>/logs/` - セッションのログ一覧・作成
+
+#### 4.4.4 セッション画像
+
+- `GET/POST /api/schedules/session-images/` - 画像一覧・アップロード
+- `DELETE /api/schedules/session-images/<id>/` - 画像削除
+- `PATCH /api/schedules/session-images/<id>/reorder/` - 画像並び替え
+- `POST /api/schedules/session-images/bulk_upload/` - 一括アップロード
+
+#### 4.4.5 YouTubeリンク
+
+- `GET/POST /api/schedules/youtube-links/` - 動画リンク一覧・追加
+- `GET/POST /api/schedules/sessions/<id>/youtube-links/` - セッションの動画一覧・追加
+- `GET /api/schedules/sessions/<id>/youtube-links/statistics/` - 動画統計
+- `PATCH /api/schedules/youtube-links/<id>/reorder/` - 動画並び替え
+- `POST /api/schedules/youtube-links/<id>/fetch_info/` - YouTube情報取得
+
+#### 4.4.6 高度なスケジューリング
+
+- `GET/POST /api/schedules/session-series/` - シリーズ一覧・作成
+- `GET/PATCH/DELETE /api/schedules/session-series/<id>/` - シリーズ詳細・更新・削除
+- `POST /api/schedules/session-series/<id>/generate_sessions/` - セッション自動生成
+- `GET /api/schedules/session-series/<id>/sessions/` - シリーズのセッション一覧
+- `GET/POST /api/schedules/availability/` - 参加可能日投票一覧・作成
+- `GET /api/schedules/availability/for_session/` - セッションの投票
+- `POST /api/schedules/availability/vote/` - 投票を記録
+- `GET/POST /api/schedules/date-polls/` - 日程調整一覧・作成
+- `GET/PATCH /api/schedules/date-polls/<id>/` - 日程調整詳細・更新
+- `POST /api/schedules/date-polls/<id>/vote/` - 日程調整投票
+- `POST /api/schedules/date-polls/<id>/confirm/` - 日程確定
+- `POST /api/schedules/date-polls/<id>/add_option/` - 候補日時追加
+- `GET /api/schedules/date-polls/<id>/summary/` - 投票サマリー
+- `GET/POST /api/schedules/date-polls/<id>/comments/` - コメント一覧・投稿
+
+#### 4.4.7 カレンダー機能
+
+- `GET /api/schedules/calendar/` - カレンダー情報
+- `GET /api/schedules/calendar/view/` - カレンダーHTML
+- `GET /api/schedules/calendar/monthly/` - 月別イベント一覧
+- `GET /api/schedules/calendar/aggregation/` - セッション集計
+- `GET /api/schedules/calendar/export/ical/` - iCal形式エクスポート
+
+#### 4.4.8 通知
+
+- `GET /api/schedules/notifications/` - 通知一覧（未読フィルター対応）
+- `PATCH /api/schedules/notifications/<id>/mark_read/` - 通知を既読化
+- `PATCH /api/schedules/notifications/mark_all_read/` - 全通知を既読化
+- `GET /api/schedules/notifications/unread_count/` - 未読件数
+- `GET/PATCH /api/schedules/notification-preferences/` - 通知設定取得・更新
+
+#### 4.4.9 Webビュー
+
 - `GET /schedules/calendar/view/` - カレンダービュー
 - `GET /schedules/sessions/web/` - セッション一覧ビュー
+- `GET /schedules/sessions/<id>/date-poll/` - 日程調整投票画面
+- `GET /s/<uuid:share_token>/` - 公開セッション詳細
 
 ### 4.5 GM専用ハンドアウト管理**【✅ 実装済み】**
 - `GET/POST /api/schedules/gm-handouts/` - GMハンドアウト管理
@@ -640,65 +918,124 @@ tableno/
   - GM/PL回数とプレイ時間の集計を返却
   - 完了セッションが無いグループは返却対象外
 
-## 7. 未実装機能
+## 7. 未実装・部分実装機能
 
-### 7.1 キャラクターシート機能**【🔄 部分実装済み】**
+### 7.1 キャラクターシート機能【✅ 完成】
+
 - **基本キャラクターシート機能**【✅ 実装済み】
   - CharacterSheet, CharacterSkill, CharacterEquipmentモデル実装
   - 6版キャラクター作成画面（`/accounts/character/create/6th/`）
   - 基本能力値・技能・装備管理
-- **CCFOLIA連携機能**【✅ 実装済み】（ISSUE-003完了）
+  - 技能ポイント管理システム
+  - 成長記録システム
+  - 戦闘データ管理
+  - 所持品・装備管理
+  - 背景情報詳細化
+- **CCFOLIA連携機能**【✅ 実装済み】
   - CCFOLIA形式エクスポートAPI（`/api/accounts/character-sheets/{id}/ccfolia-json/`）
   - 公式CCFOLIA仕様準拠のデータ形式
   - コマンド文字列生成（技能ロール、正気度ロール、基本判定）
   - 一括エクスポート機能
   - 同期機能（sync_to_ccfolia）
-- **未実装機能**
-  - カスタム技能追加システム
-  - 技能ポイント管理システム
-  - 動的ダイス設定システム
-  - 戦闘データ詳細管理
-  - 成長記録システム
+- **7版キャラクターシート**【🔄 開発保留中】
+  - 6版完成後に開発予定
 - **詳細仕様書**
   - `CHARACTER_SHEET_COC6TH.md` - 6版仕様（完全版）
-  - `CHARACTER_SHEET_7TH_EDITION.md` - 7版仕様（削除済み）
-  - `CHARACTER_SHEET_TECHNICAL_SPEC.md` - 技術仕様
-  - `CHARACTER_SHEET_SPECIFICATION.md` - 統合インデックス
+  - `CHARACTER_SHEET_7TH_DEVELOPMENT_HOLD.md` - 7版開発保留
 
 ### 7.2 グループ機能の拡張
-- **可視性設定による詳細なアクセス制御**
-  - パブリック/プライベートグループの表示制御は基本実装済み
-  - グループ検索機能実装済み（公開グループ）
-  - グループ間連携機能未実装
+
+- **グループ間連携機能**【❌ 未実装】
+  - グループ連携モデル
+  - 連携申請/承認フロー
+  - 共有範囲設定
 
 ### 7.3 ハンドアウト機能の拡張
-- **段階的な情報開示機能**
-  - 条件付きハンドアウト表示未実装
-  - タイムベース情報開示未実装
 
-### 7.4 通知機能
-- **リアルタイム通知システム**
-  - セッション招待通知
-  - スケジュール変更通知
-  - フレンドリクエスト通知
+- **段階的な情報開示機能**【❌ 未実装】
+  - 条件付きハンドアウト表示
+  - 公開予定日時
+  - 閲覧権限の動的判定
 
-### 7.5 モバイルアプリ
-- **ネイティブモバイルアプリケーション**
+### 7.4 YouTubeリンク機能
+
+- **並び替えUI**【✅ 実装済み】
+  - ドラッグ&ドロップで並び替え、GMのみ保存可能
+
+### 7.5 外部連携
+
+- **Discord Webhook通知**【❌ 未実装】
+  - セッション招待/更新/キャンセル通知
+  - Webhook URL保存
+- **カレンダー購読（ICSフィード）**【❌ 未実装】
+  - 購読用ICSフィードエンドポイント
+  - 購読トークン発行/再発行
+  - ICSエクスポート（ファイルDL）は実装済み
+- **カレンダー同期（Google Calendar等）**【❌ 未実装】
+  - OAuth連携
+  - イベント作成/更新の同期処理
+- **外部シート連携API**【❌ 未実装】
+  - 外部サービス/スプレッドシート連携
+
+### 7.6 セッション準備・事後処理
+
+- **セッション準備チェックリスト**【❌ 未実装】
+  - チェック項目CRUD
+  - 完了/未完了トグル
+- **セッション後フィードバック**【❌ 未実装】
+  - 参加者のフィードバック投稿
+  - 平均評価など簡易サマリー
+- **経験値配布**【❌ 未実装】
+  - 配布内容の記録
+  - キャラクター成長記録への反映
+- **セッションテンプレート**【❌ 未実装】
+  - テンプレートCRUD
+  - テンプレートからセッション作成
+
+### 7.7 統計・分析機能の拡張
+
+- **セッション分析ダッシュボード**【❌ 未実装】
+  - 参加率分析
+  - 人気時間帯分析
+  - GM負荷分析
+  - プレイヤー相性分析
+- **グループ統計詳細**【🔄 部分実装】
+  - 基本統計・メンバー貢献度は実装済み
+  - メンバー参加率（%算出）未実装
+  - 人気シナリオランキング未実装
+- **ユーザーランキング詳細**【🔄 部分実装】
+  - 基本ランキングは実装済み
+  - 期間別ランキング（year以外）未実装
+  - カテゴリ別ランキング未実装
+  - ランキング推移未実装
+
+### 7.8 モバイルアプリ
+
+- **ネイティブモバイルアプリケーション**【❌ 未実装】
   - iOS/Android対応
   - プッシュ通知
   - オフライン機能
 
-### 7.6 外部連携
-- **外部サービスとの連携**
-  - Discord連携
-  - カレンダーアプリ連携（Google Calendar等）
-  - キャラクターシート管理サービス連携
+### 7.9 高度な分析機能
 
-### 7.7 高度な分析機能
-- **AIを活用した分析・推奨機能**
+- **AIを活用した分析・推奨機能**【❌ 未実装】
   - プレイスタイル分析
   - シナリオ推奨機能
   - 最適なセッションマッチング
+
+### 7.10 非同期処理
+
+- **Celery導入**【❌ 未実装】
+  - 重い統計処理の非同期化
+  - エクスポート処理の非同期化
+  - 進捗表示機能
+
+### 7.11 APIドキュメント
+
+- **OpenAPI/Swagger対応**【❌ 未実装】
+  - drf-spectacular導入
+  - エンドポイント説明追加
+  - スキーマ生成設定
 
 ## 8. 開発・運用情報
 
@@ -828,33 +1165,70 @@ docker compose up -d
 
 ## 更新履歴
 
-### 2025-06-14 (最新更新)
+### 2026-01-18 (最新更新)
+
+- **仕様書全面更新**
+  - 現在の実装状況を反映
+  - スケジュール管理機能の詳細化
+  - APIエンドポイント一覧の更新
+  - 未実装機能の整理
+
+### 2026-01-16
+
+- **高度なスケジューリング機能完成（ISSUE-017）**
+  - 定期セッション（SessionSeries）
+  - 参加可能日投票（SessionAvailability）
+  - 日程調整投票（DatePoll）+ チャットコメント
+  - セッション出現（SessionOccurrence）
+- **通知機能拡張完了（ISSUE-013）**
+  - フレンドリクエスト/承認通知追加
+
+### 2026-01-15
+
+- **参加予定セッション一覧（ISSUE-030）**
+- **セッションノート・ログUI統合（ISSUE-014）**
+
+### 2025-12-31
+
+- **X OAuth認証実装（ISSUE-022）**
+- **シナリオ→セッション→キャラ作成連携（ISSUE-024）**
+- **推奨技能入力品質向上（ISSUE-025）**
+
+### 2025-12-30
+
+- **Google OAuth API認証実装（ISSUE-020）**
+- **リリース前必須タスク完了（ISSUE-021）**
+- **セッション統合テスト修正（ISSUE-024）**
+
+### 2025-07-13
+
+- **キャラクターシート6版機能完成（ISSUE-004）**
+  - 成長記録システム
+  - 技能ポイント管理システム
+  - 戦闘データ管理
+  - 所持品・装備管理
+  - 背景情報詳細化
+
+### 2025-06-20
+
+- **Tindalos統計詳細実装（ISSUE-005）**
+- **カレンダー統合API実装（ISSUE-008）**
+
+### 2025-06-18
+
+- **CCFOLIA連携機能実装（ISSUE-003）**
+- **ハンドアウト一括管理機能（ISSUE-009）**
+
+### 2025-06-14
+
 - **Cult Circle（グループ管理）機能完全実装**
-  - URL routing問題解決（templates vs API競合）
-  - CSRF保護とAJAXベースUI実装
-  - グループ招待システム完全動作（送信・受諾・拒否）
-  - 権限管理（admin/member）完全実装
-- **包括的統合テスト完了**
-  - 全16テストスイート成功（100%）
-  - ユーザー・グループ・セッション・シナリオ全機能動作確認
-  - API実装とテスト整合性確保
-- **キャラクターシート仕様書作成**
-  - CoC 6版・7版別仕様書作成
-  - 技術実装仕様書作成
-  - 統合インデックス仕様書作成
-- **開発環境最適化**
-  - CLAUDE.md更新（音声通知機能追加）
-  - デバッグツール群実装
-  - URL解決デバッグスクリプト作成
-- **API仕様の大幅拡張**
-  - グループ管理API（公開/プライベート分離）
-  - 招待システムAPI（accept/decline）
-  - ハンドアウト管理API
-  - エクスポート機能API
+- **エクスポート機能API実装（ISSUE-002）**
+- **パブリックグループアクセス制御修正（ISSUE-001）**
 
 ### 2025-06-14 (初版)
+
 - 基本仕様の策定
 - データベース設計
 - 基本機能の定義
 
-*最終更新日: 2025-06-14*
+*最終更新日: 2026-01-18*
