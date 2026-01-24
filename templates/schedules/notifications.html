@@ -1,0 +1,592 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}通知 - タブレノ{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                <div>
+                    <h2 class="eldritch-font mb-1">
+                        <i class="fas fa-bell text-warning"></i> 通知
+                    </h2>
+                    <p class="text-muted mb-0">
+                        未読の確認、既読化、通知設定の変更ができます。
+                    </p>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-outline-secondary btn-sm" id="notifications-refresh-btn">
+                        <i class="fas fa-sync-alt"></i> 更新
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" id="notifications-mark-all-read-btn">
+                        <i class="fas fa-check-double"></i> すべて既読
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3" id="notificationsTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="notifications-list-tab" data-bs-toggle="tab" data-bs-target="#notifications-list-pane" type="button" role="tab">
+                <i class="fas fa-inbox"></i> 一覧
+                <span class="badge bg-danger ms-1 d-none" id="notifications-unread-count-badge">0</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="notifications-settings-tab" data-bs-toggle="tab" data-bs-target="#notifications-settings-pane" type="button" role="tab">
+                <i class="fas fa-sliders-h"></i> 設定
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="notificationsTabContent">
+        <!-- 一覧 -->
+        <div class="tab-pane fade show active" id="notifications-list-pane" role="tabpanel">
+            <div class="card mb-3">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div class="btn-group" role="group" aria-label="notification-filter">
+                            <button class="btn btn-sm btn-outline-primary active" id="notifications-filter-unread">
+                                <i class="fas fa-envelope"></i> 未読
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" id="notifications-filter-all">
+                                <i class="fas fa-list"></i> 全件
+                            </button>
+                        </div>
+                        <div class="text-muted small" id="notifications-count-label"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="notifications-list-container">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="mt-3" aria-label="notifications pagination">
+                <ul class="pagination justify-content-center" id="notifications-pagination"></ul>
+            </nav>
+        </div>
+
+        <!-- 設定 -->
+        <div class="tab-pane fade" id="notifications-settings-pane" role="tabpanel">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog"></i> 通知設定
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="notification-preferences-loading" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+
+                    <form id="notification-preferences-form" style="display: none;">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="pref-handout">
+                                    <label class="form-check-label" for="pref-handout">
+                                        ハンドアウト通知
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="pref-session">
+                                    <label class="form-check-label" for="pref-session">
+                                        セッション通知
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="pref-group">
+                                    <label class="form-check-label" for="pref-group">
+                                        グループ通知
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="pref-friend">
+                                    <label class="form-check-label" for="pref-friend">
+                                        フレンド通知
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="pref-email">
+                                    <label class="form-check-label" for="pref-email">
+                                        メール通知
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    メール通知の配信には別途設定が必要な場合があります。
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="pref-browser">
+                                    <label class="form-check-label" for="pref-browser">
+                                        ブラウザ通知（設定）
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    ブラウザ側の通知許可は別途ブラウザ設定で行ってください。
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-3">
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-outline-secondary" id="notification-preferences-reload-btn">
+                                <i class="fas fa-undo"></i> 取り消し
+                            </button>
+                            <button type="submit" class="btn btn-primary" id="notification-preferences-save-btn">
+                                <i class="fas fa-save"></i> 保存
+                            </button>
+                        </div>
+
+                        <div class="alert alert-danger mt-3 d-none" id="notification-preferences-error"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const API_BASE = '/api/schedules';
+    const PAGE_SIZE = 20;
+
+    let currentPage = 1;
+    let unreadOnly = true;
+
+    const listContainer = document.getElementById('notifications-list-container');
+    const paginationEl = document.getElementById('notifications-pagination');
+    const countLabelEl = document.getElementById('notifications-count-label');
+
+    const unreadFilterBtn = document.getElementById('notifications-filter-unread');
+    const allFilterBtn = document.getElementById('notifications-filter-all');
+
+    const refreshBtn = document.getElementById('notifications-refresh-btn');
+    const markAllReadBtn = document.getElementById('notifications-mark-all-read-btn');
+
+    const unreadCountBadgeEl = document.getElementById('notifications-unread-count-badge');
+
+    const prefLoadingEl = document.getElementById('notification-preferences-loading');
+    const prefFormEl = document.getElementById('notification-preferences-form');
+    const prefErrorEl = document.getElementById('notification-preferences-error');
+
+    const prefHandout = document.getElementById('pref-handout');
+    const prefSession = document.getElementById('pref-session');
+    const prefGroup = document.getElementById('pref-group');
+    const prefFriend = document.getElementById('pref-friend');
+    const prefEmail = document.getElementById('pref-email');
+    const prefBrowser = document.getElementById('pref-browser');
+
+    const prefReloadBtn = document.getElementById('notification-preferences-reload-btn');
+
+    let unreadCountKnown = null;
+
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function formatMessage(message) {
+        return escapeHtml(message).replace(/\n/g, '<br>');
+    }
+
+    function getSenderLabel(notification) {
+        const sender = notification.sender || {};
+        return escapeHtml(sender.nickname || sender.username || 'システム');
+    }
+
+    function getRelatedLabel(notification) {
+        const metadata = notification.metadata || {};
+        if (metadata.session_title) return escapeHtml(metadata.session_title);
+        if (notification.handout_info && notification.handout_info.session_title) {
+            return escapeHtml(notification.handout_info.session_title);
+        }
+        return '';
+    }
+
+    function getSessionDetailUrl(notification) {
+        const metadata = notification.metadata || {};
+        if (metadata.session_id) {
+            return `${API_BASE}/sessions/${metadata.session_id}/detail/`;
+        }
+        if (notification.handout_info && notification.handout_info.session_id) {
+            return `${API_BASE}/sessions/${notification.handout_info.session_id}/detail/`;
+        }
+        return null;
+    }
+
+    function isInvalidPageError(error) {
+        const detail = error?.response?.data?.detail;
+        if (!detail) return false;
+        return typeof detail === 'string' && detail.toLowerCase().includes('invalid page');
+    }
+
+    function updateUnreadBadges(count) {
+        const numericCount = Number(count);
+        if (Number.isFinite(numericCount)) {
+            unreadCountKnown = numericCount;
+        }
+
+        const n = Number(unreadCountKnown ?? 0);
+
+        if (unreadCountBadgeEl) {
+            if (n > 0) {
+                unreadCountBadgeEl.textContent = String(n > 99 ? '99+' : n);
+                unreadCountBadgeEl.classList.remove('d-none');
+            } else {
+                unreadCountBadgeEl.classList.add('d-none');
+            }
+        }
+
+        if (typeof window.updateNotificationUnreadBadge === 'function') {
+            window.updateNotificationUnreadBadge(n);
+        }
+    }
+
+    function setFilterButtons() {
+        if (unreadOnly) {
+            unreadFilterBtn.classList.add('active');
+            allFilterBtn.classList.remove('active');
+        } else {
+            unreadFilterBtn.classList.remove('active');
+            allFilterBtn.classList.add('active');
+        }
+    }
+
+    function renderEmptyState() {
+        listContainer.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                ${unreadOnly ? '未読の通知はありません' : '通知はありません'}
+            </div>
+        `;
+        paginationEl.innerHTML = '';
+    }
+
+    function renderErrorState() {
+        listContainer.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                通知の読み込みに失敗しました
+            </div>
+        `;
+    }
+
+    function renderNotificationItem(notification) {
+        const isRead = !!notification.is_read;
+        const typeLabel = escapeHtml(notification.notification_type_display || notification.notification_type || '');
+        const createdLabel = escapeHtml(notification.time_since_created || '');
+        const senderLabel = getSenderLabel(notification);
+        const relatedLabel = getRelatedLabel(notification);
+        const sessionUrl = getSessionDetailUrl(notification);
+
+        const itemClass = isRead ? '' : 'border-warning';
+        const cardBg = isRead ? '' : 'bg-light';
+
+        const actionButtons = `
+            <div class="d-flex flex-wrap gap-2 justify-content-end">
+                ${sessionUrl ? `
+                    <a class="btn btn-sm btn-outline-secondary" href="${sessionUrl}">
+                        <i class="fas fa-eye"></i> 詳細
+                    </a>
+                ` : ''}
+                ${!isRead ? `
+                    <button class="btn btn-sm btn-outline-primary" data-action="mark-read" data-id="${notification.id}">
+                        <i class="fas fa-check"></i> 既読
+                    </button>
+                ` : `
+                    <span class="badge bg-secondary align-self-center">
+                        <i class="fas fa-check"></i> 既読
+                    </span>
+                `}
+            </div>
+        `;
+
+        return `
+            <div class="card mb-2 ${cardBg} ${itemClass}" data-notification-id="${notification.id}">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                                <span class="badge bg-dark">${typeLabel}</span>
+                                ${relatedLabel ? `<span class="badge bg-info text-dark"><i class="fas fa-link me-1"></i>${relatedLabel}</span>` : ''}
+                                <span class="text-muted small">${createdLabel}</span>
+                            </div>
+                            <div class="small text-muted mb-1">
+                                <i class="fas fa-user me-1"></i>${senderLabel}
+                            </div>
+                            <div class="notification-message small">
+                                ${formatMessage(notification.message || '')}
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            ${actionButtons}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderPagination(totalCount, page) {
+        const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+        let html = '';
+
+        if (totalPages <= 1) {
+            paginationEl.innerHTML = '';
+            return;
+        }
+
+        html += `<li class="page-item ${page === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${page - 1}">前へ</a>
+        </li>`;
+
+        const maxButtons = 7;
+        const start = Math.max(1, page - 2);
+        const end = Math.min(totalPages, start + maxButtons - 1);
+
+        const actualStart = Math.max(1, end - maxButtons + 1);
+        for (let i = actualStart; i <= end; i++) {
+            html += `<li class="page-item ${i === page ? 'active' : ''}">
+                <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>`;
+        }
+
+        html += `<li class="page-item ${page === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${page + 1}">次へ</a>
+        </li>`;
+
+        paginationEl.innerHTML = html;
+    }
+
+    async function loadNotifications(page = 1) {
+        currentPage = page;
+        setFilterButtons();
+        listContainer.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        `;
+        paginationEl.innerHTML = '';
+        countLabelEl.textContent = '';
+
+        try {
+            const params = new URLSearchParams({
+                page: page,
+                page_size: PAGE_SIZE,
+                unread_only: unreadOnly ? 'true' : 'false',
+            });
+            const response = await axios.get(`${API_BASE}/notifications/?${params.toString()}`);
+            const data = response.data || {};
+            const notifications = data.results || data;
+            const totalCount = data.count ?? (Array.isArray(notifications) ? notifications.length : 0);
+
+            countLabelEl.textContent = unreadOnly
+                ? `未読 ${totalCount}件`
+                : `全件 ${totalCount}件`;
+
+            if (!Array.isArray(notifications) || notifications.length === 0) {
+                if (totalCount === 0) {
+                    updateUnreadBadges(0);
+                } else if (unreadOnly) {
+                    updateUnreadBadges(totalCount);
+                } else if (unreadCountKnown !== null) {
+                    updateUnreadBadges(unreadCountKnown);
+                }
+                renderEmptyState();
+                return;
+            }
+
+            listContainer.innerHTML = notifications.map(renderNotificationItem).join('');
+            renderPagination(totalCount, page);
+            if (unreadOnly) {
+                updateUnreadBadges(totalCount);
+            } else if (unreadCountKnown !== null) {
+                updateUnreadBadges(unreadCountKnown);
+            }
+        } catch (error) {
+            console.error('Error loading notifications:', error);
+
+            if (isInvalidPageError(error)) {
+                const fallbackPage = page > 1 ? page - 1 : 1;
+                if (fallbackPage !== page) {
+                    await loadNotifications(fallbackPage);
+                    return;
+                }
+            }
+            renderErrorState();
+        }
+    }
+
+    async function markNotificationRead(notificationId) {
+        try {
+            await axios.patch(`${API_BASE}/notifications/${notificationId}/mark_read/`);
+            if (!unreadOnly && unreadCountKnown !== null) {
+                updateUnreadBadges(Math.max(0, unreadCountKnown - 1));
+            }
+            await loadNotifications(currentPage);
+        } catch (error) {
+            console.error('Error marking notification read:', error);
+            if (window.ARKHAM?.showError) {
+                window.ARKHAM.showError('既読化に失敗しました');
+            }
+        }
+    }
+
+    async function markAllRead() {
+        try {
+            await axios.patch(`${API_BASE}/notifications/mark_all_read/`);
+            updateUnreadBadges(0);
+            await loadNotifications(1);
+        } catch (error) {
+            console.error('Error marking all notifications read:', error);
+            if (window.ARKHAM?.showError) {
+                window.ARKHAM.showError('一括既読化に失敗しました');
+            }
+        }
+    }
+
+    function bindListEvents() {
+        listContainer.addEventListener('click', function(event) {
+            const btn = event.target.closest('button[data-action="mark-read"]');
+            if (!btn) return;
+            event.preventDefault();
+            const notificationId = btn.getAttribute('data-id');
+            if (!notificationId) return;
+            markNotificationRead(notificationId);
+        });
+
+        paginationEl.addEventListener('click', function(event) {
+            const link = event.target.closest('a[data-page]');
+            if (!link) return;
+            event.preventDefault();
+            const page = parseInt(link.getAttribute('data-page'), 10);
+            if (!page || page < 1) return;
+            loadNotifications(page);
+            window.scrollTo(0, 0);
+        });
+    }
+
+    async function loadPreferences() {
+        prefErrorEl.classList.add('d-none');
+        prefLoadingEl.style.display = 'block';
+        prefFormEl.style.display = 'none';
+
+        try {
+            const response = await axios.get(`${API_BASE}/notification-preferences/`);
+            const pref = response.data || {};
+
+            prefHandout.checked = !!pref.handout_notifications_enabled;
+            prefSession.checked = !!pref.session_notifications_enabled;
+            prefGroup.checked = !!pref.group_notifications_enabled;
+            prefFriend.checked = !!pref.friend_notifications_enabled;
+            prefEmail.checked = !!pref.email_notifications_enabled;
+            prefBrowser.checked = !!pref.browser_notifications_enabled;
+
+            prefLoadingEl.style.display = 'none';
+            prefFormEl.style.display = 'block';
+        } catch (error) {
+            console.error('Error loading notification preferences:', error);
+            prefLoadingEl.style.display = 'none';
+            prefFormEl.style.display = 'block';
+            prefErrorEl.textContent = '通知設定の読み込みに失敗しました';
+            prefErrorEl.classList.remove('d-none');
+        }
+    }
+
+    async function savePreferences() {
+        prefErrorEl.classList.add('d-none');
+
+        const payload = {
+            handout_notifications_enabled: prefHandout.checked,
+            session_notifications_enabled: prefSession.checked,
+            group_notifications_enabled: prefGroup.checked,
+            friend_notifications_enabled: prefFriend.checked,
+            email_notifications_enabled: prefEmail.checked,
+            browser_notifications_enabled: prefBrowser.checked,
+        };
+
+        try {
+            const response = await axios.patch(`${API_BASE}/notification-preferences/`, payload);
+
+            if (window.ARKHAM?.showSuccess) {
+                window.ARKHAM.showSuccess(response.data?.message || '通知設定を保存しました');
+            }
+        } catch (error) {
+            console.error('Error saving notification preferences:', error);
+            const message =
+                error?.response?.data?.detail ||
+                error?.response?.data?.non_field_errors?.[0] ||
+                error?.response?.data?.error ||
+                '通知設定の保存に失敗しました';
+            prefErrorEl.textContent = message;
+            prefErrorEl.classList.remove('d-none');
+        }
+    }
+
+    // Filters
+    unreadFilterBtn.addEventListener('click', function() {
+        unreadOnly = true;
+        loadNotifications(1);
+    });
+    allFilterBtn.addEventListener('click', function() {
+        unreadOnly = false;
+        loadNotifications(1);
+    });
+
+    refreshBtn.addEventListener('click', function() {
+        loadNotifications(currentPage);
+    });
+
+    markAllReadBtn.addEventListener('click', function() {
+        markAllRead();
+    });
+
+    // Settings
+    document.getElementById('notifications-settings-tab').addEventListener('shown.bs.tab', function() {
+        loadPreferences();
+    });
+
+    prefReloadBtn.addEventListener('click', function() {
+        loadPreferences();
+    });
+
+    prefFormEl.addEventListener('submit', function(event) {
+        event.preventDefault();
+        savePreferences();
+    });
+
+    bindListEvents();
+    loadNotifications(1);
+});
+</script>
+{% endblock %}

@@ -82,6 +82,13 @@
                 
                 <ul class="navbar-nav">
                     {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link position-relative" href="{% url 'notifications_view' %}" id="notifications-link" title="通知">
+                            <i class="fas fa-bell"></i>
+                            <span id="notification-unread-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">0</span>
+                            <span class="d-lg-none ms-1">通知</span>
+                        </a>
+                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
                             {% if user.profile_image %}
@@ -94,6 +101,7 @@
                         </a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="{% url 'dashboard' %}"><i class="fas fa-tachometer-alt"></i> ダッシュボード</a></li>
+                            <li><a class="dropdown-item" href="{% url 'notifications_view' %}"><i class="fas fa-bell"></i> 通知</a></li>
                             <li><a class="dropdown-item" href="{% url 'profile_edit' %}"><i class="fas fa-user-edit"></i> プロフィール編集</a></li>
                             <li><a class="dropdown-item" href="{% url 'character_list' %}"><i class="fas fa-scroll"></i> キャラクター一覧</a></li>
                             <li><a class="dropdown-item" href="#" id="statistics-link"><i class="fas fa-chart-bar"></i> 統計</a></li>
@@ -170,6 +178,77 @@
     </script>
     
     <script src="{% static 'js/arkham.js' %}"></script>
+    {% if user.is_authenticated %}
+    <script>
+        (function() {
+            const badgeEl = document.getElementById('notification-unread-badge');
+            if (!badgeEl || typeof axios === 'undefined') return;
+
+            const notificationsViewPath = "{% url 'notifications_view' %}";
+            const isNotificationsPage = window.location.pathname === notificationsViewPath;
+
+            let lastFetchedAt = 0;
+            let lastCount = null;
+            let inflightPromise = null;
+
+            function setBadge(count) {
+                const n = Number(count);
+                if (Number.isFinite(n) && n > 0) {
+                    badgeEl.textContent = n > 99 ? '99+' : String(n);
+                    badgeEl.classList.remove('d-none');
+                } else {
+                    badgeEl.classList.add('d-none');
+                }
+            }
+
+            window.updateNotificationUnreadBadge = function(count) {
+                if (count !== undefined && count !== null) {
+                    lastCount = count;
+                    lastFetchedAt = Date.now();
+                    setBadge(count);
+                    return Promise.resolve(count);
+                }
+
+                if (!window.CURRENT_USER || !window.CURRENT_USER.id) return Promise.resolve(null);
+
+                const now = Date.now();
+                if (lastCount !== null && (now - lastFetchedAt) < 15000) {
+                    return Promise.resolve(lastCount);
+                }
+
+                if (inflightPromise) return inflightPromise;
+
+                inflightPromise = axios.get('/api/schedules/notifications/unread_count/')
+                    .then((response) => {
+                        const unreadCount = response?.data?.unread_count ?? 0;
+                        lastCount = unreadCount;
+                        lastFetchedAt = Date.now();
+                        setBadge(unreadCount);
+                        return unreadCount;
+                    })
+                    .catch((error) => {
+                        console.error('Error updating notification unread badge:', error);
+                        return null;
+                    })
+                    .finally(() => {
+                        inflightPromise = null;
+                    });
+
+                return inflightPromise;
+            };
+
+            document.addEventListener('DOMContentLoaded', function() {
+                if (!isNotificationsPage) {
+                    window.updateNotificationUnreadBadge();
+                }
+
+                document.addEventListener('visibilitychange', function() {
+                    if (!document.hidden && !isNotificationsPage) window.updateNotificationUnreadBadge();
+                });
+            });
+        })();
+    </script>
+    {% endif %}
     {% block extra_js %}{% endblock %}
 </body>
 </html>

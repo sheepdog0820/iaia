@@ -1,5 +1,6 @@
 from django.urls import path, include
 from django.views.generic import TemplateView
+from django.contrib.auth.decorators import login_required
 from rest_framework.routers import DefaultRouter
 from . import views
 from . import handout_views
@@ -40,6 +41,16 @@ urlpatterns = [
         notification_views.UserNotificationPreferencesViewSet.as_view({'get': 'list', 'patch': 'partial_update'}),
         name='notification_preferences',
     ),
+
+    # Web URLs (routerより先に配置して衝突を回避)
+    path('calendar/view/', TemplateView.as_view(template_name='schedules/calendar.html'), name='calendar_view'),
+    path('sessions/web/', TemplateView.as_view(template_name='schedules/sessions.html'), name='sessions_view'),
+    path(
+        'notifications/view/',
+        login_required(TemplateView.as_view(template_name='schedules/notifications.html')),
+        name='notifications_view',
+    ),
+
     path('', include(router.urls)),
     path('calendar/', views.CalendarView.as_view(), name='calendar'),
     
@@ -70,8 +81,4 @@ urlpatterns = [
     # GM Handout Management
     path('sessions/<int:session_id>/handouts/manage/', handout_views.GMHandoutManagementView.as_view(), name='gm_handout_management'),
     path('handout-templates/', handout_views.HandoutTemplateView.as_view(), name='handout_templates'),
-    
-    # Web URLs
-    path('calendar/view/', TemplateView.as_view(template_name='schedules/calendar.html'), name='calendar_view'),
-    path('sessions/web/', TemplateView.as_view(template_name='schedules/sessions.html'), name='sessions_view'),
 ]

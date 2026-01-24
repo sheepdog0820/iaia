@@ -546,10 +546,11 @@ class UserBasicSerializer(serializers.ModelSerializer):
 class HandoutBasicSerializer(serializers.ModelSerializer):
     """ハンドアウト基本情報シリアライザー"""
     session_title = serializers.CharField(source='session.title', read_only=True)
+    session_id = serializers.IntegerField(source='session_id', read_only=True)
     
     class Meta:
         model = HandoutInfo
-        fields = ['id', 'title', 'session_title', 'is_secret']
+        fields = ['id', 'title', 'session_id', 'session_title', 'is_secret']
 
 
 class HandoutNotificationSerializer(serializers.ModelSerializer):
