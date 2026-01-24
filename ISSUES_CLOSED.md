@@ -450,15 +450,53 @@
 - **関連コミット**: `d1451f7`
 - **解決日**: 2026年1月24日
 
+### ✅ ISSUE-044: セッション画像の並び替えUI（解決済み）
+- **カテゴリ**: UI/UX改善
+- **影響範囲**: セッション詳細（画像）
+- **詳細**:
+  - セッション詳細の画像一覧でドラッグ&ドロップによる並び替えを提供
+  - 並び替え結果をAPIに保存（GMのみ）
+- **API**:
+  - `POST /api/schedules/session-images/{id}/reorder/`（body: `order`）
+  - `POST /api/schedules/session-images/reorder_bulk/`（body: `session_id`, `ordered_ids`）
+- **該当ファイル**:
+  - `templates/schedules/session_detail.html`
+  - `schedules/views.py`
+  - `schedules/test_session_images.py`
+- **解決内容**:
+  - UIでドラッグ&ドロップ並び替えを実装し、サーバー側へ一括保存
+  - `ordered_ids` の重複/欠損を検知して409を返すなど、整合性を担保
+- **関連コミット**: `87ef06a`
+- **解決日**: 2026年1月24日
+
+### ✅ ISSUE-045: シナリオ画像の並び替えUI（解決済み）
+- **カテゴリ**: UI/UX改善
+- **影響範囲**: シナリオ詳細（画像）
+- **詳細**:
+  - シナリオ詳細（アーカイブのモーダル）でドラッグ&ドロップによる並び替えを提供
+  - 並び替え結果をAPIに保存（シナリオ作成者のみ）
+- **API**:
+  - `POST /api/scenarios/scenario-images/{id}/reorder/`（body: `order`）
+  - `POST /api/scenarios/scenario-images/reorder_bulk/`（body: `scenario_id`, `ordered_ids`）
+- **該当ファイル**:
+  - `templates/scenarios/archive.html`
+  - `scenarios/views.py`
+  - `scenarios/test_scenario_images.py`
+- **解決内容**:
+  - アーカイブ画面の画像並び替えUIを実装し、サーバー側へ一括保存
+  - `ordered_ids` の重複/欠損を検知して409を返すなど、整合性を担保
+- **関連コミット**: `87ef06a`
+- **解決日**: 2026年1月24日
+
 ---
 
 ## 📊 完了済み課題統計
 
 ### 実装完了サマリー
 
-- **完了済み課題数**: 21件
+- **完了済み課題数**: 23件
 - **完了期間**: 2024年6月14日 〜 2026年1月24日
-- **主要カテゴリ**: バグ修正3件、新機能実装10件、機能強化2件、機能統合2件、UI/UX改善3件、リリース準備1件
+- **主要カテゴリ**: バグ修正3件、新機能実装10件、機能強化2件、機能統合2件、UI/UX改善5件、リリース準備1件
 
 ### テスト結果
 

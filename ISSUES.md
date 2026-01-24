@@ -9,34 +9,32 @@
 - ISSUE-023: Epic化して ISSUE-039/040/041/042 に分割（MVP/後続を明確化）
 - ISSUE-026: Epic化して ISSUE-034/035/036/037 に分割（MVP/後続を明確化）。ICSエクスポート（ファイルDL）は実装済み
 - ISSUE-019: `schedules/analytics_views.py` / `templates/schedules/analytics_dashboard.html` は未作成
-- 既存機能のUI未整備（通知一覧、画像の並び替え）を ISSUE-043/044/045 として起票
+- 既存機能のUI未整備（通知一覧、画像の並び替え）を ISSUE-043/044/045 として起票 → 実装済み（`ISSUES_CLOSED.md` に移動）
 
 ---
 
 ## ✅ 優先度ランキング（1が最優先）
-1. ISSUE-044: セッション画像の並び替えUI
-2. ISSUE-045: シナリオ画像の並び替えUI
-3. ISSUE-039: セッション準備チェックリスト（MVP）
-4. ISSUE-034: Discord Webhook通知（MVP）
-5. ISSUE-035: カレンダー購読（ICSフィードURL）（MVP）
-6. ISSUE-040: セッション後フィードバック（MVP）
-7. ISSUE-011: APIドキュメント自動生成
-8. ISSUE-010: テストカバレッジの向上
-9. ISSUE-006: グループ統計APIの詳細実装
-10. ISSUE-007: ユーザーランキングAPIの詳細実装
-11. ISSUE-012: 非同期処理の導入検討
-12. ISSUE-046: セッション側キャラクター状態のスナップショット/差分履歴
-13. ISSUE-028: グループ間連携機能
-14. ISSUE-019: セッション分析ダッシュボード
-15. ISSUE-041: 経験値配布（後続）
-16. ISSUE-042: セッションテンプレート（後続）
-17. ISSUE-036: カレンダー同期（Google Calendar等）（後続）
-18. ISSUE-037: 外部シート連携API（外部キャラクターシート等）（後続）
-19. ISSUE-047: リアルタイム通知（WebSocket）
-20. ISSUE-038: キャラクター作成画面 - 武器・防具登録UI
-21. ISSUE-027: モバイルアプリ
-22. ISSUE-029: AI分析/推奨機能
-23. ISSUE-048: KP（GM）単体での卓運用（ゲスト参加/ログイン不要）
+1. ISSUE-039: セッション準備チェックリスト（MVP）
+2. ISSUE-034: Discord Webhook通知（MVP）
+3. ISSUE-035: カレンダー購読（ICSフィードURL）（MVP）
+4. ISSUE-040: セッション後フィードバック（MVP）
+5. ISSUE-011: APIドキュメント自動生成
+6. ISSUE-010: テストカバレッジの向上
+7. ISSUE-006: グループ統計APIの詳細実装
+8. ISSUE-007: ユーザーランキングAPIの詳細実装
+9. ISSUE-012: 非同期処理の導入検討
+10. ISSUE-046: セッション側キャラクター状態のスナップショット/差分履歴
+11. ISSUE-028: グループ間連携機能
+12. ISSUE-019: セッション分析ダッシュボード
+13. ISSUE-041: 経験値配布（後続）
+14. ISSUE-042: セッションテンプレート（後続）
+15. ISSUE-036: カレンダー同期（Google Calendar等）（後続）
+16. ISSUE-037: 外部シート連携API（外部キャラクターシート等）（後続）
+17. ISSUE-047: リアルタイム通知（WebSocket）
+18. ISSUE-038: キャラクター作成画面 - 武器・防具登録UI
+19. ISSUE-027: モバイルアプリ
+20. ISSUE-029: AI分析/推奨機能
+21. ISSUE-048: KP（GM）単体での卓運用（ゲスト参加/ログイン不要）
 
 ---
 
@@ -195,44 +193,6 @@
 - **実装内容**:
   - ❌ **テンプレートCRUD** - 未実装
   - ❌ **テンプレからセッション作成** - 未実装
-
-### ISSUE-044: セッション画像の並び替えUI
-
-- **優先度順位**: 1
-- **カテゴリ**: UI/UX改善
-- **影響範囲**: セッション詳細（画像）
-- **詳細**:
-  - セッション詳細の画像一覧でドラッグ&ドロップによる並び替えを提供
-  - 並び替え結果をAPIに保存する
-  - 権限はAPI仕様に合わせてGMのみ（`SessionImageViewSet.reorder`）
-- **API（既存）**:
-  - `POST /api/schedules/session-images/{id}/reorder/`（body: `order`）
-- **該当ファイル**:
-  - `templates/schedules/session_detail.html` - 画像グリッドUI/JS
-  - `schedules/views.py` - `SessionImageViewSet.reorder`（実装済み）
-- **実装内容**:
-  - ❌ **並び替えUI（ドラッグ&ドロップ）** - 未実装
-  - ❌ **並び替え保存（全画像のorder更新）** - 未実装
-  - ❌ **UIでの権限制御（GMのみ表示）** - 未実装
-
-### ISSUE-045: シナリオ画像の並び替えUI
-
-- **優先度順位**: 2
-- **カテゴリ**: UI/UX改善
-- **影響範囲**: シナリオ詳細（画像）
-- **詳細**:
-  - シナリオ詳細（アーカイブのモーダル）でドラッグ&ドロップによる並び替えを提供
-  - 並び替え結果をAPIに保存する
-  - 権限はAPI仕様に合わせてシナリオ作成者のみ（`ScenarioImageViewSet.reorder`）
-- **API（既存）**:
-  - `POST /api/scenarios/scenario-images/{id}/reorder/`（body: `order`）
-- **該当ファイル**:
-  - `templates/scenarios/archive.html` - 画像グリッドUI/JS
-  - `scenarios/views.py` - `ScenarioImageViewSet.reorder`（実装済み）
-- **実装内容**:
-  - ❌ **並び替えUI（ドラッグ&ドロップ）** - 未実装
-  - ❌ **並び替え保存（全画像のorder更新）** - 未実装
-  - ❌ **UIでの権限制御（作成者のみ）** - 未実装
 
 ### ISSUE-019: セッション分析ダッシュボード
 
