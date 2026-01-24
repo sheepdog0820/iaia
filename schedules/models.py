@@ -265,7 +265,13 @@ class SessionParticipant(models.Model):
     ]
     
     session = models.ForeignKey(TRPGSession, on_delete=models.CASCADE)
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True, blank=True)
+    guest_name = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        help_text="ゲスト参加者名（ログインなし参加者）",
+    )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='player')
     character_name = models.CharField(max_length=100, blank=True)
     character_sheet_url = models.URLField(blank=True)
@@ -292,10 +298,33 @@ class SessionParticipant(models.Model):
             ['session', 'user'],
             ['session', 'player_slot'],  # 同じセッション内で枠番号は重複不可
         ]
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    (models.Q(user__isnull=False) & models.Q(guest_name=''))
+                    | (models.Q(user__isnull=True) & ~models.Q(guest_name=''))
+                ),
+                name='sessionparticipant_user_or_guest_name',
+            ),
+            models.CheckConstraint(
+                check=~models.Q(role='gm') | models.Q(user__isnull=False),
+                name='sessionparticipant_gm_requires_user',
+            ),
+            models.CheckConstraint(
+                check=models.Q(character_sheet__isnull=True) | models.Q(user__isnull=False),
+                name='sessionparticipant_character_sheet_requires_user',
+            ),
+        ]
         
+    @property
+    def display_name(self):
+        if self.user:
+            return self.user.nickname or self.user.username
+        return self.guest_name or "ゲスト"
+
     def __str__(self):
         slot_display = f" (Slot {self.player_slot})" if self.player_slot else ""
-        return f"{self.user.nickname} in {self.session.title} ({self.role}){slot_display}"
+        return f"{self.display_name} in {self.session.title} ({self.role}){slot_display}"
 
 
 class SessionInvitation(models.Model):
@@ -473,7 +502,7 @@ class HandoutInfo(models.Model):
     
     def __str__(self):
         ho_display = f"HO{self.handout_number}" if self.handout_number else "HO"
-        return f"{ho_display}: {self.title} - {self.participant.user.nickname}"
+        return f"{ho_display}: {self.title} - {self.participant.display_name}"
     
     class Meta:
         unique_together = [

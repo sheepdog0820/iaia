@@ -522,11 +522,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${session.description ? `<hr><p>${session.description}</p>` : ''}
                     </div>
                     <div class="col-md-4">
-                        <h6>参加者 (${session.participant_count}人)</h6>
+                        <h6>参加者 (${session.participant_count}人${session.guest_count ? ` +ゲスト${session.guest_count}人` : ''})</h6>
                         <ul class="list-unstyled">
                             ${session.participants_detail.map(p => `
                                 <li class="mb-2">
-                                    <i class="fas fa-user-circle"></i> ${p.user_detail.nickname}
+                                    <i class="fas fa-user-circle"></i> ${p.display_name || p.user_detail?.nickname || p.user_detail?.username || 'ゲスト'}
                                     ${p.character_name ? `<br><small class="text-muted">${p.character_name}</small>` : ''}
                                 </li>
                             `).join('')}

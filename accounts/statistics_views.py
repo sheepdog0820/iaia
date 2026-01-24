@@ -461,7 +461,8 @@ class TindalosMetricsView(APIView):
             average_session_hours = round(total_hours / session_count, 1) if session_count > 0 else 0
 
             participant_ids = SessionParticipant.objects.filter(
-                session__in=sessions
+                session__in=sessions,
+                user_id__isnull=False,
             ).values_list('user_id', flat=True).distinct()
             gm_ids = sessions.values_list('gm_id', flat=True).distinct()
             active_members = len(set(participant_ids) | set(gm_ids))
@@ -856,7 +857,8 @@ class GroupStatisticsView(APIView):
         
         # アクティブメンバー数（GM + 参加者）
         participant_ids = SessionParticipant.objects.filter(
-            session__in=sessions
+            session__in=sessions,
+            user_id__isnull=False,
         ).values_list('user_id', flat=True).distinct()
         gm_ids = sessions.values_list('gm_id', flat=True).distinct()
         active_members = len(set(participant_ids) | set(gm_ids))

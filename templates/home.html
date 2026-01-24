@@ -259,6 +259,7 @@ function loadUpcomingSessions() {
                                 <span class="text-muted">参加者:</span> 
                                 <span class="text-sm">${participantsSummary}</span>
                                 <span class="text-muted ms-1">(${session.participant_count || 0}人)</span>
+                                ${session.guest_count ? `<span class="text-muted ms-1">(+ゲスト${session.guest_count}人)</span>` : ''}
                             </div>
                             
                             <!-- 場所情報 -->

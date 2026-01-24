@@ -24,9 +24,12 @@ class HandoutAttachmentService:
 
     def _require_access(self, handout: HandoutInfo, user) -> None:
         session = handout.session
-        if session.gm_id == getattr(user, 'id', None):
+        user_id = getattr(user, 'id', None)
+        if user_id is None:
+            raise PermissionError("この添付ファイルにアクセスする権限がありません。")
+        if session.gm_id == user_id:
             return
-        if SessionParticipant.objects.filter(session_id=session.id, user_id=getattr(user, 'id', None)).exists():
+        if SessionParticipant.objects.filter(session_id=session.id, user_id=user_id).exists():
             return
         raise PermissionError("この添付ファイルにアクセスする権限がありません。")
 
@@ -88,4 +91,3 @@ class HandoutAttachmentService:
     def get_attachment_url(self, attachment: HandoutAttachment, user) -> str:
         self._require_access(attachment.handout, user)
         return attachment.get_download_url()
-

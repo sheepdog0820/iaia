@@ -158,6 +158,30 @@ class ScheduleAPITestCase(APITestCase):
         self.assertEqual(session_data['title'], 'Test Session')
         self.assertEqual(session_data['gm_name'], 'GM User')
 
+    def test_sessions_list_includes_guest_count(self):
+        """セッション一覧JSONにguest_countが含まれる"""
+        self.client.force_authenticate(user=self.user1)
+
+        SessionParticipant.objects.create(
+            session=self.session,
+            user=self.user2,
+            role='player',
+        )
+        SessionParticipant.objects.create(
+            session=self.session,
+            user=None,
+            guest_name='ゲスト参加者',
+            role='player',
+        )
+
+        response = self.client.get('/api/schedules/sessions/view/', HTTP_ACCEPT='application/json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        session_data = data['results'][0]
+        self.assertEqual(session_data['participant_count'], 1)
+        self.assertEqual(session_data['guest_count'], 1)
+
     def test_sessions_list_pagination(self):
         """セッション一覧ページネーションテスト"""
         self.client.force_authenticate(user=self.user1)
@@ -187,6 +211,54 @@ class ScheduleAPITestCase(APITestCase):
         data = response.json()
         self.assertEqual(data['title'], 'Test Session')
         self.assertEqual(data['gm'], self.user1.id)
+
+    def test_session_viewset_detail_includes_guest_count(self):
+        """セッション詳細JSONにguest_countが含まれる"""
+        self.client.force_authenticate(user=self.user1)
+
+        SessionParticipant.objects.create(
+            session=self.session,
+            user=self.user2,
+            role='player',
+        )
+        SessionParticipant.objects.create(
+            session=self.session,
+            user=None,
+            guest_name='ゲスト参加者',
+            role='player',
+        )
+
+        response = self.client.get(f'/api/schedules/sessions/{self.session.id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        self.assertEqual(data['participant_count'], 1)
+        self.assertEqual(data['guest_count'], 1)
+
+    def test_upcoming_sessions_includes_guest_count(self):
+        """次回セッションAPIにguest_countが含まれ、participant_countは従来通り"""
+        self.client.force_authenticate(user=self.user1)
+
+        SessionParticipant.objects.create(
+            session=self.session,
+            user=self.user2,
+            role='player',
+        )
+        SessionParticipant.objects.create(
+            session=self.session,
+            user=None,
+            guest_name='ゲスト参加者',
+            role='player',
+        )
+
+        response = self.client.get('/api/schedules/sessions/upcoming/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        self.assertGreaterEqual(len(data), 1)
+        session_data = next((s for s in data if s.get('id') == self.session.id), data[0])
+        self.assertEqual(session_data['participant_count'], 1)
+        self.assertEqual(session_data['guest_count'], 1)
 
     def test_my_sessions_default_future_period(self):
         """参加予定セッション一覧: period未指定はfuture扱い"""
@@ -476,6 +548,64 @@ class ScheduleAPITestCase(APITestCase):
             format='json'
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_gm_can_create_guest_participant(self):
+        """GMはゲスト参加者（ログイン不要）を作成できる"""
+        self.client.force_authenticate(user=self.user1)
+
+        response = self.client.post(
+            '/api/schedules/participants/',
+            {
+                'session': self.session.id,
+                'guest_name': 'Guest Player',
+                'player_slot': 1,
+                'character_name': 'Guest Character',
+                'character_sheet_url': 'https://example.com/sheet',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(response.data.get('user'))
+        self.assertEqual(response.data.get('guest_name'), 'Guest Player')
+        self.assertEqual(response.data.get('player_slot'), 1)
+
+        self.assertTrue(
+            SessionParticipant.objects.filter(
+                session=self.session,
+                user__isnull=True,
+                guest_name='Guest Player',
+            ).exists()
+        )
+
+    def test_non_gm_cannot_create_guest_participant(self):
+        """GM以外はゲスト参加者を作成できない"""
+        self.client.force_authenticate(user=self.user2)
+        response = self.client.post(
+            '/api/schedules/participants/',
+            {
+                'session': self.session.id,
+                'guest_name': 'Guest Player',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_session_complete_with_guest_participant(self):
+        """ゲスト参加者がいてもセッション完了処理が落ちない"""
+        SessionParticipant.objects.create(
+            session=self.session,
+            guest_name='Guest Player',
+            role='player',
+        )
+
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.patch(
+            f'/api/schedules/sessions/{self.session.id}/',
+            {'status': 'completed'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_calendar_api(self):
         """カレンダーAPIテスト"""

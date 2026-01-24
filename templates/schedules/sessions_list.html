@@ -65,6 +65,9 @@
                                         </td>
                                         <td>
                                             <span class="badge bg-info">{{ session.participants.count }}人</span>
+                                            {% if session.guest_count %}
+                                                <span class="badge bg-secondary ms-1">+ゲスト{{ session.guest_count }}人</span>
+                                            {% endif %}
                                         </td>
                                         <td>
                                             {% if session.status == 'planned' %}

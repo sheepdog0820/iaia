@@ -112,7 +112,7 @@ class SessionManagementIntegrationTestCase(APITestCase):
         # 月別イベント確認
         # 7日後のセッションを10日後に変更したので、来月の可能性がある
         session = TRPGSession.objects.get(pk=session_id)
-        month = session.date.strftime('%Y-%m')
+        month = timezone.localtime(session.date).strftime('%Y-%m')
         calendar_url = reverse('monthly_events')
         response = self.client.get(calendar_url, {'month': month})
         

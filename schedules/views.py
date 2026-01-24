@@ -80,7 +80,12 @@ class SessionsListView(APIView):
     
     def get_json_response(self, request):
         user = request.user
-        sessions = _visible_sessions_for(user).select_related('gm', 'group').order_by('-date')
+        sessions = _visible_sessions_for(user).select_related('gm', 'group').annotate(
+            guest_count=Count(
+                'sessionparticipant',
+                filter=Q(sessionparticipant__user__isnull=True),
+            )
+        ).order_by('-date')
         
         # ページネーション対応
         limit = int(request.query_params.get('limit', 20))
@@ -102,7 +107,12 @@ class SessionsListView(APIView):
     
     def get_html_response(self, request):
         user = request.user
-        sessions = _visible_sessions_for(user).select_related('gm', 'group').order_by('-date')
+        sessions = _visible_sessions_for(user).select_related('gm', 'group').annotate(
+            guest_count=Count(
+                'sessionparticipant',
+                filter=Q(sessionparticipant__user__isnull=True),
+            )
+        ).order_by('-date')
         
         # ページネーション対応
         limit = int(request.GET.get('limit', 20))
@@ -196,6 +206,8 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             )
         
         for participant in participants:
+            if participant.user_id is None:
+                continue
             played_at = session.date
             if not played_at:
                 occurrence = session.occurrences.order_by('start_at', 'id').first()
@@ -504,7 +516,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         
         if existing_slot:
             return Response(
-                {'error': f'Player slot {player_slot} is already taken by {existing_slot.user.nickname}'},
+                {'error': f'Player slot {player_slot} is already taken by {existing_slot.display_name}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -893,7 +905,61 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
                 {'error': 'Session not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
+        is_main_gm = session.gm == request.user
+        is_co_gm = SessionParticipant.objects.filter(
+            session=session,
+            user=request.user,
+            role='gm',
+        ).exists()
+        is_gm = is_main_gm or is_co_gm
+
+        raw_user_value = request.data.get('user')
+        raw_guest_name = request.data.get('guest_name')
+        guest_name = (raw_guest_name or '').strip()
+        raw_user_is_empty = raw_user_value in [None, '', 'null', 'None']
+
+        # ゲスト参加者作成（GMのみ）
+        if raw_user_is_empty and guest_name:
+            if not is_gm:
+                return Response(
+                    {'error': 'Only GM can add guest participants'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            raw_slot = request.data.get('player_slot')
+            slot_value = None
+            if raw_slot not in [None, '', 'null', 'None']:
+                try:
+                    slot_value = int(raw_slot)
+                except (TypeError, ValueError):
+                    slot_value = None
+
+            if slot_value:
+                existing_slot = SessionParticipant.objects.filter(
+                    session=session,
+                    player_slot=slot_value,
+                ).exists()
+                if existing_slot:
+                    return Response(
+                        {'error': f'Player slot {slot_value} is already taken'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            serializer = self.get_serializer(data={
+                'session': session.id,
+                'user': None,
+                'guest_name': guest_name,
+                'role': 'player',
+                'character_name': request.data.get('character_name', ''),
+                'character_sheet_url': request.data.get('character_sheet_url', ''),
+                'player_slot': slot_value,
+                'character_sheet': None,
+            })
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+         
         # セッションへのアクセス権限チェック
         target_user_id = request.data.get('user') or request.user.id
         try:
@@ -903,12 +969,6 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
                 {'error': 'User not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-
-        is_gm = session.gm == request.user or SessionParticipant.objects.filter(
-            session=session,
-            user=request.user,
-            role='gm'
-        ).exists()
 
         if target_user != request.user and not is_gm:
             return Response(
@@ -1044,6 +1104,11 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
             if raw_value in [None, '', 'null', 'None']:
                 data['character_sheet'] = None
             else:
+                if instance.user_id is None:
+                    return Response(
+                        {'error': 'Guest participant cannot have character_sheet'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
                 try:
                     CharacterSheet.objects.get(id=raw_value, user=instance.user)
                 except CharacterSheet.DoesNotExist:
@@ -1230,7 +1295,6 @@ class CalendarView(APIView):
         for occurrence in occurrences:
             session = occurrence.session
             # ユーザーのセッションとの関係を判定
-            is_gm = session.gm == request.user
             is_gm = session.gm_id == request.user.id
             is_participant = (session.id in participant_session_ids) and not is_gm
             is_public_only = not is_gm and not is_participant and session.visibility == 'public'
@@ -1692,14 +1756,16 @@ class UpcomingSessionsView(APIView):
         for occurrence in occurrences:
             session = occurrence.session
             participants = list(session.sessionparticipant_set.all())
-            players = [p for p in participants if p.user_id != session.gm_id]
+            guest_count = sum(1 for p in participants if p.user_id is None)
+            member_count = len(participants) - guest_count
+            players = [p for p in participants if p.role != 'gm']
 
             if len(players) == 0:
                 participants_summary = "GM のみ"
             elif len(players) <= 3:
-                participants_summary = ", ".join([p.user.nickname or p.user.username for p in players])
+                participants_summary = ", ".join([p.display_name for p in players])
             else:
-                names = [p.user.nickname or p.user.username for p in players[:2]]
+                names = [p.display_name for p in players[:2]]
                 participants_summary = f"{', '.join(names)} 他{len(players) - 2}人"
 
             results.append({
@@ -1714,7 +1780,8 @@ class UpcomingSessionsView(APIView):
                 'status': session.status,
                 'gm_name': session.gm.nickname or session.gm.username,
                 'group_name': session.group.name if session.group_id else '',
-                'participant_count': len(participants),
+                'participant_count': member_count,
+                'guest_count': guest_count,
                 'participants_summary': participants_summary,
                 'duration_minutes': session.duration_minutes,
                 'duration_display': format_duration(session.duration_minutes),
@@ -1928,6 +1995,7 @@ class SessionDetailView(APIView):
         participants = SessionParticipant.objects.filter(
             session=session
         ).select_related('user', 'character_sheet')
+        guest_count = participants.filter(user__isnull=True).count()
 
         occurrences = session.occurrences.prefetch_related('participants').order_by('start_at', 'id')
         
@@ -1982,6 +2050,7 @@ class SessionDetailView(APIView):
             'user_participant': participants.filter(user=user).first(),
             'public_session_url': public_session_url,
             'is_public_view': False,
+            'guest_count': guest_count,
             'open_date_poll': open_date_poll,
             'invitation_status_by_user_id_json': invitation_status_by_user_id_json,
         }
@@ -2053,6 +2122,7 @@ class PublicSessionDetailView(APIView):
         participants = SessionParticipant.objects.filter(
             session=session
         ).select_related('user', 'character_sheet')
+        guest_count = participants.filter(user__isnull=True).count()
 
         occurrences = session.occurrences.prefetch_related('participants').order_by('start_at', 'id')
 
@@ -2072,6 +2142,7 @@ class PublicSessionDetailView(APIView):
             'user_participant': None,
             'public_session_url': public_session_url,
             'is_public_view': True,
+            'guest_count': guest_count,
         }
 
         return render(request, 'schedules/session_detail.html', context)

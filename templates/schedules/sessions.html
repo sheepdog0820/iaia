@@ -395,6 +395,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <p class="mb-2">
                                 <i class="fas fa-user"></i> GM: ${escapeHtml(gmNickname)}
                                 <span class="ms-3"><i class="fas fa-users"></i> 参加者: ${session.participant_count || 0}人</span>
+                                ${session.guest_count ? `<span class="ms-1 text-muted">(+ゲスト${session.guest_count}人)</span>` : ''}
                             </p>
                             ${session.location ? `<p class="mb-1"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(session.location)}</p>` : ''}
                             ${session.youtube_url ? `<p class="mb-1"><i class="fab fa-youtube"></i> <a href="${escapeHtml(session.youtube_url)}" target="_blank">配信を見る</a></p>` : ''}

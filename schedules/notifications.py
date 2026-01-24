@@ -29,6 +29,10 @@ class HandoutNotificationService:
         try:
             recipient = handout.participant.user
             sender = handout.session.gm
+
+            if recipient is None:
+                logger.info(f"ゲスト参加者のため通知をスキップ: handout={handout.id}")
+                return False
             
             # 通知設定を確認
             preferences = UserNotificationPreferences.get_or_create_for_user(recipient)
@@ -82,6 +86,8 @@ class HandoutNotificationService:
             notification_count = 0
             
             for recipient in recipients:
+                if recipient is None:
+                    continue
                 # 通知設定を確認
                 preferences = UserNotificationPreferences.get_or_create_for_user(recipient)
                 if not preferences.handout_notifications_enabled:
@@ -126,6 +132,10 @@ class HandoutNotificationService:
         try:
             recipient = handout.participant.user
             sender = handout.session.gm
+
+            if recipient is None:
+                logger.info(f"ゲスト参加者のため通知をスキップ: handout={handout.id}")
+                return False
             
             # 通知設定を確認
             preferences = UserNotificationPreferences.get_or_create_for_user(recipient)

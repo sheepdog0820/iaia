@@ -52,7 +52,7 @@
                             </p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>参加者数:</strong> {{ participants.count }}名</p>
+                            <p><strong>参加者数:</strong> {{ session.participants.count }}名{% if guest_count %} +ゲスト{{ guest_count }}名{% endif %}</p>
                             <p><strong>ハンドアウト数:</strong> <span id="handoutCount">{{ handout_count }}</span>個</p>
                             <p><strong>場所:</strong> {{ session.location|default:"未設定" }}</p>
                         </div>
@@ -75,13 +75,13 @@
                         <div class="participant-section mb-4" data-participant-id="{{ participant.id }}">
                             <div class="participant-header d-flex justify-content-between align-items-center mb-3">
                                 <div>
-                                    <h6 class="mb-1">
-                                        <i class="fas fa-user-circle"></i> 
-                                        {{ participant.user.nickname|default:participant.user.username }}
-                                        <span class="badge bg-{{ participant.role|yesno:'warning,info' }} ms-2">
-                                            {{ participant.get_role_display }}
-                                        </span>
-                                    </h6>
+                                     <h6 class="mb-1">
+                                         <i class="fas fa-user-circle"></i> 
+                                         {{ participant.display_name }}
+                                         <span class="badge bg-{{ participant.role|yesno:'warning,info' }} ms-2">
+                                             {{ participant.get_role_display }}
+                                         </span>
+                                     </h6>
                                     {% if participant.character_name %}
                                     <small class="text-muted">キャラクター: {{ participant.character_name }}</small>
                                     {% endif %}
@@ -169,7 +169,7 @@
                                     <option value="">参加者を選択...</option>
                                     {% for participant in participants %}
                                     <option value="{{ participant.id }}">
-                                        {{ participant.user.nickname|default:participant.user.username }}
+                                        {{ participant.display_name }}
                                         {% if participant.character_name %} ({{ participant.character_name }}){% endif %}
                                     </option>
                                     {% endfor %}

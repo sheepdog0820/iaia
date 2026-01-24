@@ -76,14 +76,26 @@ class SessionYouTubeLinkSerializer(serializers.ModelSerializer):
 class SessionParticipantSerializer(serializers.ModelSerializer):
     user_detail = UserSerializer(source='user', read_only=True)
     character_sheet_detail = serializers.SerializerMethodField()
-    
+    display_name = serializers.CharField(read_only=True)
+     
     class Meta:
         model = SessionParticipant
-        fields = ['id', 'session', 'user', 'user_detail', 'role', 
-                 'character_name', 'character_sheet_url', 'player_slot',
-                 'character_sheet', 'character_sheet_detail']
+        fields = [
+            'id',
+            'session',
+            'user',
+            'user_detail',
+            'guest_name',
+            'display_name',
+            'role',
+            'character_name',
+            'character_sheet_url',
+            'player_slot',
+            'character_sheet',
+            'character_sheet_detail',
+        ]
         read_only_fields = ['id']
-    
+     
     def get_character_sheet_detail(self, obj):
         if obj.character_sheet:
             return {
@@ -99,6 +111,40 @@ class SessionParticipantSerializer(serializers.ModelSerializer):
                 'sanity_current': obj.character_sheet.sanity_current
             }
         return None
+
+    def validate(self, attrs):
+        user = attrs.get('user')
+        guest_name = attrs.get('guest_name')
+        role = attrs.get('role')
+        character_sheet = attrs.get('character_sheet')
+
+        if self.instance is not None:
+            if 'user' not in attrs:
+                user = self.instance.user
+            if 'guest_name' not in attrs:
+                guest_name = self.instance.guest_name
+            if 'role' not in attrs:
+                role = self.instance.role
+            if 'character_sheet' not in attrs:
+                character_sheet = self.instance.character_sheet
+
+        normalized_guest_name = (guest_name or '').strip()
+        if not user and not normalized_guest_name:
+            raise serializers.ValidationError({'guest_name': 'guest_name is required when user is empty'})
+
+        if user and normalized_guest_name:
+            raise serializers.ValidationError({'guest_name': 'guest_name cannot be set when user is present'})
+
+        if role == 'gm' and not user:
+            raise serializers.ValidationError({'role': 'Guest participant cannot be GM'})
+
+        if character_sheet and not user:
+            raise serializers.ValidationError({'character_sheet': 'Guest participant cannot have character_sheet'})
+
+        if 'guest_name' in attrs:
+            attrs['guest_name'] = normalized_guest_name
+
+        return attrs
 
 
 class SessionNoteSerializer(serializers.ModelSerializer):
@@ -294,6 +340,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         read_only=True
     )
     participant_count = serializers.SerializerMethodField()
+    guest_count = serializers.SerializerMethodField()
     youtube_total_duration = serializers.IntegerField(read_only=True)
     youtube_total_duration_display = serializers.CharField(read_only=True)
     youtube_video_count = serializers.IntegerField(read_only=True)
@@ -304,7 +351,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
                  'youtube_url', 'status', 'visibility', 'gm', 'gm_detail',
                  'group', 'scenario', 'coc_edition', 'scenario_detail', 'duration_minutes', 'participants', 'participants_detail', 
                  'handouts_detail', 'images_detail', 'youtube_links_detail',
-                 'participant_count', 'youtube_total_duration', 
+                 'participant_count', 'guest_count', 'youtube_total_duration', 
                  'youtube_total_duration_display', 'youtube_video_count',
                  'created_at', 'updated_at', 'session_date', 'start_time',
                  'estimated_hours', 'min_players', 'max_players']
@@ -312,6 +359,15 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
     
     def get_participant_count(self, obj):
         return obj.participants.count()
+
+    def get_guest_count(self, obj):
+        annotated_value = getattr(obj, 'guest_count', None)
+        if isinstance(annotated_value, int):
+            return annotated_value
+        prefetched_participants = getattr(obj, '_prefetched_objects_cache', {}).get('sessionparticipant_set')
+        if prefetched_participants is not None:
+            return sum(1 for p in prefetched_participants if p.user_id is None)
+        return obj.sessionparticipant_set.filter(user__isnull=True).count()
 
     def get_scenario_detail(self, obj):
         if not obj.scenario:
@@ -418,6 +474,7 @@ class SessionListSerializer(serializers.ModelSerializer):
     gm_name = serializers.CharField(source='gm.nickname', read_only=True)
     group_name = serializers.CharField(source='group.name', read_only=True)
     participant_count = serializers.SerializerMethodField()
+    guest_count = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     visibility_display = serializers.CharField(source='get_visibility_display', read_only=True)
     date_formatted = serializers.SerializerMethodField()
@@ -429,12 +486,21 @@ class SessionListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'description', 'date', 'date_formatted',
             'location', 'status', 'status_display', 'visibility', 'visibility_display',
-            'gm_name', 'group_name', 'participant_count', 'duration_minutes',
+            'gm_name', 'group_name', 'participant_count', 'guest_count', 'duration_minutes',
             'youtube_url', 'youtube_total_duration_display', 'youtube_video_count'
         ]
     
     def get_participant_count(self, obj):
         return obj.participants.count()
+
+    def get_guest_count(self, obj):
+        annotated_value = getattr(obj, 'guest_count', None)
+        if isinstance(annotated_value, int):
+            return annotated_value
+        prefetched_participants = getattr(obj, '_prefetched_objects_cache', {}).get('sessionparticipant_set')
+        if prefetched_participants is not None:
+            return sum(1 for p in prefetched_participants if p.user_id is None)
+        return obj.sessionparticipant_set.filter(user__isnull=True).count()
     
     def get_date_formatted(self, obj):
         if obj.date:
@@ -447,6 +513,7 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
     gm_name = serializers.CharField(source='gm.nickname', read_only=True)
     group_name = serializers.CharField(source='group.name', read_only=True)
     participant_count = serializers.SerializerMethodField()
+    guest_count = serializers.SerializerMethodField()
     date_formatted = serializers.SerializerMethodField()
     time_formatted = serializers.SerializerMethodField()
     date_display = serializers.SerializerMethodField()
@@ -458,11 +525,20 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'description', 'date', 'date_formatted', 'time_formatted', 'date_display',
             'location', 'status', 'gm_name', 'group_name', 'participant_count',
-            'participants_summary', 'duration_minutes', 'duration_display'
+            'guest_count', 'participants_summary', 'duration_minutes', 'duration_display'
         ]
     
     def get_participant_count(self, obj):
         return obj.participants.count()
+
+    def get_guest_count(self, obj):
+        annotated_value = getattr(obj, 'guest_count', None)
+        if isinstance(annotated_value, int):
+            return annotated_value
+        prefetched_participants = getattr(obj, '_prefetched_objects_cache', {}).get('sessionparticipant_set')
+        if prefetched_participants is not None:
+            return sum(1 for p in prefetched_participants if p.user_id is None)
+        return obj.sessionparticipant_set.filter(user__isnull=True).count()
     
     def get_date_formatted(self, obj):
         if obj.date:
@@ -507,17 +583,17 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
             return "参加者なし"
         
         # GMを除く参加者
-        players = [p for p in participants if p.user != obj.gm]
+        players = [p for p in participants if p.role != 'gm']
         
         if len(players) == 0:
             return "GM のみ"
         elif len(players) <= 3:
             # 3人以下なら全員表示
-            names = [p.user.nickname or p.user.username for p in players]
+            names = [p.display_name for p in players]
             return ", ".join(names)
         else:
             # 4人以上なら最初の2人 + 他○人
-            names = [p.user.nickname or p.user.username for p in players[:2]]
+            names = [p.display_name for p in players[:2]]
             remaining = len(players) - 2
             return f"{', '.join(names)} 他{remaining}人"
     

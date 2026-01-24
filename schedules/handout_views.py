@@ -66,12 +66,14 @@ class GMHandoutManagementView(APIView):
         """HTML形式でハンドアウト管理画面を返す"""
         participants = SessionParticipant.objects.filter(session=session).select_related('user')
         handouts = HandoutInfo.objects.filter(session=session).select_related('participant__user')
+        guest_count = participants.filter(user__isnull=True).count()
         
         context = {
             'session': session,
             'participants': participants,
             'handouts': handouts,
-            'handout_count': handouts.count()
+            'handout_count': handouts.count(),
+            'guest_count': guest_count,
         }
         
         return render(request, 'schedules/gm_handout_management.html', context)
@@ -319,7 +321,7 @@ class HandoutTemplateView(APIView):
         handout_data = {
             'session': session.id,
             'participant': participant.id,
-            'title': customizations.get('title', f'{participant.user.nickname}のハンドアウト'),
+            'title': customizations.get('title', f'{participant.display_name}のハンドアウト'),
             'content': template_content,
             'is_secret': customizations.get('is_secret', True)
         }

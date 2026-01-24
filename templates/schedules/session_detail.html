@@ -527,7 +527,7 @@
             <div class="card mb-4">
                 <div class="card-header bg-info">
                     <h5 class="mb-0">
-                        <i class="fas fa-users"></i> 参加者 ({{ participants.count }}人)
+                        <i class="fas fa-users"></i> 参加者 ({{ session.participants.count }}人{% if guest_count %} +ゲスト{{ guest_count }}人{% endif %})
                     </h5>
                 </div>
                 <div class="card-body">
@@ -541,7 +541,7 @@
                         <div class="d-flex flex-wrap gap-2">
                             {% for participant in participants %}
                                 {% if participant.role != 'gm' %}
-                                    <span class="badge bg-secondary">{{ participant.user.nickname|default:participant.user.username }}</span>
+                                    <span class="badge bg-secondary">{{ participant.display_name }}</span>
                                 {% endif %}
                             {% endfor %}
                         </div>
@@ -553,9 +553,17 @@
             {% else %}
             <div class="card mb-4">
                 <div class="card-header bg-info">
-                    <h5 class="mb-0">
-                        <i class="fas fa-users"></i> 参加者一覧 ({{ participants.count }}人)
-                    </h5>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-users"></i> 参加者一覧 ({{ session.participants.count }}人{% if guest_count %} +ゲスト{{ guest_count }}人{% endif %})
+                        </h5>
+                        {% if is_gm %}
+                            <button class="btn btn-outline-light btn-sm" type="button"
+                                    onclick="openGuestParticipantModal(null)">
+                                <i class="fas fa-user-plus"></i> ゲスト追加
+                            </button>
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -571,11 +579,14 @@
                                             <i class="fas fa-user-circle fa-3x me-3"></i>
                                         {% endif %}
                                         <div>
-                                            <h6 class="mb-1">{{ participant.user.nickname|default:participant.user.username }}</h6>
+                                            <h6 class="mb-1">{{ participant.display_name }}</h6>
                                             {% if participant.role == 'gm' %}
                                                 <span class="badge bg-primary">GM</span>
                                             {% else %}
                                                 <span class="badge bg-secondary">PL</span>
+                                            {% endif %}
+                                            {% if participant.player_slot %}
+                                                <span class="badge bg-light text-dark ms-1">PL{{ participant.player_slot }}</span>
                                             {% endif %}
                                         </div>
                                     </div>
@@ -614,10 +625,17 @@
                                     
                                     {% if is_gm and participant.role != 'gm' %}
                                     <div class="mt-2 d-flex gap-2">
-                                        <button class="btn btn-sm btn-outline-primary"
-                                                onclick="openCharacterLinkModal({{ participant.id }}, {{ participant.user.id }}, {{ participant.character_sheet_id|default:'null' }})">
-                                            <i class="fas fa-link"></i> キャラクター設定
-                                        </button>
+                                        {% if participant.user %}
+                                            <button class="btn btn-sm btn-outline-primary"
+                                                    onclick="openCharacterLinkModal({{ participant.id }}, {{ participant.user.id }}, {{ participant.character_sheet_id|default:'null' }})">
+                                                <i class="fas fa-link"></i> キャラクター設定
+                                            </button>
+                                        {% else %}
+                                            <button class="btn btn-sm btn-outline-primary"
+                                                    onclick="openGuestParticipantModal({{ participant.id }}, '{{ participant.guest_name|escapejs }}', {{ participant.player_slot|default:'null' }}, '{{ participant.character_name|escapejs }}', '{{ participant.character_sheet_url|escapejs }}')">
+                                                <i class="fas fa-user-edit"></i> ゲスト設定
+                                            </button>
+                                        {% endif %}
                                         <button class="btn btn-sm btn-outline-danger" 
                                                 onclick="removeParticipant({{ participant.id }})">
                                             <i class="fas fa-user-minus"></i> 除名
@@ -705,7 +723,7 @@
                             </div>
                             {% if is_gm %}
                                 <p class="small text-muted mb-2">
-                                    <i class="fas fa-user"></i> {{ handout.participant.user.nickname|default:handout.participant.user.username }}
+                                    <i class="fas fa-user"></i> {{ handout.participant.display_name }}
                                 </p>
                             {% endif %}
                             {% if handout.recommended_skills %}
@@ -1027,6 +1045,51 @@
 </div>
 {% endif %}
 
+{% if is_gm %}
+<div class="modal fade" id="guestParticipantModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">ゲスト参加者設定</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="guestParticipantId">
+                <div class="mb-3">
+                    <label for="guest_participant_name" class="form-label">ゲスト名 *</label>
+                    <input type="text" class="form-control" id="guest_participant_name" placeholder="例: PL1 たろう" required>
+                </div>
+                <div class="mb-3">
+                    <label for="guest_player_slot" class="form-label">プレイヤー枠（任意）</label>
+                    <select class="form-select" id="guest_player_slot">
+                        <option value="">未指定</option>
+                        <option value="1">プレイヤー1</option>
+                        <option value="2">プレイヤー2</option>
+                        <option value="3">プレイヤー3</option>
+                        <option value="4">プレイヤー4</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="guest_character_name" class="form-label">キャラクター名（任意）</label>
+                    <input type="text" class="form-control" id="guest_character_name" placeholder="例: 伊達 真琴">
+                </div>
+                <div class="mb-3">
+                    <label for="guest_character_sheet_url" class="form-label">キャラクターシートURL（任意）</label>
+                    <input type="url" class="form-control" id="guest_character_sheet_url" placeholder="https://...">
+                    <div class="form-text">ログイン不要の参加者向け。内部キャラクターシートは紐付けできません。</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" onclick="saveGuestParticipant()">
+                    <i class="fas fa-save"></i> 保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- ハンドアウト作成モーダル -->
 {% if is_gm %}
 <div class="modal fade" id="createHandoutModal" tabindex="-1">
@@ -1039,14 +1102,14 @@
             <div class="modal-body">
                 <form id="createHandoutForm">
                     <div class="mb-3">
-                        <label for="handout_participant" class="form-label">対象参加者</label>
-                        <select class="form-select" id="handout_participant" required>
-                            <option value="">参加者を選択してください</option>
-                            {% for participant in participants %}
-                            <option value="{{ participant.id }}">{{ participant.user.nickname|default:participant.user.username }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+                    <label for="handout_participant" class="form-label">対象参加者</label>
+                    <select class="form-select" id="handout_participant" required>
+                        <option value="">参加者を選択してください</option>
+                        {% for participant in participants %}
+                            <option value="{{ participant.id }}">{{ participant.display_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
                     <div class="mb-3">
                         <label for="handout_title" class="form-label">タイトル</label>
                         <input type="text" class="form-control" id="handout_title" required>
@@ -1199,7 +1262,7 @@
                         {% for participant in participants %}
                             {% if participant.character_sheet %}
                                 <option value="{{ participant.character_sheet.id }}">
-                                    {{ participant.character_sheet.name }}（{{ participant.user.nickname|default:participant.user.username }}）
+                                    {{ participant.character_sheet.name }}（{{ participant.display_name }}）
                                 </option>
                             {% endif %}
                         {% endfor %}
@@ -1653,7 +1716,7 @@ let sessionImageSaveQueued = false;
 
 const SESSION_EXISTING_MEMBER_IDS = new Set([
     {{ session.gm.id }},
-    {% for participant in participants %}{{ participant.user.id }},{% endfor %}
+    {% for participant in participants %}{% if participant.user %}{{ participant.user.id }},{% endif %}{% endfor %}
 ]);
 const SESSION_INVITATION_STATUS_BY_USER_ID = {{ invitation_status_by_user_id_json|default:"{}"|safe }};
 
@@ -3768,6 +3831,54 @@ async function saveLinkedCharacter() {
         location.reload();
     } catch (error) {
         alert('更新に失敗しました: ' + (error.response?.data?.error || error.message));
+    }
+}
+
+function openGuestParticipantModal(participantId, guestName = '', playerSlot = null, characterName = '', characterSheetUrl = '') {
+    const modalEl = document.getElementById('guestParticipantModal');
+    if (!modalEl) return;
+
+    document.getElementById('guestParticipantId').value = participantId || '';
+    document.getElementById('guest_participant_name').value = guestName || '';
+    document.getElementById('guest_player_slot').value = playerSlot ? String(playerSlot) : '';
+    document.getElementById('guest_character_name').value = characterName || '';
+    document.getElementById('guest_character_sheet_url').value = characterSheetUrl || '';
+
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+}
+
+async function saveGuestParticipant() {
+    const participantId = document.getElementById('guestParticipantId')?.value;
+    const guestName = (document.getElementById('guest_participant_name')?.value || '').trim();
+    const playerSlotValue = document.getElementById('guest_player_slot')?.value;
+    const characterName = document.getElementById('guest_character_name')?.value || '';
+    const characterSheetUrl = document.getElementById('guest_character_sheet_url')?.value || '';
+
+    if (!guestName) {
+        alert('ゲスト名は必須です');
+        return;
+    }
+
+    const payload = {
+        guest_name: guestName,
+        player_slot: playerSlotValue ? Number(playerSlotValue) : null,
+        character_name: characterName,
+        character_sheet_url: characterSheetUrl,
+    };
+
+    try {
+        if (participantId) {
+            await axios.patch(`/api/schedules/participants/${participantId}/`, payload);
+            alert('ゲスト参加者を更新しました');
+        } else {
+            await axios.post('/api/schedules/participants/', { session: SESSION_ID, ...payload });
+            alert('ゲスト参加者を追加しました');
+        }
+        location.reload();
+    } catch (error) {
+        const message = error.response?.data?.error || error.response?.data?.detail || error.message;
+        alert('保存に失敗しました: ' + message);
     }
 }
 
