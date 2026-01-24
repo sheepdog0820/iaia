@@ -133,6 +133,69 @@ class ScenarioImageTestCase(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_reorder_images_bulk(self):
+        """画像の一括順序変更（シナリオ作成者のみ・トランザクション）"""
+        images = [
+            ScenarioImage.objects.create(
+                scenario=self.scenario,
+                image=self.create_test_image(f'bulk{i}.png'),
+                title=f'画像{i}',
+                uploaded_by=self.uploader,
+                order=i + 1,
+            )
+            for i in range(3)
+        ]
+
+        self.client.force_authenticate(user=self.creator)
+        response = self.client.post(
+            reverse('scenario-image-reorder-bulk'),
+            {
+                'scenario_id': self.scenario.id,
+                'ordered_ids': [images[1].id, images[2].id, images[0].id],
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        images[0].refresh_from_db()
+        images[1].refresh_from_db()
+        images[2].refresh_from_db()
+        self.assertEqual(images[1].order, 1)
+        self.assertEqual(images[2].order, 2)
+        self.assertEqual(images[0].order, 3)
+
+        # 作成者以外は実行不可
+        self.client.force_authenticate(user=self.uploader)
+        response = self.client.post(
+            reverse('scenario-image-reorder-bulk'),
+            {
+                'scenario_id': self.scenario.id,
+                'ordered_ids': [images[0].id, images[1].id, images[2].id],
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # 不正な順序指定は反映されない
+        self.client.force_authenticate(user=self.creator)
+        before_orders = {
+            image.id: ScenarioImage.objects.get(id=image.id).order for image in images
+        }
+        response = self.client.post(
+            reverse('scenario-image-reorder-bulk'),
+            {
+                'scenario_id': self.scenario.id,
+                'ordered_ids': [images[0].id, images[0].id, images[1].id],
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        after_orders = {
+            image.id: ScenarioImage.objects.get(id=image.id).order for image in images
+        }
+        self.assertEqual(before_orders, after_orders)
+
     def test_delete_image_permissions(self):
         """画像削除の権限（作成者/アップロード者のみ）"""
         image = ScenarioImage.objects.create(
@@ -173,4 +236,3 @@ class ScenarioImageTestCase(APITestCase):
             reverse('scenario-image-detail', kwargs={'pk': image3.id}),
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-

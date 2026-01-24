@@ -284,6 +284,38 @@
     border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 0.5rem;
+    position: relative;
+}
+
+.scenario-image-item.dragging {
+    opacity: 0.6;
+}
+
+.scenario-image-drag-handle {
+    cursor: grab;
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    color: var(--text-muted);
+    background-color: var(--secondary-bg);
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 2;
+}
+
+.scenario-image-drag-handle:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-primary);
+}
+
+.scenario-image-drag-handle:active {
+    cursor: grabbing;
 }
 
 .scenario-image-thumb {
@@ -307,6 +339,11 @@ document.addEventListener('DOMContentLoaded', function() {
     let scenarios = [];
     let currentFilters = {};
     let scenarioEditId = null;
+    let scenarioImageOrderCache = [];
+    let scenarioImageReorderSaving = false;
+    let scenarioImageDraggingItem = null;
+    let scenarioImageSaveQueued = false;
+    let scenarioImageScenarioId = null;
     const addScenarioModalEl = document.getElementById('addScenarioModal');
     const addScenarioModal = addScenarioModalEl ? new bootstrap.Modal(addScenarioModalEl) : null;
     const addScenarioForm = document.getElementById('addScenarioForm');
@@ -547,6 +584,34 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return '';
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function escapeHtmlWithLineBreaks(value) {
+        return escapeHtml(value).replace(/\r\n|\r|\n/g, '<br>');
+    }
+
+    function normalizeDifficultyKey(value) {
+        const allowed = new Set(['beginner', 'intermediate', 'advanced', 'expert']);
+        const key = String(value || '').trim();
+        return allowed.has(key) ? key : 'beginner';
+    }
+
+    function normalizeExternalUrl(raw) {
+        const value = String(raw || '').trim();
+        if (!value) return '';
+        if (/^https?:\/\//i.test(value)) return value;
+        if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value)) return '';
+        return `https://${value}`;
+    }
+
     // シナリオ一覧読み込み
     async function loadScenarios() {
         try {
@@ -572,53 +637,73 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (viewMode === 'grid') {
             container.className = 'row';
-            container.innerHTML = filtered.map(scenario => `
-                <div class="col-md-6 col-lg-4 mb-4">
-                    <div class="card scenario-card h-100" onclick="showScenarioDetail(${scenario.id})">
-                        <div class="card-img-top">
-                            <i class="fas fa-book"></i>
-                        </div>
-                        <div class="card-body">
-                            <h5 class="card-title">${scenario.title}</h5>
-                            <div class="mb-2">
-                                <span class="badge bg-secondary system-badge">${getSystemLabel(scenario.game_system)}</span>
-                                <span class="badge difficulty-badge difficulty-${scenario.difficulty}">${getDifficultyLabel(scenario.difficulty)}</span>
+            container.innerHTML = filtered.map(scenario => {
+                const safeTitle = escapeHtml(scenario?.title || '');
+                const difficultyKey = normalizeDifficultyKey(scenario?.difficulty);
+                const safeSystemLabel = escapeHtml(getSystemLabel(scenario?.game_system));
+                const safeDifficultyLabel = escapeHtml(getDifficultyLabel(difficultyKey));
+                const safeSummary = escapeHtml(scenario?.summary || 'あらすじなし');
+                const safeAuthor = escapeHtml(scenario?.author || '不明');
+                const playCount = Number(scenario?.play_count) || 0;
+
+                return `
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card scenario-card h-100" onclick="showScenarioDetail(${scenario.id})">
+                            <div class="card-img-top">
+                                <i class="fas fa-book"></i>
                             </div>
-                            <p class="card-text text-muted small">${scenario.summary || 'あらすじなし'}</p>
-                            <div class="mt-auto">
-                                <small class="text-muted">
-                                    <i class="fas fa-user"></i> ${scenario.author || '不明'}
-                                    ${scenario.play_count > 0 ? `<span class="ms-2"><i class="fas fa-dice"></i> ${scenario.play_count}回プレイ</span>` : ''}
-                                </small>
+                            <div class="card-body">
+                                <h5 class="card-title">${safeTitle}</h5>
+                                <div class="mb-2">
+                                    <span class="badge bg-secondary system-badge">${safeSystemLabel}</span>
+                                    <span class="badge difficulty-badge difficulty-${difficultyKey}">${safeDifficultyLabel}</span>
+                                </div>
+                                <p class="card-text text-muted small">${safeSummary}</p>
+                                <div class="mt-auto">
+                                    <small class="text-muted">
+                                        <i class="fas fa-user"></i> ${safeAuthor}
+                                        ${playCount > 0 ? `<span class="ms-2"><i class="fas fa-dice"></i> ${playCount}回プレイ</span>` : ''}
+                                    </small>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         } else {
             container.className = '';
-            container.innerHTML = filtered.map(scenario => `
-                <div class="card scenario-list-item mb-2" onclick="showScenarioDetail(${scenario.id})">
-                    <div class="card-body">
-                        <div class="row align-items-center">
-                            <div class="col-md-6">
-                                <h5 class="mb-1">${scenario.title}</h5>
-                                <span class="badge bg-secondary system-badge">${getSystemLabel(scenario.game_system)}</span>
-                                <span class="badge difficulty-badge difficulty-${scenario.difficulty}">${getDifficultyLabel(scenario.difficulty)}</span>
-                            </div>
-                            <div class="col-md-3">
-                                <small class="text-muted">
-                                    <i class="fas fa-clock"></i> ${getDurationLabel(scenario.estimated_duration)}<br>
-                                    <i class="fas fa-users"></i> ${scenario.recommended_players || '指定なし'}
-                                </small>
-                            </div>
-                            <div class="col-md-3 text-end">
-                                ${scenario.play_count > 0 ? `<span class="badge bg-success"><i class="fas fa-dice"></i> ${scenario.play_count}回プレイ</span>` : '<span class="badge bg-secondary">未プレイ</span>'}
+            container.innerHTML = filtered.map(scenario => {
+                const safeTitle = escapeHtml(scenario?.title || '');
+                const difficultyKey = normalizeDifficultyKey(scenario?.difficulty);
+                const safeSystemLabel = escapeHtml(getSystemLabel(scenario?.game_system));
+                const safeDifficultyLabel = escapeHtml(getDifficultyLabel(difficultyKey));
+                const safeDuration = escapeHtml(getDurationLabel(scenario?.estimated_duration));
+                const safePlayers = escapeHtml(scenario?.recommended_players || '指定なし');
+                const playCount = Number(scenario?.play_count) || 0;
+
+                return `
+                    <div class="card scenario-list-item mb-2" onclick="showScenarioDetail(${scenario.id})">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <h5 class="mb-1">${safeTitle}</h5>
+                                    <span class="badge bg-secondary system-badge">${safeSystemLabel}</span>
+                                    <span class="badge difficulty-badge difficulty-${difficultyKey}">${safeDifficultyLabel}</span>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock"></i> ${safeDuration}<br>
+                                        <i class="fas fa-users"></i> ${safePlayers}
+                                    </small>
+                                </div>
+                                <div class="col-md-3 text-end">
+                                    ${playCount > 0 ? `<span class="badge bg-success"><i class="fas fa-dice"></i> ${playCount}回プレイ</span>` : '<span class="badge bg-secondary">未プレイ</span>'}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
     }
 
@@ -717,6 +802,196 @@ document.addEventListener('DOMContentLoaded', function() {
         return Number(image?.uploaded_by) === Number(currentUserId);
     }
 
+    function canReorderScenarioImages(scenario) {
+        const currentUserId = window.CURRENT_USER?.id;
+        if (!currentUserId) return false;
+        return Number(scenario?.created_by) === Number(currentUserId);
+    }
+
+    function showScenarioImagesMessage(message, type = 'info') {
+        const container = document.getElementById('scenarioImagesMessages');
+        if (!container) return;
+
+        container.innerHTML = '';
+        const alertEl = document.createElement('div');
+        alertEl.className = `alert alert-${type} alert-dismissible fade show`;
+        alertEl.setAttribute('role', 'alert');
+        alertEl.textContent = message;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'btn-close';
+        closeBtn.setAttribute('data-bs-dismiss', 'alert');
+        alertEl.appendChild(closeBtn);
+
+        container.appendChild(alertEl);
+    }
+
+    function getScenarioImageIdsInDomOrder() {
+        const grid = document.getElementById('scenarioImagesGrid');
+        if (!grid) return [];
+        return Array.from(grid.querySelectorAll('.scenario-image-item[data-scenario-image-id]'))
+            .map(el => el.dataset.scenarioImageId)
+            .filter(Boolean);
+    }
+
+    function isSameScenarioImageOrder(nextOrder, prevOrder) {
+        if (!Array.isArray(nextOrder) || !Array.isArray(prevOrder)) return false;
+        if (nextOrder.length !== prevOrder.length) return false;
+        for (let i = 0; i < nextOrder.length; i++) {
+            if (String(nextOrder[i]) !== String(prevOrder[i])) return false;
+        }
+        return true;
+    }
+
+    function applyScenarioImageDomOrder(order) {
+        if (!Array.isArray(order) || order.length === 0) return;
+        const grid = document.getElementById('scenarioImagesGrid');
+        if (!grid) return;
+
+        const items = Array.from(grid.querySelectorAll('.scenario-image-item[data-scenario-image-id]'));
+        if (items.length !== order.length) return;
+
+        const byId = new Map(items.map(item => [String(item.dataset.scenarioImageId), item]));
+        for (const id of order) {
+            const el = byId.get(String(id));
+            if (!el) return;
+            grid.appendChild(el);
+        }
+    }
+
+    function getScenarioImageInsertSide(rect, x, y) {
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const dx = x - centerX;
+        const dy = y - centerY;
+        if (Math.abs(dx) >= Math.abs(dy)) {
+            return dx >= 0 ? 'after' : 'before';
+        }
+        return dy >= 0 ? 'after' : 'before';
+    }
+
+    function ensureScenarioImageReorderContainer() {
+        const grid = document.getElementById('scenarioImagesGrid');
+        if (!grid) return;
+        if (grid.dataset.scenarioImageReorderInitialized === 'true') return;
+        grid.dataset.scenarioImageReorderInitialized = 'true';
+
+        grid.addEventListener('dragover', event => {
+            if (!scenarioImageDraggingItem) return;
+            event.preventDefault();
+
+            const overItem = event.target?.closest?.('.scenario-image-item[data-scenario-image-id]');
+            if (!overItem || overItem === scenarioImageDraggingItem) return;
+
+            const rect = overItem.getBoundingClientRect();
+            const side = getScenarioImageInsertSide(rect, event.clientX, event.clientY);
+            if (side === 'after') {
+                const next = overItem.nextSibling;
+                if (next !== scenarioImageDraggingItem) {
+                    grid.insertBefore(scenarioImageDraggingItem, next);
+                }
+            } else {
+                if (overItem !== scenarioImageDraggingItem.nextSibling) {
+                    grid.insertBefore(scenarioImageDraggingItem, overItem);
+                }
+            }
+        });
+
+        grid.addEventListener('drop', event => {
+            if (!scenarioImageDraggingItem) return;
+            event.preventDefault();
+        });
+    }
+
+    function attachScenarioImageHandleListeners(scenario) {
+        const grid = document.getElementById('scenarioImagesGrid');
+        if (!grid) return;
+
+        const handles = grid.querySelectorAll('.scenario-image-drag-handle[draggable="true"]');
+        handles.forEach(handle => {
+            handle.addEventListener('dragstart', event => {
+                const item = handle.closest('.scenario-image-item[data-scenario-image-id]');
+                const imageId = item?.dataset.scenarioImageId;
+                if (!item || !imageId) {
+                    event.preventDefault();
+                    return;
+                }
+
+                scenarioImageDraggingItem = item;
+                item.classList.add('dragging');
+
+                if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', imageId);
+                    try {
+                        event.dataTransfer.setDragImage(item, 24, 24);
+                    } catch (e) {
+                        // ignore
+                    }
+                }
+            });
+
+            handle.addEventListener('dragend', async () => {
+                if (scenarioImageDraggingItem) {
+                    scenarioImageDraggingItem.classList.remove('dragging');
+                }
+
+                scenarioImageDraggingItem = null;
+
+                await persistScenarioImageOrder(scenario);
+            });
+        });
+    }
+
+    function initializeScenarioImageReorder(scenario) {
+        if (!canReorderScenarioImages(scenario)) return;
+        ensureScenarioImageReorderContainer();
+        attachScenarioImageHandleListeners(scenario);
+        scenarioImageOrderCache = getScenarioImageIdsInDomOrder();
+    }
+
+    async function persistScenarioImageOrder(scenario) {
+        if (!canReorderScenarioImages(scenario)) return;
+        if (!scenario || Number(scenario.id) !== Number(window.currentScenario?.id)) return;
+
+        const nextOrder = getScenarioImageIdsInDomOrder();
+        if (nextOrder.length === 0) return;
+
+        if (scenarioImageReorderSaving) {
+            scenarioImageSaveQueued = true;
+            return;
+        }
+        if (isSameScenarioImageOrder(nextOrder, scenarioImageOrderCache)) return;
+
+        scenarioImageReorderSaving = true;
+        showScenarioImagesMessage('並び替えを保存中...', 'info');
+
+        try {
+            await axios.post('/api/scenarios/scenario-images/reorder_bulk/', {
+                scenario_id: String(scenario.id),
+                ordered_ids: nextOrder,
+            });
+
+            scenarioImageOrderCache = nextOrder;
+            showScenarioImagesMessage('並び替えを保存しました', 'success');
+            if (Number(scenario.id) === Number(window.currentScenario?.id)) {
+                await loadScenarioImages(scenario.id);
+            }
+        } catch (error) {
+            const message = error.response?.data?.error || error.response?.data?.detail || error.message;
+            showScenarioImagesMessage(`並び替えの保存に失敗しました: ${message}`, 'danger');
+            applyScenarioImageDomOrder(scenarioImageOrderCache);
+        } finally {
+            scenarioImageReorderSaving = false;
+
+            if (scenarioImageSaveQueued) {
+                scenarioImageSaveQueued = false;
+                await persistScenarioImageOrder(scenario);
+            }
+        }
+    }
+
     function renderScenarioImages(images, scenario) {
         const gridEl = document.getElementById('scenarioImagesGrid');
         if (!gridEl) return;
@@ -726,19 +1001,25 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        const canReorder = canReorderScenarioImages(scenario);
+
         gridEl.innerHTML = images.map(image => {
-            const imageUrl = image?.image_url || '';
-            const title = image?.title || '';
+            const imageUrl = escapeHtml(image?.image_url || '');
+            const title = escapeHtml(image?.title || '');
             const canDelete = canManageScenarioImage(image, scenario);
             const deleteButton = canDelete
                 ? `<button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteScenarioImage(${image.id}, ${scenario.id})"><i class="fas fa-trash"></i></button>`
                 : '';
+            const dragHandle = canReorder
+                ? `<span class="scenario-image-drag-handle" draggable="true" role="button" title="ドラッグで並び替え" aria-label="ドラッグで並び替え"><i class="fas fa-grip-vertical"></i></span>`
+                : '';
 
             return `
-                <div class="col-6 col-md-4">
+                <div class="col-6 col-md-4 scenario-image-item" data-scenario-image-id="${image.id}">
                     <div class="scenario-image-tile">
-                        <a href="${imageUrl}" target="_blank" rel="noopener noreferrer" class="d-block">
-                            <img src="${imageUrl}" alt="${title || 'シナリオ画像'}" class="img-fluid rounded scenario-image-thumb" loading="lazy">
+                        ${dragHandle}
+                        <a href="${imageUrl}" target="_blank" rel="noopener noreferrer" class="d-block" draggable="false">
+                            <img src="${imageUrl}" alt="${title || 'シナリオ画像'}" class="img-fluid rounded scenario-image-thumb" loading="lazy" draggable="false">
                         </a>
                         <div class="d-flex justify-content-between align-items-center gap-2 mt-2">
                             <small class="text-muted text-truncate" title="${title}">${title || '(無題)'}</small>
@@ -748,6 +1029,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
         }).join('');
+
+        initializeScenarioImageReorder(scenario);
     }
 
     async function loadScenarioImages(scenarioId) {
@@ -837,6 +1120,56 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await axios.get(`/api/scenarios/scenarios/${scenarioId}/`);
             const scenario = response.data;
             window.currentScenario = scenario;
+            const canReorderImages = canReorderScenarioImages(scenario);
+            scenarioImageScenarioId = scenario.id;
+            scenarioImageOrderCache = [];
+            scenarioImageReorderSaving = false;
+            scenarioImageSaveQueued = false;
+            scenarioImageDraggingItem = null;
+
+            const difficultyKey = normalizeDifficultyKey(scenario?.difficulty);
+            const safeAuthor = escapeHtml(scenario?.author || '不明');
+            const safeSystemLabel = escapeHtml(getSystemLabel(scenario?.game_system));
+            const safeDifficultyLabel = escapeHtml(getDifficultyLabel(difficultyKey));
+            const safeRecommendedPlayers = escapeHtml(scenario?.recommended_players || '指定なし');
+            const safeDurationLabel = escapeHtml(getDurationLabel(scenario?.estimated_duration));
+            const safeSummary = escapeHtml(scenario?.summary || 'なし');
+
+            const normalizedUrl = normalizeExternalUrl(scenario?.url);
+            const safeUrl = normalizedUrl ? escapeHtml(normalizedUrl) : '';
+
+            const playHistoryHtml = scenario.play_history && scenario.play_history.length > 0
+                ? scenario.play_history.map(play => {
+                    const safeGm = escapeHtml(play?.gm_detail?.nickname || play?.gm_detail?.username || '不明');
+                    const safePlayers = escapeHtml(play?.player_count);
+                    const safeDate = escapeHtml(new Date(play.play_date).toLocaleDateString('ja-JP'));
+                    return `
+                        <div class="play-history">
+                            <strong>${safeDate}</strong><br>
+                            GM: ${safeGm}<br>
+                            ${safePlayers}人参加
+                        </div>
+                    `;
+                }).join('')
+                : '<p class="text-muted">まだプレイされていません</p>';
+
+            const notesHtml = scenario.notes && scenario.notes.length > 0
+                ? `
+                    <h6 class="mt-4">GMメモ</h6>
+                    <div class="notes-section">
+                        ${scenario.notes.map(note => {
+                            const safeDate = escapeHtml(new Date(note.created_at).toLocaleDateString('ja-JP'));
+                            const safeContent = escapeHtmlWithLineBreaks(note.content);
+                            return `
+                                <div class="mb-2">
+                                    <small class="text-muted">${safeDate}</small><br>
+                                    ${safeContent}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `
+                : '';
             
             titleEl.textContent = scenario.title;
             bodyEl.innerHTML = `
@@ -846,19 +1179,19 @@ document.addEventListener('DOMContentLoaded', function() {
                         <table class="table table-sm">
                             <tr>
                                 <th style="width: 30%;">システム</th>
-                                <td>${getSystemLabel(scenario.game_system)}</td>
+                                <td>${safeSystemLabel}</td>
                             </tr>
                             <tr>
                                 <th>作者</th>
-                                <td>${scenario.author || '不明'}</td>
+                                <td>${safeAuthor}</td>
                             </tr>
                             <tr>
                                 <th>難易度</th>
-                                <td><span class="badge difficulty-badge difficulty-${scenario.difficulty}">${getDifficultyLabel(scenario.difficulty)}</span></td>
+                                <td><span class="badge difficulty-badge difficulty-${difficultyKey}">${safeDifficultyLabel}</span></td>
                             </tr>
                             <tr>
                                 <th>推奨人数</th>
-                                <td>${scenario.recommended_players || '指定なし'}</td>
+                                <td>${safeRecommendedPlayers}</td>
                             </tr>
                             <tr>
                                 <th>推奨技能</th>
@@ -866,7 +1199,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             </tr>
                             <tr>
                                 <th>想定時間</th>
-                                <td>${getDurationLabel(scenario.estimated_duration)}</td>
+                                <td>${safeDurationLabel}</td>
                             </tr>
                         </table>
                         
@@ -883,7 +1216,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         
                         <h6 class="mt-4">あらすじ</h6>
-                        <p>${scenario.summary || 'なし'}</p>
+                        <p>${safeSummary}</p>
 
                         <h6 class="mt-4"><i class="fas fa-images"></i> 画像</h6>
                         <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
@@ -894,41 +1227,27 @@ document.addEventListener('DOMContentLoaded', function() {
                                    multiple
                                    style="max-width: 320px;">
                             <button type="button"
-                                    class="btn btn-sm btn-info text-white"
-                                    id="uploadScenarioImagesBtn"
-                                    onclick="uploadScenarioImages(${scenario.id})">
+                                     class="btn btn-sm btn-info text-white"
+                                     id="uploadScenarioImagesBtn"
+                                     onclick="uploadScenarioImages(${scenario.id})">
                                 <i class="fas fa-upload"></i> アップロード
                             </button>
                             <small class="text-muted">最大10枚/1回</small>
                         </div>
+                        ${canReorderImages ? `
+                            <div class="text-muted small mb-2">
+                                <i class="fas fa-grip-vertical"></i> ドラッグ&ドロップで並び替え（自動保存）
+                            </div>
+                        ` : ''}
+                        <div id="scenarioImagesMessages"></div>
                         <div class="row g-2" id="scenarioImagesGrid"></div>
                         
-                        ${scenario.url ? `<p><a href="${scenario.url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fas fa-external-link-alt"></i> 参照URLを開く</a></p>` : ''}
+                        ${safeUrl ? `<p><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary"><i class="fas fa-external-link-alt"></i> 参照URLを開く</a></p>` : ''}
                     </div>
                     <div class="col-md-4">
                         <h6>プレイ履歴</h6>
-                        ${scenario.play_history && scenario.play_history.length > 0 ? 
-                            scenario.play_history.map(play => `
-                                <div class="play-history">
-                                    <strong>${new Date(play.play_date).toLocaleDateString('ja-JP')}</strong><br>
-                                    GM: ${play.gm_detail.nickname}<br>
-                                    ${play.player_count}人参加
-                                </div>
-                            `).join('') : 
-                            '<p class="text-muted">まだプレイされていません</p>'
-                        }
-                        
-                        ${scenario.notes && scenario.notes.length > 0 ? `
-                            <h6 class="mt-4">GMメモ</h6>
-                            <div class="notes-section">
-                                ${scenario.notes.map(note => `
-                                    <div class="mb-2">
-                                        <small class="text-muted">${new Date(note.created_at).toLocaleDateString('ja-JP')}</small><br>
-                                        ${note.content}
-                                    </div>
-                                `).join('')}
-                            </div>
-                        ` : ''}
+                        ${playHistoryHtml}
+                        ${notesHtml}
                         
                         <div class="mt-4">
                             <button class="btn btn-primary btn-sm w-100" onclick="createSessionFromScenario(${scenario.id})">

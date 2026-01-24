@@ -283,15 +283,32 @@
                         <div class="text-muted small">最大10枚/1回</div>
                     </div>
 
+                    {% if is_gm %}
+                        <div class="text-muted small mb-2">
+                            <i class="fas fa-grip-vertical"></i> ドラッグ&ドロップで並び替え（自動保存）
+                        </div>
+                    {% endif %}
+                    <div id="sessionImagesMessages"></div>
+
                     <div class="row g-3" id="sessionImagesGrid">
                         {% for image in session.images.all %}
-                            <div class="col-6 col-md-4">
+                            <div class="col-6 col-md-4 session-image-item" data-session-image-id="{{ image.id }}">
                                 <div class="session-image-tile">
-                                    <a href="{{ image.image.url }}" target="_blank" rel="noopener noreferrer" class="d-block">
+                                    {% if is_gm %}
+                                        <span class="session-image-drag-handle"
+                                              draggable="true"
+                                              role="button"
+                                              title="ドラッグで並び替え"
+                                              aria-label="ドラッグで並び替え">
+                                            <i class="fas fa-grip-vertical"></i>
+                                        </span>
+                                    {% endif %}
+                                    <a href="{{ image.image.url }}" target="_blank" rel="noopener noreferrer" class="d-block" draggable="false">
                                         <img src="{{ image.image.url }}"
                                              alt="{{ image.title|default:'セッション画像' }}"
                                              class="img-fluid rounded session-image-thumb"
-                                             loading="lazy">
+                                             loading="lazy"
+                                             draggable="false">
                                     </a>
                                     <div class="d-flex justify-content-between align-items-center gap-2 mt-2">
                                         <small class="text-muted text-truncate" title="{{ image.title|default:image.image.name }}">
@@ -1337,6 +1354,38 @@
     border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 0.5rem;
+    position: relative;
+}
+
+.session-image-item.dragging {
+    opacity: 0.6;
+}
+
+.session-image-drag-handle {
+    cursor: grab;
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    color: var(--text-muted);
+    background-color: var(--secondary-bg);
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 2;
+}
+
+.session-image-drag-handle:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-primary);
+}
+
+.session-image-drag-handle:active {
+    cursor: grabbing;
 }
 
 .session-image-thumb {
@@ -1597,6 +1646,10 @@ let youtubeLinkOrderCache = [];
 let youtubeLinkReorderSaving = false;
 let youtubeLinkDraggingItem = null;
 let youtubeLinkDraggingGroupKey = null;
+let sessionImageOrderCache = [];
+let sessionImageReorderSaving = false;
+let sessionImageDraggingItem = null;
+let sessionImageSaveQueued = false;
 
 const SESSION_EXISTING_MEMBER_IDS = new Set([
     {{ session.gm.id }},
@@ -2329,6 +2382,167 @@ function showYouTubeLinksMessage(message, type = 'info') {
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     `;
+}
+
+function showSessionImagesMessage(message, type = 'info') {
+    const container = document.getElementById('sessionImagesMessages');
+    if (!container) return;
+    const safeMessage = escapeHtml(message);
+    container.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${safeMessage}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+}
+
+function getSessionImageIdsInDomOrder() {
+    const grid = document.getElementById('sessionImagesGrid');
+    if (!grid) return [];
+    return Array.from(grid.querySelectorAll('.session-image-item[data-session-image-id]'))
+        .map(el => el.dataset.sessionImageId)
+        .filter(Boolean);
+}
+
+function isSameSessionImageOrder(nextOrder, prevOrder) {
+    if (!Array.isArray(nextOrder) || !Array.isArray(prevOrder)) return false;
+    if (nextOrder.length !== prevOrder.length) return false;
+    for (let i = 0; i < nextOrder.length; i++) {
+        if (String(nextOrder[i]) !== String(prevOrder[i])) return false;
+    }
+    return true;
+}
+
+function applySessionImageDomOrder(order) {
+    if (!Array.isArray(order) || order.length === 0) return;
+    const grid = document.getElementById('sessionImagesGrid');
+    if (!grid) return;
+
+    const items = Array.from(grid.querySelectorAll('.session-image-item[data-session-image-id]'));
+    if (items.length !== order.length) return;
+
+    const byId = new Map(items.map(item => [String(item.dataset.sessionImageId), item]));
+    for (const id of order) {
+        const el = byId.get(String(id));
+        if (!el) return;
+        grid.appendChild(el);
+    }
+}
+
+function getSessionImageInsertSide(rect, x, y) {
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const dx = x - centerX;
+    const dy = y - centerY;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+        return dx >= 0 ? 'after' : 'before';
+    }
+    return dy >= 0 ? 'after' : 'before';
+}
+
+function initializeSessionImageReorder() {
+    if (!IS_GM) return;
+    const grid = document.getElementById('sessionImagesGrid');
+    if (!grid) return;
+
+    grid.addEventListener('dragover', event => {
+        if (!sessionImageDraggingItem) return;
+        event.preventDefault();
+
+        const overItem = event.target?.closest?.('.session-image-item[data-session-image-id]');
+        if (!overItem || overItem === sessionImageDraggingItem) return;
+
+        const rect = overItem.getBoundingClientRect();
+        const side = getSessionImageInsertSide(rect, event.clientX, event.clientY);
+        if (side === 'after') {
+            const next = overItem.nextSibling;
+            if (next !== sessionImageDraggingItem) {
+                grid.insertBefore(sessionImageDraggingItem, next);
+            }
+        } else {
+            if (overItem !== sessionImageDraggingItem.nextSibling) {
+                grid.insertBefore(sessionImageDraggingItem, overItem);
+            }
+        }
+    });
+
+    grid.addEventListener('drop', event => {
+        if (!sessionImageDraggingItem) return;
+        event.preventDefault();
+    });
+
+    const handles = grid.querySelectorAll('.session-image-drag-handle[draggable="true"]');
+    handles.forEach(handle => {
+        handle.addEventListener('dragstart', event => {
+            const item = handle.closest('.session-image-item[data-session-image-id]');
+            const imageId = item?.dataset.sessionImageId;
+            if (!item || !imageId) {
+                event.preventDefault();
+                return;
+            }
+
+            sessionImageDraggingItem = item;
+            item.classList.add('dragging');
+
+            if (event.dataTransfer) {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', imageId);
+                try {
+                    event.dataTransfer.setDragImage(item, 24, 24);
+                } catch (e) {
+                    // ignore
+                }
+            }
+        });
+
+        handle.addEventListener('dragend', async () => {
+            if (sessionImageDraggingItem) {
+                sessionImageDraggingItem.classList.remove('dragging');
+            }
+
+            sessionImageDraggingItem = null;
+
+            await persistSessionImageOrder();
+        });
+    });
+
+    sessionImageOrderCache = getSessionImageIdsInDomOrder();
+}
+
+async function persistSessionImageOrder() {
+    if (!IS_GM) return;
+    const nextOrder = getSessionImageIdsInDomOrder();
+    if (nextOrder.length === 0) return;
+
+    if (sessionImageReorderSaving) {
+        sessionImageSaveQueued = true;
+        return;
+    }
+    if (isSameSessionImageOrder(nextOrder, sessionImageOrderCache)) return;
+
+    sessionImageReorderSaving = true;
+    showSessionImagesMessage('並び替えを保存中...', 'info');
+
+    try {
+        await axios.post('/api/schedules/session-images/reorder_bulk/', {
+            session_id: String(SESSION_ID),
+            ordered_ids: nextOrder,
+        });
+
+        sessionImageOrderCache = nextOrder;
+        showSessionImagesMessage('並び替えを保存しました', 'success');
+    } catch (error) {
+        const message = error.response?.data?.error || error.response?.data?.detail || error.message;
+        showSessionImagesMessage(`並び替えの保存に失敗しました: ${message}`, 'danger');
+        applySessionImageDomOrder(sessionImageOrderCache);
+    } finally {
+        sessionImageReorderSaving = false;
+
+        if (sessionImageSaveQueued) {
+            sessionImageSaveQueued = false;
+            await persistSessionImageOrder();
+        }
+    }
 }
 
 function buildYouTubeGroupKey(link) {
@@ -3790,6 +4004,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const uploadImagesBtn = document.getElementById('uploadSessionImagesBtn');
     if (uploadImagesBtn) uploadImagesBtn.addEventListener('click', uploadSessionImages);
+
+    const sessionImagesGrid = document.getElementById('sessionImagesGrid');
+    if (sessionImagesGrid) {
+        initializeSessionImageReorder();
+    }
 
     const notesLogsCard = document.getElementById('sessionNotesLogsCard');
     if (notesLogsCard) {

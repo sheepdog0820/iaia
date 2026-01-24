@@ -1,4 +1,5 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
+from django.db import transaction
 from django.db.models import Q, Count, Sum
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -186,6 +187,82 @@ class ScenarioImageViewSet(viewsets.ModelViewSet):
         image.save()
 
         return Response({'status': 'success', 'order': image.order})
+
+    @action(detail=False, methods=['post'])
+    def reorder_bulk(self, request):
+        """画像の表示順序をまとめて変更（シナリオ作成者のみ）"""
+        scenario_id = request.data.get('scenario_id')
+        ordered_ids = request.data.get('ordered_ids')
+
+        if not scenario_id:
+            return Response(
+                {'error': 'scenario_id is required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not isinstance(ordered_ids, list) or not ordered_ids:
+            return Response(
+                {'error': 'ordered_ids is required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            scenario_id_int = int(scenario_id)
+        except (TypeError, ValueError):
+            return Response(
+                {'error': 'scenario_id must be an integer'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            ordered_ids_int = [int(item) for item in ordered_ids]
+        except (TypeError, ValueError):
+            return Response(
+                {'error': 'ordered_ids must be a list of integers'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if len(set(ordered_ids_int)) != len(ordered_ids_int):
+            return Response(
+                {'error': 'ordered_ids must be unique'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        scenario = get_object_or_404(Scenario, id=scenario_id_int)
+        if scenario.created_by != request.user:
+            return Response(
+                {'error': 'Only scenario creator can reorder images'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        existing_ids = list(
+            ScenarioImage.objects.filter(scenario_id=scenario_id_int).values_list('id', flat=True)
+        )
+        if set(existing_ids) != set(ordered_ids_int):
+            return Response(
+                {'error': 'ordered_ids must include all images in the scenario'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        with transaction.atomic():
+            images = list(
+                ScenarioImage.objects.select_for_update().filter(
+                    scenario_id=scenario_id_int,
+                    id__in=ordered_ids_int,
+                )
+            )
+            if len(images) != len(ordered_ids_int):
+                return Response(
+                    {'error': 'Some images not found'},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            images_by_id = {image.id: image for image in images}
+            for index, image_id in enumerate(ordered_ids_int):
+                images_by_id[image_id].order = index + 1
+
+            ScenarioImage.objects.bulk_update(images, ['order'])
+
+        return Response({'status': 'success'})
 
 
 class ScenarioNoteViewSet(viewsets.ModelViewSet):
