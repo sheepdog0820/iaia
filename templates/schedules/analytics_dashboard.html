@@ -1,0 +1,386 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}タブレノ - セッション分析{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="eldritch-font text-center mb-1">
+                <i class="fas fa-chart-line"></i> Session Analytics
+            </h1>
+            <p class="text-center text-muted mb-0">参加率・人気時間帯・GM負荷・相性（共演回数）を可視化します</p>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-filter"></i> フィルター</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label" for="analyticsGroup">グループ</label>
+                            <select class="form-select" id="analyticsGroup">
+                                <option value="">すべて</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="analyticsStartDate">開始日</label>
+                            <input type="date" class="form-control" id="analyticsStartDate">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="analyticsEndDate">終了日</label>
+                            <input type="date" class="form-control" id="analyticsEndDate">
+                        </div>
+                        <div class="col-md-2 d-grid">
+                            <button class="btn btn-primary" id="applyAnalyticsBtn">
+                                <i class="fas fa-sync"></i> 更新
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-text mt-2">日程未定のセッションは分析対象外です（発生した日程＝Occurrenceベースで集計）。</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small">プレイ回数</div>
+                    <div class="fs-3 fw-bold" id="metricOccurrences">—</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small">総プレイ時間</div>
+                    <div class="fs-3 fw-bold" id="metricHours">—</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small">平均参加人数</div>
+                    <div class="fs-3 fw-bold" id="metricAvgParticipants">—</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small">平均参加率（グループ選択時）</div>
+                    <div class="fs-3 fw-bold" id="metricParticipationRate">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-clock"></i> 人気時間帯</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="popularHoursChart" height="140"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-area"></i> 推移（月別）</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="monthlyTrendChart" height="140"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-user-shield"></i> GM負荷</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>GM</th>
+                                    <th class="text-end">回数</th>
+                                    <th class="text-end">時間</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gmLoadBody">
+                                <tr><td colspan="3" class="text-muted">—</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-people-arrows"></i> 相性（共演回数 Top）</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>ペア</th>
+                                    <th class="text-end">回数</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pairsBody">
+                                <tr><td colspan="2" class="text-muted">—</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-users"></i> 参加状況</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>ユーザー</th>
+                                    <th class="text-end">参加回数</th>
+                                    <th class="text-end">参加率</th>
+                                </tr>
+                            </thead>
+                            <tbody id="membersBody">
+                                <tr><td colspan="3" class="text-muted">—</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const groupSelect = document.getElementById('analyticsGroup');
+    const startInput = document.getElementById('analyticsStartDate');
+    const endInput = document.getElementById('analyticsEndDate');
+    const applyBtn = document.getElementById('applyAnalyticsBtn');
+
+    const metricOccurrences = document.getElementById('metricOccurrences');
+    const metricHours = document.getElementById('metricHours');
+    const metricAvgParticipants = document.getElementById('metricAvgParticipants');
+    const metricParticipationRate = document.getElementById('metricParticipationRate');
+
+    const gmLoadBody = document.getElementById('gmLoadBody');
+    const pairsBody = document.getElementById('pairsBody');
+    const membersBody = document.getElementById('membersBody');
+
+    let popularHoursChart = null;
+    let monthlyTrendChart = null;
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text ?? '';
+        return div.innerHTML;
+    }
+
+    function toDateInputValue(d) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    async function loadGroups() {
+        try {
+            const response = await axios.get('/api/accounts/groups/');
+            const groups = response.data || [];
+            groupSelect.innerHTML = '<option value="">すべて</option>' +
+                groups.map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
+        } catch (error) {
+            console.error('Error loading groups:', error);
+        }
+    }
+
+    function renderPopularHours(data) {
+        const labels = data.map(row => `${row.hour}時`);
+        const counts = data.map(row => row.count);
+
+        const ctx = document.getElementById('popularHoursChart');
+        if (popularHoursChart) popularHoursChart.destroy();
+        popularHoursChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: '回数',
+                    data: counts,
+                    backgroundColor: 'rgba(220, 38, 127, 0.35)',
+                    borderColor: 'rgba(220, 38, 127, 0.9)',
+                    borderWidth: 1,
+                }],
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                },
+                plugins: {
+                    legend: { display: false },
+                },
+            },
+        });
+    }
+
+    function renderMonthlyTrend(trend) {
+        const labels = trend.map(row => row.month || '');
+        const occurrences = trend.map(row => row.occurrences);
+        const hours = trend.map(row => row.total_hours);
+
+        const ctx = document.getElementById('monthlyTrendChart');
+        if (monthlyTrendChart) monthlyTrendChart.destroy();
+        monthlyTrendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: '回数',
+                        data: occurrences,
+                        borderColor: 'rgba(59, 130, 246, 0.9)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                        tension: 0.25,
+                        yAxisID: 'y',
+                    },
+                    {
+                        label: '時間',
+                        data: hours,
+                        borderColor: 'rgba(16, 185, 129, 0.9)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                        tension: 0.25,
+                        yAxisID: 'y2',
+                    }
+                ],
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
+                    y2: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false } },
+                },
+            },
+        });
+    }
+
+    function renderGmLoad(rows) {
+        if (!rows || rows.length === 0) {
+            gmLoadBody.innerHTML = '<tr><td colspan="3" class="text-muted">データがありません</td></tr>';
+            return;
+        }
+        gmLoadBody.innerHTML = rows.map(r => `
+            <tr>
+                <td>${escapeHtml(r.gm_name)}</td>
+                <td class="text-end">${r.occurrences}</td>
+                <td class="text-end">${r.total_hours}</td>
+            </tr>
+        `).join('');
+    }
+
+    function renderPairs(rows) {
+        if (!rows || rows.length === 0) {
+            pairsBody.innerHTML = '<tr><td colspan="2" class="text-muted">データがありません</td></tr>';
+            return;
+        }
+        pairsBody.innerHTML = rows.slice(0, 15).map(r => `
+            <tr>
+                <td>${escapeHtml(r.user1_name)} × ${escapeHtml(r.user2_name)}</td>
+                <td class="text-end">${r.occurrences_together}</td>
+            </tr>
+        `).join('');
+    }
+
+    function renderMembers(rows) {
+        if (!rows || rows.length === 0) {
+            membersBody.innerHTML = '<tr><td colspan="3" class="text-muted">データがありません</td></tr>';
+            return;
+        }
+        membersBody.innerHTML = rows.slice(0, 30).map(r => `
+            <tr>
+                <td>${escapeHtml(r.name)}</td>
+                <td class="text-end">${r.occurrences}</td>
+                <td class="text-end">${r.participation_rate}%</td>
+            </tr>
+        `).join('');
+    }
+
+    async function loadDashboard() {
+        applyBtn.disabled = true;
+        try {
+            const params = new URLSearchParams();
+            const groupId = groupSelect.value;
+            if (groupId) params.set('group_id', groupId);
+            if (startInput.value) params.set('start_date', startInput.value);
+            if (endInput.value) params.set('end_date', endInput.value);
+
+            const response = await axios.get(`/api/schedules/analytics/dashboard/?${params.toString()}`);
+            const data = response.data;
+            const summary = data.summary || {};
+
+            metricOccurrences.textContent = summary.occurrences_count ?? '—';
+            metricHours.textContent = summary.total_hours !== undefined ? `${summary.total_hours}h` : '—';
+            metricAvgParticipants.textContent = summary.avg_participants !== undefined ? summary.avg_participants : '—';
+            metricParticipationRate.textContent = summary.avg_participation_rate !== null && summary.avg_participation_rate !== undefined
+                ? `${summary.avg_participation_rate}%`
+                : '—';
+
+            renderPopularHours(data.popular_hours || []);
+            renderMonthlyTrend(data.monthly_trend || []);
+            renderGmLoad(data.gm_load || []);
+            renderPairs(data.top_pairs || []);
+            renderMembers(data.member_participation || []);
+        } catch (error) {
+            console.error('Error loading analytics dashboard:', error);
+            alert('分析データの取得に失敗しました: ' + (error.response?.data?.error || error.message));
+        } finally {
+            applyBtn.disabled = false;
+        }
+    }
+
+    const now = new Date();
+    const start = new Date();
+    start.setDate(now.getDate() - 90);
+    startInput.value = toDateInputValue(start);
+    endInput.value = toDateInputValue(now);
+
+    applyBtn.addEventListener('click', loadDashboard);
+
+    void loadGroups().then(loadDashboard);
+});
+</script>
+{% endblock %}
+

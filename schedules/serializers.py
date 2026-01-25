@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import (
     TRPGSession,
+    SessionTemplate,
     SessionOccurrence,
     SessionParticipant,
     SessionInvitation,
@@ -409,6 +410,79 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
             attrs['duration_minutes'] = int(float(estimated_hours) * 60)
 
         return attrs
+
+
+class SessionTemplateSerializer(serializers.ModelSerializer):
+    group_name = serializers.CharField(source='group.name', read_only=True)
+    scenario_title = serializers.CharField(source='scenario.title', read_only=True)
+
+    class Meta:
+        model = SessionTemplate
+        fields = [
+            'id',
+            'name',
+            'title',
+            'description',
+            'location',
+            'youtube_url',
+            'duration_minutes',
+            'visibility',
+            'coc_edition',
+            'group',
+            'group_name',
+            'scenario',
+            'scenario_title',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'group_name',
+            'scenario_title',
+            'created_at',
+            'updated_at',
+        ]
+
+    def validate_name(self, name):
+        value = (name or '').strip()
+        if not value:
+            raise serializers.ValidationError('テンプレート名を入力してください')
+
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'id', None):
+            return value
+
+        qs = SessionTemplate.objects.filter(owner_id=user.id, name__iexact=value)
+        if self.instance:
+            qs = qs.exclude(id=self.instance.id)
+
+        if qs.exists():
+            raise serializers.ValidationError('同名のテンプレートが既に存在します')
+
+        return value
+
+    def validate_group(self, group):
+        if group is None:
+            return group
+
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user and not group.members.filter(id=user.id).exists():
+            raise serializers.ValidationError('グループのメンバーではありません')
+
+        return group
+
+    def validate_scenario(self, scenario):
+        if scenario is None:
+            return scenario
+
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user and scenario.created_by_id != user.id:
+            raise serializers.ValidationError('このシナリオはテンプレートに設定できません')
+
+        return scenario
 
 
 class SessionOccurrenceSerializer(serializers.ModelSerializer):

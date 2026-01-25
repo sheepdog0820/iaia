@@ -200,6 +200,58 @@ class TRPGSession(models.Model):
         ordering = ['-date']
 
 
+class SessionTemplate(models.Model):
+    """Frequently-used session settings to speed up creating a new TRPGSession."""
+
+    owner = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='session_templates',
+    )
+    name = models.CharField(max_length=100)
+    title = models.CharField(max_length=200, blank=True, default='')
+    description = models.TextField(blank=True, default='')
+    location = models.CharField(max_length=200, blank=True, default='')
+    youtube_url = models.URLField(blank=True, default='')
+    duration_minutes = models.PositiveIntegerField(default=0, help_text="セッション時間（分）")
+    visibility = models.CharField(
+        max_length=10,
+        choices=TRPGSession.VISIBILITY_CHOICES,
+        default='group',
+    )
+    coc_edition = models.CharField(
+        max_length=3,
+        choices=TRPGSession.COC_EDITION_CHOICES,
+        default='6th',
+        help_text="クトゥルフ神話TRPGの版（探索者作成で使用）",
+    )
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='session_templates',
+    )
+    scenario = models.ForeignKey(
+        'scenarios.Scenario',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='session_templates',
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name', 'id']
+        indexes = [
+            models.Index(fields=['owner', 'name']),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.owner.nickname or self.owner.username})"
+
+
 class SessionOccurrence(models.Model):
     """A scheduled occurrence of a session (allows multiple dates per TRPGSession)."""
 

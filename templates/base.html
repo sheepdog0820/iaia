@@ -107,6 +107,7 @@
                             <li><a class="dropdown-item" href="{% url 'profile_edit' %}"><i class="fas fa-user-edit"></i> プロフィール編集</a></li>
                             <li><a class="dropdown-item" href="{% url 'character_list' %}"><i class="fas fa-scroll"></i> キャラクター一覧</a></li>
                             <li><a class="dropdown-item" href="#" id="statistics-link"><i class="fas fa-chart-bar"></i> 統計</a></li>
+                            <li><a class="dropdown-item" href="{% url 'analytics_view' %}"><i class="fas fa-chart-line"></i> セッション分析</a></li>
                             <li><hr class="dropdown-divider"></li>
                             {% if debug %}
                             <li><a class="dropdown-item" href="{% url 'dev_login' %}" style="background-color: #fff3cd;">

@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}タブレノ - セッションテンプレート{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h1 class="eldritch-font mb-0">
+                <i class="fas fa-copy"></i> セッションテンプレート
+            </h1>
+            <button class="btn btn-primary" id="createTemplateBtn">
+                <i class="fas fa-plus"></i> 新規テンプレート
+            </button>
+        </div>
+        <div class="col-12 mt-2">
+            <small class="text-muted">
+                よく使う「場所 / 所要時間 / 告知文」などを登録して、セッション作成を短縮できます。
+            </small>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div id="templatesContainer">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="sessionTemplateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="templateModalTitle">テンプレート</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="sessionTemplateForm">
+                    <input type="hidden" id="templateId">
+
+                    <div class="mb-3">
+                        <label for="templateName" class="form-label">テンプレート名</label>
+                        <input type="text" class="form-control" id="templateName" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="templateGroup" class="form-label">デフォルトグループ（任意）</label>
+                        <select class="form-select" id="templateGroup">
+                            <option value="">未設定</option>
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="templateDuration" class="form-label">予定時間（分）</label>
+                            <input type="number" class="form-control" id="templateDuration" min="0" step="30">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="templateLocation" class="form-label">場所</label>
+                            <input type="text" class="form-control" id="templateLocation" placeholder="オンライン / 会場名">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="templateVisibility" class="form-label">公開設定</label>
+                            <select class="form-select" id="templateVisibility">
+                                <option value="group">グループ内のみ</option>
+                                <option value="public">全体に公開</option>
+                                <option value="private">プライベート</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="templateCocEdition" class="form-label">システム（クトゥルフ神話TRPG）</label>
+                            <select class="form-select" id="templateCocEdition">
+                                <option value="6th">6版</option>
+                                <option value="7th">7版</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="templateTitle" class="form-label">セッションタイトル（任意）</label>
+                        <input type="text" class="form-control" id="templateTitle" placeholder="未設定（作成時に入力）">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="templateDescription" class="form-label">告知文 / 説明</label>
+                        <textarea class="form-control" id="templateDescription" rows="4"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="templateYoutube" class="form-label">YouTube配信URL（任意）</label>
+                        <input type="url" class="form-control" id="templateYoutube" placeholder="https://youtube.com/...">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" id="saveTemplateBtn">
+                    <i class="fas fa-save"></i> 保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const templatesContainer = document.getElementById('templatesContainer');
+    const createBtn = document.getElementById('createTemplateBtn');
+    const modalEl = document.getElementById('sessionTemplateModal');
+    const modal = new bootstrap.Modal(modalEl);
+
+    const form = document.getElementById('sessionTemplateForm');
+    const templateIdInput = document.getElementById('templateId');
+    const templateNameInput = document.getElementById('templateName');
+    const templateTitleInput = document.getElementById('templateTitle');
+    const templateGroupSelect = document.getElementById('templateGroup');
+    const templateDurationInput = document.getElementById('templateDuration');
+    const templateLocationInput = document.getElementById('templateLocation');
+    const templateVisibilitySelect = document.getElementById('templateVisibility');
+    const templateCocEditionSelect = document.getElementById('templateCocEdition');
+    const templateDescriptionInput = document.getElementById('templateDescription');
+    const templateYoutubeInput = document.getElementById('templateYoutube');
+    const modalTitle = document.getElementById('templateModalTitle');
+    const saveBtn = document.getElementById('saveTemplateBtn');
+
+    let userGroups = [];
+    let templates = [];
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text ?? '';
+        return div.innerHTML;
+    }
+
+    function getVisibilityLabel(value) {
+        const map = {
+            private: 'プライベート',
+            group: 'グループ内',
+            public: '公開',
+        };
+        return map[value] || value || '—';
+    }
+
+    async function loadGroups() {
+        try {
+            const response = await axios.get('/api/accounts/groups/');
+            userGroups = response.data || [];
+            templateGroupSelect.innerHTML = '<option value="">未設定</option>' +
+                userGroups.map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
+        } catch (error) {
+            console.error('Error loading groups:', error);
+        }
+    }
+
+    async function loadTemplates() {
+        try {
+            const response = await axios.get('/api/schedules/session-templates/');
+            templates = response.data || [];
+            renderTemplates();
+        } catch (error) {
+            console.error('Error loading session templates:', error);
+            templatesContainer.innerHTML = '<div class="alert alert-danger">テンプレートの取得に失敗しました</div>';
+        }
+    }
+
+    function renderTemplates() {
+        if (!templates || templates.length === 0) {
+            templatesContainer.innerHTML = `
+                <div class="text-center py-4 text-muted">
+                    テンプレートがありません。「新規テンプレート」から作成できます。
+                </div>
+            `;
+            return;
+        }
+
+        templatesContainer.innerHTML = `
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>名前</th>
+                            <th>グループ</th>
+                            <th>場所</th>
+                            <th class="text-end">時間</th>
+                            <th>公開</th>
+                            <th class="text-end">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${templates.map(t => `
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">${escapeHtml(t.name)}</div>
+                                    ${t.title ? `<small class="text-muted">${escapeHtml(t.title)}</small>` : ''}
+                                </td>
+                                <td>${escapeHtml(t.group_name || '—')}</td>
+                                <td>${escapeHtml(t.location || '—')}</td>
+                                <td class="text-end">${t.duration_minutes ? `${t.duration_minutes}分` : '—'}</td>
+                                <td>${escapeHtml(getVisibilityLabel(t.visibility))}</td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary me-2" data-action="edit" data-id="${t.id}">
+                                        <i class="fas fa-pen"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${t.id}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        templatesContainer.querySelectorAll('button[data-action]').forEach(btn => {
+            btn.addEventListener('click', async (event) => {
+                const action = event.currentTarget.dataset.action;
+                const id = parseInt(event.currentTarget.dataset.id, 10);
+                const template = templates.find(t => t.id === id);
+
+                if (!template) return;
+
+                if (action === 'edit') {
+                    openModal(template);
+                    return;
+                }
+
+                if (action === 'delete') {
+                    if (!confirm(`テンプレート「${template.name}」を削除しますか？`)) return;
+                    try {
+                        await axios.delete(`/api/schedules/session-templates/${id}/`);
+                        await loadTemplates();
+                    } catch (error) {
+                        alert('削除に失敗しました: ' + (error.response?.data?.detail || error.message));
+                    }
+                }
+            });
+        });
+    }
+
+    function openModal(template) {
+        form.reset();
+
+        const isEdit = Boolean(template && template.id);
+        templateIdInput.value = isEdit ? template.id : '';
+        modalTitle.textContent = isEdit ? 'テンプレート編集' : '新規テンプレート';
+
+        templateNameInput.value = template?.name || '';
+        templateTitleInput.value = template?.title || '';
+        templateDurationInput.value = template?.duration_minutes ?? '';
+        templateLocationInput.value = template?.location || '';
+        templateVisibilitySelect.value = template?.visibility || 'group';
+        templateCocEditionSelect.value = template?.coc_edition || '6th';
+        templateDescriptionInput.value = template?.description || '';
+        templateYoutubeInput.value = template?.youtube_url || '';
+
+        if (templateGroupSelect) {
+            templateGroupSelect.value = template?.group || '';
+        }
+
+        modal.show();
+    }
+
+    async function submitTemplate() {
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const payload = {
+            name: templateNameInput.value,
+            title: templateTitleInput.value || '',
+            group: templateGroupSelect.value ? parseInt(templateGroupSelect.value, 10) : null,
+            duration_minutes: templateDurationInput.value ? parseInt(templateDurationInput.value, 10) : 0,
+            location: templateLocationInput.value || '',
+            visibility: templateVisibilitySelect.value,
+            coc_edition: templateCocEditionSelect.value,
+            description: templateDescriptionInput.value || '',
+            youtube_url: templateYoutubeInput.value || '',
+        };
+
+        const templateId = templateIdInput.value ? parseInt(templateIdInput.value, 10) : null;
+
+        saveBtn.disabled = true;
+        try {
+            if (templateId) {
+                await axios.patch(`/api/schedules/session-templates/${templateId}/`, payload);
+            } else {
+                await axios.post('/api/schedules/session-templates/', payload);
+            }
+            modal.hide();
+            await loadTemplates();
+        } catch (error) {
+            alert('保存に失敗しました: ' + (error.response?.data?.detail || error.message));
+        } finally {
+            saveBtn.disabled = false;
+        }
+    }
+
+    createBtn.addEventListener('click', () => openModal(null));
+    saveBtn.addEventListener('click', submitTemplate);
+
+    void loadGroups().then(loadTemplates);
+});
+</script>
+{% endblock %}

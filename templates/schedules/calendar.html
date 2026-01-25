@@ -114,6 +114,22 @@
                         </select>
                         <div class="form-text">GMが作成したセッションのみ表示されます。</div>
                     </div>
+
+                    <div class="mb-3">
+                        <label for="sessionTemplate" class="form-label">テンプレート（任意）</label>
+                        <div class="input-group">
+                            <select class="form-select" id="sessionTemplate">
+                                <option value="">テンプレートを選択...</option>
+                            </select>
+                            <a class="btn btn-outline-secondary" href="/api/schedules/session-templates/view/" target="_blank" rel="noopener">
+                                <i class="fas fa-list"></i> 管理
+                            </a>
+                            <button type="button" class="btn btn-outline-secondary" id="saveTemplateFromSession" title="現在の入力をテンプレートとして保存">
+                                <i class="fas fa-save"></i>
+                            </button>
+                        </div>
+                        <div class="form-text">選択すると入力欄に反映されます。</div>
+                    </div>
                     <div class="mb-3">
                         <label for="sessionTitle" class="form-label">セッションタイトル</label>
                         <input type="text" class="form-control" id="sessionTitle" required>
@@ -301,6 +317,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const calendarEl = document.getElementById('calendar');
     let calendar;
     let userGroups = [];
+    let sessionTemplates = [];
     let groupMembers = [];
     let selectedInvitees = new Set();
     const scenarioLinkKeys = {
@@ -338,6 +355,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!text) return '';
         if (text.length <= maxLength) return text;
         return text.slice(0, maxLength - 1) + '…';
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text ?? '';
+        return div.innerHTML;
     }
 
     function getStatusLabel(status) {
@@ -746,11 +769,63 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    async function loadSessionTemplates() {
+        const select = document.getElementById('sessionTemplate');
+        if (!select) return;
+
+        try {
+            const response = await axios.get('/api/schedules/session-templates/');
+            sessionTemplates = response.data || [];
+            select.innerHTML = '<option value="">テンプレートを選択...</option>' +
+                sessionTemplates.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+        } catch (error) {
+            console.error('Error loading session templates:', error);
+            sessionTemplates = [];
+            select.innerHTML = '<option value="">テンプレートの取得に失敗しました</option>';
+        }
+    }
+
+    function applySessionTemplate(template) {
+        if (!template) return;
+
+        const titleInput = document.getElementById('sessionTitle');
+        const durationInput = document.getElementById('sessionDuration');
+        const locationInput = document.getElementById('sessionLocation');
+        const groupSelect = document.getElementById('sessionGroup');
+        const descriptionInput = document.getElementById('sessionDescription');
+        const youtubeInput = document.getElementById('sessionYoutube');
+        const visibilitySelect = document.getElementById('sessionVisibility');
+        const cocEditionSelect = document.getElementById('sessionCocEdition');
+
+        if (titleInput) titleInput.value = template.title || '';
+        if (durationInput) durationInput.value = template.duration_minutes ?? '';
+        if (locationInput) locationInput.value = template.location || '';
+        if (descriptionInput) descriptionInput.value = template.description || '';
+        if (youtubeInput) youtubeInput.value = template.youtube_url || '';
+        if (visibilitySelect) visibilitySelect.value = template.visibility || 'group';
+        if (cocEditionSelect) cocEditionSelect.value = template.coc_edition || '6th';
+
+        if (groupSelect) {
+            groupSelect.value = template.group ? String(template.group) : '';
+            void loadGroupMembers(groupSelect.value);
+        }
+
+        if (template.scenario) {
+            applyScenarioToSessionForm({
+                id: template.scenario,
+                title: template.scenario_title || '',
+            });
+        } else {
+            applyScenarioToSessionForm(null);
+        }
+    }
+
     async function loadGroupMembers(groupId) {
         const container = document.getElementById('sessionInviteMembers');
         if (!container) return;
 
         if (!groupId) {
+            selectedInvitees.clear();
             container.innerHTML = '<span class="text-muted small">グループを選択してください</span>';
             return;
         }
@@ -856,6 +931,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         [
+            'sessionTemplate',
+            'saveTemplateFromSession',
             'sessionDuration',
             'sessionLocation',
             'sessionScenarioTitle',
@@ -986,11 +1063,13 @@ document.addEventListener('DOMContentLoaded', function() {
     initCalendar();
     loadUpcomingSessions();
     loadGroups();
+    loadSessionTemplates();
 
     const newSessionModalEl = document.getElementById('newSessionModal');
     newSessionModalEl?.addEventListener('show.bs.modal', () => {
         setCreateMode('new');
         loadScenarioLink();
+        loadSessionTemplates();
     });
 
     document.getElementById('clearSessionScenario')?.addEventListener('click', () => {
@@ -1009,6 +1088,45 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('sessionGroup').addEventListener('change', (event) => {
         loadGroupMembers(event.target.value);
+    });
+
+    document.getElementById('sessionTemplate')?.addEventListener('change', (event) => {
+        const templateId = parseInt(event.target.value, 10);
+        const template = sessionTemplates.find(t => t.id === templateId);
+        if (!template) return;
+        applySessionTemplate(template);
+    });
+
+    document.getElementById('saveTemplateFromSession')?.addEventListener('click', async () => {
+        if (getCreateMode() !== 'new') return;
+
+        const name = prompt('テンプレート名を入力してください');
+        if (!name) return;
+
+        const payload = {
+            name,
+            title: document.getElementById('sessionTitle')?.value || '',
+            duration_minutes: parseInt(document.getElementById('sessionDuration')?.value || '0', 10) || 0,
+            location: document.getElementById('sessionLocation')?.value || '',
+            group: document.getElementById('sessionGroup')?.value ? parseInt(document.getElementById('sessionGroup').value, 10) : null,
+            description: document.getElementById('sessionDescription')?.value || '',
+            youtube_url: document.getElementById('sessionYoutube')?.value || '',
+            visibility: document.getElementById('sessionVisibility')?.value || 'group',
+            coc_edition: document.getElementById('sessionCocEdition')?.value || '6th',
+        };
+
+        const scenarioId = document.getElementById('sessionScenarioId')?.value;
+        if (scenarioId) {
+            payload.scenario = parseInt(scenarioId, 10);
+        }
+
+        try {
+            await axios.post('/api/schedules/session-templates/', payload);
+            alert('テンプレートを保存しました');
+            await loadSessionTemplates();
+        } catch (error) {
+            alert('テンプレート保存に失敗しました: ' + (error.response?.data?.detail || error.message));
+        }
     });
 });
 </script>
