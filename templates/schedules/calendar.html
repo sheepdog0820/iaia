@@ -261,6 +261,36 @@
     background-color: rgba(220, 38, 127, 0.2);
     transform: translateX(5px);
 }
+
+.calendar-event-tooltip .tooltip-inner {
+    white-space: pre-line;
+    text-align: left;
+    max-width: 360px;
+    background-color: var(--secondary-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 0.75rem;
+}
+
+.calendar-event-tooltip.bs-tooltip-auto[data-popper-placement^="top"] .tooltip-arrow::before,
+.calendar-event-tooltip.bs-tooltip-top .tooltip-arrow::before {
+    border-top-color: var(--secondary-bg);
+}
+
+.calendar-event-tooltip.bs-tooltip-auto[data-popper-placement^="bottom"] .tooltip-arrow::before,
+.calendar-event-tooltip.bs-tooltip-bottom .tooltip-arrow::before {
+    border-bottom-color: var(--secondary-bg);
+}
+
+.calendar-event-tooltip.bs-tooltip-auto[data-popper-placement^="left"] .tooltip-arrow::before,
+.calendar-event-tooltip.bs-tooltip-start .tooltip-arrow::before {
+    border-left-color: var(--secondary-bg);
+}
+
+.calendar-event-tooltip.bs-tooltip-auto[data-popper-placement^="right"] .tooltip-arrow::before,
+.calendar-event-tooltip.bs-tooltip-end .tooltip-arrow::before {
+    border-right-color: var(--secondary-bg);
+}
 </style>
 {% endblock %}
 
@@ -301,6 +331,124 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (_) {
             // ignore storage errors
         }
+    }
+
+    function truncateText(value, maxLength) {
+        const text = String(value || '').trim();
+        if (!text) return '';
+        if (text.length <= maxLength) return text;
+        return text.slice(0, maxLength - 1) + '…';
+    }
+
+    function getStatusLabel(status) {
+        const map = {
+            planned: '予定',
+            ongoing: '進行中',
+            completed: '完了',
+            cancelled: 'キャンセル',
+        };
+        return map[status] || status || '';
+    }
+
+    function getVisibilityLabel(visibility) {
+        const map = {
+            private: 'プライベート',
+            group: 'グループ',
+            public: '公開',
+        };
+        return map[visibility] || visibility || '';
+    }
+
+    function getSessionTypeLabel(session) {
+        if (session?.is_gm || session?.type === 'gm') return 'GM';
+        if (session?.is_participant || session?.type === 'participant') return '参加';
+        if (session?.is_public_only || session?.type === 'public') return '公開';
+        return '';
+    }
+
+    function formatNameList(names, maxItems = 6) {
+        if (!Array.isArray(names)) return '';
+        const cleaned = names
+            .map(value => String(value || '').trim())
+            .filter(Boolean);
+        if (cleaned.length === 0) return '';
+
+        const shown = cleaned.slice(0, maxItems);
+        const suffix = cleaned.length > maxItems ? ` 他${cleaned.length - maxItems}人` : '';
+        return shown.join('、') + suffix;
+    }
+
+    function buildEventTooltipText(info) {
+        const session = info?.event?.extendedProps || {};
+        const title = info?.event?.title || session.title || '';
+        const typeLabel = getSessionTypeLabel(session);
+        const titleLine = typeLabel ? `【${typeLabel}】${title}` : title;
+
+        const startAt = info?.event?.start ? info.event.start : (session.date ? new Date(session.date) : null);
+        const startLine = startAt ? `日時: ${startAt.toLocaleString('ja-JP')}` : '';
+
+        const participantNames = Array.isArray(session.participant_names) ? session.participant_names : [];
+        const guestNames = Array.isArray(session.guest_names) ? session.guest_names : [];
+        const participantLabel = formatNameList(participantNames, 6);
+        const guestLabel = formatNameList(guestNames, 6);
+        const guestCount = Number.isFinite(Number(session.guest_count)) ? Number(session.guest_count) : 0;
+
+        const participantsLine = participantLabel ? `参加者: ${participantLabel}` : '';
+        const guestLine = guestLabel ? `ゲスト: ${guestLabel}` : (guestCount > 0 ? `ゲスト: ${guestCount}人` : '');
+
+        const lines = [
+            titleLine,
+            startLine,
+            session.gm_name ? `GM: ${session.gm_name}` : '',
+            participantsLine,
+            guestLine,
+            session.location ? `場所: ${session.location}` : '',
+            session.status ? `ステータス: ${getStatusLabel(session.status)}` : '',
+            session.visibility ? `公開範囲: ${getVisibilityLabel(session.visibility)}` : '',
+            session.content ? `メモ: ${truncateText(session.content, 80)}` : '',
+        ].filter(Boolean);
+
+        return lines.join('\n');
+    }
+
+    function attachEventTooltip(info) {
+        if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+
+        const el = info?.el;
+        if (!el) return;
+
+        // Dispose existing tooltip if any (defensive; FullCalendar may reuse DOM in some views).
+        if (el._calendarTooltip) {
+            try {
+                el._calendarTooltip.dispose();
+            } catch (_) {
+                // ignore
+            }
+            el._calendarTooltip = null;
+        }
+
+        const tooltipText = buildEventTooltipText(info);
+        if (!tooltipText) return;
+
+        el.setAttribute('title', tooltipText);
+        el._calendarTooltip = new bootstrap.Tooltip(el, {
+            title: tooltipText,
+            trigger: 'hover focus',
+            placement: 'top',
+            container: 'body',
+            customClass: 'calendar-event-tooltip',
+        });
+    }
+
+    function detachEventTooltip(info) {
+        const el = info?.el;
+        if (!el || !el._calendarTooltip) return;
+        try {
+            el._calendarTooltip.dispose();
+        } catch (_) {
+            // ignore
+        }
+        el._calendarTooltip = null;
     }
 
     function getScenarioLinkPayload() {
@@ -400,6 +548,8 @@ document.addEventListener('DOMContentLoaded', function() {
             events: fetchEvents,
             dateClick: handleDateClick,
             eventClick: handleEventClick,
+            eventDidMount: attachEventTooltip,
+            eventWillUnmount: detachEventTooltip,
             eventColor: '#161b22',
             height: 'auto'
         });
@@ -420,8 +570,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const showMyGames = document.getElementById('showMyGames').checked;
             const showJoined = document.getElementById('showJoined').checked;
             const showPublic = document.getElementById('showPublic').checked;
-            const currentUserId = parseInt('{{ user.id }}');
-            
             // フィルタリング
             const filteredEvents = response.data.filter(session => {
                 // セッションタイプに基づくフィルタリング
@@ -477,9 +625,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // イベントクリック処理
     function handleEventClick(info) {
-        // セッション詳細ページに遷移
+        // セッション詳細ページに遷移（どの開催日程をクリックしたか分かるように occurrence_id を渡す）
         const sessionId = info.event.extendedProps?.session_id || info.event.extendedProps?.id || info.event.id;
-        window.location.href = `/api/schedules/sessions/${sessionId}/detail/`;
+        const occurrenceId = info.event.extendedProps?.occurrence_id || info.event.id;
+        const query = occurrenceId ? `?occurrence_id=${encodeURIComponent(occurrenceId)}` : '';
+        window.location.href = `/api/schedules/sessions/${sessionId}/detail/${query}`;
     }
 
     function handleDateClick(info) {

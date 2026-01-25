@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import Group as CustomGroup
-from .models import TRPGSession, SessionSeries, SessionAvailability, DatePoll, DatePollOption, DatePollComment
+from .models import TRPGSession, SessionSeries, SessionAvailability, DatePoll, DatePollOption, DatePollComment, SessionOccurrence
 
 
 User = get_user_model()
@@ -570,3 +570,20 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertContains(response, 'data-testid="openDatePollBadge"')
+
+    def test_session_detail_highlights_selected_occurrence(self):
+        self.client.force_authenticate(user=self.member)
+
+        extra_occurrence = SessionOccurrence.objects.create(
+            session=self.session,
+            start_at=self.session.date + timedelta(days=1),
+            is_primary=False,
+        )
+
+        response = self.client.get(
+            f'/api/schedules/sessions/{self.session.id}/detail/?occurrence_id={extra_occurrence.id}',
+            HTTP_ACCEPT='text/html',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, f'id=\"occurrence-{extra_occurrence.id}\"')
+        self.assertContains(response, 'data-testid=\"selectedOccurrenceBadge\"')

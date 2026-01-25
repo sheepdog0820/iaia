@@ -79,6 +79,9 @@ class UINavigationTestCase(TestCase):
         self.assertContains(response, 'Chrono Abyss')
         # セッション詳細へのリンク確認
         self.assertContains(response, 'handleEventClick')
+        self.assertContains(response, 'occurrence_id=')
+        # イベントツールチップの導入確認
+        self.assertContains(response, 'calendar-event-tooltip')
 
     def test_sessions_page_navigation(self):
         """セッション一覧ページのナビゲーションテスト"""

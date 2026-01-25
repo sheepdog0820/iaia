@@ -81,16 +81,30 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6">
-                            <h6><i class="fas fa-calendar"></i> 開催日程</h6>
+                            <h6>
+                                <i class="fas fa-calendar"></i> 開催日程
+                                {% if selected_occurrence %}
+                                    <span class="badge bg-warning text-dark ms-2">
+                                        表示中: {{ selected_occurrence.start_at|date:"m/d H:i" }}
+                                    </span>
+                                {% endif %}
+                            </h6>
                             {% if occurrences %}
                                 <div class="mb-3" id="occurrencesList">
                                     {% for occ in occurrences %}
-                                        <div class="border rounded p-2 mb-2" style="background-color: var(--secondary-bg);">
+                                        <div
+                                            id="occurrence-{{ occ.id }}"
+                                            class="border rounded p-2 mb-2 occurrence-item{% if selected_occurrence_id == occ.id %} occurrence-item-selected{% endif %}"
+                                            style="background-color: var(--secondary-bg);"
+                                        >
                                             <div class="d-flex justify-content-between align-items-start">
                                                 <div>
                                                     <span class="fw-semibold">{{ occ.start_at|date:"Y年m月d日 H:i" }}</span>
                                                     {% if occ.is_primary %}
                                                         <span class="badge bg-secondary ms-2">代表</span>
+                                                    {% endif %}
+                                                    {% if selected_occurrence_id == occ.id %}
+                                                        <span class="badge bg-warning text-dark ms-2" data-testid="selectedOccurrenceBadge">表示中</span>
                                                     {% endif %}
                                                 </div>
                                                 {% if can_edit and not is_public_view %}
@@ -1360,6 +1374,31 @@
     color: white !important;
 }
 
+.occurrence-item {
+    scroll-margin-top: 96px;
+}
+
+.occurrence-item-selected {
+    border-color: var(--accent-warning) !important;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+}
+
+.occurrence-item-selected.occurrence-item-flash {
+    animation: occurrenceSelectedPulse 1.2s ease-out 0s 2;
+}
+
+@keyframes occurrenceSelectedPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+    }
+    50% {
+        box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.5);
+    }
+    100% {
+        box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.35);
+    }
+}
+
 .badge.fs-6 {
     font-size: 1rem !important;
     padding: 0.5em 0.75em;
@@ -1698,6 +1737,7 @@ const characterSheetMap = new Map();
 let groupMemberCharacters = new Map();
 let groupMemberNames = new Map();
 const SESSION_ID = {{ session.id }};
+const SELECTED_OCCURRENCE_ID = {% if selected_occurrence_id %}{{ selected_occurrence_id }}{% else %}null{% endif %};
 const GROUP_ID = {{ session.group.id }};
 const IS_GM = {% if is_gm %}true{% else %}false{% endif %};
 const CAN_INVITE = {% if can_invite %}true{% else %}false{% endif %};
@@ -4090,6 +4130,19 @@ window.sendSessionInvitations = async function() {
 
 document.addEventListener('DOMContentLoaded', () => {
     setupCopyPublicSessionLinkButton();
+
+    if (SELECTED_OCCURRENCE_ID) {
+        const selectedEl = document.getElementById(`occurrence-${SELECTED_OCCURRENCE_ID}`);
+        if (selectedEl) {
+            try {
+                selectedEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } catch (_) {
+                selectedEl.scrollIntoView();
+            }
+            selectedEl.classList.add('occurrence-item-flash');
+            window.setTimeout(() => selectedEl.classList.remove('occurrence-item-flash'), 2500);
+        }
+    }
 
     if (IS_PUBLIC_VIEW) return;
 

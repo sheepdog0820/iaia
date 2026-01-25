@@ -1,7 +1,7 @@
 import json
 from django.shortcuts import render, get_object_or_404
 from django.db import transaction
-from django.db.models import Q, Sum, Count, Case, When, Value, IntegerField, DateTimeField, F
+from django.db.models import Q, Sum, Count, Case, When, Value, IntegerField, DateTimeField, F, Prefetch
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -1285,12 +1285,28 @@ class CalendarView(APIView):
             SessionParticipant.objects.filter(user=request.user).values_list('session_id', flat=True)
         )
 
+        participant_prefetch = Prefetch(
+            'session__sessionparticipant_set',
+            queryset=SessionParticipant.objects.select_related('user').only(
+                'id',
+                'session_id',
+                'user_id',
+                'guest_name',
+                'role',
+                'player_slot',
+                'user__id',
+                'user__username',
+                'user__nickname',
+            ),
+        )
+
         occurrences = SessionOccurrence.objects.filter(
             session_id__in=visible_session_ids,
             start_at__range=[start_date, end_date],
-        ).select_related('session', 'session__gm', 'session__group').order_by('start_at', 'id')
+        ).select_related('session', 'session__gm', 'session__group').prefetch_related(participant_prefetch).order_by('start_at', 'id')
         
         # イベント形式に変換
+        attendee_names_by_session_id = {}
         events = []
         for occurrence in occurrences:
             session = occurrence.session
@@ -1306,6 +1322,26 @@ class CalendarView(APIView):
                 session_type = 'participant'
             else:
                 session_type = 'public'
+
+            attendee_summary = attendee_names_by_session_id.get(session.id)
+            if attendee_summary is None:
+                participant_names = set()
+                guest_names = set()
+                for participant in session.sessionparticipant_set.all():
+                    if getattr(participant, 'user_id', None):
+                        user = getattr(participant, 'user', None)
+                        if user is None:
+                            continue
+                        participant_names.add(user.nickname or user.username)
+                    else:
+                        guest_name = (getattr(participant, 'guest_name', '') or '').strip()
+                        if guest_name:
+                            guest_names.add(guest_name)
+
+                attendee_summary = (sorted(participant_names), sorted(guest_names))
+                attendee_names_by_session_id[session.id] = attendee_summary
+
+            participant_names, guest_names = attendee_summary
             
             event = {
                 'id': occurrence.id,
@@ -1320,6 +1356,10 @@ class CalendarView(APIView):
                 'gm_name': session.gm.nickname or session.gm.username,
                 'location': session.location or '',
                 'content': occurrence.content or '',
+                'participant_names': participant_names,
+                'guest_names': guest_names,
+                'participant_count': len(participant_names),
+                'guest_count': len(guest_names),
                 'is_gm': is_gm,
                 'is_participant': is_participant,
                 'is_public_only': is_public_only
@@ -1949,6 +1989,27 @@ class SessionStatisticsView(APIView):
         })
 
 
+def _get_selected_occurrence_from_request(request, occurrences):
+    try:
+        occurrence_id_raw = request.query_params.get('occurrence_id')
+    except AttributeError:
+        occurrence_id_raw = request.GET.get('occurrence_id')
+
+    if not occurrence_id_raw:
+        return None, None
+
+    try:
+        occurrence_id = int(occurrence_id_raw)
+    except (TypeError, ValueError):
+        return None, None
+
+    if occurrence_id <= 0:
+        return None, None
+
+    selected_occurrence = occurrences.filter(id=occurrence_id).first()
+    return selected_occurrence, selected_occurrence.id if selected_occurrence else None
+
+
 class SessionDetailView(APIView):
     permission_classes = [IsAuthenticated]
     
@@ -1998,6 +2059,11 @@ class SessionDetailView(APIView):
         guest_count = participants.filter(user__isnull=True).count()
 
         occurrences = session.occurrences.prefetch_related('participants').order_by('start_at', 'id')
+
+        selected_occurrence, selected_occurrence_id = _get_selected_occurrence_from_request(
+            request,
+            occurrences,
+        )
         
         # ハンドアウト情報（権限に応じて）
         if session.gm == user:
@@ -2053,6 +2119,8 @@ class SessionDetailView(APIView):
             'guest_count': guest_count,
             'open_date_poll': open_date_poll,
             'invitation_status_by_user_id_json': invitation_status_by_user_id_json,
+            'selected_occurrence': selected_occurrence,
+            'selected_occurrence_id': selected_occurrence_id,
         }
         
         return render(request, 'schedules/session_detail.html', context)
@@ -2126,6 +2194,11 @@ class PublicSessionDetailView(APIView):
 
         occurrences = session.occurrences.prefetch_related('participants').order_by('start_at', 'id')
 
+        selected_occurrence, selected_occurrence_id = _get_selected_occurrence_from_request(
+            request,
+            occurrences,
+        )
+
         public_session_url = request.build_absolute_uri(
             reverse('public_session_detail', kwargs={'share_token': session.share_token})
         )
@@ -2143,6 +2216,8 @@ class PublicSessionDetailView(APIView):
             'public_session_url': public_session_url,
             'is_public_view': True,
             'guest_count': guest_count,
+            'selected_occurrence': selected_occurrence,
+            'selected_occurrence_id': selected_occurrence_id,
         }
 
         return render(request, 'schedules/session_detail.html', context)

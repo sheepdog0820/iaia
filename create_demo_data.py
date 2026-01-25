@@ -212,7 +212,8 @@ def create_demo_data():
         if created:
             print(f"プレイ履歴 '{history.scenario.title}' を作成しました")
     
-    print("\n✅ デモデータの作成が完了しました！")
+    # NOTE: Avoid emoji here because Windows cp932 consoles may fail to encode them.
+    print("\n[OK] デモデータの作成が完了しました！")
     print(f"作成されたデータ:")
     print(f"- ユーザー: {User.objects.count()}人")
     print(f"- グループ: {CustomGroup.objects.count()}個")
@@ -226,5 +227,5 @@ if __name__ == '__main__':
     try:
         create_demo_data()
     except Exception as e:
-        print(f"❌ エラーが発生しました: {e}")
+        print(f"[ERROR] エラーが発生しました: {e}")
         sys.exit(1)

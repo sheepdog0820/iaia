@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import CustomUser, Group
-from schedules.models import TRPGSession, SessionOccurrence
+from schedules.models import TRPGSession, SessionOccurrence, SessionParticipant
 
 
 class SessionOccurrenceAPITestCase(APITestCase):
@@ -171,6 +171,16 @@ class SessionOccurrenceAPITestCase(APITestCase):
 
     def test_calendar_events_use_occurrence_id(self):
         self.client.force_authenticate(user=self.member_user)
+        SessionParticipant.objects.create(
+            session=self.session,
+            user=self.member_user,
+            role='player',
+        )
+        SessionParticipant.objects.create(
+            session=self.session,
+            guest_name='Guest Player',
+            role='player',
+        )
         start = (self.session.date - timedelta(days=1)).replace(microsecond=0)
         end = (self.session.date + timedelta(days=1)).replace(microsecond=0)
 
@@ -185,3 +195,5 @@ class SessionOccurrenceAPITestCase(APITestCase):
         self.assertIsNotNone(target)
         self.assertEqual(target.get('id'), self.primary_occurrence.id)
         self.assertEqual(target.get('occurrence_id'), self.primary_occurrence.id)
+        self.assertIn(self.member_user.nickname, target.get('participant_names', []))
+        self.assertIn('Guest Player', target.get('guest_names', []))
