@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}課金ユーザ限定{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-body text-center p-5">
+                    <h1 class="h4 mb-3">
+                        <i class="fas fa-lock text-warning"></i> 課金ユーザ限定
+                    </h1>
+                    <p class="text-muted mb-4">
+                        この画面は課金ユーザ（高権限ユーザ）のみ利用できます。
+                    </p>
+                    <p class="mb-4">
+                        課金機能はまだ未実装のため、利用したい場合は管理者がユーザーを課金ユーザに設定してください。
+                    </p>
+                    <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                        <a class="btn btn-primary" href="{% url 'dashboard' %}">
+                            <i class="fas fa-tachometer-alt"></i> ダッシュボードへ
+                        </a>
+                        <a class="btn btn-outline-secondary" href="{% url 'profile_edit' %}">
+                            <i class="fas fa-user-edit"></i> プロフィール
+                        </a>
+                    </div>
+                    <div class="mt-4 small text-muted">
+                        管理者向け: <code>python manage.py set_premium_user USERNAME_OR_EMAIL --on</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

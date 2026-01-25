@@ -26,6 +26,8 @@ class UINavigationTestCase(TestCase):
             password='testpass123',
             nickname='Test User'
         )
+        self.user.is_premium = True
+        self.user.save(update_fields=['is_premium'])
         
         # グループ作成
         self.group = Group.objects.create(

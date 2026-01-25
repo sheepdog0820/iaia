@@ -34,11 +34,13 @@
                             <i class="fas fa-scroll"></i> セッション
                         </a>
                     </li>
+                    {% if user.has_premium_access %}
                     <li class="nav-item">
                         <a class="nav-link" href="#" id="scenarios-link">
                             <i class="fas fa-book"></i> シナリオ
                         </a>
                     </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link" href="#" id="groups-link">
                             <i class="fas fa-users"></i> グループ

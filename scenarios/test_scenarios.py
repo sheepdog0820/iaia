@@ -295,3 +295,46 @@ class ScenarioAPITestCase(APITestCase):
             if len(data) > 0:
                 found_titles = [s['title'] for s in data]
                 self.assertTrue(any('Test' in title for title in found_titles))
+
+
+class ScenarioArchivePremiumAccessTestCase(TestCase):
+    def setUp(self):
+        self.password = 'pass123'
+        self.user = User.objects.create_user(
+            username='premiumtest',
+            email='premiumtest@example.com',
+            password=self.password,
+            nickname='Premium Test',
+        )
+
+    def test_archive_view_requires_premium(self):
+        self.client.login(username=self.user.username, password=self.password)
+        response = self.client.get('/api/scenarios/archive/view/')
+        self.assertEqual(response.status_code, 403)
+        self.assertContains(response, '課金ユーザ限定', status_code=403)
+
+    def test_archive_view_allows_premium(self):
+        self.user.is_premium = True
+        self.user.save(update_fields=['is_premium'])
+
+        self.client.login(username=self.user.username, password=self.password)
+        response = self.client.get('/api/scenarios/archive/view/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Mythos Archive')
+
+    def test_home_hides_scenario_links_for_non_premium(self):
+        self.client.login(username=self.user.username, password=self.password)
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'id=\"scenarios-link\"')
+        self.assertNotContains(response, 'id=\"add-scenario-btn\"')
+
+    def test_home_shows_scenario_links_for_premium(self):
+        self.user.is_premium = True
+        self.user.save(update_fields=['is_premium'])
+
+        self.client.login(username=self.user.username, password=self.password)
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id=\"scenarios-link\"')
+        self.assertContains(response, 'id=\"add-scenario-btn\"')

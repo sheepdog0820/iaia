@@ -6,6 +6,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import TemplateView
 from datetime import datetime
 from .models import Scenario, ScenarioNote, PlayHistory, ScenarioImage
 from .serializers import (
@@ -406,3 +408,20 @@ class PlayStatisticsView(APIView):
             'role_statistics': list(role_stats),
             'monthly_statistics': list(monthly_stats),
         })
+
+
+class PremiumOnlyTemplateView(LoginRequiredMixin, TemplateView):
+    """課金ユーザ（高権限ユーザ）向けの画面"""
+
+    premium_denied_template_name = 'accounts/premium_required.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and not getattr(request.user, 'has_premium_access', False):
+            return render(request, self.premium_denied_template_name, status=403)
+        return super().dispatch(request, *args, **kwargs)
+
+
+class ScenarioArchivePageView(PremiumOnlyTemplateView):
+    """シナリオAPI結果確認（アーカイブ画面）"""
+
+    template_name = 'scenarios/archive.html'

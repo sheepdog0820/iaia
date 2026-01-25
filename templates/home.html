@@ -73,9 +73,11 @@
                         <a class="btn btn-outline-info" id="join-session-btn" href="/api/schedules/sessions/view/" role="button">
                             <i class="fas fa-user-plus"></i> セッション参加
                         </a>
+                        {% if user.has_premium_access %}
                         <a class="btn btn-outline-success" id="add-scenario-btn" href="/api/scenarios/archive/view/" role="button">
                             <i class="fas fa-book"></i> シナリオ追加
                         </a>
+                        {% endif %}
                         <button class="btn btn-outline-warning" id="create-character-btn" data-bs-toggle="modal" data-bs-target="#characterCreationModal">
                             <i class="fas fa-eye"></i> 探索者作成
                         </button>

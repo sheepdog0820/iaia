@@ -11,17 +11,17 @@ from .character_models import (
 
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
-    list_display = ('username', 'email', 'nickname', 'first_name', 'last_name', 'is_staff')
-    list_filter = ('is_staff', 'is_superuser', 'is_active', 'date_joined')
+    list_display = ('username', 'email', 'nickname', 'first_name', 'last_name', 'is_premium', 'is_staff')
+    list_filter = ('is_premium', 'is_staff', 'is_superuser', 'is_active', 'date_joined')
     search_fields = ('username', 'first_name', 'last_name', 'email', 'nickname')
     ordering = ('username',)
     
     fieldsets = UserAdmin.fieldsets + (
-        ('追加情報', {'fields': ('nickname', 'trpg_history', 'profile_image')}),
+        ('追加情報', {'fields': ('nickname', 'trpg_history', 'profile_image', 'is_premium')}),
     )
     
     add_fieldsets = UserAdmin.add_fieldsets + (
-        ('追加情報', {'fields': ('nickname', 'trpg_history', 'profile_image')}),
+        ('追加情報', {'fields': ('nickname', 'trpg_history', 'profile_image', 'is_premium')}),
     )
 
 
