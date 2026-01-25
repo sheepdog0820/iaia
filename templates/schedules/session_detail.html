@@ -473,7 +473,7 @@
                             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                                 <div class="btn-group btn-group-sm" role="group" id="sessionNoteTypeFilters">
                                     <button type="button" class="btn btn-outline-primary active" data-note-type="all">全て</button>
-                                    {% if is_gm %}
+                                    {% if can_invite %}
                                         <button type="button" class="btn btn-outline-primary" data-note-type="gm_private">GMプライベート</button>
                                         <button type="button" class="btn btn-outline-primary" data-note-type="public_summary">公開サマリー</button>
                                         <button type="button" class="btn btn-outline-primary" data-note-type="handover">引き継ぎ</button>
@@ -1255,8 +1255,8 @@
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label for="sessionNoteType" class="form-label">種別</label>
-                        <select class="form-select" id="sessionNoteType" {% if not is_gm %}disabled{% endif %}>
-                            {% if is_gm %}
+                        <select class="form-select" id="sessionNoteType" {% if not can_invite %}disabled{% endif %}>
+                            {% if can_invite %}
                                 <option value="gm_private">GMプライベート</option>
                                 <option value="public_summary">公開サマリー</option>
                                 <option value="handover">引き継ぎ事項</option>
@@ -1266,7 +1266,7 @@
                                 <option value="player_note">プレイヤーノート</option>
                             {% endif %}
                         </select>
-                        {% if not is_gm %}
+                        {% if not can_invite %}
                             <div class="form-text">プレイヤーノートのみ作成できます（公開サマリー等はGMのみ）</div>
                         {% endif %}
                     </div>
@@ -1281,7 +1281,7 @@
                     <textarea class="form-control" id="sessionNoteContent" rows="8" placeholder="ここにノートを書きます" required></textarea>
                 </div>
 
-                {% if is_gm %}
+                {% if can_invite %}
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="sessionNotePinned">
                     <label class="form-check-label" for="sessionNotePinned">
@@ -3305,14 +3305,14 @@ function clearSessionLogModalMessage() {
 function canEditSessionNote(note) {
     const currentUserId = window.CURRENT_USER?.id;
     if (!currentUserId) return false;
-    if (IS_GM) return true;
+    if (CAN_INVITE) return true;
     return note?.note_type === 'player_note' && Number(note?.author) === Number(currentUserId);
 }
 
 function canEditSessionLog(log) {
     const currentUserId = window.CURRENT_USER?.id;
     if (!currentUserId) return false;
-    if (IS_GM) return true;
+    if (CAN_INVITE) return true;
     return Number(log?.created_by) === Number(currentUserId);
 }
 
@@ -3366,7 +3366,7 @@ function renderSessionNotes() {
         const safeAuthor = escapeHtml(note.author_detail?.nickname || note.author_detail?.username || '');
         const updatedAt = formatDateTimeDisplay(note.updated_at || note.created_at);
         const canEdit = canEditSessionNote(note);
-        const pinBtn = IS_GM
+        const pinBtn = CAN_INVITE
             ? `
                 <button type="button"
                         class="btn btn-sm btn-outline-${note.is_pinned ? 'warning' : 'secondary'}"
@@ -3563,7 +3563,7 @@ async function loadSessionLogs() {
 }
 
 function openSessionNoteModal(noteId = null) {
-    if (IS_PUBLIC_VIEW || (!IS_GM && !IS_PARTICIPANT)) return;
+    if (IS_PUBLIC_VIEW || (!CAN_INVITE && !IS_PARTICIPANT)) return;
 
     clearSessionNoteModalMessage();
 
@@ -3600,7 +3600,7 @@ function openSessionNoteModal(noteId = null) {
         if (titleLabelEl) titleLabelEl.innerHTML = '<i class="fas fa-sticky-note"></i> ノート追加';
         titleEl.value = '';
         contentEl.value = '';
-        const initialType = IS_GM && currentSessionNoteFilter !== 'all'
+        const initialType = CAN_INVITE && currentSessionNoteFilter !== 'all'
             ? currentSessionNoteFilter
             : 'player_note';
         typeEl.value = initialType;
@@ -3639,7 +3639,7 @@ async function saveSessionNote() {
         content,
     };
 
-    if (IS_GM) {
+    if (CAN_INVITE) {
         payload.note_type = noteType;
         payload.is_pinned = isPinned;
     }
@@ -3650,7 +3650,7 @@ async function saveSessionNote() {
             await axios.patch(`/api/schedules/notes/${encodeURIComponent(noteId)}/`, payload);
         } else {
             const createPayload = { ...payload };
-            if (IS_GM) {
+            if (CAN_INVITE) {
                 createPayload.note_type = noteType;
                 createPayload.is_pinned = isPinned;
             } else {
@@ -3674,7 +3674,7 @@ async function saveSessionNote() {
 }
 
 async function togglePinSessionNote(noteId) {
-    if (!IS_GM) return;
+    if (!CAN_INVITE) return;
     const note = sessionNoteMap.get(String(noteId));
     if (!note) return;
 
@@ -3709,7 +3709,7 @@ async function deleteSessionNote(noteId) {
 }
 
 function openSessionLogModal(logId = null) {
-    if (IS_PUBLIC_VIEW || (!IS_GM && !IS_PARTICIPANT)) return;
+    if (IS_PUBLIC_VIEW || (!CAN_INVITE && !IS_PARTICIPANT)) return;
 
     clearSessionLogModalMessage();
 

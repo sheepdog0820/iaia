@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 from django.utils import timezone
 from django.db.models import Q
 from rest_framework import status, viewsets
@@ -87,42 +88,68 @@ class SessionRewardViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def apply(self, request, pk=None):
-        reward = self.get_object()
-        session = reward.participant.session
+        base_reward = self.get_object()
+        session = base_reward.participant.session
         if not self._is_gm(session, request.user):
             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
-        character_sheet = reward.participant.character_sheet
-        if not character_sheet:
-            return Response({'error': 'character_sheet is not set for this participant'}, status=status.HTTP_400_BAD_REQUEST)
-
-        session_date = self._get_session_date(session)
-        scenario_name = session.scenario.title if session.scenario else session.title
-        gm_name = session.gm.nickname or session.gm.username
-
-        growth_record = reward.applied_growth_record
-        if growth_record:
-            growth_record.session_date = session_date
-            growth_record.scenario_name = scenario_name
-            growth_record.gm_name = gm_name
-            growth_record.experience_gained = reward.experience_points
-            growth_record.special_rewards = reward.special_rewards
-            growth_record.notes = reward.notes
-            growth_record.save()
-        else:
-            growth_record = GrowthRecord.objects.create(
-                character_sheet=character_sheet,
-                session_date=session_date,
-                scenario_name=scenario_name,
-                gm_name=gm_name,
-                experience_gained=reward.experience_points,
-                special_rewards=reward.special_rewards,
-                notes=reward.notes,
+        with transaction.atomic():
+            reward = (
+                SessionReward.objects.select_for_update()
+                .select_related(
+                    'participant',
+                    'participant__session',
+                    'participant__session__scenario',
+                    'participant__session__gm',
+                    'participant__character_sheet',
+                    'applied_growth_record',
+                )
+                .get(pk=base_reward.pk)
             )
-            reward.applied_growth_record = growth_record
+            session = reward.participant.session
 
-        reward.applied_at = timezone.now()
-        reward.save(update_fields=['applied_growth_record', 'applied_at', 'updated_at'])
+            character_sheet = reward.participant.character_sheet
+            if not character_sheet:
+                return Response(
+                    {'error': 'character_sheet is not set for this participant'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            session_date = self._get_session_date(session)
+            scenario_name = session.scenario.title if session.scenario else session.title
+            gm_name = session.gm.nickname or session.gm.username
+
+            growth_record = reward.applied_growth_record
+            if growth_record:
+                growth_record.session_date = session_date
+                growth_record.scenario_name = scenario_name
+                growth_record.gm_name = gm_name
+                growth_record.experience_gained = reward.experience_points
+                growth_record.special_rewards = reward.special_rewards
+                growth_record.notes = reward.notes
+                growth_record.save(update_fields=[
+                    'session_date',
+                    'scenario_name',
+                    'gm_name',
+                    'experience_gained',
+                    'special_rewards',
+                    'notes',
+                    'updated_at',
+                ])
+            else:
+                growth_record = GrowthRecord.objects.create(
+                    character_sheet=character_sheet,
+                    session_date=session_date,
+                    scenario_name=scenario_name,
+                    gm_name=gm_name,
+                    experience_gained=reward.experience_points,
+                    special_rewards=reward.special_rewards,
+                    notes=reward.notes,
+                )
+                reward.applied_growth_record = growth_record
+
+            reward.applied_at = timezone.now()
+            reward.save(update_fields=['applied_growth_record', 'applied_at', 'updated_at'])
 
         return Response(self.get_serializer(reward).data, status=status.HTTP_200_OK)
 
@@ -147,4 +174,3 @@ class SessionRewardViewSet(viewsets.ModelViewSet):
 
     def _is_gm(self, session, user):
         return session.gm == user or SessionParticipant.objects.filter(session=session, user=user, role='gm').exists()
-

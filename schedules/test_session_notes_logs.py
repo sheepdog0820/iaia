@@ -244,6 +244,12 @@ class SessionNotesLogsUITestCase(TestCase):
             password='pass1234',
             nickname='GM',
         )
+        self.co_gm = CustomUser.objects.create_user(
+            username='co_gm_user',
+            email='co_gm@example.com',
+            password='pass1234',
+            nickname='CoGM',
+        )
         self.player = CustomUser.objects.create_user(
             username='player1',
             email='player1@example.com',
@@ -255,7 +261,7 @@ class SessionNotesLogsUITestCase(TestCase):
             created_by=self.gm,
             visibility='private',
         )
-        self.group.members.add(self.gm, self.player)
+        self.group.members.add(self.gm, self.co_gm, self.player)
         self.session = TRPGSession.objects.create(
             title='UI Notes Logs Session',
             date=(timezone.now() + timedelta(days=1)).replace(microsecond=0),
@@ -265,6 +271,7 @@ class SessionNotesLogsUITestCase(TestCase):
             visibility='group',
         )
         SessionParticipant.objects.create(session=self.session, user=self.player, role='player')
+        SessionParticipant.objects.create(session=self.session, user=self.co_gm, role='gm')
 
     def test_session_detail_contains_notes_logs_ui_for_participant(self):
         self.client.login(username='player1', password='pass1234')
@@ -272,3 +279,11 @@ class SessionNotesLogsUITestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'セッションノート / ログ')
         self.assertContains(response, 'sessionNotesLogsCard')
+
+    def test_session_detail_allows_co_gm_notes_ui(self):
+        self.client.login(username='co_gm_user', password='pass1234')
+        response = self.client.get(f'/api/schedules/sessions/{self.session.id}/detail/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-note-type="gm_private"')
+        self.assertContains(response, 'value="gm_private"')
+        self.assertNotContains(response, 'id="sessionNoteType" disabled')
