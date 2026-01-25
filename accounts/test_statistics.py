@@ -233,6 +233,109 @@ class StatisticsViewsTestCase(APITestCase):
         self.assertEqual(group_data['member_count'], 2)
         self.assertEqual(group_data['session_count'], 5)  # 今年の5セッション
 
+    def test_group_statistics_participation_and_popular_scenarios(self):
+        """グループ統計の参加率/人気シナリオが返るか"""
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.get('/api/accounts/statistics/groups/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        group_data = data['groups'][0]
+
+        self.assertIn('member_contributions', group_data)
+        contributions = group_data['member_contributions']
+        self.assertEqual(len(contributions), 2)
+
+        for member in contributions:
+            self.assertIn('user_id', member)
+            self.assertIn('total_sessions', member)
+            self.assertIn('participation_rate', member)
+
+        rates = {c['user_id']: c['participation_rate'] for c in contributions}
+        self.assertEqual(rates[self.user1.id], 100.0)
+        self.assertEqual(rates[self.user2.id], 100.0)
+
+        self.assertIn('popular_scenarios', group_data)
+        popular_scenarios = group_data['popular_scenarios']
+        self.assertIsInstance(popular_scenarios, list)
+        self.assertGreater(len(popular_scenarios), 0)
+
+        top = popular_scenarios[0]
+        self.assertEqual(top['scenario__title'], 'Test Scenario')
+        self.assertEqual(top['session_count'], 5)
+        self.assertEqual(top['unique_players'], 2)
+
+    def test_user_ranking_month_period(self):
+        """期間別ランキング（月間）のテスト"""
+        self.client.force_authenticate(user=self.user1)
+        year = timezone.now().year
+
+        response = self.client.get(f'/api/accounts/statistics/ranking/?period=month&year={year}&month=6&type=sessions')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        self.assertEqual(data['period']['type'], 'month')
+        self.assertEqual(data['year'], year)
+        self.assertEqual(data['month'], 6)
+        self.assertIsInstance(data['ranking'], list)
+        self.assertGreater(len(data['ranking']), 0)
+
+    def test_user_ranking_all_period(self):
+        """期間別ランキング（全期間）のテスト"""
+        self.client.force_authenticate(user=self.user1)
+
+        response = self.client.get('/api/accounts/statistics/ranking/?period=all&type=hours&limit=10')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        self.assertEqual(data['period']['type'], 'all')
+        self.assertGreaterEqual(len(data['ranking']), 2)
+        self.assertEqual(data['ranking'][0]['user_id'], self.user1.id)
+
+    def test_user_ranking_category_system(self):
+        """カテゴリ別ランキング（システム別）のテスト"""
+        self.client.force_authenticate(user=self.user1)
+        year = timezone.now().year
+
+        response = self.client.get(f'/api/accounts/statistics/ranking/?year={year}&type=sessions&category=system')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        self.assertEqual(data['category'], 'system')
+        self.assertIn('category_rankings', data)
+
+        category_rankings = data['category_rankings']
+        self.assertTrue(any(item['system_code'] == 'coc' for item in category_rankings))
+
+    def test_user_ranking_category_scenario(self):
+        """カテゴリ別ランキング（シナリオ別）のテスト"""
+        self.client.force_authenticate(user=self.user1)
+        year = timezone.now().year
+
+        response = self.client.get(f'/api/accounts/statistics/ranking/?year={year}&type=hours&category=scenario')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        self.assertEqual(data['category'], 'scenario')
+        self.assertIn('category_rankings', data)
+        self.assertGreater(len(data['category_rankings']), 0)
+        self.assertEqual(data['category_rankings'][0]['scenario']['title'], 'Test Scenario')
+
+    def test_user_ranking_trends_monthly(self):
+        """ランキング推移（時系列）のテスト"""
+        self.client.force_authenticate(user=self.user1)
+        year = timezone.now().year
+
+        response = self.client.get(f'/api/accounts/statistics/ranking/?year={year}&type=sessions&trends=true&trend_unit=month&limit=5')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        self.assertEqual(data['trend_unit'], 'month')
+        self.assertIn('trends', data)
+        self.assertEqual(len(data['trends']), 12)
+        self.assertIn('label', data['trends'][0])
+        self.assertIn('ranking', data['trends'][0])
+
     def test_role_statistics(self):
         """役割別統計のテスト"""
         self.client.force_authenticate(user=self.user1)

@@ -2,6 +2,9 @@ from .views.common_imports import *
 from .utils.statistics import SessionStatistics, CharacterStatistics, GroupStatistics, TindalosMetrics
 from schedules.models import TRPGSession, SessionParticipant
 from scenarios.models import Scenario, PlayHistory
+from datetime import datetime, timedelta
+from calendar import monthrange
+from django.utils.dateparse import parse_date, parse_datetime
 from django.db.models.functions import TruncMonth, TruncYear
 from django.db.models import Max, Min
 
@@ -669,61 +672,487 @@ class UserRankingView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
-        year = int(request.query_params.get('year', timezone.now().year))
-        ranking_type = request.query_params.get('type', 'hours')  # hours, sessions, gm
-        
-        if ranking_type == 'hours':
-            ranking = self._get_hours_ranking(year)
-        elif ranking_type == 'sessions':
-            ranking = self._get_sessions_ranking(year)
-        elif ranking_type == 'gm':
-            ranking = self._get_gm_ranking(year)
-        else:
-            ranking = []
-        
-        # テスト用に修正された構造
-        users_data = []
-        for rank_data in ranking:
-            user_info = {
-                'user': {
-                    'id': rank_data['user_id'],
-                    'nickname': rank_data['nickname']
-                },
-                'total_play_time': rank_data.get('total_hours', 0) * 60,  # 分単位に変換
-                'session_count': rank_data.get('session_count', 0),
-                'gm_count': rank_data.get('gm_count', 0) if 'gm_count' in rank_data else rank_data.get('gm_sessions', 0)
-            }
-            users_data.append(user_info)
-        
-        # 現在のユーザーが含まれていない場合は追加
-        if not any(u['user']['id'] == request.user.id for u in users_data):
-            # 現在のユーザーの統計を取得
-            user_sessions = TRPGSession.objects.filter(
-                Q(participants=request.user) | Q(gm=request.user),
-                date__year=year,
-                status='completed'
-            ).distinct()
-            
-            total_minutes = user_sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
-            session_count = user_sessions.count()
-            gm_count = user_sessions.filter(gm=request.user).count()
-            
-            users_data.append({
-                'user': {
-                    'id': request.user.id,
-                    'nickname': request.user.nickname or request.user.username
-                },
-                'total_play_time': total_minutes,
-                'session_count': session_count,
-                'gm_count': gm_count
-            })
-        
-        return Response({
-            'year': year,
+        raw_type = request.query_params.get('type')
+        ranking_type = request.query_params.get('ranking_type') or raw_type or 'hours'  # hours, sessions, gm
+        category = request.query_params.get('category')  # system, scenario
+        game_system = request.query_params.get('game_system')
+        scenario_id = request.query_params.get('scenario_id') or request.query_params.get('scenario')
+        include_trends = request.query_params.get('trends', 'false').lower() == 'true'
+        trend_unit = request.query_params.get('trend_unit')
+
+        limit = self._parse_int(request.query_params.get('limit'), default=20, min_value=1, max_value=100)
+        category_items = self._parse_int(request.query_params.get('category_items'), default=10, min_value=1, max_value=50)
+        trend_periods = self._parse_int(request.query_params.get('trend_periods'), default=None, min_value=1, max_value=120)
+
+        try:
+            period = self._parse_period(request)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        base_sessions = self._get_completed_sessions(period['start_at'], period['end_at'])
+        filtered_sessions = self._filter_sessions_by_scenario(base_sessions, game_system=game_system, scenario_id=scenario_id)
+
+        if ranking_type not in {'hours', 'sessions', 'gm'}:
+            # /api/accounts/export/ などの data_type=ranking と衝突するケースに備えてフォールバック
+            if request.query_params.get('ranking_type') is None and raw_type in {'tindalos', 'ranking', 'groups'}:
+                ranking_type = 'hours'
+            else:
+                return Response({'error': 'Invalid ranking type'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ranking, user_stats = self._build_ranking(filtered_sessions, ranking_type, limit=limit)
+        users_data = self._build_users_data(ranking, user_stats, request.user)
+
+        response_data = {
+            'year': period.get('year', timezone.now().year),
+            'month': period.get('month'),
+            'period': {
+                'type': period['type'],
+                'start_date': period['start_at'].isoformat() if period['start_at'] else None,
+                'end_date': period['end_at'].isoformat() if period['end_at'] else None,
+            },
             'type': ranking_type,
             'ranking': ranking,
-            'users': users_data
-        })
+            'users': users_data,
+        }
+
+        if category in {'system', 'scenario'}:
+            response_data['category'] = category
+            response_data['category_rankings'] = self._build_category_rankings(
+                base_sessions,
+                ranking_type=ranking_type,
+                category=category,
+                limit=limit,
+                category_items=category_items,
+                game_system=game_system,
+                scenario_id=scenario_id,
+            )
+
+        if include_trends:
+            if trend_unit is None:
+                trend_unit = 'year' if period['type'] == 'all' else 'month'
+            if trend_unit not in {'month', 'year'}:
+                return Response({'error': 'Invalid trend_unit'}, status=status.HTTP_400_BAD_REQUEST)
+
+            response_data['trend_unit'] = trend_unit
+            response_data['trends'] = self._build_trends(
+                filtered_sessions,
+                ranking_type=ranking_type,
+                trend_unit=trend_unit,
+                limit=limit,
+                start_at=period['start_at'],
+                end_at=period['end_at'],
+                trend_periods=trend_periods,
+            )
+
+        return Response(response_data)
+
+    def _parse_int(self, value, default=None, min_value=None, max_value=None):
+        if value is None or value == '':
+            return default
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            raise ValueError(f'Invalid integer: {value}')
+        if min_value is not None and parsed < min_value:
+            return min_value
+        if max_value is not None and parsed > max_value:
+            return max_value
+        return parsed
+
+    def _parse_period(self, request):
+        period_type = request.query_params.get('period')
+        year = request.query_params.get('year')
+        month = request.query_params.get('month')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        now = timezone.now()
+        year_int = self._parse_int(year, default=now.year, min_value=1970, max_value=2100)
+        month_int = self._parse_int(month, default=now.month, min_value=1, max_value=12)
+
+        if (start_date or end_date) and period_type in {None, '', 'range'}:
+            period_type = 'range'
+        if period_type in {None, ''}:
+            period_type = 'year'
+
+        if period_type == 'all':
+            return {
+                'type': 'all',
+                'year': year_int,
+                'month': None,
+                'start_at': None,
+                'end_at': None,
+            }
+
+        tz = timezone.get_current_timezone()
+
+        if period_type == 'year':
+            start_at = timezone.make_aware(datetime(year_int, 1, 1, 0, 0, 0), tz)
+            end_at = timezone.make_aware(datetime(year_int, 12, 31, 23, 59, 59, 999999), tz)
+            return {
+                'type': 'year',
+                'year': year_int,
+                'month': None,
+                'start_at': start_at,
+                'end_at': end_at,
+            }
+
+        if period_type == 'month':
+            last_day = monthrange(year_int, month_int)[1]
+            start_at = timezone.make_aware(datetime(year_int, month_int, 1, 0, 0, 0), tz)
+            end_at = timezone.make_aware(datetime(year_int, month_int, last_day, 23, 59, 59, 999999), tz)
+            return {
+                'type': 'month',
+                'year': year_int,
+                'month': month_int,
+                'start_at': start_at,
+                'end_at': end_at,
+            }
+
+        if period_type != 'range':
+            raise ValueError('Invalid period')
+
+        if not start_date or not end_date:
+            raise ValueError('start_date and end_date are required for period=range')
+
+        start_at = parse_datetime(start_date) or (
+            datetime.combine(parse_date(start_date) or None, datetime.min.time()) if parse_date(start_date) else None
+        )
+        end_at = parse_datetime(end_date) or (
+            datetime.combine(parse_date(end_date) or None, datetime.max.time()) if parse_date(end_date) else None
+        )
+
+        if start_at is None or end_at is None:
+            raise ValueError('Invalid start_date/end_date format')
+
+        if timezone.is_naive(start_at):
+            start_at = timezone.make_aware(start_at, tz)
+        if timezone.is_naive(end_at):
+            end_at = timezone.make_aware(end_at, tz)
+
+        if start_at > end_at:
+            raise ValueError('start_date must be <= end_date')
+
+        return {
+            'type': 'range',
+            'year': year_int,
+            'month': None,
+            'start_at': start_at,
+            'end_at': end_at,
+        }
+
+    def _get_completed_sessions(self, start_at, end_at):
+        sessions = TRPGSession.objects.filter(status='completed', date__isnull=False)
+        if start_at:
+            sessions = sessions.filter(date__gte=start_at)
+        if end_at:
+            sessions = sessions.filter(date__lte=end_at)
+        return sessions
+
+    def _filter_sessions_by_scenario(self, sessions, game_system=None, scenario_id=None):
+        if not game_system and not scenario_id:
+            return sessions
+
+        play_history = PlayHistory.objects.filter(session__in=sessions, scenario__isnull=False)
+        if game_system:
+            play_history = play_history.filter(scenario__game_system=game_system)
+        if scenario_id:
+            play_history = play_history.filter(scenario_id=scenario_id)
+
+        session_ids = play_history.values_list('session_id', flat=True).distinct()
+        return sessions.filter(id__in=session_ids)
+
+    def _aggregate_user_stats(self, sessions):
+        """セッション集合からユーザー別統計を集計"""
+        stats = {}
+
+        gm_rows = sessions.values('gm_id').annotate(
+            gm_sessions=Count('id'),
+            gm_minutes=Sum('duration_minutes'),
+        )
+        for row in gm_rows:
+            user_id = row['gm_id']
+            data = stats.setdefault(user_id, {
+                'gm_sessions': 0,
+                'gm_minutes': 0,
+                'player_sessions': 0,
+                'player_minutes': 0,
+            })
+            data['gm_sessions'] += row['gm_sessions'] or 0
+            data['gm_minutes'] += row['gm_minutes'] or 0
+
+        player_rows = SessionParticipant.objects.filter(
+            session__in=sessions,
+            role='player',
+            user_id__isnull=False,
+        ).values('user_id').annotate(
+            player_sessions=Count('session', distinct=True),
+            player_minutes=Sum('session__duration_minutes'),
+        )
+        for row in player_rows:
+            user_id = row['user_id']
+            data = stats.setdefault(user_id, {
+                'gm_sessions': 0,
+                'gm_minutes': 0,
+                'player_sessions': 0,
+                'player_minutes': 0,
+            })
+            data['player_sessions'] += row['player_sessions'] or 0
+            data['player_minutes'] += row['player_minutes'] or 0
+
+        for data in stats.values():
+            data['session_count'] = data['gm_sessions'] + data['player_sessions']
+            data['total_minutes'] = data['gm_minutes'] + data['player_minutes']
+
+        return stats
+
+    def _build_ranking(self, sessions, ranking_type, limit=20):
+        user_stats = self._aggregate_user_stats(sessions)
+        if not user_stats:
+            return [], {}
+
+        user_ids = list(user_stats.keys())
+        users = CustomUser.objects.filter(id__in=user_ids).values('id', 'nickname', 'username')
+        name_map = {u['id']: (u['nickname'] or u['username']) for u in users}
+
+        def sort_key(item):
+            user_id, data = item
+            if ranking_type == 'hours':
+                primary = data['total_minutes']
+                secondary = data['session_count']
+            elif ranking_type == 'sessions':
+                primary = data['session_count']
+                secondary = data['total_minutes']
+            else:  # gm
+                primary = data['gm_sessions']
+                secondary = data['gm_minutes']
+            return (-primary, -secondary, user_id)
+
+        sorted_items = sorted(user_stats.items(), key=sort_key)[:limit]
+
+        ranking = []
+        for rank, (user_id, data) in enumerate(sorted_items, start=1):
+            nickname = name_map.get(user_id)
+            if ranking_type == 'hours':
+                ranking.append({
+                    'rank': rank,
+                    'user_id': user_id,
+                    'nickname': nickname,
+                    'total_hours': round((data['total_minutes'] or 0) / 60, 1),
+                    'session_count': data['session_count'],
+                    'gm_count': data['gm_sessions'],
+                })
+            elif ranking_type == 'sessions':
+                ranking.append({
+                    'rank': rank,
+                    'user_id': user_id,
+                    'nickname': nickname,
+                    'session_count': data['session_count'],
+                    'total_hours': round((data['total_minutes'] or 0) / 60, 1),
+                    'gm_count': data['gm_sessions'],
+                })
+            else:  # gm
+                ranking.append({
+                    'rank': rank,
+                    'user_id': user_id,
+                    'nickname': nickname,
+                    'gm_count': data['gm_sessions'],
+                    'gm_hours': round((data['gm_minutes'] or 0) / 60, 1),
+                })
+
+        return ranking, user_stats
+
+    def _build_users_data(self, ranking, user_stats, current_user):
+        ranked_ids = [item['user_id'] for item in ranking]
+        users_data = []
+
+        for item in ranking:
+            user_id = item['user_id']
+            stats = user_stats.get(user_id, {})
+            users_data.append({
+                'user': {
+                    'id': user_id,
+                    'nickname': item.get('nickname'),
+                },
+                'total_play_time': stats.get('total_minutes', 0),
+                'session_count': stats.get('session_count', 0),
+                'gm_count': stats.get('gm_sessions', 0),
+            })
+
+        if current_user.id not in ranked_ids:
+            stats = user_stats.get(current_user.id, {
+                'total_minutes': 0,
+                'session_count': 0,
+                'gm_sessions': 0,
+            })
+            users_data.append({
+                'user': {
+                    'id': current_user.id,
+                    'nickname': current_user.nickname or current_user.username,
+                },
+                'total_play_time': stats.get('total_minutes', 0),
+                'session_count': stats.get('session_count', 0),
+                'gm_count': stats.get('gm_sessions', 0),
+            })
+
+        return users_data
+
+    def _build_category_rankings(
+        self,
+        base_sessions,
+        ranking_type,
+        category,
+        limit,
+        category_items,
+        game_system=None,
+        scenario_id=None,
+    ):
+        if category == 'system':
+            systems = [(game_system, dict(Scenario.GAME_SYSTEM_CHOICES).get(game_system, game_system))] if game_system else Scenario.GAME_SYSTEM_CHOICES
+            result = []
+            for system_code, system_name in systems:
+                sessions = self._filter_sessions_by_scenario(base_sessions, game_system=system_code, scenario_id=None)
+                ranking, _ = self._build_ranking(sessions, ranking_type, limit=limit)
+                if ranking:
+                    result.append({
+                        'system_code': system_code,
+                        'system_name': system_name,
+                        'ranking': ranking,
+                    })
+            return result
+
+        if category == 'scenario':
+            if scenario_id:
+                scenarios = Scenario.objects.filter(id=scenario_id).values('id', 'title', 'game_system', 'difficulty')
+            else:
+                history = PlayHistory.objects.filter(
+                    session__in=base_sessions,
+                    scenario__isnull=False,
+                )
+                if game_system:
+                    history = history.filter(scenario__game_system=game_system)
+
+                top = history.values(
+                    'scenario_id',
+                    'scenario__title',
+                    'scenario__game_system',
+                    'scenario__difficulty',
+                ).annotate(
+                    session_count=Count('session', distinct=True),
+                    last_played=Max('played_date'),
+                ).order_by('-session_count', '-last_played')[:category_items]
+                scenarios = [
+                    {
+                        'id': row['scenario_id'],
+                        'title': row['scenario__title'],
+                        'game_system': row['scenario__game_system'],
+                        'difficulty': row['scenario__difficulty'],
+                    }
+                    for row in top
+                ]
+
+            result = []
+            for scenario in scenarios:
+                sessions = self._filter_sessions_by_scenario(base_sessions, scenario_id=scenario['id'], game_system=None)
+                ranking, _ = self._build_ranking(sessions, ranking_type, limit=limit)
+                if ranking:
+                    result.append({
+                        'scenario': {
+                            'id': scenario['id'],
+                            'title': scenario['title'],
+                            'game_system': scenario['game_system'],
+                            'game_system_display': dict(Scenario.GAME_SYSTEM_CHOICES).get(scenario['game_system'], scenario['game_system']),
+                            'difficulty': scenario['difficulty'],
+                        },
+                        'ranking': ranking,
+                    })
+            return result
+
+        return []
+
+    def _build_trends(self, sessions, ranking_type, trend_unit, limit, start_at, end_at, trend_periods=None):
+        if start_at and end_at:
+            trend_start = start_at
+            trend_end = end_at
+        else:
+            # 全期間の場合は直近N期間のみ返す（デフォルト: month=12, year=5）
+            now = timezone.now()
+            trend_end = now
+            if trend_periods is None:
+                trend_periods = 12 if trend_unit == 'month' else 5
+            trend_start = self._shift_period(trend_end, trend_unit, -(trend_periods - 1))
+
+        if trend_unit == 'month':
+            buckets = self._iter_month_buckets(trend_start, trend_end)
+        else:
+            buckets = self._iter_year_buckets(trend_start, trend_end)
+
+        result = []
+        for bucket in buckets:
+            bucket_sessions = sessions.filter(date__gte=bucket['start_at'], date__lte=bucket['end_at'])
+            ranking, _ = self._build_ranking(bucket_sessions, ranking_type, limit=limit)
+            result.append({
+                'label': bucket['label'],
+                'start_date': bucket['start_at'].isoformat(),
+                'end_date': bucket['end_at'].isoformat(),
+                'ranking': ranking,
+            })
+
+        return result
+
+    def _shift_period(self, dt, unit, offset):
+        tz = timezone.get_current_timezone()
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt, tz)
+
+        if unit == 'year':
+            year = dt.year + offset
+            return dt.replace(year=year)
+
+        month = dt.month + offset
+        year = dt.year + (month - 1) // 12
+        month = (month - 1) % 12 + 1
+        day = min(dt.day, monthrange(year, month)[1])
+        return dt.replace(year=year, month=month, day=day)
+
+    def _iter_month_buckets(self, start_at, end_at):
+        tz = timezone.get_current_timezone()
+        cursor = start_at.astimezone(tz).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_cursor = end_at.astimezone(tz)
+
+        while cursor <= end_cursor:
+            last_day = monthrange(cursor.year, cursor.month)[1]
+            month_start = cursor
+            month_end = cursor.replace(day=last_day, hour=23, minute=59, second=59, microsecond=999999)
+
+            bucket_start = max(month_start, start_at)
+            bucket_end = min(month_end, end_at)
+
+            yield {
+                'label': f"{cursor.year}-{cursor.month:02d}",
+                'start_at': bucket_start,
+                'end_at': bucket_end,
+            }
+
+            cursor = self._shift_period(cursor, 'month', 1)
+
+    def _iter_year_buckets(self, start_at, end_at):
+        tz = timezone.get_current_timezone()
+        cursor_year = start_at.astimezone(tz).year
+        end_year = end_at.astimezone(tz).year
+
+        for year in range(cursor_year, end_year + 1):
+            year_start = timezone.make_aware(datetime(year, 1, 1, 0, 0, 0), tz)
+            year_end = timezone.make_aware(datetime(year, 12, 31, 23, 59, 59, 999999), tz)
+
+            bucket_start = max(year_start, start_at)
+            bucket_end = min(year_end, end_at)
+
+            yield {
+                'label': str(year),
+                'start_at': bucket_start,
+                'end_at': bucket_end,
+            }
     
     def _get_hours_ranking(self, year):
         """プレイ時間ランキング"""
@@ -835,6 +1264,7 @@ class GroupStatisticsView(APIView):
                 'top_gm': stats.get('top_gm'),
                 'top_gm_sessions': stats.get('top_gm_sessions', 0),
                 'member_contributions': stats.get('member_contributions', []),
+                'popular_scenarios': stats.get('popular_scenarios', []),
             }
             groups_data.append(group_info)
         
@@ -868,7 +1298,8 @@ class GroupStatisticsView(APIView):
             gm_count=Count('id')
         ).order_by('-gm_count').first()
 
-        member_contributions = self._get_member_contributions(group, sessions)
+        member_contributions = self._get_member_contributions(group, sessions, session_count=session_count)
+        popular_scenarios = self._get_group_popular_scenarios(sessions)
 
         return {
             'group_id': group.id,
@@ -881,15 +1312,53 @@ class GroupStatisticsView(APIView):
             'top_gm': (top_gm['gm__nickname'] or top_gm['gm__username']) if top_gm else None,
             'top_gm_sessions': top_gm['gm_count'] if top_gm else 0,
             'member_contributions': member_contributions,
+            'popular_scenarios': popular_scenarios,
         }
 
-    def _get_member_contributions(self, group, sessions):
+    def _get_group_popular_scenarios(self, sessions):
+        """グループ内の人気シナリオランキング"""
+        if not sessions.exists():
+            return []
+
+        popular_scenarios = PlayHistory.objects.filter(
+            session__in=sessions,
+            scenario__isnull=False,
+        ).values(
+            'scenario__id',
+            'scenario__title',
+            'scenario__game_system',
+            'scenario__difficulty',
+        ).annotate(
+            session_count=Count('session', distinct=True),
+            unique_players=Count('user', distinct=True),
+            last_played=Max('played_date'),
+        ).order_by('-session_count', '-last_played')[:10]
+
+        for scenario in popular_scenarios:
+            system_code = scenario['scenario__game_system']
+            scenario['game_system_display'] = dict(Scenario.GAME_SYSTEM_CHOICES).get(system_code, system_code)
+
+        return list(popular_scenarios)
+
+    def _get_member_contributions(self, group, sessions, session_count=0):
         """メンバー別の貢献度（GM/PL回数とプレイ時間）"""
         if not sessions.exists():
             return []
 
         member_ids = set(group.members.values_list('id', flat=True))
-        contributions = {}
+        contributions = {
+            user_id: {
+                'user_id': user_id,
+                'nickname': None,
+                'gm_sessions': 0,
+                'player_sessions': 0,
+                'total_sessions': 0,
+                'participation_rate': 0,
+                'total_play_minutes': 0,
+                'total_play_hours': 0,
+            }
+            for user_id in member_ids
+        }
 
         gm_stats = sessions.values('gm_id').annotate(
             session_count=Count('id'),
@@ -899,15 +1368,7 @@ class GroupStatisticsView(APIView):
             user_id = gm_stat['gm_id']
             if user_id not in member_ids:
                 continue
-            data = contributions.setdefault(user_id, {
-                'user_id': user_id,
-                'nickname': None,
-                'gm_sessions': 0,
-                'player_sessions': 0,
-                'total_sessions': 0,
-                'total_play_minutes': 0,
-                'total_play_hours': 0,
-            })
+            data = contributions[user_id]
             gm_sessions = gm_stat['session_count'] or 0
             gm_minutes = gm_stat['total_minutes'] or 0
             data['gm_sessions'] += gm_sessions
@@ -925,15 +1386,7 @@ class GroupStatisticsView(APIView):
             user_id = player_stat['user_id']
             if user_id not in member_ids:
                 continue
-            data = contributions.setdefault(user_id, {
-                'user_id': user_id,
-                'nickname': None,
-                'gm_sessions': 0,
-                'player_sessions': 0,
-                'total_sessions': 0,
-                'total_play_minutes': 0,
-                'total_play_hours': 0,
-            })
+            data = contributions[user_id]
             player_sessions = player_stat['session_count'] or 0
             player_minutes = player_stat['total_minutes'] or 0
             data['player_sessions'] += player_sessions
@@ -952,9 +1405,10 @@ class GroupStatisticsView(APIView):
         for user_id, data in contributions.items():
             data['nickname'] = name_map.get(user_id)
             data['total_play_hours'] = round(data['total_play_minutes'] / 60, 1) if data['total_play_minutes'] else 0
+            data['participation_rate'] = round((data['total_sessions'] / session_count) * 100, 1) if session_count > 0 else 0
             result.append(data)
 
-        result.sort(key=lambda item: item['total_play_minutes'], reverse=True)
+        result.sort(key=lambda item: (-item['total_play_minutes'], -item['total_sessions'], item['user_id']))
         return result
 
 
