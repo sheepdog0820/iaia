@@ -6,7 +6,7 @@
 
 ## 🧾 棚卸しメモ（2026-01-18）
 
-- ISSUE-023: Epic化して ISSUE-039/041/042 に分割（MVP/後続を明確化）
+- ISSUE-023: Epic化して ISSUE-041/042 に分割（MVP/後続を明確化） → 実装済み（`ISSUES_CLOSED.md` に移動）
 - ISSUE-026: Epic化して ISSUE-034/035/036/037 に分割（MVP/後続を明確化）。ICSエクスポート（ファイルDL）は実装済み
 - ISSUE-019: `schedules/analytics_views.py` / `templates/schedules/analytics_dashboard.html` を実装 → 実装済み（`ISSUES_CLOSED.md` に移動）
 - 既存機能のUI未整備（通知一覧、画像の並び替え）を ISSUE-043/044/045 として起票 → 実装済み（`ISSUES_CLOSED.md` に移動）
@@ -16,21 +16,19 @@
 ---
 
 ## ✅ 優先度ランキング（1が最優先）
-1. ISSUE-039: セッション準備チェックリスト（MVP）
-2. ISSUE-034: Discord Webhook通知（MVP）
-3. ISSUE-035: カレンダー購読（ICSフィードURL）（MVP）
-4. ISSUE-011: APIドキュメント自動生成
-5. ISSUE-010: テストカバレッジの向上
-6. ISSUE-012: 非同期処理の導入検討
-7. ISSUE-028: グループ間連携機能
-8. ISSUE-041: 経験値配布（後続）
-9. ISSUE-036: カレンダー同期（Google Calendar等）（後続）
-10. ISSUE-037: 外部シート連携API（外部キャラクターシート等）（後続）
-11. ISSUE-047: リアルタイム通知（WebSocket）
-12. ISSUE-038: キャラクター作成画面 - 武器・防具登録UI
-13. ISSUE-027: モバイルアプリ
-14. ISSUE-029: AI分析/推奨機能
-15. ISSUE-048: KP（GM）単体での卓運用（ゲスト参加/ログイン不要）
+1. ISSUE-034: Discord Webhook通知（MVP）
+2. ISSUE-035: カレンダー購読（ICSフィードURL）（MVP）
+3. ISSUE-011: APIドキュメント自動生成
+4. ISSUE-010: テストカバレッジの向上
+5. ISSUE-012: 非同期処理の導入検討
+6. ISSUE-028: グループ間連携機能
+7. ISSUE-036: カレンダー同期（Google Calendar等）（後続）
+8. ISSUE-037: 外部シート連携API（外部キャラクターシート等）（後続）
+9. ISSUE-047: リアルタイム通知（WebSocket）
+10. ISSUE-038: キャラクター作成画面 - 武器・防具登録UI
+11. ISSUE-027: モバイルアプリ
+12. ISSUE-029: AI分析/推奨機能
+13. ISSUE-048: KP（GM）単体での卓運用（ゲスト参加/ログイン不要）
 
 ---
 
@@ -77,53 +75,6 @@
   - ❌ **drf-spectacular導入** - 未実装
   - ❌ **エンドポイント説明追加** - 未実装
   - ❌ **スキーマ生成設定** - 未実装
-
-### ISSUE-023: セッション準備・事後処理ツール（Epic）
-
-- **優先度順位**: -（Epic）
-- **カテゴリ**: 新機能実装
-- **影響範囲**: セッション管理機能
-- **備考**: 旧ISSUE-018（番号重複のため再割当）
-- **目的**:
-  - GM向けセッション準備支援
-  - セッション後のフィードバック/配布の効率化
-- **分割（MVP/後続）**:
-  - MVP:
-    - ISSUE-039: セッション準備チェックリスト（MVP）
-  - 後続:
-    - ISSUE-041: 経験値配布（後続）
-    - ISSUE-042: セッションテンプレート（後続） ✅ 実装済み
-- **棚卸しメモ**:
-  - 旧チケット記載の `SessionPreparation/SessionFeedback` / `templates/schedules/session_preparation.html` は現状存在しないため、上記の分割チケットとして新規実装する
-
-### ISSUE-039: セッション準備チェックリスト（MVP）
-
-- **優先度順位**: 3
-- **カテゴリ**: 新機能実装
-- **影響範囲**: セッション管理（GM運用）
-- **詳細**:
-  - セッションごとに「準備項目」を作成し、完了/未完了を管理する
-- **該当ファイル（予定）**:
-  - `schedules/models.py` - SessionChecklistItem
-  - `schedules/serializers.py` - SessionChecklistItemSerializer
-  - `schedules/views.py` - SessionChecklistItemViewSet
-  - `templates/schedules/session_detail.html` - チェックリストUI
-- **実装内容（MVP）**:
-  - ❌ **チェック項目CRUD（GM）** - 未実装
-  - ❌ **チェックの完了/未完了トグル（GM）** - 未実装
-  - ❌ **表示（参加者: 閲覧のみ）** - 未実装
-
-### ISSUE-041: 経験値配布（後続）
-
-- **優先度順位**: 15
-- **カテゴリ**: 新機能実装
-- **影響範囲**: セッション管理 / キャラクター管理
-- **詳細**:
-  - GMが参加者にXP/成長ポイント/報酬などを記録し、セッション記録として残す
-- **実装内容**:
-  - ❌ **配布内容の記録モデル** - 未実装
-  - ❌ **GMによる入力UI** - 未実装
-  - ❌ **キャラクター成長記録への反映（必要なら）** - 未実装
 
 ---
 
