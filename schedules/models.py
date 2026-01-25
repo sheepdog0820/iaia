@@ -514,6 +514,44 @@ class SessionLog(models.Model):
         return f"{self.session.title} - {self.event_type}"
 
 
+class SessionReward(models.Model):
+    """経験値配布などのセッション報酬（参加者単位）"""
+
+    participant = models.OneToOneField(
+        SessionParticipant,
+        on_delete=models.CASCADE,
+        related_name='reward',
+    )
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='session_rewards',
+    )
+    experience_points = models.PositiveIntegerField(default=0)
+    special_rewards = models.TextField(blank=True, default='')
+    notes = models.TextField(blank=True, default='')
+    applied_growth_record = models.OneToOneField(
+        'accounts.GrowthRecord',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='session_reward',
+    )
+    applied_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['participant_id']
+        indexes = [
+            models.Index(fields=['participant']),
+        ]
+
+    def __str__(self):
+        return f"Reward: {self.participant.display_name} @ {self.participant.session.title}"
+
+
 class HandoutInfo(models.Model):
     HANDOUT_NUMBER_CHOICES = [
         (1, 'HO1'),

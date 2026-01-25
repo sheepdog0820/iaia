@@ -8,6 +8,7 @@ from . import attachment_views
 from . import notification_views
 from . import template_views
 from . import analytics_views
+from . import reward_views
 
 router = DefaultRouter()
 router.register(r'sessions', views.TRPGSessionViewSet, basename='session')
@@ -18,6 +19,7 @@ router.register(r'handouts', views.HandoutInfoViewSet, basename='handout')
 router.register(r'session-images', views.SessionImageViewSet, basename='session-image')
 router.register(r'notes', views.SessionNoteViewSet, basename='session-note')
 router.register(r'logs', views.SessionLogViewSet, basename='session-log')
+router.register(r'rewards', reward_views.SessionRewardViewSet, basename='session-reward')
 router.register(r'youtube-links', views.SessionYouTubeLinkViewSet, basename='youtube-link')
 router.register(r'gm-handouts', handout_views.HandoutManagementViewSet, basename='gm_handout')
 router.register(r'notifications', notification_views.HandoutNotificationViewSet, basename='handoutnotification')
@@ -91,6 +93,9 @@ urlpatterns = [
     path('sessions/<int:session_id>/logs/',
          views.SessionLogViewSet.as_view({'get': 'list', 'post': 'create'}),
          name='session-logs'),
+    path('sessions/<int:session_id>/rewards/',
+         reward_views.SessionRewardViewSet.as_view({'get': 'list', 'post': 'create'}),
+         name='session-rewards'),
 
     # GM Handout Management
     path('sessions/<int:session_id>/handouts/manage/', handout_views.GMHandoutManagementView.as_view(), name='gm_handout_management'),

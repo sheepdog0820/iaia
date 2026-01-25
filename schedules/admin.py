@@ -1,5 +1,13 @@
 from django.contrib import admin
-from .models import TRPGSession, SessionParticipant, SessionNote, SessionLog, HandoutInfo, SessionTemplate
+from .models import (
+    TRPGSession,
+    SessionParticipant,
+    SessionNote,
+    SessionLog,
+    SessionReward,
+    HandoutInfo,
+    SessionTemplate,
+)
 
 
 class SessionParticipantInline(admin.TabularInline):
@@ -65,6 +73,24 @@ class SessionLogAdmin(admin.ModelAdmin):
     list_filter = ('event_type', 'timestamp')
     search_fields = ('description', 'session__title', 'created_by__username')
     readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(SessionReward)
+class SessionRewardAdmin(admin.ModelAdmin):
+    list_display = ('session', 'participant', 'experience_points', 'created_by', 'applied_growth_record', 'applied_at', 'updated_at')
+    list_filter = ('applied_at', 'created_at')
+    search_fields = (
+        'participant__session__title',
+        'participant__user__username',
+        'participant__guest_name',
+        'special_rewards',
+        'notes',
+    )
+    readonly_fields = ('created_at', 'updated_at', 'applied_at')
+
+    @admin.display(description='session')
+    def session(self, obj):
+        return obj.participant.session
 
 
 @admin.register(SessionTemplate)

@@ -534,6 +534,71 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 経験値配布（ISSUE-041） -->
+            {% if is_gm or is_participant %}
+            <div class="card mb-4" id="sessionRewardsCard">
+                <div class="card-header bg-secondary text-white">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                        <h5 class="mb-0">
+                            <i class="fas fa-gift"></i> 経験値配布
+                        </h5>
+                        <div class="d-flex align-items-center gap-2 small">
+                            <span class="badge bg-dark" id="sessionRewardsCountBadge">Rewards: -</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="sessionRewardsMessages"></div>
+
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <div class="small text-muted" id="sessionRewardsSummary"></div>
+                        <div class="ms-auto d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="reloadSessionRewardsBtn">
+                                <i class="fas fa-sync"></i> 再読み込み
+                            </button>
+                            {% if can_invite %}
+                                <button type="button" class="btn btn-primary btn-sm" id="saveAllSessionRewardsBtn">
+                                    <i class="fas fa-save"></i> 一括保存
+                                </button>
+                                <button type="button" class="btn btn-success btn-sm" id="applyAllSessionRewardsBtn">
+                                    <i class="fas fa-check"></i> 一括反映
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if can_invite %}
+                        <div class="alert alert-info py-2 small mb-2">
+                            入力後に「一括保存」で記録、必要なら「一括反映」で成長記録へ反映できます（キャラクター設定が必要）。
+                        </div>
+                    {% endif %}
+
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th style="min-width: 160px;">参加者</th>
+                                    <th style="width: 120px;">XP</th>
+                                    <th style="min-width: 200px;">特別報酬</th>
+                                    <th style="min-width: 240px;">備考</th>
+                                    <th style="width: 120px;">反映</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sessionRewardsTableBody">
+                                <tr>
+                                    <td colspan="5" class="text-center py-3">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
             {% endif %}
 
             <!-- 参加者一覧 -->
@@ -1741,6 +1806,7 @@ const SELECTED_OCCURRENCE_ID = {% if selected_occurrence_id %}{{ selected_occurr
 const GROUP_ID = {{ session.group.id }};
 const IS_GM = {% if is_gm %}true{% else %}false{% endif %};
 const CAN_INVITE = {% if can_invite %}true{% else %}false{% endif %};
+const CAN_MANAGE_REWARDS = CAN_INVITE;
 const IS_PARTICIPANT = {% if is_participant %}true{% else %}false{% endif %};
 const IS_PUBLIC_VIEW = {% if is_public_view %}true{% else %}false{% endif %};
 const PUBLIC_SESSION_URL = "{{ public_session_url|escapejs }}";
@@ -2095,6 +2161,8 @@ let sessionNotes = [];
 const sessionNoteMap = new Map();
 let sessionLogs = [];
 const sessionLogMap = new Map();
+let sessionRewards = [];
+const sessionRewardMap = new Map();
 let currentSessionNoteFilter = 'all';
 
 function toAbsoluteUrl(url) {
@@ -3198,6 +3266,18 @@ function showSessionLogsMessage(message, type = 'info') {
     `;
 }
 
+function showSessionRewardsMessage(message, type = 'info') {
+    const container = document.getElementById('sessionRewardsMessages');
+    if (!container) return;
+    const safe = escapeHtml(message);
+    container.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${safe}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+}
+
 function showSessionNoteModalMessage(message, type = 'danger') {
     const container = document.getElementById('sessionNoteModalMessages');
     if (!container) return;
@@ -3776,6 +3856,322 @@ function setupSessionNotesLogsUi() {
     if (reloadLogsBtn) reloadLogsBtn.addEventListener('click', loadSessionLogs);
 }
 
+// 経験値配布（ISSUE-041）
+function updateSessionRewardsCountBadge() {
+    const badge = document.getElementById('sessionRewardsCountBadge');
+    if (badge) badge.textContent = `Rewards: ${sessionRewards.length}`;
+}
+
+function updateSessionRewardsSummary(participants) {
+    const summaryEl = document.getElementById('sessionRewardsSummary');
+    if (!summaryEl) return;
+
+    const appliedCount = sessionRewards.filter(r => !!r.applied_growth_record).length;
+    const participantCount = participants?.length || 0;
+
+    const parts = [];
+    parts.push(`参加者: ${participantCount}`);
+    parts.push(`記録: ${sessionRewards.length}`);
+    parts.push(`反映済み: ${appliedCount}`);
+    summaryEl.textContent = parts.join(' / ');
+}
+
+function getRewardPayloadFromRow(row) {
+    const participantId = Number(row?.dataset?.participantId);
+    if (!participantId) return null;
+
+    const xpEl = row.querySelector('input.reward-xp');
+    const specialEl = row.querySelector('textarea.reward-special');
+    const notesEl = row.querySelector('textarea.reward-notes');
+
+    const xpRaw = (xpEl?.value || '').trim();
+    const experiencePoints = Math.max(0, Number.parseInt(xpRaw || '0', 10) || 0);
+
+    return {
+        participant: participantId,
+        experience_points: experiencePoints,
+        special_rewards: (specialEl?.value || '').trim(),
+        notes: (notesEl?.value || '').trim(),
+    };
+}
+
+async function saveSessionRewardRow(row) {
+    const payload = getRewardPayloadFromRow(row);
+    if (!payload) throw new Error('Invalid reward row');
+
+    const rewardId = (row.dataset.rewardId || '').trim();
+    if (rewardId) {
+        const response = await axios.patch(`/api/schedules/rewards/${encodeURIComponent(rewardId)}/`, payload);
+        row.dataset.rewardId = String(response.data?.id || rewardId);
+        return response.data;
+    }
+
+    const response = await axios.post(`/api/schedules/sessions/${SESSION_ID}/rewards/`, payload);
+    row.dataset.rewardId = String(response.data?.id || '');
+    return response.data;
+}
+
+function renderSessionRewards(participants) {
+    const tbody = document.getElementById('sessionRewardsTableBody');
+    if (!tbody) return;
+
+    const canManage = !!CAN_MANAGE_REWARDS;
+    const currentUserId = window.CURRENT_USER?.id;
+
+    let visibleParticipants = participants || [];
+    if (!canManage) {
+        const mine = visibleParticipants.find(p => Number(p.user) === Number(currentUserId));
+        visibleParticipants = mine ? [mine] : [];
+    }
+
+    if (!visibleParticipants.length) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-muted text-center py-3">表示できる参加者がいません</td>
+            </tr>
+        `;
+        return;
+    }
+
+    if (!canManage) {
+        const mine = visibleParticipants[0];
+        const reward = mine ? sessionRewardMap.get(String(mine.id)) : null;
+        if (!reward) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-muted text-center py-3">まだ配布情報がありません</td>
+                </tr>
+            `;
+            return;
+        }
+    }
+
+    const rowsHtml = visibleParticipants.map(participant => {
+        const reward = sessionRewardMap.get(String(participant.id)) || null;
+        const rewardId = reward?.id ? String(reward.id) : '';
+        const xp = reward?.experience_points ?? 0;
+        const specialRewards = reward?.special_rewards ?? '';
+        const notes = reward?.notes ?? '';
+        const applied = !!reward?.applied_growth_record;
+        const hasCharacter = !!participant.character_sheet;
+        const applyDisabled = !canManage || !hasCharacter || !rewardId;
+
+        const participantCell = `
+            <div class="fw-semibold">${escapeHtml(participant.display_name || '')}</div>
+            <div class="small text-muted">
+                ${participant.character_sheet_detail?.name ? `キャラ: ${escapeHtml(participant.character_sheet_detail.name)}` : (hasCharacter ? 'キャラ設定済み' : 'キャラ未設定')}
+            </div>
+        `;
+
+        const xpCell = canManage
+            ? `<input type="number" class="form-control form-control-sm reward-xp" min="0" step="1" value="${escapeHtml(String(xp))}">`
+            : `<div>${escapeHtml(String(xp))}</div>`;
+
+        const specialCell = canManage
+            ? `<textarea class="form-control form-control-sm reward-special" rows="1" placeholder="例: SAN+1 / アイテム">${escapeHtml(String(specialRewards))}</textarea>`
+            : `<div class="small">${nl2br(String(specialRewards)) || '<span class="text-muted">-</span>'}</div>`;
+
+        const notesCell = canManage
+            ? `<textarea class="form-control form-control-sm reward-notes" rows="1" placeholder="備考">${escapeHtml(String(notes))}</textarea>`
+            : `<div class="small">${nl2br(String(notes)) || '<span class="text-muted">-</span>'}</div>`;
+
+        const appliedBadge = applied
+            ? `<span class="badge bg-success">反映済</span>`
+            : `<span class="badge bg-secondary">未反映</span>`;
+
+        const applyBtn = canManage
+            ? `
+                <button type="button"
+                        class="btn btn-sm btn-outline-success ms-2"
+                        ${applyDisabled ? 'disabled' : ''}
+                        title="${hasCharacter ? '' : 'キャラクターが設定されていません'}"
+                        onclick="applySessionRewardForParticipant(${participant.id})">
+                    ${applied ? '再反映' : '反映'}
+                </button>
+            `
+            : '';
+
+        return `
+            <tr data-participant-id="${participant.id}"
+                data-reward-id="${rewardId}"
+                data-character-sheet-id="${participant.character_sheet || ''}">
+                <td>${participantCell}</td>
+                <td>${xpCell}</td>
+                <td>${specialCell}</td>
+                <td>${notesCell}</td>
+                <td class="text-nowrap">${appliedBadge}${applyBtn}</td>
+            </tr>
+        `;
+    }).join('');
+
+    tbody.innerHTML = rowsHtml;
+}
+
+async function loadSessionRewards() {
+    const tbody = document.getElementById('sessionRewardsTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="5" class="text-center py-3">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </td>
+        </tr>
+    `;
+
+    try {
+        const [participantsResp, rewardsResp] = await Promise.all([
+            axios.get('/api/schedules/participants/', { params: { session_id: SESSION_ID } }),
+            axios.get(`/api/schedules/sessions/${SESSION_ID}/rewards/`),
+        ]);
+
+        const participants = (participantsResp.data || [])
+            .filter(p => p.role !== 'gm')
+            .sort((a, b) => ((a.player_slot || 999) - (b.player_slot || 999)) || (a.id - b.id));
+
+        sessionRewards = rewardsResp.data || [];
+        sessionRewardMap.clear();
+        for (const reward of sessionRewards) {
+            if (reward?.participant !== undefined && reward?.participant !== null) {
+                sessionRewardMap.set(String(reward.participant), reward);
+            }
+        }
+        updateSessionRewardsCountBadge();
+        updateSessionRewardsSummary(participants);
+        renderSessionRewards(participants);
+    } catch (error) {
+        sessionRewards = [];
+        sessionRewardMap.clear();
+        updateSessionRewardsCountBadge();
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-muted text-center py-3">経験値配布の読み込みに失敗しました</td>
+            </tr>
+        `;
+        showSessionRewardsMessage(error.response?.data?.detail || error.response?.data?.error || error.message || '経験値配布の読み込みに失敗しました', 'danger');
+    }
+}
+
+async function saveAllSessionRewards(options = {}) {
+    if (!CAN_MANAGE_REWARDS) return { ok: false, errors: [{ message: 'Permission denied' }] };
+
+    const reloadAfter = options.reloadAfter !== undefined ? !!options.reloadAfter : true;
+    const showMessage = options.showMessage !== undefined ? !!options.showMessage : true;
+
+    const btn = document.getElementById('saveAllSessionRewardsBtn');
+    const rows = Array.from(document.querySelectorAll('#sessionRewardsTableBody tr[data-participant-id]'));
+    const errors = [];
+    let successCount = 0;
+
+    try {
+        if (btn) btn.disabled = true;
+        for (const row of rows) {
+            try {
+                await saveSessionRewardRow(row);
+                successCount += 1;
+            } catch (error) {
+                const participantId = row.dataset.participantId;
+                const message = error.response?.data?.error || error.response?.data?.detail || error.message || '保存に失敗しました';
+                errors.push({ participantId, message });
+            }
+        }
+
+        if (showMessage) {
+            if (errors.length) {
+                const summary = `一部保存に失敗しました: ${successCount}/${rows.length}`;
+                showSessionRewardsMessage(summary, 'warning');
+            } else {
+                showSessionRewardsMessage(`保存しました: ${successCount}/${rows.length}`, 'success');
+            }
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+        if (reloadAfter) await loadSessionRewards();
+    }
+
+    return { ok: errors.length === 0, successCount, errors };
+}
+
+window.applySessionRewardForParticipant = async function(participantId) {
+    if (!CAN_MANAGE_REWARDS) return;
+
+    const row = document.querySelector(`#sessionRewardsTableBody tr[data-participant-id="${participantId}"]`);
+    if (!row) return;
+
+    const characterSheetId = (row.dataset.characterSheetId || '').trim();
+    if (!characterSheetId) {
+        showSessionRewardsMessage('キャラクターが設定されていません（参加者一覧からキャラクター設定してください）', 'warning');
+        return;
+    }
+
+    try {
+        await saveSessionRewardRow(row);
+        const rewardId = (row.dataset.rewardId || '').trim();
+        if (!rewardId) throw new Error('reward_id is missing');
+
+        await axios.post(`/api/schedules/rewards/${encodeURIComponent(rewardId)}/apply/`);
+        showSessionRewardsMessage('成長記録へ反映しました', 'success');
+        await loadSessionRewards();
+    } catch (error) {
+        const message = error.response?.data?.error || error.response?.data?.detail || error.message || '反映に失敗しました';
+        showSessionRewardsMessage(`反映に失敗しました: ${message}`, 'danger');
+    }
+};
+
+async function applyAllSessionRewards() {
+    if (!CAN_MANAGE_REWARDS) return;
+    if (!confirm('成長記録へ一括反映しますか？（キャラクター設定が必要）')) return;
+
+    const saveResult = await saveAllSessionRewards({ reloadAfter: false, showMessage: false });
+    if (!saveResult.ok) {
+        showSessionRewardsMessage('保存に失敗したため中断しました。先に保存エラーを解消してください。', 'warning');
+        return;
+    }
+
+    const rows = Array.from(document.querySelectorAll('#sessionRewardsTableBody tr[data-participant-id]'));
+    const errors = [];
+    let successCount = 0;
+
+    for (const row of rows) {
+        const rewardId = (row.dataset.rewardId || '').trim();
+        if (!rewardId) continue;
+        const characterSheetId = (row.dataset.characterSheetId || '').trim();
+        if (!characterSheetId) {
+            errors.push({ participantId: row.dataset.participantId, message: 'キャラクター未設定' });
+            continue;
+        }
+
+        try {
+            await axios.post(`/api/schedules/rewards/${encodeURIComponent(rewardId)}/apply/`);
+            successCount += 1;
+        } catch (error) {
+            const message = error.response?.data?.error || error.response?.data?.detail || error.message || '反映に失敗しました';
+            errors.push({ participantId: row.dataset.participantId, message });
+        }
+    }
+
+    if (errors.length) {
+        showSessionRewardsMessage(`一部反映に失敗しました: ${successCount}/${rows.length}`, 'warning');
+    } else {
+        showSessionRewardsMessage(`反映しました: ${successCount}/${rows.length}`, 'success');
+    }
+
+    await loadSessionRewards();
+}
+
+function setupSessionRewardsUi() {
+    const reloadBtn = document.getElementById('reloadSessionRewardsBtn');
+    if (reloadBtn) reloadBtn.addEventListener('click', loadSessionRewards);
+
+    const saveAllBtn = document.getElementById('saveAllSessionRewardsBtn');
+    if (saveAllBtn) saveAllBtn.addEventListener('click', () => saveAllSessionRewards());
+
+    const applyAllBtn = document.getElementById('applyAllSessionRewardsBtn');
+    if (applyAllBtn) applyAllBtn.addEventListener('click', applyAllSessionRewards);
+}
+
 // セッション参加
 async function joinSession() {
     const characterSheetId = document.getElementById('character_sheet_id').value;
@@ -4179,6 +4575,12 @@ document.addEventListener('DOMContentLoaded', () => {
         setupSessionNotesLogsUi();
         loadSessionNotes();
         loadSessionLogs();
+    }
+
+    const rewardsCard = document.getElementById('sessionRewardsCard');
+    if (rewardsCard) {
+        setupSessionRewardsUi();
+        loadSessionRewards();
     }
 
     loadCharacterSheets();

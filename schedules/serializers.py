@@ -7,6 +7,7 @@ from .models import (
     SessionInvitation,
     SessionNote,
     SessionLog,
+    SessionReward,
     HandoutInfo,
     HandoutAttachment,
     HandoutNotification,
@@ -212,6 +213,49 @@ class SessionLogSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+
+
+class SessionRewardSerializer(serializers.ModelSerializer):
+    session = serializers.IntegerField(source='participant.session_id', read_only=True)
+    session_title = serializers.CharField(source='participant.session.title', read_only=True)
+    participant_detail = SessionParticipantSerializer(source='participant', read_only=True)
+    created_by_detail = UserSerializer(source='created_by', read_only=True)
+
+    class Meta:
+        model = SessionReward
+        fields = [
+            'id',
+            'session',
+            'session_title',
+            'participant',
+            'participant_detail',
+            'created_by',
+            'created_by_detail',
+            'experience_points',
+            'special_rewards',
+            'notes',
+            'applied_growth_record',
+            'applied_at',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'id',
+            'session',
+            'session_title',
+            'participant_detail',
+            'created_by',
+            'created_by_detail',
+            'applied_growth_record',
+            'applied_at',
+            'created_at',
+            'updated_at',
+        ]
+
+    def validate_participant(self, participant):
+        if self.instance and participant != self.instance.participant:
+            raise serializers.ValidationError('participant cannot be changed')
+        return participant
 
 
 class HandoutInfoSerializer(serializers.ModelSerializer):
