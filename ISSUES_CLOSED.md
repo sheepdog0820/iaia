@@ -650,13 +650,40 @@
   - 当面不要のため、実装対象から除外
 - **解決日**: 2026年1月25日
 
+### ✅ ISSUE-038: キャラクター作成画面 - 武器・防具登録UI（解決済み）
+- **カテゴリ**: UI/UX改善
+- **影響範囲**: キャラクターシート作成機能（6版）
+- **詳細**:
+  - キャラクター作成画面の「戦闘・装備」タブで武器・防具・アイテムを登録
+  - ソース確認の結果、既に実装済みと判明
+- **該当ファイル**:
+  - `templates/accounts/character_6th_create.html` - 戦闘・装備タブUI（Line 726-799）
+  - `static/accounts/js/character6th.js` - 装備管理JavaScript（createEquipmentCard, syncEquipment等）
+  - `accounts/character_models.py` - CharacterEquipmentモデル（Line 920-1019）
+  - `accounts/serializers.py` - CharacterEquipmentSerializer（Line 206-226）
+  - `accounts/urls/__init__.py` - APIルーティング（Line 151-165）
+- **実装内容**:
+  - ✅ **武器追加UI（カード形式）** - 実装済み
+    - 武器名、技能名、ダメージ、射程、攻撃回数、装弾数、故障ナンバー
+  - ✅ **防具追加UI（カード形式）** - 実装済み
+    - 防具名、装甲ポイント、説明
+  - ✅ **所持品追加UI（カード形式）** - 実装済み
+    - アイテム名、数量、重量、説明
+  - ✅ **装備削除UI** - 実装済み
+  - ✅ **JavaScript: 装備データ管理・API連携** - 実装済み（syncEquipment関数）
+- **API**:
+  - `GET/POST /api/accounts/character-sheets/{id}/equipment/`
+  - `GET/PUT/PATCH/DELETE /api/accounts/character-sheets/{id}/equipment/{pk}/`
+- **仕様書**: `docs/specifications/CHARACTER_EQUIPMENT_SPECIFICATION.md`（作成済み）
+- **解決日**: 2026年1月25日（ソース確認により実装済み判明）
+
 ---
 
 ## 📊 完了済み課題統計
 
 ### 実装完了サマリー
 
-- **完了済み課題数**: 30件
+- **完了済み課題数**: 31件
 - **取り下げ**: 3件（ISSUE-039/040/046）
 - **完了期間**: 2024年6月14日 〜 2026年1月25日
 - **主要カテゴリ**: バグ修正3件、新機能実装15件、機能強化4件、機能統合2件、UI/UX改善5件、リリース準備1件
@@ -665,7 +692,7 @@
 
 - **統合テスト成功率**: 100% (16/16)
 - **CCFOLIA専用テスト**: 100% (28/28)
-- **機能カバレッジ**: グループ管理、グループ統計/ユーザーランキング、エクスポート、CCFOLIA連携、ハンドアウト管理、キャラクターシート6版強化、Tindalos詳細統計、カレンダー統合、セッション連携UI、Google/X OAuth API認証、リリース準備、セッション統合テスト修正、高度なスケジューリング機能、通知機能、セッション分析ダッシュボード、セッションテンプレート、経験値配布、プレミアムユーザー認可
+- **機能カバレッジ**: グループ管理、グループ統計/ユーザーランキング、エクスポート、CCFOLIA連携、ハンドアウト管理、キャラクターシート6版強化、Tindalos詳細統計、カレンダー統合、セッション連携UI、Google/X OAuth API認証、リリース準備、セッション統合テスト修正、高度なスケジューリング機能、通知機能、セッション分析ダッシュボード、セッションテンプレート、経験値配布、プレミアムユーザー認可、武器・防具登録UI
 
 ### 品質指標
 

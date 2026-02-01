@@ -12,6 +12,7 @@
 - 既存機能のUI未整備（通知一覧、画像の並び替え）を ISSUE-043/044/045 として起票 → 実装済み（`ISSUES_CLOSED.md` に移動）
 - ISSUE-006/007: 実装済み（`ISSUES_CLOSED.md` に移動）
 - ISSUE-042: 実装済み（`ISSUES_CLOSED.md` に移動）
+- ISSUE-038: 武器・防具登録UI - ソース確認の結果、実装済みと判明（`ISSUES_CLOSED.md` に移動、仕様書作成）
 
 ---
 
@@ -25,10 +26,9 @@
 7. ISSUE-036: カレンダー同期（Google Calendar等）（後続）
 8. ISSUE-037: 外部シート連携API（外部キャラクターシート等）（後続）
 9. ISSUE-047: リアルタイム通知（WebSocket）
-10. ISSUE-038: キャラクター作成画面 - 武器・防具登録UI
-11. ISSUE-027: モバイルアプリ
-12. ISSUE-029: AI分析/推奨機能
-13. ISSUE-048: KP（GM）単体での卓運用（ゲスト参加/ログイン不要）
+10. ISSUE-027: モバイルアプリ
+11. ISSUE-029: AI分析/推奨機能
+12. ISSUE-048: KP（GM）単体での卓運用（ゲスト参加/ログイン不要）
 
 ---
 
@@ -248,39 +248,5 @@
     - 衝突処理: 既に user が参加者の場合、player_slot 重複時の扱い（エラー or 上書き/移動）
     - 監査: claim 実行者/日時の記録（最低限ログ、可能ならDB）
   - ❌ **募集ページへの統合（空き枠表示/締切/承認フロー）** - 未実装
-
----
-
-## 🟡 優先度: 中（キャラクターシート関連）
-
-### ISSUE-038: キャラクター作成画面 - 武器・防具登録UI
-
-- **優先度順位**: 20
-- **カテゴリ**: UI/UX改善
-- **影響範囲**: キャラクターシート作成機能（6版）
-- **詳細**:
-  - キャラクター作成画面の「戦闘・装備」タブで武器・防具を登録できるようにする
-  - 現状は「武器・防具の詳細は作成後に編集画面で設定できます」というメッセージのみ表示
-  - バックエンド（API/モデル）は実装済み、フロントエンドUIのみ未実装
-- **該当ファイル**:
-  - `templates/accounts/character_6th_create.html` - 戦闘・装備タブUI（Line 688-759）
-  - `static/accounts/js/character6th.js` - 装備管理JavaScript
-  - `accounts/character_models.py` - CharacterEquipmentモデル（実装済み）
-  - `accounts/character_serializers.py` - CharacterEquipmentSerializer（実装済み）
-  - `accounts/character_views.py` - CharacterEquipmentViewSet（実装済み）
-- **実装内容**:
-  - ❌ **武器追加UI（テーブル形式/モーダル）** - 未実装
-    - 武器名、技能名、ダメージ、射程、攻撃回数、装弾数、故障ナンバー
-  - ❌ **防具追加UI（テーブル形式/モーダル）** - 未実装
-    - 防具名、装甲ポイント、説明
-  - ❌ **所持品追加UI（テーブル形式/モーダル）** - 未実装
-    - アイテム名、数量、重量、説明
-  - ❌ **装備削除UI** - 未実装
-  - ❌ **装備編集UI** - 未実装
-  - ❌ **JavaScript: 装備データ管理・API連携** - 未実装
-- **備考**:
-  - CharacterEquipmentモデルのitem_typeフィールドで武器(weapon)/防具(armor)/所持品(item)を区別
-  - 編集画面（`character_6th_edit.html`）の実装を参考にすること
-  - APIエンドポイント: `/api/accounts/characters/{id}/equipment/`
 
 ---

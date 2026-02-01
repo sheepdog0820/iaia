@@ -87,6 +87,282 @@
     };
     initTabs();
 
+    const equipmentUiState = {
+        loadedForEdit: false,
+        counter: 0,
+    };
+
+    const EQUIPMENT_TYPES = ['weapon', 'armor', 'item'];
+    const EQUIPMENT_CONTAINER_IDS = {
+        weapon: 'weaponEquipmentList',
+        armor: 'armorEquipmentList',
+        item: 'itemEquipmentList',
+    };
+    const EQUIPMENT_EMPTY_IDS = {
+        weapon: 'weaponEquipmentEmpty',
+        armor: 'armorEquipmentEmpty',
+        item: 'itemEquipmentEmpty',
+    };
+
+    function updateEquipmentEmptyStates() {
+        EQUIPMENT_TYPES.forEach(type => {
+            const container = document.getElementById(EQUIPMENT_CONTAINER_IDS[type]);
+            const empty = document.getElementById(EQUIPMENT_EMPTY_IDS[type]);
+            if (!container || !empty) return;
+            empty.style.display = container.children.length > 0 ? 'none' : '';
+        });
+    }
+
+    function createEquipmentCard(itemType, initial = {}) {
+        equipmentUiState.counter += 1;
+        const uid = `equipment-${itemType}-${equipmentUiState.counter}`;
+
+        const card = document.createElement('div');
+        card.className = 'card border-secondary mb-2 equipment-card';
+        card.dataset.equipmentType = itemType;
+        card.dataset.equipmentClientId = uid;
+        if (initial?.id) {
+            card.dataset.equipmentId = String(initial.id);
+        }
+
+        const commonHeader = `
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div class="fw-semibold small text-muted">${itemType === 'weapon' ? '武器' : itemType === 'armor' ? '防具' : 'アイテム'}</div>
+                <button type="button" class="btn btn-outline-danger btn-sm equipment-remove" aria-label="削除">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+
+        const commonFields = `
+            <div class="col-12 col-md-6">
+                <label class="form-label small mb-1" for="${uid}-name">名称</label>
+                <input type="text" class="form-control form-control-sm" id="${uid}-name" data-field="name" placeholder="名称">
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small mb-1" for="${uid}-quantity">数量</label>
+                <input type="number" class="form-control form-control-sm" id="${uid}-quantity" data-field="quantity" min="1" max="999" value="1">
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small mb-1" for="${uid}-weight">重量(kg)</label>
+                <input type="number" class="form-control form-control-sm" id="${uid}-weight" data-field="weight" min="0" step="0.1" placeholder="">
+            </div>
+        `;
+
+        const descriptionField = `
+            <div class="col-12">
+                <label class="form-label small mb-1" for="${uid}-description">メモ</label>
+                <textarea class="form-control form-control-sm autosize-textarea" id="${uid}-description" data-field="description" rows="2" placeholder="備考"></textarea>
+            </div>
+        `;
+
+        const weaponFields = `
+            <div class="col-12 col-md-6">
+                <label class="form-label small mb-1" for="${uid}-skill_name">技能</label>
+                <input type="text" class="form-control form-control-sm" id="${uid}-skill_name" data-field="skill_name" placeholder="例: 拳銃 / こぶし（パンチ）">
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small mb-1" for="${uid}-damage">ダメージ</label>
+                <input type="text" class="form-control form-control-sm" id="${uid}-damage" data-field="damage" placeholder="例: 1D10">
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small mb-1" for="${uid}-base_range">射程</label>
+                <input type="text" class="form-control form-control-sm" id="${uid}-base_range" data-field="base_range" placeholder="例: 10m">
+            </div>
+            <div class="col-4 col-md-4">
+                <label class="form-label small mb-1" for="${uid}-attacks_per_round">攻撃/R</label>
+                <input type="number" class="form-control form-control-sm" id="${uid}-attacks_per_round" data-field="attacks_per_round" min="0" max="999" placeholder="">
+            </div>
+            <div class="col-4 col-md-4">
+                <label class="form-label small mb-1" for="${uid}-ammo">装弾数</label>
+                <input type="number" class="form-control form-control-sm" id="${uid}-ammo" data-field="ammo" min="0" max="999" placeholder="">
+            </div>
+            <div class="col-4 col-md-4">
+                <label class="form-label small mb-1" for="${uid}-malfunction_number">故障</label>
+                <input type="number" class="form-control form-control-sm" id="${uid}-malfunction_number" data-field="malfunction_number" min="1" max="100" placeholder="">
+            </div>
+        `;
+
+        const armorFields = `
+            <div class="col-12 col-md-6">
+                <label class="form-label small mb-1" for="${uid}-armor_points">装甲P</label>
+                <input type="number" class="form-control form-control-sm" id="${uid}-armor_points" data-field="armor_points" min="0" max="999" placeholder="">
+            </div>
+        `;
+
+        const fieldsByType = (() => {
+            if (itemType === 'weapon') return `${commonFields}${weaponFields}${descriptionField}`;
+            if (itemType === 'armor') return `${commonFields}${armorFields}${descriptionField}`;
+            return `${commonFields}${descriptionField}`;
+        })();
+
+        card.innerHTML = `
+            <div class="card-body p-2">
+                ${commonHeader}
+                <div class="row g-2">
+                    ${fieldsByType}
+                </div>
+            </div>
+        `;
+
+        const setValue = (field, value) => {
+            const el = card.querySelector(`[data-field="${field}"]`);
+            if (!el) return;
+            el.value = value ?? '';
+        };
+
+        setValue('name', initial.name);
+        setValue('quantity', initial.quantity ?? 1);
+        setValue('weight', initial.weight ?? '');
+        setValue('description', initial.description ?? '');
+
+        if (itemType === 'weapon') {
+            setValue('skill_name', initial.skill_name ?? '');
+            setValue('damage', initial.damage ?? '');
+            setValue('base_range', initial.base_range ?? '');
+            setValue('attacks_per_round', initial.attacks_per_round ?? '');
+            setValue('ammo', initial.ammo ?? '');
+            setValue('malfunction_number', initial.malfunction_number ?? '');
+        }
+
+        if (itemType === 'armor') {
+            setValue('armor_points', initial.armor_points ?? '');
+        }
+
+        return card;
+    }
+
+    function addEquipmentCard(itemType, initial = {}) {
+        const containerId = EQUIPMENT_CONTAINER_IDS[itemType];
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const card = createEquipmentCard(itemType, initial);
+        container.appendChild(card);
+        updateEquipmentEmptyStates();
+        autosizeTextareas();
+    }
+
+    function clearEquipmentUi() {
+        EQUIPMENT_TYPES.forEach(type => {
+            const container = document.getElementById(EQUIPMENT_CONTAINER_IDS[type]);
+            if (!container) return;
+            container.innerHTML = '';
+        });
+        updateEquipmentEmptyStates();
+    }
+
+    function renderEquipmentUi(equipmentList = []) {
+        clearEquipmentUi();
+        (equipmentList || []).forEach(item => {
+            const itemType = item?.item_type;
+            if (!EQUIPMENT_TYPES.includes(itemType)) return;
+            addEquipmentCard(itemType, item);
+        });
+    }
+
+    function initEquipmentUi() {
+        const addWeaponBtn = document.getElementById('addWeaponEquipment');
+        if (addWeaponBtn && !addWeaponBtn.dataset.bound) {
+            addWeaponBtn.addEventListener('click', () => addEquipmentCard('weapon'));
+            addWeaponBtn.dataset.bound = 'true';
+        }
+
+        const addArmorBtn = document.getElementById('addArmorEquipment');
+        if (addArmorBtn && !addArmorBtn.dataset.bound) {
+            addArmorBtn.addEventListener('click', () => addEquipmentCard('armor'));
+            addArmorBtn.dataset.bound = 'true';
+        }
+
+        const addItemBtn = document.getElementById('addItemEquipment');
+        if (addItemBtn && !addItemBtn.dataset.bound) {
+            addItemBtn.addEventListener('click', () => addEquipmentCard('item'));
+            addItemBtn.dataset.bound = 'true';
+        }
+
+        EQUIPMENT_TYPES.forEach(type => {
+            const container = document.getElementById(EQUIPMENT_CONTAINER_IDS[type]);
+            if (!container || container.dataset.bound) return;
+
+            container.addEventListener('click', event => {
+                const removeBtn = event.target?.closest?.('.equipment-remove');
+                if (!removeBtn) return;
+                const card = removeBtn.closest('.equipment-card');
+                if (card) card.remove();
+                updateEquipmentEmptyStates();
+            });
+
+            container.dataset.bound = 'true';
+        });
+
+        updateEquipmentEmptyStates();
+    }
+    initEquipmentUi();
+
+    function parseOptionalInt(value) {
+        if (value == null) return null;
+        const trimmed = String(value).trim();
+        if (trimmed === '') return null;
+        const parsed = parseInt(trimmed, 10);
+        return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    function parseOptionalFloat(value) {
+        if (value == null) return null;
+        const trimmed = String(value).trim();
+        if (trimmed === '') return null;
+        const parsed = parseFloat(trimmed);
+        return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    function collectEquipmentFromUi() {
+        if (isEditMode && !equipmentUiState.loadedForEdit) return undefined;
+
+        const cards = document.querySelectorAll('.equipment-card[data-equipment-type]');
+        const equipment = [];
+
+        cards.forEach(card => {
+            const itemType = card.dataset.equipmentType;
+            if (!EQUIPMENT_TYPES.includes(itemType)) return;
+
+            const getFieldValue = (field) => card.querySelector(`[data-field="${field}"]`)?.value;
+
+            const name = (getFieldValue('name') || '').trim();
+            if (!name) return;
+
+            const payload = {
+                item_type: itemType,
+                name,
+                quantity: Math.max(parseOptionalInt(getFieldValue('quantity')) || 1, 1),
+                weight: parseOptionalFloat(getFieldValue('weight')),
+                description: (getFieldValue('description') || '').trim(),
+                client_id: card.dataset.equipmentClientId,
+            };
+
+            const existingId = parseOptionalInt(card.dataset.equipmentId);
+            if (existingId) {
+                payload.id = existingId;
+            }
+
+            if (itemType === 'weapon') {
+                payload.skill_name = (getFieldValue('skill_name') || '').trim();
+                payload.damage = (getFieldValue('damage') || '').trim();
+                payload.base_range = (getFieldValue('base_range') || '').trim();
+                payload.attacks_per_round = parseOptionalInt(getFieldValue('attacks_per_round'));
+                payload.ammo = parseOptionalInt(getFieldValue('ammo'));
+                payload.malfunction_number = parseOptionalInt(getFieldValue('malfunction_number'));
+            }
+
+            if (itemType === 'armor') {
+                payload.armor_points = parseOptionalInt(getFieldValue('armor_points'));
+            }
+
+            equipment.push(payload);
+        });
+
+        return equipment;
+    }
+
     // 6th edition skill data
     const SKILLS_6TH = {
         combat: {
@@ -2161,6 +2437,10 @@ function initOccupationTemplates() {
             } catch (_) {
                 err = { error: `HTTP ${response.status}` };
             }
+            if (typeof err !== 'object' || err === null || Array.isArray(err)) {
+                err = { error: err };
+            }
+            err.http_status = response.status;
             throw err;
         }
         if (response.status === 204) return null;
@@ -2215,6 +2495,10 @@ function initOccupationTemplates() {
         setValueById('current_san', sheet.sanity_current);
 
         calculateDerivedStats({ setCurrentDefaults: false });
+
+        // Equipment
+        renderEquipmentUi(Array.isArray(sheet.equipment) ? sheet.equipment : []);
+        equipmentUiState.loadedForEdit = true;
 
         // Financial data (6th)
         try {
@@ -2413,6 +2697,9 @@ function initOccupationTemplates() {
 
         if (skills.length > 0) apiData.skills = skills;
 
+        const equipment = collectEquipmentFromUi();
+        if (equipment !== undefined) apiData.equipment = equipment;
+
         const imageFiles = formData
             .getAll('character_images')
             .filter(f => f instanceof File && f.size > 0 && f.name);
@@ -2476,6 +2763,102 @@ function initOccupationTemplates() {
         for (const [name, existing] of existingByName.entries()) {
             if (!desiredByName.has(name) && existing?.id) {
                 await fetchJson(`/accounts/character-sheets/${characterId}/skills/${existing.id}/`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRFToken': csrfToken },
+                });
+            }
+        }
+    }
+
+    async function syncEquipment(characterId, desiredEquipment) {
+        if (!Array.isArray(desiredEquipment)) return;
+
+        const existingEquipment = await fetchJson(`/accounts/character-sheets/${characterId}/equipment/`);
+        const existingById = new Map((existingEquipment || []).map(e => [e.id, e]));
+        const desiredIds = new Set(desiredEquipment.map(e => e?.id).filter(id => Number.isFinite(id)));
+
+        const buildPayload = (item) => {
+            const itemType = item?.item_type;
+            const payload = {
+                item_type: itemType,
+                name: item?.name ?? '',
+                description: item?.description ?? '',
+                quantity: item?.quantity ?? 1,
+                weight: item?.weight ?? null,
+            };
+
+            if (itemType === 'weapon') {
+                payload.skill_name = item?.skill_name ?? '';
+                payload.damage = item?.damage ?? '';
+                payload.base_range = item?.base_range ?? '';
+                payload.attacks_per_round = item?.attacks_per_round ?? null;
+                payload.ammo = item?.ammo ?? null;
+                payload.malfunction_number = item?.malfunction_number ?? null;
+            } else if (itemType === 'armor') {
+                payload.armor_points = item?.armor_points ?? null;
+            }
+
+            return payload;
+        };
+
+        for (const desired of desiredEquipment) {
+            const payload = buildPayload(desired);
+            if (!payload.name) continue;
+
+            const existingId = desired?.id;
+            if (Number.isFinite(existingId) && existingId > 0) {
+                try {
+                    await fetchJson(`/accounts/character-sheets/${characterId}/equipment/${existingId}/`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken,
+                        },
+                        body: JSON.stringify(payload),
+                    });
+                } catch (error) {
+                    if (error?.http_status === 404) {
+                        const created = await fetchJson(`/accounts/character-sheets/${characterId}/equipment/`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken,
+                            },
+                            body: JSON.stringify(payload),
+                        });
+                        if (created?.id) {
+                            const clientId = desired?.client_id || desired?.clientId;
+                            if (clientId) {
+                                const card = document.querySelector(`.equipment-card[data-equipment-client-id="${clientId}"]`);
+                                if (card) card.dataset.equipmentId = String(created.id);
+                            }
+                        }
+                    } else {
+                        throw error;
+                    }
+                }
+            } else {
+                const created = await fetchJson(`/accounts/character-sheets/${characterId}/equipment/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify(payload),
+                });
+                if (created?.id) {
+                    const clientId = desired?.client_id || desired?.clientId;
+                    if (clientId) {
+                        const card = document.querySelector(`.equipment-card[data-equipment-client-id="${clientId}"]`);
+                        if (card) card.dataset.equipmentId = String(created.id);
+                    }
+                }
+            }
+        }
+
+        for (const [id] of existingById.entries()) {
+            if (!desiredIds.has(id)) {
+                await fetchJson(`/accounts/character-sheets/${characterId}/equipment/${id}/`, {
                     method: 'DELETE',
                     headers: { 'X-CSRFToken': csrfToken },
                 });
@@ -2553,6 +2936,7 @@ function initOccupationTemplates() {
 
         await updateFinancialData(characterId, data);
         await syncSkills(characterId, apiData.skills || []);
+        await syncEquipment(characterId, apiData.equipment);
         await replaceCharacterImages(characterId, imageFiles);
     }
     
@@ -2584,14 +2968,23 @@ function initOccupationTemplates() {
                 return;
             }
 
+            const apiDataForCreate = { ...apiData };
+            if (Array.isArray(apiDataForCreate.equipment)) {
+                apiDataForCreate.equipment = apiDataForCreate.equipment.map(item => {
+                    if (!item || typeof item !== 'object') return item;
+                    const { client_id, clientId, id, ...rest } = item;
+                    return rest;
+                });
+            }
+
             if (imageFiles.length > 0) {
                 const submitFormData = new FormData();
 
-                Object.keys(apiData).forEach(key => {
+                Object.keys(apiDataForCreate).forEach(key => {
                     if (key === 'skills' || key === 'equipment' || key === 'recommended_skills' || key === 'occupation_skills') {
-                        submitFormData.append(key, JSON.stringify(apiData[key]));
+                        submitFormData.append(key, JSON.stringify(apiDataForCreate[key]));
                     } else {
-                        submitFormData.append(key, apiData[key]);
+                        submitFormData.append(key, apiDataForCreate[key]);
                     }
                 });
 
@@ -2638,7 +3031,7 @@ function initOccupationTemplates() {
                         'X-CSRFToken': csrfToken,
                     },
                     credentials: 'same-origin',
-                    body: JSON.stringify(apiData),
+                    body: JSON.stringify(apiDataForCreate),
                 })
                     .then(response => {
                         if (!response.ok) {

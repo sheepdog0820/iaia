@@ -96,11 +96,8 @@ class CharacterSheetAPITest(APITestCase):
         response = self.client.post(url, self.character_data_6th, format='json')
         
         # デバッグ出力
-        print(f"Status Code: {response.status_code}")
-        print(f"Response Data: {response.data}")
         
         if response.status_code != status.HTTP_201_CREATED:
-            print(f"Error: {response.data}")
             # Fail the test with detailed error message
             self.fail(f"Character creation failed with status {response.status_code}: {response.data}")
         
@@ -140,6 +137,60 @@ class CharacterSheetAPITest(APITestCase):
         character = CharacterSheet.objects.get(id=response.data["id"])
         self.assertTrue(character.images.exists())
     
+    def test_create_6th_edition_character_with_equipment(self):
+        """6版作成APIで武器・防具・アイテムを同時登録できる"""
+        data = dict(self.character_data_6th)
+        data["equipment"] = [
+            {
+                "item_type": "weapon",
+                "name": "Pistol",
+                "skill_name": "拳銃",
+                "damage": "1D10",
+                "base_range": "15m",
+                "attacks_per_round": 2,
+                "ammo": 8,
+                "malfunction_number": 100,
+                "quantity": 1,
+                "weight": 0.5,
+                "description": "Test weapon",
+            },
+            {
+                "item_type": "armor",
+                "name": "Kevlar Vest",
+                "armor_points": 8,
+                "quantity": 1,
+                "weight": 3.0,
+                "description": "Test armor",
+            },
+            {
+                "item_type": "item",
+                "name": "Flashlight",
+                "quantity": 1,
+                "weight": 0.2,
+                "description": "Test item",
+            },
+        ]
+
+        response = self.client.post(
+            "/api/accounts/character-sheets/create_6th_edition/",
+            data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        character_id = response.data["id"]
+
+        self.assertEqual(CharacterEquipment.objects.filter(character_sheet_id=character_id).count(), 3)
+        pistol = CharacterEquipment.objects.get(character_sheet_id=character_id, name="Pistol")
+        self.assertEqual(pistol.item_type, "weapon")
+        self.assertAlmostEqual(pistol.weight, 0.5, places=3)
+        vest = CharacterEquipment.objects.get(character_sheet_id=character_id, name="Kevlar Vest")
+        self.assertEqual(vest.item_type, "armor")
+        self.assertAlmostEqual(vest.weight, 3.0, places=3)
+        flashlight = CharacterEquipment.objects.get(character_sheet_id=character_id, name="Flashlight")
+        self.assertEqual(flashlight.item_type, "item")
+        self.assertAlmostEqual(flashlight.weight, 0.2, places=3)
+
     def test_create_7th_edition_character(self):
         """7版キャラクターシート作成テスト"""
         url = '/api/accounts/character-sheets/create_7th_edition/'
@@ -156,6 +207,60 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(character.sanity_starting, character.pow_value)
         self.assertFalse(CharacterSheet6th.objects.filter(character_sheet=character).exists())
     
+    def test_create_7th_edition_character_with_equipment(self):
+        """7版作成APIで武器・防具・アイテムを同時登録できる"""
+        data = dict(self.character_data_7th)
+        data["equipment"] = [
+            {
+                "item_type": "weapon",
+                "name": "Pistol",
+                "skill_name": "Handgun",
+                "damage": "1D10",
+                "base_range": "15m",
+                "attacks_per_round": 1,
+                "ammo": 8,
+                "malfunction_number": 100,
+                "quantity": 1,
+                "weight": 0.5,
+                "description": "Test weapon",
+            },
+            {
+                "item_type": "armor",
+                "name": "Kevlar Vest",
+                "armor_points": 2,
+                "quantity": 1,
+                "weight": 3.0,
+                "description": "Test armor",
+            },
+            {
+                "item_type": "item",
+                "name": "Flashlight",
+                "quantity": 1,
+                "weight": 0.2,
+                "description": "Test item",
+            },
+        ]
+
+        response = self.client.post(
+            "/api/accounts/character-sheets/create_7th_edition/",
+            data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        character_id = response.data["id"]
+
+        self.assertEqual(CharacterEquipment.objects.filter(character_sheet_id=character_id).count(), 3)
+        pistol = CharacterEquipment.objects.get(character_sheet_id=character_id, name="Pistol")
+        self.assertEqual(pistol.item_type, "weapon")
+        self.assertAlmostEqual(pistol.weight, 0.5, places=3)
+        vest = CharacterEquipment.objects.get(character_sheet_id=character_id, name="Kevlar Vest")
+        self.assertEqual(vest.item_type, "armor")
+        self.assertAlmostEqual(vest.weight, 3.0, places=3)
+        flashlight = CharacterEquipment.objects.get(character_sheet_id=character_id, name="Flashlight")
+        self.assertEqual(flashlight.item_type, "item")
+        self.assertAlmostEqual(flashlight.weight, 0.2, places=3)
+
     def test_list_character_sheets(self):
         """キャラクターシート一覧取得テスト"""
         # まずキャラクター作成
@@ -237,14 +342,71 @@ class CharacterSheetAPITest(APITestCase):
         response = self.client.post(url, version_data, format='json')
         
         # デバッグ出力
-        print(f"Version creation status: {response.status_code}")
-        print(f"Version creation response: {response.data}")
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['version'], 2)
         self.assertEqual(response.data['parent_sheet'], original_id)
         self.assertEqual(response.data['hit_points_current'], 8)
     
+    def test_create_character_version_copies_equipment_weight(self):
+        """create_version が装備(weight含む)を引き継ぐ"""
+        data = dict(self.character_data_6th)
+        data["equipment"] = [
+            {
+                "item_type": "weapon",
+                "name": "Pistol",
+                "damage": "1D10",
+                "attacks_per_round": 2,
+                "quantity": 1,
+                "weight": 0.5,
+            },
+            {
+                "item_type": "armor",
+                "name": "Kevlar Vest",
+                "armor_points": 2,
+                "quantity": 1,
+                "weight": 3.0,
+            },
+            {
+                "item_type": "item",
+                "name": "Flashlight",
+                "quantity": 2,
+                "weight": 0.2,
+            },
+        ]
+
+        create_response = self.client.post(
+            "/api/accounts/character-sheets/create_6th_edition/",
+            data,
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        original_id = create_response.data["id"]
+
+        original_equipment = list(CharacterEquipment.objects.filter(character_sheet_id=original_id))
+        self.assertEqual(len(original_equipment), 3)
+
+        response = self.client.post(
+            f"/api/accounts/character-sheets/{original_id}/create_version/",
+            {},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        new_id = response.data["id"]
+
+        new_equipment = CharacterEquipment.objects.filter(character_sheet_id=new_id)
+        self.assertEqual(new_equipment.count(), 3)
+
+        for item in original_equipment:
+            copied = new_equipment.get(name=item.name, item_type=item.item_type)
+            self.assertEqual(copied.quantity, item.quantity)
+            self.assertEqual(copied.armor_points, item.armor_points)
+            self.assertEqual(copied.damage, item.damage)
+            self.assertEqual(copied.attacks_per_round, item.attacks_per_round)
+            self.assertEqual(copied.ammo, item.ammo)
+            self.assertEqual(copied.malfunction_number, item.malfunction_number)
+            self.assertAlmostEqual(copied.weight, item.weight, places=3)
+
     def test_filter_by_edition(self):
         """版別フィルタリングテスト"""
         # 両版のキャラクター作成

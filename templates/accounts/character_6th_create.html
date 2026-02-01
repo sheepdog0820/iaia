@@ -695,30 +695,105 @@
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div class="row">
-                            <div class="col-6 col-md-3 mb-3">
-                                <label for="current_hp" class="form-label">現在HP</label>
-                                <input type="number" class="form-control" id="current_hp" name="hit_points_current"
-                                       min="0" max="999">
+                         <div class="row">
+                             <div class="col-6 col-md-3 mb-3">
+                                 <label for="current_hp" class="form-label">現在HP</label>
+                                 <input type="number" class="form-control" id="current_hp" name="hit_points_current"
+                                        min="0" max="999">
+                             </div>
+                             <div class="col-6 col-md-3 mb-3">
+                                 <label for="current_mp" class="form-label">現在MP</label>
+                                 <input type="number" class="form-control" id="current_mp" name="magic_points_current"
+                                        min="0" max="999">
+                             </div>
+                             <div class="col-6 col-md-3 mb-3">
+                                 <label for="current_san" class="form-label">現在正気度</label>
+                                 <input type="number" class="form-control" id="current_san" name="sanity_current"
+                                        min="0" max="9999">
+                             </div>
+                             <div class="col-6 col-md-3 mb-3">
+                                 <label for="armor" class="form-label">装甲値</label>
+                                 <input type="number" class="form-control" id="armor" name="armor" 
+                                        min="0" max="50" value="0">
+                             </div>
+                         </div>
+                         <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> 武器・防具・所持品はこの画面で登録できます（作成後も編集可能です）。
+                         </div>
+                     </div>
+                 </div>
+
+                <!-- 武器・防具・アイテム -->
+                <div class="card mb-4">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-suitcase"></i> 武器・防具・アイテム
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="nav nav-pills mb-3" id="equipmentSubTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="equipment-weapons-tab" data-bs-toggle="tab"
+                                        data-bs-target="#equipment-weapons" type="button" role="tab">
+                                    <i class="fas fa-sword"></i> 武器
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="equipment-armors-tab" data-bs-toggle="tab"
+                                        data-bs-target="#equipment-armors" type="button" role="tab">
+                                    <i class="fas fa-shield-alt"></i> 防具
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="equipment-items-tab" data-bs-toggle="tab"
+                                        data-bs-target="#equipment-items" type="button" role="tab">
+                                    <i class="fas fa-backpack"></i> アイテム
+                                </button>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content" id="equipmentSubTabsContent">
+                            <div class="tab-pane fade show active" id="equipment-weapons" role="tabpanel">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <small class="text-muted">武器（例: 拳銃、ナイフ）を登録します。</small>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="addWeaponEquipment">
+                                        <i class="fas fa-plus"></i> 追加
+                                    </button>
+                                </div>
+                                <div id="weaponEquipmentList"></div>
+                                <div class="text-center text-muted p-3" id="weaponEquipmentEmpty">
+                                    <i class="fas fa-info-circle fa-lg mb-1"></i>
+                                    <p class="mb-0 small">武器がまだ登録されていません。</p>
+                                </div>
                             </div>
-                            <div class="col-6 col-md-3 mb-3">
-                                <label for="current_mp" class="form-label">現在MP</label>
-                                <input type="number" class="form-control" id="current_mp" name="magic_points_current"
-                                       min="0" max="999">
+
+                            <div class="tab-pane fade" id="equipment-armors" role="tabpanel">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <small class="text-muted">防具（装甲ポイント）を登録します。</small>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="addArmorEquipment">
+                                        <i class="fas fa-plus"></i> 追加
+                                    </button>
+                                </div>
+                                <div id="armorEquipmentList"></div>
+                                <div class="text-center text-muted p-3" id="armorEquipmentEmpty">
+                                    <i class="fas fa-info-circle fa-lg mb-1"></i>
+                                    <p class="mb-0 small">防具がまだ登録されていません。</p>
+                                </div>
                             </div>
-                            <div class="col-6 col-md-3 mb-3">
-                                <label for="current_san" class="form-label">現在正気度</label>
-                                <input type="number" class="form-control" id="current_san" name="sanity_current"
-                                       min="0" max="9999">
+
+                            <div class="tab-pane fade" id="equipment-items" role="tabpanel">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <small class="text-muted">所持品・道具などを登録します。</small>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="addItemEquipment">
+                                        <i class="fas fa-plus"></i> 追加
+                                    </button>
+                                </div>
+                                <div id="itemEquipmentList"></div>
+                                <div class="text-center text-muted p-3" id="itemEquipmentEmpty">
+                                    <i class="fas fa-info-circle fa-lg mb-1"></i>
+                                    <p class="mb-0 small">アイテムがまだ登録されていません。</p>
+                                </div>
                             </div>
-                            <div class="col-6 col-md-3 mb-3">
-                                <label for="armor" class="form-label">装甲値</label>
-                                <input type="number" class="form-control" id="armor" name="armor" 
-                                       min="0" max="50" value="0">
-                            </div>
-                        </div>
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i> 武器・防具の詳細は作成後に編集画面で設定できます。
                         </div>
                     </div>
                 </div>

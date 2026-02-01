@@ -213,7 +213,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 malfunction_number=equipment.malfunction_number,
                 armor_points=equipment.armor_points,
                 description=equipment.description,
-                quantity=equipment.quantity
+                quantity=equipment.quantity,
+                weight=equipment.weight
             )
         
         # Copy edition-specific data  
@@ -1063,7 +1064,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                     malfunction_number=equipment.get('malfunction_number'),
                     armor_points=equipment.get('armor_points'),
                     description=equipment.get('description', ''),
-                    quantity=equipment.get('quantity', 1)
+                    quantity=equipment.get('quantity', 1),
+                    weight=equipment.get('weight')
                 )
             
             # Handle multiple character images
@@ -1306,7 +1308,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                     malfunction_number=equipment.get('malfunction_number'),
                     armor_points=equipment.get('armor_points'),
                     description=equipment.get('description', ''),
-                    quantity=equipment.get('quantity', 1)
+                    quantity=equipment.get('quantity', 1),
+                    weight=equipment.get('weight')
                 )
 
             image_files = []
