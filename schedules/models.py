@@ -1,7 +1,9 @@
 from django.db import models
+from django.db.models.signals import post_delete
 from django.utils import timezone
 from datetime import datetime, date as date_cls, time as time_cls, timedelta
 from django.core.exceptions import ValidationError
+from django.dispatch import receiver
 import uuid
 from accounts.models import CustomUser, Group, GroupMembership
 
@@ -214,6 +216,10 @@ class SessionTemplate(models.Model):
     location = models.CharField(max_length=200, blank=True, default='')
     youtube_url = models.URLField(blank=True, default='')
     duration_minutes = models.PositiveIntegerField(default=0, help_text="セッション時間（分）")
+    copy_handouts_to_session = models.BooleanField(
+        default=False,
+        help_text="テンプレートのハンドアウト設定を新規セッションへ引き継ぐ",
+    )
     visibility = models.CharField(
         max_length=10,
         choices=TRPGSession.VISIBILITY_CHOICES,
@@ -250,6 +256,122 @@ class SessionTemplate(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.owner.nickname or self.owner.username})"
+
+
+class SessionTemplateHandout(models.Model):
+    """Handout settings stored on a session template."""
+
+    HANDOUT_NUMBER_CHOICES = [
+        (1, 'HO1'),
+        (2, 'HO2'),
+        (3, 'HO3'),
+        (4, 'HO4'),
+    ]
+    PLAYER_SLOT_CHOICES = [
+        (1, 'プレイヤー1'),
+        (2, 'プレイヤー2'),
+        (3, 'プレイヤー3'),
+        (4, 'プレイヤー4'),
+    ]
+
+    session_template = models.ForeignKey(
+        SessionTemplate,
+        on_delete=models.CASCADE,
+        related_name='handout_templates',
+    )
+    title = models.CharField(max_length=100)
+    content = models.TextField()
+    recommended_skills = models.TextField(blank=True, default='')
+    is_secret = models.BooleanField(default=True)
+    handout_number = models.IntegerField(
+        choices=HANDOUT_NUMBER_CHOICES,
+        null=True,
+        blank=True,
+    )
+    assigned_player_slot = models.IntegerField(
+        choices=PLAYER_SLOT_CHOICES,
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['handout_number', 'id']
+        unique_together = [
+            ['session_template', 'handout_number'],
+        ]
+
+    def __str__(self):
+        ho_display = f"HO{self.handout_number}" if self.handout_number else "HO"
+        return f"{self.session_template.name}: {ho_display} {self.title}"
+
+
+def session_template_image_upload_path(instance, filename):
+    import os
+    import uuid
+
+    _, ext = os.path.splitext(filename)
+    safe_filename = f"{timezone.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}{ext}"
+    template_id = instance.session_template_id or 'tmp'
+    return f"session_template_images/{template_id}/{safe_filename}"
+
+
+class SessionTemplateImage(models.Model):
+    """Images attached to a session template."""
+
+    session_template = models.ForeignKey(
+        SessionTemplate,
+        on_delete=models.CASCADE,
+        related_name='image_templates',
+    )
+    image = models.ImageField(upload_to=session_template_image_upload_path)
+    title = models.CharField(max_length=200, blank=True)
+    description = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'created_at']
+        indexes = [
+            models.Index(fields=['session_template', 'order']),
+        ]
+
+    def __str__(self):
+        return f"{self.session_template.name} - {self.title or f'Image {self.order or 0}'}"
+
+    def save(self, *args, **kwargs):
+        if not self.pk and self.order == 0 and self.session_template_id:
+            max_order = SessionTemplateImage.objects.filter(
+                session_template_id=self.session_template_id
+            ).aggregate(max_order=models.Max('order'))['max_order']
+            self.order = (max_order or 0) + 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.image:
+            try:
+                if self.image.storage.exists(self.image.name):
+                    self.image.delete(save=False)
+            except Exception:
+                pass
+        super().delete(*args, **kwargs)
+
+
+@receiver(post_delete, sender=SessionTemplateImage)
+def delete_session_template_image_file(sender, instance, **kwargs):
+    image = getattr(instance, 'image', None)
+    image_name = getattr(image, 'name', None)
+    if not image_name:
+        return
+
+    try:
+        storage = image.storage
+        if storage.exists(image_name):
+            storage.delete(image_name)
+    except Exception:
+        pass
 
 
 class SessionOccurrence(models.Model):

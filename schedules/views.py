@@ -54,6 +54,7 @@ from .serializers import (
 )
 from .services import YouTubeService
 from .notifications import SessionNotificationService
+from .template_services import bind_slot_handouts_to_participant, clone_template_to_session
 from accounts.models import Group, GroupMembership, CustomUser, CharacterSheet
 
 
@@ -144,6 +145,14 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         serializer.save(gm=self.request.user)
+        session = serializer.instance
+        template = getattr(session, '_selected_session_template', None)
+        if template is not None:
+            clone_template_to_session(
+                template,
+                session,
+                uploaded_by=self.request.user,
+            )
     
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -249,6 +258,16 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         
         # プレイヤー枠とキャラクターシートを取得
         player_slot = request.data.get('player_slot')
+        if player_slot not in [None, '', 'null', 'None']:
+            try:
+                player_slot = int(player_slot)
+            except (TypeError, ValueError):
+                return Response(
+                    {'error': 'player_slot must be an integer'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            player_slot = None
         character_sheet_id = request.data.get('character_sheet_id') or request.data.get('character_sheet')
         character_sheet = None
         if character_sheet_id:
@@ -303,6 +322,8 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             if 'character_sheet_id' in request.data or 'character_sheet' in request.data:
                 participant.character_sheet = character_sheet
             participant.save()
+
+        bind_slot_handouts_to_participant(participant)
         
         serializer = SessionParticipantSerializer(participant)
         return Response(
@@ -327,6 +348,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                 user=request.user
             )
             participant.delete()
+            bind_slot_handouts_to_participant(participant)
             return Response(status=status.HTTP_204_NO_CONTENT)
         except SessionParticipant.DoesNotExist:
             return Response({'error': 'Not a participant'}, status=status.HTTP_400_BAD_REQUEST)
@@ -543,6 +565,8 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                 'character_sheet': character_sheet
             }
         )
+
+        bind_slot_handouts_to_participant(participant)
         
         serializer = SessionParticipantSerializer(participant)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -1123,6 +1147,14 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
         
         return Response(serializer.data)
 
+    def perform_create(self, serializer):
+        participant = serializer.save()
+        bind_slot_handouts_to_participant(participant)
+
+    def perform_update(self, serializer):
+        participant = serializer.save()
+        bind_slot_handouts_to_participant(participant)
+
     def destroy(self, request, *args, **kwargs):
         """参加者削除（本人の脱退 or GMによる除名のみ許可）"""
         instance = self.get_object()
@@ -1137,6 +1169,7 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
         # 本人は自分の参加情報を削除できる（脱退）
         if instance.user == request.user:
             instance.delete()
+            bind_slot_handouts_to_participant(instance)
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         # GM（メイン/協力）のみ他人を削除できる
@@ -1147,6 +1180,7 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             instance.delete()
+            bind_slot_handouts_to_participant(instance)
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         return Response(
@@ -1691,10 +1725,17 @@ class CreateSessionView(APIView):
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
-        serializer = TRPGSessionSerializer(data=request.data)
+        serializer = TRPGSessionSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             # GMとして自動設定
             session = serializer.save(gm=request.user)
+            template = getattr(session, '_selected_session_template', None)
+            if template is not None:
+                clone_template_to_session(
+                    template,
+                    session,
+                    uploaded_by=request.user,
+                )
             
             # GMを参加者として自動追加
             SessionParticipant.objects.create(
@@ -1734,6 +1775,7 @@ class JoinSessionView(APIView):
         )
         
         if created:
+            bind_slot_handouts_to_participant(participant)
             serializer = SessionParticipantSerializer(participant)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:

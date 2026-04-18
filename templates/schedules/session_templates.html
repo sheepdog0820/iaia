@@ -16,7 +16,7 @@
         </div>
         <div class="col-12 mt-2">
             <small class="text-muted">
-                よく使う「場所 / 所要時間 / 告知文」などを登録して、セッション作成を短縮できます。
+                よく使う場所、予定時間、画像、ハンドアウト設定をまとめて登録して、セッション作成を短縮できます。
             </small>
         </div>
     </div>
@@ -35,7 +35,7 @@
 </div>
 
 <div class="modal fade" id="sessionTemplateModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="templateModalTitle">テンプレート</h5>
@@ -45,60 +45,116 @@
                 <form id="sessionTemplateForm">
                     <input type="hidden" id="templateId">
 
-                    <div class="mb-3">
-                        <label for="templateName" class="form-label">テンプレート名</label>
-                        <input type="text" class="form-control" id="templateName" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="templateGroup" class="form-label">デフォルトグループ（任意）</label>
-                        <select class="form-select" id="templateGroup">
-                            <option value="">未設定</option>
-                        </select>
-                    </div>
-
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="templateDuration" class="form-label">予定時間（分）</label>
-                            <input type="number" class="form-control" id="templateDuration" min="0" step="30">
+                        <div class="col-lg-7">
+                            <div class="mb-3">
+                                <label for="templateName" class="form-label">テンプレート名</label>
+                                <input type="text" class="form-control" id="templateName" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="templateGroup" class="form-label">デフォルトグループ（任意）</label>
+                                <select class="form-select" id="templateGroup">
+                                    <option value="">未設定</option>
+                                </select>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="templateDuration" class="form-label">予定時間（hhmm）</label>
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="templateDuration"
+                                        inputmode="numeric"
+                                        maxlength="4"
+                                        placeholder="0400"
+                                        pattern="[0-9]{4}"
+                                    >
+                                    <div class="form-text">4時間なら <code>0400</code>、2時間30分なら <code>0230</code> です。</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="templateLocation" class="form-label">場所</label>
+                                    <input type="text" class="form-control" id="templateLocation" placeholder="オンライン / 会場名">
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="templateVisibility" class="form-label">公開設定</label>
+                                    <select class="form-select" id="templateVisibility">
+                                        <option value="group">グループ内のみ</option>
+                                        <option value="public">全体に公開</option>
+                                        <option value="private">プライベート</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="templateCocEdition" class="form-label">システム（クトゥルフ神話TRPG）</label>
+                                    <select class="form-select" id="templateCocEdition">
+                                        <option value="6th">6版</option>
+                                        <option value="7th">7版</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="templateTitle" class="form-label">セッションタイトル（任意）</label>
+                                <input type="text" class="form-control" id="templateTitle" placeholder="未設定（作成時に入力）">
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="templateDescription" class="form-label">告知文 / 説明</label>
+                                <textarea class="form-control" id="templateDescription" rows="4"></textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="templateYoutube" class="form-label">YouTube配信URL（任意）</label>
+                                <input type="url" class="form-control" id="templateYoutube" placeholder="https://youtube.com/...">
+                            </div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="templateLocation" class="form-label">場所</label>
-                            <input type="text" class="form-control" id="templateLocation" placeholder="オンライン / 会場名">
+
+                        <div class="col-lg-5">
+                            <div class="card border-0 bg-light h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="mb-0">添付画像</h6>
+                                        <span class="badge text-bg-secondary" id="templateImageCount">0枚</span>
+                                    </div>
+                                    <input
+                                        type="file"
+                                        class="form-control mb-3"
+                                        id="templateImages"
+                                        accept="image/*"
+                                        multiple
+                                    >
+                                    <div class="form-text mb-3">テンプレート経由でセッションを作る時に、ここで登録した画像も複製します。</div>
+                                    <div id="templateImagesPreview" class="d-grid gap-2"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="templateVisibility" class="form-label">公開設定</label>
-                            <select class="form-select" id="templateVisibility">
-                                <option value="group">グループ内のみ</option>
-                                <option value="public">全体に公開</option>
-                                <option value="private">プライベート</option>
-                            </select>
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <h6 class="mb-1">秘匿ハンドアウト設定</h6>
+                            <div class="text-muted small">必要なときだけテンプレートから新規セッションへ引き継げます。</div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="templateCocEdition" class="form-label">システム（クトゥルフ神話TRPG）</label>
-                            <select class="form-select" id="templateCocEdition">
-                                <option value="6th">6版</option>
-                                <option value="7th">7版</option>
-                            </select>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="copyHandoutsToSession">
+                            <label class="form-check-label" for="copyHandoutsToSession">セッション作成時に引き継ぐ</label>
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="templateTitle" class="form-label">セッションタイトル（任意）</label>
-                        <input type="text" class="form-control" id="templateTitle" placeholder="未設定（作成時に入力）">
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="templateDescription" class="form-label">告知文 / 説明</label>
-                        <textarea class="form-control" id="templateDescription" rows="4"></textarea>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="templateYoutube" class="form-label">YouTube配信URL（任意）</label>
-                        <input type="url" class="form-control" id="templateYoutube" placeholder="https://youtube.com/...">
+                    <div id="templateHandoutsSection" class="border rounded p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="small text-muted">必要なハンドアウトだけ追加してください。未設定のままでも保存できます。</span>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="addTemplateHandoutBtn">
+                                <i class="fas fa-plus"></i> ハンドアウト追加
+                            </button>
+                        </div>
+                        <div id="templateHandoutsList" class="d-grid gap-3"></div>
                     </div>
                 </form>
             </div>
@@ -132,11 +188,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const templateCocEditionSelect = document.getElementById('templateCocEdition');
     const templateDescriptionInput = document.getElementById('templateDescription');
     const templateYoutubeInput = document.getElementById('templateYoutube');
+    const templateImagesInput = document.getElementById('templateImages');
+    const templateImagesPreview = document.getElementById('templateImagesPreview');
+    const templateImageCount = document.getElementById('templateImageCount');
+    const copyHandoutsToSessionInput = document.getElementById('copyHandoutsToSession');
+    const templateHandoutsSection = document.getElementById('templateHandoutsSection');
+    const templateHandoutsList = document.getElementById('templateHandoutsList');
+    const addTemplateHandoutBtn = document.getElementById('addTemplateHandoutBtn');
     const modalTitle = document.getElementById('templateModalTitle');
     const saveBtn = document.getElementById('saveTemplateBtn');
 
     let userGroups = [];
     let templates = [];
+    let pendingImageFiles = [];
+    let existingTemplateImages = [];
+    let templateHandouts = [];
 
     function escapeHtml(text) {
         const div = document.createElement('div');
@@ -153,12 +219,262 @@ document.addEventListener('DOMContentLoaded', function() {
         return map[value] || value || '—';
     }
 
+    function minutesToHhmm(totalMinutes) {
+        const normalized = Number.parseInt(totalMinutes || 0, 10);
+        if (!normalized) return '';
+        const hours = Math.floor(normalized / 60);
+        const minutes = normalized % 60;
+        return `${String(hours).padStart(2, '0')}${String(minutes).padStart(2, '0')}`;
+    }
+
+    function normalizeHhmm(value) {
+        const digits = String(value || '').replace(/\D/g, '');
+        if (!digits) return '';
+        return digits.slice(-4).padStart(4, '0');
+    }
+
+    function parseHhmm(value) {
+        const normalized = normalizeHhmm(value);
+        if (!normalized) return 0;
+        const hours = Number.parseInt(normalized.slice(0, 2), 10);
+        const minutes = Number.parseInt(normalized.slice(2, 4), 10);
+        if (Number.isNaN(hours) || Number.isNaN(minutes) || minutes >= 60) {
+            return null;
+        }
+        return (hours * 60) + minutes;
+    }
+
+    function getErrorMessage(error) {
+        const data = error?.response?.data;
+        if (!data) {
+            return error.message || '不明なエラーが発生しました';
+        }
+        if (typeof data === 'string') {
+            return data;
+        }
+        if (data.detail) {
+            return data.detail;
+        }
+        const firstKey = Object.keys(data)[0];
+        if (!firstKey) {
+            return error.message || '不明なエラーが発生しました';
+        }
+        const value = data[firstKey];
+        if (Array.isArray(value)) {
+            return value[0];
+        }
+        if (typeof value === 'string') {
+            return value;
+        }
+        return JSON.stringify(data);
+    }
+
+    function toggleHandoutSection() {
+        templateHandoutsSection.classList.toggle('opacity-50', !copyHandoutsToSessionInput.checked);
+    }
+
+    function createEmptyHandout() {
+        return {
+            title: '',
+            content: '',
+            recommended_skills: '',
+            is_secret: true,
+            handout_number: null,
+            assigned_player_slot: null,
+        };
+    }
+
+    function renderTemplateImages() {
+        const existingCards = existingTemplateImages.map(image => `
+            <div class="border rounded p-2 bg-white" data-existing-image-id="${image.id}">
+                <div class="d-flex gap-2">
+                    <img
+                        src="${escapeHtml(image.image_url || '')}"
+                        alt="${escapeHtml(image.title || 'template image')}"
+                        style="width: 72px; height: 72px; object-fit: cover; border-radius: 0.5rem;"
+                    >
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold small">${escapeHtml(image.title || '画像')}</div>
+                        <div class="text-muted small">登録済み</div>
+                        <button type="button" class="btn btn-outline-danger btn-sm mt-2" data-action="remove-existing-image" data-id="${image.id}">
+                            <i class="fas fa-trash"></i> 削除
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `);
+
+        const pendingCards = pendingImageFiles.map((file, index) => `
+            <div class="border rounded p-2 bg-white">
+                <div class="d-flex gap-2">
+                    <img
+                        src="${URL.createObjectURL(file)}"
+                        alt="${escapeHtml(file.name)}"
+                        style="width: 72px; height: 72px; object-fit: cover; border-radius: 0.5rem;"
+                    >
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold small">${escapeHtml(file.name)}</div>
+                        <div class="text-muted small">保存時にアップロード</div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm mt-2" data-action="remove-pending-image" data-index="${index}">
+                            <i class="fas fa-times"></i> 取り消し
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `);
+
+        const cards = [...existingCards, ...pendingCards];
+        templateImageCount.textContent = `${cards.length}枚`;
+        templateImagesPreview.innerHTML = cards.length > 0
+            ? cards.join('')
+            : '<div class="text-muted small">画像はまだありません。</div>';
+
+        templateImagesPreview.querySelectorAll('[data-action="remove-pending-image"]').forEach(button => {
+            button.addEventListener('click', (event) => {
+                const index = Number.parseInt(event.currentTarget.dataset.index, 10);
+                pendingImageFiles.splice(index, 1);
+                renderTemplateImages();
+            });
+        });
+
+        templateImagesPreview.querySelectorAll('[data-action="remove-existing-image"]').forEach(button => {
+            button.addEventListener('click', async (event) => {
+                const imageId = Number.parseInt(event.currentTarget.dataset.id, 10);
+                const templateId = Number.parseInt(templateIdInput.value, 10);
+                if (!templateId || !imageId) return;
+
+                if (!confirm('この画像をテンプレートから削除しますか？')) return;
+
+                try {
+                    await axios.delete(`/api/schedules/session-templates/${templateId}/images/${imageId}/`);
+                    existingTemplateImages = existingTemplateImages.filter(image => image.id !== imageId);
+                    renderTemplateImages();
+                    await loadTemplates();
+                } catch (error) {
+                    alert('画像の削除に失敗しました: ' + getErrorMessage(error));
+                }
+            });
+        });
+    }
+
+    function renderTemplateHandouts() {
+        if (templateHandouts.length === 0) {
+            templateHandoutsList.innerHTML = `
+                <div class="border rounded p-3 bg-light text-muted small">
+                    ハンドアウトは未設定です。必要な場合だけ追加してください。
+                </div>
+            `;
+            return;
+        }
+
+        templateHandoutsList.innerHTML = templateHandouts.map((handout, index) => `
+            <div class="card" data-handout-index="${index}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <div class="fw-semibold">ハンドアウト ${index + 1}</div>
+                            <div class="text-muted small">タイトル、秘匿設定、HO番号、配布先の枠を保存できます。</div>
+                        </div>
+                        <button type="button" class="btn btn-outline-danger btn-sm" data-action="remove-handout" data-index="${index}">
+                            <i class="fas fa-trash"></i> 削除
+                        </button>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-7 mb-3">
+                            <label class="form-label">タイトル</label>
+                            <input type="text" class="form-control" data-field="title" data-index="${index}" value="${escapeHtml(handout.title || '')}">
+                        </div>
+                        <div class="col-md-5 mb-3">
+                            <label class="form-label">HO番号</label>
+                            <select class="form-select" data-field="handout_number" data-index="${index}">
+                                <option value="">未設定</option>
+                                <option value="1" ${String(handout.handout_number || '') === '1' ? 'selected' : ''}>HO1</option>
+                                <option value="2" ${String(handout.handout_number || '') === '2' ? 'selected' : ''}>HO2</option>
+                                <option value="3" ${String(handout.handout_number || '') === '3' ? 'selected' : ''}>HO3</option>
+                                <option value="4" ${String(handout.handout_number || '') === '4' ? 'selected' : ''}>HO4</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">配布先プレイヤー枠</label>
+                            <select class="form-select" data-field="assigned_player_slot" data-index="${index}">
+                                <option value="">未設定</option>
+                                <option value="1" ${String(handout.assigned_player_slot || '') === '1' ? 'selected' : ''}>プレイヤー1</option>
+                                <option value="2" ${String(handout.assigned_player_slot || '') === '2' ? 'selected' : ''}>プレイヤー2</option>
+                                <option value="3" ${String(handout.assigned_player_slot || '') === '3' ? 'selected' : ''}>プレイヤー3</option>
+                                <option value="4" ${String(handout.assigned_player_slot || '') === '4' ? 'selected' : ''}>プレイヤー4</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3 d-flex align-items-end">
+                            <div class="form-check">
+                                <input
+                                    type="checkbox"
+                                    class="form-check-input"
+                                    id="templateHandoutSecret${index}"
+                                    data-field="is_secret"
+                                    data-index="${index}"
+                                    ${handout.is_secret !== false ? 'checked' : ''}
+                                >
+                                <label class="form-check-label" for="templateHandoutSecret${index}">秘匿ハンドアウト</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">推奨技能</label>
+                        <textarea class="form-control" rows="2" data-field="recommended_skills" data-index="${index}">${escapeHtml(handout.recommended_skills || '')}</textarea>
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label">内容</label>
+                        <textarea class="form-control" rows="5" data-field="content" data-index="${index}">${escapeHtml(handout.content || '')}</textarea>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        templateHandoutsList.querySelectorAll('[data-action="remove-handout"]').forEach(button => {
+            button.addEventListener('click', (event) => {
+                const index = Number.parseInt(event.currentTarget.dataset.index, 10);
+                templateHandouts.splice(index, 1);
+                renderTemplateHandouts();
+            });
+        });
+
+        templateHandoutsList.querySelectorAll('[data-field]').forEach(input => {
+            input.addEventListener('input', handleHandoutFieldChange);
+            input.addEventListener('change', handleHandoutFieldChange);
+        });
+    }
+
+    function handleHandoutFieldChange(event) {
+        const { index, field } = event.currentTarget.dataset;
+        const handout = templateHandouts[Number.parseInt(index, 10)];
+        if (!handout) return;
+
+        if (field === 'is_secret') {
+            handout.is_secret = event.currentTarget.checked;
+            return;
+        }
+
+        const rawValue = event.currentTarget.value;
+        if (field === 'handout_number' || field === 'assigned_player_slot') {
+            handout[field] = rawValue ? Number.parseInt(rawValue, 10) : null;
+            return;
+        }
+
+        handout[field] = rawValue;
+    }
+
     async function loadGroups() {
         try {
             const response = await axios.get('/api/accounts/groups/');
-            userGroups = response.data || [];
+            userGroups = (response.data || []).filter(group => group.is_member);
             templateGroupSelect.innerHTML = '<option value="">未設定</option>' +
-                userGroups.map(g => `<option value="${g.id}">${escapeHtml(g.name)}</option>`).join('');
+                userGroups.map(group => `<option value="${group.id}">${escapeHtml(group.name)}</option>`).join('');
         } catch (error) {
             console.error('Error loading groups:', error);
         }
@@ -194,26 +510,30 @@ document.addEventListener('DOMContentLoaded', function() {
                             <th>グループ</th>
                             <th>場所</th>
                             <th class="text-end">時間</th>
+                            <th class="text-end">画像</th>
+                            <th class="text-end">HO</th>
                             <th>公開</th>
                             <th class="text-end">操作</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${templates.map(t => `
+                        ${templates.map(template => `
                             <tr>
                                 <td>
-                                    <div class="fw-semibold">${escapeHtml(t.name)}</div>
-                                    ${t.title ? `<small class="text-muted">${escapeHtml(t.title)}</small>` : ''}
+                                    <div class="fw-semibold">${escapeHtml(template.name)}</div>
+                                    ${template.title ? `<small class="text-muted">${escapeHtml(template.title)}</small>` : ''}
                                 </td>
-                                <td>${escapeHtml(t.group_name || '—')}</td>
-                                <td>${escapeHtml(t.location || '—')}</td>
-                                <td class="text-end">${t.duration_minutes ? `${t.duration_minutes}分` : '—'}</td>
-                                <td>${escapeHtml(getVisibilityLabel(t.visibility))}</td>
+                                <td>${escapeHtml(template.group_name || '—')}</td>
+                                <td>${escapeHtml(template.location || '—')}</td>
+                                <td class="text-end">${escapeHtml(template.duration_hhmm || minutesToHhmm(template.duration_minutes) || '—')}</td>
+                                <td class="text-end">${template.image_templates?.length || 0}</td>
+                                <td class="text-end">${template.copy_handouts_to_session ? (template.handout_templates?.length || 0) : 0}</td>
+                                <td>${escapeHtml(getVisibilityLabel(template.visibility))}</td>
                                 <td class="text-end">
-                                    <button class="btn btn-sm btn-outline-primary me-2" data-action="edit" data-id="${t.id}">
+                                    <button class="btn btn-sm btn-outline-primary me-2" data-action="edit" data-id="${template.id}">
                                         <i class="fas fa-pen"></i>
                                     </button>
-                                    <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${t.id}">
+                                    <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${template.id}">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </td>
@@ -224,12 +544,11 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
 
-        templatesContainer.querySelectorAll('button[data-action]').forEach(btn => {
-            btn.addEventListener('click', async (event) => {
+        templatesContainer.querySelectorAll('button[data-action]').forEach(button => {
+            button.addEventListener('click', async (event) => {
                 const action = event.currentTarget.dataset.action;
-                const id = parseInt(event.currentTarget.dataset.id, 10);
-                const template = templates.find(t => t.id === id);
-
+                const id = Number.parseInt(event.currentTarget.dataset.id, 10);
+                const template = templates.find(item => item.id === id);
                 if (!template) return;
 
                 if (action === 'edit') {
@@ -237,14 +556,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
 
-                if (action === 'delete') {
-                    if (!confirm(`テンプレート「${template.name}」を削除しますか？`)) return;
-                    try {
-                        await axios.delete(`/api/schedules/session-templates/${id}/`);
-                        await loadTemplates();
-                    } catch (error) {
-                        alert('削除に失敗しました: ' + (error.response?.data?.detail || error.message));
-                    }
+                if (!confirm(`テンプレート「${template.name}」を削除しますか？`)) return;
+                try {
+                    await axios.delete(`/api/schedules/session-templates/${id}/`);
+                    await loadTemplates();
+                } catch (error) {
+                    alert('削除に失敗しました: ' + getErrorMessage(error));
                 }
             });
         });
@@ -252,6 +569,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function openModal(template) {
         form.reset();
+        pendingImageFiles = [];
+        existingTemplateImages = [...(template?.image_templates || [])];
+        templateHandouts = (template?.handout_templates || []).map(handout => ({
+            id: handout.id,
+            title: handout.title || '',
+            content: handout.content || '',
+            recommended_skills: handout.recommended_skills || '',
+            is_secret: handout.is_secret !== false,
+            handout_number: handout.handout_number || null,
+            assigned_player_slot: handout.assigned_player_slot || null,
+        }));
 
         const isEdit = Boolean(template && template.id);
         templateIdInput.value = isEdit ? template.id : '';
@@ -259,18 +587,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
         templateNameInput.value = template?.name || '';
         templateTitleInput.value = template?.title || '';
-        templateDurationInput.value = template?.duration_minutes ?? '';
+        templateDurationInput.value = template?.duration_hhmm || minutesToHhmm(template?.duration_minutes || 0);
         templateLocationInput.value = template?.location || '';
         templateVisibilitySelect.value = template?.visibility || 'group';
         templateCocEditionSelect.value = template?.coc_edition || '6th';
         templateDescriptionInput.value = template?.description || '';
         templateYoutubeInput.value = template?.youtube_url || '';
+        templateGroupSelect.value = template?.group || '';
+        copyHandoutsToSessionInput.checked = Boolean(template?.copy_handouts_to_session);
 
-        if (templateGroupSelect) {
-            templateGroupSelect.value = template?.group || '';
+        toggleHandoutSection();
+        renderTemplateImages();
+        renderTemplateHandouts();
+        modal.show();
+    }
+
+    async function uploadPendingImages(templateId) {
+        if (!templateId || pendingImageFiles.length === 0) {
+            return;
         }
 
-        modal.show();
+        const formData = new FormData();
+        pendingImageFiles.forEach(file => formData.append('images', file));
+        await axios.post(`/api/schedules/session-templates/${templateId}/images/`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        pendingImageFiles = [];
     }
 
     async function submitTemplate() {
@@ -279,31 +621,48 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        const durationMinutes = parseHhmm(templateDurationInput.value);
+        if (durationMinutes === null) {
+            alert('予定時間は hhmm 形式で入力してください。分は 00〜59 の範囲です。');
+            templateDurationInput.focus();
+            return;
+        }
+
         const payload = {
-            name: templateNameInput.value,
+            name: templateNameInput.value.trim(),
             title: templateTitleInput.value || '',
-            group: templateGroupSelect.value ? parseInt(templateGroupSelect.value, 10) : null,
-            duration_minutes: templateDurationInput.value ? parseInt(templateDurationInput.value, 10) : 0,
+            group: templateGroupSelect.value ? Number.parseInt(templateGroupSelect.value, 10) : null,
+            duration_minutes: durationMinutes,
             location: templateLocationInput.value || '',
             visibility: templateVisibilitySelect.value,
             coc_edition: templateCocEditionSelect.value,
             description: templateDescriptionInput.value || '',
             youtube_url: templateYoutubeInput.value || '',
+            copy_handouts_to_session: copyHandoutsToSessionInput.checked,
+            handout_templates: templateHandouts.map(handout => ({
+                title: handout.title || '',
+                content: handout.content || '',
+                recommended_skills: handout.recommended_skills || '',
+                is_secret: handout.is_secret !== false,
+                handout_number: handout.handout_number || null,
+                assigned_player_slot: handout.assigned_player_slot || null,
+            })),
         };
 
-        const templateId = templateIdInput.value ? parseInt(templateIdInput.value, 10) : null;
+        const templateId = templateIdInput.value ? Number.parseInt(templateIdInput.value, 10) : null;
 
         saveBtn.disabled = true;
         try {
-            if (templateId) {
-                await axios.patch(`/api/schedules/session-templates/${templateId}/`, payload);
-            } else {
-                await axios.post('/api/schedules/session-templates/', payload);
-            }
+            const response = templateId
+                ? await axios.patch(`/api/schedules/session-templates/${templateId}/`, payload)
+                : await axios.post('/api/schedules/session-templates/', payload);
+
+            const savedTemplateId = response.data?.id || templateId;
+            await uploadPendingImages(savedTemplateId);
             modal.hide();
             await loadTemplates();
         } catch (error) {
-            alert('保存に失敗しました: ' + (error.response?.data?.detail || error.message));
+            alert('保存に失敗しました: ' + getErrorMessage(error));
         } finally {
             saveBtn.disabled = false;
         }
@@ -311,6 +670,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
     createBtn.addEventListener('click', () => openModal(null));
     saveBtn.addEventListener('click', submitTemplate);
+
+    templateDurationInput.addEventListener('blur', () => {
+        templateDurationInput.value = normalizeHhmm(templateDurationInput.value);
+    });
+
+    templateImagesInput.addEventListener('change', (event) => {
+        const files = Array.from(event.target.files || []);
+        pendingImageFiles.push(...files);
+        templateImagesInput.value = '';
+        renderTemplateImages();
+    });
+
+    addTemplateHandoutBtn.addEventListener('click', () => {
+        templateHandouts.push(createEmptyHandout());
+        renderTemplateHandouts();
+    });
+
+    copyHandoutsToSessionInput.addEventListener('change', toggleHandoutSection);
+
+    modalEl.addEventListener('hidden.bs.modal', () => {
+        pendingImageFiles = [];
+        existingTemplateImages = [];
+        templateHandouts = [];
+    });
 
     void loadGroups().then(loadTemplates);
 });

@@ -759,7 +759,7 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadGroups() {
         try {
             const response = await axios.get('/api/accounts/groups/');
-            userGroups = response.data;
+            userGroups = (response.data || []).filter(g => g.is_member);
             
             const select = document.getElementById('sessionGroup');
             select.innerHTML = '<option value="">グループを選択...</option>' +
@@ -1027,6 +1027,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const scenarioId = document.getElementById('sessionScenarioId')?.value;
         if (scenarioId) {
             data.scenario = parseInt(scenarioId, 10);
+        }
+        const sessionTemplateId = document.getElementById('sessionTemplate')?.value;
+        if (sessionTemplateId) {
+            data.session_template = parseInt(sessionTemplateId, 10);
         }
 
         try {
