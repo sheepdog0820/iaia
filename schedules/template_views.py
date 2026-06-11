@@ -3,7 +3,9 @@ from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.db.models import F, Q
 
+from accounts.models import GroupLink, GroupLinkShare, GroupMembership
 from .models import SessionTemplate, SessionTemplateImage
 from .serializers import SessionTemplateImageSerializer, SessionTemplateSerializer
 
@@ -15,8 +17,20 @@ class SessionTemplateViewSet(viewsets.ModelViewSet):
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_queryset(self):
+        group_ids = GroupMembership.objects.filter(
+            user=self.request.user
+        ).values_list('group_id', flat=True)
+        shared_template_ids = GroupLinkShare.objects.filter(
+            resource_type=GroupLinkShare.ResourceType.SESSION_TEMPLATE,
+            link__status=GroupLink.Status.ACCEPTED,
+        ).filter(
+            Q(owner_group_id=F('link__source_group_id'), link__target_group_id__in=group_ids)
+            | Q(owner_group_id=F('link__target_group_id'), link__source_group_id__in=group_ids)
+        ).values_list('object_id', flat=True)
         return (
-            SessionTemplate.objects.filter(owner=self.request.user)
+            SessionTemplate.objects.filter(
+                Q(owner=self.request.user) | Q(id__in=shared_template_ids)
+            )
             .select_related('group', 'scenario')
             .prefetch_related('handout_templates', 'image_templates')
             .order_by('name', 'id')
@@ -24,6 +38,22 @@ class SessionTemplateViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+    def update(self, request, *args, **kwargs):
+        if self.get_object().owner_id != request.user.id:
+            return Response(
+                {'detail': 'Shared templates are read-only.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if self.get_object().owner_id != request.user.id:
+            return Response(
+                {'detail': 'Shared templates are read-only.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=['get', 'post'])
     def images(self, request, pk=None):
@@ -37,6 +67,12 @@ class SessionTemplateViewSet(viewsets.ModelViewSet):
                 context={'request': request},
             )
             return Response(serializer.data)
+
+        if template.owner_id != request.user.id:
+            return Response(
+                {'detail': 'Shared templates are read-only.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         files = request.FILES.getlist('images') or []
         single_file = request.FILES.get('image')

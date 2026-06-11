@@ -162,6 +162,75 @@ class GoogleCalendarSync(models.Model):
         ]
 
 
+class GuestInvitation(models.Model):
+    session = models.ForeignKey(
+        'TRPGSession',
+        on_delete=models.CASCADE,
+        related_name='guest_invitations',
+    )
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='created_guest_invitations',
+    )
+    token_digest = models.CharField(max_length=64, unique=True, db_index=True)
+    expires_at = models.DateTimeField(db_index=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+    participant = models.OneToOneField(
+        'SessionParticipant',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='guest_invitation',
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    @staticmethod
+    def digest(token):
+        return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+    @classmethod
+    def issue(cls, session, created_by, expires_at):
+        token = secrets.token_urlsafe(32)
+        invitation = cls.objects.create(
+            session=session,
+            created_by=created_by,
+            token_digest=cls.digest(token),
+            expires_at=expires_at,
+        )
+        return invitation, token
+
+    @property
+    def is_active(self):
+        return (
+            self.revoked_at is None
+            and self.expires_at > timezone.now()
+        )
+
+
+class GuestClaimAudit(models.Model):
+    invitation = models.ForeignKey(
+        GuestInvitation,
+        on_delete=models.PROTECT,
+        related_name='claim_audits',
+    )
+    participant = models.ForeignKey(
+        'SessionParticipant',
+        on_delete=models.PROTECT,
+        related_name='claim_audits',
+    )
+    claimed_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.PROTECT,
+        related_name='guest_claim_audits',
+    )
+    guest_name = models.CharField(max_length=100)
+    character_name = models.CharField(max_length=100, blank=True)
+    character_sheet_url = models.URLField(blank=True)
+    claimed_at = models.DateTimeField(default=timezone.now)
+
+
 class TRPGSession(models.Model):
     STATUS_CHOICES = [
         ('planned', '予定'),

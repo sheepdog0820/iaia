@@ -56,17 +56,32 @@ from .serializers import (
 from .services import YouTubeService
 from .notifications import SessionNotificationService
 from .template_services import bind_slot_handouts_to_participant, clone_template_to_session
-from accounts.models import Group, GroupMembership, CustomUser, CharacterSheet
+from accounts.models import (
+    CharacterSheet,
+    CustomUser,
+    Group,
+    GroupLink,
+    GroupLinkShare,
+    GroupMembership,
+)
 
 
 def _visible_sessions_for(user):
     group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
     participant_session_ids = SessionParticipant.objects.filter(user=user).values_list('session_id', flat=True)
+    shared_session_ids = GroupLinkShare.objects.filter(
+        resource_type=GroupLinkShare.ResourceType.SESSION,
+        link__status=GroupLink.Status.ACCEPTED,
+    ).filter(
+        Q(owner_group_id=F('link__source_group_id'), link__target_group_id__in=group_ids)
+        | Q(owner_group_id=F('link__target_group_id'), link__source_group_id__in=group_ids)
+    ).values_list('object_id', flat=True)
     return TRPGSession.objects.filter(
         Q(gm=user) |
         Q(visibility='public') |
         Q(group_id__in=group_ids) |
-        Q(id__in=participant_session_ids)
+        Q(id__in=participant_session_ids) |
+        Q(id__in=shared_session_ids)
     ).distinct()
 
 
@@ -167,6 +182,11 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
+        if instance.gm_id != request.user.id:
+            return Response(
+                {'detail': 'Only the GM can update this session.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         
         # 変更前の日時を保存
         old_date = instance.date
@@ -200,8 +220,31 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         
         if getattr(instance, '_prefetched_objects_cache', None):
             instance._prefetched_objects_cache = {}
+
+        from .tasks import queue_discord_event, schedule_session_google_syncs
+        event_type = (
+            'session_cancelled'
+            if old_status != 'cancelled' and instance.status == 'cancelled'
+            else 'session_updated'
+        )
+        queue_discord_event(
+            instance.group_id,
+            event_type,
+            {'content': f'Session updated: {instance.title}'},
+            f'{event_type}:{instance.pk}:{instance.updated_at.isoformat()}',
+        )
+        schedule_session_google_syncs(instance)
         
         return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.gm_id != request.user.id:
+            return Response(
+                {'detail': 'Only the GM can delete this session.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
     
     def _update_session_statistics(self, session):
         """セッション完了時の統計を更新"""
@@ -1154,20 +1197,6 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-        from .tasks import queue_discord_event
-        event_type = (
-            'session_cancelled'
-            if old_status != 'cancelled' and instance.status == 'cancelled'
-            else 'session_updated'
-        )
-        queue_discord_event(
-            instance.group_id,
-            event_type,
-            {'content': f'Session updated: {instance.title}'},
-            f'{event_type}:{instance.pk}:{instance.updated_at.isoformat()}',
-        )
-        from .tasks import schedule_session_google_syncs
-        schedule_session_google_syncs(instance)
         
         return Response(serializer.data)
 
@@ -3075,8 +3104,15 @@ class DatePollViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)
+        shared_poll_ids = GroupLinkShare.objects.filter(
+            resource_type=GroupLinkShare.ResourceType.DATE_POLL,
+            link__status=GroupLink.Status.ACCEPTED,
+        ).filter(
+            Q(owner_group_id=F('link__source_group_id'), link__target_group_id__in=group_ids)
+            | Q(owner_group_id=F('link__target_group_id'), link__source_group_id__in=group_ids)
+        ).values_list('object_id', flat=True)
         queryset = DatePoll.objects.filter(
-            Q(created_by=user) | Q(group_id__in=group_ids)
+            Q(created_by=user) | Q(group_id__in=group_ids) | Q(id__in=shared_poll_ids)
         ).select_related('created_by', 'group', 'session').prefetch_related(
             'options__votes__user'
         ).distinct()

@@ -84,6 +84,76 @@ class DiscordDelivery(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
 
 
+class GroupLink(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        ACCEPTED = 'accepted', 'Accepted'
+        REJECTED = 'rejected', 'Rejected'
+
+    source_group = models.ForeignKey(
+        Group, on_delete=models.CASCADE, related_name='outgoing_links'
+    )
+    target_group = models.ForeignKey(
+        Group, on_delete=models.CASCADE, related_name='incoming_links'
+    )
+    requested_by = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, related_name='requested_group_links'
+    )
+    responded_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='responded_group_links',
+    )
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.PENDING
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['source_group', 'target_group'],
+                name='unique_directed_group_link',
+            ),
+            models.CheckConstraint(
+                check=~models.Q(source_group=models.F('target_group')),
+                name='group_link_groups_must_differ',
+            ),
+        ]
+
+
+class GroupLinkShare(models.Model):
+    class ResourceType(models.TextChoices):
+        SESSION = 'session', 'Session'
+        DATE_POLL = 'date_poll', 'Date poll'
+        SCENARIO = 'scenario', 'Scenario'
+        SESSION_TEMPLATE = 'session_template', 'Session template'
+
+    link = models.ForeignKey(
+        GroupLink, on_delete=models.CASCADE, related_name='shares'
+    )
+    owner_group = models.ForeignKey(
+        Group, on_delete=models.CASCADE, related_name='outgoing_resource_shares'
+    )
+    resource_type = models.CharField(max_length=32, choices=ResourceType.choices)
+    object_id = models.PositiveIntegerField()
+    created_by = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, related_name='created_group_link_shares'
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['link', 'owner_group', 'resource_type', 'object_id'],
+                name='unique_group_link_resource_share',
+            ),
+        ]
+
+
 class GroupMembership(models.Model):
     """Group membership model with role management"""
     ROLE_CHOICES = [

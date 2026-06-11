@@ -26,6 +26,12 @@ from schedules.views import PublicSessionDetailView
 from tableno.health_views import health_live_view, health_ready_view
 from schedules.job_views import AsyncJobDetailView
 from accounts.discord_views import GroupDiscordSettingsView
+from accounts.group_link_views import (
+    GroupLinkAcceptView,
+    GroupLinkDetailView,
+    GroupLinkListCreateView,
+    GroupLinkShareView,
+)
 from schedules.integration_views import (
     CalendarSubscriptionRotateView,
     CalendarSubscriptionView,
@@ -33,6 +39,12 @@ from schedules.integration_views import (
     GoogleIntegrationView,
     GoogleSheetsExportView,
     GoogleSheetsImportView,
+)
+from schedules.guest_views import (
+    GuestInvitationCreateView,
+    GuestInvitationRespondView,
+    GuestInvitationRevokeView,
+    GuestParticipantClaimView,
 )
 
 urlpatterns = [
@@ -47,6 +59,26 @@ urlpatterns = [
         'api/groups/<int:group_id>/discord-settings/',
         GroupDiscordSettingsView.as_view(),
         name='group-discord-settings',
+    ),
+    path(
+        'api/groups/<int:group_id>/links/',
+        GroupLinkListCreateView.as_view(),
+        name='group-link-list',
+    ),
+    path(
+        'api/groups/<int:group_id>/links/<int:link_id>/accept/',
+        GroupLinkAcceptView.as_view(),
+        name='group-link-accept',
+    ),
+    path(
+        'api/groups/<int:group_id>/links/<int:link_id>/',
+        GroupLinkDetailView.as_view(),
+        name='group-link-detail',
+    ),
+    path(
+        'api/groups/<int:group_id>/links/<int:link_id>/shares/',
+        GroupLinkShareView.as_view(),
+        name='group-link-share',
     ),
     path(
         'api/calendar/subscription-token/rotate/',
@@ -77,6 +109,26 @@ urlpatterns = [
         'api/character-sheets/google-sheets/export/',
         GoogleSheetsExportView.as_view(),
         name='google-sheets-export',
+    ),
+    path(
+        'api/sessions/<int:session_id>/guest-invitations/',
+        GuestInvitationCreateView.as_view(),
+        name='guest-invitation-create',
+    ),
+    path(
+        'api/sessions/<int:session_id>/guest-invitations/<int:invitation_id>/',
+        GuestInvitationRevokeView.as_view(),
+        name='guest-invitation-revoke',
+    ),
+    path(
+        'api/guest-invitations/<str:token>/respond/',
+        GuestInvitationRespondView.as_view(),
+        name='guest-invitation-respond',
+    ),
+    path(
+        'api/participants/<int:participant_id>/claim/',
+        GuestParticipantClaimView.as_view(),
+        name='guest-participant-claim',
     ),
     path('admin/', admin.site.urls),
     
