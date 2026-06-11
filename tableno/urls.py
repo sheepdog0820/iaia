@@ -25,6 +25,7 @@ from accounts.views import CustomLoginView, CustomSignUpView
 from schedules.views import PublicSessionDetailView
 from tableno.health_views import health_live_view, health_ready_view
 from schedules.job_views import AsyncJobDetailView
+from accounts.discord_views import GroupDiscordSettingsView
 
 urlpatterns = [
     path('health/live/', health_live_view, name='health_live'),
@@ -34,6 +35,11 @@ urlpatterns = [
     path('api/schema/', SpectacularAPIView.as_view(), name='api-schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='api-schema'), name='api-docs'),
     path('api/jobs/<uuid:pk>/', AsyncJobDetailView.as_view(), name='async-job-detail'),
+    path(
+        'api/groups/<int:group_id>/discord-settings/',
+        GroupDiscordSettingsView.as_view(),
+        name='group-discord-settings',
+    ),
     path('admin/', admin.site.urls),
     
     # Custom authentication views

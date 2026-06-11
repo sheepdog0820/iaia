@@ -4,6 +4,7 @@ GMハンドアウト管理機能
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -205,6 +206,13 @@ class HandoutManagementViewSet(viewsets.ModelViewSet):
         
         # 秘匿フラグを切り替え
         handout.is_secret = not handout.is_secret
+        handout.release_status = (
+            HandoutInfo.ReleaseStatus.MANUAL
+            if handout.is_secret
+            else HandoutInfo.ReleaseStatus.RELEASED
+        )
+        handout.released_at = None if handout.is_secret else timezone.now()
+        handout.next_evaluation_at = None
         handout.save()
         
         serializer = HandoutInfoSerializer(handout)

@@ -737,6 +737,12 @@ class SessionReward(models.Model):
 
 
 class HandoutInfo(models.Model):
+    class ReleaseStatus(models.TextChoices):
+        MANUAL = 'manual', 'Manual'
+        WAITING = 'waiting', 'Waiting'
+        RELEASED = 'released', 'Released'
+        FAILED = 'failed', 'Failed'
+
     HANDOUT_NUMBER_CHOICES = [
         (1, 'HO1'),
         (2, 'HO2'),
@@ -771,6 +777,15 @@ class HandoutInfo(models.Model):
         help_text="割り当てられたプレイヤー枠"
     )
     
+    release_conditions = models.JSONField(default=dict, blank=True)
+    release_status = models.CharField(
+        max_length=16,
+        choices=ReleaseStatus.choices,
+        default=ReleaseStatus.MANUAL,
+    )
+    next_evaluation_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    released_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -783,6 +798,24 @@ class HandoutInfo(models.Model):
             ['session', 'handout_number'],  # 同じセッション内でHO番号は重複不可
         ]
         ordering = ['handout_number', 'title']
+
+
+class HandoutView(models.Model):
+    handout = models.ForeignKey(
+        HandoutInfo, on_delete=models.CASCADE, related_name='views'
+    )
+    user = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, related_name='viewed_handouts'
+    )
+    viewed_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['handout', 'user'],
+                name='unique_handout_view_per_user',
+            ),
+        ]
 
 
 class HandoutNotification(models.Model):

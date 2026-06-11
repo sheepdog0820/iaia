@@ -20,6 +20,7 @@ from .models import (
     SessionNote,
     SessionLog,
     HandoutInfo,
+    HandoutView,
     SessionImage,
     SessionYouTubeLink,
     # 高度なスケジューリング機能（ISSUE-017）
@@ -153,6 +154,13 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                 session,
                 uploaded_by=self.request.user,
             )
+        from .tasks import queue_discord_event
+        queue_discord_event(
+            session.group_id,
+            'session_created',
+            {'content': f'Session created: {session.title}'},
+            f'session-created:{session.pk}',
+        )
     
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -1144,6 +1152,18 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+        from .tasks import queue_discord_event
+        event_type = (
+            'session_cancelled'
+            if old_status != 'cancelled' and instance.status == 'cancelled'
+            else 'session_updated'
+        )
+        queue_discord_event(
+            instance.group_id,
+            event_type,
+            {'content': f'Session updated: {instance.title}'},
+            f'{event_type}:{instance.pk}:{instance.updated_at.isoformat()}',
+        )
         
         return Response(serializer.data)
 
@@ -1243,6 +1263,16 @@ class HandoutInfoViewSet(viewsets.ModelViewSet):
         
         serializer.save()
 
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.session.gm_id != request.user.id:
+            HandoutView.objects.update_or_create(
+                handout=instance,
+                user=request.user,
+                defaults={'viewed_at': timezone.now()},
+            )
+        return Response(self.get_serializer(instance).data)
+
     @action(detail=False, methods=['post'])
     def toggle_visibility(self, request):
         """ハンドアウトの公開/秘匿切り替え（GMのみ）"""
@@ -1257,6 +1287,13 @@ class HandoutInfoViewSet(viewsets.ModelViewSet):
             return Response({'error': 'GM権限が必要です'}, status=status.HTTP_403_FORBIDDEN)
 
         handout.is_secret = not handout.is_secret
+        handout.release_status = (
+            HandoutInfo.ReleaseStatus.MANUAL
+            if handout.is_secret
+            else HandoutInfo.ReleaseStatus.RELEASED
+        )
+        handout.released_at = None if handout.is_secret else timezone.now()
+        handout.next_evaluation_at = None
         handout.save()
 
         serializer = HandoutInfoSerializer(handout)

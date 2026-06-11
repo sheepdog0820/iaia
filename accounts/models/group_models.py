@@ -1,6 +1,11 @@
 """
 Group-related models for accounts app
 """
+import base64
+import hashlib
+
+from cryptography.fernet import Fernet
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta
@@ -23,6 +28,60 @@ class Group(TimestampedModel):
     
     def __str__(self):
         return self.name
+
+
+class GroupDiscordSettings(TimestampedModel):
+    group = models.OneToOneField(
+        Group, on_delete=models.CASCADE, related_name='discord_settings'
+    )
+    encrypted_webhook_url = models.TextField(blank=True, default='')
+    enabled = models.BooleanField(default=False)
+    event_types = models.JSONField(default=list, blank=True)
+    failure_count = models.PositiveSmallIntegerField(default=0)
+    disabled_at = models.DateTimeField(null=True, blank=True)
+
+    @staticmethod
+    def _fernet():
+        digest = hashlib.sha256(settings.SECRET_KEY.encode('utf-8')).digest()
+        return Fernet(base64.urlsafe_b64encode(digest))
+
+    def set_webhook_url(self, webhook_url):
+        self.encrypted_webhook_url = (
+            self._fernet().encrypt(webhook_url.encode('utf-8')).decode('ascii')
+            if webhook_url else ''
+        )
+
+    def get_webhook_url(self):
+        if not self.encrypted_webhook_url:
+            return ''
+        return self._fernet().decrypt(
+            self.encrypted_webhook_url.encode('ascii')
+        ).decode('utf-8')
+
+    @property
+    def is_configured(self):
+        return bool(self.encrypted_webhook_url)
+
+
+class DiscordDelivery(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        SENT = 'sent', 'Sent'
+        FAILED = 'failed', 'Failed'
+
+    settings = models.ForeignKey(
+        GroupDiscordSettings, on_delete=models.CASCADE, related_name='deliveries'
+    )
+    event_type = models.CharField(max_length=64)
+    idempotency_key = models.CharField(max_length=255, unique=True)
+    payload = models.JSONField(default=dict)
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.PENDING
+    )
+    attempts = models.PositiveSmallIntegerField(default=0)
+    last_error = models.TextField(blank=True, default='')
+    sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
 
 
 class GroupMembership(models.Model):

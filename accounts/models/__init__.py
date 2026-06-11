@@ -15,7 +15,13 @@ from .base_models import TimestampedModel
 from .user_models import CustomUser, Friend
 
 # Import group models  
-from .group_models import Group, GroupMembership, GroupInvitation
+from .group_models import (
+    DiscordDelivery,
+    Group,
+    GroupDiscordSettings,
+    GroupInvitation,
+    GroupMembership,
+)
 
 # Import character models from parent module (to avoid circular imports)
 try:
@@ -42,6 +48,8 @@ __all__ = [
     'Group',
     'GroupMembership', 
     'GroupInvitation',
+    'GroupDiscordSettings',
+    'DiscordDelivery',
     'CharacterSheet',
     'CharacterSheet6th',
     'CharacterSkill',

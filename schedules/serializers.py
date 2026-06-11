@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.core.exceptions import ValidationError as DjangoValidationError
 from .models import (
     TRPGSession,
     SessionTemplate,
@@ -277,8 +278,13 @@ class HandoutInfoSerializer(serializers.ModelSerializer):
         model = HandoutInfo
         fields = ['id', 'session', 'participant', 'participant_detail', 
                  'title', 'content', 'recommended_skills', 'is_secret', 'handout_number',
-                 'assigned_player_slot', 'created_at', 'updated_at', 'recipient']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+                 'assigned_player_slot', 'release_conditions', 'release_status',
+                 'next_evaluation_at', 'released_at', 'created_at', 'updated_at',
+                 'recipient']
+        read_only_fields = [
+            'id', 'release_status', 'next_evaluation_at', 'released_at',
+            'created_at', 'updated_at',
+        ]
 
     def validate(self, attrs):
         recipient = attrs.pop('recipient', None)
@@ -299,7 +305,55 @@ class HandoutInfoSerializer(serializers.ModelSerializer):
         if not attrs.get('participant') and not getattr(self.instance, 'participant', None):
             raise serializers.ValidationError({'participant': 'participant or recipient is required'})
 
+        session = attrs.get('session') or getattr(self.instance, 'session', None)
+        participant = attrs.get('participant') or getattr(self.instance, 'participant', None)
+        if session and participant and participant.session_id != session.id:
+            raise serializers.ValidationError(
+                {'participant': 'Participant must belong to the handout session.'}
+            )
+        conditions = attrs.get(
+            'release_conditions',
+            getattr(self.instance, 'release_conditions', {}),
+        )
+        if conditions:
+            from .handout_release import validate_release_conditions
+            try:
+                validate_release_conditions(conditions, session, self.instance)
+            except DjangoValidationError as exc:
+                raise serializers.ValidationError(
+                    {'release_conditions': exc.messages}
+                ) from exc
         return attrs
+
+    def _set_release_state(self, instance):
+        from .handout_release import get_next_evaluation_at
+        if instance.release_conditions and instance.is_secret:
+            instance.release_status = HandoutInfo.ReleaseStatus.WAITING
+            instance.next_evaluation_at = get_next_evaluation_at(
+                instance.release_conditions
+            )
+            instance.released_at = None
+        elif not instance.is_secret:
+            instance.release_status = HandoutInfo.ReleaseStatus.RELEASED
+            instance.released_at = instance.released_at or timezone.now()
+            instance.next_evaluation_at = None
+        else:
+            instance.release_status = HandoutInfo.ReleaseStatus.MANUAL
+            instance.released_at = None
+            instance.next_evaluation_at = None
+        instance.save(update_fields=[
+            'release_status',
+            'next_evaluation_at',
+            'released_at',
+            'updated_at',
+        ])
+        return instance
+
+    def create(self, validated_data):
+        return self._set_release_state(super().create(validated_data))
+
+    def update(self, instance, validated_data):
+        return self._set_release_state(super().update(instance, validated_data))
 
 
 class HandoutAttachmentSerializer(serializers.ModelSerializer):
