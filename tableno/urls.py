@@ -19,16 +19,21 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from accounts.views import CustomLoginView, CustomSignUpView
 from schedules.views import PublicSessionDetailView
 from tableno.health_views import health_live_view, health_ready_view
+from schedules.job_views import AsyncJobDetailView
 
 urlpatterns = [
     path('health/live/', health_live_view, name='health_live'),
     path('health/live', health_live_view),
     path('health/ready/', health_ready_view, name='health_ready'),
     path('health/ready', health_ready_view),
+    path('api/schema/', SpectacularAPIView.as_view(), name='api-schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='api-schema'), name='api-docs'),
+    path('api/jobs/<uuid:pk>/', AsyncJobDetailView.as_view(), name='async-job-detail'),
     path('admin/', admin.site.urls),
     
     # Custom authentication views

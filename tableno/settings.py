@@ -145,6 +145,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.twitter_oauth2',
     'rest_framework',
     'rest_framework.authtoken',
+    'drf_spectacular',
     # 'corsheaders',  # 8000番ポート統一のため無効化
     'crispy_forms',
     'crispy_bootstrap5',
@@ -331,10 +332,36 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Tableno API',
+    'DESCRIPTION': 'TRPG session, group, scenario and character management API.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'PREPROCESSING_HOOKS': ['tableno.schema_hooks.filter_api_endpoints'],
+}
+
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', os.environ.get('REDIS_URL', 'redis://localhost:6379/1'))
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = int(os.environ.get('CELERY_TASK_TIME_LIMIT', '900'))
+CELERY_TASK_SOFT_TIME_LIMIT = int(os.environ.get('CELERY_TASK_SOFT_TIME_LIMIT', '840'))
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BEAT_SCHEDULE = {
+    'publish-scheduled-handouts': {
+        'task': 'schedules.tasks.publish_scheduled_handouts',
+        'schedule': 60.0,
+    },
+    'expire-async-jobs': {
+        'task': 'schedules.tasks.expire_async_jobs',
+        'schedule': 3600.0,
+    },
 }
 
 # Crispy Forms settings

@@ -8,6 +8,68 @@ import uuid
 from accounts.models import CustomUser, Group, GroupMembership
 
 
+class AsyncJob(models.Model):
+    class Status(models.TextChoices):
+        QUEUED = 'queued', 'Queued'
+        RUNNING = 'running', 'Running'
+        SUCCEEDED = 'succeeded', 'Succeeded'
+        FAILED = 'failed', 'Failed'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    owner = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='async_jobs',
+    )
+    job_type = models.CharField(max_length=80, db_index=True)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.QUEUED,
+        db_index=True,
+    )
+    progress = models.PositiveSmallIntegerField(default=0)
+    payload = models.JSONField(default=dict, blank=True)
+    result = models.JSONField(default=dict, blank=True)
+    error = models.TextField(blank=True, default='')
+    celery_task_id = models.CharField(max_length=255, blank=True, default='', db_index=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['owner', 'status', 'created_at']),
+        ]
+
+    def set_progress(self, progress):
+        self.progress = max(0, min(100, int(progress)))
+        self.save(update_fields=['progress'])
+
+    def mark_running(self, progress=0):
+        self.status = self.Status.RUNNING
+        self.progress = max(0, min(99, int(progress)))
+        self.started_at = self.started_at or timezone.now()
+        self.error = ''
+        self.save(update_fields=['status', 'progress', 'started_at', 'error'])
+
+    def mark_succeeded(self, result=None):
+        self.status = self.Status.SUCCEEDED
+        self.progress = 100
+        self.result = result or {}
+        self.error = ''
+        self.finished_at = timezone.now()
+        self.save(update_fields=['status', 'progress', 'result', 'error', 'finished_at'])
+
+    def mark_failed(self, error):
+        self.status = self.Status.FAILED
+        self.error = str(error)
+        self.finished_at = timezone.now()
+        self.save(update_fields=['status', 'error', 'finished_at'])
+
+
 class TRPGSession(models.Model):
     STATUS_CHOICES = [
         ('planned', '予定'),
