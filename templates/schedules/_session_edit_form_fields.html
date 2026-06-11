@@ -1,0 +1,130 @@
+<div class="card border-0 bg-light">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0">セッション内容</h6>
+            <span class="badge text-bg-secondary">カレンダー作成画面と同じ並び</span>
+        </div>
+
+        <div class="row">
+            <div class="col-md-8 mb-3">
+                <label for="{{ title_id }}" class="form-label">セッションタイトル</label>
+                <input
+                    type="text"
+                    class="form-control"
+                    id="{{ title_id }}"
+                    value="{{ title_value|default_if_none:'' }}"
+                    required
+                >
+            </div>
+            {% if show_status %}
+            <div class="col-md-4 mb-3">
+                <label for="{{ status_id }}" class="form-label">ステータス</label>
+                <select class="form-select" id="{{ status_id }}">
+                    <option value="planned" {% if status_value == 'planned' %}selected{% endif %}>予定</option>
+                    <option value="ongoing" {% if status_value == 'ongoing' %}selected{% endif %}>進行中</option>
+                    <option value="completed" {% if status_value == 'completed' %}selected{% endif %}>完了</option>
+                    <option value="cancelled" {% if status_value == 'cancelled' %}selected{% endif %}>キャンセル</option>
+                </select>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ date_id }}" class="form-label">日時</label>
+                <input
+                    type="datetime-local"
+                    class="form-control"
+                    id="{{ date_id }}"
+                    value="{{ date_value|default_if_none:'' }}"
+                >
+                <div class="form-text">未入力の場合は日付未定のまま保持されます。</div>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="{{ duration_id }}" class="form-label">予定時間（分）</label>
+                <input
+                    type="number"
+                    class="form-control"
+                    id="{{ duration_id }}"
+                    value="{{ duration_value|default_if_none:'' }}"
+                    min="0"
+                    step="30"
+                >
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="{{ location_id }}" class="form-label">場所</label>
+                <input
+                    type="text"
+                    class="form-control"
+                    id="{{ location_id }}"
+                    value="{{ location_value|default_if_none:'' }}"
+                    placeholder="オンライン / 会場名"
+                >
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="{{ group_id }}" class="form-label">グループ</label>
+                <input
+                    type="text"
+                    class="form-control"
+                    id="{{ group_id }}"
+                    value="{{ group_value|default_if_none:'' }}"
+                    placeholder="未設定"
+                    readonly
+                >
+                <div class="form-text">グループ変更は新規作成時に設定してください。</div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label for="{{ scenario_id }}" class="form-label">関連シナリオ</label>
+            <input
+                type="text"
+                class="form-control"
+                id="{{ scenario_id }}"
+                value="{{ scenario_value|default_if_none:'' }}"
+                placeholder="未設定"
+                readonly
+            >
+        </div>
+
+        {% if show_coc_edition %}
+        <div class="mb-3">
+            <label for="{{ coc_edition_id }}" class="form-label">システム（クトゥルフ神話TRPG）</label>
+            <select class="form-select" id="{{ coc_edition_id }}">
+                <option value="6th" {% if coc_edition_value != '7th' %}selected{% endif %}>6版</option>
+                <option value="7th" {% if coc_edition_value == '7th' %}selected{% endif %}>7版</option>
+            </select>
+        </div>
+        {% endif %}
+
+        <div class="mb-3">
+            <label for="{{ description_id }}" class="form-label">説明</label>
+            <textarea class="form-control" id="{{ description_id }}" rows="4">{{ description_value|default_if_none:'' }}</textarea>
+        </div>
+
+        <div class="mb-3">
+            <label for="{{ youtube_id }}" class="form-label">YouTube配信URL（任意）</label>
+            <input
+                type="url"
+                class="form-control"
+                id="{{ youtube_id }}"
+                value="{{ youtube_value|default_if_none:'' }}"
+                placeholder="https://youtube.com/..."
+            >
+        </div>
+
+        {% if show_visibility %}
+        <div class="mb-0">
+            <label for="{{ visibility_id }}" class="form-label">公開設定</label>
+            <select class="form-select" id="{{ visibility_id }}">
+                <option value="group" {% if visibility_value == 'group' or not visibility_value %}selected{% endif %}>グループ内のみ</option>
+                <option value="public" {% if visibility_value == 'public' %}selected{% endif %}>全体に公開</option>
+                <option value="private" {% if visibility_value == 'private' %}selected{% endif %}>プライベート</option>
+            </select>
+        </div>
+        {% endif %}
+    </div>
+</div>

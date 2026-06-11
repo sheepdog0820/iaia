@@ -63,7 +63,7 @@ test.describe('sessions', () => {
 
     await page.click('button[data-bs-target="#editSessionModal"]');
     await expect(page.locator('#editSessionModal')).toHaveClass(/show/);
-    await page.selectOption('#status', 'ongoing');
+    await page.selectOption('#editSessionStatus', 'ongoing');
 
     await Promise.all([
       page.waitForResponse(response =>
@@ -76,5 +76,73 @@ test.describe('sessions', () => {
     ]);
 
     await expect(page.locator('span.badge', { hasText: '進行中' }).first()).toBeVisible();
+  });
+
+  test('home and sessions pages use the unified session summary card', async ({ page }) => {
+    await devLogin(page);
+    await page.waitForFunction(() => (window as any).axios?.post);
+
+    const suffix = Date.now();
+    const group = await page.evaluate(async (name: string) => {
+      const response = await (window as any).axios.post('/api/accounts/groups/', {
+        name,
+        visibility: 'private',
+      });
+      return response.data;
+    }, `E2E Session Summary Group ${suffix}`);
+
+    const sessionTitle = `Unified Summary Session ${suffix}`;
+    const sessionDate = new Date(Date.now() + 2 * 60 * 1000).toISOString();
+
+    const session = await page.evaluate(async ({ groupId, title, date }) => {
+      const response = await (window as any).axios.post('/api/schedules/sessions/', {
+        title,
+        date,
+        group: groupId,
+        duration_minutes: 150,
+        location: 'Discord',
+        visibility: 'group',
+        description: 'Shared card renderer',
+      });
+      return response.data;
+    }, { groupId: group.id, title: sessionTitle, date: sessionDate });
+
+    await page.route('**/api/schedules/sessions/upcoming/', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{
+          id: session.id,
+          title: sessionTitle,
+          date: sessionDate,
+          date_display: 'まもなく開始',
+          location: 'Discord',
+          status: 'planned',
+          visibility: 'group',
+          visibility_display: 'グループ内',
+          gm_name: 'admin',
+          group_name: group.name,
+          participant_count: 0,
+          guest_count: 0,
+          participants_summary: 'GM のみ',
+          duration_minutes: 150,
+          duration_display: '150分',
+        }]),
+      });
+    });
+    await page.goto('/');
+    const upcomingCard = page.locator('#upcoming-sessions .session-summary-card').filter({ hasText: sessionTitle }).first();
+    await expect(upcomingCard).toBeVisible();
+    await expect(upcomingCard).toHaveClass(/session-summary-card--planned/);
+    await expect(upcomingCard).toContainText('GM:');
+    await expect(upcomingCard).toContainText('グループ:');
+
+    await page.goto('/api/schedules/sessions/web/');
+    await page.click('#all-sessions-tab');
+    const listCard = page.locator('#sessionsList .session-summary-card').filter({ hasText: sessionTitle }).first();
+    await expect(listCard).toBeVisible();
+    await expect(listCard).toHaveClass(/session-summary-card--planned/);
+    await expect(listCard.locator(`a[href="/api/schedules/sessions/${session.id}/detail/"]`)).toBeVisible();
+    await expect(listCard).toContainText('Discord');
   });
 });

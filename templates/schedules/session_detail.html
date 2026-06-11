@@ -861,67 +861,7 @@
             </div>
             <div class="modal-body">
                 <form id="editSessionForm">
-                    <div class="row">
-                        <div class="col-md-8 mb-3">
-                            <label for="title" class="form-label">セッションタイトル</label>
-                            <input type="text" class="form-control" id="title" value="{{ session.title }}" required>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="status" class="form-label">ステータス</label>
-                            <select class="form-select" id="status">
-                                <option value="planned" {% if session.status == 'planned' %}selected{% endif %}>予定</option>
-                                <option value="ongoing" {% if session.status == 'ongoing' %}selected{% endif %}>進行中</option>
-                                <option value="completed" {% if session.status == 'completed' %}selected{% endif %}>完了</option>
-                                <option value="cancelled" {% if session.status == 'cancelled' %}selected{% endif %}>キャンセル</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="date" class="form-label">開催日時</label>
-                            <input type="datetime-local" class="form-control" id="date" 
-                                   value="{{ session.date|date:'Y-m-d\TH:i' }}">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="duration_minutes" class="form-label">セッション時間（分）</label>
-                            <input type="number" class="form-control" id="duration_minutes" 
-                                   value="{{ session.duration_minutes }}" min="0" step="30">
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="location" class="form-label">場所</label>
-                            <input type="text" class="form-control" id="location" value="{{ session.location }}">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="visibility" class="form-label">公開設定</label>
-                            <select class="form-select" id="visibility">
-                                <option value="private" {% if session.visibility == 'private' %}selected{% endif %}>プライベート</option>
-                                <option value="group" {% if session.visibility == 'group' %}selected{% endif %}>グループ内</option>
-                                <option value="public" {% if session.visibility == 'public' %}selected{% endif %}>公開</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="coc_edition" class="form-label">システム（クトゥルフ神話TRPG）</label>
-                        <select class="form-select" id="coc_edition">
-                            <option value="6th" {% if session.coc_edition != '7th' %}selected{% endif %}>6版</option>
-                            <option value="7th" {% if session.coc_edition == '7th' %}selected{% endif %}>7版</option>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="youtube_url" class="form-label">YouTube配信URL</label>
-                        <input type="url" class="form-control" id="youtube_url" value="{{ session.youtube_url }}">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="description" class="form-label">セッション概要</label>
-                        <textarea class="form-control" id="description" rows="4">{{ session.description }}</textarea>
-                    </div>
+                    {% include 'schedules/_session_edit_form_fields.html' with title_id='editSessionTitle' title_value=session.title show_status=True status_id='editSessionStatus' status_value=session.status date_id='editSessionDate' date_value=session.date|date:'Y-m-d\\TH:i' duration_id='editSessionDuration' duration_value=session.duration_minutes location_id='editSessionLocation' location_value=session.location group_id='editSessionGroupLabel' group_value=session.group.name scenario_id='editSessionScenarioTitle' scenario_value=session.scenario.title show_coc_edition=True coc_edition_id='editSessionCocEdition' coc_edition_value=session.coc_edition description_id='editSessionDescription' description_value=session.description youtube_id='editSessionYoutube' youtube_value=session.youtube_url show_visibility=True visibility_id='editSessionVisibility' visibility_value=session.visibility %}
                 </form>
             </div>
             <div class="modal-footer">
@@ -2446,15 +2386,15 @@ async function loadGroupMemberCharacters() {
 // セッション更新
 async function updateSession() {
     const data = {
-        title: document.getElementById('title').value,
-        date: document.getElementById('date').value || null,
-        duration_minutes: document.getElementById('duration_minutes').value,
-        location: document.getElementById('location').value,
-        visibility: document.getElementById('visibility').value,
-        coc_edition: document.getElementById('coc_edition').value,
-        youtube_url: document.getElementById('youtube_url').value,
-        description: document.getElementById('description').value,
-        status: document.getElementById('status').value
+        title: document.getElementById('editSessionTitle').value,
+        date: document.getElementById('editSessionDate').value || null,
+        duration_minutes: document.getElementById('editSessionDuration').value,
+        location: document.getElementById('editSessionLocation').value,
+        visibility: document.getElementById('editSessionVisibility').value,
+        coc_edition: document.getElementById('editSessionCocEdition').value,
+        youtube_url: document.getElementById('editSessionYoutube').value,
+        description: document.getElementById('editSessionDescription').value,
+        status: document.getElementById('editSessionStatus').value
     };
 
     try {

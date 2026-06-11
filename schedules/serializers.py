@@ -392,6 +392,7 @@ class SessionTemplateHandoutSerializer(serializers.ModelSerializer):
 
 class TRPGSessionSerializer(serializers.ModelSerializer):
     date = serializers.DateTimeField(required=False, allow_null=True)
+    group_name = serializers.CharField(source='group.name', read_only=True)
     group = serializers.PrimaryKeyRelatedField(
         queryset=Group.objects.all(),
         required=False,
@@ -446,7 +447,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         model = TRPGSession
         fields = ['id', 'title', 'description', 'date', 'location', 
                  'youtube_url', 'status', 'visibility', 'gm', 'gm_detail',
-                 'group', 'scenario', 'coc_edition', 'scenario_detail', 'duration_minutes', 'participants', 'participants_detail', 
+                 'group', 'group_name', 'scenario', 'coc_edition', 'scenario_detail', 'duration_minutes', 'participants', 'participants_detail',
                  'handouts_detail', 'images_detail', 'youtube_links_detail',
                  'participant_count', 'guest_count', 'youtube_total_duration', 
                  'youtube_total_duration_display', 'youtube_video_count',
@@ -759,6 +760,7 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
     """ホーム画面の次回セッション表示用シリアライザー"""
     gm_name = serializers.CharField(source='gm.nickname', read_only=True)
     group_name = serializers.CharField(source='group.name', read_only=True)
+    visibility_display = serializers.CharField(source='get_visibility_display', read_only=True)
     participant_count = serializers.SerializerMethodField()
     guest_count = serializers.SerializerMethodField()
     date_formatted = serializers.SerializerMethodField()
@@ -771,7 +773,7 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
         model = TRPGSession
         fields = [
             'id', 'title', 'description', 'date', 'date_formatted', 'time_formatted', 'date_display',
-            'location', 'status', 'gm_name', 'group_name', 'participant_count',
+            'location', 'status', 'visibility', 'visibility_display', 'gm_name', 'group_name', 'participant_count',
             'guest_count', 'participants_summary', 'duration_minutes', 'duration_display'
         ]
     

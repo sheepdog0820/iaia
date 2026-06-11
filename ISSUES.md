@@ -17,18 +17,145 @@
 ---
 
 ## ✅ 優先度ランキング（1が最優先）
-1. ISSUE-034: Discord Webhook通知（MVP）
-2. ISSUE-035: カレンダー購読（ICSフィードURL）（MVP）
-3. ISSUE-011: APIドキュメント自動生成
-4. ISSUE-010: テストカバレッジの向上
-5. ISSUE-012: 非同期処理の導入検討
-6. ISSUE-028: グループ間連携機能
-7. ISSUE-036: カレンダー同期（Google Calendar等）（後続）
-8. ISSUE-037: 外部シート連携API（外部キャラクターシート等）（後続）
-9. ISSUE-047: リアルタイム通知（WebSocket）
-10. ISSUE-027: モバイルアプリ
-11. ISSUE-029: AI分析/推奨機能
-12. ISSUE-048: KP（GM）単体での卓運用（ゲスト参加/ログイン不要）
+1. ISSUE-051: AWS Secrets Manager/SSM 連携 + 必須環境変数の厳格化
+2. ISSUE-052: S3/CloudFront による静的/メディア配信設定
+3. ISSUE-053: ALB/ACM 前提のプロキシ/ヘルスチェック設定
+4. ISSUE-055: RDS/ElastiCache 接続設定 + 移行/バックアップ運用
+5. ISSUE-054: CloudWatch ログ/監視/アラート整備
+6. ISSUE-034: Discord Webhook通知（MVP）
+7. ISSUE-035: カレンダー購読（ICSフィードURL）（MVP）
+8. ISSUE-011: APIドキュメント自動生成
+9. ISSUE-010: テストカバレッジの向上
+10. ISSUE-012: 非同期処理の導入検討
+11. ISSUE-028: グループ間連携機能
+12. ISSUE-036: カレンダー同期（Google Calendar等）（後続）
+13. ISSUE-037: 外部シート連携API（外部キャラクターシート等）（後続）
+14. ISSUE-047: リアルタイム通知（WebSocket）
+15. ISSUE-027: モバイルアプリ
+16. ISSUE-029: AI分析/推奨機能
+17. ISSUE-048: KP（GM）単体での卓運用（ゲスト参加/ログイン不要）
+
+---
+
+## 🔴 優先度: 高（AWSリリース）
+
+### ISSUE-050: AWSリリース設定整備（Epic）
+
+- **優先度順位**: -（Epic）
+- **カテゴリ**: リリース準備（AWS）
+- **影響範囲**: インフラ設定 / セキュリティ / ファイル配信 / 監視運用
+- **背景**:
+  - 現行の本番運用は `docs/DEPLOYMENT_GUIDE.md` の通り **Lightsail + Docker Compose + host certbot** 前提
+  - `docker-compose.mysql.yml` は DB/Redis をコンテナ同居で運用する想定
+  - `tableno/settings_production.py` はローカルファイル（`MEDIA_ROOT` / `LOG_DIR`）前提
+  - AWSマネージド構成（ECS/RDS/ElastiCache/ALB/CloudWatch）で不足設定がある
+- **分割（AWSリリース向け）**:
+  - ISSUE-051: Secrets Manager/SSM 連携 + 必須環境変数の厳格化
+  - ISSUE-052: S3/CloudFront による静的/メディア配信設定
+  - ISSUE-053: ALB/ACM 前提のプロキシ/ヘルスチェック設定
+  - ISSUE-054: CloudWatch ログ/監視/アラート整備
+  - ISSUE-055: RDS/ElastiCache 接続設定 + 移行/バックアップ運用
+- **作業計画**:
+  - `docs/specifications/AWS_RELEASE_WORKPLAN.md`
+- **実装内容**:
+  - ❌ **AWS向け設定方針の確定** - 未実装
+  - ❌ **個別チケットの完了** - 未実装
+
+### ISSUE-051: AWS Secrets Manager/SSM 連携 + 必須環境変数の厳格化
+
+- **優先度順位**: 1
+- **カテゴリ**: セキュリティ / 設定管理
+- **影響範囲**: 認証、DB接続、外部API鍵、運用手順
+- **詳細**:
+  - 現状は `.env.production` に秘匿値を直接保持する運用
+  - AWSリリース向けに、Secrets Manager/SSM を一次情報源に統一する
+  - 本番起動時に必須環境変数不足を fail-fast で検出する
+- **該当ファイル（予定）**:
+  - `.env.production.example` / `.env.staging.example`
+  - `tableno/settings.py` / `tableno/settings_production.py`
+  - `docs/DEPLOYMENT_GUIDE.md` / `REQUIRED_SETTINGS.md`
+- **実装内容**:
+  - ✅ **Secretsの保管先定義（Secrets Manager / SSM）** - 実装済み（`REQUIRED_SETTINGS.md` / `docs/DEPLOYMENT_GUIDE.md`）
+  - ✅ **必須キー検証（DB_PASSWORD, REDIS_URL, OAuth鍵 など）** - 実装済み（`tableno/settings_production.py`）
+  - ✅ **秘密情報ローテーション手順の文書化** - 実装済み（`docs/SECRETS_ROTATION_RUNBOOK.md`）
+  - ✅ **平文 `.env` 依存を最小化する起動手順** - 実装済み（JSON Secret読込対応: `AWS_SECRETS_JSON` / `AWS_SECRETS_FILE`）
+
+### ISSUE-052: S3/CloudFront による静的/メディア配信設定
+
+- **優先度順位**: 2
+- **カテゴリ**: リリース準備（配信基盤）
+- **影響範囲**: 画像アップロード、静的配信、パフォーマンス
+- **詳細**:
+  - 現状は `MEDIA_ROOT` と `nginx` のローカルボリューム配信
+  - ECS/Fargate等ではローカル永続を前提にできないため、S3配信へ移行する
+  - CloudFront を利用する場合の `MEDIA_URL` / `STATIC_URL` 設計が未整備
+- **該当ファイル（予定）**:
+  - `requirements.txt`
+  - `tableno/settings_production.py`
+  - `.env.production.example` / `.env.staging.example`
+  - `docs/DEPLOYMENT_GUIDE.md`
+- **実装内容**:
+  - ✅ **`django-storages` + `boto3` 導入** - 実装済み
+  - ✅ **S3バケット設定（static/media）** - 実装済み（`USE_S3_STORAGE=True` で有効）
+  - ✅ **CloudFront配信URL設定** - 実装済み（`AWS_S3_CUSTOM_DOMAIN`）
+  - ❌ **既存メディア移行手順（同期 + 切替）** - 未実装
+
+### ISSUE-053: ALB/ACM 前提のプロキシ/ヘルスチェック設定
+
+- **優先度順位**: 3
+- **カテゴリ**: リリース準備（ネットワーク）
+- **影響範囲**: SSL終端、リバースプロキシ、可用性
+- **詳細**:
+  - 現状の `nginx.conf` / `docs/DEPLOYMENT_GUIDE.md` は certbot + サーバー内SSL終端が前提
+  - AWSでは ALB + ACM 終端を採用する場合が多く、設定責務の分離が必要
+  - 監視用のアプリ実体ヘルスチェック（DB/Redis含む）の定義が不足
+- **該当ファイル（予定）**:
+  - `nginx.conf`
+  - `docker-compose.mysql.yml`
+  - `tableno/settings.py` / `tableno/settings_production.py`
+  - `docs/DEPLOYMENT_GUIDE.md` / `REQUIRED_SETTINGS.md`
+- **実装内容**:
+  - ✅ **ALB前提の `X-Forwarded-*` / HTTPS判定の設定・単体検証** - 実装済み
+  - ✅ **`/health/live` / `/health/ready` のアプリ側実装** - 実装済み
+  - ✅ **ALBヘルスチェックパス・タイムアウト値の定義** - 実装済み（`docs/DEPLOYMENT_GUIDE.md`）
+  - ✅ **ACM運用（AWSではcertbotを使用しない）の手順化** - 実装済み（`docs/AWS_ECS_SETUP_GUIDE.md`）
+
+### ISSUE-054: CloudWatch ログ/監視/アラート整備
+
+- **優先度順位**: 5
+- **カテゴリ**: 運用監視
+- **影響範囲**: 障害検知、保守、SLA
+- **詳細**:
+  - `tableno/settings_production.py` はローカルファイルロギング前提
+  - AWS運用で必要な CloudWatch Logs / Metrics / Alarm の定義が未整備
+  - エラー率・応答遅延・タスク異常停止の検知基準を明文化する必要がある
+- **該当ファイル（予定）**:
+  - `tableno/settings_production.py`
+  - `docs/DEPLOYMENT_GUIDE.md`
+  - （必要なら）運用Runbook新規作成
+- **実装内容**:
+  - ✅ **アプリログの標準出力化（JSON/構造化を含む）** - 実装済み（`LOG_TO_STDOUT`）
+  - ❌ **CloudWatch Logs連携（web/celery/nginx）** - 未実装
+  - ❌ **主要アラーム定義（5xx、CPU/Memory、DB接続失敗）** - 未実装
+  - ❌ **一次対応Runbook作成** - 未実装
+
+### ISSUE-055: RDS/ElastiCache 接続設定 + 移行/バックアップ運用
+
+- **優先度順位**: 4
+- **カテゴリ**: データ基盤
+- **影響範囲**: DB/キャッシュ、可用性、障害復旧
+- **詳細**:
+  - 現状は `docker-compose.mysql.yml` でアプリとDB/Redis同居運用が基本
+  - AWS本番で RDS / ElastiCache を使う場合の接続・TLS・移行・復旧手順が不足
+- **該当ファイル（予定）**:
+  - `.env.production.example` / `.env.staging.example`
+  - `tableno/settings_production.py`
+  - `docs/DEPLOYMENT_GUIDE.md` / `REQUIRED_SETTINGS.md`
+- **実装内容**:
+  - ✅ **RDS接続設定の必須化（HOST/PORT/USER/PASSWORD/SSL）** - 実装済み（`DB_SSL_MODE` / `DB_SSL_CA` 対応）
+  - ✅ **ElastiCache接続設定（`rediss://` を含む）** - 実装済み（`REDIS_SSL_CERT_REQS` 対応）
+  - ❌ **データ移行計画（dump/restore/切替手順）** - 未実装
+  - ❌ **バックアップ/復旧手順（RPO/RTO基準）** - 未実装
 
 ---
 

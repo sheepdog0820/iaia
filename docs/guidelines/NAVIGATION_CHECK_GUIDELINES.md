@@ -61,7 +61,7 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/accounts/statistics
    
 2. **メインナビゲーション**
    - [ ] カレンダーリンク: `/api/schedules/calendar/view/`
-   - [ ] セッションリンク: `/api/schedules/sessions/view/`  
+   - [ ] セッションリンク: `/api/schedules/sessions/web/`
    - [ ] シナリオリンク: `/api/scenarios/archive/view/`
    - [ ] グループリンク: `/accounts/groups/view/`
    - [ ] キャラクターリンク: `/accounts/character/list/`

@@ -18,11 +18,12 @@
 | --- | --- | --- | --- |
 | 開発（Dev） | 作りながら動かす | `http://127.0.0.1:8000` | DEBUG=True / ローカル |
 | ステージング（Stg） | 本番リハーサル | `https://stg.tableno.jp` | 本番と同構成 |
-| 本番（Prod） | 実ユーザー向け | `https://app.tableno.jp` | 安定・安全重視 |
+| 本番（Prod） | 実ユーザー向け | `https://tableno.jp` | 安定・安全重視 |
 
 補足:
-- Stg/Prod は `DJANGO_SETTINGS_MODULE=tableno.settings_production` を使用します。
-- `.env.*` は `ENV_FILE` で明示指定（Compose の `env_file` を切り替え）します。
+- `APP_ENV` で環境切替できます（`local` / `aws-pre` / `aws-prod`）。
+- `APP_ENV=aws-pre/aws-prod` の場合、`tableno.settings_production` を自動選択します。
+- `.env.*` は `ENV_FILE` で明示指定できます（未指定時は `APP_ENV` に応じた既定値）。
 
 ## 📖 概要
 
@@ -93,7 +94,7 @@ pip install -r requirements-dev.txt
 # 開発環境用の設定ファイルをコピー
 cp .env.example .env.development
 # .env.developmentファイルを編集して必要な設定を行う
-# 実行時に明示指定（settings.py は自動で .env を読まない）
+# 実行時に明示指定（未指定時は APP_ENV に応じた既定値を使用）
 export ENV_FILE=.env.development
 ```
 
@@ -115,7 +116,7 @@ python manage.py create_sample_data
 
 8. **開発サーバー起動**
 ```bash
-ENV_FILE=.env.development python manage.py runserver
+APP_ENV=local ENV_FILE=.env.development python manage.py runserver
 ```
 
 アプリケーションは http://localhost:8000 でアクセスできます。
@@ -128,16 +129,16 @@ Docker での起動手順は `DOCKER_SETUP.md` を参照してください。
 
 1. Stg: `.env.staging.example` → `.env.staging` を作成  
 2. Prod: `.env.production.example` → `.env.production` を作成  
-3. Stg/Prod は `DJANGO_SETTINGS_MODULE=tableno.settings_production` を利用  
+3. Stg/Prod は `APP_ENV=aws-pre` / `APP_ENV=aws-prod` で切替
 4. `ALLOWED_HOSTS` と `CSRF_TRUSTED_ORIGINS` を必ず設定  
 5. Docker Compose で環境を切り替える場合:
 
 ```bash
 # Stg
-ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
+APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
 
 # Prod
-ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
+APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
 ```
 
 ### 依存関係の注意
@@ -433,14 +434,17 @@ docker compose -f docker-compose.mysql.yml top
 ### 環境の切り替え方法
 
 ```bash
-# 開発環境（ENV_FILE で明示指定）
-ENV_FILE=.env.development python manage.py runserver
+# 開発環境
+APP_ENV=local ENV_FILE=.env.development python manage.py runserver
 
-# Stg/Prod（settings_production を使用）
-ENV_FILE=.env.staging python manage.py migrate --settings=tableno.settings_production
+# AWSプレ環境
+APP_ENV=aws-pre ENV_FILE=.env.staging python manage.py migrate
 
-# Dockerを使用する場合
-ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
+# AWS本番環境
+APP_ENV=aws-prod ENV_FILE=.env.production python manage.py migrate
+
+# Dockerを使用する場合（例: 本番）
+APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
 ```
 
 ### 設定ファイルの準備
@@ -456,7 +460,11 @@ cp .env.staging.example .env.staging
 cp .env.production.example .env.production
 ```
 
-`settings.py` は `.env` を自動で読み込まないため、`ENV_FILE` で明示的に指定してください。
+`APP_ENV` 未指定時は `local` として扱われます。
+`ENV_FILE` 未指定時は `APP_ENV` に応じて以下を既定利用します。
+- `local` -> `.env.development`
+- `aws-pre` -> `.env.staging`
+- `aws-prod` -> `.env.production`
 ※ 実際に使う環境のファイルだけ用意すればOKです。
 
 ## 🔒 セキュリティ
@@ -467,9 +475,9 @@ cp .env.production.example .env.production
 ```bash
 # Let's Encrypt (webroot)
 sudo apt install certbot
-sudo certbot certonly --webroot -w /path/to/repo/certbot/www -d app.tableno.jp
-sudo cp /etc/letsencrypt/live/app.tableno.jp/fullchain.pem ./ssl/fullchain.pem
-sudo cp /etc/letsencrypt/live/app.tableno.jp/privkey.pem ./ssl/privkey.pem
+sudo certbot certonly --webroot -w /path/to/repo/certbot/www -d tableno.jp -d www.tableno.jp
+sudo cp /etc/letsencrypt/live/tableno.jp/fullchain.pem ./ssl/fullchain.pem
+sudo cp /etc/letsencrypt/live/tableno.jp/privkey.pem ./ssl/privkey.pem
 docker compose -f docker-compose.mysql.yml restart nginx
 ```
 詳細は `docs/DEPLOYMENT_GUIDE.md` を参照してください。
@@ -559,7 +567,11 @@ permission_classes = [IsAuthenticated]
 
 ## 📈 デプロイ
 
-### ステージング/本番デプロイ（Docker Compose）
+正規のAWS構成はECS/Fargate + ALB/ACM + RDS + ElastiCache + S3/CloudFrontです。詳細は `docs/AWS_ECS_SETUP_GUIDE.md` を参照してください。
+
+### 互換デプロイ（Lightsail / Docker Compose）
+
+以下はローカル本番相当検証または既存Lightsail運用向けです。
 
 1. **サーバー準備**
    - Lightsail（Ubuntu）に Docker / Docker Compose / certbot を導入
@@ -571,10 +583,10 @@ permission_classes = [IsAuthenticated]
 3. **起動**
 ```bash
 # Stg
-ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
+APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
 
 # Prod
-ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
+APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
 ```
 
 4. **SSL設定**
@@ -590,7 +602,7 @@ ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
 
 ## 📝 ライセンス
 
-このプロジェクトはMITライセンスの下で公開されています。詳細は [LICENSE](LICENSE) ファイルを参照してください。
+ライセンス条件はリポジトリ管理者へ確認してください。現在、リポジトリにはライセンスファイルが含まれていません。
 
 ## 🙏 謝辞
 

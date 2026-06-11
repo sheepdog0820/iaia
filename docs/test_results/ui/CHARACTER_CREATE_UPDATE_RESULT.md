@@ -1,5 +1,7 @@
 # キャラクター作成画面 機能改修結果報告
 
+> 履歴資料: この結果は実施時点のスナップショットです。現在の仕様は `docs/character_sheet/CHARACTER_SHEET_6TH_EDITION_SPECIFICATION.md` を参照してください。
+
 ## 実施日時
 2025年7月1日
 

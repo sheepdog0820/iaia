@@ -124,11 +124,11 @@
                             <a class="btn btn-outline-secondary" href="/api/schedules/session-templates/view/" target="_blank" rel="noopener">
                                 <i class="fas fa-list"></i> 管理
                             </a>
-                            <button type="button" class="btn btn-outline-secondary" id="saveTemplateFromSession" title="現在の入力をテンプレートとして保存">
-                                <i class="fas fa-save"></i>
+                            <button type="button" class="btn btn-outline-secondary" id="saveTemplateFromSession" title="現在の入力をテンプレートに登録する" aria-label="現在の入力をテンプレートに登録する">
+                                <i class="fas fa-save"></i> テンプレート登録
                             </button>
                         </div>
-                        <div class="form-text">選択すると入力欄に反映されます。</div>
+                        <div class="form-text">選択すると入力内容に反映されます。現在の入力をそのままテンプレート登録することもできます。</div>
                     </div>
                     <div class="mb-3">
                         <label for="sessionTitle" class="form-label">セッションタイトル</label>
@@ -210,6 +210,53 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
                 <button type="button" class="btn btn-primary" id="saveSessionBtn">
                     <i class="fas fa-save"></i> セッションを作成
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="saveSessionTemplateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-copy"></i> テンプレート登録
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    セッション作成フォームの現在の入力を、そのままテンプレートとして保存します。
+                    画像や秘匿ハンドアウトの詳細設定は、テンプレート管理画面で後から追加できます。
+                </div>
+                <div class="mb-3">
+                    <label for="quickTemplateName" class="form-label">テンプレート名</label>
+                    <input type="text" class="form-control" id="quickTemplateName" maxlength="100" required>
+                </div>
+                <div class="small text-muted mb-2">保存内容の確認</div>
+                <dl class="row small mb-0" id="quickTemplateSummary">
+                    <dt class="col-4">タイトル</dt>
+                    <dd class="col-8 mb-2">未設定</dd>
+                    <dt class="col-4">予定時間</dt>
+                    <dd class="col-8 mb-2">未設定</dd>
+                    <dt class="col-4">場所</dt>
+                    <dd class="col-8 mb-2">未設定</dd>
+                    <dt class="col-4">グループ</dt>
+                    <dd class="col-8 mb-2">未設定</dd>
+                    <dt class="col-4">公開設定</dt>
+                    <dd class="col-8 mb-2">未設定</dd>
+                    <dt class="col-4">シナリオ</dt>
+                    <dd class="col-8 mb-0">未設定</dd>
+                </dl>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary me-auto" id="openTemplateEditorFromSession">
+                    <i class="fas fa-sliders-h"></i> 詳細編集
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" id="confirmSaveTemplateBtn">
+                    <i class="fas fa-save"></i> テンプレート登録
                 </button>
             </div>
         </div>
@@ -320,6 +367,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let sessionTemplates = [];
     let groupMembers = [];
     let selectedInvitees = new Set();
+    let pendingSessionTemplateGroup = null;
+    const templateDraftStoragePrefix = 'calendar_session_template_draft:';
+    const saveTemplateModalEl = document.getElementById('saveSessionTemplateModal');
+    const saveTemplateModal = saveTemplateModalEl ? new bootstrap.Modal(saveTemplateModalEl) : null;
     const scenarioLinkKeys = {
         id: 'session_scenario_id',
         title: 'session_scenario_title',
@@ -348,6 +399,34 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (_) {
             // ignore storage errors
         }
+    }
+
+    function buildSessionTemplateDraft() {
+        const draft = {
+            title: document.getElementById('sessionTitle')?.value || '',
+            duration_minutes: parseInt(document.getElementById('sessionDuration')?.value || '0', 10) || 0,
+            location: document.getElementById('sessionLocation')?.value || '',
+            group: document.getElementById('sessionGroup')?.value ? parseInt(document.getElementById('sessionGroup').value, 10) : null,
+            description: document.getElementById('sessionDescription')?.value || '',
+            youtube_url: document.getElementById('sessionYoutube')?.value || '',
+            visibility: document.getElementById('sessionVisibility')?.value || 'group',
+            coc_edition: document.getElementById('sessionCocEdition')?.value || '6th',
+        };
+
+        const scenarioId = document.getElementById('sessionScenarioId')?.value;
+        if (scenarioId) {
+            draft.scenario = parseInt(scenarioId, 10);
+            draft.scenario_title = document.getElementById('sessionScenarioTitle')?.value || '';
+        }
+
+        return draft;
+    }
+
+    function buildSessionTemplatePayload(templateName) {
+        return {
+            name: String(templateName || '').trim(),
+            ...buildSessionTemplateDraft(),
+        };
     }
 
     function truncateText(value, maxLength) {
@@ -380,6 +459,78 @@ document.addEventListener('DOMContentLoaded', function() {
             public: '公開',
         };
         return map[visibility] || visibility || '';
+    }
+
+    function getErrorMessage(error) {
+        const data = error?.response?.data;
+        if (!data) {
+            return error?.message || '不明なエラーが発生しました';
+        }
+        if (typeof data === 'string') {
+            return data;
+        }
+        if (data.detail) {
+            return data.detail;
+        }
+
+        const messages = [];
+        Object.entries(data).forEach(([field, value]) => {
+            if (Array.isArray(value)) {
+                messages.push(`${field}: ${value.join(' ')}`);
+                return;
+            }
+            if (value && typeof value === 'object') {
+                messages.push(`${field}: ${JSON.stringify(value)}`);
+                return;
+            }
+            messages.push(`${field}: ${value}`);
+        });
+        return messages.join('\n') || '不明なエラーが発生しました';
+    }
+
+    function formatDurationAsHhmm(totalMinutes) {
+        const normalized = Number.parseInt(totalMinutes || 0, 10);
+        if (!normalized) return '未設定';
+        const hours = Math.floor(normalized / 60);
+        const minutes = normalized % 60;
+        return `${String(hours).padStart(2, '0')}${String(minutes).padStart(2, '0')}`;
+    }
+
+    function updateQuickTemplateSummary() {
+        const summaryEl = document.getElementById('quickTemplateSummary');
+        if (!summaryEl) return;
+
+        const draft = buildSessionTemplateDraft();
+        const groupName = draft.group
+            ? (userGroups.find(group => group.id === draft.group)?.name || `グループ ${draft.group}`)
+            : '未設定';
+
+        summaryEl.innerHTML = `
+            <dt class="col-4">タイトル</dt>
+            <dd class="col-8 mb-2">${escapeHtml(draft.title || '未設定')}</dd>
+            <dt class="col-4">予定時間</dt>
+            <dd class="col-8 mb-2">${escapeHtml(formatDurationAsHhmm(draft.duration_minutes))}</dd>
+            <dt class="col-4">場所</dt>
+            <dd class="col-8 mb-2">${escapeHtml(draft.location || '未設定')}</dd>
+            <dt class="col-4">グループ</dt>
+            <dd class="col-8 mb-2">${escapeHtml(groupName)}</dd>
+            <dt class="col-4">公開設定</dt>
+            <dd class="col-8 mb-2">${escapeHtml(getVisibilityLabel(draft.visibility))}</dd>
+            <dt class="col-4">シナリオ</dt>
+            <dd class="col-8 mb-0">${escapeHtml(draft.scenario_title || '未設定')}</dd>
+        `;
+    }
+
+    function openTemplateEditorFromCurrentSession() {
+        const draft = buildSessionTemplateDraft();
+        const draftKey = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        safeSetStorage(`${templateDraftStoragePrefix}${draftKey}`, JSON.stringify(draft));
+
+        const draftUrl = `/api/schedules/session-templates/view/?draft_key=${encodeURIComponent(draftKey)}`;
+        const openedWindow = window.open(draftUrl, '_blank');
+        if (!openedWindow) {
+            window.location.href = draftUrl;
+        }
     }
 
     function getSessionTypeLabel(session) {
@@ -764,12 +915,24 @@ document.addEventListener('DOMContentLoaded', function() {
             const select = document.getElementById('sessionGroup');
             select.innerHTML = '<option value="">グループを選択...</option>' +
                 userGroups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+
+            if (pendingSessionTemplateGroup?.id) {
+                const groupId = String(pendingSessionTemplateGroup.id);
+                const existingOption = Array.from(select.options).find(option => option.value === groupId);
+                if (!existingOption) {
+                    select.add(new Option(
+                        pendingSessionTemplateGroup.name || `グループ ${groupId}`,
+                        groupId,
+                    ));
+                }
+                select.value = groupId;
+            }
         } catch (error) {
             console.error('Error loading groups:', error);
         }
     }
 
-    async function loadSessionTemplates() {
+    async function loadSessionTemplates(selectedTemplateId = null) {
         const select = document.getElementById('sessionTemplate');
         if (!select) return;
 
@@ -778,6 +941,9 @@ document.addEventListener('DOMContentLoaded', function() {
             sessionTemplates = response.data || [];
             select.innerHTML = '<option value="">テンプレートを選択...</option>' +
                 sessionTemplates.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+            if (selectedTemplateId) {
+                select.value = String(selectedTemplateId);
+            }
         } catch (error) {
             console.error('Error loading session templates:', error);
             sessionTemplates = [];
@@ -806,7 +972,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (cocEditionSelect) cocEditionSelect.value = template.coc_edition || '6th';
 
         if (groupSelect) {
-            groupSelect.value = template.group ? String(template.group) : '';
+            pendingSessionTemplateGroup = template.group
+                ? { id: template.group, name: template.group_name || '' }
+                : null;
+            const groupId = template.group ? String(template.group) : '';
+            if (groupId && !Array.from(groupSelect.options).some(option => option.value === groupId)) {
+                groupSelect.add(new Option(template.group_name || `グループ ${groupId}`, groupId));
+            }
+            groupSelect.value = groupId;
             void loadGroupMembers(groupSelect.value);
         }
 
@@ -1101,35 +1274,59 @@ document.addEventListener('DOMContentLoaded', function() {
         applySessionTemplate(template);
     });
 
-    document.getElementById('saveTemplateFromSession')?.addEventListener('click', async () => {
+    document.getElementById('saveTemplateFromSession')?.addEventListener('click', () => {
         if (getCreateMode() !== 'new') return;
 
-        const name = prompt('テンプレート名を入力してください');
-        if (!name) return;
+        updateQuickTemplateSummary();
+        const quickNameInput = document.getElementById('quickTemplateName');
+        if (quickNameInput) {
+            const fallbackTitle = document.getElementById('sessionTitle')?.value || '';
+            quickNameInput.value = fallbackTitle ? `${fallbackTitle} テンプレート` : '';
+        }
+        saveTemplateModal?.show();
+    });
 
-        const payload = {
-            name,
-            title: document.getElementById('sessionTitle')?.value || '',
-            duration_minutes: parseInt(document.getElementById('sessionDuration')?.value || '0', 10) || 0,
-            location: document.getElementById('sessionLocation')?.value || '',
-            group: document.getElementById('sessionGroup')?.value ? parseInt(document.getElementById('sessionGroup').value, 10) : null,
-            description: document.getElementById('sessionDescription')?.value || '',
-            youtube_url: document.getElementById('sessionYoutube')?.value || '',
-            visibility: document.getElementById('sessionVisibility')?.value || 'group',
-            coc_edition: document.getElementById('sessionCocEdition')?.value || '6th',
-        };
+    document.getElementById('openTemplateEditorFromSession')?.addEventListener('click', () => {
+        if (getCreateMode() !== 'new') return;
+        openTemplateEditorFromCurrentSession();
+    });
 
-        const scenarioId = document.getElementById('sessionScenarioId')?.value;
-        if (scenarioId) {
-            payload.scenario = parseInt(scenarioId, 10);
+    saveTemplateModalEl?.addEventListener('shown.bs.modal', () => {
+        document.getElementById('quickTemplateName')?.focus();
+    });
+
+    saveTemplateModalEl?.addEventListener('hidden.bs.modal', () => {
+        const quickNameInput = document.getElementById('quickTemplateName');
+        if (quickNameInput) {
+            quickNameInput.value = '';
+        }
+    });
+
+    document.getElementById('confirmSaveTemplateBtn')?.addEventListener('click', async () => {
+        const quickNameInput = document.getElementById('quickTemplateName');
+        const templateName = quickNameInput?.value || '';
+        if (!templateName.trim()) {
+            quickNameInput?.reportValidity?.();
+            quickNameInput?.focus();
+            return;
+        }
+
+        const saveTemplateBtn = document.getElementById('confirmSaveTemplateBtn');
+        if (saveTemplateBtn) {
+            saveTemplateBtn.disabled = true;
         }
 
         try {
-            await axios.post('/api/schedules/session-templates/', payload);
-            alert('テンプレートを保存しました');
-            await loadSessionTemplates();
+            const response = await axios.post('/api/schedules/session-templates/', buildSessionTemplatePayload(templateName));
+            await loadSessionTemplates(response.data?.id);
+            saveTemplateModal?.hide();
+            alert('テンプレートを登録しました');
         } catch (error) {
-            alert('テンプレート保存に失敗しました: ' + (error.response?.data?.detail || error.message));
+            alert('テンプレート登録に失敗しました: ' + getErrorMessage(error));
+        } finally {
+            if (saveTemplateBtn) {
+                saveTemplateBtn.disabled = false;
+            }
         }
     });
 });

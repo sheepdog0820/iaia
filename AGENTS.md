@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-このファイルは、Claude Code (claude.ai/code) がこのリポジトリで作業する際のガイダンスを提供します。
+このファイルは、Codex (Codex.ai/code) がこのリポジトリで作業する際のガイダンスを提供します。
 
 ## 📁 ガイドライン体系
 

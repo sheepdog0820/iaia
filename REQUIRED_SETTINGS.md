@@ -1,63 +1,87 @@
-# 必要設定チェックリスト（Local / Stg / Prod）
+# 必須設定
 
-手作業で設定が必要な項目をまとめています。
+最終更新: 2026-06-12
 
-## 共通（全環境）
+## 環境プロファイル
 
-- 例ファイルから env を作成して必須値を埋める
-  - Local: `.env.development`
-  - Stg: `.env.staging`
-  - Prod: `.env.production`
-- 各 env ファイルに必須のキー:
-  - `SECRET_KEY`
-  - `ALLOWED_HOSTS`
-  - `CSRF_TRUSTED_ORIGINS`
-  - `SITE_ID`
-  - `DB_ENGINE` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` / `DB_HOST` / `DB_PORT`
-- Django Sites を使う場合、環境ごとに Site レコードを分ける
+- ローカル: `APP_ENV=local`
+- AWSプレ環境: `APP_ENV=aws-pre`
+- AWS本番: `APP_ENV=aws-prod`
 
-## ローカル（Dev）
+`APP_ENV`未指定時は`local`です。`DJANGO_SETTINGS_MODULE`は通常、直接指定しません。
 
-- `.env.development`
-  - `ALLOWED_HOSTS=localhost,127.0.0.1`
-  - `CSRF_TRUSTED_ORIGINS=http://127.0.0.1:8000,http://localhost:8000`
-  - `SITE_ID=1`（またはローカルの Site ID）
-  - DBは必要に応じて設定（SQLiteを使うなら最小限でOK）
-- 起動: `ENV_FILE=.env.development python manage.py runserver`
+## ローカル
 
-## ステージング（stg.tableno.jp）
+```bash
+APP_ENV=local ENV_FILE=.env.development python manage.py runserver
+```
 
-- `.env.staging`
-  - `ALLOWED_HOSTS=stg.tableno.jp`
-  - `CSRF_TRUSTED_ORIGINS=https://stg.tableno.jp`
-  - `SITE_ID=2`（またはステージングの Site ID）
-  - DB（ComposeのMySQL / RDSなどの接続先）
-- stgインスタンスの `nginx.conf`:
-  - `server_name stg.tableno.jp;`
+SQLiteを使う場合、DB接続値は不要です。
 
-## 本番（app.tableno.jp）
+## AWSプレ・本番
 
-- `.env.production`
-  - `ALLOWED_HOSTS=app.tableno.jp`
-  - `CSRF_TRUSTED_ORIGINS=https://app.tableno.jp`
-  - `SITE_ID=1`（または本番の Site ID）
-  - DB（ComposeのMySQL / RDSなどの接続先）
-- prodインスタンスの `nginx.conf`:
-  - `server_name app.tableno.jp;`
+必須値:
 
-## DNS（環境別）
+- `SECRET_KEY`
+- `ALLOWED_HOSTS`
+- `CSRF_TRUSTED_ORIGINS`
+- `SITE_ID`
+- `DB_ENGINE`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_HOST`
+- `DB_PORT`
+- `REDIS_URL`
 
-- `app.tableno.jp` -> prod Lightsail の固定IP
-- `stg.tableno.jp` -> stg Lightsail の固定IP
+| 項目 | プレ環境 | 本番 |
+| --- | --- | --- |
+| `APP_ENV` | `aws-pre` | `aws-prod` |
+| `ENVIRONMENT` | `staging` | `production` |
+| `ALLOWED_HOSTS` | `stg.tableno.jp` | `tableno.jp,www.tableno.jp` |
+| `CSRF_TRUSTED_ORIGINS` | `https://stg.tableno.jp` | `https://tableno.jp,https://www.tableno.jp` |
+| `SITE_ID` | `2` | `1` |
 
-## SSL（環境別）
+## Secrets
 
-- 証明書の配置先:
-  - `./ssl/fullchain.pem`
-  - `./ssl/privkey.pem`
-- 実行: `ENV_FILE=.env.staging ./scripts/renew_certbot.sh`（または `.env.production`）
+ECS Task Definitionの`secrets`で個別注入する方式を推奨します。JSON形式を使用する場合は`AWS_SECRETS_JSON`または`AWS_SECRETS_FILE`を設定します。
 
-## Compose（環境別）
+## RDS
 
-- Stg: `ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d --build`
-- Prod: `ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d --build`
+- MySQL: `DB_ENGINE=mysql`
+- PostgreSQL: `DB_ENGINE=postgresql`
+- TLS: `DB_SSL_MODE`, `DB_SSL_CA`
+
+ComposeのMySQLを使用する場合のみ`DB_ROOT_PASSWORD`も必要です。
+
+## Redis
+
+- 非TLS: `redis://...`
+- TLS: `rediss://...`
+- 証明書検証: `REDIS_SSL_CERT_REQS=required`
+
+## S3 / CloudFront
+
+`USE_S3_STORAGE=True`の場合:
+
+- `AWS_STORAGE_BUCKET_NAME`
+- `AWS_S3_REGION_NAME`
+- `AWS_S3_CUSTOM_DOMAIN`（CloudFront利用時）
+- `AWS_STATIC_LOCATION`
+- `AWS_MEDIA_LOCATION`
+
+## ログ
+
+AWS/ECS:
+
+```text
+LOG_TO_STDOUT=True
+ENABLE_FILE_LOGGING=False
+```
+
+## ヘルスチェック
+
+- Liveness: `/health/live`
+- Readiness: `/health/ready`
+
+ReadinessはDBまたはCacheの障害時に`503`を返します。

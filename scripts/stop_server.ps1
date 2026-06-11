@@ -11,12 +11,14 @@ $pidFile = Join-Path $repoRoot ".server.pid"
 $ngrokPidFile = Join-Path $repoRoot ".ngrok.pid"
 
 function Get-ListeningPid([int]$p) {
-    try {
-        return (Get-NetTCPConnection -LocalPort $p -State Listen -ErrorAction SilentlyContinue |
-            Select-Object -First 1 -ExpandProperty OwningProcess)
-    } catch {
-        return $null
+    $portPattern = ":{0}\s+" -f $p
+    $lines = netstat -ano | Select-String -Pattern $portPattern | Where-Object { $_.Line -match "LISTENING" }
+    foreach ($line in $lines) {
+        if ($line.Line -match "LISTENING\s+(\d+)\s*$") {
+            return [int]$matches[1]
+        }
     }
+    return $null
 }
 
 function Stop-Pid([int]$pidToStop) {
@@ -47,6 +49,8 @@ try {
     $listenPid = Get-ListeningPid -p $Port
     if ($listenPid) { [void](Stop-Pid -pidToStop $listenPid) }
 } catch {}
+
+Start-Sleep -Milliseconds 300
 
 if (Get-ListeningPid -p $Port) {
     Write-Host "Port $Port is still in use. Stop failed."

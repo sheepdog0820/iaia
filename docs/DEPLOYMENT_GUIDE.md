@@ -1,129 +1,136 @@
-# 📦 タブレノ デプロイメントガイド（Phase1: Lightsail + Docker Compose）
+# タブレノ デプロイメントガイド
 
-## 0. 前提（DNS）
+最終更新: 2026-06-12
 
-- `app.tableno.jp` の Aレコード → **prod** Lightsail の固定IP
-- `stg.tableno.jp` の Aレコード → **stg** Lightsail の固定IP
-- `tableno.jp` / `www.tableno.jp` は後回しでOK（LP用に別で設定）
+## 1. 構成方針
 
-## 1. サーバー準備（Lightsail / Ubuntu）
+正規のAWS本番構成は次のとおりです。
 
-```bash
-sudo apt update
-sudo apt install -y docker.io docker-compose-plugin git certbot
-sudo usermod -aG docker $USER
-```
+- ECS Fargate
+- ALB + ACM
+- Route 53
+- RDS MySQL
+- ElastiCache Redis
+- S3 + CloudFront
+- Secrets Manager / SSM
+- CloudWatch Logs / Metrics / Alarm
 
-※ `docker` グループ反映のため、再ログインしてください。
+詳細なAWSリソース作成手順は `docs/AWS_ECS_SETUP_GUIDE.md` を参照してください。
 
-## 2. アプリケーション準備
+`docker-compose.mysql.yml` と `nginx.conf` は、ローカル本番相当検証または既存Lightsail運用の互換手段です。AWS/ECSではコンテナ内Nginxとcertbotを使用せず、ALBでTLSを終端します。
 
-```bash
-git clone https://github.com/yourusername/tableno.git
-cd tableno
+## 2. 環境選択
 
-# 環境ファイルを作成（prod / stg のどちらか）
-# prod
-cp .env.production.example .env.production
+| 環境 | APP_ENV | 設定 |
+| --- | --- | --- |
+| ローカル | `local` | `tableno.settings` |
+| AWSプレ環境 | `aws-pre` | `tableno.settings_production` |
+| AWS本番 | `aws-prod` | `tableno.settings_production` |
 
-# stg
-cp .env.staging.example .env.staging
+`manage.py`、WSGI、ASGIは`tableno.runtime_env`を通して設定を選択します。AWS/ECSでは`ENV_FILE`を設定せず、Task Definitionの環境変数とSecretsを使用します。
 
-※ 使う環境のファイルだけ用意してください。
-```
-
-### 必須設定（.env.production / .env.staging）
+## 3. 必須設定
 
 - `SECRET_KEY`
-- `DEBUG=False`
-- `ALLOWED_HOSTS`（prod: `app.tableno.jp`, stg: `stg.tableno.jp`）
-- `CSRF_TRUSTED_ORIGINS`（prod: `https://app.tableno.jp`, stg: `https://stg.tableno.jp`）
+- `ALLOWED_HOSTS`
+- `CSRF_TRUSTED_ORIGINS`
+- `SITE_ID`
+- `DB_ENGINE`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_HOST`
+- `DB_PORT`
+- `REDIS_URL`
 
-※ `django.contrib.sites` を使っている場合、DB内の `Site` を環境ごとのドメインに合わせて更新してください。
+本番設定では未設定値を起動時に検出して失敗します。OAuthのIDとSecretは必ず対で設定します。
 
-## 3. Docker Composeで起動（deploy.shは使わない）
+## 4. AWS Secrets
 
-### Stg
-```bash
-ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d --build
-```
-
-### Prod
-```bash
-ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d --build
-```
-
-### 初期化（MySQLに対して実行）
-```bash
-# マイグレーション
-ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml exec web python manage.py migrate
-
-# スーパーユーザー作成
-ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml exec web python manage.py createsuperuser
-
-※ stg は `.env.staging` に置き換えて実行してください。
-```
-
-※ `DJANGO_SETTINGS_MODULE=tableno.settings_production` は compose 側で設定済みです。
-
-## 4. Nginx設定
-
-- `nginx.conf` の `server_name` は **環境ごとに** 修正してください。
-  - prod: `app.tableno.jp`
-  - stg: `stg.tableno.jp`
-- 変更後は `docker compose -f docker-compose.mysql.yml restart nginx` を実行します。
-- `docker-compose.mysql.yml` の `web` は 8000 番を外部公開しません。
-  - 外部公開は Nginx の 80/443 のみ。
-
-## 5. SSL（Let’s Encrypt / host certbot）
-
-### 5.1 証明書取得
+推奨方式はECS Task Definitionの`secrets`による個別注入です。
 
 ```bash
-mkdir -p certbot/www ssl
-
-# Nginx が起動している状態で実行（stg は .env.staging）
-ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d nginx
-
-sudo certbot certonly \
-  --webroot -w "$(pwd)/certbot/www" \
-  -d app.tableno.jp \
-  --agree-tos --email you@example.com --no-eff-email
-
-# Nginx が参照するパスへコピー
-sudo cp /etc/letsencrypt/live/app.tableno.jp/fullchain.pem ./ssl/fullchain.pem
-sudo cp /etc/letsencrypt/live/app.tableno.jp/privkey.pem ./ssl/privkey.pem
-
-# Nginx 再起動
-docker compose -f docker-compose.mysql.yml restart nginx
+AWS_SECRETS_JSON={"SECRET_KEY":"...","DB_PASSWORD":"...","REDIS_URL":"..."}
+AWS_SECRETS_FILE=/run/secrets/tableno.json
 ```
 
-※ stg は `stg.tableno.jp` に置き換えて実行してください。
+ローテーション手順は`docs/SECRETS_ROTATION_RUNBOOK.md`を参照してください。
 
-### 5.2 自動更新（cron）
+## 5. RDS / ElastiCache
 
 ```bash
-chmod +x scripts/renew_certbot.sh scripts/certbot_deploy_hook.sh
+DB_ENGINE=mysql
+DB_HOST=database.example.ap-northeast-1.rds.amazonaws.com
+DB_PORT=3306
+DB_SSL_MODE=VERIFY_IDENTITY
+DB_SSL_CA=/app/certs/rds-ca.pem
 
-# 手動で更新テスト
-sudo ENV_FILE=.env.production ./scripts/renew_certbot.sh
-
-※ stg は `.env.staging` に置き換えて実行してください。
+REDIS_URL=rediss://cache.example.cache.amazonaws.com:6379/1
+REDIS_SSL_CERT_REQS=required
 ```
 
-cron 例（毎日3:00に更新チェック）:
+## 6. S3 / CloudFront
 
 ```bash
-sudo crontab -e
-# 以下を追加
-0 3 * * * ENV_FILE=.env.production /path/to/tableno/scripts/renew_certbot.sh >> /var/log/letsencrypt-renew.log 2>&1
+USE_S3_STORAGE=True
+AWS_STORAGE_BUCKET_NAME=tableno-prod-assets
+AWS_S3_REGION_NAME=ap-northeast-1
+AWS_S3_CUSTOM_DOMAIN=assets.tableno.jp
+AWS_STATIC_LOCATION=static
+AWS_MEDIA_LOCATION=media
 ```
 
-`scripts/renew_certbot.sh` は `certbot renew` 後に
-`./ssl/fullchain.pem` / `./ssl/privkey.pem` を更新し、Nginx を再起動します。
+## 7. ALB / ACM
 
-## 6. 動作確認
+- ALBの80番は443番へリダイレクト
+- ACM証明書を443番リスナーへ設定
+- Host-based routingでprod/stgを分離
+- Djangoは`SECURE_PROXY_SSL_HEADER`と`USE_X_FORWARDED_HOST`を使用
+- `ALLOWED_HOSTS`と`CSRF_TRUSTED_ORIGINS`は環境別に限定
 
-- https://app.tableno.jp で警告が出ない
-- `docker compose -f docker-compose.mysql.yml ps` ですべて `Up`
-- MySQL に対して `migrate/createsuperuser` が実行できている
+| 項目 | 値 |
+| --- | --- |
+| Path | `/health/ready` |
+| Success code | `200` |
+| Interval | `30s` |
+| Timeout | `5s` |
+| Healthy threshold | `2` |
+| Unhealthy threshold | `3` |
+
+`/health/live`はプロセス生存確認、`/health/ready`はDBとCacheの疎通確認です。
+
+## 8. ECS起動
+
+```text
+APP_ENV=aws-prod
+ENVIRONMENT=production
+LOG_TO_STDOUT=True
+ENABLE_FILE_LOGGING=False
+```
+
+`docker/entrypoint.sh`がマイグレーションと静的ファイル収集を行い、Gunicornを起動します。
+
+## 9. Compose互換運用
+
+```bash
+# プレ環境
+APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d --build
+
+# 本番相当
+APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d --build
+```
+
+Composeでは`APP_ENV`をコンテナへ渡し、`DJANGO_SETTINGS_MODULE`は固定しません。
+
+## 10. リリース確認
+
+```bash
+curl -f https://tableno.jp/health/live
+curl -f https://tableno.jp/health/ready
+```
+
+- マイグレーション成功
+- static/media表示成功
+- 通常ログインとOAuthログイン成功
+- DB/Redis接続エラーなし
+- CloudWatchへアプリログが出力される

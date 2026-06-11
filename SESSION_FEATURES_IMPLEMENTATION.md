@@ -1,5 +1,7 @@
 # セッション機能実装完了報告
 
+> 履歴資料: この文書は2025年6月時点の完了報告です。現在のセッション仕様は `docs/CURRENT_WEBAPP_FEATURES.md`、`SPECIFICATION.md`、`SESSION_WORKFLOWS.md` を参照してください。
+
 ## 実装日: 2025年6月20日
 ## 最終更新: 2025年6月25日
 

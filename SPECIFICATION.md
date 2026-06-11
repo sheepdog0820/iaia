@@ -8,12 +8,12 @@
 タブレノは、クトゥルフ神話をテーマにしたTRPGスケジュール管理Webサービスです。TRPGセッションの管理、参加者の管理、プレイ履歴の記録など、TRPGライフを豊かにする機能を提供します。
 
 ### 1.2 技術スタック
-- **Backend**: Django 4.2+, Django REST Framework
+- **Backend**: Django 4.2系（`>=4.2,<5.0`）, Django REST Framework
 - **Database**: SQLite3（開発環境）, MySQL/PostgreSQL（本番環境）
 - **Frontend**: Bootstrap 5, カスタムCSS/JS（クトゥルフテーマ）, FullCalendar
 - **認証**: django-allauth（Google/X/Discord OAuth）+ Django REST Framework（API経由）
 - **インフラ**: Docker, Nginx, Gunicorn, Redis, Celery
-- **環境設定**: ENV_FILE による明示的な環境切り替え
+- **環境設定**: `APP_ENV=local|aws-pre|aws-prod` による環境切り替え
 
 ### 1.3 開発環境データベース
 
@@ -54,17 +54,21 @@ python3 manage.py create_sample_data
 
 #### 環境切り替え方法
 ```bash
-# 開発環境（ENV_FILE で明示指定）
-ENV_FILE=.env.development python3 manage.py runserver
+# 開発環境
+APP_ENV=local ENV_FILE=.env.development python3 manage.py runserver
 
-# Stg/Prod（settings_production を使用）
-ENV_FILE=.env.production python3 manage.py migrate --settings=tableno.settings_production
+# AWSプレ環境
+APP_ENV=aws-pre ENV_FILE=.env.staging python3 manage.py migrate
+
+# AWS本番環境
+APP_ENV=aws-prod ENV_FILE=.env.production python3 manage.py migrate
 ```
 
 #### 設定ファイル構成
-- `settings.py` は `.env` を自動で読み込まない
-- `ENV_FILE` を指定した場合のみ `.env` を読み込み
-- Stg/Prod は `ENV_FILE` + `tableno.settings_production` で明示的に切り替え
+- `tableno.runtime_env` が `APP_ENV` を正規化し、設定モジュールを選択する
+- `local` は `tableno.settings`、`aws-pre` / `aws-prod` は `tableno.settings_production`
+- AWS/ECSでは `ENV_FILE` を設定せず、環境変数とSecrets Manager/SSMから設定を注入する
+- `/health/live` はプロセス生存、`/health/ready` はDB/Cache疎通を返す
 
 ## 2. システムアーキテクチャ
 
@@ -497,6 +501,9 @@ tableno/
 #### 3.3.1 セッション管理
 
 - セッション作成・編集・削除
+- セッション作成UIはカレンダー画面へ統一
+- ホームとセッション一覧は共通サマリーカードで表示
+- 一覧・詳細の編集フォームは共通レイアウト
 - ステータス管理（予定/進行中/完了/キャンセル）
 - 可視性設定（プライベート/グループ内/公開）
 - 日程未定セッション対応（date nullable）
@@ -523,6 +530,11 @@ tableno/
   - ピン留め機能
 - **公開共有機能**【✅ 実装済み】
   - share_tokenによる認証なし閲覧
+- **セッションテンプレート**【✅ 実装済み】
+  - テンプレートCRUDとカレンダー作成フォームへの適用
+  - カレンダー入力からの即時登録と詳細編集への引継ぎ
+  - テンプレート画像・秘匿ハンドアウト雛形の管理
+  - セッション作成時の画像・ハンドアウト複製
 
 #### 3.3.2 参加者管理
 
@@ -683,6 +695,8 @@ tableno/
 - `GET /api/schedules/calendar/` - カレンダー情報
 - `POST /api/schedules/sessions/create/` - セッション作成
 - セッション作成/更新時に `scenario`（id）を指定可能
+- セッションレスポンスは参照表示用の `group_name` を返却
+- 次回セッションレスポンスは `visibility` / `visibility_display` を返却
 - `GET /api/schedules/sessions/<id>/detail/` は `scenario_detail`（id/title/game_system/recommended_skills）を返却
 
 #### 4.4.1 セッション出現（複数日程）
@@ -753,8 +767,10 @@ tableno/
 
 #### 4.4.9 Webビュー
 
-- `GET /schedules/calendar/view/` - カレンダービュー
-- `GET /schedules/sessions/web/` - セッション一覧ビュー
+- `GET /api/schedules/calendar/view/` - カレンダービュー
+- `GET /api/schedules/calendar/view/?open_create=1` - 作成モーダルを自動表示
+- `GET /api/schedules/sessions/web/` - セッション一覧ビュー
+- `GET /api/schedules/session-templates/view/` - セッションテンプレート管理
 - `GET /schedules/sessions/<id>/date-poll/` - 日程調整投票画面
 - `GET /s/<uuid:share_token>/` - 公開セッション詳細
 
@@ -797,9 +813,9 @@ tableno/
 - ログイン画面（Gate of Yog-Sothoth）
 - ダッシュボード（`/accounts/dashboard/`）
 - **グループ管理画面（`/accounts/groups/view/`）** - Cult Circle完全動作
-- セッション一覧（`/schedules/sessions/web/`）
+- セッション一覧（`/api/schedules/sessions/web/`）
 - セッション詳細（`/api/schedules/sessions/<id>/detail/`）
-- カレンダー（`/schedules/calendar/view/`）
+- カレンダー（`/api/schedules/calendar/view/`）
 - シナリオアーカイブ（`/scenarios/archive/view/`）
 - 6版キャラクター作成（`/accounts/character/create/6th/`）
 - 統計画面（`/accounts/statistics/view/`）
@@ -989,7 +1005,9 @@ tableno/
   - 当面不要のため実装対象外
 - **セッションテンプレート**【✅ 実装済み】
   - テンプレートCRUD
-  - テンプレの適用/保存（カレンダーの新規作成モーダル）
+  - テンプレートの適用/即時登録（カレンダーの新規作成モーダル）
+  - 詳細編集への入力引継ぎ
+  - 画像・秘匿ハンドアウト雛形の保存とセッションへの複製
 
 ### 7.7 統計・分析機能の拡張
 

@@ -10,7 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import json
 import os
+import sys
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -38,6 +40,48 @@ def _load_env_file():
             os.environ.setdefault(key, value)
 
 
+def _is_placeholder_env_value(value):
+    normalized = value.strip().lower()
+    return (
+        not normalized
+        or normalized.startswith('your-')
+        or normalized.endswith('-here')
+        or normalized in {'changeme', 'replace-me', 'example', 'dummy'}
+    )
+
+
+def _merge_secret_mapping(raw_payload, source_name):
+    try:
+        payload = json.loads(raw_payload)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f'Invalid JSON in {source_name}') from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError(f'{source_name} must be a JSON object')
+
+    for key, value in payload.items():
+        if not isinstance(key, str) or value is None:
+            continue
+        existing = os.environ.get(key)
+        if existing is None or _is_placeholder_env_value(existing):
+            os.environ[key] = str(value)
+
+
+def _load_secret_sources():
+    raw_json = os.environ.get('AWS_SECRETS_JSON', '').strip()
+    if raw_json:
+        _merge_secret_mapping(raw_json, 'AWS_SECRETS_JSON')
+
+    secret_file = os.environ.get('AWS_SECRETS_FILE', '').strip()
+    if secret_file:
+        secret_path = Path(secret_file)
+        if not secret_path.exists():
+            raise RuntimeError(f'AWS_SECRETS_FILE not found: {secret_path}')
+        _merge_secret_mapping(
+            secret_path.read_text(encoding='utf-8'),
+            f'AWS_SECRETS_FILE({secret_path})',
+        )
+
+
 def _get_bool(name, default=False):
     value = os.environ.get(name)
     if value is None:
@@ -57,6 +101,7 @@ def _get_first_env(*names, default=''):
 
 
 _load_env_file()
+_load_secret_sources()
 
 
 # Quick-start development settings - unsuitable for production
@@ -157,6 +202,14 @@ DATABASES = {
         },
     }
 }
+
+if (
+    'test' in sys.argv
+    or 'PYTEST_CURRENT_TEST' in os.environ
+    or 'pytest' in Path(sys.argv[0]).name.lower()
+):
+    DATABASES['default'].setdefault('TEST', {})
+    DATABASES['default']['TEST']['NAME'] = BASE_DIR / 'test_db.sqlite3'
 
 
 # Password validation

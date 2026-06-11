@@ -1,0 +1,138 @@
+.session-summary-card {
+    border: 1px solid rgba(220, 38, 127, 0.14);
+    border-left: 4px solid transparent;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
+        var(--card-bg);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.session-summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(220, 38, 127, 0.12);
+}
+
+.session-summary-card--clickable {
+    cursor: pointer;
+}
+
+.session-summary-card--planned {
+    border-left-color: #39d0d8;
+}
+
+.session-summary-card--ongoing {
+    border-left-color: #ffc107;
+}
+
+.session-summary-card--completed {
+    border-left-color: #3fb950;
+}
+
+.session-summary-card--cancelled {
+    border-left-color: #f85149;
+}
+
+.session-summary-card__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.session-summary-card__title-wrap {
+    min-width: 0;
+}
+
+.session-summary-card__title {
+    margin-bottom: 0;
+    color: var(--text-primary);
+    font-weight: 700;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.session-summary-card__title--compact {
+    font-size: 1rem;
+}
+
+.session-summary-card__role-badge {
+    margin-bottom: 0.5rem;
+}
+
+.session-summary-card__meta-list {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.session-summary-card__meta-item {
+    display: flex;
+    gap: 0.65rem;
+    align-items: flex-start;
+    color: var(--text-secondary);
+}
+
+.session-summary-card__meta-item i {
+    width: 1rem;
+    margin-top: 0.2rem;
+    color: var(--accent-primary);
+    text-align: center;
+    flex: 0 0 auto;
+}
+
+.session-summary-card__meta-text {
+    min-width: 0;
+    word-break: break-word;
+}
+
+.session-summary-card__meta-text strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.session-summary-card__footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.session-summary-card__footer-hint {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.session-summary-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.session-summary-card__actions .btn {
+    white-space: nowrap;
+}
+
+.session-summary-card__link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.session-summary-card__link:hover {
+    color: inherit;
+}
+
+@media (max-width: 767.98px) {
+    .session-summary-card__header,
+    .session-summary-card__footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .session-summary-card__actions {
+        justify-content: flex-start;
+    }
+}

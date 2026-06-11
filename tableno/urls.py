@@ -22,8 +22,13 @@ from django.views.generic import TemplateView
 
 from accounts.views import CustomLoginView, CustomSignUpView
 from schedules.views import PublicSessionDetailView
+from tableno.health_views import health_live_view, health_ready_view
 
 urlpatterns = [
+    path('health/live/', health_live_view, name='health_live'),
+    path('health/live', health_live_view),
+    path('health/ready/', health_ready_view, name='health_ready'),
+    path('health/ready', health_ready_view),
     path('admin/', admin.site.urls),
     
     # Custom authentication views

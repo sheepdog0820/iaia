@@ -1,5 +1,7 @@
 # キャラクター作成画面 動作確認レポート
 
+> 履歴資料: この文書は実施当時の環境と結果です。現在の仕様は `docs/CURRENT_WEBAPP_FEATURES.md` と `docs/character_sheet/CHARACTER_SHEET_6TH_EDITION_SPECIFICATION.md` を参照してください。
+
 ## 実施日時
 2025年7月30日
 

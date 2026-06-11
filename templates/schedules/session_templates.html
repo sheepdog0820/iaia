@@ -38,78 +38,93 @@
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="templateModalTitle">テンプレート</h5>
+                <h5 class="modal-title" id="templateModalTitle">テンプレート登録</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <form id="sessionTemplateForm">
                     <input type="hidden" id="templateId">
+                    <div class="alert alert-info d-none" id="templateDraftNotice" role="status"></div>
 
-                    <div class="row">
+                    <div class="row g-4">
                         <div class="col-lg-7">
-                            <div class="mb-3">
-                                <label for="templateName" class="form-label">テンプレート名</label>
-                                <input type="text" class="form-control" id="templateName" required>
-                            </div>
+                            <div class="card border-0 bg-light">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0">セッション内容</h6>
+                                        <span class="badge text-bg-secondary">カレンダー作成画面と同じ並び</span>
+                                    </div>
 
-                            <div class="mb-3">
-                                <label for="templateGroup" class="form-label">デフォルトグループ（任意）</label>
-                                <select class="form-select" id="templateGroup">
-                                    <option value="">未設定</option>
-                                </select>
-                            </div>
+                                    <div class="mb-3">
+                                        <label for="templateName" class="form-label">テンプレート名</label>
+                                        <input type="text" class="form-control" id="templateName" required>
+                                    </div>
 
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="templateDuration" class="form-label">予定時間（hhmm）</label>
-                                    <input
-                                        type="text"
-                                        class="form-control"
-                                        id="templateDuration"
-                                        inputmode="numeric"
-                                        maxlength="4"
-                                        placeholder="0400"
-                                        pattern="[0-9]{4}"
-                                    >
-                                    <div class="form-text">4時間なら <code>0400</code>、2時間30分なら <code>0230</code> です。</div>
+                                    <div class="mb-3">
+                                        <label for="templateTitle" class="form-label">セッションタイトル</label>
+                                        <input type="text" class="form-control" id="templateTitle" placeholder="未設定（作成時に入力）">
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label for="templateDuration" class="form-label">予定時間（hhmm）</label>
+                                            <input
+                                                type="text"
+                                                class="form-control"
+                                                id="templateDuration"
+                                                inputmode="numeric"
+                                                maxlength="4"
+                                                placeholder="0400"
+                                                pattern="[0-9]{4}"
+                                            >
+                                            <div class="form-text">4時間なら <code>0400</code>、2時間30分なら <code>0230</code> です。</div>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label for="templateLocation" class="form-label">場所</label>
+                                            <input type="text" class="form-control" id="templateLocation" placeholder="オンライン / 会場名">
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="templateGroup" class="form-label">グループ</label>
+                                        <select class="form-select" id="templateGroup">
+                                            <option value="">未設定</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3 d-none" id="templateScenarioInfo">
+                                        <label for="templateScenarioTitle" class="form-label">関連シナリオ</label>
+                                        <input type="text" class="form-control" id="templateScenarioTitle" readonly>
+                                        <div class="form-text">カレンダーから引き継いだシナリオ、または既存テンプレートの設定です。</div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="templateCocEdition" class="form-label">システム（クトゥルフ神話TRPG）</label>
+                                        <select class="form-select" id="templateCocEdition">
+                                            <option value="6th">6版</option>
+                                            <option value="7th">7版</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="templateDescription" class="form-label">説明</label>
+                                        <textarea class="form-control" id="templateDescription" rows="4"></textarea>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="templateYoutube" class="form-label">YouTube配信URL（任意）</label>
+                                        <input type="url" class="form-control" id="templateYoutube" placeholder="https://youtube.com/...">
+                                    </div>
+
+                                    <div class="mb-0">
+                                        <label for="templateVisibility" class="form-label">公開設定</label>
+                                        <select class="form-select" id="templateVisibility">
+                                            <option value="group">グループ内のみ</option>
+                                            <option value="public">全体に公開</option>
+                                            <option value="private">プライベート</option>
+                                        </select>
+                                    </div>
                                 </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="templateLocation" class="form-label">場所</label>
-                                    <input type="text" class="form-control" id="templateLocation" placeholder="オンライン / 会場名">
-                                </div>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="templateVisibility" class="form-label">公開設定</label>
-                                    <select class="form-select" id="templateVisibility">
-                                        <option value="group">グループ内のみ</option>
-                                        <option value="public">全体に公開</option>
-                                        <option value="private">プライベート</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="templateCocEdition" class="form-label">システム（クトゥルフ神話TRPG）</label>
-                                    <select class="form-select" id="templateCocEdition">
-                                        <option value="6th">6版</option>
-                                        <option value="7th">7版</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="templateTitle" class="form-label">セッションタイトル（任意）</label>
-                                <input type="text" class="form-control" id="templateTitle" placeholder="未設定（作成時に入力）">
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="templateDescription" class="form-label">告知文 / 説明</label>
-                                <textarea class="form-control" id="templateDescription" rows="4"></textarea>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="templateYoutube" class="form-label">YouTube配信URL（任意）</label>
-                                <input type="url" class="form-control" id="templateYoutube" placeholder="https://youtube.com/...">
                             </div>
                         </div>
 
@@ -179,8 +194,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const form = document.getElementById('sessionTemplateForm');
     const templateIdInput = document.getElementById('templateId');
+    const templateDraftNotice = document.getElementById('templateDraftNotice');
     const templateNameInput = document.getElementById('templateName');
     const templateTitleInput = document.getElementById('templateTitle');
+    const templateScenarioInfo = document.getElementById('templateScenarioInfo');
+    const templateScenarioTitleInput = document.getElementById('templateScenarioTitle');
     const templateGroupSelect = document.getElementById('templateGroup');
     const templateDurationInput = document.getElementById('templateDuration');
     const templateLocationInput = document.getElementById('templateLocation');
@@ -203,6 +221,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let pendingImageFiles = [];
     let existingTemplateImages = [];
     let templateHandouts = [];
+    let currentTemplateScenarioId = null;
+    let currentTemplatePrefillMessage = '';
 
     function escapeHtml(text) {
         const div = document.createElement('div');
@@ -267,6 +287,66 @@ document.addEventListener('DOMContentLoaded', function() {
             return value;
         }
         return JSON.stringify(data);
+    }
+
+    function readLocalStorage(key) {
+        try {
+            return localStorage.getItem(key);
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function removeLocalStorage(key) {
+        try {
+            localStorage.removeItem(key);
+        } catch (_) {
+            // ignore storage errors
+        }
+    }
+
+    function updateTemplateContextUi() {
+        const hasScenario = Boolean(currentTemplateScenarioId);
+        templateScenarioInfo.classList.toggle('d-none', !hasScenario);
+        templateScenarioTitleInput.value = hasScenario ? (templateScenarioTitleInput.value || '未設定') : '';
+
+        const hasPrefillMessage = Boolean(currentTemplatePrefillMessage);
+        templateDraftNotice.classList.toggle('d-none', !hasPrefillMessage);
+        templateDraftNotice.textContent = currentTemplatePrefillMessage || '';
+    }
+
+    function consumeCalendarDraft() {
+        const params = new URLSearchParams(window.location.search);
+        const draftKey = params.get('draft_key');
+        if (!draftKey) {
+            return;
+        }
+
+        const storageKey = `calendar_session_template_draft:${draftKey}`;
+        const rawDraft = readLocalStorage(storageKey);
+        removeLocalStorage(storageKey);
+
+        params.delete('draft_key');
+        const nextQuery = params.toString();
+        const nextUrl = nextQuery ? `${window.location.pathname}?${nextQuery}` : window.location.pathname;
+        window.history.replaceState({}, '', nextUrl);
+
+        if (!rawDraft) {
+            return;
+        }
+
+        let draft;
+        try {
+            draft = JSON.parse(rawDraft);
+        } catch (_) {
+            return;
+        }
+
+        openModal({
+            ...draft,
+            _prefill_message: 'カレンダーの入力内容を引き継ぎました。テンプレート名を入力して保存してください。',
+        });
+        templateNameInput.focus();
     }
 
     function toggleHandoutSection() {
@@ -583,10 +663,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const isEdit = Boolean(template && template.id);
         templateIdInput.value = isEdit ? template.id : '';
-        modalTitle.textContent = isEdit ? 'テンプレート編集' : '新規テンプレート';
+        modalTitle.textContent = isEdit ? 'テンプレート編集' : 'テンプレート登録';
+        currentTemplateScenarioId = template?.scenario || null;
+        currentTemplatePrefillMessage = template?._prefill_message || '';
 
         templateNameInput.value = template?.name || '';
         templateTitleInput.value = template?.title || '';
+        templateScenarioTitleInput.value = template?.scenario_title || '';
         templateDurationInput.value = template?.duration_hhmm || minutesToHhmm(template?.duration_minutes || 0);
         templateLocationInput.value = template?.location || '';
         templateVisibilitySelect.value = template?.visibility || 'group';
@@ -596,6 +679,7 @@ document.addEventListener('DOMContentLoaded', function() {
         templateGroupSelect.value = template?.group || '';
         copyHandoutsToSessionInput.checked = Boolean(template?.copy_handouts_to_session);
 
+        updateTemplateContextUi();
         toggleHandoutSection();
         renderTemplateImages();
         renderTemplateHandouts();
@@ -648,6 +732,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 assigned_player_slot: handout.assigned_player_slot || null,
             })),
         };
+        if (currentTemplateScenarioId) {
+            payload.scenario = Number.parseInt(currentTemplateScenarioId, 10);
+        }
 
         const templateId = templateIdInput.value ? Number.parseInt(templateIdInput.value, 10) : null;
 
@@ -693,9 +780,16 @@ document.addEventListener('DOMContentLoaded', function() {
         pendingImageFiles = [];
         existingTemplateImages = [];
         templateHandouts = [];
+        currentTemplateScenarioId = null;
+        currentTemplatePrefillMessage = '';
+        templateScenarioTitleInput.value = '';
+        updateTemplateContextUi();
     });
 
-    void loadGroups().then(loadTemplates);
+    void loadGroups().then(async () => {
+        await loadTemplates();
+        consumeCalendarDraft();
+    });
 });
 </script>
 {% endblock %}

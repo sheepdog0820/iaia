@@ -230,6 +230,11 @@
                         return unreadCount;
                     })
                     .catch((error) => {
+                        const status = error?.response?.status;
+                        if (status === 401 || status === 403) {
+                            setBadge(0);
+                            return null;
+                        }
                         console.error('Error updating notification unread badge:', error);
                         return null;
                     })

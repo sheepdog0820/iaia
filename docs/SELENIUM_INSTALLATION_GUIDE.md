@@ -262,7 +262,7 @@ def get_chrome_options():
 ```
 
 ## 関連ドキュメント
-- [SELENIUM_TEST_SETUP.md](./SELENIUM_TEST_SETUP.md) - テスト環境セットアップの詳細
+- [SELENIUM_TEST_SETUP.md](../SELENIUM_TEST_SETUP.md) - テスト環境セットアップの詳細
 - [requirements.txt](../requirements.txt) - プロジェクトの依存関係
 - [tests/ui/](../tests/ui/) - UIテストのソースコード
 

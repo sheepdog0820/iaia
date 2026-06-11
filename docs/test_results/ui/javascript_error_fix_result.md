@@ -1,5 +1,7 @@
 # JavaScriptエラー修正結果
 
+> 履歴資料: この結果は実施時点のスナップショットです。現在の方針は `docs/guidelines/JAVASCRIPT_GUIDELINES.md` を参照してください。
+
 ## 修正日時
 2025年7月1日
 

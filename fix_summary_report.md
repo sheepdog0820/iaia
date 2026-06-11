@@ -1,5 +1,7 @@
 # 修正完了レポート
 
+> 履歴資料: この文書は修正実施時点の記録です。現在の仕様は `SPECIFICATION.md` と `docs/CURRENT_WEBAPP_FEATURES.md` を参照してください。
+
 ## 実施日時
 2025年7月30日
 

@@ -38,8 +38,8 @@ services:
     env_file:
       - ${ENV_FILE:-.env.production}
     environment:
-      - DJANGO_SETTINGS_MODULE=tableno.settings_production
-      - DB_ENGINE=mysql
+      APP_ENV: ${APP_ENV:-aws-prod}
+      DB_ENGINE: mysql
     depends_on:
       db:
         condition: service_healthy
@@ -55,8 +55,8 @@ services:
     env_file:
       - ${ENV_FILE:-.env.production}
     environment:
-      - DJANGO_SETTINGS_MODULE=tableno.settings_production
-      - DB_ENGINE=mysql
+      APP_ENV: ${APP_ENV:-aws-prod}
+      DB_ENGINE: mysql
     depends_on:
       db:
         condition: service_healthy
@@ -72,8 +72,8 @@ services:
     env_file:
       - ${ENV_FILE:-.env.production}
     environment:
-      - DJANGO_SETTINGS_MODULE=tableno.settings_production
-      - DB_ENGINE=mysql
+      APP_ENV: ${APP_ENV:-aws-prod}
+      DB_ENGINE: mysql
     depends_on:
       db:
         condition: service_healthy
