@@ -1,5 +1,7 @@
 # クトゥルフ神話TRPG 第6版 キャラクター作成画面 仕様書
 
+> アーカイブ資料: この文書の技術バージョンは作成当時の記録です。現在の仕様と技術スタックは `docs/CURRENT_WEBAPP_FEATURES.md` と `docs/character_sheet/CHARACTER_SHEET_6TH_EDITION_SPECIFICATION.md` を参照してください。
+
 ## 📋 概要
 
 ### 基本情報
