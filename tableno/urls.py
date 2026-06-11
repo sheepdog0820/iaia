@@ -26,6 +26,14 @@ from schedules.views import PublicSessionDetailView
 from tableno.health_views import health_live_view, health_ready_view
 from schedules.job_views import AsyncJobDetailView
 from accounts.discord_views import GroupDiscordSettingsView
+from schedules.integration_views import (
+    CalendarSubscriptionRotateView,
+    CalendarSubscriptionView,
+    GoogleCalendarSyncView,
+    GoogleIntegrationView,
+    GoogleSheetsExportView,
+    GoogleSheetsImportView,
+)
 
 urlpatterns = [
     path('health/live/', health_live_view, name='health_live'),
@@ -39,6 +47,36 @@ urlpatterns = [
         'api/groups/<int:group_id>/discord-settings/',
         GroupDiscordSettingsView.as_view(),
         name='group-discord-settings',
+    ),
+    path(
+        'api/calendar/subscription-token/rotate/',
+        CalendarSubscriptionRotateView.as_view(),
+        name='calendar-subscription-rotate',
+    ),
+    path(
+        'calendar/subscribe/<str:token>.ics',
+        CalendarSubscriptionView.as_view(),
+        name='calendar-subscription',
+    ),
+    path(
+        'api/google/integration/',
+        GoogleIntegrationView.as_view(),
+        name='google-integration',
+    ),
+    path(
+        'api/sessions/<int:session_id>/google-calendar/sync/',
+        GoogleCalendarSyncView.as_view(),
+        name='google-calendar-sync',
+    ),
+    path(
+        'api/character-sheets/google-sheets/import/',
+        GoogleSheetsImportView.as_view(),
+        name='google-sheets-import',
+    ),
+    path(
+        'api/character-sheets/google-sheets/export/',
+        GoogleSheetsExportView.as_view(),
+        name='google-sheets-export',
     ),
     path('admin/', admin.site.urls),
     

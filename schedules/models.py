@@ -5,6 +5,8 @@ from datetime import datetime, date as date_cls, time as time_cls, timedelta
 from django.core.exceptions import ValidationError
 from django.dispatch import receiver
 import uuid
+import hashlib
+import secrets
 from accounts.models import CustomUser, Group, GroupMembership
 
 
@@ -68,6 +70,96 @@ class AsyncJob(models.Model):
         self.error = str(error)
         self.finished_at = timezone.now()
         self.save(update_fields=['status', 'error', 'finished_at'])
+
+
+class CalendarSubscription(models.Model):
+    user = models.OneToOneField(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='calendar_subscription',
+    )
+    token_digest = models.CharField(max_length=64, unique=True, db_index=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    rotated_at = models.DateTimeField(default=timezone.now)
+
+    @staticmethod
+    def digest(token):
+        return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+    def rotate(self):
+        token = secrets.token_urlsafe(32)
+        self.token_digest = self.digest(token)
+        self.rotated_at = timezone.now()
+        self.save(update_fields=['token_digest', 'rotated_at'])
+        return token
+
+    @classmethod
+    def issue_for(cls, user):
+        token = secrets.token_urlsafe(32)
+        obj, _ = cls.objects.update_or_create(
+            user=user,
+            defaults={
+                'token_digest': cls.digest(token),
+                'rotated_at': timezone.now(),
+            },
+        )
+        return obj, token
+
+
+class GoogleIntegration(models.Model):
+    REQUIRED_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events'
+    REQUIRED_SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets'
+
+    user = models.OneToOneField(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='google_integration',
+    )
+    scopes = models.JSONField(default=list)
+    calendar_enabled = models.BooleanField(default=False)
+    sheets_enabled = models.BooleanField(default=False)
+    connected_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def has_scope(self, scope):
+        return scope in self.scopes
+
+
+class GoogleCalendarSync(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        SYNCED = 'synced', 'Synced'
+        FAILED = 'failed', 'Failed'
+        DELETED = 'deleted', 'Deleted'
+
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='google_calendar_syncs',
+    )
+    session = models.ForeignKey(
+        'TRPGSession',
+        on_delete=models.CASCADE,
+        related_name='google_calendar_syncs',
+    )
+    external_event_id = models.CharField(max_length=255, blank=True, default='')
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    last_error = models.TextField(blank=True, default='')
+    synced_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'session'],
+                name='unique_google_calendar_sync',
+            ),
+        ]
 
 
 class TRPGSession(models.Model):

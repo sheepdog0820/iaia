@@ -1,0 +1,203 @@
+from datetime import timedelta
+from unittest.mock import Mock, patch
+
+from allauth.socialaccount.models import SocialAccount, SocialToken
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.test import APITestCase
+
+from accounts.models import CharacterSheet, Group
+from schedules.models import (
+    AsyncJob,
+    CalendarSubscription,
+    GoogleCalendarSync,
+    GoogleIntegration,
+    TRPGSession,
+)
+from schedules.tasks import sync_google_calendar
+
+
+class CalendarSubscriptionTestCase(APITestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.user = user_model.objects.create_user(
+            username='calendar-owner',
+            email='calendar-owner@example.com',
+            password='pass123',
+        )
+        self.other = user_model.objects.create_user(
+            username='calendar-other',
+            email='calendar-other@example.com',
+            password='pass123',
+        )
+        self.group = Group.objects.create(name='Calendar Group', created_by=self.user)
+        self.other_group = Group.objects.create(name='Other Group', created_by=self.other)
+        TRPGSession.objects.create(
+            title='Owned Future Session',
+            gm=self.user,
+            group=self.group,
+            date=timezone.now() + timedelta(days=10),
+        )
+        TRPGSession.objects.create(
+            title='Owned Undated Session',
+            gm=self.user,
+            group=self.group,
+            date=None,
+        )
+        TRPGSession.objects.create(
+            title='Private Other Session',
+            gm=self.other,
+            group=self.other_group,
+            date=timezone.now() + timedelta(days=10),
+            visibility='private',
+        )
+        self.client.force_authenticate(self.user)
+
+    def test_rotate_returns_raw_token_but_stores_only_digest(self):
+        response = self.client.post('/api/calendar/subscription-token/rotate/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        token = response.data['token']
+        subscription = CalendarSubscription.objects.get(user=self.user)
+        self.assertNotEqual(subscription.token_digest, token)
+        self.assertEqual(subscription.token_digest, CalendarSubscription.digest(token))
+
+        feed = self.client.get(f'/calendar/subscribe/{token}.ics')
+        content = feed.content.decode('utf-8')
+        self.assertEqual(feed.status_code, status.HTTP_200_OK)
+        self.assertIn('Owned Future Session', content)
+        self.assertIn('Owned Undated Session', content)
+        self.assertNotIn('Private Other Session', content)
+
+    def test_rotating_invalidates_previous_token(self):
+        first = self.client.post('/api/calendar/subscription-token/rotate/').data['token']
+        second = self.client.post('/api/calendar/subscription-token/rotate/').data['token']
+        self.assertNotEqual(first, second)
+        self.assertEqual(
+            self.client.get(f'/calendar/subscribe/{first}.ics').status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        self.assertEqual(
+            self.client.get(f'/calendar/subscribe/{second}.ics').status_code,
+            status.HTTP_200_OK,
+        )
+
+
+class GoogleIntegrationTestCase(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='google-owner',
+            email='google-owner@example.com',
+            password='pass123',
+        )
+        self.group = Group.objects.create(name='Google Group', created_by=self.user)
+        self.session = TRPGSession.objects.create(
+            title='Google Session',
+            gm=self.user,
+            group=self.group,
+            date=timezone.now() + timedelta(days=3),
+            duration_minutes=120,
+        )
+        self.client.force_authenticate(self.user)
+
+    def connect_google(self):
+        scopes = [
+            GoogleIntegration.REQUIRED_CALENDAR_SCOPE,
+            GoogleIntegration.REQUIRED_SHEETS_SCOPE,
+        ]
+        account = SocialAccount.objects.create(
+            user=self.user,
+            provider='google',
+            uid='google-owner',
+            extra_data={'scope': ' '.join(scopes)},
+        )
+        SocialToken.objects.create(
+            account=account,
+            token='access-token',
+            token_secret='',
+        )
+        response = self.client.put('/api/google/integration/', {
+            'calendar_enabled': True,
+            'sheets_enabled': True,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_permissions_must_be_granted_by_google(self):
+        response = self.client.put('/api/google/integration/', {
+            'calendar_enabled': True,
+            'sheets_enabled': True,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(GoogleIntegration.objects.filter(user=self.user).exists())
+
+    def test_calendar_sync_endpoint_creates_job(self):
+        self.connect_google()
+        response = self.client.post(
+            f'/api/sessions/{self.session.pk}/google-calendar/sync/'
+        )
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertTrue(AsyncJob.objects.filter(pk=response.data['job_id']).exists())
+        self.assertTrue(
+            GoogleCalendarSync.objects.filter(
+                user=self.user, session=self.session
+            ).exists()
+        )
+
+    @patch('schedules.tasks.requests.post')
+    def test_calendar_task_creates_external_event_idempotently(self, post):
+        self.connect_google()
+        sync = GoogleCalendarSync.objects.create(
+            user=self.user, session=self.session
+        )
+        job = AsyncJob.objects.create(
+            owner=self.user,
+            job_type='google_calendar_sync',
+            expires_at=timezone.now() + timedelta(days=1),
+        )
+        post.return_value = Mock(status_code=200)
+        post.return_value.raise_for_status.return_value = None
+        post.return_value.json.return_value = {'id': 'google-event-1'}
+
+        result = sync_google_calendar.run(sync.pk, str(job.pk))
+
+        self.assertEqual(result, GoogleCalendarSync.Status.SYNCED)
+        sync.refresh_from_db()
+        job.refresh_from_db()
+        self.assertEqual(sync.external_event_id, 'google-event-1')
+        self.assertEqual(job.status, AsyncJob.Status.SUCCEEDED)
+
+    def test_sheets_preview_and_import_use_fixed_columns(self):
+        self.connect_google()
+        row = {
+            'name': 'Imported Investigator',
+            'edition': '6th',
+            'age': 30,
+            'occupation': 'Detective',
+            'STR': 12,
+            'CON': 11,
+            'POW': 13,
+            'DEX': 14,
+            'APP': 10,
+            'SIZ': 12,
+            'INT': 15,
+            'EDU': 16,
+            'SAN': 65,
+        }
+        preview = self.client.post(
+            '/api/character-sheets/google-sheets/import/',
+            {'rows': [row], 'preview': True},
+            format='json',
+        )
+        self.assertEqual(preview.status_code, status.HTTP_200_OK)
+        self.assertEqual(preview.data['rows'][0]['errors'], {})
+        self.assertIn('STR', preview.data['columns'])
+
+        imported = self.client.post(
+            '/api/character-sheets/google-sheets/import/',
+            {'rows': [row], 'preview': False, 'conflict_action': 'create'},
+            format='json',
+        )
+        self.assertEqual(imported.status_code, status.HTTP_201_CREATED)
+        character = CharacterSheet.objects.get(pk=imported.data['imported_ids'][0])
+        self.assertEqual(character.user, self.user)
+        self.assertEqual(character.name, 'Imported Investigator')

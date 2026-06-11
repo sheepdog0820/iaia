@@ -161,6 +161,8 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             {'content': f'Session created: {session.title}'},
             f'session-created:{session.pk}',
         )
+        from .tasks import schedule_session_google_syncs
+        schedule_session_google_syncs(session)
     
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -1164,6 +1166,8 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
             {'content': f'Session updated: {instance.title}'},
             f'{event_type}:{instance.pk}:{instance.updated_at.isoformat()}',
         )
+        from .tasks import schedule_session_google_syncs
+        schedule_session_google_syncs(instance)
         
         return Response(serializer.data)
 
