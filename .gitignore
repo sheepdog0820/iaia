@@ -199,3 +199,9 @@ ngrok.log
 ngrok_err.log
 ngrok.exe
 node_modules/.package-lock.json
+
+# Terraform provider cache and local state
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
