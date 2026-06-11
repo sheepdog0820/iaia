@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+
+{% block title %}連携設定 - Tableno{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">連携設定</h1>
+            <p class="text-muted mb-0">外部通知、カレンダー、グループ共有、ゲスト導線を管理します。</p>
+        </div>
+        <button class="btn btn-outline-secondary" id="reload-integrations">再読み込み</button>
+    </div>
+
+    <div class="alert d-none" id="integration-message" role="alert"></div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">カレンダー購読・Google</div>
+                <div class="card-body">
+                    <button class="btn btn-primary mb-3" id="rotate-calendar-token">ICS購読URLを再発行</button>
+                    <div class="input-group mb-4">
+                        <input class="form-control" id="calendar-subscription-url" readonly>
+                        <button class="btn btn-outline-secondary" data-copy="#calendar-subscription-url">コピー</button>
+                    </div>
+                    <div id="google-status" class="small text-muted mb-3">Google連携状態を確認中...</div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="google-calendar-enabled">
+                        <label class="form-check-label" for="google-calendar-enabled">Google Calendar同期</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="google-sheets-enabled">
+                        <label class="form-check-label" for="google-sheets-enabled">Google Sheets入出力</label>
+                    </div>
+                    <button class="btn btn-outline-primary" id="save-google-settings">Google設定を保存</button>
+                    <a class="btn btn-link" href="/accounts/google/login/?process=connect">Googleを再連携</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">Discord Webhook</div>
+                <div class="card-body">
+                    <label class="form-label" for="discord-group">管理グループ</label>
+                    <select class="form-select mb-3" id="discord-group"></select>
+                    <label class="form-label" for="discord-webhook-url">Webhook URL</label>
+                    <input class="form-control mb-3" id="discord-webhook-url" type="url" placeholder="https://discord.com/api/webhooks/...">
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="discord-enabled">
+                        <label class="form-check-label" for="discord-enabled">通知を有効化</label>
+                    </div>
+                    <button class="btn btn-outline-primary" id="save-discord-settings">Discord設定を保存</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">グループ間連携</div>
+                <div class="card-body">
+                    <label class="form-label" for="link-source-group">申請元グループ</label>
+                    <select class="form-select mb-3" id="link-source-group"></select>
+                    <label class="form-label" for="link-target-group-id">連携先グループID</label>
+                    <input class="form-control mb-3" id="link-target-group-id" type="number" min="1">
+                    <button class="btn btn-outline-primary mb-3" id="request-group-link">連携を申請</button>
+                    <div class="list-group" id="group-links"></div>
+                    <hr>
+                    <div class="row g-2">
+                        <div class="col-4">
+                            <input class="form-control" id="share-link-id" type="number" min="1" placeholder="連携ID">
+                        </div>
+                        <div class="col-4">
+                            <select class="form-select" id="share-resource-type">
+                                <option value="session">セッション</option>
+                                <option value="date_poll">日程投票</option>
+                                <option value="scenario">シナリオ</option>
+                                <option value="session_template">テンプレート</option>
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <input class="form-control" id="share-object-id" type="number" min="1" placeholder="対象ID">
+                        </div>
+                    </div>
+                    <button class="btn btn-outline-primary mt-2" id="share-group-resource">対象を共有</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">セッション連携・ゲスト招待</div>
+                <div class="card-body">
+                    <label class="form-label" for="integration-session">セッション</label>
+                    <select class="form-select mb-3" id="integration-session"></select>
+                    <div class="d-flex gap-2 mb-3">
+                        <button class="btn btn-outline-primary" id="sync-google-calendar">Google Calendarへ同期</button>
+                        <button class="btn btn-outline-primary" id="create-guest-invitation">ゲスト招待URLを発行</button>
+                    </div>
+                    <div class="input-group mb-4">
+                        <input class="form-control" id="guest-invitation-url" readonly>
+                        <button class="btn btn-outline-secondary" data-copy="#guest-invitation-url">コピー</button>
+                    </div>
+                    <label class="form-label" for="claim-participant-id">claimするゲスト参加者ID</label>
+                    <div class="input-group">
+                        <input class="form-control" id="claim-participant-id" type="number" min="1">
+                        <button class="btn btn-outline-primary" id="claim-participant">claim</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">ハンドアウト自動公開条件</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label" for="release-handout-id">ハンドアウトID</label>
+                            <input class="form-control" id="release-handout-id" type="number" min="1">
+                        </div>
+                        <div class="col-md-9">
+                            <label class="form-label" for="release-conditions">条件JSON</label>
+                            <textarea class="form-control font-monospace" id="release-conditions" rows="4">{"operator":"all","conditions":[{"type":"session_status","value":"ongoing"}]}</textarea>
+                        </div>
+                    </div>
+                    <button class="btn btn-outline-primary mt-3" id="save-release-conditions">公開条件を保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const message = document.getElementById('integration-message');
+    const groupSelects = [
+        document.getElementById('discord-group'),
+        document.getElementById('link-source-group'),
+    ];
+    const sessionSelect = document.getElementById('integration-session');
+
+    function showMessage(text, type = 'success') {
+        message.textContent = text;
+        message.className = `alert alert-${type}`;
+    }
+
+    function rows(data) {
+        return Array.isArray(data) ? data : (data?.results || []);
+    }
+
+    function escapeHtml(value) {
+        const element = document.createElement('div');
+        element.textContent = value ?? '';
+        return element.innerHTML;
+    }
+
+    async function loadGroups() {
+        const response = await axios.get('/api/accounts/groups/');
+        const groups = rows(response.data);
+        const options = groups.map(group =>
+            `<option value="${group.id}">${escapeHtml(group.name)} (#${group.id})</option>`
+        ).join('');
+        groupSelects.forEach(select => { select.innerHTML = options; });
+        await loadDiscordSettings();
+        await loadGroupLinks();
+    }
+
+    async function loadSessions() {
+        const response = await axios.get('/api/schedules/sessions/');
+        sessionSelect.innerHTML = rows(response.data).map(session =>
+            `<option value="${session.id}">${escapeHtml(session.title)} (#${session.id})</option>`
+        ).join('');
+    }
+
+    async function loadGoogleSettings() {
+        const response = await axios.get('/api/google/integration/');
+        const data = response.data;
+        document.getElementById('google-calendar-enabled').checked = !!data.calendar_enabled;
+        document.getElementById('google-sheets-enabled').checked = !!data.sheets_enabled;
+        document.getElementById('google-status').textContent =
+            data.connected ? `連携済み: ${data.scopes.join(', ')}` : '未連携';
+    }
+
+    async function loadDiscordSettings() {
+        const groupId = document.getElementById('discord-group').value;
+        if (!groupId) return;
+        try {
+            const response = await axios.get(`/api/groups/${groupId}/discord-settings/`);
+            document.getElementById('discord-enabled').checked = !!response.data.enabled;
+            document.getElementById('discord-webhook-url').value = '';
+        } catch (error) {
+            document.getElementById('discord-enabled').checked = false;
+        }
+    }
+
+    async function loadGroupLinks() {
+        const groupId = document.getElementById('link-source-group').value;
+        if (!groupId) return;
+        const response = await axios.get(`/api/groups/${groupId}/links/`);
+        document.getElementById('group-links').innerHTML = rows(response.data).map(link => {
+            const canAccept = link.target_group === Number(groupId) && link.status === 'pending';
+            return `<div class="list-group-item d-flex justify-content-between align-items-center">
+                <span>${escapeHtml(link.source_group_name)} → ${escapeHtml(link.target_group_name)}
+                    <span class="badge bg-secondary">${escapeHtml(link.status)}</span>
+                </span>
+                ${canAccept ? `<button class="btn btn-sm btn-primary" data-accept-link="${link.id}">承認</button>` : ''}
+            </div>`;
+        }).join('') || '<div class="text-muted">連携はありません。</div>';
+    }
+
+    async function loadAll() {
+        try {
+            await Promise.all([loadGroups(), loadSessions(), loadGoogleSettings()]);
+        } catch (error) {
+            showMessage(error?.response?.data?.detail || '設定の読み込みに失敗しました。', 'danger');
+        }
+    }
+
+    document.getElementById('reload-integrations').addEventListener('click', loadAll);
+    document.getElementById('discord-group').addEventListener('change', loadDiscordSettings);
+    document.getElementById('link-source-group').addEventListener('change', loadGroupLinks);
+
+    document.getElementById('rotate-calendar-token').addEventListener('click', async function() {
+        const response = await axios.post('/api/calendar/subscription-token/rotate/');
+        document.getElementById('calendar-subscription-url').value = response.data.subscription_url;
+        showMessage('ICS購読URLを再発行しました。古いURLは無効です。');
+    });
+
+    document.getElementById('save-google-settings').addEventListener('click', async function() {
+        await axios.put('/api/google/integration/', {
+            calendar_enabled: document.getElementById('google-calendar-enabled').checked,
+            sheets_enabled: document.getElementById('google-sheets-enabled').checked,
+        });
+        await loadGoogleSettings();
+        showMessage('Google連携設定を保存しました。');
+    });
+
+    document.getElementById('save-discord-settings').addEventListener('click', async function() {
+        const groupId = document.getElementById('discord-group').value;
+        const payload = {
+            enabled: document.getElementById('discord-enabled').checked,
+            event_types: ['session_created', 'session_updated', 'session_cancelled', 'handout_released'],
+        };
+        const webhookUrl = document.getElementById('discord-webhook-url').value.trim();
+        if (webhookUrl) payload.webhook_url = webhookUrl;
+        await axios.put(`/api/groups/${groupId}/discord-settings/`, payload);
+        showMessage('Discord設定を保存しました。');
+    });
+
+    document.getElementById('request-group-link').addEventListener('click', async function() {
+        const sourceId = document.getElementById('link-source-group').value;
+        const targetId = document.getElementById('link-target-group-id').value;
+        await axios.post(`/api/groups/${sourceId}/links/`, { target_group_id: targetId });
+        await loadGroupLinks();
+        showMessage('グループ連携を申請しました。');
+    });
+
+    document.getElementById('group-links').addEventListener('click', async function(event) {
+        const button = event.target.closest('[data-accept-link]');
+        if (!button) return;
+        const groupId = document.getElementById('link-source-group').value;
+        await axios.post(`/api/groups/${groupId}/links/${button.dataset.acceptLink}/accept/`);
+        await loadGroupLinks();
+        showMessage('グループ連携を承認しました。');
+    });
+
+    document.getElementById('share-group-resource').addEventListener('click', async function() {
+        const groupId = document.getElementById('link-source-group').value;
+        const linkId = document.getElementById('share-link-id').value;
+        await axios.post(`/api/groups/${groupId}/links/${linkId}/shares/`, {
+            resource_type: document.getElementById('share-resource-type').value,
+            object_id: document.getElementById('share-object-id').value,
+        });
+        showMessage('指定したリソースを連携先へ共有しました。');
+    });
+
+    document.getElementById('sync-google-calendar').addEventListener('click', async function() {
+        const response = await axios.post(`/api/sessions/${sessionSelect.value}/google-calendar/sync/`);
+        showMessage(`同期ジョブを作成しました: ${response.data.job_id}`);
+    });
+
+    document.getElementById('create-guest-invitation').addEventListener('click', async function() {
+        const response = await axios.post(`/api/sessions/${sessionSelect.value}/guest-invitations/`);
+        document.getElementById('guest-invitation-url').value = response.data.invitation_url;
+        showMessage('ゲスト招待URLを発行しました。');
+    });
+
+    document.getElementById('claim-participant').addEventListener('click', async function() {
+        const participantId = document.getElementById('claim-participant-id').value;
+        await axios.post(`/api/participants/${participantId}/claim/`);
+        showMessage('ゲスト参加枠をclaimしました。');
+    });
+
+    document.getElementById('save-release-conditions').addEventListener('click', async function() {
+        const handoutId = document.getElementById('release-handout-id').value;
+        let conditions;
+        try {
+            conditions = JSON.parse(document.getElementById('release-conditions').value);
+        } catch (error) {
+            showMessage('公開条件JSONが不正です。', 'danger');
+            return;
+        }
+        await axios.patch(`/api/schedules/handouts/${handoutId}/`, {
+            release_conditions: conditions,
+        });
+        showMessage('ハンドアウト公開条件を保存しました。');
+    });
+
+    document.querySelectorAll('[data-copy]').forEach(button => {
+        button.addEventListener('click', async function() {
+            const input = document.querySelector(button.dataset.copy);
+            if (!input?.value) return;
+            await navigator.clipboard.writeText(input.value);
+            showMessage('URLをコピーしました。');
+        });
+    });
+
+    loadAll();
+});
+</script>
+{% endblock %}

@@ -4,6 +4,19 @@
 
 ## 1. システム概要
 
+### 2026-06-12 Web機能完成追補
+
+以下は現行実装です。下位節に残る過去の「未実装」表現より本節を優先します。
+
+- AWS Terraform/Runbook、OpenAPI、Celery/AsyncJob
+- 条件付きHO公開、Discord Webhook、ICS購読
+- Google Calendar片方向同期、Google Sheets固定列入出力
+- 相互承認型グループ連携と明示共有
+- ゲスト招待URL、参加表明、claim、監査ログ
+- Django Channels通知とポーリングフォールバック
+
+正式な未実装範囲は `ISSUES.md` と `SESSION_UNIMPLEMENTED_FEATURES_SPEC.md` を正本とします。
+
 ### 1.1 プロジェクト概要
 タブレノは、クトゥルフ神話をテーマにしたTRPGスケジュール管理Webサービスです。TRPGセッションの管理、参加者の管理、プレイ履歴の記録など、TRPGライフを豊かにする機能を提供します。
 
@@ -446,7 +459,7 @@ tableno/
   - GroupViewSetのget_querysetメソッド改修
   - 管理者権限チェックの追加実装
 - **実装上の補足**
-  - 「リアルタイム」はAJAXによる再取得を指し、WebSocket等によるPush更新は未実装
+  - Django ChannelsによるPush更新を行い、接続不能時はAJAXポーリングへフォールバック
   - `DELETE /api/accounts/groups/<id>/remove_member/` は `user_id` または `username` の指定が必須
 
 #### 3.2.4 TRPG自己紹介シート（プロフィール詳細）
@@ -698,6 +711,25 @@ tableno/
 - セッションレスポンスは参照表示用の `group_name` を返却
 - 次回セッションレスポンスは `visibility` / `visibility_display` を返却
 - `GET /api/schedules/sessions/<id>/detail/` は `scenario_detail`（id/title/game_system/recommended_skills）を返却
+
+#### 4.4.0 運用・外部連携
+
+- `GET /api/schema/` / `GET /api/docs/` - OpenAPIスキーマ / Swagger UI
+- `GET /api/jobs/<id>/` - 非同期ジョブ状態
+- `POST /api/calendar/subscription-token/rotate/` - ICS購読トークン再発行
+- `GET /calendar/subscribe/<token>.ics` - 個人用ICS購読フィード
+- `POST /api/groups/<id>/links/` - グループ連携申請
+- `POST /api/groups/<id>/links/<link_id>/accept/` - グループ連携承認
+- `DELETE /api/groups/<id>/links/<link_id>/` - グループ連携解除
+- `GET/PUT /api/groups/<id>/discord-settings/` - Discord通知設定
+- `POST /api/sessions/<id>/google-calendar/sync/` - Google Calendar片方向同期
+- `POST /api/character-sheets/google-sheets/import/` - Google Sheets固定列取込
+- `POST /api/character-sheets/google-sheets/export/` - Google Sheets固定列出力
+- `POST /api/sessions/<id>/guest-invitations/` - ゲスト招待発行
+- `POST /api/guest-invitations/<token>/respond/` - ゲスト参加表明
+- `POST /api/participants/<id>/claim/` - ゲスト枠claim
+- `/ws/notifications/` - 認証済みユーザー通知WebSocket。接続不能時はポーリングへフォールバック
+- ハンドアウトAPIは `release_conditions`、`release_status`、`next_evaluation_at` を公開
 
 #### 4.4.1 セッション出現（複数日程）
 
@@ -962,14 +994,14 @@ tableno/
 
 ### 7.2 グループ機能の拡張
 
-- **グループ間連携機能**【❌ 未実装】
+- **グループ間連携機能**【✅ 実装済み】
   - グループ連携モデル
   - 連携申請/承認フロー
   - 共有範囲設定
 
 ### 7.3 ハンドアウト機能の拡張
 
-- **段階的な情報開示機能**【❌ 未実装】
+- **段階的な情報開示機能**【✅ 実装済み】
   - 条件付きハンドアウト表示
   - 公開予定日時
   - 閲覧権限の動的判定
@@ -981,17 +1013,17 @@ tableno/
 
 ### 7.5 外部連携
 
-- **Discord Webhook通知**【❌ 未実装】
+- **Discord Webhook通知**【✅ 実装済み】
   - セッション招待/更新/キャンセル通知
   - Webhook URL保存
-- **カレンダー購読（ICSフィード）**【❌ 未実装】
+- **カレンダー購読（ICSフィード）**【✅ 実装済み】
   - 購読用ICSフィードエンドポイント
   - 購読トークン発行/再発行
   - ICSエクスポート（ファイルDL）は実装済み
-- **カレンダー同期（Google Calendar等）**【❌ 未実装】
+- **カレンダー同期（Google Calendar）**【✅ 片方向同期を実装済み】
   - OAuth連携
   - イベント作成/更新の同期処理
-- **外部シート連携API**【❌ 未実装】
+- **外部シート連携API**【✅ Google Sheets固定列入出力を実装済み】
   - 外部サービス/スプレッドシート連携
 
 ### 7.6 セッション準備・事後処理
@@ -1041,9 +1073,9 @@ tableno/
 
 ### 7.10 非同期処理
 
-- **Celery基盤**【🔄 基盤のみ】
+- **Celery基盤**【✅ 実装済み】
   - 依存パッケージとDocker Composeのworker/beatサービス定義は存在
-  - Celeryアプリ、業務タスク、定期タスク、進捗管理への統合は未実装
+  - Celeryアプリ、業務タスク、定期タスク、AsyncJob進捗管理を実装
 - **アプリ機能の非同期化**【❌ 未実装】
   - 重い統計処理の非同期化
   - エクスポート処理の非同期化
@@ -1051,7 +1083,7 @@ tableno/
 
 ### 7.11 APIドキュメント
 
-- **OpenAPI/Swagger対応**【❌ 未実装】
+- **OpenAPI/Swagger対応**【✅ 実装済み】
   - drf-spectacular導入
   - エンドポイント説明追加
   - スキーマ生成設定
@@ -1061,7 +1093,7 @@ tableno/
 - **GMによるゲスト参加者管理**【✅ 実装済み】
   - 表示名、プレイヤー枠、キャラクター名、外部シートURLの登録・更新
   - セッション詳細、一覧、カレンダー、ハンドアウトでの表示
-- **ログイン不要の参加導線**【❌ 未実装】
+- **ログイン不要の参加導線**【✅ 招待URLとclaimを実装済み】
   - 招待リンク/参加トークン
   - ゲスト枠のログインユーザーへのclaim
   - 募集ページとの統合
@@ -1071,7 +1103,8 @@ tableno/
 - **アプリ側AWS対応**【✅ 実装済み】
   - `APP_ENV=aws-pre|aws-prod`、Secrets読込、S3/CloudFront、RDS/Redis TLS、ALBプロキシ、`/health/live`、`/health/ready`
 - **運用整備**【🔄 一部実装】
-  - CloudWatch Logs/Alarmの実環境定義、既存メディア/DB移行、バックアップ・復旧Runbookは未実装
+  - TerraformでCloudWatch Logs/Alarmを定義し、メディア/DB移行、バックアップ・復旧Runbookを追加
+  - 実AWSアカウントへの適用とGo/No-Goは別の運用工程
 
 ## 8. 開発・運用情報
 

@@ -720,4 +720,22 @@
 
 ---
 
-*最終更新日: 2026年1月25日*
+## 2026-06-12 Web未実装機能完成
+
+以下を実装し、正式課題から完了へ移動しました。
+
+- AWS IaC/Runbook: TerraformによるVPC、ALB/ACM、ECS、RDS、ElastiCache、S3/CloudFront、Secrets、CloudWatch、Budget
+- ISSUE-011: drf-spectacularによる `/api/schema/` と `/api/docs/`
+- ISSUE-012: Celeryアプリ、beat、`AsyncJob`、進捗・結果・失敗管理
+- ISSUE-028: 相互承認型グループ連携と明示リソース共有
+- ISSUE-034: 暗号化保存するグループ単位Discord Webhookと冪等送信
+- ISSUE-035: ハッシュ化・再発行可能なICS購読トークン
+- ISSUE-036: Google Calendar片方向同期
+- ISSUE-037: 固定列Google Sheetsインポート/エクスポート
+- ISSUE-047: Django Channelsによるユーザー単位WebSocket通知とポーリングフォールバック
+- ISSUE-048: 期限付きゲスト招待URL、参加表明、トランザクションclaim、監査ログ
+- 段階的HO公開: `all` / `any`、日時、セッション状態、前提HO閲覧、ロール、プレイヤー枠
+
+AWS実環境への適用とGo/No-Goは、認証情報とAWSアカウントを必要とする `ISSUE-056` として分離しました。
+
+*最終更新日: 2026年6月12日*

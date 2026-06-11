@@ -155,6 +155,9 @@ class GuestInvitationClaimTestCase(APITestCase):
         token = issued.data['token']
         invitation = GuestInvitation.objects.get(pk=issued.data['id'])
         self.assertNotEqual(invitation.token_digest, token)
+        landing = self.client.get(issued.data['invitation_url'])
+        self.assertEqual(landing.status_code, status.HTTP_200_OK)
+        self.assertContains(landing, self.session.title)
 
         self.client.force_authenticate(user=None)
         responded = self.client.post(

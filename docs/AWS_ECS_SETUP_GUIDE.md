@@ -7,7 +7,7 @@
 - 本番とプレ環境を安全に分離し、`APP_ENV` で確実に切り替える
 - SSHしない運用（ECS再デプロイで復旧）
 - Secrets/OAuth/TLS証明書をマネージドで管理
-- 将来のIaC化（Terraform/CDK）へ移行しやすい構成にする
+- `infrastructure/terraform/` を正規IaCとして使用する
 
 ## 2. アーキテクチャ方針
 

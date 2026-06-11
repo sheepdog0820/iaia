@@ -6,6 +6,20 @@
 ![Django](https://img.shields.io/badge/Django-4.2+-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
+## Web運用機能（2026-06-12）
+
+- OpenAPI: `/api/schema/`、Swagger UI: `/api/docs/`
+- 非同期処理: Celery worker/beat、`AsyncJob`、`GET /api/jobs/{id}/`
+- リアルタイム通知: `/ws/notifications/`。接続不能時は30秒ポーリングへフォールバック
+- Discord: グループ単位Webhook、暗号化URL保存、冪等送信
+- カレンダー: iCalファイル出力、再発行可能なICS購読URL、Google Calendar片方向同期
+- Google Sheets: 固定列キャラクターシートのプレビュー、取込、出力
+- グループ間連携: 相互承認と明示リソース共有。メンバー資格・管理権限は共有しない
+- ゲスト: 期限付き招待URL、参加表明、ログインユーザーによるclaim、監査ログ
+- ハンドアウト: 条件ツリーによる自動公開と手動公開
+- 運用設定画面: `/integrations/`
+- AWS: `infrastructure/terraform/` と `docs/runbooks/`。実AWS適用は別のGo/No-Go工程
+
 ## 🧰 環境要件
 
 - Python 3.11+
@@ -361,6 +375,25 @@ iaia/
 - `GET /api/schedules/sessions/statistics/` - プレイ統計
 - `GET /api/schedules/calendar/` - カレンダーAPI
 - `POST /api/schedules/sessions/{id}/join/` - セッション参加
+
+### 運用・外部連携
+- `GET /api/schema/` / `GET /api/docs/` - OpenAPIスキーマ / Swagger UI
+- `GET /api/jobs/{id}/` - 非同期ジョブ状態
+- `POST /api/calendar/subscription-token/rotate/` - ICS購読トークン再発行
+- `GET /calendar/subscribe/{token}.ics` - 個人用ICS購読フィード
+- `POST /api/groups/{id}/links/` - グループ連携申請
+- `POST /api/groups/{id}/links/{link_id}/accept/` - グループ連携承認
+- `DELETE /api/groups/{id}/links/{link_id}/` - グループ連携解除
+- `GET/PUT /api/groups/{id}/discord-settings/` - Discord通知設定
+- `POST /api/sessions/{id}/google-calendar/sync/` - Google Calendar同期
+- `POST /api/character-sheets/google-sheets/import/` - Google Sheets取込
+- `POST /api/character-sheets/google-sheets/export/` - Google Sheets出力
+- `POST /api/sessions/{id}/guest-invitations/` - ゲスト招待発行
+- `POST /api/guest-invitations/{token}/respond/` - ゲスト参加表明
+- `POST /api/participants/{id}/claim/` - ゲスト枠claim
+- `/ws/notifications/` - 認証済みユーザー通知WebSocket
+
+ハンドアウトAPIは `release_conditions`、`release_status`、`next_evaluation_at` を返します。
 
 ### シナリオ管理
 - `GET/POST /api/scenarios/scenarios/` - シナリオCRUD・高度フィルタリング

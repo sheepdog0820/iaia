@@ -4,6 +4,8 @@ from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
+from django.views import View
+from django.shortcuts import render
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -37,13 +39,32 @@ class GuestInvitationCreateView(APIView):
             created_by=request.user,
             expires_at=timezone.now() + timedelta(hours=expires_in_hours),
         )
-        path = reverse('guest-invitation-respond', kwargs={'token': token})
+        path = reverse('guest-invitation-landing', kwargs={'token': token})
         return Response({
             'id': invitation.pk,
             'token': token,
             'invitation_url': request.build_absolute_uri(path),
             'expires_at': invitation.expires_at,
         }, status=status.HTTP_201_CREATED)
+
+
+class GuestInvitationLandingView(View):
+    def get(self, request, token):
+        invitation = GuestInvitation.objects.select_related(
+            'session', 'session__gm'
+        ).filter(token_digest=GuestInvitation.digest(token)).first()
+        if not invitation:
+            return render(
+                request,
+                'schedules/guest_invitation.html',
+                {'invalid': True},
+                status=404,
+            )
+        return render(request, 'schedules/guest_invitation.html', {
+            'invitation': invitation,
+            'token': token,
+            'active': invitation.is_active and not invitation.participant_id,
+        })
 
 
 class GuestInvitationRevokeView(APIView):

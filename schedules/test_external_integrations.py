@@ -130,6 +130,13 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(GoogleIntegration.objects.filter(user=self.user).exists())
 
+    def test_integration_settings_page_is_available(self):
+        self.client.force_login(self.user)
+        response = self.client.get('/integrations/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, '連携設定')
+        self.assertContains(response, 'ICS購読URLを再発行')
+
     def test_calendar_sync_endpoint_creates_job(self):
         self.connect_google()
         response = self.client.post(

@@ -134,6 +134,6 @@ tests/
 
 ### テスト済み環境
 - Python: 3.10+
-- Django: 5.0.9
+- Django: 4.2系（`requirements.txt` は `>=4.2,<5.0`）
 - Node.js: 18+ (Playwright用)
 - Chromium: 138.0.7204.49

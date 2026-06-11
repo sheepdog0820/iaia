@@ -19,6 +19,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
+from django.contrib.auth.decorators import login_required
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from accounts.views import CustomLoginView, CustomSignUpView
@@ -42,6 +43,7 @@ from schedules.integration_views import (
 )
 from schedules.guest_views import (
     GuestInvitationCreateView,
+    GuestInvitationLandingView,
     GuestInvitationRespondView,
     GuestInvitationRevokeView,
     GuestParticipantClaimView,
@@ -126,11 +128,21 @@ urlpatterns = [
         name='guest-invitation-respond',
     ),
     path(
+        'guest-invitations/<str:token>/',
+        GuestInvitationLandingView.as_view(),
+        name='guest-invitation-landing',
+    ),
+    path(
         'api/participants/<int:participant_id>/claim/',
         GuestParticipantClaimView.as_view(),
         name='guest-participant-claim',
     ),
     path('admin/', admin.site.urls),
+    path(
+        'integrations/',
+        login_required(TemplateView.as_view(template_name='integrations/settings.html')),
+        name='integration-settings',
+    ),
     
     # Custom authentication views
     path('login/', CustomLoginView.as_view(), name='account_login'),

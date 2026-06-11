@@ -3101,6 +3101,22 @@ class DatePollViewSet(viewsets.ModelViewSet):
         headers = self.get_success_headers(output_serializer.data)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+    def update(self, request, *args, **kwargs):
+        if self.get_object().created_by_id != request.user.id:
+            return Response(
+                {'detail': 'Only the poll owner can update it.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if self.get_object().created_by_id != request.user.id:
+            return Response(
+                {'detail': 'Only the poll owner can delete it.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
     def get_queryset(self):
         user = self.request.user
         group_ids = GroupMembership.objects.filter(user=user).values_list('group_id', flat=True)

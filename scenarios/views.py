@@ -58,6 +58,22 @@ class ScenarioViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+    def update(self, request, *args, **kwargs):
+        if self.get_object().created_by_id != request.user.id:
+            return Response(
+                {'detail': 'Only the scenario owner can update it.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if self.get_object().created_by_id != request.user.id:
+            return Response(
+                {'detail': 'Only the scenario owner can delete it.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
     
     @action(detail=True, methods=['get'])
     def notes(self, request, pk=None):
