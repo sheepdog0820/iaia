@@ -586,6 +586,26 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     bindListEvents();
+    let notificationPollingTimer = window.setInterval(function() {
+        loadNotifications(currentPage);
+    }, 30000);
+    document.addEventListener('tableno:notification-socket-state', function(event) {
+        if (event.detail?.connected) {
+            if (notificationPollingTimer) {
+                window.clearInterval(notificationPollingTimer);
+                notificationPollingTimer = null;
+            }
+            return;
+        }
+        if (!notificationPollingTimer) {
+            notificationPollingTimer = window.setInterval(function() {
+                loadNotifications(currentPage);
+            }, 30000);
+        }
+    });
+    document.addEventListener('tableno:notification', function() {
+        loadNotifications(1);
+    });
     loadNotifications(1);
 });
 </script>

@@ -7,10 +7,19 @@ For more information on this file, see
 https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
 """
 
-from django.core.asgi import get_asgi_application
-
 from tableno.runtime_env import configure_runtime_environment
 
 configure_runtime_environment()
 
-application = get_asgi_application()
+from channels.auth import AuthMiddlewareStack
+from channels.routing import ProtocolTypeRouter, URLRouter
+from django.core.asgi import get_asgi_application
+
+import schedules.routing
+
+application = ProtocolTypeRouter({
+    'http': get_asgi_application(),
+    'websocket': AuthMiddlewareStack(
+        URLRouter(schedules.routing.websocket_urlpatterns)
+    ),
+})

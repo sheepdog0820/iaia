@@ -151,7 +151,7 @@ INSTALLED_APPS = [
     'crispy_bootstrap5',
     
     'accounts',
-    'schedules',
+    'schedules.apps.SchedulesConfig',
     'scenarios',
 ]
 
@@ -365,6 +365,25 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': 3600.0,
     },
 }
+
+ASGI_APPLICATION = 'tableno.asgi.application'
+if os.environ.get('APP_ENV', 'local').startswith('aws-'):
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [os.environ.get('REDIS_URL', 'redis://localhost:6379/1')],
+                'capacity': 1000,
+                'expiry': 60,
+            },
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
+    }
 
 # Crispy Forms settings
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"

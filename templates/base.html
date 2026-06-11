@@ -193,6 +193,9 @@
             let lastFetchedAt = 0;
             let lastCount = null;
             let inflightPromise = null;
+            let notificationSocket = null;
+            let reconnectDelay = 1000;
+            let pollingTimer = null;
 
             function setBadge(count) {
                 const n = Number(count);
@@ -245,10 +248,67 @@
                 return inflightPromise;
             };
 
+            function startPollingFallback() {
+                if (pollingTimer || isNotificationsPage) return;
+                pollingTimer = window.setInterval(function() {
+                    lastFetchedAt = 0;
+                    window.updateNotificationUnreadBadge();
+                }, 30000);
+            }
+
+            function stopPollingFallback() {
+                if (!pollingTimer) return;
+                window.clearInterval(pollingTimer);
+                pollingTimer = null;
+            }
+
+            function connectNotificationSocket() {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                notificationSocket = new WebSocket(
+                    `${protocol}//${window.location.host}/ws/notifications/`
+                );
+                notificationSocket.addEventListener('open', function() {
+                    reconnectDelay = 1000;
+                    stopPollingFallback();
+                    document.dispatchEvent(new CustomEvent(
+                        'tableno:notification-socket-state',
+                        { detail: { connected: true } }
+                    ));
+                });
+                notificationSocket.addEventListener('message', function(event) {
+                    let payload;
+                    try {
+                        payload = JSON.parse(event.data);
+                    } catch (error) {
+                        return;
+                    }
+                    if (payload.type !== 'notification.created') return;
+                    window.updateNotificationUnreadBadge(payload.unread_count);
+                    document.dispatchEvent(new CustomEvent(
+                        'tableno:notification',
+                        { detail: payload }
+                    ));
+                });
+                notificationSocket.addEventListener('close', function() {
+                    startPollingFallback();
+                    document.dispatchEvent(new CustomEvent(
+                        'tableno:notification-socket-state',
+                        { detail: { connected: false } }
+                    ));
+                    window.setTimeout(connectNotificationSocket, reconnectDelay);
+                    reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+                });
+                notificationSocket.addEventListener('error', function() {
+                    notificationSocket.close();
+                });
+            }
+
             document.addEventListener('DOMContentLoaded', function() {
                 if (!isNotificationsPage) {
                     window.updateNotificationUnreadBadge();
                 }
+                startPollingFallback();
+                connectNotificationSocket();
 
                 document.addEventListener('visibilitychange', function() {
                     if (!document.hidden && !isNotificationsPage) window.updateNotificationUnreadBadge();
