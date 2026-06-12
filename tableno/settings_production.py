@@ -18,6 +18,12 @@ def _get_bool_env(name, default=False):
     return value.lower() in ('1', 'true', 'yes', 'on')
 
 
+WEBSOCKET_NOTIFICATIONS_ENABLED = _get_bool_env(
+    'WEBSOCKET_NOTIFICATIONS_ENABLED',
+    default=True,
+)
+
+
 def _require_env(name):
     value = os.environ.get(name)
     if value is None or not str(value).strip():

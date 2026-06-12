@@ -1,6 +1,7 @@
 import json
 from django.shortcuts import render, get_object_or_404
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 from django.db.models import Q, Sum, Count, Case, When, Value, IntegerField, DateTimeField, F, Prefetch
 from django.utils import timezone
 from rest_framework import viewsets, status
@@ -244,7 +245,17 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                 {'detail': 'Only the GM can delete this session.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        return super().destroy(request, *args, **kwargs)
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {
+                    'detail': (
+                        'This session has protected audit records and cannot be deleted.'
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
     
     def _update_session_statistics(self, session):
         """セッション完了時の統計を更新"""

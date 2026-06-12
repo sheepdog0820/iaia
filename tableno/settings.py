@@ -180,6 +180,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'tableno.context_processors.runtime_capabilities',
             ],
         },
     },
@@ -367,6 +368,10 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 ASGI_APPLICATION = 'tableno.asgi.application'
+WEBSOCKET_NOTIFICATIONS_ENABLED = _get_bool(
+    'WEBSOCKET_NOTIFICATIONS_ENABLED',
+    default=False,
+)
 if os.environ.get('APP_ENV', 'local').startswith('aws-'):
     CHANNEL_LAYERS = {
         'default': {

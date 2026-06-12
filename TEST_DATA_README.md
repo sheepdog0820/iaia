@@ -131,7 +131,7 @@ echo "yes" | python3 manage.py create_session_test_data
 python manage.py create_flow_test_data
 ```
 
-### ログイン情報
+### シナリオ導線用ログイン情報
 - **flow_gm** / flowpass123
 - **flow_pl1** / flowpass123（PL2〜PL4も同様）
 
@@ -154,7 +154,7 @@ python manage.py create_advanced_scheduling_test_data --reset
 - 日程調整（DatePoll）: `【ADVTEST】日程調整(オープン)` / `【ADVTEST】日程調整(確定済み)`
 - 参加可能日投票（SessionAvailability）: session/occurrence の両方を作成
 
-### ログイン情報
+### 高度なスケジューリング用ログイン情報
 - `keeper1 / keeper123` と `investigator1-3 / player123` が存在する場合はそれらを利用します
 - 存在しない場合は `adv_gm / advpass123` と `adv_pl1-3 / advpass123` を作成します
 

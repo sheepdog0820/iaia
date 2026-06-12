@@ -16,6 +16,7 @@
 - Django Channels通知とポーリングフォールバック
 
 正式な未実装範囲は `ISSUES.md` と `SESSION_UNIMPLEMENTED_FEATURES_SPEC.md` を正本とします。
+Web機能の受け入れから検証、課題クローズまでの手順は `docs/WEB_FEATURE_COMPLETION_WORKFLOW.md` を正本とします。
 
 ### 1.1 プロジェクト概要
 タブレノは、クトゥルフ神話をテーマにしたTRPGスケジュール管理Webサービスです。TRPGセッションの管理、参加者の管理、プレイ履歴の記録など、TRPGライフを豊かにする機能を提供します。

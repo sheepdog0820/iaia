@@ -63,6 +63,7 @@ Terraform、移行Runbook、障害一次対応Runbookは実装済みです。AWS
 - [x] VPC、ALB/ACM、ECS、RDS、ElastiCache、S3/CloudFront、Secrets、CloudWatch、BudgetのTerraform定義
 - [x] media移行、DB移行、障害一次対応Runbook
 - [x] `terraform fmt` と `terraform validate`
+- [x] ダミー値と `offline_plan=true` による認証不要の `terraform plan`
 - [x] 移行スクリプトのdry-run対応
 - [ ] AWS認証情報と実在リソースを使う `terraform plan`
 

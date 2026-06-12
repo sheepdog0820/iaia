@@ -199,6 +199,7 @@
             let notificationSocket = null;
             let reconnectDelay = 1000;
             let pollingTimer = null;
+            const websocketEnabled = {{ websocket_notifications_enabled|yesno:"true,false" }};
 
             function setBadge(count) {
                 const n = Number(count);
@@ -311,7 +312,9 @@
                     window.updateNotificationUnreadBadge();
                 }
                 startPollingFallback();
-                connectNotificationSocket();
+                if (websocketEnabled) {
+                    connectNotificationSocket();
+                }
 
                 document.addEventListener('visibilitychange', function() {
                     if (!document.hidden && !isNotificationsPage) window.updateNotificationUnreadBadge();

@@ -15,14 +15,16 @@ const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
  */
 export default defineConfig({
   testDir: './tests/e2e/flows',
-  /* Run tests in files in parallel */
-  fullyParallel: true,
+  /*
+   * E2E flows share the local Django database and create related records.
+   * Serial execution prevents cross-test pagination and uniqueness races.
+   */
+  fullyParallel: false,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */

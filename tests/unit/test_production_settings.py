@@ -40,6 +40,7 @@ print(json.dumps({
     "static_url": settings.STATIC_URL,
     "media_url": settings.MEDIA_URL,
     "storages": getattr(settings, "STORAGES", None),
+    "websocket_notifications_enabled": settings.WEBSOCKET_NOTIFICATIONS_ENABLED,
 }))
 '''
         result = subprocess.run(
@@ -68,6 +69,7 @@ print(json.dumps({
             ['HTTP_X_FORWARDED_PROTO', 'https'],
         )
         self.assertTrue(payload['forwarded_host'])
+        self.assertTrue(payload['websocket_notifications_enabled'])
         self.assertEqual(
             payload['database']['OPTIONS']['ssl'],
             {

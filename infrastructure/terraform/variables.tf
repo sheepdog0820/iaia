@@ -16,6 +16,12 @@ variable "aws_region" {
   default = "ap-northeast-1"
 }
 
+variable "offline_plan" {
+  description = "Use deterministic AWS metadata and skip credential checks for repository-only plan validation."
+  type        = bool
+  default     = false
+}
+
 variable "domain_name" {
   type = string
 }

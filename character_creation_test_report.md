@@ -8,7 +8,7 @@
 ## テスト環境
 - Django Development Server (localhost:8000)
 - Python 3.10
-- Django 5.0.9
+- 実施時点のDjango: 5.0.9
 
 ## 動作確認結果
 

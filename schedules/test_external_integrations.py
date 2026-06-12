@@ -136,6 +136,10 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertContains(response, '連携設定')
         self.assertContains(response, 'ICS購読URLを再発行')
+        self.assertContains(response, '通知対象イベント')
+        self.assertContains(response, 'Google Sheets キャラクターシート入出力')
+        self.assertContains(response, '直前の招待を失効')
+        self.assertContains(response, 'const websocketEnabled = false')
 
     def test_calendar_sync_endpoint_creates_job(self):
         self.connect_google()

@@ -1,11 +1,19 @@
 data "aws_availability_zones" "available" {
+  count = var.offline_plan ? 0 : 1
   state = "available"
 }
 
-data "aws_caller_identity" "current" {}
+data "aws_caller_identity" "current" {
+  count = var.offline_plan ? 0 : 1
+}
 
 locals {
   name = "${var.project_name}-${var.environment}"
+  availability_zones = var.offline_plan ? [
+    "${var.aws_region}a",
+    "${var.aws_region}c",
+  ] : data.aws_availability_zones.available[0].names
+  account_id = var.offline_plan ? "000000000000" : data.aws_caller_identity.current[0].account_id
   tags = {
     Project     = var.project_name
     Environment = var.environment
@@ -30,7 +38,7 @@ resource "aws_subnet" "public" {
   count                   = 2
   vpc_id                  = aws_vpc.main.id
   cidr_block              = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index)
-  availability_zone       = data.aws_availability_zones.available.names[count.index]
+  availability_zone       = local.availability_zones[count.index]
   map_public_ip_on_launch = true
   tags                    = { Name = "${local.name}-public-${count.index + 1}" }
 }
@@ -39,7 +47,7 @@ resource "aws_subnet" "private" {
   count             = 2
   vpc_id            = aws_vpc.main.id
   cidr_block        = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index + 10)
-  availability_zone = data.aws_availability_zones.available.names[count.index]
+  availability_zone = local.availability_zones[count.index]
   tags              = { Name = "${local.name}-private-${count.index + 1}" }
 }
 
@@ -205,7 +213,7 @@ resource "aws_elasticache_replication_group" "main" {
 }
 
 resource "aws_s3_bucket" "assets" {
-  bucket        = "${local.name}-assets-${data.aws_caller_identity.current.account_id}"
+  bucket        = "${local.name}-assets-${local.account_id}"
   force_destroy = var.environment != "aws-prod"
 }
 

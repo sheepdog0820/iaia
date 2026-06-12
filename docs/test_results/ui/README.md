@@ -49,7 +49,7 @@ python3 manage.py test tests.ui.test_character_create_ui.CharacterCreateSelenium
 
 ## 📊 テストカバレッジ
 
-### 基本UIテスト
+### 基本UIテストのカバレッジ
 - ✅ ページレンダリング
 - ✅ フォームフィールド確認
 - ✅ JavaScript関数定義
@@ -60,7 +60,7 @@ python3 manage.py test tests.ui.test_character_create_ui.CharacterCreateSelenium
 - ✅ フォームバリデーション
 - ✅ レスポンシブレイアウト
 
-### 高度なUIテスト  
+### 高度なUIテストのカバレッジ
 - ✅ DEX→回避技能同期
 - ✅ カスタム技能基本値編集
 - ✅ 複数技能へのポイント割り振り

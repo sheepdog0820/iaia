@@ -203,6 +203,13 @@ class GuestInvitationClaimTestCase(APITestCase):
         self.assertEqual(audit.guest_name, 'Guest Alice')
         self.assertEqual(audit.claimed_by, self.claimant)
 
+        self.client.force_authenticate(self.gm)
+        delete_response = self.client.delete(
+            f'/api/schedules/sessions/{self.session.pk}/'
+        )
+        self.assertEqual(delete_response.status_code, status.HTTP_409_CONFLICT)
+        self.assertTrue(TRPGSession.objects.filter(pk=self.session.pk).exists())
+
     def test_existing_participation_rejects_claim_without_partial_update(self):
         invitation, participant = self.issue_and_respond()
         SessionParticipant.objects.create(

@@ -118,8 +118,19 @@ if ($existingListenPid) {
 }
 
 $python = Resolve-PythonPath
-$args = @("manage.py", "runserver", "$HostAddress`:$Port")
-if ($NoReload) { $args += "--noreload" }
+if ($Environment -eq "production") {
+    $env:WEBSOCKET_NOTIFICATIONS_ENABLED = "true"
+    $args = @(
+        "-m", "daphne",
+        "--bind", $HostAddress,
+        "--port", "$Port",
+        "tableno.asgi:application"
+    )
+} else {
+    $env:WEBSOCKET_NOTIFICATIONS_ENABLED = "false"
+    $args = @("manage.py", "runserver", "$HostAddress`:$Port")
+    if ($NoReload) { $args += "--noreload" }
+}
 
 if ($RunMode -eq "foreground") {
     Write-Host "Starting Django server in foreground ($Environment): $python $($args -join ' ')"

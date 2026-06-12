@@ -19,6 +19,7 @@
 - ハンドアウト: 条件ツリーによる自動公開と手動公開
 - 運用設定画面: `/integrations/`
 - AWS: `infrastructure/terraform/` と `docs/runbooks/`。実AWS適用は別のGo/No-Go工程
+- 開発・検証フロー: `docs/WEB_FEATURE_COMPLETION_WORKFLOW.md`
 
 ## 🧰 環境要件
 
@@ -300,7 +301,7 @@ ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
 ### インフラ・デプロイ
 - **Docker & Docker Compose**
 - **Nginx** - リバースプロキシ
-- **Gunicorn** - WSGIサーバー
+- **Daphne** - HTTP/WebSocket対応ASGIサーバー
 
 ### 認証・セキュリティ
 - **django-allauth** - Google/X（Twitter）OAuth認証

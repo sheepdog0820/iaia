@@ -92,7 +92,7 @@ GET /api/accounts/statistics/tindalos/?detailed=true&year=2025
 }
 ```
 
-#### パラメータ
+#### SimpleTindalosMetricsView パラメータ
 - `detailed` (boolean, optional): trueの場合、詳細統計を含む
 - `year` (integer, optional): 特定年度でフィルタ
 - `game_system` (string, optional): ゲームシステムでフィルタ（例: 'coc', 'dnd', 'sw'）
@@ -237,7 +237,7 @@ GET /api/accounts/statistics/tindalos/detailed/?type=system_trends
 }
 ```
 
-#### パラメータ
+#### DetailedTindalosMetricsView パラメータ
 - `type` (string, required): 統計タイプ
   - `summary`: 総合サマリー（デフォルト）
   - `yearly_trends`: 年度別推移

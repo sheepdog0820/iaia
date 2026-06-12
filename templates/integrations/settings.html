@@ -51,6 +51,27 @@
                         <input class="form-check-input" type="checkbox" id="discord-enabled">
                         <label class="form-check-label" for="discord-enabled">通知を有効化</label>
                     </div>
+                    <fieldset class="mb-3">
+                        <legend class="fs-6">通知対象イベント</legend>
+                        <div class="row">
+                            <div class="col-sm-6 form-check">
+                                <input class="form-check-input discord-event" type="checkbox" value="session_created" id="discord-session-created">
+                                <label class="form-check-label" for="discord-session-created">セッション作成</label>
+                            </div>
+                            <div class="col-sm-6 form-check">
+                                <input class="form-check-input discord-event" type="checkbox" value="session_updated" id="discord-session-updated">
+                                <label class="form-check-label" for="discord-session-updated">セッション更新</label>
+                            </div>
+                            <div class="col-sm-6 form-check">
+                                <input class="form-check-input discord-event" type="checkbox" value="session_cancelled" id="discord-session-cancelled">
+                                <label class="form-check-label" for="discord-session-cancelled">セッション中止</label>
+                            </div>
+                            <div class="col-sm-6 form-check">
+                                <input class="form-check-input discord-event" type="checkbox" value="handout_released" id="discord-handout-released">
+                                <label class="form-check-label" for="discord-handout-released">HO公開</label>
+                            </div>
+                        </div>
+                    </fieldset>
                     <button class="btn btn-outline-primary" id="save-discord-settings">Discord設定を保存</button>
                 </div>
             </div>
@@ -102,10 +123,49 @@
                         <input class="form-control" id="guest-invitation-url" readonly>
                         <button class="btn btn-outline-secondary" data-copy="#guest-invitation-url">コピー</button>
                     </div>
+                    <button class="btn btn-outline-danger mb-4" id="revoke-guest-invitation" disabled>直前の招待を失効</button>
                     <label class="form-label" for="claim-participant-id">claimするゲスト参加者ID</label>
                     <div class="input-group">
                         <input class="form-control" id="claim-participant-id" type="number" min="1">
                         <button class="btn btn-outline-primary" id="claim-participant">claim</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">Google Sheets キャラクターシート入出力</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <label class="form-label" for="sheets-spreadsheet-id">Spreadsheet ID</label>
+                            <input class="form-control" id="sheets-spreadsheet-id">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="sheets-range">Range</label>
+                            <input class="form-control" id="sheets-range" value="Characters!A:P">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="sheets-conflict-action">重複時</label>
+                            <select class="form-select" id="sheets-conflict-action">
+                                <option value="create">新規作成</option>
+                                <option value="update">ID一致を更新</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        <button class="btn btn-outline-primary" id="preview-google-sheets">取込プレビュー</button>
+                        <button class="btn btn-primary" id="import-google-sheets" disabled>検証済み行を取込</button>
+                        <button class="btn btn-outline-primary" id="export-google-sheets">Google Sheetsへ出力</button>
+                    </div>
+                    <div class="table-responsive mt-3 d-none" id="sheets-preview-container">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr><th>行</th><th>名前</th><th>版</th><th>検証結果</th></tr>
+                            </thead>
+                            <tbody id="sheets-preview-body"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -142,6 +202,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('link-source-group'),
     ];
     const sessionSelect = document.getElementById('integration-session');
+    let lastGuestInvitation = null;
+    let sheetsPreviewRows = null;
 
     function showMessage(text, type = 'success') {
         message.textContent = text;
@@ -160,11 +222,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadGroups() {
         const response = await axios.get('/api/accounts/groups/');
-        const groups = rows(response.data);
+        const groups = rows(response.data).filter(group =>
+            group.created_by === {{ request.user.id }} || group.member_role === 'admin'
+        );
         const options = groups.map(group =>
             `<option value="${group.id}">${escapeHtml(group.name)} (#${group.id})</option>`
         ).join('');
         groupSelects.forEach(select => { select.innerHTML = options; });
+        if (!groups.length) {
+            document.getElementById('discord-webhook-url').disabled = true;
+            document.getElementById('save-discord-settings').disabled = true;
+            document.getElementById('request-group-link').disabled = true;
+            document.getElementById('share-group-resource').disabled = true;
+            document.getElementById('group-links').innerHTML =
+                '<div class="text-muted">管理権限のあるグループがありません。</div>';
+            return;
+        }
         await loadDiscordSettings();
         await loadGroupLinks();
     }
@@ -192,8 +265,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await axios.get(`/api/groups/${groupId}/discord-settings/`);
             document.getElementById('discord-enabled').checked = !!response.data.enabled;
             document.getElementById('discord-webhook-url').value = '';
+            document.querySelectorAll('.discord-event').forEach(checkbox => {
+                checkbox.checked = (response.data.event_types || []).includes(checkbox.value);
+            });
         } catch (error) {
             document.getElementById('discord-enabled').checked = false;
+            document.querySelectorAll('.discord-event').forEach(checkbox => {
+                checkbox.checked = false;
+            });
         }
     }
 
@@ -207,7 +286,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 <span>${escapeHtml(link.source_group_name)} → ${escapeHtml(link.target_group_name)}
                     <span class="badge bg-secondary">${escapeHtml(link.status)}</span>
                 </span>
-                ${canAccept ? `<button class="btn btn-sm btn-primary" data-accept-link="${link.id}">承認</button>` : ''}
+                <span class="d-flex gap-2">
+                    ${canAccept ? `<button class="btn btn-sm btn-primary" data-accept-link="${link.id}">承認</button>` : ''}
+                    <button class="btn btn-sm btn-outline-danger" data-delete-link="${link.id}">解除</button>
+                </span>
             </div>`;
         }).join('') || '<div class="text-muted">連携はありません。</div>';
     }
@@ -243,7 +325,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const groupId = document.getElementById('discord-group').value;
         const payload = {
             enabled: document.getElementById('discord-enabled').checked,
-            event_types: ['session_created', 'session_updated', 'session_cancelled', 'handout_released'],
+            event_types: Array.from(
+                document.querySelectorAll('.discord-event:checked')
+            ).map(checkbox => checkbox.value),
         };
         const webhookUrl = document.getElementById('discord-webhook-url').value.trim();
         if (webhookUrl) payload.webhook_url = webhookUrl;
@@ -261,11 +345,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('group-links').addEventListener('click', async function(event) {
         const button = event.target.closest('[data-accept-link]');
-        if (!button) return;
         const groupId = document.getElementById('link-source-group').value;
-        await axios.post(`/api/groups/${groupId}/links/${button.dataset.acceptLink}/accept/`);
+        if (button) {
+            await axios.post(`/api/groups/${groupId}/links/${button.dataset.acceptLink}/accept/`);
+            await loadGroupLinks();
+            showMessage('グループ連携を承認しました。');
+            return;
+        }
+        const deleteButton = event.target.closest('[data-delete-link]');
+        if (!deleteButton) return;
+        await axios.delete(`/api/groups/${groupId}/links/${deleteButton.dataset.deleteLink}/`);
         await loadGroupLinks();
-        showMessage('グループ連携を承認しました。');
+        showMessage('グループ連携を解除しました。');
     });
 
     document.getElementById('share-group-resource').addEventListener('click', async function() {
@@ -286,7 +377,23 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('create-guest-invitation').addEventListener('click', async function() {
         const response = await axios.post(`/api/sessions/${sessionSelect.value}/guest-invitations/`);
         document.getElementById('guest-invitation-url').value = response.data.invitation_url;
+        lastGuestInvitation = {
+            id: response.data.id,
+            sessionId: sessionSelect.value,
+        };
+        document.getElementById('revoke-guest-invitation').disabled = false;
         showMessage('ゲスト招待URLを発行しました。');
+    });
+
+    document.getElementById('revoke-guest-invitation').addEventListener('click', async function() {
+        if (!lastGuestInvitation) return;
+        await axios.delete(
+            `/api/sessions/${lastGuestInvitation.sessionId}/guest-invitations/${lastGuestInvitation.id}/`
+        );
+        document.getElementById('guest-invitation-url').value = '';
+        document.getElementById('revoke-guest-invitation').disabled = true;
+        lastGuestInvitation = null;
+        showMessage('ゲスト招待を失効しました。');
     });
 
     document.getElementById('claim-participant').addEventListener('click', async function() {
@@ -308,6 +415,55 @@ document.addEventListener('DOMContentLoaded', function() {
             release_conditions: conditions,
         });
         showMessage('ハンドアウト公開条件を保存しました。');
+    });
+
+    async function previewSheets() {
+        const response = await axios.post('/api/character-sheets/google-sheets/import/', {
+            spreadsheet_id: document.getElementById('sheets-spreadsheet-id').value.trim(),
+            range: document.getElementById('sheets-range').value.trim(),
+            preview: true,
+        });
+        sheetsPreviewRows = response.data.rows || [];
+        const previewBody = document.getElementById('sheets-preview-body');
+        previewBody.innerHTML = sheetsPreviewRows.map(item => {
+            const errorEntries = Object.entries(item.errors || {});
+            const result = errorEntries.length
+                ? errorEntries.map(([field, error]) => `${escapeHtml(field)}: ${escapeHtml(error)}`).join('<br>')
+                : '<span class="text-success">OK</span>';
+            return `<tr>
+                <td>${item.row}</td>
+                <td>${escapeHtml(item.data?.name)}</td>
+                <td>${escapeHtml(item.data?.edition)}</td>
+                <td>${result}</td>
+            </tr>`;
+        }).join('');
+        document.getElementById('sheets-preview-container').classList.remove('d-none');
+        document.getElementById('import-google-sheets').disabled =
+            !sheetsPreviewRows.length || sheetsPreviewRows.some(item => Object.keys(item.errors || {}).length);
+        return sheetsPreviewRows;
+    }
+
+    document.getElementById('preview-google-sheets').addEventListener('click', async function() {
+        await previewSheets();
+        showMessage('Google Sheetsの取込内容を検証しました。');
+    });
+
+    document.getElementById('import-google-sheets').addEventListener('click', async function() {
+        if (!sheetsPreviewRows) return;
+        const response = await axios.post('/api/character-sheets/google-sheets/import/', {
+            rows: sheetsPreviewRows.map(item => item.data),
+            preview: false,
+            conflict_action: document.getElementById('sheets-conflict-action').value,
+        });
+        showMessage(`${response.data.imported_ids.length}件を取り込みました。`);
+    });
+
+    document.getElementById('export-google-sheets').addEventListener('click', async function() {
+        const response = await axios.post('/api/character-sheets/google-sheets/export/', {
+            spreadsheet_id: document.getElementById('sheets-spreadsheet-id').value.trim(),
+            range: document.getElementById('sheets-range').value.trim().replace(/:.*$/, '1'),
+        });
+        showMessage(`出力ジョブを作成しました: ${response.data.job_id}`);
     });
 
     document.querySelectorAll('[data-copy]').forEach(button => {

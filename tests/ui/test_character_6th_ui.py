@@ -9,7 +9,8 @@ Tests the user interface functionality:
 - User experience
 """
 
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
@@ -339,6 +340,14 @@ class Character6thFormValidationTest(TestCase):
 import unittest
 
 @unittest.skipIf(not SELENIUM_AVAILABLE, "Selenium not installed")
+@override_settings(
+    GOOGLE_OAUTH_CLIENT_ID='',
+    GOOGLE_OAUTH_CLIENT_SECRET='',
+    DISCORD_CLIENT_ID='',
+    DISCORD_CLIENT_SECRET='',
+    TWITTER_CLIENT_ID='',
+    TWITTER_CLIENT_SECRET='',
+)
 class Character6thJavaScriptTest(StaticLiveServerTestCase):
     """Test JavaScript functionality using Selenium"""
     
@@ -403,6 +412,7 @@ class Character6thJavaScriptTest(StaticLiveServerTestCase):
         super().tearDownClass()
         
     def setUp(self):
+        self.selenium.delete_all_cookies()
         self.user = User.objects.create_user(
             username='testuser',
             password='testpass123'
@@ -410,61 +420,21 @@ class Character6thJavaScriptTest(StaticLiveServerTestCase):
         
     def login(self):
         """Helper method to log in"""
-        self.selenium.get(f'{self.live_server_url}/accounts/login/')
+        client = Client()
+        if not client.login(username='testuser', password='testpass123'):
+            raise unittest.SkipTest("Could not create an authenticated test session")
+        session_cookie = client.cookies[settings.SESSION_COOKIE_NAME]
 
-        # Ensure the email login form is expanded and stable (Bootstrap collapse can be mid-transition)
+        self.selenium.get(self.live_server_url)
+        self.selenium.add_cookie({
+            'name': settings.SESSION_COOKIE_NAME,
+            'value': session_cookie.value,
+            'path': '/',
+        })
+        self.selenium.get(f'{self.live_server_url}/accounts/dashboard/')
         WebDriverWait(self.selenium, 10).until(
-            lambda d: 'show' in (d.find_element(By.ID, 'emailLoginCollapse').get_attribute('class') or '')
+            EC.url_contains('/accounts/dashboard/')
         )
-
-        username_input = WebDriverWait(self.selenium, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, '#email-login-form [name=\"username\"]'))
-        )
-        password_input = WebDriverWait(self.selenium, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, '#email-login-form [name=\"password\"]'))
-        )
-
-        self.selenium.execute_script("arguments[0].scrollIntoView({block: 'center'});", username_input)
-        self.selenium.execute_script("arguments[0].scrollIntoView({block: 'center'});", password_input)
-
-        try:
-            username_input.clear()
-            password_input.clear()
-            username_input.send_keys('testuser')
-            password_input.send_keys('testpass123')
-        except ElementNotInteractableException:
-            # Some environments (headless/animated collapse) intermittently report inputs as non-interactable.
-            self.selenium.execute_script(
-                "arguments[0].value = arguments[1];"
-                "arguments[0].dispatchEvent(new Event('input'));"
-                "arguments[0].dispatchEvent(new Event('change'));",
-                username_input,
-                'testuser',
-            )
-            self.selenium.execute_script(
-                "arguments[0].value = arguments[1];"
-                "arguments[0].dispatchEvent(new Event('input'));"
-                "arguments[0].dispatchEvent(new Event('change'));",
-                password_input,
-                'testpass123',
-            )
-
-        # Submit login (prefer click/submit over Keys.RETURN for robustness)
-        try:
-            submit_button = WebDriverWait(self.selenium, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, '#email-login-form button[type=\"submit\"]'))
-            )
-            self.selenium.execute_script("arguments[0].click();", submit_button)
-        except (TimeoutException, ElementNotInteractableException):
-            self.selenium.execute_script("document.getElementById('email-login-form').submit();")
-        
-        # Wait for dashboard redirect; skip if login fails in this environment
-        try:
-            WebDriverWait(self.selenium, 10).until(
-                EC.url_contains('/accounts/dashboard/')
-            )
-        except TimeoutException:
-            raise unittest.SkipTest("Login failed or dashboard not reachable")
 
     def open_character_create_6th(self):
         self.selenium.get(f'{self.live_server_url}/accounts/character/create/6th/')
