@@ -184,6 +184,93 @@
 </div>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+.session-template-mobile-list {
+    display: none;
+    gap: 1rem;
+}
+
+.session-template-mobile-card {
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--accent-info);
+    border-radius: 8px;
+    background: var(--secondary-bg);
+    padding: 1rem;
+}
+
+.session-template-mobile-card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+}
+
+.session-template-mobile-card__title {
+    color: var(--text-primary);
+    font-weight: 700;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.session-template-mobile-card__subtitle {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin-top: 0.25rem;
+    overflow-wrap: anywhere;
+}
+
+.session-template-mobile-card__meta {
+    display: grid;
+    gap: 0.6rem;
+    margin: 0 0 1rem;
+}
+
+.session-template-mobile-card__meta > div {
+    display: grid;
+    grid-template-columns: 5rem minmax(0, 1fr);
+    gap: 0.65rem;
+}
+
+.session-template-mobile-card__meta dt {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.session-template-mobile-card__meta dd {
+    color: var(--text-primary);
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.session-template-mobile-card__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.session-template-mobile-card__actions .btn {
+    min-height: 38px;
+}
+
+@media (max-width: 767.98px) {
+    .session-template-mobile-list {
+        display: grid;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .session-template-mobile-card__header {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}
+
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -582,7 +669,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         templatesContainer.innerHTML = `
-            <div class="table-responsive">
+            <div class="table-responsive d-none d-md-block">
                 <table class="table table-hover align-middle">
                     <thead>
                         <tr>
@@ -621,6 +708,49 @@ document.addEventListener('DOMContentLoaded', function() {
                         `).join('')}
                     </tbody>
                 </table>
+            </div>
+            <div class="session-template-mobile-list d-md-none">
+                ${templates.map(template => `
+                    <article class="session-template-mobile-card">
+                        <div class="session-template-mobile-card__header">
+                            <div>
+                                <div class="session-template-mobile-card__title">${escapeHtml(template.name)}</div>
+                                ${template.title ? `<div class="session-template-mobile-card__subtitle">${escapeHtml(template.title)}</div>` : ''}
+                            </div>
+                            <span class="badge bg-secondary">${escapeHtml(getVisibilityLabel(template.visibility))}</span>
+                        </div>
+                        <dl class="session-template-mobile-card__meta">
+                            <div>
+                                <dt>グループ</dt>
+                                <dd>${escapeHtml(template.group_name || '-')}</dd>
+                            </div>
+                            <div>
+                                <dt>場所</dt>
+                                <dd>${escapeHtml(template.location || '-')}</dd>
+                            </div>
+                            <div>
+                                <dt>時間</dt>
+                                <dd>${escapeHtml(template.duration_hhmm || minutesToHhmm(template.duration_minutes) || '-')}</dd>
+                            </div>
+                            <div>
+                                <dt>画像</dt>
+                                <dd>${template.image_templates?.length || 0}</dd>
+                            </div>
+                            <div>
+                                <dt>HO</dt>
+                                <dd>${template.copy_handouts_to_session ? (template.handout_templates?.length || 0) : 0}</dd>
+                            </div>
+                        </dl>
+                        <div class="session-template-mobile-card__actions">
+                            <button class="btn btn-outline-primary" data-action="edit" data-id="${template.id}">
+                                <i class="fas fa-pen"></i> 編集
+                            </button>
+                            <button class="btn btn-outline-danger" data-action="delete" data-id="${template.id}">
+                                <i class="fas fa-trash"></i> 削除
+                            </button>
+                        </div>
+                    </article>
+                `).join('')}
             </div>
         `;
 

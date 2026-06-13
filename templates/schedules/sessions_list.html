@@ -22,7 +22,7 @@
                 </div>
                 <div class="card-body">
                     {% if sessions %}
-                        <div class="table-responsive">
+                        <div class="table-responsive d-none d-md-block">
                             <table class="table table-dark table-hover">
                                 <thead>
                                     <tr>
@@ -102,6 +102,87 @@
                             </table>
                         </div>
 
+                        <div class="session-mobile-list d-md-none">
+                            {% for session in sessions %}
+                            <article class="session-mobile-card">
+                                <div class="session-mobile-card__header">
+                                    <div class="session-mobile-card__title-wrap">
+                                        <a href="{% url 'session_detail' session.id %}" class="session-mobile-card__title">
+                                            {{ session.title }}
+                                        </a>
+                                        {% if session.description %}
+                                            <p class="session-mobile-card__description">{{ session.description|truncatechars:96 }}</p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="session-mobile-card__status">
+                                        {% if session.status == 'planned' %}
+                                            <span class="badge bg-primary"><i class="fas fa-clock"></i> 予定</span>
+                                        {% elif session.status == 'ongoing' %}
+                                            <span class="badge bg-warning"><i class="fas fa-play"></i> 進行中</span>
+                                        {% elif session.status == 'completed' %}
+                                            <span class="badge bg-success"><i class="fas fa-check"></i> 完了</span>
+                                        {% elif session.status == 'cancelled' %}
+                                            <span class="badge bg-danger"><i class="fas fa-times"></i> キャンセル</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ session.status }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <dl class="session-mobile-card__meta">
+                                    <div>
+                                        <dt><i class="fas fa-calendar"></i> 開催日時</dt>
+                                        <dd>
+                                            {% if session.date %}
+                                                {{ session.date|date:"Y/m/d H:i" }}
+                                                <small class="text-muted d-block">{{ session.date|timesince }}前</small>
+                                            {% else %}
+                                                <span class="text-muted">未定</span>
+                                            {% endif %}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt><i class="fas fa-user"></i> GM</dt>
+                                        <dd>{{ session.gm.nickname|default:session.gm.username }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt><i class="fas fa-users"></i> 参加者</dt>
+                                        <dd>
+                                            <span class="badge bg-info">{{ session.participants.count }}人</span>
+                                            {% if session.guest_count %}
+                                                <span class="badge bg-secondary ms-1">+ゲスト{{ session.guest_count }}人</span>
+                                            {% endif %}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt><i class="fas fa-clock"></i> 時間</dt>
+                                        <dd>
+                                            {% if session.duration_minutes %}
+                                                {{ session.duration_minutes }}分
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt><i class="fas fa-map-marker-alt"></i> 場所</dt>
+                                        <dd>
+                                            {% if session.location %}
+                                                {{ session.location|truncatechars:32 }}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </dd>
+                                    </div>
+                                </dl>
+
+                                <a href="{% url 'session_detail' session.id %}" class="btn btn-outline-primary w-100">
+                                    <i class="fas fa-eye"></i> 詳細を見る
+                                </a>
+                            </article>
+                            {% endfor %}
+                        </div>
+
                         <!-- ページネーション -->
                         {% if has_previous or has_next %}
                         <nav aria-label="Page navigation" class="mt-4">
@@ -161,14 +242,14 @@
                                 <option value="100" {% if limit == 100 %}selected{% endif %}>100件</option>
                             </select>
                         </div>
-                        <div class="col-md-9 d-flex align-items-end">
+                        <div class="col-md-9 d-flex align-items-end flex-wrap gap-2 session-list-actions">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-sync"></i> 更新
                             </button>
-                            <a href="{% url 'sessions_api_view' %}" class="btn btn-outline-secondary ms-2">
+                            <a href="{% url 'sessions_api_view' %}" class="btn btn-outline-secondary">
                                 <i class="fas fa-redo"></i> リセット
                             </a>
-                            <a href="/" class="btn btn-outline-info ms-2">
+                            <a href="/" class="btn btn-outline-info">
                                 <i class="fas fa-home"></i> ホームに戻る
                             </a>
                         </div>
@@ -299,6 +380,121 @@ a:hover {
 
 .card-body .text-muted {
     color: var(--text-muted) !important;
+}
+
+.session-mobile-list {
+    display: none;
+    gap: 1rem;
+}
+
+.session-mobile-card {
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--accent-info);
+    border-radius: 8px;
+    background: var(--secondary-bg);
+    padding: 1rem;
+}
+
+.session-mobile-card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+}
+
+.session-mobile-card__title-wrap {
+    min-width: 0;
+}
+
+.session-mobile-card__title {
+    display: block;
+    color: var(--accent-primary);
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    text-decoration: none;
+}
+
+.session-mobile-card__title:hover {
+    color: var(--accent-secondary);
+    text-decoration: underline;
+}
+
+.session-mobile-card__description {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    margin: 0.35rem 0 0;
+    overflow-wrap: anywhere;
+}
+
+.session-mobile-card__status {
+    flex: 0 0 auto;
+}
+
+.session-mobile-card__meta {
+    display: grid;
+    gap: 0.65rem;
+    margin: 0 0 1rem;
+}
+
+.session-mobile-card__meta > div {
+    display: grid;
+    grid-template-columns: minmax(6.5rem, 38%) 1fr;
+    gap: 0.65rem;
+    align-items: start;
+}
+
+.session-mobile-card__meta dt {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.session-mobile-card__meta dd {
+    color: var(--text-primary);
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.session-mobile-card .btn {
+    min-height: 38px;
+}
+
+.session-list-actions .btn {
+    min-height: 38px;
+}
+
+@media (max-width: 767.98px) {
+    .session-mobile-list {
+        display: grid;
+    }
+
+    .table-responsive.d-none.d-md-block {
+        display: none !important;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .session-mobile-card__header {
+        flex-direction: column;
+    }
+
+    .session-mobile-card__meta > div {
+        grid-template-columns: 1fr;
+        gap: 0.2rem;
+    }
+
+    .session-list-actions {
+        align-items: stretch !important;
+    }
+
+    .session-list-actions .btn {
+        flex: 1 1 100%;
+    }
 }
 </style>
 {% endblock %}

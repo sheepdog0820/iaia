@@ -289,6 +289,51 @@
     height: 600px;
 }
 
+#calendar .fc-toolbar {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+#calendar .fc-toolbar-title {
+    font-size: clamp(1.25rem, 4vw, 1.75rem);
+    line-height: 1.2;
+}
+
+#calendar .fc-button {
+    min-height: 34px;
+    border-radius: 6px;
+}
+
+#calendar .fc-daygrid-day-number {
+    font-weight: 600;
+}
+
+@media (max-width: 576px) {
+    #calendar {
+        min-height: 520px;
+    }
+
+    #calendar .fc-toolbar {
+        align-items: center;
+    }
+
+    #calendar .fc-toolbar-chunk {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    #calendar .fc-toolbar-chunk:nth-child(2) {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+
+    #calendar .fc-toolbar-title {
+        text-align: center;
+    }
+}
+
 .fc-event {
     cursor: pointer;
     border: none;
@@ -714,6 +759,12 @@ document.addEventListener('DOMContentLoaded', function() {
         calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             locale: 'ja',
+            buttonText: {
+                today: '今日',
+                month: '月',
+                week: '週',
+                list: '一覧'
+            },
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',

@@ -566,6 +566,8 @@ label[for="character-name"]::after {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: #1f2937;
+    text-shadow: none;
 }
 
 .skills-tab .skill-total {
@@ -582,6 +584,8 @@ label[for="character-name"]::after {
     padding: 0.2rem 0.35rem;
     font-size: 0.85rem;
     line-height: 1.2;
+    color: #111827;
+    background-color: #ffffff;
 }
 
 .skills-tab .skill-input-group {
@@ -688,6 +692,18 @@ label[for="character-name"]::after {
 .skill-item {
     transition: all 0.2s ease;
     background-color: #f8f9fa;
+    color: #1f2937;
+}
+
+.skill-item .skill-item-header,
+.skill-item .form-label,
+.skill-item .form-control,
+.skill-item .input-group-text {
+    color: #1f2937;
+}
+
+.skill-item .text-muted {
+    color: #6c757d !important;
 }
 
 .skill-item:hover {
@@ -1090,4 +1106,50 @@ hr {
     .character-footer .badge {
         font-size: 0.75rem;
     }
+}
+
+/* Force readable skill cards even when the app shell is in dark mode. */
+.character-create-page .skills-tab .skill-item {
+    background-color: #f8fafc !important;
+    color: #111827 !important;
+}
+
+.character-create-page .skills-tab .skill-item:hover {
+    background-color: #ffffff !important;
+}
+
+.character-create-page .skills-tab .skill-item .skill-name,
+.character-create-page .skills-tab .skill-item label,
+.character-create-page .skills-tab .skill-item .form-label,
+.character-create-page .skills-tab .skill-item .skill-item-title {
+    color: #111827 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #111827 !important;
+    text-shadow: none !important;
+}
+
+.character-create-page .skills-tab .skill-item .form-control,
+.character-create-page .skills-tab .skill-item input[type="number"],
+.character-create-page .skills-tab .skill-item input[type="text"] {
+    color: #111827 !important;
+    background-color: #ffffff !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #111827 !important;
+    caret-color: #111827 !important;
+}
+
+.character-create-page .skills-tab .skill-item .form-control::placeholder {
+    color: #6b7280 !important;
+    opacity: 1 !important;
+}
+
+.character-create-page .skills-tab .skill-item .skill-total {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    background-color: #0d6efd !important;
+    opacity: 1 !important;
+}
+
+.character-create-page .footer-bar .btn {
+    min-height: 38px;
 }

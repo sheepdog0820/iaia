@@ -8,8 +8,8 @@
     <!-- ヘッダー部分 -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
+            <div class="session-detail-header d-flex justify-content-between align-items-start align-items-lg-center flex-column flex-lg-row gap-3">
+                <div class="session-detail-heading">
                     <nav aria-label="breadcrumb">
                         <ol class="breadcrumb">
                             <li class="breadcrumb-item">
@@ -28,7 +28,7 @@
                         </ol>
                     </nav>
                 </div>
-                <div>
+                <div class="session-detail-actions d-flex flex-wrap gap-2 justify-content-start justify-content-lg-end">
                     <button class="btn btn-outline-secondary"
                             type="button"
                             id="copyPublicSessionLinkBtn"
@@ -690,6 +690,12 @@
                                                 <i class="fas fa-copy"></i>
                                             </button>
                                         </p>
+                                        <p class="mb-2">
+                                            <button type="button" class="btn btn-sm btn-outline-success w-100"
+                                                    onclick="copyCcfoliaCharacter({{ participant.character_sheet.id }}, '{% url 'character_detail_6th' participant.character_sheet.id %}')">
+                                                <i class="fas fa-clipboard"></i> ココフォリア用コピー
+                                            </button>
+                                        </p>
                                     {% elif participant.character_sheet_url %}
                                         <p class="mb-2 d-flex gap-2">
                                             <a href="{{ participant.character_sheet_url }}" target="_blank" class="btn btn-sm btn-outline-info flex-grow-1">
@@ -1349,6 +1355,29 @@
 
 {% block extra_css %}
 <style>
+.session-detail-heading {
+    min-width: 0;
+}
+
+.session-detail-heading .breadcrumb {
+    margin-bottom: 0;
+}
+
+.session-detail-actions .btn {
+    white-space: nowrap;
+}
+
+@media (max-width: 576px) {
+    .session-detail-actions {
+        width: 100%;
+    }
+
+    .session-detail-actions .btn {
+        flex: 1 1 100%;
+        justify-content: center;
+    }
+}
+
 .card-header.bg-primary {
     background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%) !important;
     color: white !important;
@@ -1729,6 +1758,89 @@ a:hover {
 
 .text-decoration-none:hover {
     text-decoration: underline !important;
+}
+
+@media (max-width: 575.98px) {
+    #sessionRewardsCard .card-body {
+        overflow: hidden;
+    }
+
+    #sessionRewardsCard .table-responsive {
+        overflow: visible;
+    }
+
+    #sessionRewardsCard table,
+    #sessionRewardsCard thead,
+    #sessionRewardsCard tbody,
+    #sessionRewardsCard tr,
+    #sessionRewardsCard th,
+    #sessionRewardsCard td {
+        display: block;
+        width: 100% !important;
+    }
+
+    #sessionRewardsCard thead {
+        display: none;
+    }
+
+    #sessionRewardsCard tbody tr {
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background: var(--secondary-bg);
+        margin-bottom: 0.85rem;
+        padding: 0.85rem;
+    }
+
+    #sessionRewardsCard tbody td {
+        border: 0;
+        padding: 0.45rem 0;
+    }
+
+    #sessionRewardsCard tbody td:not(:first-child) {
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    #sessionRewardsCard tbody tr[data-participant-id] td {
+        display: grid;
+        grid-template-columns: 5.5rem minmax(0, 1fr);
+        gap: 0.65rem;
+        align-items: start;
+    }
+
+    #sessionRewardsCard tbody tr[data-participant-id] td::before {
+        color: var(--text-secondary);
+        font-size: 0.82rem;
+        font-weight: 600;
+    }
+
+    #sessionRewardsCard tbody tr[data-participant-id] td:nth-child(1)::before {
+        content: "参加者";
+    }
+
+    #sessionRewardsCard tbody tr[data-participant-id] td:nth-child(2)::before {
+        content: "XP";
+    }
+
+    #sessionRewardsCard tbody tr[data-participant-id] td:nth-child(3)::before {
+        content: "特別報酬";
+    }
+
+    #sessionRewardsCard tbody tr[data-participant-id] td:nth-child(4)::before {
+        content: "備考";
+    }
+
+    #sessionRewardsCard tbody tr[data-participant-id] td:nth-child(5)::before {
+        content: "反映";
+    }
+
+    #sessionRewardsCard .reward-special,
+    #sessionRewardsCard .reward-notes {
+        min-height: 4.5rem;
+    }
+
+    #sessionRewardsCard .btn-sm {
+        min-height: 34px;
+    }
 }
 
 </style>
@@ -2113,20 +2225,39 @@ function toAbsoluteUrl(url) {
 
 async function copyTextToClipboard(text) {
     if (!text) return;
-    if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        return;
+    let clipboardError = null;
+
+    if (navigator.clipboard?.writeText && window.isSecureContext) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return;
+        } catch (error) {
+            clipboardError = error;
+        }
     }
 
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.setAttribute('readonly', '');
-    textarea.style.position = 'absolute';
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
     textarea.style.left = '-9999px';
+    textarea.style.opacity = '0';
     document.body.appendChild(textarea);
+    textarea.focus();
     textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
+    textarea.setSelectionRange(0, textarea.value.length);
+
+    let copied = false;
+    try {
+        copied = document.execCommand('copy');
+    } finally {
+        document.body.removeChild(textarea);
+    }
+
+    if (!copied) {
+        throw clipboardError || new Error('Clipboard copy was rejected by the browser.');
+    }
 }
 
 async function copyUrl(url, label = 'リンク') {
@@ -2140,6 +2271,223 @@ async function copyUrl(url, label = 'リンク') {
 }
 
 window.copyUrl = copyUrl;
+
+const ccfoliaCharacterCache = new Map();
+const ccfoliaCharacterRequests = new Map();
+
+function toNumber(value, fallback = 0) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : fallback;
+}
+
+const CCFOLIA_COC6_DEFAULT_SKILLS = [
+    { name: '回避', base: 'DEX*2' },
+    { name: 'キック', base: 25 },
+    { name: '組み付き', base: 25 },
+    { name: 'こぶし（パンチ）', base: 50 },
+    { name: '頭突き', base: 10 },
+    { name: '投擲', base: 25 },
+    { name: 'マーシャルアーツ', base: 1 },
+    { name: '拳銃', base: 20 },
+    { name: 'サブマシンガン', base: 15 },
+    { name: 'ショットガン', base: 30 },
+    { name: 'マシンガン', base: 15 },
+    { name: 'ライフル', base: 25 },
+    { name: '応急手当', base: 30 },
+    { name: '鍵開け', base: 1 },
+    { name: '鑑定', base: 5 },
+    { name: '隠す', base: 15 },
+    { name: '隠れる', base: 10 },
+    { name: '聞き耳', base: 25 },
+    { name: '忍び歩き', base: 10 },
+    { name: '写真術', base: 10 },
+    { name: '精神分析', base: 1 },
+    { name: '追跡', base: 10 },
+    { name: '登攀', base: 40 },
+    { name: '図書館', base: 25 },
+    { name: '目星', base: 25 },
+    { name: '運転', base: 20 },
+    { name: '機械修理', base: 20 },
+    { name: '重機械操作', base: 1 },
+    { name: '乗馬', base: 5 },
+    { name: '水泳', base: 25 },
+    { name: '製作', base: 5 },
+    { name: '操縦', base: 1 },
+    { name: '跳躍', base: 25 },
+    { name: '電気修理', base: 10 },
+    { name: 'ナビゲート', base: 10 },
+    { name: '手さばき', base: 10 },
+    { name: 'サバイバル', base: 10 },
+    { name: '変装', base: 1 },
+    { name: '言いくるめ', base: 5 },
+    { name: '魅惑', base: 15 },
+    { name: '信用', base: 15 },
+    { name: '説得', base: 15 },
+    { name: '値切り', base: 5 },
+    { name: '威圧', base: 15 },
+    { name: '他の言語', base: 1 },
+    { name: '母国語', base: 'EDU*5' },
+    { name: '医学', base: 5 },
+    { name: 'オカルト', base: 5 },
+    { name: '化学', base: 1 },
+    { name: 'クトゥルフ神話', base: 0 },
+    { name: '芸術', base: 5 },
+    { name: '経理', base: 10 },
+    { name: '考古学', base: 1 },
+    { name: 'コンピューター', base: 1 },
+    { name: '心理学', base: 5 },
+    { name: '人類学', base: 1 },
+    { name: '生物学', base: 1 },
+    { name: '地質学', base: 1 },
+    { name: '電子工学', base: 1 },
+    { name: '天文学', base: 1 },
+    { name: '博物学', base: 10 },
+    { name: '物理学', base: 1 },
+    { name: '法律', base: 5 },
+    { name: '薬学', base: 1 },
+    { name: '歴史', base: 20 },
+];
+
+function resolveCcfoliaSkillBase(base, abilities) {
+    if (base === 'DEX*2') return Math.min(abilities.DEX * 2, 999);
+    if (base === 'EDU*5') return Math.min(abilities.EDU * 5, 999);
+    return toNumber(base);
+}
+
+function collectCcfoliaSkills(character, abilities) {
+    const skillMap = new Map();
+    const edition = character?.edition || '6th';
+
+    if (edition === '6th') {
+        CCFOLIA_COC6_DEFAULT_SKILLS.forEach(skill => {
+            skillMap.set(skill.name, resolveCcfoliaSkillBase(skill.base, abilities));
+        });
+    }
+
+    (Array.isArray(character.skills) ? character.skills : []).forEach(skill => {
+        if (!skill?.skill_name || !Number.isFinite(Number(skill.current_value))) return;
+        skillMap.set(String(skill.skill_name), toNumber(skill.current_value));
+    });
+
+    return [...skillMap.entries()]
+        .map(([skill_name, current_value]) => ({ skill_name, current_value }))
+        .sort((a, b) => a.skill_name.localeCompare(b.skill_name, 'ja'));
+}
+
+function buildCcfoliaCharacterClipboard(character, detailUrl) {
+    const abilityLabels = [
+        ['STR', 'str_value'],
+        ['CON', 'con_value'],
+        ['POW', 'pow_value'],
+        ['DEX', 'dex_value'],
+        ['APP', 'app_value'],
+        ['SIZ', 'siz_value'],
+        ['INT', 'int_value'],
+        ['EDU', 'edu_value'],
+    ];
+    const abilities = Object.fromEntries(
+        abilityLabels.map(([label, key]) => [label, toNumber(character[key])])
+    );
+    const sixth = character.sixth_edition_data || {};
+    const skillCommands = collectCcfoliaSkills(character, abilities)
+        .map(skill => `CCB<=${toNumber(skill.current_value)} 【${skill.skill_name}】`);
+    const abilityCommands = abilityLabels.map(([label]) => (
+        `CCB<=${abilities[label] * 5} 【${label}】`
+    ));
+    const derivedCommands = [
+        sixth.luck_roll ? `CCB<=${toNumber(sixth.luck_roll)} 【幸運】` : '',
+        sixth.idea_roll ? `CCB<=${toNumber(sixth.idea_roll)} 【アイデア】` : '',
+        sixth.know_roll ? `CCB<=${toNumber(sixth.know_roll)} 【知識】` : '',
+        character.sanity_current ? `CCB<=${toNumber(character.sanity_current)} 【SANチェック】` : '',
+    ].filter(Boolean);
+    const params = [
+        ...abilityLabels.map(([label]) => ({ label, value: String(abilities[label]) })),
+        { label: '職業', value: character.occupation || '-' },
+        { label: '年齢', value: character.age ? String(character.age) : '-' },
+        sixth.damage_bonus ? { label: 'DB', value: String(sixth.damage_bonus) } : null,
+    ].filter(Boolean);
+    const memoLines = [
+        character.occupation ? `職業: ${character.occupation}` : '',
+        character.age ? `年齢: ${character.age}` : '',
+        character.notes ? String(character.notes) : '',
+    ].filter(Boolean);
+
+    return {
+        kind: 'character',
+        data: {
+            name: character.name || '無名の探索者',
+            memo: memoLines.join('\n'),
+            initiative: abilities.DEX || 0,
+            externalUrl: toAbsoluteUrl(detailUrl),
+            status: [
+                {
+                    label: 'HP',
+                    value: toNumber(character.hit_points_current ?? character.hp_current),
+                    max: toNumber(character.hit_points_max ?? character.hp_current),
+                },
+                {
+                    label: 'MP',
+                    value: toNumber(character.magic_points_current ?? character.mp_current),
+                    max: toNumber(character.magic_points_max ?? character.mp_current),
+                },
+                {
+                    label: 'SAN',
+                    value: toNumber(character.sanity_current ?? character.san_current),
+                    max: toNumber(character.sanity_max ?? character.san_current),
+                },
+            ],
+            params,
+            commands: [...derivedCommands, ...abilityCommands, ...skillCommands].join('\n'),
+        },
+    };
+}
+
+async function loadCcfoliaCharacter(characterSheetId) {
+    const key = String(characterSheetId);
+    if (ccfoliaCharacterCache.has(key)) {
+        return ccfoliaCharacterCache.get(key);
+    }
+    if (!ccfoliaCharacterRequests.has(key)) {
+        ccfoliaCharacterRequests.set(
+            key,
+            axios.get(`/api/accounts/character-sheets/${characterSheetId}/`)
+                .then(response => {
+                    ccfoliaCharacterCache.set(key, response.data);
+                    return response.data;
+                })
+                .finally(() => {
+                    ccfoliaCharacterRequests.delete(key);
+                })
+        );
+    }
+    return ccfoliaCharacterRequests.get(key);
+}
+
+function preloadCcfoliaCharacters() {
+    document.querySelectorAll('button[onclick^="copyCcfoliaCharacter"]').forEach(button => {
+        const match = button.getAttribute('onclick')?.match(/copyCcfoliaCharacter\((\d+)/);
+        if (match?.[1]) {
+            loadCcfoliaCharacter(match[1]).catch(error => {
+                console.warn('Failed to preload CCFOLIA character data:', error);
+            });
+        }
+    });
+}
+
+async function copyCcfoliaCharacter(characterSheetId, detailUrl) {
+    try {
+        const character = await loadCcfoliaCharacter(characterSheetId);
+        const clipboardData = buildCcfoliaCharacterClipboard(character, detailUrl);
+        const text = JSON.stringify(clipboardData);
+        await copyTextToClipboard(text);
+        alert('ココフォリア用キャラクター情報をコピーしました。ココフォリアの部屋で貼り付けできます。');
+    } catch (error) {
+        console.error('Failed to copy CCFOLIA character data:', error);
+        alert('ココフォリア用コピーに失敗しました: ' + (error.response?.data?.detail || error.response?.data?.error || error.message));
+    }
+}
+
+window.copyCcfoliaCharacter = copyCcfoliaCharacter;
 
 let occurrenceGroupMembersLoaded = false;
 let occurrenceGroupMembers = [];
@@ -4481,6 +4829,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (IS_PUBLIC_VIEW) return;
+
+    preloadCcfoliaCharacters();
 
     if (IS_GM && window.HandoutSkillPicker) {
         window.HandoutSkillPicker.attach({

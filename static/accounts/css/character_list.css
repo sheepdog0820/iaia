@@ -51,6 +51,10 @@ body.character-list-page .container.character-list {
 .character-list .character-card-actions .btn-sm {
     padding: 0.25rem 0.5rem;
     font-size: 0.8rem;
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .character-list .character-card-actions .dropdown-toggle::after {
@@ -61,5 +65,12 @@ body.character-list-page .container.character-list {
     body.character-list-page .app-main {
         padding: 12px;
     }
-}
 
+    .character-list .character-card-actions {
+        gap: 0.35rem;
+    }
+
+    .character-list .character-card-actions .btn-sm {
+        flex: 1 1 auto;
+    }
+}
