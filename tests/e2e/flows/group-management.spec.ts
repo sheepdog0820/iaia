@@ -4,7 +4,7 @@ import { devLogin, setInputValue } from './helpers';
 test.describe('groups', () => {
   test('create a group and find it in the list', async ({ page }) => {
     await devLogin(page);
-    await page.goto('/accounts/groups/view/');
+    await page.goto('/accounts/groups/view/?show_test_data=1');
 
     await page.click('button[data-bs-target="#createGroupModal"]');
     await expect(page.locator('#createGroupModal')).toBeVisible();
@@ -26,10 +26,8 @@ test.describe('groups', () => {
       return new URL(response.url()).pathname === '/api/accounts/groups/';
     });
 
+    await page.fill('#groupSearchInput', groupName);
     const groupCard = page.locator('.group-card', { hasText: groupName });
     await expect(groupCard).toBeVisible({ timeout: 15000 });
-
-    await page.fill('#groupSearchInput', groupName);
-    await expect(page.locator('.group-card', { hasText: groupName })).toBeVisible();
   });
 });

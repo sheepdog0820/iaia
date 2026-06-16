@@ -366,6 +366,36 @@ document.addEventListener('DOMContentLoaded', function() {
     let selectedFriends = new Set();
     let currentViewType = 'my';
     let invitations = [];
+    let groupPage = 1;
+    const groupPageSize = 12;
+    const showTestData = new URLSearchParams(window.location.search).get('show_test_data') === '1';
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function normalizeListResponse(data) {
+        if (Array.isArray(data)) return data;
+        if (Array.isArray(data?.results)) return data.results;
+        return [];
+    }
+
+    function isDevelopmentGroup(group) {
+        return /^(E2E|Guest E2E)\b/i.test(group?.name || '');
+    }
+
+    async function confirmAction(message, options = {}) {
+        if (window.ARKHAM?.confirm) {
+            return window.ARKHAM.confirm(message, options);
+        }
+        window.ARKHAM?.showError?.('確認ダイアログを表示できませんでした。ページを再読み込みしてください。');
+        return Promise.resolve(false);
+    }
 
     // グループ一覧読み込み
     async function loadGroups(viewType = 'my') {
@@ -390,8 +420,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             const response = await axios.get(endpoint);
-            allGroups = response.data;
+            allGroups = normalizeListResponse(response.data);
             displayGroups = [...allGroups];
+            groupPage = 1;
             applyFilters();
         } catch (error) {
             console.error('Error loading groups:', error);
@@ -469,6 +500,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const visibilityFilter = document.getElementById('visibilityFilter').value;
         
         displayGroups = allGroups.filter(group => {
+            if (!showTestData && isDevelopmentGroup(group)) {
+                return false;
+            }
+
             // 検索テキストフィルタ
             const matchesSearch = !searchText || 
                 group.name.toLowerCase().includes(searchText) ||
@@ -479,6 +514,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             return matchesSearch && matchesVisibility;
         });
+
+        const maxPage = Math.max(1, Math.ceil(displayGroups.length / groupPageSize));
+        groupPage = Math.min(groupPage, maxPage);
         
         renderGroups();
     }
@@ -504,11 +542,17 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        container.innerHTML = displayGroups.map(group => `
+        const startIndex = (groupPage - 1) * groupPageSize;
+        const pageGroups = displayGroups.slice(startIndex, startIndex + groupPageSize);
+        const totalPages = Math.max(1, Math.ceil(displayGroups.length / groupPageSize));
+        const showingFrom = startIndex + 1;
+        const showingTo = Math.min(startIndex + groupPageSize, displayGroups.length);
+
+        container.innerHTML = pageGroups.map(group => `
             <div class="col-md-6 mb-4">
                 <div class="card group-card h-100" onclick="showGroupDetail(${group.id})">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">${group.name}</h5>
+                        <h5 class="mb-0">${escapeHtml(group.name)}</h5>
                         ${!group.is_member && group.visibility === 'public' ? 
                             `<button class="btn btn-sm btn-success" onclick="event.stopPropagation(); joinGroup(${group.id})">
                                 <i class="fas fa-plus"></i> 参加
@@ -516,7 +560,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     </div>
                     <div class="card-body">
-                        <p class="text-muted">${group.description || '説明なし'}</p>
+                        <p class="text-muted">${escapeHtml(group.description || '説明なし')}</p>
                         <div class="d-flex justify-content-between align-items-center">
                             <span>
                                 <i class="fas fa-users"></i> ${group.member_count}人
@@ -540,6 +584,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
         `).join('');
+
+        if (displayGroups.length > groupPageSize) {
+            container.insertAdjacentHTML('beforeend', `
+                <div class="col-12">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2 border-top pt-3">
+                        <div class="text-muted small">
+                            ${showingFrom}-${showingTo}件 / ${displayGroups.length}件
+                        </div>
+                        <div class="btn-group" role="group" aria-label="グループ一覧ページ操作">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-group-page="prev" ${groupPage <= 1 ? 'disabled' : ''}>
+                                前へ
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" disabled>
+                                ${groupPage} / ${totalPages}
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-group-page="next" ${groupPage >= totalPages ? 'disabled' : ''}>
+                                次へ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `);
+        }
     }
 
     // フレンドリスト読み込み
@@ -710,7 +777,7 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.show();
         } catch (error) {
             console.error('Error loading group details:', error);
-            alert('グループ詳細の読み込みに失敗しました');
+            ARKHAM.showError('グループ詳細の読み込みに失敗しました');
         }
     };
 
@@ -904,7 +971,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // グループ削除
     window.deleteGroup = async function(groupId) {
-        if (!confirm('本当にこのグループを削除しますか？')) {
+        const confirmed = await confirmAction('本当にこのグループを削除しますか？', {
+            title: 'グループを削除',
+            confirmText: '削除する',
+            cancelText: 'キャンセル',
+            variant: 'danger'
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -927,7 +1000,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const roleLabel = role === 'admin' ? '管理者' : 'メンバー';
-        if (!confirm(`このメンバーの権限を「${roleLabel}」に変更しますか？`)) {
+        const confirmed = await confirmAction(`このメンバーの権限を「${roleLabel}」に変更しますか？`, {
+            title: '権限を変更',
+            confirmText: '変更する',
+            cancelText: 'キャンセル'
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -951,7 +1029,13 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        if (!confirm('このメンバーを除名しますか？')) {
+        const confirmed = await confirmAction('このメンバーを除名しますか？', {
+            title: 'メンバーを除名',
+            confirmText: '除名する',
+            cancelText: 'キャンセル',
+            variant: 'danger'
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -970,7 +1054,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // グループ退出
     window.leaveGroup = async function(groupId) {
-        if (!confirm('本当にこのグループを退出しますか？')) {
+        const confirmed = await confirmAction('本当にこのグループを退出しますか？', {
+            title: 'グループから退出',
+            confirmText: '退出する',
+            cancelText: 'キャンセル',
+            variant: 'danger'
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -1007,14 +1097,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else if (this.id === 'allGroupsView') {
                     viewType = 'all';
                 }
+                groupPage = 1;
                 loadGroups(viewType);
             }
         });
     });
 
     // 検索フィルターイベント
-    document.getElementById('groupSearchInput').addEventListener('input', applyFilters);
-    document.getElementById('visibilityFilter').addEventListener('change', applyFilters);
+    document.getElementById('groupSearchInput').addEventListener('input', function() {
+        groupPage = 1;
+        applyFilters();
+    });
+    document.getElementById('visibilityFilter').addEventListener('change', function() {
+        groupPage = 1;
+        applyFilters();
+    });
+    document.getElementById('groupsList').addEventListener('click', function(event) {
+        const pageButton = event.target.closest('[data-group-page]');
+        if (!pageButton) return;
+
+        const direction = pageButton.getAttribute('data-group-page');
+        const maxPage = Math.max(1, Math.ceil(displayGroups.length / groupPageSize));
+        if (direction === 'prev') {
+            groupPage = Math.max(1, groupPage - 1);
+        } else if (direction === 'next') {
+            groupPage = Math.min(maxPage, groupPage + 1);
+        }
+        renderGroups();
+    });
 
     // 初期化
     loadGroups();
