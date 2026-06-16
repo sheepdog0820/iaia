@@ -1,139 +1,86 @@
-# Tableno 本番完成ロードマップ
+# Tableno 未完了ロードマップ
 
-最終監査日: 2026-06-17
+最終更新: 2026-06-17
 
-このファイルは未完了の正式課題だけを、実装順に管理します。完了項目は `ISSUES_CLOSED.md`、現行機能は `docs/CURRENT_WEBAPP_FEATURES.md`、セッション領域の分類は `SESSION_UNIMPLEMENTED_FEATURES_SPEC.md` を参照してください。
+このファイルは、まだ本番投入前に判断または実装が必要な課題だけを管理します。完了済みの本番完成化作業は `ISSUES_CLOSED.md`、現行仕様は `docs/CURRENT_WEBAPP_FEATURES.md` と各仕様書を参照してください。
 
-## P0: 7版正式サポート品質ゲート
+## P0: 本番リリース前 Go/No-Go
 
-### ISSUE-060: 7版キャラクターシート正式化
+### ISSUE-070: 本番環境への最終適用承認
 
-**目的**: 7版を保留扱いから正式サポートへ移行し、6版と同じ運用品質で提供する。
-
-**受け入れ条件**
-- 7版仕様書が `docs/character_sheet/CHARACTER_SHEET_7TH_EDITION_SPECIFICATION.md` として存在する。
-- 7版作成APIがHP/MP/SAN、ダメージボーナス、ビルド、移動率、回避、幸運、職業/趣味技能ポイントを仕様通り返す。
-- 7版の作成、編集、詳細、一覧、セッション連携がJavaScriptエラーなしで動作する。
-- 6版の既存API/画面/テスト結果に回帰がない。
-
-**検証コマンド**
-- `python manage.py test accounts.test_character_sheet_api`
-- `python manage.py test accounts.test_character_sheets_integration`
-- `npm run test:e2e -- --project=chromium tests/e2e/flows/scenario-session-character.spec.ts`
-
-**完了定義**
-- 7版関連の「開発保留」文言がユーザー向け画面、README、ガイドライン、仕様から除去されている。
-- 関連テストが成功し、`ISSUES_CLOSED.md` へ移動できる。
-
-## P1: 完成品感とUI品質
-
-### ISSUE-061: 通常画面のテストデータ露出対策
-
-**目的**: E2E/開発データがトップ画面や管理画面の第一印象を壊さないようにする。
+**目的**: リポジトリ内で検証済みのAWS構成を、実AWS環境へ適用する前に運用承認する。
 
 **受け入れ条件**
-- トップ画面はE2E由来のグループ名を通常表示しない。
-- グループ、連携設定、一覧画面は大量データ時も初期表示が読みやすい。
-- 開発/デモ/本番データの生成・表示方針がドキュメント化されている。
-
-**検証コマンド**
-- `python manage.py test accounts.test_group_features`
-- `npm run test:e2e -- --project=chromium tests/e2e/flows/group-management.spec.ts`
-
-**完了定義**
-- 実画面確認でトップ、グループ一覧、連携設定に不要なテストデータが目立たない。
-
-### ISSUE-062: ブラウザ標準ダイアログの置き換え
-
-**目的**: `alert()` / `confirm()` 中心の操作感を、サービス内UIへ置き換える。
-
-**受け入れ条件**
-- 主要画面の保存、削除、コピー、インポート、外部連携操作はトースト/確認モーダル/インラインエラーを使う。
-- 成功・失敗メッセージが画面内に残り、ユーザーが文脈を失わない。
-- JavaScript console errorが発生しない。
-
-**検証コマンド**
-- `python manage.py test tests.unit.test_js_errors`
-- `npm run test:e2e -- --project=chromium tests/e2e/flows/ui-scripts.spec.ts`
-
-**完了定義**
-- `templates/` と `static/` のプロダクトコードから不要な `alert(` / `confirm(` が除去されている。
-
-## P2: AWS/運用品質
-
-### ISSUE-056: AWS実環境への適用とGo/No-Go
-
-**目的**: `aws-pre` / `aws-prod` を安全に適用できる状態にする。
-
-**受け入れ条件**
-- Terraformはweb/worker/beatをECS Fargateで定義する。
-- `ALLOWED_HOSTS`、`SECURE_SSL_REDIRECT`、RDSバックアップ、Redis TLS、Celery broker/result backendが環境別に明示されている。
-- `offline_plan=true` の認証不要planが成功する。
-- 実AWS apply、DNS、ACM、Secrets、通知先、予算上限、Go/No-Go承認は別運用工程として明確に残る。
+- `aws-pre` と `aws-prod` の差分意図が運用担当者に確認されている。
+- DNS、ACM、Secrets、予算、バックアップ保持期間、監視通知先が実値で承認されている。
+- `terraform plan -refresh=false` ではなく、実AWS状態を参照したplanを別工程で確認している。
+- apply担当者、ロールバック手順、メンテナンス告知方針が明文化されている。
 
 **検証コマンド**
 - `terraform -chdir=infrastructure/terraform fmt -check -recursive`
 - `terraform -chdir=infrastructure/terraform validate`
-- `terraform -chdir=infrastructure/terraform plan -refresh=false -input=false -lock=false -var-file=environments/offline-plan.tfvars.example`
+- `terraform -chdir=infrastructure/terraform plan -input=false -lock=false -var-file=environments/aws-prod.tfvars`
 
 **完了定義**
-- AWSプレ環境で総合リリーステストを行い、Go/No-Go記録を残せる。
+- Go/No-Go記録が残り、実AWS applyの実施可否が決定している。
 
-### ISSUE-057: 外部連携の運用強化
+**コミット単位**
+- 実値を含まない運用手順・Go/No-Go記録のみ。Secrets実値はコミットしない。
 
-**目的**: Google/Discord/Sheets連携を失効・失敗・大規模処理に耐える運用品質へ引き上げる。
+## P1: 連携機能の運用観測
+
+### ISSUE-071: 外部連携の失敗観測と再試行運用
+
+**目的**: Google Calendar/Sheets、Discord、ゲスト招待、グループ連携の失敗を運用者が追跡し、ユーザーが復旧できる状態にする。
 
 **受け入れ条件**
-- Google OAuth refresh tokenの失効復旧UIがある。
-- Google Calendar双方向同期と競合解決方針が実装/文書化されている。
-- Sheetsの大規模インポート/エクスポートはAsyncJobで進捗確認できる。
-- Discord配信失敗を管理画面で確認し、手動再送できる。
+- Google OAuth refresh token失効時、連携設定画面から再連携導線に到達できる。
+- Discord配信失敗は管理画面またはAPIで確認でき、手動再送できる。
+- Sheets大規模インポート/エクスポートはAsyncJobで進捗・失敗理由を確認できる。
+- 外部API障害時に、画面操作がロールバックされず失敗状態と再試行導線が残る。
 
 **検証コマンド**
 - `python manage.py test schedules.test_external_integrations`
 - `python manage.py test schedules.test_async_jobs`
+- `npm run test:e2e -- --project=chromium tests/e2e/flows/ui-scripts.spec.ts`
 
 **完了定義**
-- 外部API障害時にユーザー操作がロールバックされず、失敗状態と再試行導線が残る。
+- 外部連携の失敗、再試行、復旧導線がユーザー向け画面と運用ログで確認できる。
 
-## P3: セッション機能拡張
+**コミット単位**
+- 失敗状態モデル/API
+- 連携設定UI
+- 再試行タスク
+- テスト
 
-### ISSUE-046: セッション状態スナップショット
+## P2: セッション拡張
 
-**目的**: セッション開始時と終了時の探索者状態を履歴化する。
+### ISSUE-072: セッション開始/終了時のキャラクター状態スナップショット
+
+**目的**: セッション中のHP/MP/SANなどの変化を、キャラクターシート本体の現在値と混同せず履歴化する。
 
 **受け入れ条件**
-- 開始時HP/MP/SANをスナップショット保存できる。
-- セッション中のHP/MP/SAN変動、状態異常、一時効果を履歴化できる。
-- 終了時に開始との差分を表示できる。
+- セッション開始時に参加キャラクターのHP/MP/SANをスナップショット保存できる。
+- セッション中のHP/MP/SAN変動、状態異常、一時効果を履歴として保存できる。
+- セッション終了時に開始時との差分を表示できる。
+- 既存キャラクターシートの現在値と矛盾しない。
 
 **検証コマンド**
 - `python manage.py test schedules.test_character_session_ho_integration`
 - `python manage.py test tests.integration.test_character_session_integration`
 
 **完了定義**
-- セッション詳細で状態履歴が確認でき、既存のキャラクター現在値と矛盾しない。
+- セッション詳細で状態履歴を確認でき、保存済みキャラクター現在値を破壊しない。
 
-### ISSUE-058: 公開募集ページ
-
-**目的**: ゲスト招待URLを横断募集導線へ拡張する。
-
-**受け入れ条件**
-- 空き枠検索、募集締切、承認制、参加表明を備えた公開募集ページがある。
-- ログインユーザーとゲストのclaim導線が破綻しない。
-- 公開範囲と監査ログが残る。
-
-**検証コマンド**
-- `python manage.py test schedules.test_group_links_and_guests`
-- `npm run test:e2e -- --project=chromium tests/e2e/flows/secret-handout-flow.spec.ts`
-
-**完了定義**
-- 公開募集からセッション参加、キャラクター紐付け、通知まで一通り動く。
+**コミット単位**
+- モデル/API
+- セッション詳細UI
+- テスト
 
 ## Future
 
 - ネイティブモバイルアプリ
-- AI分析・推奨
+- AI分析・推薦
 - セッション掲示板
 - クイック投票
 - 汎用素材ライブラリ
