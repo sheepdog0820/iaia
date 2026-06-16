@@ -203,6 +203,12 @@
 {% if user.is_authenticated %}
 <script src="{% static 'js/session_summary_card.js' %}"></script>
 <script>
+const SHOW_TEST_DATA = new URLSearchParams(window.location.search).get('show_test_data') === '1';
+
+function isDevelopmentRecordName(value) {
+    return /^(E2E|Guest E2E)\b/i.test(value || '');
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     loadUpcomingSessions();
     loadPlayStatistics();
@@ -214,7 +220,9 @@ function loadUpcomingSessions() {
     axios.get('/api/schedules/sessions/upcoming/')
         .then(response => {
             const container = document.getElementById('upcoming-sessions');
-            const sessions = response.data || [];
+            const sessions = (response.data || []).filter(session =>
+                SHOW_TEST_DATA || !isDevelopmentRecordName(session.title)
+            );
             
             if (!Array.isArray(sessions) || sessions.length === 0) {
                 container.innerHTML = `
@@ -279,7 +287,7 @@ function loadUserGroups() {
             const groupData = response.data.results || response.data || [];
             const groups = Array.isArray(groupData) ? groupData : [];
             const visibleGroups = groups
-                .filter(group => !/^(E2E|Guest E2E)\b/.test(group.name || ''))
+                .filter(group => SHOW_TEST_DATA || !isDevelopmentRecordName(group.name))
                 .slice(0, 6);
             
             if (!Array.isArray(groups) || visibleGroups.length === 0) {
@@ -329,7 +337,10 @@ function loadRecentActivity() {
             const data = response.data;
             
             // レスポンス形式の確認（results配列またはただの配列）
-            const activities = data.results || data;
+            const activities = (data.results || data || []).filter(history => {
+                const title = history.scenario_detail?.title || history.scenario?.title || history.title;
+                return SHOW_TEST_DATA || !isDevelopmentRecordName(title);
+            });
             
             if (!Array.isArray(activities) || activities.length === 0) {
                 container.innerHTML = '<p class="text-muted text-center">最近のアクティビティはありません</p>';

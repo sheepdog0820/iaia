@@ -146,6 +146,11 @@ const DEFAULT_CHARACTER_IMAGE = '{% static "images/default-character.svg" %}';
 document.addEventListener('DOMContentLoaded', function() {
     document.body.classList.add('character-list-page');
     let allCharacters = [];
+    const showTestData = new URLSearchParams(window.location.search).get('show_test_data') === '1';
+
+    function isDevelopmentCharacter(character) {
+        return /^(E2E|Guest E2E)\b/i.test(character?.name || '');
+    }
     
     // ドロップダウンのフォールバック処理
     const createBtn = document.getElementById('createCharacterDropdown');
@@ -181,7 +186,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         axios.get('/api/accounts/character-sheets/')
             .then(response => {
-                allCharacters = response.data;
+                allCharacters = (response.data || []).filter(character =>
+                    showTestData || !isDevelopmentCharacter(character)
+                );
                 displayCharacters(allCharacters);
                 document.getElementById('loading').style.display = 'none';
                 

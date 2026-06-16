@@ -351,6 +351,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const saveScenarioBtn = document.getElementById('saveScenarioBtn');
     const defaultScenarioTitle = addScenarioTitle ? addScenarioTitle.innerHTML : '';
     const defaultScenarioSaveLabel = saveScenarioBtn ? saveScenarioBtn.innerHTML : '';
+    const showTestData = new URLSearchParams(window.location.search).get('show_test_data') === '1';
+
+    function isDevelopmentScenario(scenario) {
+        return /^(E2E|Guest E2E)\b/i.test(scenario?.title || '');
+    }
 
     function notifySuccess(message) {
         if (window.ARKHAM?.showSuccess) {
@@ -739,6 +744,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // フィルター処理
     function filterScenarios(scenarios) {
         return scenarios.filter(scenario => {
+            if (!showTestData && isDevelopmentScenario(scenario)) return false;
             if (currentFilters.system && scenario.game_system !== currentFilters.system) return false;
             if (currentFilters.difficulty && scenario.difficulty !== currentFilters.difficulty) return false;
             if (currentFilters.duration && scenario.estimated_duration !== currentFilters.duration) return false;

@@ -6,7 +6,7 @@ test.describe('scenarios', () => {
 
   test('create a scenario from the archive view', async ({ page }) => {
     await devLogin(page);
-    await page.goto('/api/scenarios/archive/view/');
+    await page.goto('/api/scenarios/archive/view/?show_test_data=1');
 
     await page.click('button[data-bs-target="#addScenarioModal"]');
     await expect(page.locator('#addScenarioModal')).toBeVisible();
@@ -32,7 +32,7 @@ test.describe('scenarios', () => {
 
   test('recommended skills empty shows no warning', async ({ page }) => {
     await devLogin(page);
-    await page.goto('/api/scenarios/archive/view/');
+    await page.goto('/api/scenarios/archive/view/?show_test_data=1');
 
     await page.click('button[data-bs-target="#addScenarioModal"]');
     await expect(page.locator('#addScenarioModal')).toBeVisible();

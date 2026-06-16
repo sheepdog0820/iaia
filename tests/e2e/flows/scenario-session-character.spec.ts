@@ -25,7 +25,7 @@ test.describe('scenario-session flow', () => {
       return { scenario: scenarioResp.data, group: groupResp.data };
     }, { scenarioTitle, groupName });
 
-    await page.goto('/api/scenarios/archive/view/');
+    await page.goto('/api/scenarios/archive/view/?show_test_data=1');
     const scenarioCard = page.locator('.scenario-card', { hasText: scenarioTitle }).first();
     await expect(scenarioCard).toBeVisible();
     await scenarioCard.click();
@@ -120,7 +120,7 @@ test.describe('scenario-session flow', () => {
       return { scenario: scenarioResp.data, group: groupResp.data };
     }, { scenarioTitle, groupName });
 
-    await page.goto('/api/scenarios/archive/view/');
+    await page.goto('/api/scenarios/archive/view/?show_test_data=1');
     const scenarioCard = page.locator('.scenario-card', { hasText: scenarioTitle }).first();
     await expect(scenarioCard).toBeVisible();
     await scenarioCard.click();

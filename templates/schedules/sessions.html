@@ -238,6 +238,11 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentFilters = {};
     let currentSessionId = null;
     const userId = {{ user.id }};
+    const showTestData = new URLSearchParams(window.location.search).get('show_test_data') === '1';
+
+    function isDevelopmentSession(session) {
+        return /^(E2E|Guest E2E)\b/i.test(session?.title || '');
+    }
 
     function notifySuccess(message) {
         if (window.ARKHAM?.showSuccess) {
@@ -281,9 +286,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const response = await axios.get(`/api/schedules/sessions/my-sessions/?${params}`);
             const data = response.data;
-            const sessions = data.results || [];
+            const sessions = (data.results || []).filter(session => showTestData || !isDevelopmentSession(session));
 
-            countEl.textContent = `${data.count}件の参加予定セッション`;
+            countEl.textContent = `${sessions.length}件の参加予定セッション`;
 
             if (sessions.length === 0) {
                 container.innerHTML = `
@@ -297,7 +302,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             container.innerHTML = sessions.map(session => renderSessionCard(session, true)).join('');
-            updateMySessionsPagination(data.count, data.page_size, page);
+            updateMySessionsPagination(sessions.length, data.page_size, page);
 
         } catch (error) {
             console.error('Error loading my sessions:', error);
@@ -317,10 +322,11 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             const response = await axios.get(`/api/schedules/sessions/?${params}`);
-            const sessions = response.data.results || response.data;
+            const rawSessions = response.data.results || response.data || [];
+            const sessions = rawSessions.filter(session => showTestData || !isDevelopmentSession(session));
 
             if (countEl) {
-                countEl.textContent = `${response.data.count || sessions.length}件のセッション`;
+                countEl.textContent = `${sessions.length}件のセッション`;
             }
 
             if (sessions.length === 0) {
@@ -329,7 +335,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             container.innerHTML = sessions.map(session => renderSessionCard(session, false)).join('');
-            updatePagination(response.data.count || sessions.length, response.data.page_size || 10, page);
+            updatePagination(sessions.length, response.data.page_size || 10, page);
 
         } catch (error) {
             console.error('Error loading sessions:', error);
