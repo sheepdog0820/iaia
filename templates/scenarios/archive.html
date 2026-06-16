@@ -351,6 +351,35 @@ document.addEventListener('DOMContentLoaded', function() {
     const saveScenarioBtn = document.getElementById('saveScenarioBtn');
     const defaultScenarioTitle = addScenarioTitle ? addScenarioTitle.innerHTML : '';
     const defaultScenarioSaveLabel = saveScenarioBtn ? saveScenarioBtn.innerHTML : '';
+
+    function notifySuccess(message) {
+        if (window.ARKHAM?.showSuccess) {
+            window.ARKHAM.showSuccess(message);
+        } else {
+            console.log(message);
+        }
+    }
+
+    function notifyError(message) {
+        if (window.ARKHAM?.showError) {
+            window.ARKHAM.showError(message);
+        } else {
+            console.error(message);
+        }
+    }
+
+    async function confirmAction(message, options = {}) {
+        if (window.ARKHAM?.confirm) {
+            return window.ARKHAM.confirm(message, options);
+        }
+        notifyError('確認ダイアログを表示できませんでした。ページを再読み込みしてください。');
+        return false;
+    }
+
+    function getErrorMessage(error, fallback = '不明なエラー') {
+        return error.response?.data?.error || error.response?.data?.detail || error.message || fallback;
+    }
+
     const COC6TH_SKILLS = {
         dodge: '回避',
         martial_arts: 'マーシャルアーツ',
@@ -1064,11 +1093,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const files = Array.from(inputEl.files || []);
         if (files.length === 0) {
-            alert('アップロードする画像を選択してください');
+            notifyError('アップロードする画像を選択してください');
             return;
         }
         if (files.length > 10) {
-            alert('一度にアップロードできるのは最大10枚です');
+            notifyError('一度にアップロードできるのは最大10枚です');
             return;
         }
 
@@ -1076,7 +1105,7 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('scenario_id', String(scenarioId));
         for (const file of files) {
             if (!file?.type?.startsWith('image/')) {
-                alert(`画像以外のファイルが含まれています: ${file?.name || 'unknown'}`);
+                notifyError(`画像以外のファイルが含まれています: ${file?.name || 'unknown'}`);
                 return;
             }
             formData.append('images', file);
@@ -1087,11 +1116,11 @@ document.addEventListener('DOMContentLoaded', function() {
         uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>アップロード中...';
         try {
             await axios.post('/api/scenarios/scenario-images/bulk_upload/', formData);
-            alert('画像をアップロードしました');
+            notifySuccess('画像をアップロードしました');
             inputEl.value = '';
             await loadScenarioImages(scenarioId);
         } catch (error) {
-            alert('アップロードに失敗しました: ' + (error.response?.data?.error || error.response?.data?.detail || error.message));
+            notifyError('アップロードに失敗しました: ' + getErrorMessage(error));
         } finally {
             uploadBtn.disabled = false;
             uploadBtn.innerHTML = originalHtml;
@@ -1099,14 +1128,20 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     window.deleteScenarioImage = async function(imageId, scenarioId) {
-        if (!confirm('この画像を削除しますか？')) return;
+        const confirmed = await confirmAction('この画像を削除しますか？', {
+            title: '画像を削除',
+            confirmText: '削除する',
+            cancelText: 'キャンセル',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
 
         try {
             await axios.delete(`/api/scenarios/scenario-images/${encodeURIComponent(imageId)}/`);
-            alert('画像を削除しました');
+            notifySuccess('画像を削除しました');
             await loadScenarioImages(scenarioId);
         } catch (error) {
-            alert('削除に失敗しました: ' + (error.response?.data?.error || error.response?.data?.detail || error.message));
+            notifyError('削除に失敗しました: ' + getErrorMessage(error));
         }
     };
 
@@ -1280,7 +1315,7 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.show();
         } catch (error) {
             console.error('Error loading scenario details:', error);
-            alert('シナリオ詳細の読み込みに失敗しました');
+            notifyError('シナリオ詳細の読み込みに失敗しました');
         }
     };
 
@@ -1294,13 +1329,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 const response = await axios.get(`/api/scenarios/scenarios/${scenarioId}/`);
                 scenario = response.data;
             } catch (error) {
-                alert('シナリオ情報の取得に失敗しました。');
+                notifyError('シナリオ情報の取得に失敗しました。');
                 return;
             }
         }
 
         if (!scenario) {
-            alert('シナリオ情報の取得に失敗しました。');
+            notifyError('シナリオ情報の取得に失敗しました。');
             return;
         }
 
@@ -1322,7 +1357,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     window.openScenarioEditModal = async function(scenarioId) {
         if (!addScenarioModal) {
-            alert('編集フォームを開けませんでした。');
+            notifyError('編集フォームを開けませんでした。');
             return;
         }
         let scenario = null;
@@ -1333,7 +1368,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const response = await axios.get(`/api/scenarios/scenarios/${scenarioId}/`);
                 scenario = response.data;
             } catch (error) {
-                alert('シナリオ情報の取得に失敗しました。');
+                notifyError('シナリオ情報の取得に失敗しました。');
                 return;
             }
         }
@@ -1350,14 +1385,18 @@ document.addEventListener('DOMContentLoaded', function() {
     window.saveScenarioRecommendedSkills = async function(scenarioId) {
         const input = document.getElementById('scenarioRecommendedSkillsEdit');
         if (!input) {
-            alert('推奨技能の入力欄が見つかりませんでした。');
+            notifyError('推奨技能の入力欄が見つかりませんでした。');
             return;
         }
         const warningEl = document.getElementById('scenarioRecommendedSkillsEditWarning');
         const system = window.currentScenario?.game_system || '';
         const { normalized, unknown } = updateScenarioSkillFeedback(input, warningEl, system, { applyValue: true });
         if (system === 'coc' && unknown.length > 0) {
-            const proceed = confirm(`未対応技能: ${unknown.join(', ')}\nこのまま保存しますか？`);
+            const proceed = await confirmAction(`未対応技能: ${unknown.join(', ')}\nこのまま保存しますか？`, {
+                title: '未対応技能を含めて保存',
+                confirmText: '保存する',
+                cancelText: '見直す'
+            });
             if (!proceed) return;
         }
         const value = normalized.join(', ');
@@ -1374,16 +1413,16 @@ document.addEventListener('DOMContentLoaded', function() {
             if (window.currentScenario && window.currentScenario.id === scenarioId) {
                 window.currentScenario.recommended_skills = value;
             }
-            alert('推奨技能を更新しました。');
+            notifySuccess('推奨技能を更新しました。');
         } catch (error) {
-            alert('推奨技能の更新に失敗しました: ' + (error.response?.data?.detail || error.message));
+            notifyError('推奨技能の更新に失敗しました: ' + getErrorMessage(error));
         }
     };
 
     window.applyScenarioRecommendedSkills = function() {
         const scenario = window.currentScenario;
         if (!scenario) {
-            alert('シナリオ情報が取得できませんでした。');
+            notifyError('シナリオ情報が取得できませんでした。');
             return;
         }
         const skills = (scenario.recommended_skills || '').trim();
@@ -1418,7 +1457,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const systemValue = document.getElementById('scenarioSystem')?.value || '';
         const { normalized, unknown } = updateScenarioSkillFeedback(recommendedInput, warningEl, systemValue, { applyValue: true });
         if (systemValue === 'coc' && unknown.length > 0) {
-            const proceed = confirm(`未対応技能: ${unknown.join(', ')}\nこのまま保存しますか？`);
+            const proceed = await confirmAction(`未対応技能: ${unknown.join(', ')}\nこのまま保存しますか？`, {
+                title: '未対応技能を含めて保存',
+                confirmText: '保存する',
+                cancelText: '見直す'
+            });
             if (!proceed) return;
         }
         const recommendedSkillsValue = normalized.join(', ');
@@ -1447,7 +1490,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 response = await axios.post('/api/scenarios/scenarios/', data);
             }
 
-            alert(isEdit ? 'シナリオを更新しました！' : 'シナリオを登録しました！');
+            notifySuccess(isEdit ? 'シナリオを更新しました' : 'シナリオを登録しました');
             addScenarioModal?.hide();
             addScenarioForm.reset();
             loadScenarios();
@@ -1456,7 +1499,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) {
             const actionLabel = isEdit ? 'シナリオ更新' : 'シナリオ登録';
-            alert(`${actionLabel}に失敗しました: ` + (error.response?.data?.detail || error.message));
+            notifyError(`${actionLabel}に失敗しました: ` + getErrorMessage(error));
         }
     });
 
