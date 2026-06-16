@@ -103,6 +103,80 @@ const ARKHAM = {
     showError: function(message) {
         this.showAlert(message, 'danger');
     },
+
+    // 確認モーダル
+    confirm: function(message, options = {}) {
+        return new Promise(resolve => {
+            const title = options.title || '確認';
+            const confirmText = options.confirmText || '実行';
+            const cancelText = options.cancelText || 'キャンセル';
+            const confirmClass = options.confirmClass || 'btn-primary';
+            const modalId = `arkham-confirm-${Date.now()}`;
+            const modalWrapper = document.createElement('div');
+            const useBootstrapModal = !!(window.bootstrap && window.bootstrap.Modal);
+            modalWrapper.innerHTML = `
+                <div class="modal ${useBootstrapModal ? 'fade' : ''}" id="${modalId}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">${title}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="mb-0" data-confirm-message></p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">${cancelText}</button>
+                                <button type="button" class="btn ${confirmClass}" data-confirm-action>${confirmText}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const modalEl = modalWrapper.firstElementChild;
+            modalEl.querySelector('[data-confirm-message]').textContent = message;
+            document.body.appendChild(modalEl);
+            let modal = null;
+            let settled = false;
+
+            if (useBootstrapModal) {
+                modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            } else {
+                modalEl.classList.add('show');
+                modalEl.removeAttribute('aria-hidden');
+                modalEl.style.display = 'block';
+                document.body.classList.add('modal-open');
+                const backdrop = document.createElement('div');
+                backdrop.className = 'modal-backdrop fade show';
+                document.body.appendChild(backdrop);
+                modal = {
+                    hide: () => {
+                        modalEl.classList.remove('show');
+                        modalEl.style.display = 'none';
+                        backdrop.remove();
+                        document.body.classList.remove('modal-open');
+                        modalEl.dispatchEvent(new Event('hidden.bs.modal'));
+                    }
+                };
+                modalEl.querySelectorAll('[data-bs-dismiss="modal"]').forEach(button => {
+                    button.addEventListener('click', () => modal.hide());
+                });
+            }
+
+            modalEl.querySelector('[data-confirm-action]').addEventListener('click', () => {
+                settled = true;
+                modal.hide();
+                resolve(true);
+            });
+            modalEl.addEventListener('hidden.bs.modal', () => {
+                modalEl.remove();
+                if (!settled) resolve(false);
+            });
+
+            modal.show();
+        });
+    },
     
     // ローディング表示
     showLoading: function(element) {
@@ -135,6 +209,8 @@ const ARKHAM = {
         `;
     }
 };
+
+window.ARKHAM = ARKHAM;
 
 // ページ読み込み時の初期化
 document.addEventListener('DOMContentLoaded', function() {

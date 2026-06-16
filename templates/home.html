@@ -276,15 +276,19 @@ function loadUserGroups() {
     axios.get('/api/accounts/groups/')
         .then(response => {
             const container = document.getElementById('user-groups');
-            const groups = response.data.results || response.data || [];
+            const groupData = response.data.results || response.data || [];
+            const groups = Array.isArray(groupData) ? groupData : [];
+            const visibleGroups = groups
+                .filter(group => !/^(E2E|Guest E2E)\b/.test(group.name || ''))
+                .slice(0, 6);
             
-            if (!Array.isArray(groups) || groups.length === 0) {
+            if (!Array.isArray(groups) || visibleGroups.length === 0) {
                 container.innerHTML = '<p class="text-muted text-center">参加しているグループはありません</p>';
                 return;
             }
             
             let html = '<div class="row">';
-            groups.forEach(group => {
+            visibleGroups.forEach(group => {
                 const memberCount = group.member_count || group.members?.length || 0;
                 html += `
                     <div class="col-md-6 col-lg-4 mb-3">
@@ -299,6 +303,15 @@ function loadUserGroups() {
                 `;
             });
             html += '</div>';
+            if (groups.length > visibleGroups.length) {
+                html += `
+                    <div class="text-center mt-2">
+                        <a class="btn btn-outline-primary btn-sm" href="/accounts/groups/view/">
+                            <i class="fas fa-users"></i> すべてのグループを管理
+                        </a>
+                    </div>
+                `;
+            }
             container.innerHTML = html;
         })
         .catch(error => {

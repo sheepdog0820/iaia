@@ -379,33 +379,43 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // バージョン作成
-    function createVersion(characterId) {
-        if (confirm('このキャラクターの新しいバージョンを作成しますか？')) {
+    async function createVersion(characterId) {
+        const confirmed = await ARKHAM.confirm('このキャラクターの新しいバージョンを作成しますか？', {
+            title: '新バージョン作成',
+            confirmText: '作成',
+            confirmClass: 'btn-primary'
+        });
+        if (confirmed) {
             axios.post(`/api/accounts/character-sheets/${characterId}/create_version/`)
                 .then(response => {
-                    alert('新しいバージョンを作成しました。');
+                    ARKHAM.showSuccess('新しいバージョンを作成しました。');
                     loadCharacters();
                 })
                 .catch(error => {
                     console.error('バージョン作成に失敗しました:', error);
-                    alert('バージョン作成に失敗しました。');
+                    ARKHAM.showError('バージョン作成に失敗しました。');
                 });
         }
     }
 
-    function deleteCharacter(characterId, characterName) {
+    async function deleteCharacter(characterId, characterName) {
         const resolvedName = characterName || allCharacters.find(char => char.id === characterId)?.name;
         const name = resolvedName || `ID:${characterId}`;
-        if (!confirm(`「${name}」を削除しますか？\nこの操作は取り消せません。`)) return;
+        const confirmed = await ARKHAM.confirm(`「${name}」を削除しますか？この操作は取り消せません。`, {
+            title: 'キャラクター削除',
+            confirmText: '削除',
+            confirmClass: 'btn-danger'
+        });
+        if (!confirmed) return;
 
         axios.delete(`/api/accounts/character-sheets/${characterId}/`)
             .then(() => {
-                alert('削除しました。');
+                ARKHAM.showSuccess('削除しました。');
                 loadCharacters();
             })
             .catch(error => {
                 console.error('削除に失敗しました:', error);
-                alert('削除に失敗しました。');
+                ARKHAM.showError('削除に失敗しました。');
                 });
     }
 
@@ -438,9 +448,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const url = toAbsoluteUrl(path);
         try {
             await copyTextToClipboard(url);
-            alert('キャラクターURLをコピーしました');
+            ARKHAM.showSuccess('キャラクターURLをコピーしました。');
         } catch (error) {
-            alert('コピーに失敗しました。手動でコピーしてください: ' + url);
+            ARKHAM.showError('コピーに失敗しました。手動でコピーしてください: ' + url);
         }
     }
 
@@ -472,7 +482,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const age = ageEl ? ageEl.value : '20';
             const jsonText = (jsonEl ? jsonEl.value : '').trim();
             if (!jsonText) {
-                alert('CCFOLIA JSONを入力してください。');
+                ARKHAM.showError('CCFOLIA JSONを入力してください。');
                 return;
             }
 
@@ -480,7 +490,7 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 payload = JSON.parse(jsonText);
             } catch (error) {
-                alert('JSONの形式が正しくありません。');
+                ARKHAM.showError('JSONの形式が正しくありません。');
                 return;
             }
 
@@ -491,7 +501,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     age: age
                 });
 
-                alert('キャラクターをインポートしました。');
+                ARKHAM.showSuccess('キャラクターをインポートしました。');
                 if (jsonEl) jsonEl.value = '';
 
                 const modalEl = document.getElementById('ccfoliaImportModal');
@@ -502,7 +512,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (error) {
                 console.error('CCFOLIAインポートに失敗しました:', error);
                 const message = error.response?.data?.ccfolia || error.response?.data?.detail || error.message;
-                alert(`インポートに失敗しました: ${typeof message === 'string' ? message : '入力内容を確認してください'}`);
+                ARKHAM.showError(`インポートに失敗しました: ${typeof message === 'string' ? message : '入力内容を確認してください'}`);
             } finally {
                 if (submitBtn) submitBtn.disabled = false;
             }
