@@ -56,7 +56,7 @@ test.describe('handout flow', () => {
     const player2Page = await player2Context.newPage();
 
     try {
-      await devLogin(player1Page, 'investigator1', '/accounts/groups/view/');
+      await devLogin(player1Page, 'investigator1', '/accounts/groups/view/?show_test_data=1');
       await joinPublicGroup(player1Page, groupName, group.id);
 
       await player1Page.goto(`/api/schedules/sessions/${session.id}/detail/`);
@@ -109,7 +109,7 @@ test.describe('handout flow', () => {
       await player1Page.reload({ waitUntil: 'domcontentloaded' });
       await expect(player1Page.locator(`text=${handoutTitle}`)).toBeVisible({ timeout: 15000 });
 
-      await devLogin(player2Page, 'investigator2', '/accounts/groups/view/');
+      await devLogin(player2Page, 'investigator2', '/accounts/groups/view/?show_test_data=1');
       await joinPublicGroup(player2Page, groupName, group.id);
       await player2Page.goto(`/api/schedules/sessions/${session.id}/detail/`);
       await expect(player2Page.locator(`text=${handoutTitle}`)).toHaveCount(0);
@@ -119,4 +119,3 @@ test.describe('handout flow', () => {
     }
   });
 });
-

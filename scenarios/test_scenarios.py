@@ -311,7 +311,7 @@ class ScenarioArchivePremiumAccessTestCase(TestCase):
         self.client.login(username=self.user.username, password=self.password)
         response = self.client.get('/api/scenarios/archive/view/')
         self.assertEqual(response.status_code, 403)
-        self.assertContains(response, '課金ユーザ限定', status_code=403)
+        self.assertContains(response, '利用できない機能です', status_code=403)
 
     def test_archive_view_allows_premium(self):
         self.user.is_premium = True
