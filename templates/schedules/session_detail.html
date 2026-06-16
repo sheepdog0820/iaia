@@ -1872,6 +1872,37 @@ let sessionImageReorderSaving = false;
 let sessionImageDraggingItem = null;
 let sessionImageSaveQueued = false;
 
+function sessionNotifySuccess(message) {
+    if (window.ARKHAM?.showSuccess) {
+        window.ARKHAM.showSuccess(message);
+    } else {
+        console.log(message);
+    }
+}
+
+function sessionNotifyError(message) {
+    if (window.ARKHAM?.showError) {
+        window.ARKHAM.showError(message);
+    } else {
+        console.error(message);
+    }
+}
+
+async function sessionConfirm(message, options = {}) {
+    if (window.ARKHAM?.confirm) {
+        return window.ARKHAM.confirm(message, options);
+    }
+    sessionNotifyError('確認ダイアログを表示できませんでした。ページを再読み込みしてください。');
+    return false;
+}
+
+function getSessionErrorMessage(error, fallback = '不明なエラー') {
+    return error.response?.data?.content || error.response?.data?.detail ||
+        error.response?.data?.session || error.response?.data?.group ||
+        error.response?.data?.datetime || error.response?.data?.error ||
+        error.message || fallback;
+}
+
 const SESSION_EXISTING_MEMBER_IDS = new Set([
     {{ session.gm.id }},
     {% for participant in participants %}{% if participant.user %}{{ participant.user.id }},{% endif %}{% endfor %}
@@ -2145,7 +2176,7 @@ window.createDatePollForSession = async function() {
     }).filter(opt => opt.datetime);
 
     if (options.length === 0) {
-        alert('候補日を1つ以上入力してください');
+        sessionNotifyError('候補日を1つ以上入力してください');
         return;
     }
 
@@ -2161,8 +2192,9 @@ window.createDatePollForSession = async function() {
     try {
         await axios.post('/api/schedules/date-polls/', payload, { headers: { 'Content-Type': 'application/json' } });
         await loadDatePollSection();
+        sessionNotifySuccess('日程募集を作成しました');
     } catch (error) {
-        alert('日程募集の作成に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.session || error.response?.data?.group || error.message));
+        sessionNotifyError('日程募集の作成に失敗しました: ' + getSessionErrorMessage(error));
     }
 };
 
@@ -2170,14 +2202,15 @@ window.addDatePollOption = async function(pollId) {
     const datetime = document.getElementById('datePollAddDatetime')?.value;
     const note = document.getElementById('datePollAddNote')?.value || '';
     if (!datetime) {
-        alert('日時を入力してください');
+        sessionNotifyError('日時を入力してください');
         return;
     }
     try {
         await axios.post(`/api/schedules/date-polls/${encodeURIComponent(pollId)}/add_option/`, { datetime, note });
         await loadDatePollSection();
+        sessionNotifySuccess('候補日を追加しました');
     } catch (error) {
-        alert('候補日の追加に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.datetime || error.message));
+        sessionNotifyError('候補日の追加に失敗しました: ' + getSessionErrorMessage(error));
     }
 };
 
@@ -2190,13 +2223,18 @@ window.voteDatePollOption = async function(pollId, optionId, status) {
         );
         await loadDatePollSection();
     } catch (error) {
-        alert('投票に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.error || error.message));
+        sessionNotifyError('投票に失敗しました: ' + getSessionErrorMessage(error));
     }
 };
 
 window.confirmDatePollOption = async function(pollId, optionId) {
     if (!IS_GM) return;
-    if (!confirm('この候補日で確定しますか？')) return;
+    const confirmed = await sessionConfirm('この候補日で確定しますか？', {
+        title: '候補日を確定',
+        confirmText: '確定する',
+        cancelText: 'キャンセル'
+    });
+    if (!confirmed) return;
     try {
         await axios.post(
             `/api/schedules/date-polls/${encodeURIComponent(pollId)}/confirm/`,
@@ -2205,7 +2243,7 @@ window.confirmDatePollOption = async function(pollId, optionId) {
         );
         location.reload();
     } catch (error) {
-        alert('確定に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.error || error.message));
+        sessionNotifyError('確定に失敗しました: ' + getSessionErrorMessage(error));
     }
 };
 
