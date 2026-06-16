@@ -376,6 +376,30 @@ document.addEventListener('DOMContentLoaded', function() {
         return JSON.stringify(data);
     }
 
+    function notifySuccess(message) {
+        if (window.ARKHAM?.showSuccess) {
+            window.ARKHAM.showSuccess(message);
+        } else {
+            console.log(message);
+        }
+    }
+
+    function notifyError(message) {
+        if (window.ARKHAM?.showError) {
+            window.ARKHAM.showError(message);
+        } else {
+            console.error(message);
+        }
+    }
+
+    async function confirmAction(message, options = {}) {
+        if (window.ARKHAM?.confirm) {
+            return window.ARKHAM.confirm(message, options);
+        }
+        notifyError('確認ダイアログを表示できませんでした。ページを再読み込みしてください。');
+        return false;
+    }
+
     function readLocalStorage(key) {
         try {
             return localStorage.getItem(key);
@@ -510,15 +534,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 const templateId = Number.parseInt(templateIdInput.value, 10);
                 if (!templateId || !imageId) return;
 
-                if (!confirm('この画像をテンプレートから削除しますか？')) return;
+                const confirmed = await confirmAction('この画像をテンプレートから削除しますか？', {
+                    title: '画像を削除',
+                    confirmText: '削除する',
+                    cancelText: 'キャンセル',
+                    variant: 'danger'
+                });
+                if (!confirmed) return;
 
                 try {
                     await axios.delete(`/api/schedules/session-templates/${templateId}/images/${imageId}/`);
                     existingTemplateImages = existingTemplateImages.filter(image => image.id !== imageId);
                     renderTemplateImages();
                     await loadTemplates();
+                    notifySuccess('画像を削除しました');
                 } catch (error) {
-                    alert('画像の削除に失敗しました: ' + getErrorMessage(error));
+                    notifyError('画像の削除に失敗しました: ' + getErrorMessage(error));
                 }
             });
         });
@@ -766,12 +797,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
 
-                if (!confirm(`テンプレート「${template.name}」を削除しますか？`)) return;
+                const confirmed = await confirmAction(`テンプレート「${template.name}」を削除しますか？`, {
+                    title: 'テンプレートを削除',
+                    confirmText: '削除する',
+                    cancelText: 'キャンセル',
+                    variant: 'danger'
+                });
+                if (!confirmed) return;
                 try {
                     await axios.delete(`/api/schedules/session-templates/${id}/`);
                     await loadTemplates();
+                    notifySuccess('テンプレートを削除しました');
                 } catch (error) {
-                    alert('削除に失敗しました: ' + getErrorMessage(error));
+                    notifyError('削除に失敗しました: ' + getErrorMessage(error));
                 }
             });
         });
@@ -837,7 +875,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const durationMinutes = parseHhmm(templateDurationInput.value);
         if (durationMinutes === null) {
-            alert('予定時間は hhmm 形式で入力してください。分は 00〜59 の範囲です。');
+            notifyError('予定時間は hhmm 形式で入力してください。分は 00〜59 の範囲です。');
             templateDurationInput.focus();
             return;
         }
@@ -879,7 +917,7 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.hide();
             await loadTemplates();
         } catch (error) {
-            alert('保存に失敗しました: ' + getErrorMessage(error));
+            notifyError('保存に失敗しました: ' + getErrorMessage(error));
         } finally {
             saveBtn.disabled = false;
         }
