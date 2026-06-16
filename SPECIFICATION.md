@@ -969,7 +969,7 @@ tableno/
 
 ## 7. 未実装・部分実装機能
 
-### 7.1 キャラクターシート機能【6版: ✅ 完成 / 7版: 🔄 一部実装・保留】
+### 7.1 キャラクターシート機能【6版: ✅ 完成 / 7版: ✅ 正式サポート】
 
 - **基本キャラクターシート機能**【✅ 実装済み】
   - CharacterSheet, CharacterSkill, CharacterEquipmentモデル実装
@@ -986,12 +986,12 @@ tableno/
   - コマンド文字列生成（技能ロール、正気度ロール、基本判定）
   - 一括エクスポート機能
   - 同期機能（sync_to_ccfolia）
-- **7版キャラクターシート**【🔄 基本機能実装済み・正式開発保留】
-  - 作成画面、作成API、基本保存、技能・装備登録、7版式のHP/MP/SAN計算は実装済み
-  - 正式な仕様完成、6版同等の網羅性、品質保証、追加機能の開発は保留
+- **7版キャラクターシート**【✅ 正式サポート】
+  - 作成画面、作成API、基本保存、技能・装備登録、7版式のHP/MP/SAN/幸運/移動率/ビルド/ダメージボーナス計算を正式仕様として提供
+  - 6版と共通のCharacterSheet/CharacterSkill/CharacterEquipmentを利用し、版別ルールは7版仕様書に分離
 - **詳細仕様書**
   - `CHARACTER_SHEET_COC6TH.md` - 6版仕様（完全版）
-  - `CHARACTER_SHEET_7TH_DEVELOPMENT_HOLD.md` - 7版開発保留
+  - `docs/character_sheet/CHARACTER_SHEET_7TH_EDITION_SPECIFICATION.md` - 7版仕様（正式版）
 
 ### 7.2 グループ機能の拡張
 

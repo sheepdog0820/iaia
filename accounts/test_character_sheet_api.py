@@ -199,13 +199,86 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['edition'], '7th')
         self.assertEqual(response.data['name'], 'テスト探索者7版')
+        self.assertEqual(response.data['character_7th']['damage_bonus'], "+0")
+        self.assertEqual(response.data['character_7th']['build'], 0)
+        self.assertEqual(response.data['character_7th']['move_rate'], 9)
+        self.assertEqual(response.data['character_7th']['dodge'], 42)
+        self.assertIsNone(response.data['character_6th'])
 
         character = CharacterSheet.objects.get(id=response.data['id'])
         self.assertEqual(character.edition, '7th')
         self.assertEqual(character.hit_points_max, (character.con_value + character.siz_value) // 10)
         self.assertEqual(character.magic_points_max, character.pow_value // 5)
         self.assertEqual(character.sanity_starting, character.pow_value)
+        self.assertEqual(character.calculate_occupation_points(), character.edu_value * 4)
+        self.assertEqual(character.calculate_hobby_points(), character.int_value * 2)
+        self.assertEqual(character.calculate_damage_bonus_7th(), "+0")
+        self.assertEqual(character.calculate_build_7th(), 0)
+        self.assertEqual(character.calculate_move_rate_7th(), 9)
         self.assertFalse(CharacterSheet6th.objects.filter(character_sheet=character).exists())
+
+    def test_7th_edition_boundary_derived_stats_are_official_percentile_values(self):
+        """7版派生値はパーセンテージ能力値をそのまま扱う"""
+        character = CharacterSheet.objects.create(
+            user=self.user,
+            edition='7th',
+            name='7th Boundary',
+            age=25,
+            str_value=40,
+            con_value=45,
+            pow_value=55,
+            dex_value=70,
+            app_value=50,
+            siz_value=75,
+            int_value=65,
+            edu_value=80,
+        )
+
+        self.assertEqual(character.hit_points_max, 12)
+        self.assertEqual(character.magic_points_max, 11)
+        self.assertEqual(character.sanity_starting, 55)
+        self.assertEqual(character.sanity_max, 99)
+        self.assertEqual(character.calculate_damage_bonus_7th(), "+0")
+        self.assertEqual(character.calculate_build_7th(), 0)
+        self.assertEqual(character.calculate_move_rate_7th(), 7)
+        self.assertEqual(character.get_7th_skill_base_value('回避'), 35)
+        self.assertEqual(character.get_7th_skill_base_value('母国語'), 80)
+
+    def test_create_7th_edition_character_with_skills_uses_7th_point_rules(self):
+        """7版APIは技能を保存し、職業/趣味ポイントを7版基準で計算できる"""
+        data = dict(self.character_data_7th)
+        data["skills"] = [
+            {
+                "skill_name": "回避",
+                "base_value": 42,
+                "occupation_points": 20,
+                "interest_points": 3,
+                "other_points": 0,
+                "current_value": 65,
+            },
+            {
+                "skill_name": "母国語",
+                "base_value": 85,
+                "occupation_points": 0,
+                "interest_points": 0,
+                "other_points": 0,
+                "current_value": 85,
+            },
+        ]
+
+        response = self.client.post(
+            "/api/accounts/character-sheets/create_7th_edition/",
+            data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        character = CharacterSheet.objects.get(id=response.data["id"])
+        self.assertEqual(character.skills.count(), 2)
+        self.assertEqual(character.calculate_occupation_points(), 340)
+        self.assertEqual(character.calculate_hobby_points(), 180)
+        self.assertEqual(character.calculate_used_occupation_points(), 20)
+        self.assertEqual(character.calculate_used_hobby_points(), 3)
     
     def test_create_7th_edition_character_with_equipment(self):
         """7版作成APIで武器・防具・アイテムを同時登録できる"""

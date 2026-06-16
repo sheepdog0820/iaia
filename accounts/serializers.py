@@ -246,6 +246,8 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
     
     # 版別データ
     sixth_edition_data = CharacterSheet6thSerializer(read_only=True)
+    character_6th = serializers.SerializerMethodField()
+    character_7th = serializers.SerializerMethodField()
     
     # 計算済みフィールド
     abilities = serializers.ReadOnlyField()
@@ -278,14 +280,47 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             'hp_current', 'mp_current', 'san_current',  # エイリアス追加
             'version', 'parent_sheet', 'parent_sheet_name',
             'notes', 'is_active', 'is_public', 'status', 'created_at', 'updated_at',
-            'skills', 'equipment', 'sixth_edition_data',
+            'skills', 'equipment', 'sixth_edition_data', 'character_6th', 'character_7th',
             'abilities', 'versions', 'user_nickname'
         ]
         read_only_fields = [
             'id', 'user', 'hit_points_max', 'magic_points_max', 'sanity_starting',
             'sanity_max', 'created_at', 'updated_at', 'abilities', 'versions',
-            'user_nickname'
+            'user_nickname', 'character_6th', 'character_7th'
         ]
+
+    def get_character_6th(self, obj):
+        """詳細画面互換用の6版固有データ"""
+        if obj.edition != '6th':
+            return None
+        try:
+            return CharacterSheet6thSerializer(obj.sixth_edition_data).data
+        except CharacterSheet6th.DoesNotExist:
+            return None
+
+    def get_character_7th(self, obj):
+        """7版固有の計算済みデータ"""
+        if obj.edition != '7th':
+            return None
+
+        return {
+            'damage_bonus': obj.calculate_damage_bonus_7th(),
+            'build': obj.calculate_build_7th(),
+            'move_rate': obj.calculate_move_rate_7th(),
+            'dodge': obj.get_7th_skill_base_value('回避'),
+            'max_luck': obj.pow_value,
+            'current_luck': obj.pow_value,
+            'occupation_points': obj.calculate_occupation_points(),
+            'interest_points': obj.calculate_hobby_points(),
+            'personal_description': '',
+            'ideology_beliefs': '',
+            'significant_people': '',
+            'meaningful_locations': '',
+            'treasured_possessions': '',
+            'traits': '',
+            'injuries_scars': '',
+            'phobias_manias': '',
+        }
     
     def get_versions(self, obj):
         """このキャラクターのバージョン一覧を返す"""

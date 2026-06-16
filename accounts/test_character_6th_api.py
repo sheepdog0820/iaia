@@ -291,6 +291,65 @@ class Character6thAPITestCase(APITestCase):
         self.assertIn('CCB<=70 【母国語】', exported_commands)
         self.assertIn('CCB<=0 【クトゥルフ神話】', exported_commands)
     
+    def test_ccfolia_import_api_endpoint_accepts_7th_edition(self):
+        url = reverse('character-sheet-import-ccfolia-json')
+
+        ccfolia_payload = {
+            "kind": "character",
+            "sourceVersion": "7th",
+            "skills": [
+                {"name": "Spot Hidden", "value": 55},
+                {"name": "Library Use", "value": 40},
+            ],
+            "data": {
+                "name": "7th Import Test",
+                "initiative": 60,
+                "externalUrl": "https://iachara.com/view/70000001",
+                "iconUrl": "https://image.iaproject.app/example-7th",
+                "commands": "",
+                "status": [
+                    {"label": "HP", "value": 11, "max": 11},
+                    {"label": "MP", "value": 11, "max": 11},
+                    {"label": "SAN", "value": 55, "max": 55},
+                ],
+                "params": [
+                    {"label": "STR", "value": "50"},
+                    {"label": "CON", "value": "55"},
+                    {"label": "POW", "value": "55"},
+                    {"label": "DEX", "value": "60"},
+                    {"label": "APP", "value": "45"},
+                    {"label": "SIZ", "value": "55"},
+                    {"label": "INT", "value": "70"},
+                    {"label": "EDU", "value": "80"},
+                ],
+            }
+        }
+
+        response = self.client.post(
+            url,
+            {"ccfolia": ccfolia_payload, "age": 22},
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        imported = CharacterSheet.objects.get(id=response.data['id'])
+        self.assertEqual(imported.name, "7th Import Test")
+        self.assertEqual(imported.edition, '7th')
+        self.assertEqual(imported.age, 22)
+        self.assertEqual(imported.str_value, 50)
+        self.assertEqual(imported.pow_value, 55)
+        self.assertEqual(imported.hit_points_current, 11)
+        self.assertEqual(imported.hit_points_max, 11)
+        self.assertEqual(imported.magic_points_current, 11)
+        self.assertEqual(imported.magic_points_max, 11)
+        self.assertEqual(imported.sanity_current, 55)
+        self.assertEqual(imported.sanity_starting, 55)
+        self.assertEqual(imported.sanity_max, 99)
+        self.assertFalse(CharacterSheet6th.objects.filter(character_sheet=imported).exists())
+        self.assertTrue(imported.skills.filter(skill_name='Spot Hidden').exists())
+        self.assertTrue(imported.skills.filter(skill_name='Library Use').exists())
+
     def test_api_authentication_required(self):
         """API認証必須テスト"""
         self.client.logout()

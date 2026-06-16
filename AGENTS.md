@@ -94,7 +94,7 @@ tests/
 
 ### キャラクターシート機能
 - **対応システム**: クトゥルフ神話TRPG 6版・7版のみ
-- **7版開発**: 現在保留中（6版完成後に開発開始）
+- **7版開発**: 正式サポート対象（`docs/character_sheet/CHARACTER_SHEET_7TH_EDITION_SPECIFICATION.md` を参照）
 - 他のTRPGシステムには対応しません
 
 詳細は [キャラクターシートガイドライン](docs/guidelines/CHARACTER_SHEET_GUIDELINES.md) を参照してください。

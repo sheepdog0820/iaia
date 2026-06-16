@@ -492,13 +492,109 @@ class CharacterSheet(models.Model):
     # 技能ポイント管理メソッド
     def calculate_occupation_points(self):
         """職業技能ポイントを計算"""
+        if self.edition == '7th':
+            return self.edu_value * 4
         if hasattr(self, 'occupation_multiplier') and self.occupation_multiplier:
             return self.edu_value * self.occupation_multiplier
         return self.edu_value * 20  # デフォルトはEDU×20
     
     def calculate_hobby_points(self):
         """趣味技能ポイントを計算"""
+        if self.edition == '7th':
+            return self.int_value * 2
         return self.int_value * 10  # INT×10
+
+    def calculate_damage_bonus_7th(self):
+        """7版ダメージボーナスを計算"""
+        total = self.str_value + self.siz_value
+
+        if total <= 64:
+            return "-2"
+        if total <= 84:
+            return "-1"
+        if total <= 124:
+            return "+0"
+        if total <= 164:
+            return "+1D4"
+        if total <= 204:
+            return "+1D6"
+        if total <= 284:
+            return "+2D6"
+        if total <= 364:
+            return "+3D6"
+        if total <= 444:
+            return "+4D6"
+        return "+5D6"
+
+    def calculate_build_7th(self):
+        """7版ビルドをダメージボーナス表に合わせて計算"""
+        total = self.str_value + self.siz_value
+
+        if total <= 64:
+            return -2
+        if total <= 84:
+            return -1
+        if total <= 124:
+            return 0
+        if total <= 164:
+            return 1
+        if total <= 204:
+            return 2
+        if total <= 284:
+            return 3
+        if total <= 364:
+            return 4
+        if total <= 444:
+            return 5
+        return 6
+
+    def calculate_move_rate_7th(self):
+        """7版移動率をSTR/DEX/SIZと年齢から計算"""
+        if self.str_value < self.siz_value and self.dex_value < self.siz_value:
+            move = 7
+        elif self.str_value > self.siz_value and self.dex_value > self.siz_value:
+            move = 9
+        else:
+            move = 8
+
+        age = self.age or 0
+        if age >= 80:
+            move -= 5
+        elif age >= 70:
+            move -= 4
+        elif age >= 60:
+            move -= 3
+        elif age >= 50:
+            move -= 2
+        elif age >= 40:
+            move -= 1
+
+        return max(1, move)
+
+    def get_7th_skill_base_value(self, skill_name):
+        """7版の代表的な技能初期値を返す"""
+        if skill_name == '回避':
+            return self.dex_value // 2
+        if skill_name == '母国語':
+            return self.edu_value
+
+        base_values = {
+            '信用': 0,
+            '目星': 25,
+            '聞き耳': 20,
+            '図書館': 20,
+            '応急手当': 30,
+            '心理学': 10,
+            '説得': 10,
+            '魅惑': 15,
+            '威圧': 15,
+            '言いくるめ': 5,
+            '拳銃': 20,
+            '投擲': 20,
+            '近接戦闘': 25,
+            'クトゥルフ神話': 0,
+        }
+        return base_values.get(skill_name, 1)
     
     def calculate_used_occupation_points(self):
         """使用済み職業技能ポイントを計算"""

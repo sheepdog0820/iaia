@@ -13,6 +13,14 @@
 
 これが現在の正式な仕様書です。すべての6版キャラクターシート機能の開発・保守はこの仕様書に従ってください。
 
+### 📋 CHARACTER_SHEET_7TH_EDITION_SPECIFICATION.md
+**クトゥルフ神話TRPG 7版 キャラクターシート仕様書**
+- バージョン: 1.0.0
+- 最終更新: 2026年6月17日
+- ステータス: 正式サポート
+
+7版キャラクターシート機能の開発・保守はこの仕様書に従ってください。
+
 ### 主な内容
 - 画面構成（一覧、作成、詳細画面）
 - 機能詳細（ダイスロール、ステータス計算、技能管理等）
@@ -49,9 +57,8 @@
 ### 技術仕様
 - `CHARACTER_SHEET_TECHNICAL_SPEC.md` - 技術的な実装詳細
 
-### 7版関連（開発保留中）
-- `CHARACTER_SHEET_7TH_EDITION.md` - 7版仕様書（保留中）
-- `CHARACTER_SHEET_7TH_DEVELOPMENT_HOLD.md` - 7版開発保留通知
+### 7版関連
+- `CHARACTER_SHEET_7TH_EDITION_SPECIFICATION.md` - 7版正式仕様書
 
 ## 注意事項
 

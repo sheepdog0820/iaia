@@ -21,16 +21,16 @@
 - **実装拒否**: 「申し訳ございませんが、キャラクターシート機能はクトゥルフ神話TRPG専用です」と回答
 
 ### クトゥルフ神話TRPG 7版の開発について
-**重要**: 7版の開発は現在保留中です。
-- **6版の完成を最優先**: 6版の全機能が完成するまで7版の開発は行いません
-- **保留通知**: `CHARACTER_SHEET_7TH_DEVELOPMENT_HOLD.md` を参照
-- **7版機能要求への対応**: 「現在7版の開発は保留中です。6版の完成後に開発を開始します」と回答
+**重要**: 7版は正式サポート対象です。
+- **正式仕様**: `docs/character_sheet/CHARACTER_SHEET_7TH_EDITION_SPECIFICATION.md` を参照
+- **6版互換性**: 7版修正時も6版の既存挙動を変更しない
+- **版別テスト**: 7版の能力値、派生値、技能ポイント、APIレスポンスを必ずテストする
 
 ### 許可される作業範囲
 - クトゥルフ神話TRPG 6版のキャラクターシート機能の改善・修正
 - 6版のキャラクターシート関連のバグ修正
 - プレイ履歴・統計機能の改善（クトゥルフ以外のシステムも対象）
-- **7版は保留**: 6版完成まで7版の新規開発は行わない（クリティカルなバグ修正のみ許可）
+- クトゥルフ神話TRPG 7版のキャラクターシート機能の改善・修正
 
 ## 📋 正式な仕様書
 
@@ -38,6 +38,7 @@
 ```
 docs/character_sheet/
 ├── CHARACTER_SHEET_6TH_EDITION_SPECIFICATION.md  # ✅ 6版完全仕様書（正式版）
+├── CHARACTER_SHEET_7TH_EDITION_SPECIFICATION.md  # ✅ 7版仕様書（正式版）
 ├── README.md                                     # 仕様書の説明
 └── archive/                                      # 過去バージョン（参照のみ）
 ```
@@ -51,7 +52,7 @@ docs/character_sheet/
   - タブ切り替えとフィルタリング機能の実装仕様
   - 3列レイアウトとレスポンシブデザインの詳細
 
-**重要**: 6版キャラクターシート開発は上記の仕様書を参照してください。
+**重要**: キャラクターシート開発は該当版の正式仕様書を参照してください。
 
 ## 実装ファイル
 
@@ -66,8 +67,7 @@ static/js/character_sheet_6th_optimized.js        # 最適化版
 ```
 CHARACTER_SHEET_SPECIFICATION.md                  # 共通仕様
 CHARACTER_SHEET_TECHNICAL_SPEC.md                 # 技術仕様
-CHARACTER_SHEET_7TH_EDITION.md                    # 7版仕様書（開発保留）
-CHARACTER_SHEET_7TH_DEVELOPMENT_HOLD.md           # 7版保留通知
+docs/character_sheet/CHARACTER_SHEET_7TH_EDITION_SPECIFICATION.md  # 7版正式仕様書
 ```
 
 **注意**: これらのファイルはすべてクトゥルフ神話TRPG 6版・7版の仕様に基づいています。
@@ -78,7 +78,7 @@ CHARACTER_SHEET_7TH_DEVELOPMENT_HOLD.md           # 7版保留通知
 ### クトゥルフ神話TRPG専用開発プロセス
 1. **📋 仕様確認**: 該当版の仕様書を必ず確認
    - 6版: `CHARACTER_SHEET_6TH_EDITION.md`
-   - 7版: `CHARACTER_SHEET_7TH_EDITION.md`
+   - 7版: `docs/character_sheet/CHARACTER_SHEET_7TH_EDITION_SPECIFICATION.md`
 
 2. **🔴 ルール準拠テスト**: 版別ルールのテストを作成
    - 能力値範囲テスト

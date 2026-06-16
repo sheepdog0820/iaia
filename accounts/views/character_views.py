@@ -358,6 +358,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         notes = '\n'.join(import_notes)
 
         name = parsed['name']
+        edition = self._parse_import_edition(request.data, ccfolia_payload)
         abilities = parsed['abilities']
         status_values = parsed.get('status') or {}
         skill_totals = parsed.get('skills') or {}
@@ -369,9 +370,14 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         san_value = status_values.get('SAN', {}).get('value')
         san_start = status_values.get('SAN', {}).get('max')
 
-        computed_hp_max = math.ceil((abilities['CON'] + abilities['SIZ']) / 2)
-        computed_mp_max = abilities['POW']
-        computed_san_start = abilities['POW'] * 5
+        if edition == '7th':
+            computed_hp_max = (abilities['CON'] + abilities['SIZ']) // 10
+            computed_mp_max = abilities['POW'] // 5
+            computed_san_start = abilities['POW']
+        else:
+            computed_hp_max = math.ceil((abilities['CON'] + abilities['SIZ']) / 2)
+            computed_mp_max = abilities['POW']
+            computed_san_start = abilities['POW'] * 5
 
         hit_points_max = int(hp_max) if hp_max is not None else computed_hp_max
         hit_points_current = int(hp_value) if hp_value is not None else hit_points_max
@@ -383,7 +389,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         mythos = int(skill_totals.get('クトゥルフ神話', 0) or 0)
         sanity_max = max(0, 99 - mythos)
 
-        existing_chars = CharacterSheet.objects.filter(user=user, name=name)
+        existing_chars = CharacterSheet.objects.filter(user=user, name=name, edition=edition)
         if existing_chars.exists():
             latest_version = existing_chars.order_by('-version').first().version
             version = latest_version + 1
@@ -395,7 +401,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         with transaction.atomic():
             character_sheet = CharacterSheet.objects.create(
                 user=user,
-                edition='6th',
+                edition=edition,
                 name=name,
                 player_name='',
                 age=age,
@@ -424,10 +430,11 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 parent_sheet=parent_sheet,
             )
 
-            CharacterSheet6th.objects.create(
-                character_sheet=character_sheet,
-                mental_disorder=''
-            )
+            if edition == '6th':
+                CharacterSheet6th.objects.create(
+                    character_sheet=character_sheet,
+                    mental_disorder=''
+                )
 
             for skill_name, total_value in skill_totals.items():
                 if not skill_name:
@@ -470,7 +477,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         if payload is None and isinstance(request_data, Mapping) and 'ccfolia_json' in request_data:
             payload = request_data.get('ccfolia_json')
         if payload is None and isinstance(request_data, Mapping) and 'kind' in request_data and 'data' in request_data:
-            payload = {'kind': request_data.get('kind'), 'data': request_data.get('data')}
+            payload = {key: request_data.get(key) for key in request_data.keys()}
 
         if payload is None:
             raise DRFValidationError({'ccfolia': 'ccfolia is required'})
@@ -485,6 +492,52 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             raise DRFValidationError({'ccfolia': 'ccfolia must be an object'})
 
         return payload
+
+    @staticmethod
+    def _parse_import_edition(request_data, payload):
+        candidates = []
+        if isinstance(request_data, Mapping):
+            candidates.extend([
+                request_data.get('edition'),
+                request_data.get('sourceVersion'),
+                request_data.get('source_version'),
+                request_data.get('gameSystem'),
+            ])
+        if isinstance(payload, Mapping):
+            candidates.extend([
+                payload.get('edition'),
+                payload.get('sourceVersion'),
+                payload.get('source_version'),
+                payload.get('gameSystem'),
+            ])
+            data = payload.get('data')
+            if isinstance(data, Mapping):
+                candidates.extend([
+                    data.get('edition'),
+                    data.get('sourceVersion'),
+                    data.get('source_version'),
+                    data.get('gameSystem'),
+                ])
+
+        for candidate in candidates:
+            normalized = CharacterSheetViewSet._normalize_edition_value(candidate)
+            if normalized:
+                return normalized
+        return '6th'
+
+    @staticmethod
+    def _normalize_edition_value(value):
+        if value is None:
+            return None
+        text = str(value).strip().lower()
+        if not text:
+            return None
+        text = text.replace('_', '').replace('-', '').replace(' ', '')
+        if text in {'7', '7th', 'coc7', 'coc7th'} or '7版' in text:
+            return '7th'
+        if text in {'6', '6th', 'coc6', 'coc6th'} or '6版' in text:
+            return '6th'
+        return None
 
     @staticmethod
     def _parse_ccfolia_character(payload):
