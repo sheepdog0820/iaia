@@ -202,6 +202,7 @@ node_modules/.package-lock.json
 
 # Terraform provider cache and local state
 **/.terraform/*
+*.tfvars
 *.tfstate
 *.tfstate.*
 *.tfplan

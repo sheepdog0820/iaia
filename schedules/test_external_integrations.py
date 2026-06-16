@@ -3,11 +3,13 @@ from unittest.mock import Mock, patch
 
 from allauth.socialaccount.models import SocialAccount, SocialToken
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import CharacterSheet, Group
+from schedules.google_tokens import get_google_access_token
 from schedules.models import (
     AsyncJob,
     CalendarSubscription,
@@ -176,6 +178,31 @@ class GoogleIntegrationTestCase(APITestCase):
         job.refresh_from_db()
         self.assertEqual(sync.external_event_id, 'google-event-1')
         self.assertEqual(job.status, AsyncJob.Status.SUCCEEDED)
+
+    @override_settings(
+        GOOGLE_OAUTH_CLIENT_ID='client-id',
+        GOOGLE_OAUTH_CLIENT_SECRET='client-secret',
+    )
+    @patch('schedules.google_tokens.Credentials')
+    def test_expired_google_token_is_refreshed_before_api_use(self, credentials_class):
+        self.connect_google()
+        social_token = SocialToken.objects.get(account__user=self.user)
+        social_token.expires_at = timezone.now() - timedelta(minutes=1)
+        social_token.token_secret = 'refresh-token'
+        social_token.save(update_fields=['expires_at', 'token_secret'])
+
+        credentials = credentials_class.return_value
+        credentials.token = 'new-access-token'
+        credentials.refresh_token = 'new-refresh-token'
+        credentials.expiry = timezone.now() + timedelta(hours=1)
+
+        access_token = get_google_access_token(self.user)
+
+        self.assertEqual(access_token, 'new-access-token')
+        credentials.refresh.assert_called_once()
+        social_token.refresh_from_db()
+        self.assertEqual(social_token.token, 'new-access-token')
+        self.assertEqual(social_token.token_secret, 'new-refresh-token')
 
     def test_sheets_preview_and_import_use_fixed_columns(self):
         self.connect_google()

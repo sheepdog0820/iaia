@@ -68,6 +68,33 @@ variable "desired_count" {
   default = 1
 }
 
+variable "worker_desired_count" {
+  type    = number
+  default = 1
+}
+
+variable "beat_desired_count" {
+  type    = number
+  default = 1
+}
+
+variable "site_id" {
+  type    = number
+  default = 1
+}
+
+variable "allowed_hosts_override" {
+  description = "Optional explicit ALLOWED_HOSTS value. Leave empty to use domain_name."
+  type        = string
+  default     = ""
+}
+
+variable "secure_ssl_redirect" {
+  description = "Whether Django should redirect HTTP to HTTPS. Keep true behind ALB with X-Forwarded-Proto."
+  type        = bool
+  default     = true
+}
+
 variable "enable_deletion_protection" {
   type    = bool
   default = true

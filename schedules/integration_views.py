@@ -15,6 +15,7 @@ from rest_framework.views import APIView
 
 from accounts.models import CharacterSheet
 
+from .google_tokens import get_google_access_token
 from .models import (
     AsyncJob,
     CalendarSubscription,
@@ -215,18 +216,8 @@ class GoogleCalendarSyncView(APIView):
         }, status=status.HTTP_202_ACCEPTED)
 
 
-def _google_access_token(user):
-    token = SocialToken.objects.filter(
-        account__user=user,
-        account__provider='google',
-    ).order_by('-id').first()
-    return token.token if token else None
-
-
 def _read_sheet_rows(user, spreadsheet_id, range_name):
-    token = _google_access_token(user)
-    if not token:
-        raise ValueError('Google access token is unavailable.')
+    token = get_google_access_token(user)
     response = requests.get(
         f'https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}/values/{range_name}',
         headers={'Authorization': f'Bearer {token}'},

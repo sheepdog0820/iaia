@@ -5,11 +5,11 @@ import requests
 import logging
 import socket
 from django.conf import settings
-from allauth.socialaccount.models import SocialToken
 from urllib.parse import urlparse
 
 from accounts.models import DiscordDelivery, GroupDiscordSettings
 
+from .google_tokens import get_google_access_token
 from .handout_release import evaluate_release_conditions, publish_handout
 from .models import (
     AsyncJob,
@@ -216,12 +216,10 @@ def sync_google_calendar(self, sync_id, job_id):
     sync = GoogleCalendarSync.objects.select_related('session', 'user').get(pk=sync_id)
     job = AsyncJob.objects.get(pk=job_id)
     job.mark_running(10)
-    token = SocialToken.objects.filter(
-        account__user=sync.user,
-        account__provider='google',
-    ).order_by('-id').first()
-    if not token:
-        error = 'Google access token is unavailable.'
+    try:
+        access_token = get_google_access_token(sync.user)
+    except ValueError as exc:
+        error = str(exc)
         sync.status = GoogleCalendarSync.Status.FAILED
         sync.last_error = error
         sync.save(update_fields=['status', 'last_error', 'updated_at'])
@@ -236,7 +234,7 @@ def sync_google_calendar(self, sync_id, job_id):
         return 'undated'
 
     headers = {
-        'Authorization': f'Bearer {token.token}',
+        'Authorization': f'Bearer {access_token}',
         'Content-Type': 'application/json',
     }
     base_url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events'
@@ -306,19 +304,17 @@ def export_google_sheet(
 ):
     job = AsyncJob.objects.get(pk=job_id, owner_id=user_id)
     job.mark_running(10)
-    token = SocialToken.objects.filter(
-        account__user_id=user_id,
-        account__provider='google',
-    ).order_by('-id').first()
-    if not token:
-        job.mark_failed('Google access token is unavailable.')
+    try:
+        access_token = get_google_access_token(job.owner)
+    except ValueError as exc:
+        job.mark_failed(exc)
         return 'missing-token'
     try:
         response = requests.put(
             f'https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}/values/{range_name}',
             params={'valueInputOption': 'RAW'},
             headers={
-                'Authorization': f'Bearer {token.token}',
+                'Authorization': f'Bearer {access_token}',
                 'Content-Type': 'application/json',
             },
             json={'majorDimension': 'ROWS', 'values': values},

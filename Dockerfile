@@ -9,7 +9,9 @@ WORKDIR /app
 # システムパッケージ更新とPostgreSQL関連ライブラリのインストール
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    default-libmysqlclient-dev \
     libpq-dev \
+    pkg-config \
     curl \
     && rm -rf /var/lib/apt/lists/*
 

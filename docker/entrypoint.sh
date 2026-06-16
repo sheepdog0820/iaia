@@ -7,6 +7,10 @@ python manage.py migrate --noinput
 echo "Collecting static files..."
 python manage.py collectstatic --noinput || true
 
+if [ "$#" -gt 0 ]; then
+  exec "$@"
+fi
+
 echo "Starting ASGI server..."
 # APP_ENV は tableno.runtime_env により settings module へ解決される。
 exec daphne \

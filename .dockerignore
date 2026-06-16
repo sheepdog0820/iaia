@@ -10,6 +10,7 @@ __pycache__
 *.so
 .Python
 venv/
+venv311/
 env/
 ENV/
 *.egg-info/
@@ -25,9 +26,13 @@ db.sqlite3-journal
 
 # Environment
 .env
+.env.*
+!.env.example
+!.env.*.example
 .env.local
 .env.production
 .env.docker
+cookies.txt
 
 # IDE
 .vscode/
@@ -41,6 +46,7 @@ db.sqlite3-journal
 htmlcov/
 .pytest_cache/
 .tox/
+test_db.sqlite3
 
 # Documentation
 docs/_build/
@@ -56,6 +62,8 @@ docker-compose.*.yml
 # CI/CD
 .github/
 .gitlab-ci.yml
+infrastructure/terraform/.terraform/
+infrastructure/terraform/environments/*.tfvars
 
 # OS
 .DS_Store
@@ -83,3 +91,7 @@ npm-debug.log
 # Claude
 .claude/
 .claude-trace/
+
+# Local/generated artifacts
+debug_images/
+tests/results/

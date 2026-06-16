@@ -61,6 +61,9 @@ Terraform、移行Runbook、障害一次対応Runbookは実装済みです。AWS
 - [x] `aws-pre` / `aws-prod` の変数例
 - [x] remote state bootstrap
 - [x] VPC、ALB/ACM、ECS、RDS、ElastiCache、S3/CloudFront、Secrets、CloudWatch、BudgetのTerraform定義
+- [x] ECS web/worker/beat service定義
+- [x] `ALLOWED_HOSTS` と `SECURE_SSL_REDIRECT` の環境別明示
+- [x] Redis TLS、Celery broker/result backend、RDSバックアップ保持期間の環境別設定
 - [x] media移行、DB移行、障害一次対応Runbook
 - [x] `terraform fmt` と `terraform validate`
 - [x] ダミー値と `offline_plan=true` による認証不要の `terraform plan`
