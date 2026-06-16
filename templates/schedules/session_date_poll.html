@@ -236,6 +236,37 @@ const IS_PUBLIC_VIEW = false;
 const SESSION_DATE_IS_SET = {% if session.date %}true{% else %}false{% endif %};
 let ACTIVE_DATE_POLL_ID = null;
 
+function datePollNotifySuccess(message) {
+    if (window.ARKHAM?.showSuccess) {
+        window.ARKHAM.showSuccess(message);
+    } else {
+        console.log(message);
+    }
+}
+
+function datePollNotifyError(message) {
+    if (window.ARKHAM?.showError) {
+        window.ARKHAM.showError(message);
+    } else {
+        console.error(message);
+    }
+}
+
+async function datePollConfirm(message, options = {}) {
+    if (window.ARKHAM?.confirm) {
+        return window.ARKHAM.confirm(message, options);
+    }
+    datePollNotifyError('確認ダイアログを表示できませんでした。ページを再読み込みしてください。');
+    return false;
+}
+
+function getDatePollErrorMessage(error, fallback = '不明なエラー') {
+    return error.response?.data?.content || error.response?.data?.detail ||
+        error.response?.data?.session || error.response?.data?.group ||
+        error.response?.data?.datetime || error.response?.data?.error ||
+        error.message || fallback;
+}
+
 function escapeHtml(str) {
     return String(str)
         .replaceAll('&', '&amp;')
@@ -379,7 +410,7 @@ window.sendDatePollComment = async function() {
         if (input) input.value = '';
         await loadDatePollComments(ACTIVE_DATE_POLL_ID, { scroll: true });
     } catch (error) {
-        alert('コメントの送信に失敗しました: ' + (error.response?.data?.content || error.response?.data?.detail || error.message));
+        datePollNotifyError('コメントの送信に失敗しました: ' + getDatePollErrorMessage(error));
     } finally {
         setChatEnabled(true, '');
     }
@@ -656,7 +687,7 @@ window.createDatePollForSession = async function() {
     }).filter(opt => opt.datetime);
 
     if (options.length === 0) {
-        alert('候補日を1つ以上入力してください');
+        datePollNotifyError('候補日を1つ以上入力してください');
         return;
     }
 
@@ -672,8 +703,9 @@ window.createDatePollForSession = async function() {
     try {
         await axios.post('/api/schedules/date-polls/', payload, { headers: { 'Content-Type': 'application/json' } });
         await loadDatePollSection();
+        datePollNotifySuccess('日程募集を作成しました');
     } catch (error) {
-        alert('日程募集の作成に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.session || error.response?.data?.group || error.message));
+        datePollNotifyError('日程募集の作成に失敗しました: ' + getDatePollErrorMessage(error));
     }
 };
 
@@ -681,14 +713,15 @@ window.addDatePollOption = async function(pollId) {
     const datetime = document.getElementById('datePollAddDatetime')?.value;
     const note = document.getElementById('datePollAddNote')?.value || '';
     if (!datetime) {
-        alert('日時を入力してください');
+        datePollNotifyError('日時を入力してください');
         return;
     }
     try {
         await axios.post(`/api/schedules/date-polls/${encodeURIComponent(pollId)}/add_option/`, { datetime, note });
         await loadDatePollSection();
+        datePollNotifySuccess('候補日を追加しました');
     } catch (error) {
-        alert('候補日の追加に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.datetime || error.message));
+        datePollNotifyError('候補日の追加に失敗しました: ' + getDatePollErrorMessage(error));
     }
 };
 
@@ -701,13 +734,18 @@ window.voteDatePollOption = async function(pollId, optionId, status) {
         );
         await loadDatePollSection();
     } catch (error) {
-        alert('投票に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.error || error.message));
+        datePollNotifyError('投票に失敗しました: ' + getDatePollErrorMessage(error));
     }
 };
 
 window.confirmDatePollOption = async function(pollId, optionId) {
     if (!IS_GM) return;
-    if (!confirm('この候補日で確定しますか？')) return;
+    const confirmed = await datePollConfirm('この候補日で確定しますか？', {
+        title: '候補日を確定',
+        confirmText: '確定する',
+        cancelText: 'キャンセル'
+    });
+    if (!confirmed) return;
     try {
         await axios.post(
             `/api/schedules/date-polls/${encodeURIComponent(pollId)}/confirm/`,
@@ -716,7 +754,7 @@ window.confirmDatePollOption = async function(pollId, optionId) {
         );
         location.reload();
     } catch (error) {
-        alert('確定に失敗しました: ' + (error.response?.data?.detail || error.response?.data?.error || error.message));
+        datePollNotifyError('確定に失敗しました: ' + getDatePollErrorMessage(error));
     }
 };
 

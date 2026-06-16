@@ -31,7 +31,7 @@ test.describe('date poll flow', () => {
     const playerPage = await playerContext.newPage();
 
     try {
-      await devLogin(playerPage, 'investigator1', '/accounts/groups/view/');
+      await devLogin(playerPage, 'investigator1', '/accounts/groups/view/?show_test_data=1');
 
       await playerPage.click('label[for="publicGroupsView"]');
       await playerPage.fill('#groupSearchInput', groupName);
@@ -97,16 +97,19 @@ test.describe('date poll flow', () => {
       const confirmButtonSelector = `button[onclick="confirmDatePollOption(${pollId}, ${optionId})"]`;
       await expect(page.locator(confirmButtonSelector)).toBeVisible({ timeout: 15000 });
 
-      page.once('dialog', dialog => dialog.accept());
       const confirmResponsePromise = page.waitForResponse(resp =>
         resp.url().includes(`/api/schedules/date-polls/${pollId}/confirm/`) &&
         resp.request().method() === 'POST'
       );
 
+      await page.click(confirmButtonSelector);
+      const confirmModal = page.locator('.modal.show', { has: page.locator('[data-confirm-action]') }).last();
+      await expect(confirmModal).toBeVisible({ timeout: 15000 });
+
       await Promise.all([
         confirmResponsePromise,
         page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-        page.click(confirmButtonSelector),
+        confirmModal.locator('[data-confirm-action]').click(),
       ]);
 
       const confirmResponse = await confirmResponsePromise;
@@ -130,4 +133,3 @@ test.describe('date poll flow', () => {
     }
   });
 });
-
