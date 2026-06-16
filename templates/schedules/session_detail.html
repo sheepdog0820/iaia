@@ -2302,9 +2302,9 @@ async function copyUrl(url, label = 'リンク') {
     const resolvedUrl = toAbsoluteUrl(url);
     try {
         await copyTextToClipboard(resolvedUrl);
-        alert(`${label}をコピーしました`);
+        sessionNotifySuccess(`${label}をコピーしました`);
     } catch (error) {
-        alert(`コピーに失敗しました。手動でコピーしてください: ${resolvedUrl}`);
+        sessionNotifyError(`コピーに失敗しました。手動でコピーしてください: ${resolvedUrl}`);
     }
 }
 
@@ -2518,10 +2518,10 @@ async function copyCcfoliaCharacter(characterSheetId, detailUrl) {
         const clipboardData = buildCcfoliaCharacterClipboard(character, detailUrl);
         const text = JSON.stringify(clipboardData);
         await copyTextToClipboard(text);
-        alert('ココフォリア用キャラクター情報をコピーしました。ココフォリアの部屋で貼り付けできます。');
+        sessionNotifySuccess('ココフォリア用キャラクター情報をコピーしました。ココフォリアの部屋で貼り付けできます。');
     } catch (error) {
         console.error('Failed to copy CCFOLIA character data:', error);
-        alert('ココフォリア用コピーに失敗しました: ' + (error.response?.data?.detail || error.response?.data?.error || error.message));
+        sessionNotifyError('ココフォリア用コピーに失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
@@ -2605,7 +2605,7 @@ async function openOccurrenceModal(occurrenceId) {
             contentInput.value = occurrence.content || '';
             selectedParticipants = occurrence.participants || [];
         } catch (error) {
-            alert('日程の取得に失敗しました: ' + (error.response?.data?.detail || error.message));
+            sessionNotifyError('日程の取得に失敗しました: ' + getSessionErrorMessage(error));
             return;
         }
     } else {
@@ -2631,7 +2631,7 @@ async function saveOccurrence() {
         .filter(idValue => Number.isFinite(idValue));
 
     if (!startAt) {
-        alert('日時を入力してください');
+        sessionNotifyError('日時を入力してください');
         return;
     }
 
@@ -2650,7 +2650,7 @@ async function saveOccurrence() {
         }
         location.reload();
     } catch (error) {
-        alert('日程の保存に失敗しました: ' + (error.response?.data?.detail || error.message));
+        sessionNotifyError('日程の保存に失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
@@ -2685,7 +2685,7 @@ if (createCharacterBtn) {
         const cocEdition = (createCharacterBtn.dataset.cocEdition || '6th').trim();
         const sessionId = createCharacterBtn.dataset.sessionId || '';
         if (!scenarioId) {
-            alert('シナリオ情報が取得できませんでした。');
+            sessionNotifyError('シナリオ情報が取得できませんでした。');
             return;
         }
 
@@ -2785,10 +2785,10 @@ async function updateSession() {
 
     try {
         const response = await axios.patch(`/api/schedules/sessions/{{ session.id }}/`, data);
-        alert('セッション情報を更新しました');
+        sessionNotifySuccess('セッション情報を更新しました');
         location.reload();
     } catch (error) {
-        alert('更新に失敗しました: ' + (error.response?.data?.detail || error.message));
+        sessionNotifyError('更新に失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
@@ -2800,11 +2800,11 @@ async function uploadSessionImages() {
 
     const files = Array.from(inputEl.files || []);
     if (files.length === 0) {
-        alert('アップロードする画像を選択してください');
+        sessionNotifyError('アップロードする画像を選択してください');
         return;
     }
     if (files.length > 10) {
-        alert('一度にアップロードできるのは最大10枚です');
+        sessionNotifyError('一度にアップロードできるのは最大10枚です');
         return;
     }
 
@@ -2812,7 +2812,7 @@ async function uploadSessionImages() {
     formData.append('session_id', String(SESSION_ID));
     for (const file of files) {
         if (!file?.type?.startsWith('image/')) {
-            alert(`画像以外のファイルが含まれています: ${file?.name || 'unknown'}`);
+            sessionNotifyError(`画像以外のファイルが含まれています: ${file?.name || 'unknown'}`);
             return;
         }
         formData.append('images', file);
@@ -2823,10 +2823,10 @@ async function uploadSessionImages() {
     uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>アップロード中...';
     try {
         await axios.post('/api/schedules/session-images/bulk_upload/', formData);
-        alert('画像をアップロードしました');
+        sessionNotifySuccess('画像をアップロードしました');
         location.reload();
     } catch (error) {
-        alert('アップロードに失敗しました: ' + (error.response?.data?.error || error.response?.data?.detail || error.message));
+        sessionNotifyError('アップロードに失敗しました: ' + getSessionErrorMessage(error));
     } finally {
         uploadBtn.disabled = false;
         uploadBtn.innerHTML = originalHtml;
@@ -2836,14 +2836,20 @@ async function uploadSessionImages() {
 
 // セッション画像削除
 async function deleteSessionImage(imageId) {
-    if (!confirm('この画像を削除しますか？')) return;
+    const confirmed = await sessionConfirm('この画像を削除しますか？', {
+        title: '画像を削除',
+        confirmText: '削除する',
+        cancelText: 'キャンセル',
+        variant: 'danger'
+    });
+    if (!confirmed) return;
 
     try {
         await axios.delete(`/api/schedules/session-images/${encodeURIComponent(imageId)}/`);
-        alert('画像を削除しました');
+        sessionNotifySuccess('画像を削除しました');
         location.reload();
     } catch (error) {
-        alert('削除に失敗しました: ' + (error.response?.data?.error || error.response?.data?.detail || error.message));
+        sessionNotifyError('削除に失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
@@ -3529,7 +3535,13 @@ async function saveYouTubeLinkEdits() {
 }
 
 async function deleteYouTubeLink(linkId) {
-    if (!confirm('このYouTubeリンクを削除しますか？')) return;
+    const confirmed = await sessionConfirm('このYouTubeリンクを削除しますか？', {
+        title: 'YouTubeリンクを削除',
+        confirmText: '削除する',
+        cancelText: 'キャンセル',
+        variant: 'danger'
+    });
+    if (!confirmed) return;
 
     try {
         await axios.delete(`/api/schedules/youtube-links/${linkId}/`);
@@ -4022,7 +4034,13 @@ async function deleteSessionNote(noteId) {
         showSessionNotesMessage('このノートを削除する権限がありません', 'warning');
         return;
     }
-    if (!confirm('このノートを削除しますか？')) return;
+    const confirmed = await sessionConfirm('このノートを削除しますか？', {
+        title: 'ノートを削除',
+        confirmText: '削除する',
+        cancelText: 'キャンセル',
+        variant: 'danger'
+    });
+    if (!confirmed) return;
 
     try {
         await axios.delete(`/api/schedules/notes/${encodeURIComponent(noteId)}/`);
@@ -4141,7 +4159,13 @@ async function deleteSessionLog(logId) {
         showSessionLogsMessage('このログを削除する権限がありません', 'warning');
         return;
     }
-    if (!confirm('このログを削除しますか？')) return;
+    const confirmed = await sessionConfirm('このログを削除しますか？', {
+        title: 'ログを削除',
+        confirmText: '削除する',
+        cancelText: 'キャンセル',
+        variant: 'danger'
+    });
+    if (!confirmed) return;
 
     try {
         await axios.delete(`/api/schedules/logs/${encodeURIComponent(logId)}/`);
@@ -4448,7 +4472,12 @@ window.applySessionRewardForParticipant = async function(participantId) {
 
 async function applyAllSessionRewards() {
     if (!CAN_MANAGE_REWARDS) return;
-    if (!confirm('成長記録へ一括反映しますか？（キャラクター設定が必要）')) return;
+    const confirmed = await sessionConfirm('成長記録へ一括反映しますか？（キャラクター設定が必要）', {
+        title: '成長記録へ一括反映',
+        confirmText: '反映する',
+        cancelText: 'キャンセル'
+    });
+    if (!confirmed) return;
 
     const saveResult = await saveAllSessionRewards({ reloadAfter: false, showMessage: false });
     if (!saveResult.ok) {
@@ -4511,10 +4540,10 @@ async function joinSession() {
 
     try {
         const response = await axios.post(`/api/schedules/sessions/{{ session.id }}/join/`, data);
-        alert('セッションに参加しました');
+        sessionNotifySuccess('セッションに参加しました');
         location.reload();
     } catch (error) {
-        alert('参加に失敗しました: ' + (error.response?.data?.error || error.message));
+        sessionNotifyError('参加に失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
@@ -4537,10 +4566,10 @@ async function updateParticipant() {
         {% else %}
         throw new Error('参加情報が見つかりません');
         {% endif %}
-        alert('参加情報を更新しました');
+        sessionNotifySuccess('参加情報を更新しました');
         location.reload();
     } catch (error) {
-        alert('更新に失敗しました: ' + (error.response?.data?.detail || error.message));
+        sessionNotifyError('更新に失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
@@ -4589,10 +4618,10 @@ async function saveLinkedCharacter() {
 
     try {
         await axios.patch(`/api/schedules/participants/${participantId}/`, data);
-        alert('キャラクターを更新しました');
+        sessionNotifySuccess('キャラクターを更新しました');
         location.reload();
     } catch (error) {
-        alert('更新に失敗しました: ' + (error.response?.data?.error || error.message));
+        sessionNotifyError('更新に失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
@@ -4618,7 +4647,7 @@ async function saveGuestParticipant() {
     const characterSheetUrl = document.getElementById('guest_character_sheet_url')?.value || '';
 
     if (!guestName) {
-        alert('ゲスト名は必須です');
+        sessionNotifyError('ゲスト名は必須です');
         return;
     }
 
@@ -4632,28 +4661,34 @@ async function saveGuestParticipant() {
     try {
         if (participantId) {
             await axios.patch(`/api/schedules/participants/${participantId}/`, payload);
-            alert('ゲスト参加者を更新しました');
+            sessionNotifySuccess('ゲスト参加者を更新しました');
         } else {
             await axios.post('/api/schedules/participants/', { session: SESSION_ID, ...payload });
-            alert('ゲスト参加者を追加しました');
+            sessionNotifySuccess('ゲスト参加者を追加しました');
         }
         location.reload();
     } catch (error) {
         const message = error.response?.data?.error || error.response?.data?.detail || error.message;
-        alert('保存に失敗しました: ' + message);
+        sessionNotifyError('保存に失敗しました: ' + message);
     }
 }
 
 // セッション脱退
 async function leaveSession() {
-    if (!confirm('本当にセッションから脱退しますか？')) return;
+    const confirmed = await sessionConfirm('本当にセッションから脱退しますか？', {
+        title: 'セッションから脱退',
+        confirmText: '脱退する',
+        cancelText: 'キャンセル',
+        variant: 'danger'
+    });
+    if (!confirmed) return;
 
     try {
         const response = await axios.delete(`/api/schedules/sessions/{{ session.id }}/leave/`);
-        alert('セッションから脱退しました');
+        sessionNotifySuccess('セッションから脱退しました');
         window.location.href = '/api/schedules/sessions/view/';
     } catch (error) {
-        alert('脱退に失敗しました: ' + (error.response?.data?.error || error.message));
+        sessionNotifyError('脱退に失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
@@ -4670,36 +4705,48 @@ async function createHandout() {
 
     try {
         const response = await axios.post('/api/schedules/handouts/', data);
-        alert('ハンドアウトを作成しました');
+        sessionNotifySuccess('ハンドアウトを作成しました');
         location.reload();
     } catch (error) {
-        alert('作成に失敗しました: ' + (error.response?.data?.detail || error.message));
+        sessionNotifyError('作成に失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
 // ハンドアウト削除
 async function deleteHandout(handoutId) {
-    if (!confirm('本当にこのハンドアウトを削除しますか？')) return;
+    const confirmed = await sessionConfirm('本当にこのハンドアウトを削除しますか？', {
+        title: 'ハンドアウトを削除',
+        confirmText: '削除する',
+        cancelText: 'キャンセル',
+        variant: 'danger'
+    });
+    if (!confirmed) return;
 
     try {
         await axios.delete(`/api/schedules/handouts/${handoutId}/`);
-        alert('ハンドアウトを削除しました');
+        sessionNotifySuccess('ハンドアウトを削除しました');
         location.reload();
     } catch (error) {
-        alert('削除に失敗しました: ' + (error.response?.data?.detail || error.message));
+        sessionNotifyError('削除に失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
 // 参加者除名
 async function removeParticipant(participantId) {
-    if (!confirm('本当にこの参加者を除名しますか？')) return;
+    const confirmed = await sessionConfirm('本当にこの参加者を除名しますか？', {
+        title: '参加者を除名',
+        confirmText: '除名する',
+        cancelText: 'キャンセル',
+        variant: 'danger'
+    });
+    if (!confirmed) return;
 
     try {
         await axios.delete(`/api/schedules/participants/${participantId}/`);
-        alert('参加者を除名しました');
+        sessionNotifySuccess('参加者を除名しました');
         location.reload();
     } catch (error) {
-        alert('除名に失敗しました: ' + (error.response?.data?.detail || error.message));
+        sessionNotifyError('除名に失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
@@ -4795,7 +4842,7 @@ window.sendSessionInvitations = async function() {
         .filter(id => Number.isFinite(id));
 
     if (selected.length === 0) {
-        alert('招待するメンバーを選択してください');
+        sessionNotifyError('招待するメンバーを選択してください');
         return;
     }
 
