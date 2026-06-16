@@ -86,6 +86,14 @@ let customSkillCounts = {
 };
 let diceSettingCache = [];
 
+async function confirmAction(message, options = {}) {
+    if (window.ARKHAM?.confirm) {
+        return window.ARKHAM.confirm(message, options);
+    }
+    showToast('確認ダイアログを表示できませんでした。ページを再読み込みしてください。', 'error');
+    return false;
+}
+
 // ===========================
 // 初期化処理
 // ===========================
@@ -731,7 +739,13 @@ function initializeDiceSettingManager() {
             showToast('削除する設定を選択してください', 'warning');
             return;
         }
-        if (!confirm(`「${selected.setting_name}」を削除しますか？`)) return;
+        const confirmed = await confirmAction(`「${selected.setting_name}」を削除しますか？`, {
+            title: 'ダイス設定を削除',
+            confirmText: '削除する',
+            cancelText: 'キャンセル',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
         try {
             await requestDiceSettings(`${DICE_SETTINGS_API_URL}${selected.id}/`, {
                 method: 'DELETE'
