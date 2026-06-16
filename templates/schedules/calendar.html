@@ -533,6 +533,22 @@ document.addEventListener('DOMContentLoaded', function() {
         return messages.join('\n') || '不明なエラーが発生しました';
     }
 
+    function notifySuccess(message) {
+        if (window.ARKHAM?.showSuccess) {
+            window.ARKHAM.showSuccess(message);
+        } else {
+            console.log(message);
+        }
+    }
+
+    function notifyError(message) {
+        if (window.ARKHAM?.showError) {
+            window.ARKHAM.showError(message);
+        } else {
+            console.error(message);
+        }
+    }
+
     function formatDurationAsHhmm(totalMinutes) {
         const normalized = Number.parseInt(totalMinutes || 0, 10);
         if (!normalized) return '未設定';
@@ -918,7 +934,7 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.show();
         } catch (error) {
             console.error('Error loading session details:', error);
-            alert('セッション詳細の読み込みに失敗しました');
+            notifyError('セッション詳細の読み込みに失敗しました');
         }
     }
 
@@ -926,11 +942,11 @@ document.addEventListener('DOMContentLoaded', function() {
     window.joinSession = async function(sessionId) {
         try {
             await axios.post(`/api/schedules/sessions/${sessionId}/join/`);
-            alert('セッションに参加しました！');
+            notifySuccess('セッションに参加しました');
             calendar.refetchEvents();
             bootstrap.Modal.getInstance(document.getElementById('sessionDetailModal')).hide();
         } catch (error) {
-            alert('参加に失敗しました: ' + (error.response?.data?.error || error.message));
+            notifyError('参加に失敗しました: ' + getErrorMessage(error));
         }
     };
 
@@ -1214,7 +1230,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (mode === 'existing') {
             const existingSessionId = parseInt(document.getElementById('existingSessionId').value, 10);
             if (!existingSessionId) {
-                alert('既存セッションを選択してください');
+                notifyError('既存セッションを選択してください');
                 return;
             }
 
@@ -1225,14 +1241,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     content: '',
                 });
 
-                alert('日程を追加しました');
+                notifySuccess('日程を追加しました');
                 bootstrap.Modal.getInstance(document.getElementById('newSessionModal')).hide();
                 form.reset();
                 setCreateMode('new');
                 calendar.refetchEvents();
                 loadUpcomingSessions();
             } catch (error) {
-                alert('日程の追加に失敗しました: ' + (error.response?.data?.detail || error.message));
+                notifyError('日程の追加に失敗しました: ' + getErrorMessage(error));
             }
             return;
         }
@@ -1259,7 +1275,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             const response = await axios.post('/api/schedules/sessions/', data);
-            alert('セッションを作成しました！');
+            notifySuccess('セッションを作成しました');
             const sessionId = response.data.id;
 
             if (selectedInvitees.size > 0) {
@@ -1276,7 +1292,7 @@ document.addEventListener('DOMContentLoaded', function() {
             calendar.refetchEvents();
             loadUpcomingSessions();
         } catch (error) {
-            alert('セッション作成に失敗しました: ' + (error.response?.data?.detail || error.message));
+            notifyError('セッション作成に失敗しました: ' + getErrorMessage(error));
         }
     });
 
@@ -1371,9 +1387,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await axios.post('/api/schedules/session-templates/', buildSessionTemplatePayload(templateName));
             await loadSessionTemplates(response.data?.id);
             saveTemplateModal?.hide();
-            alert('テンプレートを登録しました');
+            notifySuccess('テンプレートを登録しました');
         } catch (error) {
-            alert('テンプレート登録に失敗しました: ' + getErrorMessage(error));
+            notifyError('テンプレート登録に失敗しました: ' + getErrorMessage(error));
         } finally {
             if (saveTemplateBtn) {
                 saveTemplateBtn.disabled = false;
