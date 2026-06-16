@@ -1,9 +1,24 @@
-﻿document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function() {
 
     
     const urlParams = new URLSearchParams(window.location.search);
     const editCharacterId = urlParams.get('id');
     const isEditMode = !!editCharacterId;
+
+    const notifyUser = (message) => {
+        const text = String(message || '');
+        const danger = /Error|Invalid|Network|Failed|失敗|見つかりません|未対応|5MB|JPG|PNG|GIF/.test(text);
+        if (window.ARKHAM?.showAlert) {
+            window.ARKHAM.showAlert(text, danger ? 'danger' : 'success');
+            return;
+        }
+        console[danger ? 'error' : 'log'](text);
+    };
+
+    const confirmUser = (message) => {
+        if (window.ARKHAM?.confirm) return window.ARKHAM.confirm(message);
+        return Promise.resolve(false);
+    };
 
     const bodyEl = document.body;
     if (bodyEl) {
@@ -1584,14 +1599,14 @@ function updateGlobalDiceFormula() {
             const rawValue = input.value;
             const parsed = resolveSkillKeys(parseSkillList(rawValue));
             if (parsed.resolved.length === 0) {
-                alert('技能が見つかりません。名称またはキーを確認してください。');
+                notifyUser('技能が見つかりません。名称またはキーを確認してください。');
                 return;
             }
             userTouchedOccupation = true;
             setOccupationSkills(parsed.resolved, { mode: 'merge', persist: true });
             input.value = '';
             if (parsed.unknown.length > 0) {
-                alert(`未対応の技能: ${parsed.unknown.join(', ')}`);
+                notifyUser(`未対応の技能: ${parsed.unknown.join(', ')}`);
             }
         };
 
@@ -1785,14 +1800,14 @@ function updateGlobalDiceFormula() {
             const rawValue = input.value;
             const parsed = resolveSkillKeys(parseSkillList(rawValue));
             if (parsed.resolved.length === 0) {
-                alert('技能が見つかりません。名称またはキーを確認してください。');
+                notifyUser('技能が見つかりません。名称またはキーを確認してください。');
                 return;
             }
             userTouchedRecommended = true;
             setRecommendedSkills(parsed.resolved, { mode: 'merge', persist: true });
             input.value = '';
             if (parsed.unknown.length > 0) {
-                alert(`未対応の技能: ${parsed.unknown.join(', ')}`);
+                notifyUser(`未対応の技能: ${parsed.unknown.join(', ')}`);
             }
         };
 
@@ -2158,8 +2173,8 @@ function updateGlobalDiceFormula() {
     };
 
     // リセットボタン（誤操作防止の確認つき）
-    const confirmAndResetSkills = () => {
-        const ok = window.confirm('技能ポイントの割り振り（職業/趣味）をリセットします。よろしいですか？');
+    const confirmAndResetSkills = async () => {
+        const ok = await confirmUser('技能ポイントの割り振り（職業/趣味）をリセットします。よろしいですか？');
         if (!ok) return;
         resetSkillAllocations();
     };
@@ -2373,14 +2388,14 @@ function initOccupationTemplates() {
             if (file) {
                 // File size check (5MB limit)
                 if (file.size > 5 * 1024 * 1024) {
-                    alert('File size must be 5MB or less.');
+                    notifyUser('File size must be 5MB or less.');
                     imageInput.value = '';
                     return;
                 }
                 
                 // File type check
                 if (!file.type.match(/^image\/(jpeg|jpg|png|gif)$/)) {
-                    alert('Please select a JPG, PNG, or GIF image.');
+                    notifyUser('Please select a JPG, PNG, or GIF image.');
                     imageInput.value = '';
                     return;
                 }
@@ -2950,7 +2965,7 @@ function initOccupationTemplates() {
             try {
                 collected = collectApiDataFromForm(this);
             } catch (error) {
-                alert(error?.error || 'Invalid form data.');
+                notifyUser(error?.error || 'Invalid form data.');
                 return;
             }
 
@@ -2959,11 +2974,11 @@ function initOccupationTemplates() {
             if (isEditMode) {
                 try {
                     await updateCharacterSheet(editCharacterId, apiData, data, imageFiles);
-                    alert('Character sheet updated successfully.');
+                    notifyUser('Character sheet updated successfully.');
                     window.location.href = `/accounts/character/${editCharacterId}/`;
                 } catch (error) {
                     console.error('Error:', error);
-                    alert(error?.error ? ('Error: ' + error.error) : 'Network error occurred.');
+                    notifyUser(error?.error ? ('Error: ' + error.error) : 'Network error occurred.');
                 }
                 return;
             }
@@ -3008,18 +3023,18 @@ function initOccupationTemplates() {
                     .then(result => {
                         // Success: API returns CharacterSheet object
                         if (result.id) {
-                            alert('Character sheet created successfully.');
+                            notifyUser('Character sheet created successfully.');
                             window.location.href = '/accounts/character/list/';
                         } else {
-                            alert('Error: unexpected response format.');
+                            notifyUser('Error: unexpected response format.');
                         }
                     })
                     .catch(error => {
                         console.error('Error:', error);
                         if (error.error) {
-                            alert('Error: ' + error.error);
+                            notifyUser('Error: ' + error.error);
                         } else {
-                            alert('Network error occurred.');
+                            notifyUser('Network error occurred.');
                         }
                     });
             } else {
@@ -3042,18 +3057,18 @@ function initOccupationTemplates() {
                     .then(result => {
                         // Success: API returns CharacterSheet object
                         if (result.id) {
-                            alert('Character sheet created successfully.');
+                            notifyUser('Character sheet created successfully.');
                             window.location.href = '/accounts/character/list/';
                         } else {
-                            alert('Error: unexpected response format.');
+                            notifyUser('Error: unexpected response format.');
                         }
                     })
                     .catch(error => {
                         console.error('Error:', error);
                         if (error.error) {
-                            alert('Error: ' + error.error);
+                            notifyUser('Error: ' + error.error);
                         } else {
-                            alert('Network error occurred.');
+                            notifyUser('Network error occurred.');
                         }
                     });
             }
@@ -3069,13 +3084,13 @@ function initOccupationTemplates() {
 
     async function handleCreateVersion() {
         if (!isEditMode || !characterForm) return;
-        if (!confirm('現在の入力内容を「新しいバージョン」として保存します。\n（既存バージョンは更新しません）')) return;
+        if (!(await confirmUser('???????????????????????????\n????????????????'))) return;
 
         let collected;
         try {
             collected = collectApiDataFromForm(characterForm);
         } catch (error) {
-            alert(error?.error || 'Invalid form data.');
+            notifyUser(error?.error || 'Invalid form data.');
             return;
         }
 
@@ -3089,11 +3104,11 @@ function initOccupationTemplates() {
 
             await updateCharacterSheet(newId, collected.apiData, collected.data, collected.imageFiles);
 
-            alert('新バージョンを作成しました。');
+            notifyUser('新バージョンを作成しました。');
             window.location.href = `/accounts/character/${newId}/`;
         } catch (error) {
             console.error('Error:', error);
-            alert(error?.error ? ('Error: ' + error.error) : 'Network error occurred.');
+            notifyUser(error?.error ? ('Error: ' + error.error) : 'Network error occurred.');
         }
     }
 
@@ -3107,7 +3122,7 @@ function initOccupationTemplates() {
             .then(() => autosizeTextareas())
             .catch(error => {
                 console.error('Failed to load character for edit:', error);
-                alert(error?.error || 'Failed to load character data.');
+                notifyUser(error?.error || 'Failed to load character data.');
             });
     } else {
         // 初期計算（常にロールして値を埋める）

@@ -38,10 +38,9 @@
                                     <small class="text-muted">{{ socialaccount.extra_data.email|default:socialaccount.uid }}</small>
                                 </div>
                                 {% if socialaccount_list|length > 1 %}
-                                <form method="post" action="{% url 'socialaccount_remove' socialaccount.id %}">
+                                <form method="post" action="{% url 'socialaccount_remove' socialaccount.id %}" class="socialaccount-remove-form">
                                     {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" 
-                                            onclick="return confirm('このアカウントの連携を解除しますか？')">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
                                         <i class="fas fa-unlink"></i> 解除
                                     </button>
                                 </form>
@@ -96,6 +95,27 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.socialaccount-remove-form').forEach(form => {
+        form.addEventListener('submit', async event => {
+            if (form.dataset.confirmed === 'true') return;
+            event.preventDefault();
+            const confirmed = await window.ARKHAM?.confirm?.('このアカウントの連携を解除しますか？', {
+                title: '外部アカウント連携解除',
+                confirmText: '解除する',
+                confirmClass: 'btn-danger',
+            });
+            if (!confirmed) return;
+            form.dataset.confirmed = 'true';
+            form.requestSubmit();
+        });
+    });
+});
+</script>
 {% endblock %}
 
 {% block extra_css %}

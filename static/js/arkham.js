@@ -405,33 +405,17 @@ function showCreateSessionModal() {
 }
 
 function showJoinSessionModal() {
-    ARKHAM.showAlert('セッション参加機能は開発中です', 'warning');
+    ARKHAM.showAlert('参加可能なセッションはセッション一覧で確認できます。', 'info');
 }
 
 function showAddScenarioModal() {
-    ARKHAM.showAlert('シナリオ追加機能は開発中です', 'warning');
+    ARKHAM.showAlert('シナリオ登録はシナリオ管理画面から行えます。', 'info');
 }
 
 // セッション作成送信
 function submitCreateSession() {
-    const form = document.getElementById('create-session-form');
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData);
-    
-    // グループIDをダミーで設定（後で実装）
-    data.group = 1;
-    data.visibility = 'group';
-    
-    axios.post(ARKHAM.endpoints.sessions, data)
-        .then(response => {
-            ARKHAM.showAlert('セッションが作成されました！', 'success');
-            bootstrap.Modal.getInstance(form.closest('.modal')).hide();
-            // ページリロードまたは動的更新
-            setTimeout(() => location.reload(), 1000);
-        })
-        .catch(error => {
-            ARKHAM.handleError(error);
-        });
+    ARKHAM.showAlert('セッション作成はカレンダー画面から行えます。', 'info');
+    window.location.href = '/api/schedules/calendar/view/';
 }
 
 // ユーティリティ関数

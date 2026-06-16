@@ -149,9 +149,15 @@
 document.addEventListener('DOMContentLoaded', function() {
     const removeBtn = document.getElementById('remove-email-btn');
     if (removeBtn) {
-        removeBtn.addEventListener('click', function(e) {
-            if (!confirm('選択したメールアドレスを削除します。よろしいですか？')) {
-                e.preventDefault();
+        removeBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            const confirmed = await window.ARKHAM?.confirm?.('選択したメールアドレスを削除します。よろしいですか？', {
+                title: 'メールアドレス削除',
+                confirmText: '削除する',
+                confirmClass: 'btn-danger',
+            });
+            if (confirmed) {
+                removeBtn.closest('form')?.requestSubmit();
             }
         });
     }

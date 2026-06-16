@@ -101,19 +101,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (!form || !btn || !confirmInput) return;
 
-    form.addEventListener('submit', function(e) {
+    form.addEventListener('submit', async function(e) {
         const v = (confirmInput.value || '').trim().toLowerCase();
         if (v !== 'delete') {
             e.preventDefault();
-            alert('確認のため、DELETE と入力してください。');
+            window.ARKHAM?.showError?.('確認のため、DELETE と入力してください。');
             return;
         }
-        if (!confirm('本当にアカウントを削除しますか？この操作は取り消せません。')) {
-            e.preventDefault();
+
+        if (form.dataset.confirmed === 'true') {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>削除中...';
             return;
         }
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>削除中...';
+
+        e.preventDefault();
+        const confirmed = await window.ARKHAM?.confirm?.('本当にアカウントを削除しますか？この操作は取り消せません。', {
+            title: 'アカウント削除',
+            confirmText: '削除する',
+            confirmClass: 'btn-danger',
+        });
+        if (!confirmed) return;
+
+        form.dataset.confirmed = 'true';
+        form.requestSubmit();
     });
 });
 </script>

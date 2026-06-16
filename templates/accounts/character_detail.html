@@ -456,7 +456,7 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = `/accounts/character/create/6th/?id=${newId}`;
         } catch (error) {
             console.error('新バージョン作成に失敗しました:', error);
-            alert('新しいバージョンの作成に失敗しました。');
+            window.ARKHAM?.showError?.('新しいバージョンの作成に失敗しました。');
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
@@ -1345,27 +1345,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadGrowthRecords();
                 
                 // 成功メッセージ（オプション）
-                alert('成長記録を保存しました。');
+                window.ARKHAM?.showSuccess?.('成長記録を保存しました。');
             })
             .catch(error => {
                 console.error('成長記録の保存エラー:', error);
-                alert('成長記録の保存に失敗しました。');
+                window.ARKHAM?.showError?.('成長記録の保存に失敗しました。');
             });
     }
     
     // 成長記録削除
-    window.deleteGrowthRecord = function(recordId) {
-        if (!confirm('この成長記録を削除しますか？')) {
-            return;
-        }
-        
+    window.deleteGrowthRecord = async function(recordId) {
+        const confirmed = await window.ARKHAM?.confirm?.('この成長記録を削除しますか？', {
+            title: '成長記録削除',
+            confirmText: '削除する',
+            confirmClass: 'btn-danger',
+        });
+        if (!confirmed) return;
         axios.delete(`/accounts/character-sheets/${characterId}/growth-records/${recordId}/`)
             .then(response => {
                 loadGrowthRecords();
             })
             .catch(error => {
                 console.error('成長記録の削除エラー:', error);
-                alert('成長記録の削除に失敗しました。');
+                window.ARKHAM?.showError?.('成長記録の削除に失敗しました。');
             });
     };
     
@@ -1423,7 +1425,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error('成長サマリーの取得エラー:', error);
-                alert('成長サマリーの取得に失敗しました。');
+                window.ARKHAM?.showError?.('成長サマリーの取得に失敗しました。');
             });
     }
     

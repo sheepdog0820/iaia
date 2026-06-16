@@ -691,9 +691,9 @@ document.getElementById('characterForm').addEventListener('submit', async functi
     } catch (error) {
         console.error('保存に失敗しました:', error);
         if (error.response && error.response.data) {
-            alert('保存に失敗しました: ' + JSON.stringify(error.response.data));
+            window.ARKHAM?.showError?.('保存に失敗しました: ' + JSON.stringify(error.response.data));
         } else {
-            alert('保存に失敗しました。入力内容を確認してください。');
+            window.ARKHAM?.showError?.('保存に失敗しました。入力内容を確認してください。');
         }
     }
 });
