@@ -239,6 +239,34 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentSessionId = null;
     const userId = {{ user.id }};
 
+    function notifySuccess(message) {
+        if (window.ARKHAM?.showSuccess) {
+            window.ARKHAM.showSuccess(message);
+        } else {
+            console.log(message);
+        }
+    }
+
+    function notifyError(message) {
+        if (window.ARKHAM?.showError) {
+            window.ARKHAM.showError(message);
+        } else {
+            console.error(message);
+        }
+    }
+
+    async function confirmAction(message, options = {}) {
+        if (window.ARKHAM?.confirm) {
+            return window.ARKHAM.confirm(message, options);
+        }
+        notifyError('確認ダイアログを表示できませんでした。ページを再読み込みしてください。');
+        return false;
+    }
+
+    function getErrorMessage(error, fallback) {
+        return error.response?.data?.error || error.response?.data?.detail || error.message || fallback;
+    }
+
     // 参加予定セッション読み込み（ISSUE-030）
     async function loadMySessions(page = 1) {
         const container = document.getElementById('mySessionsList');
@@ -409,24 +437,35 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     window.acceptSessionInvitation = async function(invitationId, sessionId) {
-        if (!confirm('この招待を承認してセッションに参加しますか？')) return;
+        const confirmed = await confirmAction('この招待を承認してセッションに参加しますか？', {
+            title: '招待を承認',
+            confirmText: '参加する',
+            cancelText: 'キャンセル'
+        });
+        if (!confirmed) return;
         try {
             await axios.post(`/api/schedules/session-invitations/${invitationId}/accept/`);
             await loadSessionInvitations();
             loadSessions(currentPage);
             window.location.href = `/api/schedules/sessions/${sessionId}/detail/`;
         } catch (error) {
-            alert('承認に失敗しました: ' + (error.response?.data?.error || error.response?.data?.detail || error.message));
+            notifyError('承認に失敗しました: ' + getErrorMessage(error, '不明なエラー'));
         }
     };
 
     window.declineSessionInvitation = async function(invitationId) {
-        if (!confirm('この招待を辞退しますか？')) return;
+        const confirmed = await confirmAction('この招待を辞退しますか？', {
+            title: '招待を辞退',
+            confirmText: '辞退する',
+            cancelText: 'キャンセル',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
         try {
             await axios.post(`/api/schedules/session-invitations/${invitationId}/decline/`);
             await loadSessionInvitations();
         } catch (error) {
-            alert('辞退に失敗しました: ' + (error.response?.data?.error || error.response?.data?.detail || error.message));
+            notifyError('辞退に失敗しました: ' + getErrorMessage(error, '不明なエラー'));
         }
     };
 
@@ -456,7 +495,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             new bootstrap.Modal(document.getElementById('editSessionModal')).show();
         } catch (error) {
-            alert('セッション情報の読み込みに失敗しました');
+            notifyError('セッション情報の読み込みに失敗しました');
         }
     };
 
@@ -476,11 +515,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             await axios.patch(`/api/schedules/sessions/${currentSessionId}/`, data);
-            alert('セッションを更新しました');
+            notifySuccess('セッションを更新しました');
             bootstrap.Modal.getInstance(document.getElementById('editSessionModal')).hide();
             loadSessions(currentPage);
         } catch (error) {
-            alert('更新に失敗しました: ' + (error.response?.data?.detail || error.message));
+            notifyError('更新に失敗しました: ' + getErrorMessage(error, '不明なエラー'));
         }
     });
 
@@ -519,7 +558,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             modal.show();
         } catch (error) {
-            alert('参加者情報の読み込みに失敗しました');
+            notifyError('参加者情報の読み込みに失敗しました');
         }
     };
 
