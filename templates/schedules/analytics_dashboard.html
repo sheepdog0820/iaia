@@ -365,7 +365,7 @@ document.addEventListener('DOMContentLoaded', function() {
             renderMembers(data.member_participation || []);
         } catch (error) {
             console.error('Error loading analytics dashboard:', error);
-            alert('分析データの取得に失敗しました: ' + (error.response?.data?.error || error.message));
+            ARKHAM.showError('分析データの取得に失敗しました: ' + (error.response?.data?.error || error.message));
         } finally {
             applyBtn.disabled = false;
         }
@@ -383,4 +383,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-

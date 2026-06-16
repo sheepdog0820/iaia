@@ -567,7 +567,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ハンドアウト削除
     window.deleteHandout = async function(handoutId) {
-        if (!confirm('このハンドアウトを削除しますか？この操作は取り消せません。')) {
+        const confirmed = await ARKHAM.confirm('このハンドアウトを削除しますか？この操作は取り消せません。', {
+            title: 'ハンドアウトを削除',
+            confirmText: '削除する',
+            cancelText: 'キャンセル',
+            variant: 'danger'
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -583,7 +589,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 一括公開切替
     window.toggleAllVisibility = function() {
-        alert('一括切替機能は今後実装予定です');
+        ARKHAM.showAlert('一括切替は現在利用できません。個別の公開切替をご利用ください。', 'info');
     };
 
     // 初期化
