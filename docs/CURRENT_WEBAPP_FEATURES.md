@@ -34,7 +34,7 @@
   - **API**: DRF Token 認証（`Authorization: Token ...`）も利用可能
 - **主要画面導線**: `templates/base.html` のナビゲーション + `static/js/arkham.js` による画面遷移
   - カレンダー: `/api/schedules/calendar/view/`
-  - セッション: `/api/schedules/sessions/web/`
+  - セッション: `/api/schedules/sessions/view/`
   - シナリオ: `/api/scenarios/archive/view/`
   - グループ: `/accounts/groups/view/`
   - 統計: `/accounts/statistics/view/`
@@ -272,7 +272,7 @@
   - ステータス、期間、役割（GM/PL）などで絞り込み
   - サイドバーに統計（概要）表示
 - **画面**
-  - セッション一覧: `/api/schedules/sessions/web/`
+  - セッション一覧: `/api/schedules/sessions/view/`
 - **API（代表）**
   - `/api/schedules/sessions/`（CRUD）
   - `/api/schedules/sessions/statistics/`（一覧用統計）
@@ -404,16 +404,6 @@
   - `/api/schedules/notification-preferences/`（通知設定）
 - **状態**: **完成**（API/DB/UI）
 
-### 4.11 セッションノート/ログ
-
-- **内容**
-  - セッションノート（種別付き、ピン留め）
-  - セッションログ（タイムスタンプ付きイベント）
-- **API（代表）**
-  - `/api/schedules/notes/` / `/api/schedules/logs/`
-  - `/api/schedules/sessions/{session_id}/notes/` / `/api/schedules/sessions/{session_id}/logs/`
-- **状態**: **完成**（API/DB/UI）
-
 ### 4.12 セッション画像（添付画像）
 
 - **内容**
@@ -478,14 +468,10 @@
 
 ### 4.17 キャラクターシート統合（セッション側）
 
-- **実装済み範囲**
+- **内容**
   - 参加者にキャラクターシートを紐付け（`SessionParticipant.character_sheet`）
   - セッション詳細で HP/MP/SAN の参照表示（キャラクターシート側の現在値を参照）
-- **未実装/不足しやすい範囲**
-  - セッション開始時スナップショット
-  - セッション中のリアルタイム追跡（セッション専用のHP/SAN変動履歴）
-  - セッション後の差分履歴・アイテム獲得管理
-- **状態**: **一部完成**
+- **状態**: **完成**
 
 ---
 
@@ -585,7 +571,6 @@
 
 ### 8.1 部分実装
 
-- **キャラクター統合**: シート紐付けと現在HP/MP/SAN参照は実装済み。セッション開始時スナップショットと差分履歴は未実装
 - **ゲスト参加**: GM登録、期限付き招待URL、参加表明、claim、監査ログを実装済み。横断募集ページは将来候補
 - **外部連携**: Discord OAuth/Webhook、iCal出力、購読ICS、Google Calendar片方向同期、Google Sheets固定列入出力を実装済み
 - **Celery基盤**: worker/beat、業務タスク、AsyncJob進捗・結果管理を実装済み
@@ -593,7 +578,6 @@
 
 ### 8.2 正式な未実装課題
 
-- セッション開始時HP/MP/SANスナップショットと差分履歴
 - Google Calendar双方向同期と競合解決
 - 横断的な公開募集ページ
 - ネイティブモバイルアプリ
@@ -607,8 +591,6 @@
 - セッション掲示板、クイック投票
 - マップ/BGM/トークン/文書を横断管理する汎用素材ライブラリ
 - VTT連携
-- セッション単位のHP/MP/SANスナップショット、状態異常、一時効果、開始/終了差分
-
 ### 8.4 取り下げ
 
 - セッション準備チェックリスト

@@ -219,7 +219,7 @@ test.describe('session templates', () => {
 
   test('sessions web create button routes to the calendar creation UI', async ({ page }) => {
     await devLogin(page);
-    await page.goto('/api/schedules/sessions/web/');
+    await page.goto('/api/schedules/sessions/view/');
 
     await page.locator('a[href="/api/schedules/calendar/view/?open_create=1"]').first().click();
     await page.waitForURL('**/api/schedules/calendar/view/?open_create=1');

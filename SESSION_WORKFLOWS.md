@@ -24,7 +24,7 @@
 
 ### 1-b) セッション一覧から「新規セッション」を作成する
 
-1. `/api/schedules/sessions/web/` を開く
+1. `/api/schedules/sessions/view/` を開く
 2. 「新規セッション」ボタンを押す
 3. `/api/schedules/calendar/view/?open_create=1` へ遷移し、作成モーダルが自動表示される
 4. タイトル/日時/グループ等を入力して保存

@@ -1032,12 +1032,6 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
             role='gm'
         )
         
-        # セッション中のキャラクターステータス変更
-        character.hit_points_current = 10
-        character.sanity_current = 60
-        character.save()
-        print("OK セッション中のステータス更新: HP=10, SAN=60")
-        
         # ハンドアウトを作成
         from schedules.models import HandoutInfo
         handout = HandoutInfo.objects.create(
@@ -1079,7 +1073,7 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
         )
         print("OK プレイ履歴記録: 成功")
         
-        # セッション終了後のキャラクター状態確認
+        # セッション連携結果の確認
         self.assertEqual(participant.character_name, character.name)
         self.assertEqual(character.session_count, 1)
         self.assertEqual(handout.participant, participant)

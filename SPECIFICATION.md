@@ -124,8 +124,6 @@ tableno/
 - `schedules_sessioninvitation` - セッション招待
 - `schedules_sessionoccurrence` - セッション出現（複数日程対応）
 - `schedules_sessionoccurrenceparticipant` - セッション出現参加者
-- `schedules_sessionnote` - セッションノート
-- `schedules_sessionlog` - セッションログ
 - `schedules_sessionimage` - セッション画像
 - `schedules_sessionyoutubelink` - YouTubeリンク
 - `schedules_handoutinfo` - ハンドアウト情報
@@ -242,23 +240,6 @@ tableno/
 - content: セッション内容
 - is_primary: プライマリ出現フラグ
 - participants: 参加者（M2M）
-
-**SessionNote（セッションノート）**
-
-- session: セッション（FK）
-- user: 作成者（FK）
-- note_type: 種別（gm_private/public_summary/player_note/npc_memo/handover）
-- title: タイトル
-- content: 内容
-- is_pinned: ピン留めフラグ
-
-**SessionLog（セッションログ）**
-
-- session: セッション（FK）
-- user: 作成者（FK）
-- event_type: イベント種別
-- content: 内容
-- timestamp: イベント時刻
 
 **SessionImage（セッション画像）**
 
@@ -537,11 +518,6 @@ tableno/
   - パート番号管理（分割動画対応）
   - 各動画への備考追加
   - UI実装済み（並び替えUI含む）
-- **セッションノート・ログ機能**【✅ 実装済み】
-  - GMプライベートノート、公開サマリー、プレイヤーノート
-  - NPCメモ、引き継ぎノート
-  - 時系列イベントログ
-  - ピン留め機能
 - **公開共有機能**【✅ 実装済み】
   - share_tokenによる認証なし閲覧
 - **セッションテンプレート**【✅ 実装済み】
@@ -743,21 +719,14 @@ tableno/
 - `POST /api/schedules/session-invitations/<id>/accept/` - 招待受諾
 - `POST /api/schedules/session-invitations/<id>/decline/` - 招待辞退
 
-#### 4.4.3 セッションノート・ログ
-
-- `GET/POST /api/schedules/notes/` - ノート一覧・作成
-- `GET/POST /api/schedules/sessions/<id>/notes/` - セッションのノート一覧・作成
-- `GET/POST /api/schedules/logs/` - ログ一覧・作成
-- `GET/POST /api/schedules/sessions/<id>/logs/` - セッションのログ一覧・作成
-
-#### 4.4.4 セッション画像
+#### 4.4.3 セッション画像
 
 - `GET/POST /api/schedules/session-images/` - 画像一覧・アップロード
 - `DELETE /api/schedules/session-images/<id>/` - 画像削除
 - `PATCH /api/schedules/session-images/<id>/reorder/` - 画像並び替え
 - `POST /api/schedules/session-images/bulk_upload/` - 一括アップロード
 
-#### 4.4.5 YouTubeリンク
+#### 4.4.4 YouTubeリンク
 
 - `GET/POST /api/schedules/youtube-links/` - 動画リンク一覧・追加
 - `GET/POST /api/schedules/sessions/<id>/youtube-links/` - セッションの動画一覧・追加
@@ -802,7 +771,7 @@ tableno/
 
 - `GET /api/schedules/calendar/view/` - カレンダービュー
 - `GET /api/schedules/calendar/view/?open_create=1` - 作成モーダルを自動表示
-- `GET /api/schedules/sessions/web/` - セッション一覧ビュー
+- `GET /api/schedules/sessions/view/` - セッション一覧ビュー
 - `GET /api/schedules/session-templates/view/` - セッションテンプレート管理
 - `GET /schedules/sessions/<id>/date-poll/` - 日程調整投票画面
 - `GET /s/<uuid:share_token>/` - 公開セッション詳細
@@ -846,7 +815,7 @@ tableno/
 - ログイン画面（Gate of Yog-Sothoth）
 - ダッシュボード（`/accounts/dashboard/`）
 - **グループ管理画面（`/accounts/groups/view/`）** - Cult Circle完全動作
-- セッション一覧（`/api/schedules/sessions/web/`）
+- セッション一覧（`/api/schedules/sessions/view/`）
 - セッション詳細（`/api/schedules/sessions/<id>/detail/`）
 - カレンダー（`/api/schedules/calendar/view/`）
 - シナリオアーカイブ（`/scenarios/archive/view/`）
@@ -1256,7 +1225,6 @@ docker compose up -d
 ### 2026-01-15
 
 - **参加予定セッション一覧（ISSUE-030）**
-- **セッションノート・ログUI統合（ISSUE-014）**
 
 ### 2025-12-31
 

@@ -329,8 +329,8 @@ class CharacterSessionIntegrationTestCase(APITestCase):
         print(f"  - 参加者数: 2名")
 
 
-class CharacterManagementInSessionTestCase(APITestCase):
-    """セッション中のキャラクター管理テスト"""
+class CharacterReferenceInSessionTestCase(APITestCase):
+    """セッション参加キャラクター参照テスト"""
     
     def setUp(self):
         """テストデータのセットアップ"""
@@ -395,8 +395,8 @@ class CharacterManagementInSessionTestCase(APITestCase):
             role='player'
         )
     
-    def test_character_status_during_session(self):
-        """セッション中のキャラクターステータス確認"""
+    def test_session_participant_exposes_character_reference(self):
+        """セッション参加者に紐付くキャラクター情報を確認"""
         # まずGMとしてセッション情報を確認
         self.client.force_authenticate(user=self.gm_user)
         
@@ -435,7 +435,7 @@ class CharacterManagementInSessionTestCase(APITestCase):
         self.assertEqual(response.data['hit_points_current'], 15)
         self.assertEqual(response.data['sanity_current'], 60)
         
-        print("\n[OK] セッション中のキャラクター管理テスト完了")
+        print("\n[OK] セッション参加キャラクター参照テスト完了")
         print(f"  - キャラクター: {self.character.name}")
         print(f"  - HP: {self.character.hit_points_current}/{self.character.hit_points_max}")
         print(f"  - SAN: {self.character.sanity_current}/{self.character.sanity_max}")
@@ -533,7 +533,7 @@ if __name__ == '__main__':
     # テスト実行
     failures = test_runner.run_tests([
         'test_character_session_integration.CharacterSessionIntegrationTestCase',
-        'test_character_session_integration.CharacterManagementInSessionTestCase',
+        'test_character_session_integration.CharacterReferenceInSessionTestCase',
         'test_character_session_integration.CharacterSessionValidationTestCase'
     ])
     

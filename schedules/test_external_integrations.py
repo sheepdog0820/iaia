@@ -139,6 +139,7 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertContains(response, '連携設定')
         self.assertContains(response, 'ICS購読URLを再発行')
         self.assertContains(response, '通知対象イベント')
+        self.assertContains(response, '連携ジョブ状況')
         self.assertContains(response, 'Google Sheets キャラクターシート入出力')
         self.assertContains(response, '直前の招待を失効')
         self.assertContains(response, 'const websocketEnabled = false')

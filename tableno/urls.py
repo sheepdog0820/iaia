@@ -25,7 +25,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from accounts.views import CustomLoginView, CustomSignUpView
 from schedules.views import PublicSessionDetailView
 from tableno.health_views import health_live_view, health_ready_view
-from schedules.job_views import AsyncJobDetailView
+from schedules.job_views import AsyncJobDetailView, AsyncJobListView, AsyncJobRetryView
 from accounts.discord_views import GroupDiscordSettingsView
 from accounts.group_link_views import (
     GroupLinkAcceptView,
@@ -56,7 +56,9 @@ urlpatterns = [
     path('health/ready', health_ready_view),
     path('api/schema/', SpectacularAPIView.as_view(), name='api-schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='api-schema'), name='api-docs'),
+    path('api/jobs/', AsyncJobListView.as_view(), name='async-job-list'),
     path('api/jobs/<uuid:pk>/', AsyncJobDetailView.as_view(), name='async-job-detail'),
+    path('api/jobs/<uuid:pk>/retry/', AsyncJobRetryView.as_view(), name='async-job-retry'),
     path(
         'api/groups/<int:group_id>/discord-settings/',
         GroupDiscordSettingsView.as_view(),

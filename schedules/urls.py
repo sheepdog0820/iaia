@@ -1,5 +1,5 @@
 from django.urls import path, include
-from django.views.generic import TemplateView
+from django.views.generic import RedirectView, TemplateView
 from django.contrib.auth.decorators import login_required
 from rest_framework.routers import DefaultRouter
 from . import views
@@ -17,8 +17,6 @@ router.register(r'session-invitations', views.SessionInvitationViewSet, basename
 router.register(r'participants', views.SessionParticipantViewSet, basename='participant')
 router.register(r'handouts', views.HandoutInfoViewSet, basename='handout')
 router.register(r'session-images', views.SessionImageViewSet, basename='session-image')
-router.register(r'notes', views.SessionNoteViewSet, basename='session-note')
-router.register(r'logs', views.SessionLogViewSet, basename='session-log')
 router.register(r'rewards', reward_views.SessionRewardViewSet, basename='session-reward')
 router.register(r'youtube-links', views.SessionYouTubeLinkViewSet, basename='youtube-link')
 router.register(r'gm-handouts', handout_views.HandoutManagementViewSet, basename='gm_handout')
@@ -50,7 +48,15 @@ urlpatterns = [
 
     # Web URLs (routerより先に配置して衝突を回避)
     path('calendar/view/', TemplateView.as_view(template_name='schedules/calendar.html'), name='calendar_view'),
-    path('sessions/web/', TemplateView.as_view(template_name='schedules/sessions.html'), name='sessions_view'),
+    path(
+        'sessions/web/',
+        RedirectView.as_view(
+            url='/api/schedules/sessions/view/',
+            permanent=False,
+            query_string=True,
+        ),
+        name='sessions_view',
+    ),
     path(
         'notifications/view/',
         login_required(TemplateView.as_view(template_name='schedules/notifications.html')),
@@ -86,13 +92,6 @@ urlpatterns = [
          views.SessionYouTubeLinkViewSet.as_view({'get': 'statistics'}),
          name='session-youtube-links-statistics'),
 
-    # Session Notes & Logs
-    path('sessions/<int:session_id>/notes/',
-         views.SessionNoteViewSet.as_view({'get': 'list', 'post': 'create'}),
-         name='session-notes'),
-    path('sessions/<int:session_id>/logs/',
-         views.SessionLogViewSet.as_view({'get': 'list', 'post': 'create'}),
-         name='session-logs'),
     path('sessions/<int:session_id>/rewards/',
          reward_views.SessionRewardViewSet.as_view({'get': 'list', 'post': 'create'}),
          name='session-rewards'),

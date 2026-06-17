@@ -137,7 +137,7 @@ test.describe('sessions', () => {
     await expect(upcomingCard).toContainText('GM:');
     await expect(upcomingCard).toContainText('グループ:');
 
-    await page.goto('/api/schedules/sessions/web/');
+    await page.goto('/api/schedules/sessions/view/');
     await page.click('#all-sessions-tab');
     const listCard = page.locator('#sessionsList .session-summary-card').filter({ hasText: sessionTitle }).first();
     await expect(listCard).toBeVisible();

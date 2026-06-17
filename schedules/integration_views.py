@@ -357,6 +357,7 @@ class GoogleSheetsExportView(APIView):
             payload={
                 'spreadsheet_id': spreadsheet_id,
                 'range': request.data.get('range', 'Characters!A1'),
+                'character_ids': request.data.get('character_ids', []),
             },
             expires_at=timezone.now() + timedelta(days=7),
         )

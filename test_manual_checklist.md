@@ -52,7 +52,7 @@
 ## 🎯 API インターフェース
 
 ### ブラウザブル API
-- [ ] `/api/schedules/sessions/web/` にアクセス（要認証）
+- [ ] `/api/schedules/sessions/view/` にアクセス（要認証）
 - [ ] Django REST Framework のブラウザブル API が表示される
 - [ ] JSON 形式の応答が確認できる
 - [ ] フォーマット選択（JSON/HTML）が動作する

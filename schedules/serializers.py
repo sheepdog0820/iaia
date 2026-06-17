@@ -8,8 +8,6 @@ from .models import (
     SessionOccurrence,
     SessionParticipant,
     SessionInvitation,
-    SessionNote,
-    SessionLog,
     SessionReward,
     HandoutInfo,
     HandoutAttachment,
@@ -150,72 +148,6 @@ class SessionParticipantSerializer(serializers.ModelSerializer):
             attrs['guest_name'] = normalized_guest_name
 
         return attrs
-
-
-class SessionNoteSerializer(serializers.ModelSerializer):
-    author_detail = UserSerializer(source='author', read_only=True)
-    session_title = serializers.CharField(source='session.title', read_only=True)
-
-    class Meta:
-        model = SessionNote
-        fields = [
-            'id',
-            'session',
-            'session_title',
-            'author',
-            'author_detail',
-            'note_type',
-            'title',
-            'content',
-            'is_pinned',
-            'created_at',
-            'updated_at'
-        ]
-        read_only_fields = [
-            'id',
-            'session',
-            'session_title',
-            'author',
-            'author_detail',
-            'created_at',
-            'updated_at'
-        ]
-
-
-class SessionLogSerializer(serializers.ModelSerializer):
-    created_by_detail = UserSerializer(source='created_by', read_only=True)
-    session_title = serializers.CharField(source='session.title', read_only=True)
-    related_character_name = serializers.CharField(
-        source='related_character.name',
-        read_only=True
-    )
-
-    class Meta:
-        model = SessionLog
-        fields = [
-            'id',
-            'session',
-            'session_title',
-            'created_by',
-            'created_by_detail',
-            'timestamp',
-            'event_type',
-            'description',
-            'related_character',
-            'related_character_name',
-            'created_at',
-            'updated_at'
-        ]
-        read_only_fields = [
-            'id',
-            'session',
-            'session_title',
-            'created_by',
-            'created_by_detail',
-            'related_character_name',
-            'created_at',
-            'updated_at'
-        ]
 
 
 class SessionRewardSerializer(serializers.ModelSerializer):

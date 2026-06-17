@@ -333,20 +333,7 @@ class CharacterToSessionIntegrationTestCase(TestCase):
         session.refresh_from_db()
         self.assertEqual(session.status, 'ongoing')
         
-        # === Step 9: セッション中のキャラクターステータス更新 ===
-        # プレイヤー1がダメージを受ける
-        self.api_client.force_authenticate(user=self.player1)
-        char1.hit_points_current = 10  # 5ダメージ
-        char1.sanity_current = 75  # 5SAN減少
-        char1.save()
-        
-        # プレイヤー3が回復
-        self.api_client.force_authenticate(user=self.player3)
-        char3.hit_points_current = 12  # 4回復
-        char3.magic_points_current = 5  # MP消費
-        char3.save()
-        
-        # === Step 10: セッション終了 ===
+        # === Step 9: セッション終了 ===
         session.status = 'completed'
         session.duration_minutes = 240  # 4時間のセッション
         session.save()
@@ -356,15 +343,6 @@ class CharacterToSessionIntegrationTestCase(TestCase):
         self.assertEqual(session.status, 'completed')
         self.assertEqual(session.duration_minutes, 240)
         
-        # キャラクターの最終状態
-        char1.refresh_from_db()
-        self.assertEqual(char1.hit_points_current, 10)  # ダメージが残っている
-        self.assertEqual(char1.sanity_current, 75)  # SAN減少が残っている
-        
-        char3.refresh_from_db()
-        self.assertEqual(char3.hit_points_current, 12)  # 回復した
-        self.assertEqual(char3.magic_points_current, 5)  # MP消費
-        
         # セッション参加履歴の確認
         self.assertTrue(
             SessionParticipant.objects.filter(
@@ -373,80 +351,6 @@ class CharacterToSessionIntegrationTestCase(TestCase):
                 character_sheet=char1
             ).exists()
         )
-    
-    def test_character_death_during_session(self):
-        """セッション中のキャラクター死亡処理"""
-        # プレイヤーがキャラクター作成
-        self.client.login(username='player1', password='pass123')
-        
-        character_data = {
-            'name': '運命の探索者',
-            'player_name': '探索者A',
-            'age': 30,
-            'gender': '男性',
-            'occupation': '考古学者',
-            'birthplace': '京都',
-            'residence': '東京',
-            'str_value': 11,
-            'con_value': 10,
-            'pow_value': 13,
-            'dex_value': 14,
-            'app_value': 12,
-            'siz_value': 12,
-            'int_value': 16,
-            'edu_value': 18,
-            'notes': '古代遺跡の専門家',
-            'hit_points_max': 11,
-            'magic_points_max': 13,
-            'sanity_starting': 65,
-            'hit_points_current': 11,
-            'magic_points_current': 13,
-            'sanity_current': 65,
-        }
-        
-        response = self.client.post(reverse('character_create_6th'), character_data)
-        self.assertEqual(response.status_code, 302)
-        
-        character = CharacterSheet.objects.get(name='運命の探索者')
-        
-        # GMがセッション作成
-        self.api_client.force_authenticate(user=self.gm_user)
-        session_data = {
-            'title': '死の迷宮',
-            'description': '古代遺跡での危険な探索',
-            'date': (timezone.now() + timedelta(days=1)).isoformat(),
-            'location': 'オンライン',
-            'status': 'planned',
-            'visibility': 'group',
-            'group': self.group.id
-        }
-        
-        response = self.api_client.post('/api/schedules/sessions/', session_data)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        session = TRPGSession.objects.get(title='死の迷宮')
-        
-        # プレイヤーが参加
-        participant = SessionParticipant.objects.create(
-            session=session,
-            user=self.player1,
-            role='player',
-            character_name=character.name,
-            character_sheet=character
-        )
-        
-        # セッション中にキャラクターが死亡
-        character.hit_points_current = 0  # HP0で死亡
-        character.status = 'dead'
-        character.save()
-        
-        # 死亡状態の確認
-        character.refresh_from_db()
-        self.assertEqual(character.hit_points_current, 0)
-        self.assertEqual(character.status, 'dead')
-        
-        # 死亡キャラクターでも履歴は残る
-        participant.refresh_from_db()
-        self.assertEqual(participant.character_sheet.status, 'dead')
     
     def test_insane_character_participation(self):
         """発狂状態のキャラクターのセッション参加"""

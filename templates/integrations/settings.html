@@ -14,6 +14,32 @@
 
     <div class="alert d-none" id="integration-message" role="alert"></div>
 
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>連携ジョブ状況</span>
+            <button class="btn btn-sm btn-outline-light" id="reload-jobs">更新</button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>種類</th>
+                            <th>状態</th>
+                            <th>進捗</th>
+                            <th>最終更新</th>
+                            <th>失敗理由</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="integration-jobs">
+                        <tr><td colspan="6" class="text-muted">ジョブ状況を読み込み中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <div class="row g-4">
         <div class="col-lg-6">
             <div class="card h-100">
@@ -220,6 +246,48 @@ document.addEventListener('DOMContentLoaded', function() {
         return element.innerHTML;
     }
 
+    function jobBadge(status) {
+        const classes = {
+            queued: 'bg-secondary',
+            running: 'bg-info',
+            succeeded: 'bg-success',
+            failed: 'bg-danger',
+        };
+        return `<span class="badge ${classes[status] || 'bg-secondary'}">${escapeHtml(status)}</span>`;
+    }
+
+    function formatDate(value) {
+        if (!value) return '';
+        return new Date(value).toLocaleString('ja-JP');
+    }
+
+    async function loadJobs() {
+        const response = await axios.get('/api/jobs/?job_type=google_calendar_sync');
+        const calendarJobs = rows(response.data);
+        const sheetsResponse = await axios.get('/api/jobs/?job_type=google_sheets_export');
+        const jobs = calendarJobs.concat(rows(sheetsResponse.data))
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            .slice(0, 10);
+        const tbody = document.getElementById('integration-jobs');
+        if (!jobs.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-muted">連携ジョブはまだありません。</td></tr>';
+            return;
+        }
+        tbody.innerHTML = jobs.map(job => {
+            const canRetry = job.status === 'failed';
+            return `<tr>
+                <td>${escapeHtml(job.job_type)}</td>
+                <td>${jobBadge(job.status)}</td>
+                <td>${Number(job.progress || 0)}%</td>
+                <td>${escapeHtml(formatDate(job.finished_at || job.started_at || job.created_at))}</td>
+                <td class="text-danger">${escapeHtml(job.error || '')}</td>
+                <td class="text-end">
+                    ${canRetry ? `<button class="btn btn-sm btn-outline-primary" data-retry-job="${job.id}">再試行</button>` : ''}
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
     async function loadGroups() {
         const response = await axios.get('/api/accounts/groups/');
         const groups = rows(response.data).filter(group =>
@@ -296,15 +364,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadAll() {
         try {
-            await Promise.all([loadGroups(), loadSessions(), loadGoogleSettings()]);
+            await Promise.all([loadGroups(), loadSessions(), loadGoogleSettings(), loadJobs()]);
         } catch (error) {
             showMessage(error?.response?.data?.detail || '設定の読み込みに失敗しました。', 'danger');
         }
     }
 
     document.getElementById('reload-integrations').addEventListener('click', loadAll);
+    document.getElementById('reload-jobs').addEventListener('click', loadJobs);
     document.getElementById('discord-group').addEventListener('change', loadDiscordSettings);
     document.getElementById('link-source-group').addEventListener('change', loadGroupLinks);
+    document.getElementById('integration-jobs').addEventListener('click', async function(event) {
+        const button = event.target.closest('[data-retry-job]');
+        if (!button) return;
+        const response = await axios.post(`/api/jobs/${button.dataset.retryJob}/retry/`);
+        showMessage(`再試行ジョブを作成しました: ${response.data.job_id}`);
+        await loadJobs();
+    });
 
     document.getElementById('rotate-calendar-token').addEventListener('click', async function() {
         const response = await axios.post('/api/calendar/subscription-token/rotate/');
@@ -372,6 +448,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('sync-google-calendar').addEventListener('click', async function() {
         const response = await axios.post(`/api/sessions/${sessionSelect.value}/google-calendar/sync/`);
         showMessage(`同期ジョブを作成しました: ${response.data.job_id}`);
+        await loadJobs();
     });
 
     document.getElementById('create-guest-invitation').addEventListener('click', async function() {
@@ -464,6 +541,7 @@ document.addEventListener('DOMContentLoaded', function() {
             range: document.getElementById('sheets-range').value.trim().replace(/:.*$/, '1'),
         });
         showMessage(`出力ジョブを作成しました: ${response.data.job_id}`);
+        await loadJobs();
     });
 
     document.querySelectorAll('[data-copy]').forEach(button => {
