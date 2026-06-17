@@ -149,6 +149,52 @@ class GroupInvitationFlowAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data[0]['status'], 'expired')
 
+    def test_non_admin_cannot_create_invitation_directly(self):
+        self.client.force_authenticate(user=self.invitee1)
+
+        response = self.client.post(
+            '/api/accounts/invitations/',
+            {
+                'group': self.group.id,
+                'invitee': self.invitee2.id,
+                'message': 'Join us'
+            },
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(
+            GroupInvitation.objects.filter(
+                group=self.group,
+                inviter=self.invitee1,
+                invitee=self.invitee2
+            ).exists()
+        )
+
+    def test_admin_can_create_invitation_directly(self):
+        self.client.force_authenticate(user=self.inviter)
+
+        response = self.client.post(
+            '/api/accounts/invitations/',
+            {
+                'group': self.group.id,
+                'invitee': self.invitee1.id,
+                'message': 'Join us'
+            },
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['inviter'], self.inviter.id)
+        self.assertTrue(
+            GroupInvitation.objects.filter(
+                group=self.group,
+                inviter=self.inviter,
+                invitee=self.invitee1,
+                status='pending'
+            ).exists()
+        )
+
 
 class GroupInvitationNotificationTestCase(APITestCase):
     """グループ招待時の通知生成テスト"""

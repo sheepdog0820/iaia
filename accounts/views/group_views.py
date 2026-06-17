@@ -445,8 +445,37 @@ class GroupInvitationViewSet(viewsets.ModelViewSet):
         return GroupInvitation.objects.filter(invitee=self.request.user)
     
     def perform_create(self, serializer):
-        """Set inviter automatically"""
-        serializer.save(inviter=self.request.user)
+        """Create invitation only when the requester can manage the group."""
+        GroupInvitation.expire_pending()
+
+        group = serializer.validated_data['group']
+        invitee = serializer.validated_data['invitee']
+        is_group_admin = GroupMembership.objects.filter(
+            group=group,
+            user=self.request.user,
+            role='admin'
+        ).exists()
+
+        if not is_group_admin:
+            raise PermissionDenied('グループ管理者のみ招待できます')
+
+        if GroupMembership.objects.filter(group=group, user=invitee).exists():
+            raise DRFValidationError({'invitee': '既にメンバーです'})
+
+        if GroupInvitation.objects.filter(
+            group=group,
+            invitee=invitee,
+            status='pending'
+        ).exists():
+            raise DRFValidationError({'invitee': '既に招待済みです'})
+
+        invitation = serializer.save(inviter=self.request.user)
+        GroupNotificationService().send_group_invitation_notification(
+            group=group,
+            inviter=self.request.user,
+            invitee=invitee,
+            invitation_message=invitation.message
+        )
     
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
