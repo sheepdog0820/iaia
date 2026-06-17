@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}グループ招待 - Tableno{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-body p-4">
+                    {% if invalid %}
+                        <h1 class="h4">招待が見つかりません</h1>
+                        <p class="text-muted mb-0">URLが正しいか、グループ管理者へ確認してください。</p>
+                    {% elif not active and not is_member %}
+                        <h1 class="h4">{{ invite_link.group.name }}</h1>
+                        <div class="alert alert-warning mb-0">この招待URLは期限切れ、失効済み、または使用上限に達しています。</div>
+                    {% else %}
+                        <h1 class="h4">{{ invite_link.group.name }} への招待</h1>
+                        {% if invite_link.group.description %}
+                            <p class="text-muted">{{ invite_link.group.description }}</p>
+                        {% endif %}
+                        <dl class="row small text-muted mb-4">
+                            <dt class="col-sm-4">公開設定</dt>
+                            <dd class="col-sm-8">{{ invite_link.group.get_visibility_display }}</dd>
+                            <dt class="col-sm-4">有効期限</dt>
+                            <dd class="col-sm-8">{{ invite_link.expires_at|date:"Y/m/d H:i" }}</dd>
+                            <dt class="col-sm-4">使用回数</dt>
+                            <dd class="col-sm-8">{{ invite_link.use_count }} / {{ invite_link.max_uses }}</dd>
+                        </dl>
+
+                        {% if is_member %}
+                            <div class="alert alert-success mb-0">既にこのグループに参加しています。</div>
+                            <a class="btn btn-primary mt-3" href="/accounts/groups/view/">グループを開く</a>
+                        {% elif user.is_authenticated %}
+                            <button class="btn btn-primary" id="join-group-invite-link">このグループに参加</button>
+                            <div class="alert d-none mt-3" id="group-invite-message"></div>
+                        {% else %}
+                            <div class="alert alert-info">参加を確定するにはログインまたは会員登録が必要です。</div>
+                            <a class="btn btn-primary" href="/login/?next={{ request.get_full_path|urlencode }}">ログイン</a>
+                            <a class="btn btn-outline-primary ms-2" href="/signup/?next={{ request.get_full_path|urlencode }}">会員登録</a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if active and user.is_authenticated and not is_member %}
+<script>
+document.getElementById('join-group-invite-link').addEventListener('click', async function() {
+    const button = this;
+    const message = document.getElementById('group-invite-message');
+    button.disabled = true;
+    try {
+        const response = await axios.post('/api/group-invitations/{{ token|escapejs }}/join/');
+        message.className = 'alert alert-success mt-3';
+        message.textContent = response.status === 201
+            ? 'グループに参加しました。'
+            : '既にこのグループに参加しています。';
+        button.classList.add('d-none');
+    } catch (error) {
+        message.className = 'alert alert-danger mt-3';
+        message.textContent = error?.response?.data?.detail || 'グループ参加に失敗しました。';
+        button.disabled = false;
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

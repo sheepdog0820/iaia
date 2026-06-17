@@ -22,7 +22,12 @@ from django.views.generic import TemplateView
 from django.contrib.auth.decorators import login_required
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from accounts.views import CustomLoginView, CustomSignUpView
+from accounts.views import (
+    CustomLoginView,
+    CustomSignUpView,
+    GroupInviteLinkJoinView,
+    GroupInviteLinkLandingView,
+)
 from schedules.views import PublicSessionDetailView
 from tableno.health_views import health_live_view, health_ready_view
 from schedules.job_views import AsyncJobDetailView, AsyncJobListView, AsyncJobRetryView
@@ -128,6 +133,16 @@ urlpatterns = [
         'api/guest-invitations/<str:token>/respond/',
         GuestInvitationRespondView.as_view(),
         name='guest-invitation-respond',
+    ),
+    path(
+        'api/group-invitations/<str:token>/join/',
+        GroupInviteLinkJoinView.as_view(),
+        name='group-invite-link-join',
+    ),
+    path(
+        'group-invitations/<str:token>/',
+        GroupInviteLinkLandingView.as_view(),
+        name='group-invite-link-landing',
     ),
     path(
         'guest-invitations/<str:token>/',

@@ -22,6 +22,7 @@ from .group_models import (
     GroupLink,
     GroupLinkShare,
     GroupInvitation,
+    GroupInviteLink,
     GroupMembership,
 )
 
@@ -50,6 +51,7 @@ __all__ = [
     'Group',
     'GroupMembership', 
     'GroupInvitation',
+    'GroupInviteLink',
     'GroupDiscordSettings',
     'DiscordDelivery',
     'GroupLink',

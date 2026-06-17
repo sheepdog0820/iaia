@@ -28,7 +28,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError as DRFVa
 from allauth.socialaccount.models import SocialAccount
 
 # Local imports - models
-from ..models import CustomUser, Friend, Group, GroupMembership, GroupInvitation
+from ..models import CustomUser, Friend, Group, GroupMembership, GroupInvitation, GroupInviteLink
 from ..character_models import CharacterSheet, CharacterSheet6th, CharacterSkill, CharacterEquipment, CharacterImage, CharacterBackground, GrowthRecord, SkillGrowthRecord
 
 # Local imports - serializers

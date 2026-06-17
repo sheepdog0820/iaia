@@ -56,6 +56,12 @@ urlpatterns = [
     path('character/new/', views.CharacterEditView.as_view(), name='character_new'),
     
     # API URLs
+    path('groups/<int:group_id>/invite-links/',
+         views.GroupInviteLinkCreateView.as_view(),
+         name='group_invite_link_create'),
+    path('groups/<int:group_id>/invite-links/<int:invite_link_id>/',
+         views.GroupInviteLinkRevokeView.as_view(),
+         name='group_invite_link_revoke'),
     path('', include(router.urls)),
     
     # Profile URLs

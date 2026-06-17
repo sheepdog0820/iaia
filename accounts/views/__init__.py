@@ -12,7 +12,14 @@ from .user_views import (
 )
 
 # Group management views
-from .group_views import GroupViewSet, GroupInvitationViewSet
+from .group_views import (
+    GroupInviteLinkCreateView,
+    GroupInviteLinkJoinView,
+    GroupInviteLinkLandingView,
+    GroupInviteLinkRevokeView,
+    GroupInvitationViewSet,
+    GroupViewSet,
+)
 
 # Character management views
 from .character_views import (
@@ -29,6 +36,8 @@ __all__ = [
     'CustomLoginView', 'CustomSignUpView', 'CustomLogoutView',
     'ProfileEditView', 'DashboardView', 'AccountDeleteView', 'mock_social_login', 'demo_login_page',
     'GroupViewSet', 'GroupInvitationViewSet',
+    'GroupInviteLinkCreateView', 'GroupInviteLinkRevokeView',
+    'GroupInviteLinkLandingView', 'GroupInviteLinkJoinView',
     'CharacterSheetViewSet', 'CharacterSkillViewSet', 'CharacterEquipmentViewSet',
     'CharacterListView', 'CharacterDetailView', 'CharacterDetailRedirectView', 'Character6thDetailView',
     'CharacterEditView', 'Character6thCreateView', 'Character7thCreateView',

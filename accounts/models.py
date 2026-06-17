@@ -28,6 +28,7 @@ __all__ = [
     'Group',
     'GroupMembership', 
     'GroupInvitation',
+    'GroupInviteLink',
     'CharacterSheet',
     'CharacterSheet6th',
     'CharacterSkill',

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (
-    CustomUser, Friend, Group, GroupMembership, GroupInvitation
+    CustomUser, Friend, Group, GroupMembership, GroupInvitation, GroupInviteLink
 )
 from .character_models import (
     CharacterSheet, CharacterSheet6th, 
@@ -57,6 +57,14 @@ class GroupInvitationAdmin(admin.ModelAdmin):
     list_display = ('inviter', 'invitee', 'group', 'status', 'created_at')
     list_filter = ('status', 'created_at')
     search_fields = ('inviter__username', 'invitee__username', 'group__name')
+
+
+@admin.register(GroupInviteLink)
+class GroupInviteLinkAdmin(admin.ModelAdmin):
+    list_display = ('group', 'created_by', 'use_count', 'max_uses', 'expires_at', 'revoked_at', 'created_at')
+    list_filter = ('expires_at', 'revoked_at', 'created_at')
+    search_fields = ('group__name', 'created_by__username', 'created_by__nickname')
+    readonly_fields = ('token_digest', 'use_count', 'created_at')
 
 
 class CharacterSkillInline(admin.TabularInline):

@@ -11,6 +11,7 @@
 - 条件付きHO公開、Discord Webhook、ICS購読
 - Google Calendar片方向同期、Google Sheets固定列入出力
 - 相互承認型グループ連携と明示共有
+- グループ招待URL（期限/失効/使用回数制限、ログイン後参加）
 - ゲスト招待URL、参加表明、claim、監査ログ
 - WebSocket通知とポーリングフォールバック
 - 統合設定画面 `/integrations/`
@@ -139,6 +140,8 @@
   - グループ編集/削除（管理者のみ）
   - メンバー一覧、退出（leave）
   - メンバー招待（管理者のみ）・招待の再送/更新
+  - 招待URL発行（管理者のみ、期限/失効/使用回数制限）
+  - 招待URLの未ログイン閲覧、ログイン/会員登録後の参加確定
   - メンバー強制削除（管理者のみ、ただし作成者は削除不可）
   - 招待の期限切れ自動処理（pending → expired）
 - **画面**
@@ -146,6 +149,10 @@
 - **API（代表）**
   - `/api/accounts/groups/`（CRUD + join/leave/invite 等）
   - `/api/accounts/invitations/`（招待一覧 + accept/decline）
+  - `POST /api/accounts/groups/{id}/invite-links/`（招待URL発行）
+  - `DELETE /api/accounts/groups/{id}/invite-links/{link_id}/`（招待URL失効）
+  - `GET /group-invitations/{token}/`（招待URL公開ページ）
+  - `POST /api/group-invitations/{token}/join/`（ログイン後の参加確定）
 - **状態**: **完成**
 
 ### 2.2 フレンド管理

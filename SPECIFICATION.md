@@ -12,6 +12,7 @@
 - 条件付きHO公開、Discord Webhook、ICS購読
 - Google Calendar片方向同期、Google Sheets固定列入出力
 - 相互承認型グループ連携と明示共有
+- グループ招待URL（期限/失効/使用回数制限、ログイン後参加）
 - ゲスト招待URL、参加表明、claim、監査ログ
 - Django Channels通知とポーリングフォールバック
 
@@ -116,6 +117,7 @@ tableno/
 - `accounts_group` - グループ
 - `accounts_groupmembership` - グループメンバーシップ
 - `accounts_groupinvitation` - グループ招待
+- `accounts_groupinvitelink` - グループ招待URL
 - `accounts_friend` - フレンド関係
 
 **スケジュール関連テーブル**
@@ -185,6 +187,14 @@ tableno/
 - status: ステータス（pending/accepted/declined/expired）
 - message: 招待メッセージ
 - created_at/responded_at: タイムスタンプ
+
+**GroupInviteLink（グループ招待URL）**
+- group: グループ（FK）
+- created_by: 発行者（FK、グループ管理者）
+- token_digest: 招待トークンのSHA-256 digest
+- expires_at/revoked_at: 有効期限/失効日時
+- max_uses/use_count: 使用回数上限/使用済み回数
+- created_at: 作成日時
 
 **CharacterSheet（キャラクターシート）**
 - user: 作成者（FK）
@@ -436,6 +446,9 @@ tableno/
   - 招待の送信・受諾・拒否機能
   - 招待ステータス管理（pending/accepted/declined/expired）
   - フレンド間での簡単招待機能
+  - グループ招待URLの発行・失効
+  - 招待URLは未ログインでも閲覧可能、参加確定はログイン/会員登録後
+  - 非公開グループでも有効な招待URLがあれば参加可能
 - **アクセス制御修正**（ISSUE-001完了）
   - パブリックグループへの非メンバーアクセス制御修正
   - GroupViewSetのget_querysetメソッド改修
@@ -646,6 +659,10 @@ tableno/
 - `GET /api/accounts/groups/all_groups/` - 全グループ一覧
 - `POST /api/accounts/groups/<id>/join/` - 公開グループ参加
 - `POST /api/accounts/groups/<id>/invite/` - メンバー招待
+- `POST /api/accounts/groups/<id>/invite-links/` - グループ招待URL発行
+- `DELETE /api/accounts/groups/<id>/invite-links/<link_id>/` - グループ招待URL失効
+- `GET /group-invitations/<token>/` - グループ招待URL公開ページ
+- `POST /api/group-invitations/<token>/join/` - 招待URLからグループ参加
 - `POST /api/accounts/groups/<id>/leave/` - グループ退出
 - `DELETE /api/accounts/groups/<id>/remove_member/` - メンバー除名
   - リクエストボディ: `user_id` または `username`

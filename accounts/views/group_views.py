@@ -1,10 +1,45 @@
 """
 Group management views
 """
+from datetime import timedelta
+
+from django.db import transaction
+from django.urls import reverse
+from django.views import View
+
 from .common_imports import *
 from .base_views import PermissionMixin
 from .mixins import GroupAccessMixin, ErrorHandlerMixin
 from schedules.notifications import GroupNotificationService
+
+
+def _is_group_admin(group, user):
+    return GroupMembership.objects.filter(
+        group=group,
+        user=user,
+        role='admin'
+    ).exists()
+
+
+def _serialize_group_invite_link(request, invite_link, token=None):
+    data = {
+        'id': invite_link.pk,
+        'group': invite_link.group_id,
+        'group_name': invite_link.group.name,
+        'expires_at': invite_link.expires_at,
+        'revoked_at': invite_link.revoked_at,
+        'max_uses': invite_link.max_uses,
+        'use_count': invite_link.use_count,
+        'is_active': invite_link.is_active,
+        'created_at': invite_link.created_at,
+    }
+    if token:
+        path = reverse('group-invite-link-landing', kwargs={'token': token})
+        data.update({
+            'token': token,
+            'invitation_url': request.build_absolute_uri(path),
+        })
+    return data
 
 
 class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewsets.ModelViewSet):
@@ -518,7 +553,7 @@ class GroupInvitationViewSet(viewsets.ModelViewSet):
         invitation.save()
         
         return Response({'success': True}, status=status.HTTP_200_OK)
-    
+
     @action(detail=True, methods=['post'])
     def decline(self, request, pk=None):
         """Decline group invitation"""
@@ -543,3 +578,146 @@ class GroupInvitationViewSet(viewsets.ModelViewSet):
         invitation.save()
         
         return Response({'success': True}, status=status.HTTP_200_OK)
+
+
+class GroupInviteLinkCreateView(APIView):
+    """Create and list token-based group invitation links."""
+    permission_classes = [IsAuthenticated]
+
+    def _get_group(self, request, group_id):
+        group = get_object_or_404(Group, pk=group_id)
+        if not _is_group_admin(group, request.user):
+            self.permission_denied(request, message='グループ管理者のみ招待URLを管理できます')
+        return group
+
+    def get(self, request, group_id):
+        group = self._get_group(request, group_id)
+        invite_links = group.invite_links.select_related('group').all()
+        return Response([
+            _serialize_group_invite_link(request, invite_link)
+            for invite_link in invite_links
+        ])
+
+    def post(self, request, group_id):
+        group = self._get_group(request, group_id)
+
+        try:
+            expires_in_hours = int(request.data.get('expires_in_hours', 168))
+        except (TypeError, ValueError):
+            return Response(
+                {'expires_in_hours': '整数で指定してください'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            max_uses = int(request.data.get('max_uses', 1))
+        except (TypeError, ValueError):
+            return Response(
+                {'max_uses': '整数で指定してください'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        expires_in_hours = max(1, min(expires_in_hours, 720))
+        max_uses = max(1, min(max_uses, 1000))
+        invite_link, token = GroupInviteLink.issue(
+            group=group,
+            created_by=request.user,
+            expires_at=timezone.now() + timedelta(hours=expires_in_hours),
+            max_uses=max_uses,
+        )
+        return Response(
+            _serialize_group_invite_link(request, invite_link, token=token),
+            status=status.HTTP_201_CREATED
+        )
+
+
+class GroupInviteLinkRevokeView(APIView):
+    """Revoke a token-based group invitation link."""
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, group_id, invite_link_id):
+        invite_link = get_object_or_404(
+            GroupInviteLink.objects.select_related('group'),
+            pk=invite_link_id,
+            group_id=group_id,
+        )
+        if not _is_group_admin(invite_link.group, request.user):
+            self.permission_denied(request, message='グループ管理者のみ招待URLを失効できます')
+
+        invite_link.revoked_at = timezone.now()
+        invite_link.save(update_fields=['revoked_at'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GroupInviteLinkLandingView(View):
+    """Public landing page for a group invitation link."""
+
+    def get(self, request, token):
+        invite_link = GroupInviteLink.objects.select_related(
+            'group', 'created_by'
+        ).filter(token_digest=GroupInviteLink.digest(token)).first()
+        if not invite_link:
+            return render(
+                request,
+                'groups/invite_link.html',
+                {'invalid': True},
+                status=404,
+            )
+
+        is_member = (
+            request.user.is_authenticated
+            and GroupMembership.objects.filter(
+                group=invite_link.group,
+                user=request.user
+            ).exists()
+        )
+        return render(request, 'groups/invite_link.html', {
+            'invite_link': invite_link,
+            'token': token,
+            'active': invite_link.is_active,
+            'is_member': is_member,
+        })
+
+
+class GroupInviteLinkJoinView(APIView):
+    """Join a group through an active invitation link after login."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, token):
+        invite_link = GroupInviteLink.objects.select_related('group').filter(
+            token_digest=GroupInviteLink.digest(token)
+        ).first()
+        if not invite_link:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        if GroupMembership.objects.filter(
+            group=invite_link.group,
+            user=request.user
+        ).exists():
+            return Response(
+                _serialize_group_invite_link(request, invite_link),
+                status=status.HTTP_200_OK
+            )
+
+        with transaction.atomic():
+            locked = GroupInviteLink.objects.select_for_update().select_related(
+                'group'
+            ).get(pk=invite_link.pk)
+            if not locked.is_active:
+                return Response(
+                    {'detail': '招待URLは期限切れ、失効済み、または使用上限に達しています'},
+                    status=status.HTTP_410_GONE
+                )
+
+            GroupMembership.objects.create(
+                group=locked.group,
+                user=request.user,
+                role='member'
+            )
+            locked.use_count += 1
+            locked.save(update_fields=['use_count'])
+
+        return Response(
+            _serialize_group_invite_link(request, locked),
+            status=status.HTTP_201_CREATED
+        )

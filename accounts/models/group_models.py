@@ -3,6 +3,7 @@ Group-related models for accounts app
 """
 import base64
 import hashlib
+import secrets
 
 from cryptography.fernet import Fernet
 from django.conf import settings
@@ -220,4 +221,54 @@ class GroupInvitation(models.Model):
         return cls.objects.filter(status='pending', created_at__lt=cutoff).update(
             status='expired',
             responded_at=timezone.now()
+        )
+
+
+class GroupInviteLink(models.Model):
+    """Token-based group invitation link for login-gated membership joins."""
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        related_name='invite_links',
+    )
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='created_group_invite_links',
+    )
+    token_digest = models.CharField(max_length=64, unique=True, db_index=True)
+    expires_at = models.DateTimeField(db_index=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    max_uses = models.PositiveIntegerField(default=1)
+    use_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Invite link for {self.group.name}"
+
+    @staticmethod
+    def digest(token):
+        return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+    @classmethod
+    def issue(cls, group, created_by, expires_at, max_uses):
+        token = secrets.token_urlsafe(32)
+        invite_link = cls.objects.create(
+            group=group,
+            created_by=created_by,
+            token_digest=cls.digest(token),
+            expires_at=expires_at,
+            max_uses=max_uses,
+        )
+        return invite_link, token
+
+    @property
+    def is_active(self):
+        return (
+            self.revoked_at is None
+            and self.expires_at > timezone.now()
+            and self.use_count < self.max_uses
         )
