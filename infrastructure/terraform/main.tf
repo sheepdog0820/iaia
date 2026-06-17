@@ -24,6 +24,13 @@ locals {
   celery_redis_url = "${local.redis_url}?ssl_cert_reqs=CERT_NONE"
   allowed_hosts    = var.allowed_hosts_override != "" ? var.allowed_hosts_override : var.domain_name
   backup_retention = var.environment == "aws-prod" ? 14 : 1
+  app_secret_names = distinct(concat(["SECRET_KEY", "DB_PASSWORD"], var.extra_secret_names))
+  app_container_secrets = [
+    for secret_name in local.app_secret_names : {
+      name      = secret_name
+      valueFrom = "${aws_secretsmanager_secret.app.arn}:${secret_name}::"
+    }
+  ]
 }
 
 resource "aws_vpc" "main" {
@@ -169,6 +176,10 @@ resource "aws_secretsmanager_secret_version" "app" {
     SECRET_KEY  = random_password.secret_key.result
     DB_PASSWORD = random_password.db_password.result
   })
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
 }
 
 resource "aws_db_subnet_group" "main" {
@@ -441,10 +452,7 @@ resource "aws_ecs_task_definition" "app" {
       { name = "SITE_ID", value = tostring(var.site_id) },
       { name = "LOG_TO_STDOUT", value = "True" }
     ], [for key, value in var.extra_environment : { name = key, value = value }])
-    secrets = [
-      { name = "SECRET_KEY", valueFrom = "${aws_secretsmanager_secret.app.arn}:SECRET_KEY::" },
-      { name = "DB_PASSWORD", valueFrom = "${aws_secretsmanager_secret.app.arn}:DB_PASSWORD::" }
-    ]
+    secrets = local.app_container_secrets
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -498,10 +506,7 @@ resource "aws_ecs_task_definition" "worker" {
       { name = "SITE_ID", value = tostring(var.site_id) },
       { name = "LOG_TO_STDOUT", value = "True" }
     ], [for key, value in var.extra_environment : { name = key, value = value }])
-    secrets = [
-      { name = "SECRET_KEY", valueFrom = "${aws_secretsmanager_secret.app.arn}:SECRET_KEY::" },
-      { name = "DB_PASSWORD", valueFrom = "${aws_secretsmanager_secret.app.arn}:DB_PASSWORD::" }
-    ]
+    secrets = local.app_container_secrets
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -548,10 +553,7 @@ resource "aws_ecs_task_definition" "beat" {
       { name = "SITE_ID", value = tostring(var.site_id) },
       { name = "LOG_TO_STDOUT", value = "True" }
     ], [for key, value in var.extra_environment : { name = key, value = value }])
-    secrets = [
-      { name = "SECRET_KEY", valueFrom = "${aws_secretsmanager_secret.app.arn}:SECRET_KEY::" },
-      { name = "DB_PASSWORD", valueFrom = "${aws_secretsmanager_secret.app.arn}:DB_PASSWORD::" }
-    ]
+    secrets = local.app_container_secrets
     logConfiguration = {
       logDriver = "awslogs"
       options = {

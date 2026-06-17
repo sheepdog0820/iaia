@@ -115,3 +115,9 @@ variable "extra_environment" {
   type    = map(string)
   default = {}
 }
+
+variable "extra_secret_names" {
+  description = "Additional JSON keys in the app Secrets Manager secret to inject as ECS container secrets. Values are managed outside Terraform."
+  type        = list(string)
+  default     = []
+}

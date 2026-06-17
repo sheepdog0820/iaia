@@ -9,3 +9,14 @@ beat_desired_count         = 1
 site_id                    = 1
 enable_deletion_protection = true
 monthly_budget_usd         = 300
+
+extra_secret_names = [
+  "GOOGLE_OAUTH_CLIENT_ID",
+  "GOOGLE_OAUTH_CLIENT_SECRET",
+  "TWITTER_CLIENT_ID",
+  "TWITTER_CLIENT_SECRET",
+  "TWITTER_REDIRECT_URI",
+  "DISCORD_CLIENT_ID",
+  "DISCORD_CLIENT_SECRET",
+  "DISCORD_REDIRECT_URI",
+]

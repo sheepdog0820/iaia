@@ -485,10 +485,13 @@ if SELENIUM_AVAILABLE:
                 skill_input.send_keys(Keys.TAB)
                 time.sleep(0.2)
 
-            # Submit form (AJAX) and accept the success alert
+            # Submit form (AJAX). The app may show an in-page notification instead of a browser alert.
             self.selenium.execute_script("document.getElementById('character-sheet-form').requestSubmit();")
-            WebDriverWait(self.selenium, 10).until(EC.alert_is_present())
-            self.selenium.switch_to.alert.accept()
+            try:
+                WebDriverWait(self.selenium, 2).until(EC.alert_is_present())
+                self.selenium.switch_to.alert.accept()
+            except TimeoutException:
+                pass
 
             # Wait for redirect
             WebDriverWait(self.selenium, 10).until(

@@ -396,6 +396,8 @@ class EndToEndBusinessFlowTestCase(TransactionTestCase):
         
         # 2. メンバー招待と受諾
         for player in self.players:
+            self.client.force_authenticate(user=self.keeper)
+
             # フレンド関係構築
             Friend.objects.create(user=self.keeper, friend=player)
             
@@ -406,6 +408,7 @@ class EndToEndBusinessFlowTestCase(TransactionTestCase):
                 'message': f'Welcome to our investigation team, {player.nickname}!'
             }
             response = self.client.post('/api/accounts/invitations/', invitation_data)
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
             invitation_id = response.data['id']
             
             # プレイヤーが招待を受諾

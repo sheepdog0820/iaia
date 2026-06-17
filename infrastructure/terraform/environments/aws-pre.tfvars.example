@@ -11,3 +11,14 @@ allowed_hosts_override     = "*"
 secure_ssl_redirect        = false
 enable_deletion_protection = false
 monthly_budget_usd         = 100
+
+extra_secret_names = [
+  "GOOGLE_OAUTH_CLIENT_ID",
+  "GOOGLE_OAUTH_CLIENT_SECRET",
+  "TWITTER_CLIENT_ID",
+  "TWITTER_CLIENT_SECRET",
+  "TWITTER_REDIRECT_URI",
+  "DISCORD_CLIENT_ID",
+  "DISCORD_CLIENT_SECRET",
+  "DISCORD_REDIRECT_URI",
+]
