@@ -347,6 +347,21 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'PREPROCESSING_HOOKS': ['tableno.schema_hooks.filter_api_endpoints'],
+    'ENUM_NAME_OVERRIDES': {
+        'AsyncJobStatusEnum': 'schedules.models.AsyncJob.Status',
+        'CharacterStatusEnum': 'accounts.character_models.CharacterSheet.STATUS_CHOICES',
+        'DiscordDeliveryStatusEnum': 'accounts.models.DiscordDelivery.Status',
+        'GoogleCalendarSyncStatusEnum': 'schedules.models.GoogleCalendarSync.Status',
+        'GroupLinkStatusEnum': 'accounts.models.GroupLink.Status',
+        'HandoutReleaseStatusEnum': 'schedules.models.HandoutInfo.ReleaseStatus',
+        'InvitationStatusEnum': 'accounts.models.GroupInvitation.STATUS_CHOICES',
+        'SessionStatusEnum': 'schedules.models.TRPGSession.STATUS_CHOICES',
+        'GroupVisibilityEnum': 'accounts.models.Group.VISIBILITY_CHOICES',
+        'SessionVisibilityEnum': 'schedules.models.TRPGSession.VISIBILITY_CHOICES',
+        'GroupMemberRoleEnum': 'accounts.models.GroupMembership.ROLE_CHOICES',
+        'SessionParticipantRoleEnum': 'schedules.models.SessionParticipant.ROLE_CHOICES',
+        'PlayerSlotEnum': 'schedules.models.SessionParticipant.PLAYER_SLOT_CHOICES',
+    },
 }
 
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', os.environ.get('REDIS_URL', 'redis://localhost:6379/1'))

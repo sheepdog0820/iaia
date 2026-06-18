@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from .models import Scenario, ScenarioNote, PlayHistory, ScenarioImage
 from accounts.serializers import UserSerializer
 
@@ -25,6 +27,7 @@ class ScenarioImageSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'uploaded_by', 'created_at', 'updated_at']
 
+    @extend_schema_field(OpenApiTypes.URI)
     def get_image_url(self, obj):
         if obj.image:
             request = self.context.get('request')
@@ -51,9 +54,11 @@ class ScenarioSerializer(serializers.ModelSerializer):
                  'play_count', 'total_play_time']
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_play_count(self, obj):
         return obj.play_histories.count()
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_total_play_time(self, obj):
         from django.db.models import Sum
         total_minutes = obj.play_histories.filter(

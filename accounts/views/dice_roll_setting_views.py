@@ -9,6 +9,7 @@ from ..serializers import CharacterDiceRollSettingSerializer
 
 class DiceRollSettingViewSet(viewsets.ModelViewSet):
     """Dice roll setting API."""
+    queryset = CharacterDiceRollSetting.objects.none()
     serializer_class = CharacterDiceRollSettingSerializer
     permission_classes = [IsAuthenticated]
 

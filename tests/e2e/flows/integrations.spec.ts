@@ -4,6 +4,30 @@ import { devLogin } from './helpers';
 test.describe('integration settings', () => {
   test('operational integration controls call the public APIs', async ({ page }) => {
     const requests: Array<{ method: string; path: string; body?: unknown }> = [];
+    let discordDeliveries = [
+      {
+        id: 77,
+        event_type: 'session_updated',
+        status: 'failed',
+        attempts: 2,
+        last_error: 'Discord returned 500',
+        created_at: '2026-06-18T00:00:00Z',
+        sent_at: null,
+        payload: { content: 'failed' },
+        idempotency_key: 'session-updated:77',
+      },
+      {
+        id: 78,
+        event_type: 'handout_released',
+        status: 'failed',
+        attempts: 1,
+        last_error: 'Background task broker is unavailable.',
+        created_at: '2026-06-18T00:01:00Z',
+        sent_at: null,
+        payload: { content: 'broker unavailable' },
+        idempotency_key: 'handout-released:78',
+      },
+    ];
 
     await page.route('**/api/accounts/groups/', route => route.fulfill({
       json: [{ id: 1, name: '<Admin Group>', member_role: 'admin' }],
@@ -42,6 +66,25 @@ test.describe('integration settings', () => {
         body: route.request().postDataJSON(),
       });
       await route.fulfill({ json: route.request().postDataJSON() });
+    });
+    await page.route('**/api/groups/1/discord-deliveries/?status=failed', route => route.fulfill({
+      json: discordDeliveries,
+    }));
+    await page.route('**/api/groups/1/discord-deliveries/77/retry/', async route => {
+      requests.push({
+        method: route.request().method(),
+        path: new URL(route.request().url()).pathname,
+      });
+      discordDeliveries = discordDeliveries.filter(delivery => delivery.id !== 77);
+      await route.fulfill({ status: 202, json: { delivery_id: 77, queued: true } });
+    });
+    await page.route('**/api/groups/1/discord-deliveries/78/retry/', async route => {
+      requests.push({
+        method: route.request().method(),
+        path: new URL(route.request().url()).pathname,
+      });
+      discordDeliveries = [];
+      await route.fulfill({ status: 202, json: { delivery_id: 78, queued: false } });
     });
     await page.route('**/api/groups/1/links/', route => route.fulfill({ json: [] }));
     await page.route('**/api/calendar/subscription-token/rotate/', async route => {
@@ -88,6 +131,10 @@ test.describe('integration settings', () => {
     await expect(page.locator('#discord-group option')).toHaveText('<Admin Group> (#1)');
     await expect(page.locator('#integration-session option')).toHaveText('<Integration Session> (#10)');
     await expect(page.locator('#discord-session-updated')).toBeChecked();
+    await expect(page.locator('h2')).toContainText('Discord通知失敗履歴');
+    await expect(page.locator('#discord-deliveries')).toContainText('Discord returned 500');
+    await expect(page.locator('#discord-deliveries')).toContainText('Background task broker is unavailable.');
+    await expect(page.locator('[data-retry-discord-delivery="77"]')).toHaveText('再送');
 
     await page.check('#discord-handout-released');
     await page.click('#save-discord-settings');
@@ -97,6 +144,28 @@ test.describe('integration settings', () => {
         (item.body as { event_types?: string[] })?.event_types?.includes('handout_released')
       )
     ).toBeTruthy();
+
+    await page.click('[data-retry-discord-delivery="77"]');
+    await expect.poll(() =>
+      requests.some(item =>
+        item.method === 'POST' &&
+        item.path === '/api/groups/1/discord-deliveries/77/retry/'
+      )
+    ).toBeTruthy();
+    await expect(page.locator('#integration-message')).toContainText('Discord通知の再送を開始しました: 77');
+
+    await page.click('[data-retry-discord-delivery="78"]');
+    await expect.poll(() =>
+      requests.some(item =>
+        item.method === 'POST' &&
+        item.path === '/api/groups/1/discord-deliveries/78/retry/'
+      )
+    ).toBeTruthy();
+    await expect(page.locator('#integration-message')).toContainText(
+      'Discord通知を再送キューに登録できませんでした: 78'
+    );
+    await page.click('#reload-discord-deliveries');
+    await expect(page.locator('#discord-deliveries')).toContainText('Discord通知失敗はありません。');
 
     await page.click('#rotate-calendar-token');
     await expect(page.locator('#calendar-subscription-url')).toHaveValue(

@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from django.core.exceptions import ValidationError as DjangoValidationError
 from .models import (
     TRPGSession,
@@ -50,7 +52,8 @@ class SessionImageSerializer(serializers.ModelSerializer):
                  'order', 'uploaded_by', 'uploaded_by_detail', 
                  'created_at', 'updated_at']
         read_only_fields = ['id', 'uploaded_by', 'created_at', 'updated_at']
-    
+
+    @extend_schema_field(OpenApiTypes.URI)
     def get_image_url(self, obj):
         if obj.image:
             request = self.context.get('request')
@@ -64,6 +67,7 @@ class SessionYouTubeLinkSerializer(serializers.ModelSerializer):
     """セッションYouTube動画リンクシリアライザー"""
     added_by_detail = UserSerializer(source='added_by', read_only=True)
     part_number = NullableIntegerField(min_value=1, required=False, allow_null=True)
+    duration_display = serializers.CharField(read_only=True)
     
     class Meta:
         model = SessionYouTubeLink
@@ -98,7 +102,8 @@ class SessionParticipantSerializer(serializers.ModelSerializer):
             'character_sheet_detail',
         ]
         read_only_fields = ['id']
-     
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_character_sheet_detail(self, obj):
         if obj.character_sheet:
             return {
@@ -323,6 +328,7 @@ class HandoutAttachmentSerializer(serializers.ModelSerializer):
             'created_at',
         ]
 
+    @extend_schema_field(OpenApiTypes.URI)
     def get_file_url(self, obj):
         if not obj.file:
             return None
@@ -349,6 +355,7 @@ class SessionTemplateImageSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'image_url', 'order', 'created_at', 'updated_at']
 
+    @extend_schema_field(OpenApiTypes.URI)
     def get_image_url(self, obj):
         if not obj.image:
             return None
@@ -442,9 +449,11 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
                  'estimated_hours', 'min_players', 'max_players']
         read_only_fields = ['id', 'gm', 'created_at', 'updated_at']
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_participant_count(self, obj):
         return obj.participants.count()
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_guest_count(self, obj):
         annotated_value = getattr(obj, 'guest_count', None)
         if isinstance(annotated_value, int):
@@ -454,6 +463,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
             return sum(1 for p in prefetched_participants if p.user_id is None)
         return obj.sessionparticipant_set.filter(user__isnull=True).count()
 
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_scenario_detail(self, obj):
         if not obj.scenario:
             return None
@@ -464,6 +474,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
             'recommended_skills': obj.scenario.recommended_skills,
         }
 
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_participants(self, obj):
         participants = SessionParticipantSerializer(
             obj.sessionparticipant_set.all(),
@@ -554,6 +565,7 @@ class SessionTemplateSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_duration_hhmm(self, obj):
         total_minutes = obj.duration_minutes or 0
         hours, minutes = divmod(total_minutes, 60)
@@ -724,9 +736,11 @@ class SessionListSerializer(serializers.ModelSerializer):
             'youtube_url', 'youtube_total_duration_display', 'youtube_video_count'
         ]
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_participant_count(self, obj):
         return obj.participants.count()
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_guest_count(self, obj):
         annotated_value = getattr(obj, 'guest_count', None)
         if isinstance(annotated_value, int):
@@ -736,6 +750,7 @@ class SessionListSerializer(serializers.ModelSerializer):
             return sum(1 for p in prefetched_participants if p.user_id is None)
         return obj.sessionparticipant_set.filter(user__isnull=True).count()
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_date_formatted(self, obj):
         if obj.date:
             return obj.date.strftime('%Y年%m月%d日 %H:%M')
@@ -763,9 +778,11 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
             'guest_count', 'participants_summary', 'duration_minutes', 'duration_display'
         ]
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_participant_count(self, obj):
         return obj.participants.count()
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_guest_count(self, obj):
         annotated_value = getattr(obj, 'guest_count', None)
         if isinstance(annotated_value, int):
@@ -775,16 +792,19 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
             return sum(1 for p in prefetched_participants if p.user_id is None)
         return obj.sessionparticipant_set.filter(user__isnull=True).count()
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_date_formatted(self, obj):
         if obj.date:
             return obj.date.strftime('%Y年%m月%d日')
         return None
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_time_formatted(self, obj):
         if obj.date:
             return obj.date.strftime('%H:%M')
         return None
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_date_display(self, obj):
         if obj.date:
             from datetime import datetime, timedelta
@@ -810,6 +830,7 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
                 return obj.date.strftime('%Y年%m月%d日 %H:%M')
         return None
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_participants_summary(self, obj):
         """参加者の簡易表示"""
         participants = obj.sessionparticipant_set.select_related('user').all()
@@ -832,6 +853,7 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
             remaining = len(players) - 2
             return f"{', '.join(names)} 他{remaining}人"
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_duration_display(self, obj):
         if obj.duration_minutes:
             hours = obj.duration_minutes // 60
@@ -889,6 +911,7 @@ class HandoutNotificationSerializer(serializers.ModelSerializer):
             'notification_type', 'message', 'metadata', 'created_at'
         ]
     
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_handout_info(self, obj):
         """ハンドアウト情報を取得"""
         try:
@@ -897,6 +920,7 @@ class HandoutNotificationSerializer(serializers.ModelSerializer):
         except HandoutInfo.DoesNotExist:
             return None
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_time_since_created(self, obj):
         """作成からの経過時間を人間が読みやすい形式で返す"""
         from django.utils import timezone
@@ -1002,15 +1026,18 @@ class SessionInvitationSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_session_group(self, obj):
         group = getattr(obj.session, 'group', None)
         if not group:
             return None
         return {'id': group.id, 'name': group.name}
 
+    @extend_schema_field(OpenApiTypes.DATETIME)
     def get_expires_at(self, obj):
         return obj.expires_at.isoformat() if obj.expires_at else None
 
+    @extend_schema_field(OpenApiTypes.BOOL)
     def get_is_expired(self, obj):
         return obj.is_expired
 
@@ -1046,9 +1073,11 @@ class SessionSeriesSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_session_count(self, obj):
         return obj.sessions.count()
 
+    @extend_schema_field(serializers.ListField(child=serializers.DateField()))
     def get_next_session_dates(self, obj):
         dates = obj.get_next_session_dates(count=3)
         return [d.isoformat() for d in dates]
@@ -1178,12 +1207,15 @@ class DatePollOptionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at']
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_available_count(self, obj):
         return obj.votes.filter(status='available').count()
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_maybe_count(self, obj):
         return obj.votes.filter(status='maybe').count()
 
+    @extend_schema_field(OpenApiTypes.INT)
     def get_unavailable_count(self, obj):
         return obj.votes.filter(status='unavailable').count()
 
@@ -1208,6 +1240,7 @@ class DatePollSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_by', 'session', 'created_at', 'updated_at']
 
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_session_detail(self, obj):
         if obj.session:
             return {

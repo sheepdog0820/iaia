@@ -26,6 +26,7 @@ class HandoutNotificationPagination(PageNumberPagination):
 
 
 class HandoutNotificationViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = HandoutNotification.objects.none()
     """ハンドアウト通知ViewSet"""
     
     serializer_class = HandoutNotificationSerializer
@@ -99,6 +100,7 @@ class HandoutNotificationViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class UserNotificationPreferencesViewSet(viewsets.ModelViewSet):
+    queryset = UserNotificationPreferences.objects.none()
     """ユーザー通知設定ViewSet"""
     
     serializer_class = UserNotificationPreferencesSerializer

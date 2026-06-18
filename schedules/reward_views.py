@@ -14,6 +14,7 @@ from .serializers import SessionRewardSerializer
 
 
 class SessionRewardViewSet(viewsets.ModelViewSet):
+    queryset = SessionReward.objects.none()
     serializer_class = SessionRewardSerializer
     permission_classes = [IsAuthenticated]
 

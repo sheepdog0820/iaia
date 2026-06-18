@@ -89,6 +89,205 @@ class DiscordSettingsTestCase(APITestCase):
             DiscordDelivery.Status.SENT,
         )
 
+    def test_admin_can_list_discord_delivery_failures(self):
+        settings_obj = GroupDiscordSettings.objects.create(
+            group=self.group,
+            enabled=True,
+            event_types=['session_updated'],
+        )
+        failed = DiscordDelivery.objects.create(
+            settings=settings_obj,
+            event_type='session_updated',
+            idempotency_key='session-updated:failed',
+            payload={'content': 'failed'},
+            status=DiscordDelivery.Status.FAILED,
+            last_error='Discord returned 500',
+        )
+        DiscordDelivery.objects.create(
+            settings=settings_obj,
+            event_type='session_created',
+            idempotency_key='session-created:sent',
+            payload={'content': 'sent'},
+            status=DiscordDelivery.Status.SENT,
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.get(
+            f'/api/groups/{self.group.pk}/discord-deliveries/?status=failed'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['id'], failed.pk)
+        self.assertEqual(response.data[0]['last_error'], 'Discord returned 500')
+        self.assertEqual(response.data[0]['payload'], {'content': 'failed'})
+
+    def test_delivery_list_without_settings_has_no_side_effect(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.get(
+            f'/api/groups/{self.group.pk}/discord-deliveries/?status=failed'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
+        self.assertFalse(
+            GroupDiscordSettings.objects.filter(group=self.group).exists()
+        )
+
+    def test_non_admin_cannot_list_or_retry_discord_deliveries(self):
+        settings_obj = GroupDiscordSettings.objects.create(
+            group=self.group,
+            enabled=True,
+            event_types=['session_updated'],
+        )
+        settings_obj.set_webhook_url('https://discord.com/api/webhooks/123/secret')
+        settings_obj.save()
+        delivery = DiscordDelivery.objects.create(
+            settings=settings_obj,
+            event_type='session_updated',
+            idempotency_key='session-updated:failed',
+            payload={'content': 'failed'},
+            status=DiscordDelivery.Status.FAILED,
+        )
+        self.client.force_authenticate(self.member)
+
+        list_response = self.client.get(
+            f'/api/groups/{self.group.pk}/discord-deliveries/'
+        )
+        retry_response = self.client.post(
+            f'/api/groups/{self.group.pk}/discord-deliveries/{delivery.pk}/retry/'
+        )
+
+        self.assertEqual(list_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(retry_response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch('accounts.discord_views._broker_available', return_value=True)
+    @patch('accounts.discord_views.send_discord_webhook.delay')
+    def test_failed_delivery_retry_reuses_same_record(self, delay, broker_available):
+        settings_obj = GroupDiscordSettings.objects.create(
+            group=self.group,
+            enabled=True,
+            event_types=['session_updated'],
+        )
+        settings_obj.set_webhook_url('https://discord.com/api/webhooks/123/secret')
+        settings_obj.save()
+        delivery = DiscordDelivery.objects.create(
+            settings=settings_obj,
+            event_type='session_updated',
+            idempotency_key='session-updated:failed',
+            payload={'content': 'failed'},
+            status=DiscordDelivery.Status.FAILED,
+            attempts=2,
+            last_error='Discord returned 500',
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            f'/api/groups/{self.group.pk}/discord-deliveries/{delivery.pk}/retry/'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertTrue(response.data['queued'])
+        delivery.refresh_from_db()
+        self.assertEqual(delivery.status, DiscordDelivery.Status.PENDING)
+        self.assertEqual(delivery.last_error, '')
+        self.assertEqual(delivery.attempts, 2)
+        delay.assert_called_once_with(
+            self.group.pk,
+            'session_updated',
+            {'content': 'failed'},
+            'session-updated:failed',
+        )
+
+    def test_retry_rejects_non_failed_delivery(self):
+        settings_obj = GroupDiscordSettings.objects.create(
+            group=self.group,
+            enabled=True,
+            event_types=['session_updated'],
+        )
+        settings_obj.set_webhook_url('https://discord.com/api/webhooks/123/secret')
+        settings_obj.save()
+        delivery = DiscordDelivery.objects.create(
+            settings=settings_obj,
+            event_type='session_updated',
+            idempotency_key='session-updated:pending',
+            payload={'content': 'pending'},
+            status=DiscordDelivery.Status.PENDING,
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            f'/api/groups/{self.group.pk}/discord-deliveries/{delivery.pk}/retry/'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_retry_requires_enabled_configured_event_type(self):
+        settings_obj = GroupDiscordSettings.objects.create(
+            group=self.group,
+            enabled=False,
+            event_types=['session_updated'],
+        )
+        delivery = DiscordDelivery.objects.create(
+            settings=settings_obj,
+            event_type='session_updated',
+            idempotency_key='session-updated:failed',
+            payload={'content': 'failed'},
+            status=DiscordDelivery.Status.FAILED,
+        )
+        self.client.force_authenticate(self.admin)
+
+        disabled_response = self.client.post(
+            f'/api/groups/{self.group.pk}/discord-deliveries/{delivery.pk}/retry/'
+        )
+        settings_obj.enabled = True
+        settings_obj.save(update_fields=['enabled'])
+        missing_webhook_response = self.client.post(
+            f'/api/groups/{self.group.pk}/discord-deliveries/{delivery.pk}/retry/'
+        )
+        settings_obj.set_webhook_url('https://discord.com/api/webhooks/123/secret')
+        settings_obj.event_types = []
+        settings_obj.save()
+        disabled_event_response = self.client.post(
+            f'/api/groups/{self.group.pk}/discord-deliveries/{delivery.pk}/retry/'
+        )
+
+        self.assertEqual(disabled_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(missing_webhook_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(disabled_event_response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch('accounts.discord_views._broker_available', return_value=False)
+    def test_retry_reports_broker_unavailable(self, broker_available):
+        settings_obj = GroupDiscordSettings.objects.create(
+            group=self.group,
+            enabled=True,
+            event_types=['session_updated'],
+        )
+        settings_obj.set_webhook_url('https://discord.com/api/webhooks/123/secret')
+        settings_obj.save()
+        delivery = DiscordDelivery.objects.create(
+            settings=settings_obj,
+            event_type='session_updated',
+            idempotency_key='session-updated:failed',
+            payload={'content': 'failed'},
+            status=DiscordDelivery.Status.FAILED,
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            f'/api/groups/{self.group.pk}/discord-deliveries/{delivery.pk}/retry/'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertFalse(response.data['queued'])
+        delivery.refresh_from_db()
+        self.assertEqual(delivery.status, DiscordDelivery.Status.FAILED)
+        self.assertEqual(
+            delivery.last_error,
+            'Background task broker is unavailable.',
+        )
+
 
 class HandoutReleaseTestCase(APITestCase):
     def setUp(self):

@@ -149,6 +149,7 @@ class SessionsListView(APIView):
 
 
 class TRPGSessionViewSet(viewsets.ModelViewSet):
+    queryset = TRPGSession.objects.none()
     serializer_class = TRPGSessionSerializer
     permission_classes = [IsAuthenticated]
     
@@ -802,6 +803,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
 
 
 class SessionInvitationViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = SessionInvitation.objects.none()
     serializer_class = SessionInvitationSerializer
     permission_classes = [IsAuthenticated]
 
@@ -893,6 +895,7 @@ class SessionInvitationViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class SessionOccurrenceViewSet(viewsets.ModelViewSet):
+    queryset = SessionOccurrence.objects.none()
     serializer_class = SessionOccurrenceSerializer
     permission_classes = [IsAuthenticated]
 
@@ -956,6 +959,7 @@ class SessionOccurrenceViewSet(viewsets.ModelViewSet):
 
 
 class SessionParticipantViewSet(viewsets.ModelViewSet):
+    queryset = SessionParticipant.objects.none()
     serializer_class = SessionParticipantSerializer
     permission_classes = [IsAuthenticated]
     
@@ -1251,6 +1255,7 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
 
 
 class HandoutInfoViewSet(viewsets.ModelViewSet):
+    queryset = HandoutInfo.objects.none()
     serializer_class = HandoutInfoSerializer
     permission_classes = [IsAuthenticated]
 
@@ -2378,6 +2383,7 @@ class PublicSessionDetailView(APIView):
 
 
 class SessionImageViewSet(viewsets.ModelViewSet):
+    queryset = SessionImage.objects.none()
     """セッション画像ViewSet"""
     serializer_class = SessionImageSerializer
     permission_classes = [IsAuthenticated]
@@ -2587,6 +2593,7 @@ class SessionImageViewSet(viewsets.ModelViewSet):
 
 
 class SessionYouTubeLinkViewSet(viewsets.ModelViewSet):
+    queryset = SessionYouTubeLink.objects.none()
     """セッションYouTube動画リンク管理ViewSet"""
     serializer_class = SessionYouTubeLinkSerializer
     permission_classes = [IsAuthenticated]
@@ -2804,6 +2811,7 @@ class SessionYouTubeLinkViewSet(viewsets.ModelViewSet):
 
 
 class SessionSeriesViewSet(viewsets.ModelViewSet):
+    queryset = SessionSeries.objects.none()
     """セッションシリーズ/キャンペーン管理ViewSet（ISSUE-017）"""
 
     permission_classes = [IsAuthenticated]
@@ -2875,6 +2883,7 @@ class SessionSeriesViewSet(viewsets.ModelViewSet):
 
 
 class SessionAvailabilityViewSet(viewsets.ModelViewSet):
+    queryset = SessionAvailability.objects.none()
     """参加可能日投票ViewSet（ISSUE-017）"""
 
     serializer_class = SessionAvailabilitySerializer
@@ -2931,6 +2940,7 @@ class SessionAvailabilityViewSet(viewsets.ModelViewSet):
 
 
 class DatePollViewSet(viewsets.ModelViewSet):
+    queryset = DatePoll.objects.none()
     """日程調整ViewSet（ISSUE-017）"""
 
     permission_classes = [IsAuthenticated]

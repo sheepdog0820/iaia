@@ -41,6 +41,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
 class FriendViewSet(viewsets.ModelViewSet):
     """Friend management ViewSet"""
+    queryset = Friend.objects.none()
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):

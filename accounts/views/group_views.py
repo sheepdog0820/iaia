@@ -44,6 +44,7 @@ def _serialize_group_invite_link(request, invite_link, token=None):
 
 class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewsets.ModelViewSet):
     """Group management ViewSet with permission checks"""
+    queryset = Group.objects.none()
     serializer_class = GroupSerializer
     permission_classes = [IsAuthenticated]
     
@@ -471,6 +472,7 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
 
 class GroupInvitationViewSet(viewsets.ModelViewSet):
     """Group invitation management ViewSet"""
+    queryset = GroupInvitation.objects.none()
     serializer_class = GroupInvitationSerializer
     permission_classes = [IsAuthenticated]
     

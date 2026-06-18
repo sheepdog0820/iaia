@@ -81,6 +81,7 @@ class GMHandoutManagementView(APIView):
 
 
 class HandoutManagementViewSet(viewsets.ModelViewSet):
+    queryset = HandoutInfo.objects.none()
     """ハンドアウト管理API"""
     serializer_class = HandoutInfoSerializer
     permission_classes = [IsAuthenticated]

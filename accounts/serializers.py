@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from django.core.exceptions import ValidationError
 from django.db import models
 from PIL import Image
@@ -115,12 +117,15 @@ class GroupSerializer(serializers.ModelSerializer):
                  'is_member', 'member_role']
         read_only_fields = ['id', 'created_by', 'created_at']
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_member_count(self, obj):
         return obj.members.count()
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_session_count(self, obj):
         return obj.sessions.count()
     
+    @extend_schema_field(OpenApiTypes.FLOAT)
     def get_total_play_hours(self, obj):
         from django.db.models import Sum
         total_minutes = obj.sessions.filter(status='completed').aggregate(
@@ -128,6 +133,7 @@ class GroupSerializer(serializers.ModelSerializer):
         )['total'] or 0
         return round(total_minutes / 60, 1)
     
+    @extend_schema_field(OpenApiTypes.BOOL)
     def get_is_member(self, obj):
         """ユーザーがこのグループのメンバーかどうか"""
         request = self.context.get('request')
@@ -143,6 +149,7 @@ class GroupSerializer(serializers.ModelSerializer):
             group=obj, user=request.user
         ).exists()
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_member_role(self, obj):
         """ユーザーのグループでの役割"""
         request = self.context.get('request')
@@ -174,9 +181,11 @@ class GroupInvitationSerializer(serializers.ModelSerializer):
                  'expires_at', 'is_expired']
         read_only_fields = ['id', 'inviter', 'created_at', 'responded_at', 'expires_at', 'is_expired']
 
+    @extend_schema_field(OpenApiTypes.DATETIME)
     def get_expires_at(self, obj):
         return obj.expires_at
 
+    @extend_schema_field(OpenApiTypes.BOOL)
     def get_is_expired(self, obj):
         return obj.is_expired
 
@@ -250,7 +259,7 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
     character_7th = serializers.SerializerMethodField()
     
     # 計算済みフィールド
-    abilities = serializers.ReadOnlyField()
+    abilities = serializers.DictField(read_only=True)
     
     # バージョン関連
     versions = serializers.SerializerMethodField()
@@ -289,6 +298,7 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             'user_nickname', 'character_6th', 'character_7th'
         ]
 
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_character_6th(self, obj):
         """詳細画面互換用の6版固有データ"""
         if obj.edition != '6th':
@@ -298,6 +308,7 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
         except CharacterSheet6th.DoesNotExist:
             return None
 
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_character_7th(self, obj):
         """7版固有の計算済みデータ"""
         if obj.edition != '7th':
@@ -322,6 +333,7 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             'phobias_manias': '',
         }
     
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_versions(self, obj):
         """このキャラクターのバージョン一覧を返す"""
         if obj.parent_sheet:
@@ -606,6 +618,7 @@ class CharacterSheetListSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_skill_count(self, obj):
         """スキル数を返す"""
         annotated = getattr(obj, 'skill_count', None)
@@ -613,6 +626,7 @@ class CharacterSheetListSerializer(serializers.ModelSerializer):
             return annotated
         return obj.skills.count()
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_equipment_count(self, obj):
         """装備数を返す"""
         annotated = getattr(obj, 'equipment_count', None)
@@ -620,6 +634,7 @@ class CharacterSheetListSerializer(serializers.ModelSerializer):
             return annotated
         return obj.equipment.count()
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_latest_version(self, obj):
         """最新バージョン番号を返す"""
         annotated = getattr(obj, 'latest_version', None)
@@ -768,6 +783,7 @@ class CharacterImageSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'uploaded_at', 'image_url', 'thumbnail_url']
     
+    @extend_schema_field(OpenApiTypes.URI)
     def get_image_url(self, obj):
         """画像のフルURLを返す"""
         if obj.image:
@@ -777,6 +793,7 @@ class CharacterImageSerializer(serializers.ModelSerializer):
             return obj.image.url
         return None
     
+    @extend_schema_field(OpenApiTypes.URI)
     def get_thumbnail_url(self, obj):
         """サムネイルURLを返す（現時点では元画像と同じ）"""
         # TODO: 実際のサムネイル生成機能を実装
@@ -912,6 +929,7 @@ class GrowthRecordSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'net_sanity_change']
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_net_sanity_change(self, obj):
         """SAN値の正味変化を返す"""
         return obj.calculate_net_sanity_change()
@@ -975,34 +993,41 @@ class UserDetailSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'last_login', 'date_joined']
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_group_count(self, obj):
         """参加グループ数"""
         return obj.groupmembership_set.count()
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_character_count(self, obj):
         """作成キャラクター数"""
         return obj.character_sheets.filter(is_active=True).count()
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_gm_session_count(self, obj):
         """GMとして開催したセッション数"""
         return obj.gm_sessions.count()
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_player_session_count(self, obj):
         """プレイヤーとして参加したセッション数"""
         return obj.sessionparticipant_set.count()
     
+    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
     def get_oauth_providers(self, obj):
         """連携済みOAuth"""
         from allauth.socialaccount.models import SocialAccount
         social_accounts = SocialAccount.objects.filter(user=obj)
         return [account.provider for account in social_accounts]
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_last_login_formatted(self, obj):
         """最終ログイン日時（フォーマット済み）"""
         if obj.last_login:
             return obj.last_login.strftime("%Y年%m月%d日 %H:%M")
         return "未ログイン"
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_date_joined_formatted(self, obj):
         """登録日時（フォーマット済み）"""
         return obj.date_joined.strftime("%Y年%m月%d日 %H:%M")

@@ -3,6 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from django.db.models import F, Q
 
 from accounts.models import GroupLink, GroupLinkShare, GroupMembership
@@ -11,6 +13,7 @@ from .serializers import SessionTemplateImageSerializer, SessionTemplateSerializ
 
 
 class SessionTemplateViewSet(viewsets.ModelViewSet):
+    queryset = SessionTemplate.objects.none()
     serializer_class = SessionTemplateSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = None
@@ -109,6 +112,11 @@ class SessionTemplateViewSet(viewsets.ModelViewSet):
         )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter('image_id', OpenApiTypes.INT, OpenApiParameter.PATH),
+        ],
+    )
     @action(detail=True, methods=['delete'], url_path=r'images/(?P<image_id>[^/.]+)')
     def delete_image(self, request, pk=None, image_id=None):
         template = self.get_object()

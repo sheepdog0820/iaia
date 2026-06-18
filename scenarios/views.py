@@ -284,6 +284,7 @@ class ScenarioImageViewSet(viewsets.ModelViewSet):
 
 
 class ScenarioNoteViewSet(viewsets.ModelViewSet):
+    queryset = ScenarioNote.objects.none()
     serializer_class = ScenarioNoteSerializer
     permission_classes = [IsAuthenticated]
     
@@ -311,6 +312,7 @@ class ScenarioNoteViewSet(viewsets.ModelViewSet):
 
 
 class PlayHistoryViewSet(viewsets.ModelViewSet):
+    queryset = PlayHistory.objects.none()
     serializer_class = PlayHistorySerializer
     permission_classes = [IsAuthenticated]
     

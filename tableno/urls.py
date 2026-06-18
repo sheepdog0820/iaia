@@ -31,7 +31,11 @@ from accounts.views import (
 from schedules.views import PublicSessionDetailView
 from tableno.health_views import health_live_view, health_ready_view
 from schedules.job_views import AsyncJobDetailView, AsyncJobListView, AsyncJobRetryView
-from accounts.discord_views import GroupDiscordSettingsView
+from accounts.discord_views import (
+    GroupDiscordDeliveryListView,
+    GroupDiscordDeliveryRetryView,
+    GroupDiscordSettingsView,
+)
 from accounts.group_link_views import (
     GroupLinkAcceptView,
     GroupLinkDetailView,
@@ -68,6 +72,16 @@ urlpatterns = [
         'api/groups/<int:group_id>/discord-settings/',
         GroupDiscordSettingsView.as_view(),
         name='group-discord-settings',
+    ),
+    path(
+        'api/groups/<int:group_id>/discord-deliveries/',
+        GroupDiscordDeliveryListView.as_view(),
+        name='group-discord-delivery-list',
+    ),
+    path(
+        'api/groups/<int:group_id>/discord-deliveries/<int:delivery_id>/retry/',
+        GroupDiscordDeliveryRetryView.as_view(),
+        name='group-discord-delivery-retry',
     ),
     path(
         'api/groups/<int:group_id>/links/',

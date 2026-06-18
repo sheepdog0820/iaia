@@ -327,7 +327,7 @@ class Character6thSkillManagementTestCase(TestCase):
             name="Skill Test Character",
             str_value=13, con_value=12, pow_value=14, dex_value=11,
             app_value=10, siz_value=15, int_value=16, edu_value=17,
-            occupation="蛹ｻ蟶ｫ"
+            occupation="医師"
         )
 
     def test_skill_creation_and_validation(self):

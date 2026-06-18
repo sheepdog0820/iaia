@@ -17,10 +17,13 @@ from rest_framework import status
 from django.db import OperationalError, IntegrityError, transaction
 from ..character_models import GrowthRecord
 from ..serializers import GrowthRecordSerializer
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 
 
 class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets.ModelViewSet):
     """Character sheet management ViewSet"""
+    queryset = CharacterSheet.objects.none()
     permission_classes = [IsAuthenticated]
     
     class OptionalPagination(PageNumberPagination):
@@ -2037,6 +2040,11 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
     
+    @extend_schema(
+        parameters=[
+            OpenApiParameter('record_id', OpenApiTypes.INT, OpenApiParameter.PATH),
+        ],
+    )
     @action(detail=True, methods=['post'], url_path='growth-records/(?P<record_id>[^/.]+)/add-skill-growth')
     def add_skill_growth(self, request, pk=None, record_id=None):
         """技能成長記録追加API"""
@@ -2153,6 +2161,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
 
 class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, viewsets.ModelViewSet):
     """Character skill management ViewSet"""
+    queryset = CharacterSkill.objects.none()
     serializer_class = CharacterSkillSerializer
     permission_classes = [IsAuthenticated]
     
@@ -2345,6 +2354,7 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
 
 class CharacterEquipmentViewSet(CharacterNestedResourceMixin, viewsets.ModelViewSet):
     """Character equipment management ViewSet"""
+    queryset = CharacterEquipment.objects.none()
     serializer_class = CharacterEquipmentSerializer
     permission_classes = [IsAuthenticated]
     
@@ -2642,6 +2652,7 @@ class Character7thCreateView(TemplateView):
 
 
 class GrowthRecordViewSet(CharacterNestedResourceMixin, viewsets.ModelViewSet):
+    queryset = GrowthRecord.objects.none()
     """成長記録管理ViewSet"""
     permission_classes = [IsAuthenticated]
 
