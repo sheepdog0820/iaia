@@ -296,8 +296,6 @@ SOCIALACCOUNT_PROVIDERS = {
             "profile",
             "email",
             "openid",
-            "https://www.googleapis.com/auth/calendar.events",
-            "https://www.googleapis.com/auth/spreadsheets",
         ],
         "AUTH_PARAMS": {
             "access_type": "offline",

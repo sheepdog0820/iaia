@@ -60,7 +60,7 @@
                         <label class="form-check-label" for="google-sheets-enabled">Google Sheets入出力</label>
                     </div>
                     <button class="btn btn-outline-primary" id="save-google-settings">Google設定を保存</button>
-                    <a class="btn btn-link" href="/accounts/google/login/?process=connect">Googleを再連携</a>
+                    <a class="btn btn-link" id="google-reconnect-link" href="/accounts/google/login/?process=connect&amp;scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.events%2Chttps%3A%2F%2Fwww.googleapis.com%2Fauth%2Fspreadsheets">Googleを再連携</a>
                 </div>
             </div>
         </div>
@@ -322,6 +322,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const data = response.data;
         document.getElementById('google-calendar-enabled').checked = !!data.calendar_enabled;
         document.getElementById('google-sheets-enabled').checked = !!data.sheets_enabled;
+        if (data.reconnect_url) {
+            document.getElementById('google-reconnect-link').href = data.reconnect_url;
+        }
         document.getElementById('google-status').textContent =
             data.connected ? `連携済み: ${data.scopes.join(', ')}` : '未連携';
     }

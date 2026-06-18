@@ -1,5 +1,6 @@
 import hashlib
 from datetime import timedelta
+from urllib.parse import urlencode
 
 import requests
 from allauth.socialaccount.models import SocialAccount, SocialToken
@@ -31,6 +32,12 @@ SHEET_COLUMNS = [
     'id', 'name', 'edition', 'age', 'occupation',
     'STR', 'CON', 'POW', 'DEX', 'APP', 'SIZ', 'INT', 'EDU',
     'HP', 'MP', 'SAN',
+]
+
+
+GOOGLE_INTEGRATION_SCOPES = [
+    GoogleIntegration.REQUIRED_CALENDAR_SCOPE,
+    GoogleIntegration.REQUIRED_SHEETS_SCOPE,
 ]
 
 
@@ -133,6 +140,14 @@ def _authorized_google_scopes(user):
     return set(raw)
 
 
+def _google_reconnect_url():
+    query = urlencode({
+        'process': 'connect',
+        'scope': ','.join(GOOGLE_INTEGRATION_SCOPES),
+    })
+    return f'/accounts/google/login/?{query}'
+
+
 class GoogleIntegrationView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -143,7 +158,7 @@ class GoogleIntegrationView(APIView):
             'calendar_enabled': bool(integration and integration.calendar_enabled),
             'sheets_enabled': bool(integration and integration.sheets_enabled),
             'scopes': integration.scopes if integration else [],
-            'reconnect_url': '/accounts/google/login/?process=connect',
+            'reconnect_url': _google_reconnect_url(),
         })
 
     def put(self, request):

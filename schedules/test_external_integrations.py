@@ -1,7 +1,9 @@
 from datetime import timedelta
+from urllib.parse import parse_qs, urlparse
 from unittest.mock import Mock, patch
 
 from allauth.socialaccount.models import SocialAccount, SocialToken
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.utils import timezone
@@ -131,6 +133,22 @@ class GoogleIntegrationTestCase(APITestCase):
         }, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(GoogleIntegration.objects.filter(user=self.user).exists())
+
+    def test_google_login_default_scope_is_sign_in_only(self):
+        google_scopes = settings.SOCIALACCOUNT_PROVIDERS['google']['SCOPE']
+        self.assertEqual(set(google_scopes), {'openid', 'email', 'profile'})
+        self.assertNotIn(GoogleIntegration.REQUIRED_CALENDAR_SCOPE, google_scopes)
+        self.assertNotIn(GoogleIntegration.REQUIRED_SHEETS_SCOPE, google_scopes)
+
+    def test_google_integration_reconnect_url_requests_feature_scopes(self):
+        response = self.client.get('/api/google/integration/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        reconnect_url = response.data['reconnect_url']
+        query = parse_qs(urlparse(reconnect_url).query)
+        self.assertEqual(query['process'], ['connect'])
+        scopes = query['scope'][0].split(',')
+        self.assertIn(GoogleIntegration.REQUIRED_CALENDAR_SCOPE, scopes)
+        self.assertIn(GoogleIntegration.REQUIRED_SHEETS_SCOPE, scopes)
 
     def test_integration_settings_page_is_available(self):
         self.client.force_login(self.user)
