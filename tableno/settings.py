@@ -14,6 +14,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -354,6 +355,7 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = int(os.environ.get('CELERY_TASK_TIME_LIMIT', '900'))
 CELERY_TASK_SOFT_TIME_LIMIT = int(os.environ.get('CELERY_TASK_SOFT_TIME_LIMIT', '840'))
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULE = {
     'publish-scheduled-handouts': {
         'task': 'schedules.tasks.publish_scheduled_handouts',
@@ -363,7 +365,16 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'schedules.tasks.expire_async_jobs',
         'schedule': 3600.0,
     },
+    'sync-japanese-holidays-monthly': {
+        'task': 'schedules.tasks.sync_japanese_holidays',
+        'schedule': crontab(minute=20, hour=3, day_of_month='1'),
+    },
 }
+
+JAPANESE_HOLIDAY_CSV_URL = os.environ.get(
+    'JAPANESE_HOLIDAY_CSV_URL',
+    'https://www8.cao.go.jp/chosei/shukujitsu/syukujitsu.csv',
+)
 
 ASGI_APPLICATION = 'tableno.asgi.application'
 WEBSOCKET_NOTIFICATIONS_ENABLED = _get_bool(

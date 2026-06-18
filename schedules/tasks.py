@@ -11,6 +11,7 @@ from accounts.models import DiscordDelivery, GroupDiscordSettings
 
 from .google_tokens import get_google_access_token
 from .handout_release import evaluate_release_conditions, publish_handout
+from .holiday_sync import sync_japanese_holidays as run_japanese_holiday_sync
 from .models import (
     AsyncJob,
     GoogleCalendarSync,
@@ -141,6 +142,14 @@ def publish_scheduled_handouts():
                 handout.next_evaluation_at = next_run
                 handout.save(update_fields=['next_evaluation_at', 'updated_at'])
     return published
+
+
+@shared_task(bind=True, max_retries=3, name='schedules.tasks.sync_japanese_holidays')
+def sync_japanese_holidays(self):
+    try:
+        return run_japanese_holiday_sync()
+    except Exception as exc:
+        raise self.retry(exc=exc, countdown=300)
 
 
 @shared_task(bind=True, max_retries=3, name='schedules.tasks.send_discord_webhook')

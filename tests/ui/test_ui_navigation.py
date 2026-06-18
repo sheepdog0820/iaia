@@ -84,6 +84,11 @@ class UINavigationTestCase(TestCase):
         self.assertContains(response, 'occurrence_id=')
         # イベントツールチップの導入確認
         self.assertContains(response, 'calendar-event-tooltip')
+        self.assertContains(response, 'calendar-day-saturday')
+        self.assertContains(response, 'calendar-day-sunday')
+        self.assertContains(response, 'calendar-day-holiday')
+        self.assertContains(response, '/api/schedules/calendar/holidays/')
+        self.assertContains(response, 'calendar-holiday-event')
 
     def test_sessions_page_navigation(self):
         """セッション一覧ページのナビゲーションテスト"""

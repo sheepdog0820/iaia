@@ -106,6 +106,22 @@ class CalendarSubscription(models.Model):
         return obj, token
 
 
+class JapaneseHoliday(models.Model):
+    date = models.DateField(unique=True, db_index=True)
+    name = models.CharField(max_length=80)
+    source = models.CharField(max_length=255, default='cao_csv')
+    source_url = models.URLField(max_length=500, blank=True, default='')
+    fetched_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['date']
+
+    def __str__(self):
+        return f'{self.date}: {self.name}'
+
+
 class GoogleIntegration(models.Model):
     REQUIRED_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events'
     REQUIRED_SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets'

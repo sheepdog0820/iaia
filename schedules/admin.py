@@ -4,6 +4,7 @@ from .models import (
     SessionParticipant,
     SessionReward,
     HandoutInfo,
+    JapaneseHoliday,
     SessionTemplate,
 )
 
@@ -54,6 +55,15 @@ class HandoutInfoAdmin(admin.ModelAdmin):
     list_display = ('title', 'session', 'participant', 'is_secret', 'created_at')
     list_filter = ('is_secret', 'created_at')
     search_fields = ('title', 'content', 'session__title', 'participant__user__username')
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(JapaneseHoliday)
+class JapaneseHolidayAdmin(admin.ModelAdmin):
+    list_display = ('date', 'name', 'source', 'fetched_at', 'updated_at')
+    list_filter = ('source', 'fetched_at')
+    search_fields = ('name', 'source_url')
+    date_hierarchy = 'date'
     readonly_fields = ('created_at', 'updated_at')
 
 

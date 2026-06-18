@@ -75,6 +75,7 @@ urlpatterns = [
 
     path('', include(router.urls)),
     path('calendar/', views.CalendarView.as_view(), name='calendar'),
+    path('calendar/holidays/', views.JapaneseHolidayView.as_view(), name='calendar_holidays'),
     
     # Calendar Integration APIs (ISSUE-008)
     path('calendar/monthly/', views.MonthlyEventListView.as_view(), name='monthly_events'),

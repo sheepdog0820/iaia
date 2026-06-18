@@ -29,6 +29,7 @@ from .models import (
     DatePollOption,
     DatePollVote,
     DatePollComment,
+    JapaneseHoliday,
 )
 from .serializers import (
     TRPGSessionSerializer,
@@ -1485,6 +1486,40 @@ class CalendarView(APIView):
             })
         else:
             return Response(events)
+
+
+class JapaneseHolidayView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        start_raw = request.query_params.get('start')
+        end_raw = request.query_params.get('end')
+        if not start_raw or not end_raw:
+            return Response(
+                {'error': 'Both start and end parameters are required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            start_date = datetime.fromisoformat(start_raw).date()
+            end_date = datetime.fromisoformat(end_raw).date()
+        except ValueError:
+            return Response(
+                {'error': 'Invalid date format'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        holidays = JapaneseHoliday.objects.filter(
+            date__gte=start_date,
+            date__lt=end_date,
+        ).order_by('date')
+        return Response([
+            {
+                'date': holiday.date.isoformat(),
+                'name': holiday.name,
+            }
+            for holiday in holidays
+        ])
 
 
 class MonthlyEventListView(APIView):

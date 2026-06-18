@@ -308,6 +308,41 @@
     font-weight: 600;
 }
 
+#calendar .calendar-day-saturday {
+    background-color: rgba(57, 208, 216, 0.08);
+}
+
+#calendar .calendar-day-sunday,
+#calendar .calendar-day-holiday {
+    background-color: rgba(220, 38, 112, 0.1);
+}
+
+#calendar .calendar-day-saturday .fc-daygrid-day-number,
+#calendar .fc-col-header-cell.fc-day-sat .fc-col-header-cell-cushion {
+    color: #58a6ff;
+}
+
+#calendar .calendar-day-sunday .fc-daygrid-day-number,
+#calendar .calendar-day-holiday .fc-daygrid-day-number,
+#calendar .fc-col-header-cell.fc-day-sun .fc-col-header-cell-cushion {
+    color: #ff7b8a;
+}
+
+#calendar .calendar-holiday-event {
+    background: transparent;
+    border: 0;
+    color: #ff7b8a;
+    cursor: default;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0 2px;
+    pointer-events: none;
+}
+
+#calendar .calendar-holiday-event .fc-event-main {
+    color: inherit;
+}
+
 @media (max-width: 576px) {
     #calendar {
         min-height: 520px;
@@ -421,6 +456,79 @@ document.addEventListener('DOMContentLoaded', function() {
         title: 'session_scenario_title',
         system: 'session_scenario_game_system'
     };
+    const holidayDateKeys = new Set();
+
+    function padDatePart(value) {
+        return String(value).padStart(2, '0');
+    }
+
+    function toDateKey(date) {
+        return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`;
+    }
+
+    function getCalendarDayClasses(arg) {
+        const classes = [];
+        const day = arg.date.getDay();
+        if (day === 6) classes.push('calendar-day-saturday');
+        if (day === 0) classes.push('calendar-day-sunday');
+        if (holidayDateKeys.has(toDateKey(arg.date))) classes.push('calendar-day-holiday');
+        return classes;
+    }
+
+    function applyCalendarDayClasses(el, date) {
+        getCalendarDayClasses({ date }).forEach(className => el.classList.add(className));
+    }
+
+    function decorateCalendarDayCell(arg) {
+        applyCalendarDayClasses(arg.el, arg.date);
+    }
+
+    function refreshHolidayDayStyles() {
+        calendarEl.querySelectorAll('[data-date]').forEach(el => {
+            el.classList.remove('calendar-day-holiday');
+            const dateKey = el.getAttribute('data-date');
+            if (holidayDateKeys.has(dateKey)) {
+                el.classList.add('calendar-day-holiday');
+            }
+        });
+    }
+
+    function buildHolidayEvents(holidays) {
+        holidayDateKeys.clear();
+        return holidays.map(holiday => {
+            holidayDateKeys.add(holiday.date);
+            return {
+                id: `holiday-${holiday.date}`,
+                title: holiday.name,
+                start: holiday.date,
+                allDay: true,
+                classNames: ['calendar-holiday-event'],
+                extendedProps: {
+                    isHoliday: true,
+                    holidayName: holiday.name
+                }
+            };
+        });
+    }
+
+    async function fetchHolidayEvents(info) {
+        try {
+            const response = await axios.get('/api/schedules/calendar/holidays/', {
+                params: {
+                    start: info.startStr,
+                    end: info.endStr
+                }
+            });
+            const holidayEvents = buildHolidayEvents(Array.isArray(response.data) ? response.data : []);
+            refreshHolidayDayStyles();
+            return holidayEvents;
+        } catch (error) {
+            holidayDateKeys.clear();
+            refreshHolidayDayStyles();
+            console.warn('Error fetching Japanese holidays:', error);
+            return [];
+        }
+    }
 
     function safeGetStorage(key) {
         try {
@@ -615,6 +723,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function buildEventTooltipText(info) {
         const session = info?.event?.extendedProps || {};
+        if (session.isHoliday) return '';
+
         const title = info?.event?.title || session.title || '';
         const typeLabel = getSessionTypeLabel(session);
         const titleLine = typeLabel ? `【${typeLabel}】${title}` : title;
@@ -791,6 +901,8 @@ document.addEventListener('DOMContentLoaded', function() {
             eventClick: handleEventClick,
             eventDidMount: attachEventTooltip,
             eventWillUnmount: detachEventTooltip,
+            dayCellClassNames: getCalendarDayClasses,
+            dayCellDidMount: decorateCalendarDayCell,
             eventColor: '#161b22',
             height: 'auto'
         });
@@ -844,7 +956,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 extendedProps: session
             }));
             
-            successCallback(events);
+            const holidayEvents = await fetchHolidayEvents(info);
+            successCallback(events.concat(holidayEvents));
         } catch (error) {
             console.error('Error fetching events:', error);
             failureCallback(error);
@@ -866,6 +979,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // イベントクリック処理
     function handleEventClick(info) {
+        if (info.event.extendedProps?.isHoliday) return;
+
         // セッション詳細ページに遷移（どの開催日程をクリックしたか分かるように occurrence_id を渡す）
         const sessionId = info.event.extendedProps?.session_id || info.event.extendedProps?.id || info.event.id;
         const occurrenceId = info.event.extendedProps?.occurrence_id || info.event.id;
