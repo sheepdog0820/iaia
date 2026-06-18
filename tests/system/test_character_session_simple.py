@@ -280,9 +280,7 @@ class CharacterAccessTestCase(APITestCase):
         """所有者はアクセス可能"""
         self.client.force_authenticate(user=self.owner)
         
-        response = self.client.get(
-            reverse('character-sheet-detail', kwargs={'pk': self.character.id})
-        )
+        response = self.client.get(f'/api/accounts/character-sheets/{self.character.id}/')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['name'], 'オーナーのキャラクター')
@@ -293,13 +291,11 @@ class CharacterAccessTestCase(APITestCase):
         """他のユーザーはアクセス不可"""
         self.client.force_authenticate(user=self.other_user)
         
-        response = self.client.get(
-            reverse('character-sheet-detail', kwargs={'pk': self.character.id})
-        )
+        response = self.client.get(f'/api/accounts/character-sheets/{self.character.id}/')
         
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
-        print("\n[OK] 他ユーザーアクセステスト: 参照可能")
+        print("\n[OK] 他ユーザーアクセステスト: 拒否")
 
 
 if __name__ == '__main__':

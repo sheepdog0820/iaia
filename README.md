@@ -597,6 +597,12 @@ permission_classes = [IsAuthenticated]
 
 正規のAWS構成はECS/Fargate + ALB/ACM + RDS + ElastiCache + S3/CloudFrontです。詳細は `docs/AWS_ECS_SETUP_GUIDE.md` を参照してください。
 
+### AWS開発環境リリース（aws-pre）
+
+- 確認手順: [AWS_PRE_RELEASE_CHECKLIST.md](docs/release/AWS_PRE_RELEASE_CHECKLIST.md)
+- リリース手順: [AWS_PRE_RELEASE_RUNBOOK.md](docs/release/AWS_PRE_RELEASE_RUNBOOK.md)
+- 記録テンプレート: [AWS_PRE_RELEASE_RECORD_TEMPLATE.md](docs/release/AWS_PRE_RELEASE_RECORD_TEMPLATE.md)
+
 ### 互換デプロイ（Lightsail / Docker Compose）
 
 以下はローカル本番相当検証または既存Lightsail運用向けです。

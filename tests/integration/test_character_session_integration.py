@@ -511,10 +511,10 @@ class CharacterSessionValidationTestCase(APITestCase):
         self.client.force_authenticate(user=self.user)
         
         # 他人のキャラクターへのアクセス試行
-        url = reverse('character-sheet-detail', kwargs={'pk': other_character.id})
+        url = f'/api/accounts/character-sheets/{other_character.id}/'
         response = self.client.get(url)
         
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         print("\n[OK] キャラクター・セッション検証テスト完了")
         print("  - グループ外ユーザーの参加: 拒否")
