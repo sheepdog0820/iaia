@@ -22,3 +22,14 @@ CloudWatch alarms publish to the environment SNS topic. The on-call operator ack
 ## Closure
 
 Confirm both health endpoints, error-rate recovery and successful login/session CRUD. Record timeline, cause, corrective action and follow-up issue.
+
+## Verification records
+
+Use this section to record operational checks without storing secrets or credentials.
+
+| Check | Procedure | Latest result |
+| --- | --- | --- |
+| Backup | Confirm the latest automated RDS snapshot and retention period. | Not recorded |
+| Restore | Restore a snapshot to a non-production DB and run `/health/ready`. | Not recorded |
+| Alarm notification | Trigger or simulate a CloudWatch Alarm notification to the operational SNS subscriber. | Not recorded |
+| Rollback | Deploy a previous ECS task definition in pre-production and verify login/session CRUD. | Not recorded |

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}問い合わせ - タブレノ{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <h1 class="h3 mb-3">問い合わせ</h1>
+            <p class="text-muted">
+                このページは正式な問い合わせ窓口確定前のテンプレートです。一般公開前に、運営者が連絡先、対応時間、緊急時の連絡方法を確定します。
+            </p>
+
+            <section class="mb-4">
+                <h2 class="h5">問い合わせ時に記載する内容</h2>
+                <ul>
+                    <li>発生日時</li>
+                    <li>利用していた画面またはURL</li>
+                    <li>実施した操作</li>
+                    <li>表示されたエラーメッセージ</li>
+                    <li>返信先</li>
+                </ul>
+            </section>
+
+            <section class="mb-4">
+                <h2 class="h5">障害・データ保護に関する連絡</h2>
+                <p>ログイン不能、データ消失の疑い、外部連携の異常、セキュリティ上の懸念がある場合は、通常問い合わせと区別できる件名で連絡してください。</p>
+            </section>
+
+            <section>
+                <h2 class="h5">未確定項目</h2>
+                <p class="mb-1">一般公開前に、以下を運営者が確定します。</p>
+                <ul>
+                    <li>問い合わせ先メールアドレスまたはフォームURL</li>
+                    <li>対応時間</li>
+                    <li>障害時の優先連絡先</li>
+                    <li>返信方針</li>
+                </ul>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -30,6 +30,7 @@ from accounts.views import (
 )
 from schedules.views import PublicSessionDetailView
 from tableno.health_views import health_live_view, health_ready_view
+from tableno.legal_views import contact_view, privacy_view, terms_view
 from schedules.job_views import AsyncJobDetailView, AsyncJobListView, AsyncJobRetryView
 from accounts.discord_views import (
     GroupDiscordDeliveryListView,
@@ -174,6 +175,9 @@ urlpatterns = [
         login_required(TemplateView.as_view(template_name='integrations/settings.html')),
         name='integration-settings',
     ),
+    path('terms/', terms_view, name='terms'),
+    path('privacy/', privacy_view, name='privacy'),
+    path('contact/', contact_view, name='contact'),
     
     # Custom authentication views
     path('login/', CustomLoginView.as_view(), name='account_login'),

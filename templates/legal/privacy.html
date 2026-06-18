@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}プライバシーポリシー - タブレノ{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <h1 class="h3 mb-3">プライバシーポリシー</h1>
+            <p class="text-muted">
+                このページは正式な法務レビュー前のテンプレートです。一般公開前に、運営者が個人情報管理者、問い合わせ先、保存期間、第三者提供方針を確定します。
+            </p>
+
+            <section class="mb-4">
+                <h2 class="h5">1. 取得する情報</h2>
+                <p>タブレノは、アカウント情報、プロフィール情報、TRPGセッション管理に必要な入力データ、OAuth連携に必要な識別情報を取得する場合があります。</p>
+            </section>
+
+            <section class="mb-4">
+                <h2 class="h5">2. 利用目的</h2>
+                <p>取得した情報は、ログイン、セッション管理、キャラクター管理、外部サービス連携、障害対応、問い合わせ対応のために利用します。</p>
+            </section>
+
+            <section class="mb-4">
+                <h2 class="h5">3. 外部サービス連携</h2>
+                <p>Google、Discord、Xなどの外部サービスと連携する場合、利用者の操作に基づき、認証情報や連携に必要な最小限の情報を取り扱います。</p>
+            </section>
+
+            <section class="mb-4">
+                <h2 class="h5">4. 安全管理</h2>
+                <p>運営者は、アクセス制御、Secrets管理、バックアップ、監視を通じて、情報の漏えい、滅失、毀損を防ぐための措置を講じます。</p>
+            </section>
+
+            <section class="mb-4">
+                <h2 class="h5">5. 開示・削除等の請求</h2>
+                <p>利用者からの開示、訂正、削除、利用停止の請求方法は、問い合わせ導線の確定後に明記します。</p>
+            </section>
+
+            <section>
+                <h2 class="h5">6. 未確定項目</h2>
+                <p class="mb-1">一般公開前に、以下を運営者が確定します。</p>
+                <ul>
+                    <li>個人情報管理者</li>
+                    <li>問い合わせ先</li>
+                    <li>保存期間と削除手順</li>
+                    <li>第三者提供と委託先の扱い</li>
+                </ul>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}

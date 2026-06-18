@@ -100,4 +100,22 @@ test.describe('smoke', () => {
     ]);
     await expect(page.locator('h1')).toContainText('Tindalos Metrics');
   });
+
+  test('public footer links open legal and contact pages', async ({ page }) => {
+    await devLogin(page);
+
+    await page.click('footer a[href="/terms/"]');
+    await expect(page).toHaveURL(/\/terms\//);
+    await expect(page.locator('h1')).toContainText('利用規約');
+
+    await page.goto('/');
+    await page.click('footer a[href="/privacy/"]');
+    await expect(page).toHaveURL(/\/privacy\//);
+    await expect(page.locator('h1')).toContainText('プライバシーポリシー');
+
+    await page.goto('/');
+    await page.click('footer a[href="/contact/"]');
+    await expect(page).toHaveURL(/\/contact\//);
+    await expect(page.locator('h1')).toContainText('問い合わせ');
+  });
 });
