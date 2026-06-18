@@ -68,7 +68,7 @@ class DevLoginView(View):
 
         def password_hint_for(username: str) -> str:
             if username == 'admin':
-                return 'arkham_admin_2024'
+                return ''
             if username.startswith('keeper'):
                 return 'keeper123'
             if username.startswith('investigator'):

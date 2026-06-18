@@ -272,7 +272,7 @@
 - レスポンシブデザイン
 
 ### バックエンド
-- Django 4.2+
+- Django 5.2系
 - Django REST Framework
 - PostgreSQL/SQLite
 - Redis（キャッシュ）

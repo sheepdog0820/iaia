@@ -1,25 +1,25 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}404 - ページが見つかりません{% endblock %}
+{% block title %}403 - アクセス権限がありません{% endblock %}
 
 {% block content %}
 <div class="container text-center py-5">
     <div class="row justify-content-center">
         <div class="col-md-6">
             <div class="error-page">
-                <h1 class="display-1 text-muted">404</h1>
-                <h2 class="mb-4">ページが見つかりません</h2>
+                <h1 class="display-1 text-muted">403</h1>
+                <h2 class="mb-4">アクセス権限がありません</h2>
 
                 <div class="mb-5">
                     <p class="lead text-muted">
-                        お探しのページは存在しないか、移動した可能性があります。
+                        このページを表示する権限がないか、ログイン状態が必要です。
                     </p>
                 </div>
 
                 <div class="error-actions">
-                    <a href="{% url 'dashboard' %}" class="btn btn-primary btn-lg">
-                        <i class="bi bi-house-door"></i> ダッシュボードへ
+                    <a href="{% url 'home' %}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-house-door"></i> ホームへ
                     </a>
                     <a href="javascript:history.back()" class="btn btn-secondary btn-lg ms-2">
                         <i class="bi bi-arrow-left"></i> 前のページへ戻る

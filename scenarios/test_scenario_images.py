@@ -58,6 +58,19 @@ class ScenarioImageTestCase(APITestCase):
             content_type='image/png',
         )
 
+    def create_padded_image(self, name, target_size, image_format='PNG', content_type='image/png'):
+        file = io.BytesIO()
+        image = Image.new('RGB', (100, 100), color='blue')
+        image.save(file, image_format)
+        content = file.getvalue()
+        if len(content) < target_size:
+            content += b'\0' * (target_size - len(content))
+        return SimpleUploadedFile(
+            name=name,
+            content=content,
+            content_type=content_type,
+        )
+
     def test_user_can_upload_image(self):
         """任意ユーザーが画像をアップロードできる（アップロード者として記録される）"""
         self.client.force_authenticate(user=self.uploader)
@@ -105,6 +118,103 @@ class ScenarioImageTestCase(APITestCase):
 
         for i, image_data in enumerate(response.data):
             self.assertEqual(image_data['order'], i + 1)
+
+    def test_upload_accepts_supported_image_formats_and_size_boundary(self):
+        """jpg/png/gif と5MB境界の画像を受け付ける"""
+        self.client.force_authenticate(user=self.uploader)
+
+        cases = [
+            ('scenario.jpg', 'JPEG', 'image/jpeg'),
+            ('scenario.png', 'PNG', 'image/png'),
+            ('scenario.gif', 'GIF', 'image/gif'),
+        ]
+        for filename, image_format, content_type in cases:
+            with self.subTest(filename=filename):
+                response = self.client.post(
+                    reverse('scenario-image-list'),
+                    {
+                        'scenario': self.scenario.id,
+                        'image': self.create_padded_image(
+                            filename,
+                            target_size=1024 * 1024,
+                            image_format=image_format,
+                            content_type=content_type,
+                        ),
+                        'title': filename,
+                    },
+                    format='multipart',
+                )
+                self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        response = self.client.post(
+            reverse('scenario-image-list'),
+            {
+                'scenario': self.scenario.id,
+                'image': self.create_padded_image(
+                    'scenario-5mb.png',
+                    target_size=5 * 1024 * 1024,
+                ),
+                'title': '5MB境界',
+            },
+            format='multipart',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_upload_rejects_oversized_and_non_image_files(self):
+        """上限超過と非画像ファイルを拒否する"""
+        self.client.force_authenticate(user=self.uploader)
+
+        response = self.client.post(
+            reverse('scenario-image-list'),
+            {
+                'scenario': self.scenario.id,
+                'image': self.create_padded_image(
+                    'too-large.png',
+                    target_size=(5 * 1024 * 1024) + 1,
+                ),
+                'title': '上限超過',
+            },
+            format='multipart',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('5MB', str(response.data))
+
+        response = self.client.post(
+            reverse('scenario-image-list'),
+            {
+                'scenario': self.scenario.id,
+                'image': SimpleUploadedFile(
+                    'not-image.txt',
+                    b'not an image',
+                    content_type='text/plain',
+                ),
+                'title': '非画像',
+            },
+            format='multipart',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_bulk_upload_rejects_invalid_image(self):
+        """複数枚登録でも画像バリデーションを通す"""
+        self.client.force_authenticate(user=self.creator)
+
+        response = self.client.post(
+            reverse('scenario-image-bulk-upload'),
+            {
+                'scenario_id': self.scenario.id,
+                'images': [
+                    self.create_test_image('valid.png'),
+                    self.create_padded_image(
+                        'too-large.png',
+                        target_size=(5 * 1024 * 1024) + 1,
+                    ),
+                ],
+            },
+            format='multipart',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(ScenarioImage.objects.count(), 0)
 
     def test_reorder_images(self):
         """画像の順序変更（シナリオ作成者のみ）"""

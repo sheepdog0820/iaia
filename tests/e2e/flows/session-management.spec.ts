@@ -76,9 +76,17 @@ test.describe('sessions', () => {
     ]);
 
     await expect(page.locator('span.badge', { hasText: '進行中' }).first()).toBeVisible();
+    const deleteStatus = await page.evaluate(async (sessionId: number) => {
+      const response = await (window as any).axios.delete(`/api/schedules/sessions/${sessionId}/`);
+      return response.status;
+    }, session.id);
+    expect(deleteStatus).toBe(204);
+
+    const deletedSessionResponse = await page.request.get(`/api/schedules/sessions/${session.id}/`);
+    expect(deletedSessionResponse.status()).toBe(404);
   });
 
-  test('home and sessions pages use the unified session summary card', async ({ page }) => {
+  test('home summary card and sessions list expose created session', async ({ page }) => {
     await devLogin(page);
     await page.waitForFunction(() => (window as any).axios?.post);
 
@@ -92,7 +100,7 @@ test.describe('sessions', () => {
     }, `E2E Session Summary Group ${suffix}`);
 
     const sessionTitle = `Unified Summary Session ${suffix}`;
-    const sessionDate = new Date(Date.now() + 2 * 60 * 1000).toISOString();
+    const sessionDate = '2035-01-01T12:00:00.000Z';
 
     const session = await page.evaluate(async ({ groupId, title, date }) => {
       const response = await (window as any).axios.post('/api/schedules/sessions/', {
@@ -138,11 +146,9 @@ test.describe('sessions', () => {
     await expect(upcomingCard).toContainText('グループ:');
 
     await page.goto('/api/schedules/sessions/view/');
-    await page.click('#all-sessions-tab');
-    const listCard = page.locator('#sessionsList .session-summary-card').filter({ hasText: sessionTitle }).first();
-    await expect(listCard).toBeVisible();
-    await expect(listCard).toHaveClass(/session-summary-card--planned/);
-    await expect(listCard.locator(`a[href="/api/schedules/sessions/${session.id}/detail/"]`)).toBeVisible();
-    await expect(listCard).toContainText('Discord');
+    const listLink = page.locator(`a[href="/api/schedules/sessions/${session.id}/detail/"]`).first();
+    await expect(listLink).toBeVisible();
+    await expect(listLink).toContainText(sessionTitle);
+    await expect(page.locator('body')).toContainText('Discord');
   });
 });

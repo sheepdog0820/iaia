@@ -16,7 +16,7 @@
 - WebSocket通知とポーリングフォールバック
 - 統合設定画面 `/integrations/`
 
-- 実行環境: Django 4.2.27
+- 実行環境: Django 5.2系
 - `python manage.py check`: 成功
 - 7版作成、ゲスト参加、公開共有を含む対象56テスト: 成功
 - AWS runtime、production設定、ヘルスチェックの対象テスト: 成功

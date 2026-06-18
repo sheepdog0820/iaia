@@ -2,7 +2,7 @@ from rest_framework import serializers
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from .models import Scenario, ScenarioNote, PlayHistory, ScenarioImage
-from accounts.serializers import UserSerializer
+from accounts.serializers import UserSerializer, validate_character_image
 
 
 class ScenarioImageSerializer(serializers.ModelSerializer):
@@ -35,6 +35,9 @@ class ScenarioImageSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.image.url)
             return obj.image.url
         return None
+
+    def validate_image(self, value):
+        return validate_character_image(value)
 
 
 class ScenarioSerializer(serializers.ModelSerializer):

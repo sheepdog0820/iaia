@@ -23,7 +23,7 @@ Web機能の受け入れから検証、課題クローズまでの手順は `doc
 タブレノは、クトゥルフ神話をテーマにしたTRPGスケジュール管理Webサービスです。TRPGセッションの管理、参加者の管理、プレイ履歴の記録など、TRPGライフを豊かにする機能を提供します。
 
 ### 1.2 技術スタック
-- **Backend**: Django 4.2系（`>=4.2,<5.0`）, Django REST Framework
+- **Backend**: Django 5.2系（`>=5.2,<5.3`）, Django REST Framework
 - **Database**: SQLite3（開発環境）, MySQL/PostgreSQL（本番環境）
 - **Frontend**: Bootstrap 5, カスタムCSS/JS（クトゥルフテーマ）, FullCalendar
 - **認証**: django-allauth（Google/X/Discord OAuth）+ Django REST Framework（API経由）
@@ -41,7 +41,7 @@ Web機能の受け入れから検証、課題クローズまでの手順は `doc
 #### 開発用データ
 - **管理者アカウント**: 
   - ユーザー名: admin
-  - パスワード: arkham_admin_2024
+  - パスワード: `python create_admin.py` 実行時に表示される値
 - **サンプルデータ**:
   - ユーザー数: 12名
   - キャラクター数: 43体
@@ -1097,7 +1097,7 @@ tableno/
 
 ### 8.1 開発環境
 - Python 3.10+
-- Django 4.2+
+- Django 5.2系
 - SQLite（ローカル開発）
 - Docker対応
 

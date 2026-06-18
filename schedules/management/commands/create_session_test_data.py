@@ -593,4 +593,4 @@ class Command(BaseCommand):
         self.stdout.write('GM1: keeper1 / keeper123')
         self.stdout.write('GM2: keeper2 / keeper123')
         self.stdout.write('プレイヤー: investigator1-6 / player123')
-        self.stdout.write('管理者: admin / arkham_admin_2024')
+        self.stdout.write('管理者: create_admin.py でローカル作成')

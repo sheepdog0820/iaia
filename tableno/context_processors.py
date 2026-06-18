@@ -8,4 +8,6 @@ def runtime_capabilities(request):
             'WEBSOCKET_NOTIFICATIONS_ENABLED',
             False,
         ),
+        'contact_email': getattr(settings, 'CONTACT_EMAIL', 'support@tableno.jp'),
+        'support_email': getattr(settings, 'SUPPORT_EMAIL', 'support@tableno.jp'),
     }

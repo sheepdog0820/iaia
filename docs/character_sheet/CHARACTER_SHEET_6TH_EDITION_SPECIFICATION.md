@@ -603,7 +603,7 @@ class CharacterEquipment(models.Model):
 - **アイコン**: Font Awesome 6
 
 ### バックエンド
-- **フレームワーク**: Django 4.2系（`requirements.txt`準拠）
+- **フレームワーク**: Django 5.2系（`requirements.txt`準拠）
 - **API**: Django REST Framework
 - **認証**: Django認証 + django-allauth
 - **データベース**: SQLite（開発）/ PostgreSQL（本番推奨）

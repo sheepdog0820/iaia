@@ -614,9 +614,9 @@ class Character6thPermissionIntegrationTest(TransactionTestCase):
         # Test as stranger
         client.force_authenticate(user=self.stranger)
         
-        # Stranger can also see private
+        # Stranger cannot see private
         response = client.get(f'/api/accounts/character-sheets/{self.private_char.id}/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         
         # Stranger can see public
         response = client.get(f'/api/accounts/character-sheets/{self.public_char.id}/')

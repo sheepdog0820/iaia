@@ -67,7 +67,7 @@
 ### 管理者
 | ユーザー名 | パスワード |
 |----------|-----------|
-| admin | arkham_admin_2024 |
+| admin | `python create_admin.py` 実行時に表示される値 |
 
 ---
 

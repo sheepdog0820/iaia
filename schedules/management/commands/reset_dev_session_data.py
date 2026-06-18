@@ -8,8 +8,10 @@ session-related sample data, including multiple SessionOccurrences.
 
 from __future__ import annotations
 
+import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+import os
 from typing import Iterable
 
 from django.conf import settings
@@ -112,7 +114,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('開発用セッション手動テストデータの準備が完了しました'))
         self.stdout.write('ログイン:')
         self.stdout.write('- /accounts/dev-login/ からユーザーを選択してログイン')
-        self.stdout.write('- 管理者: admin / arkham_admin_2024')
+        self.stdout.write('- 管理者: create_admin.py でローカル作成')
         self.stdout.write('- GM: keeper1, keeper2 / keeper123')
         self.stdout.write('- PL: investigator1-6 / player123')
 
@@ -148,9 +150,10 @@ class Command(BaseCommand):
         raise CommandError('Foreign key constraint failed (see output above).')
 
     def _ensure_admin(self) -> None:
+        generated_password = os.environ.get('DJANGO_SUPERUSER_PASSWORD') or secrets.token_urlsafe(18)
         admin_spec = SeedUserSpec(
             username='admin',
-            password='arkham_admin_2024',
+            password=generated_password,
             email='admin@arkham.nexus',
             nickname='アーカムの管理者',
             is_staff=True,
@@ -166,6 +169,7 @@ class Command(BaseCommand):
                 nickname=admin_spec.nickname,
             )
             self.stdout.write(self.style.SUCCESS('管理者ユーザー(admin)を作成しました'))
+            self.stdout.write(f'管理者パスワード: {generated_password}')
             return
 
         changed_fields: set[str] = set()

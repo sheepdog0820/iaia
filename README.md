@@ -3,7 +3,7 @@
 **Gate of Yog-Sothoth** - 時空を超えるTRPGスケジュール管理サービス
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
-![Django](https://img.shields.io/badge/Django-4.2+-green.svg)
+![Django](https://img.shields.io/badge/Django-5.2-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 ## Web運用機能（2026-06-12）
@@ -121,7 +121,6 @@ python manage.py migrate
 6. **スーパーユーザー作成**
 ```bash
 python create_admin.py
-# Username: admin, Password: arkham_admin_2024
 ```
 
 7. **サンプルデータ作成**
@@ -163,8 +162,11 @@ APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql
 
 ### テストアカウント
 
-- **管理者**: admin / arkham_admin_2024
-- **一般ユーザー**: azathoth_gm / arkham2024
+ローカル環境で作成してください。
+
+```bash
+python create_admin.py
+```
 
 ### 🎲 キャラクターシート機能（クトゥルフ神話TRPG）
 
@@ -287,7 +289,7 @@ ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
 ## 🔧 技術スタック
 
 ### Backend
-- **Django 4.2+** - Webフレームワーク
+- **Django 5.2系** - Webフレームワーク
 - **Django REST Framework** - API構築
 - **SQLite** - 開発用データベース
 - **PostgreSQL/MySQL** - 本番環境対応

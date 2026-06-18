@@ -35,7 +35,7 @@
   - キャラクター: 高橋一郎（船員）
 
 ### 管理者
-- **admin** / arkham_admin_2024
+- **admin** / `python create_admin.py` 実行時に表示される値
 
 ## セッション情報
 
@@ -97,7 +97,7 @@ python3 check_test_data.py
 ```
 http://localhost:8000/admin/
 ユーザー名: admin
-パスワード: arkham_admin_2024
+パスワード: `python create_admin.py` 実行時に表示される値
 ```
 
 ## テストシナリオ例

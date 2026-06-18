@@ -191,4 +191,4 @@ curl -X POST http://127.0.0.1:8000/api/auth/logout/ \
 
 3. **デバッグ情報**
    - Django管理画面（http://127.0.0.1:8000/admin/）でユーザーとトークンを確認可能
-   - 管理者アカウント: admin / arkham_admin_2024
+   - 管理者アカウントはローカル環境で `python create_admin.py` を実行して作成してください。

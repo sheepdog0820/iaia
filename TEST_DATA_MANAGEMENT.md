@@ -51,7 +51,7 @@ python check_test_data.py
 詳細は`TEST_DATA_README.md`を参照してください。
 
 ### 主要なテストユーザー
-- **管理者**: admin / arkham_admin_2024
+- **管理者**: admin / `python create_admin.py` 実行時に表示される値
 - **GM**: keeper1 / keeper123, keeper2 / keeper123
 - **プレイヤー**: investigator1-6 / player123
 

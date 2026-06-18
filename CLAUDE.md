@@ -33,7 +33,7 @@ pip install -r requirements.txt
 python3 manage.py migrate
 
 # スーパーユーザー作成（自動化済み）
-python3 create_admin.py  # ユーザー名: admin, パスワード: arkham_admin_2024
+python3 create_admin.py  # パスワードは実行時に表示されます
 
 # サンプルデータ生成
 python3 manage.py create_sample_data
@@ -84,7 +84,7 @@ tests/
 
 ## 🔧 技術スタック
 
-- **Backend**: Django 4.2系（`requirements.txt` は `>=4.2,<5.0`）, Django REST Framework
+- **Backend**: Django 5.2系（`requirements.txt` は `>=5.2,<5.3`）, Django REST Framework
 - **Database**: SQLite (開発), PostgreSQL (本番推奨)
 - **Frontend**: Bootstrap 5, Vanilla JavaScript
 - **Testing**: pytest, Selenium, Playwright
@@ -134,6 +134,6 @@ tests/
 
 ### テスト済み環境
 - Python: 3.10+
-- Django: 4.2系（`requirements.txt` は `>=4.2,<5.0`）
+- Django: 5.2系（`requirements.txt` は `>=5.2,<5.3`）
 - Node.js: 18+ (Playwright用)
 - Chromium: 138.0.7204.49

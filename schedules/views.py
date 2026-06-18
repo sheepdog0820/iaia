@@ -2477,16 +2477,23 @@ class SessionImageViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # 画像を一括作成
         created_images = []
-        for image_file in images[:10]:  # 最大10枚まで
-            session_image = SessionImage.objects.create(
-                session=session,
-                image=image_file,
-                title=image_file.name,
-                uploaded_by=request.user
-            )
-            created_images.append(session_image)
+        with transaction.atomic():
+            for image_file in images[:10]:  # 最大10枚まで
+                serializer = SessionImageSerializer(
+                    data={
+                        'image': image_file,
+                        'title': image_file.name,
+                    },
+                    context={'request': request},
+                )
+                serializer.is_valid(raise_exception=True)
+                created_images.append(
+                    serializer.save(
+                        session=session,
+                        uploaded_by=request.user,
+                    )
+                )
         
         serializer = SessionImageSerializer(created_images, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)

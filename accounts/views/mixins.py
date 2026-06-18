@@ -2,6 +2,7 @@
 共通の mixin クラス - コード重複の共通化
 """
 from django.http import Http404
+from django.db import models
 from django.core.exceptions import ValidationError
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
@@ -30,9 +31,10 @@ class CharacterSheetAccessMixin:
         if hasattr(obj, 'user') and obj.user == self.request.user:
             return obj
         
-        # 他人のキャラクターの場合（閲覧は許可）
         if self.request.method in ['GET', 'HEAD', 'OPTIONS']:
-            return obj
+            if getattr(obj, 'is_public', False):
+                return obj
+            raise Http404("Character sheet not found")
 
         # 更新・削除系アクション（PUT, PATCH, DELETE）は所有者のみ
         raise PermissionDenied("このキャラクターシートを編集する権限がありません。")
@@ -71,7 +73,11 @@ class CharacterNestedResourceMixin:
                 raise ValidationError("character_sheet_id is required")
         
         queryset = CharacterSheet.objects
-        if self.request.method not in ['GET', 'HEAD', 'OPTIONS']:
+        if self.request.method in ['GET', 'HEAD', 'OPTIONS']:
+            queryset = queryset.filter(
+                models.Q(user=self.request.user) | models.Q(is_public=True)
+            )
+        else:
             queryset = queryset.filter(user=self.request.user)
 
         try:

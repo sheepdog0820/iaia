@@ -221,7 +221,10 @@ EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = _get_bool_env('EMAIL_USE_TLS', default=True)
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@yourdomain.com')
+CONTACT_EMAIL = os.environ.get('CONTACT_EMAIL', 'support@tableno.jp')
+SUPPORT_EMAIL = os.environ.get('SUPPORT_EMAIL', CONTACT_EMAIL)
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@tableno.jp')
+SERVER_EMAIL = os.environ.get('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
 
 # ロギング設定
 LOG_TO_STDOUT = _get_bool_env('LOG_TO_STDOUT', default=True)
@@ -318,7 +321,7 @@ LOGGING = {
 
 # Admin設定
 ADMINS = [
-    ('Admin', os.environ.get('ADMIN_EMAIL', 'admin@yourdomain.com')),
+    ('Admin', os.environ.get('ADMIN_EMAIL', SUPPORT_EMAIL)),
 ]
 MANAGERS = ADMINS
 

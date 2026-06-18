@@ -171,14 +171,22 @@ class ScenarioImageViewSet(viewsets.ModelViewSet):
             )
 
         created_images = []
-        for image_file in images[:10]:  # 最大10枚まで
-            scenario_image = ScenarioImage.objects.create(
-                scenario=scenario,
-                image=image_file,
-                title=image_file.name,
-                uploaded_by=request.user,
-            )
-            created_images.append(scenario_image)
+        with transaction.atomic():
+            for image_file in images[:10]:  # 最大10枚まで
+                serializer = ScenarioImageSerializer(
+                    data={
+                        'image': image_file,
+                        'title': image_file.name,
+                    },
+                    context={'request': request},
+                )
+                serializer.is_valid(raise_exception=True)
+                created_images.append(
+                    serializer.save(
+                        scenario=scenario,
+                        uploaded_by=request.user,
+                    )
+                )
 
         serializer = ScenarioImageSerializer(created_images, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)

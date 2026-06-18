@@ -41,6 +41,11 @@ print(json.dumps({
     "media_url": settings.MEDIA_URL,
     "storages": getattr(settings, "STORAGES", None),
     "websocket_notifications_enabled": settings.WEBSOCKET_NOTIFICATIONS_ENABLED,
+    "contact_email": settings.CONTACT_EMAIL,
+    "support_email": settings.SUPPORT_EMAIL,
+    "default_from_email": settings.DEFAULT_FROM_EMAIL,
+    "server_email": settings.SERVER_EMAIL,
+    "admins": settings.ADMINS,
 }))
 '''
         result = subprocess.run(
@@ -124,6 +129,15 @@ print(json.dumps({
             payload['storages']['staticfiles']['BACKEND'],
             'storages.backends.s3.S3Storage',
         )
+
+    def test_mail_identity_defaults_use_tableno_addresses(self):
+        payload = self.run_settings_probe()
+
+        self.assertEqual(payload['contact_email'], 'support@tableno.jp')
+        self.assertEqual(payload['support_email'], 'support@tableno.jp')
+        self.assertEqual(payload['default_from_email'], 'noreply@tableno.jp')
+        self.assertEqual(payload['server_email'], 'noreply@tableno.jp')
+        self.assertEqual(payload['admins'], [['Admin', 'support@tableno.jp']])
 
     def test_missing_required_setting_fails_fast(self):
         result = subprocess.run(

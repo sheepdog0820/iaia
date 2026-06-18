@@ -25,7 +25,7 @@ from .models import (
     DatePollVote,
     DatePollComment,
 )
-from accounts.serializers import UserSerializer
+from accounts.serializers import UserSerializer, validate_character_image
 from accounts.models import CustomUser, Group
 from scenarios.models import Scenario
 from django.utils import timezone
@@ -61,6 +61,9 @@ class SessionImageSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.image.url)
             return obj.image.url
         return None
+
+    def validate_image(self, value):
+        return validate_character_image(value)
 
 
 class SessionYouTubeLinkSerializer(serializers.ModelSerializer):

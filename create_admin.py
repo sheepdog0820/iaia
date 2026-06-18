@@ -3,6 +3,7 @@
 スーパーユーザーを自動作成するスクリプト
 """
 import os
+import secrets
 import sys
 import django
 
@@ -18,9 +19,9 @@ User = get_user_model()
 
 def create_superuser():
     """スーパーユーザーを作成"""
-    username = 'admin'
-    email = 'admin@arkham.nexus'
-    password = 'arkham_admin_2024'
+    username = os.environ.get('DJANGO_SUPERUSER_USERNAME', 'admin')
+    email = os.environ.get('DJANGO_SUPERUSER_EMAIL', 'admin@arkham.nexus')
+    password = os.environ.get('DJANGO_SUPERUSER_PASSWORD') or secrets.token_urlsafe(18)
     nickname = 'アーカムの管理者'
     
     if User.objects.filter(username=username).exists():
@@ -38,7 +39,8 @@ def create_superuser():
         print(f'スーパーユーザー "{username}" を作成しました。')
         print(f'Email: {email}')
         print(f'Password: {password}')
-        print('セキュリティのため、本番環境では必ずパスワードを変更してください。')
+        print('このパスワードは再表示されません。安全な場所に保存してください。')
+        print('本番環境では DJANGO_SUPERUSER_PASSWORD を安全なSecretから指定してください。')
         return True
     except Exception as e:
         print(f'スーパーユーザーの作成に失敗しました: {e}')

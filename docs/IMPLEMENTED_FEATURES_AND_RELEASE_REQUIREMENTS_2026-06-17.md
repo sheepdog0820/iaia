@@ -14,7 +14,7 @@
 
 ### 1. 基盤・運用
 
-- Django 4.2系ベースのWebアプリケーション
+- Django 5.2系ベースのWebアプリケーション
 - Django REST FrameworkによるAPI提供
 - drf-spectacularによるOpenAPIスキーマとSwagger UI
 - ヘルスチェックAPI
