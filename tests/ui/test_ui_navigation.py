@@ -88,7 +88,7 @@ class UINavigationTestCase(TestCase):
         self.assertContains(response, 'calendar-day-sunday')
         self.assertContains(response, 'calendar-day-holiday')
         self.assertContains(response, '/api/schedules/calendar/holidays/')
-        self.assertContains(response, 'calendar-holiday-event')
+        self.assertContains(response, 'calendar-holiday-label')
 
     def test_sessions_page_navigation(self):
         """セッション一覧ページのナビゲーションテスト"""

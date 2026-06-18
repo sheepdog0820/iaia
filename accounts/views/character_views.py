@@ -1004,76 +1004,9 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             scenario_obj = Scenario.objects.filter(id=scenario_id).first()
         
         try:
-            
-            # Create basic character sheet
-            character_data = {
-                'user': request.user,
-                'edition': '6th',
-                'name': request.data['name'],
-                'player_name': request.data.get('player_name', request.user.nickname or request.user.username),
-                'age': parse_int(request.data.get('age', 25), 'age', min_value=0, max_value=999, default=25),
-                'gender': request.data.get('gender', ''),
-                'occupation': request.data.get('occupation', ''),
-                'birthplace': request.data.get('birthplace', ''),
-                'residence': request.data.get('residence', ''),
-                'recommended_skills': recommended_skills,
-                'occupation_skills': occupation_skills,
-                'str_value': parsed_abilities['str_value'],
-                'con_value': parsed_abilities['con_value'],
-                'pow_value': parsed_abilities['pow_value'],
-                'dex_value': parsed_abilities['dex_value'],
-                'app_value': parsed_abilities['app_value'],
-                'siz_value': parsed_abilities['siz_value'],
-                'int_value': parsed_abilities['int_value'],
-                'edu_value': parsed_abilities['edu_value'],
-                'notes': request.data.get('notes', ''),
-                'is_active': True
-            }
-            if scenario_obj:
-                character_data['source_scenario'] = scenario_obj
-                character_data['source_scenario_title'] = scenario_obj.title
-                character_data['source_scenario_game_system'] = scenario_obj.game_system
-            else:
-                if scenario_title:
-                    character_data['source_scenario_title'] = scenario_title
-                if scenario_game_system:
-                    character_data['source_scenario_game_system'] = scenario_game_system
-            
-            # Handle character image if provided
-            if 'character_image' in request.FILES:
-                character_data['character_image'] = request.FILES['character_image']
-            
-            # Create character sheet
-            character_sheet = CharacterSheet(**character_data)
-            
-            # Calculate derived stats since auto-calculation is disabled in save method
-            stats = character_sheet.calculate_derived_stats()
-            
-            # Set HP, MP, SAN values
-            character_sheet.hit_points_max = stats['hit_points_max']
-            character_sheet.hit_points_current = stats['hit_points_max']  # Start at max
-            character_sheet.magic_points_max = stats['magic_points_max']
-            character_sheet.magic_points_current = stats['magic_points_max']  # Start at max
-            character_sheet.sanity_starting = stats['sanity_starting']
-            character_sheet.sanity_current = stats['sanity_starting']  # Start at starting value
-            character_sheet.sanity_max = stats['sanity_max']
-            
-            # Save the character sheet
-            character_sheet.save()
-            
-            # Create 6th edition specific data
-            CharacterSheet6th.objects.create(
-                character_sheet=character_sheet,
-                mental_disorder=request.data.get('mental_disorder', '')
-            )
-            
-            # Create skills data if provided
-            try:
-                skills_data = parse_json_list(request.data.get('skills', []), 'skills')
-            except ValueError as exc:
-                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
-            for skill_data in skills_data:
+            raw_skills_data = parse_json_list(request.data.get('skills', []), 'skills')
+            skills_data = []
+            for skill_data in raw_skills_data:
                 if not isinstance(skill_data, dict) or 'skill_name' not in skill_data:
                     continue
 
@@ -1088,66 +1021,120 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                     max_value=999,
                     default=base_value + occupation_points + interest_points + other_points,
                 )
+                skills_data.append({
+                    'skill_name': skill_data['skill_name'],
+                    'base_value': base_value,
+                    'occupation_points': occupation_points,
+                    'interest_points': interest_points,
+                    'other_points': other_points,
+                    'current_value': current_value,
+                })
 
-                CharacterSkill.objects.create(
-                    character_sheet=character_sheet,
-                    skill_name=skill_data['skill_name'],
-                    base_value=base_value,
-                    occupation_points=occupation_points,
-                    interest_points=interest_points,
-                    other_points=other_points,
-                    current_value=current_value
-                )
-            
-            # Create equipment data if provided
-            try:
-                equipment_data = parse_json_list(request.data.get('equipment', []), 'equipment')
-            except ValueError as exc:
-                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
-            for equipment in equipment_data:
+            raw_equipment_data = parse_json_list(request.data.get('equipment', []), 'equipment')
+            equipment_data = []
+            for equipment in raw_equipment_data:
                 if not isinstance(equipment, dict) or 'name' not in equipment:
                     continue
-                CharacterEquipment.objects.create(
-                    character_sheet=character_sheet,
-                    item_type=equipment.get('item_type', 'item'),
-                    name=equipment['name'],
-                    skill_name=equipment.get('skill_name', ''),
-                    damage=equipment.get('damage', ''),
-                    base_range=equipment.get('base_range', ''),
-                    attacks_per_round=equipment.get('attacks_per_round'),
-                    ammo=equipment.get('ammo'),
-                    malfunction_number=equipment.get('malfunction_number'),
-                    armor_points=equipment.get('armor_points'),
-                    description=equipment.get('description', ''),
-                    quantity=equipment.get('quantity', 1),
-                    weight=equipment.get('weight')
-                )
-            
-            # Handle multiple character images
+                equipment_data.append(equipment)
+
             image_files = []
-            # Check for single image in character_image field
             if 'character_image' in request.FILES:
                 image_files.append(request.FILES['character_image'])
-            
-            # Check for multiple images in character_images field
             if 'character_images' in request.FILES:
                 for image in request.FILES.getlist('character_images'):
                     image_files.append(image)
-            
-            # Create CharacterImage entries for each uploaded image
-            for index, image_file in enumerate(image_files):
-                CharacterImage.objects.create(
+
+            with transaction.atomic():
+                character_data = {
+                    'user': request.user,
+                    'edition': '6th',
+                    'name': request.data['name'],
+                    'player_name': request.data.get('player_name', request.user.nickname or request.user.username),
+                    'age': parse_int(request.data.get('age', 25), 'age', min_value=0, max_value=999, default=25),
+                    'gender': request.data.get('gender', ''),
+                    'occupation': request.data.get('occupation', ''),
+                    'birthplace': request.data.get('birthplace', ''),
+                    'residence': request.data.get('residence', ''),
+                    'recommended_skills': recommended_skills,
+                    'occupation_skills': occupation_skills,
+                    'str_value': parsed_abilities['str_value'],
+                    'con_value': parsed_abilities['con_value'],
+                    'pow_value': parsed_abilities['pow_value'],
+                    'dex_value': parsed_abilities['dex_value'],
+                    'app_value': parsed_abilities['app_value'],
+                    'siz_value': parsed_abilities['siz_value'],
+                    'int_value': parsed_abilities['int_value'],
+                    'edu_value': parsed_abilities['edu_value'],
+                    'notes': request.data.get('notes', ''),
+                    'is_active': True
+                }
+                if scenario_obj:
+                    character_data['source_scenario'] = scenario_obj
+                    character_data['source_scenario_title'] = scenario_obj.title
+                    character_data['source_scenario_game_system'] = scenario_obj.game_system
+                else:
+                    if scenario_title:
+                        character_data['source_scenario_title'] = scenario_title
+                    if scenario_game_system:
+                        character_data['source_scenario_game_system'] = scenario_game_system
+
+                if 'character_image' in request.FILES:
+                    character_data['character_image'] = request.FILES['character_image']
+
+                character_sheet = CharacterSheet(**character_data)
+                stats = character_sheet.calculate_derived_stats()
+                character_sheet.hit_points_max = stats['hit_points_max']
+                character_sheet.hit_points_current = stats['hit_points_max']
+                character_sheet.magic_points_max = stats['magic_points_max']
+                character_sheet.magic_points_current = stats['magic_points_max']
+                character_sheet.sanity_starting = stats['sanity_starting']
+                character_sheet.sanity_current = stats['sanity_starting']
+                character_sheet.sanity_max = stats['sanity_max']
+                character_sheet.save()
+
+                CharacterSheet6th.objects.create(
                     character_sheet=character_sheet,
-                    image=image_file,
-                    is_main=(index == 0),  # First image is main
-                    order=index
+                    mental_disorder=request.data.get('mental_disorder', '')
                 )
-            
-            # Return created character sheet
+
+                for skill_data in skills_data:
+                    CharacterSkill.objects.create(
+                        character_sheet=character_sheet,
+                        **skill_data
+                    )
+
+                for equipment in equipment_data:
+                    CharacterEquipment.objects.create(
+                        character_sheet=character_sheet,
+                        item_type=equipment.get('item_type', 'item'),
+                        name=equipment['name'],
+                        skill_name=equipment.get('skill_name', ''),
+                        damage=equipment.get('damage', ''),
+                        base_range=equipment.get('base_range', ''),
+                        attacks_per_round=equipment.get('attacks_per_round'),
+                        ammo=equipment.get('ammo'),
+                        malfunction_number=equipment.get('malfunction_number'),
+                        armor_points=equipment.get('armor_points'),
+                        description=equipment.get('description', ''),
+                        quantity=equipment.get('quantity', 1),
+                        weight=equipment.get('weight')
+                    )
+
+                for index, image_file in enumerate(image_files):
+                    CharacterImage.objects.create(
+                        character_sheet=character_sheet,
+                        image=image_file,
+                        is_main=(index == 0),
+                        order=index
+                    )
+
             response_serializer = CharacterSheetSerializer(character_sheet)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-            
+        except (ValueError, ValidationError) as e:
+            return Response(
+                {'error': f'Character sheet creation failed: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
             return Response(
                 {'error': f'Character sheet creation failed: {str(e)}'}, 

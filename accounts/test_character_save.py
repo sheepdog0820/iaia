@@ -106,6 +106,49 @@ class CharacterSheetSaveTestCase(APITestCase):
         meboshi = skills.get(skill_name='目星')
         self.assertEqual(meboshi.current_value, 65)  # 25 + 30 + 10 + 0 + 0
 
+    def test_create_6th_edition_rolls_back_when_skill_points_are_invalid(self):
+        character_name = 'rollback-invalid-skill-points'
+        character_data = {
+            'name': character_name,
+            'age': 45,
+            'str_value': 10,
+            'con_value': 11,
+            'pow_value': 15,
+            'dex_value': 11,
+            'app_value': 14,
+            'siz_value': 14,
+            'int_value': 10,
+            'edu_value': 10,
+            'skills': [
+                {
+                    'skill_name': 'First valid skill',
+                    'base_value': 25,
+                    'occupation_points': 0,
+                    'interest_points': 90,
+                    'other_points': 0,
+                },
+                {
+                    'skill_name': 'Overflow skill',
+                    'base_value': 25,
+                    'occupation_points': 0,
+                    'interest_points': 20,
+                    'other_points': 0,
+                },
+            ],
+        }
+
+        response = self.client.post(
+            '/accounts/character-sheets/create_6th_edition/',
+            character_data,
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Character sheet creation failed', response.data['error'])
+        self.assertFalse(
+            CharacterSheet.objects.filter(user=self.user, name=character_name).exists()
+        )
+
     def test_save_character_authentication_required(self):
         """認証: 未認証でのアクセス拒否"""
         self.client.logout()

@@ -328,19 +328,39 @@
     color: #ff7b8a;
 }
 
-#calendar .calendar-holiday-event {
-    background: transparent;
-    border: 0;
-    color: #ff7b8a;
-    cursor: default;
-    font-size: 0.78rem;
-    font-weight: 700;
-    padding: 0 2px;
-    pointer-events: none;
+#calendar .fc-daygrid-day-frame {
+    position: relative;
 }
 
-#calendar .calendar-holiday-event .fc-event-main {
-    color: inherit;
+#calendar .calendar-day-holiday .fc-daygrid-day-top {
+    padding-left: 4.75rem;
+}
+
+#calendar .calendar-holiday-label {
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    z-index: 1;
+    max-width: calc(100% - 2.75rem);
+    overflow: hidden;
+    color: #ff7b8a;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.2;
+    pointer-events: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 576px) {
+    #calendar .calendar-day-holiday .fc-daygrid-day-top {
+        padding-left: 3.5rem;
+    }
+
+    #calendar .calendar-holiday-label {
+        max-width: calc(100% - 2rem);
+        font-size: 0.62rem;
+    }
 }
 
 @media (max-width: 576px) {
@@ -457,6 +477,7 @@ document.addEventListener('DOMContentLoaded', function() {
         system: 'session_scenario_game_system'
     };
     const holidayDateKeys = new Set();
+    const holidayNamesByDate = new Map();
 
     function padDatePart(value) {
         return String(value).padStart(2, '0');
@@ -479,8 +500,25 @@ document.addEventListener('DOMContentLoaded', function() {
         getCalendarDayClasses({ date }).forEach(className => el.classList.add(className));
     }
 
+    function renderHolidayLabel(el, dateKey) {
+        el.querySelectorAll('.calendar-holiday-label').forEach(label => label.remove());
+
+        const holidayName = holidayNamesByDate.get(dateKey);
+        if (!holidayName) {
+            return;
+        }
+
+        const frame = el.querySelector('.fc-daygrid-day-frame') || el;
+        const label = document.createElement('span');
+        label.className = 'calendar-holiday-label';
+        label.textContent = holidayName;
+        label.title = holidayName;
+        frame.prepend(label);
+    }
+
     function decorateCalendarDayCell(arg) {
         applyCalendarDayClasses(arg.el, arg.date);
+        renderHolidayLabel(arg.el, toDateKey(arg.date));
     }
 
     function refreshHolidayDayStyles() {
@@ -490,24 +528,17 @@ document.addEventListener('DOMContentLoaded', function() {
             if (holidayDateKeys.has(dateKey)) {
                 el.classList.add('calendar-day-holiday');
             }
+            renderHolidayLabel(el, dateKey);
         });
     }
 
-    function buildHolidayEvents(holidays) {
+    function setHolidayData(holidays) {
         holidayDateKeys.clear();
-        return holidays.map(holiday => {
+        holidayNamesByDate.clear();
+
+        holidays.forEach(holiday => {
             holidayDateKeys.add(holiday.date);
-            return {
-                id: `holiday-${holiday.date}`,
-                title: holiday.name,
-                start: holiday.date,
-                allDay: true,
-                classNames: ['calendar-holiday-event'],
-                extendedProps: {
-                    isHoliday: true,
-                    holidayName: holiday.name
-                }
-            };
+            holidayNamesByDate.set(holiday.date, holiday.name);
         });
     }
 
@@ -519,11 +550,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     end: info.endStr
                 }
             });
-            const holidayEvents = buildHolidayEvents(Array.isArray(response.data) ? response.data : []);
+            setHolidayData(Array.isArray(response.data) ? response.data : []);
             refreshHolidayDayStyles();
-            return holidayEvents;
+            return [];
         } catch (error) {
             holidayDateKeys.clear();
+            holidayNamesByDate.clear();
             refreshHolidayDayStyles();
             console.warn('Error fetching Japanese holidays:', error);
             return [];
