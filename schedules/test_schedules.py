@@ -8,7 +8,7 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from django.utils import timezone
 from .models import TRPGSession, SessionParticipant, HandoutInfo, SessionInvitation
-from accounts.models import Group as CustomGroup
+from accounts.models import CharacterSheet, Group as CustomGroup
 from scenarios.models import Scenario
 
 User = get_user_model()
@@ -737,6 +737,37 @@ class ScheduleAPITestCase(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertContains(response, f'\"{self.user2.id}\": \"pending\"')
+
+    def test_session_detail_links_internal_character_sheet(self):
+        character = CharacterSheet.objects.create(
+            user=self.user2,
+            edition='7th',
+            name='Linked Investigator',
+            age=30,
+            str_value=50,
+            con_value=50,
+            pow_value=50,
+            dex_value=50,
+            app_value=50,
+            siz_value=50,
+            int_value=50,
+            edu_value=50,
+        )
+        SessionParticipant.objects.create(
+            session=self.session,
+            user=self.user2,
+            role='player',
+            character_sheet=character,
+        )
+
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.get(
+            f'/api/schedules/sessions/{self.session.id}/detail/',
+            HTTP_ACCEPT='text/html',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, reverse('character_detail', kwargs={'character_id': character.id}))
+        self.assertNotContains(response, reverse('character_detail_6th', kwargs={'character_id': character.id}))
 
     def test_session_invitation_decline_does_not_create_participant(self):
         """セッション招待の辞退では参加者が作成されない"""
