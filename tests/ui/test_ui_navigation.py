@@ -68,6 +68,8 @@ class UINavigationTestCase(TestCase):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Test User')
+        self.assertContains(response, 'create-7th-btn')
+        self.assertContains(response, '/accounts/character/create/7th/')
         self.assertContains(response, 'カレンダー')
         self.assertContains(response, 'セッション')
         self.assertContains(response, 'シナリオ')

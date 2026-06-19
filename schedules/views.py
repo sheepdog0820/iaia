@@ -1937,11 +1937,10 @@ class UpcomingSessionsView(APIView):
                 return f"{local_dt.strftime('%m/%d')}({weekday}) {dt.strftime('%H:%M')}"
             return dt.strftime('%Y年%m月%d日 %H:%M')
 
-        visible_session_ids = _visible_sessions_for(user).values_list('id', flat=True)
         occurrences = SessionOccurrence.objects.filter(
-            session_id__in=visible_session_ids,
+            Q(session__gm=user) | Q(session__participants=user),
             start_at__gte=now,
-            start_at__lte=now + timedelta(days=7),
+            session__status='planned',
         ).select_related(
             'session',
             'session__gm',
@@ -1949,7 +1948,7 @@ class UpcomingSessionsView(APIView):
             'session__scenario',
         ).prefetch_related(
             'session__sessionparticipant_set__user',
-        ).order_by('start_at', 'id')[:5]
+        ).distinct().order_by('start_at', 'id')[:5]
 
         results = []
         for occurrence in occurrences:

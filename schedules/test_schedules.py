@@ -260,6 +260,42 @@ class ScheduleAPITestCase(APITestCase):
         self.assertEqual(session_data['participant_count'], 1)
         self.assertEqual(session_data['guest_count'], 1)
 
+    def test_upcoming_sessions_include_participating_sessions_after_seven_days(self):
+        self.client.force_authenticate(user=self.user2)
+        far_gm_session = TRPGSession.objects.create(
+            title='Far GM Session',
+            date=timezone.now() + timedelta(days=9),
+            gm=self.user2,
+            group=self.group,
+        )
+        far_session = TRPGSession.objects.create(
+            title='Far Participating Session',
+            date=timezone.now() + timedelta(days=8),
+            gm=self.user1,
+            group=self.group,
+        )
+        SessionParticipant.objects.create(
+            session=far_session,
+            user=self.user2,
+            role='player',
+        )
+
+        response = self.client.get('/api/schedules/sessions/upcoming/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        session_ids = [session['id'] for session in response.json()]
+        self.assertIn(far_gm_session.id, session_ids)
+        self.assertIn(far_session.id, session_ids)
+
+    def test_upcoming_sessions_exclude_group_sessions_without_role(self):
+        self.client.force_authenticate(user=self.user2)
+
+        response = self.client.get('/api/schedules/sessions/upcoming/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        session_ids = [session['id'] for session in response.json()]
+        self.assertNotIn(self.session.id, session_ids)
+
     def test_my_sessions_default_future_period(self):
         """参加予定セッション一覧: period未指定はfuture扱い"""
         self.client.force_authenticate(user=self.user2)
