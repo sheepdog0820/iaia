@@ -728,7 +728,7 @@ class Character6thAPITestCase(APITestCase):
         public_char = create_test_character(self.other_user, name='Public Character', is_public=True)
 
         response = self.client.get(f'/api/accounts/character-sheets/{private_char.id}/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
         response = self.client.get(f'/api/accounts/character-sheets/{public_char.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)

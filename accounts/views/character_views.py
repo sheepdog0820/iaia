@@ -2445,6 +2445,9 @@ class CharacterDetailView(TemplateView):
                 'skills', 'equipment', 'versions'
             ).get(id=character_id)
 
+            if not CharacterSheetAccessMixin.can_read_character_sheet(character, self.request.user):
+                raise Http404("Character sheet not found")
+
             # Filter skills to those above base value only
             from django.db import models as django_models
             assigned_skills = character.skills.filter(

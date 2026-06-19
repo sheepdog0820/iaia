@@ -204,7 +204,19 @@ class BasicAccountsTestCase(TestCase):
 
         self.client.force_login(outsider)
         response = self.client.get(f'/api/accounts/character-sheets/{character.id}/')
+        self.assertEqual(response.status_code, 404)
+
+        self.client.force_login(gm)
+        response = self.client.get(
+            reverse('character_detail_6th', kwargs={'character_id': character.id})
+        )
         self.assertEqual(response.status_code, 200)
+
+        self.client.force_login(outsider)
+        response = self.client.get(
+            reverse('character_detail_6th', kwargs={'character_id': character.id})
+        )
+        self.assertEqual(response.status_code, 404)
 
 
 class GroupBasicTestCase(TestCase):

@@ -23,6 +23,22 @@ class UserOwnershipMixin:
 class CharacterSheetAccessMixin:
     """キャラクターシート特化のアクセス制御 mixin"""
     
+    @staticmethod
+    def can_read_character_sheet(character_sheet, user):
+        """Return whether user can read a character sheet."""
+        if not user or not user.is_authenticated:
+            return False
+
+        if getattr(character_sheet, 'user_id', None) == user.id:
+            return True
+
+        if getattr(character_sheet, 'is_public', False):
+            return True
+
+        return character_sheet.session_participations.filter(
+            session__gm=user
+        ).exists()
+
     def get_object(self):
         """キャラクターシートのアクセス制御"""
         obj = super().get_object()
@@ -32,7 +48,7 @@ class CharacterSheetAccessMixin:
             return obj
         
         if self.request.method in ['GET', 'HEAD', 'OPTIONS']:
-            if getattr(obj, 'is_public', False):
+            if self.can_read_character_sheet(obj, self.request.user):
                 return obj
             raise Http404("Character sheet not found")
 
@@ -75,13 +91,15 @@ class CharacterNestedResourceMixin:
         queryset = CharacterSheet.objects
         if self.request.method in ['GET', 'HEAD', 'OPTIONS']:
             queryset = queryset.filter(
-                models.Q(user=self.request.user) | models.Q(is_public=True)
+                models.Q(user=self.request.user)
+                | models.Q(is_public=True)
+                | models.Q(session_participations__session__gm=self.request.user)
             )
         else:
             queryset = queryset.filter(user=self.request.user)
 
         try:
-            return queryset.get(id=character_sheet_id)
+            return queryset.distinct().get(id=character_sheet_id)
         except CharacterSheet.DoesNotExist:
             raise Http404("Character sheet not found")
     
