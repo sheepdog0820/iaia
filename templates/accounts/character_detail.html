@@ -717,40 +717,35 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        let html = '<div class="row">';
+        let html = '<div class="skill-grid">';
         trainedSkills.forEach(skill => {
             const occupationPoints = skill.occupation_points || 0;
             const interestPoints = skill.interest_points || 0;
             const otherPoints = skill.other_points || 0;
+            const baseValue = skill.base_value || 0;
+            const totalValue = skill.current_value || 0;
+            const breakdown = [
+                { label: '\u57fa\u672c', value: baseValue, className: 'base' },
+                { label: '\u8077\u696d', value: occupationPoints, className: 'occupation' },
+                { label: '\u8da3\u5473', value: interestPoints, className: 'interest' },
+                { label: '\u305d\u306e\u4ed6', value: otherPoints, className: 'other' },
+            ].filter(item => item.className === 'base' || item.value > 0);
+            const breakdownHtml = breakdown.map(item => `
+                <span class="skill-breakdown-item skill-breakdown-${item.className}">
+                    <span class="skill-breakdown-label">${item.label}</span>
+                    <span class="skill-breakdown-value">${item.value}</span>
+                </span>
+            `).join('');
             
             html += `
-                <div class="col-md-6 col-lg-4 mb-3">
-                    <div class="card skill-card">
-                        <div class="card-body p-3">
-                            <h6 class="card-title mb-2">${skill.skill_name}</h6>
-                            <div class="row g-1 small">
-                                <div class="col-4">
-                                    <div class="text-muted">基本</div>
-                                    <div>${skill.base_value}</div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="text-muted">職業</div>
-                                    <div class="text-primary">${occupationPoints}</div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="text-muted">趣味</div>
-                                    <div class="text-success">${interestPoints}</div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="text-muted">その他</div>
-                                    <div class="text-secondary">${otherPoints}</div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="text-muted">合計</div>
-                                    <div class="fw-bold text-warning">${skill.current_value}</div>
-                                </div>
-                            </div>
-                        </div>
+                <div class="skill-card">
+                    <div class="skill-card-main">
+                        <div class="skill-card-title">${skill.skill_name}</div>
+                        <div class="skill-breakdown">${breakdownHtml}</div>
+                    </div>
+                    <div class="skill-total" aria-label="${skill.skill_name} \u5408\u8a08 ${totalValue}">
+                        <span class="skill-total-label">\u5408\u8a08</span>
+                        <span class="skill-total-value">${totalValue}</span>
                     </div>
                 </div>
             `;
@@ -1457,13 +1452,129 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
+.skill-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 0.85rem;
+}
+
 .skill-card {
-    transition: all 0.3s ease;
+    display: flex;
+    min-height: 96px;
+    overflow: hidden;
+    border: 1px solid #dce4ef;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
 }
 
 .skill-card:hover {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    transform: translateY(-2px);
+    border-color: #b9c8dc;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+    transform: translateY(-1px);
+}
+
+.skill-card-main {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 0.9rem 1rem;
+}
+
+.skill-card-title {
+    overflow-wrap: anywhere;
+    color: #243b53;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.skill-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.65rem;
+}
+
+.skill-breakdown-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.25rem;
+    border-radius: 999px;
+    background: #f3f6fa;
+    padding: 0.25rem 0.5rem;
+    color: #526476;
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
+.skill-breakdown-label {
+    color: #6b7c8f;
+}
+
+.skill-breakdown-value {
+    color: #26384d;
+    font-weight: 700;
+}
+
+.skill-breakdown-occupation .skill-breakdown-value {
+    color: #315efb;
+}
+
+.skill-breakdown-interest .skill-breakdown-value {
+    color: #16803a;
+}
+
+.skill-breakdown-other .skill-breakdown-value {
+    color: #6d7682;
+}
+
+.skill-total {
+    display: flex;
+    flex: 0 0 86px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid #e2e8f0;
+    background: #f8fbff;
+}
+
+.skill-total-label {
+    color: #66788a;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.skill-total-value {
+    color: #f0a000;
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+@media (max-width: 575.98px) {
+    .skill-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .skill-card {
+        min-height: 88px;
+    }
+
+    .skill-card-main {
+        padding: 0.8rem;
+    }
+
+    .skill-total {
+        flex-basis: 74px;
+    }
+
+    .skill-total-value {
+        font-size: 1.65rem;
+    }
 }
 
 .progress {
