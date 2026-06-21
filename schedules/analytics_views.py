@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from schedules.duration import effective_duration_expression
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
@@ -101,7 +102,7 @@ class SessionAnalyticsDashboardView(APIView):
         sessions_count = occurrences_qs.values('session_id').distinct().count()
 
         aggregates = occurrences_qs.aggregate(
-            total_minutes=Sum('session__duration_minutes'),
+            total_minutes=Sum(effective_duration_expression('session__')),
         )
         total_minutes = int(aggregates['total_minutes'] or 0)
         total_hours = round(total_minutes / 60, 1) if total_minutes else 0.0
@@ -166,7 +167,7 @@ class SessionAnalyticsDashboardView(APIView):
             .values('month')
             .annotate(
                 occurrences=Count('id'),
-                total_minutes=Sum('session__duration_minutes'),
+                total_minutes=Sum(effective_duration_expression('session__')),
             )
             .order_by('month')
         )
@@ -185,7 +186,7 @@ class SessionAnalyticsDashboardView(APIView):
             occurrences_qs.values('session__gm_id', 'session__gm__username', 'session__gm__nickname')
             .annotate(
                 occurrences=Count('id'),
-                total_minutes=Sum('session__duration_minutes'),
+                total_minutes=Sum(effective_duration_expression('session__')),
             )
             .order_by('-total_minutes', '-occurrences')
         )

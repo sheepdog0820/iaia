@@ -106,6 +106,175 @@ class SessionManagementIntegrationTestCase(APITestCase):
         }, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_group_admin_can_manage_member_created_session_roles(self):
+        self.client.force_authenticate(user=self.players[0])
+        response = self.client.post(reverse('session-list'), {
+            'title': 'Member Created Session',
+            'description': '',
+            'date': (timezone.now() + timedelta(days=7)).isoformat(),
+            'location': 'Discord',
+            'group': self.group.id,
+            'status': 'planned',
+            'visibility': 'group',
+            'duration_minutes': 180,
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        session_id = response.data['id']
+        session = TRPGSession.objects.get(pk=session_id)
+        self.assertEqual(session.created_by, self.players[0])
+        self.assertEqual(session.gm, self.players[0])
+
+        self.client.force_authenticate(user=self.gm)
+        response = self.client.post(
+            reverse('session-assign-roles', kwargs={'pk': session_id}),
+            {
+                'gm_user_id': self.players[1].id,
+                'participants': [
+                    {'user_id': self.players[0].id, 'role': 'player', 'player_slot': 1},
+                ],
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        session.refresh_from_db()
+        self.assertEqual(session.gm, self.players[1])
+        self.assertEqual(
+            SessionParticipant.objects.get(session=session, user=self.players[0]).role,
+            'player',
+        )
+
+        response = self.client.patch(
+            reverse('session-detail', kwargs={'pk': session_id}),
+            {'location': 'Admin Updated Discord'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.client.force_authenticate(user=self.players[0])
+        response = self.client.post(
+            reverse('session-assign-roles', kwargs={'pk': session_id}),
+            {'gm_user_id': self.players[0].id},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_invitation_role_is_applied_when_invitee_accepts(self):
+        self.client.force_authenticate(user=self.gm)
+        response = self.client.post(reverse('session-list'), {
+            'title': 'Role Invitation Session',
+            'description': '',
+            'date': (timezone.now() + timedelta(days=7)).isoformat(),
+            'location': 'Discord',
+            'group': self.group.id,
+            'status': 'planned',
+            'visibility': 'group',
+            'duration_minutes': 180,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        session_id = response.data['id']
+
+        response = self.client.post(
+            reverse('session-invite', kwargs={'pk': session_id}),
+            {'user_id': self.players[0].id, 'role': 'gm'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        invitation = self.players[0].received_session_invitations.get(session_id=session_id)
+        self.assertEqual(invitation.invited_role, 'gm')
+
+        self.client.force_authenticate(user=self.players[0])
+        response = self.client.post(
+            reverse('session-invitation-accept', kwargs={'pk': invitation.id}),
+            {},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        participant = SessionParticipant.objects.get(session_id=session_id, user=self.players[0])
+        self.assertEqual(participant.role, 'gm')
+
+    def test_invitation_role_defaults_to_player_and_rejects_invalid_role(self):
+        self.client.force_authenticate(user=self.gm)
+        response = self.client.post(reverse('session-list'), {
+            'title': 'Default Role Invitation Session',
+            'description': '',
+            'date': (timezone.now() + timedelta(days=7)).isoformat(),
+            'location': 'Discord',
+            'group': self.group.id,
+            'status': 'planned',
+            'visibility': 'group',
+            'duration_minutes': 180,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        session_id = response.data['id']
+
+        response = self.client.post(
+            reverse('session-invite', kwargs={'pk': session_id}),
+            {'user_id': self.players[0].id},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        invitation = self.players[0].received_session_invitations.get(session_id=session_id)
+        self.assertEqual(invitation.invited_role, 'player')
+
+        response = self.client.post(
+            reverse('session-invite', kwargs={'pk': session_id}),
+            {'user_id': self.players[1].id, 'role': 'keeper'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_session_managers_can_add_guest_character_and_rewards_for_archived_session(self):
+        past_date = timezone.now() - timedelta(days=30)
+        self.client.force_authenticate(user=self.players[0])
+        response = self.client.post(reverse('session-list'), {
+            'title': 'Archived Session Entry',
+            'description': 'Past play log',
+            'date': past_date.isoformat(),
+            'location': 'Discord archive',
+            'group': self.group.id,
+            'status': 'completed',
+            'visibility': 'group',
+            'duration_minutes': 240,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        session_id = response.data['id']
+
+        self.client.force_authenticate(user=self.gm)
+        response = self.client.post('/api/schedules/participants/', {
+            'session': session_id,
+            'user': None,
+            'guest_name': 'External Player',
+            'character_name': 'External Investigator',
+            'character_sheet_url': 'https://example.com/characters/external',
+            'player_slot': 1,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        guest_participant_id = response.data['id']
+        participant = SessionParticipant.objects.get(pk=guest_participant_id)
+        self.assertIsNone(participant.user_id)
+        self.assertEqual(participant.guest_name, 'External Player')
+        self.assertEqual(participant.character_name, 'External Investigator')
+        self.assertEqual(participant.character_sheet_url, 'https://example.com/characters/external')
+
+        response = self.client.post(reverse('session-rewards', kwargs={'session_id': session_id}), {
+            'participant': guest_participant_id,
+            'experience_points': 5,
+            'special_rewards': 'Archive bonus',
+            'notes': 'Imported after play',
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        self.client.force_authenticate(user=self.players[0])
+        response = self.client.patch(
+            reverse('session-detail', kwargs={'pk': session_id}),
+            {'description': 'Updated by creator after play'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
     def test_complete_session_lifecycle(self):
         """セッションの完全なライフサイクルテスト"""
         # 1. GMとしてログイン

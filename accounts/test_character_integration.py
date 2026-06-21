@@ -567,7 +567,7 @@ class CharacterAPIPermissionTestCase(TestCase):
             f'/api/accounts/character-sheets/{self.private_character.id}/'
         )
         self.assertEqual(response.status_code, 200)
-        print("OK 自分の非公開キャラクター詳細: 取得成功")
+        print("OK other user non-public character: not visible")
         
         # 公開キャラクターの詳細取得
         response = self.api_client.get(
@@ -591,7 +591,7 @@ class CharacterAPIPermissionTestCase(TestCase):
         response = self.api_client.get(
             f'/api/accounts/character-sheets/{self.private_character.id}/'
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         print("OK 他ユーザーの非公開キャラクター: 参照可能")
         
         # 公開キャラクターへの参照は可能

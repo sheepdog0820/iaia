@@ -1507,6 +1507,13 @@ function updateGlobalDiceFormula() {
         safeSetLocalStorage('scenario_recommended_skills_system', payload.gameSystem || '');
     }
 
+    function combineScenarioSkillText(...values) {
+        return values
+            .map(value => (value || '').trim())
+            .filter(Boolean)
+            .join(', ');
+    }
+
     async function fetchScenarioPayload(scenarioId) {
         const numericId = parseInt(scenarioId, 10);
         if (!Number.isFinite(numericId) || numericId <= 0) return null;
@@ -1731,7 +1738,10 @@ function updateGlobalDiceFormula() {
 
             const hasScenarioRaw = !!(scenarioPayload.raw || '').trim();
             if (context.scenario && (forceScenario || scenarioPayload.source !== 'query' || !hasScenarioRaw)) {
-                const scenarioRaw = (context.scenario.recommended_skills || '').trim();
+                const scenarioRaw = combineScenarioSkillText(
+                    context.scenario.recommended_skills,
+                    context.scenario.semi_recommended_skills
+                );
                 scenarioPayload = {
                     ...scenarioPayload,
                     raw: scenarioRaw,
@@ -1948,7 +1958,10 @@ function updateGlobalDiceFormula() {
                     }
                     scenarioPayload = {
                         ...scenarioPayload,
-                        raw: (scenarioData.recommended_skills || '').trim(),
+                        raw: combineScenarioSkillText(
+                            scenarioData.recommended_skills,
+                            scenarioData.semi_recommended_skills
+                        ),
                         title: scenarioData.title || scenarioPayload.title,
                         gameSystem: scenarioData.game_system || scenarioPayload.gameSystem,
                         scenarioId: scenarioData.id ? String(scenarioData.id) : scenarioPayload.scenarioId,

@@ -160,13 +160,16 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="sessionScenarioTitle" class="form-label">関連シナリオ</label>
+                        <label for="sessionScenarioSelect" class="form-label">関連シナリオ</label>
                         <div class="input-group">
-                            <input type="text" class="form-control" id="sessionScenarioTitle" placeholder="未設定" readonly>
+                            <select class="form-select" id="sessionScenarioSelect">
+                                <option value="">未設定</option>
+                            </select>
                             <button type="button" class="btn btn-outline-secondary" id="clearSessionScenario" disabled>解除</button>
                         </div>
                         <input type="hidden" id="sessionScenarioId">
-                        <div class="form-text">シナリオアーカイブから連携できます</div>
+                        <input type="hidden" id="sessionScenarioTitle">
+                        <div class="form-text">シナリオアーカイブからの連携、または一覧から選択できます。</div>
                     </div>
 
                     <div class="mb-3">
@@ -465,6 +468,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let calendar;
     let userGroups = [];
     let sessionTemplates = [];
+    let scenarioChoices = [];
     let groupMembers = [];
     let selectedInvitees = new Set();
     let pendingSessionTemplateGroup = null;
@@ -862,22 +866,59 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    async function loadScenarioChoices() {
+        const select = document.getElementById('sessionScenarioSelect');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">読み込み中...</option>';
+        try {
+            const response = await axios.get('/api/scenarios/scenarios/');
+            const payload = response.data || [];
+            scenarioChoices = Array.isArray(payload) ? payload : (payload.results || []);
+            select.innerHTML = '<option value="">未設定</option>' +
+                scenarioChoices
+                    .map(scenario => `<option value="${scenario.id}">${escapeHtml(scenario.title || `シナリオ ${scenario.id}`)}</option>`)
+                    .join('');
+
+            const currentId = document.getElementById('sessionScenarioId')?.value;
+            if (currentId) {
+                if (!Array.from(select.options).some(option => option.value === String(currentId))) {
+                    const currentTitle = document.getElementById('sessionScenarioTitle')?.value || `シナリオ ${currentId}`;
+                    select.add(new Option(currentTitle, String(currentId)));
+                }
+                select.value = String(currentId);
+            }
+        } catch (error) {
+            console.error('Error loading scenarios:', error);
+            scenarioChoices = [];
+            select.innerHTML = '<option value="">シナリオの取得に失敗しました</option>';
+        }
+    }
+
     function applyScenarioToSessionForm(scenario) {
         const idInput = document.getElementById('sessionScenarioId');
         const titleInput = document.getElementById('sessionScenarioTitle');
+        const select = document.getElementById('sessionScenarioSelect');
         const clearBtn = document.getElementById('clearSessionScenario');
         if (!idInput || !titleInput) return;
 
         if (!scenario || !scenario.id) {
             idInput.value = '';
             titleInput.value = '';
-            titleInput.placeholder = '未設定';
+            if (select) select.value = '';
             if (clearBtn) clearBtn.disabled = true;
             return;
         }
 
         idInput.value = String(scenario.id);
         titleInput.value = scenario.title || '';
+        if (select) {
+            const scenarioId = String(scenario.id);
+            if (!Array.from(select.options).some(option => option.value === scenarioId)) {
+                select.add(new Option(scenario.title || `シナリオ ${scenarioId}`, scenarioId));
+            }
+            select.value = scenarioId;
+        }
         if (clearBtn) clearBtn.disabled = false;
     }
 
@@ -1322,7 +1363,7 @@ document.addEventListener('DOMContentLoaded', function() {
             'saveTemplateFromSession',
             'sessionDuration',
             'sessionLocation',
-            'sessionScenarioTitle',
+            'sessionScenarioSelect',
             'clearSessionScenario',
             'sessionCocEdition',
             'sessionDescription',
@@ -1434,6 +1475,7 @@ document.addEventListener('DOMContentLoaded', function() {
             bootstrap.Modal.getInstance(document.getElementById('newSessionModal')).hide();
             form.reset();
             loadScenarioLink();
+            loadScenarioChoices();
             selectedInvitees.clear();
             document.getElementById('sessionInviteMembers').innerHTML = '<span class="text-muted small">グループを選択してください</span>';
             calendar.refetchEvents();
@@ -1455,12 +1497,14 @@ document.addEventListener('DOMContentLoaded', function() {
     loadUpcomingSessions();
     loadGroups();
     loadSessionTemplates();
+    loadScenarioChoices();
 
     const newSessionModalEl = document.getElementById('newSessionModal');
     newSessionModalEl?.addEventListener('show.bs.modal', () => {
         setCreateMode('new');
         loadScenarioLink();
         loadSessionTemplates();
+        loadScenarioChoices();
     });
 
     document.getElementById('clearSessionScenario')?.addEventListener('click', () => {
@@ -1468,6 +1512,32 @@ document.addEventListener('DOMContentLoaded', function() {
         safeRemoveStorage(scenarioLinkKeys.title);
         safeRemoveStorage(scenarioLinkKeys.system);
         applyScenarioToSessionForm(null);
+    });
+
+    document.getElementById('sessionScenarioSelect')?.addEventListener('change', async (event) => {
+        const scenarioId = event.target.value;
+        if (!scenarioId) {
+            safeRemoveStorage(scenarioLinkKeys.id);
+            safeRemoveStorage(scenarioLinkKeys.title);
+            safeRemoveStorage(scenarioLinkKeys.system);
+            applyScenarioToSessionForm(null);
+            return;
+        }
+
+        let scenario = scenarioChoices.find(choice => String(choice.id) === String(scenarioId));
+        if (!scenario) {
+            scenario = await fetchScenarioDetail(scenarioId);
+        }
+        if (!scenario) {
+            notifyError('シナリオ情報を取得できませんでした');
+            applyScenarioToSessionForm(null);
+            return;
+        }
+
+        safeSetStorage(scenarioLinkKeys.id, String(scenario.id));
+        safeSetStorage(scenarioLinkKeys.title, scenario.title || '');
+        safeSetStorage(scenarioLinkKeys.system, scenario.game_system || '');
+        applyScenarioToSessionForm(scenario);
     });
 
     void loadScenarioLink().then(payload => {

@@ -259,7 +259,8 @@ class CharacterSheetAPITestCase(APITestCase):
             app_value=80,
             siz_value=55,
             int_value=85,
-            edu_value=90
+            edu_value=90,
+            access_scope='public'
         )
     
     def test_character_list_api_public_access(self):
@@ -327,7 +328,8 @@ class CharacterSheetAPITestCase(APITestCase):
             'edu_value': 85,
             'hit_points_current': 11,
             'magic_points_current': 16,
-            'sanity_current': 80
+            'sanity_current': 80,
+            'access_scope': 'public'
         }
         
         response = self.client.post(
@@ -423,7 +425,8 @@ class CharacterSheetWebViewTestCase(TestCase):
             app_value=80,
             siz_value=55,
             int_value=85,
-            edu_value=90
+            edu_value=90,
+            access_scope='public'
         )
     
     def test_character_list_view_public_access(self):
@@ -532,7 +535,8 @@ class CharacterSheetIntegrationTestCase(TestCase):
             'edu_value': 80,
             'hit_points_current': 13,
             'magic_points_current': 15,
-            'sanity_current': 75
+            'sanity_current': 75,
+            'access_scope': 'public'
         }
         
         response = api_client.post(
@@ -621,7 +625,8 @@ class CharacterSheetIntegrationTestCase(TestCase):
             app_value=60,
             siz_value=65,
             int_value=85,
-            edu_value=80
+            edu_value=80,
+            access_scope='public'
         )
         
         api_client = APIClient()

@@ -561,7 +561,7 @@ class TindalosMetricsFilterTestCase(APITestCase):
             )
         
         # CoCでフィルタ
-        response = self.client.get('/api/accounts/statistics/simple/?game_system=coc')
+        response = self.client.get('/api/accounts/statistics/simple/?game_system=coc6')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['scenario_count'], 1)

@@ -305,7 +305,7 @@ class StatisticsViewsTestCase(APITestCase):
         self.assertIn('category_rankings', data)
 
         category_rankings = data['category_rankings']
-        self.assertTrue(any(item['system_code'] == 'coc' for item in category_rankings))
+        self.assertTrue(any(item['system_code'] == 'coc6' for item in category_rankings))
 
     def test_user_ranking_category_scenario(self):
         """カテゴリ別ランキング（シナリオ別）のテスト"""

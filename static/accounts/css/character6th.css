@@ -580,8 +580,8 @@ label[for="character-name"]::after {
 }
 
 .skills-tab .skill-item .form-control-sm {
-    height: 32px;
-    padding: 0.2rem 0.35rem;
+    height: 36px;
+    padding: 0.95rem 0.35rem 0.15rem;
     font-size: 0.85rem;
     line-height: 1.2;
     color: #111827;
@@ -597,15 +597,19 @@ label[for="character-name"]::after {
 .skills-tab .skill-input-group::before {
     content: attr(data-skill-kind);
     position: absolute;
-    left: 2px;
-    top: 2px;
-    font-size: 0.65rem;
+    left: 1px;
+    right: 1px;
+    top: 1px;
+    height: 13px;
+    font-size: 0.58rem;
     font-weight: 700;
-    line-height: 1;
-    padding: 0 3px;
-    border-radius: 4px;
+    line-height: 13px;
+    padding: 0;
+    border-radius: 0.2rem 0.2rem 0 0;
+    text-align: center;
     z-index: 2;
     pointer-events: none;
+    letter-spacing: 0;
 }
 
 .skills-tab .skill-input-group-base::before {
@@ -635,7 +639,8 @@ label[for="character-name"]::after {
 .skills-tab .skill-input-group .form-control {
     min-width: 45px !important;
     flex: 1 1 45px;
-    padding-right: 1rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
 }
 
 .skills-tab .skill-input-group .input-group-text {
@@ -1088,9 +1093,9 @@ hr {
     }
 
     .skills-tab .skill-item .form-control-sm {
-        height: 30px;
+        height: 34px;
+        padding: 0.85rem 0.3rem 0.12rem;
         font-size: 0.8rem;
-        padding: 0.15rem 0.3rem;
     }
 
     .character-footer {

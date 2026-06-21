@@ -83,8 +83,8 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            {% if session.duration_minutes %}
-                                                <i class="fas fa-stopwatch"></i> {{ session.duration_minutes }}分
+                                            {% if session.effective_duration_minutes %}
+                                                <i class="fas fa-stopwatch"></i> {{ session.effective_duration_minutes }}分
                                             {% else %}
                                                 <span class="text-muted">-</span>
                                             {% endif %}
@@ -157,8 +157,8 @@
                                     <div>
                                         <dt><i class="fas fa-clock"></i> 時間</dt>
                                         <dd>
-                                            {% if session.duration_minutes %}
-                                                {{ session.duration_minutes }}分
+                                            {% if session.effective_duration_minutes %}
+                                                {{ session.effective_duration_minutes }}分
                                             {% else %}
                                                 <span class="text-muted">-</span>
                                             {% endif %}
@@ -189,7 +189,7 @@
                             <ul class="pagination justify-content-center">
                                 {% if has_previous %}
                                     <li class="page-item">
-                                        <a class="page-link" href="?offset={{ offset|add:'-20' }}&limit={{ limit }}">
+                                        <a class="page-link" href="?offset={{ offset|add:'-20' }}&limit={{ limit }}&period={{ period|urlencode }}">
                                             <i class="fas fa-chevron-left"></i> 前へ
                                         </a>
                                     </li>
@@ -203,7 +203,7 @@
                                 
                                 {% if has_next %}
                                     <li class="page-item">
-                                        <a class="page-link" href="?offset={{ offset|add:limit }}&limit={{ limit }}">
+                                        <a class="page-link" href="?offset={{ offset|add:limit }}&limit={{ limit }}&period={{ period|urlencode }}">
                                             次へ <i class="fas fa-chevron-right"></i>
                                         </a>
                                     </li>
@@ -234,6 +234,14 @@
                 <div class="card-body">
                     <form method="get" class="row g-3">
                         <div class="col-md-3">
+                            <label for="period" class="form-label">表示期間</label>
+                            <select name="period" id="period" class="form-select">
+                                <option value="future" {% if period == 'future' %}selected{% endif %}>今後の予定</option>
+                                <option value="past" {% if period == 'past' or period == 'past_all' %}selected{% endif %}>過去すべて</option>
+                                <option value="all" {% if period == 'all' or period == '' %}selected{% endif %}>すべて</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
                             <label for="limit" class="form-label">表示件数</label>
                             <select name="limit" id="limit" class="form-select">
                                 <option value="10" {% if limit == 10 %}selected{% endif %}>10件</option>
@@ -242,7 +250,7 @@
                                 <option value="100" {% if limit == 100 %}selected{% endif %}>100件</option>
                             </select>
                         </div>
-                        <div class="col-md-9 d-flex align-items-end flex-wrap gap-2 session-list-actions">
+                        <div class="col-md-6 d-flex align-items-end flex-wrap gap-2 session-list-actions">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-sync"></i> 更新
                             </button>

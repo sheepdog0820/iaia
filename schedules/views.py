@@ -1,3 +1,4 @@
+from schedules.duration import effective_duration_expression
 import json
 from django.shortcuts import render, get_object_or_404
 from django.db import transaction
@@ -53,7 +54,11 @@ from .serializers import (
 )
 from .services import YouTubeService
 from .notifications import SessionNotificationService
-from .template_services import bind_slot_handouts_to_participant, clone_template_to_session
+from .template_services import (
+    bind_slot_handouts_to_participant,
+    clone_scenario_handouts_to_session,
+    clone_template_to_session,
+)
 from accounts.models import (
     CharacterSheet,
     CustomUser,
@@ -84,6 +89,46 @@ def _visible_sessions_for(user):
     ).distinct()
 
 
+def _filter_sessions_by_period(sessions, period, now=None):
+    now = now or timezone.now()
+    if period in ('', 'all'):
+        return sessions
+    if period in ('past', 'past_all'):
+        return sessions.filter(date__lt=now)
+    if period == 'past7':
+        return sessions.filter(date__gte=now - timedelta(days=7), date__lt=now)
+    if period == 'past30':
+        return sessions.filter(date__gte=now - timedelta(days=30), date__lt=now)
+    if period == 'past90':
+        return sessions.filter(date__gte=now - timedelta(days=90), date__lt=now)
+    return sessions.filter(date__gte=now)
+
+
+def _order_sessions_by_period(sessions, period, now=None):
+    now = now or timezone.now()
+    if period in ('past', 'past_all', 'past7', 'past30', 'past90'):
+        return sessions.order_by('-date')
+    if period in ('', 'all'):
+        return sessions.annotate(
+            _period_sort_group=Case(
+                When(date__gte=now, then=Value(0)),
+                default=Value(1),
+                output_field=IntegerField(),
+            ),
+            _future_date=Case(
+                When(date__gte=now, then=F('date')),
+                default=Value(None),
+                output_field=DateTimeField(),
+            ),
+            _past_date=Case(
+                When(date__lt=now, then=F('date')),
+                default=Value(None),
+                output_field=DateTimeField(),
+            ),
+        ).order_by('_period_sort_group', '_future_date', '-_past_date')
+    return sessions.order_by('date')
+
+
 def _can_manage_session(session, user):
     if not user or not user.is_authenticated:
         return False
@@ -91,6 +136,15 @@ def _can_manage_session(session, user):
         return True
     if getattr(session, 'created_by_id', None) == user.id:
         return True
+    if session.group_id:
+        if session.group.created_by_id == user.id:
+            return True
+        if GroupMembership.objects.filter(
+            group_id=session.group_id,
+            user=user,
+            role='admin',
+        ).exists():
+            return True
     return SessionParticipant.objects.filter(
         session=session,
         user=user,
@@ -120,12 +174,15 @@ class SessionsListView(APIView):
     
     def get_json_response(self, request):
         user = request.user
+        period = request.query_params.get('period', 'future')
         sessions = _visible_sessions_for(user).select_related('gm', 'group').annotate(
             guest_count=Count(
                 'sessionparticipant',
                 filter=Q(sessionparticipant__user__isnull=True),
             )
-        ).order_by('-date')
+        )
+        sessions = _filter_sessions_by_period(sessions, period)
+        sessions = _order_sessions_by_period(sessions, period)
         
         # ページネーション対応
         limit = int(request.query_params.get('limit', 20))
@@ -141,18 +198,22 @@ class SessionsListView(APIView):
             'results': serializer.data,
             'limit': limit,
             'offset': offset,
+            'period': period,
             'has_next': (offset + limit) < total_count,
             'has_previous': offset > 0
         })
     
     def get_html_response(self, request):
         user = request.user
+        period = request.GET.get('period', 'future')
         sessions = _visible_sessions_for(user).select_related('gm', 'group').annotate(
             guest_count=Count(
                 'sessionparticipant',
                 filter=Q(sessionparticipant__user__isnull=True),
             )
-        ).order_by('-date')
+        )
+        sessions = _filter_sessions_by_period(sessions, period)
+        sessions = _order_sessions_by_period(sessions, period)
         
         # ページネーション対応
         limit = int(request.GET.get('limit', 20))
@@ -166,6 +227,7 @@ class SessionsListView(APIView):
             'count': total_count,
             'limit': limit,
             'offset': offset,
+            'period': period,
             'has_next': (offset + limit) < total_count,
             'has_previous': offset > 0
         }
@@ -181,7 +243,12 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         # ユーザーが参加しているグループのセッション、または公開セッション
-        return _visible_sessions_for(user).select_related('scenario').order_by('-date')
+        sessions = _visible_sessions_for(user).select_related('scenario')
+        if getattr(self, 'action', None) == 'list':
+            period = self.request.query_params.get('period', 'future')
+            sessions = _filter_sessions_by_period(sessions, period)
+            return _order_sessions_by_period(sessions, period)
+        return sessions.order_by('-date')
     
     def perform_create(self, serializer):
         serializer.save(gm=self.request.user, created_by=self.request.user)
@@ -193,6 +260,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                 session,
                 uploaded_by=self.request.user,
             )
+        clone_scenario_handouts_to_session(session.scenario, session)
         from .tasks import queue_discord_event
         queue_discord_event(
             session.group_id,
@@ -659,6 +727,12 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             )
 
         message = (request.data.get('message') or '').strip()
+        invited_role = request.data.get('role') or request.data.get('invited_role') or 'player'
+        if invited_role not in ['player', 'gm']:
+            return Response(
+                {'error': 'role must be player or gm'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         invitation, created = SessionInvitation.objects.get_or_create(
             session=session,
@@ -666,6 +740,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             defaults={
                 'inviter': request.user,
                 'status': 'pending',
+                'invited_role': invited_role,
                 'message': message,
             }
         )
@@ -674,12 +749,14 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             invitation.inviter = request.user
             invitation.status = 'pending'
             invitation.message = message
+            invitation.invited_role = invited_role
             invitation.created_at = timezone.now()
             invitation.responded_at = None
             invitation.save(update_fields=[
                 'inviter',
                 'status',
                 'message',
+                'invited_role',
                 'created_at',
                 'responded_at',
             ])
@@ -822,48 +899,20 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             sessions = sessions.filter(id__in=participant_session_ids).exclude(gm=user)
 
         # ステータスフィルター
+        period = request.query_params.get('period', 'future')
         status_filter = request.query_params.get('status', '')
         if status_filter:
             sessions = sessions.filter(status=status_filter)
-        else:
+        elif period == 'future':
             # デフォルト: 予定と進行中
             sessions = sessions.filter(status__in=['planned', 'ongoing'])
 
         # 期間フィルター
-        period = request.query_params.get('period', 'future')
-        if period == 'future':
-            sessions = sessions.filter(date__gte=now)
-        elif period == 'past7':
-            sessions = sessions.filter(date__gte=now - timedelta(days=7), date__lt=now)
-        elif period == 'past30':
-            sessions = sessions.filter(date__gte=now - timedelta(days=30), date__lt=now)
-        elif period == 'past90':
-            sessions = sessions.filter(date__gte=now - timedelta(days=90), date__lt=now)
+        sessions = _filter_sessions_by_period(sessions, period, now)
         # period='' の場合はフィルターなし（すべて）
 
         # ソート: futureは昇順、past系は降順、allは未来→過去の順
-        if period == 'future':
-            sessions = sessions.order_by('date')
-        elif period in {'past7', 'past30', 'past90'}:
-            sessions = sessions.order_by('-date')
-        else:
-            sessions = sessions.annotate(
-                _period_sort_group=Case(
-                    When(date__gte=now, then=Value(0)),
-                    default=Value(1),
-                    output_field=IntegerField(),
-                ),
-                _future_date=Case(
-                    When(date__gte=now, then=F('date')),
-                    default=Value(None),
-                    output_field=DateTimeField(),
-                ),
-                _past_date=Case(
-                    When(date__lt=now, then=F('date')),
-                    default=Value(None),
-                    output_field=DateTimeField(),
-                ),
-            ).order_by('_period_sort_group', '_future_date', '-_past_date')
+        sessions = _order_sessions_by_period(sessions, period, now)
 
         # ページネーション
         def _safe_positive_int(value, default, *, max_value=None):
@@ -916,7 +965,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         )
         
         total_minutes = sessions.aggregate(
-            total=Sum('duration_minutes')
+            total=Sum(effective_duration_expression())
         )['total'] or 0
         
         total_hours = total_minutes / 60
@@ -1003,8 +1052,15 @@ class SessionInvitationViewSet(viewsets.ReadOnlyModelViewSet):
         participant, created = SessionParticipant.objects.get_or_create(
             session=invitation.session,
             user=request.user,
-            defaults={'role': 'player'}
+            defaults={'role': invitation.invited_role}
         )
+        if not created and participant.role != invitation.invited_role:
+            participant.role = invitation.invited_role
+            update_fields = ['role']
+            if invitation.invited_role == 'gm':
+                participant.player_slot = None
+                update_fields.append('player_slot')
+            participant.save(update_fields=update_fields)
 
         invitation.status = 'accepted'
         invitation.responded_at = timezone.now()
@@ -1358,24 +1414,25 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
         bind_slot_handouts_to_participant(participant)
 
     def destroy(self, request, *args, **kwargs):
-        """参加者削除（本人の脱退 or GMによる除名のみ許可）"""
+        """Only the participant or a session manager can remove a participant."""
         instance = self.get_object()
 
         is_session_manager = _can_manage_session(instance.session, request.user)
 
-        # 本人は自分の参加情報を削除できる（脱退）
+        if instance.user_id == instance.session.gm_id:
+            return Response(
+                {'error': 'Cannot remove main GM'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Participants can remove themselves.
         if instance.user == request.user:
             instance.delete()
             bind_slot_handouts_to_participant(instance)
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-        # GM（メイン/協力）のみ他人を削除できる
+        # Session managers can remove participants.
         if is_session_manager:
-            if instance.user == instance.session.gm:
-                return Response(
-                    {'error': 'Cannot remove main GM'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
             instance.delete()
             bind_slot_handouts_to_participant(instance)
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -1422,8 +1479,8 @@ class HandoutInfoViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # GMのみハンドアウト作成可能
         session = serializer.validated_data['session']
-        if session.gm != self.request.user:
-            raise PermissionError("Only GM can create handouts")
+        if not _can_manage_session(session, self.request.user):
+            raise PermissionError("Only a session manager can create handouts")
         
         # ハンドアウト番号とプレイヤー枠の整合性チェック
         handout_number = serializer.validated_data.get('handout_number')
@@ -1443,7 +1500,7 @@ class HandoutInfoViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        if instance.session.gm_id != request.user.id:
+        if not _can_manage_session(instance.session, request.user):
             HandoutView.objects.update_or_create(
                 handout=instance,
                 user=request.user,
@@ -1461,7 +1518,7 @@ class HandoutInfoViewSet(viewsets.ModelViewSet):
 
         handout = get_object_or_404(HandoutInfo, id=handout_id)
 
-        if handout.session.gm != request.user:
+        if not _can_manage_session(handout.session, request.user):
             return Response({'error': 'GM権限が必要です'}, status=status.HTTP_403_FORBIDDEN)
 
         handout.is_secret = not handout.is_secret
@@ -1719,7 +1776,7 @@ class MonthlyEventListView(APIView):
                 'occurrence_id': occurrence.id,
                 'title': session.title,
                 'time': occurrence.start_at.strftime('%H:%M'),
-                'duration_minutes': session.duration_minutes,
+                'duration_minutes': session.effective_duration_minutes,
                 'status': session.status,
                 'visibility': session.visibility,
                 'group': {
@@ -1985,6 +2042,7 @@ class CreateSessionView(APIView):
                     session,
                     uploaded_by=request.user,
                 )
+            clone_scenario_handouts_to_session(session.scenario, session)
             
             # GMを参加者として自動追加
             SessionParticipant.objects.create(
@@ -2113,8 +2171,8 @@ class UpcomingSessionsView(APIView):
                 'participant_count': member_count,
                 'guest_count': guest_count,
                 'participants_summary': participants_summary,
-                'duration_minutes': session.duration_minutes,
-                'duration_display': format_duration(session.duration_minutes),
+                'duration_minutes': session.effective_duration_minutes,
+                'duration_display': format_duration(session.effective_duration_minutes),
             })
 
         return Response(results)
@@ -2166,13 +2224,18 @@ class NextSessionContextView(APIView):
                 'title': scenario.title,
                 'game_system': scenario.game_system,
                 'recommended_skills': scenario.recommended_skills or '',
+                'semi_recommended_skills': scenario.semi_recommended_skills or '',
             }
 
         participant = SessionParticipant.objects.filter(session=session, user=user).first()
         handout_skills = []
         handout_titles = []
         if participant:
-            handouts = HandoutInfo.objects.filter(session=session, participant=participant)
+            handouts = HandoutInfo.objects.filter(
+                Q(participant=participant)
+                | Q(handout_number__isnull=True, assigned_player_slot__isnull=True),
+                session=session,
+            )
             for handout in handouts:
                 if handout.recommended_skills:
                     handout_skills.append(handout.recommended_skills)
@@ -2268,7 +2331,7 @@ class SessionStatisticsView(APIView):
         
         session_count = user_sessions.count()
         total_minutes = user_sessions.aggregate(
-            total=Sum('duration_minutes')
+            total=Sum(effective_duration_expression())
         )['total'] or 0
         total_hours = round(total_minutes / 60, 1)
         
@@ -2318,8 +2381,7 @@ class SessionDetailView(APIView):
         user = request.user
         has_access = (
             session.visibility == 'public' or
-            session.gm == user or
-            session.created_by_id == user.id or
+            _can_manage_session(session, user) or
             session.group.members.filter(id=user.id).exists() or
             session.participants.filter(id=user.id).exists()
         )
@@ -2393,6 +2455,14 @@ class SessionDetailView(APIView):
         public_session_url = request.build_absolute_uri(
             reverse('public_session_detail', kwargs={'share_token': session.share_token})
         )
+        can_edit_scenario = can_edit and getattr(user, 'has_premium_access', False)
+        scenario_choices = []
+        if can_edit_scenario:
+            from scenarios.models import Scenario
+            from scenarios.access import visible_scenarios
+            scenario_choices = visible_scenarios(
+                Scenario.objects.all(), user
+            ).order_by('title', 'id')
         
         context = {
             'session': session,
@@ -2414,6 +2484,8 @@ class SessionDetailView(APIView):
             'invitation_status_by_user_id_json': invitation_status_by_user_id_json,
             'selected_occurrence': selected_occurrence,
             'selected_occurrence_id': selected_occurrence_id,
+            'can_edit_scenario': can_edit_scenario,
+            'scenario_choices': scenario_choices,
         }
         
         return render(request, 'schedules/session_detail.html', context)
@@ -2435,8 +2507,7 @@ class SessionDatePollView(APIView):
         user = request.user
         has_access = (
             session.visibility == 'public' or
-            session.gm == user or
-            session.created_by_id == user.id or
+            _can_manage_session(session, user) or
             session.group.members.filter(id=user.id).exists() or
             session.participants.filter(id=user.id).exists()
         )
@@ -2550,7 +2621,7 @@ class SessionImageViewSet(viewsets.ModelViewSet):
             )
         
         # 権限チェック
-        if session.gm != request.user and not session.participants.filter(id=request.user.id).exists():
+        if not _can_manage_session(session, request.user) and not session.participants.filter(id=request.user.id).exists():
             return Response(
                 {'error': 'Only GM or participants can upload images'},
                 status=status.HTTP_403_FORBIDDEN
@@ -2570,7 +2641,7 @@ class SessionImageViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         
         # GMまたはアップロード者のみ編集可能
-        if instance.session.gm != self.request.user and instance.uploaded_by != self.request.user:
+        if not _can_manage_session(instance.session, self.request.user) and instance.uploaded_by != self.request.user:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Only GM or uploader can edit images")
         
@@ -2579,7 +2650,7 @@ class SessionImageViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         """画像削除時の処理"""
         # GMまたはアップロード者のみ削除可能
-        if instance.session.gm != self.request.user and instance.uploaded_by != self.request.user:
+        if not _can_manage_session(instance.session, self.request.user) and instance.uploaded_by != self.request.user:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Only GM or uploader can delete images")
         
@@ -2606,7 +2677,7 @@ class SessionImageViewSet(viewsets.ModelViewSet):
             )
         
         # 権限チェック
-        if session.gm != request.user and not session.participants.filter(id=request.user.id).exists():
+        if not _can_manage_session(session, request.user) and not session.participants.filter(id=request.user.id).exists():
             return Response(
                 {'error': 'Permission denied'},
                 status=status.HTTP_403_FORBIDDEN
@@ -2646,7 +2717,7 @@ class SessionImageViewSet(viewsets.ModelViewSet):
             )
         
         # GMのみ順序変更可能
-        if image.session.gm != request.user:
+        if not _can_manage_session(image.session, request.user):
             return Response(
                 {'error': 'Only GM can reorder images'},
                 status=status.HTTP_403_FORBIDDEN
@@ -2697,7 +2768,7 @@ class SessionImageViewSet(viewsets.ModelViewSet):
             )
 
         session = get_object_or_404(TRPGSession, id=session_id_int)
-        if session.gm != request.user:
+        if not _can_manage_session(session, request.user):
             return Response(
                 {'error': 'Only GM can reorder images'},
                 status=status.HTTP_403_FORBIDDEN,
@@ -2749,7 +2820,7 @@ class SessionYouTubeLinkViewSet(viewsets.ModelViewSet):
         if session_id:
             # セッションへのアクセス権限確認
             session = get_object_or_404(TRPGSession, id=session_id)
-            if session.gm == user or session.participants.filter(id=user.id).exists():
+            if _can_manage_session(session, user) or session.participants.filter(id=user.id).exists():
                 return SessionYouTubeLink.objects.filter(session_id=session_id)
             else:
                 return SessionYouTubeLink.objects.none()
@@ -2780,7 +2851,7 @@ class SessionYouTubeLinkViewSet(viewsets.ModelViewSet):
             )
         
         # 権限チェック
-        if session.gm != request.user and not session.participants.filter(id=request.user.id).exists():
+        if not _can_manage_session(session, request.user) and not session.participants.filter(id=request.user.id).exists():
             return Response(
                 {'error': 'Only GM or participants can add YouTube links'},
                 status=status.HTTP_403_FORBIDDEN
@@ -2838,7 +2909,7 @@ class SessionYouTubeLinkViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         
         # GMまたは追加者のみ編集可能
-        if instance.session.gm != self.request.user and instance.added_by != self.request.user:
+        if not _can_manage_session(instance.session, self.request.user) and instance.added_by != self.request.user:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Only GM or the person who added can edit")
         
@@ -2847,7 +2918,7 @@ class SessionYouTubeLinkViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         """動画リンク削除時の処理"""
         # GMまたは追加者のみ削除可能
-        if instance.session.gm != self.request.user and instance.added_by != self.request.user:
+        if not _can_manage_session(instance.session, self.request.user) and instance.added_by != self.request.user:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Only GM or the person who added can delete")
         
@@ -2900,7 +2971,7 @@ class SessionYouTubeLinkViewSet(viewsets.ModelViewSet):
             )
         
         # GMのみ順序変更可能
-        if link.session.gm != request.user:
+        if not _can_manage_session(link.session, request.user):
             return Response(
                 {'error': 'Only GM can reorder videos'},
                 status=status.HTTP_403_FORBIDDEN
@@ -2935,7 +3006,7 @@ class SessionYouTubeLinkViewSet(viewsets.ModelViewSet):
             )
         
         # 権限チェック
-        if session.gm != request.user and not session.participants.filter(id=request.user.id).exists():
+        if not _can_manage_session(session, request.user) and not session.participants.filter(id=request.user.id).exists():
             return Response(
                 {'error': 'Permission denied'},
                 status=status.HTTP_403_FORBIDDEN

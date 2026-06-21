@@ -38,7 +38,7 @@ class TRPGSessionAdmin(admin.ModelAdmin):
             'fields': ('gm', 'group')
         }),
         ('設定', {
-            'fields': ('status', 'visibility', 'youtube_url', 'duration_minutes')
+            'fields': ('status', 'visibility', 'youtube_url', 'duration_minutes', 'actual_duration_minutes')
         }),
     )
 

@@ -47,6 +47,7 @@ class SessionAnalyticsDashboardApiTestCase(APITestCase):
             gm=self.gm,
             group=self.group,
             duration_minutes=180,
+            actual_duration_minutes=210,
         )
         self.session2 = TRPGSession.objects.create(
             title='Session 2',
@@ -83,7 +84,7 @@ class SessionAnalyticsDashboardApiTestCase(APITestCase):
         summary = data['summary']
         self.assertEqual(summary['occurrences_count'], 2)
         self.assertEqual(summary['sessions_count'], 2)
-        self.assertEqual(summary['total_minutes'], 420)
+        self.assertEqual(summary['total_minutes'], 450)
         self.assertEqual(summary['group_member_count'], 3)
         self.assertEqual(summary['avg_participants'], 2.5)
         self.assertEqual(summary['avg_participation_rate'], 83.3)

@@ -20,10 +20,10 @@ locals {
     ManagedBy   = "terraform"
   }
   db_port          = var.db_engine == "postgres" ? 5432 : 3306
-  redis_url        = "rediss://${aws_elasticache_replication_group.main.primary_endpoint_address}:6379/0"
-  celery_redis_url = "${local.redis_url}?ssl_cert_reqs=CERT_NONE"
+  redis_url        = var.enable_elasticache ? "rediss://${aws_elasticache_replication_group.main[0].primary_endpoint_address}:6379/0" : ""
+  celery_redis_url = var.enable_elasticache ? "${local.redis_url}?ssl_cert_reqs=CERT_NONE" : ""
   allowed_hosts    = var.allowed_hosts_override != "" ? var.allowed_hosts_override : var.domain_name
-  backup_retention = var.environment == "aws-prod" ? 14 : 1
+  backup_retention = var.environment == "aws-prod" ? 14 : var.db_backup_retention_period
   app_secret_names = distinct(concat(["SECRET_KEY", "DB_PASSWORD"], var.extra_secret_names))
   app_container_secrets = [
     for secret_name in local.app_secret_names : {
@@ -31,6 +31,38 @@ locals {
       valueFrom = "${aws_secretsmanager_secret.app.arn}:${secret_name}::"
     }
   ]
+  app_base_environment = [
+    { name = "APP_ENV", value = var.environment },
+    { name = "DB_ENGINE", value = var.db_engine },
+    { name = "DB_HOST", value = aws_db_instance.main.address },
+    { name = "DB_PORT", value = tostring(local.db_port) },
+    { name = "DB_NAME", value = var.db_name },
+    { name = "DB_USER", value = var.db_username },
+    { name = "DB_SSL_MODE", value = "require" },
+    { name = "USE_REDIS_CACHE", value = tostring(var.enable_elasticache) },
+    { name = "WEBSOCKET_NOTIFICATIONS_ENABLED", value = tostring(var.enable_elasticache) },
+    { name = "SESSION_ENGINE", value = var.enable_elasticache ? "django.contrib.sessions.backends.cache" : "django.contrib.sessions.backends.db" },
+    { name = "USE_S3_STORAGE", value = "True" },
+    { name = "AWS_STORAGE_BUCKET_NAME", value = aws_s3_bucket.assets.id },
+    { name = "AWS_S3_REGION_NAME", value = var.aws_region },
+    { name = "AWS_S3_CUSTOM_DOMAIN", value = aws_cloudfront_distribution.assets.domain_name },
+    { name = "ALLOWED_HOSTS", value = local.allowed_hosts },
+    { name = "CSRF_TRUSTED_ORIGINS", value = "https://${var.domain_name}" },
+    { name = "SECURE_SSL_REDIRECT", value = tostring(var.secure_ssl_redirect) },
+    { name = "SITE_ID", value = tostring(var.site_id) },
+    { name = "LOG_TO_STDOUT", value = "True" }
+  ]
+  app_redis_environment = var.enable_elasticache ? [
+    { name = "REDIS_URL", value = local.redis_url },
+    { name = "REDIS_SSL_CERT_REQS", value = "none" },
+    { name = "CELERY_BROKER_URL", value = local.celery_redis_url },
+    { name = "CELERY_RESULT_BACKEND", value = local.celery_redis_url },
+  ] : []
+  app_container_environment = concat(
+    local.app_base_environment,
+    local.app_redis_environment,
+    [for key, value in var.extra_environment : { name = key, value = value }],
+  )
 }
 
 resource "aws_vpc" "main" {
@@ -78,12 +110,14 @@ resource "aws_route_table_association" "public" {
 }
 
 resource "aws_eip" "nat" {
+  count  = var.enable_nat_gateway ? 1 : 0
   domain = "vpc"
   tags   = { Name = "${local.name}-nat" }
 }
 
 resource "aws_nat_gateway" "main" {
-  allocation_id = aws_eip.nat.id
+  count         = var.enable_nat_gateway ? 1 : 0
+  allocation_id = aws_eip.nat[0].id
   subnet_id     = aws_subnet.public[0].id
   depends_on    = [aws_internet_gateway.main]
   tags          = { Name = "${local.name}-nat" }
@@ -91,9 +125,12 @@ resource "aws_nat_gateway" "main" {
 
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main.id
+  dynamic "route" {
+    for_each = var.enable_nat_gateway ? [1] : []
+    content {
+      cidr_block     = "0.0.0.0/0"
+      nat_gateway_id = aws_nat_gateway.main[0].id
+    }
   }
   tags = { Name = "${local.name}-private" }
 }
@@ -147,11 +184,14 @@ resource "aws_security_group" "data" {
     protocol        = "tcp"
     security_groups = [aws_security_group.ecs.id]
   }
-  ingress {
-    from_port       = 6379
-    to_port         = 6379
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ecs.id]
+  dynamic "ingress" {
+    for_each = var.enable_elasticache ? [1] : []
+    content {
+      from_port       = 6379
+      to_port         = 6379
+      protocol        = "tcp"
+      security_groups = [aws_security_group.ecs.id]
+    }
   }
 }
 
@@ -191,8 +231,8 @@ resource "aws_db_instance" "main" {
   identifier                   = local.name
   engine                       = var.db_engine
   instance_class               = var.db_instance_class
-  allocated_storage            = 20
-  max_allocated_storage        = 100
+  allocated_storage            = var.db_allocated_storage
+  max_allocated_storage        = var.db_max_allocated_storage
   storage_encrypted            = true
   db_name                      = var.db_name
   username                     = var.db_username
@@ -203,22 +243,26 @@ resource "aws_db_instance" "main" {
   backup_retention_period      = local.backup_retention
   deletion_protection          = var.enable_deletion_protection
   skip_final_snapshot          = !var.enable_deletion_protection
-  performance_insights_enabled = var.environment == "aws-prod"
+  multi_az                     = var.db_multi_az
+  performance_insights_enabled = var.environment == "aws-prod" ? true : var.db_performance_insights_enabled
+  monitoring_interval          = var.db_monitoring_interval
   apply_immediately            = var.environment != "aws-prod"
 }
 
 resource "aws_elasticache_subnet_group" "main" {
+  count      = var.enable_elasticache ? 1 : 0
   name       = local.name
   subnet_ids = aws_subnet.private[*].id
 }
 
 resource "aws_elasticache_replication_group" "main" {
+  count                      = var.enable_elasticache ? 1 : 0
   replication_group_id       = local.name
   description                = "Tableno Redis"
   node_type                  = var.redis_node_type
   port                       = 6379
   parameter_group_name       = "default.redis7"
-  subnet_group_name          = aws_elasticache_subnet_group.main.name
+  subnet_group_name          = aws_elasticache_subnet_group.main[0].name
   security_group_ids         = [aws_security_group.data.id]
   transit_encryption_enabled = true
   at_rest_encryption_enabled = true
@@ -365,7 +409,7 @@ resource "aws_route53_record" "app" {
 
 resource "aws_cloudwatch_log_group" "app" {
   name              = "/ecs/${local.name}"
-  retention_in_days = var.environment == "aws-prod" ? 90 : 14
+  retention_in_days = var.environment == "aws-prod" ? 90 : var.cloudwatch_log_retention_days
 }
 
 resource "aws_iam_role" "ecs_execution" {
@@ -421,8 +465,8 @@ resource "aws_ecs_task_definition" "app" {
   family                   = local.name
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 512
-  memory                   = 1024
+  cpu                      = var.web_cpu
+  memory                   = var.web_memory
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
   container_definitions = jsonencode([{
@@ -430,29 +474,8 @@ resource "aws_ecs_task_definition" "app" {
     image        = var.container_image
     essential    = true
     portMappings = [{ containerPort = 8000, hostPort = 8000, protocol = "tcp" }]
-    environment = concat([
-      { name = "APP_ENV", value = var.environment },
-      { name = "DB_ENGINE", value = var.db_engine },
-      { name = "DB_HOST", value = aws_db_instance.main.address },
-      { name = "DB_PORT", value = tostring(local.db_port) },
-      { name = "DB_NAME", value = var.db_name },
-      { name = "DB_USER", value = var.db_username },
-      { name = "DB_SSL_MODE", value = "require" },
-      { name = "REDIS_URL", value = local.redis_url },
-      { name = "REDIS_SSL_CERT_REQS", value = "none" },
-      { name = "CELERY_BROKER_URL", value = local.celery_redis_url },
-      { name = "CELERY_RESULT_BACKEND", value = local.celery_redis_url },
-      { name = "USE_S3_STORAGE", value = "True" },
-      { name = "AWS_STORAGE_BUCKET_NAME", value = aws_s3_bucket.assets.id },
-      { name = "AWS_S3_REGION_NAME", value = var.aws_region },
-      { name = "AWS_S3_CUSTOM_DOMAIN", value = aws_cloudfront_distribution.assets.domain_name },
-      { name = "ALLOWED_HOSTS", value = local.allowed_hosts },
-      { name = "CSRF_TRUSTED_ORIGINS", value = "https://${var.domain_name}" },
-      { name = "SECURE_SSL_REDIRECT", value = tostring(var.secure_ssl_redirect) },
-      { name = "SITE_ID", value = tostring(var.site_id) },
-      { name = "LOG_TO_STDOUT", value = "True" }
-    ], [for key, value in var.extra_environment : { name = key, value = value }])
-    secrets = local.app_container_secrets
+    environment  = local.app_container_environment
+    secrets      = local.app_container_secrets
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -475,38 +498,17 @@ resource "aws_ecs_task_definition" "worker" {
   family                   = "${local.name}-worker"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 512
-  memory                   = 1024
+  cpu                      = var.worker_cpu
+  memory                   = var.worker_memory
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
   container_definitions = jsonencode([{
-    name      = "worker"
-    image     = var.container_image
-    essential = true
-    command   = ["celery", "-A", "tableno", "worker", "--loglevel=info"]
-    environment = concat([
-      { name = "APP_ENV", value = var.environment },
-      { name = "DB_ENGINE", value = var.db_engine },
-      { name = "DB_HOST", value = aws_db_instance.main.address },
-      { name = "DB_PORT", value = tostring(local.db_port) },
-      { name = "DB_NAME", value = var.db_name },
-      { name = "DB_USER", value = var.db_username },
-      { name = "DB_SSL_MODE", value = "require" },
-      { name = "REDIS_URL", value = local.redis_url },
-      { name = "REDIS_SSL_CERT_REQS", value = "none" },
-      { name = "CELERY_BROKER_URL", value = local.celery_redis_url },
-      { name = "CELERY_RESULT_BACKEND", value = local.celery_redis_url },
-      { name = "USE_S3_STORAGE", value = "True" },
-      { name = "AWS_STORAGE_BUCKET_NAME", value = aws_s3_bucket.assets.id },
-      { name = "AWS_S3_REGION_NAME", value = var.aws_region },
-      { name = "AWS_S3_CUSTOM_DOMAIN", value = aws_cloudfront_distribution.assets.domain_name },
-      { name = "ALLOWED_HOSTS", value = local.allowed_hosts },
-      { name = "CSRF_TRUSTED_ORIGINS", value = "https://${var.domain_name}" },
-      { name = "SECURE_SSL_REDIRECT", value = tostring(var.secure_ssl_redirect) },
-      { name = "SITE_ID", value = tostring(var.site_id) },
-      { name = "LOG_TO_STDOUT", value = "True" }
-    ], [for key, value in var.extra_environment : { name = key, value = value }])
-    secrets = local.app_container_secrets
+    name        = "worker"
+    image       = var.container_image
+    essential   = true
+    command     = ["celery", "-A", "tableno", "worker", "--loglevel=info"]
+    environment = local.app_container_environment
+    secrets     = local.app_container_secrets
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -522,38 +524,17 @@ resource "aws_ecs_task_definition" "beat" {
   family                   = "${local.name}-beat"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 256
-  memory                   = 512
+  cpu                      = var.beat_cpu
+  memory                   = var.beat_memory
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
   container_definitions = jsonencode([{
-    name      = "beat"
-    image     = var.container_image
-    essential = true
-    command   = ["celery", "-A", "tableno", "beat", "--loglevel=info"]
-    environment = concat([
-      { name = "APP_ENV", value = var.environment },
-      { name = "DB_ENGINE", value = var.db_engine },
-      { name = "DB_HOST", value = aws_db_instance.main.address },
-      { name = "DB_PORT", value = tostring(local.db_port) },
-      { name = "DB_NAME", value = var.db_name },
-      { name = "DB_USER", value = var.db_username },
-      { name = "DB_SSL_MODE", value = "require" },
-      { name = "REDIS_URL", value = local.redis_url },
-      { name = "REDIS_SSL_CERT_REQS", value = "none" },
-      { name = "CELERY_BROKER_URL", value = local.celery_redis_url },
-      { name = "CELERY_RESULT_BACKEND", value = local.celery_redis_url },
-      { name = "USE_S3_STORAGE", value = "True" },
-      { name = "AWS_STORAGE_BUCKET_NAME", value = aws_s3_bucket.assets.id },
-      { name = "AWS_S3_REGION_NAME", value = var.aws_region },
-      { name = "AWS_S3_CUSTOM_DOMAIN", value = aws_cloudfront_distribution.assets.domain_name },
-      { name = "ALLOWED_HOSTS", value = local.allowed_hosts },
-      { name = "CSRF_TRUSTED_ORIGINS", value = "https://${var.domain_name}" },
-      { name = "SECURE_SSL_REDIRECT", value = tostring(var.secure_ssl_redirect) },
-      { name = "SITE_ID", value = tostring(var.site_id) },
-      { name = "LOG_TO_STDOUT", value = "True" }
-    ], [for key, value in var.extra_environment : { name = key, value = value }])
-    secrets = local.app_container_secrets
+    name        = "beat"
+    image       = var.container_image
+    essential   = true
+    command     = ["celery", "-A", "tableno", "beat", "--loglevel=info"]
+    environment = local.app_container_environment
+    secrets     = local.app_container_secrets
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -574,9 +555,9 @@ resource "aws_ecs_service" "app" {
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
   network_configuration {
-    subnets          = aws_subnet.private[*].id
+    subnets          = var.enable_nat_gateway ? aws_subnet.private[*].id : aws_subnet.public[*].id
     security_groups  = [aws_security_group.ecs.id]
-    assign_public_ip = false
+    assign_public_ip = !var.enable_nat_gateway
   }
   load_balancer {
     target_group_arn = aws_lb_target_group.app.arn
@@ -587,6 +568,7 @@ resource "aws_ecs_service" "app" {
 }
 
 resource "aws_ecs_service" "worker" {
+  count                              = var.enable_worker_service ? 1 : 0
   name                               = "${local.name}-worker"
   cluster                            = aws_ecs_cluster.app.id
   task_definition                    = aws_ecs_task_definition.worker.arn
@@ -602,6 +584,7 @@ resource "aws_ecs_service" "worker" {
 }
 
 resource "aws_ecs_service" "beat" {
+  count                              = var.enable_beat_service ? 1 : 0
   name                               = "${local.name}-beat"
   cluster                            = aws_ecs_cluster.app.id
   task_definition                    = aws_ecs_task_definition.beat.arn

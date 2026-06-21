@@ -1,7 +1,8 @@
+from schedules.duration import effective_duration_expression
 from rest_framework import serializers
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
-from .models import Scenario, ScenarioNote, PlayHistory, ScenarioImage
+from .models import Scenario, ScenarioHandout, ScenarioNote, PlayHistory, ScenarioImage
 from accounts.serializers import UserSerializer, validate_character_image
 
 
@@ -40,11 +41,32 @@ class ScenarioImageSerializer(serializers.ModelSerializer):
         return validate_character_image(value)
 
 
+class ScenarioHandoutSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScenarioHandout
+        fields = [
+            'id',
+            'title',
+            'content',
+            'recommended_skills',
+            'is_secret',
+            'handout_number',
+            'assigned_player_slot',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+        validators = []
+
+
 class ScenarioSerializer(serializers.ModelSerializer):
     created_by_detail = UserSerializer(source='created_by', read_only=True)
     play_count = serializers.SerializerMethodField()
     total_play_time = serializers.SerializerMethodField()
+    game_system = serializers.CharField(required=False)
     recommended_skills = serializers.CharField(allow_blank=True, required=False)
+    semi_recommended_skills = serializers.CharField(allow_blank=True, required=False)
+    handout_templates = ScenarioHandoutSerializer(many=True, required=False)
     system = serializers.CharField(write_only=True, required=False)
     difficulty = serializers.CharField(required=False)
     estimated_duration = serializers.CharField(required=False)
@@ -52,7 +74,11 @@ class ScenarioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Scenario
         fields = ['id', 'title', 'author', 'game_system', 'system', 'difficulty', 'estimated_duration',
-                 'summary', 'recommended_skills', 'url', 'recommended_players', 'player_count', 'estimated_time',
+                 'summary', 'public_info', 'gm_notes', 'investigator_requirements',
+                 'scenario_tags', 'content_warnings', 'setting_era', 'setting_location',
+                 'scenario_style', 'lost_rate', 'combat_level', 'pvp_level',
+                 'recommended_skills', 'semi_recommended_skills', 'handout_templates',
+                 'url', 'recommended_players', 'min_players', 'max_players', 'player_count', 'estimated_time',
                  'created_by', 'created_by_detail', 'created_at', 'updated_at', 
                  'play_count', 'total_play_time']
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
@@ -66,10 +92,15 @@ class ScenarioSerializer(serializers.ModelSerializer):
         from django.db.models import Sum
         total_minutes = obj.play_histories.filter(
             session__duration_minutes__isnull=False
-        ).aggregate(total=Sum('session__duration_minutes'))['total'] or 0
+        ).aggregate(total=Sum(effective_duration_expression('session__')))['total'] or 0
         return total_minutes
 
     def validate_recommended_skills(self, value):
+        if value is None:
+            return ''
+        return value.strip()
+
+    def validate_semi_recommended_skills(self, value):
         if value is None:
             return ''
         return value.strip()
@@ -79,7 +110,7 @@ class ScenarioSerializer(serializers.ModelSerializer):
         if system and not attrs.get('game_system'):
             normalized = system.strip().lower()
             if normalized in ['cthulhu', 'coc', 'クトゥルフ', 'クトゥルフ神話', 'クトゥルフ神話trpg']:
-                attrs['game_system'] = 'coc'
+                attrs['game_system'] = 'coc6'
             elif normalized in ['dnd', 'd&d', 'ダンジョンズ&ドラゴンズ']:
                 attrs['game_system'] = 'dnd'
             elif normalized in ['sw', 'swordworld', 'ソードワールド']:
@@ -88,6 +119,28 @@ class ScenarioSerializer(serializers.ModelSerializer):
                 attrs['game_system'] = 'insane'
             else:
                 attrs['game_system'] = 'other'
+
+        if 'game_system' in attrs:
+            normalized_system = str(attrs['game_system']).strip().lower()
+            if normalized_system in {'coc', 'cthulhu', 'coc6', '6', '6th'}:
+                attrs['game_system'] = 'coc6'
+            elif normalized_system in {'coc7', '7', '7th'}:
+                attrs['game_system'] = 'coc7'
+            elif normalized_system not in dict(Scenario.GAME_SYSTEM_CHOICES):
+                raise serializers.ValidationError({'game_system': 'Invalid game_system value.'})
+
+        handout_templates = attrs.get('handout_templates')
+        if handout_templates is not None:
+            seen_numbers = set()
+            for handout in handout_templates:
+                handout_number = handout.get('handout_number')
+                if handout_number is None:
+                    continue
+                if handout_number in seen_numbers:
+                    raise serializers.ValidationError({
+                        'handout_templates': '同じHO番号を複数設定することはできません。'
+                    })
+                seen_numbers.add(handout_number)
 
         if 'difficulty' in attrs:
             difficulty = attrs['difficulty']
@@ -126,6 +179,29 @@ class ScenarioSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'estimated_duration': 'Invalid estimated_duration value.'})
 
         return attrs
+
+    def create(self, validated_data):
+        handouts_data = validated_data.pop('handout_templates', [])
+        scenario = Scenario.objects.create(**validated_data)
+        self._save_handouts(scenario, handouts_data)
+        return scenario
+
+    def update(self, instance, validated_data):
+        handouts_data = validated_data.pop('handout_templates', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        if handouts_data is not None:
+            instance.handout_templates.all().delete()
+            self._save_handouts(instance, handouts_data)
+        return instance
+
+    def _save_handouts(self, scenario, handouts_data):
+        for handout in handouts_data:
+            ScenarioHandout.objects.create(
+                scenario=scenario,
+                **handout,
+            )
 
 
 class ScenarioNoteSerializer(serializers.ModelSerializer):

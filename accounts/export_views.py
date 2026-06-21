@@ -1,3 +1,4 @@
+from schedules.duration import effective_duration_expression
 """
 統計データエクスポート機能
 """
@@ -518,7 +519,7 @@ class StatisticsExportView(APIView):
         
         total_sessions = user_sessions.count()
         total_play_time = user_sessions.aggregate(
-            total_minutes=Sum('duration_minutes')
+            total_minutes=Sum(effective_duration_expression())
         )['total_minutes'] or 0
         
         gm_sessions = user_sessions.filter(gm=user).count()
@@ -552,7 +553,7 @@ class StatisticsExportView(APIView):
                 'session_title': session.title if session else 'Unknown',
                 'played_date': history.played_date.isoformat(),
                 'role': history.role,
-                'duration_minutes': session.duration_minutes if session else 0,
+                'duration_minutes': session.effective_duration_minutes if session else 0,
                 'game_system': history.scenario.game_system if history.scenario else 'unknown',
                 'group_name': session.group.name if session and session.group else 'No Group',
                 'notes': history.notes
@@ -586,7 +587,7 @@ class StatisticsExportView(APIView):
                     'total_minutes': 0
                 }
             session_stats['by_year'][year]['session_count'] += 1
-            session_stats['by_year'][year]['total_minutes'] += session.duration_minutes or 0
+            session_stats['by_year'][year]['total_minutes'] += session.effective_duration_minutes or 0
         
         return session_stats
     

@@ -168,12 +168,94 @@
                         </div>
                     </div>
 
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="scenarioMinPlayers" class="form-label">最小人数</label>
+                            <input type="number" min="1" class="form-control" id="scenarioMinPlayers" placeholder="例: 2">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="scenarioMaxPlayers" class="form-label">最大人数</label>
+                            <input type="number" min="1" class="form-control" id="scenarioMaxPlayers" placeholder="例: 4">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="scenarioEstimatedTime" class="form-label">所要時間（分）</label>
+                            <input type="number" min="1" class="form-control" id="scenarioEstimatedTime" placeholder="例: 240">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="scenarioSettingEra" class="form-label">時代</label>
+                            <input type="text" class="form-control" id="scenarioSettingEra" placeholder="例: 現代日本">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="scenarioSettingLocation" class="form-label">舞台・地域</label>
+                            <input type="text" class="form-control" id="scenarioSettingLocation" placeholder="例: 山間の村">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="scenarioStyle" class="form-label">形式</label>
+                            <input type="text" class="form-control" id="scenarioStyle" placeholder="例: クローズド, シティ">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="scenarioLostRate" class="form-label">ロスト率</label>
+                            <input type="text" class="form-control" id="scenarioLostRate" placeholder="例: 低, 中, 高">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="scenarioCombatLevel" class="form-label">戦闘</label>
+                            <input type="text" class="form-control" id="scenarioCombatLevel" placeholder="例: なし, あり">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="scenarioPvpLevel" class="form-label">PvP</label>
+                            <input type="text" class="form-control" id="scenarioPvpLevel" placeholder="例: なし, 可能性あり">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="scenarioTags" class="form-label">タグ</label>
+                        <input type="text" class="form-control" id="scenarioTags" placeholder="例: ホラー, 推理, RP重視">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="scenarioInvestigatorRequirements" class="form-label">推奨探索者条件</label>
+                        <textarea class="form-control" id="scenarioInvestigatorRequirements" rows="2" placeholder="例: 新規推奨、探索者同士は知人"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="scenarioPublicInfo" class="form-label">PL向け公開情報</label>
+                        <textarea class="form-control" id="scenarioPublicInfo" rows="3"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="scenarioGmNotes" class="form-label">GM向け非公開メモ</label>
+                        <textarea class="form-control" id="scenarioGmNotes" rows="3"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="scenarioContentWarnings" class="form-label">注意事項・地雷チェック</label>
+                        <textarea class="form-control" id="scenarioContentWarnings" rows="2"></textarea>
+                    </div>
+
                     <div class="mb-3">
                         <label for="scenarioRecommendedSkills" class="form-label">推奨技能</label>
                         <input type="text" class="form-control" id="scenarioRecommendedSkills" placeholder="例: 目星, 聞き耳" list="scenarioSkillOptions">
                         <datalist id="scenarioSkillOptions"></datalist>
                         <small class="text-muted">カンマ区切りで入力してください</small>
                         <small class="text-warning d-block mt-1 d-none" id="scenarioRecommendedSkillsWarning"></small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="scenarioSemiRecommendedSkills" class="form-label">準推奨技能</label>
+                        <input type="text" class="form-control" id="scenarioSemiRecommendedSkills" placeholder="例: 医学, 心理学" list="scenarioSkillOptions">
+                        <small class="text-muted">推奨技能と同様に探索者作成時の候補として表示されます</small>
+                        <small class="text-warning d-block mt-1 d-none" id="scenarioSemiRecommendedSkillsWarning"></small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">ハンドアウト</label>
+                        <div id="scenarioHandoutFields" class="d-grid gap-2"></div>
                     </div>
                     
                     <div class="mb-3">
@@ -353,6 +435,122 @@ document.addEventListener('DOMContentLoaded', function() {
     const defaultScenarioSaveLabel = saveScenarioBtn ? saveScenarioBtn.innerHTML : '';
     const showTestData = new URLSearchParams(window.location.search).get('show_test_data') === '1';
 
+    function initScenarioSystemOptions() {
+        const select = document.getElementById('scenarioSystem');
+        if (select) {
+            const currentValue = select.value === 'coc7' ? 'coc7' : 'coc6';
+            select.innerHTML = `
+            <option value="">選択してください</option>
+            <option value="coc6">クトゥルフ神話TRPG 6版</option>
+            <option value="coc7">クトゥルフ神話TRPG 7版</option>
+        `;
+            select.value = currentValue;
+        }
+
+        const filter = document.getElementById('systemFilter');
+        if (filter) {
+            const currentFilter = ['coc6', 'coc7'].includes(filter.value) ? filter.value : '';
+            filter.innerHTML = `
+                <option value="">すべて</option>
+                <option value="coc6">クトゥルフ神話TRPG 6版</option>
+                <option value="coc7">クトゥルフ神話TRPG 7版</option>
+            `;
+            filter.value = currentFilter;
+        }
+    }
+
+    function initScenarioHandoutFields() {
+        const container = document.getElementById('scenarioHandoutFields');
+        if (!container || container.dataset.initialized === 'true') return;
+        container.dataset.initialized = 'true';
+        const handoutDefinitions = [
+            { key: 'common', label: '探索者共通', isCommon: true },
+            { key: '1', label: 'HO1' },
+            { key: '2', label: 'HO2' },
+            { key: '3', label: 'HO3' },
+            { key: '4', label: 'HO4' },
+        ];
+        container.innerHTML = handoutDefinitions.map(definition => `
+            <div class="border rounded p-2" data-scenario-handout="${definition.key}">
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                    <strong>${definition.label}</strong>
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input scenario-handout-secret" type="checkbox" id="scenarioHandoutSecret${definition.key}" ${definition.isCommon ? '' : 'checked'}>
+                        <label class="form-check-label small" for="scenarioHandoutSecret${definition.key}">秘匿</label>
+                    </div>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <input type="text" class="form-control form-control-sm scenario-handout-title" placeholder="タイトル">
+                    </div>
+                    <div class="col-md-6">
+                        <input type="text" class="form-control form-control-sm scenario-handout-skills" placeholder="推奨技能" list="scenarioSkillOptions">
+                    </div>
+                    <div class="col-12">
+                        <textarea class="form-control form-control-sm scenario-handout-content" rows="2" placeholder="本文"></textarea>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function getScenarioHandoutPayload() {
+        return Array.from(document.querySelectorAll('[data-scenario-handout]'))
+            .map(card => {
+                const key = card.dataset.scenarioHandout;
+                const isCommon = key === 'common';
+                const number = isCommon ? null : parseInt(key, 10);
+                const title = card.querySelector('.scenario-handout-title')?.value?.trim() || '';
+                const content = card.querySelector('.scenario-handout-content')?.value?.trim() || '';
+                const recommendedSkills = card.querySelector('.scenario-handout-skills')?.value?.trim() || '';
+                const isSecret = card.querySelector('.scenario-handout-secret')?.checked ?? true;
+                if (!title && !content && !recommendedSkills) return null;
+                return {
+                    title: title || (isCommon ? '探索者共通' : `HO${number}`),
+                    content,
+                    recommended_skills: recommendedSkills,
+                    is_secret: isSecret,
+                    handout_number: number,
+                    assigned_player_slot: isCommon ? null : number
+                };
+            })
+            .filter(Boolean);
+    }
+
+    function fillScenarioHandoutFields(handouts) {
+        initScenarioHandoutFields();
+        document.querySelectorAll('[data-scenario-handout]').forEach(card => {
+            card.querySelector('.scenario-handout-title').value = '';
+            card.querySelector('.scenario-handout-content').value = '';
+            card.querySelector('.scenario-handout-skills').value = '';
+            card.querySelector('.scenario-handout-secret').checked = card.dataset.scenarioHandout !== 'common';
+        });
+        (Array.isArray(handouts) ? handouts : []).forEach(handout => {
+            const key = handout.handout_number == null && handout.assigned_player_slot == null
+                ? 'common'
+                : String(handout.handout_number);
+            const card = document.querySelector(`[data-scenario-handout="${key}"]`);
+            if (!card) return;
+            card.querySelector('.scenario-handout-title').value = handout.title || '';
+            card.querySelector('.scenario-handout-content').value = handout.content || '';
+            card.querySelector('.scenario-handout-skills').value = handout.recommended_skills || '';
+            card.querySelector('.scenario-handout-secret').checked = handout.is_secret !== false;
+        });
+    }
+
+    function setScenarioFieldValue(id, value) {
+        const element = document.getElementById(id);
+        if (!element) return;
+        element.value = value ?? '';
+    }
+
+    function getOptionalIntegerValue(id) {
+        const value = document.getElementById(id)?.value;
+        if (value === undefined || value === null || String(value).trim() === '') return null;
+        const parsed = parseInt(value, 10);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
     function isDevelopmentScenario(scenario) {
         return /^(E2E|Guest E2E)\b/i.test(scenario?.title || '');
     }
@@ -527,7 +725,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function normalizeScenarioSkills(raw, system) {
         const systemKey = (system || '').toLowerCase();
-        const isCoc = systemKey === 'coc';
+        const isCoc = ['coc', 'coc6', 'coc7'].includes(systemKey);
         const tokens = parseSkillList(raw);
         const normalized = [];
         const unknownSet = new Set();
@@ -571,7 +769,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (options.applyValue) {
             input.value = normalized.join(', ');
         }
-        const isCoc = (system || '').toLowerCase() === 'coc';
+        const isCoc = ['coc', 'coc6', 'coc7'].includes((system || '').toLowerCase());
         if (warningEl) {
             if (isCoc && unknown.length > 0) {
                 warningEl.textContent = `未対応技能: ${unknown.join(', ')}`;
@@ -610,11 +808,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         const skillsInput = document.getElementById('scenarioRecommendedSkills');
         const warningEl = document.getElementById('scenarioRecommendedSkillsWarning');
+        const semiSkillsInput = document.getElementById('scenarioSemiRecommendedSkills');
+        const semiWarningEl = document.getElementById('scenarioSemiRecommendedSkillsWarning');
         const systemSelect = document.getElementById('scenarioSystem');
         const getSystem = () => systemSelect?.value || '';
         attachScenarioSkillInput(skillsInput, warningEl, getSystem);
+        attachScenarioSkillInput(semiSkillsInput, semiWarningEl, getSystem);
         systemSelect?.addEventListener('change', () => {
             updateScenarioSkillFeedback(skillsInput, warningEl, getSystem());
+            updateScenarioSkillFeedback(semiSkillsInput, semiWarningEl, getSystem());
         });
     }
 
@@ -758,6 +960,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function getSystemLabel(system) {
         const labels = {
             coc: 'CoC',
+            coc6: 'CoC 6版',
+            coc7: 'CoC 7版',
             dnd: 'D&D',
             sw: 'SW',
             insane: 'インセイン',
@@ -791,13 +995,29 @@ document.addEventListener('DOMContentLoaded', function() {
     function fillScenarioForm(scenario) {
         if (!scenario) return;
         const recommendedSkillsValue = (scenario.recommended_skills || '').trim();
+        const semiRecommendedSkillsValue = (scenario.semi_recommended_skills || '').trim();
         document.getElementById('scenarioTitle').value = scenario.title || '';
-        document.getElementById('scenarioSystem').value = scenario.game_system || '';
+        document.getElementById('scenarioSystem').value = scenario.game_system === 'coc7' ? 'coc7' : 'coc6';
         document.getElementById('scenarioAuthor').value = scenario.author || '';
         document.getElementById('scenarioDifficulty').value = scenario.difficulty || 'beginner';
         document.getElementById('scenarioDuration').value = scenario.estimated_duration || 'short';
         document.getElementById('scenarioPlayers').value = scenario.recommended_players || '';
+        setScenarioFieldValue('scenarioMinPlayers', scenario.min_players);
+        setScenarioFieldValue('scenarioMaxPlayers', scenario.max_players);
+        setScenarioFieldValue('scenarioEstimatedTime', scenario.estimated_time);
+        setScenarioFieldValue('scenarioSettingEra', scenario.setting_era);
+        setScenarioFieldValue('scenarioSettingLocation', scenario.setting_location);
+        setScenarioFieldValue('scenarioStyle', scenario.scenario_style);
+        setScenarioFieldValue('scenarioLostRate', scenario.lost_rate);
+        setScenarioFieldValue('scenarioCombatLevel', scenario.combat_level);
+        setScenarioFieldValue('scenarioPvpLevel', scenario.pvp_level);
+        setScenarioFieldValue('scenarioTags', scenario.scenario_tags);
+        setScenarioFieldValue('scenarioInvestigatorRequirements', scenario.investigator_requirements);
+        setScenarioFieldValue('scenarioPublicInfo', scenario.public_info);
+        setScenarioFieldValue('scenarioGmNotes', scenario.gm_notes);
+        setScenarioFieldValue('scenarioContentWarnings', scenario.content_warnings);
         document.getElementById('scenarioRecommendedSkills').value = recommendedSkillsValue;
+        document.getElementById('scenarioSemiRecommendedSkills').value = semiRecommendedSkillsValue;
         document.getElementById('scenarioSummary').value = scenario.summary || '';
         document.getElementById('scenarioUrl').value = scenario.url || '';
         updateScenarioSkillFeedback(
@@ -805,6 +1025,12 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('scenarioRecommendedSkillsWarning'),
             document.getElementById('scenarioSystem')?.value || ''
         );
+        updateScenarioSkillFeedback(
+            document.getElementById('scenarioSemiRecommendedSkills'),
+            document.getElementById('scenarioSemiRecommendedSkillsWarning'),
+            document.getElementById('scenarioSystem')?.value || ''
+        );
+        fillScenarioHandoutFields(scenario.handout_templates || []);
     }
 
     function setScenarioFormMode(isEdit, scenario) {
@@ -824,9 +1050,15 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (addScenarioForm) {
             addScenarioForm.reset();
             const warningEl = document.getElementById('scenarioRecommendedSkillsWarning');
+            const semiWarningEl = document.getElementById('scenarioSemiRecommendedSkillsWarning');
             warningEl?.classList.add('d-none');
             if (warningEl) warningEl.textContent = '';
+            semiWarningEl?.classList.add('d-none');
+            if (semiWarningEl) semiWarningEl.textContent = '';
             document.getElementById('scenarioRecommendedSkills')?.classList.remove('is-invalid');
+            document.getElementById('scenarioSemiRecommendedSkills')?.classList.remove('is-invalid');
+            document.getElementById('scenarioSystem').value = 'coc6';
+            fillScenarioHandoutFields([]);
         }
     }
 
@@ -1397,7 +1629,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const warningEl = document.getElementById('scenarioRecommendedSkillsEditWarning');
         const system = window.currentScenario?.game_system || '';
         const { normalized, unknown } = updateScenarioSkillFeedback(input, warningEl, system, { applyValue: true });
-        if (system === 'coc' && unknown.length > 0) {
+        if (['coc', 'coc6', 'coc7'].includes(system) && unknown.length > 0) {
             const proceed = await confirmAction(`未対応技能: ${unknown.join(', ')}\nこのまま保存しますか？`, {
                 title: '未対応技能を含めて保存',
                 confirmText: '保存する',
@@ -1431,7 +1663,10 @@ document.addEventListener('DOMContentLoaded', function() {
             notifyError('シナリオ情報が取得できませんでした。');
             return;
         }
-        const skills = (scenario.recommended_skills || '').trim();
+        const skills = [scenario.recommended_skills, scenario.semi_recommended_skills]
+            .map(value => (value || '').trim())
+            .filter(Boolean)
+            .join(', ');
         try {
             localStorage.setItem('scenario_recommended_skills', skills);
             localStorage.setItem('scenario_recommended_skills_title', scenario.title);
@@ -1460,10 +1695,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const recommendedInput = document.getElementById('scenarioRecommendedSkills');
         const warningEl = document.getElementById('scenarioRecommendedSkillsWarning');
+        const semiRecommendedInput = document.getElementById('scenarioSemiRecommendedSkills');
+        const semiWarningEl = document.getElementById('scenarioSemiRecommendedSkillsWarning');
         const systemValue = document.getElementById('scenarioSystem')?.value || '';
         const { normalized, unknown } = updateScenarioSkillFeedback(recommendedInput, warningEl, systemValue, { applyValue: true });
-        if (systemValue === 'coc' && unknown.length > 0) {
-            const proceed = await confirmAction(`未対応技能: ${unknown.join(', ')}\nこのまま保存しますか？`, {
+        const semiFeedback = updateScenarioSkillFeedback(semiRecommendedInput, semiWarningEl, systemValue, { applyValue: true });
+        const combinedUnknown = Array.from(new Set([...unknown, ...semiFeedback.unknown]));
+        if (['coc', 'coc6', 'coc7'].includes(systemValue) && combinedUnknown.length > 0) {
+            const proceed = await confirmAction(`未対応技能: ${combinedUnknown.join(', ')}\nこのまま保存しますか？`, {
                 title: '未対応技能を含めて保存',
                 confirmText: '保存する',
                 cancelText: '見直す'
@@ -1471,6 +1710,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!proceed) return;
         }
         const recommendedSkillsValue = normalized.join(', ');
+        const semiRecommendedSkillsValue = semiFeedback.normalized.join(', ');
 
         const data = {
             title: document.getElementById('scenarioTitle').value,
@@ -1479,7 +1719,23 @@ document.addEventListener('DOMContentLoaded', function() {
             difficulty: document.getElementById('scenarioDifficulty').value,
             estimated_duration: document.getElementById('scenarioDuration').value,
             recommended_players: document.getElementById('scenarioPlayers').value,
+            min_players: getOptionalIntegerValue('scenarioMinPlayers'),
+            max_players: getOptionalIntegerValue('scenarioMaxPlayers'),
+            estimated_time: getOptionalIntegerValue('scenarioEstimatedTime'),
+            setting_era: document.getElementById('scenarioSettingEra').value,
+            setting_location: document.getElementById('scenarioSettingLocation').value,
+            scenario_style: document.getElementById('scenarioStyle').value,
+            lost_rate: document.getElementById('scenarioLostRate').value,
+            combat_level: document.getElementById('scenarioCombatLevel').value,
+            pvp_level: document.getElementById('scenarioPvpLevel').value,
+            scenario_tags: document.getElementById('scenarioTags').value,
+            investigator_requirements: document.getElementById('scenarioInvestigatorRequirements').value,
+            public_info: document.getElementById('scenarioPublicInfo').value,
+            gm_notes: document.getElementById('scenarioGmNotes').value,
+            content_warnings: document.getElementById('scenarioContentWarnings').value,
             recommended_skills: recommendedSkillsValue,
+            semi_recommended_skills: semiRecommendedSkillsValue,
+            handout_templates: getScenarioHandoutPayload(),
             summary: document.getElementById('scenarioSummary').value,
             url: document.getElementById('scenarioUrl').value
         };
@@ -1540,6 +1796,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // 初期化
+    initScenarioSystemOptions();
+    initScenarioHandoutFields();
     initScenarioSkillInputs();
     loadScenarios();
 });

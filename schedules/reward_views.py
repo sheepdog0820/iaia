@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.character_models import GrowthRecord
+from accounts.models import GroupMembership
 
 from .models import SessionParticipant, SessionReward, TRPGSession
 from .serializers import SessionRewardSerializer
@@ -36,12 +37,19 @@ class SessionRewardViewSet(viewsets.ModelViewSet):
             session = get_object_or_404(TRPGSession, id=session_id)
             if not self._has_session_access(session, user):
                 return SessionReward.objects.none()
-            if self._is_gm(session, user):
+            if self._is_session_manager(session, user):
                 return queryset.filter(participant__session=session)
             return queryset.filter(participant__session=session, participant__user=user)
 
+        admin_group_ids = GroupMembership.objects.filter(
+            user=user,
+            role='admin',
+        ).values_list('group_id', flat=True)
         return queryset.filter(
             Q(participant__session__gm=user)
+            | Q(participant__session__created_by=user)
+            | Q(participant__session__group__created_by=user)
+            | Q(participant__session__group_id__in=admin_group_ids)
             | Q(participant__user=user)
             | Q(participant__session__sessionparticipant__user=user, participant__session__sessionparticipant__role='gm')
         ).distinct()
@@ -52,7 +60,7 @@ class SessionRewardViewSet(viewsets.ModelViewSet):
             return Response({'error': 'session is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         session = get_object_or_404(TRPGSession, id=session_id)
-        if not self._is_gm(session, request.user):
+        if not self._is_session_manager(session, request.user):
             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
         participant_id = request.data.get('participant')
@@ -74,14 +82,14 @@ class SessionRewardViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         instance = self.get_object()
-        if not self._is_gm(instance.participant.session, self.request.user):
+        if not self._is_session_manager(instance.participant.session, self.request.user):
             from rest_framework.exceptions import PermissionDenied
 
             raise PermissionDenied("Only GM can update rewards")
         serializer.save()
 
     def perform_destroy(self, instance):
-        if not self._is_gm(instance.participant.session, self.request.user):
+        if not self._is_session_manager(instance.participant.session, self.request.user):
             from rest_framework.exceptions import PermissionDenied
 
             raise PermissionDenied("Only GM can delete rewards")
@@ -91,7 +99,7 @@ class SessionRewardViewSet(viewsets.ModelViewSet):
     def apply(self, request, pk=None):
         base_reward = self.get_object()
         session = base_reward.participant.session
-        if not self._is_gm(session, request.user):
+        if not self._is_session_manager(session, request.user):
             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
         with transaction.atomic():
@@ -171,7 +179,18 @@ class SessionRewardViewSet(viewsets.ModelViewSet):
         return timezone.now().date()
 
     def _has_session_access(self, session, user):
-        return session.gm == user or session.participants.filter(id=user.id).exists()
+        return self._is_session_manager(session, user) or session.participants.filter(id=user.id).exists()
 
-    def _is_gm(self, session, user):
-        return session.gm == user or SessionParticipant.objects.filter(session=session, user=user, role='gm').exists()
+    def _is_session_manager(self, session, user):
+        if not user or not user.is_authenticated:
+            return False
+        if session.gm_id == user.id:
+            return True
+        if getattr(session, 'created_by_id', None) == user.id:
+            return True
+        if session.group_id:
+            if session.group.created_by_id == user.id:
+                return True
+            if GroupMembership.objects.filter(group_id=session.group_id, user=user, role='admin').exists():
+                return True
+        return SessionParticipant.objects.filter(session=session, user=user, role='gm').exists()

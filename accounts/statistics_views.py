@@ -1,3 +1,4 @@
+from schedules.duration import effective_duration_expression
 from .views.common_imports import *
 from .utils.statistics import SessionStatistics, CharacterStatistics, GroupStatistics, TindalosMetrics
 from schedules.models import TRPGSession, SessionParticipant
@@ -33,7 +34,7 @@ class SimpleTindalosMetricsView(APIView):
         player_session_count = session_count - gm_session_count
         
         # 総プレイ時間（分単位）
-        total_play_time = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
+        total_play_time = sessions.aggregate(total=Sum(effective_duration_expression()))['total'] or 0
         
         # シナリオ数
         play_history_filter = Q(user=user)
@@ -93,7 +94,7 @@ class SimpleTindalosMetricsView(APIView):
             
             session_count = sessions.count()
             gm_count = sessions.filter(gm=user).count()
-            total_minutes = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
+            total_minutes = sessions.aggregate(total=Sum(effective_duration_expression()))['total'] or 0
             
             yearly_data.append({
                 'year': year,
@@ -116,7 +117,7 @@ class SimpleTindalosMetricsView(APIView):
             sessions = TRPGSession.objects.filter(session_filter, status='completed').distinct()
             
             session_count = sessions.count()
-            total_minutes = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
+            total_minutes = sessions.aggregate(total=Sum(effective_duration_expression()))['total'] or 0
             
             # 月別シナリオランキング（上位5件）
             scenarios = PlayHistory.objects.filter(
@@ -303,7 +304,7 @@ class TindalosMetricsView(APIView):
         ).distinct()
         
         total_sessions = sessions.count()
-        total_minutes = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
+        total_minutes = sessions.aggregate(total=Sum(effective_duration_expression()))['total'] or 0
         total_hours = round(total_minutes / 60, 1)
         
         # GM/PL別セッション数
@@ -311,7 +312,7 @@ class TindalosMetricsView(APIView):
         pl_sessions = total_sessions - gm_sessions
         
         # 平均セッション時間
-        avg_minutes = sessions.aggregate(avg=Avg('duration_minutes'))['avg'] or 0
+        avg_minutes = sessions.aggregate(avg=Avg(effective_duration_expression()))['avg'] or 0
         avg_hours = round(avg_minutes / 60, 1)
         
         # 参加グループ数
@@ -366,7 +367,7 @@ class TindalosMetricsView(APIView):
             ).distinct()
             
             session_count = sessions.count()
-            total_minutes = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
+            total_minutes = sessions.aggregate(total=Sum(effective_duration_expression()))['total'] or 0
             total_hours = round(total_minutes / 60, 1)
             
             gm_count = sessions.filter(gm=user).count()
@@ -390,7 +391,7 @@ class TindalosMetricsView(APIView):
             played_date__year=year
         ).values('scenario__game_system').annotate(
             count=Count('id'),
-            total_time=Sum('session__duration_minutes')
+            total_time=Sum(effective_duration_expression('session__'))
         ).order_by('-count')
         
         result = []
@@ -418,7 +419,7 @@ class TindalosMetricsView(APIView):
         )
         
         gm_count = gm_sessions.count()
-        gm_minutes = gm_sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
+        gm_minutes = gm_sessions.aggregate(total=Sum(effective_duration_expression()))['total'] or 0
         gm_hours = round(gm_minutes / 60, 1)
         
         # PL統計
@@ -429,7 +430,7 @@ class TindalosMetricsView(APIView):
         ).exclude(gm=user)
         
         pl_count = pl_sessions.count()
-        pl_minutes = pl_sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
+        pl_minutes = pl_sessions.aggregate(total=Sum(effective_duration_expression()))['total'] or 0
         pl_hours = round(pl_minutes / 60, 1)
         
         return {
@@ -459,7 +460,7 @@ class TindalosMetricsView(APIView):
             ).filter(Q(participants=user) | Q(gm=user)).distinct()
             
             session_count = sessions.count()
-            total_minutes = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
+            total_minutes = sessions.aggregate(total=Sum(effective_duration_expression()))['total'] or 0
             total_hours = round(total_minutes / 60, 1)
             average_session_hours = round(total_hours / session_count, 1) if session_count > 0 else 0
 
@@ -506,7 +507,7 @@ class TindalosMetricsView(APIView):
                 'id': session.id,
                 'title': session.title,
                 'date': session.date.isoformat() if session.date else None,
-                'duration_hours': round(session.duration_minutes / 60, 1) if session.duration_minutes else 0,
+                'duration_hours': round(session.effective_duration_minutes / 60, 1) if session.effective_duration_minutes else 0,
                 'group_name': session.group.name if session.group else '',
                 'gm_name': session.gm.nickname or session.gm.username,
                 'role': participant.role if participant else 'player',
@@ -868,7 +869,7 @@ class UserRankingView(APIView):
 
         gm_rows = sessions.values('gm_id').annotate(
             gm_sessions=Count('id'),
-            gm_minutes=Sum('duration_minutes'),
+            gm_minutes=Sum(effective_duration_expression()),
         )
         for row in gm_rows:
             user_id = row['gm_id']
@@ -887,7 +888,7 @@ class UserRankingView(APIView):
             user_id__isnull=False,
         ).values('user_id').annotate(
             player_sessions=Count('session', distinct=True),
-            player_minutes=Sum('session__duration_minutes'),
+            player_minutes=Sum(effective_duration_expression('session__')),
         )
         for row in player_rows:
             user_id = row['user_id']
@@ -1160,7 +1161,7 @@ class UserRankingView(APIView):
             sessions__date__year=year,
             sessions__status='completed'
         ).annotate(
-            total_minutes=Sum('sessions__duration_minutes'),
+            total_minutes=Sum(effective_duration_expression('sessions__')),
             session_count=Count('sessions', distinct=True)
         ).order_by('-total_minutes')[:20]
         
@@ -1184,7 +1185,7 @@ class UserRankingView(APIView):
             sessions__status='completed'
         ).annotate(
             session_count=Count('sessions', distinct=True),
-            total_minutes=Sum('sessions__duration_minutes')
+            total_minutes=Sum(effective_duration_expression('sessions__'))
         ).order_by('-session_count')[:20]
         
         ranking = []
@@ -1207,7 +1208,7 @@ class UserRankingView(APIView):
             gm_sessions__status='completed'
         ).annotate(
             gm_count=Count('gm_sessions', distinct=True),
-            gm_minutes=Sum('gm_sessions__duration_minutes')
+            gm_minutes=Sum(effective_duration_expression('gm_sessions__'))
         ).order_by('-gm_count')[:20]
         
         ranking = []
@@ -1282,7 +1283,7 @@ class GroupStatisticsView(APIView):
         )
         
         session_count = sessions.count()
-        total_minutes = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
+        total_minutes = sessions.aggregate(total=Sum(effective_duration_expression()))['total'] or 0
         total_hours = round(total_minutes / 60, 1)
         
         # アクティブメンバー数（GM + 参加者）
@@ -1362,7 +1363,7 @@ class GroupStatisticsView(APIView):
 
         gm_stats = sessions.values('gm_id').annotate(
             session_count=Count('id'),
-            total_minutes=Sum('duration_minutes')
+            total_minutes=Sum(effective_duration_expression())
         )
         for gm_stat in gm_stats:
             user_id = gm_stat['gm_id']
@@ -1380,7 +1381,7 @@ class GroupStatisticsView(APIView):
             role='player'
         ).values('user_id').annotate(
             session_count=Count('session', distinct=True),
-            total_minutes=Sum('session__duration_minutes')
+            total_minutes=Sum(effective_duration_expression('session__'))
         )
         for player_stat in player_stats:
             user_id = player_stat['user_id']
@@ -1450,7 +1451,7 @@ class DetailedTindalosMetricsView(APIView):
         sessions = TRPGSession.objects.filter(session_filter, status='completed').distinct()
         session_count = sessions.count()
         gm_count = sessions.filter(gm=user).count()
-        total_minutes = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
+        total_minutes = sessions.aggregate(total=Sum(effective_duration_expression()))['total'] or 0
         
         # シナリオ統計
         play_history = PlayHistory.objects.filter(user=user, played_date__year=year)
@@ -1506,7 +1507,7 @@ class DetailedTindalosMetricsView(APIView):
             
             session_count = sessions.count()
             gm_sessions = sessions.filter(gm=user).count()
-            total_minutes = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
+            total_minutes = sessions.aggregate(total=Sum(effective_duration_expression()))['total'] or 0
             
             # シナリオ統計
             scenarios = PlayHistory.objects.filter(
@@ -1558,7 +1559,7 @@ class DetailedTindalosMetricsView(APIView):
             
             session_count = sessions.count()
             gm_count = sessions.filter(gm=user).count()
-            total_minutes = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
+            total_minutes = sessions.aggregate(total=Sum(effective_duration_expression()))['total'] or 0
             
             # 月別シナリオランキング
             scenarios = PlayHistory.objects.filter(

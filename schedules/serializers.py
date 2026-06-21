@@ -28,6 +28,7 @@ from .models import (
 from accounts.serializers import UserSerializer, validate_character_image
 from accounts.models import CustomUser, Group
 from scenarios.models import Scenario
+from scenarios.access import can_view_scenario
 from django.utils import timezone
 from datetime import datetime, time as time_cls
 
@@ -388,6 +389,7 @@ class SessionTemplateHandoutSerializer(serializers.ModelSerializer):
 
 class TRPGSessionSerializer(serializers.ModelSerializer):
     date = serializers.DateTimeField(required=False, allow_null=True)
+    effective_duration_minutes = serializers.IntegerField(read_only=True)
     group_name = serializers.CharField(source='group.name', read_only=True)
     group = serializers.PrimaryKeyRelatedField(
         queryset=Group.objects.all(),
@@ -445,7 +447,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'description', 'date', 'location', 
                  'youtube_url', 'status', 'visibility', 'gm', 'gm_detail',
                  'created_by', 'created_by_detail',
-                 'group', 'group_name', 'scenario', 'coc_edition', 'scenario_detail', 'duration_minutes', 'participants', 'participants_detail',
+                 'group', 'group_name', 'scenario', 'coc_edition', 'scenario_detail', 'duration_minutes', 'actual_duration_minutes', 'effective_duration_minutes', 'participants', 'participants_detail',
                  'handouts_detail', 'images_detail', 'youtube_links_detail',
                  'participant_count', 'guest_count', 'youtube_total_duration', 
                  'youtube_total_duration_display', 'youtube_video_count',
@@ -477,6 +479,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
             'title': obj.scenario.title,
             'game_system': obj.scenario.game_system,
             'recommended_skills': obj.scenario.recommended_skills,
+            'semi_recommended_skills': obj.scenario.semi_recommended_skills,
         }
 
     @extend_schema_field(OpenApiTypes.OBJECT)
@@ -508,6 +511,25 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
 
         if estimated_hours is not None and 'duration_minutes' not in attrs:
             attrs['duration_minutes'] = int(float(estimated_hours) * 60)
+
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if 'scenario' in attrs:
+            scenario = attrs.get('scenario')
+            if user and scenario is not None and not can_view_scenario(user, scenario):
+                raise serializers.ValidationError({
+                    'scenario': '参照できないシナリオは設定できません'
+                })
+
+        if self.instance is not None and 'scenario' in attrs:
+            current_scenario_id = self.instance.scenario_id
+            next_scenario = attrs.get('scenario')
+            next_scenario_id = next_scenario.id if next_scenario else None
+            if current_scenario_id != next_scenario_id:
+                if not getattr(user, 'has_premium_access', False):
+                    raise serializers.ValidationError({
+                        'scenario': 'シナリオ情報を変更するにはプレミアム権限が必要です'
+                    })
 
         return attrs
 
@@ -630,8 +652,8 @@ class SessionTemplateSerializer(serializers.ModelSerializer):
 
         request = self.context.get('request')
         user = getattr(request, 'user', None)
-        if user and scenario.created_by_id != user.id:
-            raise serializers.ValidationError('このシナリオはテンプレートに設定できません')
+        if user and not can_view_scenario(user, scenario):
+            raise serializers.ValidationError('参照できないシナリオはテンプレートに設定できません')
 
         return scenario
 
@@ -731,13 +753,14 @@ class SessionListSerializer(serializers.ModelSerializer):
     date_formatted = serializers.SerializerMethodField()
     youtube_total_duration_display = serializers.CharField(read_only=True)
     youtube_video_count = serializers.IntegerField(read_only=True)
+    effective_duration_minutes = serializers.IntegerField(read_only=True)
     
     class Meta:
         model = TRPGSession
         fields = [
             'id', 'title', 'description', 'date', 'date_formatted',
             'location', 'status', 'status_display', 'visibility', 'visibility_display',
-            'gm_name', 'group_name', 'participant_count', 'guest_count', 'duration_minutes',
+            'gm_name', 'group_name', 'participant_count', 'guest_count', 'duration_minutes', 'actual_duration_minutes', 'effective_duration_minutes',
             'youtube_url', 'youtube_total_duration_display', 'youtube_video_count'
         ]
     
@@ -774,13 +797,14 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
     date_display = serializers.SerializerMethodField()
     participants_summary = serializers.SerializerMethodField()
     duration_display = serializers.SerializerMethodField()
+    effective_duration_minutes = serializers.IntegerField(read_only=True)
     
     class Meta:
         model = TRPGSession
         fields = [
             'id', 'title', 'description', 'date', 'date_formatted', 'time_formatted', 'date_display',
             'location', 'status', 'visibility', 'visibility_display', 'gm_name', 'group_name', 'participant_count',
-            'guest_count', 'participants_summary', 'duration_minutes', 'duration_display'
+            'guest_count', 'participants_summary', 'duration_minutes', 'actual_duration_minutes', 'effective_duration_minutes', 'duration_display'
         ]
     
     @extend_schema_field(OpenApiTypes.INT)
@@ -860,9 +884,10 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
     
     @extend_schema_field(OpenApiTypes.STR)
     def get_duration_display(self, obj):
-        if obj.duration_minutes:
-            hours = obj.duration_minutes // 60
-            minutes = obj.duration_minutes % 60
+        duration_minutes = obj.effective_duration_minutes
+        if duration_minutes:
+            hours = duration_minutes // 60
+            minutes = duration_minutes % 60
             if hours > 0 and minutes > 0:
                 return f"{hours}時間{minutes}分"
             elif hours > 0:
@@ -1023,6 +1048,7 @@ class SessionInvitationSerializer(serializers.ModelSerializer):
             'session_group',
             'inviter',
             'status',
+            'invited_role',
             'message',
             'created_at',
             'responded_at',

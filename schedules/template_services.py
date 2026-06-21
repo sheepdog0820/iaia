@@ -33,6 +33,63 @@ def clone_template_to_session(template, session, uploaded_by=None):
         _clone_template_handouts(template, session)
 
 
+def clone_scenario_handouts_to_session(scenario, session):
+    if scenario is None or session is None:
+        return
+
+    occupied_numbers = set(
+        HandoutInfo.objects.filter(
+            session=session,
+            handout_number__isnull=False,
+        ).values_list('handout_number', flat=True)
+    )
+    slot_placeholders = {}
+    anonymous_index = 0
+
+    for handout_template in scenario.handout_templates.order_by('handout_number', 'id'):
+        if (
+            handout_template.handout_number is not None
+            and handout_template.handout_number in occupied_numbers
+        ):
+            continue
+
+        assigned_slot = handout_template.assigned_player_slot
+        if assigned_slot:
+            participant = slot_placeholders.get(assigned_slot)
+            if participant is None:
+                participant = SessionParticipant.objects.create(
+                    session=session,
+                    user=None,
+                    guest_name=build_template_placeholder_name(slot=assigned_slot),
+                    role='player',
+                    player_slot=None,
+                )
+                slot_placeholders[assigned_slot] = participant
+        else:
+            anonymous_index += 1
+            participant = SessionParticipant.objects.create(
+                session=session,
+                user=None,
+                guest_name=build_template_placeholder_name(index=anonymous_index),
+                role='player',
+                player_slot=None,
+            )
+
+        HandoutInfo.objects.create(
+            session=session,
+            participant=participant,
+            title=handout_template.title,
+            content=handout_template.content,
+            recommended_skills=handout_template.recommended_skills,
+            is_secret=handout_template.is_secret,
+            handout_number=handout_template.handout_number,
+            assigned_player_slot=assigned_slot,
+        )
+
+        if handout_template.handout_number is not None:
+            occupied_numbers.add(handout_template.handout_number)
+
+
 def bind_slot_handouts_to_participant(participant):
     session = getattr(participant, 'session', None)
     if session is None:

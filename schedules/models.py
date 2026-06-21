@@ -309,6 +309,11 @@ class TRPGSession(models.Model):
     )
 
     duration_minutes = models.PositiveIntegerField(default=0, help_text="セッション時間（分）")
+    actual_duration_minutes = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="実際にプレイした時間（分）。未入力時は予定時間を使用します。",
+    )
 
     share_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
     
@@ -361,6 +366,10 @@ class TRPGSession(models.Model):
         if not self.date:
             return f"{self.title} (日付未定)"
         return f"{self.title} ({self.date.strftime('%Y-%m-%d')})"
+
+    @property
+    def effective_duration_minutes(self):
+        return self.actual_duration_minutes if self.actual_duration_minutes is not None else self.duration_minutes
 
     def save(self, *args, **kwargs):
         creating = self.pk is None
@@ -757,11 +766,21 @@ class SessionInvitation(models.Model):
         ('declined', '辞退'),
         ('expired', '期限切れ'),
     ]
+    INVITED_ROLE_CHOICES = [
+        ('player', 'PL'),
+        ('gm', 'GM'),
+    ]
 
     session = models.ForeignKey(TRPGSession, on_delete=models.CASCADE, related_name='invitations')
     inviter = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='sent_session_invitations')
     invitee = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='received_session_invitations')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    invited_role = models.CharField(
+        max_length=10,
+        choices=INVITED_ROLE_CHOICES,
+        default='player',
+        help_text="Session role assigned when the invitation is accepted",
+    )
     message = models.TextField(blank=True, help_text="招待メッセージ")
 
     created_at = models.DateTimeField(default=timezone.now)

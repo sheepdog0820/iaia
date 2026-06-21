@@ -1,3 +1,4 @@
+from schedules.duration import effective_duration_expression
 from django.shortcuts import render, get_object_or_404
 from django.db import transaction
 from django.db.models import Q, Count, Sum
@@ -10,6 +11,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 from datetime import datetime
 from .models import Scenario, ScenarioNote, PlayHistory, ScenarioImage
+from .access import visible_scenarios
 from .serializers import (
     ScenarioSerializer,
     ScenarioNoteSerializer,
@@ -23,7 +25,7 @@ class ScenarioViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        queryset = Scenario.objects.all()
+        queryset = visible_scenarios(Scenario.objects.all(), self.request.user)
         
         # 検索フィルター
         search = self.request.query_params.get('search')
@@ -372,9 +374,9 @@ class ScenarioArchiveView(APIView):
     
     def get(self, request):
         # シナリオ一覧とプレイ統計
-        scenarios = Scenario.objects.annotate(
+        scenarios = visible_scenarios(Scenario.objects.all(), request.user).annotate(
             play_count=Count('play_histories'),
-            total_play_time=Sum('play_histories__session__duration_minutes')
+            total_play_time=Sum(effective_duration_expression('play_histories__session__'))
         ).order_by('-play_count', 'title')
         
         # ユーザーのプレイ履歴も含める
@@ -408,7 +410,7 @@ class PlayStatisticsView(APIView):
         # ゲームシステム別統計
         system_stats = histories.values('scenario__game_system').annotate(
             count=Count('id'),
-            total_time=Sum('session__duration_minutes')
+            total_time=Sum(effective_duration_expression('session__'))
         ).order_by('-count')
         
         # 役割別統計

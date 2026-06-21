@@ -36,7 +36,8 @@
                         <label class="form-label">期間</label>
                         <select class="form-select" id="periodFilter">
                             <option value="future" selected>今後の予定</option>
-                            <option value="">すべて</option>
+                            <option value="past">過去すべて</option>
+                            <option value="all">すべて</option>
                             <option value="past7">過去7日間</option>
                             <option value="past30">過去30日間</option>
                             <option value="past90">過去90日間</option>
@@ -160,7 +161,7 @@
             <div class="modal-body">
                 <form id="editSessionForm">
                     <input type="hidden" id="editSessionId">
-                    {% include 'schedules/_session_edit_form_fields.html' with title_id='editSessionTitle' title_value='' show_status=True status_id='editSessionStatus' status_value='planned' date_id='editSessionDate' date_value='' duration_id='editSessionDuration' duration_value='' location_id='editSessionLocation' location_value='' group_id='editSessionGroupLabel' group_value='' scenario_id='editSessionScenarioTitle' scenario_value='' show_coc_edition=True coc_edition_id='editSessionCocEdition' coc_edition_value='6th' description_id='editSessionDescription' description_value='' youtube_id='editSessionYoutube' youtube_value='' show_visibility=True visibility_id='editSessionVisibility' visibility_value='group' %}
+                    {% include 'schedules/_session_edit_form_fields.html' with title_id='editSessionTitle' title_value='' show_status=True status_id='editSessionStatus' status_value='planned' date_id='editSessionDate' date_value='' duration_id='editSessionDuration' duration_value='' actual_duration_id='editSessionActualDuration' actual_duration_value='' location_id='editSessionLocation' location_value='' group_id='editSessionGroupLabel' group_value='' scenario_id='editSessionScenarioTitle' scenario_value='' show_coc_edition=True coc_edition_id='editSessionCocEdition' coc_edition_value='6th' description_id='editSessionDescription' description_value='' youtube_id='editSessionYoutube' youtube_value='' show_visibility=True visibility_id='editSessionVisibility' visibility_value='group' %}
                 </form>
             </div>
             <div class="modal-footer">
@@ -235,7 +236,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     let currentPage = 1;
     let mySessionsPage = 1;
-    let currentFilters = {};
+    let currentFilters = {period: 'future'};
     let currentSessionId = null;
     const userId = {{ user.id }};
     const showTestData = new URLSearchParams(window.location.search).get('show_test_data') === '1';
@@ -490,6 +491,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('editSessionTitle').value = session.title;
             document.getElementById('editSessionDate').value = session.date ? session.date.slice(0, 16) : '';
             document.getElementById('editSessionDuration').value = session.duration_minutes;
+            document.getElementById('editSessionActualDuration').value = session.actual_duration_minutes || '';
             document.getElementById('editSessionStatus').value = session.status;
             document.getElementById('editSessionLocation').value = session.location || '';
             document.getElementById('editSessionGroupLabel').value = session.group_name || '';
@@ -511,6 +513,7 @@ document.addEventListener('DOMContentLoaded', function() {
             title: document.getElementById('editSessionTitle').value,
             date: document.getElementById('editSessionDate').value || null,
             duration_minutes: document.getElementById('editSessionDuration').value,
+            actual_duration_minutes: document.getElementById('editSessionActualDuration').value || null,
             status: document.getElementById('editSessionStatus').value,
             location: document.getElementById('editSessionLocation').value,
             visibility: document.getElementById('editSessionVisibility').value,

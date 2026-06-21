@@ -15,7 +15,7 @@ output "rds_endpoint" {
 }
 
 output "redis_endpoint" {
-  value = aws_elasticache_replication_group.main.primary_endpoint_address
+  value = var.enable_elasticache ? aws_elasticache_replication_group.main[0].primary_endpoint_address : null
 }
 
 output "alarm_topic_arn" {

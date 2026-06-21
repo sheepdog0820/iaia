@@ -1,3 +1,4 @@
+from schedules.duration import effective_duration_expression
 from rest_framework import serializers
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
@@ -129,7 +130,7 @@ class GroupSerializer(serializers.ModelSerializer):
     def get_total_play_hours(self, obj):
         from django.db.models import Sum
         total_minutes = obj.sessions.filter(status='completed').aggregate(
-            total=Sum('duration_minutes')
+            total=Sum(effective_duration_expression())
         )['total'] or 0
         return round(total_minutes / 60, 1)
     

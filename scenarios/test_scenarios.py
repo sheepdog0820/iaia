@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.utils import timezone
-from .models import Scenario, PlayHistory
+from .models import Scenario, ScenarioHandout, PlayHistory
 from accounts.models import Group as CustomGroup
 
 User = get_user_model()
@@ -34,7 +34,6 @@ class ScenarioModelsTestCase(TestCase):
             difficulty='intermediate',
             game_system='coc'
         )
-        
         self.assertEqual(scenario.title, 'Test Scenario')
         self.assertEqual(scenario.created_by, self.user)
         self.assertEqual(scenario.recommended_players, '3-5人')
@@ -112,6 +111,12 @@ class ScenarioAPITestCase(APITestCase):
             password='pass123',
             nickname='Player User'
         )
+        self.user3 = User.objects.create_user(
+            username='outsideuser',
+            email='outside@example.com',
+            password='pass123',
+            nickname='Outside User'
+        )
         self.group = CustomGroup.objects.create(
             name='Test Group',
             created_by=self.user1
@@ -127,6 +132,26 @@ class ScenarioAPITestCase(APITestCase):
             recommended_players='2-4人',
             estimated_time=180,
             difficulty='intermediate',
+            game_system='coc'
+        )
+        self.group_member_scenario = Scenario.objects.create(
+            title='Group Member Scenario',
+            summary='Group member scenario',
+            author='Group Member',
+            created_by=self.user2,
+            recommended_players='2-4?',
+            estimated_time=120,
+            difficulty='beginner',
+            game_system='coc'
+        )
+        self.outside_scenario = Scenario.objects.create(
+            title='Outside Scenario',
+            summary='Outside scenario',
+            author='Outside Author',
+            created_by=self.user3,
+            recommended_players='2-4?',
+            estimated_time=120,
+            difficulty='beginner',
             game_system='coc'
         )
         
@@ -201,6 +226,36 @@ class ScenarioAPITestCase(APITestCase):
             self.assertEqual(data['created_by'], self.user1.id)
 
 
+    def test_scenario_list_limited_to_same_group_creators(self):
+        self.client.force_authenticate(user=self.user1)
+
+        response = self.client.get('/api/scenarios/scenarios/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = {item['title'] for item in response.json()}
+        self.assertIn('Test Scenario', titles)
+        self.assertIn('Group Member Scenario', titles)
+        self.assertNotIn('Outside Scenario', titles)
+
+    def test_scenario_detail_denies_outside_group_creator(self):
+        self.client.force_authenticate(user=self.user1)
+
+        response = self.client.get(f'/api/scenarios/scenarios/{self.outside_scenario.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_scenario_archive_limited_to_same_group_creators(self):
+        self.client.force_authenticate(user=self.user1)
+
+        response = self.client.get('/api/scenarios/archive/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = {item['title'] for item in response.json()}
+        self.assertIn('Test Scenario', titles)
+        self.assertIn('Group Member Scenario', titles)
+        self.assertNotIn('Outside Scenario', titles)
+
+
     def test_scenario_recommended_skills_blank(self):
         """Allow blank recommended_skills on create and update."""
         self.client.force_authenticate(user=self.user1)
@@ -230,6 +285,102 @@ class ScenarioAPITestCase(APITestCase):
         self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
         patched = patch_response.json()
         self.assertEqual(patched.get('recommended_skills', ''), '')
+
+    def test_scenario_create_with_semi_recommended_skills_and_handouts(self):
+        self.client.force_authenticate(user=self.user1)
+
+        scenario_data = {
+            'title': 'Handout Scenario',
+            'author': 'Test Author',
+            'game_system': 'coc',
+            'difficulty': 'beginner',
+            'estimated_duration': 'short',
+            'summary': '',
+            'public_info': 'PLに公開する導入。',
+            'gm_notes': 'GMだけが見る真相メモ。',
+            'investigator_requirements': '新規探索者推奨。',
+            'scenario_tags': 'ホラー, 推理',
+            'content_warnings': '閉所表現あり。',
+            'setting_era': '現代日本',
+            'setting_location': '山間の村',
+            'scenario_style': 'クローズド',
+            'lost_rate': '中',
+            'combat_level': 'あり',
+            'pvp_level': 'なし',
+            'min_players': 2,
+            'max_players': 4,
+            'estimated_time': 240,
+            'recommended_skills': '目星',
+            'semi_recommended_skills': '医学, 心理学',
+            'handout_templates': [
+                {
+                    'title': '導入HO',
+                    'content': 'あなたは依頼人を知っている。',
+                    'recommended_skills': '図書館',
+                    'is_secret': True,
+                    'handout_number': 1,
+                    'assigned_player_slot': 1,
+                },
+                {
+                    'title': '探索者共通',
+                    'content': '全探索者が知っている導入情報。',
+                    'recommended_skills': '目星',
+                    'is_secret': False,
+                    'handout_number': None,
+                    'assigned_player_slot': None,
+                }
+            ],
+        }
+
+        response = self.client.post('/api/scenarios/scenarios/', scenario_data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        data = response.json()
+        self.assertEqual(data['game_system'], 'coc6')
+        self.assertEqual(data['semi_recommended_skills'], '医学, 心理学')
+        self.assertEqual(data['public_info'], 'PLに公開する導入。')
+        self.assertEqual(data['gm_notes'], 'GMだけが見る真相メモ。')
+        self.assertEqual(data['investigator_requirements'], '新規探索者推奨。')
+        self.assertEqual(data['scenario_tags'], 'ホラー, 推理')
+        self.assertEqual(data['content_warnings'], '閉所表現あり。')
+        self.assertEqual(data['setting_era'], '現代日本')
+        self.assertEqual(data['setting_location'], '山間の村')
+        self.assertEqual(data['scenario_style'], 'クローズド')
+        self.assertEqual(data['lost_rate'], '中')
+        self.assertEqual(data['combat_level'], 'あり')
+        self.assertEqual(data['pvp_level'], 'なし')
+        self.assertEqual(data['min_players'], 2)
+        self.assertEqual(data['max_players'], 4)
+        self.assertEqual(data['estimated_time'], 240)
+        self.assertEqual(len(data['handout_templates']), 2)
+        returned_titles = {handout['title'] for handout in data['handout_templates']}
+        self.assertEqual(returned_titles, {'導入HO', '探索者共通'})
+        self.assertTrue(
+            ScenarioHandout.objects.filter(
+                scenario_id=data['id'],
+                handout_number=1,
+                assigned_player_slot=1,
+            ).exists()
+        )
+        self.assertTrue(
+            ScenarioHandout.objects.filter(
+                scenario_id=data['id'],
+                handout_number__isnull=True,
+                assigned_player_slot__isnull=True,
+            ).exists()
+        )
+
+    def test_scenario_rejects_non_cthulhu_game_system(self):
+        self.client.force_authenticate(user=self.user1)
+
+        response = self.client.post('/api/scenarios/scenarios/', {
+            'title': 'Invalid System Scenario',
+            'game_system': 'dnd',
+            'difficulty': 'beginner',
+            'estimated_duration': 'short',
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_scenario_creation_permissions(self):
         """シナリオ作成権限テスト"""

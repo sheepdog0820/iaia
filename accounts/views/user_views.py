@@ -9,6 +9,7 @@ from django.views import View
 from allauth.socialaccount.models import SocialApp
 from .base_views import BaseViewSet
 from .mixins import UserOwnershipMixin, ErrorHandlerMixin
+from schedules.duration import effective_duration_expression
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -330,7 +331,7 @@ class DashboardView(TemplateView):
 
         current_year = timezone.now().year
         sessions_this_year_qs = sessions_qs.filter(date__year=current_year)
-        total_minutes = sessions_this_year_qs.aggregate(total=Sum('duration_minutes'))['total'] or 0
+        total_minutes = sessions_this_year_qs.aggregate(total=Sum(effective_duration_expression()))['total'] or 0
 
         context['sessions_this_year'] = sessions_this_year_qs.count()
         context['total_hours'] = round(total_minutes / 60, 1)

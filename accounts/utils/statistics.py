@@ -1,3 +1,4 @@
+from schedules.duration import effective_duration_expression
 """
 統計計算の共通ユーティリティ - コード重複の共通化
 """
@@ -15,7 +16,7 @@ class SessionStatistics:
         stats = {
             'total_sessions': sessions_queryset.count(),
             'total_minutes': sessions_queryset.aggregate(
-                total=Sum('duration_minutes')
+                total=Sum(effective_duration_expression())
             )['total'] or 0,
         }
         
@@ -248,7 +249,7 @@ class TindalosMetrics:
         
         # 効率性メトリクス
         total_hours = (user_sessions.aggregate(
-            total=Sum('duration_minutes')
+            total=Sum(effective_duration_expression())
         )['total'] or 0) / 60
         
         efficiency_score = 0

@@ -9,7 +9,7 @@ from rest_framework import status
 from django.utils import timezone
 from .models import TRPGSession, SessionParticipant, HandoutInfo, SessionInvitation
 from accounts.models import CharacterSheet, Group as CustomGroup
-from scenarios.models import Scenario
+from scenarios.models import Scenario, ScenarioHandout
 
 User = get_user_model()
 
@@ -50,6 +50,9 @@ class ScheduleModelsTestCase(TestCase):
         self.assertEqual(session.gm, self.user1)
         self.assertEqual(session.group, self.group)
         self.assertEqual(session.duration_minutes, 180)
+        self.assertEqual(session.effective_duration_minutes, 180)
+        session.actual_duration_minutes = 210
+        self.assertEqual(session.effective_duration_minutes, 210)
         self.assertEqual(session.status, 'planned')  # デフォルト値
 
     def test_session_participant_creation(self):
@@ -158,6 +161,49 @@ class ScheduleAPITestCase(APITestCase):
         self.assertEqual(session_data['title'], 'Test Session')
         self.assertEqual(session_data['gm_name'], 'GM User')
 
+    def test_sessions_list_period_filter_defaults_to_future(self):
+        self.client.force_authenticate(user=self.user1)
+        past_session = TRPGSession.objects.create(
+            title='Past Session',
+            date=timezone.now() - timedelta(days=1),
+            gm=self.user1,
+            group=self.group,
+        )
+
+        response = self.client.get('/api/schedules/sessions/view/', HTTP_ACCEPT='application/json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        session_ids = [session['id'] for session in data['results']]
+        self.assertEqual(data['period'], 'future')
+        self.assertIn(self.session.id, session_ids)
+        self.assertNotIn(past_session.id, session_ids)
+
+    def test_sessions_list_period_filter_can_show_past_and_all(self):
+        self.client.force_authenticate(user=self.user1)
+        past_session = TRPGSession.objects.create(
+            title='Past Session',
+            date=timezone.now() - timedelta(days=1),
+            gm=self.user1,
+            group=self.group,
+        )
+
+        past_response = self.client.get(
+            '/api/schedules/sessions/view/?period=past',
+            HTTP_ACCEPT='application/json',
+        )
+        self.assertEqual(past_response.status_code, status.HTTP_200_OK)
+        past_ids = [session['id'] for session in past_response.json()['results']]
+        self.assertEqual(past_ids, [past_session.id])
+
+        all_response = self.client.get(
+            '/api/schedules/sessions/view/?period=all',
+            HTTP_ACCEPT='application/json',
+        )
+        self.assertEqual(all_response.status_code, status.HTTP_200_OK)
+        all_ids = [session['id'] for session in all_response.json()['results']]
+        self.assertEqual(all_ids, [self.session.id, past_session.id])
+
     def test_sessions_list_includes_guest_count(self):
         """セッション一覧JSONにguest_countが含まれる"""
         self.client.force_authenticate(user=self.user1)
@@ -201,6 +247,38 @@ class ScheduleAPITestCase(APITestCase):
         self.client.force_authenticate(user=self.user1)
         response = self.client.get('/api/schedules/sessions/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_session_viewset_list_period_filter(self):
+        self.client.force_authenticate(user=self.user1)
+        past_session = TRPGSession.objects.create(
+            title='Past Session',
+            date=timezone.now() - timedelta(days=1),
+            gm=self.user1,
+            group=self.group,
+        )
+
+        default_response = self.client.get('/api/schedules/sessions/')
+        self.assertEqual(default_response.status_code, status.HTTP_200_OK)
+        default_payload = default_response.json()
+        default_sessions = (
+            default_payload.get('results', default_payload)
+            if isinstance(default_payload, dict)
+            else default_payload
+        )
+        default_ids = [session['id'] for session in default_sessions]
+        self.assertIn(self.session.id, default_ids)
+        self.assertNotIn(past_session.id, default_ids)
+
+        past_response = self.client.get('/api/schedules/sessions/?period=past')
+        self.assertEqual(past_response.status_code, status.HTTP_200_OK)
+        past_payload = past_response.json()
+        past_sessions = (
+            past_payload.get('results', past_payload)
+            if isinstance(past_payload, dict)
+            else past_payload
+        )
+        past_ids = [session['id'] for session in past_sessions]
+        self.assertEqual(past_ids, [past_session.id])
 
     def test_session_viewset_detail(self):
         """セッションViewSet詳細テスト"""
@@ -393,6 +471,48 @@ class ScheduleAPITestCase(APITestCase):
             [future_soon.id, future_far.id, past_recent.id, past_old.id],
         )
 
+    def test_my_sessions_past_period_includes_all_past_sessions(self):
+        self.client.force_authenticate(user=self.user2)
+
+        now = timezone.now()
+        future_session = TRPGSession.objects.create(
+            title='Future Session',
+            date=now + timedelta(days=1),
+            gm=self.user1,
+            group=self.group,
+        )
+        past_recent = TRPGSession.objects.create(
+            title='Past Recent Session',
+            date=now - timedelta(days=1),
+            gm=self.user1,
+            group=self.group,
+            status='completed',
+        )
+        past_old = TRPGSession.objects.create(
+            title='Past Old Session',
+            date=now - timedelta(days=120),
+            gm=self.user1,
+            group=self.group,
+            status='completed',
+        )
+
+        for session in [future_session, past_recent, past_old]:
+            SessionParticipant.objects.create(
+                session=session,
+                user=self.user2,
+                role='player',
+            )
+
+        response = self.client.get('/api/schedules/sessions/my-sessions/?period=past')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+        self.assertEqual(data['count'], 2)
+        self.assertEqual(
+            [s['id'] for s in data['results']],
+            [past_recent.id, past_old.id],
+        )
+
     def test_session_creation_via_api(self):
         """API経由セッション作成テスト"""
         self.client.force_authenticate(user=self.user1)
@@ -412,6 +532,85 @@ class ScheduleAPITestCase(APITestCase):
         created_session = TRPGSession.objects.get(title='New Session')
         self.assertEqual(created_session.gm, self.user1)
         self.assertEqual(created_session.duration_minutes, 240)
+
+    def test_session_creation_copies_scenario_handouts(self):
+        self.client.force_authenticate(user=self.user1)
+        ScenarioHandout.objects.create(
+            scenario=self.scenario,
+            title='HO1',
+            content='Secret setup',
+            recommended_skills='図書館',
+            is_secret=True,
+            handout_number=1,
+            assigned_player_slot=1,
+        )
+        ScenarioHandout.objects.create(
+            scenario=self.scenario,
+            title='探索者共通',
+            content='Common setup',
+            recommended_skills='目星',
+            is_secret=False,
+            handout_number=None,
+            assigned_player_slot=None,
+        )
+
+        response = self.client.post('/api/schedules/sessions/', {
+            'title': 'Scenario Handout Session',
+            'date': (timezone.now() + timedelta(days=2)).isoformat(),
+            'location': 'Online',
+            'group': self.group.id,
+            'duration_minutes': 240,
+            'scenario': self.scenario.id,
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        created_session = TRPGSession.objects.get(title='Scenario Handout Session')
+        handout = HandoutInfo.objects.get(session=created_session, handout_number=1)
+        self.assertEqual(handout.title, 'HO1')
+        self.assertEqual(handout.content, 'Secret setup')
+        self.assertEqual(handout.recommended_skills, '図書館')
+        self.assertEqual(handout.assigned_player_slot, 1)
+        self.assertTrue(handout.participant.guest_name.startswith('[template] player-1'))
+        common_handout = HandoutInfo.objects.get(
+            session=created_session,
+            handout_number__isnull=True,
+            assigned_player_slot__isnull=True,
+        )
+        self.assertEqual(common_handout.title, '探索者共通')
+        self.assertEqual(common_handout.recommended_skills, '目星')
+
+        SessionParticipant.objects.create(
+            session=created_session,
+            user=self.user2,
+            role='player',
+        )
+        self.client.force_authenticate(user=self.user2)
+        context_response = self.client.get(
+            f'/api/schedules/sessions/next-context/?session_id={created_session.id}'
+        )
+        self.assertEqual(context_response.status_code, status.HTTP_200_OK)
+        self.assertIn('目星', context_response.json()['handout_recommended_skills'])
+
+    def test_session_creation_accepts_actual_duration_via_api(self):
+        self.client.force_authenticate(user=self.user1)
+
+        session_data = {
+            'title': 'Actual Duration Session',
+            'description': 'Actual duration is recorded after play',
+            'date': (timezone.now() + timedelta(days=2)).isoformat(),
+            'location': 'Online',
+            'group': self.group.id,
+            'duration_minutes': 240,
+            'actual_duration_minutes': 270,
+        }
+
+        response = self.client.post('/api/schedules/sessions/', session_data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        created_session = TRPGSession.objects.get(title='Actual Duration Session')
+        self.assertEqual(created_session.duration_minutes, 240)
+        self.assertEqual(created_session.actual_duration_minutes, 270)
+        self.assertEqual(response.json()['effective_duration_minutes'], 270)
 
     def test_session_creation_without_date_via_api(self):
         self.client.force_authenticate(user=self.user1)
@@ -530,6 +729,68 @@ class ScheduleAPITestCase(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_non_premium_manager_cannot_change_session_scenario(self):
+        other_scenario = Scenario.objects.create(
+            title='Other Scenario',
+            game_system='coc',
+            created_by=self.user1,
+        )
+        self.client.force_authenticate(user=self.user1)
+
+        response = self.client.patch(
+            f'/api/schedules/sessions/{self.session.id}/',
+            {'scenario': other_scenario.id},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.session.refresh_from_db()
+        self.assertIsNone(self.session.scenario)
+
+    def test_premium_manager_can_change_session_scenario(self):
+        self.user1.is_premium = True
+        self.user1.save(update_fields=['is_premium'])
+        other_scenario = Scenario.objects.create(
+            title='Other Scenario',
+            game_system='coc',
+            created_by=self.user1,
+        )
+        self.client.force_authenticate(user=self.user1)
+
+        response = self.client.patch(
+            f'/api/schedules/sessions/{self.session.id}/',
+            {'scenario': other_scenario.id},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.scenario, other_scenario)
+
+    def test_manager_can_update_registered_participant_character_fields(self):
+        participant = SessionParticipant.objects.create(
+            session=self.session,
+            user=self.user2,
+            role='player',
+        )
+        self.client.force_authenticate(user=self.user1)
+
+        response = self.client.patch(
+            f'/api/schedules/participants/{participant.id}/',
+            {
+                'player_slot': 3,
+                'character_name': 'Updated Character',
+                'character_sheet_url': 'https://example.com/updated-sheet',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        participant.refresh_from_db()
+        self.assertEqual(participant.player_slot, 3)
+        self.assertEqual(participant.character_name, 'Updated Character')
+        self.assertEqual(participant.character_sheet_url, 'https://example.com/updated-sheet')
+
     def test_participant_delete_other_forbidden(self):
         """GM以外が他人の参加情報を削除できない"""
         user3 = User.objects.create_user(
@@ -561,6 +822,41 @@ class ScheduleAPITestCase(APITestCase):
         self.client.force_authenticate(user=self.user1)
         response = self.client.delete(f'/api/schedules/participants/{participant.id}/')
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_main_gm_participant_cannot_be_deleted(self):
+        participant = SessionParticipant.objects.create(
+            session=self.session,
+            user=self.user1,
+            role='player'
+        )
+
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.delete(f'/api/schedules/participants/{participant.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(SessionParticipant.objects.filter(id=participant.id).exists())
+
+    def test_session_detail_does_not_show_remove_button_for_main_gm(self):
+        main_gm_participant = SessionParticipant.objects.create(
+            session=self.session,
+            user=self.user1,
+            role='player'
+        )
+        removable_participant = SessionParticipant.objects.create(
+            session=self.session,
+            user=self.user2,
+            role='player'
+        )
+
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.get(
+            f'/api/schedules/sessions/{self.session.id}/detail/',
+            HTTP_ACCEPT='text/html',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotContains(response, f'removeParticipant({main_gm_participant.id})')
+        self.assertContains(response, f'removeParticipant({removable_participant.id})')
 
     def test_player_slot_conflict_on_update(self):
         """プレイヤー枠の重複は更新時も拒否される"""

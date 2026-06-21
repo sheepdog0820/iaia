@@ -58,9 +58,49 @@ variable "db_instance_class" {
   default = "db.t4g.micro"
 }
 
+variable "db_allocated_storage" {
+  type    = number
+  default = 20
+}
+
+variable "db_max_allocated_storage" {
+  type    = number
+  default = 100
+}
+
+variable "db_multi_az" {
+  type    = bool
+  default = false
+}
+
+variable "db_backup_retention_period" {
+  type    = number
+  default = 7
+}
+
+variable "db_performance_insights_enabled" {
+  type    = bool
+  default = true
+}
+
+variable "db_monitoring_interval" {
+  type    = number
+  default = 0
+}
+
 variable "redis_node_type" {
   type    = string
   default = "cache.t4g.micro"
+}
+
+variable "enable_nat_gateway" {
+  type    = bool
+  default = true
+}
+
+variable "enable_elasticache" {
+  type    = bool
+  default = true
 }
 
 variable "desired_count" {
@@ -68,14 +108,54 @@ variable "desired_count" {
   default = 1
 }
 
+variable "enable_worker_service" {
+  type    = bool
+  default = true
+}
+
 variable "worker_desired_count" {
   type    = number
   default = 1
 }
 
+variable "enable_beat_service" {
+  type    = bool
+  default = true
+}
+
 variable "beat_desired_count" {
   type    = number
   default = 1
+}
+
+variable "web_cpu" {
+  type    = number
+  default = 512
+}
+
+variable "web_memory" {
+  type    = number
+  default = 1024
+}
+
+variable "worker_cpu" {
+  type    = number
+  default = 512
+}
+
+variable "worker_memory" {
+  type    = number
+  default = 1024
+}
+
+variable "beat_cpu" {
+  type    = number
+  default = 256
+}
+
+variable "beat_memory" {
+  type    = number
+  default = 512
 }
 
 variable "site_id" {
@@ -109,6 +189,21 @@ variable "alarm_email" {
 variable "monthly_budget_usd" {
   type    = number
   default = 150
+}
+
+variable "cloudwatch_log_retention_days" {
+  type    = number
+  default = 30
+}
+
+variable "enable_cloudfront_logging" {
+  type    = bool
+  default = true
+}
+
+variable "enable_s3_access_logging" {
+  type    = bool
+  default = true
 }
 
 variable "extra_environment" {

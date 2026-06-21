@@ -365,6 +365,8 @@ class Character6thAPITestCase(APITestCase):
             username='otheruser',
             password='otherpass123'
         )
+        self.character.access_scope = 'public'
+        self.character.save(update_fields=['access_scope'])
         
         # 他のユーザーでログイン
         self.client.force_authenticate(user=other_user)

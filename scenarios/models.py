@@ -5,13 +5,10 @@ from accounts.models import CustomUser
 
 class Scenario(models.Model):
     GAME_SYSTEM_CHOICES = [
-        ('coc', 'クトゥルフ神話TRPG'),
-        ('dnd', 'D&D'),
-        ('sw', 'ソード・ワールド'),
-        ('insane', 'インセイン'),
-        ('other', 'その他'),
+        ('coc6', 'クトゥルフ神話TRPG 6版'),
+        ('coc7', 'クトゥルフ神話TRPG 7版'),
     ]
-    
+
     DIFFICULTY_CHOICES = [
         ('beginner', '初心者向け'),
         ('intermediate', '中級者向け'),
@@ -28,10 +25,24 @@ class Scenario(models.Model):
     
     title = models.CharField(max_length=200)
     author = models.CharField(max_length=100, blank=True)
-    game_system = models.CharField(max_length=10, choices=GAME_SYSTEM_CHOICES, default='coc')
+    game_system = models.CharField(max_length=10, choices=GAME_SYSTEM_CHOICES, default='coc6')
     difficulty = models.CharField(max_length=20, choices=DIFFICULTY_CHOICES, default='intermediate')
     estimated_duration = models.CharField(max_length=20, choices=DURATION_CHOICES, default='medium')
     summary = models.TextField(blank=True)
+    public_info = models.TextField(blank=True, default='', help_text="PL向け公開情報")
+    gm_notes = models.TextField(blank=True, default='', help_text="GM向け非公開メモ")
+    investigator_requirements = models.TextField(blank=True, default='', help_text="推奨探索者条件")
+    scenario_tags = models.CharField(max_length=255, blank=True, default='', help_text="タグ（カンマ区切り）")
+    content_warnings = models.TextField(blank=True, default='', help_text="注意事項・地雷チェック")
+    setting_era = models.CharField(max_length=100, blank=True, default='', help_text="時代")
+    setting_location = models.CharField(max_length=100, blank=True, default='', help_text="舞台・地域")
+    scenario_style = models.CharField(max_length=100, blank=True, default='', help_text="形式（クローズド/シティ等）")
+    lost_rate = models.CharField(max_length=50, blank=True, default='', help_text="ロスト率")
+    combat_level = models.CharField(max_length=50, blank=True, default='', help_text="戦闘有無・頻度")
+    pvp_level = models.CharField(max_length=50, blank=True, default='', help_text="PvP有無")
+    min_players = models.PositiveIntegerField(null=True, blank=True, help_text="最小人数")
+    max_players = models.PositiveIntegerField(null=True, blank=True, help_text="最大人数")
+    semi_recommended_skills = models.TextField(blank=True, default='', help_text="準推奨技能（カンマ区切り）")
     recommended_skills = models.TextField(blank=True, help_text="推奨技能（カンマ区切り）")
     url = models.URLField(blank=True, help_text="参照URL")
     recommended_players = models.CharField(max_length=50, blank=True, help_text="推奨人数（例: 3-4人）")
@@ -43,8 +54,14 @@ class Scenario(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def save(self, *args, **kwargs):
+        if self.game_system in ('coc', 'cthulhu', '6', '6th'):
+            self.game_system = 'coc6'
+        elif self.game_system in ('7', '7th'):
+            self.game_system = 'coc7'
         if self.recommended_skills is not None:
             self.recommended_skills = self.recommended_skills.strip()
+        if self.semi_recommended_skills is not None:
+            self.semi_recommended_skills = self.semi_recommended_skills.strip()
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -52,6 +69,53 @@ class Scenario(models.Model):
     
     class Meta:
         ordering = ['title']
+
+
+class ScenarioHandout(models.Model):
+    HANDOUT_NUMBER_CHOICES = [
+        (1, 'HO1'),
+        (2, 'HO2'),
+        (3, 'HO3'),
+        (4, 'HO4'),
+    ]
+    PLAYER_SLOT_CHOICES = [
+        (1, 'プレイヤー1'),
+        (2, 'プレイヤー2'),
+        (3, 'プレイヤー3'),
+        (4, 'プレイヤー4'),
+    ]
+
+    scenario = models.ForeignKey(
+        Scenario,
+        on_delete=models.CASCADE,
+        related_name='handout_templates',
+    )
+    title = models.CharField(max_length=100)
+    content = models.TextField(blank=True, default='')
+    recommended_skills = models.TextField(blank=True, default='')
+    is_secret = models.BooleanField(default=True)
+    handout_number = models.IntegerField(
+        choices=HANDOUT_NUMBER_CHOICES,
+        null=True,
+        blank=True,
+    )
+    assigned_player_slot = models.IntegerField(
+        choices=PLAYER_SLOT_CHOICES,
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['handout_number', 'id']
+        unique_together = [
+            ['scenario', 'handout_number'],
+        ]
+
+    def __str__(self):
+        ho_display = f"HO{self.handout_number}" if self.handout_number else "HO"
+        return f"{self.scenario.title}: {ho_display} {self.title}"
 
 
 class ScenarioImage(models.Model):

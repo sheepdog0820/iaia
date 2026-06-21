@@ -175,10 +175,10 @@
 
                             <h6><i class="fas fa-clock"></i> セッション時間</h6>
                             <p class="mb-3">
-                                {% if session.duration_minutes %}
-                                    {{ session.duration_minutes }}分
-                                    {% if session.duration_minutes >= 60 %}
-                                        (約{% widthratio session.duration_minutes 60 1 %}時間)
+                                {% if session.effective_duration_minutes %}
+                                    {{ session.effective_duration_minutes }}分
+                                    {% if session.effective_duration_minutes >= 60 %}
+                                        (約{% widthratio session.effective_duration_minutes 60 1 %}時間)
                                     {% endif %}
                                 {% else %}
                                     未設定
@@ -637,7 +637,7 @@
                                     <div class="mt-2 d-flex gap-2">
                                         {% if participant.user %}
                                             <button class="btn btn-sm btn-outline-primary"
-                                                    onclick="openCharacterLinkModal({{ participant.id }}, {{ participant.user.id }}, {{ participant.character_sheet_id|default:'null' }})">
+                                                    onclick="openCharacterLinkModal({{ participant.id }}, {{ participant.user.id }}, {{ participant.character_sheet_id|default:'null' }}, {{ participant.player_slot|default:'null' }}, '{{ participant.character_name|escapejs }}', '{{ participant.character_sheet_url|escapejs }}')">
                                                 <i class="fas fa-link"></i> キャラクター設定
                                             </button>
                                         {% else %}
@@ -646,10 +646,12 @@
                                                 <i class="fas fa-user-edit"></i> ゲスト設定
                                             </button>
                                         {% endif %}
+                                        {% if participant.user_id != session.gm_id %}
                                         <button class="btn btn-sm btn-outline-danger" 
                                                 onclick="removeParticipant({{ participant.id }})">
                                             <i class="fas fa-user-minus"></i> 除名
                                         </button>
+                                        {% endif %}
                                     </div>
                                     {% endif %}
                                 </div>
@@ -792,7 +794,7 @@
             </div>
             <div class="modal-body">
                 <form id="editSessionForm">
-                    {% include 'schedules/_session_edit_form_fields.html' with title_id='editSessionTitle' title_value=session.title show_status=True status_id='editSessionStatus' status_value=session.status date_id='editSessionDate' date_value=session.date|date:'Y-m-d\\TH:i' duration_id='editSessionDuration' duration_value=session.duration_minutes location_id='editSessionLocation' location_value=session.location group_id='editSessionGroupLabel' group_value=session.group.name scenario_id='editSessionScenarioTitle' scenario_value=session.scenario.title show_coc_edition=True coc_edition_id='editSessionCocEdition' coc_edition_value=session.coc_edition description_id='editSessionDescription' description_value=session.description youtube_id='editSessionYoutube' youtube_value=session.youtube_url show_visibility=True visibility_id='editSessionVisibility' visibility_value=session.visibility %}
+                    {% include 'schedules/_session_edit_form_fields.html' with title_id='editSessionTitle' title_value=session.title show_status=True status_id='editSessionStatus' status_value=session.status date_id='editSessionDate' date_value=session.date|date:'Y-m-d\\TH:i' duration_id='editSessionDuration' duration_value=session.duration_minutes actual_duration_id='editSessionActualDuration' actual_duration_value=session.actual_duration_minutes location_id='editSessionLocation' location_value=session.location group_id='editSessionGroupLabel' group_value=session.group.name scenario_id='editSessionScenario' scenario_value=session.scenario_id scenario_label=session.scenario.title scenario_editable=can_edit_scenario scenario_choices=scenario_choices show_coc_edition=True coc_edition_id='editSessionCocEdition' coc_edition_value=session.coc_edition description_id='editSessionDescription' description_value=session.description youtube_id='editSessionYoutube' youtube_value=session.youtube_url show_visibility=True visibility_id='editSessionVisibility' visibility_value=session.visibility %}
                 </form>
             </div>
             <div class="modal-footer">
@@ -908,6 +910,13 @@
                     <span class="text-muted small">読み込み中...</span>
                 </div>
                 <div class="mt-3">
+                    <label class="form-label">招待時の役割</label>
+                    <select class="form-select" id="inviteRole">
+                        <option value="player" selected>PLとして招待</option>
+                        <option value="gm">GMとして招待</option>
+                    </select>
+                </div>
+                <div class="mt-3">
                     <label class="form-label">メッセージ（任意）</label>
                     <textarea class="form-control" id="inviteMessage" rows="2" placeholder="招待メッセージ"></textarea>
                 </div>
@@ -939,6 +948,16 @@
                         <label for="edit_character_name" class="form-label">キャラクター名</label>
                         <input type="text" class="form-control" id="edit_character_name" 
                                value="{{ user_participant.character_name }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_player_slot" class="form-label">プレイヤー枠（任意）</label>
+                        <select class="form-select" id="edit_player_slot">
+                            <option value="">未設定</option>
+                            <option value="1" {% if user_participant.player_slot == 1 %}selected{% endif %}>プレイヤー1</option>
+                            <option value="2" {% if user_participant.player_slot == 2 %}selected{% endif %}>プレイヤー2</option>
+                            <option value="3" {% if user_participant.player_slot == 3 %}selected{% endif %}>プレイヤー3</option>
+                            <option value="4" {% if user_participant.player_slot == 4 %}selected{% endif %}>プレイヤー4</option>
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label for="edit_character_sheet_id" class="form-label">キャラクターシート（内部）</label>
@@ -977,11 +996,29 @@
                 <input type="hidden" id="linkParticipantId">
                 <input type="hidden" id="linkParticipantUserId">
                 <div class="mb-3">
-                    <label for="linkCharacterSelect" class="form-label">キャラクターシート</label>
-                    <select class="form-select" id="linkCharacterSelect">
-                        <option value="">選択してください</option>
+                    <label for="link_player_slot" class="form-label">プレイヤー枠（任意）</label>
+                    <select class="form-select" id="link_player_slot">
+                        <option value="">未設定</option>
+                        <option value="1">プレイヤー1</option>
+                        <option value="2">プレイヤー2</option>
+                        <option value="3">プレイヤー3</option>
+                        <option value="4">プレイヤー4</option>
                     </select>
-                    <div class="form-text">公開キャラクターのみ選択可能です</div>
+                </div>
+                <div class="mb-3">
+                    <label for="link_character_name" class="form-label">キャラクター名（任意）</label>
+                    <input type="text" class="form-control" id="link_character_name" placeholder="例: 伊達 真琴">
+                </div>
+                <div class="mb-3">
+                    <label for="linkCharacterSelect" class="form-label">キャラクターシート（内部）</label>
+                    <select class="form-select" id="linkCharacterSelect">
+                        <option value="">選択しない</option>
+                    </select>
+                    <div class="form-text">対象ユーザの公開キャラクターのみ選択可能です</div>
+                </div>
+                <div class="mb-3">
+                    <label for="link_character_sheet_url" class="form-label">キャラクターシートURL（任意）</label>
+                    <input type="url" class="form-control" id="link_character_sheet_url" placeholder="https://...">
                 </div>
             </div>
             <div class="modal-footer">
@@ -2590,6 +2627,7 @@ async function updateSession() {
         title: document.getElementById('editSessionTitle').value,
         date: document.getElementById('editSessionDate').value || null,
         duration_minutes: document.getElementById('editSessionDuration').value,
+        actual_duration_minutes: document.getElementById('editSessionActualDuration').value || null,
         location: document.getElementById('editSessionLocation').value,
         visibility: document.getElementById('editSessionVisibility').value,
         coc_edition: document.getElementById('editSessionCocEdition').value,
@@ -2597,6 +2635,11 @@ async function updateSession() {
         description: document.getElementById('editSessionDescription').value,
         status: document.getElementById('editSessionStatus').value
     };
+
+    const scenarioSelect = document.getElementById('editSessionScenario');
+    if (scenarioSelect && scenarioSelect.tagName === 'SELECT') {
+        data.scenario = scenarioSelect.value || null;
+    }
 
     try {
         const response = await axios.patch(`/api/schedules/sessions/{{ session.id }}/`, data);
@@ -3729,9 +3772,11 @@ async function joinSession() {
 // 参加情報更新
 async function updateParticipant() {
     const characterSheetId = document.getElementById('edit_character_sheet_id').value;
+    const playerSlotValue = document.getElementById('edit_player_slot')?.value || '';
     const data = {
         character_name: document.getElementById('edit_character_name').value,
-        character_sheet_url: document.getElementById('edit_character_sheet_url').value
+        character_sheet_url: document.getElementById('edit_character_sheet_url').value,
+        player_slot: playerSlotValue ? Number(playerSlotValue) : null
     };
     if (characterSheetId) {
         data.character_sheet_id = characterSheetId;
@@ -3753,20 +3798,23 @@ async function updateParticipant() {
 }
 
 // GM: 参加者キャラクター設定
-function openCharacterLinkModal(participantId, userId, currentCharacterId) {
+function openCharacterLinkModal(participantId, userId, currentCharacterId, playerSlot = null, characterName = '', characterSheetUrl = '') {
     const modalEl = document.getElementById('linkCharacterModal');
     const modal = new bootstrap.Modal(modalEl);
     const selectEl = document.getElementById('linkCharacterSelect');
 
     document.getElementById('linkParticipantId').value = participantId;
     document.getElementById('linkParticipantUserId').value = userId;
+    document.getElementById('link_player_slot').value = playerSlot ? String(playerSlot) : '';
+    document.getElementById('link_character_name').value = characterName || '';
+    document.getElementById('link_character_sheet_url').value = characterSheetUrl || '';
 
     const characters = groupMemberCharacters.get(String(userId)) || [];
     if (characters.length === 0) {
         selectEl.innerHTML = '<option value="">選択可能なキャラクターがありません</option>';
     } else {
-        selectEl.innerHTML = '<option value="">選択してください</option>' + characters.map(char => (
-            `<option value="${char.id}">${char.name}</option>`
+        selectEl.innerHTML = '<option value="">選択しない</option>' + characters.map(char => (
+            `<option value="${char.id}">${escapeHtml(char.name || '')}</option>`
         )).join('');
     }
 
@@ -3781,6 +3829,9 @@ async function saveLinkedCharacter() {
     const participantId = document.getElementById('linkParticipantId').value;
     const userId = document.getElementById('linkParticipantUserId').value;
     const characterId = document.getElementById('linkCharacterSelect').value;
+    const playerSlotValue = document.getElementById('link_player_slot').value;
+    const characterName = document.getElementById('link_character_name').value || '';
+    const characterSheetUrl = document.getElementById('link_character_sheet_url').value || '';
 
     if (!participantId) return;
 
@@ -3788,16 +3839,19 @@ async function saveLinkedCharacter() {
     const selected = characters.find(char => String(char.id) === String(characterId));
 
     const data = {
-        character_sheet_id: characterId || ''
+        character_sheet_id: characterId || '',
+        player_slot: playerSlotValue ? Number(playerSlotValue) : null,
+        character_name: characterName,
+        character_sheet_url: characterSheetUrl,
     };
 
-    if (selected && selected.name) {
+    if (!characterName && selected && selected.name) {
         data.character_name = selected.name;
     }
 
     try {
         await axios.patch(`/api/schedules/participants/${participantId}/`, data);
-        sessionNotifySuccess('キャラクターを更新しました');
+        sessionNotifySuccess('キャラクター設定を更新しました');
         location.reload();
     } catch (error) {
         sessionNotifyError('更新に失敗しました: ' + getSessionErrorMessage(error));
@@ -4050,6 +4104,7 @@ window.sendSessionInvitations = async function() {
 
     const listContainer = document.getElementById('inviteMembersList');
     const message = document.getElementById('inviteMessage')?.value || '';
+    const role = document.getElementById('inviteRole')?.value || 'player';
     const resultsEl = document.getElementById('inviteResults');
     const sendBtn = document.getElementById('sendInvitesBtn');
 
@@ -4073,7 +4128,7 @@ window.sendSessionInvitations = async function() {
         try {
             await axios.post(
                 `/api/schedules/sessions/${encodeURIComponent(SESSION_ID)}/invite/`,
-                { user_id: userId, message },
+                { user_id: userId, message, role },
                 { headers: { 'Content-Type': 'application/json' } },
             );
             successCount += 1;
@@ -4188,8 +4243,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const searchEl = document.getElementById('inviteMemberSearch');
             const resultsEl = document.getElementById('inviteResults');
             const messageEl = document.getElementById('inviteMessage');
+            const roleEl = document.getElementById('inviteRole');
             if (searchEl) searchEl.value = '';
             if (messageEl) messageEl.value = '';
+            if (roleEl) roleEl.value = 'player';
             if (resultsEl) resultsEl.innerHTML = '';
             await loadInviteMembersList();
         });

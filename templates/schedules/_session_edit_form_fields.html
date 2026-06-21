@@ -40,13 +40,24 @@
                 >
                 <div class="form-text">未入力の場合は日付未定のまま保持されます。</div>
             </div>
-            <div class="col-md-6 mb-3">
+            <div class="col-md-3 mb-3">
                 <label for="{{ duration_id }}" class="form-label">予定時間（分）</label>
                 <input
                     type="number"
                     class="form-control"
                     id="{{ duration_id }}"
                     value="{{ duration_value|default_if_none:'' }}"
+                    min="0"
+                    step="30"
+                >
+            </div>
+            <div class="col-md-3 mb-3">
+                <label for="{{ actual_duration_id }}" class="form-label">実時間（分）</label>
+                <input
+                    type="number"
+                    class="form-control"
+                    id="{{ actual_duration_id }}"
+                    value="{{ actual_duration_value|default_if_none:'' }}"
                     min="0"
                     step="30"
                 >
@@ -80,14 +91,23 @@
 
         <div class="mb-3">
             <label for="{{ scenario_id }}" class="form-label">関連シナリオ</label>
-            <input
-                type="text"
-                class="form-control"
-                id="{{ scenario_id }}"
-                value="{{ scenario_value|default_if_none:'' }}"
-                placeholder="未設定"
-                readonly
-            >
+            {% if scenario_editable %}
+                <select class="form-select" id="{{ scenario_id }}">
+                    <option value="">未設定</option>
+                    {% for scenario_item in scenario_choices %}
+                        <option value="{{ scenario_item.id }}" {% if scenario_item.id == scenario_value %}selected{% endif %}>{{ scenario_item.title }}</option>
+                    {% endfor %}
+                </select>
+            {% else %}
+                <input
+                    type="text"
+                    class="form-control"
+                    id="{{ scenario_id }}"
+                    value="{{ scenario_label|default_if_none:'' }}"
+                    placeholder="未設定"
+                    readonly
+                >
+            {% endif %}
         </div>
 
         {% if show_coc_edition %}
