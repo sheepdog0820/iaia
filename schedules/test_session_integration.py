@@ -52,6 +52,60 @@ class SessionManagementIntegrationTestCase(APITestCase):
         for player in self.players[:2]:  # 最初の2人だけメンバー
             self.group.members.add(player)
     
+    def test_session_creator_can_assign_gm_and_players_after_recruiting(self):
+        self.client.force_authenticate(user=self.players[0])
+        create_url = reverse('session-list')
+        response = self.client.post(create_url, {
+            'title': 'Recruiting Session',
+            'description': '',
+            'date': (timezone.now() + timedelta(days=7)).isoformat(),
+            'location': 'Discord',
+            'group': self.group.id,
+            'status': 'planned',
+            'visibility': 'group',
+            'duration_minutes': 180,
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        session_id = response.data['id']
+        session = TRPGSession.objects.get(pk=session_id)
+        self.assertEqual(session.created_by, self.players[0])
+        self.assertEqual(session.gm, self.players[0])
+
+        assign_url = reverse('session-assign-roles', kwargs={'pk': session_id})
+        response = self.client.post(assign_url, {
+            'gm_user_id': self.gm.id,
+            'participants': [
+                {'user_id': self.players[0].id, 'role': 'player', 'player_slot': 1},
+                {'user_id': self.players[1].id, 'role': 'player', 'player_slot': 2},
+            ],
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        session.refresh_from_db()
+        self.assertEqual(session.gm, self.gm)
+        self.assertEqual(
+            SessionParticipant.objects.get(session=session, user=self.gm).role,
+            'gm',
+        )
+        self.assertEqual(
+            SessionParticipant.objects.get(session=session, user=self.players[1]).player_slot,
+            2,
+        )
+
+        response = self.client.patch(
+            reverse('session-detail', kwargs={'pk': session_id}),
+            {'location': 'Updated Discord'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.client.force_authenticate(user=self.players[1])
+        response = self.client.post(assign_url, {
+            'gm_user_id': self.players[1].id,
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_complete_session_lifecycle(self):
         """セッションの完全なライフサイクルテスト"""
         # 1. GMとしてログイン

@@ -400,6 +400,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
     min_players = serializers.IntegerField(write_only=True, required=False)
     max_players = serializers.IntegerField(write_only=True, required=False)
     gm_detail = UserSerializer(source='gm', read_only=True)
+    created_by_detail = UserSerializer(source='created_by', read_only=True)
     scenario = serializers.PrimaryKeyRelatedField(
         queryset=Scenario.objects.all(),
         required=False,
@@ -443,6 +444,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         model = TRPGSession
         fields = ['id', 'title', 'description', 'date', 'location', 
                  'youtube_url', 'status', 'visibility', 'gm', 'gm_detail',
+                 'created_by', 'created_by_detail',
                  'group', 'group_name', 'scenario', 'coc_edition', 'scenario_detail', 'duration_minutes', 'participants', 'participants_detail',
                  'handouts_detail', 'images_detail', 'youtube_links_detail',
                  'participant_count', 'guest_count', 'youtube_total_duration', 
@@ -450,7 +452,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
                  'session_template',
                  'created_at', 'updated_at', 'session_date', 'start_time',
                  'estimated_hours', 'min_players', 'max_players']
-        read_only_fields = ['id', 'gm', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'gm', 'created_by', 'created_at', 'updated_at']
     
     @extend_schema_field(OpenApiTypes.INT)
     def get_participant_count(self, obj):

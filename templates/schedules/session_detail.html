@@ -70,9 +70,9 @@
 
     <div class="row">
         <!-- メイン情報 -->
-        <div class="col-lg-8">
+        <div class="col-lg-8 session-main-column">
             <!-- セッション基本情報 -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="sessionOverviewCard">
                 <div class="card-header bg-primary">
                     <h3 class="mb-0 eldritch-font">
                         <i class="fas fa-scroll"></i> {{ session.title }}
@@ -297,7 +297,7 @@
                         <div class="text-muted small">最大10枚/1回</div>
                     </div>
 
-                    {% if is_gm %}
+                    {% if can_edit %}
                         <div class="text-muted small mb-2">
                             <i class="fas fa-grip-vertical"></i> ドラッグ&ドロップで並び替え（自動保存）
                         </div>
@@ -308,7 +308,7 @@
                         {% for image in session.images.all %}
                             <div class="col-6 col-md-4 session-image-item" data-session-image-id="{{ image.id }}">
                                 <div class="session-image-tile">
-                                    {% if is_gm %}
+                                    {% if can_edit %}
                                         <span class="session-image-drag-handle"
                                               draggable="true"
                                               role="button"
@@ -328,7 +328,7 @@
                                         <small class="text-muted text-truncate" title="{{ image.title|default:image.image.name }}">
                                             {{ image.title|default:image.image.name }}
                                         </small>
-                                        {% if is_gm or image.uploaded_by_id == user.id %}
+                                        {% if can_edit or image.uploaded_by_id == user.id %}
                                             <button type="button"
                                                     class="btn btn-sm btn-outline-danger"
                                                     onclick="deleteSessionImage({{ image.id }})">
@@ -506,7 +506,7 @@
 
             <!-- 参加者一覧 -->
             {% if is_public_view %}
-            <div class="card mb-4">
+            <div class="card mb-4" id="sessionParticipantsCard">
                 <div class="card-header bg-info">
                     <h5 class="mb-0">
                         <i class="fas fa-users"></i> 参加者 ({{ session.participants.count }}人{% if guest_count %} +ゲスト{{ guest_count }}人{% endif %})
@@ -533,13 +533,13 @@
                 </div>
             </div>
             {% else %}
-            <div class="card mb-4">
+            <div class="card mb-4" id="sessionParticipantsCard">
                 <div class="card-header bg-info">
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
                             <i class="fas fa-users"></i> 参加者一覧 ({{ session.participants.count }}人{% if guest_count %} +ゲスト{{ guest_count }}人{% endif %})
                         </h5>
-                        {% if is_gm %}
+                        {% if can_edit %}
                             <button class="btn btn-outline-light btn-sm" type="button"
                                     onclick="openGuestParticipantModal(null)">
                                 <i class="fas fa-user-plus"></i> ゲスト追加
@@ -611,7 +611,29 @@
                                         </p>
                                     {% endif %}
                                     
-                                    {% if is_gm and participant.role != 'gm' %}
+                                    {% if can_edit and participant.user %}
+                                    <div class="mt-2 d-flex flex-wrap gap-2">
+                                        {% if participant.user_id != session.gm_id %}
+                                            <button class="btn btn-sm btn-outline-primary"
+                                                    onclick="assignMainGm({{ participant.user.id }})">
+                                                <i class="fas fa-crown"></i> 主GM
+                                            </button>
+                                        {% endif %}
+                                        {% if participant.role == 'gm' and participant.user_id != session.gm_id %}
+                                            <button class="btn btn-sm btn-outline-secondary"
+                                                    onclick="changeParticipantRole({{ participant.id }}, 'player')">
+                                                <i class="fas fa-user"></i> PL
+                                            </button>
+                                        {% elif participant.role != 'gm' %}
+                                            <button class="btn btn-sm btn-outline-secondary"
+                                                    onclick="changeParticipantRole({{ participant.id }}, 'gm')">
+                                                <i class="fas fa-user-shield"></i> 共同GM
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+
+                                    {% if can_edit and participant.role != 'gm' %}
                                     <div class="mt-2 d-flex gap-2">
                                         {% if participant.user %}
                                             <button class="btn btn-sm btn-outline-primary"
@@ -666,14 +688,14 @@
             </div>
 
             <!-- ハンドアウト情報 -->
-            {% if handouts or is_gm %}
+            {% if handouts or can_edit %}
             <div class="card mb-4">
                 <div class="card-header bg-warning">
                     <div class="d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
                             <i class="fas fa-scroll"></i> ハンドアウト情報
                         </h6>
-                        {% if is_gm %}
+                        {% if can_edit %}
                         <div class="btn-group btn-group-sm">
                             <a href="/api/schedules/sessions/{{ session.id }}/handouts/manage/" 
                                class="btn btn-outline-light">
@@ -698,7 +720,7 @@
                                         <i class="fas fa-eye-slash text-warning ms-1" title="秘匿情報"></i>
                                     {% endif %}
                                 </h6>
-                                {% if is_gm %}
+                                {% if can_edit %}
                                 <div class="btn-group btn-group-sm">
                                     <button class="btn btn-outline-primary" onclick="editHandout({{ handout.id }})">
                                         <i class="fas fa-edit"></i>
@@ -709,7 +731,7 @@
                                 </div>
                                 {% endif %}
                             </div>
-                            {% if is_gm %}
+                            {% if can_edit %}
                                 <p class="small text-muted mb-2">
                                     <i class="fas fa-user"></i> {{ handout.participant.display_name }}
                                 </p>
@@ -943,7 +965,7 @@
 </div>
 {% endif %}
 
-{% if is_gm %}
+{% if can_edit %}
 <div class="modal fade" id="linkCharacterModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -973,7 +995,7 @@
 </div>
 {% endif %}
 
-{% if is_gm %}
+{% if can_edit %}
 <div class="modal fade" id="guestParticipantModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -1019,7 +1041,7 @@
 {% endif %}
 
 <!-- ハンドアウト作成モーダル -->
-{% if is_gm %}
+{% if can_edit %}
 <div class="modal fade" id="createHandoutModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -1142,6 +1164,27 @@
 
 .session-detail-actions .btn {
     white-space: nowrap;
+}
+
+.session-main-column {
+    display: flex;
+    flex-direction: column;
+}
+
+#sessionParticipantsCard {
+    order: 2;
+}
+
+#sessionImagesCard {
+    order: 3;
+}
+
+#youtubeLinksCard {
+    order: 4;
+}
+
+#sessionRewardsCard {
+    order: 5;
 }
 
 @media (max-width: 576px) {
@@ -1633,7 +1676,7 @@ let groupMemberNames = new Map();
 const SESSION_ID = {{ session.id }};
 const SELECTED_OCCURRENCE_ID = {% if selected_occurrence_id %}{{ selected_occurrence_id }}{% else %}null{% endif %};
 const GROUP_ID = {{ session.group.id }};
-const IS_GM = {% if is_gm %}true{% else %}false{% endif %};
+const IS_GM = {% if can_edit %}true{% else %}false{% endif %};
 const CAN_INVITE = {% if can_invite %}true{% else %}false{% endif %};
 const CAN_MANAGE_REWARDS = CAN_INVITE;
 const IS_PARTICIPANT = {% if is_participant %}true{% else %}false{% endif %};
@@ -2524,7 +2567,7 @@ function bindCharacterNameAutoFill(selectId, inputId) {
 }
 
 async function loadGroupMemberCharacters() {
-    {% if is_gm %}
+    {% if can_edit %}
     try {
         const response = await axios.get('/api/accounts/groups/{{ session.group.id }}/member_characters/');
         const data = response.data || [];
@@ -3810,6 +3853,43 @@ async function saveGuestParticipant() {
 }
 
 // セッション脱退
+async function assignMainGm(userId) {
+    const confirmed = await sessionConfirm('このユーザーを主GMに変更しますか？', {
+        title: '主GM変更',
+        confirmText: '変更',
+        confirmVariant: 'primary'
+    });
+    if (!confirmed) return;
+
+    try {
+        await axios.post(`/api/schedules/sessions/${SESSION_ID}/assign-roles/`, {
+            gm_user_id: userId
+        });
+        sessionNotifySuccess('主GMを変更しました');
+        window.location.reload();
+    } catch (error) {
+        sessionNotifyError('主GMの変更に失敗しました: ' + getSessionErrorMessage(error));
+    }
+}
+
+async function changeParticipantRole(participantId, role) {
+    const label = role === 'gm' ? '共同GM' : 'PL';
+    const confirmed = await sessionConfirm(`この参加者を${label}に変更しますか？`, {
+        title: '参加者ロール変更',
+        confirmText: '変更',
+        confirmVariant: 'primary'
+    });
+    if (!confirmed) return;
+
+    try {
+        await axios.patch(`/api/schedules/participants/${participantId}/`, { role });
+        sessionNotifySuccess(`参加者を${label}に変更しました`);
+        window.location.reload();
+    } catch (error) {
+        sessionNotifyError('参加者ロールの変更に失敗しました: ' + getSessionErrorMessage(error));
+    }
+}
+
 async function leaveSession() {
     const confirmed = await sessionConfirm('本当にセッションから脱退しますか？', {
         title: 'セッションから脱退',

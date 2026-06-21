@@ -218,6 +218,85 @@ class BasicAccountsTestCase(TestCase):
         )
         self.assertEqual(response.status_code, 404)
 
+    def test_character_sheet_access_scope_group_private_public_and_allowed_users(self):
+        owner = User.objects.create_user(
+            username='scope_owner',
+            email='scope_owner@example.com',
+            password='pass1234',
+            nickname='Scope Owner',
+        )
+        group_user = User.objects.create_user(
+            username='scope_group_user',
+            email='scope_group@example.com',
+            password='pass1234',
+            nickname='Scope Group',
+        )
+        allowed_user = User.objects.create_user(
+            username='scope_allowed_user',
+            email='scope_allowed@example.com',
+            password='pass1234',
+            nickname='Scope Allowed',
+        )
+        outsider = User.objects.create_user(
+            username='scope_outsider',
+            email='scope_outsider@example.com',
+            password='pass1234',
+            nickname='Scope Outsider',
+        )
+        group = Group.objects.create(name='Scope Group', created_by=owner)
+        GroupMembership.objects.create(user=owner, group=group, role='admin')
+        GroupMembership.objects.create(user=group_user, group=group, role='member')
+
+        character = CharacterSheet.objects.create(
+            user=owner,
+            edition='6th',
+            name='Scoped PC',
+            age=20,
+            str_value=10,
+            con_value=10,
+            pow_value=10,
+            dex_value=10,
+            app_value=10,
+            siz_value=10,
+            int_value=10,
+            edu_value=10,
+            hit_points_max=10,
+            hit_points_current=10,
+            magic_points_max=10,
+            magic_points_current=10,
+            sanity_max=50,
+            sanity_current=50,
+            sanity_starting=50,
+        )
+        url = f'/api/accounts/character-sheets/{character.id}/'
+
+        self.client.force_login(group_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        self.client.force_login(outsider)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+        character.access_scope = 'private'
+        character.save(update_fields=['access_scope'])
+        character.allowed_users.add(allowed_user)
+
+        self.client.force_login(group_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+        self.client.force_login(allowed_user)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        character.access_scope = 'public'
+        character.save(update_fields=['access_scope'])
+
+        self.client.force_login(outsider)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
 
 class GroupBasicTestCase(TestCase):
     def setUp(self):

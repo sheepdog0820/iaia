@@ -275,6 +275,13 @@ class TRPGSession(models.Model):
     visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default='group')
     
     gm = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='gm_sessions')
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_sessions',
+    )
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='sessions')
     scenario = models.ForeignKey(
         'scenarios.Scenario',

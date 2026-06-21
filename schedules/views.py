@@ -76,11 +76,36 @@ def _visible_sessions_for(user):
     ).values_list('object_id', flat=True)
     return TRPGSession.objects.filter(
         Q(gm=user) |
+        Q(created_by=user) |
         Q(visibility='public') |
         Q(group_id__in=group_ids) |
         Q(id__in=participant_session_ids) |
         Q(id__in=shared_session_ids)
     ).distinct()
+
+
+def _can_manage_session(session, user):
+    if not user or not user.is_authenticated:
+        return False
+    if session.gm_id == user.id:
+        return True
+    if getattr(session, 'created_by_id', None) == user.id:
+        return True
+    return SessionParticipant.objects.filter(
+        session=session,
+        user=user,
+        role='gm',
+    ).exists()
+
+
+def _is_assignable_session_user(session, user):
+    if not user:
+        return False
+    if session.visibility == 'public':
+        return True
+    if session.group_id and session.group.members.filter(id=user.id).exists():
+        return True
+    return session.gm_id == user.id or getattr(session, 'created_by_id', None) == user.id
 
 
 class SessionsListView(APIView):
@@ -159,7 +184,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         return _visible_sessions_for(user).select_related('scenario').order_by('-date')
     
     def perform_create(self, serializer):
-        serializer.save(gm=self.request.user)
+        serializer.save(gm=self.request.user, created_by=self.request.user)
         session = serializer.instance
         template = getattr(session, '_selected_session_template', None)
         if template is not None:
@@ -181,9 +206,9 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        if instance.gm_id != request.user.id:
+        if not _can_manage_session(instance, request.user):
             return Response(
-                {'detail': 'Only the GM can update this session.'},
+                {'detail': 'Only a session manager can update this session.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
         
@@ -238,9 +263,9 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        if instance.gm_id != request.user.id:
+        if not _can_manage_session(instance, request.user):
             return Response(
-                {'detail': 'Only the GM can delete this session.'},
+                {'detail': 'Only a session manager can delete this session.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
         try:
@@ -432,9 +457,9 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         session = self.get_object()
         
         # メインGMのみ実行可能
-        if session.gm != request.user:
+        if not _can_manage_session(session, request.user):
             return Response(
-                {'error': 'Only main GM can add co-GMs'},
+                {'error': 'Only a session manager can add co-GMs'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -476,6 +501,128 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             )
         
         return Response({'message': 'Co-GM added successfully'}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='assign-roles')
+    def assign_roles(self, request, pk=None):
+        session = self.get_object()
+        if not _can_manage_session(session, request.user):
+            return Response(
+                {'error': 'Only a session manager can assign roles'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        gm_user_id = request.data.get('gm_user_id') or request.data.get('gm')
+        participant_items = request.data.get('participants', [])
+        if participant_items is None:
+            participant_items = []
+        if not isinstance(participant_items, list):
+            return Response(
+                {'error': 'participants must be a list'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        updated_participants = []
+
+        def get_assignable_user(user_id):
+            try:
+                target_user = CustomUser.objects.get(id=user_id)
+            except (CustomUser.DoesNotExist, TypeError, ValueError):
+                return None, Response(
+                    {'error': 'User not found'},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            if not _is_assignable_session_user(session, target_user):
+                return None, Response(
+                    {'error': 'User is not a member of this session scope'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            return target_user, None
+
+        with transaction.atomic():
+            if gm_user_id:
+                gm_user, error_response = get_assignable_user(gm_user_id)
+                if error_response:
+                    return error_response
+                session.gm = gm_user
+                session.save(update_fields=['gm', 'updated_at'])
+                participant, _ = SessionParticipant.objects.update_or_create(
+                    session=session,
+                    user=gm_user,
+                    defaults={'role': 'gm', 'player_slot': None},
+                )
+                updated_participants.append(participant)
+
+            for item in participant_items:
+                if not isinstance(item, dict):
+                    return Response(
+                        {'error': 'participant entries must be objects'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                target_user, error_response = get_assignable_user(
+                    item.get('user_id') or item.get('user')
+                )
+                if error_response:
+                    return error_response
+
+                role = item.get('role') or 'player'
+                if role not in ['player', 'gm']:
+                    return Response(
+                        {'error': 'role must be player or gm'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                raw_slot = item.get('player_slot')
+                player_slot = None
+                if role == 'player' and raw_slot not in [None, '', 'null', 'None']:
+                    try:
+                        player_slot = int(raw_slot)
+                    except (TypeError, ValueError):
+                        return Response(
+                            {'error': 'player_slot must be an integer'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                if player_slot:
+                    existing_slot = SessionParticipant.objects.filter(
+                        session=session,
+                        player_slot=player_slot,
+                    ).exclude(user=target_user).first()
+                    if existing_slot:
+                        return Response(
+                            {'error': f'Player slot {player_slot} is already taken'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                character_sheet = None
+                character_sheet_id = item.get('character_sheet_id') or item.get('character_sheet')
+                if character_sheet_id:
+                    try:
+                        character_sheet = CharacterSheet.objects.get(
+                            id=character_sheet_id,
+                            user=target_user,
+                        )
+                    except CharacterSheet.DoesNotExist:
+                        return Response(
+                            {'error': 'Character sheet not found or not owned by the user'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                participant, _ = SessionParticipant.objects.update_or_create(
+                    session=session,
+                    user=target_user,
+                    defaults={
+                        'role': role,
+                        'player_slot': player_slot if role == 'player' else None,
+                        'character_sheet': character_sheet,
+                    },
+                )
+                bind_slot_handouts_to_participant(participant)
+                updated_participants.append(participant)
+
+        return Response({
+            'session': TRPGSessionSerializer(session, context={'request': request}).data,
+            'participants': SessionParticipantSerializer(updated_participants, many=True).data,
+        }, status=status.HTTP_200_OK)
     
     @action(detail=True, methods=['post'])
     def invite(self, request, pk=None):
@@ -483,12 +630,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         session = self.get_object()
         
         # GMのみ招待可能（メインGMまたは協力GM）
-        is_gm = session.gm == request.user
-        is_co_gm = SessionParticipant.objects.filter(
-            session=session, user=request.user, role='gm'
-        ).exists()
-        
-        if not is_gm and not is_co_gm:
+        if not _can_manage_session(session, request.user):
             return Response(
                 {'error': 'Only GM can invite participants'},
                 status=status.HTTP_403_FORBIDDEN
@@ -560,9 +702,9 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         session = self.get_object()
         
         # GMのみ実行可能
-        if session.gm != request.user:
+        if not _can_manage_session(session, request.user):
             return Response(
-                {'error': 'Only GM can assign players'},
+                {'error': 'Only a session manager can assign players'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -586,7 +728,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             )
         
         # グループメンバーかチェック
-        if session.group and not session.group.members.filter(id=target_user.id).exists():
+        if not _is_assignable_session_user(session, target_user):
             return Response(
                 {'error': 'User is not a member of this group'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -790,7 +932,15 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='editable-choices')
     def editable_choices(self, request):
-        sessions = self.get_queryset().filter(gm=request.user).select_related('group')[:200]
+        co_gm_session_ids = SessionParticipant.objects.filter(
+            user=request.user,
+            role='gm',
+        ).values_list('session_id', flat=True)
+        sessions = self.get_queryset().filter(
+            Q(gm=request.user)
+            | Q(created_by=request.user)
+            | Q(id__in=co_gm_session_ids)
+        ).select_related('group')[:200]
         return Response([
             {
                 'id': session.id,
@@ -917,8 +1067,8 @@ class SessionOccurrenceViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         session = serializer.validated_data.get('session')
-        if not session or session.gm_id != self.request.user.id:
-            raise PermissionDenied('Only the GM can add session dates.')
+        if not session or not _can_manage_session(session, self.request.user):
+            raise PermissionDenied('Only a session manager can add session dates.')
 
         is_primary = session.date is None and not session.occurrences.filter(is_primary=True).exists()
         occurrence = serializer.save(is_primary=is_primary)
@@ -929,8 +1079,8 @@ class SessionOccurrenceViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         instance = serializer.instance
-        if instance.session.gm_id != self.request.user.id:
-            raise PermissionDenied('Only the GM can edit session dates.')
+        if not _can_manage_session(instance.session, self.request.user):
+            raise PermissionDenied('Only a session manager can edit session dates.')
 
         old_start_at = instance.start_at
         new_session = serializer.validated_data.get('session')
@@ -951,8 +1101,8 @@ class SessionOccurrenceViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        if instance.session.gm_id != request.user.id:
-            raise PermissionDenied('Only the GM can delete session dates.')
+        if not _can_manage_session(instance.session, request.user):
+            raise PermissionDenied('Only a session manager can delete session dates.')
         if instance.is_primary:
             raise ValidationError({'detail': 'Cannot delete the primary session date.'})
         return super().destroy(request, *args, **kwargs)
@@ -980,6 +1130,7 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
             Q(session__group__members=self.request.user) |  # グループメンバー
             Q(session__visibility='public') |  # 公開セッション
             Q(session__gm=self.request.user) |  # GM
+            Q(session__created_by=self.request.user) |
             Q(user=self.request.user)  # 自分の参加
         ).distinct()
     
@@ -995,13 +1146,7 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        is_main_gm = session.gm == request.user
-        is_co_gm = SessionParticipant.objects.filter(
-            session=session,
-            user=request.user,
-            role='gm',
-        ).exists()
-        is_gm = is_main_gm or is_co_gm
+        is_gm = _can_manage_session(session, request.user)
 
         raw_user_value = request.data.get('user')
         raw_guest_name = request.data.get('guest_name')
@@ -1065,11 +1210,7 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        can_participate = (
-            session.visibility == 'public' or  # 公開セッション
-            session.group.members.filter(id=target_user.id).exists() or  # グループメンバー
-            session.gm == target_user  # GM
-        )
+        can_participate = _is_assignable_session_user(session, target_user)
         
         if not can_participate:
             return Response(
@@ -1105,9 +1246,9 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
             role = 'player'
 
         # 権限昇格防止: メインGM以外は role='gm' を指定できない
-        if role == 'gm' and session.gm != request.user:
+        if role == 'gm' and not is_gm:
             return Response(
-                {'error': 'Only main GM can assign GM role'},
+                {'error': 'Only a session manager can assign GM role'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -1130,11 +1271,7 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         
         # GM権限チェック（メインGMまたは協力GM）
-        is_main_gm = instance.session.gm == request.user
-        is_co_gm = SessionParticipant.objects.filter(
-            session=instance.session, user=request.user, role='gm'
-        ).exists()
-        is_gm = is_main_gm or is_co_gm
+        is_gm = _can_manage_session(instance.session, request.user)
         
         # GMまたは本人のみ更新可能
         if not is_gm and instance.user != request.user:
@@ -1157,9 +1294,9 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
                 )
 
         # role 変更はメインGMのみ（権限昇格防止）
-        if 'role' in data and not is_main_gm:
+        if 'role' in data and not is_gm:
             return Response(
-                {'error': 'Only main GM can change participant role'},
+                {'error': 'Only a session manager can change participant role'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -1224,12 +1361,7 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
         """参加者削除（本人の脱退 or GMによる除名のみ許可）"""
         instance = self.get_object()
 
-        is_main_gm = instance.session.gm == request.user
-        is_co_gm = SessionParticipant.objects.filter(
-            session=instance.session,
-            user=request.user,
-            role='gm'
-        ).exists()
+        is_session_manager = _can_manage_session(instance.session, request.user)
 
         # 本人は自分の参加情報を削除できる（脱退）
         if instance.user == request.user:
@@ -1238,7 +1370,7 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         # GM（メイン/協力）のみ他人を削除できる
-        if is_main_gm or is_co_gm:
+        if is_session_manager:
             if instance.user == instance.session.gm:
                 return Response(
                     {'error': 'Cannot remove main GM'},
@@ -2187,6 +2319,7 @@ class SessionDetailView(APIView):
         has_access = (
             session.visibility == 'public' or
             session.gm == user or
+            session.created_by_id == user.id or
             session.group.members.filter(id=user.id).exists() or
             session.participants.filter(id=user.id).exists()
         )
@@ -2238,9 +2371,10 @@ class SessionDetailView(APIView):
         # ユーザーの権限
         is_gm = session.gm == user
         is_co_gm = participants.filter(user=user, role='gm').exists()
+        is_session_manager = _can_manage_session(session, user)
         is_participant = participants.filter(user=user).exists()
-        can_edit = is_gm
-        can_invite = is_gm or is_co_gm
+        can_edit = is_session_manager
+        can_invite = is_session_manager
         can_join = (
             (not is_gm) and
             (not is_participant) and
@@ -2267,6 +2401,7 @@ class SessionDetailView(APIView):
             'handouts': handouts,
             'is_gm': is_gm,
             'is_co_gm': is_co_gm,
+            'is_session_manager': is_session_manager,
             'is_participant': is_participant,
             'can_edit': can_edit,
             'can_invite': can_invite,
@@ -2301,6 +2436,7 @@ class SessionDatePollView(APIView):
         has_access = (
             session.visibility == 'public' or
             session.gm == user or
+            session.created_by_id == user.id or
             session.group.members.filter(id=user.id).exists() or
             session.participants.filter(id=user.id).exists()
         )
@@ -2312,7 +2448,7 @@ class SessionDatePollView(APIView):
 
         is_gm = session.gm == user
         is_participant = session.participants.filter(id=user.id).exists()
-        can_edit = is_gm
+        can_edit = _can_manage_session(session, user)
 
         if 'application/json' in request.headers.get('Accept', ''):
             return Response({

@@ -57,6 +57,12 @@ class CharacterSheet(models.Model):
     ]
     
     # 基本情報
+    ACCESS_SCOPE_CHOICES = [
+        ('private', 'Private'),
+        ('group', 'Group'),
+        ('public', 'Public'),
+    ]
+
     user = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE, related_name='character_sheets')
     edition = models.CharField(max_length=3, choices=EDITION_CHOICES)
     name = models.CharField(max_length=100, verbose_name="探索者名")
@@ -167,6 +173,18 @@ class CharacterSheet(models.Model):
     session_count = models.PositiveIntegerField(default=0, verbose_name="セッション数")
     is_active = models.BooleanField(default=True, verbose_name="アクティブ")
     is_public = models.BooleanField(default=False, verbose_name="公開設定")
+    access_scope = models.CharField(
+        max_length=10,
+        choices=ACCESS_SCOPE_CHOICES,
+        default='group',
+        verbose_name="Access scope",
+    )
+    allowed_users = models.ManyToManyField(
+        'accounts.CustomUser',
+        blank=True,
+        related_name='readable_character_sheets',
+        verbose_name="Allowed users",
+    )
     
     # CCFOLIA連携
     ccfolia_sync_enabled = models.BooleanField(default=False, verbose_name="CCFOLIA同期有効")

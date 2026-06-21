@@ -32,8 +32,25 @@ class CharacterSheetAccessMixin:
         if getattr(character_sheet, 'user_id', None) == user.id:
             return True
 
-        if getattr(character_sheet, 'is_public', False):
+        access_scope = getattr(character_sheet, 'access_scope', 'group')
+
+        if getattr(character_sheet, 'is_public', False) or access_scope == 'public':
             return True
+
+        if character_sheet.allowed_users.filter(id=user.id).exists():
+            return True
+
+        if access_scope == 'group':
+            from ..models import GroupMembership
+
+            owner_group_ids = GroupMembership.objects.filter(
+                user_id=character_sheet.user_id
+            ).values_list('group_id', flat=True)
+            if GroupMembership.objects.filter(
+                user=user,
+                group_id__in=owner_group_ids,
+            ).exists():
+                return True
 
         return character_sheet.session_participations.filter(
             session__gm=user
@@ -88,20 +105,20 @@ class CharacterNestedResourceMixin:
             else:
                 raise ValidationError("character_sheet_id is required")
         
-        queryset = CharacterSheet.objects
-        if self.request.method in ['GET', 'HEAD', 'OPTIONS']:
-            queryset = queryset.filter(
-                models.Q(user=self.request.user)
-                | models.Q(is_public=True)
-                | models.Q(session_participations__session__gm=self.request.user)
-            )
-        else:
-            queryset = queryset.filter(user=self.request.user)
-
         try:
-            return queryset.distinct().get(id=character_sheet_id)
+            character_sheet = CharacterSheet.objects.get(id=character_sheet_id)
         except CharacterSheet.DoesNotExist:
             raise Http404("Character sheet not found")
+
+        if self.request.method in ['GET', 'HEAD', 'OPTIONS']:
+            if CharacterSheetAccessMixin.can_read_character_sheet(character_sheet, self.request.user):
+                return character_sheet
+            raise Http404("Character sheet not found")
+
+        if character_sheet.user_id == self.request.user.id:
+            return character_sheet
+
+        raise Http404("Character sheet not found")
     
     def get_queryset(self):
         """キャラクターシート関連リソースのクエリセット"""

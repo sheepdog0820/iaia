@@ -267,6 +267,12 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
     
     # ユーザー情報
     user_nickname = serializers.CharField(source='user.nickname', read_only=True)
+    allowed_user_ids = serializers.PrimaryKeyRelatedField(
+        source='allowed_users',
+        queryset=CustomUser.objects.all(),
+        many=True,
+        required=False,
+    )
 
     scenario_id = serializers.IntegerField(source='source_scenario_id', read_only=True)
     scenario_title = serializers.CharField(source='source_scenario_title', read_only=True)
@@ -288,7 +294,8 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             'magic_points_current', 'sanity_starting', 'sanity_max', 'sanity_current',
             'hp_current', 'mp_current', 'san_current',  # エイリアス追加
             'version', 'parent_sheet', 'parent_sheet_name',
-            'notes', 'is_active', 'is_public', 'status', 'created_at', 'updated_at',
+            'notes', 'is_active', 'is_public', 'access_scope', 'allowed_user_ids',
+            'status', 'created_at', 'updated_at',
             'skills', 'equipment', 'sixth_edition_data', 'character_6th', 'character_7th',
             'abilities', 'versions', 'user_nickname'
         ]
@@ -428,6 +435,12 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
     
     # 画像フィールド
     character_image = serializers.ImageField(required=False, validators=[validate_character_image])
+    allowed_user_ids = serializers.PrimaryKeyRelatedField(
+        source='allowed_users',
+        queryset=CustomUser.objects.all(),
+        many=True,
+        required=False,
+    )
     
     # 能力値フィールドをカスタムバリデーションに
     str_value = serializers.IntegerField()
@@ -447,7 +460,7 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',
-            'notes', 'is_public', 'sixth_edition_data',
+            'notes', 'is_public', 'access_scope', 'allowed_user_ids', 'sixth_edition_data',
             'skills', 'equipment', 'character_image'
         ]
         read_only_fields = ['id']
@@ -479,6 +492,7 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
         sixth_data = validated_data.pop('sixth_edition_data', None)
         skills_data = validated_data.pop('skills', [])
         equipment_data = validated_data.pop('equipment', [])
+        allowed_users = validated_data.pop('allowed_users', [])
         
         # リクエストオブジェクトから追加データを取得
         request = self.context.get('request')
@@ -556,6 +570,8 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
         # キャラクターシート作成
         try:
             character_sheet = CharacterSheet.objects.create(**validated_data)
+            if allowed_users:
+                character_sheet.allowed_users.set(allowed_users)
             logger.info(f"キャラクターシート作成成功: ID={character_sheet.id}")
         except Exception as e:
             logger.error(f"キャラクターシート作成エラー: {e}")
@@ -695,6 +711,12 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
     scenario_title = serializers.CharField(source='source_scenario_title', required=False, allow_blank=True)
     game_system = serializers.CharField(source='source_scenario_game_system', required=False, allow_blank=True)
     character_image = serializers.ImageField(required=False, validators=[validate_character_image])
+    allowed_user_ids = serializers.PrimaryKeyRelatedField(
+        source='allowed_users',
+        queryset=CustomUser.objects.all(),
+        many=True,
+        required=False,
+    )
     
     class Meta:
         model = CharacterSheet
@@ -705,7 +727,8 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',
             'hp_current', 'mp_current', 'san_current',  # エイリアス追加
-            'notes', 'is_active', 'status', 'character_image'
+            'notes', 'is_active', 'access_scope', 'allowed_user_ids', 'status',
+            'character_image'
         ]
     
     def validate_name(self, value):
