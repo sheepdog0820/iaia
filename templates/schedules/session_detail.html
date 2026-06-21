@@ -3,6 +3,16 @@
 
 {% block title %}{{ session.title }} - セッション詳細{% endblock %}
 
+{% block extra_head %}
+{% if is_public_view %}
+<meta property="og:type" content="article">
+<meta property="og:title" content="{{ session.title }} - Session">
+<meta property="og:description" content="{{ session.title }}{% if session.scenario %} / {{ session.scenario.title }}{% endif %}{% if session.date %} / {{ session.date|date:'Y-m-d H:i' }}{% endif %}">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+<meta name="twitter:card" content="summary">
+{% endif %}
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <!-- ヘッダー部分 -->
@@ -585,17 +595,17 @@
                                     
                                     {% if participant.character_sheet %}
                                         <p class="mb-2 d-flex gap-2">
-                                            <a href="{% url 'character_detail' participant.character_sheet.id %}" class="btn btn-sm btn-outline-info flex-grow-1">
+                                            <a href="{% url 'character_public_view' participant.character_sheet.id %}" class="btn btn-sm btn-outline-info flex-grow-1">
                                                 <i class="fas fa-file-alt"></i> キャラクターシート
                                             </a>
                                             <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                    onclick="copyUrl('{% url 'character_detail' participant.character_sheet.id %}', 'キャラクターURL')">
+                                                    onclick="copyUrl('{% url 'character_public_view' participant.character_sheet.id %}', 'キャラクターURL')">
                                                 <i class="fas fa-copy"></i>
                                             </button>
                                         </p>
                                         <p class="mb-2">
                                             <button type="button" class="btn btn-sm btn-outline-success w-100"
-                                                    onclick="copyCcfoliaCharacter({{ participant.character_sheet.id }}, '{% url 'character_detail' participant.character_sheet.id %}')">
+                                                    onclick="copyCcfoliaCharacter({{ participant.character_sheet.id }}, '{% url 'character_public_view' participant.character_sheet.id %}')">
                                                 <i class="fas fa-clipboard"></i> ココフォリア用コピー
                                             </button>
                                         </p>

@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="card-footer bg-transparent">
                             <div class="d-flex align-items-center gap-2 character-card-actions">
                                  <div class="btn-group flex-grow-1" role="group">
-                                    <a href="/accounts/character/${character.id}/" class="btn btn-outline-primary btn-sm">
+                                    <a href="/characters/${character.id}/view/" class="btn btn-outline-primary btn-sm">
                                         <i class="fas fa-eye"></i> 詳細
                                     </a>
                                     <a href="/accounts/character/create/${character.edition || '6th'}/?id=${character.id}" class="btn btn-outline-secondary btn-sm">
@@ -451,7 +451,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function copyCharacterUrl(characterId) {
-        const path = `/accounts/character/${characterId}/`;
+        const path = `/characters/${characterId}/view/`;
         const url = toAbsoluteUrl(path);
         try {
             await copyTextToClipboard(url);

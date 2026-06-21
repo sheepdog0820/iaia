@@ -24,7 +24,7 @@ from .group_views import (
 # Character management views
 from .character_views import (
     CharacterSheetViewSet, CharacterSkillViewSet, CharacterEquipmentViewSet,
-    CharacterListView, CharacterDetailView, CharacterDetailRedirectView, Character6thDetailView,
+    CharacterListView, CharacterDetailView, CharacterDetailRedirectView, Character6thDetailView, character_public_view_6th,
     CharacterEditView, Character6thCreateView, Character7thCreateView
 )
 from .dice_roll_setting_views import DiceRollSettingViewSet
@@ -48,7 +48,7 @@ __all__ = [
     'GroupInviteLinkCreateView', 'GroupInviteLinkRevokeView',
     'GroupInviteLinkLandingView', 'GroupInviteLinkJoinView',
     'CharacterSheetViewSet', 'CharacterSkillViewSet', 'CharacterEquipmentViewSet',
-    'CharacterListView', 'CharacterDetailView', 'CharacterDetailRedirectView', 'Character6thDetailView',
+    'CharacterListView', 'CharacterDetailView', 'CharacterDetailRedirectView', 'Character6thDetailView', 'character_public_view_6th',
     'CharacterEditView', 'Character6thCreateView', 'Character7thCreateView',
     'DiceRollSettingViewSet',
     'BillingPageView', 'BillingSuccessView', 'BillingCancelView',

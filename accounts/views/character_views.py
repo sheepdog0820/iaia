@@ -12,6 +12,7 @@ from .base_views import BaseViewSet, PermissionMixin
 from .mixins import CharacterSheetAccessMixin, CharacterNestedResourceMixin, ErrorHandlerMixin
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from django.db import OperationalError, IntegrityError, transaction
@@ -32,6 +33,11 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         max_page_size = 100
 
     pagination_class = OptionalPagination
+
+    def get_permissions(self):
+        if self.action == 'public_detail':
+            return [AllowAny()]
+        return super().get_permissions()
     
     def get_queryset(self):
         """Get user's character sheets only"""
@@ -95,6 +101,16 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         serializer = CharacterSheetListSerializer(queryset, many=True)
         return Response(serializer.data)
     
+    @action(detail=True, methods=['get'], url_path='public', permission_classes=[AllowAny])
+    def public_detail(self, request, pk=None):
+        sheet = get_object_or_404(
+            CharacterSheet.objects.select_related('parent_sheet', 'sixth_edition_data', 'user')
+            .prefetch_related('skills', 'equipment'),
+            pk=pk,
+        )
+        serializer = self.get_serializer(sheet)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'], permission_classes=[])
     def auth_check(self, request):
         """認証状態を確認するデバッグエンドポイント"""
@@ -2408,7 +2424,6 @@ class CharacterListView(TemplateView):
         return context
 
 
-@method_decorator(login_required, name='dispatch')
 class CharacterDetailRedirectView(TemplateView):
     """Character sheet detail view dispatcher (legacy URL)"""
 
@@ -2429,10 +2444,10 @@ class CharacterDetailRedirectView(TemplateView):
         return redirect('character_detail_6th', character_id=character.id)
 
 
-@method_decorator(login_required, name='dispatch')
 class CharacterDetailView(TemplateView):
     """Character sheet detail view"""
     template_name = 'accounts/character_detail.html'
+    is_public_view = False
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -2445,7 +2460,7 @@ class CharacterDetailView(TemplateView):
                 'skills', 'equipment', 'versions'
             ).get(id=character_id)
 
-            if not CharacterSheetAccessMixin.can_read_character_sheet(character, self.request.user):
+            if not self.is_public_view and not CharacterSheetAccessMixin.can_read_character_sheet(character, self.request.user):
                 raise Http404("Character sheet not found")
 
             # Filter skills to those above base value only
@@ -2473,6 +2488,8 @@ class CharacterDetailView(TemplateView):
             context.update({
                 'character': character,
                 'character_id': character.id,
+                'is_public_view': self.is_public_view,
+                'can_edit_character': (not self.is_public_view) and self.request.user.is_authenticated and character.user_id == self.request.user.id,
                 'assigned_skills': assigned_skills,
                 'weapons': weapons,
                 'armor': armor,
@@ -2490,6 +2507,34 @@ class Character6thDetailView(CharacterDetailView):
     """クトゥルフ神話TRPG 6版キャラクター詳細ビュー"""
 
     pass
+
+
+def character_public_view_6th(request, character_id):
+    character = get_object_or_404(
+        CharacterSheet.objects.select_related('parent_sheet', 'sixth_edition_data', 'user')
+        .prefetch_related('skills', 'equipment', 'versions'),
+        id=character_id,
+    )
+    from django.db import models as django_models
+    assigned_skills = character.skills.filter(
+        current_value__gt=django_models.F('base_value')
+    ).order_by('skill_name')
+    weapons = character.equipment.filter(item_type='weapon')
+    armor = character.equipment.filter(item_type='armor')
+    items = character.equipment.filter(item_type='item')
+    base_sheet = character.parent_sheet if character.parent_sheet else character
+    versions = CharacterSheet.objects.filter(parent_sheet=base_sheet).order_by('version')
+    return render(request, 'accounts/character_detail.html', {
+        'character': character,
+        'character_id': character.id,
+        'is_public_view': True,
+        'can_edit_character': False,
+        'assigned_skills': assigned_skills,
+        'weapons': weapons,
+        'armor': armor,
+        'items': items,
+        'versions': [base_sheet] + list(versions),
+    })
 
 
 @method_decorator(login_required, name='dispatch')

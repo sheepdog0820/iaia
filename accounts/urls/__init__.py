@@ -50,8 +50,8 @@ urlpatterns = [
     
     # Character Sheet Web Views
     path('character/list/', views.CharacterListView.as_view(), name='character_list'),
-    path('character/6th/<int:character_id>/', views.Character6thDetailView.as_view(), name='character_detail_6th'),
-    path('character/<int:character_id>/', views.CharacterDetailRedirectView.as_view(), name='character_detail'),
+    path('character/6th/<int:character_id>/', login_required(views.Character6thDetailView.as_view()), name='character_detail_6th'),
+    path('character/<int:character_id>/', login_required(views.CharacterDetailRedirectView.as_view()), name='character_detail'),
     path('character/<int:character_id>/edit/', views.CharacterEditView.as_view(), name='character_edit'),
     path('character/new/', views.CharacterEditView.as_view(), name='character_new'),
     

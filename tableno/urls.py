@@ -27,8 +27,10 @@ from accounts.views import (
     CustomSignUpView,
     GroupInviteLinkJoinView,
     GroupInviteLinkLandingView,
+    character_public_view_6th,
 )
 from schedules.views import PublicSessionDetailView
+from scenarios.views import scenario_public_view
 from tableno.health_views import health_live_view, health_ready_view
 from tableno.legal_views import (
     commercial_disclosure_view,
@@ -78,6 +80,10 @@ urlpatterns = [
     path('health/ready', health_ready_view),
     path('api/schema/', SpectacularAPIView.as_view(), name='api-schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='api-schema'), name='api-docs'),
+    path('characters/<int:character_id>/view/', login_not_required(character_public_view_6th), name='character_public_view'),
+    path('characters/6th/<int:character_id>/view/', login_not_required(character_public_view_6th), name='character_public_view_6th'),
+    path('scenarios/<int:scenario_id>/view/', login_not_required(scenario_public_view), name='scenario_public_view'),
+    path('sessions/<uuid:share_token>/view/', login_not_required(PublicSessionDetailView.as_view()), name='session_public_view'),
     path('api/jobs/', AsyncJobListView.as_view(), name='async-job-list'),
     path('api/jobs/<uuid:pk>/', AsyncJobDetailView.as_view(), name='async-job-detail'),
     path('api/jobs/<uuid:pk>/retry/', AsyncJobRetryView.as_view(), name='async-job-retry'),

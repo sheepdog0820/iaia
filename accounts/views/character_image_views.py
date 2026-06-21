@@ -5,13 +5,14 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 from django.db import transaction
 from accounts.models import CharacterSheet, CharacterImage
 from accounts.serializers import CharacterImageSerializer
+from accounts.views.mixins import CharacterSheetAccessMixin
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,11 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
     """キャラクター画像の管理ViewSet"""
     serializer_class = CharacterImageSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in ["GET", "HEAD", "OPTIONS"]:
+            return [AllowAny()]
+        return super().get_permissions()
 
     _character_sheet = None
 
@@ -35,6 +41,8 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
 
         if require_owner and self._character_sheet.user != self.request.user:
             raise PermissionDenied("このキャラクターの画像にはアクセスできません。")
+        if not require_owner and self.request.user.is_authenticated and not CharacterSheetAccessMixin.can_read_character_sheet(self._character_sheet, self.request.user):
+            raise Http404("Character sheet not found")
 
         return self._character_sheet
 

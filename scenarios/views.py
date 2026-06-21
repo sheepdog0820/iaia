@@ -6,7 +6,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import TemplateView
 from datetime import datetime
@@ -23,6 +23,11 @@ from .serializers import (
 class ScenarioViewSet(viewsets.ModelViewSet):
     serializer_class = ScenarioSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action == 'public_detail':
+            return [AllowAny()]
+        return super().get_permissions()
     
     def get_queryset(self):
         queryset = visible_scenarios(Scenario.objects.all(), self.request.user)
@@ -77,6 +82,17 @@ class ScenarioViewSet(viewsets.ModelViewSet):
             )
         return super().destroy(request, *args, **kwargs)
     
+    @action(detail=True, methods=['get'], url_path='public', permission_classes=[AllowAny])
+    def public_detail(self, request, pk=None):
+        scenario = get_object_or_404(
+            Scenario.objects.select_related('created_by').prefetch_related('images'),
+            pk=pk,
+        )
+        serializer = self.get_serializer(scenario)
+        data = dict(serializer.data)
+        data.pop('gm_notes', None)
+        return Response(data)
+
     @action(detail=True, methods=['get'])
     def notes(self, request, pk=None):
         scenario = self.get_object()
@@ -453,3 +469,15 @@ class ScenarioArchivePageView(PremiumOnlyTemplateView):
     """シナリオAPI結果確認（アーカイブ画面）"""
 
     template_name = 'scenarios/archive.html'
+
+
+def scenario_public_view(request, scenario_id):
+    scenario = get_object_or_404(
+        Scenario.objects.select_related('created_by').prefetch_related('images'),
+        id=scenario_id,
+    )
+    images = scenario.images.all()
+    return render(request, 'scenarios/scenario_public_detail.html', {
+        'scenario': scenario,
+        'images': images,
+    })

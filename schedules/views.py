@@ -2453,7 +2453,7 @@ class SessionDetailView(APIView):
         invitation_status_by_user_id_json = json.dumps(invitation_status_by_user_id)
 
         public_session_url = request.build_absolute_uri(
-            reverse('public_session_detail', kwargs={'share_token': session.share_token})
+            reverse('session_public_view', kwargs={'share_token': session.share_token})
         )
         can_edit_scenario = can_edit and getattr(user, 'has_premium_access', False)
         scenario_choices = []
@@ -2565,7 +2565,7 @@ class PublicSessionDetailView(APIView):
         )
 
         public_session_url = request.build_absolute_uri(
-            reverse('public_session_detail', kwargs={'share_token': session.share_token})
+            reverse('session_public_view', kwargs={'share_token': session.share_token})
         )
 
         context = {

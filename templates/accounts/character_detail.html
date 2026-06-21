@@ -3,8 +3,19 @@
 
 {% block title %}{{ character.name }} - キャラクターシート詳細 - タブレノ{% endblock %}
 
+{% block extra_head %}
+{% if is_public_view %}
+<meta property="og:type" content="article">
+<meta property="og:title" content="{{ character.name }} - Character Sheet">
+<meta property="og:description" content="{{ character.name }}{% if character.occupation %} / {{ character.occupation }}{% endif %}{% if character.player_name %} / PL: {{ character.player_name }}{% endif %}">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+<meta name="twitter:card" content="summary">
+{% if character.character_image %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ character.character_image.url }}">{% endif %}
+{% endif %}
+{% endblock %}
+
 {% block content %}
-<div class="container character-detail" id="characterDetailContainer" data-character-id="{{ character.id }}">
+<div class="container character-detail" id="characterDetailContainer" data-character-id="{{ character.id }}" data-public-view="{% if is_public_view %}true{% else %}false{% endif %}">
     <!-- ローディング -->
     <div class="text-center" id="loading">
         <div class="spinner-border text-primary" role="status">
@@ -25,6 +36,7 @@
                         <i class="fas fa-user-ninja text-primary"></i>
                         <span class="character-name"></span>
                     </h2>
+                    {% if can_edit_character %}
                     <div class="character-actions">
                         <a href="/accounts/character/list/" class="btn btn-outline-secondary me-2">
                             <i class="fas fa-arrow-left"></i> 一覧に戻る
@@ -36,6 +48,7 @@
                             <i class="fas fa-edit"></i> 編集
                         </a>
                     </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -331,6 +344,10 @@
 document.addEventListener('DOMContentLoaded', function() {
     const containerEl = document.getElementById('characterDetailContainer');
     const characterId = containerEl?.dataset?.characterId;
+    const isPublicView = containerEl?.dataset?.publicView === 'true';
+    const characterDetailApiUrl = isPublicView
+        ? `/api/accounts/character-sheets/${characterId}/public/`
+        : `/api/accounts/character-sheets/${characterId}/`;
     let character = null;
 
     if (!characterId) {
@@ -360,7 +377,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadCharacterDetail() {
         document.getElementById('loading').style.display = 'block';
         
-        axios.get(`/api/accounts/character-sheets/${characterId}/`)
+        axios.get(characterDetailApiUrl)
             .then(response => {
                 character = response.data;
                 displayCharacter(character);
@@ -389,7 +406,10 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 編集ボタン（キャラクター作成画面にパラメータ付きで遷移）
         const editEdition = character.edition === '7th' ? '7th' : '6th';
-        document.getElementById('editButton').href = `/accounts/character/create/${editEdition}/?id=${character.id}`;
+        const editButton = document.getElementById('editButton');
+        if (editButton) {
+            editButton.href = `/accounts/character/create/${editEdition}/?id=${character.id}`;
+        }
 
         // 新しいバージョン作成ボタンは6版のみ表示（押すと新バージョンを作って編集へ）
         const createVersionBtn = document.getElementById('createVersionAndEditButton');
@@ -941,7 +961,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="small text-muted mb-2">
                                 更新: ${dateText}
                             </div>
-                            <a href="/accounts/character/${version.edition || '6th'}/${version.id}/" class="btn btn-outline-primary btn-sm">
+                            <a href="/characters/${version.id}/view/" class="btn btn-outline-primary btn-sm">
                                 <i class="fas fa-eye"></i> 表示
                             </a>
                         </div>

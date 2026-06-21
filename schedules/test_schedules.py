@@ -1062,7 +1062,7 @@ class ScheduleAPITestCase(APITestCase):
             HTTP_ACCEPT='text/html',
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertContains(response, reverse('character_detail', kwargs={'character_id': character.id}))
+        self.assertContains(response, reverse('character_public_view', kwargs={'character_id': character.id}))
         self.assertNotContains(response, reverse('character_detail_6th', kwargs={'character_id': character.id}))
 
     def test_session_invitation_decline_does_not_create_participant(self):
@@ -1202,4 +1202,4 @@ class PublicSessionLinkTestCase(APITestCase):
         self.client.force_authenticate(user=self.gm)
         response = self.client.get(f'/api/schedules/sessions/{self.session.id}/detail/', HTTP_ACCEPT='text/html')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertContains(response, f"/s/{self.session.share_token}/")
+        self.assertContains(response, f"/sessions/{self.session.share_token}/view/")

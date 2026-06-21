@@ -3,8 +3,10 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.utils import timezone
+from django.urls import reverse
 from .models import Scenario, ScenarioHandout, PlayHistory
 from accounts.models import Group as CustomGroup
+from schedules.models import TRPGSession
 
 User = get_user_model()
 
@@ -226,6 +228,26 @@ class ScenarioAPITestCase(APITestCase):
             self.assertEqual(data['created_by'], self.user1.id)
 
 
+    def test_scenario_public_view_mode_is_readable_without_login(self):
+        self.scenario.gm_notes = 'Secret GM Notes'
+        self.scenario.save(update_fields=['gm_notes'])
+        self.client.logout()
+
+        normal_response = self.client.get(f'/api/scenarios/scenarios/{self.scenario.id}/')
+        self.assertEqual(normal_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        public_api_response = self.client.get(f'/api/scenarios/scenarios/{self.scenario.id}/public/')
+        self.assertEqual(public_api_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(public_api_response.json()['title'], 'Test Scenario')
+
+        public_page_response = self.client.get(
+            reverse('scenario_public_view', kwargs={'scenario_id': self.scenario.id})
+        )
+        self.assertEqual(public_page_response.status_code, status.HTTP_200_OK)
+        self.assertContains(public_page_response, 'Test Scenario')
+        self.assertContains(public_page_response, 'og:title')
+        self.assertNotContains(public_page_response, self.scenario.gm_notes)
+
     def test_scenario_list_limited_to_same_group_creators(self):
         self.client.force_authenticate(user=self.user1)
 
@@ -243,6 +265,32 @@ class ScenarioAPITestCase(APITestCase):
         response = self.client.get(f'/api/scenarios/scenarios/{self.outside_scenario.id}/')
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_scenario_owner_can_delete_linked_scenario(self):
+        session = TRPGSession.objects.create(
+            title='Linked Scenario Session',
+            gm=self.user1,
+            group=self.group,
+            scenario=self.scenario,
+            date=timezone.now(),
+            created_by=self.user1,
+        )
+        self.client.force_authenticate(user=self.user1)
+
+        response = self.client.delete(f'/api/scenarios/scenarios/{self.scenario.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Scenario.objects.filter(id=self.scenario.id).exists())
+        session.refresh_from_db()
+        self.assertIsNone(session.scenario)
+
+    def test_group_member_cannot_delete_other_users_scenario(self):
+        self.client.force_authenticate(user=self.user2)
+
+        response = self.client.delete(f'/api/scenarios/scenarios/{self.scenario.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Scenario.objects.filter(id=self.scenario.id).exists())
 
     def test_scenario_archive_limited_to_same_group_creators(self):
         self.client.force_authenticate(user=self.user1)

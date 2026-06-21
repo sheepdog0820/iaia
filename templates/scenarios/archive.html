@@ -322,6 +322,12 @@
     font-size: 4rem;
     color: #30363d;
 }
+.scenario-card-actions {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 2;
+}
 
 .scenario-list-item {
     transition: all 0.3s ease;
@@ -553,6 +559,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function isDevelopmentScenario(scenario) {
         return /^(E2E|Guest E2E)\b/i.test(scenario?.title || '');
+    }
+    function canManageScenario(scenario) {
+        const currentUserId = window.CURRENT_USER?.id;
+        if (!currentUserId) return false;
+        return Number(scenario?.created_by) === Number(currentUserId);
     }
 
     function notifySuccess(message) {
@@ -881,10 +892,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const safeSummary = escapeHtml(scenario?.summary || 'あらすじなし');
                 const safeAuthor = escapeHtml(scenario?.author || '不明');
                 const playCount = Number(scenario?.play_count) || 0;
+                const deleteButton = canManageScenario(scenario)
+                    ? `<div class="scenario-card-actions"><button type="button" class="btn btn-sm btn-danger" title="削除" aria-label="削除" onclick="event.stopPropagation(); deleteScenario(${scenario.id});"><i class="fas fa-trash"></i></button></div>`
+                    : '';
 
                 return `
                     <div class="col-md-6 col-lg-4 mb-4">
-                        <div class="card scenario-card h-100" onclick="showScenarioDetail(${scenario.id})">
+                        <div class="card scenario-card h-100 position-relative" onclick="showScenarioDetail(${scenario.id})">
+                            ${deleteButton}
                             <div class="card-img-top">
                                 <i class="fas fa-book"></i>
                             </div>
@@ -916,9 +931,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 const safeDuration = escapeHtml(getDurationLabel(scenario?.estimated_duration));
                 const safePlayers = escapeHtml(scenario?.recommended_players || '指定なし');
                 const playCount = Number(scenario?.play_count) || 0;
+                const deleteButton = canManageScenario(scenario)
+                    ? `<div class="scenario-card-actions"><button type="button" class="btn btn-sm btn-danger" title="削除" aria-label="削除" onclick="event.stopPropagation(); deleteScenario(${scenario.id});"><i class="fas fa-trash"></i></button></div>`
+                    : '';
 
                 return `
-                    <div class="card scenario-list-item mb-2" onclick="showScenarioDetail(${scenario.id})">
+                    <div class="card scenario-list-item mb-2 position-relative" onclick="showScenarioDetail(${scenario.id})">
+                        ${deleteButton}
                         <div class="card-body">
                             <div class="row align-items-center">
                                 <div class="col-md-6">
@@ -1529,9 +1548,20 @@ document.addEventListener('DOMContentLoaded', function() {
                             <button class="btn btn-outline-primary btn-sm w-100 mt-2" onclick="applyScenarioRecommendedSkills()">
                                 <i class="fas fa-star"></i> 推奨技能で探索者作成
                             </button>
+                            <button class="btn btn-outline-info btn-sm w-100 mt-2" onclick="copyScenarioPublicUrl(${scenario.id})">
+                                <i class="fas fa-link"></i> Copy view URL
+                            </button>
+                            <a class="btn btn-outline-success btn-sm w-100 mt-2" href="/scenarios/${scenario.id}/view/" target="_blank" rel="noopener noreferrer">
+                                <i class="fas fa-eye"></i> Open view mode
+                            </a>
                             <button class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="openScenarioEditModal(${scenario.id})">
                                 <i class="fas fa-edit"></i> シナリオを編集
                             </button>
+                            ${canManageScenario(scenario) ? `
+                                <button class="btn btn-outline-danger btn-sm w-100 mt-2" onclick="deleteScenario(${scenario.id})">
+                                    <i class="fas fa-trash"></i> シナリオを削除
+                                </button>
+                            ` : ''}
                         </div>
                     </div>
                 </div>
@@ -1557,6 +1587,64 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
+
+    async function copyTextToClipboard(text) {
+        if (navigator.clipboard?.writeText && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+    }
+
+    window.copyScenarioPublicUrl = async function(scenarioId) {
+        const url = `${window.location.origin}/scenarios/${encodeURIComponent(scenarioId)}/view/`;
+        try {
+            await copyTextToClipboard(url);
+            notifySuccess('View URL copied');
+        } catch (error) {
+            notifyError('Failed to copy URL: ' + url);
+        }
+    };
+
+    window.deleteScenario = async function(scenarioId) {
+        const scenario = scenarios.find(item => Number(item.id) === Number(scenarioId))
+            || (window.currentScenario && Number(window.currentScenario.id) === Number(scenarioId) ? window.currentScenario : null);
+        const title = scenario?.title || 'このシナリオ';
+        if (scenario && !canManageScenario(scenario)) {
+            notifyError('このシナリオを削除する権限がありません。');
+            return;
+        }
+
+        const confirmed = await confirmAction(`「${title}」を削除しますか？関連するセッションからはシナリオ設定が外れます。`, {
+            title: 'シナリオを削除',
+            confirmText: '削除する',
+            cancelText: 'キャンセル',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+
+        try {
+            await axios.delete(`/api/scenarios/scenarios/${encodeURIComponent(scenarioId)}/`);
+            const detailModalEl = document.getElementById('scenarioDetailModal');
+            const detailModal = detailModalEl ? bootstrap.Modal.getInstance(detailModalEl) : null;
+            detailModal?.hide();
+            if (window.currentScenario && Number(window.currentScenario.id) === Number(scenarioId)) {
+                window.currentScenario = null;
+            }
+            notifySuccess('シナリオを削除しました');
+            await loadScenarios();
+        } catch (error) {
+            notifyError('シナリオの削除に失敗しました: ' + getErrorMessage(error));
+        }
+    };
     // シナリオからセッション作成
     window.createSessionFromScenario = async function(scenarioId) {
         let scenario = null;

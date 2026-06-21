@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ scenario.title }} - Scenario{% endblock %}
+{% block extra_head %}
+<meta property="og:type" content="article">
+<meta property="og:title" content="{{ scenario.title }} - Scenario">
+<meta property="og:description" content="{{ scenario.title }}{% if scenario.author %} / {{ scenario.author }}{% endif %}{% if scenario.recommended_players %} / {{ scenario.recommended_players }}{% endif %}">
+<meta property="og:url" content="{{ request.build_absolute_uri }}">
+<meta name="twitter:card" content="summary">
+{% with main_image=images.first %}{% if main_image and main_image.image %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ main_image.image.url }}">{% endif %}{% endwith %}
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-4">
+                <div>
+                    <h1 class="h3 mb-2"><i class="fas fa-book text-primary"></i> {{ scenario.title }}</h1>
+                    <div class="text-muted">
+                        {% if scenario.author %}<span>{{ scenario.author }}</span>{% endif %}
+                        {% if scenario.recommended_players %}<span class="ms-2">{{ scenario.recommended_players }}</span>{% endif %}
+                    </div>
+                </div>
+                {% if scenario.url %}
+                <a class="btn btn-outline-primary btn-sm" href="{{ scenario.url }}" target="_blank" rel="noopener noreferrer">
+                    <i class="fas fa-external-link-alt"></i> ??????
+                </a>
+                {% endif %}
+            </div>
+
+            {% if images %}
+            <div class="row g-3 mb-4">
+                {% for image in images %}
+                <div class="col-md-4">
+                    <img src="{{ image.image.url }}" class="img-fluid rounded border" alt="{{ image.title|default:scenario.title }}">
+                    {% if image.title %}<div class="small text-muted mt-1">{{ image.title }}</div>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">??</div>
+                <div class="card-body">
+                    {% if scenario.summary %}<p class="mb-0">{{ scenario.summary|linebreaksbr }}</p>{% else %}<p class="text-muted mb-0">?????????</p>{% endif %}
+                </div>
+            </div>
+
+            {% if scenario.public_info %}
+            <div class="card mb-3">
+                <div class="card-header bg-info text-white">PL????</div>
+                <div class="card-body">{{ scenario.public_info|linebreaksbr }}</div>
+            </div>
+            {% endif %}
+
+            <div class="card mb-3">
+                <div class="card-header bg-secondary text-white">??????</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        {% if scenario.setting_era %}<dt class="col-sm-3">??</dt><dd class="col-sm-9">{{ scenario.setting_era }}</dd>{% endif %}
+                        {% if scenario.setting_location %}<dt class="col-sm-3">??</dt><dd class="col-sm-9">{{ scenario.setting_location }}</dd>{% endif %}
+                        {% if scenario.scenario_style %}<dt class="col-sm-3">??</dt><dd class="col-sm-9">{{ scenario.scenario_style }}</dd>{% endif %}
+                        {% if scenario.recommended_skills %}<dt class="col-sm-3">????</dt><dd class="col-sm-9">{{ scenario.recommended_skills }}</dd>{% endif %}
+                        {% if scenario.content_warnings %}<dt class="col-sm-3">????</dt><dd class="col-sm-9">{{ scenario.content_warnings|linebreaksbr }}</dd>{% endif %}
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

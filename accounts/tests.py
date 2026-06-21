@@ -297,6 +297,61 @@ class BasicAccountsTestCase(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
+    def test_character_public_view_mode_is_readable_without_login(self):
+        owner = User.objects.create_user(
+            username='direct_link_owner',
+            email='direct_link_owner@example.com',
+            password='pass1234',
+            nickname='Direct Link Owner',
+        )
+        character = CharacterSheet.objects.create(
+            user=owner,
+            edition='6th',
+            name='Direct Link PC',
+            player_name='Direct Link PL',
+            occupation='Investigator',
+            age=20,
+            str_value=10,
+            con_value=10,
+            pow_value=10,
+            dex_value=10,
+            app_value=10,
+            siz_value=10,
+            int_value=10,
+            edu_value=10,
+            hit_points_max=10,
+            hit_points_current=10,
+            magic_points_max=10,
+            magic_points_current=10,
+            sanity_max=50,
+            sanity_current=50,
+            sanity_starting=50,
+            access_scope='private',
+        )
+
+        self.client.logout()
+
+        normal_api_response = self.client.get(f'/api/accounts/character-sheets/{character.id}/')
+        self.assertIn(normal_api_response.status_code, [302, 401, 403])
+
+        public_api_response = self.client.get(f'/api/accounts/character-sheets/{character.id}/public/')
+        self.assertEqual(public_api_response.status_code, 200)
+        self.assertEqual(public_api_response.json()['name'], 'Direct Link PC')
+
+        normal_page_response = self.client.get(
+            reverse('character_detail_6th', kwargs={'character_id': character.id})
+        )
+        self.assertEqual(normal_page_response.status_code, 302)
+
+        page_response = self.client.get(
+            reverse('character_public_view', kwargs={'character_id': character.id})
+        )
+        self.assertEqual(page_response.status_code, 200)
+        self.assertContains(page_response, 'Direct Link PC')
+        self.assertContains(page_response, 'og:title')
+        self.assertContains(page_response, 'Direct Link PL')
+        self.assertNotContains(page_response, 'id="editButton"')
+
 
 class GroupBasicTestCase(TestCase):
     def setUp(self):
