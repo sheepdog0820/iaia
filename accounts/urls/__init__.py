@@ -70,6 +70,9 @@ urlpatterns = [
     path('profile/edit/', views.ProfileEditView.as_view(), name='profile_edit'),
     path('profile/delete/', views.AccountDeleteView.as_view(), name='account_delete'),
     path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
+    path('billing/', views.BillingPageView.as_view(), name='billing'),
+    path('billing/success/', views.BillingSuccessView.as_view(), name='billing_success'),
+    path('billing/cancel/', views.BillingCancelView.as_view(), name='billing_cancel'),
     
     # Social Auth Mock URLs
     path('demo/',

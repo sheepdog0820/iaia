@@ -268,3 +268,28 @@ aws ecs update-service --cluster tableno-aws-pre --service tableno-aws-pre-beat 
 - CloudWatch Logsに起動エラー、migrationエラー、DB/Redis接続エラーがない。
 - ログイン、セッション作成、キャラシ作成、画像アップロードが成功。
 - リリース記録に、commit、image URI、plan/apply結果、確認結果、残課題が記録済み。
+## aws-pre low-cost operations
+
+In the low-cost `aws-pre` pattern, worker and beat services are intentionally
+disabled. The web service remains available at `stg.tableno.jp`.
+
+Only wait for the web service during the normal low-cost release:
+
+```powershell
+aws ecs wait services-stable `
+  --cluster tableno-aws-pre `
+  --services tableno-aws-pre `
+  --region $env:AWS_REGION
+```
+
+Run periodic maintenance manually when needed:
+
+```powershell
+python manage.py publish_scheduled_handouts
+python manage.py expire_async_jobs
+python manage.py sync_japanese_holidays
+```
+
+For ECS one-off execution, run the web task definition with a command override
+for the target management command and the same network settings as the web
+service.

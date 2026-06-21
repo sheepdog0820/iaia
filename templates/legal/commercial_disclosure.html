@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}{{ labels.commercial_title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <h1 class="h3 mb-4">{{ labels.commercial_title }}</h1>
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle">
+                    <tbody>
+                        <tr><th class="w-25">{{ labels.seller }}</th><td>{{ seller_name }}</td></tr>
+                        <tr><th>{{ labels.address }}</th><td>{{ seller_address }}</td></tr>
+                        <tr><th>{{ labels.phone }}</th><td>{{ seller_phone }}</td></tr>
+                        <tr><th>{{ labels.contact }}</th><td><a href="mailto:{{ contact_email }}">{{ contact_email }}</a></td></tr>
+                        <tr><th>{{ labels.price }}</th><td>{{ premium_price_label }}</td></tr>
+                        <tr><th>{{ labels.extra_fee }}</th><td>{{ labels.extra_fee_text }}</td></tr>
+                        <tr><th>{{ labels.payment_method }}</th><td>{{ payment_method }}</td></tr>
+                        <tr><th>{{ labels.payment_timing }}</th><td>{{ payment_timing }}</td></tr>
+                        <tr><th>{{ labels.delivery }}</th><td>{{ service_delivery_timing }}</td></tr>
+                        <tr><th>{{ labels.cancel_method }}</th><td>{{ cancellation_method }}</td></tr>
+                        <tr><th>{{ labels.cancel_effect }}</th><td>{{ cancellation_effect }}</td></tr>
+                        <tr><th>{{ labels.refund }}</th><td>{{ refund_policy }}</td></tr>
+                        <tr><th>{{ labels.environment }}</th><td>{{ labels.environment_text }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

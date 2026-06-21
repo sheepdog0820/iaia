@@ -19,7 +19,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_not_required, login_required
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from accounts.views import (
@@ -30,12 +30,24 @@ from accounts.views import (
 )
 from schedules.views import PublicSessionDetailView
 from tableno.health_views import health_live_view, health_ready_view
-from tableno.legal_views import contact_view, privacy_view, terms_view
+from tableno.legal_views import (
+    commercial_disclosure_view,
+    contact_view,
+    premium_features_view,
+    privacy_view,
+    terms_view,
+)
 from schedules.job_views import AsyncJobDetailView, AsyncJobListView, AsyncJobRetryView
 from accounts.discord_views import (
     GroupDiscordDeliveryListView,
     GroupDiscordDeliveryRetryView,
     GroupDiscordSettingsView,
+)
+from accounts.views.billing_views import (
+    CheckoutSessionView,
+    PortalSessionView,
+    RedeemPremiumCodeView,
+    StripeWebhookView,
 )
 from accounts.group_link_views import (
     GroupLinkAcceptView,
@@ -69,6 +81,26 @@ urlpatterns = [
     path('api/jobs/', AsyncJobListView.as_view(), name='async-job-list'),
     path('api/jobs/<uuid:pk>/', AsyncJobDetailView.as_view(), name='async-job-detail'),
     path('api/jobs/<uuid:pk>/retry/', AsyncJobRetryView.as_view(), name='async-job-retry'),
+    path(
+        'api/billing/checkout-session/',
+        CheckoutSessionView.as_view(),
+        name='billing-checkout-session',
+    ),
+    path(
+        'api/billing/portal-session/',
+        PortalSessionView.as_view(),
+        name='billing-portal-session',
+    ),
+    path(
+        'api/billing/redeem-code/',
+        RedeemPremiumCodeView.as_view(),
+        name='billing-redeem-code',
+    ),
+    path(
+        'api/billing/webhook/',
+        StripeWebhookView.as_view(),
+        name='billing-webhook',
+    ),
     path(
         'api/groups/<int:group_id>/discord-settings/',
         GroupDiscordSettingsView.as_view(),
@@ -175,9 +207,15 @@ urlpatterns = [
         login_required(TemplateView.as_view(template_name='integrations/settings.html')),
         name='integration-settings',
     ),
+    path(
+        'premium/',
+        login_not_required(premium_features_view),
+        name='premium_features',
+    ),
     path('terms/', terms_view, name='terms'),
     path('privacy/', privacy_view, name='privacy'),
     path('contact/', contact_view, name='contact'),
+    path('commercial-disclosure/', commercial_disclosure_view, name='commercial_disclosure'),
     
     # Custom authentication views
     path('login/', CustomLoginView.as_view(), name='account_login'),

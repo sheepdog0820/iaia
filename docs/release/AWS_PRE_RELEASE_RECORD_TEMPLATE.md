@@ -24,6 +24,8 @@ Secrets、実パスワード、Client Secret、個人情報は記載しない。
 | `python manage.py check` | 未実施 |  |
 | release documentation tests | 未実施 |  |
 | production settings tests | 未実施 |  |
+| billing preflight | 未実施 | `python manage.py billing_preflight --strict` |
+| Stripe billing verification record | 未確認 | `docs/runbooks/STRIPE_BILLING_VERIFICATION_RECORD_TEMPLATE.md` を使用 |
 | image upload tests | 未実施 |  |
 | Playwright E2E | 未実施 |  |
 | `terraform fmt -check -recursive` | 未実施 |  |

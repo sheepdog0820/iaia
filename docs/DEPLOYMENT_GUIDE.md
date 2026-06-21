@@ -16,6 +16,9 @@
 - CloudWatch Logs / Metrics / Alarm
 
 詳細なAWSリソース作成手順は `docs/AWS_ECS_SETUP_GUIDE.md` を参照してください。
+現在確認できているAWS構成と今後の低コスト構成方針は `docs/specifications/AWS_INFRASTRUCTURE_CONFIGURATION.md` を参照してください。
+
+`aws-pre` は低コスト構成として運用できます。この場合、web service は public subnet + public IP で常時1タスクのみ稼働し、NAT Gateway、ElastiCache Redis、worker/beat service は作成しません。Redis 無効時は `USE_REDIS_CACHE=False`、DB session、LocMemCache、in-memory channel layer を使用し、WebSocket通知とCelery定期実行は無効です。定期処理は必要時に `publish_scheduled_handouts`、`expire_async_jobs`、`expire_premium_access`、`sync_japanese_holidays` management command を手動実行します。期限付きプレミアムコードを発行している環境では、`expire_premium_access` を少なくとも日次で実行し、実行後に `billing_status_report --fail-on-issues` で期限切れ権限が残っていないことを確認します。
 
 `docker-compose.mysql.yml` と `nginx.conf` は、ローカル本番相当検証または既存Lightsail運用の互換手段です。AWS/ECSではコンテナ内Nginxとcertbotを使用せず、ALBでTLSを終端します。
 
@@ -42,8 +45,33 @@
 - `DB_HOST`
 - `DB_PORT`
 - `REDIS_URL`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PREMIUM_PRICE_ID / STRIPE_PREMIUM_YEARLY_PRICE_ID`
+- `STRIPE_REVOKE_ON_REFUND_OR_DISPUTE`
+- `PUBLIC_SITE_URL`
+- `EMAIL_BACKEND`
+- `DEFAULT_FROM_EMAIL`
+- `STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID`
+- PREMIUM_PRICE_LABEL`r
+- `PREMIUM_MONTHLY_PRICE_LABEL`
+- `PREMIUM_MONTHLY_PRICE_DESCRIPTION`
+- `PREMIUM_YEARLY_PRICE_LABEL`
+- `PREMIUM_YEARLY_PRICE_DESCRIPTION`
+- `LEGAL_PAYMENT_METHOD`
+- `LEGAL_PAYMENT_TIMING`
+- `LEGAL_SERVICE_DELIVERY_TIMING`
+- `LEGAL_CANCELLATION_METHOD`
+- `LEGAL_CANCELLATION_EFFECT`
+- `LEGAL_REFUND_POLICY`
+- `LEGAL_SELLER_NAME`
+- `LEGAL_SELLER_ADDRESS`
+- `LEGAL_SELLER_PHONE`
+- `CONTACT_EMAIL`
 
 本番設定では未設定値を起動時に検出して失敗します。OAuthのIDとSecretは必ず対で設定します。
+
+課金機能を有効にする環境では、Stripe Dashboardで作成した月額Price IDとWebhook signing secretを設定します。`ENVIRONMENT=production` では `STRIPE_SECRET_KEY` に `sk_live_` で始まる本番キーのみ許可され、staging/local の検証では `sk_test_` を使用します。`invoice.payment_failed` でカード更新依頼メールを送るため、`EMAIL_BACKEND` は console/dummy/locmem ではない実配送backendを使い、`DEFAULT_FROM_EMAIL` を設定します。料金、支払方法、支払時期、提供時期、解約方法、返金条件、問い合わせ先は特商法ページとプレミアム機能ページに表示されます。`STRIPE_REVOKE_ON_REFUND_OR_DISPUTE=True` は返金/チャージバック検知時にプレミアム権限を自動停止し、`False` は監査ログだけ残して管理者確認に回します。`LEGAL_SELLER_NAME`、`LEGAL_SELLER_ADDRESS`、`LEGAL_SELLER_PHONE`、`CONTACT_EMAIL` は本番ではプレースホルダーではなく実際の事業者情報を設定してください。デプロイ前に `python manage.py billing_preflight --strict` を実行し、Stripe URL、特商法表示、返金時の権限停止方針、プレミアムコード失効ジョブの設定を確認します。
 
 ## 4. AWS Secrets
 

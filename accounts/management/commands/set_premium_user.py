@@ -1,6 +1,8 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth import get_user_model
 
+from accounts.billing import create_premium_audit_log
+
 
 class Command(BaseCommand):
     help = "ユーザーを課金ユーザ（高権限ユーザ）として設定/解除します。"
@@ -22,9 +24,16 @@ class Command(BaseCommand):
             help="課金ユーザを解除",
         )
 
+        parser.add_argument(
+            "--reason",
+            default="Manual premium access update by set_premium_user",
+            help="監査ログに残す手動付与・解除理由です。",
+        )
+
     def handle(self, *args, **options):
         identifier = options["identifier"]
         enable = True if options["on"] or not options["off"] else False
+        reason = options["reason"]
 
         User = get_user_model()
         user = (
@@ -37,9 +46,17 @@ class Command(BaseCommand):
         if not hasattr(user, "is_premium"):
             raise CommandError("This project does not have is_premium on the user model.")
 
+        previous = user.is_premium
         user.is_premium = enable
         user.save(update_fields=["is_premium"])
+        if previous != enable:
+            create_premium_audit_log(
+                user,
+                action="granted" if enable else "revoked",
+                source="manual",
+                reason=reason,
+                metadata={"command": "set_premium_user"},
+            )
 
         state = "ON" if enable else "OFF"
         self.stdout.write(self.style.SUCCESS(f"is_premium={state} for user={user.username}"))
-

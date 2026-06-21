@@ -13,6 +13,13 @@ from .base_models import TimestampedModel
 
 # Import user models
 from .user_models import CustomUser, Friend
+from .billing_models import (
+    PremiumAccessCode,
+    PremiumAccessCodeRedemption,
+    PremiumAuditLog,
+    PremiumSubscription,
+    StripeWebhookEvent,
+)
 
 # Import group models  
 from .group_models import (
@@ -48,6 +55,11 @@ __all__ = [
     'TimestampedModel',
     'CustomUser', 
     'Friend',
+    'PremiumSubscription',
+    'StripeWebhookEvent',
+    'PremiumAccessCode',
+    'PremiumAccessCodeRedemption',
+    'PremiumAuditLog',
     'Group',
     'GroupMembership', 
     'GroupInvitation',

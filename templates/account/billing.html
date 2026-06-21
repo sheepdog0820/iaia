@@ -1,0 +1,209 @@
+﻿{% extends 'base.html' %}
+
+{% block title %}プレミアム管理{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h1 class="h4 mb-0">
+                        <i class="fas fa-crown text-warning"></i> プレミアム管理
+                    </h1>
+                    {% if user.has_premium_access %}
+                    <span class="badge text-bg-success">有効</span>
+                    {% else %}
+                    <span class="badge text-bg-secondary">未加入</span>
+                    {% endif %}
+                </div>
+                <div class="card-body p-4">
+                    {% if subscription and subscription.last_payment_failed_at %}
+                    <div class="alert alert-warning">
+                        カード更新が必要です。支払いに失敗した請求があります。
+                        Stripeの管理画面で支払い方法を確認してください。
+                        <div class="small mt-1">
+                            最終検知: {{ subscription.last_payment_failed_at|date:"Y年n月j日 H:i" }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if subscription and subscription.last_refund_or_dispute_at %}
+                    <div class="alert alert-danger">
+                        返金またはチャージバックが検知されました。
+                        {% if refund_or_dispute_auto_revoke %}
+                        プレミアム権限は自動停止されています。
+                        {% else %}
+                        管理者が確認するまでプレミアム権限が停止される場合があります。
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if user.has_premium_access %}
+                    <p class="mb-3">プレミアム機能を利用できます。</p>
+                    {% if subscription %}
+                    <dl class="row mb-4">
+                        <dt class="col-sm-4">権限の種類</dt>
+                        <dd class="col-sm-8">{{ subscription.access_source|default:"manual" }}</dd>
+                        <dt class="col-sm-4">購読ステータス</dt>
+                        <dd class="col-sm-8">{{ subscription.subscription_status|default:"手動付与" }}</dd>
+                        {% if subscription.access_source == 'stripe' %}
+                        <dt class="col-sm-4">加入プラン</dt>
+                        <dd class="col-sm-8">
+                            {% if subscription.billing_interval == 'month' %}
+                            月額プラン
+                            {% elif subscription.billing_interval == 'year' %}
+                            年額プラン
+                            {% else %}
+                            -
+                            {% endif %}
+                            {% if subscription.stripe_price_id %}
+                            <div class="small text-muted mt-1">Price ID: {{ subscription.stripe_price_id }}</div>
+                            {% endif %}
+                        </dd>
+                        {% endif %}
+                        <dt class="col-sm-4">次回更新日</dt>
+                        <dd class="col-sm-8">{{ subscription.current_period_end|date:"Y年n月j日 H:i"|default:"-" }}</dd>
+                        <dt class="col-sm-4">プレミアム期限</dt>
+                        <dd class="col-sm-8">
+                            {{ subscription.premium_expires_at|date:"Y年n月j日 H:i"|default:"無期限" }}
+                            {% if subscription.access_source == 'promo_code' %}
+                            <div class="small text-muted mt-1">
+                                {% if subscription.premium_expires_at %}
+                                この運営コード由来のプレミアム権限は期限到達後に自動失効します。
+                                {% else %}
+                                この運営コード由来のプレミアム権限は、管理者が失効するまで有効です。
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </dd>
+                        <dt class="col-sm-4">解約予定</dt>
+                        <dd class="col-sm-8">{% if subscription.cancel_at_period_end %}あり{% else %}なし{% endif %}</dd>
+                    </dl>
+                    {% endif %}
+                    {% else %}
+                    <p class="mb-4">
+                        月額プレミアムに加入すると、シナリオアーカイブなどのプレミアム機能を利用できます。
+                    </p>
+                    {% endif %}
+
+                    {% if not stripe_configured %}
+                    <div class="alert alert-warning mb-4">
+                        Stripe設定が未完了です。管理者が環境変数を設定するまでStripe課金操作は利用できません。
+                    </div>
+                    {% endif %}
+
+                    <div class="d-grid gap-2 d-sm-flex">
+                        {% if subscription and subscription.stripe_customer_id %}
+                        <button class="btn btn-primary" id="billing-portal-btn" {% if not stripe_configured %}disabled{% endif %}>
+                            <i class="fas fa-credit-card"></i> 支払い・解約を管理
+                        </button>
+                        {% endif %}
+                        {% if not user.has_premium_access %}
+                        {% for option in checkout_price_options %}
+                        <button class="btn btn-primary checkout-btn" data-plan="{{ option.key }}" {% if not stripe_configured %}disabled{% endif %}>
+                            <i class="fas fa-crown"></i> {{ option.label }}で加入
+                            <span class="d-block small fw-normal">{{ option.description }}</span>
+                        </button>
+                        {% empty %}
+                        <button class="btn btn-primary" id="checkout-btn" disabled>
+                            <i class="fas fa-crown"></i> プレミアムに加入
+                        </button>
+                        {% endfor %}
+                        {% endif %}
+                        <a class="btn btn-outline-secondary" href="{% url 'dashboard' %}">
+                            <i class="fas fa-tachometer-alt"></i> ダッシュボードへ
+                        </a>
+                    </div>
+
+                    <hr class="my-4">
+                    <form id="premium-code-form" class="row g-2 align-items-end">
+                        <div class="col-md">
+                            <label class="form-label" for="premium-code-input">運営発行コード</label>
+                            <input class="form-control" id="premium-code-input" name="code" autocomplete="off" placeholder="PREMIUM-XXXX">
+                            <div class="form-text">
+                                期限付きコードは表示されたプレミアム期限まで有効です。期限なしコードは管理者が失効するまで有効です。
+                            </div>
+                        </div>
+                        <div class="col-md-auto">
+                            <button class="btn btn-outline-primary w-100" type="submit">
+                                <i class="fas fa-key"></i> コードを適用
+                            </button>
+                        </div>
+                    </form>
+                    <div class="text-success small mt-3 d-none" id="billing-success"></div>
+                    <div class="text-danger small mt-3 d-none" id="billing-error"></div>
+
+                    <hr class="my-4">
+                    <p class="small text-muted mb-0">
+                        料金、解約方法、返金条件、提供時期、事業者情報は
+                        <a href="{% url 'commercial_disclosure' %}">特定商取引法に基づく表記</a>
+                        を確認してください。無料・有料の差分は
+                        <a href="{% url 'premium_features' %}">プレミアム機能</a>
+                        で確認できます。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showBillingError(message) {
+    const errorEl = document.getElementById('billing-error');
+    document.getElementById('billing-success')?.classList.add('d-none');
+    errorEl.textContent = message || '課金処理を開始できませんでした。';
+    errorEl.classList.remove('d-none');
+}
+
+function showBillingSuccess(message) {
+    const successEl = document.getElementById('billing-success');
+    document.getElementById('billing-error')?.classList.add('d-none');
+    successEl.textContent = message || '処理が完了しました。';
+    successEl.classList.remove('d-none');
+}
+
+async function redirectFromBillingEndpoint(endpoint, payload = {}) {
+    const response = await axios.post(endpoint, payload);
+    if (!response.data || !response.data.url) {
+        throw new Error('Missing redirect URL');
+    }
+    window.location.href = response.data.url;
+}
+
+document.querySelectorAll('.checkout-btn').forEach((button) => {
+    button.addEventListener('click', async () => {
+        try {
+            await redirectFromBillingEndpoint("{% url 'billing-checkout-session' %}", {
+                plan: button.dataset.plan || 'monthly'
+            });
+        } catch (error) {
+            showBillingError(error.response?.data?.error);
+        }
+    });
+});
+
+document.getElementById('billing-portal-btn')?.addEventListener('click', async () => {
+    try {
+        await redirectFromBillingEndpoint("{% url 'billing-portal-session' %}");
+    } catch (error) {
+        showBillingError(error.response?.data?.error);
+    }
+});
+
+document.getElementById('premium-code-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const input = document.getElementById('premium-code-input');
+    try {
+        await axios.post("{% url 'billing-redeem-code' %}", { code: input.value });
+        showBillingSuccess('プレミアムコードを適用しました。');
+        window.setTimeout(() => window.location.reload(), 700);
+    } catch (error) {
+        showBillingError(error.response?.data?.error || 'コードを適用できませんでした。');
+    }
+});
+</script>
+{% endblock %}
+
+

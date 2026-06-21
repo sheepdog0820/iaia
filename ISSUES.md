@@ -1,6 +1,6 @@
 # Tableno 未完了ロードマップ
 
-最終更新: 2026-06-17
+最終更新: 2026-06-21
 
 このファイルは、本番投入前に判断または実装が必要な未完了タスクだけを管理します。完了済みの本番完成化作業は `ISSUES_CLOSED.md`、現行仕様は `docs/CURRENT_WEBAPP_FEATURES.md`、実装済み機能とリリース要件の一覧は `docs/IMPLEMENTED_FEATURES_AND_RELEASE_REQUIREMENTS_2026-06-17.md` を参照してください。
 
@@ -103,6 +103,54 @@
 **コミット単位**
 - 運用手順書
 - 公開ページまたはフッター導線
+
+
+### ISSUE-077: Stripe billing aws-pre verification before paid feature exposure
+
+**Purpose**: Confirm the implemented Stripe premium billing flow in the AWS development environment before enabling paid premium access for testers.
+
+**2026-06-21 progress**
+- [x] Implemented Stripe Checkout subscription flow with monthly and yearly Price IDs.
+- [x] Implemented Stripe Customer Portal link for cancellation, payment method update, and invoice history.
+- [x] Implemented signed Stripe Webhook handling for checkout, subscription lifecycle, payment failure/recovery, refunds, and disputes.
+- [x] Implemented premium access sync to `CustomUser.is_premium` while preserving manual admin grants and staff/admin premium access.
+- [x] Implemented operator-issued premium access codes for no-charge premium grants.
+- [x] Implemented admin visibility, audit logs, billing status reports, preflight checks, and local test users.
+- [x] Added legal/commercial disclosure and premium feature pages with release/preflight checks.
+- [x] Verified locally with `python manage.py test accounts.test_billing tests.unit.test_release_documentation tests.unit.test_billing_legal_pages tests.unit.test_public_legal_pages tests.unit.test_production_settings --keepdb --noinput -v 1`.
+- [x] Verified locally with `python manage.py check` and `python manage.py makemigrations --check --dry-run`.
+
+**Unfinished tasks**
+- [ ] Create or confirm Stripe test mode Product and two recurring Prices: monthly JPY 480 and yearly JPY 4,800.
+- [ ] Register aws-pre Secrets Manager values for `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PREMIUM_PRICE_ID`, `STRIPE_PREMIUM_YEARLY_PRICE_ID`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID`, `PUBLIC_SITE_URL`, and mail settings.
+- [ ] Configure the Stripe test mode Webhook endpoint for the aws-pre `/api/billing/webhook/` URL with all required events.
+- [ ] Run `python manage.py billing_preflight --strict` in aws-pre and confirm success.
+- [ ] Run `python manage.py billing_stripe_remote_check --require-recent-events --recent-hours 72` in aws-pre after test events exist.
+- [ ] Perform real test Checkout for monthly and yearly plans from `/accounts/billing/` on aws-pre.
+- [ ] Confirm `PremiumSubscription`, `StripeWebhookEvent`, `PremiumAuditLog`, and `CustomUser.is_premium` updates in Django admin after real Stripe events.
+- [ ] Confirm Customer Portal cancellation sets `cancel_at_period_end=True` and access remains until the current period end.
+- [ ] Confirm payment failure/recovery behavior with Stripe test cards or Stripe Dashboard test actions.
+- [ ] Confirm refund/dispute handling and manual review procedure using test mode events.
+- [ ] Record Stripe event IDs, local DB evidence, and screenshots/notes in `docs/runbooks/billing-verification-YYYYMMDD.md`.
+
+**Acceptance criteria**
+- aws-pre billing preflight and remote Stripe checks pass without warnings that affect paid access.
+- Monthly and yearly test Checkout create active premium subscriptions and grant premium access.
+- Cancellation, payment failure/recovery, refund/dispute, and promo-code flows leave audit evidence and expected premium access state.
+- The release record links this ticket and the billing verification record.
+
+**Verification commands**
+- `python manage.py check`
+- `python manage.py billing_preflight --strict`
+- `python manage.py billing_stripe_remote_check --require-recent-events --recent-hours 72`
+- `python manage.py billing_status_report --json`
+- `python manage.py test accounts.test_billing tests.unit.test_release_documentation tests.unit.test_billing_legal_pages tests.unit.test_public_legal_pages tests.unit.test_production_settings --keepdb --noinput -v 1`
+
+**Notes**
+- This is an aws-pre paid-feature exposure blocker, not a code implementation blocker.
+- If aws-pre is released with paid billing hidden or disabled, this ticket may remain open as a conditional release item.
+- Do not create test Products/Prices through MCP while the MCP connection reports `livemode: true`.
+
 
 ## P1: リリース前に強く推奨
 

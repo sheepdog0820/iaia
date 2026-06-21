@@ -33,3 +33,22 @@ Use this section to record operational checks without storing secrets or credent
 | Restore | Restore a snapshot to a non-production DB and run `/health/ready`. | Not recorded |
 | Alarm notification | Trigger or simulate a CloudWatch Alarm notification to the operational SNS subscriber. | Not recorded |
 | Rollback | Deploy a previous ECS task definition in pre-production and verify login/session CRUD. | Not recorded |
+## aws-pre low-cost notes
+
+In the low-cost `aws-pre` pattern, NAT Gateway, ElastiCache Redis, worker service,
+and beat service are intentionally disabled. Do not treat their absence as an
+incident. WebSocket notifications and Celery periodic jobs are also disabled.
+
+If scheduled maintenance is needed, run:
+
+```bash
+python manage.py publish_scheduled_handouts
+python manage.py expire_async_jobs
+python manage.py expire_premium_access
+python manage.py sync_japanese_holidays
+```
+
+If premium access codes with expiration dates are in use, run
+`python manage.py expire_premium_access` at least daily while beat is disabled
+and confirm `python manage.py billing_status_report --fail-on-issues` reports
+no expired promo access.

@@ -22,6 +22,7 @@ WEBSOCKET_NOTIFICATIONS_ENABLED = _get_bool_env(
     'WEBSOCKET_NOTIFICATIONS_ENABLED',
     default=True,
 )
+USE_REDIS_CACHE = _get_bool_env('USE_REDIS_CACHE', default=True)
 
 
 def _require_env(name):
@@ -38,6 +39,22 @@ def _validate_env_pair(id_key, secret_key):
         raise RuntimeError(f'{secret_key} is required when {id_key} is set')
     if secret and not identifier:
         raise RuntimeError(f'{id_key} is required when {secret_key} is set')
+
+
+def _require_non_placeholder_env(name, placeholder_fragment=None, placeholder_fragments=()):
+    value = _require_env(name)
+    if placeholder_fragment and placeholder_fragment in value:
+        raise RuntimeError(f'{name} must be set to a production value')
+    if any(fragment in value for fragment in placeholder_fragments):
+        raise RuntimeError(f'{name} must be set to a production value')
+    return value
+
+
+def _require_stripe_secret_key():
+    value = _require_env('STRIPE_SECRET_KEY')
+    if ENVIRONMENT == 'production' and not value.startswith('sk_live_'):
+        raise RuntimeError('STRIPE_SECRET_KEY must be a live key in production')
+    return value
 
 
 def _build_s3_url(base_domain, bucket, region, location):
@@ -120,29 +137,64 @@ DATABASES = {
     }
 }
 
-# キャッシュ設定（Redis）
-REDIS_URL = _require_env('REDIS_URL')
-cache_pool_kwargs = {'max_connections': int(os.environ.get('REDIS_MAX_CONNECTIONS', '50'))}
-redis_ssl_cert_reqs = os.environ.get('REDIS_SSL_CERT_REQS', '').strip()
-if REDIS_URL.startswith('rediss://') and redis_ssl_cert_reqs:
-    cache_pool_kwargs['ssl_cert_reqs'] = redis_ssl_cert_reqs
+# キャッシュ・セッション・非同期設定
+if USE_REDIS_CACHE:
+    REDIS_URL = _require_env('REDIS_URL')
+    cache_pool_kwargs = {'max_connections': int(os.environ.get('REDIS_MAX_CONNECTIONS', '50'))}
+    redis_ssl_cert_reqs = os.environ.get('REDIS_SSL_CERT_REQS', '').strip()
+    if REDIS_URL.startswith('rediss://') and redis_ssl_cert_reqs:
+        cache_pool_kwargs['ssl_cert_reqs'] = redis_ssl_cert_reqs
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': REDIS_URL,
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'CONNECTION_POOL_KWARGS': cache_pool_kwargs,
-        },
-        'KEY_PREFIX': 'tableno',
-        'TIMEOUT': 300,
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'CONNECTION_POOL_KWARGS': cache_pool_kwargs,
+            },
+            'KEY_PREFIX': 'tableno',
+            'TIMEOUT': 300,
+        }
     }
-}
-
-# セッション設定
-SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
-SESSION_CACHE_ALIAS = 'default'
+    SESSION_ENGINE = os.environ.get(
+        'SESSION_ENGINE',
+        'django.contrib.sessions.backends.cache',
+    )
+    SESSION_CACHE_ALIAS = 'default'
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [REDIS_URL],
+                'capacity': 1000,
+                'expiry': 60,
+            },
+        },
+    }
+    CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', REDIS_URL)
+    CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
+else:
+    REDIS_URL = ''
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': os.environ.get('CACHE_LOCATION', 'tableno-production'),
+            'KEY_PREFIX': 'tableno',
+            'TIMEOUT': 300,
+        }
+    }
+    SESSION_ENGINE = os.environ.get(
+        'SESSION_ENGINE',
+        'django.contrib.sessions.backends.db',
+    )
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
+    }
+    CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', '')
+    CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', '')
 
 # 静的/メディア配信設定（S3利用時は STORAGES に切替）
 USE_S3_STORAGE = _get_bool_env('USE_S3_STORAGE', default=False)
@@ -225,6 +277,41 @@ CONTACT_EMAIL = os.environ.get('CONTACT_EMAIL', 'support@tableno.jp')
 SUPPORT_EMAIL = os.environ.get('SUPPORT_EMAIL', CONTACT_EMAIL)
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@tableno.jp')
 SERVER_EMAIL = os.environ.get('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
+
+# Stripe billing / legal disclosure settings
+STRIPE_SECRET_KEY = _require_stripe_secret_key()
+STRIPE_WEBHOOK_SECRET = _require_env('STRIPE_WEBHOOK_SECRET')
+STRIPE_PREMIUM_PRICE_ID = _require_env('STRIPE_PREMIUM_PRICE_ID')
+STRIPE_PREMIUM_YEARLY_PRICE_ID = os.environ.get('STRIPE_PREMIUM_YEARLY_PRICE_ID', '').strip()
+STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '').strip()
+STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID = os.environ.get(
+    'STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID',
+    '',
+).strip()
+STRIPE_REVOKE_ON_REFUND_OR_DISPUTE = _get_bool_env(
+    'STRIPE_REVOKE_ON_REFUND_OR_DISPUTE',
+    default=True,
+)
+PUBLIC_SITE_URL = _require_env('PUBLIC_SITE_URL').rstrip('/')
+PREMIUM_PRICE_LABEL = _require_non_placeholder_env(
+    'PREMIUM_PRICE_LABEL',
+    placeholder_fragments=('Stripe Checkout', 'Checkout画面に表示'),
+)
+LEGAL_PAYMENT_METHOD = _require_env('LEGAL_PAYMENT_METHOD')
+LEGAL_PAYMENT_TIMING = _require_env('LEGAL_PAYMENT_TIMING')
+LEGAL_SERVICE_DELIVERY_TIMING = _require_env('LEGAL_SERVICE_DELIVERY_TIMING')
+LEGAL_CANCELLATION_METHOD = _require_env('LEGAL_CANCELLATION_METHOD')
+LEGAL_CANCELLATION_EFFECT = _require_env('LEGAL_CANCELLATION_EFFECT')
+LEGAL_REFUND_POLICY = _require_env('LEGAL_REFUND_POLICY')
+LEGAL_SELLER_NAME = _require_env('LEGAL_SELLER_NAME')
+LEGAL_SELLER_ADDRESS = _require_non_placeholder_env(
+    'LEGAL_SELLER_ADDRESS',
+    placeholder_fragment='請求があった場合',
+)
+LEGAL_SELLER_PHONE = _require_non_placeholder_env(
+    'LEGAL_SELLER_PHONE',
+    placeholder_fragment='請求があった場合',
+)
 
 # ロギング設定
 LOG_TO_STDOUT = _get_bool_env('LOG_TO_STDOUT', default=True)

@@ -29,6 +29,7 @@ Pillow>=10.0.0
 # Form Styling
 django-crispy-forms>=2.1
 crispy-bootstrap5>=0.7
+openpyxl>=3.1.0
 
 # Production Server
 gunicorn>=21.2.0
@@ -45,6 +46,7 @@ channels>=4.1.0
 channels-redis>=4.2.0
 daphne>=4.1.0
 requests>=2.31.0
+stripe>=12.0.0
 
 # Security & Monitoring
 django-ratelimit>=4.1.0

@@ -220,3 +220,25 @@ OAuth Provider側に環境別Redirect URIを登録する:
 - `https://stg.tableno.jp/health/ready` が `200`
 - prod/stgで異なるDB・Redisを参照している
 - CloudWatchで起動失敗理由が追跡できる
+## aws-pre low-cost pattern
+
+`aws-pre` can run as a low-cost development environment while keeping
+`stg.tableno.jp` available.
+
+- Keep ALB, ACM, Route53, ECS Fargate web, RDS, S3, CloudFront, Secrets Manager,
+  CloudWatch Logs, and Budget.
+- Disable NAT Gateway with `enable_nat_gateway=false`.
+- Run the web ECS service in public subnets with `assign_public_ip=true`.
+- Keep ECS inbound restricted to the ALB security group.
+- Disable ElastiCache with `enable_elasticache=false`.
+- Set `USE_REDIS_CACHE=false`, `WEBSOCKET_NOTIFICATIONS_ENABLED=false`, and
+  `SESSION_ENGINE=django.contrib.sessions.backends.db`.
+- Disable always-on worker and beat services with
+  `enable_worker_service=false` and `enable_beat_service=false`.
+- Run periodic maintenance manually when needed:
+  `publish_scheduled_handouts`, `expire_async_jobs`,
+  `expire_premium_access`, and `sync_japanese_holidays`.
+  Run `expire_premium_access` at least daily when time-limited premium access
+  codes are issued, then check `billing_status_report --fail-on-issues`.
+- Keep production-like Redis/NAT/worker/beat validation separate before any
+  production release.

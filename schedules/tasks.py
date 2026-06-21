@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 def _broker_available():
     broker_url = getattr(settings, 'CELERY_BROKER_URL', '')
+    if not broker_url:
+        return False
     parsed = urlparse(broker_url)
     if parsed.scheme not in {'redis', 'rediss'}:
         return True
@@ -124,6 +126,13 @@ def schedule_session_google_syncs(session):
 @shared_task(name='schedules.tasks.expire_async_jobs')
 def expire_async_jobs():
     return AsyncJob.objects.filter(expires_at__lt=timezone.now()).delete()[0]
+
+
+@shared_task(name='schedules.tasks.expire_premium_access')
+def expire_premium_access():
+    from accounts.billing import expire_promo_subscriptions
+
+    return expire_promo_subscriptions()
 
 
 @shared_task(name='schedules.tasks.publish_scheduled_handouts')

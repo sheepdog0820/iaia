@@ -20,6 +20,7 @@
 | 必須 | Python/Django基本チェック | `python manage.py check` | エラーなし |
 | 必須 | 公開前ドキュメント検査 | `python manage.py test tests.unit.test_release_documentation --noinput --keepdb` | 成功 |
 | 必須 | production設定検査 | `python manage.py test tests.unit.test_production_settings --noinput --keepdb` | 成功 |
+| 必須 | 課金設定検査 | `python manage.py billing_preflight --strict` | 成功 |
 | 必須 | 画像アップロード検査 | `python manage.py test scenarios.test_scenario_images schedules.test_session_images --noinput --keepdb` | 成功 |
 | 推奨 | E2E | `node .\node_modules\playwright\cli.js test --project=chromium tests/e2e/flows/auth-flow.spec.ts tests/e2e/flows/session-management.spec.ts tests/e2e/flows/character-export.spec.ts tests/e2e/flows/mobile-responsive.spec.ts --reporter=line` | 成功 |
 | 必須 | Terraform fmt | `terraform -chdir=infrastructure/terraform fmt -check -recursive` | 成功 |
@@ -51,6 +52,29 @@
 - `DISCORD_CLIENT_ID`
 - `DISCORD_CLIENT_SECRET`
 - `DISCORD_REDIRECT_URI`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PREMIUM_PRICE_ID / STRIPE_PREMIUM_YEARLY_PRICE_ID`
+- `STRIPE_REVOKE_ON_REFUND_OR_DISPUTE`
+- `PUBLIC_SITE_URL`
+- `EMAIL_BACKEND`
+- `DEFAULT_FROM_EMAIL`
+- `STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID`
+- PREMIUM_PRICE_LABEL`r
+- `PREMIUM_MONTHLY_PRICE_LABEL`
+- `PREMIUM_MONTHLY_PRICE_DESCRIPTION`
+- `PREMIUM_YEARLY_PRICE_LABEL`
+- `PREMIUM_YEARLY_PRICE_DESCRIPTION`
+- `LEGAL_PAYMENT_METHOD`
+- `LEGAL_PAYMENT_TIMING`
+- `LEGAL_SERVICE_DELIVERY_TIMING`
+- `LEGAL_CANCELLATION_METHOD`
+- `LEGAL_CANCELLATION_EFFECT`
+- `LEGAL_REFUND_POLICY`
+- `LEGAL_SELLER_NAME`
+- `LEGAL_SELLER_ADDRESS`
+- `LEGAL_SELLER_PHONE`
+- `CONTACT_EMAIL`
 
 ## 3. Terraform plan確認
 
@@ -92,3 +116,16 @@
 - OAuth callbackが全Providerで失敗する。
 
 ロールバック実施時は `docs/release/AWS_PRE_RELEASE_RUNBOOK.md` の「ロールバック手順」に従います。
+## aws-pre low-cost checks
+
+When `aws-pre` uses the low-cost pattern, verify these differences instead of
+expecting production-like Redis/NAT/worker/beat resources:
+
+| Required | Check | Command or source | Expected result |
+| --- | --- | --- | --- |
+| Required | web service only | `aws ecs describe-services --cluster tableno-aws-pre --services tableno-aws-pre` | desired/running is `1` |
+| Required | worker/beat disabled | `aws ecs list-services --cluster tableno-aws-pre` | worker/beat services are absent or intentionally at 0 |
+| Required | Redis disabled | Terraform plan | ElastiCache is not created |
+| Required | NAT disabled | Terraform plan | NAT Gateway and NAT EIP are not created |
+| Required | health without Redis | `curl -f "$AWS_PRE_BASE_URL/health/ready"` | 200 |
+| Required | manual jobs documented | management commands | `publish_scheduled_handouts`, `expire_async_jobs`, `expire_premium_access`, `sync_japanese_holidays` are available |

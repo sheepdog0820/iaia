@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}{{ labels.premium_features }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <h1 class="h3 mb-4">{{ labels.premium_features }}</h1>
+            <div class="mb-4">
+                <p class="mb-1"><strong>{{ labels.fee }}</strong>: {{ premium_price_label }}</p>
+                <p class="mb-0 text-muted">{{ cancellation_effect }}</p>
+            </div>
+            <div class="table-responsive mb-4">
+                <table class="table table-sm table-bordered align-middle">
+                    <tbody>
+                        <tr><th class="w-25">{{ labels.payment_timing }}</th><td>{{ payment_timing }}</td></tr>
+                        <tr><th>{{ labels.delivery }}</th><td>{{ service_delivery_timing }}</td></tr>
+                        <tr><th>{{ labels.cancel_method }}</th><td>{{ cancellation_method }}</td></tr>
+                        <tr><th>{{ labels.refund }}</th><td>{{ refund_policy }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle">
+                    <thead><tr><th>{{ labels.feature }}</th><th>{{ labels.free }}</th><th>{{ labels.premium }}</th></tr></thead>
+                    <tbody>
+                        <tr><td>{{ labels.character }}</td><td>{{ labels.available }}</td><td>{{ labels.available }}</td></tr>
+                        <tr><td>{{ labels.session }}</td><td>{{ labels.available }}</td><td>{{ labels.available }}</td></tr>
+                        <tr><td>{{ labels.archive }}</td><td>{{ labels.unavailable }}</td><td>{{ labels.available }}</td></tr>
+                        <tr><td>{{ labels.code_use }}</td><td>{{ labels.available }}</td><td>{{ labels.applied }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                {% if user.is_authenticated %}
+                <a class="btn btn-primary" href="{% url 'billing' %}">{{ labels.billing_link }}</a>
+                {% else %}
+                <a class="btn btn-primary" href="{% url 'account_signup' %}">{{ labels.signup }}</a>
+                {% endif %}
+                <a class="btn btn-outline-secondary" href="{% url 'commercial_disclosure' %}">{{ labels.commercial_link }}</a>
+            </div>
+            <p class="small text-muted mt-3 mb-0">
+                {{ labels.summary }}
+                <a href="{% url 'commercial_disclosure' %}">{{ labels.commercial_title }}</a>
+                {{ labels.listed }}
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

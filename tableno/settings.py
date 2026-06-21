@@ -293,6 +293,34 @@ SERVER_EMAIL = os.environ.get('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
 ADMINS = [('Admin', os.environ.get('ADMIN_EMAIL', SUPPORT_EMAIL))]
 MANAGERS = ADMINS
 
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+STRIPE_PREMIUM_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRICE_ID', '')
+STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
+STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID = os.environ.get(
+    'STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID',
+    '',
+)
+STRIPE_REVOKE_ON_REFUND_OR_DISPUTE = _get_bool('STRIPE_REVOKE_ON_REFUND_OR_DISPUTE', default=True)
+PREMIUM_PRICE_LABEL = os.environ.get('PREMIUM_PRICE_LABEL', '月額480円 / 年額4,800円')
+PREMIUM_MONTHLY_PRICE_LABEL = os.environ.get('PREMIUM_MONTHLY_PRICE_LABEL', '月額プラン')
+PREMIUM_MONTHLY_PRICE_DESCRIPTION = os.environ.get('PREMIUM_MONTHLY_PRICE_DESCRIPTION', '480円/月')
+PREMIUM_YEARLY_PRICE_LABEL = os.environ.get('PREMIUM_YEARLY_PRICE_LABEL', '年額プラン')
+PREMIUM_YEARLY_PRICE_DESCRIPTION = os.environ.get('PREMIUM_YEARLY_PRICE_DESCRIPTION', '4,800円/年')
+LEGAL_PAYMENT_METHOD = os.environ.get('LEGAL_PAYMENT_METHOD', 'Stripe Checkoutで利用可能なクレジットカード等の決済手段。')
+LEGAL_PAYMENT_TIMING = os.environ.get('LEGAL_PAYMENT_TIMING', '初回申し込み時に課金され、以後は月額サブスクリプションとして自動更新されます。')
+LEGAL_SERVICE_DELIVERY_TIMING = os.environ.get('LEGAL_SERVICE_DELIVERY_TIMING', '決済完了後、Stripe Webhookの処理完了をもってプレミアム機能を利用できます。')
+LEGAL_CANCELLATION_METHOD = os.environ.get('LEGAL_CANCELLATION_METHOD', 'ログイン後のプレミアム管理画面からStripe Customer Portalへ移動し、いつでも解約できます。')
+LEGAL_CANCELLATION_EFFECT = os.environ.get('LEGAL_CANCELLATION_EFFECT', '解約後も支払い済み期間の終了まではプレミアム機能を利用できます。')
+LEGAL_REFUND_POLICY = os.environ.get(
+    'LEGAL_REFUND_POLICY',
+    'デジタルサービスの性質上、決済完了後のお客様都合による返金は原則として受け付けません。重複請求や誤請求が確認された場合は個別に対応します。',
+)
+LEGAL_SELLER_NAME = os.environ.get('LEGAL_SELLER_NAME', 'タブレノ運営')
+LEGAL_SELLER_ADDRESS = os.environ.get('LEGAL_SELLER_ADDRESS', '請求があった場合、遅滞なく開示します。')
+LEGAL_SELLER_PHONE = os.environ.get('LEGAL_SELLER_PHONE', '請求があった場合、遅滞なく開示します。')
+PUBLIC_SITE_URL = os.environ.get('PUBLIC_SITE_URL', '')
+
 LOGIN_REDIRECT_URL = '/accounts/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
 
@@ -384,6 +412,10 @@ CELERY_BEAT_SCHEDULE = {
     },
     'expire-async-jobs': {
         'task': 'schedules.tasks.expire_async_jobs',
+        'schedule': 3600.0,
+    },
+    'expire-premium-access': {
+        'task': 'schedules.tasks.expire_premium_access',
         'schedule': 3600.0,
     },
     'sync-japanese-holidays-monthly': {
