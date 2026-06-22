@@ -36,6 +36,21 @@ Do not write Secrets, real passwords, client secrets, customer personal informat
 
 This follow-up read-only check still does not satisfy ISSUE-077 because there is no `livemode=false` proof, no monthly/yearly test Price IDs, and no real Stripe test-mode event IDs.
 
+## 2026-06-22 post-commit read-only check
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Account info | Observed | `_get_stripe_account_info` returned `acct_1TkMqJHdY1p3WlN0`. |
+| Product search | Observed | `products: name:'Tableno Premium'` returned `prod_UkNyUXGrQIln9L`, `prod_UkFVj0t5DW9v69`, and `prod_Uk2J3frLwl4lCk`. |
+| Product `prod_UkNyUXGrQIln9L` fetch | No default Price | `_fetch` returned `default_price=null`; `livemode` was not exposed. |
+| Product `prod_UkFVj0t5DW9v69` fetch | No default Price | `_fetch` returned `default_price=null`; `livemode` was not exposed. |
+| Product `prod_Uk2J3frLwl4lCk` fetch | No default Price | `_fetch` returned `default_price=null`; `livemode` was not exposed. |
+| Price search for `prod_UkNyUXGrQIln9L` | No Prices found | `prices: product:'prod_UkNyUXGrQIln9L'` returned an empty result set. |
+| Price search for `prod_UkFVj0t5DW9v69` | No Prices found | `prices: product:'prod_UkFVj0t5DW9v69'` returned an empty result set. |
+| Price search for `prod_Uk2J3frLwl4lCk` | No Prices found | `prices: product:'prod_Uk2J3frLwl4lCk'` returned an empty result set. |
+
+This post-commit read-only check still does not satisfy ISSUE-077 because there is no `livemode=false` proof, no monthly/yearly test Price IDs, and no real Stripe test-mode event IDs.
+
 ## Decision
 
 This record does not satisfy ISSUE-077. It only proves that the connector can read the account and that the visible `Tableno Premium` Products do not currently expose matching Prices through MCP search.

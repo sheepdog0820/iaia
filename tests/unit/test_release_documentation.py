@@ -451,6 +451,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
         self.assertIn('livemode=false` proof | Missing', record)
         self.assertIn('does not satisfy ISSUE-077', record)
         self.assertIn('follow-up read-only check', record)
+        self.assertIn('post-commit read-only check', record)
         self.assertIn('default_price=null', record)
         self.assertIn('Product/Price creation | Not performed', record)
         self.assertIn('billing-verification-mcp-20260622.md', issues)
