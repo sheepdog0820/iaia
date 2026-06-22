@@ -4865,6 +4865,21 @@ class BillingDevelopmentCheckCommandTestCase(TestCase):
         self.assertIn('WARN STRIPE_PREMIUM_PRICE_ID is blank', output)
         self.assertIn('billing_development_check=warnings', output)
 
+    def test_billing_development_check_requires_exact_gitignore_entry(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            env_path = self._write_env(base_dir)
+            (base_dir / '.gitignore').write_text(
+                '# .env.development\n.env.development.example\n',
+                encoding='utf-8',
+            )
+
+            with override_settings(BASE_DIR=base_dir):
+                with self.assertRaises(CommandError) as context:
+                    call_command('billing_development_check', '--env-file', str(env_path), stdout=StringIO())
+
+        self.assertIn('.env.development is not listed in .gitignore', str(context.exception))
+
     def test_billing_development_check_rejects_live_secret_key(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)

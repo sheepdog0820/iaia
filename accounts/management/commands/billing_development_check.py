@@ -38,7 +38,10 @@ class Command(BaseCommand):
             return
 
         gitignore = Path(settings.BASE_DIR) / '.gitignore'
-        ignored = gitignore.exists() and '.env.development' in gitignore.read_text(encoding='utf-8')
+        ignored = gitignore.exists() and self._gitignore_has_exact_entry(
+            gitignore,
+            '.env.development',
+        )
         self._record(
             'development-env-gitignore',
             ignored,
@@ -98,6 +101,15 @@ class Command(BaseCommand):
             key, value = line.split('=', 1)
             values[key.strip()] = value.strip().strip('"').strip("'")
         return values
+
+    def _gitignore_has_exact_entry(self, gitignore, entry):
+        for raw_line in gitignore.read_text(encoding='utf-8').splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith('#'):
+                continue
+            if line == entry:
+                return True
+        return False
 
     def _display_path(self, path):
         try:
