@@ -1,0 +1,997 @@
+{
+  "source": "\\\\NAS-CTHULHU\\cthulhu\\TRPGスケジュール表2026.xlsx",
+  "generated_at": "2026-06-20T06:58:27.397910+00:00",
+  "today": "2026-06-20",
+  "main_sheet": {
+    "name": "2026",
+    "participants": [
+      "メイサイ",
+      "シララ",
+      "ひめちゃん",
+      "じぇら",
+      "しぇぱ",
+      "ヤギ",
+      "露草",
+      "伊藤",
+      "ぐん",
+      "九段",
+      "ナエカ",
+      "ぬけ",
+      "バケラッ太",
+      "そう",
+      "たじー",
+      "ナナ",
+      "おさる",
+      "止水",
+      "おごちゃん"
+    ],
+    "date_range": {
+      "start": "2026-01-01",
+      "end": "2027-03-19",
+      "count": 444
+    }
+  },
+  "video_sheet": {
+    "name": "2026動画",
+    "raw_row_count": 47
+  },
+  "sessions": [
+    {
+      "source_rows": [
+        2
+      ],
+      "date": "2026-07-05",
+      "title": "未設定セッション 2026-07-05 row2",
+      "kp": "メイサイ",
+      "members": [
+        "ひめちゃん",
+        "ヤギ",
+        "ぬけ"
+      ],
+      "character_names": [],
+      "url_or_notes": [],
+      "youtube_urls": [],
+      "is_past": false,
+      "needs_review": [
+        "blank_title",
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        3
+      ],
+      "date": "2026-06-06",
+      "title": "モーンガータの魔法使い",
+      "kp": "メイサイ",
+      "members": [
+        "ぐん",
+        "ナエカ"
+      ],
+      "character_names": [
+        "ぐん",
+        "ナエカ"
+      ],
+      "url_or_notes": [
+        "https://youtube.com/live/LSvgzUVcNdI"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/LSvgzUVcNdI"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "date": "2026-06-02",
+      "title": "怪祓-カイブツ-",
+      "kp": "しぇぱ",
+      "members": [
+        "メイサイ",
+        "伊藤"
+      ],
+      "character_names": [
+        "メイサイ",
+        "伊藤"
+      ],
+      "url_or_notes": [
+        "メイサイ視点 5話",
+        "メイサイ視点 4話"
+      ],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "merged_rows",
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        8
+      ],
+      "date": "2026-05-31",
+      "title": "獣人ガストロノミー",
+      "kp": "シララ",
+      "members": [
+        "メイサイ",
+        "ひめちゃん",
+        "しぇぱ",
+        "伊藤"
+      ],
+      "character_names": [
+        "メイサイ",
+        "ひめちゃん",
+        "しぇぱ",
+        "伊藤"
+      ],
+      "url_or_notes": [
+        "ペア探索メイサイ視点",
+        "メイサイ視点 後半",
+        "メイサイ視点 ED"
+      ],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        9
+      ],
+      "date": "2026-05-30",
+      "title": "獣人ガストロノミー",
+      "kp": "シララ",
+      "members": [
+        "メイサイ",
+        "ひめちゃん",
+        "しぇぱ",
+        "伊藤"
+      ],
+      "character_names": [
+        "メイサイ",
+        "ひめちゃん",
+        "しぇぱ",
+        "伊藤"
+      ],
+      "url_or_notes": [
+        "メイサイ視点 前半",
+        "KP視点再生リスト（秘匿あり）"
+      ],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        10
+      ],
+      "date": "2026-05-30",
+      "title": "獣人ガストロノミー 事前導入HO3.4",
+      "kp": "シララ",
+      "members": [
+        "メイサイ",
+        "伊藤"
+      ],
+      "character_names": [
+        "メイサイ",
+        "伊藤"
+      ],
+      "url_or_notes": [
+        "メイサイ視点"
+      ],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        11
+      ],
+      "date": "2026-05-25",
+      "title": "ホームシック",
+      "kp": "シララ",
+      "members": [
+        "メイサイ"
+      ],
+      "character_names": [
+        "メイサイ"
+      ],
+      "url_or_notes": [
+        "https://youtube.com/live/b4-L2FRKz8w"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/b4-L2FRKz8w"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        12
+      ],
+      "date": "2026-05-25",
+      "title": "獣人ガストロノミー 事前導入HO1,2",
+      "kp": "シララ",
+      "members": [
+        "ひめちゃん",
+        "しぇぱ"
+      ],
+      "character_names": [],
+      "url_or_notes": [
+        "https://youtube.com/live/Cka0HrWfXcc"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/Cka0HrWfXcc"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        13
+      ],
+      "date": "2026-05-25",
+      "title": "未設定セッション 2026-05-25 row13",
+      "kp": "シララ",
+      "members": [
+        "メイサイ"
+      ],
+      "character_names": [],
+      "url_or_notes": [],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "blank_title",
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        14,
+        15,
+        16
+      ],
+      "date": "2026-05-05",
+      "title": "怪祓-カイブツ-",
+      "kp": "しぇぱ",
+      "members": [
+        "メイサイ",
+        "伊藤"
+      ],
+      "character_names": [
+        "メイサイ",
+        "伊藤"
+      ],
+      "url_or_notes": [
+        "メイサイ視点 2話 後半",
+        "メイサイ視点 ３話",
+        "KP視点 第参話「楽園行き電車の怪」",
+        "KP視点 第弍話 「目目目の怪」後編"
+      ],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "blank_kp",
+        "merged_rows",
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        17,
+        18,
+        19
+      ],
+      "date": "2026-05-04",
+      "title": "怪祓-カイブツ-",
+      "kp": "しぇぱ",
+      "members": [
+        "メイサイ",
+        "伊藤"
+      ],
+      "character_names": [
+        "メイサイ",
+        "伊藤"
+      ],
+      "url_or_notes": [
+        "メイサイ視点 1話",
+        "メイサイ視点 ２話 前半",
+        "KP視点 第弍話 「目目目の怪」前編",
+        "KP視点 第壱話 「かみきりの怪」"
+      ],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "blank_kp",
+        "merged_rows",
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        20
+      ],
+      "date": "2026-05-02",
+      "title": "Risoluto・Duo",
+      "kp": "シララ",
+      "members": [
+        "メイサイ",
+        "ヤギ"
+      ],
+      "character_names": [
+        "メイサイ",
+        "ヤギ"
+      ],
+      "url_or_notes": [
+        "前半メイサイ視点",
+        "後半メイサイ視点",
+        "前編KP視点",
+        "後編KP視点"
+      ],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        21
+      ],
+      "date": "2026-05-01",
+      "title": "復元シマスカ？",
+      "kp": "メイサイ",
+      "members": [
+        "伊藤",
+        "村松",
+        "シララ"
+      ],
+      "character_names": [
+        "伊藤",
+        "村松",
+        "シララ"
+      ],
+      "url_or_notes": [
+        "https://youtube.com/live/IzMuKQxrj70"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/IzMuKQxrj70"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        22
+      ],
+      "date": "2026-04-26",
+      "title": "モーンガータの魔法使い",
+      "kp": "メイサイ",
+      "members": [
+        "じぇら",
+        "九段"
+      ],
+      "character_names": [
+        "じぇら",
+        "九段"
+      ],
+      "url_or_notes": [
+        "https://youtube.com/live/cGq8qd01bqc"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/cGq8qd01bqc"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        23
+      ],
+      "date": "2026-04-25",
+      "title": "モーンガータの魔法使い",
+      "kp": "設定なし",
+      "members": [
+        "設定なし"
+      ],
+      "character_names": [],
+      "url_or_notes": [],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "unresolved_kp_or_members",
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        24
+      ],
+      "date": "2026-04-19",
+      "title": "モーンガータの魔法使い",
+      "kp": "メイサイ",
+      "members": [
+        "じぇら",
+        "九段"
+      ],
+      "character_names": [
+        "じぇら",
+        "九段"
+      ],
+      "url_or_notes": [
+        "https://youtube.com/live/5k2m5_W2WNk"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/5k2m5_W2WNk"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        25
+      ],
+      "date": "2026-04-15",
+      "title": "モーンガータの魔法使い",
+      "kp": "メイサイ",
+      "members": [
+        "シララ",
+        "伊藤"
+      ],
+      "character_names": [
+        "シララ",
+        "伊藤"
+      ],
+      "url_or_notes": [
+        "https://youtube.com/live/MYOKOtoTpkM"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/MYOKOtoTpkM"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        26
+      ],
+      "date": "2026-04-12",
+      "title": "静なるテロリスタ≪本編≫",
+      "kp": "じぇら",
+      "members": [
+        "ヤギ",
+        "しぇぱ",
+        "九段",
+        "ぬけ"
+      ],
+      "character_names": [],
+      "url_or_notes": [],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        27
+      ],
+      "date": "2026-04-11",
+      "title": "未設定セッション 2026-04-11 row27",
+      "kp": "ひめちゃん",
+      "members": [
+        "じぇら",
+        "ヤギ"
+      ],
+      "character_names": [],
+      "url_or_notes": [],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "blank_title",
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        28
+      ],
+      "date": "2026-04-04",
+      "title": "モーンガータの魔法使い",
+      "kp": "メイサイ",
+      "members": [
+        "ぐん",
+        "ナエカ"
+      ],
+      "character_names": [
+        "ぐん",
+        "ナエカ"
+      ],
+      "url_or_notes": [
+        "https://youtube.com/live/y4xqUP__DM8"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/y4xqUP__DM8"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        29
+      ],
+      "date": "2026-04-01",
+      "title": "モーンガータの魔法使い",
+      "kp": "メイサイ",
+      "members": [
+        "シララ",
+        "伊藤"
+      ],
+      "character_names": [
+        "シララ",
+        "伊藤"
+      ],
+      "url_or_notes": [
+        "前半",
+        "中盤"
+      ],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        30
+      ],
+      "date": "2026-03-27",
+      "title": "静なるテロリスタ【HO 異邦人】導入\n※冒頭録画ミス※ゴメンナサイ",
+      "kp": "じぇら",
+      "members": [
+        "ぬけ"
+      ],
+      "character_names": [],
+      "url_or_notes": [
+        "https://youtube.com/live/oMUm-OXe82c"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/oMUm-OXe82c"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        31
+      ],
+      "date": "2026-03-22",
+      "title": "静なるテロリスタ【HO 童子】導入",
+      "kp": "じぇら",
+      "members": [
+        "ヤギ"
+      ],
+      "character_names": [],
+      "url_or_notes": [
+        "https://youtube.com/live/RuIGs7LBQ30"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/RuIGs7LBQ30"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        32
+      ],
+      "date": "2026-03-21",
+      "title": "モーンガータの魔法使い",
+      "kp": "メイサイ",
+      "members": [
+        "しぇぱ",
+        "ヤギ"
+      ],
+      "character_names": [
+        "しぇぱ",
+        "やぎ"
+      ],
+      "url_or_notes": [
+        "https://youtube.com/live/e6jIJtFqDQ4"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/e6jIJtFqDQ4"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        33
+      ],
+      "date": "2026-03-17",
+      "title": "静なるテロリスタ【HO 美術家】導入",
+      "kp": "じぇら",
+      "members": [
+        "九段"
+      ],
+      "character_names": [],
+      "url_or_notes": [
+        "https://youtube.com/live/6paTxbKWPVI"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/6paTxbKWPVI"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        34
+      ],
+      "date": "2026-03-15",
+      "title": "モーンガータの魔法使い《後半》",
+      "kp": "メイサイ",
+      "members": [
+        "ひめちゃん",
+        "ぬけ"
+      ],
+      "character_names": [
+        "ひめちゃん",
+        "ぬけ"
+      ],
+      "url_or_notes": [
+        "https://youtube.com/live/h4LevPpDfwQ"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/h4LevPpDfwQ"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        35
+      ],
+      "date": "2026-03-14",
+      "title": "モーンガータの魔法使い《前半》",
+      "kp": "メイサイ",
+      "members": [
+        "ひめちゃん",
+        "ぬけ"
+      ],
+      "character_names": [
+        "ひめちゃん",
+        "ぬけ"
+      ],
+      "url_or_notes": [
+        "https://youtube.com/live/8HLpLaZMas8"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/8HLpLaZMas8"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        36
+      ],
+      "date": "2026-03-11",
+      "title": "犬猫戦争は終わらせない",
+      "kp": "設定なし",
+      "members": [
+        "設定なし"
+      ],
+      "character_names": [
+        "ひめ",
+        "伊藤"
+      ],
+      "url_or_notes": [
+        "https://youtube.com/live/PjvpW256tfs"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/PjvpW256tfs"
+      ],
+      "is_past": true,
+      "needs_review": [
+        "unresolved_kp_or_members"
+      ]
+    },
+    {
+      "source_rows": [
+        37
+      ],
+      "date": "2026-03-09",
+      "title": "未設定セッション 2026-03-09 row37",
+      "kp": "じぇら",
+      "members": [
+        "ひめちゃん",
+        "伊藤"
+      ],
+      "character_names": [],
+      "url_or_notes": [],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "blank_title",
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        38
+      ],
+      "date": "2026-03-08",
+      "title": "モーンガーターの魔法使い",
+      "kp": "メイサイ",
+      "members": [
+        "しぇぱ",
+        "ヤギ"
+      ],
+      "character_names": [
+        "しぇぱ",
+        "やぎ"
+      ],
+      "url_or_notes": [
+        "https://youtube.com/live/gRKjWkWhCDA"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/gRKjWkWhCDA"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        39
+      ],
+      "date": "2026-03-07",
+      "title": "静なるテロリスタ【HO 篤学者】導入",
+      "kp": "じぇら",
+      "members": [
+        "しぇぱ"
+      ],
+      "character_names": [],
+      "url_or_notes": [
+        "https://youtube.com/live/pfBhhLvWIlc"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/pfBhhLvWIlc"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        40
+      ],
+      "date": "2026-02-18",
+      "title": "静なるテロリスタ≪本編≫",
+      "kp": "じぇら",
+      "members": [
+        "メイサイ",
+        "シララ",
+        "ひめちゃん",
+        "伊藤"
+      ],
+      "character_names": [
+        "メイサイ",
+        "シララ",
+        "ひめちゃん",
+        "伊藤"
+      ],
+      "url_or_notes": [
+        "メイサイ視点 前半",
+        "メイサイ視点 後半",
+        "シララ視点 前編",
+        "シララ視点 後編",
+        "KP視点【前半】",
+        "KP視点【後半】"
+      ],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        41
+      ],
+      "date": "2026-01-28",
+      "title": "狂気山脈　第一登山隊",
+      "kp": "じぇら",
+      "members": [
+        "メイサイ",
+        "シララ",
+        "伊藤"
+      ],
+      "character_names": [
+        "メイサイ",
+        "シララ",
+        "伊藤"
+      ],
+      "url_or_notes": [
+        "前半",
+        "後半"
+      ],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        42
+      ],
+      "date": "2026-01-18",
+      "title": "グレイブレコード",
+      "kp": "メイサイ",
+      "members": [
+        "じぇら",
+        "ヤギ"
+      ],
+      "character_names": [
+        "じぇら(現代編)",
+        "じぇら(王国編)",
+        "やぎ(現代編)",
+        "やぎ(王国編)"
+      ],
+      "url_or_notes": [
+        "前半",
+        "後半"
+      ],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        43
+      ],
+      "date": "2026-01-17",
+      "title": "グレイブレコード",
+      "kp": "メイサイ",
+      "members": [
+        "伊藤",
+        "ぬけ"
+      ],
+      "character_names": [
+        "伊藤(現代編)",
+        "伊藤(王国編)",
+        "ぬけ(現代編)",
+        "ぬけ(王国編)"
+      ],
+      "url_or_notes": [
+        "https://youtube.com/live/wR0BfxUcMvs"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/wR0BfxUcMvs"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        44
+      ],
+      "date": "2026-01-12",
+      "title": "静なるテロリスタ【HO 篤学者】導入",
+      "kp": "じぇら",
+      "members": [
+        "シララ"
+      ],
+      "character_names": [
+        "シララ"
+      ],
+      "url_or_notes": [
+        "https://youtube.com/live/pBcxcBJBETw"
+      ],
+      "youtube_urls": [
+        "https://youtube.com/live/pBcxcBJBETw"
+      ],
+      "is_past": true,
+      "needs_review": []
+    },
+    {
+      "source_rows": [
+        45
+      ],
+      "date": "2026-01-12",
+      "title": "静なるテロリスタ",
+      "kp": "じぇら",
+      "members": [
+        "メイサイ",
+        "シララ"
+      ],
+      "character_names": [
+        "メイサイ"
+      ],
+      "url_or_notes": [
+        "【芸術家】導入：メイサイ"
+      ],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        46
+      ],
+      "date": "2026-01-07",
+      "title": "静なるテロリスタ【HO 異邦人】個別導入",
+      "kp": "じぇら",
+      "members": [
+        "伊藤"
+      ],
+      "character_names": [],
+      "url_or_notes": [
+        "【異邦人】個別導入(KP視点)"
+      ],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        47
+      ],
+      "date": "2026-01-03",
+      "title": "同じ空には昇れない【第三陣】",
+      "kp": "ひめちゃん",
+      "members": [
+        "じぇら",
+        "しぇぱ"
+      ],
+      "character_names": [],
+      "url_or_notes": [
+        "KP視点(ひめ)",
+        "HO太陽（しぇぱ） 1部",
+        "HO太陽（しぇぱ） 2部"
+      ],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "no_youtube_url"
+      ]
+    },
+    {
+      "source_rows": [
+        48
+      ],
+      "date": "2026-01-02",
+      "title": "静なるテロリスタ【HO童子】個別導入",
+      "kp": "じぇら",
+      "members": [
+        "ひめ"
+      ],
+      "character_names": [],
+      "url_or_notes": [
+        "【童子】個別導入(ひめ)"
+      ],
+      "youtube_urls": [],
+      "is_past": true,
+      "needs_review": [
+        "no_youtube_url"
+      ]
+    }
+  ]
+}

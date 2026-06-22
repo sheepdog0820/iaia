@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Count, Q
 
 from accounts.models import Group, GroupMembership
+from accounts.character_models import CharacterSheet
 from scenarios.models import Scenario
 from schedules.models import SessionParticipant, TRPGSession
 
@@ -64,6 +65,33 @@ class Command(BaseCommand):
                 f'guest alias not linked: session_id={participant.session_id} title={participant.session.title} guest={participant.guest_name}'
             )
 
+        character_unlinked = (
+            SessionParticipant.objects
+            .filter(
+                session_id__in=session_ids,
+                user__isnull=False,
+                role='player',
+                character_sheet__isnull=True,
+            )
+            .select_related('session', 'session__scenario', 'user')
+            .order_by('session_id', 'id')
+        )
+        for participant in character_unlinked:
+            candidates = self._character_sheet_candidates(participant)
+            if len(candidates) == 1:
+                issues.append(
+                    'character sheet linkable: '
+                    f'session_id={participant.session_id} title={participant.session.title} '
+                    f'user={participant.user.username} character_id={candidates[0].id} character={candidates[0].name}'
+                )
+            elif len(candidates) > 1:
+                ids = ','.join(str(candidate.id) for candidate in candidates)
+                issues.append(
+                    'character sheet ambiguous: '
+                    f'session_id={participant.session_id} title={participant.session.title} '
+                    f'user={participant.user.username} candidates={ids}'
+                )
+
         participant_counts = SessionParticipant.objects.filter(session_id__in=session_ids).values('session_id').annotate(
             gm_count=Count('id', filter=Q(role='gm')),
             player_count=Count('id', filter=Q(role='player')),
@@ -94,4 +122,26 @@ class Command(BaseCommand):
             ids = ', '.join(str(group.id) for group in matches)
             raise CommandError(f'group name is not unique: {group_name} ids={ids}')
         return matches[0]
+
+    def _character_sheet_candidates(self, participant):
+        if not participant.user_id:
+            return []
+
+        base_query = CharacterSheet.objects.filter(user=participant.user, is_active=True)
+        if participant.character_name:
+            by_name = list(base_query.filter(name=participant.character_name).order_by('id'))
+            if len(by_name) == 1:
+                return by_name
+            if len(by_name) > 1:
+                return by_name
+
+        scenario = participant.session.scenario
+        if not scenario:
+            return []
+
+        return list(
+            base_query
+            .filter(Q(source_scenario=scenario) | Q(source_scenario_title=scenario.title))
+            .order_by('id')
+        )
 

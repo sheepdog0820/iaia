@@ -3,8 +3,10 @@
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models import Q
 
 from accounts.models import Group, GroupMembership
+from accounts.character_models import CharacterSheet
 from schedules.models import SessionParticipant, TRPGSession
 
 
@@ -33,6 +35,11 @@ class Command(BaseCommand):
             action='store_true',
             help='Do not create/update SessionParticipant rows for each session GM.',
         )
+        parser.add_argument(
+            '--no-link-character-sheets',
+            action='store_true',
+            help='Do not link participant rows to matching local character sheets.',
+        )
         parser.add_argument('--dry-run', action='store_true', help='Show changes without writing to DB.')
 
     def handle(self, *args, **options):
@@ -50,6 +57,9 @@ class Command(BaseCommand):
             'guests_skipped_duplicate': 0,
             'gm_participants_created': 0,
             'gm_participants_updated': 0,
+            'character_sheets_linked': 0,
+            'character_sheets_skipped_no_candidate': 0,
+            'character_sheets_skipped_ambiguous': 0,
         }
 
         with transaction.atomic():
@@ -131,6 +141,50 @@ class Command(BaseCommand):
                             participant.role = 'gm'
                             participant.save(update_fields=['role'])
 
+            if not options['no_link_character_sheets']:
+                participants = (
+                    SessionParticipant.objects
+                    .filter(
+                        session_id__in=session_ids,
+                        user__isnull=False,
+                        role='player',
+                        character_sheet__isnull=True,
+                    )
+                    .select_related('session', 'session__scenario', 'user')
+                    .order_by('session_id', 'id')
+                )
+                for participant in participants:
+                    candidates = self._character_sheet_candidates(participant)
+                    if not candidates:
+                        stats['character_sheets_skipped_no_candidate'] += 1
+                        self.stdout.write(self.style.WARNING(
+                            'character sheet skipped no candidate: '
+                            f'session=#{participant.session_id} user={participant.user.username} '
+                            f'character_name={participant.character_name or "-"}'
+                        ))
+                        continue
+                    if len(candidates) > 1:
+                        stats['character_sheets_skipped_ambiguous'] += 1
+                        ids = ','.join(str(candidate.id) for candidate in candidates)
+                        self.stdout.write(self.style.WARNING(
+                            'character sheet skipped ambiguous: '
+                            f'session=#{participant.session_id} user={participant.user.username} '
+                            f'character_name={participant.character_name or "-"} candidates={ids}'
+                        ))
+                        continue
+
+                    character = candidates[0]
+                    stats['character_sheets_linked'] += 1
+                    self.stdout.write(
+                        'character sheet link: '
+                        f'session=#{participant.session_id} user={participant.user.username} '
+                        f'participant=#{participant.id} -> character=#{character.id} {character.name}'
+                    )
+                    if not options['dry_run']:
+                        participant.character_sheet = character
+                        participant.character_name = character.name
+                        participant.save(update_fields=['character_sheet', 'character_name'])
+
             if options['dry_run']:
                 transaction.set_rollback(True)
 
@@ -153,3 +207,25 @@ class Command(BaseCommand):
             ids = ', '.join(str(group.id) for group in matches)
             raise CommandError(f'group name is not unique: {group_name} ids={ids}')
         return matches[0]
+
+    def _character_sheet_candidates(self, participant):
+        if not participant.user_id:
+            return []
+
+        base_query = CharacterSheet.objects.filter(user=participant.user, is_active=True)
+        if participant.character_name:
+            by_name = list(base_query.filter(name=participant.character_name).order_by('id'))
+            if len(by_name) == 1:
+                return by_name
+            if len(by_name) > 1:
+                return by_name
+
+        scenario = participant.session.scenario
+        if not scenario:
+            return []
+
+        return list(
+            base_query
+            .filter(Q(source_scenario=scenario) | Q(source_scenario_title=scenario.title))
+            .order_by('id')
+        )
