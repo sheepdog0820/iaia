@@ -32,6 +32,7 @@ class ProductionSettingsTests(TestCase):
             'STRIPE_PREMIUM_PRICE_ID': 'price_test',
             'STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID': 'bpc_live_test',
             'STRIPE_REVOKE_ON_REFUND_OR_DISPUTE': 'False',
+            'STRIPE_CHECKOUT_ENABLED': 'False',
             'PUBLIC_SITE_URL': 'https://tableno.jp',
             'PREMIUM_PRICE_LABEL': '月額500円',
             'LEGAL_PAYMENT_METHOD': 'クレジットカード',
@@ -168,6 +169,7 @@ print(json.dumps({
     "stripe_premium_price_id": settings.STRIPE_PREMIUM_PRICE_ID,
     "stripe_customer_portal_configuration_id": settings.STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID,
     "stripe_revoke_on_refund_or_dispute": settings.STRIPE_REVOKE_ON_REFUND_OR_DISPUTE,
+    "stripe_checkout_enabled": settings.STRIPE_CHECKOUT_ENABLED,
     "public_site_url": settings.PUBLIC_SITE_URL,
     "premium_price_label": settings.PREMIUM_PRICE_LABEL,
     "legal_payment_method": settings.LEGAL_PAYMENT_METHOD,
@@ -190,6 +192,7 @@ print(json.dumps({
         self.assertEqual(payload['stripe_premium_price_id'], 'price_test')
         self.assertEqual(payload['stripe_customer_portal_configuration_id'], 'bpc_live_test')
         self.assertFalse(payload['stripe_revoke_on_refund_or_dispute'])
+        self.assertFalse(payload['stripe_checkout_enabled'])
         self.assertEqual(payload['public_site_url'], 'https://tableno.jp')
         self.assertEqual(payload['premium_price_label'], '月額500円')
         self.assertEqual(payload['legal_payment_method'], 'クレジットカード')
@@ -217,6 +220,20 @@ print(json.dumps({
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('PREMIUM_PRICE_LABEL must be set to a production value', result.stderr)
+
+    def test_billing_checkout_can_be_enabled_explicitly_after_verification(self):
+        payload = self.run_settings_probe(
+            {'STRIPE_CHECKOUT_ENABLED': 'True'},
+            expression='''
+import json
+from tableno import settings_production as settings
+print(json.dumps({
+    "stripe_checkout_enabled": settings.STRIPE_CHECKOUT_ENABLED,
+}))
+''',
+        )
+
+        self.assertTrue(payload['stripe_checkout_enabled'])
 
     def test_production_rejects_stripe_test_secret_key(self):
         result = self.run_settings_probe(

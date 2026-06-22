@@ -503,7 +503,7 @@ def redeem_premium_access_code(user, raw_code):
     return access_code, True
 
 
-def expire_promo_subscriptions(now=None):
+def expire_promo_subscriptions(now=None, dry_run=False):
     now = now or timezone.now()
     expired = PremiumSubscription.objects.select_related('user').filter(
         subscription_status=PremiumSubscription.PROMO_STATUS,
@@ -515,6 +515,9 @@ def expire_promo_subscriptions(now=None):
     )
     count = 0
     for record in expired:
+        count += 1
+        if dry_run:
+            continue
         redemption = (
             PremiumAccessCodeRedemption.objects
             .select_related('access_code')
@@ -538,7 +541,6 @@ def expire_promo_subscriptions(now=None):
                 else {'subscription_id': record.pk}
             ),
         )
-        count += 1
     return count
 
 

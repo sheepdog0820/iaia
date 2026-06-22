@@ -19,7 +19,7 @@ LEGAL_LABELS = {
     'contact': '問い合わせ先',
     'price': '販売価格',
     'extra_fee': '商品代金以外の必要料金',
-    'extra_fee_text': 'インターネット接続料金、通信料金等はお客様の負担となります。',
+    'extra_fee_text': 'インターネット接続料金、通信料等はお客様の負担となります。',
     'payment_method': '支払方法',
     'payment_timing': '支払時期',
     'delivery': '提供時期',
@@ -48,6 +48,45 @@ LEGAL_LABELS = {
 }
 
 DEFAULT_REFUND_POLICY = 'デジタルサービスの性質上、決済完了後のお客様都合による返金は原則として受け付けません。重複請求や誤請求が確認された場合は個別に対応します。'
+
+
+PREMIUM_FEATURE_ROWS = [
+    {
+        'key': 'character_management',
+        'name': 'キャラクター管理',
+        'free': '利用可',
+        'premium': '利用可',
+        'note': '基本機能として無料で利用できます。',
+    },
+    {
+        'key': 'session_management',
+        'name': 'セッション管理',
+        'free': '利用可',
+        'premium': '利用可',
+        'note': '基本機能として無料で利用できます。',
+    },
+    {
+        'key': 'scenario_archive',
+        'name': 'シナリオアーカイブ',
+        'free': '利用不可',
+        'premium': '利用可',
+        'note': 'プレミアム限定機能です。',
+    },
+    {
+        'key': 'billing_management',
+        'name': '支払い方法・解約管理',
+        'free': '-',
+        'premium': 'Stripe Customer Portalから利用可',
+        'note': '支払い方法更新、解約、請求履歴を管理できます。',
+    },
+    {
+        'key': 'premium_code',
+        'name': '運営発行コード',
+        'free': '入力可',
+        'premium': '適用後にプレミアム化',
+        'note': '課金なしで期限付きまたは無期限のプレミアム権限を付与できます。',
+    },
+]
 
 
 def terms_view(request):
@@ -92,5 +131,6 @@ def premium_features_view(request):
             'cancellation_method': getattr(settings, 'LEGAL_CANCELLATION_METHOD', DEFAULT_CANCELLATION_METHOD),
             'refund_policy': getattr(settings, 'LEGAL_REFUND_POLICY', DEFAULT_REFUND_POLICY),
             'labels': LEGAL_LABELS,
+            'feature_rows': PREMIUM_FEATURE_ROWS,
         },
     )

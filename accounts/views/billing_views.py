@@ -27,6 +27,10 @@ from accounts.billing import (
 from accounts.models import PremiumSubscription, StripeWebhookEvent
 
 
+def is_checkout_enabled():
+    return bool(getattr(settings, 'STRIPE_CHECKOUT_ENABLED', True))
+
+
 class BillingPageView(TemplateView):
     template_name = 'account/billing.html'
 
@@ -41,10 +45,13 @@ class BillingPageView(TemplateView):
         context = super().get_context_data(**kwargs)
         subscription = PremiumSubscription.objects.filter(user=self.request.user).first()
         context['subscription'] = subscription
+        checkout_enabled = is_checkout_enabled()
+        configured_plans = get_configured_checkout_plans()
+        context['checkout_enabled'] = checkout_enabled
         context['stripe_configured'] = bool(
-            settings.STRIPE_SECRET_KEY and get_configured_checkout_plans()
+            checkout_enabled and settings.STRIPE_SECRET_KEY and configured_plans
         )
-        context['checkout_price_options'] = get_configured_checkout_plans()
+        context['checkout_price_options'] = configured_plans if checkout_enabled else []
         context['refund_or_dispute_auto_revoke'] = getattr(
             settings,
             'STRIPE_REVOKE_ON_REFUND_OR_DISPUTE',
@@ -65,6 +72,11 @@ class CheckoutSessionView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        if not is_checkout_enabled():
+            return Response(
+                {'error': 'Stripe Checkout is disabled until billing verification is complete'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         try:
             session = create_checkout_session(request, plan=request.data.get('plan', 'monthly'))
         except ValueError as exc:

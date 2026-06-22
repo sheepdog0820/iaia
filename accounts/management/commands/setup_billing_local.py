@@ -94,6 +94,27 @@ class Command(BaseCommand):
             '- yearly price id: '
             f'{getattr(settings, "STRIPE_PREMIUM_YEARLY_PRICE_ID", "") or "not configured"}'
         )
+        self.stdout.write(
+            '- expected currency: '
+            f'{getattr(settings, "STRIPE_PREMIUM_EXPECTED_CURRENCY", "") or "not configured"}'
+        )
+        self.stdout.write(
+            '- expected monthly unit amount: '
+            f'{getattr(settings, "STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT", "") or "not configured"}'
+        )
+        self.stdout.write(
+            '- expected yearly unit amount: '
+            f'{getattr(settings, "STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT", "") or "not configured"}'
+        )
+        self.stdout.write(
+            '- checkout enabled: '
+            f'{str(getattr(settings, "STRIPE_CHECKOUT_ENABLED", True)).lower()}'
+        )
+        self.stdout.write('- development env file: .env.development')
+        self.stdout.write(
+            '- create test Prices: python manage.py create_stripe_development_prices'
+        )
+        self.stdout.write('- verify settings: python manage.py billing_preflight')
         self.stdout.write('- monthly checkout button appears when STRIPE_PREMIUM_PRICE_ID is set')
         self.stdout.write('- yearly checkout button appears when STRIPE_PREMIUM_YEARLY_PRICE_ID is set')
         self.stdout.write('Local verification URLs:')

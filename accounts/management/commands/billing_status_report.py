@@ -1,5 +1,6 @@
 ﻿import json
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Count
@@ -52,6 +53,16 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('billing_status_report=ok'))
         self.stdout.write(f'total_subscriptions={report["total_subscriptions"]}')
         self.stdout.write(f'active_access={report["active_access"]}')
+        self.stdout.write(f'stripe_checkout_enabled={str(report["stripe_checkout_enabled"]).lower()}')
+        self.stdout.write(
+            f'expected_stripe_price_currency={report["expected_stripe_price_currency"] or "(none)"}'
+        )
+        self.stdout.write(
+            f'expected_monthly_unit_amount={report["expected_monthly_unit_amount"] or "(none)"}'
+        )
+        self.stdout.write(
+            f'expected_yearly_unit_amount={report["expected_yearly_unit_amount"] or "(none)"}'
+        )
         self.stdout.write(f'manual_override_users={report["manual_override_users"]}')
         self.stdout.write(
             f'manual_override_without_subscription={report["manual_override_without_subscription"]}'
@@ -216,6 +227,22 @@ def build_billing_status_report(now=None):
     return {
         'total_subscriptions': total,
         'active_access': active_access,
+        'stripe_checkout_enabled': bool(getattr(settings, 'STRIPE_CHECKOUT_ENABLED', True)),
+        'expected_stripe_price_currency': getattr(
+            settings,
+            'STRIPE_PREMIUM_EXPECTED_CURRENCY',
+            '',
+        ),
+        'expected_monthly_unit_amount': getattr(
+            settings,
+            'STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT',
+            '',
+        ),
+        'expected_yearly_unit_amount': getattr(
+            settings,
+            'STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT',
+            '',
+        ),
         'manual_override_users': len(manual_override_user_ids),
         'manual_override_without_subscription': manual_override_without_subscription,
         'stale_user_flags': stale_user_flags,

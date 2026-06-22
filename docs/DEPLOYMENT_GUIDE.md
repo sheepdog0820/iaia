@@ -48,12 +48,15 @@
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PREMIUM_PRICE_ID / STRIPE_PREMIUM_YEARLY_PRICE_ID`
+- `STRIPE_PREMIUM_EXPECTED_CURRENCY`
+- `STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT`
+- `STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT`
 - `STRIPE_REVOKE_ON_REFUND_OR_DISPUTE`
 - `PUBLIC_SITE_URL`
 - `EMAIL_BACKEND`
 - `DEFAULT_FROM_EMAIL`
 - `STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID`
-- PREMIUM_PRICE_LABEL`r
+- `PREMIUM_PRICE_LABEL`
 - `PREMIUM_MONTHLY_PRICE_LABEL`
 - `PREMIUM_MONTHLY_PRICE_DESCRIPTION`
 - `PREMIUM_YEARLY_PRICE_LABEL`
@@ -162,3 +165,10 @@ curl -f https://tableno.jp/health/ready
 - 通常ログインとOAuthログイン成功
 - DB/Redis接続エラーなし
 - CloudWatchへアプリログが出力される
+
+
+## Stripe Checkout exposure
+
+Set `STRIPE_CHECKOUT_ENABLED=False` for aws-pre/aws-prod until ISSUE-077 external Stripe verification is complete. Set it to `True` only after test-mode Product/Price, Webhook, and real event ID checks are recorded.
+
+Before enabling paid Checkout, run `python manage.py billing_release_gate --verification-record docs/runbooks/billing-verification-YYYYMMDD.md`. The gate passes with Checkout disabled, and fails with Checkout enabled unless the final aws-pre verification record contains real Stripe test-mode event IDs, recent-event evidence, cancel-at-period-end evidence, and local DB/admin evidence.

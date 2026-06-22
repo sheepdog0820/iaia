@@ -76,7 +76,9 @@ class BillingLegalPagesTestCase(TestCase):
         response = self.client.get(reverse('premium_features'))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '\u8ca9\u58f2\u4fa1\u683c')
         self.assertContains(response, '月額料金')
+        self.assertContains(response, '年額4,800円')
         self.assertContains(response, '支払方法')
         self.assertContains(response, '提供時期')
         self.assertContains(response, '解約方法')
@@ -119,6 +121,34 @@ class BillingLegalPagesTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '月額500円')
         self.assertContains(response, '解約後も支払い済み期間の終了まで利用できます。')
+
+    def test_default_billing_terms_cover_monthly_and_yearly_subscription_timing(self):
+        for url_name in ('commercial_disclosure', 'premium_features'):
+            with self.subTest(url_name=url_name):
+                response = self.client.get(reverse(url_name))
+
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, '\u6708\u984d480\u5186 / \u5e74\u984d4,800\u5186')
+                self.assertContains(response, '\u9078\u629e\u3057\u305f\u6708\u984d\u307e\u305f\u306f\u5e74\u984d\u30b5\u30d6\u30b9\u30af\u30ea\u30d7\u30b7\u30e7\u30f3')
+
+
+    def test_premium_features_page_shows_free_and_paid_feature_differences(self):
+        response = self.client.get(reverse('premium_features'))
+
+        self.assertEqual(response.status_code, 200)
+        for feature_key in (
+            'character_management',
+            'session_management',
+            'scenario_archive',
+            'billing_management',
+            'premium_code',
+        ):
+            self.assertContains(response, f'data-feature="{feature_key}"')
+        self.assertContains(response, 'シナリオアーカイブ')
+        self.assertContains(response, '利用不可')
+        self.assertContains(response, 'Stripe Customer Portal')
+        self.assertContains(response, '運営発行コード')
+        self.assertContains(response, '課金なし')
 
     @override_settings(
         PREMIUM_PRICE_LABEL='Monthly 500 JPY',

@@ -23,6 +23,7 @@ from accounts.admin import (
     PremiumAccessCodeRedemptionInline,
     PremiumAccessCodeStatusFilter,
     PremiumAccessCodeAdmin,
+    PremiumAuditActorFilter,
     PremiumAuditLogAdmin,
     StripeWebhookEventAdmin,
     PremiumSubscriptionAdmin,
@@ -196,6 +197,7 @@ class PremiumSubscriptionModelTestCase(TestCase):
 
 
 @override_settings(
+    STRIPE_CHECKOUT_ENABLED=True,
     STRIPE_SECRET_KEY='sk_test_dummy',
     STRIPE_PREMIUM_PRICE_ID='price_dummy',
 )
@@ -211,6 +213,20 @@ class BillingApiTestCase(TestCase):
     def test_checkout_requires_authentication(self):
         response = self.client.post(reverse('billing-checkout-session'))
         self.assertEqual(response.status_code, 401)
+
+    @override_settings(STRIPE_CHECKOUT_ENABLED=False)
+    @patch('accounts.views.billing_views.create_checkout_session')
+    def test_checkout_disabled_returns_service_unavailable_without_calling_stripe(self, create_checkout_session):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(reverse('billing-checkout-session'))
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.data['error'],
+            'Stripe Checkout is disabled until billing verification is complete',
+        )
+        create_checkout_session.assert_not_called()
 
     @patch('accounts.views.billing_views.create_checkout_session')
     def test_checkout_returns_stripe_redirect_url(self, create_checkout_session):
@@ -470,9 +486,12 @@ class BillingPageTestCase(TestCase):
         self.assertNotContains(response, 'カード更新が必要です')
         self.assertNotContains(response, '支払いに失敗した請求があります')
     @override_settings(
+        STRIPE_CHECKOUT_ENABLED=True,
         STRIPE_SECRET_KEY='sk_test_page',
         STRIPE_PREMIUM_PRICE_ID='price_monthly_page',
         STRIPE_PREMIUM_YEARLY_PRICE_ID='price_yearly_page',
+        PREMIUM_MONTHLY_PRICE_DESCRIPTION='480\u5186/\u6708',
+        PREMIUM_YEARLY_PRICE_DESCRIPTION='4,800\u5186/\u5e74',
     )
     def test_billing_page_shows_monthly_and_yearly_checkout_options(self):
         self.client.force_login(self.user)
@@ -482,8 +501,27 @@ class BillingPageTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'data-plan="monthly"')
         self.assertContains(response, 'data-plan="yearly"')
-        self.assertContains(response, '480円/月')
-        self.assertContains(response, '4,800円/年')
+        self.assertContains(response, '480\u5186/\u6708')
+        self.assertContains(response, '4,800\u5186/\u5e74')
+
+    @override_settings(
+        STRIPE_CHECKOUT_ENABLED=False,
+        STRIPE_SECRET_KEY='sk_test_page',
+        STRIPE_PREMIUM_PRICE_ID='price_monthly_page',
+    )
+    def test_billing_page_hides_checkout_options_when_checkout_disabled(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse('billing'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Stripe Checkout')
+        self.assertContains(
+            response,
+            '\u8ab2\u91d1\u691c\u8a3c\u304c\u5b8c\u4e86\u3059\u308b\u307e\u3067\u8ab2\u91d1\u7533\u3057\u8fbc\u307f\u306f\u5229\u7528\u3067\u304d\u307e\u305b\u3093',
+        )
+        self.assertNotContains(response, 'data-plan="monthly"')
+        self.assertContains(response, 'id="checkout-btn"')
 
     @override_settings(STRIPE_REVOKE_ON_REFUND_OR_DISPUTE=True)
     def test_billing_page_shows_refund_or_dispute_auto_revoke_notice(self):
@@ -1755,6 +1793,31 @@ class PremiumAccessCodeCommandTestCase(TestCase):
         user.refresh_from_db()
         self.assertTrue(user.is_premium)
 
+    def test_expire_premium_access_dry_run_reports_without_changing(self):
+        user = User.objects.create_user(username='command-expire-dry-run-user')
+        user.is_premium = True
+        user.save(update_fields=['is_premium'])
+        PremiumSubscription.objects.create(
+            user=user,
+            subscription_status='promo',
+            access_source='promo_code',
+            premium_expires_at=timezone.now() - timedelta(minutes=1),
+        )
+        stdout = StringIO()
+
+        call_command('expire_premium_access', '--dry-run', stdout=stdout)
+
+        user.refresh_from_db()
+        self.assertTrue(user.is_premium)
+        self.assertIn('expired_premium_access_dry_run=1', stdout.getvalue())
+        self.assertFalse(
+            PremiumAuditLog.objects.filter(
+                user=user,
+                action='revoked',
+                reason='Premium access code expired',
+            ).exists()
+        )
+
     def test_reconcile_premium_access_dry_run_reports_without_changing(self):
         user = User.objects.create_user(username='reconcile-dry-user')
         PremiumSubscription.objects.create(
@@ -1833,6 +1896,12 @@ class PremiumAccessCodeCommandTestCase(TestCase):
         self.assertFalse(user.is_premium)
         self.assertIn('expired=1', stdout.getvalue())
 
+    @override_settings(
+        STRIPE_CHECKOUT_ENABLED=True,
+        STRIPE_PREMIUM_EXPECTED_CURRENCY='jpy',
+        STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT='480',
+        STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT='4800',
+    )
     def test_billing_status_report_outputs_operational_counts(self):
         active_user = User.objects.create_user(username='report-active-user')
         active_user.is_premium = True
@@ -1972,6 +2041,10 @@ class PremiumAccessCodeCommandTestCase(TestCase):
         self.assertIn('billing_status_report=ok', output)
         self.assertIn('total_subscriptions=7', output)
         self.assertIn('active_access=8', output)
+        self.assertIn('stripe_checkout_enabled=true', output)
+        self.assertIn('expected_stripe_price_currency=jpy', output)
+        self.assertIn('expected_monthly_unit_amount=480', output)
+        self.assertIn('expected_yearly_unit_amount=4800', output)
         self.assertIn('manual_override_users=3', output)
         self.assertIn('manual_override_without_subscription=2', output)
         self.assertIn('stale_user_flags=3', output)
@@ -2013,6 +2086,12 @@ class PremiumAccessCodeCommandTestCase(TestCase):
             output,
         )
 
+    @override_settings(
+        STRIPE_CHECKOUT_ENABLED=False,
+        STRIPE_PREMIUM_EXPECTED_CURRENCY='jpy',
+        STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT='480',
+        STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT='4800',
+    )
     def test_billing_status_report_json_output(self):
         user = User.objects.create_user(username='report-json-user')
         PremiumSubscription.objects.create(
@@ -2036,6 +2115,10 @@ class PremiumAccessCodeCommandTestCase(TestCase):
 
         payload = json.loads(stdout.getvalue())
         self.assertEqual(payload['total_subscriptions'], 1)
+        self.assertFalse(payload['stripe_checkout_enabled'])
+        self.assertEqual(payload['expected_stripe_price_currency'], 'jpy')
+        self.assertEqual(payload['expected_monthly_unit_amount'], '480')
+        self.assertEqual(payload['expected_yearly_unit_amount'], '4800')
         self.assertEqual(payload['statuses'], {'canceled': 1})
         self.assertEqual(payload['manual_override_users'], 0)
         self.assertEqual(payload['manual_override_without_subscription'], 0)
@@ -2161,7 +2244,20 @@ class PremiumAccessCodeCommandTestCase(TestCase):
         output = stdout.getvalue()
         self.assertIn('OK checkout.session.completed is_premium=True', output)
         self.assertIn('OK subscription.active is_premium=True', output)
+        self.assertIn(
+            'OK subscription.active stripe_price_id=price_smoke_monthly billing_interval=month',
+            output,
+        )
         self.assertIn('OK subscription.cancel_at_period_end is_premium=True', output)
+        self.assertIn(
+            'OK subscription.cancel_at_period_end stripe_price_id=price_smoke_monthly billing_interval=month',
+            output,
+        )
+        self.assertIn('OK subscription.yearly_active is_premium=True', output)
+        self.assertIn(
+            'OK subscription.yearly_active stripe_price_id=price_smoke_yearly billing_interval=year',
+            output,
+        )
         self.assertIn('OK invoice.payment_failed', output)
         self.assertIn('OK invoice.payment_succeeded', output)
         self.assertIn('OK subscription.unpaid is_premium=False', output)
@@ -2179,7 +2275,13 @@ class PremiumAccessCodeCommandTestCase(TestCase):
         self.assertIn('billing_webhook_smoke=ok', output)
 
     @override_settings(
+        STRIPE_CHECKOUT_ENABLED=True,
         STRIPE_PREMIUM_PRICE_ID='price_record',
+        STRIPE_PREMIUM_EXPECTED_CURRENCY='jpy',
+        STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT='480',
+        STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT='4800',
+        STRIPE_PUBLISHABLE_KEY='pk_test_record',
+        STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID='bpc_record',
         PUBLIC_SITE_URL='https://example.test',
     )
     def test_billing_verification_record_command_outputs_markdown(self):
@@ -2205,6 +2307,13 @@ class PremiumAccessCodeCommandTestCase(TestCase):
         self.assertIn('| 環境 | local |', output)
         self.assertIn('| Monthly Price ID | price_record |', output)
         self.assertIn('| Yearly Price ID | 未設定 |', output)
+        self.assertIn('| Expected Stripe Price currency | jpy |', output)
+        self.assertIn('| Expected monthly unit amount | 480 |', output)
+        self.assertIn('| Expected yearly unit amount | 4800 |', output)
+        self.assertIn('| Stripe Checkout enabled | yes |', output)
+        self.assertIn('| Stripe publishable key configured | yes |', output)
+        self.assertIn('| Customer Portal configuration ID | bpc_record |', output)
+        self.assertNotIn('pk_test_record', output)
         self.assertIn('| Webhook endpoint URL | https://example.test/api/billing/webhook/ |', output)
         self.assertIn('checkout.session.completed', output)
         self.assertIn('invoice.payment_failed', output)
@@ -2220,6 +2329,93 @@ class PremiumAccessCodeCommandTestCase(TestCase):
         self.assertIn('Check billing_intervals for month/year/blank counts.', output)
         self.assertIn('stripe_price_id / billing_interval', output)
         self.assertIn('Stripe subscription metadata includes stripe_price_id / billing_interval', output)
+
+    @override_settings(STRIPE_CHECKOUT_ENABLED=False)
+    def test_billing_release_gate_passes_when_checkout_disabled(self):
+        stdout = StringIO()
+
+        call_command('billing_release_gate', stdout=stdout)
+
+        output = stdout.getvalue()
+        self.assertIn('stripe_checkout_enabled=false', output)
+        self.assertIn('billing_release_gate=ok checkout-disabled', output)
+
+    @override_settings(STRIPE_CHECKOUT_ENABLED=True)
+    def test_billing_release_gate_requires_verification_record_when_checkout_enabled(self):
+        with self.assertRaises(CommandError) as context:
+            call_command('billing_release_gate', stdout=StringIO())
+
+        self.assertIn('--verification-record', str(context.exception))
+
+    @override_settings(STRIPE_CHECKOUT_ENABLED=True)
+    def test_billing_release_gate_rejects_incomplete_local_verification_record(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            record_path = Path(tmpdir) / 'local-record.md'
+            record_path.write_text(
+                """# Stripe billing record
+| Stripe mode | test |
+| Stripe Checkout enabled | yes |
+remote check not run or produced no output
+""",
+                encoding='utf-8',
+            )
+
+            with self.assertRaises(CommandError) as context:
+                call_command(
+                    'billing_release_gate',
+                    '--verification-record',
+                    str(record_path),
+                    stdout=StringIO(),
+                )
+
+        message = str(context.exception)
+        self.assertIn('not release-ready', message)
+        self.assertIn('remote check not run or produced no output', message)
+
+    @override_settings(STRIPE_CHECKOUT_ENABLED=True)
+    def test_billing_release_gate_accepts_complete_test_mode_verification_record(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            record_path = Path(tmpdir) / 'aws-pre-record.md'
+            record_path.write_text(self._complete_billing_release_record(), encoding='utf-8')
+            stdout = StringIO()
+
+            call_command(
+                'billing_release_gate',
+                '--verification-record',
+                str(record_path),
+                stdout=stdout,
+            )
+
+        output = stdout.getvalue()
+        self.assertIn('stripe_checkout_enabled=true', output)
+        self.assertIn('billing_release_gate=ok checkout-verified', output)
+
+    def _complete_billing_release_record(self):
+        return """# Stripe billing verification record
+
+| Stripe mode | test |
+| Stripe Checkout enabled | yes |
+| Expected Stripe Price currency | jpy |
+| Expected monthly unit amount | 480 |
+| Expected yearly unit amount | 4800 |
+
+billing_stripe_remote_check=ok
+recent_event_ids:
+- checkout.session.completed: evt_checkout_recent
+- customer.subscription.created: evt_created_recent
+- customer.subscription.updated: evt_update_recent
+- customer.subscription.deleted: evt_deleted_recent
+- invoice.payment_failed: evt_failed_recent
+- invoice.payment_succeeded: evt_succeeded_recent
+- charge.refunded: evt_refunded_recent
+- charge.dispute.created: evt_dispute_recent
+- charge.dispute.closed: evt_dispute_closed_recent
+recent_cancel_at_period_end_event_ids: evt_cancel_at_period_end_recent
+cancel_at_period_end=true
+StripeWebhookEvent
+PremiumSubscription
+Premium audit logs
+"""
 
     @override_settings(
         STRIPE_PREMIUM_PRICE_ID='price_record',
@@ -2362,6 +2558,9 @@ class PremiumAccessCodeCommandTestCase(TestCase):
         self.assertIn('premium code:', output)
         self.assertIn('premium code expires at:', output)
         self.assertIn('Stripe checkout configuration:', output)
+        self.assertIn('development env file: .env.development', output)
+        self.assertIn('create test Prices: python manage.py create_stripe_development_prices', output)
+        self.assertIn('verify settings: python manage.py billing_preflight', output)
         self.assertIn('monthly checkout button appears when STRIPE_PREMIUM_PRICE_ID is set', output)
         self.assertIn('yearly checkout button appears when STRIPE_PREMIUM_YEARLY_PRICE_ID is set', output)
         self.assertIn('http://127.0.0.1:8000/accounts/billing/', output)
@@ -2383,6 +2582,9 @@ class PremiumAccessCodeCommandTestCase(TestCase):
     @override_settings(
         STRIPE_PREMIUM_PRICE_ID='price_monthly_local',
         STRIPE_PREMIUM_YEARLY_PRICE_ID='price_yearly_local',
+        STRIPE_PREMIUM_EXPECTED_CURRENCY='jpy',
+        STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT='480',
+        STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT='4800',
     )
     def test_setup_billing_local_outputs_configured_monthly_and_yearly_prices(self):
         stdout = StringIO()
@@ -2392,8 +2594,16 @@ class PremiumAccessCodeCommandTestCase(TestCase):
         output = stdout.getvalue()
         self.assertIn('- monthly price id: price_monthly_local', output)
         self.assertIn('- yearly price id: price_yearly_local', output)
+        self.assertIn('- expected currency: jpy', output)
+        self.assertIn('- expected monthly unit amount: 480', output)
+        self.assertIn('- expected yearly unit amount: 4800', output)
 
 
+@override_settings(
+    STRIPE_PREMIUM_EXPECTED_CURRENCY='',
+    STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT='',
+    STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT='',
+)
 class BillingPreflightCommandTestCase(TestCase):
     @override_settings(
         STRIPE_SECRET_KEY='sk_test_preflight',
@@ -2426,6 +2636,278 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn('OK page:commercial_disclosure', output)
         self.assertIn('OK page:premium_features', output)
         self.assertIn('billing_preflight=ok', output)
+
+    @override_settings(
+        STRIPE_SECRET_KEY='sk_test_preflight',
+        STRIPE_WEBHOOK_SECRET='whsec_preflight',
+        STRIPE_PREMIUM_PRICE_ID='price_preflight',
+        STRIPE_PUBLISHABLE_KEY='pk_test_preflight',
+        STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID='bpc_preflight',
+        PREMIUM_PRICE_LABEL='\u6708\u984d500\u5186',
+        LEGAL_SELLER_NAME='\u30c6\u30b9\u30c8\u8ca9\u58f2\u8005',
+        LEGAL_SELLER_ADDRESS='\u6771\u4eac\u90fd\u30c6\u30b9\u30c8\u533a1-1-1',
+        LEGAL_SELLER_PHONE='03-0000-0000',
+        CONTACT_EMAIL='billing-help@example.test',
+        PUBLIC_SITE_URL='https://example.test',
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        DEFAULT_FROM_EMAIL='noreply@example.test',
+        CELERY_BEAT_SCHEDULE={
+            'expire-premium-access': {
+                'task': 'schedules.tasks.expire_premium_access',
+                'schedule': 3600.0,
+            },
+        },
+    )
+    def test_billing_preflight_strict_accepts_optional_stripe_public_settings(self):
+        stdout = StringIO()
+
+        call_command('billing_preflight', '--strict', stdout=stdout)
+
+        output = stdout.getvalue()
+        self.assertIn('OK STRIPE_PUBLISHABLE_KEY', output)
+        self.assertIn('OK STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID', output)
+        self.assertIn('billing_preflight=ok', output)
+
+    @override_settings(
+        STRIPE_SECRET_KEY='sk_test_preflight',
+        STRIPE_WEBHOOK_SECRET='whsec_preflight',
+        STRIPE_PREMIUM_PRICE_ID='price_preflight',
+        STRIPE_PUBLISHABLE_KEY='invalid_publishable_key',
+        STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID='invalid_portal_config',
+        PREMIUM_PRICE_LABEL='\u6708\u984d500\u5186',
+        LEGAL_SELLER_NAME='\u30c6\u30b9\u30c8\u8ca9\u58f2\u8005',
+        LEGAL_SELLER_ADDRESS='\u6771\u4eac\u90fd\u30c6\u30b9\u30c8\u533a1-1-1',
+        LEGAL_SELLER_PHONE='03-0000-0000',
+        CONTACT_EMAIL='billing-help@example.test',
+        PUBLIC_SITE_URL='https://example.test',
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        DEFAULT_FROM_EMAIL='noreply@example.test',
+        CELERY_BEAT_SCHEDULE={
+            'expire-premium-access': {
+                'task': 'schedules.tasks.expire_premium_access',
+                'schedule': 3600.0,
+            },
+        },
+    )
+    def test_billing_preflight_strict_rejects_invalid_optional_stripe_public_settings(self):
+        with self.assertRaises(CommandError) as context:
+            call_command('billing_preflight', '--strict', stdout=StringIO())
+
+        message = str(context.exception)
+        self.assertIn('STRIPE_PUBLISHABLE_KEY', message)
+        self.assertIn('set a value starting with pk_', message)
+        self.assertIn('STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID', message)
+        self.assertIn('set a value starting with bpc_', message)
+
+    @override_settings(
+        ENVIRONMENT='development',
+        STRIPE_SECRET_KEY='sk_test_preflight',
+        STRIPE_WEBHOOK_SECRET='whsec_preflight',
+        STRIPE_PREMIUM_PRICE_ID='price_preflight',
+        STRIPE_PUBLISHABLE_KEY='pk_live_preflight',
+        PREMIUM_PRICE_LABEL='\u6708\u984d500\u5186',
+        LEGAL_SELLER_NAME='\u30c6\u30b9\u30c8\u8ca9\u58f2\u8005',
+        LEGAL_SELLER_ADDRESS='\u6771\u4eac\u90fd\u30c6\u30b9\u30c8\u533a1-1-1',
+        LEGAL_SELLER_PHONE='03-0000-0000',
+        CONTACT_EMAIL='billing-help@example.test',
+        PUBLIC_SITE_URL='https://example.test',
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        DEFAULT_FROM_EMAIL='noreply@example.test',
+        CELERY_BEAT_SCHEDULE={
+            'expire-premium-access': {
+                'task': 'schedules.tasks.expire_premium_access',
+                'schedule': 3600.0,
+            },
+        },
+    )
+    def test_billing_preflight_strict_rejects_live_publishable_key_outside_production(self):
+        with self.assertRaises(CommandError) as context:
+            call_command('billing_preflight', '--strict', stdout=StringIO())
+
+        message = str(context.exception)
+        self.assertIn('STRIPE_PUBLISHABLE_KEY', message)
+        self.assertIn('live Stripe publishable key cannot be used outside production', message)
+
+    @override_settings(
+        ENVIRONMENT='production',
+        STRIPE_SECRET_KEY='sk_live_preflight',
+        STRIPE_WEBHOOK_SECRET='whsec_preflight',
+        STRIPE_PREMIUM_PRICE_ID='price_preflight',
+        STRIPE_PUBLISHABLE_KEY='pk_test_preflight',
+        PREMIUM_PRICE_LABEL='\u6708\u984d500\u5186',
+        LEGAL_SELLER_NAME='\u30c6\u30b9\u30c8\u8ca9\u58f2\u8005',
+        LEGAL_SELLER_ADDRESS='\u6771\u4eac\u90fd\u30c6\u30b9\u30c8\u533a1-1-1',
+        LEGAL_SELLER_PHONE='03-0000-0000',
+        CONTACT_EMAIL='billing-help@example.test',
+        PUBLIC_SITE_URL='https://example.test',
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        DEFAULT_FROM_EMAIL='noreply@example.test',
+        CELERY_BEAT_SCHEDULE={
+            'expire-premium-access': {
+                'task': 'schedules.tasks.expire_premium_access',
+                'schedule': 3600.0,
+            },
+        },
+    )
+    def test_billing_preflight_strict_rejects_test_publishable_key_in_production(self):
+        with self.assertRaises(CommandError) as context:
+            call_command('billing_preflight', '--strict', stdout=StringIO())
+
+        message = str(context.exception)
+        self.assertIn('STRIPE_PUBLISHABLE_KEY', message)
+        self.assertIn('test Stripe publishable key cannot be used in production', message)
+
+    @override_settings(
+        STRIPE_SECRET_KEY='sk_test_preflight',
+        STRIPE_WEBHOOK_SECRET='whsec_preflight',
+        STRIPE_PREMIUM_PRICE_ID='price_preflight',
+        STRIPE_PREMIUM_EXPECTED_CURRENCY='jpy',
+        STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT='480',
+        STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT='4800',
+        PREMIUM_PRICE_LABEL='\u6708\u984d500\u5186',
+        LEGAL_SELLER_NAME='\u30c6\u30b9\u30c8\u8ca9\u58f2\u8005',
+        LEGAL_SELLER_ADDRESS='\u6771\u4eac\u90fd\u30c6\u30b9\u30c8\u533a1-1-1',
+        LEGAL_SELLER_PHONE='03-0000-0000',
+        CONTACT_EMAIL='billing-help@example.test',
+        PUBLIC_SITE_URL='https://example.test',
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        DEFAULT_FROM_EMAIL='noreply@example.test',
+        CELERY_BEAT_SCHEDULE={
+            'expire-premium-access': {
+                'task': 'schedules.tasks.expire_premium_access',
+                'schedule': 3600.0,
+            },
+        },
+    )
+    def test_billing_preflight_strict_accepts_expected_price_configuration(self):
+        stdout = StringIO()
+
+        call_command('billing_preflight', '--strict', stdout=stdout)
+
+        output = stdout.getvalue()
+        self.assertIn('OK expected-price-configuration', output)
+        self.assertIn('billing_preflight=ok', output)
+
+    @override_settings(
+        STRIPE_SECRET_KEY='sk_test_preflight',
+        STRIPE_WEBHOOK_SECRET='whsec_preflight',
+        STRIPE_PREMIUM_PRICE_ID='price_preflight',
+        STRIPE_PREMIUM_EXPECTED_CURRENCY='JPY',
+        STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT='not-an-integer',
+        STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT='0',
+        PREMIUM_PRICE_LABEL='\u6708\u984d500\u5186',
+        LEGAL_SELLER_NAME='\u30c6\u30b9\u30c8\u8ca9\u58f2\u8005',
+        LEGAL_SELLER_ADDRESS='\u6771\u4eac\u90fd\u30c6\u30b9\u30c8\u533a1-1-1',
+        LEGAL_SELLER_PHONE='03-0000-0000',
+        CONTACT_EMAIL='billing-help@example.test',
+        PUBLIC_SITE_URL='https://example.test',
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        DEFAULT_FROM_EMAIL='noreply@example.test',
+        CELERY_BEAT_SCHEDULE={
+            'expire-premium-access': {
+                'task': 'schedules.tasks.expire_premium_access',
+                'schedule': 3600.0,
+            },
+        },
+    )
+    def test_billing_preflight_strict_rejects_invalid_expected_price_configuration(self):
+        with self.assertRaises(CommandError) as context:
+            call_command('billing_preflight', '--strict', stdout=StringIO())
+
+        message = str(context.exception)
+        self.assertIn('expected-price-configuration', message)
+        self.assertIn('STRIPE_PREMIUM_EXPECTED_CURRENCY', message)
+        self.assertIn('STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT', message)
+        self.assertIn('STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT', message)
+
+    @override_settings(
+        STRIPE_SECRET_KEY='sk_test_preflight',
+        STRIPE_WEBHOOK_SECRET='whsec_preflight',
+        STRIPE_PREMIUM_PRICE_ID='price_preflight',
+        STRIPE_PREMIUM_YEARLY_PRICE_ID='price_yearly_preflight',
+        PREMIUM_PRICE_LABEL='\u6708\u984d500\u5186 / \u5e74\u984d5,000\u5186',
+        LEGAL_PAYMENT_TIMING='\u521d\u56de\u7533\u3057\u8fbc\u307f\u6642\u304a\u3088\u3073\u9078\u629e\u3057\u305f\u6708\u984d\u307e\u305f\u306f\u5e74\u984d\u306e\u66f4\u65b0\u65e5\u306b\u8ab2\u91d1\u3057\u307e\u3059\u3002',
+        LEGAL_SELLER_NAME='\u30c6\u30b9\u30c8\u8ca9\u58f2\u8005',
+        LEGAL_SELLER_ADDRESS='\u6771\u4eac\u90fd\u30c6\u30b9\u30c8\u533a1-1-1',
+        LEGAL_SELLER_PHONE='03-0000-0000',
+        CONTACT_EMAIL='billing-help@example.test',
+        PUBLIC_SITE_URL='https://example.test',
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        DEFAULT_FROM_EMAIL='noreply@example.test',
+        CELERY_BEAT_SCHEDULE={
+            'expire-premium-access': {
+                'task': 'schedules.tasks.expire_premium_access',
+                'schedule': 3600.0,
+            },
+        },
+    )
+    def test_billing_preflight_strict_accepts_yearly_legal_text(self):
+        stdout = StringIO()
+
+        call_command('billing_preflight', '--strict', stdout=stdout)
+
+        output = stdout.getvalue()
+        self.assertIn('OK STRIPE_PREMIUM_YEARLY_PRICE_ID', output)
+        self.assertIn('OK yearly-plan-legal-text', output)
+        self.assertIn('billing_preflight=ok', output)
+
+    @override_settings(
+        STRIPE_SECRET_KEY='sk_test_preflight',
+        STRIPE_WEBHOOK_SECRET='whsec_preflight',
+        STRIPE_PREMIUM_PRICE_ID='price_preflight',
+        STRIPE_PREMIUM_YEARLY_PRICE_ID='price_yearly_preflight',
+        PREMIUM_PRICE_LABEL='\u6708\u984d500\u5186',
+        LEGAL_PAYMENT_TIMING='\u521d\u56de\u7533\u3057\u8fbc\u307f\u6642\u306b\u8ab2\u91d1\u3055\u308c\u3001\u4ee5\u5f8c\u306f\u6708\u984d\u30b5\u30d6\u30b9\u30af\u30ea\u30d7\u30b7\u30e7\u30f3\u3068\u3057\u3066\u81ea\u52d5\u66f4\u65b0\u3055\u308c\u307e\u3059\u3002',
+        LEGAL_SELLER_NAME='\u30c6\u30b9\u30c8\u8ca9\u58f2\u8005',
+        LEGAL_SELLER_ADDRESS='\u6771\u4eac\u90fd\u30c6\u30b9\u30c8\u533a1-1-1',
+        LEGAL_SELLER_PHONE='03-0000-0000',
+        CONTACT_EMAIL='billing-help@example.test',
+        PUBLIC_SITE_URL='https://example.test',
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        DEFAULT_FROM_EMAIL='noreply@example.test',
+        CELERY_BEAT_SCHEDULE={
+            'expire-premium-access': {
+                'task': 'schedules.tasks.expire_premium_access',
+                'schedule': 3600.0,
+            },
+        },
+    )
+    def test_billing_preflight_strict_rejects_yearly_plan_without_yearly_legal_text(self):
+        with self.assertRaises(CommandError) as context:
+            call_command('billing_preflight', '--strict', stdout=StringIO())
+
+        message = str(context.exception)
+        self.assertIn('yearly-plan-legal-text', message)
+        self.assertIn('PREMIUM_PRICE_LABEL', message)
+        self.assertIn('LEGAL_PAYMENT_TIMING', message)
+
+    @override_settings(
+        ENVIRONMENT='development',
+        STRIPE_SECRET_KEY='sk_live_preflight',
+        STRIPE_WEBHOOK_SECRET='whsec_preflight',
+        STRIPE_PREMIUM_PRICE_ID='price_preflight',
+        PREMIUM_PRICE_LABEL='月額500円',
+        LEGAL_SELLER_NAME='テスト販売者',
+        LEGAL_SELLER_ADDRESS='東京都テスト区1-1-1',
+        LEGAL_SELLER_PHONE='03-0000-0000',
+        CONTACT_EMAIL='billing-help@example.test',
+        PUBLIC_SITE_URL='https://example.test',
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        DEFAULT_FROM_EMAIL='noreply@example.test',
+        CELERY_BEAT_SCHEDULE={
+            'expire-premium-access': {
+                'task': 'schedules.tasks.expire_premium_access',
+                'schedule': 3600.0,
+            },
+        },
+    )
+    def test_billing_preflight_strict_rejects_live_secret_key_outside_production(self):
+        with self.assertRaises(CommandError) as context:
+            call_command('billing_preflight', '--strict', stdout=StringIO())
+
+        message = str(context.exception)
+        self.assertIn('STRIPE_SECRET_KEY', message)
+        self.assertIn('live Stripe secret key cannot be used outside production', message)
 
     @override_settings(
         STRIPE_SECRET_KEY='',
@@ -3023,6 +3505,71 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn('charge.dispute.created', message)
         self.assertIn('charge.dispute.closed', message)
 
+    @patch('accounts.management.commands.billing_stripe_remote_check.get_stripe')
+    def test_billing_stripe_remote_check_rejects_live_secret_key_outside_production(self, get_stripe):
+        live_key = chr(115) + chr(107) + '_' + 'live' + '_remote'
+        with override_settings(
+            ENVIRONMENT='development',
+            STRIPE_SECRET_KEY=live_key,
+            STRIPE_PREMIUM_PRICE_ID='price_remote',
+            PUBLIC_SITE_URL='https://example.test',
+        ):
+            with self.assertRaises(CommandError) as context:
+                call_command(
+                    'billing_stripe_remote_check',
+                    '--skip-webhook',
+                    '--skip-portal',
+                    stdout=StringIO(),
+                )
+
+        self.assertIn(
+            'STRIPE_SECRET_KEY live key cannot be used outside production',
+            str(context.exception),
+        )
+        get_stripe.assert_not_called()
+
+    @patch('accounts.management.commands.billing_stripe_remote_check.get_stripe')
+    def test_billing_stripe_remote_check_rejects_test_secret_key_in_production(self, get_stripe):
+        test_key = chr(115) + chr(107) + '_' + 'test' + '_remote'
+        with override_settings(
+            ENVIRONMENT='production',
+            STRIPE_SECRET_KEY=test_key,
+            STRIPE_PREMIUM_PRICE_ID='price_remote',
+            PUBLIC_SITE_URL='https://example.test',
+        ):
+            with self.assertRaises(CommandError) as context:
+                call_command(
+                    'billing_stripe_remote_check',
+                    '--skip-webhook',
+                    '--skip-portal',
+                    stdout=StringIO(),
+                )
+
+        self.assertIn(
+            'STRIPE_SECRET_KEY test key cannot be used in production',
+            str(context.exception),
+        )
+        get_stripe.assert_not_called()
+
+    @patch('accounts.management.commands.billing_stripe_remote_check.get_stripe')
+    def test_billing_stripe_remote_check_rejects_unknown_secret_key_prefix(self, get_stripe):
+        with override_settings(
+            ENVIRONMENT='development',
+            STRIPE_SECRET_KEY='invalid_remote_key',
+            STRIPE_PREMIUM_PRICE_ID='price_remote',
+            PUBLIC_SITE_URL='https://example.test',
+        ):
+            with self.assertRaises(CommandError) as context:
+                call_command(
+                    'billing_stripe_remote_check',
+                    '--skip-webhook',
+                    '--skip-portal',
+                    stdout=StringIO(),
+                )
+
+        self.assertIn('STRIPE_SECRET_KEY must start with', str(context.exception))
+        get_stripe.assert_not_called()
+
     @override_settings(
         STRIPE_SECRET_KEY='sk_test_remote',
         STRIPE_PREMIUM_PRICE_ID='price_remote',
@@ -3076,6 +3623,102 @@ class BillingPreflightCommandTestCase(TestCase):
             )
 
         self.assertIn('price livemode mismatch: expected test, got live', str(context.exception))
+
+    @override_settings(
+        STRIPE_SECRET_KEY='sk_test_remote',
+        STRIPE_PREMIUM_PRICE_ID='price_remote',
+        STRIPE_PREMIUM_EXPECTED_CURRENCY='jpy',
+        STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT='480',
+        PUBLIC_SITE_URL='https://example.test',
+    )
+    @patch('accounts.management.commands.billing_stripe_remote_check.get_stripe')
+    def test_billing_stripe_remote_check_validates_expected_monthly_price_amount(self, get_stripe):
+        stripe = Mock()
+        stripe.Price.retrieve.return_value = {
+            'id': 'price_remote',
+            'active': True,
+            'type': 'recurring',
+            'currency': 'jpy',
+            'unit_amount': 480,
+            'livemode': False,
+            'recurring': {'interval': 'month'},
+        }
+        get_stripe.return_value = stripe
+        stdout = StringIO()
+
+        call_command(
+            'billing_stripe_remote_check',
+            '--skip-webhook',
+            '--skip-portal',
+            stdout=stdout,
+        )
+
+        self.assertIn('OK stripe price monthly', stdout.getvalue())
+        self.assertIn('billing_stripe_remote_check=ok', stdout.getvalue())
+
+    @override_settings(
+        STRIPE_SECRET_KEY='sk_test_remote',
+        STRIPE_PREMIUM_PRICE_ID='price_remote',
+        STRIPE_PREMIUM_EXPECTED_CURRENCY='jpy',
+        STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT='480',
+        PUBLIC_SITE_URL='https://example.test',
+    )
+    @patch('accounts.management.commands.billing_stripe_remote_check.get_stripe')
+    def test_billing_stripe_remote_check_rejects_unexpected_price_amount_or_currency(self, get_stripe):
+        stripe = Mock()
+        stripe.Price.retrieve.return_value = {
+            'id': 'price_remote',
+            'active': True,
+            'type': 'recurring',
+            'currency': 'usd',
+            'unit_amount': 500,
+            'livemode': False,
+            'recurring': {'interval': 'month'},
+        }
+        get_stripe.return_value = stripe
+
+        with self.assertRaises(CommandError) as context:
+            call_command(
+                'billing_stripe_remote_check',
+                '--skip-webhook',
+                '--skip-portal',
+                stdout=StringIO(),
+            )
+
+        message = str(context.exception)
+        self.assertIn('price currency mismatch: expected jpy, got usd', message)
+        self.assertIn('price unit_amount mismatch: expected 480, got 500', message)
+
+    @override_settings(
+        STRIPE_SECRET_KEY='sk_test_remote',
+        STRIPE_PREMIUM_PRICE_ID='price_remote',
+        STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT='not-an-integer',
+        PUBLIC_SITE_URL='https://example.test',
+    )
+    @patch('accounts.management.commands.billing_stripe_remote_check.get_stripe')
+    def test_billing_stripe_remote_check_rejects_invalid_expected_price_amount_setting(self, get_stripe):
+        stripe = Mock()
+        stripe.Price.retrieve.return_value = {
+            'id': 'price_remote',
+            'active': True,
+            'type': 'recurring',
+            'livemode': False,
+            'recurring': {'interval': 'month'},
+        }
+        get_stripe.return_value = stripe
+
+        with self.assertRaises(CommandError) as context:
+            call_command(
+                'billing_stripe_remote_check',
+                '--skip-webhook',
+                '--skip-portal',
+                stdout=StringIO(),
+            )
+
+        self.assertIn(
+            'STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT must be an integer minor-unit amount',
+            str(context.exception),
+        )
 
     @override_settings(
         STRIPE_SECRET_KEY='sk_test_remote',
@@ -3308,6 +3951,13 @@ class BillingAdminTestCase(TestCase):
             return SimpleNamespace()
         return SimpleNamespace(user=user)
 
+    def test_user_admin_queryset_selects_premium_subscription(self):
+        admin_instance = CustomUserAdmin(User, AdminSite())
+
+        queryset = admin_instance.get_queryset(self._admin_request())
+
+        self.assertIn('premium_subscription', queryset.query.select_related)
+
     def test_user_admin_shows_current_premium_status_reason(self):
         user = User.objects.create_user(username='admin-premium-user')
         PremiumSubscription.objects.create(
@@ -3461,6 +4111,13 @@ class BillingAdminTestCase(TestCase):
 
         self.assertFalse(PremiumAuditLog.objects.filter(user=user).exists())
 
+    def test_subscription_admin_queryset_selects_user(self):
+        admin_instance = PremiumSubscriptionAdmin(PremiumSubscription, AdminSite())
+
+        queryset = admin_instance.get_queryset(self._admin_request())
+
+        self.assertIn('user', queryset.query.select_related)
+
     def test_subscription_admin_shows_access_state_and_reason(self):
         stripe_user = User.objects.create_user(username='admin-access-stripe-user')
         stripe_record = PremiumSubscription.objects.create(
@@ -3530,6 +4187,7 @@ class BillingAdminTestCase(TestCase):
     def test_subscription_admin_lists_access_state_and_reason(self):
         admin_instance = PremiumSubscriptionAdmin(PremiumSubscription, AdminSite())
 
+        self.assertIn('user_link', admin_instance.list_display)
         self.assertIn('access_state', admin_instance.list_display)
         self.assertIn('access_reason', admin_instance.list_display)
         self.assertIn('stripe_price_id', admin_instance.list_display)
@@ -3542,6 +4200,21 @@ class BillingAdminTestCase(TestCase):
         self.assertIn('last_refund_or_dispute_at', admin_instance.list_filter)
         self.assertIn('restore_selected_access', admin_instance.actions)
         self.assertIn('mark_refund_or_dispute_reviewed', admin_instance.actions)
+
+    def test_subscription_admin_user_link_opens_user_billing_detail(self):
+        user = User.objects.create_user(username='admin-subscription-link-user')
+        record = PremiumSubscription.objects.create(
+            user=user,
+            subscription_status='active',
+            access_source='stripe',
+        )
+        admin_instance = PremiumSubscriptionAdmin(PremiumSubscription, AdminSite())
+
+        link = str(admin_instance.user_link(record))
+
+        self.assertIn('/admin/accounts/customuser/', link)
+        self.assertIn(str(user.pk), link)
+        self.assertIn('admin-subscription-link-user', link)
 
     def test_subscription_admin_operational_issue_filter_finds_expired_promo(self):
         expired_user = User.objects.create_user(username='admin-expired-promo-user')
@@ -4060,8 +4733,84 @@ class BillingAdminTestCase(TestCase):
         self.assertIn('invoice_id=in_audit_admin', metadata_summary)
         self.assertIn('email_sent=True', metadata_summary)
 
+    def test_audit_log_admin_queryset_selects_user_and_actor(self):
+        admin_instance = PremiumAuditLogAdmin(PremiumAuditLog, AdminSite())
+
+        queryset = admin_instance.get_queryset(self._admin_request())
+
+        self.assertIn('user', queryset.query.select_related)
+        self.assertIn('actor', queryset.query.select_related)
+
+    def test_audit_log_admin_actor_filter_separates_system_and_admin_actions(self):
+        user = User.objects.create_user(username='audit-filter-user')
+        actor = User.objects.create_user(username='audit-filter-actor')
+        system_log = PremiumAuditLog.objects.create(
+            user=user,
+            action='payment_failed',
+            source='stripe',
+            reason='System webhook action',
+        )
+        admin_log = PremiumAuditLog.objects.create(
+            user=user,
+            actor=actor,
+            action='revoked',
+            source='manual',
+            reason='Admin action',
+        )
+        admin_instance = PremiumAuditLogAdmin(PremiumAuditLog, AdminSite())
+        request = self._admin_request()
+
+        system_filter = PremiumAuditActorFilter(
+            request,
+            {'audit_actor': ['system']},
+            PremiumAuditLog,
+            admin_instance,
+        )
+        admin_filter = PremiumAuditActorFilter(
+            request,
+            {'audit_actor': ['admin']},
+            PremiumAuditLog,
+            admin_instance,
+        )
+
+        all_logs = PremiumAuditLog.objects.all()
+
+        self.assertEqual(set(system_filter.queryset(request, all_logs)), {system_log})
+        self.assertEqual(set(admin_filter.queryset(request, all_logs)), {admin_log})
+        self.assertIn(PremiumAuditActorFilter, admin_instance.list_filter)
+
+    def test_billing_admin_and_code_command_labels_are_readable_japanese(self):
+        paths = [
+            Path('accounts/admin.py'),
+            Path('accounts/management/commands/issue_premium_code.py'),
+        ]
+        markers = ['???', '�', '縝', '縺', '驕', '莉ｶ']
+
+        for file_path in paths:
+            content = file_path.read_text(encoding='utf-8')
+            for marker in markers:
+                self.assertNotIn(marker, content, f'{file_path} contains mojibake marker {marker!r}')
+        command_content = paths[1].read_text(encoding='utf-8')
+        self.assertIn(
+            '運営発行のプレミアムコードを作成します',
+            command_content,
+        )
+        self.assertIn(
+            '発行したコードをCSVへ出力するパス',
+            command_content,
+        )
+        admin_content = paths[0].read_text(encoding='utf-8')
+        self.assertIn(
+            '選択した課金レコードのプレミアム権限を停止する',
+            admin_content,
+        )
+        self.assertIn(
+            '選択したプレミアムコードをCSV出力する',
+            admin_content,
+        )
+
     def test_access_code_admin_csv_export_includes_usage_without_raw_code(self):
-        user = User.objects.create_user(username='csv-user')
+        user = User.objects.create_user(username='csv-user', email='csv-user@example.test')
         access_code, raw_code = PremiumAccessCode.issue(
             label='csv-campaign',
             campaign_name='retention-2026',
@@ -4083,6 +4832,10 @@ class BillingAdminTestCase(TestCase):
         self.assertIn('campaign_name', content)
         self.assertIn('retention-2026', content)
         self.assertIn('csv-user', content)
+        self.assertIn('csv-user@example.test', content)
+        self.assertIn('redemption_user_emails', content)
+        self.assertIn('redemption_details', content)
+        self.assertIn(' at ', content)
         self.assertIn('status', content)
         self.assertIn('active', content)
         self.assertIn('remaining_uses', content)
@@ -4093,3 +4846,154 @@ class BillingAdminTestCase(TestCase):
 
 
 
+
+
+
+class BillingDevelopmentCheckCommandTestCase(TestCase):
+    def test_billing_development_check_allows_blank_stripe_values_before_test_prices_exist(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            env_path = self._write_env(base_dir)
+            stdout = StringIO()
+
+            with override_settings(BASE_DIR=base_dir):
+                call_command('billing_development_check', '--env-file', str(env_path), stdout=stdout)
+
+        output = stdout.getvalue()
+        self.assertIn('OK development-env-file', output)
+        self.assertIn('WARN STRIPE_SECRET_KEY is blank', output)
+        self.assertIn('WARN STRIPE_PREMIUM_PRICE_ID is blank', output)
+        self.assertIn('billing_development_check=warnings', output)
+
+    def test_billing_development_check_rejects_live_secret_key(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            env_path = self._write_env(base_dir, STRIPE_SECRET_KEY='sk_live_accidental')
+
+            with override_settings(BASE_DIR=base_dir):
+                with self.assertRaises(CommandError) as context:
+                    call_command('billing_development_check', '--env-file', str(env_path), stdout=StringIO())
+
+        self.assertIn('live Stripe key', str(context.exception))
+
+    def test_billing_development_check_accepts_complete_test_mode_configuration(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            env_path = self._write_env(
+                base_dir,
+                STRIPE_SECRET_KEY='sk_test_development',
+                STRIPE_PUBLISHABLE_KEY='pk_test_development',
+                STRIPE_WEBHOOK_SECRET='whsec_development',
+                STRIPE_PREMIUM_PRICE_ID='price_monthly_development',
+                STRIPE_PREMIUM_YEARLY_PRICE_ID='price_yearly_development',
+            )
+            stdout = StringIO()
+
+            with override_settings(BASE_DIR=base_dir):
+                call_command(
+                    'billing_development_check',
+                    '--env-file',
+                    str(env_path),
+                    '--require-stripe',
+                    stdout=stdout,
+                )
+
+        output = stdout.getvalue()
+        self.assertIn('OK STRIPE_SECRET_KEY: configured with test/development prefix', output)
+        self.assertIn('OK STRIPE_PREMIUM_YEARLY_PRICE_ID: configured with test/development prefix', output)
+        self.assertIn('billing_development_check=ok', output)
+
+    def _write_env(self, base_dir, **overrides):
+        (base_dir / '.gitignore').write_text('.env.development\n', encoding='utf-8')
+        values = {
+            'APP_ENV': 'local',
+            'ENVIRONMENT': 'development',
+            'SECRET_KEY': 'development-secret',
+            'DEBUG': 'True',
+            'PUBLIC_SITE_URL': 'http://127.0.0.1:8000',
+            'STRIPE_CHECKOUT_ENABLED': 'True',
+            'STRIPE_SECRET_KEY': '',
+            'STRIPE_WEBHOOK_SECRET': '',
+            'STRIPE_PREMIUM_PRICE_ID': '',
+            'STRIPE_PREMIUM_YEARLY_PRICE_ID': '',
+            'STRIPE_PREMIUM_EXPECTED_CURRENCY': 'jpy',
+            'STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT': '480',
+            'STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT': '4800',
+            'STRIPE_PUBLISHABLE_KEY': '',
+        }
+        values.update(overrides)
+        env_path = base_dir / '.env.development'
+        env_path.write_text(
+            ''.join(f'{key}={value}\n' for key, value in values.items()),
+            encoding='utf-8',
+        )
+        return env_path
+
+
+
+class CreateStripeDevelopmentPricesCommandTestCase(TestCase):
+    @override_settings(
+        STRIPE_SECRET_KEY='sk_test_development_prices',
+        ENVIRONMENT='development',
+    )
+    @patch('accounts.management.commands.create_stripe_development_prices.get_stripe')
+    def test_create_stripe_development_prices_creates_monthly_and_yearly_prices(self, get_stripe):
+        stripe = Mock()
+        stripe.Product.create.return_value = {
+            'id': 'prod_development',
+            'livemode': False,
+        }
+        stripe.Price.create.side_effect = [
+            {'id': 'price_monthly_development', 'livemode': False},
+            {'id': 'price_yearly_development', 'livemode': False},
+        ]
+        get_stripe.return_value = stripe
+        stdout = StringIO()
+
+        call_command('create_stripe_development_prices', stdout=stdout)
+
+        output = stdout.getvalue()
+        stripe.Product.create.assert_called_once()
+        self.assertEqual(stripe.Price.create.call_count, 2)
+        monthly_call = stripe.Price.create.call_args_list[0].kwargs
+        yearly_call = stripe.Price.create.call_args_list[1].kwargs
+        self.assertEqual(monthly_call['unit_amount'], 480)
+        self.assertEqual(monthly_call['currency'], 'jpy')
+        self.assertEqual(monthly_call['recurring'], {'interval': 'month'})
+        self.assertEqual(yearly_call['unit_amount'], 4800)
+        self.assertEqual(yearly_call['recurring'], {'interval': 'year'})
+        self.assertIn('stripe_development_prices=ok', output)
+        self.assertIn('STRIPE_PREMIUM_PRICE_ID=price_monthly_development', output)
+        self.assertIn('STRIPE_PREMIUM_YEARLY_PRICE_ID=price_yearly_development', output)
+
+    @override_settings(
+        STRIPE_SECRET_KEY='sk_live_development_prices',
+        ENVIRONMENT='development',
+    )
+    def test_create_stripe_development_prices_rejects_live_secret_key(self):
+        with self.assertRaises(CommandError) as context:
+            call_command('create_stripe_development_prices', stdout=StringIO())
+
+        self.assertIn('sk_test_', str(context.exception))
+
+    @override_settings(
+        STRIPE_SECRET_KEY='sk_test_development_prices',
+        ENVIRONMENT='development',
+    )
+    @patch('accounts.management.commands.create_stripe_development_prices.get_stripe')
+    def test_create_stripe_development_prices_disables_live_product_response(self, get_stripe):
+        stripe = Mock()
+        stripe.Product.create.return_value = {
+            'id': 'prod_live_accidental',
+            'livemode': True,
+        }
+        get_stripe.return_value = stripe
+
+        with self.assertRaises(CommandError) as context:
+            call_command('create_stripe_development_prices', stdout=StringIO())
+
+        self.assertIn('not test mode', str(context.exception))
+        stripe.Product.modify.assert_called_once()
+        self.assertEqual(stripe.Product.modify.call_args.args[0], 'prod_live_accidental')
+        self.assertIs(stripe.Product.modify.call_args.kwargs['active'], False)
+        stripe.Price.create.assert_not_called()

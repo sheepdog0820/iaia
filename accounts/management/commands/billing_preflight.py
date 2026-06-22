@@ -69,11 +69,19 @@ class Command(BaseCommand):
         warnings = []
 
         checks = [
-            self._setting_check('STRIPE_SECRET_KEY', required_prefix='sk_'),
+            self._checkout_enabled_check(),
+            self._stripe_secret_key_check(),
             self._setting_check('STRIPE_WEBHOOK_SECRET', required_prefix='whsec_'),
             self._setting_check('STRIPE_PREMIUM_PRICE_ID', required_prefix='price_'),
             self._optional_setting_check('STRIPE_PREMIUM_YEARLY_PRICE_ID', required_prefix='price_'),
+            self._stripe_publishable_key_check(),
+            self._optional_setting_check(
+                'STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID',
+                required_prefix='bpc_',
+            ),
+            self._expected_price_configuration_check(),
             self._refund_or_dispute_policy_check(),
+            self._yearly_plan_legal_text_check(),
             self._setting_check(
                 'PREMIUM_PRICE_LABEL',
                 reject_fragments=('Stripe Checkout', 'Checkout画面に表示'),
@@ -154,6 +162,30 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS('billing_preflight=ok'))
 
+    def _checkout_enabled_check(self):
+        enabled = getattr(settings, 'STRIPE_CHECKOUT_ENABLED', True)
+        return (
+            'STRIPE_CHECKOUT_ENABLED',
+            True,
+            'enabled' if enabled else 'disabled until verification is complete',
+        )
+
+    def _stripe_secret_key_check(self):
+        name, ok, message = self._setting_check('STRIPE_SECRET_KEY', required_prefix='sk_')
+        if not ok:
+            return name, ok, message
+        value = str(getattr(settings, 'STRIPE_SECRET_KEY', ''))
+        environment = str(
+            getattr(settings, 'ENVIRONMENT', '')
+            or getattr(settings, 'DJANGO_ENV', '')
+            or 'development'
+        ).strip().lower()
+        if environment == 'production' and value.startswith('sk_test_'):
+            return 'STRIPE_SECRET_KEY', False, 'test Stripe secret key cannot be used in production'
+        if environment != 'production' and value.startswith('sk_live_'):
+            return 'STRIPE_SECRET_KEY', False, 'live Stripe secret key cannot be used outside production'
+        return 'STRIPE_SECRET_KEY', True, ''
+
     def _optional_setting_check(self, name, required_prefix=None):
         value = getattr(settings, name, '')
         if not value:
@@ -161,6 +193,76 @@ class Command(BaseCommand):
         if required_prefix and not str(value).startswith(required_prefix):
             return name, False, f'set a value starting with {required_prefix}'
         return name, True, ''
+
+    def _stripe_publishable_key_check(self):
+        name, ok, message = self._optional_setting_check(
+            'STRIPE_PUBLISHABLE_KEY',
+            required_prefix='pk_',
+        )
+        if not ok or message == 'not configured':
+            return name, ok, message
+        value = str(getattr(settings, 'STRIPE_PUBLISHABLE_KEY', ''))
+        environment = str(
+            getattr(settings, 'ENVIRONMENT', '')
+            or getattr(settings, 'DJANGO_ENV', '')
+            or 'development'
+        ).strip().lower()
+        if environment == 'production' and value.startswith('pk_test_'):
+            return 'STRIPE_PUBLISHABLE_KEY', False, 'test Stripe publishable key cannot be used in production'
+        if environment != 'production' and value.startswith('pk_live_'):
+            return 'STRIPE_PUBLISHABLE_KEY', False, 'live Stripe publishable key cannot be used outside production'
+        return 'STRIPE_PUBLISHABLE_KEY', True, ''
+
+    def _expected_price_configuration_check(self):
+        currency = str(getattr(settings, 'STRIPE_PREMIUM_EXPECTED_CURRENCY', '') or '').strip()
+        monthly_amount = str(
+            getattr(settings, 'STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT', '') or ''
+        ).strip()
+        yearly_amount = str(
+            getattr(settings, 'STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT', '') or ''
+        ).strip()
+        if not any((currency, monthly_amount, yearly_amount)):
+            return 'expected-price-configuration', True, 'not configured'
+
+        errors = []
+        if currency and (currency != currency.lower() or len(currency) != 3 or not currency.isalpha()):
+            errors.append('STRIPE_PREMIUM_EXPECTED_CURRENCY must be a lowercase 3-letter currency code')
+        for setting_name, value in (
+            ('STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT', monthly_amount),
+            ('STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT', yearly_amount),
+        ):
+            if value:
+                try:
+                    parsed_value = int(value)
+                except ValueError:
+                    errors.append(f'{setting_name} must be a positive integer minor-unit amount')
+                    continue
+                if parsed_value <= 0:
+                    errors.append(f'{setting_name} must be a positive integer minor-unit amount')
+        if errors:
+            return 'expected-price-configuration', False, '; '.join(errors)
+        return 'expected-price-configuration', True, ''
+
+    def _yearly_plan_legal_text_check(self):
+        yearly_price_id = getattr(settings, 'STRIPE_PREMIUM_YEARLY_PRICE_ID', '')
+        if not yearly_price_id:
+            return 'yearly-plan-legal-text', True, 'not configured'
+
+        price_label = str(getattr(settings, 'PREMIUM_PRICE_LABEL', ''))
+        payment_timing = str(getattr(settings, 'LEGAL_PAYMENT_TIMING', ''))
+        missing = []
+        if '\u5e74\u984d' not in price_label and 'year' not in price_label.lower():
+            missing.append('PREMIUM_PRICE_LABEL')
+        if '\u5e74\u984d' not in payment_timing and 'year' not in payment_timing.lower():
+            missing.append('LEGAL_PAYMENT_TIMING')
+        if missing:
+            return (
+                'yearly-plan-legal-text',
+                False,
+                '\u5e74\u984dPrice ID\u3092\u8a2d\u5b9a\u3059\u308b\u5834\u5408\u306f\u3001\u5e74\u984d\u6599\u91d1\u3068\u5e74\u984d\u8acb\u6c42\u5468\u671f\u3092\u7279\u5546\u6cd5/\u6599\u91d1\u8868\u793a\u306b\u660e\u8a18\u3057\u3066\u304f\u3060\u3055\u3044: '
+                + ', '.join(missing),
+            )
+        return 'yearly-plan-legal-text', True, ''
 
     def _setting_check(
         self,

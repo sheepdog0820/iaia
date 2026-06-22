@@ -442,6 +442,9 @@ class CustomUserAdmin(UserAdmin):
         ('追加情報', {'fields': ('nickname', 'trpg_history', 'profile_image', 'is_premium')}),
     )
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('premium_subscription')
+
     def save_model(self, request, obj, form, change):
         previous_is_premium = None
         if change and obj.pk:
@@ -500,7 +503,7 @@ class FriendAdmin(admin.ModelAdmin):
 @admin.register(PremiumSubscription)
 class PremiumSubscriptionAdmin(admin.ModelAdmin):
     list_display = (
-        'user',
+        'user_link',
         'access_state',
         'access_reason',
         'subscription_status',
@@ -555,6 +558,17 @@ class PremiumSubscriptionAdmin(admin.ModelAdmin):
         'sync_selected_user_access',
         'mark_refund_or_dispute_reviewed',
     )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user')
+
+    @admin.display(description='User')
+    def user_link(self, obj):
+        return format_html(
+            '<a href="{}">{}</a>',
+            reverse('admin:accounts_customuser_change', args=[obj.user.pk]),
+            obj.user,
+        )
 
     @admin.display(description='Access state')
     def access_state(self, obj):
@@ -779,11 +793,23 @@ class PremiumAccessCodeAdmin(admin.ModelAdmin):
             'created_by',
             'created_at',
             'redemptions',
+            'redemption_user_emails',
+            'redemption_details',
         ])
         for access_code in queryset.select_related('created_by').prefetch_related('redemptions__user'):
-            redemptions = [
+            redemptions = list(access_code.redemptions.all())
+            redemption_usernames = [
                 redemption.user.username
-                for redemption in access_code.redemptions.all()
+                for redemption in redemptions
+            ]
+            redemption_emails = [
+                redemption.user.email
+                for redemption in redemptions
+                if redemption.user.email
+            ]
+            redemption_details = [
+                f'{redemption.user.username} <{redemption.user.email}> at {redemption.redeemed_at.isoformat()}'
+                for redemption in redemptions
             ]
             writer.writerow([
                 access_code.pk,
@@ -797,7 +823,9 @@ class PremiumAccessCodeAdmin(admin.ModelAdmin):
                 access_code.revoked_at.isoformat() if access_code.revoked_at else '',
                 access_code.created_by.username if access_code.created_by else '',
                 access_code.created_at.isoformat() if access_code.created_at else '',
-                ','.join(redemptions),
+                ','.join(redemption_usernames),
+                ','.join(redemption_emails),
+                ' | '.join(redemption_details),
             ])
         return response
 
@@ -819,6 +847,24 @@ class PremiumAccessCodeRedemptionAdmin(admin.ModelAdmin):
         return obj.user.email
 
 
+class PremiumAuditActorFilter(admin.SimpleListFilter):
+    title = 'Audit actor'
+    parameter_name = 'audit_actor'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('system', 'System or webhook'),
+            ('admin', 'Admin/user action'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'system':
+            return queryset.filter(actor__isnull=True)
+        if self.value() == 'admin':
+            return queryset.filter(actor__isnull=False)
+        return queryset
+
+
 @admin.register(PremiumAuditLog)
 class PremiumAuditLogAdmin(admin.ModelAdmin):
     list_display = (
@@ -831,7 +877,7 @@ class PremiumAuditLogAdmin(admin.ModelAdmin):
         'metadata_summary',
         'created_at',
     )
-    list_filter = ('action', 'source', 'created_at')
+    list_filter = (PremiumAuditActorFilter, 'action', 'source', 'created_at')
     search_fields = (
         'user__username',
         'user__email',
@@ -852,6 +898,9 @@ class PremiumAuditLogAdmin(admin.ModelAdmin):
         'metadata',
         'created_at',
     )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user', 'actor')
 
     @admin.display(description='User')
     def user_link(self, obj):

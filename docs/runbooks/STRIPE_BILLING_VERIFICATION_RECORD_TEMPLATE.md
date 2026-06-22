@@ -13,6 +13,12 @@ Secrets、実カード情報、顧客の個人情報、Webhook signing secretは
 | Stripe mode | test / live |
 | Monthly Price ID |  |
 | Yearly Price ID |  |
+| Expected Stripe Price currency | jpy |
+| Expected monthly unit amount | 480 |
+| Expected yearly unit amount | 4800 |
+| Stripe Checkout enabled | yes / no |
+| Stripe publishable key configured | yes / no |
+| Customer Portal configuration ID |  |
 | Webhook endpoint URL |  |
 | リリース/commit |  |
 
@@ -22,10 +28,10 @@ Secrets、実カード情報、顧客の個人情報、Webhook signing secretは
 | --- | --- | --- | --- |
 | Django check | `python manage.py check` | 未実行 |  |
 | 課金preflight | `python manage.py billing_preflight --strict` | 未実行 |  |
-| Billing status report | `python manage.py billing_status_report` | 未実行 | `last_webhook_event_id` / `last_webhook_event_type` / `last_webhook_processed_at` をStripe Dashboardのイベントと照合する。`billing_intervals` includes month/year/blank counts. `failed_webhook_events=0`、`stale_processing_webhook_events=0` を確認する。 |
+| Billing status report | `python manage.py billing_status_report` | 未実行 | `last_webhook_event_id` / `last_webhook_event_type` / `last_webhook_processed_at` をStripe Dashboardのイベントと照合する。`stripe_checkout_enabled` matches the intended exposure state. `billing_intervals` includes month/year/blank counts, and expected Stripe currency/unit amount values match the basic information above. `failed_webhook_events=0`、`stale_processing_webhook_events=0` を確認する。 |
 | Stripe remote check | `python manage.py billing_stripe_remote_check` | 未実行 |  |
 | Stripe recent events check | `python manage.py billing_stripe_remote_check --require-recent-events --recent-hours 72` | 未実行 | 実Checkout/Stripe Dashboard操作後に `checkout.session.completed`、`customer.subscription.created/updated/deleted`、`invoice.payment_failed/succeeded`、`charge.refunded`、`charge.dispute.created/closed`、`cancel_at_period_end=true` を確認。出力された `recent_event_ids` と `recent_cancel_at_period_end_event_ids` をこの記録へ転記 |
-| ローカル状態遷移スモーク | `python manage.py billing_webhook_smoke` | 未実行 |  |
+| Local state transition smoke | `python manage.py billing_webhook_smoke` | Not run | Confirms `stripe_price_id=price_smoke_monthly` / `billing_interval=month` and `stripe_price_id=price_smoke_yearly` / `billing_interval=year`. |
 | 特商法ページ | `/commercial-disclosure/` | 未確認 | 料金、解約、返金、提供時期、事業者情報 |
 | プレミアム機能ページ | `/premium/` | 未確認 | 無料/有料差分 |
 | 課金管理ページ | `/accounts/billing/` | 未確認 | 加入、管理、コード適用導線 |

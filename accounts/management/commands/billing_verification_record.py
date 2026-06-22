@@ -102,6 +102,24 @@ class Command(BaseCommand):
         webhook_url = f'{base_url}{reverse("billing-webhook")}' if base_url else reverse('billing-webhook')
         price_id = getattr(settings, 'STRIPE_PREMIUM_PRICE_ID', '')
         yearly_price_id = getattr(settings, 'STRIPE_PREMIUM_YEARLY_PRICE_ID', '')
+        checkout_enabled = bool(getattr(settings, 'STRIPE_CHECKOUT_ENABLED', True))
+        publishable_key_configured = bool(getattr(settings, 'STRIPE_PUBLISHABLE_KEY', ''))
+        portal_configuration_id = getattr(
+            settings,
+            'STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID',
+            '',
+        )
+        expected_currency = getattr(settings, 'STRIPE_PREMIUM_EXPECTED_CURRENCY', '')
+        expected_monthly_amount = getattr(
+            settings,
+            'STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT',
+            '',
+        )
+        expected_yearly_amount = getattr(
+            settings,
+            'STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT',
+            '',
+        )
         results = self._collect_command_results(options)
 
         lines = [
@@ -120,6 +138,12 @@ class Command(BaseCommand):
             f'| Stripe mode | {options["stripe_mode"]} |',
             f'| Monthly Price ID | {price_id or "未設定"} |',
             f'| Yearly Price ID | {yearly_price_id or "未設定"} |',
+            f'| Expected Stripe Price currency | {expected_currency or "未設定"} |',
+            f'| Expected monthly unit amount | {expected_monthly_amount or "未設定"} |',
+            f'| Expected yearly unit amount | {expected_yearly_amount or "未設定"} |',
+            f'| Stripe Checkout enabled | {"yes" if checkout_enabled else "no"} |',
+            f'| Stripe publishable key configured | {"yes" if publishable_key_configured else "no"} |',
+            f'| Customer Portal configuration ID | {portal_configuration_id or "未設定"} |',
             f'| Webhook endpoint URL | {webhook_url} |',
             f'| リリース/commit | {options["commit"] or "未記入"} |',
             '',
@@ -324,6 +348,10 @@ class Command(BaseCommand):
 
     def _billing_status_summary(self, output):
         keys = {
+            'stripe_checkout_enabled',
+            'expected_stripe_price_currency',
+            'expected_monthly_unit_amount',
+            'expected_yearly_unit_amount',
             'last_webhook_event_id',
             'last_webhook_event_type',
             'last_webhook_processed_at',

@@ -63,6 +63,10 @@ class Command(BaseCommand):
             price,
             expected_livemode=expected_livemode,
             expected_interval='month',
+            expected_currency=getattr(settings, 'STRIPE_PREMIUM_EXPECTED_CURRENCY', ''),
+            expected_unit_amount=get_expected_unit_amount(
+                'STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT'
+            ),
         )
         if price_errors:
             raise CommandError('Stripe price check failed: ' + ', '.join(price_errors))
@@ -75,6 +79,10 @@ class Command(BaseCommand):
                 yearly_price,
                 expected_livemode=expected_livemode,
                 expected_interval='year',
+                expected_currency=getattr(settings, 'STRIPE_PREMIUM_EXPECTED_CURRENCY', ''),
+                expected_unit_amount=get_expected_unit_amount(
+                    'STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT'
+                ),
             )
             if yearly_price_errors:
                 raise CommandError(
@@ -146,16 +154,37 @@ def build_default_webhook_url():
     return f'{site_url}{reverse("billing-webhook")}'
 
 
+def get_expected_unit_amount(setting_name):
+    raw_value = str(getattr(settings, setting_name, '') or '').strip()
+    if not raw_value:
+        return None
+    try:
+        return int(raw_value)
+    except ValueError as exc:
+        raise CommandError(f'{setting_name} must be an integer minor-unit amount') from exc
+
+
 def get_expected_livemode():
     secret_key = getattr(settings, 'STRIPE_SECRET_KEY', '')
+    environment = getattr(settings, 'ENVIRONMENT', '').strip().lower()
     if secret_key.startswith('sk_live_'):
+        if environment != 'production':
+            raise CommandError('STRIPE_SECRET_KEY live key cannot be used outside production')
         return True
     if secret_key.startswith('sk_test_'):
+        if environment == 'production':
+            raise CommandError('STRIPE_SECRET_KEY test key cannot be used in production')
         return False
-    return None
+    raise CommandError('STRIPE_SECRET_KEY must start with sk_test_ or sk_live_')
 
 
-def validate_price(price, expected_livemode=None, expected_interval='month'):
+def validate_price(
+    price,
+    expected_livemode=None,
+    expected_interval='month',
+    expected_currency='',
+    expected_unit_amount=None,
+):
     errors = []
     if not _get(price, 'active', False):
         errors.append('price is not active')
@@ -164,6 +193,18 @@ def validate_price(price, expected_livemode=None, expected_interval='month'):
     recurring = _get(price, 'recurring', {}) or {}
     if _get(recurring, 'interval') != expected_interval:
         errors.append(f'price interval is not {expected_interval}')
+    if expected_currency:
+        currency = str(_get(price, 'currency', '') or '').lower()
+        if currency != expected_currency.lower():
+            errors.append(
+                f'price currency mismatch: expected {expected_currency.lower()}, got {currency or "unknown"}'
+            )
+    if expected_unit_amount is not None:
+        unit_amount = _get(price, 'unit_amount')
+        if unit_amount != expected_unit_amount:
+            errors.append(
+                f'price unit_amount mismatch: expected {expected_unit_amount}, got {unit_amount}'
+            )
     livemode = _get(price, 'livemode')
     if expected_livemode is not None and livemode is not None and livemode != expected_livemode:
         expected = 'live' if expected_livemode else 'test'

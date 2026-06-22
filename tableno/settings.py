@@ -34,7 +34,7 @@ def _load_env_file():
             if not line or line.startswith('#') or '=' not in line:
                 continue
             key, value = line.split('=', 1)
-            key = key.strip()
+            key = key.strip().lstrip('\ufeff')
             value = value.strip()
             if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
                 value = value[1:-1]
@@ -107,6 +107,9 @@ _load_secret_sources()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+
+APP_ENV = os.environ.get('APP_ENV', 'local').strip().lower()
+ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development').strip().lower()
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('SECRET_KEY')
@@ -293,9 +296,20 @@ SERVER_EMAIL = os.environ.get('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
 ADMINS = [('Admin', os.environ.get('ADMIN_EMAIL', SUPPORT_EMAIL))]
 MANAGERS = ADMINS
 
+STRIPE_CHECKOUT_ENABLED = _get_bool('STRIPE_CHECKOUT_ENABLED', default=True)
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 STRIPE_PREMIUM_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRICE_ID', '')
+STRIPE_PREMIUM_YEARLY_PRICE_ID = os.environ.get('STRIPE_PREMIUM_YEARLY_PRICE_ID', '')
+STRIPE_PREMIUM_EXPECTED_CURRENCY = os.environ.get('STRIPE_PREMIUM_EXPECTED_CURRENCY', '').strip().lower()
+STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT = os.environ.get(
+    'STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT',
+    '',
+).strip()
+STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT = os.environ.get(
+    'STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT',
+    '',
+).strip()
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
 STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID = os.environ.get(
     'STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID',
@@ -308,7 +322,7 @@ PREMIUM_MONTHLY_PRICE_DESCRIPTION = os.environ.get('PREMIUM_MONTHLY_PRICE_DESCRI
 PREMIUM_YEARLY_PRICE_LABEL = os.environ.get('PREMIUM_YEARLY_PRICE_LABEL', '年額プラン')
 PREMIUM_YEARLY_PRICE_DESCRIPTION = os.environ.get('PREMIUM_YEARLY_PRICE_DESCRIPTION', '4,800円/年')
 LEGAL_PAYMENT_METHOD = os.environ.get('LEGAL_PAYMENT_METHOD', 'Stripe Checkoutで利用可能なクレジットカード等の決済手段。')
-LEGAL_PAYMENT_TIMING = os.environ.get('LEGAL_PAYMENT_TIMING', '初回申し込み時に課金され、以後は月額サブスクリプションとして自動更新されます。')
+LEGAL_PAYMENT_TIMING = os.environ.get('LEGAL_PAYMENT_TIMING', '\u521d\u56de\u7533\u3057\u8fbc\u307f\u6642\u306b\u8ab2\u91d1\u3055\u308c\u3001\u4ee5\u5f8c\u306f\u9078\u629e\u3057\u305f\u6708\u984d\u307e\u305f\u306f\u5e74\u984d\u30b5\u30d6\u30b9\u30af\u30ea\u30d7\u30b7\u30e7\u30f3\u3068\u3057\u3066\u81ea\u52d5\u66f4\u65b0\u3055\u308c\u307e\u3059\u3002')
 LEGAL_SERVICE_DELIVERY_TIMING = os.environ.get('LEGAL_SERVICE_DELIVERY_TIMING', '決済完了後、Stripe Webhookの処理完了をもってプレミアム機能を利用できます。')
 LEGAL_CANCELLATION_METHOD = os.environ.get('LEGAL_CANCELLATION_METHOD', 'ログイン後のプレミアム管理画面からStripe Customer Portalへ移動し、いつでも解約できます。')
 LEGAL_CANCELLATION_EFFECT = os.environ.get('LEGAL_CANCELLATION_EFFECT', '解約後も支払い済み期間の終了まではプレミアム機能を利用できます。')

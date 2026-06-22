@@ -52,15 +52,19 @@
 - `DISCORD_CLIENT_ID`
 - `DISCORD_CLIENT_SECRET`
 - `DISCORD_REDIRECT_URI`
+- `STRIPE_CHECKOUT_ENABLED`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PREMIUM_PRICE_ID / STRIPE_PREMIUM_YEARLY_PRICE_ID`
+- `STRIPE_PREMIUM_EXPECTED_CURRENCY`
+- `STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT`
+- `STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT`
 - `STRIPE_REVOKE_ON_REFUND_OR_DISPUTE`
 - `PUBLIC_SITE_URL`
 - `EMAIL_BACKEND`
 - `DEFAULT_FROM_EMAIL`
 - `STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID`
-- PREMIUM_PRICE_LABEL`r
+- `PREMIUM_PRICE_LABEL`
 - `PREMIUM_MONTHLY_PRICE_LABEL`
 - `PREMIUM_MONTHLY_PRICE_DESCRIPTION`
 - `PREMIUM_YEARLY_PRICE_LABEL`
@@ -129,3 +133,16 @@ expecting production-like Redis/NAT/worker/beat resources:
 | Required | NAT disabled | Terraform plan | NAT Gateway and NAT EIP are not created |
 | Required | health without Redis | `curl -f "$AWS_PRE_BASE_URL/health/ready"` | 200 |
 | Required | manual jobs documented | management commands | `publish_scheduled_handouts`, `expire_async_jobs`, `expire_premium_access`, `sync_japanese_holidays` are available |
+
+## Billing release gate
+
+Before exposing paid premium access in `aws-pre`, use `docs/release/BILLING_READINESS_MATRIX_2026-06-22.md` to confirm which billing requirements are implemented and which still require external Stripe evidence.
+
+| Required | Check | Command or source | Expected result |
+| --- | --- | --- | --- |
+| Required | Billing readiness matrix | `docs/release/BILLING_READINESS_MATRIX_2026-06-22.md` | Each billing goal item has implementation evidence and a remaining external-verification action. |
+| Required | Checkout exposure state | `python manage.py billing_status_report --json` | `stripe_checkout_enabled` matches the intended aws-pre exposure state. Keep it `false` until ISSUE-077 is complete. |
+| Required | Billing preflight | `python manage.py billing_preflight --strict` | Success with no missing Stripe, legal, email, or expiration-job settings. |
+| Required | Stripe remote check | `python manage.py billing_stripe_remote_check --require-recent-events --recent-hours 72` | Passes after real test-mode Stripe events exist. |
+| Required | Final billing verification record | `python manage.py billing_verification_record --environment aws-pre --stripe-mode test --strict-preflight --run-remote-check --remote-require-recent-events --run-smoke --output docs/runbooks/billing-verification-YYYYMMDD.md` | Captures real Stripe test-mode event IDs and local DB/admin evidence without secrets. |
+| Required | Paid Checkout release gate | `python manage.py billing_release_gate --verification-record docs/runbooks/billing-verification-YYYYMMDD.md` | Fails if Checkout is enabled without final external Stripe verification evidence. |

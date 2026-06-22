@@ -25,6 +25,11 @@
                         <div class="small mt-1">
                             最終検知: {{ subscription.last_payment_failed_at|date:"Y年n月j日 H:i" }}
                         </div>
+                        {% if subscription.stripe_customer_id %}
+                        <button class="btn btn-sm btn-warning mt-3 billing-portal-trigger" type="button" {% if not stripe_configured %}disabled{% endif %}>
+                            <i class="fas fa-credit-card"></i> 支払い方法を更新
+                        </button>
+                        {% endif %}
                     </div>
                     {% endif %}
                     {% if subscription and subscription.last_refund_or_dispute_at %}
@@ -86,7 +91,11 @@
                     </p>
                     {% endif %}
 
-                    {% if not stripe_configured %}
+                    {% if not checkout_enabled %}
+                    <div class="alert alert-warning mb-4">
+                        Stripe Checkoutは現在停止中です。管理者の課金検証が完了するまで課金申し込みは利用できません。
+                    </div>
+                    {% elif not stripe_configured %}
                     <div class="alert alert-warning mb-4">
                         Stripe設定が未完了です。管理者が環境変数を設定するまでStripe課金操作は利用できません。
                     </div>
@@ -184,12 +193,14 @@ document.querySelectorAll('.checkout-btn').forEach((button) => {
     });
 });
 
-document.getElementById('billing-portal-btn')?.addEventListener('click', async () => {
-    try {
-        await redirectFromBillingEndpoint("{% url 'billing-portal-session' %}");
-    } catch (error) {
-        showBillingError(error.response?.data?.error);
-    }
+document.querySelectorAll('#billing-portal-btn, .billing-portal-trigger').forEach((button) => {
+    button.addEventListener('click', async () => {
+        try {
+            await redirectFromBillingEndpoint("{% url 'billing-portal-session' %}");
+        } catch (error) {
+            showBillingError(error.response?.data?.error);
+        }
+    });
 });
 
 document.getElementById('premium-code-form')?.addEventListener('submit', async (event) => {

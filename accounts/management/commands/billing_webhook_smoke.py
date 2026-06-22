@@ -55,6 +55,14 @@ class Command(BaseCommand):
         )
 
         now = int(timezone.now().timestamp())
+        monthly_price = {
+            'id': 'price_smoke_monthly',
+            'recurring': {'interval': 'month'},
+        }
+        yearly_price = {
+            'id': 'price_smoke_yearly',
+            'recurring': {'interval': 'year'},
+        }
         checkout_record = handle_checkout_completed(
             {
                 'id': 'cs_smoke_checkout_completed',
@@ -83,10 +91,17 @@ class Command(BaseCommand):
                 'status': 'active',
                 'current_period_end': now + 3600,
                 'cancel_at_period_end': False,
+                'items': {'data': [{'price': monthly_price}]},
             },
             event_id='evt_smoke_subscription_active',
         )
         self._assert_state(active_record, expected_premium=True, label='subscription.active')
+        self._assert_billing_plan(
+            active_record,
+            expected_price_id='price_smoke_monthly',
+            expected_interval='month',
+            label='subscription.active',
+        )
 
         canceling_record = sync_subscription_object(
             {
@@ -95,12 +110,38 @@ class Command(BaseCommand):
                 'status': 'active',
                 'current_period_end': now + 3600,
                 'cancel_at_period_end': True,
+                'items': {'data': [{'price': monthly_price}]},
             },
             event_id='evt_smoke_subscription_canceling',
         )
         self._assert_state(canceling_record, expected_premium=True, label='subscription.cancel_at_period_end')
         if not canceling_record.cancel_at_period_end:
             raise AssertionError('cancel_at_period_end was not recorded')
+        self._assert_billing_plan(
+            canceling_record,
+            expected_price_id='price_smoke_monthly',
+            expected_interval='month',
+            label='subscription.cancel_at_period_end',
+        )
+
+        yearly_record = sync_subscription_object(
+            {
+                'id': subscription_id,
+                'customer': customer_id,
+                'status': 'active',
+                'current_period_end': now + 31536000,
+                'cancel_at_period_end': False,
+                'items': {'data': [{'price': yearly_price}]},
+            },
+            event_id='evt_smoke_subscription_yearly_active',
+        )
+        self._assert_state(yearly_record, expected_premium=True, label='subscription.yearly_active')
+        self._assert_billing_plan(
+            yearly_record,
+            expected_price_id='price_smoke_yearly',
+            expected_interval='year',
+            label='subscription.yearly_active',
+        )
 
         failed_record = mark_invoice_payment_failed(
             {'id': 'in_smoke_failed', 'customer': customer_id},
@@ -247,6 +288,24 @@ class Command(BaseCommand):
 
         audit_count = PremiumAuditLog.objects.filter(user=user).count()
         self.stdout.write(self.style.SUCCESS(f'billing_webhook_smoke=ok user={user.username} audits={audit_count}'))
+
+    def _assert_billing_plan(self, record, *, expected_price_id, expected_interval, label):
+        if record.stripe_price_id != expected_price_id:
+            raise AssertionError(
+                f'{label} expected stripe_price_id={expected_price_id}, '
+                f'got {record.stripe_price_id}'
+            )
+        if record.billing_interval != expected_interval:
+            raise AssertionError(
+                f'{label} expected billing_interval={expected_interval}, '
+                f'got {record.billing_interval}'
+            )
+        self.stdout.write(
+            self.style.SUCCESS(
+                f'OK {label} stripe_price_id={record.stripe_price_id} '
+                f'billing_interval={record.billing_interval}'
+            )
+        )
 
     def _assert_state(self, record, *, expected_premium, label):
         record.user.refresh_from_db()

@@ -117,16 +117,29 @@
 - [x] Implemented operator-issued premium access codes for no-charge premium grants.
 - [x] Implemented admin visibility, audit logs, billing status reports, preflight checks, and local test users.
 - [x] Added legal/commercial disclosure and premium feature pages with release/preflight checks.
-- [x] Verified locally with `python manage.py test accounts.test_billing tests.unit.test_release_documentation tests.unit.test_billing_legal_pages tests.unit.test_public_legal_pages tests.unit.test_production_settings --keepdb --noinput -v 1`.
+- [x] Added development-only Stripe env template and local settings loading checks.
+- [x] Hardened local/aws-pre Stripe key mode checks so live keys are rejected outside production before remote API checks.
+- [x] Documented ISSUE-077 external verification scope in the aws-pre billing release record.
+- [x] Normalized billing admin action labels and premium-code command help text so operators can read the workflows in Japanese.
+- [x] Recorded the 2026-06-22 Stripe MCP read-only check in `docs/runbooks/billing-verification-mcp-20260622.md`; it does not satisfy ISSUE-077 because `livemode=false`, test Prices, and real event IDs are still missing.
+- [x] Added `STRIPE_CHECKOUT_ENABLED` so aws-pre/aws-prod can keep paid Checkout hidden until ISSUE-077 verification is complete.
+- [x] Added local `.env.development` / `.env.development.example` values for the development 480 JPY monthly and 4,800 JPY yearly test plan; real Stripe test keys and Price IDs remain intentionally blank until created.
+- [x] Added `billing_development_check` so local `.env.development` can be checked for git-ignore coverage, expected JPY 480 / JPY 4,800 values, and accidental live Stripe key prefixes without printing secrets.
+- [x] Added `stripe_checkout_enabled` to `billing_status_report` and verification records so operators can confirm whether Checkout is exposed.
+- [x] Verified locally with `python manage.py test accounts.test_billing tests.unit.test_release_documentation tests.unit.test_production_settings tests.unit.test_local_settings tests.unit.test_billing_legal_pages tests.unit.test_public_legal_pages --keepdb --noinput -v 1` (`231 tests passed`).
 - [x] Verified locally with `python manage.py check` and `python manage.py makemigrations --check --dry-run`.
+- [x] Generated local-only billing verification evidence in `docs/runbooks/billing-verification-local-20260622.md`; it does not satisfy ISSUE-077 because real Stripe test-mode event IDs are still missing.
+- [x] Added `docs/release/BILLING_READINESS_MATRIX_2026-06-22.md` to map each billing goal item to implementation evidence and remaining external Stripe verification.
+- [x] Added `billing_release_gate` to block paid Checkout exposure when `STRIPE_CHECKOUT_ENABLED=True` without a final external Stripe verification record.
 
 **Unfinished tasks**
-- [ ] Create or confirm Stripe test mode Product and two recurring Prices: monthly JPY 480 and yearly JPY 4,800.
+- [ ] Create or confirm Stripe test mode Product and two recurring Prices: monthly JPY 480 and yearly JPY 4,800. MCP read-only search on 2026-06-22 found Products but no matching Prices and no `livemode=false` proof.
+- [ ] After copying Stripe test keys and Price IDs into local `.env.development`, run `python manage.py billing_development_check --require-stripe` and confirm it passes before local paid Checkout verification.
 - [ ] Register aws-pre Secrets Manager values for `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PREMIUM_PRICE_ID`, `STRIPE_PREMIUM_YEARLY_PRICE_ID`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID`, `PUBLIC_SITE_URL`, and mail settings.
 - [ ] Configure the Stripe test mode Webhook endpoint for the aws-pre `/api/billing/webhook/` URL with all required events.
 - [ ] Run `python manage.py billing_preflight --strict` in aws-pre and confirm success.
 - [ ] Run `python manage.py billing_stripe_remote_check --require-recent-events --recent-hours 72` in aws-pre after test events exist.
-- [ ] Perform real test Checkout for monthly and yearly plans from `/accounts/billing/` on aws-pre.
+- [ ] Set `STRIPE_CHECKOUT_ENABLED=True` only after test-mode Stripe Product/Price and Webhook readiness are confirmed, then perform real test Checkout for monthly and yearly plans from `/accounts/billing/` on aws-pre.
 - [ ] Confirm `PremiumSubscription`, `StripeWebhookEvent`, `PremiumAuditLog`, and `CustomUser.is_premium` updates in Django admin after real Stripe events.
 - [ ] Confirm Customer Portal cancellation sets `cancel_at_period_end=True` and access remains until the current period end.
 - [ ] Confirm payment failure/recovery behavior with Stripe test cards or Stripe Dashboard test actions.
@@ -144,12 +157,13 @@
 - `python manage.py billing_preflight --strict`
 - `python manage.py billing_stripe_remote_check --require-recent-events --recent-hours 72`
 - `python manage.py billing_status_report --json`
-- `python manage.py test accounts.test_billing tests.unit.test_release_documentation tests.unit.test_billing_legal_pages tests.unit.test_public_legal_pages tests.unit.test_production_settings --keepdb --noinput -v 1`
+- `python manage.py test accounts.test_billing tests.unit.test_release_documentation tests.unit.test_production_settings tests.unit.test_local_settings tests.unit.test_billing_legal_pages tests.unit.test_public_legal_pages --keepdb --noinput -v 1`
 
 **Notes**
 - This is an aws-pre paid-feature exposure blocker, not a code implementation blocker.
 - If aws-pre is released with paid billing hidden or disabled, this ticket may remain open as a conditional release item.
 - Do not create test Products/Prices through MCP while the MCP connection reports `livemode: true`.
+- The aws-pre billing release record must keep the ISSUE-077 checklist open until real test-mode Stripe event IDs are recorded.
 
 
 ## P1: リリース前に強く推奨
