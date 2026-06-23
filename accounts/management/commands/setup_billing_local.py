@@ -1,4 +1,4 @@
-﻿from datetime import timedelta
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -108,7 +108,7 @@ class Command(BaseCommand):
         )
         self.stdout.write(
             '- checkout enabled: '
-            f'{str(getattr(settings, "STRIPE_CHECKOUT_ENABLED", True)).lower()}'
+            f'{str(getattr(settings, "STRIPE_CHECKOUT_ENABLED", False)).lower()}'
         )
         self.stdout.write('- development env file: .env.development')
         self.stdout.write(

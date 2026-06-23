@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from django.test import SimpleTestCase
+from django.urls import Resolver404, resolve
 
 
 class ReleaseDocumentationTestCase(SimpleTestCase):
@@ -52,6 +53,45 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
         self.assertIn('Django>=5.2.0,<5.3', requirements)
         self.assertNotIn('Django ' + '4.2+', readme)
         self.assertNotIn('Django>=' + '4.2.0,<5.0', requirements)
+
+    def test_x_oauth_callback_url_resolves_only_for_configured_provider(self):
+        resolved = resolve('/accounts/twitter_oauth2/login/callback/')
+
+        self.assertIn('twitter_oauth2', resolved.route)
+        with self.assertRaises(Resolver404):
+            resolve('/accounts/twitter/login/callback/')
+
+    def test_x_oauth_design_uses_configured_allauth_provider(self):
+        design = (self.ROOT / 'docs/X_OAUTH_LINKING_DESIGN.md').read_text(encoding='utf-8')
+
+        self.assertIn('allauth.socialaccount.providers.twitter_oauth2', design)
+        self.assertIn('provider: `twitter_oauth2`', design)
+        self.assertIn('TWITTER_CLIENT_ID', design)
+        self.assertIn('TWITTER_REDIRECT_URI', design)
+        self.assertNotIn('allauth.socialaccount.providers.twitter`', design)
+        self.assertNotIn('provider: `twitter`', design)
+        self.assertNotIn('`X_CLIENT_ID`', design)
+        self.assertNotIn('`X_REDIRECT_URI`', design)
+
+    def test_public_release_oauth_callbacks_match_allauth_provider_paths(self):
+        public_tasks = (self.ROOT / 'docs/release/PUBLIC_RELEASE_TASKS.md').read_text(encoding='utf-8')
+        staging_env = (self.ROOT / '.env.staging.example').read_text(encoding='utf-8')
+        production_env = (self.ROOT / '.env.production.example').read_text(encoding='utf-8')
+
+        expected_callbacks = [
+            'https://stg.tableno.jp/accounts/google/login/callback/',
+            'https://tableno.jp/accounts/google/login/callback/',
+            'https://stg.tableno.jp/accounts/discord/login/callback/',
+            'https://tableno.jp/accounts/discord/login/callback/',
+            'https://stg.tableno.jp/accounts/twitter_oauth2/login/callback/',
+            'https://tableno.jp/accounts/twitter_oauth2/login/callback/',
+        ]
+
+        for callback in expected_callbacks:
+            self.assertIn(callback, public_tasks)
+        self.assertIn('TWITTER_REDIRECT_URI=https://stg.tableno.jp/accounts/twitter_oauth2/login/callback/', staging_env)
+        self.assertIn('TWITTER_REDIRECT_URI=https://tableno.jp/accounts/twitter_oauth2/login/callback/', production_env)
+        self.assertNotIn('/accounts/twitter/login/callback/', public_tasks)
 
     def test_stripe_billing_verification_record_template_exists(self):
         template = (
@@ -134,7 +174,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
             self.assertIn('STRIPE_CHECKOUT_ENABLED=False', content)
             self.assertIn('real Stripe test-mode event IDs', content)
         self.assertIn('paid Checkout exposure guard', runbook)
-        self.assertIn('STRIPE_CHECKOUT_ENABLED=True', runbook)
+        self.assertIn('STRIPE_CHECKOUT_ENABLED=False', runbook)
         self.assertIn('Checkout disabled', deployment_guide)
         self.assertIn('Checkout enabled', deployment_guide)
 
@@ -219,13 +259,51 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
             self.assertNotIn('STRIPE_', matching_lines[0].split('=', 1)[1])
 
 
+    def test_aws_env_examples_keep_checkout_disabled_and_mail_configured(self):
+        common_required_lines = [
+            'STRIPE_CHECKOUT_ENABLED=False',
+            'STRIPE_SECRET_KEY=sk_test_or_live_replace_me',
+            'STRIPE_WEBHOOK_SECRET=whsec_replace_me',
+            'STRIPE_PREMIUM_PRICE_ID=price_monthly_replace_me',
+            'STRIPE_PREMIUM_YEARLY_PRICE_ID=price_yearly_replace_me',
+            'STRIPE_PREMIUM_EXPECTED_CURRENCY=jpy',
+            'STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT=480',
+            'STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT=4800',
+            'STRIPE_PUBLISHABLE_KEY=pk_test_or_live_replace_me',
+            'STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID=bpc_replace_me',
+            'STRIPE_REVOKE_ON_REFUND_OR_DISPUTE=True',
+            'PREMIUM_PRICE_LABEL=Monthly 480 JPY / Yearly 4,800 JPY',
+            'LEGAL_PAYMENT_METHOD=Credit card and other payment methods available through Stripe Checkout.',
+            'LEGAL_PAYMENT_TIMING=Charged when the subscription starts and renewed on each billing cycle.',
+            'LEGAL_SELLER_NAME=Tableno operations',
+            'EMAIL_HOST=smtp.gmail.com',
+            'EMAIL_PORT=587',
+            'EMAIL_USE_TLS=True',
+            'EMAIL_HOST_USER=your-email@gmail.com',
+            'EMAIL_HOST_PASSWORD=your-email-password',
+            'DEFAULT_FROM_EMAIL=noreply@tableno.jp',
+            'SERVER_EMAIL=noreply@tableno.jp',
+            'CONTACT_EMAIL=support@tableno.jp',
+            'SUPPORT_EMAIL=support@tableno.jp',
+        ]
+        env_specific_lines = {
+            '.env.staging.example': 'PUBLIC_SITE_URL=https://stg.tableno.jp',
+            '.env.production.example': 'PUBLIC_SITE_URL=https://tableno.jp',
+        }
+
+        for env_name, public_site_url in env_specific_lines.items():
+            with self.subTest(env_name=env_name):
+                content = (self.ROOT / env_name).read_text(encoding='utf-8')
+                for line in [*common_required_lines, public_site_url]:
+                    self.assertIn(line, content)
+
     def test_development_env_example_documents_local_billing_settings(self):
         env_example = (self.ROOT / '.env.development.example').read_text(encoding='utf-8')
         required_lines = [
             'APP_ENV=local',
             'ENVIRONMENT=development',
             'PUBLIC_SITE_URL=http://127.0.0.1:8000',
-            'STRIPE_CHECKOUT_ENABLED=True',
+            'STRIPE_CHECKOUT_ENABLED=False',
             'STRIPE_SECRET_KEY=',
             'STRIPE_WEBHOOK_SECRET=',
             'STRIPE_PREMIUM_PRICE_ID=',
@@ -316,6 +394,220 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
         self.assertIn('billing_interval=month', template)
         self.assertIn('stripe_price_id=price_smoke_yearly', template)
         self.assertIn('billing_interval=year', template)
+
+
+    def test_public_release_tasks_records_current_full_test_evidence(self):
+        release_tasks = (self.ROOT / 'docs/release/PUBLIC_RELEASE_TASKS.md').read_text(encoding='utf-8')
+
+        self.assertIn('manage.py test --noinput', release_tasks)
+        self.assertIn('billing_release_gate', release_tasks)
+        self.assertIn('1120件 OK', release_tasks)
+        self.assertIn('skipped=3', release_tasks)
+        self.assertIn('tests.unit.test_production_settings', release_tasks)
+        self.assertIn('manage.py check --deploy', release_tasks)
+        self.assertIn('Python 3.11.1', release_tasks)
+        self.assertIn('.python-version', release_tasks)
+        self.assertIn('manage.py check', release_tasks)
+        self.assertIn('migrate --check', release_tasks)
+        self.assertIn('runserver --noreload', release_tasks)
+        self.assertIn('/health/live/', release_tasks)
+        self.assertIn('/health/ready/', release_tasks)
+        self.assertIn('/accounts/login/', release_tasks)
+        self.assertIn('timeout 扱い', release_tasks)
+        self.assertNotIn('1092件', release_tasks)
+        self.assertNotIn('1099件', release_tasks)
+
+    def test_external_integrations_are_documented_as_beta_gated(self):
+        readme = (self.ROOT / 'README.md').read_text(encoding='utf-8')
+        features = (self.ROOT / 'docs/CURRENT_WEBAPP_FEATURES.md').read_text(encoding='utf-8')
+        specification = (self.ROOT / 'SPECIFICATION.md').read_text(encoding='utf-8')
+
+        for content in (readme, features, specification):
+            self.assertIn('docs/release/PUBLIC_RELEASE_TASKS.md', content)
+            self.assertIn('real external-service verification', content)
+            self.assertIn('Google Calendar/Sheets', content)
+            self.assertIn('advanced Discord', content)
+            self.assertIn('WebSocket', content)
+
+    def test_password_reset_verification_guard_is_documented(self):
+        release_tasks = (self.ROOT / 'docs/release/PUBLIC_RELEASE_TASKS.md').read_text(encoding='utf-8')
+        features = (self.ROOT / 'docs/CURRENT_WEBAPP_FEATURES.md').read_text(encoding='utf-8')
+
+        self.assertIn('未確認メールへのリセットメール抑止', release_tasks)
+        self.assertIn('ACCOUNT_FORMS.reset_password=accounts.forms.CustomPasswordResetForm', release_tasks)
+        self.assertIn('未確認メールへのパスワードリセット送信も抑止', release_tasks)
+        self.assertIn('確認済みメールのみ送信', features)
+    def test_account_deletion_billing_guard_is_documented(self):
+        release_tasks = (self.ROOT / 'docs/release/PUBLIC_RELEASE_TASKS.md').read_text(encoding='utf-8')
+        features = (self.ROOT / 'docs/CURRENT_WEBAPP_FEATURES.md').read_text(encoding='utf-8')
+        runbook = (self.ROOT / 'docs/runbooks/STRIPE_BILLING_OPERATIONS.md').read_text(encoding='utf-8')
+
+        for content in (release_tasks, features):
+            self.assertIn('有効なStripe購読', content)
+            self.assertIn('課金管理', content)
+            self.assertIn('ブロック', content)
+        self.assertIn('Account deletion safety', runbook)
+        self.assertIn('active Stripe subscription', runbook)
+        self.assertIn('/accounts/billing/', runbook)
+        self.assertIn('blocks deletion', runbook)
+
+    def test_stripe_temporary_outage_guard_is_documented(self):
+        release_tasks = (self.ROOT / 'docs/release/PUBLIC_RELEASE_TASKS.md').read_text(encoding='utf-8')
+        runbook = (self.ROOT / 'docs/runbooks/STRIPE_BILLING_OPERATIONS.md').read_text(encoding='utf-8')
+
+        self.assertIn('Stripe一時障害時は汎用503', release_tasks)
+        self.assertIn('Stripe outage safety', runbook)
+        self.assertIn('Checkout and Customer Portal API failures', runbook)
+        self.assertIn('Stripe service is temporarily unavailable', runbook)
+        self.assertIn('does not expose exception details', runbook)
+
+    def test_public_release_beta_scope_keeps_core_small_and_explicit(self):
+        release_tasks = (self.ROOT / 'docs/release/PUBLIC_RELEASE_TASKS.md').read_text(encoding='utf-8')
+
+        core_markers = [
+            '| ログイン | 必須 |',
+            '| グループ | 必須 |',
+            '| セッション管理 | 必須 |',
+            '参加者管理',
+            '| キャラシ管理 | 必須 |',
+            '| 秘匿HO | 必須 |',
+            '| 画像アップロード | 必須 |',
+            '| 最低限のプレミアム判定 | 条件付き |',
+            'Stripe CheckoutはISSUE-077完了まで非表示またはテストモード限定',
+        ]
+        deferred_markers = [
+            '| Google Sheets連携 | 後回し可 |',
+            '| Google Calendar同期 | 後回し可 |',
+            '| Discord高度通知 | 後回し可 |',
+            '| WebSocket通知 | 後回し可 |',
+            '| 複雑な自動公開条件 | 後回し可 |',
+            '| 高度な統計/年間プレイ時間集計 | 後回し可 |',
+        ]
+
+        self.assertIn('## β公開スコープ', release_tasks)
+        for marker in core_markers:
+            self.assertIn(marker, release_tasks)
+        for marker in deferred_markers:
+            self.assertIn(marker, release_tasks)
+
+    def test_public_session_share_url_patterns_resolve_to_public_detail_view(self):
+        uuid_path = '00000000-0000-0000-0000-000000000001'
+
+        long_url = resolve(f'/sessions/{uuid_path}/view/')
+        short_url = resolve(f'/s/{uuid_path}/')
+
+        self.assertEqual(long_url.url_name, 'session_public_view')
+        self.assertEqual(short_url.url_name, 'public_session_detail')
+        self.assertEqual(long_url.func.view_class, short_url.func.view_class)
+
+    def test_current_features_documents_both_public_session_share_urls(self):
+        features = (self.ROOT / 'docs/CURRENT_WEBAPP_FEATURES.md').read_text(encoding='utf-8')
+        specification = (self.ROOT / 'SPECIFICATION.md').read_text(encoding='utf-8')
+
+        for content in (features, specification):
+            self.assertIn('/sessions/<uuid:share_token>/view/', content)
+            self.assertIn('/s/<uuid:share_token>/', content)
+            self.assertIn("visibility='public'", content)
+
+    def test_handout_attachment_direct_url_guard_is_documented(self):
+        release_tasks = (self.ROOT / 'docs/release/PUBLIC_RELEASE_TASKS.md').read_text(encoding='utf-8')
+
+        self.assertIn('秘匿HO添付の直URL DELETE', release_tasks)
+        self.assertIn('stale or misdirected secret handout notifications', release_tasks)
+        self.assertIn('割当外ユーザーへ404で存在秘匿', release_tasks)
+        self.assertIn('閲覧可能だが削除権限がない参加者は403', release_tasks)
+        self.assertIn('schedules.test_handout_permissions', release_tasks)
+
+    def test_public_release_go_no_go_matrix_covers_final_release_gates(self):
+        release_tasks = (self.ROOT / 'docs/release/PUBLIC_RELEASE_TASKS.md').read_text(encoding='utf-8')
+
+        required_evidence = [
+            'README',
+            'Docker',
+            'GitHub Actions',
+            'production deploy check',
+            'schedules.test_handout_permissions',
+            'schedules.test_session_visibility',
+            'schedules.test_group_links_and_guests.GuestInvitationClaimTestCase.test_guest_claim_requires_invitation_token',
+            'scenarios.test_scenarios.ScenarioAPITestCase.test_scenario_public_view_mode_is_readable_without_login',
+            'accounts.tests.BasicAccountsTestCase.test_character_public_view_mode_requires_public_scope',
+            'accounts.tests.BasicAccountsTestCase.test_character_group_scope_ignores_legacy_public_flag_for_public_urls',
+            'accounts.test_group_features.GroupMemberCharactersAPITestCase.test_member_characters_hide_legacy_public_flag_when_scope_is_not_public',
+            'accounts.test_billing',
+            'SENTRY_DSN',
+            'CloudWatch/SNS Runbook',
+            'docs/backup.md',
+            'AWS_DATABASE_MIGRATION.md',
+            'BillingAdminTestCase',
+            'tests.unit.test_public_legal_pages',
+            'tests.unit.test_billing_legal_pages',
+            'billing_preflight --strict',
+            '/commercial-disclosure/',
+        ]
+        external_pending_markers = [
+            'Docker daemon',
+            'リモート実行は未確認',
+            '外部Stripe確認は未完',
+            '実SNS購読/通知試験は未完',
+            '実RDS復旧リハーサルは未完',
+            '実aws-pre目視確認は未完',
+            '新規環境での再現確認は未完',
+            '正式法務レビュー、運営者実値、問い合わせ先実配送確認は未完',
+        ]
+
+        self.assertIn('## β公開 Go/No-Go', release_tasks)
+        for marker in required_evidence:
+            self.assertIn(marker, release_tasks)
+        for marker in external_pending_markers:
+            self.assertIn(marker, release_tasks)
+
+    def test_production_go_no_go_template_records_public_release_gates(self):
+        template = (self.ROOT / 'docs/release/PRODUCTION_GO_NO_GO_RECORD_TEMPLATE.md').read_text(encoding='utf-8')
+
+        required_markers = [
+            '## 本番公開ゲート',
+            'Google / Discord / X',
+            '/terms/',
+            '/privacy/',
+            '/contact/',
+            '/commercial-disclosure/',
+            '問い合わせ配送',
+            'STRIPE_CHECKOUT_ENABLED=False',
+            '実Stripe test-mode event IDs',
+            'billing_release_gate',
+            'billing-verification-YYYYMMDD.md',
+            'Webhook event IDs',
+            'CloudWatch Alarmから実SNS購読者へ通知',
+            'RPO/RTO',
+            'PRODUCTION_SMOKE_TEST_CHECKLIST.md',
+        ]
+
+        for marker in required_markers:
+            self.assertIn(marker, template)
+
+    def test_production_smoke_checklist_covers_public_release_gates(self):
+        checklist = (self.ROOT / 'docs/release/PRODUCTION_SMOKE_TEST_CHECKLIST.md').read_text(encoding='utf-8')
+
+        required_markers = [
+            'https://tableno.jp/health/live',
+            'Google OAuth',
+            'Discord OAuth',
+            'X OAuth',
+            '/terms/',
+            '/privacy/',
+            '/contact/',
+            '/commercial-disclosure/',
+            '本番実値で正式レビュー済み',
+            '問い合わせ配送',
+            'STRIPE_CHECKOUT_ENABLED=False',
+            'billing_release_gate --verification-record docs/runbooks/billing-verification-YYYYMMDD.md',
+            '実Stripe test-mode event IDs',
+            'PRODUCTION_GO_NO_GO_RECORD_TEMPLATE.md',
+            'OAuth/SNS/RDS/法務/Stripe',
+        ]
+
+        for marker in required_markers:
+            self.assertIn(marker, checklist)
 
     def test_manual_premium_grant_audit_is_documented(self):
         runbook = (self.ROOT / 'docs/runbooks/STRIPE_BILLING_OPERATIONS.md').read_text(encoding='utf-8')
@@ -525,6 +817,43 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
         self.assertIn('BILLING_READINESS_MATRIX_2026-06-22.md', release_record)
         self.assertIn('BILLING_READINESS_MATRIX_2026-06-22.md', issues)
         self.assertIn('billing_release_gate', issues)
+        public_tasks = (
+            self.ROOT / 'docs' / 'release' / 'PUBLIC_RELEASE_TASKS.md'
+        ).read_text(encoding='utf-8')
+        self.assertIn('CI billing_release_gate runs with STRIPE_CHECKOUT_ENABLED=False', public_tasks)
+
+
+    def test_public_release_tasks_documents_monitoring_and_backup_evidence(self):
+        checklist = (
+            self.ROOT
+            / 'docs'
+            / 'release'
+            / 'PUBLIC_RELEASE_TASKS.md'
+        ).read_text(encoding='utf-8')
+        backup_runbook = (self.ROOT / 'docs' / 'backup.md').read_text(encoding='utf-8')
+        incident_runbook = (
+            self.ROOT / 'docs' / 'runbooks' / 'AWS_INCIDENT_RESPONSE.md'
+        ).read_text(encoding='utf-8')
+        migration_runbook = (
+            self.ROOT / 'docs' / 'runbooks' / 'AWS_DATABASE_MIGRATION.md'
+        ).read_text(encoding='utf-8')
+        production_settings = (
+            self.ROOT / 'tableno' / 'settings_production.py'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn('SENTRY_DSN', checklist)
+        self.assertIn('CloudWatch/SNS Runbook', checklist)
+        self.assertIn('実SNS購読/通知試験は未完', checklist)
+        self.assertIn('docs/backup.md', checklist)
+        self.assertIn('AWS_DATABASE_MIGRATION.md', checklist)
+        self.assertIn('実RDS復旧リハーサルは未完', checklist)
+        self.assertIn('SENTRY_DSN', production_settings)
+        self.assertIn('send_default_pii=False', production_settings)
+        self.assertIn('RDS自動バックアップ有効化', backup_runbook)
+        self.assertIn('手動スナップショットからの復元', backup_runbook)
+        self.assertIn('Alarm notification', incident_runbook)
+        self.assertIn('Restore', incident_runbook)
+        self.assertIn('Backup and restore drill', migration_runbook)
 
     def test_local_billing_verification_record_is_documented(self):
         record = (

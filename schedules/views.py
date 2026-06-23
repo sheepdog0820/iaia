@@ -1459,21 +1459,21 @@ class HandoutInfoViewSet(viewsets.ModelViewSet):
         user = self.request.user
         # GMは全て、参加者は自分宛+公開ハンドアウト
         # プレイヤー枠に基づくハンドアウトも含める
-        from django.db.models import OuterRef, Subquery
+        from django.db.models import Exists, OuterRef
+
+        matching_assigned_slot = SessionParticipant.objects.filter(
+            user=user,
+            session_id=OuterRef('session_id'),
+            player_slot=OuterRef('assigned_player_slot'),
+        )
         
-        # ユーザーのプレイヤー枠を取得
-        user_slots = SessionParticipant.objects.filter(
-            user=user
-        ).values_list('player_slot', 'session_id')
-        
-        return HandoutInfo.objects.filter(
-            Q(session__gm=user) |  # GMは全て見られる
-            Q(participant__user=user) |  # 自分宛は見られる
-            (Q(session__participants=user) & Q(is_secret=False)) |  # 参加者は公開ハンドアウトも見られる
-            Q(  # プレイヤー枠に割り当てられたハンドアウト
-                assigned_player_slot__in=[slot[0] for slot in user_slots if slot[0]],
-                session_id__in=[slot[1] for slot in user_slots]
-            )
+        return HandoutInfo.objects.annotate(
+            matches_assigned_slot=Exists(matching_assigned_slot)
+        ).filter(
+            Q(session__gm=user)
+            | Q(participant__user=user)
+            | (Q(session__participants=user) & Q(is_secret=False))
+            | Q(matches_assigned_slot=True)
         ).distinct()
     
     def perform_create(self, serializer):
@@ -2052,7 +2052,7 @@ class CreateSessionView(APIView):
             )
             
             return Response(
-                TRPGSessionSerializer(session).data, 
+                TRPGSessionSerializer(session, context={'request': request}).data,
                 status=status.HTTP_201_CREATED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -2395,13 +2395,13 @@ class SessionDetailView(APIView):
         
         # HTMLまたはJSONレスポンス
         if 'application/json' in request.headers.get('Accept', ''):
-            return self.get_json_response(session, user)
+            return self.get_json_response(request, session, user)
         else:
             return self.get_html_response(request, session, user)
     
-    def get_json_response(self, session, user):
+    def get_json_response(self, request, session, user):
         from .serializers import TRPGSessionSerializer
-        serializer = TRPGSessionSerializer(session)
+        serializer = TRPGSessionSerializer(session, context={'request': request})
         return Response(serializer.data)
     
     def get_html_response(self, request, session, user):
@@ -2452,9 +2452,11 @@ class SessionDetailView(APIView):
             invitation_status_by_user_id[str(invitation.invitee_id)] = status_value
         invitation_status_by_user_id_json = json.dumps(invitation_status_by_user_id)
 
-        public_session_url = request.build_absolute_uri(
-            reverse('session_public_view', kwargs={'share_token': session.share_token})
-        )
+        public_session_url = None
+        if session.visibility == 'public':
+            public_session_url = request.build_absolute_uri(
+                reverse('session_public_view', kwargs={'share_token': session.share_token})
+            )
         can_edit_scenario = can_edit and getattr(user, 'has_premium_access', False)
         scenario_choices = []
         if can_edit_scenario:
@@ -2550,6 +2552,7 @@ class PublicSessionDetailView(APIView):
         session = get_object_or_404(
             TRPGSession.objects.select_related('scenario', 'gm', 'group'),
             share_token=share_token,
+            visibility='public',
         )
 
         participants = SessionParticipant.objects.filter(

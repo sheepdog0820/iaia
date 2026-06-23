@@ -1,4 +1,6 @@
-﻿from django.conf import settings
+import logging
+
+from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db import IntegrityError, transaction
 from django.shortcuts import render
@@ -27,8 +29,11 @@ from accounts.billing import (
 from accounts.models import PremiumSubscription, StripeWebhookEvent
 
 
+logger = logging.getLogger('tableno.billing')
+
+
 def is_checkout_enabled():
-    return bool(getattr(settings, 'STRIPE_CHECKOUT_ENABLED', True))
+    return bool(getattr(settings, 'STRIPE_CHECKOUT_ENABLED', False))
 
 
 class BillingPageView(TemplateView):
@@ -83,6 +88,12 @@ class CheckoutSessionView(APIView):
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except ImproperlyConfigured as exc:
             return Response({'error': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception:
+            logger.exception('Stripe checkout session creation failed')
+            return Response(
+                {'error': 'Stripe service is temporarily unavailable'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         return Response({'url': session.url})
 
 
@@ -96,6 +107,12 @@ class PortalSessionView(APIView):
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except ImproperlyConfigured as exc:
             return Response({'error': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception:
+            logger.exception('Stripe portal session creation failed')
+            return Response(
+                {'error': 'Stripe service is temporarily unavailable'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         return Response({'url': session.url})
 
 

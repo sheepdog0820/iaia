@@ -14,14 +14,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from schedules.attachment_service import HandoutAttachmentService
-from schedules.models import HandoutAttachment, HandoutInfo, SessionParticipant
+from schedules.handout_access import can_view_handout
+from schedules.models import HandoutAttachment, HandoutInfo
 from schedules.serializers import HandoutAttachmentSerializer
 
 
 def _user_can_view_handout(handout: HandoutInfo, user) -> bool:
-    if handout.session.gm_id == user.id:
-        return True
-    return SessionParticipant.objects.filter(session_id=handout.session_id, user_id=user.id).exists()
+    return can_view_handout(handout, user)
 
 
 class HandoutAttachmentListCreateView(APIView):
@@ -71,6 +70,8 @@ class HandoutAttachmentDetailView(APIView):
         attachment = HandoutAttachment.objects.select_related('handout__session').filter(id=pk).first()
         if not attachment:
             return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        if not _user_can_view_handout(attachment.handout, request.user):
+            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
 
         service = HandoutAttachmentService()
         try:
@@ -81,4 +82,3 @@ class HandoutAttachmentDetailView(APIView):
         if not ok:
             return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
-

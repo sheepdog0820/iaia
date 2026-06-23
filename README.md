@@ -14,6 +14,7 @@
 - Discord: グループ単位Webhook、暗号化URL保存、冪等送信
 - カレンダー: iCalファイル出力、再発行可能なICS購読URL、Google Calendar片方向同期
 - Google Sheets: 固定列キャラクターシートのプレビュー、取込、出力
+- Beta/public exposure: Google Calendar/Sheets, advanced Discord notifications, and WebSocket notifications follow `docs/release/PUBLIC_RELEASE_TASKS.md` and need real external-service verification before broad rollout.
 - グループ間連携: 相互承認と明示リソース共有。メンバー資格・管理権限は共有しない
 - ゲスト: 期限付き招待URL、参加表明、ログインユーザーによるclaim、監査ログ
 - ハンドアウト: 条件ツリーによる自動公開と手動公開
@@ -24,6 +25,7 @@
 ## 🧰 環境要件
 
 - Python 3.11+
+- .python-version pins local runtime selection to 3.11 for compatible tools
 - ローカル開発のDBはSQLiteがデフォルト
 - Dockerでの起動は `DOCKER_SETUP.md` を参照
 
@@ -113,6 +115,8 @@ cp .env.example .env.development
 export ENV_FILE=.env.development
 ```
 
+Docker Compose で `.env` や `env_file` を使う場合、`$` を含む値は Compose 側でも変数展開されます。`.env.compose` と Django 用 `ENV_FILE` を分けても、`ENV_FILE` 側の `SECRET_KEY` などに `$` を含める場合は `$$` にエスケープしてください。
+
 5. **データベースセットアップ**
 ```bash
 python manage.py migrate
@@ -138,6 +142,7 @@ APP_ENV=local ENV_FILE=.env.development python manage.py runserver
 ### Docker で起動する場合
 
 Docker での起動手順は `DOCKER_SETUP.md` を参照してください。
+開発用Composeのサンプルは `.env.compose` から `.env.docker.example` を読みます。実開発の秘密値を使う場合だけ `ENV_FILE=.env.development` に変更してください。利用するComposeバージョンによっては `env_file` の中身も補間対象になるため、読み込ませるenvの `SECRET_KEY` などに `$` を含める場合は `$$` にエスケープしてください。
 
 ### ステージング/本番環境の準備
 
@@ -274,16 +279,22 @@ Atmospheric dark design with Cthulhu Mythos styling
 
 ### 開発環境
 ```bash
-docker compose up -d
+cp .env.compose.example .env.compose
+# サンプル起動は .env.docker.example を使用します。実開発値を使う場合は .env.compose の ENV_FILE を .env.development に変更します。
+docker compose --env-file .env.compose up -d
 ```
 
 ### ステージング/本番環境
 ```bash
 # Stg
-ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
+APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml run --rm web python manage.py migrate --noinput
+APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml run --rm web python manage.py collectstatic --noinput
+APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
 
 # Prod
-ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
+APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml run --rm web python manage.py migrate --noinput
+APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml run --rm web python manage.py collectstatic --noinput
+APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
 ```
 
 ## 🔧 技術スタック
@@ -393,7 +404,7 @@ iaia/
 - `POST /api/character-sheets/google-sheets/export/` - Google Sheets出力
 - `POST /api/sessions/{id}/guest-invitations/` - ゲスト招待発行
 - `POST /api/guest-invitations/{token}/respond/` - ゲスト参加表明
-- `POST /api/participants/{id}/claim/` - ゲスト枠claim
+- `POST /api/participants/{id}/claim/` - ゲスト枠claim（`claim_token` 必須）
 - `/ws/notifications/` - 認証済みユーザー通知WebSocket
 
 ハンドアウトAPIは `release_conditions`、`release_status`、`next_evaluation_at` を返します。
@@ -617,9 +628,13 @@ permission_classes = [IsAuthenticated]
 3. **起動**
 ```bash
 # Stg
+APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml run --rm web python manage.py migrate --noinput
+APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml run --rm web python manage.py collectstatic --noinput
 APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
 
 # Prod
+APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml run --rm web python manage.py migrate --noinput
+APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml run --rm web python manage.py collectstatic --noinput
 APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
 ```
 

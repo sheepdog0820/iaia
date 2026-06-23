@@ -170,6 +170,29 @@ def sync_subscription_object(subscription, event_id=''):
 
     was_active = record.user.is_premium
     previous_access_source = record.access_source
+
+    if (
+        previous_access_source == 'promo_code'
+        and record.is_promo_active
+        and status not in PremiumSubscription.ACTIVE_STATUSES
+    ):
+        record.stripe_subscription_id = subscription_id or record.stripe_subscription_id
+        record.stripe_price_id = stripe_price_id or record.stripe_price_id
+        record.billing_interval = billing_interval or record.billing_interval
+        record.cancel_at_period_end = cancel_at_period_end
+        if event_id:
+            record.last_webhook_event_id = event_id
+        record.save(update_fields=[
+            'stripe_subscription_id',
+            'stripe_price_id',
+            'billing_interval',
+            'cancel_at_period_end',
+            'last_webhook_event_id',
+            'updated_at',
+        ])
+        record.sync_user_premium_access()
+        return record
+
     record.stripe_subscription_id = subscription_id
     record.subscription_status = status
     record.stripe_price_id = stripe_price_id

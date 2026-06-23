@@ -3,6 +3,11 @@
 本ドキュメントは **ステージング/本番（MySQL + Nginx）** を中心に説明します。
 開発用は `docker-compose.yml`（PostgreSQL）を使用します。
 
+## 前提条件
+
+- Python 3.11+
+- Docker / Docker Compose
+
 ## 📋 利用する Compose
 
 - **開発**: `docker-compose.yml`（PostgreSQL）
@@ -19,18 +24,34 @@ cp .env.staging.example .env.staging
 
 ※ `.env.*` は `ENV_FILE` で明示指定します（settings.py は自動読み込みしません）。
 ※ 実際に使う環境のファイルだけ用意すればOKです。
+※ Docker Compose はカレントディレクトリの `.env` やサービスの `env_file` を変数展開にも使います。Compose 用 `.env` と Django 用 `ENV_FILE` を分けても、`ENV_FILE` 側の `SECRET_KEY` などに `$` を含める場合は `$$` にエスケープしてください。
 
-### 2. 起動
+### 2. デプロイ前処理
+
+Stg/Prod では Web/Celery コンテナ起動時に migration や collectstatic を自動実行しません。
+デプロイ手順で明示的に 1 回だけ実行してください。
 
 ```bash
 # Stg
-ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
+APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml run --rm web python manage.py migrate --noinput
+APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml run --rm web python manage.py collectstatic --noinput
 
 # Prod
-ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
+APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml run --rm web python manage.py migrate --noinput
+APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml run --rm web python manage.py collectstatic --noinput
 ```
 
-### 3. 管理コマンド
+### 3. 起動
+
+```bash
+# Stg
+APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
+
+# Prod
+APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
+```
+
+### 4. 管理コマンド
 
 ```bash
 # マイグレーション
@@ -46,10 +67,13 @@ ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml exec web pyt
 ## 🐳 開発環境（PostgreSQL）
 
 ```bash
-docker compose up -d
+cp .env.compose.example .env.compose
+# サンプル起動は .env.docker.example を使用します。実開発値を使う場合は .env.compose の ENV_FILE を .env.development に変更します。
+docker compose --env-file .env.compose up -d
 ```
 
-`.env` を利用する場合は `docker-compose.yml` に合わせて用意してください。
+`.env.compose` は Compose の補間用、`.env.docker.example` はサンプル起動用のDjangoアプリenvです。Django側の実開発秘密値を使う場合は `.env.development` に置き、`.env.compose` の `ENV_FILE` を `.env.development` に変更してください。
+ただし、利用するComposeバージョンによっては `env_file` の中身も補間対象になります。`.env.development` や `.env.production` の値に `$` を含める場合は `$$` にエスケープしてください。
 
 ## 🔧 よく使うコマンド（Stg/Prod）
 

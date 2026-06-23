@@ -102,7 +102,7 @@ class Command(BaseCommand):
         webhook_url = f'{base_url}{reverse("billing-webhook")}' if base_url else reverse('billing-webhook')
         price_id = getattr(settings, 'STRIPE_PREMIUM_PRICE_ID', '')
         yearly_price_id = getattr(settings, 'STRIPE_PREMIUM_YEARLY_PRICE_ID', '')
-        checkout_enabled = bool(getattr(settings, 'STRIPE_CHECKOUT_ENABLED', True))
+        checkout_enabled = bool(getattr(settings, 'STRIPE_CHECKOUT_ENABLED', False))
         publishable_key_configured = bool(getattr(settings, 'STRIPE_PUBLISHABLE_KEY', ''))
         portal_configuration_id = getattr(
             settings,

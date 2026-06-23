@@ -63,7 +63,8 @@
   - ダッシュボード（今年のセッション数/時間、参加グループ数、フレンド数、最近履歴など）
     - メールアドレスはセキュリティのため非表示
   - TRPG自己紹介シート（プレイスタイル/嗜好/NG要素など）※プロフィール編集から入力可能
-  - アカウント削除（確認語 + パスワード確認 ※パスワードを持つ場合）
+  - パスワードリセット（mandatory email verification時は確認済みメールのみ送信）
+  - アカウント削除（確認語 + パスワード確認 ※パスワードを持つ場合。有効なStripe購読が残る場合は課金管理へ誘導して削除をブロック）
 - **画面**
   - ダッシュボード: `/accounts/dashboard/`
   - プロフィール編集: `/accounts/profile/edit/`
@@ -460,9 +461,9 @@
 ### 4.15 セッション公開共有
 
 - **内容**
-  - share_token（UUID）による認証なし閲覧
+  - share_token（UUID）による認証なし閲覧（visibility='public' のセッションのみ）
 - **画面**
-  - `/s/<uuid:share_token>/` - 公開セッション詳細
+  - `/sessions/<uuid:share_token>/view/` and `/s/<uuid:share_token>/` - public session detail for sessions with `visibility='public'` only
 - **状態**: **完成**
 
 ### 4.16 セッション完了時の自動記録（プレイ履歴）
@@ -579,7 +580,7 @@
 ### 8.1 部分実装
 
 - **ゲスト参加**: GM登録、期限付き招待URL、参加表明、claim、監査ログを実装済み。横断募集ページは将来候補
-- **外部連携**: Discord OAuth/Webhook、iCal出力、購読ICS、Google Calendar片方向同期、Google Sheets固定列入出力を実装済み
+- **外部連携**: Discord OAuth/Webhook、iCal出力、購読ICS、Google Calendar片方向同期、Google Sheets固定列入出力を実装済み。Beta/public exposure is governed by `docs/release/PUBLIC_RELEASE_TASKS.md`; Google Calendar/Sheets, advanced Discord notification operations, and WebSocket notification exposure require real external-service verification before broad rollout.
 - **Celery基盤**: worker/beat、業務タスク、AsyncJob進捗・結果管理を実装済み
 - **AWS運用**: ECS設定、Terraform、CloudWatch Alarm、メディア/DB移行、バックアップ復旧Runbookを実装済み。実AWS適用は別運用工程
 

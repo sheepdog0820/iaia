@@ -77,6 +77,13 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'username', 'date_joined']
 
 
+class PublicUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'username', 'nickname', 'profile_image']
+        read_only_fields = fields
+
+
 class FriendSerializer(serializers.ModelSerializer):
     friend_username = serializers.CharField(source='friend.username', read_only=True)
     friend_nickname = serializers.CharField(source='friend.nickname', read_only=True)
@@ -88,7 +95,7 @@ class FriendSerializer(serializers.ModelSerializer):
 
 
 class GroupMembershipSerializer(serializers.ModelSerializer):
-    user_detail = UserSerializer(source='user', read_only=True)
+    user_detail = PublicUserSerializer(source='user', read_only=True)
     user_username = serializers.CharField(source='user.username', read_only=True)
     user_nickname = serializers.CharField(source='user.nickname', read_only=True)
     
@@ -169,8 +176,8 @@ class GroupSerializer(serializers.ModelSerializer):
 
 
 class GroupInvitationSerializer(serializers.ModelSerializer):
-    inviter_detail = UserSerializer(source='inviter', read_only=True)
-    invitee_detail = UserSerializer(source='invitee', read_only=True)
+    inviter_detail = PublicUserSerializer(source='inviter', read_only=True)
+    invitee_detail = PublicUserSerializer(source='invitee', read_only=True)
     group_detail = GroupSerializer(source='group', read_only=True)
     expires_at = serializers.SerializerMethodField()
     is_expired = serializers.SerializerMethodField()
@@ -192,7 +199,7 @@ class GroupInvitationSerializer(serializers.ModelSerializer):
 
 
 class FriendDetailSerializer(serializers.ModelSerializer):
-    friend_detail = UserSerializer(source='friend', read_only=True)
+    friend_detail = PublicUserSerializer(source='friend', read_only=True)
     
     class Meta:
         model = Friend
@@ -568,6 +575,9 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             validated_data['version'] = latest_version + 1
             validated_data['parent_sheet'] = existing_chars.order_by('version').first()
         
+        if 'access_scope' in validated_data:
+            validated_data['is_public'] = validated_data['access_scope'] == 'public'
+
         # キャラクターシート作成
         try:
             character_sheet = CharacterSheet.objects.create(**validated_data)
@@ -765,6 +775,9 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
                 if instance.character_image:
                     instance.character_image.delete(save=False)
                 validated_data['character_image'] = None
+
+        if 'access_scope' in validated_data:
+            validated_data['is_public'] = validated_data['access_scope'] == 'public'
         
         return super().update(instance, validated_data)
 

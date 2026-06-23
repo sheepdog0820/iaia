@@ -136,7 +136,15 @@ class GuestInvitationClaimTestCase(APITestCase):
             email='guest-other@example.com',
             password='pass123',
         )
+        self.group_admin = user_model.objects.create_user(
+            username='guest-group-admin',
+            email='guest-group-admin@example.com',
+            password='pass123',
+        )
         self.group = Group.objects.create(name='Guest Group', created_by=self.gm)
+        GroupMembership.objects.create(
+            group=self.group, user=self.group_admin, role='admin'
+        )
         self.session = TRPGSession.objects.create(
             title='Guest Session',
             gm=self.gm,
@@ -171,12 +179,13 @@ class GuestInvitationClaimTestCase(APITestCase):
             format='json',
         )
         self.assertEqual(responded.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(responded.data['claim_token'], token)
         return invitation, SessionParticipant.objects.get(
             pk=responded.data['participant_id']
-        )
+        ), token
 
     def test_claim_preserves_slot_character_and_handout_assignment(self):
-        invitation, participant = self.issue_and_respond()
+        invitation, participant, token = self.issue_and_respond()
         handout = HandoutInfo.objects.create(
             session=self.session,
             participant=participant,
@@ -188,7 +197,9 @@ class GuestInvitationClaimTestCase(APITestCase):
 
         self.client.force_authenticate(self.claimant)
         claimed = self.client.post(
-            f'/api/participants/{participant.pk}/claim/'
+            f'/api/participants/{participant.pk}/claim/',
+            {'claim_token': token},
+            format='json',
         )
         self.assertEqual(claimed.status_code, status.HTTP_200_OK)
 
@@ -210,8 +221,33 @@ class GuestInvitationClaimTestCase(APITestCase):
         self.assertEqual(delete_response.status_code, status.HTTP_409_CONFLICT)
         self.assertTrue(TRPGSession.objects.filter(pk=self.session.pk).exists())
 
+    def test_guest_claim_requires_invitation_token(self):
+        invitation, participant, token = self.issue_and_respond()
+
+        self.client.force_authenticate(self.claimant)
+        missing_token = self.client.post(f'/api/participants/{participant.pk}/claim/')
+        self.assertEqual(missing_token.status_code, status.HTTP_403_FORBIDDEN)
+
+        invalid_token = self.client.post(
+            f'/api/participants/{participant.pk}/claim/',
+            {'claim_token': 'wrong-token'},
+            format='json',
+        )
+        self.assertEqual(invalid_token.status_code, status.HTTP_403_FORBIDDEN)
+
+        participant.refresh_from_db()
+        self.assertIsNone(participant.user_id)
+        self.assertFalse(GuestClaimAudit.objects.filter(invitation=invitation).exists())
+
+        valid_token = self.client.post(
+            f'/api/participants/{participant.pk}/claim/',
+            {'claim_token': token},
+            format='json',
+        )
+        self.assertEqual(valid_token.status_code, status.HTTP_200_OK)
+
     def test_existing_participation_rejects_claim_without_partial_update(self):
-        invitation, participant = self.issue_and_respond()
+        invitation, participant, token = self.issue_and_respond()
         SessionParticipant.objects.create(
             session=self.session,
             user=self.claimant,
@@ -221,7 +257,9 @@ class GuestInvitationClaimTestCase(APITestCase):
 
         self.client.force_authenticate(self.claimant)
         response = self.client.post(
-            f'/api/participants/{participant.pk}/claim/'
+            f'/api/participants/{participant.pk}/claim/',
+            {'claim_token': token},
+            format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         participant.refresh_from_db()
@@ -249,3 +287,62 @@ class GuestInvitationClaimTestCase(APITestCase):
             format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_410_GONE)
+
+    def test_expired_invitation_landing_does_not_expose_session_details(self):
+        invitation, token = GuestInvitation.issue(
+            session=self.session,
+            created_by=self.gm,
+            expires_at=timezone.now() - timedelta(minutes=1),
+        )
+
+        response = self.client.get(f'/guest-invitations/{token}/')
+
+        self.assertEqual(response.status_code, status.HTTP_410_GONE)
+        self.assertContains(response, 'この招待は期限切れ、失効済み、または使用済みです。', status_code=status.HTTP_410_GONE)
+        self.assertNotContains(response, self.session.title, status_code=status.HTTP_410_GONE)
+        self.assertFalse(invitation.is_active)
+
+    def test_revoked_invitation_landing_does_not_expose_session_details(self):
+        invitation, token = GuestInvitation.issue(
+            session=self.session,
+            created_by=self.gm,
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+        invitation.revoked_at = timezone.now()
+        invitation.save(update_fields=['revoked_at'])
+
+        response = self.client.get(f'/guest-invitations/{token}/')
+
+        self.assertEqual(response.status_code, status.HTTP_410_GONE)
+        self.assertContains(response, 'この招待は期限切れ、失効済み、または使用済みです。', status_code=status.HTTP_410_GONE)
+        self.assertNotContains(response, self.session.title, status_code=status.HTTP_410_GONE)
+
+    def test_group_admin_can_issue_and_revoke_guest_invitation(self):
+        self.client.force_authenticate(self.group_admin)
+
+        issued = self.client.post(
+            f'/api/sessions/{self.session.pk}/guest-invitations/',
+            {'expires_in_hours': 24},
+            format='json',
+        )
+        self.assertEqual(issued.status_code, status.HTTP_201_CREATED)
+        invitation = GuestInvitation.objects.get(pk=issued.data['id'])
+        self.assertEqual(invitation.created_by, self.group_admin)
+
+        revoked = self.client.delete(
+            f'/api/sessions/{self.session.pk}/guest-invitations/{invitation.pk}/'
+        )
+        self.assertEqual(revoked.status_code, status.HTTP_204_NO_CONTENT)
+        invitation.refresh_from_db()
+        self.assertIsNotNone(invitation.revoked_at)
+
+    def test_outsider_cannot_issue_guest_invitation(self):
+        self.client.force_authenticate(self.other)
+
+        response = self.client.post(
+            f'/api/sessions/{self.session.pk}/guest-invitations/',
+            {'expires_in_hours': 24},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

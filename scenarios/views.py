@@ -91,6 +91,13 @@ class ScenarioViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(scenario)
         data = dict(serializer.data)
         data.pop('gm_notes', None)
+        data.pop('created_by', None)
+        data.pop('created_by_detail', None)
+        data['handout_templates'] = [
+            handout
+            for handout in data.get('handout_templates', [])
+            if not handout.get('is_secret')
+        ]
         return Response(data)
 
     @action(detail=True, methods=['get'])

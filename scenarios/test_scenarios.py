@@ -230,6 +230,22 @@ class ScenarioAPITestCase(APITestCase):
 
     def test_scenario_public_view_mode_is_readable_without_login(self):
         self.scenario.gm_notes = 'Secret GM Notes'
+        self.scenario.created_by.trpg_history = 'Creator private history'
+        self.scenario.created_by.save(update_fields=['trpg_history'])
+        secret_handout = ScenarioHandout.objects.create(
+            scenario=self.scenario,
+            title='Secret scenario HO',
+            content='Secret scenario HO content',
+            is_secret=True,
+            handout_number=1,
+        )
+        public_handout = ScenarioHandout.objects.create(
+            scenario=self.scenario,
+            title='Public scenario HO',
+            content='Public scenario HO content',
+            is_secret=False,
+            handout_number=2,
+        )
         self.scenario.save(update_fields=['gm_notes'])
         self.client.logout()
 
@@ -238,7 +254,20 @@ class ScenarioAPITestCase(APITestCase):
 
         public_api_response = self.client.get(f'/api/scenarios/scenarios/{self.scenario.id}/public/')
         self.assertEqual(public_api_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(public_api_response.json()['title'], 'Test Scenario')
+        public_data = public_api_response.json()
+        self.assertEqual(public_data['title'], 'Test Scenario')
+        self.assertNotIn('gm_notes', public_data)
+        self.assertNotIn('created_by', public_data)
+        self.assertNotIn('created_by_detail', public_data)
+        self.assertEqual(
+            [handout['title'] for handout in public_data['handout_templates']],
+            [public_handout.title],
+        )
+        serialized_public_api = public_api_response.content.decode()
+        self.assertNotIn(secret_handout.title, serialized_public_api)
+        self.assertNotIn(secret_handout.content, serialized_public_api)
+        self.assertNotIn(self.scenario.created_by.email, serialized_public_api)
+        self.assertNotIn(self.scenario.created_by.trpg_history, serialized_public_api)
 
         public_page_response = self.client.get(
             reverse('scenario_public_view', kwargs={'scenario_id': self.scenario.id})

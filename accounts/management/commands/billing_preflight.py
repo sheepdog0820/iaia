@@ -163,7 +163,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('billing_preflight=ok'))
 
     def _checkout_enabled_check(self):
-        enabled = getattr(settings, 'STRIPE_CHECKOUT_ENABLED', True)
+        enabled = getattr(settings, 'STRIPE_CHECKOUT_ENABLED', False)
         return (
             'STRIPE_CHECKOUT_ENABLED',
             True,

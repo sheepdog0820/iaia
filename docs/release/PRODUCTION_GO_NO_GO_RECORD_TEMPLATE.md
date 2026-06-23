@@ -38,6 +38,18 @@
 | バックアップ | RDS保持期間、復旧試験日、RPO/RTO | 未確認 |
 | 監視通知 | CloudWatch Alarm通知先、SNS購読確認 | 未確認 |
 
+## 本番公開ゲート
+
+| 項目 | 確認内容 | 状態 |
+| --- | --- | --- |
+| OAuth callback | Google / Discord / X の本番callback URLがProvider側に登録済み | 未確認 |
+| 法務ページ | `/terms/`, `/privacy/`, `/contact/`, `/commercial-disclosure/` が本番実値で表示される | 未確認 |
+| 問い合わせ配送 | `/contact/` から実運用先へ通知またはメール配送される | 未確認 |
+| Stripe Checkout公開ゲート | `STRIPE_CHECKOUT_ENABLED=False`、または実Stripe test-mode event IDsを含む検証記録で `billing_release_gate` が成功 | 未確認 |
+| 課金検証記録 | `docs/runbooks/billing-verification-YYYYMMDD.md` にPrice IDs、Webhook event IDs、管理画面確認を記録 | 未確認 |
+| SNS通知 | CloudWatch Alarmから実SNS購読者へ通知される | 未確認 |
+| RDS復旧 | 本番相当スナップショットから復旧手順、RPO/RTO、復旧試験日を記録 | 未確認 |
+| 本番スモーク | `docs/release/PRODUCTION_SMOKE_TEST_CHECKLIST.md` の全項目を記録 | 未確認 |
 ## Terraform確認
 
 | コマンド | 結果 | 記録者 |

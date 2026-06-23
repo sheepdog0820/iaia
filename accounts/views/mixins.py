@@ -22,6 +22,12 @@ class UserOwnershipMixin:
 
 class CharacterSheetAccessMixin:
     """キャラクターシート特化のアクセス制御 mixin"""
+
+    @staticmethod
+    def is_publicly_readable(character_sheet):
+        """Return whether a character sheet can be read from public share URLs."""
+        access_scope = getattr(character_sheet, 'access_scope', 'group')
+        return access_scope == 'public'
     
     @staticmethod
     def can_read_character_sheet(character_sheet, user):
@@ -34,7 +40,7 @@ class CharacterSheetAccessMixin:
 
         access_scope = getattr(character_sheet, 'access_scope', 'group')
 
-        if getattr(character_sheet, 'is_public', False) or access_scope == 'public':
+        if CharacterSheetAccessMixin.is_publicly_readable(character_sheet):
             return True
 
         if character_sheet.allowed_users.filter(id=user.id).exists():

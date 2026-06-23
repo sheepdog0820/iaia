@@ -13,7 +13,7 @@ services:
   web:
     build: .
     env_file:
-      - .env
+      - ${ENV_FILE:-.env.development}
     ports:
       - "8000:8000"
     depends_on:
@@ -22,7 +22,6 @@ services:
       - .:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
-    command: ["/entrypoint.sh"]
 
 volumes:
   postgres_data:

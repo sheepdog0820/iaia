@@ -149,6 +149,74 @@ print(json.dumps({
             'storages.backends.s3.S3Storage',
         )
 
+    def test_operational_billing_logger_is_routed_to_tableno_handlers(self):
+        payload = self.run_settings_probe(
+            expression='''
+import json
+from tableno import settings_production as settings
+logger_config = settings.LOGGING['loggers']['tableno']
+print(json.dumps({
+    'tableno_handlers': logger_config['handlers'],
+    'tableno_level': logger_config['level'],
+    'tableno_propagate': logger_config['propagate'],
+}))
+''',
+        )
+
+        self.assertTrue(payload['tableno_handlers'])
+        self.assertEqual(payload['tableno_level'], 'INFO')
+        self.assertFalse(payload['tableno_propagate'])
+
+    def test_mail_transport_defaults_use_smtp(self):
+        payload = self.run_settings_probe(
+            expression='''
+import json
+from tableno import settings_production as settings
+print(json.dumps({
+    "email_backend": settings.EMAIL_BACKEND,
+    "email_host": settings.EMAIL_HOST,
+    "email_port": settings.EMAIL_PORT,
+    "email_use_tls": settings.EMAIL_USE_TLS,
+}))
+''',
+        )
+
+        self.assertEqual(
+            payload['email_backend'],
+            'django.core.mail.backends.smtp.EmailBackend',
+        )
+        self.assertEqual(payload['email_host'], 'smtp.gmail.com')
+        self.assertEqual(payload['email_port'], 587)
+        self.assertTrue(payload['email_use_tls'])
+
+    def test_mail_transport_can_be_overridden_from_env(self):
+        payload = self.run_settings_probe(
+            {
+                'EMAIL_HOST': 'smtp.example.test',
+                'EMAIL_PORT': '2525',
+                'EMAIL_USE_TLS': 'False',
+                'EMAIL_HOST_USER': 'mailer@example.test',
+                'EMAIL_HOST_PASSWORD': 'mail-secret',
+            },
+            expression='''
+import json
+from tableno import settings_production as settings
+print(json.dumps({
+    "email_host": settings.EMAIL_HOST,
+    "email_port": settings.EMAIL_PORT,
+    "email_use_tls": settings.EMAIL_USE_TLS,
+    "email_host_user": settings.EMAIL_HOST_USER,
+    "email_host_password": settings.EMAIL_HOST_PASSWORD,
+}))
+''',
+        )
+
+        self.assertEqual(payload['email_host'], 'smtp.example.test')
+        self.assertEqual(payload['email_port'], 2525)
+        self.assertFalse(payload['email_use_tls'])
+        self.assertEqual(payload['email_host_user'], 'mailer@example.test')
+        self.assertEqual(payload['email_host_password'], 'mail-secret')
+
     def test_mail_identity_defaults_use_tableno_addresses(self):
         payload = self.run_settings_probe()
 
@@ -157,6 +225,35 @@ print(json.dumps({
         self.assertEqual(payload['default_from_email'], 'noreply@tableno.jp')
         self.assertEqual(payload['server_email'], 'noreply@tableno.jp')
         self.assertEqual(payload['admins'], [['Admin', 'support@tableno.jp']])
+
+    def test_production_authentication_settings_require_verified_email(self):
+        payload = self.run_settings_probe(
+            expression='''
+import json
+from tableno import settings_production as settings
+print(json.dumps({
+    "account_login_methods": sorted(settings.ACCOUNT_LOGIN_METHODS),
+    "account_signup_fields": settings.ACCOUNT_SIGNUP_FIELDS,
+    "account_email_verification": settings.ACCOUNT_EMAIL_VERIFICATION,
+    "account_prevent_enumeration": settings.ACCOUNT_PREVENT_ENUMERATION,
+    "socialaccount_email_required": settings.SOCIALACCOUNT_EMAIL_REQUIRED,
+    "account_forms": settings.ACCOUNT_FORMS,
+}))
+''',
+        )
+
+        self.assertEqual(payload['account_login_methods'], ['email'])
+        self.assertEqual(
+            payload['account_signup_fields'],
+            ['email*', 'password1*', 'password2*'],
+        )
+        self.assertEqual(payload['account_email_verification'], 'mandatory')
+        self.assertTrue(payload['account_prevent_enumeration'])
+        self.assertTrue(payload['socialaccount_email_required'])
+        self.assertEqual(
+            payload['account_forms']['reset_password'],
+            'accounts.forms.CustomPasswordResetForm',
+        )
 
     def test_billing_production_settings_are_loaded_from_env(self):
         payload = self.run_settings_probe(
@@ -403,3 +500,46 @@ print(json.dumps({
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('LEGAL_SELLER_ADDRESS must be set to a production value', result.stderr)
+
+    def test_deploy_check_passes_with_ci_like_production_environment(self):
+        result = subprocess.run(
+            [sys.executable, 'manage.py', 'check', '--deploy'],
+            cwd=REPO_ROOT,
+            env={
+                **os.environ,
+                'SECRET_KEY': 'test-secret-key-for-deploy-check-with-enough-length-12345',
+                'DJANGO_SETTINGS_MODULE': 'tableno.settings_production',
+                'ENVIRONMENT': 'staging',
+                'ALLOWED_HOSTS': 'localhost',
+                'CSRF_TRUSTED_ORIGINS': 'http://localhost',
+                'SITE_ID': '1',
+                'DB_ENGINE': 'postgres',
+                'DB_NAME': 'tableno_ci',
+                'DB_USER': 'tableno_ci',
+                'DB_PASSWORD': 'tableno_ci_password',
+                'DB_HOST': 'localhost',
+                'DB_PORT': '5432',
+                'USE_REDIS_CACHE': 'False',
+                'USE_S3_STORAGE': 'False',
+                'STRIPE_SECRET_KEY': 'sk_test_ci_secret',
+                'STRIPE_WEBHOOK_SECRET': 'whsec_ci_secret',
+                'STRIPE_PREMIUM_PRICE_ID': 'price_ci_monthly',
+                'PUBLIC_SITE_URL': 'https://staging.example.com',
+                'PREMIUM_PRICE_LABEL': 'CI test premium plan',
+                'LEGAL_PAYMENT_METHOD': 'Credit card via Stripe Checkout.',
+                'LEGAL_PAYMENT_TIMING': 'Charged when the subscription starts.',
+                'LEGAL_SERVICE_DELIVERY_TIMING': 'Premium access starts after webhook processing.',
+                'LEGAL_CANCELLATION_METHOD': 'Users can cancel from the premium management page.',
+                'LEGAL_CANCELLATION_EFFECT': 'Access remains active until the paid period ends.',
+                'LEGAL_REFUND_POLICY': 'Refunds are handled by support after review.',
+                'LEGAL_SELLER_NAME': 'Tableno CI',
+                'LEGAL_SELLER_ADDRESS': '1-1 CI Test Address',
+                'LEGAL_SELLER_PHONE': '000-0000-0000',
+            },
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('System check identified no issues', result.stdout)

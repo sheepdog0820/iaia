@@ -108,6 +108,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             .prefetch_related('skills', 'equipment'),
             pk=pk,
         )
+        if not CharacterSheetAccessMixin.is_publicly_readable(sheet):
+            raise Http404("Character sheet not found")
         serializer = self.get_serializer(sheet)
         return Response(serializer.data)
 
@@ -2515,6 +2517,8 @@ def character_public_view_6th(request, character_id):
         .prefetch_related('skills', 'equipment', 'versions'),
         id=character_id,
     )
+    if not CharacterSheetAccessMixin.is_publicly_readable(character):
+        raise Http404("Character sheet not found")
     from django.db import models as django_models
     assigned_skills = character.skills.filter(
         current_value__gt=django_models.F('base_value')

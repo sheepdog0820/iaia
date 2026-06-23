@@ -1,3 +1,4 @@
+import json
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -126,6 +127,34 @@ class BasicAccountsTestCase(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, other.email)
+
+    def test_user_detail_api_does_not_expose_other_users(self):
+        other = User.objects.create_user(
+            username='apiother',
+            email='apiother@example.com',
+            password='pass1234',
+            nickname='API Other',
+            trpg_history='private history',
+        )
+
+        self.client.force_login(self.user)
+
+        own_response = self.client.get(f'/api/accounts/users/{self.user.id}/')
+        self.assertEqual(own_response.status_code, 200)
+        self.assertEqual(own_response.json()['email'], self.user.email)
+
+        other_response = self.client.get(f'/api/accounts/users/{other.id}/')
+        self.assertEqual(other_response.status_code, 404)
+        self.assertNotContains(
+            other_response,
+            other.email,
+            status_code=404,
+        )
+        self.assertNotContains(
+            other_response,
+            other.trpg_history,
+            status_code=404,
+        )
 
     def test_character_detail_api_allows_session_gm(self):
         """ログイン済みユーザーは他人のキャラも参照できる"""
@@ -297,7 +326,99 @@ class BasicAccountsTestCase(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
-    def test_character_public_view_mode_is_readable_without_login(self):
+    def test_access_scope_private_update_clears_legacy_public_flag(self):
+        owner = User.objects.create_user(
+            username='legacy_public_owner',
+            email='legacy_public_owner@example.com',
+            password='pass1234',
+            nickname='Legacy Public Owner',
+        )
+        character = CharacterSheet.objects.create(
+            user=owner,
+            edition='6th',
+            name='Legacy Public PC',
+            age=20,
+            str_value=10,
+            con_value=10,
+            pow_value=10,
+            dex_value=10,
+            app_value=10,
+            siz_value=10,
+            int_value=10,
+            edu_value=10,
+            hit_points_max=10,
+            hit_points_current=10,
+            magic_points_max=10,
+            magic_points_current=10,
+            sanity_max=50,
+            sanity_current=50,
+            sanity_starting=50,
+            is_public=True,
+            access_scope='public',
+        )
+        self.client.force_login(owner)
+
+        response = self.client.patch(
+            f'/api/accounts/character-sheets/{character.id}/',
+            data=json.dumps({'access_scope': 'private'}),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        character.refresh_from_db()
+        self.assertEqual(character.access_scope, 'private')
+        self.assertFalse(character.is_public)
+
+        self.client.logout()
+        public_api_response = self.client.get(f'/api/accounts/character-sheets/{character.id}/public/')
+        self.assertEqual(public_api_response.status_code, 404)
+
+        public_page_response = self.client.get(
+            reverse('character_public_view', kwargs={'character_id': character.id})
+        )
+        self.assertEqual(public_page_response.status_code, 404)
+
+    def test_character_group_scope_ignores_legacy_public_flag_for_public_urls(self):
+        owner = User.objects.create_user(
+            username='legacy_group_owner',
+            email='legacy_group_owner@example.com',
+            password='pass1234',
+            nickname='Legacy Group Owner',
+        )
+        character = CharacterSheet.objects.create(
+            user=owner,
+            edition='6th',
+            name='Legacy Group PC',
+            age=20,
+            str_value=10,
+            con_value=10,
+            pow_value=10,
+            dex_value=10,
+            app_value=10,
+            siz_value=10,
+            int_value=10,
+            edu_value=10,
+            hit_points_max=10,
+            hit_points_current=10,
+            magic_points_max=10,
+            magic_points_current=10,
+            sanity_max=50,
+            sanity_current=50,
+            sanity_starting=50,
+            is_public=True,
+            access_scope='group',
+        )
+
+        self.client.logout()
+        public_api_response = self.client.get(f'/api/accounts/character-sheets/{character.id}/public/')
+        self.assertEqual(public_api_response.status_code, 404)
+
+        public_page_response = self.client.get(
+            reverse('character_public_view', kwargs={'character_id': character.id})
+        )
+        self.assertEqual(public_page_response.status_code, 404)
+
+    def test_character_public_view_mode_requires_public_scope(self):
         owner = User.objects.create_user(
             username='direct_link_owner',
             email='direct_link_owner@example.com',
@@ -326,7 +447,7 @@ class BasicAccountsTestCase(TestCase):
             sanity_max=50,
             sanity_current=50,
             sanity_starting=50,
-            access_scope='private',
+            access_scope='public',
         )
 
         self.client.logout()
@@ -351,6 +472,18 @@ class BasicAccountsTestCase(TestCase):
         self.assertContains(page_response, 'og:title')
         self.assertContains(page_response, 'Direct Link PL')
         self.assertNotContains(page_response, 'id="editButton"')
+
+        character.access_scope = 'private'
+        character.is_public = False
+        character.save(update_fields=['access_scope', 'is_public'])
+
+        private_public_api_response = self.client.get(f'/api/accounts/character-sheets/{character.id}/public/')
+        self.assertEqual(private_public_api_response.status_code, 404)
+
+        private_public_page_response = self.client.get(
+            reverse('character_public_view', kwargs={'character_id': character.id})
+        )
+        self.assertEqual(private_public_page_response.status_code, 404)
 
 
 class GroupBasicTestCase(TestCase):

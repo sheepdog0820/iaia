@@ -45,6 +45,8 @@ def create_test_character(user, **kwargs):
         'edu_value': 10
     }
     defaults.update(kwargs)
+    if defaults.get('is_public') and 'access_scope' not in defaults:
+        defaults['access_scope'] = 'public'
     if 'edition' not in defaults:
         defaults['edition'] = '6th'
 

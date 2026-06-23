@@ -11,7 +11,8 @@ from dataclasses import dataclass
 
 from django.core.exceptions import ValidationError
 
-from schedules.models import HandoutAttachment, HandoutInfo, SessionParticipant
+from schedules.handout_access import can_view_handout
+from schedules.models import HandoutAttachment, HandoutInfo
 
 
 @dataclass(frozen=True)
@@ -23,13 +24,10 @@ class HandoutAttachmentService:
     """ハンドアウト添付ファイルの操作を提供するサービス"""
 
     def _require_access(self, handout: HandoutInfo, user) -> None:
-        session = handout.session
         user_id = getattr(user, 'id', None)
         if user_id is None:
             raise PermissionError("この添付ファイルにアクセスする権限がありません。")
-        if session.gm_id == user_id:
-            return
-        if SessionParticipant.objects.filter(session_id=session.id, user_id=user_id).exists():
+        if can_view_handout(handout, user):
             return
         raise PermissionError("この添付ファイルにアクセスする権限がありません。")
 

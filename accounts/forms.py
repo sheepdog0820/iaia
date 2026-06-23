@@ -1,6 +1,9 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, PasswordResetForm
+from django.conf import settings
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import authenticate
+from allauth.account.forms import ResetPasswordForm as AllauthResetPasswordForm
+from allauth.account.models import EmailAddress
 from .models import CustomUser
 from .character_models import CharacterSheet, CharacterSheet6th
 
@@ -80,6 +83,30 @@ class CustomLoginForm(AuthenticationForm):
         except CustomUser.DoesNotExist:
             return login
 
+    def confirm_login_allowed(self, user):
+        super().confirm_login_allowed(user)
+        if getattr(settings, 'ACCOUNT_EMAIL_VERIFICATION', 'none') != 'mandatory':
+            return
+
+        try:
+            from allauth.account.models import EmailAddress
+        except Exception:
+            raise forms.ValidationError(
+                'Email verification is required before login.',
+                code='email_unverified',
+            )
+
+        email_verified = EmailAddress.objects.filter(
+            user=user,
+            email__iexact=user.email,
+            verified=True,
+        ).exists()
+        if not email_verified:
+            raise forms.ValidationError(
+                'Email verification is required before login.',
+                code='email_unverified',
+            )
+
 
 class CustomSignUpForm(UserCreationForm):
     """カスタムサインアップフォーム"""
@@ -147,8 +174,8 @@ class CustomSignUpForm(UserCreationForm):
         return user
 
 
-class CustomPasswordResetForm(PasswordResetForm):
-    """カスタムパスワードリセットフォーム"""
+class CustomPasswordResetForm(AllauthResetPasswordForm):
+    """Password reset form that respects mandatory email verification."""
     email = forms.EmailField(
         max_length=254,
         widget=forms.EmailInput(attrs={
@@ -157,6 +184,27 @@ class CustomPasswordResetForm(PasswordResetForm):
         }),
         label='メールアドレス'
     )
+
+    def clean_email(self):
+        email = super().clean_email()
+        self._skip_password_reset_email = False
+        if getattr(settings, 'ACCOUNT_EMAIL_VERIFICATION', 'none') == 'mandatory':
+            candidate_users = list(self.users)
+            self.users = [
+                user for user in candidate_users
+                if EmailAddress.objects.filter(
+                    user=user,
+                    email__iexact=email,
+                    verified=True,
+                ).exists()
+            ]
+            self._skip_password_reset_email = bool(candidate_users and not self.users)
+        return email
+
+    def save(self, request, **kwargs):
+        if getattr(self, '_skip_password_reset_email', False):
+            return self.cleaned_data['email']
+        return super().save(request, **kwargs)
 
 
 class ProfileEditForm(forms.ModelForm):

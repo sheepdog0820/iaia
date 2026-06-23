@@ -210,6 +210,17 @@ class BillingApiTestCase(TestCase):
             password='pass123',
         )
 
+    def test_billing_view_failures_use_operational_logger(self):
+        from accounts.views import billing_views
+
+        self.assertEqual(billing_views.logger.name, 'tableno.billing')
+
+    def test_checkout_enabled_helper_defaults_to_disabled_when_setting_is_missing(self):
+        from accounts.views.billing_views import is_checkout_enabled
+
+        with patch('accounts.views.billing_views.settings', SimpleNamespace()):
+            self.assertFalse(is_checkout_enabled())
+
     def test_checkout_requires_authentication(self):
         response = self.client.post(reverse('billing-checkout-session'))
         self.assertEqual(response.status_code, 401)
@@ -337,6 +348,17 @@ class BillingApiTestCase(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['error'], 'Invalid billing plan')
 
+    @patch('accounts.views.billing_views.create_checkout_session')
+    def test_checkout_stripe_temporary_failure_returns_service_unavailable(self, create_checkout_session):
+        create_checkout_session.side_effect = RuntimeError('stripe connection timeout')
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(reverse('billing-checkout-session'))
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.data['error'], 'Stripe service is temporarily unavailable')
+        self.assertNotIn('stripe connection timeout', str(response.data))
+
     def test_portal_requires_customer(self):
         self.client.force_authenticate(self.user)
         response = self.client.post(reverse('billing-portal-session'))
@@ -375,6 +397,17 @@ class BillingApiTestCase(TestCase):
             stripe.billing_portal.Session.create.call_args.kwargs['configuration'],
             'bpc_test_config',
         )
+
+    @patch('accounts.views.billing_views.create_portal_session')
+    def test_portal_stripe_temporary_failure_returns_service_unavailable(self, create_portal_session):
+        create_portal_session.side_effect = RuntimeError('stripe portal timeout')
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(reverse('billing-portal-session'))
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.data['error'], 'Stripe service is temporarily unavailable')
+        self.assertNotIn('stripe portal timeout', str(response.data))
 
     def test_redeem_code_requires_authentication(self):
         response = self.client.post(reverse('billing-redeem-code'), {'code': 'PREMIUM-TEST'})
@@ -1146,6 +1179,43 @@ class BillingServiceTestCase(TestCase):
         self.assertIsNone(record.revoked_at)
         self.assertEqual(record.revoked_reason, '')
         self.assertTrue(self.user.is_premium)
+
+    def test_inactive_stripe_update_does_not_remove_active_promo_access(self):
+        self.user.is_premium = True
+        self.user.save(update_fields=['is_premium'])
+        promo_expires_at = timezone.now() + timedelta(days=14)
+        PremiumSubscription.objects.create(
+            user=self.user,
+            stripe_customer_id='cus_active_promo_with_old_stripe',
+            subscription_status='promo',
+            access_source='promo_code',
+            premium_expires_at=promo_expires_at,
+        )
+
+        record = sync_subscription_object(
+            {
+                'id': 'sub_old_canceled',
+                'customer': 'cus_active_promo_with_old_stripe',
+                'status': 'canceled',
+                'current_period_end': int((timezone.now() - timedelta(days=1)).timestamp()),
+                'cancel_at_period_end': False,
+            },
+            event_id='evt_old_canceled_after_promo',
+        )
+
+        record.refresh_from_db()
+        self.user.refresh_from_db()
+        self.assertEqual(record.subscription_status, 'promo')
+        self.assertEqual(record.access_source, 'promo_code')
+        self.assertEqual(record.premium_expires_at, promo_expires_at)
+        self.assertTrue(self.user.is_premium)
+        self.assertFalse(
+            PremiumAuditLog.objects.filter(
+                user=self.user,
+                action='revoked',
+                stripe_event_id='evt_old_canceled_after_promo',
+            ).exists()
+        )
 
     def test_subscription_deleted_canceled_revokes_user_access(self):
         self.user.is_premium = True
@@ -2330,6 +2400,15 @@ class PremiumAccessCodeCommandTestCase(TestCase):
         self.assertIn('stripe_price_id / billing_interval', output)
         self.assertIn('Stripe subscription metadata includes stripe_price_id / billing_interval', output)
 
+    def test_billing_release_gate_defaults_to_disabled_when_setting_is_missing(self):
+        stdout = StringIO()
+
+        with patch('accounts.management.commands.billing_release_gate.settings', SimpleNamespace()):
+            call_command('billing_release_gate', stdout=stdout)
+
+        output = stdout.getvalue()
+        self.assertIn('stripe_checkout_enabled=false', output)
+        self.assertIn('billing_release_gate=ok checkout-disabled', output)
     @override_settings(STRIPE_CHECKOUT_ENABLED=False)
     def test_billing_release_gate_passes_when_checkout_disabled(self):
         stdout = StringIO()

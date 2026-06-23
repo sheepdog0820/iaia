@@ -60,6 +60,10 @@ python manage.py billing_webhook_smoke
 
 `billing_release_gate` is the paid Checkout exposure guard. If `STRIPE_CHECKOUT_ENABLED=False`, it passes because paid Checkout is hidden. If `STRIPE_CHECKOUT_ENABLED=True`, it requires a final aws-pre verification record with real Stripe test-mode event IDs, recent-event output, cancel-at-period-end evidence, and no unfinished placeholders.
 
+Account deletion safety: users with an active Stripe subscription must cancel through `/accounts/billing/` before account deletion. The delete view treats `PremiumSubscription.is_stripe_active` plus Stripe customer/subscription IDs as active billing evidence, blocks deletion, shows the billing management route, and leaves the user and billing records intact until cancellation is complete.
+
+Stripe outage safety: Checkout and Customer Portal API failures are logged server-side and return a generic 503 `Stripe service is temporarily unavailable` response, so transient Stripe downtime does not expose exception details to users.
+
 `billing_verification_record` writes the checked timestamp, environment, monthly Price ID, yearly Price ID, expected Stripe currency/unit amounts, Webhook URL, `check`, `billing_preflight`, optional `billing_stripe_remote_check`, optional `billing_webhook_smoke`, and manual Stripe/Django admin verification items to Markdown. Add real Stripe event IDs and screen verification notes to the generated file.
 
 ## StripeテストPrice作成

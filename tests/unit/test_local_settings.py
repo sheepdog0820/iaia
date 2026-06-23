@@ -109,3 +109,71 @@ class LocalSettingsTests(TestCase):
         self.assertEqual(payload['secret'], 'test-local-secret-with-bom')
         self.assertEqual(payload['monthly'], 'price_monthly_bom')
         self.assertEqual(payload['yearly'], 'price_yearly_bom')
+
+    def test_checkout_is_disabled_by_default_in_local_settings(self):
+        with tempfile.NamedTemporaryFile('w', encoding='utf-8', delete=False) as handle:
+            handle.write('SECRET_KEY=test-local-secret\n')
+            env_file = handle.name
+
+        try:
+            env = os.environ.copy()
+            env.pop('STRIPE_CHECKOUT_ENABLED', None)
+            env.update({
+                'APP_ENV': 'local',
+                'ENV_FILE': env_file,
+                'DJANGO_SETTINGS_MODULE': 'tableno.settings',
+            })
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    '-c',
+                    'import json; from django.conf import settings; '
+                    'print(json.dumps({"checkout_enabled": settings.STRIPE_CHECKOUT_ENABLED}))',
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        finally:
+            Path(env_file).unlink(missing_ok=True)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout.strip())
+        self.assertFalse(payload['checkout_enabled'])
+
+    def test_checkout_can_be_enabled_explicitly_in_local_settings(self):
+        with tempfile.NamedTemporaryFile('w', encoding='utf-8', delete=False) as handle:
+            handle.write('SECRET_KEY=test-local-secret\n')
+            env_file = handle.name
+
+        try:
+            env = os.environ.copy()
+            env.update({
+                'APP_ENV': 'local',
+                'ENV_FILE': env_file,
+                'DJANGO_SETTINGS_MODULE': 'tableno.settings',
+                'STRIPE_CHECKOUT_ENABLED': 'True',
+            })
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    '-c',
+                    'import json; from django.conf import settings; '
+                    'print(json.dumps({"checkout_enabled": settings.STRIPE_CHECKOUT_ENABLED}))',
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        finally:
+            Path(env_file).unlink(missing_ok=True)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout.strip())
+        self.assertTrue(payload['checkout_enabled'])

@@ -6,12 +6,42 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 from rest_framework import status
 
-from accounts.models import Group, GroupMembership, GroupInvitation
+from accounts.models import Friend, Group, GroupMembership, GroupInvitation
 from accounts.character_models import CharacterSheet
 from schedules.models import HandoutNotification, UserNotificationPreferences
 
 
 User = get_user_model()
+
+
+class FriendAPITestCase(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='friend_user',
+            email='friend_user@example.com',
+            password='pass123',
+            nickname='Friend User',
+        )
+        self.friend = User.objects.create_user(
+            username='friend_target',
+            email='friend_target@example.com',
+            password='pass123',
+            nickname='Friend Target',
+            trpg_history='friend private history',
+        )
+        Friend.objects.create(user=self.user, friend=self.friend)
+        self.client.force_authenticate(user=self.user)
+
+    def test_friend_list_does_not_expose_private_profile_fields(self):
+        response = self.client.get('/api/accounts/friends/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        friend_detail = response.data[0]['friend_detail']
+        self.assertEqual(friend_detail['nickname'], 'Friend Target')
+        self.assertNotIn('email', friend_detail)
+        self.assertNotIn('trpg_history', friend_detail)
+        self.assertNotIn('first_name', friend_detail)
+        self.assertNotIn('last_name', friend_detail)
 
 
 class GroupSearchAPITestCase(APITestCase):
@@ -26,7 +56,8 @@ class GroupSearchAPITestCase(APITestCase):
             username='owner_user',
             email='owner@example.com',
             password='pass123',
-            nickname='Owner User'
+            nickname='Owner User',
+            trpg_history='owner private history',
         )
         self.client.force_authenticate(user=self.user)
 
@@ -57,6 +88,29 @@ class GroupSearchAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 0)
 
+    def test_public_group_listing_does_not_expose_member_private_profile_fields(self):
+        response = self.client.get('/api/accounts/groups/public/?q=Arkham')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        member_detail = response.data[0]['members_detail'][0]['user_detail']
+        self.assertEqual(member_detail['nickname'], 'Owner User')
+        self.assertNotIn('email', member_detail)
+        self.assertNotIn('trpg_history', member_detail)
+        self.assertNotIn('first_name', member_detail)
+        self.assertNotIn('last_name', member_detail)
+
+    def test_public_group_members_endpoint_does_not_expose_private_profile_fields(self):
+        response = self.client.get(f'/api/accounts/groups/{self.public_group.id}/members/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        member_detail = response.data[0]['user_detail']
+        self.assertEqual(member_detail['nickname'], 'Owner User')
+        self.assertNotIn('email', member_detail)
+        self.assertNotIn('trpg_history', member_detail)
+        self.assertNotIn('first_name', member_detail)
+        self.assertNotIn('last_name', member_detail)
+
 
 class GroupInvitationFlowAPITestCase(APITestCase):
     def setUp(self):
@@ -64,13 +118,15 @@ class GroupInvitationFlowAPITestCase(APITestCase):
             username='inviter',
             email='inviter@example.com',
             password='pass123',
-            nickname='Inviter'
+            nickname='Inviter',
+            trpg_history='inviter private history',
         )
         self.invitee1 = User.objects.create_user(
             username='invitee1',
             email='invitee1@example.com',
             password='pass123',
-            nickname='Invitee1'
+            nickname='Invitee1',
+            trpg_history='invitee1 private history',
         )
         self.invitee2 = User.objects.create_user(
             username='invitee2',
@@ -186,6 +242,12 @@ class GroupInvitationFlowAPITestCase(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['inviter'], self.inviter.id)
+        self.assertEqual(response.data['inviter_detail']['nickname'], 'Inviter')
+        self.assertEqual(response.data['invitee_detail']['nickname'], 'Invitee1')
+        self.assertNotIn('email', response.data['inviter_detail'])
+        self.assertNotIn('trpg_history', response.data['inviter_detail'])
+        self.assertNotIn('email', response.data['invitee_detail'])
+        self.assertNotIn('trpg_history', response.data['invitee_detail'])
         self.assertTrue(
             GroupInvitation.objects.filter(
                 group=self.group,
@@ -194,6 +256,23 @@ class GroupInvitationFlowAPITestCase(APITestCase):
                 status='pending'
             ).exists()
         )
+
+    def test_invitation_list_does_not_expose_private_profile_fields(self):
+        GroupInvitation.objects.create(
+            group=self.group,
+            inviter=self.inviter,
+            invitee=self.invitee1,
+            message='Join us'
+        )
+
+        self.client.force_authenticate(user=self.invitee1)
+
+        response = self.client.get('/api/accounts/invitations/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]['inviter_detail']['nickname'], 'Inviter')
+        self.assertNotIn('email', response.data[0]['inviter_detail'])
+        self.assertNotIn('trpg_history', response.data[0]['inviter_detail'])
 
 
 class GroupInvitationNotificationTestCase(APITestCase):
@@ -425,6 +504,7 @@ class GroupMemberCharactersAPITestCase(APITestCase):
             sanity_max=99,
             sanity_current=san_start,
             is_public=is_public,
+            access_scope='public' if is_public else 'private',
             is_active=True
         )
 
@@ -440,6 +520,20 @@ class GroupMemberCharactersAPITestCase(APITestCase):
         self.assertEqual(len(admin_entry['characters']), 2)
         self.assertEqual(len(member_entry['characters']), 1)
         self.assertTrue(member_entry['characters'][0]['is_public'])
+
+    def test_member_characters_hide_legacy_public_flag_when_scope_is_not_public(self):
+        legacy_group_character = self.create_character(self.member, 'Member Legacy Group', is_public=True)
+        legacy_group_character.access_scope = 'group'
+        legacy_group_character.save(update_fields=['access_scope'])
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(f'/api/accounts/groups/{self.group.id}/member_characters/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        member_entry = next(item for item in response.data if item['user_id'] == self.member.id)
+        character_names = {character['name'] for character in member_entry['characters']}
+        self.assertIn('Member Public', character_names)
+        self.assertNotIn('Member Legacy Group', character_names)
 
     def test_member_characters_non_member_forbidden(self):
         self.client.force_authenticate(user=self.non_member)

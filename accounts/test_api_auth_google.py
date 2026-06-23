@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from django.test import override_settings
 from django.contrib.auth import get_user_model
+from allauth.account.models import EmailAddress
 from rest_framework.test import APITestCase
 
 
@@ -58,7 +59,36 @@ class GoogleAuthApiTests(APITestCase):
         self.assertTrue(data['created'])
         self.assertEqual(data['user']['email'], 'idtoken.user@example.com')
 
-        self.assertTrue(User.objects.filter(email='idtoken.user@example.com').exists())
+        user = User.objects.get(email='idtoken.user@example.com')
+        self.assertTrue(EmailAddress.objects.filter(user=user, email=user.email, verified=True, primary=True).exists())
+
+    @patch('accounts.views.api_auth_views.id_token.verify_oauth2_token')
+    def test_google_auth_id_token_reuses_existing_email_user(self, mock_verify):
+        existing = User.objects.create_user(
+            username='existing-google',
+            email='same.google@example.com',
+            password='pass1234',
+            nickname='',
+        )
+        mock_verify.return_value = {
+            'iss': 'accounts.google.com',
+            'email': 'same.google@example.com',
+            'given_name': 'Existing',
+            'family_name': 'Google',
+            'name': 'Existing Google',
+            'email_verified': True,
+        }
+
+        response = self.client.post(self.url, {'id_token': 'fake'}, format='json')
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertFalse(data['created'])
+        self.assertEqual(data['user']['id'], existing.id)
+        self.assertEqual(User.objects.filter(email='same.google@example.com').count(), 1)
+        existing.refresh_from_db()
+        self.assertEqual(existing.nickname, 'Existing Google')
+        self.assertTrue(EmailAddress.objects.filter(user=existing, email=existing.email, verified=True, primary=True).exists())
 
     @patch('accounts.views.api_auth_views.id_token.verify_oauth2_token')
     def test_google_auth_id_token_invalid_issuer(self, mock_verify):
@@ -104,6 +134,8 @@ class GoogleAuthApiTests(APITestCase):
         self.assertIn('token', data)
         self.assertTrue(data['created'])
         self.assertEqual(data['user']['email'], 'access.user@example.com')
+        user = User.objects.get(email='access.user@example.com')
+        self.assertTrue(EmailAddress.objects.filter(user=user, email=user.email, verified=True, primary=True).exists())
 
     @patch('accounts.views.api_auth_views.requests.get')
     def test_google_auth_access_token_invalid(self, mock_get):
@@ -136,3 +168,5 @@ class GoogleAuthApiTests(APITestCase):
         self.assertIn('token', data)
         self.assertTrue(data['created'])
         self.assertEqual(data['user']['email'], 'code.user@example.com')
+        user = User.objects.get(email='code.user@example.com')
+        self.assertTrue(EmailAddress.objects.filter(user=user, email=user.email, verified=True, primary=True).exists())

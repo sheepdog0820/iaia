@@ -18,6 +18,7 @@
 
 正式な未実装範囲は `ISSUES.md` と `SESSION_UNIMPLEMENTED_FEATURES_SPEC.md` を正本とします。
 Web機能の受け入れから検証、課題クローズまでの手順は `docs/WEB_FEATURE_COMPLETION_WORKFLOW.md` を正本とします。
+Beta/public exposure note: implemented external integrations are not automatically broad-release ready. Google Calendar/Sheets, advanced Discord notification operations, and WebSocket notification exposure are governed by `docs/release/PUBLIC_RELEASE_TASKS.md` and require real external-service verification before broad rollout.
 
 ### 1.1 プロジェクト概要
 タブレノは、クトゥルフ神話をテーマにしたTRPGスケジュール管理Webサービスです。TRPGセッションの管理、参加者の管理、プレイ履歴の記録など、TRPGライフを豊かにする機能を提供します。
@@ -721,7 +722,7 @@ tableno/
 - `POST /api/character-sheets/google-sheets/export/` - Google Sheets固定列出力
 - `POST /api/sessions/<id>/guest-invitations/` - ゲスト招待発行
 - `POST /api/guest-invitations/<token>/respond/` - ゲスト参加表明
-- `POST /api/participants/<id>/claim/` - ゲスト枠claim
+- `POST /api/participants/<id>/claim/` - ゲスト枠claim（`claim_token` 必須）
 - `/ws/notifications/` - 認証済みユーザー通知WebSocket。接続不能時はポーリングへフォールバック
 - ハンドアウトAPIは `release_conditions`、`release_status`、`next_evaluation_at` を公開
 
@@ -791,7 +792,7 @@ tableno/
 - `GET /api/schedules/sessions/view/` - セッション一覧ビュー
 - `GET /api/schedules/session-templates/view/` - セッションテンプレート管理
 - `GET /schedules/sessions/<id>/date-poll/` - 日程調整投票画面
-- `GET /s/<uuid:share_token>/` - 公開セッション詳細
+- `GET /sessions/<uuid:share_token>/view/` / `GET /s/<uuid:share_token>/` - public session detail for sessions with `visibility='public'` only
 
 ### 4.5 GM専用ハンドアウト管理**【✅ 実装済み】**
 - `GET/POST /api/schedules/gm-handouts/` - GMハンドアウト管理
@@ -1000,6 +1001,8 @@ tableno/
 
 ### 7.5 外部連携
 
+Beta/public rollout gate: Google Calendar/Sheets, advanced Discord notification operations, and WebSocket notification exposure stay behind `docs/release/PUBLIC_RELEASE_TASKS.md` until real external-service verification is recorded.
+
 - **Discord Webhook通知**【✅ 実装済み】
   - セッション招待/更新/キャンセル通知
   - Webhook URL保存
@@ -1096,7 +1099,7 @@ tableno/
 ## 8. 開発・運用情報
 
 ### 8.1 開発環境
-- Python 3.10+
+- Python 3.11+
 - Django 5.2系
 - SQLite（ローカル開発）
 - Docker対応

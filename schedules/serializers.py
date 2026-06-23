@@ -25,10 +25,11 @@ from .models import (
     DatePollVote,
     DatePollComment,
 )
-from accounts.serializers import UserSerializer, validate_character_image
+from accounts.serializers import PublicUserSerializer, validate_character_image
 from accounts.models import CustomUser, Group
 from scenarios.models import Scenario
 from scenarios.access import can_view_scenario
+from schedules.handout_access import can_view_handout
 from django.utils import timezone
 from datetime import datetime, time as time_cls
 
@@ -44,7 +45,7 @@ class NullableIntegerField(serializers.IntegerField):
 
 class SessionImageSerializer(serializers.ModelSerializer):
     """セッション画像シリアライザー"""
-    uploaded_by_detail = UserSerializer(source='uploaded_by', read_only=True)
+    uploaded_by_detail = PublicUserSerializer(source='uploaded_by', read_only=True)
     image_url = serializers.SerializerMethodField()
     
     class Meta:
@@ -69,7 +70,7 @@ class SessionImageSerializer(serializers.ModelSerializer):
 
 class SessionYouTubeLinkSerializer(serializers.ModelSerializer):
     """セッションYouTube動画リンクシリアライザー"""
-    added_by_detail = UserSerializer(source='added_by', read_only=True)
+    added_by_detail = PublicUserSerializer(source='added_by', read_only=True)
     part_number = NullableIntegerField(min_value=1, required=False, allow_null=True)
     duration_display = serializers.CharField(read_only=True)
     
@@ -85,7 +86,7 @@ class SessionYouTubeLinkSerializer(serializers.ModelSerializer):
 
 
 class SessionParticipantSerializer(serializers.ModelSerializer):
-    user_detail = UserSerializer(source='user', read_only=True)
+    user_detail = PublicUserSerializer(source='user', read_only=True)
     character_sheet_detail = serializers.SerializerMethodField()
     display_name = serializers.CharField(read_only=True)
      
@@ -163,7 +164,7 @@ class SessionRewardSerializer(serializers.ModelSerializer):
     session = serializers.IntegerField(source='participant.session_id', read_only=True)
     session_title = serializers.CharField(source='participant.session.title', read_only=True)
     participant_detail = SessionParticipantSerializer(source='participant', read_only=True)
-    created_by_detail = UserSerializer(source='created_by', read_only=True)
+    created_by_detail = PublicUserSerializer(source='created_by', read_only=True)
 
     class Meta:
         model = SessionReward
@@ -300,7 +301,7 @@ class HandoutInfoSerializer(serializers.ModelSerializer):
 class HandoutAttachmentSerializer(serializers.ModelSerializer):
     """ハンドアウト添付ファイルシリアライザー"""
 
-    uploaded_by_detail = UserSerializer(source='uploaded_by', read_only=True)
+    uploaded_by_detail = PublicUserSerializer(source='uploaded_by', read_only=True)
     file_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -401,8 +402,8 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
     estimated_hours = serializers.FloatField(write_only=True, required=False)
     min_players = serializers.IntegerField(write_only=True, required=False)
     max_players = serializers.IntegerField(write_only=True, required=False)
-    gm_detail = UserSerializer(source='gm', read_only=True)
-    created_by_detail = UserSerializer(source='created_by', read_only=True)
+    gm_detail = PublicUserSerializer(source='gm', read_only=True)
+    created_by_detail = PublicUserSerializer(source='created_by', read_only=True)
     scenario = serializers.PrimaryKeyRelatedField(
         queryset=Scenario.objects.all(),
         required=False,
@@ -455,6 +456,25 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
                  'created_at', 'updated_at', 'session_date', 'start_time',
                  'estimated_hours', 'min_players', 'max_players']
         read_only_fields = ['id', 'gm', 'created_by', 'created_at', 'updated_at']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        visible_handouts = [
+            handout
+            for handout in instance.handouts.select_related(
+                'participant',
+                'participant__user',
+            )
+            if can_view_handout(handout, user)
+        ]
+        data['handouts_detail'] = HandoutInfoSerializer(
+            visible_handouts,
+            many=True,
+            context=self.context,
+        ).data
+        return data
     
     @extend_schema_field(OpenApiTypes.INT)
     def get_participant_count(self, obj):
@@ -486,7 +506,8 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
     def get_participants(self, obj):
         participants = SessionParticipantSerializer(
             obj.sessionparticipant_set.all(),
-            many=True
+            many=True,
+            context=self.context,
         ).data
         for participant in participants:
             detail = participant.get('character_sheet_detail')
@@ -691,7 +712,7 @@ class SessionOccurrenceSerializer(serializers.ModelSerializer):
         many=True,
         required=False,
     )
-    participants_detail = UserSerializer(source='participants', many=True, read_only=True)
+    participants_detail = PublicUserSerializer(source='participants', many=True, read_only=True)
 
     class Meta:
         model = SessionOccurrence
@@ -945,11 +966,22 @@ class HandoutNotificationSerializer(serializers.ModelSerializer):
     def get_handout_info(self, obj):
         """ハンドアウト情報を取得"""
         try:
-            handout = HandoutInfo.objects.get(id=obj.handout_id)
-            return HandoutBasicSerializer(handout).data
+            handout = HandoutInfo.objects.select_related(
+                'session',
+                'session__gm',
+                'session__group',
+                'participant',
+                'participant__user',
+            ).get(id=obj.handout_id)
         except HandoutInfo.DoesNotExist:
             return None
-    
+
+        request = self.context.get('request')
+        if request and not can_view_handout(handout, request.user):
+            return None
+
+        return HandoutBasicSerializer(handout).data
+
     @extend_schema_field(OpenApiTypes.STR)
     def get_time_since_created(self, obj):
         """作成からの経過時間を人間が読みやすい形式で返す"""
@@ -1081,7 +1113,7 @@ class SessionInvitationSerializer(serializers.ModelSerializer):
 class SessionSeriesSerializer(serializers.ModelSerializer):
     """セッションシリーズ/キャンペーン シリアライザ"""
 
-    gm_detail = UserSerializer(source='gm', read_only=True)
+    gm_detail = PublicUserSerializer(source='gm', read_only=True)
     group_name = serializers.CharField(source='group.name', read_only=True)
     recurrence_display = serializers.CharField(source='get_recurrence_display', read_only=True)
     weekday_display = serializers.CharField(source='get_weekday_display', read_only=True)
@@ -1165,7 +1197,7 @@ class SessionSeriesCreateSerializer(serializers.ModelSerializer):
 class SessionAvailabilitySerializer(serializers.ModelSerializer):
     """参加可能日投票シリアライザ"""
 
-    user_detail = UserSerializer(source='user', read_only=True)
+    user_detail = PublicUserSerializer(source='user', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
 
     class Meta:
@@ -1185,7 +1217,7 @@ class SessionAvailabilitySerializer(serializers.ModelSerializer):
 class DatePollVoteSerializer(serializers.ModelSerializer):
     """日程調整投票シリアライザ"""
 
-    user_detail = UserSerializer(source='user', read_only=True)
+    user_detail = PublicUserSerializer(source='user', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
 
     class Meta:
@@ -1205,7 +1237,7 @@ class DatePollVoteSerializer(serializers.ModelSerializer):
 class DatePollCommentSerializer(serializers.ModelSerializer):
     """日程調整コメント（チャット）シリアライザ"""
 
-    user_detail = UserSerializer(source='user', read_only=True)
+    user_detail = PublicUserSerializer(source='user', read_only=True)
 
     class Meta:
         model = DatePollComment
@@ -1254,7 +1286,7 @@ class DatePollOptionSerializer(serializers.ModelSerializer):
 class DatePollSerializer(serializers.ModelSerializer):
     """日程調整シリアライザ"""
 
-    created_by_detail = UserSerializer(source='created_by', read_only=True)
+    created_by_detail = PublicUserSerializer(source='created_by', read_only=True)
     group_name = serializers.CharField(source='group.name', read_only=True)
     options = DatePollOptionSerializer(many=True, read_only=True)
     session_detail = serializers.SerializerMethodField()

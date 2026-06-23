@@ -9,8 +9,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
+from django.http import Http404
 from django.shortcuts import get_object_or_404
-from .models import HandoutNotification, UserNotificationPreferences
+from .models import HandoutInfo, HandoutNotification, UserNotificationPreferences
+from .handout_access import can_view_handout
 from .notifications import HandoutNotificationService
 from .serializers import (
     HandoutNotificationSerializer, 
@@ -38,7 +40,40 @@ class HandoutNotificationViewSet(viewsets.ReadOnlyModelViewSet):
         return HandoutNotification.objects.filter(
             recipient=self.request.user
         ).order_by('-created_at')
-    
+
+    def _can_show_notification(self, notification):
+        if notification.handout_id == 0:
+            return True
+        try:
+            handout = HandoutInfo.objects.select_related(
+                'session',
+                'session__gm',
+                'session__group',
+                'participant',
+                'participant__user',
+            ).get(id=notification.handout_id)
+        except HandoutInfo.DoesNotExist:
+            return False
+        return can_view_handout(handout, self.request.user)
+
+    def _visible_notifications(self, queryset):
+        return [
+            notification
+            for notification in queryset
+            if self._can_show_notification(notification)
+        ]
+
+    def get_object(self):
+        notification = get_object_or_404(
+            HandoutNotification,
+            id=self.kwargs.get(self.lookup_url_kwarg or self.lookup_field),
+            recipient=self.request.user,
+        )
+        if not self._can_show_notification(notification):
+            raise Http404
+        self.check_object_permissions(self.request, notification)
+        return notification
+
     def list(self, request, *args, **kwargs):
         """通知一覧取得（未読フィルター対応）"""
         queryset = self.get_queryset()
@@ -48,22 +83,19 @@ class HandoutNotificationViewSet(viewsets.ReadOnlyModelViewSet):
         if unread_only:
             queryset = queryset.filter(is_read=False)
         
-        page = self.paginate_queryset(queryset)
+        visible_notifications = self._visible_notifications(queryset)
+        page = self.paginate_queryset(visible_notifications)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
         
-        serializer = self.get_serializer(queryset, many=True)
+        serializer = self.get_serializer(visible_notifications, many=True)
         return Response(serializer.data)
     
     @action(detail=True, methods=['patch'])
     def mark_read(self, request, pk=None):
         """通知を既読にマーク"""
-        notification = get_object_or_404(
-            HandoutNotification,
-            id=pk,
-            recipient=request.user
-        )
+        notification = self.get_object()
         
         notification.mark_as_read()
         
@@ -75,10 +107,16 @@ class HandoutNotificationViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['patch'])
     def mark_all_read(self, request):
         """全通知を既読にマーク"""
-        updated_count = HandoutNotification.objects.filter(
-            recipient=request.user,
-            is_read=False
-        ).update(is_read=True)
+        visible_ids = [
+            notification.id
+            for notification in self._visible_notifications(
+                HandoutNotification.objects.filter(
+                    recipient=request.user,
+                    is_read=False,
+                )
+            )
+        ]
+        updated_count = HandoutNotification.objects.filter(id__in=visible_ids).update(is_read=True)
         
         return Response({
             'status': 'success',
@@ -89,10 +127,12 @@ class HandoutNotificationViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['get'])
     def unread_count(self, request):
         """未読通知数を取得"""
-        count = HandoutNotification.objects.filter(
-            recipient=request.user,
-            is_read=False
-        ).count()
+        count = len(self._visible_notifications(
+            HandoutNotification.objects.filter(
+                recipient=request.user,
+                is_read=False,
+            )
+        ))
         
         return Response({
             'unread_count': count

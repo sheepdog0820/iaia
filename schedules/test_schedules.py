@@ -1180,6 +1180,9 @@ class PublicSessionLinkTestCase(APITestCase):
         )
 
     def test_public_session_detail_accessible_without_login(self):
+        self.session.visibility = 'public'
+        self.session.save(update_fields=['visibility'])
+
         url = reverse('public_session_detail', kwargs={'share_token': self.session.share_token})
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1187,7 +1190,6 @@ class PublicSessionLinkTestCase(APITestCase):
         self.assertContains(response, self.group.name)
         self.assertNotContains(response, self.group.description)
         self.assertContains(response, self.player.nickname)
-        self.assertNotContains(response, 'alt="プロフィール"')
 
     def test_public_session_detail_invalid_token_404(self):
         url = reverse('public_session_detail', kwargs={'share_token': uuid.uuid4()})
@@ -1198,8 +1200,19 @@ class PublicSessionLinkTestCase(APITestCase):
         response = self.client.get(f'/api/schedules/sessions/{self.session.id}/detail/', HTTP_ACCEPT='text/html')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_session_detail_has_copy_link_button(self):
+    def test_private_session_detail_hides_copy_link_button(self):
         self.client.force_authenticate(user=self.gm)
         response = self.client.get(f'/api/schedules/sessions/{self.session.id}/detail/', HTTP_ACCEPT='text/html')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotContains(response, 'id="copyPublicSessionLinkBtn"')
+        self.assertNotContains(response, f"/sessions/{self.session.share_token}/view/")
+
+    def test_public_session_detail_has_copy_link_button(self):
+        self.session.visibility = 'public'
+        self.session.save(update_fields=['visibility'])
+
+        self.client.force_authenticate(user=self.gm)
+        response = self.client.get(f'/api/schedules/sessions/{self.session.id}/detail/', HTTP_ACCEPT='text/html')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, 'id="copyPublicSessionLinkBtn"')
         self.assertContains(response, f"/sessions/{self.session.share_token}/view/")

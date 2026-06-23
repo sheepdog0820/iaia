@@ -11,6 +11,8 @@ __pycache__
 .Python
 venv/
 venv311/
+venv*/
+.venv/
 env/
 ENV/
 *.egg-info/

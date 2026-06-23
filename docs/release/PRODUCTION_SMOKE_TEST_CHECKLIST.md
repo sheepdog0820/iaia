@@ -9,6 +9,8 @@
 - DNS、ACM、ALB、ECS、RDS、ElastiCache、S3/CloudFront が本番値で構成済み。
 - Google、Discord、Xの本番OAuth callback URLが登録済み。
 - 管理者アカウントと初期運用権限が確定済み。
+- 利用規約、プライバシーポリシー、特商法表示、問い合わせ先が本番実値で正式レビュー済み。
+- Stripe Checkout を公開する場合は、実Stripe test-mode event IDsを含む最終検証記録で `billing_release_gate` が成功済み。
 
 ## 確認項目
 
@@ -26,6 +28,10 @@
 | 10 | 外部連携設定 | Google/Discord設定画面が保存できる | 未確認 |
 | 11 | CloudWatch Logs | web/worker/beatログが確認できる | 未確認 |
 | 12 | CloudWatch Alarm | 通知先が実運用先になっている | 未確認 |
+| 13 | 法務ページ | `/terms/`, `/privacy/`, `/contact/`, `/commercial-disclosure/` が本番実値で表示できる | 未確認 |
+| 14 | 問い合わせ配送 | `/contact/` から実運用先へ通知またはメール配送される | 未確認 |
+| 15 | Stripe Checkout公開ゲート | `STRIPE_CHECKOUT_ENABLED=False`、または `billing_release_gate --verification-record docs/runbooks/billing-verification-YYYYMMDD.md` が成功 | 未確認 |
+| 16 | Go/No-Go記録 | `docs/release/PRODUCTION_GO_NO_GO_RECORD_TEMPLATE.md` にOAuth/SNS/RDS/法務/Stripeの実確認結果を記録 | 未確認 |
 
 ## 記録欄
 

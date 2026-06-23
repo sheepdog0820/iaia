@@ -17,6 +17,7 @@ from .models import (
     SessionParticipant,
     TRPGSession,
 )
+from .handout_access import can_manage_session
 
 
 class GuestInvitationCreateView(APIView):
@@ -24,7 +25,7 @@ class GuestInvitationCreateView(APIView):
 
     def post(self, request, session_id):
         session = get_object_or_404(TRPGSession, pk=session_id)
-        if session.gm_id != request.user.id:
+        if not can_manage_session(session, request.user):
             self.permission_denied(request)
         try:
             expires_in_hours = int(request.data.get('expires_in_hours', 168))
@@ -60,10 +61,17 @@ class GuestInvitationLandingView(View):
                 {'invalid': True},
                 status=404,
             )
+        if not invitation.is_active or invitation.participant_id:
+            return render(
+                request,
+                'schedules/guest_invitation.html',
+                {'inactive': True},
+                status=status.HTTP_410_GONE,
+            )
         return render(request, 'schedules/guest_invitation.html', {
             'invitation': invitation,
             'token': token,
-            'active': invitation.is_active and not invitation.participant_id,
+            'active': True,
         })
 
 
@@ -76,7 +84,7 @@ class GuestInvitationRevokeView(APIView):
             pk=invitation_id,
             session_id=session_id,
         )
-        if invitation.session.gm_id != request.user.id:
+        if not can_manage_session(invitation.session, request.user):
             self.permission_denied(request)
         invitation.revoked_at = timezone.now()
         invitation.save(update_fields=['revoked_at'])
@@ -157,6 +165,7 @@ class GuestInvitationRespondView(APIView):
             'session_id': participant.session_id,
             'guest_name': participant.guest_name,
             'player_slot': participant.player_slot,
+            'claim_token': token,
         }, status=status.HTTP_201_CREATED)
 
 
@@ -164,6 +173,12 @@ class GuestParticipantClaimView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, participant_id):
+        claim_token = str(request.data.get('claim_token') or request.data.get('token') or '').strip()
+        if not claim_token:
+            return Response(
+                {'detail': 'Guest claim token is required.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         try:
             with transaction.atomic():
                 participant = SessionParticipant.objects.select_for_update().select_related(
@@ -175,9 +190,15 @@ class GuestParticipantClaimView(APIView):
                         status=status.HTTP_409_CONFLICT,
                     )
                 invitation = GuestInvitation.objects.select_for_update().filter(
-                    participant=participant
+                    participant=participant,
+                    token_digest=GuestInvitation.digest(claim_token),
                 ).first()
-                if not invitation or not invitation.is_active:
+                if not invitation:
+                    return Response(
+                        {'detail': 'Guest claim token is invalid.'},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                if not invitation.is_active:
                     return Response(
                         {'detail': 'Guest invitation is expired or revoked.'},
                         status=status.HTTP_410_GONE,

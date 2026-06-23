@@ -19,9 +19,9 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        if self.action == 'list':
-            return CustomUser.objects.filter(id=self.request.user.id)
-        return CustomUser.objects.all()
+        if self.request.user.is_superuser:
+            return CustomUser.objects.all()
+        return CustomUser.objects.filter(id=self.request.user.id)
     
     @action(detail=True, methods=['get'])
     def friends(self, request, pk=None):
@@ -248,21 +248,32 @@ class CustomSignUpView(FormView):
     
     def form_valid(self, form):
         user = form.save()
+        email_verification_mandatory = (
+            getattr(settings, 'ACCOUNT_EMAIL_VERIFICATION', 'none') == 'mandatory'
+        )
 
         # Ensure allauth EmailAddress is in sync for email login & email management.
         try:
             from allauth.account.models import EmailAddress
 
-            EmailAddress.objects.update_or_create(
+            email_address, _ = EmailAddress.objects.update_or_create(
                 user=user,
                 email=user.email,
                 defaults={
                     'primary': True,
-                    # Email verification is disabled in settings, so mark as verified.
-                    'verified': True,
+                    'verified': getattr(settings, 'ACCOUNT_EMAIL_VERIFICATION', 'none') != 'mandatory',
                 },
             )
+            if getattr(settings, 'ACCOUNT_EMAIL_VERIFICATION', 'none') == 'mandatory':
+                email_address.send_confirmation(self.request, signup=True)
+                messages.info(
+                    self.request,
+                    'Please verify your email address before logging in.',
+                )
+                return redirect('account_email_verification_sent')
         except Exception:
+            if email_verification_mandatory:
+                raise
             pass
 
         user = authenticate(
@@ -363,6 +374,23 @@ class DashboardView(TemplateView):
 class AccountDeleteView(TemplateView):
     template_name = 'account/account_delete.html'
 
+    def _active_stripe_subscription(self, user):
+        from accounts.models import PremiumSubscription
+
+        subscription = PremiumSubscription.objects.filter(user=user).first()
+        if not subscription:
+            return None
+        if not subscription.is_stripe_active:
+            return None
+        if not (subscription.stripe_customer_id or subscription.stripe_subscription_id):
+            return None
+        return subscription
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['active_stripe_subscription'] = self._active_stripe_subscription(self.request.user)
+        return context
+
     def post(self, request, *args, **kwargs):
         user = request.user
 
@@ -378,13 +406,16 @@ class AccountDeleteView(TemplateView):
                 messages.error(request, 'パスワードが正しくありません。')
                 return redirect('account_delete')
 
+        if self._active_stripe_subscription(user):
+            messages.error(request, '有効なStripe購読が残っています。先に課金管理ページから解約してください。')
+            return redirect('billing')
+
         # Logout first so the session does not reference a deleted user.
         auth_logout(request)
         user.delete()
 
         messages.success(request, 'アカウントを削除しました。ご利用ありがとうございました。')
         return redirect('home')
-
 
 # Development/Demo Views
 

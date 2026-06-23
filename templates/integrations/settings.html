@@ -175,6 +175,7 @@
                     <label class="form-label" for="claim-participant-id">claimするゲスト参加者ID</label>
                     <div class="input-group">
                         <input class="form-control" id="claim-participant-id" type="number" min="1">
+                        <input class="form-control" id="claim-token" placeholder="claim token">
                         <button class="btn btn-outline-primary" id="claim-participant">claim</button>
                     </div>
                 </div>
@@ -552,7 +553,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('claim-participant').addEventListener('click', async function() {
         const participantId = document.getElementById('claim-participant-id').value;
-        await axios.post(`/api/participants/${participantId}/claim/`);
+        const claimToken = document.getElementById('claim-token').value;
+        await axios.post(`/api/participants/${participantId}/claim/`, { claim_token: claimToken });
         showMessage('ゲスト参加枠をclaimしました。');
     });
 

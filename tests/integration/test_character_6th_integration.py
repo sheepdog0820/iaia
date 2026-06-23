@@ -45,6 +45,8 @@ def create_test_character(user, **kwargs):
         'edu_value': 10,
     }
     defaults.update(kwargs)
+    if defaults.get('is_public') and 'access_scope' not in defaults:
+        defaults['access_scope'] = 'public'
     
     # 副次ステータスを計算
     character = CharacterSheet(**defaults)
@@ -1027,4 +1029,6 @@ def create_test_character(user, **kwargs):
         'edu_value': 10
     }
     defaults.update(kwargs)
+    if defaults.get('is_public') and 'access_scope' not in defaults:
+        defaults['access_scope'] = 'public'
     return CharacterSheet.objects.create(user=user, **defaults)

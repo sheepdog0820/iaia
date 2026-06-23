@@ -198,7 +198,7 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
             ).order_by('-updated_at')
 
             if member.id != request.user.id:
-                character_queryset = character_queryset.filter(is_public=True)
+                character_queryset = character_queryset.filter(access_scope='public')
 
             characters = [
                 {

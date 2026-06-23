@@ -1,4 +1,4 @@
-﻿# X OAuth + Manual Linking Design
+# X OAuth + Manual Linking Design
 
 ## Goals
 - Allow X-only login without requiring an email address.
@@ -33,14 +33,14 @@
 - If the X account is already linked to a different user, return a conflict error.
 
 ## Settings
-- Enable provider: `allauth.socialaccount.providers.twitter`
+- Enable provider: `allauth.socialaccount.providers.twitter_oauth2`
 - Allow social signup without email:
   - `ACCOUNT_EMAIL_REQUIRED = False`
   - `SOCIALACCOUNT_EMAIL_REQUIRED = False`
 - X OAuth API config:
-  - `X_CLIENT_ID`
-  - `X_CLIENT_SECRET` (optional for PKCE)
-  - `X_REDIRECT_URI`
+  - `TWITTER_CLIENT_ID`
+  - `TWITTER_CLIENT_SECRET` (optional for PKCE)
+  - `TWITTER_REDIRECT_URI`
 
 ## API Endpoints
 - `POST /api/auth/twitter/`
@@ -48,7 +48,7 @@
   - Response: DRF token + user + `linked` flag
 
 ## Data Model
-- `SocialAccount` (provider: `twitter`, uid: X user id)
+- `SocialAccount` (provider: `twitter_oauth2`, uid: X user id)
 - `CustomUser` with optional `email`
 
 ## UI Changes

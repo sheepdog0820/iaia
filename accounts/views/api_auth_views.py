@@ -16,6 +16,7 @@ import base64
 
 from django.conf import settings
 from ..serializers import UserSerializer
+from allauth.account.models import EmailAddress
 from allauth.socialaccount.models import SocialAccount
 
 User = get_user_model()
@@ -186,6 +187,8 @@ def google_auth(request):
             if updated:
                 user.save()
         
+        _mark_email_verified(user, email)
+
         # DRFトークンの生成
         token, _ = Token.objects.get_or_create(user=user)
         
@@ -235,6 +238,17 @@ def logout(request):
             'error': 'ログアウト処理中にエラーが発生しました'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+def _mark_email_verified(user, email):
+    """Record provider-verified email in allauth for mandatory verification checks."""
+    if not email:
+        return
+
+    EmailAddress.objects.update_or_create(
+        user=user,
+        email=email,
+        defaults={'verified': True, 'primary': True},
+    )
 
 def _build_unique_username(base_name):
     """Generate a unique username based on base_name."""
@@ -532,24 +546,36 @@ def discord_auth(request):
                 social_account.extra_data = user_data
                 social_account.save(update_fields=['extra_data'])
             else:
-                base_username = username
-                unique_username = _build_unique_username(base_username)
-                user = User.objects.create_user(
-                    username=unique_username,
-                    email=email_verified and email or '',
-                )
-                user.set_unusable_password()
-                if display_name and not user.nickname:
-                    user.nickname = display_name
-                user.save()
-                created = True
+                user = None
+                if email and email_verified:
+                    user = User.objects.filter(email=email).first()
 
-                SocialAccount.objects.create(
-                    user=user,
-                    provider='discord',
-                    uid=discord_id,
-                    extra_data=user_data
-                )
+                if user:
+                    SocialAccount.objects.create(
+                        user=user,
+                        provider='discord',
+                        uid=discord_id,
+                        extra_data=user_data
+                    )
+                else:
+                    base_username = username
+                    unique_username = _build_unique_username(base_username)
+                    user = User.objects.create_user(
+                        username=unique_username,
+                        email=email_verified and email or '',
+                    )
+                    user.set_unusable_password()
+                    if display_name and not user.nickname:
+                        user.nickname = display_name
+                    user.save()
+                    created = True
+
+                    SocialAccount.objects.create(
+                        user=user,
+                        provider='discord',
+                        uid=discord_id,
+                        extra_data=user_data
+                    )
 
         updates = {}
         if not user.nickname and display_name:
@@ -560,6 +586,9 @@ def discord_auth(request):
             for field, value in updates.items():
                 setattr(user, field, value)
             user.save(update_fields=list(updates.keys()))
+
+        if email and email_verified:
+            _mark_email_verified(user, email)
 
         token, _ = Token.objects.get_or_create(user=user)
 

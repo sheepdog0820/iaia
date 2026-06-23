@@ -39,12 +39,14 @@
                     </nav>
                 </div>
                 <div class="session-detail-actions d-flex flex-wrap gap-2 justify-content-start justify-content-lg-end">
+                    {% if public_session_url %}
                     <button class="btn btn-outline-secondary"
                             type="button"
                             id="copyPublicSessionLinkBtn"
                             data-share-url="{{ public_session_url }}">
                         <i class="fas fa-link"></i> リンクをコピー
                     </button>
+                    {% endif %}
                     {% if session.scenario %}
                         {% if is_participant or can_join or is_gm %}
                             <button class="btn btn-outline-success"

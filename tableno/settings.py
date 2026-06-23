@@ -258,6 +258,7 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+TEST_RUNNER = 'tableno.test_runner.ProjectDiscoverRunner'
 
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.CustomUser'
@@ -275,13 +276,20 @@ SITE_ID = int(os.environ.get('SITE_ID', '1'))
 # NOTE: ACCOUNT_* の一部設定キーは非推奨になったため新キーへ移行
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
-ACCOUNT_EMAIL_VERIFICATION = 'none'
+ACCOUNT_EMAIL_VERIFICATION = os.environ.get(
+    'ACCOUNT_EMAIL_VERIFICATION',
+    'none' if DEBUG else 'mandatory',
+)
 ACCOUNT_LOGIN_ON_SIGNUP = True
 ACCOUNT_SIGNUP_FORM_CLASS = None
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_ONLY = False  # 通常ログインとソーシャルログイン両方を許可
-ACCOUNT_PREVENT_ENUMERATION = False
-SOCIALACCOUNT_EMAIL_REQUIRED = False
+ACCOUNT_PREVENT_ENUMERATION = _get_bool(
+    'ACCOUNT_PREVENT_ENUMERATION',
+    default=not DEBUG,
+)
+SOCIALACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_FORMS = {'reset_password': 'accounts.forms.CustomPasswordResetForm'}
 
 # Custom adapters
 ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
@@ -296,7 +304,7 @@ SERVER_EMAIL = os.environ.get('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
 ADMINS = [('Admin', os.environ.get('ADMIN_EMAIL', SUPPORT_EMAIL))]
 MANAGERS = ADMINS
 
-STRIPE_CHECKOUT_ENABLED = _get_bool('STRIPE_CHECKOUT_ENABLED', default=True)
+STRIPE_CHECKOUT_ENABLED = _get_bool('STRIPE_CHECKOUT_ENABLED', default=False)
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 STRIPE_PREMIUM_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRICE_ID', '')

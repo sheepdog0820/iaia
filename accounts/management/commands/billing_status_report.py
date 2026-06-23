@@ -1,4 +1,4 @@
-﻿import json
+import json
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -227,7 +227,7 @@ def build_billing_status_report(now=None):
     return {
         'total_subscriptions': total,
         'active_access': active_access,
-        'stripe_checkout_enabled': bool(getattr(settings, 'STRIPE_CHECKOUT_ENABLED', True)),
+        'stripe_checkout_enabled': bool(getattr(settings, 'STRIPE_CHECKOUT_ENABLED', False)),
         'expected_stripe_price_currency': getattr(
             settings,
             'STRIPE_PREMIUM_EXPECTED_CURRENCY',

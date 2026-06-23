@@ -1,0 +1,111 @@
+name: Django CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Django check
+        env:
+          SECRET_KEY: test-secret-key-for-ci-with-enough-length-and-variety-12345
+        run: |
+          python manage.py check
+
+      - name: Docker Compose config check
+        env:
+          ENV_FILE: .env.example
+          DB_PASSWORD: placeholder-db-password
+          DB_ROOT_PASSWORD: placeholder-root-password
+        run: |
+          docker compose --env-file .env.compose.example config --quiet
+          docker compose --env-file .env.compose.example -f docker-compose.mysql.yml config --quiet
+
+      - name: Django deploy check
+        env:
+          SECRET_KEY: test-secret-key-for-ci-with-enough-length-and-variety-12345
+          DJANGO_SETTINGS_MODULE: tableno.settings_production
+          ENVIRONMENT: staging
+          ALLOWED_HOSTS: localhost
+          CSRF_TRUSTED_ORIGINS: http://localhost
+          SITE_ID: "1"
+          DB_ENGINE: postgres
+          DB_NAME: tableno_ci
+          DB_USER: tableno_ci
+          DB_PASSWORD: tableno_ci_password
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          USE_REDIS_CACHE: "False"
+          USE_S3_STORAGE: "False"
+          STRIPE_SECRET_KEY: sk_test_ci_secret
+          STRIPE_WEBHOOK_SECRET: whsec_ci_secret
+          STRIPE_PREMIUM_PRICE_ID: price_ci_monthly
+          STRIPE_CHECKOUT_ENABLED: "False"
+          PUBLIC_SITE_URL: https://staging.example.com
+          PREMIUM_PRICE_LABEL: CI test premium plan
+          LEGAL_PAYMENT_METHOD: Credit card via Stripe Checkout.
+          LEGAL_PAYMENT_TIMING: Charged when the subscription starts.
+          LEGAL_SERVICE_DELIVERY_TIMING: Premium access starts after webhook processing.
+          LEGAL_CANCELLATION_METHOD: Users can cancel from the premium management page.
+          LEGAL_CANCELLATION_EFFECT: Access remains active until the paid period ends.
+          LEGAL_REFUND_POLICY: Refunds are handled by support after review.
+          LEGAL_SELLER_NAME: Tableno CI
+          LEGAL_SELLER_ADDRESS: 1-1 CI Test Address
+          LEGAL_SELLER_PHONE: 000-0000-0000
+        run: |
+          python manage.py check --deploy
+
+      - name: Billing release gate
+        env:
+          SECRET_KEY: test-secret-key-for-ci-with-enough-length-and-variety-12345
+          DJANGO_SETTINGS_MODULE: tableno.settings_production
+          ENVIRONMENT: staging
+          ALLOWED_HOSTS: localhost
+          CSRF_TRUSTED_ORIGINS: http://localhost
+          SITE_ID: "1"
+          DB_ENGINE: postgres
+          DB_NAME: tableno_ci
+          DB_USER: tableno_ci
+          DB_PASSWORD: tableno_ci_password
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          USE_REDIS_CACHE: "False"
+          USE_S3_STORAGE: "False"
+          STRIPE_SECRET_KEY: sk_test_ci_secret
+          STRIPE_WEBHOOK_SECRET: whsec_ci_secret
+          STRIPE_PREMIUM_PRICE_ID: price_ci_monthly
+          STRIPE_CHECKOUT_ENABLED: "False"
+          PUBLIC_SITE_URL: https://staging.example.com
+          PREMIUM_PRICE_LABEL: CI test premium plan
+          LEGAL_PAYMENT_METHOD: Credit card via Stripe Checkout.
+          LEGAL_PAYMENT_TIMING: Charged when the subscription starts.
+          LEGAL_SERVICE_DELIVERY_TIMING: Premium access starts after webhook processing.
+          LEGAL_CANCELLATION_METHOD: Users can cancel from the premium management page.
+          LEGAL_CANCELLATION_EFFECT: Access remains active until the paid period ends.
+          LEGAL_REFUND_POLICY: Refunds are handled by support after review.
+          LEGAL_SELLER_NAME: Tableno CI
+          LEGAL_SELLER_ADDRESS: 1-1 CI Test Address
+          LEGAL_SELLER_PHONE: 000-0000-0000
+        run: |
+          python manage.py billing_release_gate
+
+      - name: Run tests
+        env:
+          SECRET_KEY: test-secret-key-for-ci-with-enough-length-and-variety-12345
+        run: |
+          python manage.py test --noinput

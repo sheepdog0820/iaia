@@ -38,7 +38,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        checkout_enabled = bool(getattr(settings, 'STRIPE_CHECKOUT_ENABLED', True))
+        checkout_enabled = bool(getattr(settings, 'STRIPE_CHECKOUT_ENABLED', False))
         self.stdout.write(
             f'stripe_checkout_enabled={str(checkout_enabled).lower()}'
         )

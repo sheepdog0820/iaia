@@ -239,7 +239,7 @@ ECS安定化待ちとスモークテストを再実施します。
 
 ### 7.2 migration起因の失敗
 
-`docker/entrypoint.sh` は起動時に `python manage.py migrate --noinput` を実行します。migration失敗または後方互換性がないmigrationの場合、単純なimageロールバックだけでは復旧できない場合があります。
+`docker/entrypoint.sh` usually does not run migration automatically in aws-pre/aws-prod. Deploy must run `python manage.py migrate --noinput` and `python manage.py collectstatic --noinput` once as explicit pre-start tasks, and must stop before web/worker/beat rollout if either command fails. `RUN_MIGRATIONS=true` / `RUN_COLLECTSTATIC=true` are for local defaults or explicit one-off tasks only.
 
 対応順:
 

@@ -67,6 +67,8 @@ class CharacterIntegrationTestCase(TestCase):
             'edu_value': 16
         }
         defaults.update(kwargs)
+        if defaults.get('is_public') and 'access_scope' not in defaults:
+            defaults['access_scope'] = 'public'
         
         # 派生ステータスの計算
         hp_max = math.ceil((defaults['con_value'] + defaults['siz_value']) / 2)
@@ -524,6 +526,8 @@ class CharacterAPIPermissionTestCase(TestCase):
             'edu_value': 16
         }
         defaults.update(kwargs)
+        if defaults.get('is_public') and 'access_scope' not in defaults:
+            defaults['access_scope'] = 'public'
         
         # 派生ステータスの計算
         hp_max = math.ceil((defaults['con_value'] + defaults['siz_value']) / 2)
@@ -656,6 +660,8 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
             'edu_value': 16
         }
         defaults.update(kwargs)
+        if defaults.get('is_public') and 'access_scope' not in defaults:
+            defaults['access_scope'] = 'public'
         
         # 派生ステータスの計算
         hp_max = math.ceil((defaults['con_value'] + defaults['siz_value']) / 2)
