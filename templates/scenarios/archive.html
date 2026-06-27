@@ -511,13 +511,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 const recommendedSkills = card.querySelector('.scenario-handout-skills')?.value?.trim() || '';
                 const isSecret = card.querySelector('.scenario-handout-secret')?.checked ?? true;
                 if (!title && !content && !recommendedSkills) return null;
+                const code = isCommon ? 'common' : `HO${number}`;
+                const name = title || code;
                 return {
+                    code,
+                    name,
                     title: title || (isCommon ? '探索者共通' : `HO${number}`),
                     content,
                     recommended_skills: recommendedSkills,
                     is_secret: isSecret,
                     handout_number: number,
-                    assigned_player_slot: isCommon ? null : number
+                    assigned_player_slot: isCommon ? null : number,
+                    order: isCommon ? 0 : number
                 };
             })
             .filter(Boolean);
@@ -537,7 +542,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 : String(handout.handout_number);
             const card = document.querySelector(`[data-scenario-handout="${key}"]`);
             if (!card) return;
-            card.querySelector('.scenario-handout-title').value = handout.title || '';
+            card.querySelector('.scenario-handout-title').value = handout.name || handout.title || '';
             card.querySelector('.scenario-handout-content').value = handout.content || '';
             card.querySelector('.scenario-handout-skills').value = handout.recommended_skills || '';
             card.querySelector('.scenario-handout-secret').checked = handout.is_secret !== false;

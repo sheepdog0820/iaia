@@ -2,7 +2,15 @@ from schedules.duration import effective_duration_expression
 from rest_framework import serializers
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
-from .models import Scenario, ScenarioHandout, ScenarioNote, PlayHistory, ScenarioImage
+from .models import (
+    Scenario,
+    ScenarioHandout,
+    ScenarioHandoutRecommendedSkill,
+    ScenarioRecommendedSkill,
+    ScenarioNote,
+    PlayHistory,
+    ScenarioImage,
+)
 from accounts.serializers import UserSerializer, validate_character_image
 
 
@@ -41,17 +49,54 @@ class ScenarioImageSerializer(serializers.ModelSerializer):
         return validate_character_image(value)
 
 
+class ScenarioRecommendedSkillSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScenarioRecommendedSkill
+        fields = [
+            'id',
+            'name',
+            'level',
+            'description',
+            'order',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class ScenarioHandoutRecommendedSkillSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScenarioHandoutRecommendedSkill
+        fields = [
+            'id',
+            'name',
+            'level',
+            'description',
+            'order',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
 class ScenarioHandoutSerializer(serializers.ModelSerializer):
+    recommended_skill_items = ScenarioHandoutRecommendedSkillSerializer(many=True, required=False)
+    title = serializers.CharField(required=False, allow_blank=True)
+
     class Meta:
         model = ScenarioHandout
         fields = [
             'id',
+            'code',
+            'name',
             'title',
             'content',
             'recommended_skills',
             'is_secret',
             'handout_number',
             'assigned_player_slot',
+            'order',
+            'recommended_skill_items',
             'created_at',
             'updated_at',
         ]
@@ -66,6 +111,7 @@ class ScenarioSerializer(serializers.ModelSerializer):
     game_system = serializers.CharField(required=False)
     recommended_skills = serializers.CharField(allow_blank=True, required=False)
     semi_recommended_skills = serializers.CharField(allow_blank=True, required=False)
+    recommended_skill_items = ScenarioRecommendedSkillSerializer(many=True, required=False)
     handout_templates = ScenarioHandoutSerializer(many=True, required=False)
     system = serializers.CharField(write_only=True, required=False)
     difficulty = serializers.CharField(required=False)
@@ -77,7 +123,7 @@ class ScenarioSerializer(serializers.ModelSerializer):
                  'summary', 'public_info', 'gm_notes', 'investigator_requirements',
                  'scenario_tags', 'content_warnings', 'setting_era', 'setting_location',
                  'scenario_style', 'lost_rate', 'combat_level', 'pvp_level',
-                 'recommended_skills', 'semi_recommended_skills', 'handout_templates',
+                 'recommended_skills', 'semi_recommended_skills', 'recommended_skill_items', 'handout_templates',
                  'url', 'recommended_players', 'min_players', 'max_players', 'player_count', 'estimated_time',
                  'created_by', 'created_by_detail', 'created_at', 'updated_at', 
                  'play_count', 'total_play_time']
@@ -129,19 +175,6 @@ class ScenarioSerializer(serializers.ModelSerializer):
             elif normalized_system not in dict(Scenario.GAME_SYSTEM_CHOICES):
                 raise serializers.ValidationError({'game_system': 'Invalid game_system value.'})
 
-        handout_templates = attrs.get('handout_templates')
-        if handout_templates is not None:
-            seen_numbers = set()
-            for handout in handout_templates:
-                handout_number = handout.get('handout_number')
-                if handout_number is None:
-                    continue
-                if handout_number in seen_numbers:
-                    raise serializers.ValidationError({
-                        'handout_templates': '同じHO番号を複数設定することはできません。'
-                    })
-                seen_numbers.add(handout_number)
-
         if 'difficulty' in attrs:
             difficulty = attrs['difficulty']
             normalized = str(difficulty).strip().lower()
@@ -181,27 +214,50 @@ class ScenarioSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        skill_items_data = validated_data.pop('recommended_skill_items', [])
         handouts_data = validated_data.pop('handout_templates', [])
         scenario = Scenario.objects.create(**validated_data)
+        self._save_skill_items(scenario, skill_items_data)
         self._save_handouts(scenario, handouts_data)
         return scenario
 
     def update(self, instance, validated_data):
+        skill_items_data = validated_data.pop('recommended_skill_items', None)
         handouts_data = validated_data.pop('handout_templates', None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
+        if skill_items_data is not None:
+            instance.recommended_skill_items.all().delete()
+            self._save_skill_items(instance, skill_items_data)
         if handouts_data is not None:
             instance.handout_templates.all().delete()
             self._save_handouts(instance, handouts_data)
         return instance
 
+    def _save_skill_items(self, scenario, skill_items_data):
+        for skill in skill_items_data:
+            ScenarioRecommendedSkill.objects.create(
+                scenario=scenario,
+                **skill,
+            )
+
     def _save_handouts(self, scenario, handouts_data):
         for handout in handouts_data:
-            ScenarioHandout.objects.create(
+            skill_items_data = handout.pop('recommended_skill_items', [])
+            if not handout.get('name') and handout.get('title'):
+                handout['name'] = handout['title']
+            if not handout.get('title') and handout.get('name'):
+                handout['title'] = handout['name']
+            handout_instance = ScenarioHandout.objects.create(
                 scenario=scenario,
                 **handout,
             )
+            for skill in skill_items_data:
+                ScenarioHandoutRecommendedSkill.objects.create(
+                    handout=handout_instance,
+                    **skill,
+                )
 
 
 class ScenarioNoteSerializer(serializers.ModelSerializer):

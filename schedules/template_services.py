@@ -1,8 +1,4 @@
-import os
-
-from django.core.files.base import ContentFile
-
-from .models import HandoutInfo, SessionImage, SessionParticipant
+from .models import HandoutInfo, SessionParticipant
 
 
 TEMPLATE_PLACEHOLDER_PREFIX = '[template]'
@@ -24,35 +20,14 @@ def is_template_placeholder_name(name):
     return suffix.startswith('player-') or suffix.startswith('recipient-')
 
 
-def clone_template_to_session(template, session, uploaded_by=None):
-    if template is None or session is None:
-        return
-
-    _clone_template_images(template, session, uploaded_by=uploaded_by)
-    if template.copy_handouts_to_session:
-        _clone_template_handouts(template, session)
-
-
 def clone_scenario_handouts_to_session(scenario, session):
     if scenario is None or session is None:
         return
 
-    occupied_numbers = set(
-        HandoutInfo.objects.filter(
-            session=session,
-            handout_number__isnull=False,
-        ).values_list('handout_number', flat=True)
-    )
     slot_placeholders = {}
     anonymous_index = 0
 
-    for handout_template in scenario.handout_templates.order_by('handout_number', 'id'):
-        if (
-            handout_template.handout_number is not None
-            and handout_template.handout_number in occupied_numbers
-        ):
-            continue
-
+    for handout_template in scenario.handout_templates.order_by('order', 'id'):
         assigned_slot = handout_template.assigned_player_slot
         if assigned_slot:
             participant = slot_placeholders.get(assigned_slot)
@@ -75,19 +50,28 @@ def clone_scenario_handouts_to_session(scenario, session):
                 player_slot=None,
             )
 
+        recommended_skills = handout_template.recommended_skills
+        skill_names = [
+            skill.name
+            for skill in handout_template.recommended_skill_items.order_by('order', 'id')
+            if skill.name
+        ]
+        if skill_names:
+            recommended_skills = ', '.join(skill_names)
+
         HandoutInfo.objects.create(
             session=session,
             participant=participant,
-            title=handout_template.title,
+            code=handout_template.code,
+            name=handout_template.name or handout_template.title,
+            title=handout_template.name or handout_template.title,
             content=handout_template.content,
-            recommended_skills=handout_template.recommended_skills,
+            recommended_skills=recommended_skills,
             is_secret=handout_template.is_secret,
             handout_number=handout_template.handout_number,
             assigned_player_slot=assigned_slot,
+            order=handout_template.order,
         )
-
-        if handout_template.handout_number is not None:
-            occupied_numbers.add(handout_template.handout_number)
 
 
 def bind_slot_handouts_to_participant(participant):
@@ -95,66 +79,6 @@ def bind_slot_handouts_to_participant(participant):
     if session is None:
         return
     _rebind_slot_handouts_for_session(session)
-
-
-def _clone_template_images(template, session, uploaded_by=None):
-    template_images = template.image_templates.order_by('order', 'id')
-    for template_image in template_images:
-        image = SessionImage(
-            session=session,
-            title=template_image.title,
-            description=template_image.description,
-            uploaded_by=uploaded_by or session.gm,
-            order=template_image.order,
-        )
-        if template_image.image:
-            template_image.image.open('rb')
-            try:
-                image_bytes = template_image.image.read()
-            finally:
-                template_image.image.close()
-            filename = os.path.basename(template_image.image.name or 'template-image')
-            image.image.save(filename, ContentFile(image_bytes), save=False)
-        image.save()
-
-
-def _clone_template_handouts(template, session):
-    slot_placeholders = {}
-    anonymous_index = 0
-
-    for handout_template in template.handout_templates.order_by('handout_number', 'id'):
-        assigned_slot = handout_template.assigned_player_slot
-        if assigned_slot:
-            participant = slot_placeholders.get(assigned_slot)
-            if participant is None:
-                participant = SessionParticipant.objects.create(
-                    session=session,
-                    user=None,
-                    guest_name=build_template_placeholder_name(slot=assigned_slot),
-                    role='player',
-                    player_slot=None,
-                )
-                slot_placeholders[assigned_slot] = participant
-        else:
-            anonymous_index += 1
-            participant = SessionParticipant.objects.create(
-                session=session,
-                user=None,
-                guest_name=build_template_placeholder_name(index=anonymous_index),
-                role='player',
-                player_slot=None,
-            )
-
-        HandoutInfo.objects.create(
-            session=session,
-            participant=participant,
-            title=handout_template.title,
-            content=handout_template.content,
-            recommended_skills=handout_template.recommended_skills,
-            is_secret=handout_template.is_secret,
-            handout_number=handout_template.handout_number,
-            assigned_player_slot=assigned_slot,
-        )
 
 
 def _rebind_slot_handouts_for_session(session):

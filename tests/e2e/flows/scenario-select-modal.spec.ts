@@ -54,10 +54,5 @@ test.describe('character create scenario select modal', () => {
 
     await expect(page.locator('#scenarioSelectModal.show')).toBeVisible();
     await expect(page.locator('#scenarioSelectList', { hasText: scenarioTitle })).toBeVisible();
-
-    // Debug artifact: if modal layout breaks, this makes it easy to inspect locally.
-    await page.locator('#scenarioSelectModal .modal-dialog').screenshot({
-      path: 'debug_images/scenario_select_modal.png',
-    });
   });
 });

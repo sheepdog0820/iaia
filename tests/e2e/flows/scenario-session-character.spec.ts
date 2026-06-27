@@ -16,7 +16,26 @@ test.describe('scenario-session flow', () => {
         game_system: 'coc',
         author: 'Playwright',
         summary: 'Flow test scenario.',
-        recommended_skills: 'Spot Hidden, Listen'
+        recommended_skills: 'Spot Hidden, Listen',
+        recommended_skill_items: [
+          { name: 'Spot Hidden', level: 'recommended', description: 'Find traces.', order: 1 },
+        ],
+        handout_templates: [
+          {
+            code: 'HO1',
+            name: 'Investigator',
+            title: 'Investigator',
+            content: 'Follow the hidden trail.',
+            recommended_skills: 'Library Use',
+            is_secret: true,
+            handout_number: 1,
+            assigned_player_slot: 1,
+            order: 1,
+            recommended_skill_items: [
+              { name: 'Library Use', level: 'recommended', description: 'Read records.', order: 1 },
+            ],
+          },
+        ],
       });
       const groupResp = await (window as any).axios.post('/api/accounts/groups/', {
         name: groupName,
@@ -70,6 +89,12 @@ test.describe('scenario-session flow', () => {
     expect(sessionResp.ok()).toBeTruthy();
     const session = await sessionResp.json();
     expect(session.scenario).toBe(scenario.id);
+    const copiedHandout = session.handouts_detail.find((handout: any) => handout.code === 'HO1');
+    expect(copiedHandout).toBeTruthy();
+    expect(copiedHandout.name).toBe('Investigator');
+    expect(copiedHandout.order).toBe(1);
+    expect(copiedHandout.assigned_player_slot).toBe(1);
+    expect(copiedHandout.recommended_skills).toContain('Library Use');
 
     await page.goto(`/api/schedules/sessions/${session.id}/detail/`);
     await expect(page.locator(`text=${scenarioTitle}`)).toBeVisible();
@@ -95,6 +120,7 @@ test.describe('scenario-session flow', () => {
     const nextContext = await nextContextResponse.json();
     expect(nextContext?.scenario?.id).toBe(scenario.id);
     expect(nextContext?.scenario?.recommended_skills).toContain('Spot Hidden');
+    expect(nextContext?.scenario?.recommended_skill_items?.[0]?.name).toBe('Spot Hidden');
   });
 
   test('scenario detail to session and character creation (CoC 6th)', async ({ page }) => {
@@ -111,7 +137,26 @@ test.describe('scenario-session flow', () => {
         game_system: 'coc',
         author: 'Playwright',
         summary: 'Flow test scenario.',
-        recommended_skills: 'Spot Hidden, Listen'
+        recommended_skills: 'Spot Hidden, Listen',
+        recommended_skill_items: [
+          { name: 'Listen', level: 'recommended', description: 'Hear danger.', order: 1 },
+        ],
+        handout_templates: [
+          {
+            code: 'HO1',
+            name: 'Investigator 6th',
+            title: 'Investigator 6th',
+            content: 'Follow the old trail.',
+            recommended_skills: 'Occult',
+            is_secret: true,
+            handout_number: 1,
+            assigned_player_slot: 1,
+            order: 1,
+            recommended_skill_items: [
+              { name: 'Occult', level: 'recommended', description: 'Know lore.', order: 1 },
+            ],
+          },
+        ],
       });
       const groupResp = await (window as any).axios.post('/api/accounts/groups/', {
         name: groupName,
@@ -165,6 +210,12 @@ test.describe('scenario-session flow', () => {
     expect(sessionResp.ok()).toBeTruthy();
     const session = await sessionResp.json();
     expect(session.scenario).toBe(scenario.id);
+    const copiedHandout = session.handouts_detail.find((handout: any) => handout.code === 'HO1');
+    expect(copiedHandout).toBeTruthy();
+    expect(copiedHandout.name).toBe('Investigator 6th');
+    expect(copiedHandout.order).toBe(1);
+    expect(copiedHandout.assigned_player_slot).toBe(1);
+    expect(copiedHandout.recommended_skills).toContain('Occult');
 
     await page.goto(`/api/schedules/sessions/${session.id}/detail/`);
     await expect(page.locator(`text=${scenarioTitle}`)).toBeVisible();
@@ -190,5 +241,6 @@ test.describe('scenario-session flow', () => {
     const nextContext = await nextContextResponse.json();
     expect(nextContext?.scenario?.id).toBe(scenario.id);
     expect(nextContext?.scenario?.recommended_skills).toContain('Spot Hidden');
+    expect(nextContext?.scenario?.recommended_skill_items?.[0]?.name).toBe('Listen');
   });
 });

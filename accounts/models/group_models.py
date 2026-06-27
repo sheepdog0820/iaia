@@ -131,7 +131,6 @@ class GroupLinkShare(models.Model):
         SESSION = 'session', 'Session'
         DATE_POLL = 'date_poll', 'Date poll'
         SCENARIO = 'scenario', 'Scenario'
-        SESSION_TEMPLATE = 'session_template', 'Session template'
 
     link = models.ForeignKey(
         GroupLink, on_delete=models.CASCADE, related_name='shares'

@@ -3,6 +3,14 @@ from django.utils import timezone
 from accounts.models import CustomUser
 
 
+SKILL_LEVEL_CHOICES = [
+    ('required', 'Required'),
+    ('recommended', 'Recommended'),
+    ('semi_recommended', 'Semi recommended'),
+    ('optional', 'Optional'),
+]
+
+
 class Scenario(models.Model):
     GAME_SYSTEM_CHOICES = [
         ('coc6', 'クトゥルフ神話TRPG 6版'),
@@ -71,6 +79,33 @@ class Scenario(models.Model):
         ordering = ['title']
 
 
+class ScenarioRecommendedSkill(models.Model):
+    scenario = models.ForeignKey(
+        Scenario,
+        on_delete=models.CASCADE,
+        related_name='recommended_skill_items',
+    )
+    name = models.CharField(max_length=100)
+    level = models.CharField(
+        max_length=20,
+        choices=SKILL_LEVEL_CHOICES,
+        default='recommended',
+    )
+    description = models.TextField(blank=True, default='')
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'id']
+        indexes = [
+            models.Index(fields=['scenario', 'order']),
+        ]
+
+    def __str__(self):
+        return f"{self.scenario.title}: {self.name}"
+
+
 class ScenarioHandout(models.Model):
     HANDOUT_NUMBER_CHOICES = [
         (1, 'HO1'),
@@ -90,12 +125,13 @@ class ScenarioHandout(models.Model):
         on_delete=models.CASCADE,
         related_name='handout_templates',
     )
+    code = models.CharField(max_length=50, blank=True, default='')
+    name = models.CharField(max_length=100, blank=True, default='')
     title = models.CharField(max_length=100)
     content = models.TextField(blank=True, default='')
     recommended_skills = models.TextField(blank=True, default='')
     is_secret = models.BooleanField(default=True)
     handout_number = models.IntegerField(
-        choices=HANDOUT_NUMBER_CHOICES,
         null=True,
         blank=True,
     )
@@ -104,18 +140,56 @@ class ScenarioHandout(models.Model):
         null=True,
         blank=True,
     )
+    order = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['handout_number', 'id']
-        unique_together = [
-            ['scenario', 'handout_number'],
+        ordering = ['order', 'id']
+        indexes = [
+            models.Index(fields=['scenario', 'order']),
+            models.Index(fields=['scenario', 'code']),
         ]
 
     def __str__(self):
-        ho_display = f"HO{self.handout_number}" if self.handout_number else "HO"
-        return f"{self.scenario.title}: {ho_display} {self.title}"
+        label = self.code or (f"HO{self.handout_number}" if self.handout_number else "HO")
+        return f"{self.scenario.title}: {label} {self.name or self.title}"
+
+    def save(self, *args, **kwargs):
+        if not self.name:
+            self.name = self.title
+        if not self.title:
+            self.title = self.name
+        if not self.code and self.handout_number:
+            self.code = f"HO{self.handout_number}"
+        super().save(*args, **kwargs)
+
+
+class ScenarioHandoutRecommendedSkill(models.Model):
+    handout = models.ForeignKey(
+        ScenarioHandout,
+        on_delete=models.CASCADE,
+        related_name='recommended_skill_items',
+    )
+    name = models.CharField(max_length=100)
+    level = models.CharField(
+        max_length=20,
+        choices=SKILL_LEVEL_CHOICES,
+        default='recommended',
+    )
+    description = models.TextField(blank=True, default='')
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'id']
+        indexes = [
+            models.Index(fields=['handout', 'order']),
+        ]
+
+    def __str__(self):
+        return f"{self.handout}: {self.name}"
 
 
 class ScenarioImage(models.Model):

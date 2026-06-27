@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from scenarios.models import Scenario
-from schedules.models import DatePoll, SessionTemplate, TRPGSession
+from schedules.models import DatePoll, TRPGSession
 
 from .models import (
     Group,
@@ -127,10 +127,6 @@ def _validate_shared_resource(owner_group, resource_type, object_id):
     if resource_type == GroupLinkShare.ResourceType.SCENARIO:
         return Scenario.objects.filter(
             pk=object_id, sessions__group=owner_group
-        ).exists()
-    if resource_type == GroupLinkShare.ResourceType.SESSION_TEMPLATE:
-        return SessionTemplate.objects.filter(
-            pk=object_id, group=owner_group
         ).exists()
     return False
 

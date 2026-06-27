@@ -57,7 +57,6 @@ from .notifications import SessionNotificationService
 from .template_services import (
     bind_slot_handouts_to_participant,
     clone_scenario_handouts_to_session,
-    clone_template_to_session,
 )
 from accounts.models import (
     CharacterSheet,
@@ -253,13 +252,6 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(gm=self.request.user, created_by=self.request.user)
         session = serializer.instance
-        template = getattr(session, '_selected_session_template', None)
-        if template is not None:
-            clone_template_to_session(
-                template,
-                session,
-                uploaded_by=self.request.user,
-            )
         clone_scenario_handouts_to_session(session.scenario, session)
         from .tasks import queue_discord_event
         queue_discord_event(
@@ -2035,13 +2027,6 @@ class CreateSessionView(APIView):
         if serializer.is_valid():
             # GMとして自動設定
             session = serializer.save(gm=request.user)
-            template = getattr(session, '_selected_session_template', None)
-            if template is not None:
-                clone_template_to_session(
-                    template,
-                    session,
-                    uploaded_by=request.user,
-                )
             clone_scenario_handouts_to_session(session.scenario, session)
             
             # GMを参加者として自動追加
@@ -2225,6 +2210,16 @@ class NextSessionContextView(APIView):
                 'game_system': scenario.game_system,
                 'recommended_skills': scenario.recommended_skills or '',
                 'semi_recommended_skills': scenario.semi_recommended_skills or '',
+                'recommended_skill_items': [
+                    {
+                        'id': skill.id,
+                        'name': skill.name,
+                        'level': skill.level,
+                        'description': skill.description,
+                        'order': skill.order,
+                    }
+                    for skill in scenario.recommended_skill_items.order_by('order', 'id')
+                ],
             }
 
         participant = SessionParticipant.objects.filter(session=session, user=user).first()
@@ -2239,7 +2234,7 @@ class NextSessionContextView(APIView):
             for handout in handouts:
                 if handout.recommended_skills:
                     handout_skills.append(handout.recommended_skills)
-                    handout_titles.append(handout.title)
+                    handout_titles.append(handout.name or handout.title)
 
         return Response({
             'session_id': session.id,

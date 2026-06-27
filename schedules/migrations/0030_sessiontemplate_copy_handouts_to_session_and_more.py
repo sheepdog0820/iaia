@@ -3,7 +3,15 @@
 from django.db import migrations, models
 import django.db.models.deletion
 import django.utils.timezone
-import schedules.models
+import os
+import uuid
+
+
+def session_template_image_upload_path(instance, filename):
+    _, ext = os.path.splitext(filename)
+    safe_filename = f"{django.utils.timezone.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}{ext}"
+    template_id = instance.session_template_id or 'tmp'
+    return f"session_template_images/{template_id}/{safe_filename}"
 
 
 class Migration(migrations.Migration):
@@ -22,7 +30,7 @@ class Migration(migrations.Migration):
             name='SessionTemplateImage',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('image', models.ImageField(upload_to=schedules.models.session_template_image_upload_path)),
+                ('image', models.ImageField(upload_to=session_template_image_upload_path)),
                 ('title', models.CharField(blank=True, max_length=200)),
                 ('description', models.TextField(blank=True)),
                 ('order', models.PositiveIntegerField(default=0)),

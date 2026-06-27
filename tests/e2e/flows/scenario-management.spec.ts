@@ -47,4 +47,70 @@ test.describe('scenarios', () => {
 
     await expect(page.locator('#scenarioRecommendedSkillsWarning')).toBeHidden();
   });
+
+  test('scenario supports structured skills and multiple handouts', async ({ page }) => {
+    await devLogin(page);
+    await page.waitForFunction(() => (window as any).axios?.post);
+
+    const scenarioTitle = `E2E Scenario Structured ${Date.now()}`;
+    const scenario = await page.evaluate(async ({ scenarioTitle }) => {
+      const response = await (window as any).axios.post('/api/scenarios/scenarios/', {
+        title: scenarioTitle,
+        game_system: 'coc',
+        author: 'Playwright',
+        summary: 'Structured scenario data.',
+        recommended_skills: 'Spot Hidden',
+        recommended_skill_items: [
+          { name: 'Spot Hidden', level: 'recommended', description: 'Find clues.', order: 1 },
+          { name: 'Library Use', level: 'optional', description: 'Read documents.', order: 2 },
+        ],
+        handout_templates: [
+          {
+            code: 'HO1',
+            name: 'Archivist',
+            title: 'Archivist',
+            content: 'You know the archive.',
+            recommended_skills: 'Library Use',
+            is_secret: true,
+            handout_number: 1,
+            assigned_player_slot: 1,
+            order: 1,
+            recommended_skill_items: [
+              { name: 'Library Use', level: 'recommended', description: 'Read documents.', order: 1 },
+            ],
+          },
+          {
+            code: 'HO2',
+            name: 'Witness',
+            title: 'Witness',
+            content: 'You saw the sign.',
+            recommended_skills: 'Spot Hidden',
+            is_secret: true,
+            handout_number: 2,
+            assigned_player_slot: 2,
+            order: 2,
+            recommended_skill_items: [
+              { name: 'Spot Hidden', level: 'recommended', description: 'Find clues.', order: 1 },
+            ],
+          },
+        ],
+      });
+      return response.data;
+    }, { scenarioTitle });
+
+    await page.goto('/api/scenarios/archive/view/?show_test_data=1');
+    await expect(page.locator('.scenario-card', { hasText: scenarioTitle })).toBeVisible();
+
+    const detail = await page.evaluate(async scenarioId => {
+      const response = await (window as any).axios.get(`/api/scenarios/scenarios/${scenarioId}/`);
+      return response.data;
+    }, scenario.id);
+
+    expect(detail.recommended_skill_items.map((skill: any) => skill.name)).toEqual([
+      'Spot Hidden',
+      'Library Use',
+    ]);
+    expect(detail.handout_templates.map((handout: any) => handout.code)).toEqual(['HO1', 'HO2']);
+    expect(detail.handout_templates[0].recommended_skill_items[0].name).toBe('Library Use');
+  });
 });

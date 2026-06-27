@@ -9,7 +9,7 @@ from rest_framework import status
 from django.utils import timezone
 from .models import TRPGSession, SessionParticipant, HandoutInfo, SessionInvitation
 from accounts.models import CharacterSheet, Group as CustomGroup
-from scenarios.models import Scenario, ScenarioHandout
+from scenarios.models import Scenario, ScenarioHandout, ScenarioHandoutRecommendedSkill
 
 User = get_user_model()
 
@@ -590,6 +590,63 @@ class ScheduleAPITestCase(APITestCase):
         )
         self.assertEqual(context_response.status_code, status.HTTP_200_OK)
         self.assertIn('目星', context_response.json()['handout_recommended_skills'])
+
+    def test_session_creation_copies_flexible_scenario_handouts(self):
+        self.client.force_authenticate(user=self.user1)
+        primary = ScenarioHandout.objects.create(
+            scenario=self.scenario,
+            code='HO1',
+            name='Detective',
+            title='Legacy Detective',
+            content='Primary investigator',
+            is_secret=True,
+            handout_number=1,
+            assigned_player_slot=1,
+            order=2,
+        )
+        extra = ScenarioHandout.objects.create(
+            scenario=self.scenario,
+            code='HO1-B',
+            name='Assistant',
+            title='Legacy Assistant',
+            content='Additional role',
+            is_secret=True,
+            handout_number=1,
+            assigned_player_slot=None,
+            order=1,
+        )
+        ScenarioHandoutRecommendedSkill.objects.create(
+            handout=primary,
+            name='Law',
+            level='required',
+            description='Needed for records',
+            order=1,
+        )
+        ScenarioHandoutRecommendedSkill.objects.create(
+            handout=extra,
+            name='Library Use',
+            level='semi_recommended',
+            description='Helpful for research',
+            order=1,
+        )
+
+        response = self.client.post('/api/schedules/sessions/', {
+            'title': 'Flexible Scenario Handout Session',
+            'date': (timezone.now() + timedelta(days=2)).isoformat(),
+            'location': 'Online',
+            'group': self.group.id,
+            'duration_minutes': 240,
+            'scenario': self.scenario.id,
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        created_session = TRPGSession.objects.get(title='Flexible Scenario Handout Session')
+        self.assertEqual(HandoutInfo.objects.filter(session=created_session, handout_number=1).count(), 2)
+        copied_extra = HandoutInfo.objects.get(session=created_session, code='HO1-B')
+        self.assertEqual(copied_extra.name, 'Assistant')
+        self.assertEqual(copied_extra.title, 'Assistant')
+        self.assertEqual(copied_extra.order, 1)
+        self.assertEqual(copied_extra.recommended_skills, 'Library Use')
 
     def test_session_creation_accepts_actual_duration_via_api(self):
         self.client.force_authenticate(user=self.user1)

@@ -6,7 +6,6 @@ from . import views
 from . import handout_views
 from . import attachment_views
 from . import notification_views
-from . import template_views
 from . import analytics_views
 from . import reward_views
 
@@ -22,7 +21,6 @@ router.register(r'youtube-links', views.SessionYouTubeLinkViewSet, basename='you
 router.register(r'gm-handouts', handout_views.HandoutManagementViewSet, basename='gm_handout')
 router.register(r'notifications', notification_views.HandoutNotificationViewSet, basename='handoutnotification')
 router.register(r'notification-preferences', notification_views.UserNotificationPreferencesViewSet, basename='notificationpreferences')
-router.register(r'session-templates', template_views.SessionTemplateViewSet, basename='session-template')
 # 高度なスケジューリング機能（ISSUE-017）
 router.register(r'session-series', views.SessionSeriesViewSet, basename='session-series')
 router.register(r'availability', views.SessionAvailabilityViewSet, basename='availability')
@@ -67,12 +65,6 @@ urlpatterns = [
         login_required(TemplateView.as_view(template_name='schedules/analytics_dashboard.html')),
         name='analytics_view',
     ),
-    path(
-        'session-templates/view/',
-        login_required(TemplateView.as_view(template_name='schedules/session_templates.html')),
-        name='session_templates_view',
-    ),
-
     path('', include(router.urls)),
     path('calendar/', views.CalendarView.as_view(), name='calendar'),
     path('calendar/holidays/', views.JapaneseHolidayView.as_view(), name='calendar_holidays'),

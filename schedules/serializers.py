@@ -4,9 +4,6 @@ from drf_spectacular.utils import extend_schema_field
 from django.core.exceptions import ValidationError as DjangoValidationError
 from .models import (
     TRPGSession,
-    SessionTemplate,
-    SessionTemplateHandout,
-    SessionTemplateImage,
     SessionOccurrence,
     SessionParticipant,
     SessionInvitation,
@@ -219,9 +216,9 @@ class HandoutInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = HandoutInfo
         fields = ['id', 'session', 'participant', 'participant_detail', 
-                 'title', 'content', 'recommended_skills', 'is_secret', 'handout_number',
+                 'code', 'name', 'title', 'content', 'recommended_skills', 'is_secret', 'handout_number',
                  'assigned_player_slot', 'release_conditions', 'release_status',
-                 'next_evaluation_at', 'released_at', 'created_at', 'updated_at',
+                 'order', 'next_evaluation_at', 'released_at', 'created_at', 'updated_at',
                  'recipient']
         read_only_fields = [
             'id', 'release_status', 'next_evaluation_at', 'released_at',
@@ -343,51 +340,6 @@ class HandoutAttachmentSerializer(serializers.ModelSerializer):
         return obj.file.url
 
 
-class SessionTemplateImageSerializer(serializers.ModelSerializer):
-    image_url = serializers.SerializerMethodField()
-
-    class Meta:
-        model = SessionTemplateImage
-        fields = [
-            'id',
-            'image',
-            'image_url',
-            'title',
-            'description',
-            'order',
-            'created_at',
-            'updated_at',
-        ]
-        read_only_fields = ['id', 'image_url', 'order', 'created_at', 'updated_at']
-
-    @extend_schema_field(OpenApiTypes.URI)
-    def get_image_url(self, obj):
-        if not obj.image:
-            return None
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.image.url)
-        return obj.image.url
-
-
-class SessionTemplateHandoutSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SessionTemplateHandout
-        fields = [
-            'id',
-            'title',
-            'content',
-            'recommended_skills',
-            'is_secret',
-            'handout_number',
-            'assigned_player_slot',
-            'created_at',
-            'updated_at',
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
-        validators = []
-
-
 class TRPGSessionSerializer(serializers.ModelSerializer):
     date = serializers.DateTimeField(required=False, allow_null=True)
     effective_duration_minutes = serializers.IntegerField(read_only=True)
@@ -408,12 +360,6 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         queryset=Scenario.objects.all(),
         required=False,
         allow_null=True
-    )
-    session_template = serializers.PrimaryKeyRelatedField(
-        queryset=SessionTemplate.objects.all(),
-        required=False,
-        allow_null=True,
-        write_only=True,
     )
     scenario_detail = serializers.SerializerMethodField()
     participants = serializers.SerializerMethodField()
@@ -452,7 +398,6 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
                  'handouts_detail', 'images_detail', 'youtube_links_detail',
                  'participant_count', 'guest_count', 'youtube_total_duration', 
                  'youtube_total_duration_display', 'youtube_video_count',
-                 'session_template',
                  'created_at', 'updated_at', 'session_date', 'start_time',
                  'estimated_hours', 'min_players', 'max_players']
         read_only_fields = ['id', 'gm', 'created_by', 'created_at', 'updated_at']
@@ -500,6 +445,16 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
             'game_system': obj.scenario.game_system,
             'recommended_skills': obj.scenario.recommended_skills,
             'semi_recommended_skills': obj.scenario.semi_recommended_skills,
+            'recommended_skill_items': [
+                {
+                    'id': skill.id,
+                    'name': skill.name,
+                    'level': skill.level,
+                    'description': skill.description,
+                    'order': skill.order,
+                }
+                for skill in obj.scenario.recommended_skill_items.order_by('order', 'id')
+            ],
         }
 
     @extend_schema_field(OpenApiTypes.OBJECT)
@@ -553,157 +508,6 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
                     })
 
         return attrs
-
-    def validate_session_template(self, template):
-        if template is None:
-            return template
-
-        request = self.context.get('request')
-        user = getattr(request, 'user', None)
-        if user and template.owner_id != user.id:
-            raise serializers.ValidationError('このテンプレートは使用できません')
-        return template
-
-    def create(self, validated_data):
-        session_template = validated_data.pop('session_template', None)
-        instance = super().create(validated_data)
-        instance._selected_session_template = session_template
-        return instance
-
-    def update(self, instance, validated_data):
-        validated_data.pop('session_template', None)
-        return super().update(instance, validated_data)
-
-
-class SessionTemplateSerializer(serializers.ModelSerializer):
-    group_name = serializers.CharField(source='group.name', read_only=True)
-    scenario_title = serializers.CharField(source='scenario.title', read_only=True)
-    duration_hhmm = serializers.SerializerMethodField()
-    handout_templates = SessionTemplateHandoutSerializer(many=True, required=False)
-    image_templates = SessionTemplateImageSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = SessionTemplate
-        fields = [
-            'id',
-            'name',
-            'title',
-            'description',
-            'location',
-            'youtube_url',
-            'duration_minutes',
-            'duration_hhmm',
-            'copy_handouts_to_session',
-            'visibility',
-            'coc_edition',
-            'group',
-            'group_name',
-            'scenario',
-            'scenario_title',
-            'handout_templates',
-            'image_templates',
-            'created_at',
-            'updated_at',
-        ]
-        read_only_fields = [
-            'id',
-            'group_name',
-            'scenario_title',
-            'created_at',
-            'updated_at',
-        ]
-
-    @extend_schema_field(OpenApiTypes.STR)
-    def get_duration_hhmm(self, obj):
-        total_minutes = obj.duration_minutes or 0
-        hours, minutes = divmod(total_minutes, 60)
-        return f"{hours:02d}{minutes:02d}"
-
-    def validate(self, attrs):
-        handout_templates = attrs.get('handout_templates')
-        if handout_templates is None:
-            return attrs
-
-        seen_numbers = set()
-        for handout in handout_templates:
-            handout_number = handout.get('handout_number')
-            if handout_number is None:
-                continue
-            if handout_number in seen_numbers:
-                raise serializers.ValidationError({
-                    'handout_templates': '同じHO番号を複数設定することはできません'
-                })
-            seen_numbers.add(handout_number)
-
-        return attrs
-
-    def validate_name(self, name):
-        value = (name or '').strip()
-        if not value:
-            raise serializers.ValidationError('テンプレート名を入力してください')
-
-        request = self.context.get('request')
-        user = getattr(request, 'user', None)
-        if not user or not getattr(user, 'id', None):
-            return value
-
-        qs = SessionTemplate.objects.filter(owner_id=user.id, name__iexact=value)
-        if self.instance:
-            qs = qs.exclude(id=self.instance.id)
-
-        if qs.exists():
-            raise serializers.ValidationError('同名のテンプレートが既に存在します')
-
-        return value
-
-    def validate_group(self, group):
-        if group is None:
-            return group
-
-        request = self.context.get('request')
-        user = getattr(request, 'user', None)
-        if user and not group.members.filter(id=user.id).exists():
-            raise serializers.ValidationError('グループのメンバーではありません')
-
-        return group
-
-    def validate_scenario(self, scenario):
-        if scenario is None:
-            return scenario
-
-        request = self.context.get('request')
-        user = getattr(request, 'user', None)
-        if user and not can_view_scenario(user, scenario):
-            raise serializers.ValidationError('参照できないシナリオはテンプレートに設定できません')
-
-        return scenario
-
-    def create(self, validated_data):
-        handouts_data = validated_data.pop('handout_templates', [])
-        template = SessionTemplate.objects.create(**validated_data)
-        self._save_handouts(template, handouts_data)
-        return template
-
-    def update(self, instance, validated_data):
-        handouts_data = validated_data.pop('handout_templates', None)
-
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        if handouts_data is not None:
-            instance.handout_templates.all().delete()
-            self._save_handouts(instance, handouts_data)
-
-        return instance
-
-    def _save_handouts(self, template, handouts_data):
-        for handout in handouts_data:
-            SessionTemplateHandout.objects.create(
-                session_template=template,
-                **handout,
-            )
-
 
 class SessionOccurrenceSerializer(serializers.ModelSerializer):
     session_title = serializers.CharField(source='session.title', read_only=True)

@@ -4,7 +4,13 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from django.utils import timezone
 from django.urls import reverse
-from .models import Scenario, ScenarioHandout, PlayHistory
+from .models import (
+    Scenario,
+    ScenarioHandout,
+    ScenarioHandoutRecommendedSkill,
+    ScenarioRecommendedSkill,
+    PlayHistory,
+)
 from accounts.models import Group as CustomGroup
 from schedules.models import TRPGSession
 
@@ -97,6 +103,57 @@ class ScenarioModelsTestCase(TestCase):
         
         expected_str = f'{self.user.nickname} played {scenario.title} (gm)'
         self.assertEqual(str(play_history), expected_str)
+
+    def test_scenario_handouts_are_not_limited_to_fixed_ho_numbers(self):
+        scenario = Scenario.objects.create(
+            title='Flexible Handout Scenario',
+            author='Test Author',
+            created_by=self.user,
+            game_system='coc',
+        )
+
+        ScenarioRecommendedSkill.objects.create(
+            scenario=scenario,
+            name='Spot Hidden',
+            level='recommended',
+            description='Used during investigation',
+            order=2,
+        )
+        first = ScenarioHandout.objects.create(
+            scenario=scenario,
+            code='HO1',
+            name='Detective',
+            title='Detective',
+            content='First detective handout',
+            handout_number=1,
+            assigned_player_slot=1,
+            order=2,
+        )
+        second = ScenarioHandout.objects.create(
+            scenario=scenario,
+            code='HO1-B',
+            name='Assistant',
+            title='Assistant',
+            content='Additional handout',
+            handout_number=1,
+            assigned_player_slot=None,
+            order=1,
+        )
+        ScenarioHandoutRecommendedSkill.objects.create(
+            handout=second,
+            name='Library Use',
+            level='semi_recommended',
+            description='Helpful for research',
+            order=1,
+        )
+
+        self.assertEqual(
+            list(scenario.handout_templates.values_list('name', flat=True)),
+            ['Assistant', 'Detective'],
+        )
+        self.assertEqual(scenario.recommended_skill_items.get().name, 'Spot Hidden')
+        self.assertEqual(first.code, 'HO1')
+        self.assertEqual(second.recommended_skill_items.get().level, 'semi_recommended')
 
 
 class ScenarioAPITestCase(APITestCase):
@@ -458,6 +515,79 @@ class ScenarioAPITestCase(APITestCase):
         })
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_scenario_create_with_structured_skills_and_flexible_handouts(self):
+        self.client.force_authenticate(user=self.user1)
+
+        scenario_data = {
+            'title': 'Structured Scenario',
+            'author': 'Test Author',
+            'game_system': 'coc',
+            'difficulty': 'beginner',
+            'estimated_duration': 'short',
+            'recommended_skill_items': [
+                {
+                    'name': 'Spot Hidden',
+                    'level': 'recommended',
+                    'description': 'Used during searches',
+                    'order': 1,
+                },
+                {
+                    'name': 'Listen',
+                    'level': 'semi_recommended',
+                    'description': 'Useful for clues',
+                    'order': 2,
+                },
+            ],
+            'handout_templates': [
+                {
+                    'code': 'HO1',
+                    'name': 'Detective',
+                    'title': 'Legacy Detective',
+                    'content': 'Primary investigator',
+                    'is_secret': True,
+                    'handout_number': 1,
+                    'assigned_player_slot': 1,
+                    'order': 2,
+                    'recommended_skill_items': [
+                        {
+                            'name': 'Law',
+                            'level': 'required',
+                            'description': 'Needed for police records',
+                            'order': 1,
+                        }
+                    ],
+                },
+                {
+                    'code': 'HO1-B',
+                    'name': 'Assistant',
+                    'content': 'Additional role',
+                    'is_secret': True,
+                    'handout_number': 1,
+                    'assigned_player_slot': None,
+                    'order': 1,
+                    'recommended_skill_items': [
+                        {
+                            'name': 'Library Use',
+                            'level': 'semi_recommended',
+                            'description': 'Helpful for research',
+                            'order': 1,
+                        }
+                    ],
+                },
+            ],
+        }
+
+        response = self.client.post('/api/scenarios/scenarios/', scenario_data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        data = response.json()
+        self.assertEqual([item['name'] for item in data['recommended_skill_items']], ['Spot Hidden', 'Listen'])
+        self.assertEqual([handout['code'] for handout in data['handout_templates']], ['HO1-B', 'HO1'])
+        self.assertEqual(data['handout_templates'][0]['recommended_skill_items'][0]['name'], 'Library Use')
+        scenario = Scenario.objects.get(id=data['id'])
+        self.assertEqual(scenario.handout_templates.filter(handout_number=1).count(), 2)
+        self.assertEqual(scenario.handout_templates.get(code='HO1-B').name, 'Assistant')
 
     def test_scenario_creation_permissions(self):
         """シナリオ作成権限テスト"""
