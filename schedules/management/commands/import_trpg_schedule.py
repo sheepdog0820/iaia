@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import re
 import unicodedata
@@ -14,7 +15,14 @@ from django.utils import timezone
 
 from accounts.models import Group, GroupMembership
 from scenarios.models import Scenario
-from schedules.models import SessionParticipant, SessionYouTubeLink, TRPGSession
+from schedules.models import (
+    ParticipantIdentity,
+    ParticipantIdentityAlias,
+    SessionParticipant,
+    SessionYouTubeLink,
+    TRPGSession,
+    normalize_participant_name,
+)
 
 
 YOUTUBE_URL_RE = re.compile(r'https?://(?:www\.)?(?:youtube\.com|youtu\.be)/[^\s\n\r]+')
@@ -25,6 +33,10 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         source = parser.add_mutually_exclusive_group(required=True)
+        source.add_argument('--sessions-csv', help='Legacy session CSV path for name-only import')
+        parser.add_argument('--participants-csv', help='Legacy participants CSV path for name-only import')
+        parser.add_argument('--aliases-csv', help='Legacy participant aliases CSV path')
+        parser.add_argument('--allow-duplicates', action='store_true', help='Import CSV data even when duplicate legacy rows are detected')
         source.add_argument('--excel-path', help='TRPGスケジュール表2026.xlsx のパス')
         source.add_argument('--input-json', help='事前生成した投入用JSONのパス')
         parser.add_argument('--output-json', help='Excel解析結果JSONの出力先')
@@ -50,8 +62,14 @@ class Command(BaseCommand):
                     f"解析のみ完了: sessions={len(payload['sessions'])}, output={options.get('output_json') or '-'}"
                 ))
                 return
-        else:
+        elif options.get('input_json'):
             payload = self._read_json(Path(options['input_json']))
+        else:
+            payload = self._read_csv_payload(
+                sessions_path=Path(options['sessions_csv']),
+                participants_path=Path(options['participants_csv']) if options.get('participants_csv') else None,
+                aliases_path=Path(options['aliases_csv']) if options.get('aliases_csv') else None,
+            )
 
         import_sessions = [
             item for item in payload.get('sessions', [])
@@ -59,8 +77,14 @@ class Command(BaseCommand):
         ]
 
         if options.get('dry_run'):
-            self._write_dry_run(import_sessions)
+            self._write_dry_run(import_sessions, payload.get('duplicates', []))
             return
+
+        duplicates = payload.get('duplicates') or []
+        if duplicates and not options.get('allow_duplicates'):
+            for duplicate in duplicates:
+                self.stderr.write(self.style.WARNING(duplicate))
+            raise CommandError('CSV duplicate check failed. Re-run with --dry-run to inspect or --allow-duplicates to override.')
 
         if not import_sessions:
             self.stdout.write(self.style.WARNING('投入対象のセッションがありません'))
@@ -88,6 +112,172 @@ class Command(BaseCommand):
             raise CommandError(f'JSON file not found: {path}')
         with path.open('r', encoding='utf-8') as f:
             return json.load(f)
+
+    def _read_csv_payload(
+        self,
+        sessions_path: Path,
+        participants_path: Path | None,
+        aliases_path: Path | None,
+    ) -> dict:
+        session_rows = self._read_csv_rows(sessions_path)
+        participant_rows = self._read_csv_rows(participants_path) if participants_path else []
+        alias_rows = self._read_csv_rows(aliases_path) if aliases_path else []
+
+        alias_payload, alias_lookup = self._build_identity_alias_payload(alias_rows)
+        participants_by_session: dict[str, list[dict]] = {}
+        for row in participant_rows:
+            legacy_session_id = self._clean_text(row.get('legacy_session_id'))
+            participant_name = self._clean_text(row.get('participant_name'))
+            if not legacy_session_id or not participant_name:
+                continue
+            identity_key = alias_lookup.get(normalize_participant_name(participant_name))
+            participants_by_session.setdefault(legacy_session_id, []).append({
+                'name': participant_name,
+                'role': self._csv_role(row.get('role')),
+                'character_name': self._clean_text(row.get('character_name')),
+                'character_sheet_url': self._clean_text(row.get('character_sheet_url')),
+                'identity_key': identity_key,
+            })
+
+        sessions = []
+        for row in session_rows:
+            legacy_session_id = self._clean_text(row.get('legacy_session_id'))
+            title = self._clean_text(row.get('title'))
+            gm_name = self._clean_text(row.get('gm_name'))
+            participants = list(participants_by_session.get(legacy_session_id, []))
+            if gm_name and not any(item['role'] == 'gm' for item in participants):
+                participants.insert(0, {
+                    'name': gm_name,
+                    'role': 'gm',
+                    'character_name': '',
+                    'character_sheet_url': '',
+                    'identity_key': alias_lookup.get(normalize_participant_name(gm_name)),
+                })
+            sessions.append({
+                'source_rows': [row.get('_line_number')],
+                'legacy_session_id': legacy_session_id,
+                'date': self._clean_text(row.get('date')),
+                'title': title,
+                'scenario_title': self._clean_text(row.get('scenario_title')) or title,
+                'kp': gm_name,
+                'participants': participants,
+                'members': [participant['name'] for participant in participants if participant['role'] != 'gm'],
+                'character_names': [participant['character_name'] for participant in participants if participant['character_name']],
+                'duration_minutes': self._int_or_zero(row.get('duration_minutes')),
+                'visibility': self._csv_visibility(row.get('visibility')),
+                'url_or_notes': [],
+                'youtube_urls': [],
+                'is_past': True,
+                'legacy_name_only': True,
+            })
+
+        return {
+            'source': str(sessions_path),
+            'generated_at': timezone.now().isoformat(),
+            'sessions': sessions,
+            'identity_aliases': alias_payload,
+            'duplicates': self._csv_duplicate_warnings(session_rows, participant_rows, alias_rows),
+        }
+
+    def _read_csv_rows(self, path: Path) -> list[dict]:
+        if not path.exists():
+            raise CommandError(f'CSV file not found: {path}')
+        with path.open('r', encoding='utf-8-sig', newline='') as f:
+            rows = []
+            for index, row in enumerate(csv.DictReader(f), start=2):
+                rows.append({**row, '_line_number': index})
+        return rows
+
+    def _build_identity_alias_payload(self, alias_rows: list[dict]) -> tuple[list[dict], dict[str, str]]:
+        identities: OrderedDict[str, dict] = OrderedDict()
+        alias_lookup = {}
+        for row in alias_rows:
+            key = self._clean_text(row.get('identity_key'))
+            alias = self._clean_text(row.get('alias'))
+            display_name = self._clean_text(row.get('display_name')) or alias or key
+            if not key or not display_name:
+                continue
+            identity = identities.setdefault(key, {
+                'identity_key': key,
+                'display_name': display_name,
+                'aliases': [],
+            })
+            if display_name and display_name not in identity['aliases']:
+                identity['aliases'].append(display_name)
+            if alias and alias not in identity['aliases']:
+                identity['aliases'].append(alias)
+            alias_lookup[normalize_participant_name(key)] = key
+            alias_lookup[normalize_participant_name(display_name)] = key
+            if alias:
+                alias_lookup[normalize_participant_name(alias)] = key
+        return list(identities.values()), alias_lookup
+
+    def _csv_duplicate_warnings(
+        self,
+        session_rows: list[dict],
+        participant_rows: list[dict],
+        alias_rows: list[dict],
+    ) -> list[str]:
+        warnings = []
+        self._append_duplicate_warnings(
+            warnings,
+            'session legacy_session_id',
+            ((self._clean_text(row.get('legacy_session_id')), row.get('_line_number')) for row in session_rows),
+        )
+        self._append_duplicate_warnings(
+            warnings,
+            'participant row',
+            (
+                (
+                    (
+                        self._clean_text(row.get('legacy_session_id')),
+                        normalize_participant_name(self._clean_text(row.get('participant_name'))),
+                        self._csv_role(row.get('role')),
+                    ),
+                    row.get('_line_number'),
+                )
+                for row in participant_rows
+            ),
+        )
+        self._append_duplicate_warnings(
+            warnings,
+            'alias row',
+            (
+                (
+                    (
+                        self._clean_text(row.get('identity_key')),
+                        normalize_participant_name(self._clean_text(row.get('alias'))),
+                    ),
+                    row.get('_line_number'),
+                )
+                for row in alias_rows
+            ),
+        )
+        return warnings
+
+    def _append_duplicate_warnings(self, warnings: list[str], label: str, keyed_rows) -> None:
+        seen = {}
+        for key, line_number in keyed_rows:
+            if not key or key == ('', ''):
+                continue
+            if key in seen:
+                warnings.append(f'duplicate {label}: {key} at lines {seen[key]}, {line_number}')
+            else:
+                seen[key] = line_number
+
+    def _csv_role(self, value: str | None) -> str:
+        role = self._clean_text(value).lower()
+        return 'gm' if role in {'gm', 'kp'} else 'player'
+
+    def _csv_visibility(self, value: str | None) -> str:
+        visibility = self._clean_text(value).lower()
+        return visibility if visibility in {'private', 'group', 'link', 'public'} else 'group'
+
+    def _int_or_zero(self, value) -> int:
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 0
 
     def _write_json(self, path: Path, payload: dict) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -322,13 +512,20 @@ class Command(BaseCommand):
     def _summary_text(self, value: str | None) -> str:
         return re.sub(r'\s+', ' ', value or '').strip()
 
-    def _write_dry_run(self, sessions: list[dict]) -> None:
+    def _write_dry_run(self, sessions: list[dict], duplicates: list[str] | None = None) -> None:
         youtube_count = sum(len(item.get('youtube_urls') or self._extract_urls(item)) for item in sessions)
-        participant_count = sum(len(item.get('members', [])) + (1 if item.get('kp') else 0) for item in sessions)
+        participant_count = sum(
+            len(item.get('participants', [])) if item.get('participants') is not None
+            else len(item.get('members', [])) + (1 if item.get('kp') else 0)
+            for item in sessions
+        )
         self.stdout.write('DRY RUN')
         self.stdout.write(f'- sessions: {len(sessions)}')
         self.stdout.write(f'- participants including GM rows: {participant_count}')
         self.stdout.write(f'- youtube links: {youtube_count}')
+        self.stdout.write(f"- duplicates: {len(duplicates or [])}")
+        for duplicate in duplicates or []:
+            self.stdout.write(f'  - {duplicate}')
 
     @transaction.atomic
     def _import_payload(self, payload: dict, group_name: str, default_gm_username: str | None) -> dict:
@@ -342,19 +539,21 @@ class Command(BaseCommand):
 
         default_gm = self._get_default_gm(default_gm_username)
         group = self._get_or_create_group(group_name, default_gm)
+        identity_lookup = self._import_identity_aliases(payload.get('identity_aliases', []))
 
         for item in payload.get('sessions', []):
             session_date = self._session_datetime(item.get('date'))
             if not session_date:
                 continue
 
-            gm = self._resolve_user(item.get('kp')) or default_gm
+            gm = default_gm if item.get('legacy_name_only') else (self._resolve_user(item.get('kp')) or default_gm)
             if not gm:
                 raise CommandError(f"GMを解決できません: title={item.get('title')} kp={item.get('kp')}")
 
             GroupMembership.objects.get_or_create(group=group, user=gm, defaults={'role': 'admin'})
-            scenario = self._get_or_create_scenario(item.get('title'), gm)
+            scenario = self._get_or_create_scenario(item.get('scenario_title') or item.get('title'), gm)
             description = self._build_description(payload, item)
+            visibility = item.get('visibility') if item.get('visibility') in {'private', 'group', 'link', 'public'} else 'group'
             session, created = TRPGSession.objects.get_or_create(
                 group=group,
                 date=session_date,
@@ -363,8 +562,9 @@ class Command(BaseCommand):
                     'gm': gm,
                     'scenario': scenario,
                     'status': 'completed',
-                    'visibility': 'group',
+                    'visibility': visibility,
                     'description': description,
+                    'duration_minutes': item.get('duration_minutes') or 0,
                     'youtube_url': (item.get('youtube_urls') or self._extract_urls(item) or [''])[0],
                 },
             )
@@ -377,8 +577,9 @@ class Command(BaseCommand):
                     'gm': gm,
                     'scenario': scenario,
                     'status': 'completed',
-                    'visibility': 'group',
+                    'visibility': visibility,
                     'description': description,
+                    'duration_minutes': item.get('duration_minutes') or 0,
                 }.items():
                     if getattr(session, field) != value:
                         setattr(session, field, value)
@@ -396,12 +597,41 @@ class Command(BaseCommand):
                 gm,
                 item.get('members', []),
                 item.get('character_names', []),
+                participants_data=item.get('participants'),
+                identity_lookup=identity_lookup,
+                name_only=item.get('legacy_name_only', False),
             )
             stats['participants_created'] += created_participants
             stats['participants_updated'] += updated_participants
             stats['youtube_links_created'] += self._ensure_youtube_links(session, gm, item)
 
         return stats
+
+    def _import_identity_aliases(self, aliases: list[dict]) -> dict[str, ParticipantIdentity]:
+        identity_lookup = {}
+        for data in aliases:
+            key = self._clean_text(data.get('identity_key'))
+            display_name = self._clean_text(data.get('display_name'))
+            if not key or not display_name:
+                continue
+            identity, _ = ParticipantIdentity.objects.update_or_create(
+                legacy_source='csv',
+                legacy_key=key,
+                defaults={'display_name': display_name},
+            )
+            identity_lookup[key] = identity
+            for alias in data.get('aliases') or []:
+                normalized_alias = normalize_participant_name(alias)
+                if not normalized_alias:
+                    continue
+                exists = identity.aliases.filter(normalized_alias=normalized_alias, source='csv').exists()
+                if not exists:
+                    ParticipantIdentityAlias.objects.create(
+                        identity=identity,
+                        alias=alias,
+                        source='csv',
+                    )
+        return identity_lookup
 
     def _get_default_gm(self, username: str | None):
         User = get_user_model()
@@ -463,6 +693,8 @@ class Command(BaseCommand):
             f"source={payload.get('source', '')}",
             f"source_rows={','.join(str(row) for row in item.get('source_rows', []))}",
         ]
+        if item.get('legacy_session_id'):
+            lines.append(f"legacy_session_id={item.get('legacy_session_id')}")
         notes = [note for note in item.get('url_or_notes', []) if not YOUTUBE_URL_RE.search(note)]
         if notes:
             lines.append('')
@@ -474,9 +706,25 @@ class Command(BaseCommand):
             lines.append('要確認: ' + ', '.join(flags))
         return '\n'.join(lines)
 
-    def _ensure_participants(self, session, gm, members: list[str], character_names: list[str]) -> tuple[int, int]:
+    def _ensure_participants(
+        self,
+        session,
+        gm,
+        members: list[str],
+        character_names: list[str],
+        participants_data: list[dict] | None = None,
+        identity_lookup: dict[str, ParticipantIdentity] | None = None,
+        name_only: bool = False,
+    ) -> tuple[int, int]:
         created_count = 0
         updated_count = 0
+        if name_only:
+            return self._ensure_name_only_participants(
+                session,
+                participants_data or [],
+                identity_lookup or {},
+            )
+
         _, created = SessionParticipant.objects.get_or_create(
             session=session,
             user=gm,
@@ -515,6 +763,65 @@ class Command(BaseCommand):
                 participant.save(update_fields=['character_name'])
                 updated_count += 1
         return created_count, updated_count
+
+    def _ensure_name_only_participants(
+        self,
+        session,
+        participants_data: list[dict],
+        identity_lookup: dict[str, ParticipantIdentity],
+    ) -> tuple[int, int]:
+        created_count = 0
+        updated_count = 0
+        for participant_data in participants_data:
+            name = self._clean_text(participant_data.get('name'))
+            if not name:
+                continue
+            role = participant_data.get('role') if participant_data.get('role') in {'gm', 'player'} else 'player'
+            identity = self._identity_for_participant(participant_data, identity_lookup)
+            defaults = {
+                'role': role,
+                'character_name': self._clean_text(participant_data.get('character_name')),
+                'character_sheet_url': self._clean_text(participant_data.get('character_sheet_url')),
+                'participant_identity': identity,
+            }
+            participant, created = SessionParticipant.objects.get_or_create(
+                session=session,
+                user=None,
+                guest_name=name,
+                defaults=defaults,
+            )
+            if created:
+                created_count += 1
+                continue
+
+            changed_fields = []
+            for field, value in defaults.items():
+                if getattr(participant, field) != value:
+                    setattr(participant, field, value)
+                    changed_fields.append(field)
+            if changed_fields:
+                participant.save(update_fields=changed_fields)
+                updated_count += 1
+        return created_count, updated_count
+
+    def _identity_for_participant(
+        self,
+        participant_data: dict,
+        identity_lookup: dict[str, ParticipantIdentity],
+    ) -> ParticipantIdentity:
+        key = self._clean_text(participant_data.get('identity_key'))
+        if key and key in identity_lookup:
+            return identity_lookup[key]
+
+        name = self._clean_text(participant_data.get('name'))
+        fallback_key = f"name:{normalize_participant_name(name)}"
+        identity, _ = ParticipantIdentity.objects.update_or_create(
+            legacy_source='csv',
+            legacy_key=fallback_key,
+            defaults={'display_name': name},
+        )
+        identity_lookup[fallback_key] = identity
+        return identity
 
     def _character_name_for_member(self, member: str, members: list[str], character_names: list[str]) -> str:
         if not character_names:

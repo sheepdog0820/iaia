@@ -12,6 +12,13 @@ SKILL_LEVEL_CHOICES = [
 
 
 class Scenario(models.Model):
+    VISIBILITY_CHOICES = [
+        ('private', 'Private'),
+        ('group', 'Group'),
+        ('link', 'Link'),
+        ('public', 'Public'),
+    ]
+
     GAME_SYSTEM_CHOICES = [
         ('coc6', 'クトゥルフ神話TRPG 6版'),
         ('coc7', 'クトゥルフ神話TRPG 7版'),
@@ -33,6 +40,7 @@ class Scenario(models.Model):
     
     title = models.CharField(max_length=200)
     author = models.CharField(max_length=100, blank=True)
+    visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default='public')
     game_system = models.CharField(max_length=10, choices=GAME_SYSTEM_CHOICES, default='coc6')
     difficulty = models.CharField(max_length=20, choices=DIFFICULTY_CHOICES, default='intermediate')
     estimated_duration = models.CharField(max_length=20, choices=DURATION_CHOICES, default='medium')

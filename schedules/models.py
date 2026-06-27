@@ -256,6 +256,7 @@ class TRPGSession(models.Model):
     VISIBILITY_CHOICES = [
         ('private', 'プライベート'),
         ('group', 'グループ内'),
+        ('link', 'リンク共有'),
         ('public', '公開'),
     ]
     
@@ -506,6 +507,56 @@ class SessionOccurrenceParticipant(models.Model):
         return f"{self.user.nickname or self.user.username} in {self.occurrence}"
 
 
+def normalize_participant_name(value):
+    return ' '.join((value or '').strip().lower().split())
+
+
+class ParticipantIdentity(models.Model):
+    display_name = models.CharField(max_length=100)
+    normalized_name = models.CharField(max_length=100, db_index=True, blank=True)
+    legacy_source = models.CharField(max_length=100, blank=True)
+    legacy_key = models.CharField(max_length=255, blank=True, db_index=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['display_name', 'id']
+        indexes = [
+            models.Index(fields=['normalized_name', 'legacy_source']),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.normalized_name = normalize_participant_name(self.display_name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.display_name
+
+
+class ParticipantIdentityAlias(models.Model):
+    identity = models.ForeignKey(
+        ParticipantIdentity,
+        on_delete=models.CASCADE,
+        related_name='aliases',
+    )
+    alias = models.CharField(max_length=100)
+    normalized_alias = models.CharField(max_length=100, db_index=True, blank=True)
+    source = models.CharField(max_length=50, blank=True)
+
+    class Meta:
+        ordering = ['alias', 'id']
+        indexes = [
+            models.Index(fields=['normalized_alias', 'source']),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.normalized_alias = normalize_participant_name(self.alias)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.alias
+
+
 class SessionParticipant(models.Model):
     ROLE_CHOICES = [
         ('gm', 'GM'),
@@ -521,6 +572,13 @@ class SessionParticipant(models.Model):
     
     session = models.ForeignKey(TRPGSession, on_delete=models.CASCADE)
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True, blank=True)
+    participant_identity = models.ForeignKey(
+        ParticipantIdentity,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='session_participations',
+    )
     guest_name = models.CharField(
         max_length=100,
         blank=True,
@@ -562,7 +620,11 @@ class SessionParticipant(models.Model):
                 name='sessionparticipant_user_or_guest_name',
             ),
             models.CheckConstraint(
-                check=~models.Q(role='gm') | models.Q(user__isnull=False),
+                check=(
+                    ~models.Q(role='gm')
+                    | models.Q(user__isnull=False)
+                    | models.Q(participant_identity__isnull=False)
+                ),
                 name='sessionparticipant_gm_requires_user',
             ),
             models.CheckConstraint(
@@ -573,6 +635,8 @@ class SessionParticipant(models.Model):
         
     @property
     def display_name(self):
+        if self.participant_identity:
+            return self.participant_identity.display_name
         if self.user:
             return self.user.nickname or self.user.username
         return self.guest_name or "ゲスト"

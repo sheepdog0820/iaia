@@ -94,6 +94,7 @@ class SessionParticipantSerializer(serializers.ModelSerializer):
             'session',
             'user',
             'user_detail',
+            'participant_identity',
             'guest_name',
             'display_name',
             'role',

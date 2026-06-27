@@ -119,7 +119,7 @@ class ScenarioSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Scenario
-        fields = ['id', 'title', 'author', 'game_system', 'system', 'difficulty', 'estimated_duration',
+        fields = ['id', 'title', 'author', 'visibility', 'game_system', 'system', 'difficulty', 'estimated_duration',
                  'summary', 'public_info', 'gm_notes', 'investigator_requirements',
                  'scenario_tags', 'content_warnings', 'setting_era', 'setting_location',
                  'scenario_style', 'lost_rate', 'combat_level', 'pvp_level',

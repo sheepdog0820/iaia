@@ -33,6 +33,8 @@ from .group_models import (
     GroupMembership,
 )
 
+from .share_models import ShareLink
+
 # Import character models from parent module (to avoid circular imports)
 try:
     from ..character_models import (
@@ -68,6 +70,7 @@ __all__ = [
     'DiscordDelivery',
     'GroupLink',
     'GroupLinkShare',
+    'ShareLink',
     'CharacterSheet',
     'CharacterSheet6th',
     'CharacterSkill',

@@ -57,6 +57,15 @@ from accounts.group_link_views import (
     GroupLinkListCreateView,
     GroupLinkShareView,
 )
+from accounts.share_views import (
+    ShareLinkListCreateView,
+    ShareLinkReissueView,
+    ShareLinkRevokeView,
+    SharedCharacterDetailView,
+    SharedScenarioDetailView,
+    SharedSessionDetailView,
+    SharedStatsDetailView,
+)
 from schedules.integration_views import (
     CalendarSubscriptionRotateView,
     CalendarSubscriptionView,
@@ -142,6 +151,13 @@ urlpatterns = [
         GroupLinkShareView.as_view(),
         name='group-link-share',
     ),
+    path('api/share-links/', ShareLinkListCreateView.as_view(), name='share-link-list'),
+    path('api/share-links/<int:pk>/revoke/', ShareLinkRevokeView.as_view(), name='share-link-revoke'),
+    path('api/share-links/<int:pk>/reissue/', ShareLinkReissueView.as_view(), name='share-link-reissue'),
+    path('share/sessions/<str:token>/', SharedSessionDetailView.as_view(), name='shared-session-detail'),
+    path('share/characters/<str:token>/', SharedCharacterDetailView.as_view(), name='shared-character-detail'),
+    path('share/scenarios/<str:token>/', SharedScenarioDetailView.as_view(), name='shared-scenario-detail'),
+    path('share/stats/<str:token>/', SharedStatsDetailView.as_view(), name='shared-stats-detail'),
     path(
         'api/calendar/subscription-token/rotate/',
         CalendarSubscriptionRotateView.as_view(),

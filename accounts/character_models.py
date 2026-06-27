@@ -60,6 +60,7 @@ class CharacterSheet(models.Model):
     ACCESS_SCOPE_CHOICES = [
         ('private', 'Private'),
         ('group', 'Group'),
+        ('link', 'Link'),
         ('public', 'Public'),
     ]
 

@@ -18,6 +18,7 @@ from .serializers import (
     PlayHistorySerializer,
     ScenarioImageSerializer,
 )
+from accounts.share_serializers import SharedScenarioSerializer
 
 
 class ScenarioViewSet(viewsets.ModelViewSet):
@@ -87,18 +88,10 @@ class ScenarioViewSet(viewsets.ModelViewSet):
         scenario = get_object_or_404(
             Scenario.objects.select_related('created_by').prefetch_related('images'),
             pk=pk,
+            visibility='public',
         )
-        serializer = self.get_serializer(scenario)
-        data = dict(serializer.data)
-        data.pop('gm_notes', None)
-        data.pop('created_by', None)
-        data.pop('created_by_detail', None)
-        data['handout_templates'] = [
-            handout
-            for handout in data.get('handout_templates', [])
-            if not handout.get('is_secret')
-        ]
-        return Response(data)
+        serializer = SharedScenarioSerializer(scenario, context={'request': request})
+        return Response(serializer.data)
 
     @action(detail=True, methods=['get'])
     def notes(self, request, pk=None):

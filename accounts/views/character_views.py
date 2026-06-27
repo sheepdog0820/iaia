@@ -18,6 +18,7 @@ from rest_framework import status
 from django.db import OperationalError, IntegrityError, transaction
 from ..character_models import GrowthRecord
 from ..serializers import GrowthRecordSerializer
+from ..share_serializers import SharedCharacterSheetSerializer
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 
@@ -110,7 +111,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         )
         if not CharacterSheetAccessMixin.is_publicly_readable(sheet):
             raise Http404("Character sheet not found")
-        serializer = self.get_serializer(sheet)
+        serializer = SharedCharacterSheetSerializer(sheet, context={'request': request})
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'], permission_classes=[])
