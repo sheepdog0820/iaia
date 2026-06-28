@@ -414,6 +414,7 @@ SPECTACULAR_SETTINGS = {
         'SessionStatusEnum': 'schedules.models.TRPGSession.STATUS_CHOICES',
         'GroupVisibilityEnum': 'accounts.models.Group.VISIBILITY_CHOICES',
         'SessionVisibilityEnum': 'schedules.models.TRPGSession.VISIBILITY_CHOICES',
+        'ScenarioVisibilityEnum': 'scenarios.models.Scenario.VISIBILITY_CHOICES',
         'GroupMemberRoleEnum': 'accounts.models.GroupMembership.ROLE_CHOICES',
         'SessionParticipantRoleEnum': 'schedules.models.SessionParticipant.ROLE_CHOICES',
         'PlayerSlotEnum': 'schedules.models.SessionParticipant.PLAYER_SLOT_CHOICES',

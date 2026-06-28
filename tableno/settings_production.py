@@ -74,6 +74,7 @@ DEBUG = False
 ALLOWED_HOSTS = _split_env_list(_require_env('ALLOWED_HOSTS'))
 CSRF_TRUSTED_ORIGINS = _split_env_list(_require_env('CSRF_TRUSTED_ORIGINS'))
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 ACCOUNT_PREVENT_ENUMERATION = True
 SOCIALACCOUNT_EMAIL_REQUIRED = True
