@@ -2358,6 +2358,23 @@ def _get_selected_occurrence_from_request(request, occurrences):
     return selected_occurrence, selected_occurrence.id if selected_occurrence else None
 
 
+def _fixed_character_share_url(request, character_sheet):
+    if not character_sheet or character_sheet.access_scope not in ('link', 'public'):
+        return ''
+
+    return request.build_absolute_uri(
+        reverse('fixed-shared-character-view', kwargs={'share_token': character_sheet.share_token})
+    )
+
+
+def _attach_participant_character_share_urls(request, participants):
+    for participant in participants:
+        participant.character_sheet_share_url = _fixed_character_share_url(
+            request,
+            getattr(participant, 'character_sheet', None),
+        )
+
+
 class SessionDetailView(APIView):
     permission_classes = [IsAuthenticated]
     
@@ -2439,6 +2456,7 @@ class SessionDetailView(APIView):
             session.visibility != 'private' and
             (session.visibility != 'group' or session.group.members.filter(id=user.id).exists())
         )
+        _attach_participant_character_share_urls(request, participants)
 
         open_date_poll = DatePoll.objects.filter(session=session, is_closed=False).first()
         invitation_status_by_user_id = {}
@@ -2448,9 +2466,9 @@ class SessionDetailView(APIView):
         invitation_status_by_user_id_json = json.dumps(invitation_status_by_user_id)
 
         public_session_url = None
-        if session.visibility == 'public':
+        if session.visibility in ('link', 'public'):
             public_session_url = request.build_absolute_uri(
-                reverse('session_public_view', kwargs={'share_token': session.share_token})
+                reverse('fixed-shared-session-view', kwargs={'share_token': session.share_token})
             )
         can_edit_scenario = can_edit and getattr(user, 'has_premium_access', False)
         scenario_choices = []
@@ -2553,6 +2571,7 @@ class PublicSessionDetailView(APIView):
         participants = SessionParticipant.objects.filter(
             session=session
         ).select_related('user', 'character_sheet')
+        _attach_participant_character_share_urls(request, participants)
         guest_count = participants.filter(user__isnull=True).count()
 
         occurrences = session.occurrences.prefetch_related('participants').order_by('start_at', 'id')
@@ -2563,7 +2582,7 @@ class PublicSessionDetailView(APIView):
         )
 
         public_session_url = request.build_absolute_uri(
-            reverse('session_public_view', kwargs={'share_token': session.share_token})
+            reverse('fixed-shared-session-view', kwargs={'share_token': session.share_token})
         )
 
         context = {

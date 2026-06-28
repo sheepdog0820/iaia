@@ -37,6 +37,18 @@ class ShareLinkIssueSerializer(serializers.Serializer):
     )
 
 
+class FixedShareUrlIssueSerializer(serializers.Serializer):
+    resource_type = serializers.ChoiceField(
+        choices=[
+            ShareLink.ResourceType.CHARACTER,
+            ShareLink.ResourceType.SESSION,
+            ShareLink.ResourceType.SCENARIO,
+        ]
+    )
+    object_id = serializers.IntegerField(min_value=0)
+    auto_enable_link = serializers.BooleanField(required=False, default=False)
+
+
 class SharedCharacterSkillSerializer(serializers.ModelSerializer):
     class Meta:
         model = CharacterSkill
@@ -80,6 +92,7 @@ class SharedCharacterSheetSerializer(serializers.ModelSerializer):
     equipment = SharedCharacterEquipmentSerializer(many=True, read_only=True)
     abilities = serializers.DictField(read_only=True)
     character_image_url = serializers.SerializerMethodField()
+    background_info = serializers.SerializerMethodField()
 
     class Meta:
         model = CharacterSheet
@@ -89,6 +102,7 @@ class SharedCharacterSheetSerializer(serializers.ModelSerializer):
             'name',
             'player_name',
             'status',
+            'version',
             'age',
             'gender',
             'occupation',
@@ -113,6 +127,7 @@ class SharedCharacterSheetSerializer(serializers.ModelSerializer):
             'abilities',
             'skills',
             'equipment',
+            'background_info',
             'character_image_url',
             'session_count',
         ]
@@ -125,6 +140,44 @@ class SharedCharacterSheetSerializer(serializers.ModelSerializer):
         if request:
             return request.build_absolute_uri(obj.character_image.url)
         return obj.character_image.url
+
+    def get_background_info(self, obj):
+        try:
+            background = obj.background_info
+        except AttributeError:
+            return {
+                'appearance_description': '',
+                'beliefs_ideology': '',
+                'significant_people': '',
+                'meaningful_locations': '',
+                'treasured_possessions': '',
+                'traits_mannerisms': '',
+                'personal_history': '',
+                'important_events': '',
+                'scars_injuries': '',
+                'phobias_manias': '',
+                'arcane_tomes_spells_artifacts': '',
+                'encounters_with_strange_entities': '',
+                'fellow_investigators': '',
+                'notes_memo': '',
+            }
+
+        return {
+            'appearance_description': background.appearance_description,
+            'beliefs_ideology': background.beliefs_ideology,
+            'significant_people': background.significant_people,
+            'meaningful_locations': background.meaningful_locations,
+            'treasured_possessions': background.treasured_possessions,
+            'traits_mannerisms': background.traits_mannerisms,
+            'personal_history': background.personal_history,
+            'important_events': background.important_events,
+            'scars_injuries': background.scars_injuries,
+            'phobias_manias': background.phobias_manias,
+            'arcane_tomes_spells_artifacts': background.arcane_tomes_spells_artifacts,
+            'encounters_with_strange_entities': background.encounters_with_strange_entities,
+            'fellow_investigators': background.fellow_investigators,
+            'notes_memo': background.notes_memo,
+        }
 
 
 class SharedSessionParticipantSerializer(serializers.ModelSerializer):

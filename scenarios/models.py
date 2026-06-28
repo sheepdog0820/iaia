@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.utils import timezone
 from accounts.models import CustomUser
@@ -41,6 +43,7 @@ class Scenario(models.Model):
     title = models.CharField(max_length=200)
     author = models.CharField(max_length=100, blank=True)
     visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default='public')
+    share_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
     game_system = models.CharField(max_length=10, choices=GAME_SYSTEM_CHOICES, default='coc6')
     difficulty = models.CharField(max_length=20, choices=DIFFICULTY_CHOICES, default='intermediate')
     estimated_duration = models.CharField(max_length=20, choices=DURATION_CHOICES, default='medium')

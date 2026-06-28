@@ -70,6 +70,10 @@ body.character-create-page.footer-collapsed {
     padding: 0.75rem;
 }
 
+.skill-mobile-category {
+    display: none;
+}
+
 .character-creator .nav-tabs .nav-link {
     padding: 0.25rem 0.7rem;
     font-size: 0.9rem;
@@ -1088,14 +1092,58 @@ hr {
         padding: 0.5rem;
     }
 
+    .skills-tab .skill-mobile-category {
+        display: block;
+        position: sticky;
+        top: calc(var(--nav-offset, 64px) + 0.25rem);
+        z-index: 2;
+        background: var(--card-bg, #fff);
+        padding: 0.25rem 0;
+    }
+
+    .skills-tab .skills-nav {
+        display: none;
+    }
+
     .skills-tab #skillTabContent .tab-pane {
         padding: 0.25rem;
     }
 
+    .skills-tab #skillTabContent .row {
+        --bs-gutter-x: 0.35rem;
+        --bs-gutter-y: 0.35rem;
+    }
+
+    .skills-tab .skill-item {
+        min-height: 0;
+        padding: 0.3rem !important;
+    }
+
+    .skills-tab .skill-item-header {
+        min-height: 24px;
+    }
+
+    .skills-tab .skill-name {
+        max-width: 7.5rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
     .skills-tab .skill-item .form-control-sm {
-        height: 34px;
-        padding: 0.85rem 0.3rem 0.12rem;
-        font-size: 0.8rem;
+        height: 30px;
+        padding: 0.75rem 0.25rem 0.08rem;
+        font-size: 0.78rem;
+    }
+
+    .skills-tab .skill-input-group::before {
+        top: 0.08rem;
+        font-size: 0.6rem;
+    }
+
+    .skills-tab .skill-total {
+        min-width: 2.45rem;
+        font-size: 0.75rem;
     }
 
     .character-footer {

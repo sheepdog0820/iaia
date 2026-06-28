@@ -1091,7 +1091,7 @@ class ScheduleAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertContains(response, f'\"{self.user2.id}\": \"pending\"')
 
-    def test_session_detail_links_internal_character_sheet(self):
+    def test_session_detail_uses_fixed_share_url_for_shareable_character_sheet(self):
         character = CharacterSheet.objects.create(
             user=self.user2,
             edition='7th',
@@ -1105,6 +1105,7 @@ class ScheduleAPITestCase(APITestCase):
             siz_value=50,
             int_value=50,
             edu_value=50,
+            access_scope='link',
         )
         SessionParticipant.objects.create(
             session=self.session,
@@ -1119,8 +1120,44 @@ class ScheduleAPITestCase(APITestCase):
             HTTP_ACCEPT='text/html',
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertContains(response, reverse('character_public_view', kwargs={'character_id': character.id}))
-        self.assertNotContains(response, reverse('character_detail_6th', kwargs={'character_id': character.id}))
+        self.assertContains(
+            response,
+            reverse('fixed-shared-character-view', kwargs={'share_token': character.share_token}),
+        )
+        self.assertNotContains(response, reverse('character_public_view', kwargs={'character_id': character.id}))
+
+    def test_session_detail_character_copy_does_not_render_legacy_public_url(self):
+        character = CharacterSheet.objects.create(
+            user=self.user2,
+            edition='7th',
+            name='Private Linked Investigator',
+            age=30,
+            str_value=50,
+            con_value=50,
+            pow_value=50,
+            dex_value=50,
+            app_value=50,
+            siz_value=50,
+            int_value=50,
+            edu_value=50,
+            access_scope='private',
+        )
+        SessionParticipant.objects.create(
+            session=self.session,
+            user=self.user2,
+            role='player',
+            character_sheet=character,
+        )
+
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.get(
+            f'/api/schedules/sessions/{self.session.id}/detail/',
+            HTTP_ACCEPT='text/html',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, f'copyParticipantCharacterShareUrl({character.id})')
+        self.assertNotContains(response, reverse('character_public_view', kwargs={'character_id': character.id}))
 
     def test_session_invitation_decline_does_not_create_participant(self):
         """セッション招待の辞退では参加者が作成されない"""
@@ -1247,6 +1284,39 @@ class PublicSessionLinkTestCase(APITestCase):
         self.assertContains(response, self.group.name)
         self.assertNotContains(response, self.group.description)
         self.assertContains(response, self.player.nickname)
+        self.assertContains(response, f'/share/sessions/{self.session.share_token}/view/')
+        self.assertNotContains(response, f'http://testserver/sessions/{self.session.share_token}/view/')
+
+    def test_public_session_detail_hides_private_character_internal_links(self):
+        character = CharacterSheet.objects.create(
+            user=self.player,
+            edition='7th',
+            name='Private Session PC',
+            age=30,
+            str_value=50,
+            con_value=50,
+            pow_value=50,
+            dex_value=50,
+            app_value=50,
+            siz_value=50,
+            int_value=50,
+            edu_value=50,
+            access_scope='private',
+        )
+        SessionParticipant.objects.filter(
+            session=self.session,
+            user=self.player,
+        ).update(character_sheet=character)
+        self.session.visibility = 'public'
+        self.session.save(update_fields=['visibility'])
+
+        response = self.client.get(reverse('public_session_detail', kwargs={'share_token': self.session.share_token}))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, self.player.nickname)
+        self.assertNotContains(response, f'/accounts/character/{character.id}/')
+        self.assertNotContains(response, f'copyParticipantCharacterShareUrl({character.id})')
+        self.assertNotContains(response, reverse('character_public_view', kwargs={'character_id': character.id}))
 
     def test_public_session_detail_invalid_token_404(self):
         url = reverse('public_session_detail', kwargs={'share_token': uuid.uuid4()})
@@ -1257,12 +1327,13 @@ class PublicSessionLinkTestCase(APITestCase):
         response = self.client.get(f'/api/schedules/sessions/{self.session.id}/detail/', HTTP_ACCEPT='text/html')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_private_session_detail_hides_copy_link_button(self):
+    def test_private_session_detail_shows_copy_link_button_without_prefilled_url(self):
         self.client.force_authenticate(user=self.gm)
         response = self.client.get(f'/api/schedules/sessions/{self.session.id}/detail/', HTTP_ACCEPT='text/html')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertNotContains(response, 'id="copyPublicSessionLinkBtn"')
-        self.assertNotContains(response, f"/sessions/{self.session.share_token}/view/")
+        self.assertContains(response, 'id="copyPublicSessionLinkBtn"')
+        self.assertContains(response, 'data-share-url=""')
+        self.assertNotContains(response, f"/share/sessions/{self.session.share_token}/view/")
 
     def test_public_session_detail_has_copy_link_button(self):
         self.session.visibility = 'public'
@@ -1272,4 +1343,4 @@ class PublicSessionLinkTestCase(APITestCase):
         response = self.client.get(f'/api/schedules/sessions/{self.session.id}/detail/', HTTP_ACCEPT='text/html')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertContains(response, 'id="copyPublicSessionLinkBtn"')
-        self.assertContains(response, f"/sessions/{self.session.share_token}/view/")
+        self.assertContains(response, f"/share/sessions/{self.session.share_token}/view/")

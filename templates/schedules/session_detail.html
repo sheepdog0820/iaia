@@ -39,11 +39,12 @@
                     </nav>
                 </div>
                 <div class="session-detail-actions d-flex flex-wrap gap-2 justify-content-start justify-content-lg-end">
-                    {% if public_session_url %}
+                    {% if public_session_url or can_edit %}
                     <button class="btn btn-outline-secondary"
                             type="button"
                             id="copyPublicSessionLinkBtn"
-                            data-share-url="{{ public_session_url }}">
+                            data-share-url="{{ public_session_url|default:'' }}"
+                            data-session-id="{{ session.id }}">
                         <i class="fas fa-link"></i> リンクをコピー
                     </button>
                     {% endif %}
@@ -596,21 +597,25 @@
                                     {% endif %}
                                     
                                     {% if participant.character_sheet %}
+                                        {% if participant.character_sheet_share_url or not is_public_view %}
                                         <p class="mb-2 d-flex gap-2">
-                                            <a href="{% url 'character_public_view' participant.character_sheet.id %}" class="btn btn-sm btn-outline-info flex-grow-1">
+                                            <a href="{% if participant.character_sheet_share_url %}{{ participant.character_sheet_share_url }}{% else %}{% url 'character_detail_6th' participant.character_sheet.id %}{% endif %}" class="btn btn-sm btn-outline-info flex-grow-1"{% if participant.character_sheet_share_url %} target="_blank" rel="noopener noreferrer"{% endif %}>
                                                 <i class="fas fa-file-alt"></i> キャラクターシート
                                             </a>
                                             <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                    onclick="copyUrl('{% url 'character_public_view' participant.character_sheet.id %}', 'キャラクターURL')">
+                                                    onclick="{% if participant.character_sheet_share_url %}copyUrl('{{ participant.character_sheet_share_url|escapejs }}', 'URL'){% else %}copyParticipantCharacterShareUrl({{ participant.character_sheet.id }}){% endif %}">
                                                 <i class="fas fa-copy"></i>
                                             </button>
                                         </p>
+                                        {% endif %}
+                                        {% if not is_public_view %}
                                         <p class="mb-2">
                                             <button type="button" class="btn btn-sm btn-outline-success w-100"
-                                                    onclick="copyCcfoliaCharacter({{ participant.character_sheet.id }}, '{% url 'character_public_view' participant.character_sheet.id %}')">
+                                                    onclick="copyCcfoliaCharacter({{ participant.character_sheet.id }}{% if participant.character_sheet_share_url %}, '{{ participant.character_sheet_share_url|escapejs }}'{% endif %})">
                                                 <i class="fas fa-clipboard"></i> ココフォリア用コピー
                                             </button>
                                         </p>
+                                        {% endif %}
                                     {% elif participant.character_sheet_url %}
                                         <p class="mb-2 d-flex gap-2">
                                             <a href="{{ participant.character_sheet_url }}" target="_blank" class="btn btn-sm btn-outline-info flex-grow-1">
@@ -2174,6 +2179,26 @@ async function copyUrl(url, label = 'リンク') {
 
 window.copyUrl = copyUrl;
 
+async function getFixedCharacterShareUrl(characterSheetId) {
+    const response = await axios.post('/api/share-links/fixed-url/', {
+        resource_type: 'character',
+        object_id: characterSheetId,
+        auto_enable_link: true
+    });
+    return response.data.share_url || '';
+}
+
+async function copyParticipantCharacterShareUrl(characterSheetId) {
+    try {
+        const shareUrl = await getFixedCharacterShareUrl(characterSheetId);
+        await copyUrl(shareUrl, 'URL');
+    } catch (error) {
+        sessionNotifyError('URLのコピーに失敗しました: ' + getSessionErrorMessage(error));
+    }
+}
+
+window.copyParticipantCharacterShareUrl = copyParticipantCharacterShareUrl;
+
 const ccfoliaCharacterCache = new Map();
 const ccfoliaCharacterRequests = new Map();
 
@@ -2197,7 +2222,6 @@ const CCFOLIA_COC6_DEFAULT_SKILLS = [
     { name: 'ライフル', base: 25 },
     { name: '応急手当', base: 30 },
     { name: '鍵開け', base: 1 },
-    { name: '鑑定', base: 5 },
     { name: '隠す', base: 15 },
     { name: '隠れる', base: 10 },
     { name: '聞き耳', base: 25 },
@@ -2218,15 +2242,11 @@ const CCFOLIA_COC6_DEFAULT_SKILLS = [
     { name: '跳躍', base: 25 },
     { name: '電気修理', base: 10 },
     { name: 'ナビゲート', base: 10 },
-    { name: '手さばき', base: 10 },
-    { name: 'サバイバル', base: 10 },
     { name: '変装', base: 1 },
     { name: '言いくるめ', base: 5 },
-    { name: '魅惑', base: 15 },
     { name: '信用', base: 15 },
     { name: '説得', base: 15 },
     { name: '値切り', base: 5 },
-    { name: '威圧', base: 15 },
     { name: '他の言語', base: 1 },
     { name: '母国語', base: 'EDU*5' },
     { name: '医学', base: 5 },
@@ -2250,30 +2270,110 @@ const CCFOLIA_COC6_DEFAULT_SKILLS = [
     { name: '歴史', base: 20 },
 ];
 
+const CCFOLIA_COC7_DEFAULT_SKILLS = [
+    { name: '回避', base: 'DEX/2' },
+    { name: 'キック', base: 25 },
+    { name: '組み付き', base: 25 },
+    { name: 'こぶし（パンチ）', base: 25 },
+    { name: '頭突き', base: 25 },
+    { name: '投擲', base: 20 },
+    { name: 'マーシャルアーツ', base: 1 },
+    { name: '拳銃', base: 20 },
+    { name: 'サブマシンガン', base: 15 },
+    { name: 'ショットガン', base: 25 },
+    { name: 'マシンガン', base: 10 },
+    { name: 'ライフル', base: 25 },
+    { name: '応急手当', base: 30 },
+    { name: '鍵開け', base: 1 },
+    { name: '鑑定', base: 5 },
+    { name: '隠す', base: 15 },
+    { name: '隠れる', base: 20 },
+    { name: '聞き耳', base: 20 },
+    { name: '忍び歩き', base: 20 },
+    { name: '写真術', base: 10 },
+    { name: '精神分析', base: 1 },
+    { name: '追跡', base: 10 },
+    { name: '登攀', base: 20 },
+    { name: '図書館', base: 20 },
+    { name: '目星', base: 25 },
+    { name: '運転', base: 20 },
+    { name: '機械修理', base: 10 },
+    { name: '重機械操作', base: 1 },
+    { name: '乗馬', base: 5 },
+    { name: '水泳', base: 20 },
+    { name: '製作', base: 5 },
+    { name: '操縦', base: 1 },
+    { name: '跳躍', base: 20 },
+    { name: '電気修理', base: 10 },
+    { name: 'ナビゲート', base: 10 },
+    { name: '手さばき', base: 10 },
+    { name: 'サバイバル', base: 10 },
+    { name: '変装', base: 5 },
+    { name: '言いくるめ', base: 5 },
+    { name: '魅惑', base: 15 },
+    { name: '信用', base: 0 },
+    { name: '説得', base: 10 },
+    { name: '値切り', base: 5 },
+    { name: '威圧', base: 15 },
+    { name: '他の言語', base: 1 },
+    { name: '母国語', base: 'EDU' },
+    { name: '医学', base: 1 },
+    { name: 'オカルト', base: 5 },
+    { name: '化学', base: 1 },
+    { name: 'クトゥルフ神話', base: 0 },
+    { name: '芸術', base: 5 },
+    { name: '経理', base: 5 },
+    { name: '考古学', base: 1 },
+    { name: 'コンピューター', base: 5 },
+    { name: '心理学', base: 10 },
+    { name: '人類学', base: 1 },
+    { name: '生物学', base: 1 },
+    { name: '地質学', base: 1 },
+    { name: '電子工学', base: 1 },
+    { name: '天文学', base: 1 },
+    { name: '博物学', base: 10 },
+    { name: '物理学', base: 1 },
+    { name: '法律', base: 5 },
+    { name: '薬学', base: 1 },
+    { name: '歴史', base: 5 },
+];
+
 function resolveCcfoliaSkillBase(base, abilities) {
     if (base === 'DEX*2') return Math.min(abilities.DEX * 2, 999);
+    if (base === 'DEX/2') return Math.floor(abilities.DEX / 2);
     if (base === 'EDU*5') return Math.min(abilities.EDU * 5, 999);
+    if (base === 'EDU') return abilities.EDU;
     return toNumber(base);
 }
 
 function collectCcfoliaSkills(character, abilities) {
-    const skillMap = new Map();
     const edition = character?.edition || '6th';
+    const defaultSkills = edition === '7th' ? CCFOLIA_COC7_DEFAULT_SKILLS : CCFOLIA_COC6_DEFAULT_SKILLS;
 
-    if (edition === '6th') {
-        CCFOLIA_COC6_DEFAULT_SKILLS.forEach(skill => {
-            skillMap.set(skill.name, resolveCcfoliaSkillBase(skill.base, abilities));
-        });
-    }
-
-    (Array.isArray(character.skills) ? character.skills : []).forEach(skill => {
-        if (!skill?.skill_name || !Number.isFinite(Number(skill.current_value))) return;
-        skillMap.set(String(skill.skill_name), toNumber(skill.current_value));
+    const skillValues = new Map();
+    defaultSkills.forEach(skill => {
+        skillValues.set(skill.name, resolveCcfoliaSkillBase(skill.base, abilities));
     });
 
-    return [...skillMap.entries()]
-        .map(([skill_name, current_value]) => ({ skill_name, current_value }))
-        .sort((a, b) => a.skill_name.localeCompare(b.skill_name, 'ja'));
+    const customSkills = new Map();
+    (Array.isArray(character.skills) ? character.skills : []).forEach(skill => {
+        if (!skill?.skill_name || !Number.isFinite(Number(skill.current_value))) return;
+        const skillName = String(skill.skill_name);
+        const skillValue = toNumber(skill.current_value);
+        if (skillValues.has(skillName)) {
+            skillValues.set(skillName, skillValue);
+        } else {
+            customSkills.set(skillName, skillValue);
+        }
+    });
+
+    return [
+        ...defaultSkills.map(skill => ({
+            skill_name: skill.name,
+            current_value: skillValues.get(skill.name),
+        })),
+        ...Array.from(customSkills, ([skill_name, current_value]) => ({ skill_name, current_value })),
+    ];
 }
 
 function buildCcfoliaCharacterClipboard(character, detailUrl) {
@@ -2378,6 +2478,13 @@ function preloadCcfoliaCharacters() {
 
 async function copyCcfoliaCharacter(characterSheetId, detailUrl) {
     try {
+        if (!detailUrl) {
+            try {
+                detailUrl = await getFixedCharacterShareUrl(characterSheetId);
+            } catch (_) {
+                detailUrl = '';
+            }
+        }
         const character = await loadCcfoliaCharacter(characterSheetId);
         const clipboardData = buildCcfoliaCharacterClipboard(character, detailUrl);
         const text = JSON.stringify(clipboardData);
@@ -2525,10 +2632,19 @@ function setupCopyPublicSessionLinkButton() {
     if (!button) return;
 
     button.addEventListener('click', async () => {
-        const shareUrl = button.dataset.shareUrl || PUBLIC_SESSION_URL;
-        if (!shareUrl) return;
-
-        await copyUrl(shareUrl, 'リンク');
+        let shareUrl = button.dataset.shareUrl || PUBLIC_SESSION_URL;
+        if (!shareUrl && button.dataset.sessionId) {
+            const response = await axios.post('/api/share-links/fixed-url/', {
+                resource_type: 'session',
+                object_id: button.dataset.sessionId,
+                auto_enable_link: true
+            });
+            shareUrl = response.data.share_url;
+            button.dataset.shareUrl = shareUrl;
+        }
+        if (shareUrl) {
+            await copyUrl(shareUrl, 'リンク');
+        }
     });
 }
 

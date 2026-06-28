@@ -6,6 +6,7 @@ from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
 import json
+import uuid
 
 # Circular import回避のため、文字列参照を使用
 
@@ -170,6 +171,7 @@ class CharacterSheet(models.Model):
     
     # メタデータ
     notes = models.TextField(blank=True, verbose_name="メモ")
+    secret_ho_info = models.TextField(blank=True, default='', verbose_name="秘匿HO情報")
     version_note = models.CharField(max_length=1000, blank=True, verbose_name="バージョンメモ")
     session_count = models.PositiveIntegerField(default=0, verbose_name="セッション数")
     is_active = models.BooleanField(default=True, verbose_name="アクティブ")
@@ -180,6 +182,7 @@ class CharacterSheet(models.Model):
         default='group',
         verbose_name="Access scope",
     )
+    share_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
     allowed_users = models.ManyToManyField(
         'accounts.CustomUser',
         blank=True,
@@ -1194,6 +1197,18 @@ class CharacterBackground(models.Model):
         blank=True, 
         verbose_name="恐怖症・マニア"
     )
+    arcane_tomes_spells_artifacts = models.TextField(
+        max_length=2000,
+        blank=True,
+        default='',
+        verbose_name="魔道書・呪文・アーティファクト"
+    )
+    encounters_with_strange_entities = models.TextField(
+        max_length=2000,
+        blank=True,
+        default='',
+        verbose_name="遭遇した超自然の存在"
+    )
     
     # 仲間の探索者
     fellow_investigators = models.TextField(
@@ -1222,6 +1237,9 @@ class CharacterBackground(models.Model):
             'ideology_beliefs': 'beliefs_ideology',
             'important_people': 'significant_people',
             'traits': 'traits_mannerisms',
+            'arcane_tomes': 'arcane_tomes_spells_artifacts',
+            'spells_artifacts': 'arcane_tomes_spells_artifacts',
+            'encounters': 'encounters_with_strange_entities',
         }
         for alias, target in alias_map.items():
             if alias in kwargs:
@@ -1252,6 +1270,8 @@ class CharacterBackground(models.Model):
             ('important_events', '重要な出来事', 2000),
             ('scars_injuries', '傷・傷跡', 1000),
             ('phobias_manias', '恐怖症・マニア', 1000),
+            ('arcane_tomes_spells_artifacts', '魔道書・呪文・アーティファクト', 2000),
+            ('encounters_with_strange_entities', '遭遇した超自然の存在', 2000),
             ('fellow_investigators', '仲間の探索者', 2000),
             ('notes_memo', 'メモ欄', 3000)
         ]
@@ -2175,6 +2195,7 @@ class CharacterVersionManager:
             parent_sheet=character,
             character_image=character.character_image,
             notes=character.notes,
+            secret_ho_info=character.secret_ho_info,
             version_note=version_note,
             session_count=session_count or (character.session_count + 1),
             is_active=True
@@ -2326,6 +2347,7 @@ class CharacterVersionManager:
             parent_sheet=current_character,  # 現在のバージョンを親にする
             character_image=target_version.character_image,
             notes=target_version.notes,
+            secret_ho_info=target_version.secret_ho_info,
             version_note=f"バージョン{target_version.version}からのロールバック",
             session_count=current_character.session_count,
             is_active=True

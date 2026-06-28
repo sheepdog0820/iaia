@@ -17,10 +17,12 @@
 - Beta/public exposure: Google Calendar/Sheets, advanced Discord notifications, and WebSocket notifications follow `docs/release/PUBLIC_RELEASE_TASKS.md` and need real external-service verification before broad rollout.
 - グループ間連携: 相互承認と明示リソース共有。メンバー資格・管理権限は共有しない
 - ゲスト: 期限付き招待URL、参加表明、ログインユーザーによるclaim、監査ログ
+- 共有リンク: `private` / `group` / `link` / `public` を分離し、`ShareLink` の推測困難なトークンでセッション、キャラクター、シナリオ、統計を安全に共有
 - ハンドアウト: 条件ツリーによる自動公開と手動公開
 - 運用設定画面: `/integrations/`
 - AWS: `infrastructure/terraform/` と `docs/runbooks/`。実AWS適用は別のGo/No-Go工程
 - 開発・検証フロー: `docs/WEB_FEATURE_COMPLETION_WORKFLOW.md`
+- 共有リンク/過去CSV取り込み仕様: `docs/specifications/SAFE_SHARE_LINKS_AND_LEGACY_IMPORT.md`
 
 ## 🧰 環境要件
 
@@ -243,7 +245,7 @@ python create_admin.py
 - **7版キャラクターシート**: 作成・保存・派生値計算・技能/装備管理・詳細表示を正式サポート
 - **セッション単位の状態管理**: HP/MP/SANの開始時スナップショット、変動履歴、終了時差分は未実装
 - **キャラクターシート出力**: CCFOLIA JSON出力は実装済み。汎用PDF出力は未実装
-- **外部共有**: セッション公開共有は実装済み。キャラクターシート単体の公開共有は未実装
+- **外部共有**: セッション、キャラクターシート、シナリオ、統計の `ShareLink` 共有を実装済み。`link` はURLを知る人のみ、`public` は公開URL/APIで閲覧可能
 - **将来候補**: ダイスロール履歴、モバイルアプリ、リアルタイム機能、AI支援
 
 装備品・所持品管理と成長記録は実装済みです。全体の状態は `docs/CURRENT_WEBAPP_FEATURES.md`、正式な課題は `ISSUES.md` を参照してください。
@@ -398,6 +400,13 @@ iaia/
 - `POST /api/groups/{id}/links/` - グループ連携申請
 - `POST /api/groups/{id}/links/{link_id}/accept/` - グループ連携承認
 - `DELETE /api/groups/{id}/links/{link_id}/` - グループ連携解除
+- `GET/POST /api/share-links/` - 共有リンク一覧・発行
+- `POST /api/share-links/{id}/revoke/` - 共有リンク失効
+- `POST /api/share-links/{id}/reissue/` - 共有リンク再発行
+- `GET /share/sessions/{token}/` - セッション共有表示（安全な公開項目のみ）
+- `GET /share/characters/{token}/` - キャラクター共有表示（メモ、許可ユーザー、所有者情報を除外）
+- `GET /share/scenarios/{token}/` - シナリオ共有表示（GMメモ、秘匿HO、作成者情報を除外）
+- `GET /share/stats/{token}/` - セッション参加統計共有（ユーザーID/メールを含めない）
 - `GET/PUT /api/groups/{id}/discord-settings/` - Discord通知設定
 - `POST /api/sessions/{id}/google-calendar/sync/` - Google Calendar同期
 - `POST /api/character-sheets/google-sheets/import/` - Google Sheets取込

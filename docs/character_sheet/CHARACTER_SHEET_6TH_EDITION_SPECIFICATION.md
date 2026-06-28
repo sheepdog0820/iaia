@@ -30,8 +30,8 @@
 - 🖼️ **画像管理**: 複数画像のアップロード対応
 - 📤 **CCFOLIA連携**: ワンクリックでCCFOLIA形式にエクスポート
 - 📱 **レスポンシブ対応**: PC・タブレット・スマートフォン対応
-- 🔒 **公開/非公開設定**: キャラクターの公開範囲を制御
-- 👥 **他ユーザー参照**: 公開キャラクターの閲覧機能
+- 🔒 **公開範囲設定**: `private` / `group` / `link` / `public` でキャラクターの閲覧範囲を制御
+- 👥 **他ユーザー参照**: 公開キャラクターと共有リンク経由キャラクターの閲覧機能
 - 🔍 **検索・フィルター**: キャラクター名、ステータスでの絞り込み
 - 🎮 **セッション連携**: TRPGセッションとの統合
 
@@ -337,16 +337,21 @@ CCB<={EDU}*5 【EDU × 5】
 - 技能の表示/非表示設定
 - ダメージボーナスの自動反映
 
-### 5. 公開/非公開機能
+### 5. 公開範囲・共有機能
 
 #### 公開設定
-- **非公開（デフォルト）**: 作成者のみ閲覧・編集可能
-- **公開**: 全ユーザーが閲覧可能（編集は作成者のみ）
+- **private（デフォルト）**: 作成者のみ閲覧・編集可能
+- **group**: 所属グループの権限に従って閲覧可能
+- **link**: 通常の公開URL/APIでは閲覧不可。`ShareLink` のURLを知る人のみ共有用レスポンスを閲覧可能
+- **public**: 公開URL/APIで閲覧可能。必要に応じて `ShareLink` も発行可能
+- `is_public` はレガシー互換フィールド。現行の公開判定は `access_scope` を正本とする
 
 #### アクセス制御
 - 自分のキャラクター: 全権限（閲覧・編集・削除）
-- 他ユーザーの公開キャラクター: 閲覧のみ
-- 他ユーザーの非公開キャラクター: アクセス不可
+- 他ユーザーの `public` キャラクター: 閲覧のみ
+- 他ユーザーの `link` キャラクター: 通常の公開ID URLでは404。`ShareLink` 共有URLでは閲覧のみ
+- 他ユーザーの `private` キャラクター: アクセス不可
+- 共有レスポンスでは所有者情報、許可ユーザー、キャラクターメモ、version note を返さない
 
 ### 6. ステータス管理
 
@@ -514,7 +519,8 @@ class CharacterSheet(models.Model):
     sanity_current = IntegerField()  # 現在SAN（現在正気度）（任意入力可能）
     
     # 公開設定
-    is_public = BooleanField(default=False)  # 公開/非公開設定
+    access_scope = CharField(default='private')  # private/group/link/public
+    is_public = BooleanField(default=False)  # レガシー互換。公開判定はaccess_scopeを優先
     
     # バージョン管理
     version = IntegerField(default=1)
@@ -688,7 +694,8 @@ document.addEventListener('DOMContentLoaded', function() {
 #### 検索・フィルター
 - `GET /api/accounts/character-sheets/?search={keyword}` - キャラクター名検索
 - `GET /api/accounts/character-sheets/?status={status}` - ステータスフィルター
-- `GET /api/accounts/character-sheets/?is_public={true/false}` - 公開設定フィルター
+- `GET /api/accounts/character-sheets/?access_scope={private|group|link|public}` - 公開範囲フィルター
+- `GET /api/accounts/character-sheets/?is_public={true/false}` - レガシー公開設定フィルター
 
 ### レスポンス形式
 
@@ -714,6 +721,7 @@ document.addEventListener('DOMContentLoaded', function() {
     "magic_points_current": 15,
     "sanity_max": 99,
     "sanity_current": 75,
+    "access_scope": "private",
     "is_public": false,
     "status": "alive",
     "version": 1,
@@ -729,7 +737,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 ### 短期計画
 - [ ] PDF出力機能
-- [ ] キャラクターシート共有機能
+- [x] キャラクターシート共有機能（ShareLinkによるlink/public共有）
 - [ ] セッション履歴管理
 
 ### 中期計画

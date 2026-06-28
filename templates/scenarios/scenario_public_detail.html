@@ -23,11 +23,20 @@
                         {% if scenario.recommended_players %}<span class="ms-2">{{ scenario.recommended_players }}</span>{% endif %}
                     </div>
                 </div>
-                {% if scenario.url %}
-                <a class="btn btn-outline-primary btn-sm" href="{{ scenario.url }}" target="_blank" rel="noopener noreferrer">
-                    <i class="fas fa-external-link-alt"></i> ??????
-                </a>
-                {% endif %}
+                <div class="d-flex flex-wrap gap-2 justify-content-end">
+                    {% if can_edit_scenario %}
+                    <a class="btn btn-outline-primary btn-sm"
+                       href="/api/scenarios/archive/view/"
+                       data-testid="editScenarioLink">
+                        <i class="fas fa-edit"></i> 編集
+                    </a>
+                    {% endif %}
+                    {% if scenario.url %}
+                    <a class="btn btn-outline-primary btn-sm" href="{{ scenario.url }}" target="_blank" rel="noopener noreferrer">
+                        <i class="fas fa-external-link-alt"></i> ??????
+                    </a>
+                    {% endif %}
+                </div>
             </div>
 
             {% if images %}
@@ -55,6 +64,13 @@
             </div>
             {% endif %}
 
+            {% if can_edit_scenario and scenario.gm_notes %}
+            <div class="card mb-3" data-testid="scenarioGmNotesCard">
+                <div class="card-header bg-warning text-dark">GMメモ</div>
+                <div class="card-body">{{ scenario.gm_notes|linebreaksbr }}</div>
+            </div>
+            {% endif %}
+
             <div class="card mb-3">
                 <div class="card-header bg-secondary text-white">??????</div>
                 <div class="card-body">
@@ -67,6 +83,32 @@
                     </dl>
                 </div>
             </div>
+
+            {% if can_edit_scenario and scenario.handout_templates.all %}
+            <div class="card mb-3" data-testid="scenarioOwnerHandoutsCard">
+                <div class="card-header bg-warning text-dark">ハンドアウト</div>
+                <div class="card-body">
+                    {% for handout in scenario.handout_templates.all %}
+                    <div class="border rounded p-3 mb-3">
+                        <div class="d-flex justify-content-between gap-2">
+                            <h2 class="h6 mb-2">{{ handout.code|default:"HO" }} {{ handout.title }}</h2>
+                            {% if handout.is_secret %}
+                            <span class="badge bg-warning text-dark">秘匿</span>
+                            {% else %}
+                            <span class="badge bg-info text-dark">公開</span>
+                            {% endif %}
+                        </div>
+                        {% if handout.content %}
+                        <div class="small">{{ handout.content|linebreaksbr }}</div>
+                        {% endif %}
+                        {% if handout.recommended_skills %}
+                        <div class="small text-muted mt-2">推奨技能: {{ handout.recommended_skills|linebreaksbr }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>

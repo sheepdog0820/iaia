@@ -15,8 +15,8 @@ document.addEventListener('DOMContentLoaded', function() {
         console[danger ? 'error' : 'log'](text);
     };
 
-    const confirmUser = (message) => {
-        if (window.ARKHAM?.confirm) return window.ARKHAM.confirm(message);
+    const confirmUser = (message, options = {}) => {
+        if (window.ARKHAM?.confirm) return window.ARKHAM.confirm(message, options);
         return Promise.resolve(false);
     };
 
@@ -101,6 +101,41 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
     initTabs();
+
+    const initSkillCategorySelect = () => {
+        const select = document.getElementById('skillCategorySelect');
+        const tabList = document.getElementById('skillTabs');
+        if (!select || !tabList || select.dataset.bound) return;
+
+        select.addEventListener('change', () => {
+            const target = select.value;
+            const trigger = tabList.querySelector(`[data-bs-target="${target}"]`);
+            if (!trigger) return;
+            if (window.bootstrap?.Tab) {
+                bootstrap.Tab.getOrCreateInstance(trigger).show();
+            } else {
+                trigger.click();
+            }
+        });
+
+        tabList.querySelectorAll('[data-bs-toggle="tab"]').forEach(tabButton => {
+            tabButton.addEventListener('shown.bs.tab', () => {
+                const target = tabButton.getAttribute('data-bs-target');
+                if (target && select.value !== target) {
+                    select.value = target;
+                }
+            });
+            tabButton.addEventListener('click', () => {
+                const target = tabButton.getAttribute('data-bs-target');
+                if (target && select.value !== target) {
+                    select.value = target;
+                }
+            });
+        });
+
+        select.dataset.bound = 'true';
+    };
+    initSkillCategorySelect();
 
     const equipmentUiState = {
         loadedForEdit: false,
@@ -680,22 +715,41 @@ function updateGlobalDiceFormula() {
     }
 
     // 全能力値ロール
-    function rollAllAbilities() {
-        ABILITIES_6TH.forEach(abilityName => {
+    function buildAbilityRollResults() {
+        return ABILITIES_6TH.map(abilityName => {
             const settings = getDiceSettingsForAbility(abilityName);
             const total = rollDice(settings.count, settings.sides, settings.bonus, settings.multiplier);
+            return { abilityName, total };
+        });
+    }
+
+    function applyAbilityRollResults(results) {
+        results.forEach(({ abilityName, total }) => {
             const input = document.getElementById(abilityName);
             if (input) {
                 input.value = total;
-                
-                // ダイスロールした入力欄を短時間ハイライト
                 input.classList.add('dice-rolled');
                 setTimeout(() => input.classList.remove('dice-rolled'), 1000);
             }
         });
-        
-        // Update derived values after rolling
         calculateDerivedStats();
+    }
+
+    async function rollAllAbilities(options = {}) {
+        const { requireConfirmation = true } = options;
+        const results = buildAbilityRollResults();
+        if (requireConfirmation) {
+            const summary = results
+                .map(({ abilityName, total }) => `${ABILITY_LABELS[abilityName] || abilityName.toUpperCase()}: ${total}`)
+                .join(' / ');
+            const confirmed = await confirmUser(`能力値ロール結果を反映しますか？ ${summary}`, {
+                title: '能力値ロール',
+                confirmText: '反映する',
+                cancelText: 'キャンセル',
+            });
+            if (!confirmed) return;
+        }
+        applyAbilityRollResults(results);
     }
 
     // Derived stats auto calculation
@@ -940,6 +994,14 @@ function updateGlobalDiceFormula() {
     }
 
     function bindSkillCardEvents(card) {
+        card.querySelectorAll('.skill-base, .occupation-skill, .interest-skill, .other-skill').forEach(input => {
+            input.addEventListener('focus', function() {
+                if (this.value === '0') {
+                    this.select();
+                }
+            });
+        });
+
         card.querySelectorAll('.occupation-skill, .interest-skill, .other-skill').forEach(input => {
             input.addEventListener('input', updateSkillTotals);
         });
@@ -949,7 +1011,9 @@ function updateGlobalDiceFormula() {
                 try {
                     const skillKey = this.dataset.skill;
                     const value = Math.min(parseInt(this.value, 10) || 0, 999);
-                    this.value = value;
+                    if (this.value !== '') {
+                        this.value = value;
+                    }
 
                     if (!window.customBaseValues) {
                         window.customBaseValues = {};
@@ -2145,8 +2209,8 @@ function updateGlobalDiceFormula() {
     }
 
     // 全能力値ダイス（ボタン）
-    document.getElementById('rollAllAbilities')?.addEventListener('click', rollAllAbilities);
-    document.getElementById('statusRollAllAbilities')?.addEventListener('click', rollAllAbilities);
+    document.getElementById('rollAllAbilities')?.addEventListener('click', () => rollAllAbilities());
+    document.getElementById('statusRollAllAbilities')?.addEventListener('click', () => rollAllAbilities());
     
     // 全能力値ダイス設定の変更時にフォーミュラを更新
     document.getElementById('globalDiceCount')?.addEventListener('input', updateGlobalDiceFormula);
@@ -2491,7 +2555,18 @@ function initOccupationTemplates() {
         setValueById('occupation', sheet.occupation);
         setValueById('birthplace', sheet.birthplace);
         setValueById('residence', sheet.residence);
-        setValueById('notes', sheet.notes);
+        setValueById('secret_ho_info', sheet.secret_ho_info);
+        const backgroundInfo = sheet.background_info || {};
+        setValueById('traits_mannerisms', backgroundInfo.traits_mannerisms);
+        setValueById('appearance', backgroundInfo.appearance_description);
+        setValueById('ideals', backgroundInfo.beliefs_ideology);
+        setValueById('bonds', backgroundInfo.significant_people);
+        setValueById('meaningful_locations', backgroundInfo.meaningful_locations);
+        setValueById('items', backgroundInfo.treasured_possessions);
+        setValueById('scars_injuries', backgroundInfo.scars_injuries);
+        setValueById('flaws', backgroundInfo.phobias_manias);
+        setValueById('arcane_tomes_spells_artifacts', backgroundInfo.arcane_tomes_spells_artifacts);
+        setValueById('encounters_with_strange_entities', backgroundInfo.encounters_with_strange_entities);
         setRecommendedSkills(Array.isArray(sheet.recommended_skills) ? sheet.recommended_skills : [], { persist: false });
         setOccupationSkills(Array.isArray(sheet.occupation_skills) ? sheet.occupation_skills : [], { persist: false });
 
@@ -2630,6 +2705,7 @@ function initOccupationTemplates() {
             occupation: data.occupation || '',
             birthplace: data.birthplace || '',
             residence: data.residence || '',
+            secret_ho_info: data.secret_ho_info || '',
 
             str_value: parseInt(data.str_value, 10),
             con_value: parseInt(data.con_value, 10),
@@ -2638,9 +2714,19 @@ function initOccupationTemplates() {
             app_value: parseInt(data.app_value, 10),
             siz_value: parseInt(data.siz_value, 10),
             int_value: parseInt(data.int_value, 10),
-            edu_value: parseInt(data.edu_value, 10),
-
-            notes: data.notes || ''
+            edu_value: parseInt(data.edu_value, 10)
+        };
+        const backgroundData = {
+            traits_mannerisms: data.traits_mannerisms || '',
+            appearance_description: data.appearance || '',
+            beliefs_ideology: data.ideals || '',
+            significant_people: data.bonds || '',
+            meaningful_locations: data.meaningful_locations || '',
+            treasured_possessions: data.items || '',
+            scars_injuries: data.scars_injuries || '',
+            phobias_manias: data.flaws || '',
+            arcane_tomes_spells_artifacts: data.arcane_tomes_spells_artifacts || '',
+            encounters_with_strange_entities: data.encounters_with_strange_entities || ''
         };
         apiData.recommended_skills = Array.from(recommendedSkillKeys);
         apiData.occupation_skills = Array.from(occupationSkillKeys);
@@ -2666,18 +2752,6 @@ function initOccupationTemplates() {
         if (data.money !== '' && data.money != null) apiData.money = parseInt(data.money, 10) || 0;
         if (data.assets !== '' && data.assets != null) apiData.assets = parseInt(data.assets, 10) || 0;
         if (data.income !== '' && data.income != null) apiData.income = parseInt(data.income, 10) || 0;
-
-        // 背景情報をnotesに統合
-        const backgroundNotes = [];
-        if (data.backstory) backgroundNotes.push(`背景ストーリー:\n${data.backstory}`);
-        if (data.appearance) backgroundNotes.push(`外見:\n${data.appearance}`);
-        if (data.ideals) backgroundNotes.push(`信念・信条:\n${data.ideals}`);
-        if (data.bonds) backgroundNotes.push(`重要な人物:\n${data.bonds}`);
-        if (data.flaws) backgroundNotes.push(`弱点・恐怖症:\n${data.flaws}`);
-        if (data.items) backgroundNotes.push(`所持品:\n${data.items}`);
-        if (backgroundNotes.length > 0) {
-            apiData.notes = (apiData.notes ? apiData.notes + '\n\n' : '') + backgroundNotes.join('\n\n');
-        }
 
         // 技能データの収集
         const skills = [];
@@ -2720,7 +2794,19 @@ function initOccupationTemplates() {
             .getAll('character_images')
             .filter(f => f instanceof File && f.size > 0 && f.name);
 
-        return { apiData, data, formData, imageFiles };
+        return { apiData, data, formData, imageFiles, backgroundData };
+    }
+
+    async function updateBackgroundData(characterId, backgroundData) {
+        if (!backgroundData || typeof backgroundData !== 'object') return;
+        await fetchJson(`/accounts/character-sheets/${characterId}/update-background-data/`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify(backgroundData),
+        });
     }
 
     async function updateFinancialData(characterId, data) {
@@ -2915,7 +3001,7 @@ function initOccupationTemplates() {
         }
     }
 
-    async function updateCharacterSheet(characterId, apiData, data, imageFiles = []) {
+    async function updateCharacterSheet(characterId, apiData, data, imageFiles = [], backgroundData = {}) {
         const updatePayload = {
             name: apiData.name,
             player_name: apiData.player_name,
@@ -2933,7 +3019,6 @@ function initOccupationTemplates() {
             siz_value: apiData.siz_value,
             int_value: apiData.int_value,
             edu_value: apiData.edu_value,
-            notes: apiData.notes,
         };
 
         if (apiData.age != null) updatePayload.age = apiData.age;
@@ -2950,6 +3035,7 @@ function initOccupationTemplates() {
             body: JSON.stringify(updatePayload),
         });
 
+        await updateBackgroundData(characterId, backgroundData);
         await updateFinancialData(characterId, data);
         await syncSkills(characterId, apiData.skills || []);
         await syncEquipment(characterId, apiData.equipment);
@@ -2970,11 +3056,11 @@ function initOccupationTemplates() {
                 return;
             }
 
-            const { apiData, data, formData, imageFiles } = collected;
+            const { apiData, data, formData, imageFiles, backgroundData } = collected;
 
             if (isEditMode) {
                 try {
-                    await updateCharacterSheet(editCharacterId, apiData, data, imageFiles);
+                    await updateCharacterSheet(editCharacterId, apiData, data, imageFiles, backgroundData);
                     notifyUser('Character sheet updated successfully.');
                     window.location.href = `/accounts/character/${editCharacterId}/`;
                 } catch (error) {
@@ -3021,9 +3107,10 @@ function initOccupationTemplates() {
                         }
                         return response.json();
                     })
-                    .then(result => {
+                    .then(async result => {
                         // Success: API returns CharacterSheet object
                         if (result.id) {
+                            await updateBackgroundData(result.id, backgroundData);
                             notifyUser('Character sheet created successfully.');
                             window.location.href = '/accounts/character/list/';
                         } else {
@@ -3055,9 +3142,10 @@ function initOccupationTemplates() {
                         }
                         return response.json();
                     })
-                    .then(result => {
+                    .then(async result => {
                         // Success: API returns CharacterSheet object
                         if (result.id) {
+                            await updateBackgroundData(result.id, backgroundData);
                             notifyUser('Character sheet created successfully.');
                             window.location.href = '/accounts/character/list/';
                         } else {
@@ -3103,7 +3191,7 @@ function initOccupationTemplates() {
             const newId = created?.id;
             if (!newId) throw { error: '新バージョンの作成に失敗しました。' };
 
-            await updateCharacterSheet(newId, collected.apiData, collected.data, collected.imageFiles);
+            await updateCharacterSheet(newId, collected.apiData, collected.data, collected.imageFiles, collected.backgroundData);
 
             notifyUser('新バージョンを作成しました。');
             window.location.href = `/accounts/character/${newId}/`;
@@ -3128,7 +3216,7 @@ function initOccupationTemplates() {
     } else {
         // 初期計算（常にロールして値を埋める）
         setTimeout(() => {
-            rollAllAbilities();
+            rollAllAbilities({ requireConfirmation: false });
         }, 0);
     }
 });

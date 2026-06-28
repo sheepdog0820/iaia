@@ -1556,9 +1556,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             <button class="btn btn-outline-info btn-sm w-100 mt-2" onclick="copyScenarioPublicUrl(${scenario.id})">
                                 <i class="fas fa-link"></i> Copy view URL
                             </button>
-                            <a class="btn btn-outline-success btn-sm w-100 mt-2" href="/scenarios/${scenario.id}/view/" target="_blank" rel="noopener noreferrer">
+                            <button class="btn btn-outline-success btn-sm w-100 mt-2" type="button" onclick="openScenarioShareView(${scenario.id})">
                                 <i class="fas fa-eye"></i> Open view mode
-                            </a>
+                            </button>
                             <button class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="openScenarioEditModal(${scenario.id})">
                                 <i class="fas fa-edit"></i> シナリオを編集
                             </button>
@@ -1609,13 +1609,32 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.removeChild(textarea);
     }
 
+    async function getScenarioShareUrl(scenarioId) {
+        const response = await axios.post('/api/share-links/fixed-url/', {
+            resource_type: 'scenario',
+            object_id: scenarioId,
+            auto_enable_link: true
+        });
+        return response.data.share_url;
+    }
+
     window.copyScenarioPublicUrl = async function(scenarioId) {
-        const url = `${window.location.origin}/scenarios/${encodeURIComponent(scenarioId)}/view/`;
+        let url = '';
         try {
+            url = await getScenarioShareUrl(scenarioId);
             await copyTextToClipboard(url);
             notifySuccess('View URL copied');
         } catch (error) {
-            notifyError('Failed to copy URL: ' + url);
+            notifyError('Failed to copy URL' + (url ? ': ' + url : ''));
+        }
+    };
+
+    window.openScenarioShareView = async function(scenarioId) {
+        try {
+            const url = await getScenarioShareUrl(scenarioId);
+            window.open(url, '_blank', 'noopener,noreferrer');
+        } catch (error) {
+            notifyError('Failed to open view URL');
         }
     };
 

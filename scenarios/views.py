@@ -475,6 +475,7 @@ def scenario_public_view(request, scenario_id):
     scenario = get_object_or_404(
         Scenario.objects.select_related('created_by').prefetch_related('images'),
         id=scenario_id,
+        visibility='public',
     )
     images = scenario.images.all()
     return render(request, 'scenarios/scenario_public_detail.html', {

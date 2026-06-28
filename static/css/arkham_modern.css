@@ -353,11 +353,15 @@ body {
 }
 
 .dropdown-item {
-    color: var(--text-secondary);
+    color: var(--text-primary);
     transition: all 0.2s ease;
     padding: 0.5rem 1rem;
     border-radius: 8px;
     margin-bottom: 0.25rem;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .dropdown-item:last-child {
@@ -372,6 +376,12 @@ body {
 .dropdown-item:focus {
     background: rgba(59, 130, 246, 0.1);
     color: var(--accent-primary);
+}
+
+.dropdown-item.text-danger,
+.dropdown-item.text-danger:hover,
+.dropdown-item.text-danger:focus {
+    color: var(--accent-danger) !important;
 }
 
 /* スピナー */
@@ -455,6 +465,9 @@ body {
     background-color: var(--secondary-bg);
     border: 1px solid var(--border-color);
     color: var(--text-primary);
+    -webkit-text-fill-color: var(--text-primary);
+    caret-color: var(--accent-primary);
+    color-scheme: light dark;
     border-radius: 8px;
     transition: all 0.3s ease;
     padding: var(--control-padding-y) var(--control-padding-x);
@@ -467,11 +480,27 @@ body {
     border-color: var(--accent-primary);
     box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.1);
     background-color: var(--secondary-bg);
+    color: var(--text-primary);
+    -webkit-text-fill-color: var(--text-primary);
     outline: none;
 }
 
 .form-control::placeholder {
     color: var(--text-muted);
+    opacity: 1;
+}
+
+.form-select option {
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+}
+
+.form-control:-webkit-autofill,
+.form-control:-webkit-autofill:hover,
+.form-control:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--text-primary);
+    box-shadow: 0 0 0 1000px var(--secondary-bg) inset;
+    caret-color: var(--accent-primary);
 }
 
 .form-label {

@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="card-footer bg-transparent">
                             <div class="d-flex align-items-center gap-2 character-card-actions">
                                  <div class="btn-group flex-grow-1" role="group">
-                                    <a href="/characters/${character.id}/view/" class="btn btn-outline-primary btn-sm">
+                                    <a href="/accounts/character/${character.id}/" class="btn btn-outline-primary btn-sm">
                                         <i class="fas fa-eye"></i> 詳細
                                     </a>
                                     <a href="/accounts/character/create/${character.edition || '6th'}/?id=${character.id}" class="btn btn-outline-secondary btn-sm">
@@ -451,13 +451,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function copyCharacterUrl(characterId) {
-        const path = `/characters/${characterId}/view/`;
-        const url = toAbsoluteUrl(path);
+        let url = '';
         try {
+            const response = await axios.post('/api/share-links/fixed-url/', {
+                resource_type: 'character',
+                object_id: characterId,
+                auto_enable_link: true
+            });
+            url = response.data.share_url;
             await copyTextToClipboard(url);
             ARKHAM.showSuccess('キャラクターURLをコピーしました。');
         } catch (error) {
-            ARKHAM.showError('コピーに失敗しました。手動でコピーしてください: ' + url);
+            const fallback = url ? ': ' + url : '';
+            ARKHAM.showError('コピーに失敗しました。' + fallback);
         }
     }
 

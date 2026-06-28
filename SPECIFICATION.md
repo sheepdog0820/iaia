@@ -20,6 +20,32 @@
 Web機能の受け入れから検証、課題クローズまでの手順は `docs/WEB_FEATURE_COMPLETION_WORKFLOW.md` を正本とします。
 Beta/public exposure note: implemented external integrations are not automatically broad-release ready. Google Calendar/Sheets, advanced Discord notification operations, and WebSocket notification exposure are governed by `docs/release/PUBLIC_RELEASE_TASKS.md` and require real external-service verification before broad rollout.
 
+### 2026-06-27 共有リンク・過去データ取り込みの現行仕様
+
+本節は、下位節に残る古い `private/public` や `share_token` の説明より優先します。
+詳細は `docs/specifications/SAFE_SHARE_LINKS_AND_LEGACY_IMPORT.md` を参照してください。
+
+- **公開範囲の意味**
+  - `private`: 所有者または管理権限者のみ。
+  - `group`: 所属グループ内の権限に従う。
+  - `link`: 通常の公開一覧や公開ID URLには出さず、`ShareLink` のURLを知る人のみ閲覧できる。
+  - `public`: 公開URL/APIで閲覧でき、必要に応じて `ShareLink` も発行できる。
+- **ShareLink**
+  - `accounts_sharelink` に、resource_type、object_id、token_digest、created_by、expires_at、revoked_at、allow_anonymous、view_level を保存する。
+  - raw token は発行/再発行レスポンスでのみ返し、DBには SHA-256 digest のみ保存する。
+  - 対象は `session`、`character`、`scenario`、`profile_stats`。
+  - 発行は対象リソースの管理者/所有者に限定し、対象リソースは `link` または `public` である必要がある。
+- **共有レスポンスの安全化**
+  - セッション共有は秘匿HO、内部管理情報、参加者メール、ユーザーID、claim/OAuth情報を返さない。
+  - キャラクター共有は所有者情報、許可ユーザー、メモ、version note を返さない。
+  - シナリオ共有はGMメモ、秘匿HO、作成者情報を返さない。
+  - 統計共有は表示名ベースの集計のみを返し、ログインユーザーへの紐づけ情報を返さない。
+- **過去データ取り込み**
+  - `import_trpg_schedule` は従来の Excel/JSON 取り込みに加え、`--sessions-csv`、`--participants-csv`、`--aliases-csv` を受け付ける。
+  - CSV取り込みの参加者は `ParticipantIdentity` / `ParticipantIdentityAlias` として保存し、ログインユーザーへ自動紐づけしない。
+  - `--dry-run` は件数と重複を表示しDBへ書き込まない。重複がある本取り込みは `--allow-duplicates` がない限り中断し、transaction rollback される。
+  - CSV取り込みの `session.gm` は内部管理用ユーザーであり、共有表示ではGMロールの `ParticipantIdentity.display_name` を優先する。
+
 ### 1.1 プロジェクト概要
 タブレノは、クトゥルフ神話をテーマにしたTRPGスケジュール管理Webサービスです。TRPGセッションの管理、参加者の管理、プレイ履歴の記録など、TRPGライフを豊かにする機能を提供します。
 
@@ -217,7 +243,7 @@ tableno/
 - location: 場所
 - youtube_url: YouTube配信URL（単一URL）
 - status: ステータス（planned/ongoing/completed/cancelled）
-- visibility: 可視性（private/group/public）
+- visibility: 可視性（private/group/link/public）
 - coc_edition: CoC版（6th/7th）
 - gm: GM（FK）
 - group: グループ（FK）
@@ -225,7 +251,7 @@ tableno/
 - series: 定期セッションシリーズ（FK、nullable）
 - participants: 参加者（M2M through SessionParticipant）
 - duration_minutes: セッション時間（分）
-- share_token: 公開共有トークン（UUID）
+- share_token: レガシー公開共有トークン（UUID、セッション `visibility='public'` の公開詳細URL用）
 - created_at/updated_at: タイムスタンプ
 
 **SessionParticipant（セッション参加者）**
@@ -533,7 +559,8 @@ tableno/
   - 各動画への備考追加
   - UI実装済み（並び替えUI含む）
 - **公開共有機能**【✅ 実装済み】
-  - share_tokenによる認証なし閲覧
+  - `ShareLink` によるセッション、キャラクター、シナリオ、統計の安全なリンク共有
+  - レガシー `share_token` によるセッション公開詳細閲覧（`visibility='public'` のみ）
 - **セッションテンプレート**【✅ 実装済み】
   - テンプレートCRUDとカレンダー作成フォームへの適用
   - カレンダー入力からの即時登録と詳細編集への引継ぎ
@@ -792,7 +819,14 @@ tableno/
 - `GET /api/schedules/sessions/view/` - セッション一覧ビュー
 - `GET /api/schedules/session-templates/view/` - セッションテンプレート管理
 - `GET /schedules/sessions/<id>/date-poll/` - 日程調整投票画面
-- `GET /sessions/<uuid:share_token>/view/` / `GET /s/<uuid:share_token>/` - public session detail for sessions with `visibility='public'` only
+- `GET /sessions/<uuid:share_token>/view/` / `GET /s/<uuid:share_token>/` - legacy public session detail for sessions with `visibility='public'` only
+- `GET/POST /api/share-links/` - ShareLink一覧・発行（対象は `link` または `public`）
+- `POST /api/share-links/<id>/revoke/` - ShareLink失効
+- `POST /api/share-links/<id>/reissue/` - ShareLink再発行
+- `GET /share/sessions/<token>/` - セッション共有表示（秘匿HO、内部ユーザー情報なし）
+- `GET /share/characters/<token>/` - キャラクター共有表示（所有者、許可ユーザー、メモなし）
+- `GET /share/scenarios/<token>/` - シナリオ共有表示（GMメモ、秘匿HO、作成者情報なし）
+- `GET /share/stats/<token>/` - セッション参加統計共有（ログインユーザー紐づけなし）
 
 ### 4.5 GM専用ハンドアウト管理**【✅ 実装済み】**
 - `GET/POST /api/schedules/gm-handouts/` - GMハンドアウト管理

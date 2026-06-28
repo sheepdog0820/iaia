@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-iaia}
+      POSTGRES_USER: ${POSTGRES_USER:-iaia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-postgres-password}
+    volumes:
+      - qnap_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-iaia} -d ${POSTGRES_DB:-iaia}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - ${ENV_FILE:-.env.qnap}
+    environment:
+      ENV_FILE: ${ENV_FILE:-.env.qnap}
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - qnap_staticfiles:/app/staticfiles
+      - qnap_media:/app/media
+
+volumes:
+  qnap_postgres_data:
+  qnap_staticfiles:
+  qnap_media:

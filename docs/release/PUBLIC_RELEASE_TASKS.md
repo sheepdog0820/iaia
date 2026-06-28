@@ -92,7 +92,7 @@ python tests/performance/image_upload_load.py \
 | ログイン | 必須 | 通常ログイン、ログアウト、パスワードリセットメール送信、mandatory email verification、未確認メールへのリセットメール抑止、退会導線と有効なStripe購読中の削除ブロックを `accounts.test_authentication`、Google/Discord OAuth verified email重複時の既存ユーザー再利用を `accounts.test_api_auth_google` / `accounts.test_api_auth_discord`、X API認証を `accounts.test_api_auth_twitter` で確認 |
 | グループ | 必須 | グループ外ユーザーが非公開グループ/グループ卓を見られないこと |
 | セッション管理 | 必須 | 作成、編集、削除、参加者管理、カレンダー表示を確認 |
-| キャラシ管理 | 必須 | CoC 6版/7版のみ。private/group/public/allowed users の直URLアクセスを確認。`access_scope=private` 更新時に旧 `is_public` が残っても公開URL/APIが閉じることを `accounts.tests.BasicAccountsTestCase.test_access_scope_private_update_clears_legacy_public_flag` で確認 |
+| キャラシ管理 | 必須 | CoC 6版/7版のみ。private/group/link/public/allowed users の直URLアクセスを確認。`link` は公開ID URLでは404、ShareLinkでのみ閲覧可能。`access_scope=private` 更新時に旧 `is_public` が残っても公開URL/APIが閉じることを `accounts.tests.BasicAccountsTestCase.test_access_scope_private_update_clears_legacy_public_flag` で確認 |
 | 秘匿HO | 必須 | GMは全件、割当PLは自分のHOのみ、公開HOは参加者全員、添付も同じ権限で確認 |
 | 画像アップロード | 必須 | キャラシ/セッション/シナリオ画像の保存、表示、上限超過時の明確なエラー |
 | 最低限のプレミアム判定 | 条件付き | Stripe CheckoutはISSUE-077完了まで非表示またはテストモード限定。運営コード/手動付与は監査ログ付きで確認 |
@@ -118,6 +118,7 @@ python tests/performance/image_upload_load.py \
 | CI最低ライン | 対応済み | `.github/workflows/django-ci.yml` で Python 3.11, `manage.py check`, Docker Compose config check, production deploy check, `billing_release_gate`, `manage.py test --noinput` |
 | 本番認証設定 | 対応済み | production settings で `ACCOUNT_EMAIL_VERIFICATION=mandatory`, `ACCOUNT_PREVENT_ENUMERATION=True`, `ACCOUNT_FORMS.reset_password=accounts.forms.CustomPasswordResetForm`。独自signup/loginでも未確認メールを拒否し、未確認メールへのパスワードリセット送信も抑止 |
 | 公開プロフィール/API情報量 | 対応済み | Web profile は共有グループ必須かつメール非表示。通常 `/api/accounts/users/<id>/` は本人以外404。グループ/招待/フレンド詳細は公開用ユーザー情報のみ |
+| 共有リンクの情報量 | 対応済み | `accounts.test_share_links` で ShareLink 発行/失効/期限切れ、`link` と `public` の分離、セッション/キャラクター/シナリオ/統計共有から秘匿HO、GMメモ、所有者/ユーザーID/メール/claim情報が出ないことを確認 |
 | デプロイ起動処理分離 | 対応済み | Stg/Prodは `migrate` と `collectstatic` を `up` 前に明示実行。entrypointはlocal/明示指定時のみ実行し、`tests.unit.test_docker_entrypoint` で `exec daphne`、自動migration条件、Compose `ENV_FILE` 分離を確認 |
 | 非公開キャラシ直URL | 対応済み | `accounts.tests.BasicAccountsTestCase.test_character_public_view_mode_requires_public_scope` と `accounts.tests.BasicAccountsTestCase.test_character_group_scope_ignores_legacy_public_flag_for_public_urls`; group member character API uses `access_scope=public` via `accounts.test_group_features.GroupMemberCharactersAPITestCase.test_member_characters_hide_legacy_public_flag_when_scope_is_not_public` |
 | 秘匿HO/API/添付権限 | 対応済み | `schedules.test_handout_permissions` と `schedules.test_session_visibility` で API/detail/attachment/public share URL/セッション詳細 `handouts_detail` を確認。秘匿HO添付の直URL DELETEは割当外ユーザーへ404で存在秘匿し、閲覧可能だが削除権限がない参加者は403。private/group卓の `share_token` URL は404; stale or misdirected secret handout notifications are omitted from notification API list/detail/mark_read/unread_count/mark_all_read; scenario public API omits secret handout templates and creator private fields via `scenarios.test_scenarios.ScenarioAPITestCase.test_scenario_public_view_mode_is_readable_without_login` |

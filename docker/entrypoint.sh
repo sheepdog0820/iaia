@@ -41,6 +41,31 @@ if is_true "${RUN_COLLECTSTATIC:-false}"; then
   fi
 fi
 
+if is_true "${CREATE_DEV_LOGIN_USER:-false}"; then
+  : "${DEV_LOGIN_USERNAME:?DEV_LOGIN_USERNAME is required when CREATE_DEV_LOGIN_USER is true}"
+  : "${DEV_LOGIN_PASSWORD:?DEV_LOGIN_PASSWORD is required when CREATE_DEV_LOGIN_USER is true}"
+  echo "Ensuring development login user..."
+
+  dev_login_args=""
+  if is_true "${DEV_LOGIN_STAFF:-false}"; then
+    dev_login_args="${dev_login_args} --staff"
+  fi
+  if is_true "${DEV_LOGIN_PREMIUM:-false}"; then
+    dev_login_args="${dev_login_args} --premium"
+  fi
+  if is_true "${DEV_LOGIN_ALLOW_NON_DEBUG:-false}"; then
+    dev_login_args="${dev_login_args} --allow-non-debug"
+  fi
+
+  # shellcheck disable=SC2086
+  python manage.py ensure_dev_login_user \
+    --username "${DEV_LOGIN_USERNAME}" \
+    --password "${DEV_LOGIN_PASSWORD}" \
+    --email "${DEV_LOGIN_EMAIL:-}" \
+    --nickname "${DEV_LOGIN_NICKNAME:-}" \
+    ${dev_login_args}
+fi
+
 if [ "$#" -gt 0 ]; then
   exec "$@"
 fi

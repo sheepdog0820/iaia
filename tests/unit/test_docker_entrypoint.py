@@ -28,6 +28,16 @@ class DockerEntrypointTests(SimpleTestCase):
         self.assertIn('if is_true "${RUN_MIGRATIONS:-false}"; then', content)
         self.assertIn('if is_true "${RUN_COLLECTSTATIC:-false}"; then', content)
 
+    def test_entrypoint_can_create_development_login_user(self):
+        content = (self.ROOT / 'docker' / 'entrypoint.sh').read_text(encoding='utf-8')
+
+        self.assertIn('if is_true "${CREATE_DEV_LOGIN_USER:-false}"; then', content)
+        self.assertIn('DEV_LOGIN_USERNAME is required when CREATE_DEV_LOGIN_USER is true', content)
+        self.assertIn('DEV_LOGIN_PASSWORD is required when CREATE_DEV_LOGIN_USER is true', content)
+        self.assertIn('python manage.py ensure_dev_login_user \\', content)
+        self.assertIn('--username "${DEV_LOGIN_USERNAME}" \\', content)
+        self.assertIn('--password "${DEV_LOGIN_PASSWORD}" \\', content)
+
     def test_collectstatic_failure_tolerance_is_local_only_by_default(self):
         content = (self.ROOT / 'docker' / 'entrypoint.sh').read_text(encoding='utf-8')
 
@@ -106,6 +116,19 @@ class DockerEntrypointTests(SimpleTestCase):
         for line in required_lines:
             self.assertIn(line, docker_env)
         self.assertNotIn('$', docker_env)
+
+    def test_qnap_compose_env_example_documents_dev_login(self):
+        qnap_compose = (self.ROOT / 'docker-compose.qnap.yml').read_text(encoding='utf-8')
+        qnap_env = (self.ROOT / '.env.qnap.example').read_text(encoding='utf-8')
+
+        self.assertIn('postgres:16', qnap_compose)
+        self.assertIn('${WEB_PORT:-8000}:8000', qnap_compose)
+        self.assertIn('ENV_FILE: ${ENV_FILE:-.env.qnap}', qnap_compose)
+        self.assertIn('CREATE_DEV_LOGIN_USER=True', qnap_env)
+        self.assertIn('DEV_LOGIN_USERNAME=testuser', qnap_env)
+        self.assertIn('DEV_LOGIN_PASSWORD=change-this-test-password', qnap_env)
+        self.assertIn('NAS-CTHULHU', qnap_env)
+        self.assertNotIn('sk_live_', qnap_env)
 
     def test_gitignore_keeps_compose_env_local_but_tracks_example(self):
         gitignore = (self.ROOT / '.gitignore').read_text(encoding='utf-8')

@@ -9,6 +9,8 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from .models import CharacterSheet
 from .character_models import CharacterSheet6th, CharacterBackground
+from .serializers import CharacterSheetSerializer
+from .share_serializers import SharedCharacterSheetSerializer
 
 User = get_user_model()
 
@@ -49,7 +51,9 @@ class BackgroundModelTestCase(TestCase):
             significant_people="大学時代の恩師、ジョンソン教授",
             meaningful_locations="故郷の図書館",
             treasured_possessions="祖父の懐中時計",
-            traits_mannerisms="考え事をするとき眼鏡を外す癖がある"
+            traits_mannerisms="考え事をするとき眼鏡を外す癖がある",
+            arcane_tomes_spells_artifacts="無名祭祀書の写本",
+            encounters_with_strange_entities="霧の中の異形"
         )
         
         self.assertEqual(background.character_sheet, self.character)
@@ -59,6 +63,8 @@ class BackgroundModelTestCase(TestCase):
         self.assertEqual(background.meaningful_locations, "故郷の図書館")
         self.assertEqual(background.treasured_possessions, "祖父の懐中時計")
         self.assertEqual(background.traits_mannerisms, "考え事をするとき眼鏡を外す癖がある")
+        self.assertEqual(background.arcane_tomes_spells_artifacts, "無名祭祀書の写本")
+        self.assertEqual(background.encounters_with_strange_entities, "霧の中の異形")
     
     def test_background_field_validation(self):
         """背景情報フィールドのバリデーションテスト"""
@@ -152,6 +158,39 @@ class BackgroundAPITestCase(APITestCase):
         self.assertEqual(response.data['meaningful_locations'], "故郷の図書館")
         self.assertEqual(response.data['treasured_possessions'], "祖父の懐中時計")
         self.assertEqual(response.data['traits_mannerisms'], "眼鏡を外す癖")
+
+    def test_character_serializers_include_safe_background_info(self):
+        """詳細/共有シリアライザーは背景情報を返し、私的メモは共有しない"""
+        self.character.notes = '共有してはいけない私的メモ'
+        self.character.secret_ho_info = '共有してはいけない秘匿HO'
+        self.character.save(update_fields=['notes', 'secret_ho_info'])
+        CharacterBackground.objects.create(
+            character_sheet=self.character,
+            appearance_description="長身で猫背",
+            traits_mannerisms="会話中に指輪を触る",
+            personal_history="地方紙の記者として働いていた",
+            notes_memo="背景メモ",
+            arcane_tomes_spells_artifacts="古い護符",
+            encounters_with_strange_entities="地下室の影"
+        )
+
+        detail_data = CharacterSheetSerializer(self.character).data
+        self.assertEqual(detail_data['secret_ho_info'], '共有してはいけない秘匿HO')
+        self.assertIn('background_info', detail_data)
+        self.assertEqual(detail_data['background_info']['appearance_description'], "長身で猫背")
+        self.assertEqual(detail_data['background_info']['traits_mannerisms'], "会話中に指輪を触る")
+        self.assertEqual(detail_data['background_info']['arcane_tomes_spells_artifacts'], "古い護符")
+        self.assertEqual(detail_data['background_info']['encounters_with_strange_entities'], "地下室の影")
+
+        shared_data = SharedCharacterSheetSerializer(self.character).data
+        self.assertIn('background_info', shared_data)
+        self.assertNotIn('notes', shared_data)
+        self.assertNotIn('secret_ho_info', shared_data)
+        self.assertEqual(shared_data['background_info']['traits_mannerisms'], "会話中に指輪を触る")
+        self.assertEqual(shared_data['background_info']['arcane_tomes_spells_artifacts'], "古い護符")
+        self.assertEqual(shared_data['background_info']['encounters_with_strange_entities'], "地下室の影")
+        self.assertNotIn('共有してはいけない私的メモ', str(shared_data))
+        self.assertNotIn('共有してはいけない秘匿HO', str(shared_data))
     
     def test_update_background_data_api(self):
         """背景情報更新APIテスト"""
@@ -167,7 +206,11 @@ class BackgroundAPITestCase(APITestCase):
             'significant_people': '重要な人物',
             'meaningful_locations': '意味のある場所',
             'treasured_possessions': '大切な品物',
-            'traits_mannerisms': '特徴・癖'
+            'traits_mannerisms': '特徴・癖',
+            'scars_injuries': '左手首の傷',
+            'phobias_manias': '暗所恐怖症',
+            'arcane_tomes_spells_artifacts': '銀の鍵',
+            'encounters_with_strange_entities': '海辺の異形'
         }
         
         response = self.client.patch(
@@ -186,6 +229,23 @@ class BackgroundAPITestCase(APITestCase):
         self.assertEqual(background.meaningful_locations, '意味のある場所')
         self.assertEqual(background.treasured_possessions, '大切な品物')
         self.assertEqual(background.traits_mannerisms, '特徴・癖')
+        self.assertEqual(background.scars_injuries, '左手首の傷')
+        self.assertEqual(background.phobias_manias, '暗所恐怖症')
+        self.assertEqual(background.arcane_tomes_spells_artifacts, '銀の鍵')
+        self.assertEqual(background.encounters_with_strange_entities, '海辺の異形')
+
+    def test_secret_ho_info_update_is_saved_for_owner_api(self):
+        """秘匿HO情報は通常詳細APIで保存・取得できる"""
+        response = self.client.patch(
+            f'/accounts/character-sheets/{self.character.id}/',
+            {'secret_ho_info': '本人だけが見る秘匿HO'},
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.character.refresh_from_db()
+        self.assertEqual(self.character.secret_ho_info, '本人だけが見る秘匿HO')
+        self.assertEqual(response.data['secret_ho_info'], '本人だけが見る秘匿HO')
     
     def test_create_background_if_not_exists(self):
         """背景情報が存在しない場合の作成APIテスト"""

@@ -14,7 +14,7 @@
         color: #fff;
         box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     }
-    
+
     .form-section {
         background: rgba(139, 69, 19, 0.1);
         border: 1px solid rgba(139, 69, 19, 0.3);
@@ -22,38 +22,38 @@
         padding: 1.5rem;
         margin-bottom: 2rem;
     }
-    
+
     .form-section h4 {
         color: #8b4513;
         border-bottom: 2px solid rgba(139, 69, 19, 0.3);
         padding-bottom: 0.5rem;
         margin-bottom: 1rem;
     }
-    
+
     .form-control, .form-select {
         background: rgba(0,0,0,0.3);
         border: 1px solid rgba(139, 69, 19, 0.5);
         color: #fff;
     }
-    
+
     .form-control:focus, .form-select:focus {
         background: rgba(0,0,0,0.4);
         border-color: #8b4513;
         box-shadow: 0 0 0 0.2rem rgba(139, 69, 19, 0.25);
         color: #fff;
     }
-    
+
     .form-label {
         color: #ccc;
         font-weight: 500;
     }
-    
+
     .ability-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1rem;
     }
-    
+
     .ability-input {
         background: rgba(139, 69, 19, 0.2);
         border: 1px solid rgba(139, 69, 19, 0.4);
@@ -61,14 +61,14 @@
         padding: 1rem;
         text-align: center;
     }
-    
+
     .ability-input label {
         display: block;
         margin-bottom: 0.5rem;
         font-size: 0.9rem;
         color: #ccc;
     }
-    
+
     .ability-input input {
         background: rgba(0,0,0,0.5);
         border: 1px solid rgba(139, 69, 19, 0.6);
@@ -77,7 +77,7 @@
         font-weight: bold;
         font-size: 1.2rem;
     }
-    
+
     .skill-item {
         background: rgba(0, 123, 255, 0.1);
         border: 1px solid rgba(0, 123, 255, 0.3);
@@ -88,24 +88,24 @@
         align-items: center;
         gap: 1rem;
     }
-    
+
     .skill-name {
         flex: 1;
         font-weight: 500;
     }
-    
+
     .skill-inputs {
         display: flex;
         gap: 0.5rem;
         align-items: center;
     }
-    
+
     .skill-input {
         width: 60px;
         text-align: center;
         font-size: 0.9rem;
     }
-    
+
     .equipment-item {
         background: rgba(108, 117, 125, 0.2);
         border: 1px solid rgba(108, 117, 125, 0.4);
@@ -113,7 +113,7 @@
         padding: 1rem;
         margin-bottom: 1rem;
     }
-    
+
     .btn-remove {
         background: rgba(220, 53, 69, 0.8);
         border: 1px solid #dc3545;
@@ -122,7 +122,7 @@
         padding: 0.25rem 0.5rem;
         font-size: 0.8rem;
     }
-    
+
     .btn-add {
         background: rgba(40, 167, 69, 0.8);
         border: 1px solid #28a745;
@@ -130,7 +130,7 @@
         border-radius: 4px;
         padding: 0.5rem 1rem;
     }
-    
+
     .edition-selector {
         background: linear-gradient(135deg, #8b4513 0%, #a0522d 100%);
         border-radius: 8px;
@@ -138,7 +138,7 @@
         margin-bottom: 2rem;
         text-align: center;
     }
-    
+
     .edition-option {
         display: inline-block;
         margin: 0 1rem;
@@ -149,17 +149,17 @@
         cursor: pointer;
         transition: all 0.3s ease;
     }
-    
+
     .edition-option:hover {
         background: rgba(255,255,255,0.2);
         border-color: rgba(255,255,255,0.3);
     }
-    
+
     .edition-option.selected {
         background: rgba(255,255,255,0.3);
         border-color: white;
     }
-    
+
     .calculated-value {
         background: rgba(40, 167, 69, 0.2);
         border: 1px solid rgba(40, 167, 69, 0.4);
@@ -169,7 +169,7 @@
         text-align: center;
         font-weight: bold;
     }
-    
+
     .auto-calc-info {
         font-size: 0.8rem;
         color: #6c757d;
@@ -195,11 +195,11 @@
                     {% endif %}
                 </ol>
             </nav>
-            
+
             <!-- ヘッダー -->
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1 class="brand-font text-primary">
-                    <i class="fas fa-{% if mode == 'create' %}plus{% else %}edit{% endif %}"></i> 
+                    <i class="fas fa-{% if mode == 'create' %}plus{% else %}edit{% endif %}"></i>
                     {% if mode == 'create' %}キャラクターシート作成{% else %}{{ character.name }} - 編集{% endif %}
                 </h1>
                 <div class="btn-group">
@@ -214,12 +214,12 @@
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- フォーム -->
             <div class="character-form p-4">
                 <form id="characterForm">
                     {% csrf_token %}
-                    
+
                     <!-- エディション選択（新規作成時のみ） -->
                     {% if mode == 'create' %}
                     <div class="edition-selector">
@@ -236,19 +236,19 @@
                     {% else %}
                         <input type="hidden" name="edition" value="{{ character.edition }}">
                     {% endif %}
-                    
+
                     <!-- 基本情報 -->
                     <div class="form-section">
                         <h4><i class="fas fa-user"></i> 基本情報</h4>
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="name" class="form-label">探索者名 *</label>
-                                <input type="text" class="form-control" id="name" name="name" 
+                                <input type="text" class="form-control" id="name" name="name"
                                        value="{% if character %}{{ character.name }}{% endif %}" required>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="player_name" class="form-label">プレイヤー名</label>
-                                <input type="text" class="form-control" id="player_name" name="player_name" 
+                                <input type="text" class="form-control" id="player_name" name="player_name"
                                        value="{% if character %}{{ character.player_name }}{% endif %}">
                             </div>
                             <div class="col-md-4 mb-3">
@@ -258,23 +258,33 @@
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label for="gender" class="form-label">性別</label>
-                                <input type="text" class="form-control" id="gender" name="gender" 
+                                <input type="text" class="form-control" id="gender" name="gender"
                                        value="{% if character %}{{ character.gender }}{% endif %}">
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label for="occupation" class="form-label">職業</label>
-                                <input type="text" class="form-control" id="occupation" name="occupation" 
+                                <input type="text" class="form-control" id="occupation" name="occupation"
                                        value="{% if character %}{{ character.occupation }}{% endif %}">
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="birthplace" class="form-label">出身地</label>
-                                <input type="text" class="form-control" id="birthplace" name="birthplace" 
+                                <input type="text" class="form-control" id="birthplace" name="birthplace"
                                        value="{% if character %}{{ character.birthplace }}{% endif %}">
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="residence" class="form-label">居住地</label>
-                                <input type="text" class="form-control" id="residence" name="residence" 
+                                <input type="text" class="form-control" id="residence" name="residence"
                                        value="{% if character %}{{ character.residence }}{% endif %}">
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label for="traits_mannerisms" class="form-label">メモ</label>
+                                <textarea class="form-control" id="traits_mannerisms" name="traits_mannerisms" rows="3"
+                                          placeholder="参照時に表示するメモを記入してください">{% if background_info %}{{ background_info.traits_mannerisms }}{% endif %}</textarea>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label for="secret_ho_info" class="form-label">秘匿HO情報</label>
+                                <textarea class="form-control" id="secret_ho_info" name="secret_ho_info" rows="3"
+                                          placeholder="秘匿ハンドアウトや本人向けの非公開情報を記入してください">{% if character %}{{ character.secret_ho_info }}{% endif %}</textarea>
                             </div>
                         </div>
                     </div>
@@ -288,54 +298,54 @@
                         </div>
                         <div id="image-preview" class="image-preview mt-2"></div>
                     </div>
-                    
+
                     <!-- 能力値 -->
                     <div class="form-section">
                         <h4><i class="fas fa-dumbbell"></i> 能力値</h4>
                         <div class="ability-grid">
                             <div class="ability-input">
                                 <label for="str_value">筋力 (STR)</label>
-                                <input type="number" class="form-control" id="str_value" name="str_value" 
+                                <input type="number" class="form-control" id="str_value" name="str_value"
                                        min="15" max="90" value="{% if character %}{{ character.str_value }}{% endif %}" required>
                             </div>
                             <div class="ability-input">
                                 <label for="con_value">体力 (CON)</label>
-                                <input type="number" class="form-control" id="con_value" name="con_value" 
+                                <input type="number" class="form-control" id="con_value" name="con_value"
                                        min="15" max="90" value="{% if character %}{{ character.con_value }}{% endif %}" required>
                             </div>
                             <div class="ability-input">
                                 <label for="pow_value">意志力 (POW)</label>
-                                <input type="number" class="form-control" id="pow_value" name="pow_value" 
+                                <input type="number" class="form-control" id="pow_value" name="pow_value"
                                        min="15" max="90" value="{% if character %}{{ character.pow_value }}{% endif %}" required>
                             </div>
                             <div class="ability-input">
                                 <label for="dex_value">敏捷性 (DEX)</label>
-                                <input type="number" class="form-control" id="dex_value" name="dex_value" 
+                                <input type="number" class="form-control" id="dex_value" name="dex_value"
                                        min="15" max="90" value="{% if character %}{{ character.dex_value }}{% endif %}" required>
                             </div>
                             <div class="ability-input">
                                 <label for="app_value">外見 (APP)</label>
-                                <input type="number" class="form-control" id="app_value" name="app_value" 
+                                <input type="number" class="form-control" id="app_value" name="app_value"
                                        min="15" max="90" value="{% if character %}{{ character.app_value }}{% endif %}" required>
                             </div>
                             <div class="ability-input">
                                 <label for="siz_value">体格 (SIZ)</label>
-                                <input type="number" class="form-control" id="siz_value" name="siz_value" 
+                                <input type="number" class="form-control" id="siz_value" name="siz_value"
                                        min="30" max="90" value="{% if character %}{{ character.siz_value }}{% endif %}" required>
                             </div>
                             <div class="ability-input">
                                 <label for="int_value">知識 (INT)</label>
-                                <input type="number" class="form-control" id="int_value" name="int_value" 
+                                <input type="number" class="form-control" id="int_value" name="int_value"
                                        min="40" max="90" value="{% if character %}{{ character.int_value }}{% endif %}" required>
                             </div>
                             <div class="ability-input">
                                 <label for="edu_value">教育 (EDU)</label>
-                                <input type="number" class="form-control" id="edu_value" name="edu_value" 
+                                <input type="number" class="form-control" id="edu_value" name="edu_value"
                                        min="30" max="90" value="{% if character %}{{ character.edu_value }}{% endif %}" required>
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- 副次ステータス -->
                     <div class="form-section">
                         <h4><i class="fas fa-heart"></i> 副次ステータス</h4>
@@ -348,7 +358,7 @@
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label for="hit_points_current" class="form-label">現在HP</label>
-                                <input type="number" class="form-control" id="hit_points_current" name="hit_points_current" 
+                                <input type="number" class="form-control" id="hit_points_current" name="hit_points_current"
                                        value="{% if character %}{{ character.hit_points_current }}{% endif %}">
                             </div>
                             <div class="col-md-3 mb-3">
@@ -359,7 +369,7 @@
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label for="magic_points_current" class="form-label">現在MP</label>
-                                <input type="number" class="form-control" id="magic_points_current" name="magic_points_current" 
+                                <input type="number" class="form-control" id="magic_points_current" name="magic_points_current"
                                        value="{% if character %}{{ character.magic_points_current }}{% endif %}">
                             </div>
                             <div class="col-md-4 mb-3">
@@ -376,19 +386,19 @@
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label for="sanity_current" class="form-label">現在正気度</label>
-                                <input type="number" class="form-control" id="sanity_current" name="sanity_current" 
+                                <input type="number" class="form-control" id="sanity_current" name="sanity_current"
                                        value="{% if character %}{{ character.sanity_current }}{% endif %}">
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- 7版固有項目 -->
                     <div class="form-section" id="seventh-edition-section" style="display: none;">
                         <h4><i class="fas fa-book-open"></i> 7版固有項目</h4>
                         <div class="row">
                             <div class="col-md-3 mb-3">
                                 <label for="luck_points" class="form-label">幸運</label>
-                                <input type="number" class="form-control" id="luck_points" name="luck_points" 
+                                <input type="number" class="form-control" id="luck_points" name="luck_points"
                                        min="15" max="90" value="{% if character and character.seventh_edition_data %}{{ character.seventh_edition_data.luck_points }}{% endif %}">
                             </div>
                             <div class="col-md-3 mb-3">
@@ -407,36 +417,8 @@
                                 <div class="auto-calc-info">DEX / 2</div>
                             </div>
                         </div>
-                        
-                        <!-- 7版背景情報 -->
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="personal_description" class="form-label">個人的な記述</label>
-                                <textarea class="form-control" id="personal_description" name="personal_description" rows="3">{% if character and character.seventh_edition_data %}{{ character.seventh_edition_data.personal_description }}{% endif %}</textarea>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="ideology_beliefs" class="form-label">イデオロギー・信念</label>
-                                <textarea class="form-control" id="ideology_beliefs" name="ideology_beliefs" rows="3">{% if character and character.seventh_edition_data %}{{ character.seventh_edition_data.ideology_beliefs }}{% endif %}</textarea>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="significant_people" class="form-label">重要な人々</label>
-                                <textarea class="form-control" id="significant_people" name="significant_people" rows="3">{% if character and character.seventh_edition_data %}{{ character.seventh_edition_data.significant_people }}{% endif %}</textarea>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="meaningful_locations" class="form-label">思い出の品・場所</label>
-                                <textarea class="form-control" id="meaningful_locations" name="meaningful_locations" rows="3">{% if character and character.seventh_edition_data %}{{ character.seventh_edition_data.meaningful_locations }}{% endif %}</textarea>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="treasured_possessions" class="form-label">宝物</label>
-                                <textarea class="form-control" id="treasured_possessions" name="treasured_possessions" rows="3">{% if character and character.seventh_edition_data %}{{ character.seventh_edition_data.treasured_possessions }}{% endif %}</textarea>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="traits" class="form-label">特徴</label>
-                                <textarea class="form-control" id="traits" name="traits" rows="3">{% if character and character.seventh_edition_data %}{{ character.seventh_edition_data.traits }}{% endif %}</textarea>
-                            </div>
-                        </div>
                     </div>
-                    
+
                     <!-- 6版固有項目 -->
                     <div class="form-section" id="sixth-edition-section" style="display: none;">
                         <h4><i class="fas fa-book"></i> 6版固有項目</h4>
@@ -467,18 +449,61 @@
                             </div>
                         </div>
                     </div>
-                    
+
+                    <!-- 背景情報 -->
+                    <div class="form-section" id="background-info-section">
+                        <h4><i class="fas fa-user-clock"></i> 背景情報</h4>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="appearance_description" class="form-label">外見の描写</label>
+                                <textarea class="form-control" id="appearance_description" name="appearance_description" rows="3">{% if background_info %}{{ background_info.appearance_description }}{% endif %}</textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="beliefs_ideology" class="form-label">信念・信条</label>
+                                <textarea class="form-control" id="beliefs_ideology" name="beliefs_ideology" rows="3">{% if background_info %}{{ background_info.beliefs_ideology }}{% endif %}</textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="significant_people" class="form-label">重要な人物</label>
+                                <textarea class="form-control" id="significant_people" name="significant_people" rows="3">{% if background_info %}{{ background_info.significant_people }}{% endif %}</textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="meaningful_locations" class="form-label">意味のある場所</label>
+                                <textarea class="form-control" id="meaningful_locations" name="meaningful_locations" rows="3">{% if background_info %}{{ background_info.meaningful_locations }}{% endif %}</textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="treasured_possessions" class="form-label">秘蔵の品</label>
+                                <textarea class="form-control" id="treasured_possessions" name="treasured_possessions" rows="3">{% if background_info %}{{ background_info.treasured_possessions }}{% endif %}</textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="scars_injuries" class="form-label">負傷、傷跡</label>
+                                <textarea class="form-control" id="scars_injuries" name="scars_injuries" rows="3">{% if background_info %}{{ background_info.scars_injuries }}{% endif %}</textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="phobias_manias" class="form-label">恐怖症、マニア</label>
+                                <textarea class="form-control" id="phobias_manias" name="phobias_manias" rows="3">{% if background_info %}{{ background_info.phobias_manias }}{% endif %}</textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="arcane_tomes_spells_artifacts" class="form-label">魔道書、呪文、アーティファクト</label>
+                                <textarea class="form-control" id="arcane_tomes_spells_artifacts" name="arcane_tomes_spells_artifacts" rows="3">{% if background_info %}{{ background_info.arcane_tomes_spells_artifacts }}{% endif %}</textarea>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="encounters_with_strange_entities" class="form-label">遭遇した超自然の存在</label>
+                                <textarea class="form-control" id="encounters_with_strange_entities" name="encounters_with_strange_entities" rows="3">{% if background_info %}{{ background_info.encounters_with_strange_entities }}{% endif %}</textarea>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- メモ -->
                     <div class="form-section">
-                        <h4><i class="fas fa-sticky-note"></i> メモ</h4>
-                        <textarea class="form-control" id="notes" name="notes" rows="4" 
-                                  placeholder="キャラクターに関するメモや設定を記入してください">{% if character %}{{ character.notes }}{% endif %}</textarea>
+                        <h4><i class="fas fa-sticky-note"></i> 私的メモ</h4>
+                        <textarea class="form-control" id="notes" name="notes" rows="4"
+                                  placeholder="共有表示には出さない私的メモを記入してください">{% if character %}{{ character.notes }}{% endif %}</textarea>
                     </div>
-                    
+
                     <!-- 保存ボタン -->
                     <div class="text-center">
                         <button type="submit" class="btn btn-primary btn-lg me-3">
-                            <i class="fas fa-save"></i> 
+                            <i class="fas fa-save"></i>
                             {% if mode == 'create' %}作成{% else %}保存{% endif %}
                         </button>
                         {% if mode == 'edit' %}
@@ -505,13 +530,14 @@ document.querySelectorAll('input[name="edition"]').forEach(radio => {
         document.querySelectorAll('.edition-option').forEach(option => {
             option.classList.remove('selected');
         });
-        
+
         // 選択されたオプションにクラスを追加
-        this.closest('.edition-option').classList.add('selected');
-        
+        const selectedOption = this.closest('.edition-option');
+        if (selectedOption) selectedOption.classList.add('selected');
+
         // エディション固有セクションの表示切り替え
         toggleEditionSections(this.value);
-        
+
         // 計算値の更新
         updateCalculatedValues();
     });
@@ -541,20 +567,24 @@ if (dropZone) {
 function toggleEditionSections(edition) {
     const sixthSection = document.getElementById('sixth-edition-section');
     const seventhSection = document.getElementById('seventh-edition-section');
-    
+
     if (edition === '6th') {
-        sixthSection.style.display = 'block';
+        if (sixthSection) sixthSection.style.display = 'block';
         if (seventhSection) seventhSection.style.display = 'none';
+    } else if (edition === '7th') {
+        if (sixthSection) sixthSection.style.display = 'none';
+        if (seventhSection) seventhSection.style.display = 'block';
     } else {
-        sixthSection.style.display = 'none';
+        if (sixthSection) sixthSection.style.display = 'none';
         if (seventhSection) seventhSection.style.display = 'none';
     }
 }
 
 // 計算値の更新
 function updateCalculatedValues() {
-    const edition = document.querySelector('input[name="edition"]:checked')?.value;
-    
+    const editionInput = document.querySelector('input[name="edition"]:checked') || document.querySelector('input[name="edition"][type="hidden"]');
+    const edition = editionInput?.value;
+
     // 能力値の取得
     const str = parseInt(document.getElementById('str_value').value) || 0;
     const con = parseInt(document.getElementById('con_value').value) || 0;
@@ -564,25 +594,25 @@ function updateCalculatedValues() {
     const int = parseInt(document.getElementById('int_value').value) || 0;
     const edu = parseInt(document.getElementById('edu_value').value) || 0;
     const age = parseInt(document.getElementById('age').value) || 20;
-    
+
     // 基本ステータスの計算
     const hp = Math.floor((con + siz) / 10);
     const mp = Math.floor(pow / 5);
     const sanStart = pow;
     const sanMax = Math.min(pow, 99);
-    
+
     // 表示の更新
     document.getElementById('hp_calculated').textContent = hp;
     document.getElementById('mp_calculated').textContent = mp;
     document.getElementById('san_starting_calculated').textContent = sanStart;
     document.getElementById('san_max_calculated').textContent = sanMax;
-    
+
     // 隠しフィールドに値を設定
     document.getElementById('hit_points_max').value = hp;
     document.getElementById('magic_points_max').value = mp;
     document.getElementById('sanity_starting').value = sanStart;
     document.getElementById('sanity_max').value = sanMax;
-    
+
     // 現在値が未設定の場合は最大値を設定
     if (!document.getElementById('hit_points_current').value) {
         document.getElementById('hit_points_current').value = hp;
@@ -593,19 +623,26 @@ function updateCalculatedValues() {
     if (!document.getElementById('sanity_current').value) {
         document.getElementById('sanity_current').value = sanStart;
     }
-    
+
     // エディション固有の計算
     if (edition === '6th') {
         const idea = int * 5;
         const luck = pow * 5;
         const know = edu * 5;
         const damageBonus = calculateDamageBonus6th(str + siz);
-        
+
         document.getElementById('idea_calculated').textContent = idea + '%';
         document.getElementById('luck_6th_calculated').textContent = luck + '%';
         document.getElementById('know_calculated').textContent = know + '%';
         document.getElementById('damage_bonus_calculated').textContent = damageBonus;
-        
+    } else if (edition === '7th') {
+        const build = calculateBuild7th(str + siz);
+        const move = calculateMoveRate7th(str, siz, dex, age);
+        const dodge = Math.floor(dex / 2);
+
+        document.getElementById('build_calculated').textContent = build;
+        document.getElementById('move_calculated').textContent = move;
+        document.getElementById('dodge_calculated').textContent = dodge + '%';
     }
 }
 
@@ -621,12 +658,29 @@ function calculateDamageBonus6th(total) {
     if (total <= 444) return "+4d6";
     return "+5d6";
 }
+function calculateBuild7th(total) {
+    if (total <= 64) return -2;
+    if (total <= 84) return -1;
+    if (total <= 124) return 0;
+    if (total <= 164) return 1;
+    if (total <= 204) return 2;
+    if (total <= 284) return 3;
+    if (total <= 364) return 4;
+    if (total <= 444) return 5;
+    return 6;
+}
 
-    
-    // 能力値修正
-    if (str < siz && dex < siz) move -= 1;
-    else if (str > siz || dex > siz) move += 1;
-    
+function calculateMoveRate7th(str, siz, dex, age) {
+    let move = 8;
+    if (str < siz && dex < siz) move = 7;
+    else if (str > siz && dex > siz) move = 9;
+
+    if (age >= 80) move -= 5;
+    else if (age >= 70) move -= 4;
+    else if (age >= 60) move -= 3;
+    else if (age >= 50) move -= 2;
+    else if (age >= 40) move -= 1;
+
     return Math.max(move, 1);
 }
 
@@ -649,17 +703,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // 既存のエディション選択状態を復元
     {% if character %}
         const edition = '{{ character.edition }}';
-        document.querySelector(`input[value="${edition}"]`).checked = true;
-        document.querySelector(`input[value="${edition}"]`).closest('.edition-option').classList.add('selected');
+        const initialEditionInput = document.querySelector(`input[name="edition"][value="${edition}"]`);
+        if (initialEditionInput) {
+            initialEditionInput.checked = true;
+            const editionOption = initialEditionInput.closest('.edition-option');
+            if (editionOption) editionOption.classList.add('selected');
+        }
         toggleEditionSections(edition);
     {% endif %}
-    
+
     // 能力値の変更監視
     const abilityInputs = ['str_value', 'con_value', 'pow_value', 'dex_value', 'siz_value', 'int_value', 'edu_value', 'age'];
     abilityInputs.forEach(id => {
         document.getElementById(id).addEventListener('input', updateCalculatedValues);
     });
-    
+
     // 初期計算
     updateCalculatedValues();
 });
@@ -667,14 +725,44 @@ document.addEventListener('DOMContentLoaded', function() {
 // フォーム送信処理
 document.getElementById('characterForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-    
+
     const formData = new FormData(this);
     const data = Object.fromEntries(formData.entries());
-    
+    const backgroundFieldNames = [
+        'traits_mannerisms',
+        'appearance_description',
+        'beliefs_ideology',
+        'significant_people',
+        'meaningful_locations',
+        'treasured_possessions',
+        'scars_injuries',
+        'phobias_manias',
+        'arcane_tomes_spells_artifacts',
+        'encounters_with_strange_entities'
+    ];
+    const backgroundData = {};
+    backgroundFieldNames.forEach((fieldName) => {
+        backgroundData[fieldName] = data[fieldName] || '';
+        delete data[fieldName];
+    });
+    [
+        'csrfmiddlewaretoken',
+        'images',
+        'hit_points_max',
+        'magic_points_max',
+        'sanity_starting',
+        'sanity_max',
+        'mental_disorder',
+        'luck_points'
+    ].forEach((fieldName) => delete data[fieldName]);
+    {% if mode == 'edit' %}
+        delete data.edition;
+    {% endif %}
+
     try {
         const url = {% if mode == 'create' %}'/accounts/character-sheets/'{% else %}'/accounts/character-sheets/{{ character.id }}/'{% endif %};
         const method = {% if mode == 'create' %}'POST'{% else %}'PUT'{% endif %};
-        
+
         const response = await axios({
             method: method,
             url: url,
@@ -683,11 +771,16 @@ document.getElementById('characterForm').addEventListener('submit', async functi
                 'Content-Type': 'application/json'
             }
         });
-        
+
         if (response.data && response.data.id) {
-            window.location.href = `/accounts/characters/${response.data.id}/`;
+            await axios.patch(
+                `/accounts/character-sheets/${response.data.id}/update-background-data/`,
+                backgroundData,
+                { headers: { 'Content-Type': 'application/json' } }
+            );
+            window.location.href = `/accounts/character/${response.data.id}/`;
         }
-        
+
     } catch (error) {
         console.error('保存に失敗しました:', error);
         if (error.response && error.response.data) {

@@ -334,6 +334,14 @@ class ScenarioAPITestCase(APITestCase):
         self.assertContains(public_page_response, 'og:title')
         self.assertNotContains(public_page_response, self.scenario.gm_notes)
 
+        legacy_id_url = reverse('scenario_public_view', kwargs={'scenario_id': self.scenario.id})
+        for visibility in ('link', 'group', 'private'):
+            with self.subTest(visibility=visibility):
+                self.scenario.visibility = visibility
+                self.scenario.save(update_fields=['visibility'])
+                hidden_response = self.client.get(legacy_id_url)
+                self.assertEqual(hidden_response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_scenario_list_limited_to_same_group_creators(self):
         self.client.force_authenticate(user=self.user1)
 

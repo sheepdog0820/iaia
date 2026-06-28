@@ -265,6 +265,7 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
     sixth_edition_data = CharacterSheet6thSerializer(read_only=True)
     character_6th = serializers.SerializerMethodField()
     character_7th = serializers.SerializerMethodField()
+    background_info = serializers.SerializerMethodField()
     
     # 計算済みフィールド
     abilities = serializers.DictField(read_only=True)
@@ -302,15 +303,15 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             'magic_points_current', 'sanity_starting', 'sanity_max', 'sanity_current',
             'hp_current', 'mp_current', 'san_current',  # エイリアス追加
             'version', 'parent_sheet', 'parent_sheet_name',
-            'notes', 'is_active', 'is_public', 'access_scope', 'allowed_user_ids',
+            'notes', 'secret_ho_info', 'is_active', 'is_public', 'access_scope', 'allowed_user_ids',
             'status', 'created_at', 'updated_at',
             'skills', 'equipment', 'sixth_edition_data', 'character_6th', 'character_7th',
-            'abilities', 'versions', 'user_nickname'
+            'background_info', 'abilities', 'versions', 'user_nickname'
         ]
         read_only_fields = [
             'id', 'user', 'hit_points_max', 'magic_points_max', 'sanity_starting',
             'sanity_max', 'created_at', 'updated_at', 'abilities', 'versions',
-            'user_nickname', 'character_6th', 'character_7th'
+            'user_nickname', 'character_6th', 'character_7th', 'background_info'
         ]
 
     @extend_schema_field(OpenApiTypes.OBJECT)
@@ -346,6 +347,46 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             'traits': '',
             'injuries_scars': '',
             'phobias_manias': '',
+        }
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_background_info(self, obj):
+        """詳細画面用の背景・特徴情報"""
+        try:
+            background = obj.background_info
+        except AttributeError:
+            return {
+                'appearance_description': '',
+                'beliefs_ideology': '',
+                'significant_people': '',
+                'meaningful_locations': '',
+                'treasured_possessions': '',
+                'traits_mannerisms': '',
+                'personal_history': '',
+                'important_events': '',
+                'scars_injuries': '',
+                'phobias_manias': '',
+                'arcane_tomes_spells_artifacts': '',
+                'encounters_with_strange_entities': '',
+                'fellow_investigators': '',
+                'notes_memo': '',
+            }
+
+        return {
+            'appearance_description': background.appearance_description,
+            'beliefs_ideology': background.beliefs_ideology,
+            'significant_people': background.significant_people,
+            'meaningful_locations': background.meaningful_locations,
+            'treasured_possessions': background.treasured_possessions,
+            'traits_mannerisms': background.traits_mannerisms,
+            'personal_history': background.personal_history,
+            'important_events': background.important_events,
+            'scars_injuries': background.scars_injuries,
+            'phobias_manias': background.phobias_manias,
+            'arcane_tomes_spells_artifacts': background.arcane_tomes_spells_artifacts,
+            'encounters_with_strange_entities': background.encounters_with_strange_entities,
+            'fellow_investigators': background.fellow_investigators,
+            'notes_memo': background.notes_memo,
         }
     
     @extend_schema_field(OpenApiTypes.OBJECT)
@@ -468,7 +509,7 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             'str_value', 'con_value', 'pow_value',
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',
-            'notes', 'is_public', 'access_scope', 'allowed_user_ids', 'sixth_edition_data',
+            'notes', 'secret_ho_info', 'is_public', 'access_scope', 'allowed_user_ids', 'sixth_edition_data',
             'skills', 'equipment', 'character_image'
         ]
         read_only_fields = ['id']
@@ -738,7 +779,7 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
             'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
             'hit_points_current', 'magic_points_current', 'sanity_current',
             'hp_current', 'mp_current', 'san_current',  # エイリアス追加
-            'notes', 'is_active', 'access_scope', 'allowed_user_ids', 'status',
+            'notes', 'secret_ho_info', 'is_active', 'access_scope', 'allowed_user_ids', 'status',
             'character_image'
         ]
     
@@ -758,6 +799,30 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
     
     def update(self, instance, validated_data):
         """更新処理（画像削除対応）"""
+        ability_fields = {
+            'str_value', 'con_value', 'pow_value', 'dex_value',
+            'app_value', 'siz_value', 'int_value', 'edu_value', 'age',
+        }
+        current_fields = {
+            'hit_points_current', 'magic_points_current', 'sanity_current',
+        }
+        old_stats = instance.calculate_derived_stats()
+        old_current = {
+            'hit_points_current': instance.hit_points_current,
+            'magic_points_current': instance.magic_points_current,
+            'sanity_current': instance.sanity_current,
+        }
+        old_auto_current = {
+            'hit_points_current': old_stats['hit_points_max'],
+            'magic_points_current': old_stats['magic_points_max'],
+            'sanity_current': old_stats['sanity_starting'],
+        }
+        recalculation_needed = any(
+            field in validated_data and getattr(instance, field) != validated_data[field]
+            for field in ability_fields
+        )
+        explicitly_supplied_current = current_fields.intersection(validated_data.keys())
+
         # リクエストから削除フラグをチェック
         request = self.context.get('request')
         delete_image = request.data.get('delete_image') == 'true' if request else False
@@ -779,7 +844,48 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
         if 'access_scope' in validated_data:
             validated_data['is_public'] = validated_data['access_scope'] == 'public'
         
-        return super().update(instance, validated_data)
+        updated = super().update(instance, validated_data)
+
+        if recalculation_needed:
+            new_stats = updated.calculate_derived_stats()
+            updated.hit_points_max = new_stats['hit_points_max']
+            updated.magic_points_max = new_stats['magic_points_max']
+            updated.sanity_starting = new_stats['sanity_starting']
+            updated.sanity_max = new_stats['sanity_max']
+
+            if (
+                old_current['hit_points_current'] == old_auto_current['hit_points_current']
+                and (
+                    'hit_points_current' not in explicitly_supplied_current
+                    or validated_data.get('hit_points_current') == old_auto_current['hit_points_current']
+                )
+            ):
+                updated.hit_points_current = new_stats['hit_points_max']
+            if (
+                old_current['magic_points_current'] == old_auto_current['magic_points_current']
+                and (
+                    'magic_points_current' not in explicitly_supplied_current
+                    or validated_data.get('magic_points_current') == old_auto_current['magic_points_current']
+                )
+            ):
+                updated.magic_points_current = new_stats['magic_points_max']
+            if (
+                old_current['sanity_current'] == old_auto_current['sanity_current']
+                and (
+                    'sanity_current' not in explicitly_supplied_current
+                    or validated_data.get('sanity_current') == old_auto_current['sanity_current']
+                )
+            ):
+                updated.sanity_current = new_stats['sanity_starting']
+
+            updated.save()
+
+            if updated.edition == '6th':
+                sixth_data = updated.sheet_6th
+                if sixth_data:
+                    sixth_data.save()
+
+        return updated
 
 
 class CharacterDiceRollSettingSerializer(serializers.ModelSerializer):

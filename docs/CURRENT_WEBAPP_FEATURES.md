@@ -18,7 +18,7 @@
 
 - 実行環境: Django 5.2系
 - `python manage.py check`: 成功
-- 7版作成、ゲスト参加、公開共有を含む対象56テスト: 成功
+- 7版作成、ゲスト参加、安全な共有リンクを含む関連テスト55件: 成功
 - AWS runtime、production設定、ヘルスチェックの対象テスト: 成功
 
 ## 凡例（完成度）
@@ -313,7 +313,7 @@
   - キャラクターシートの紐付け（参加者 → キャラ）
   - 協力GM（co-GM）追加
   - 参加者招待（GMのみ、通知連携）
-  - 公開設定による参加制御（private/group/public）
+  - 公開設定による参加制御（private/group/link/public）
 - **画面**
   - セッション詳細: `/api/schedules/sessions/{id}/detail/`
 - **API（代表）**
@@ -458,12 +458,28 @@
   - `/api/schedules/occurrences/`（セッション出現）
 - **状態**: **完成**
 
-### 4.15 セッション公開共有
+### 4.15 安全な共有リンク
 
 - **内容**
-  - share_token（UUID）による認証なし閲覧（visibility='public' のセッションのみ）
-- **画面**
-  - `/sessions/<uuid:share_token>/view/` and `/s/<uuid:share_token>/` - public session detail for sessions with `visibility='public'` only
+  - 詳細仕様: `docs/specifications/SAFE_SHARE_LINKS_AND_LEGACY_IMPORT.md`
+  - `ShareLink` によるセッション、キャラクター、シナリオ、統計のリンク共有
+  - `link` は通常の公開一覧/公開ID URLには出さず、ShareLink URLを知る人のみ閲覧可能
+  - `public` は公開URL/APIで閲覧可能。必要に応じてShareLinkも発行可能
+  - raw token は発行/再発行レスポンスでのみ返し、DBには SHA-256 digest を保存
+  - セッション共有は秘匿HO、内部ユーザー情報、claim/OAuth情報を返さない
+  - キャラクター共有は所有者、許可ユーザー、メモ、version note を返さない
+  - シナリオ共有はGMメモ、秘匿HO、作成者情報を返さない
+  - 統計共有は表示名ベースの集計のみで、ログインユーザー紐づけ情報を返さない
+- **API**
+  - `GET/POST /api/share-links/`
+  - `POST /api/share-links/{id}/revoke/`
+  - `POST /api/share-links/{id}/reissue/`
+  - `GET /share/sessions/{token}/`
+  - `GET /share/characters/{token}/`
+  - `GET /share/scenarios/{token}/`
+  - `GET /share/stats/{token}/`
+- **レガシー公開URL**
+  - `/sessions/<uuid:share_token>/view/` and `/s/<uuid:share_token>/` - `visibility='public'` のセッション詳細のみ
 - **状態**: **完成**
 
 ### 4.16 セッション完了時の自動記録（プレイ履歴）
@@ -572,6 +588,21 @@
 - **API（代表）**
   - `/api/accounts/admin/users/`
 - **状態**: **一部完成**（UIはDjango admin中心、運用フローは要設計）
+
+### 7.3 過去セッションCSV取り込み
+
+- **内容**
+  - `import_trpg_schedule` は従来の Excel/JSON 取り込みに加え、CSV取り込みをサポート
+  - `--sessions-csv`、`--participants-csv`、`--aliases-csv` でセッション、参加者、表示名エイリアスを取り込む
+  - CSV取り込みの参加者は `ParticipantIdentity` / `ParticipantIdentityAlias` として保存し、ログインユーザーへ自動紐づけしない
+  - 過去セッションの `session.gm` は内部管理用ユーザー。共有表示ではGMロールの `ParticipantIdentity.display_name` を優先
+  - `--dry-run` はDBへ書き込まず、件数と重複を表示
+  - 重複がある本取り込みは `--allow-duplicates` がない限り中断し、transaction rollback される
+- **CSV列**
+  - sessions: `legacy_session_id,title,date,duration_minutes,scenario_title,gm_name,visibility`
+  - participants: `legacy_session_id,participant_name,role,character_name,character_sheet_url`
+  - aliases: `identity_key,display_name,alias,memo`
+- **状態**: **完成**
 
 ---
 

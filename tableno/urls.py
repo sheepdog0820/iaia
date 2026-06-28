@@ -58,6 +58,10 @@ from accounts.group_link_views import (
     GroupLinkShareView,
 )
 from accounts.share_views import (
+    FixedShareUrlView,
+    FixedSharedCharacterView,
+    FixedSharedScenarioView,
+    FixedSharedSessionView,
     ShareLinkListCreateView,
     ShareLinkReissueView,
     ShareLinkRevokeView,
@@ -152,8 +156,12 @@ urlpatterns = [
         name='group-link-share',
     ),
     path('api/share-links/', ShareLinkListCreateView.as_view(), name='share-link-list'),
+    path('api/share-links/fixed-url/', FixedShareUrlView.as_view(), name='fixed-share-url'),
     path('api/share-links/<int:pk>/revoke/', ShareLinkRevokeView.as_view(), name='share-link-revoke'),
     path('api/share-links/<int:pk>/reissue/', ShareLinkReissueView.as_view(), name='share-link-reissue'),
+    path('share/sessions/<uuid:share_token>/view/', FixedSharedSessionView.as_view(), name='fixed-shared-session-view'),
+    path('share/characters/<uuid:share_token>/view/', FixedSharedCharacterView.as_view(), name='fixed-shared-character-view'),
+    path('share/scenarios/<uuid:share_token>/view/', FixedSharedScenarioView.as_view(), name='fixed-shared-scenario-view'),
     path('share/sessions/<str:token>/', SharedSessionDetailView.as_view(), name='shared-session-detail'),
     path('share/characters/<str:token>/', SharedCharacterDetailView.as_view(), name='shared-character-detail'),
     path('share/scenarios/<str:token>/', SharedScenarioDetailView.as_view(), name='shared-scenario-detail'),

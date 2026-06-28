@@ -23,6 +23,33 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 
 
+COC6_BASIC_SKILL_NAMES = [
+    '回避', 'キック', '組み付き', 'こぶし（パンチ）', '頭突き', '投擲', 'マーシャルアーツ',
+    '拳銃', 'サブマシンガン', 'ショットガン', 'マシンガン', 'ライフル',
+    '応急手当', '鍵開け', '隠す', '隠れる', '聞き耳', '忍び歩き', '写真術', '精神分析',
+    '追跡', '登攀', '図書館', '目星',
+    '運転', '機械修理', '重機械操作', '乗馬', '水泳', '製作', '操縦', '跳躍',
+    '電気修理', 'ナビゲート', '変装',
+    '言いくるめ', '信用', '説得', '値切り', '他の言語', '母国語',
+    '医学', 'オカルト', '化学', 'クトゥルフ神話', '芸術', '経理', '考古学',
+    'コンピューター', '心理学', '人類学', '生物学', '地質学', '電子工学',
+    '天文学', '博物学', '物理学', '法律', '薬学', '歴史',
+]
+
+COC7_BASIC_SKILL_NAMES = [
+    '回避', 'キック', '組み付き', 'こぶし（パンチ）', '頭突き', '投擲', 'マーシャルアーツ',
+    '拳銃', 'サブマシンガン', 'ショットガン', 'マシンガン', 'ライフル',
+    '応急手当', '鍵開け', '鑑定', '隠す', '隠れる', '聞き耳', '忍び歩き', '写真術',
+    '精神分析', '追跡', '登攀', '図書館', '目星',
+    '運転', '機械修理', '重機械操作', '乗馬', '水泳', '製作', '操縦', '跳躍',
+    '電気修理', 'ナビゲート', '手さばき', 'サバイバル', '変装',
+    '言いくるめ', '魅惑', '信用', '説得', '値切り', '威圧', '他の言語', '母国語',
+    '医学', 'オカルト', '化学', 'クトゥルフ神話', '芸術', '経理', '考古学',
+    'コンピューター', '心理学', '人類学', '生物学', '地質学', '電子工学',
+    '天文学', '博物学', '物理学', '法律', '薬学', '歴史',
+]
+
+
 class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets.ModelViewSet):
     """Character sheet management ViewSet"""
     queryset = CharacterSheet.objects.none()
@@ -885,8 +912,12 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         )
         
         # Update fields
-        for field in ['personal_description', 'ideals_and_beliefs', 'significant_people', 
-                      'meaningful_locations', 'treasured_possessions', 'traits']:
+        for field in [
+            'personal_description', 'ideals_and_beliefs', 'significant_people',
+            'meaningful_locations', 'treasured_possessions', 'traits',
+            'scars_injuries', 'phobias_manias', 'arcane_tomes_spells_artifacts',
+            'encounters_with_strange_entities', 'notes_memo',
+        ]:
             if field in request.data:
                 setattr(background, field, request.data[field])
         
@@ -898,7 +929,12 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             'significant_people': background.significant_people,
             'meaningful_locations': background.meaningful_locations,
             'treasured_possessions': background.treasured_possessions,
-            'traits': background.traits
+            'traits': background.traits,
+            'scars_injuries': background.scars_injuries,
+            'phobias_manias': background.phobias_manias,
+            'arcane_tomes_spells_artifacts': background.arcane_tomes_spells_artifacts,
+            'encounters_with_strange_entities': background.encounters_with_strange_entities,
+            'notes_memo': background.notes_memo,
         }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
     
     @action(detail=True, methods=['get'])
@@ -1899,6 +1935,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 'important_events': '',
                 'scars_injuries': '',
                 'phobias_manias': '',
+                'arcane_tomes_spells_artifacts': '',
+                'encounters_with_strange_entities': '',
                 'fellow_investigators': '',
                 'notes_memo': ''
             })
@@ -1914,6 +1952,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             'important_events': background.important_events,
             'scars_injuries': background.scars_injuries,
             'phobias_manias': background.phobias_manias,
+            'arcane_tomes_spells_artifacts': background.arcane_tomes_spells_artifacts,
+            'encounters_with_strange_entities': background.encounters_with_strange_entities,
             'fellow_investigators': background.fellow_investigators,
             'notes_memo': background.notes_memo
         }
@@ -1940,7 +1980,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 'appearance_description', 'beliefs_ideology', 'significant_people',
                 'meaningful_locations', 'treasured_possessions', 'traits_mannerisms',
                 'personal_history', 'important_events', 'scars_injuries',
-                'phobias_manias', 'fellow_investigators', 'notes_memo'
+                'phobias_manias', 'arcane_tomes_spells_artifacts',
+                'encounters_with_strange_entities', 'fellow_investigators', 'notes_memo'
             ]
             
             for field in update_fields:
@@ -1962,6 +2003,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 'important_events': background.important_events,
                 'scars_injuries': background.scars_injuries,
                 'phobias_manias': background.phobias_manias,
+                'arcane_tomes_spells_artifacts': background.arcane_tomes_spells_artifacts,
+                'encounters_with_strange_entities': background.encounters_with_strange_entities,
                 'fellow_investigators': background.fellow_investigators,
                 'notes_memo': background.notes_memo
             })
@@ -2555,12 +2598,13 @@ class CharacterEditView(TemplateView):
             # Edit mode
             try:
                 character = CharacterSheet.objects.select_related(
-                    'sixth_edition_data'
+                    'sixth_edition_data', 'background_info'
                 ).prefetch_related(
                     'skills', 'equipment'
                 ).get(id=character_id, user=self.request.user)
                 
                 context['character'] = character
+                context['background_info'] = getattr(character, 'background_info', None)
                 context['mode'] = 'edit'
                 
             except CharacterSheet.DoesNotExist:
@@ -2568,23 +2612,11 @@ class CharacterEditView(TemplateView):
         else:
             # Create mode
             context['mode'] = 'create'
+            context['background_info'] = None
         
-        # Common skill list (6th/7th edition common basic skills)
-        common_skills = [
-            '応急手当', '鍵開け', '隠す', '隠れる', '聞き耳', 'こぶし', 
-            'キック', 'グレップル', '頭突き', '投擲', 'マーシャルアーツ',
-            '拳銃', 'サブマシンガン', 'ショットガン', 'マシンガン', 'ライフル',
-            '回避', '運転（自動車）', '機械修理', '重機械操作', '乗馬',
-            '水泳', '制作', '操縦（航空機）', '跳躍', '電気修理',
-            'ナビゲート', '変装', 'コンピューター', '考古学', '人類学',
-            '鑑定', '経理', '図書館', 'オカルト', '化学', '地質学',
-            '生物学', '博物学', '物理学', '天文学', '医学', '心理学',
-            '精神分析', '法律', 'クトゥルフ神話', '母国語', '他の言語',
-            '芸術', '威圧', '言いくるめ', '信用', '値切り', '説得',
-            '魅惑', 'ナチュラルワールド', 'サバイバル', 'トラック'
-        ]
-        
-        context['common_skills'] = common_skills
+        context['sixth_skills'] = COC6_BASIC_SKILL_NAMES
+        context['seventh_skills'] = COC7_BASIC_SKILL_NAMES
+        context['common_skills'] = COC6_BASIC_SKILL_NAMES
         
         return context
 
@@ -2606,22 +2638,7 @@ class Character6thCreateView(FormView):
         context['edition'] = '6th'
         context['edition_name'] = '6版'
         
-        # 6th edition basic skill list
-        sixth_skills = [
-            '応急手当', '鍵開け', '隠す', '隠れる', '聞き耳', 'こぶし', 
-            'キック', 'グレップル', '頭突き', '投擲', 'マーシャルアーツ',
-            'ピストル', 'サブマシンガン', 'ショットガン', 'マシンガン', 'ライフル',
-            '回避', '運転', '機械修理', '重機械操作', '乗馬',
-            '水泳', '制作', '操縦', '跳躍', '電気修理',
-            'ナビゲート', '変装', 'コンピューター', '考古学', '人類学',
-            '鑑定', '経理', '図書館', 'オカルト', '化学', '地質学',
-            '生物学', '博物学', '物理学', '天文学', '医学', '心理学',
-            '精神分析', '法律', 'クトゥルフ神話', '母国語', '他の言語',
-            '芸術', '威圧', '言いくるめ', '信用', '値切り', '説得',
-            '魅惑', '忍び歩き', '写真術', '目星'
-        ]
-        
-        context['available_skills'] = sixth_skills
+        context['available_skills'] = COC6_BASIC_SKILL_NAMES
         return context
     
     def form_valid(self, form):
@@ -2689,6 +2706,13 @@ class Character7thCreateView(TemplateView):
     """Cthulhu Mythos TRPG 7th edition character creation view"""
 
     template_name = 'accounts/character_7th_create.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['edition'] = '7th'
+        context['edition_name'] = '7版'
+        context['available_skills'] = COC7_BASIC_SKILL_NAMES
+        return context
 
 
 class GrowthRecordViewSet(CharacterNestedResourceMixin, viewsets.ModelViewSet):

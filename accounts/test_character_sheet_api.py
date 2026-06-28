@@ -383,6 +383,132 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(response.data['name'], '更新された探索者')
         self.assertEqual(response.data['age'], 30)
         self.assertEqual(response.data['hit_points_current'], 10)
+
+    def test_patch_recalculates_6th_derived_stats_when_abilities_change(self):
+        """6版は能力値更新時に最大値と6版固有ロールを再計算する"""
+        character = CharacterSheet.objects.create(
+            user=self.user,
+            edition='6th',
+            name='再計算6版',
+            age=28,
+            str_value=10,
+            con_value=10,
+            pow_value=10,
+            dex_value=10,
+            app_value=10,
+            siz_value=10,
+            int_value=10,
+            edu_value=10,
+        )
+        CharacterSheet6th.objects.create(character_sheet=character)
+
+        response = self.client.patch(
+            f'/api/accounts/character-sheets/{character.id}/',
+            {
+                'con_value': 18,
+                'pow_value': 12,
+                'siz_value': 16,
+                'int_value': 14,
+                'edu_value': 13,
+            },
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        character.refresh_from_db()
+        sixth = character.sixth_edition_data
+        self.assertEqual(character.hit_points_max, 17)
+        self.assertEqual(character.hit_points_current, 17)
+        self.assertEqual(character.magic_points_max, 12)
+        self.assertEqual(character.magic_points_current, 12)
+        self.assertEqual(character.sanity_starting, 60)
+        self.assertEqual(character.sanity_current, 60)
+        self.assertEqual(sixth.idea_roll, 70)
+        self.assertEqual(sixth.luck_roll, 60)
+        self.assertEqual(sixth.know_roll, 65)
+        self.assertEqual(sixth.damage_bonus, '+1D4')
+
+    def test_patch_preserves_manual_current_values_during_recalculation(self):
+        """現在HP/MP/SANが手入力済みなら最大値再計算時も保持する"""
+        character = CharacterSheet.objects.create(
+            user=self.user,
+            edition='6th',
+            name='手入力保持6版',
+            age=28,
+            str_value=10,
+            con_value=10,
+            pow_value=10,
+            dex_value=10,
+            app_value=10,
+            siz_value=10,
+            int_value=10,
+            edu_value=10,
+        )
+        CharacterSheet6th.objects.create(character_sheet=character)
+        character.hit_points_current = 7
+        character.magic_points_current = 3
+        character.sanity_current = 22
+        character.save(update_fields=['hit_points_current', 'magic_points_current', 'sanity_current'])
+
+        response = self.client.patch(
+            f'/api/accounts/character-sheets/{character.id}/',
+            {
+                'con_value': 18,
+                'pow_value': 12,
+                'siz_value': 16,
+            },
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        character.refresh_from_db()
+        self.assertEqual(character.hit_points_max, 17)
+        self.assertEqual(character.hit_points_current, 7)
+        self.assertEqual(character.magic_points_max, 12)
+        self.assertEqual(character.magic_points_current, 3)
+        self.assertEqual(character.sanity_starting, 60)
+        self.assertEqual(character.sanity_current, 22)
+
+    def test_patch_recalculates_7th_derived_stats_when_abilities_change(self):
+        """7版は能力値更新時に7版式の最大HP/MP/SANへ再計算する"""
+        character = CharacterSheet.objects.create(
+            user=self.user,
+            edition='7th',
+            name='再計算7版',
+            age=35,
+            str_value=50,
+            con_value=50,
+            pow_value=50,
+            dex_value=50,
+            app_value=50,
+            siz_value=50,
+            int_value=50,
+            edu_value=50,
+        )
+
+        response = self.client.patch(
+            f'/api/accounts/character-sheets/{character.id}/',
+            {
+                'con_value': 80,
+                'pow_value': 70,
+                'siz_value': 60,
+                'str_value': 90,
+                'dex_value': 80,
+                'age': 45,
+            },
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        character.refresh_from_db()
+        self.assertEqual(character.hit_points_max, 14)
+        self.assertEqual(character.hit_points_current, 14)
+        self.assertEqual(character.magic_points_max, 14)
+        self.assertEqual(character.magic_points_current, 14)
+        self.assertEqual(character.sanity_starting, 70)
+        self.assertEqual(character.sanity_current, 70)
+        self.assertEqual(character.calculate_build_7th(), 1)
+        self.assertEqual(character.calculate_move_rate_7th(), 8)
     
     def test_delete_character_sheet(self):
         """キャラクターシート削除テスト"""
