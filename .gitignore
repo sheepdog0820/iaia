@@ -60,6 +60,7 @@ coverage.xml
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+test_db.sqlite3
 
 # Flask stuff:
 instance/
@@ -157,6 +158,8 @@ Thumbs.db
 *.bak
 *.backup
 *.tmp
+tmp/
+codex-build-output/
 
 # SSL certificates
 ssl/
@@ -208,3 +211,4 @@ node_modules/.package-lock.json
 *.tfstate
 *.tfstate.*
 *.tfplan
+tfplan*
