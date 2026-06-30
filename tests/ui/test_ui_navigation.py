@@ -10,6 +10,7 @@ from schedules.models import TRPGSession
 from scenarios.models import Scenario
 from django.utils import timezone
 from datetime import timedelta
+from pathlib import Path
 
 User = get_user_model()
 
@@ -185,6 +186,66 @@ class UINavigationTestCase(TestCase):
         # モバイルナビゲーション要素の確認
         self.assertContains(response, 'navbar-toggler')
         self.assertContains(response, 'navbarNav')
+
+    def test_navbar_has_visible_contrast_styles_for_light_and_dark_modes(self):
+        """ナビゲーションがライト/ダーク両方で見えるスタイルを持つ"""
+        stylesheet = Path('static/css/arkham_modern.css').read_text(encoding='utf-8')
+
+        self.assertIn('--nav-accent-text: var(--accent-primary-dark);', stylesheet)
+        self.assertIn('--nav-accent-text: #93c5fd;', stylesheet)
+        self.assertIn('--navbar-toggler-bg:', stylesheet)
+        self.assertIn('--navbar-toggler-border:', stylesheet)
+        self.assertIn('.navbar-toggler {', stylesheet)
+        self.assertIn('min-width: 44px;', stylesheet)
+        self.assertIn('min-height: 40px;', stylesheet)
+        self.assertIn('border: 1px solid var(--navbar-toggler-border);', stylesheet)
+        self.assertIn('.navbar-toggler-icon {', stylesheet)
+        self.assertIn('linear-gradient(currentColor, currentColor)', stylesheet)
+        self.assertIn('background-size: 100% 2px;', stylesheet)
+        self.assertIn('.navbar-nav .nav-link:hover {', stylesheet)
+        self.assertIn('color: var(--nav-accent-text) !important;', stylesheet)
+        self.assertIn('.dropdown-item:hover {', stylesheet)
+        self.assertIn('.dropdown-header {', stylesheet)
+        self.assertIn('color: var(--text-secondary);', stylesheet)
+        self.assertIn('.dropdown-divider {', stylesheet)
+
+    def test_card_header_tabs_and_muted_text_have_visible_contrast(self):
+        stylesheet = Path('static/css/arkham_modern.css').read_text(encoding='utf-8')
+
+        self.assertIn('--card-header-gradient:', stylesheet)
+        self.assertIn('background: var(--card-header-gradient) !important;', stylesheet)
+        self.assertIn('.card-header .text-muted,', stylesheet)
+        self.assertIn('.card-header small,', stylesheet)
+        self.assertIn('color: #ffffff !important;', stylesheet)
+        self.assertIn('.card-header .card-header-tabs .nav-link', stylesheet)
+        self.assertIn('.card-header .card-header-tabs .nav-link.active', stylesheet)
+        self.assertIn('background: rgba(15, 23, 42, 0.24);', stylesheet)
+        self.assertIn('border-bottom-color: rgba(255, 255, 255, 0.35);', stylesheet)
+        self.assertIn('.card-header.bg-primary', stylesheet)
+        self.assertIn('.card-header.bg-info', stylesheet)
+        self.assertIn('.card-header.bg-success', stylesheet)
+        self.assertIn('.card-header.bg-warning', stylesheet)
+        self.assertIn('.card-header.bg-danger', stylesheet)
+        self.assertIn('.card-header.bg-secondary', stylesheet)
+        self.assertIn('background: linear-gradient(135deg, #0e7490 0%, #155e75 100%) !important;', stylesheet)
+        self.assertIn('background: linear-gradient(135deg, #047857 0%, #065f46 100%) !important;', stylesheet)
+        self.assertIn('background: linear-gradient(135deg, #b45309 0%, #92400e 100%) !important;', stylesheet)
+        self.assertIn('background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%) !important;', stylesheet)
+        self.assertIn('background: linear-gradient(135deg, #475569 0%, #334155 100%) !important;', stylesheet)
+
+    def test_outline_buttons_have_visible_contrast_in_light_and_dark_modes(self):
+        stylesheet = Path('static/css/arkham_modern.css').read_text(encoding='utf-8')
+
+        self.assertIn('--button-outline-primary-text: var(--accent-primary-dark);', stylesheet)
+        self.assertIn('--button-outline-primary-text: #93c5fd;', stylesheet)
+        self.assertIn('--button-outline-secondary-text: var(--text-secondary);', stylesheet)
+        self.assertIn('--button-outline-secondary-text: #cbd5e1;', stylesheet)
+        self.assertIn('.btn-outline-primary {', stylesheet)
+        self.assertIn('border: 2px solid var(--button-outline-primary-text);', stylesheet)
+        self.assertIn('color: var(--button-outline-primary-text);', stylesheet)
+        self.assertIn('.btn-outline-secondary {', stylesheet)
+        self.assertIn('border: 2px solid var(--button-outline-secondary-text);', stylesheet)
+        self.assertIn('color: var(--button-outline-secondary-text);', stylesheet)
 
     def test_breadcrumb_navigation(self):
         """パンくずナビゲーションのテスト"""
