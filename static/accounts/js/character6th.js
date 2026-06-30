@@ -20,6 +20,36 @@ document.addEventListener('DOMContentLoaded', function() {
         return Promise.resolve(false);
     };
 
+    const clampSkillNumber = (value) => {
+        const parsed = parseInt(value, 10);
+        if (Number.isNaN(parsed)) return 0;
+        return Math.min(Math.max(parsed, 0), 999);
+    };
+
+    const allocationInputValue = (value) => {
+        const numericValue = clampSkillNumber(value);
+        return numericValue > 0 ? String(numericValue) : '';
+    };
+
+    const setSkillAllocationInputValue = (input, value) => {
+        if (!input) return;
+        input.value = allocationInputValue(value);
+    };
+
+    const getSkillInputNumber = (input, { blankZero = false } = {}) => {
+        if (!input) return 0;
+        const rawValue = input.value;
+        const parsed = parseInt(rawValue, 10);
+        if (Number.isNaN(parsed)) return 0;
+
+        const value = clampSkillNumber(parsed);
+        const displayValue = blankZero ? allocationInputValue(value) : String(value);
+        if (rawValue !== displayValue) {
+            input.value = displayValue;
+        }
+        return value;
+    };
+
     const bodyEl = document.body;
     if (bodyEl) {
         bodyEl.classList.add('character-create-page');
@@ -933,21 +963,21 @@ function updateGlobalDiceFormula() {
                         <div class="col-6 col-lg-3">
                             <div class="input-group input-group-sm skill-input-group skill-input-group-occ" data-skill-kind="職" title="職業">
                                 <input type="number" class="form-control form-control-sm occupation-skill text-center"
-                                       id="occ_${key}" min="0" max="999" value="0"
+                                       id="occ_${key}" min="0" max="999" value=""
                                        data-skill="${key}" aria-label="${skillName} 職業" title="職業技能">
                             </div>
                         </div>
                         <div class="col-6 col-lg-3">
                             <div class="input-group input-group-sm skill-input-group skill-input-group-int" data-skill-kind="趣" title="趣味">
                                 <input type="number" class="form-control form-control-sm interest-skill text-center"
-                                       id="int_${key}" min="0" max="999" value="0"
+                                       id="int_${key}" min="0" max="999" value=""
                                        data-skill="${key}" aria-label="${skillName} 趣味" title="趣味技能">
                             </div>
                         </div>
                         <div class="col-6 col-lg-3">
                             <div class="input-group input-group-sm skill-input-group skill-input-group-other" data-skill-kind="他" title="その他">
                                 <input type="number" class="form-control form-control-sm other-skill text-center"
-                                       id="other_${key}" min="0" max="999" value="0"
+                                       id="other_${key}" min="0" max="999" value=""
                                        data-skill="${key}" aria-label="${skillName} その他" title="その他">
                             </div>
                         </div>
@@ -1243,11 +1273,11 @@ function updateGlobalDiceFormula() {
             baseInput.classList.add('customized');
         }
         const occInput = card.querySelector('.occupation-skill');
-        if (occInput) occInput.value = occupationPoints;
+        setSkillAllocationInputValue(occInput, occupationPoints);
         const intInput = card.querySelector('.interest-skill');
-        if (intInput) intInput.value = interestPoints;
+        setSkillAllocationInputValue(intInput, interestPoints);
         const otherInput = card.querySelector('.other-skill');
-        if (otherInput) otherInput.value = otherPoints;
+        setSkillAllocationInputValue(otherInput, otherPoints);
 
         if (options.render !== false) {
             refreshActiveSkillTab();
@@ -2137,14 +2167,10 @@ function updateGlobalDiceFormula() {
 
             if (!baseEl || !occEl || !intEl || !otherEl || !totalEl) return;
 
-            const base = Math.min(parseInt(baseEl.value, 10) || 0, 999);
-            const occ = Math.min(parseInt(occEl.value, 10) || 0, 999);
-            const int = Math.min(parseInt(intEl.value, 10) || 0, 999);
-            const other = Math.min(parseInt(otherEl.value, 10) || 0, 999);
-            if (parseInt(baseEl.value, 10) !== base) baseEl.value = base;
-            if (parseInt(occEl.value, 10) !== occ) occEl.value = occ;
-            if (parseInt(intEl.value, 10) !== int) intEl.value = int;
-            if (parseInt(otherEl.value, 10) !== other) otherEl.value = other;
+            const base = getSkillInputNumber(baseEl);
+            const occ = getSkillInputNumber(occEl, { blankZero: true });
+            const int = getSkillInputNumber(intEl, { blankZero: true });
+            const other = getSkillInputNumber(otherEl, { blankZero: true });
             const total = Math.min(base + occ + int + other, 999);
             totalEl.textContent = `${total}%`;
 
@@ -2225,7 +2251,7 @@ function updateGlobalDiceFormula() {
     const resetSkillAllocations = () => {
         skillCards.forEach(({ card }) => {
             card.querySelectorAll('.occupation-skill, .interest-skill').forEach(input => {
-                input.value = 0;
+                input.value = '';
             });
         });
         updateSkillTotals();
@@ -2437,41 +2463,71 @@ function initOccupationTemplates() {
         const imageInput = document.getElementById('character-images');
         const imagePreview = document.getElementById('image-preview');
         const previewImg = document.getElementById('preview-img');
+        const previewCount = document.getElementById('image-preview-count');
         const removeBtn = document.getElementById('remove-image');
         
         if (!imageInput) return;
+
+        const maxImages = parseInt(imageInput.dataset.maxImages || '2', 10) || 2;
+        const maxFileSize = 5 * 1024 * 1024;
+        const allowedImagePattern = /^image\/(jpeg|jpg|png|gif)$/;
+
+        function resetImagePreview() {
+            imageInput.value = '';
+            if (previewImg) previewImg.src = '';
+            if (previewCount) previewCount.textContent = '';
+            if (imagePreview) imagePreview.style.display = 'none';
+        }
+
+        function showImagePreview(files) {
+            const firstFile = files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                if (previewImg) previewImg.src = e.target.result;
+                if (previewCount) {
+                    previewCount.textContent = files.length === 1
+                        ? firstFile.name
+                        : `${firstFile.name} ほか${files.length - 1}枚`;
+                }
+                if (imagePreview) imagePreview.style.display = 'block';
+            };
+            reader.readAsDataURL(firstFile);
+        }
         
         // ファイル選択時のプレビュー表示
         imageInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                // File size check (5MB limit)
-                if (file.size > 5 * 1024 * 1024) {
-                    notifyUser('File size must be 5MB or less.');
-                    imageInput.value = '';
-                    return;
-                }
-                
-                // File type check
-                if (!file.type.match(/^image\/(jpeg|jpg|png|gif)$/)) {
-                    notifyUser('Please select a JPG, PNG, or GIF image.');
-                    imageInput.value = '';
-                    return;
-                }
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    previewImg.src = e.target.result;
-                    imagePreview.style.display = 'block';
-                };
-                reader.readAsDataURL(file);
+            const files = Array.from(e.target.files || []);
+            if (files.length === 0) {
+                resetImagePreview();
+                return;
             }
+
+            if (files.length > maxImages) {
+                notifyUser(`キャラクター画像は最大${maxImages}枚まで選択できます。`);
+                resetImagePreview();
+                return;
+            }
+
+            const oversizedFile = files.find(file => file.size > maxFileSize);
+            if (oversizedFile) {
+                notifyUser('File size must be 5MB or less.');
+                resetImagePreview();
+                return;
+            }
+
+            const invalidTypeFile = files.find(file => !allowedImagePattern.test(file.type));
+            if (invalidTypeFile) {
+                notifyUser('Please select JPG, PNG, or GIF images.');
+                resetImagePreview();
+                return;
+            }
+
+            showImagePreview(files);
         });
         
         // 画像を削除
         removeBtn?.addEventListener('click', function() {
-            imageInput.value = '';
-            previewImg.src = '';
-            imagePreview.style.display = 'none';
+            resetImagePreview();
         });
     }
     
@@ -2618,10 +2674,10 @@ function initOccupationTemplates() {
             const baseInput = card.querySelector('.skill-base');
             const otherInput = card.querySelector('.other-skill');
 
-            if (occInput) occInput.value = skill.occupation_points ?? 0;
-            if (intInput) intInput.value = skill.interest_points ?? 0;
+            setSkillAllocationInputValue(occInput, skill.occupation_points);
+            setSkillAllocationInputValue(intInput, skill.interest_points);
             if (baseInput) baseInput.value = skill.base_value ?? 0;
-            if (otherInput) otherInput.value = skill.other_points ?? 0;
+            setSkillAllocationInputValue(otherInput, skill.other_points);
 
             const defaultBase = (() => {
                 const definitionBase = ALL_SKILLS_6TH[skillKey]?.base;
@@ -2787,6 +2843,11 @@ function initOccupationTemplates() {
         const imageFiles = formData
             .getAll('character_images')
             .filter(f => f instanceof File && f.size > 0 && f.name);
+        const imageInput = form.querySelector('#character-images');
+        const maxImages = parseInt(imageInput?.dataset.maxImages || '2', 10) || 2;
+        if (imageFiles.length > maxImages) {
+            throw { error: `キャラクター画像は最大${maxImages}枚まで選択できます。` };
+        }
 
         return { apiData, data, formData, imageFiles, backgroundData };
     }

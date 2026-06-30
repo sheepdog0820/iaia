@@ -6,6 +6,11 @@ from allauth.account.forms import ResetPasswordForm as AllauthResetPasswordForm
 from allauth.account.models import EmailAddress
 from .models import CustomUser
 from .character_models import CharacterSheet, CharacterSheet6th
+from .character_image_limits import (
+    character_image_limit_error_message,
+    collect_character_image_uploads,
+    get_character_image_limit,
+)
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -913,6 +918,13 @@ class CharacterSheet6thForm(forms.ModelForm):
         
         if 'sanity_current' not in cleaned_data or cleaned_data['sanity_current'] is None:
             cleaned_data['sanity_current'] = cleaned_data.get('sanity_starting', 50)
+
+        image_files = collect_character_image_uploads(self.files)
+        image_limit = get_character_image_limit(self.user)
+        if len(image_files) > image_limit:
+            raise forms.ValidationError({
+                'character_images': character_image_limit_error_message(image_limit)
+            })
         
         return cleaned_data
     
@@ -1031,19 +1043,15 @@ class CharacterSheet6thForm(forms.ModelForm):
         
         # フォームから複数画像を取得
         logger.info(f"Available files in form: {list(self.files.keys())}")
-        images = self.files.getlist('character_images')
-        if not images:
-            images = self.files.getlist('images')
+        images = collect_character_image_uploads(self.files)
         logger.info(f"Images from getlist: {images}")
         if not images:
-            # 単一ファイルとして試す
-            single_image = self.files.get('character_images') or self.files.get('images')
-            if single_image:
-                images = [single_image]
-                logger.info(f"Single image found: {single_image}")
-            else:
-                logger.info(f"No images to save for character_sheet {character_sheet.id}")
-                return
+            logger.info(f"No images to save for character_sheet {character_sheet.id}")
+            return
+
+        image_limit = get_character_image_limit(character_sheet.user)
+        if len(images) > image_limit:
+            raise forms.ValidationError(character_image_limit_error_message(image_limit))
         
         # 既存の画像がない場合のみ保存（重複エラーを防ぐ）
         existing_images = CharacterImage.objects.filter(character_sheet=character_sheet)

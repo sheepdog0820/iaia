@@ -89,6 +89,15 @@ class CharacterSheetAPITest(APITestCase):
                 'phobias_manias': '高所恐怖症'
             }
         }
+
+    def create_test_gif(self, filename="test.gif"):
+        gif_bytes = (
+            b"GIF89a\x01\x00\x01\x00\x80\x00\x00"
+            b"\x00\x00\x00\xff\xff\xff!\xf9\x04\x01"
+            b"\x00\x00\x00\x00,\x00\x00\x00\x00\x01"
+            b"\x00\x01\x00\x00\x02\x02D\x01\x00;"
+        )
+        return SimpleUploadedFile(filename, gif_bytes, content_type="image/gif")
     
     def test_create_6th_edition_character(self):
         """6版キャラクターシート作成テスト"""
@@ -115,17 +124,8 @@ class CharacterSheetAPITest(APITestCase):
 
     def test_create_6th_edition_character_with_image(self):
         """6版キャラクター作成（画像付き）のテスト"""
-        # minimal 1x1 gif
-        gif_bytes = (
-            b"GIF89a\x01\x00\x01\x00\x80\x00\x00"
-            b"\x00\x00\x00\xff\xff\xff!\xf9\x04\x01"
-            b"\x00\x00\x00\x00,\x00\x00\x00\x00\x01"
-            b"\x00\x01\x00\x00\x02\x02D\x01\x00;"
-        )
-        image = SimpleUploadedFile("test.gif", gif_bytes, content_type="image/gif")
-
         data = dict(self.character_data_6th)
-        data["character_images"] = image
+        data["character_images"] = self.create_test_gif("test.gif")
 
         response = self.client.post(
             "/api/accounts/character-sheets/create_6th_edition/",
@@ -136,6 +136,50 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         character = CharacterSheet.objects.get(id=response.data["id"])
         self.assertTrue(character.images.exists())
+
+    def test_create_6th_edition_rejects_normal_user_over_image_limit(self):
+        """通常ユーザーは作成APIで3枚以上の画像を添付できない"""
+        data = dict(self.character_data_6th)
+        data["name"] = "通常ユーザー画像上限"
+        data["character_images"] = [
+            self.create_test_gif(f"normal-limit-{i}.gif")
+            for i in range(3)
+        ]
+
+        response = self.client.post(
+            "/api/accounts/character-sheets/create_6th_edition/",
+            data,
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("最大2枚", str(response.data))
+        self.assertFalse(CharacterSheet.objects.filter(name="通常ユーザー画像上限").exists())
+
+    def test_create_7th_edition_allows_ten_images_for_premium_user(self):
+        """プレミアムユーザーは作成APIで10枚まで画像を添付できる"""
+        self.user.is_premium = True
+        self.user.save(update_fields=["is_premium"])
+        data = {
+            key: value
+            for key, value in self.character_data_7th.items()
+            if key != "seventh_edition_data"
+        }
+        data["name"] = "プレミアム画像10枚"
+        data["character_images"] = [
+            self.create_test_gif(f"premium-create-{i}.gif")
+            for i in range(10)
+        ]
+
+        response = self.client.post(
+            "/api/accounts/character-sheets/create_7th_edition/",
+            data,
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        character = CharacterSheet.objects.get(id=response.data["id"])
+        self.assertEqual(character.images.count(), 10)
     
     def test_create_6th_edition_character_with_equipment(self):
         """6版作成APIで武器・防具・アイテムを同時登録できる"""

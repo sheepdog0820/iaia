@@ -4,6 +4,11 @@ from rest_framework.test import APITestCase
 from django.contrib.auth import get_user_model
 from accounts.models import CharacterSheet, CharacterImage
 from accounts.test_character_integration import CharacterIntegrationTestCase
+import io
+import tempfile
+import zipfile
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 
 
 User = get_user_model()
@@ -93,6 +98,154 @@ class CharacterImageAPISMokeTest(APITestCase):
 
         img2.refresh_from_db()
         self.assertTrue(img2.is_main)
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class CharacterImageDownloadZipTest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='zip_owner',
+            password='pass123',
+            email='zip-owner@example.com',
+        )
+        self.other_user = User.objects.create_user(
+            username='zip_other',
+            password='pass123',
+            email='zip-other@example.com',
+        )
+        self.sheet = CharacterSheet.objects.create(
+            user=self.user,
+            name='ZIP Investigator',
+            edition='6th',
+            age=25,
+            str_value=10,
+            con_value=10,
+            pow_value=10,
+            dex_value=10,
+            app_value=10,
+            siz_value=10,
+            int_value=10,
+            edu_value=10,
+            hit_points_max=10,
+            hit_points_current=10,
+            magic_points_max=10,
+            magic_points_current=10,
+            sanity_starting=50,
+            sanity_max=99,
+            sanity_current=50,
+            access_scope='private',
+        )
+
+    def uploaded_file(self, name, content):
+        return SimpleUploadedFile(name, content, content_type='image/png')
+
+    def archive(self, response):
+        return zipfile.ZipFile(io.BytesIO(response.content))
+
+    def test_owner_downloads_character_images_zip_in_display_order(self):
+        CharacterImage.objects.create(
+            character_sheet=self.sheet,
+            image=self.uploaded_file('second.png', b'second-image'),
+            is_main=False,
+            order=2,
+        )
+        CharacterImage.objects.create(
+            character_sheet=self.sheet,
+            image=self.uploaded_file('main.png', b'main-image'),
+            is_main=True,
+            order=1,
+        )
+
+        self.client.force_authenticate(self.user)
+        response = self.client.get(
+            reverse('character-image-download', kwargs={'character_id': self.sheet.id})
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'application/zip')
+        self.assertIn('attachment', response['Content-Disposition'])
+
+        with self.archive(response) as archive:
+            self.assertEqual(archive.namelist(), ['01_main_main.png', '02_second.png'])
+            self.assertEqual(archive.read('01_main_main.png'), b'main-image')
+            self.assertEqual(archive.read('02_second.png'), b'second-image')
+
+    def test_download_uses_legacy_character_image_when_multiple_images_are_absent(self):
+        self.sheet.character_image = self.uploaded_file('legacy.png', b'legacy-image')
+        self.sheet.save(update_fields=['character_image'])
+
+        self.client.force_authenticate(self.user)
+        response = self.client.get(
+            reverse('character-image-download', kwargs={'character_id': self.sheet.id})
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        with self.archive(response) as archive:
+            self.assertEqual(archive.namelist(), ['01_main_legacy.png'])
+            self.assertEqual(archive.read('01_main_legacy.png'), b'legacy-image')
+
+    def test_download_returns_404_when_no_images_are_available(self):
+        self.client.force_authenticate(self.user)
+        response = self.client.get(
+            reverse('character-image-download', kwargs={'character_id': self.sheet.id})
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_private_character_images_are_not_readable_by_anonymous_or_unrelated_users(self):
+        CharacterImage.objects.create(
+            character_sheet=self.sheet,
+            image=self.uploaded_file('private.png', b'private-image'),
+            is_main=True,
+        )
+        url = reverse('character-image-download', kwargs={'character_id': self.sheet.id})
+        list_url = reverse('character-image-list', kwargs={'character_id': self.sheet.id})
+
+        self.client.force_authenticate(user=None)
+        self.assertEqual(self.client.get(url).status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(self.client.get(list_url).status_code, status.HTTP_404_NOT_FOUND)
+
+        self.client.force_authenticate(self.other_user)
+        self.assertEqual(self.client.get(url).status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(self.client.get(list_url).status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_public_character_zip_is_readable_anonymously(self):
+        self.sheet.access_scope = 'public'
+        self.sheet.save(update_fields=['access_scope'])
+        CharacterImage.objects.create(
+            character_sheet=self.sheet,
+            image=self.uploaded_file('public.png', b'public-image'),
+            is_main=True,
+        )
+
+        self.client.force_authenticate(user=None)
+        response = self.client.get(
+            reverse('character-image-download', kwargs={'character_id': self.sheet.id})
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        with self.archive(response) as archive:
+            self.assertEqual(archive.read('01_main_public.png'), b'public-image')
+
+    def test_link_shared_character_zip_uses_share_token_and_closes_when_private(self):
+        self.sheet.access_scope = 'link'
+        self.sheet.save(update_fields=['access_scope'])
+        CharacterImage.objects.create(
+            character_sheet=self.sheet,
+            image=self.uploaded_file('shared.png', b'shared-image'),
+            is_main=True,
+        )
+        url = f'/share/characters/{self.sheet.share_token}/images.zip'
+
+        self.client.force_authenticate(user=None)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        with self.archive(response) as archive:
+            self.assertEqual(archive.read('01_main_shared.png'), b'shared-image')
+
+        self.sheet.access_scope = 'private'
+        self.sheet.save(update_fields=['access_scope'])
+        self.assertEqual(self.client.get(url).status_code, status.HTTP_404_NOT_FOUND)
 
 
 class CCFOLIAEndpointSmokeTest(APITestCase):

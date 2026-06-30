@@ -179,8 +179,8 @@ class CharacterImageAPITestCase(APITestCase):
         self.assertIn('thumbnail_url', response.data)
     
     def test_upload_multiple_images(self):
-        """複数画像の同時アップロードテスト"""
-        images = [self.create_test_image(f'test{i}.png') for i in range(3)]
+        """通常ユーザーは2枚まで複数画像をアップロードできる"""
+        images = [self.create_test_image(f'test{i}.png') for i in range(2)]
         url = reverse('character-image-list', kwargs={'character_id': self.character.id})
         
         for i, image in enumerate(images):
@@ -190,22 +190,42 @@ class CharacterImageAPITestCase(APITestCase):
             }, format='multipart')
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
-        self.assertEqual(CharacterImage.objects.count(), 3)
+        self.assertEqual(CharacterImage.objects.count(), 2)
     
     def test_image_count_limit(self):
-        """画像数制限のテスト（10枚まで）"""
+        """通常ユーザーの画像数制限のテスト（2枚まで）"""
         url = reverse('character-image-list', kwargs={'character_id': self.character.id})
         
-        # 10枚まではアップロード可能
-        for i in range(10):
+        # 2枚まではアップロード可能
+        for i in range(2):
             image = self.create_test_image(f'test{i}.png')
             response = self.client.post(url, {
                 'image': image
             }, format='multipart')
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
-        # 11枚目はエラー
-        image = self.create_test_image('test11.png')
+        # 3枚目はエラー
+        image = self.create_test_image('test2.png')
+        response = self.client.post(url, {
+            'image': image
+        }, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('最大2枚', str(response.data))
+
+    def test_premium_image_count_limit(self):
+        """プレミアムユーザーの画像数制限のテスト（10枚まで）"""
+        self.user.is_premium = True
+        self.user.save(update_fields=['is_premium'])
+        url = reverse('character-image-list', kwargs={'character_id': self.character.id})
+
+        for i in range(10):
+            image = self.create_test_image(f'premium{i}.png')
+            response = self.client.post(url, {
+                'image': image
+            }, format='multipart')
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        image = self.create_test_image('premium10.png')
         response = self.client.post(url, {
             'image': image
         }, format='multipart')
@@ -227,6 +247,8 @@ class CharacterImageAPITestCase(APITestCase):
     
     def test_total_size_limit(self):
         """総容量制限のテスト（30MB）"""
+        self.user.is_premium = True
+        self.user.save(update_fields=['is_premium'])
         url = reverse('character-image-list', kwargs={'character_id': self.character.id})
         
         # 4MBの画像を8枚アップロードしようとする（32MB）
@@ -412,7 +434,7 @@ class CharacterImageIntegrationTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         
         # 複数画像付きでキャラクターを作成
-        images = [self.create_test_image(f'test{i}.png') for i in range(3)]
+        images = [self.create_test_image(f'test{i}.png') for i in range(2)]
         
         form_data = {
             'name': 'テストキャラクター',
@@ -445,7 +467,56 @@ class CharacterImageIntegrationTestCase(TestCase):
         character = CharacterSheet.objects.get(name='テストキャラクター')
         
         # 画像が保存されていることを確認
-        self.assertEqual(character.images.count(), 3)
+        self.assertEqual(character.images.count(), 2)
+
+    def test_character_creation_rejects_normal_user_over_image_limit(self):
+        """通常ユーザーは作成画面で3枚以上の画像を添付できない"""
+        images = [self.create_test_image(f'over-limit{i}.png') for i in range(3)]
+        form_data = {
+            'name': '画像上限テスト',
+            'age': '25',
+            'occupation': '探偵',
+            'birthplace': '東京',
+            'str_value': '10',
+            'con_value': '12',
+            'pow_value': '14',
+            'dex_value': '11',
+            'app_value': '13',
+            'siz_value': '10',
+            'int_value': '15',
+            'edu_value': '16',
+            'hp': '11',
+            'mp': '14',
+            'san_value': '70',
+            'damage_bonus': '0',
+            'images': images
+        }
+
+        response = self.client.post(
+            reverse('character_create_6th'),
+            data=form_data,
+            follow=True
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(CharacterSheet.objects.filter(name='画像上限テスト').exists())
+        self.assertIn('最大2枚', str(response.context['form'].errors))
+
+    def test_character_create_templates_allow_multiple_images_with_role_limits(self):
+        """作成画面の画像入力は複数選択とユーザー別上限を持つ"""
+        for url_name in ('character_create_6th', 'character_create_7th'):
+            response = self.client.get(reverse(url_name))
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, 'id="character-images"')
+            self.assertContains(response, 'multiple')
+            self.assertContains(response, 'data-max-images="2"')
+            self.assertContains(response, '現在の添付上限: 最大2枚')
+
+        self.user.is_premium = True
+        self.user.save(update_fields=['is_premium'])
+        response = self.client.get(reverse('character_create_6th'))
+        self.assertContains(response, 'data-max-images="10"')
+        self.assertContains(response, '現在の添付上限: 最大10枚')
     
     def test_character_detail_with_images(self):
         """画像付きキャラクター詳細表示テスト"""
@@ -482,6 +553,11 @@ class CharacterImageIntegrationTestCase(TestCase):
         self.assertContains(response, 'test0.png')  # メイン画像
         self.assertContains(response, 'test1.png')
         self.assertContains(response, 'test2.png')
+        self.assertContains(response, 'character-image-switcher')
+        self.assertContains(response, 'character-image-prev')
+        self.assertContains(response, 'character-image-next')
+        self.assertContains(response, 'character-thumbnail-button')
+        self.assertContains(response, 'bindCharacterImageSwitcher')
     
     def test_image_preview_on_edit(self):
         """編集画面での画像プレビューテスト"""

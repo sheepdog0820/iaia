@@ -15,7 +15,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container character-detail" id="characterDetailContainer" data-character-id="{{ character.id }}" data-public-view="{% if is_public_view %}true{% else %}false{% endif %}" data-shared-api-url="{{ character_shared_api_url|default:'' }}">
+<div class="container character-detail" id="characterDetailContainer" data-character-id="{{ character.id }}" data-public-view="{% if is_public_view %}true{% else %}false{% endif %}" data-shared-api-url="{{ character_shared_api_url|default:'' }}" data-character-images-api-url="{{ character_images_api_url|default:'' }}" data-character-images-zip-url="{{ character_images_zip_url|default:'' }}">
     <!-- ローディング -->
     <div class="text-center" id="loading">
         <div class="spinner-border text-primary" role="status">
@@ -364,6 +364,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const characterId = containerEl?.dataset?.characterId;
     const isPublicView = containerEl?.dataset?.publicView === 'true';
     const sharedApiUrl = containerEl?.dataset?.sharedApiUrl || '';
+    const characterImagesApiUrl = containerEl?.dataset?.characterImagesApiUrl || `/api/accounts/character-sheets/${characterId}/images/`;
+    const characterImagesZipUrl = containerEl?.dataset?.characterImagesZipUrl || `/api/accounts/character-sheets/${characterId}/images/download/`;
     const characterDetailApiUrl = sharedApiUrl || (isPublicView
         ? `/api/accounts/character-sheets/${characterId}/public/`
         : `/api/accounts/character-sheets/${characterId}/`);
@@ -574,40 +576,157 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // 複数画像表示
+    function buildImageDownloadButtonHtml() {
+        if (!characterImagesZipUrl) {
+            return '';
+        }
+        return `
+            <div class="d-grid mb-3">
+                <a href="${escapeHtml(characterImagesZipUrl)}" class="btn btn-outline-secondary btn-sm" download>
+                    <i class="fas fa-file-archive"></i> 立ち絵ZIP
+                </a>
+            </div>
+        `;
+    }
+
+    function setDisplayedCharacterImage(images, index, characterName) {
+        if (!Array.isArray(images) || images.length === 0) return;
+
+        const safeIndex = Math.max(0, Math.min(index, images.length - 1));
+        const selectedImage = images[safeIndex];
+        if (!selectedImage?.image_url) return;
+
+        const mainImage = document.querySelector('.main-character-image');
+        if (mainImage) {
+            mainImage.src = selectedImage.image_url;
+            mainImage.alt = images.length > 1 ? `${characterName} ${safeIndex + 1}` : characterName;
+            mainImage.dataset.imageIndex = String(safeIndex);
+        }
+
+        const counter = document.getElementById('characterImageCurrent');
+        if (counter) {
+            counter.textContent = String(safeIndex + 1);
+        }
+
+        const switcher = document.querySelector('.character-image-switcher');
+        if (switcher) {
+            switcher.dataset.currentIndex = String(safeIndex);
+        }
+
+        document.querySelectorAll('.character-thumbnail-button').forEach(button => {
+            const isSelected = Number(button.dataset.imageIndex) === safeIndex;
+            button.classList.toggle('active', isSelected);
+            button.classList.toggle('border-primary', isSelected);
+            button.classList.toggle('border-3', isSelected);
+            button.classList.toggle('border-secondary', !isSelected);
+            button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        });
+    }
+
+    function bindCharacterImageSwitcher(images, characterName, initialIndex = 0) {
+        if (!Array.isArray(images) || images.length === 0) return;
+
+        const mainImage = document.querySelector('.main-character-image');
+        if (mainImage) {
+            mainImage.addEventListener('click', () => {
+                const index = Number(mainImage.dataset.imageIndex || initialIndex);
+                const image = images[index] || images[initialIndex] || images[0];
+                if (image?.image_url) {
+                    showImageModal(image.image_url, characterName);
+                }
+            });
+        }
+
+        const getCurrentIndex = () => {
+            const switcher = document.querySelector('.character-image-switcher');
+            const current = Number(switcher?.dataset.currentIndex || initialIndex);
+            return Number.isNaN(current) ? initialIndex : current;
+        };
+
+        document.querySelector('.character-image-prev')?.addEventListener('click', () => {
+            const nextIndex = (getCurrentIndex() - 1 + images.length) % images.length;
+            setDisplayedCharacterImage(images, nextIndex, characterName);
+        });
+
+        document.querySelector('.character-image-next')?.addEventListener('click', () => {
+            const nextIndex = (getCurrentIndex() + 1) % images.length;
+            setDisplayedCharacterImage(images, nextIndex, characterName);
+        });
+
+        document.querySelectorAll('.character-thumbnail-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const index = Number(button.dataset.imageIndex);
+                if (!Number.isNaN(index)) {
+                    setDisplayedCharacterImage(images, index, characterName);
+                }
+            });
+        });
+
+        setDisplayedCharacterImage(images, initialIndex, characterName);
+    }
+
     function displayCharacterImages(character) {
         const imageContainer = document.getElementById('characterImageContainer');
         
         // APIから画像一覧を取得
-        axios.get(`/api/accounts/character-sheets/${character.id}/images/`)
+        axios.get(characterImagesApiUrl)
             .then(response => {
                 const data = response.data;
                 if (data.count > 0) {
-                    const images = data.results;
+                    const images = data.results.filter(image => image.image_url);
+                    if (images.length === 0) {
+                        imageContainer.innerHTML = `
+                            <div class="bg-light rounded shadow d-flex align-items-center justify-content-center"
+                                 style="height: 300px;">
+                                <i class="fas fa-user fa-4x text-muted"></i>
+                            </div>
+                        `;
+                        return;
+                    }
                     const mainImage = images.find(img => img.is_main) || images[0];
+                    const mainImageIndex = Math.max(0, images.indexOf(mainImage));
                     
                     let html = '';
                     
                     // メイン画像表示
                     html += `
                         <div class="mb-3">
-                            <img src="${mainImage.image_url}" class="img-fluid rounded shadow main-character-image" 
+                            <img src="${escapeHtml(mainImage.image_url)}" class="img-fluid rounded shadow main-character-image"
                                  style="max-height: 300px; width: 100%; object-fit: contain; cursor: pointer;" 
-                                 alt="${character.name}" onclick="showImageModal('${mainImage.image_url}', '${character.name}')">
+                                 alt="${escapeHtml(character.name)}" data-image-index="${mainImageIndex}">
                         </div>
+                        <div class="character-image-switcher d-flex align-items-center justify-content-between gap-2 mb-2" data-current-index="${mainImageIndex}">
+                            <button type="button" class="btn btn-outline-secondary btn-sm character-image-prev" aria-label="Previous image"${images.length <= 1 ? ' disabled' : ''}>
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <span class="small text-muted">
+                                <span id="characterImageCurrent">${mainImageIndex + 1}</span> / ${images.length}
+                            </span>
+                            <button type="button" class="btn btn-outline-secondary btn-sm character-image-next" aria-label="Next image"${images.length <= 1 ? ' disabled' : ''}>
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                        ${buildImageDownloadButtonHtml()}
                     `;
                     
                     // サムネイル表示（複数画像がある場合）
                     if (images.length > 1) {
                         html += '<div class="row g-2">';
-                        images.forEach(image => {
-                            const isMain = image.is_main ? 'border-primary border-3' : '';
+                        images.forEach((image, index) => {
+                            const isSelected = index === mainImageIndex;
+                            const borderClass = isSelected ? 'active border-primary border-3' : 'border-secondary';
                             html += `
                                 <div class="col-4">
-                                    <img src="${image.thumbnail_url || image.image_url}" 
-                                         class="img-fluid rounded thumbnail-image ${isMain}" 
-                                         style="height: 60px; width: 100%; object-fit: contain; cursor: pointer;" 
-                                         alt="${character.name}" 
-                                         onclick="changeMainImage('${image.image_url}', '${character.name}')">
+                                    <button type="button"
+                                            class="btn p-0 w-100 rounded border character-thumbnail-button ${borderClass}"
+                                            data-image-index="${index}"
+                                            aria-label="Show image ${index + 1}"
+                                            aria-pressed="${isSelected ? 'true' : 'false'}">
+                                        <img src="${escapeHtml(image.thumbnail_url || image.image_url)}"
+                                             class="img-fluid rounded thumbnail-image"
+                                             style="height: 60px; width: 100%; object-fit: contain;"
+                                             alt="${escapeHtml(character.name)} ${index + 1}">
+                                    </button>
                                 </div>
                             `;
                         });
@@ -615,7 +734,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     imageContainer.innerHTML = html;
+                    bindCharacterImageSwitcher(images, character.name, mainImageIndex);
                 } else {
+                    const fallbackImageUrl = character.character_image || character.character_image_url;
+                    if (fallbackImageUrl) {
+                        imageContainer.innerHTML = `
+                            <div class="mb-3">
+                                <img src="${escapeHtml(fallbackImageUrl)}" class="img-fluid rounded shadow main-character-image"
+                                     style="max-height: 300px; width: 100%; object-fit: contain; cursor: pointer; background-color: #f8f9fa;"
+                                     alt="${escapeHtml(character.name)}">
+                            </div>
+                            ${buildImageDownloadButtonHtml()}
+                        `;
+                        document.querySelector('.main-character-image')?.addEventListener('click', () => {
+                            showImageModal(fallbackImageUrl, character.name);
+                        });
+                        return;
+                    }
                     // デフォルト画像
                     imageContainer.innerHTML = `
                         <div class="bg-light rounded shadow d-flex align-items-center justify-content-center" 
@@ -631,10 +766,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 const fallbackImageUrl = character.character_image || character.character_image_url;
                 if (fallbackImageUrl) {
                     imageContainer.innerHTML = `
-                        <img src="${fallbackImageUrl}" class="img-fluid rounded shadow"
-                             style="max-height: 300px; object-fit: contain; background-color: #f8f9fa;"
-                             alt="${character.name}">
+                        <div class="mb-3">
+                            <img src="${escapeHtml(fallbackImageUrl)}" class="img-fluid rounded shadow main-character-image"
+                                 style="max-height: 300px; width: 100%; object-fit: contain; cursor: pointer; background-color: #f8f9fa;"
+                                 alt="${escapeHtml(character.name)}">
+                        </div>
+                        ${buildImageDownloadButtonHtml()}
                     `;
+                    document.querySelector('.main-character-image')?.addEventListener('click', () => {
+                        showImageModal(fallbackImageUrl, character.name);
+                    });
                 } else {
                     imageContainer.innerHTML = `
                         <div class="bg-light rounded shadow d-flex align-items-center justify-content-center" 
@@ -663,11 +804,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="modal-dialog modal-lg modal-dialog-centered">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title">${characterName}</h5>
+                            <h5 class="modal-title">${escapeHtml(characterName)}</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body text-center">
-                            <img src="${imageUrl}" class="img-fluid" style="max-height: 70vh;" alt="${characterName}">
+                            <img src="${escapeHtml(imageUrl)}" class="img-fluid" style="max-height: 70vh;" alt="${escapeHtml(characterName)}">
                         </div>
                     </div>
                 </div>

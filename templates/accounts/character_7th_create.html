@@ -136,14 +136,16 @@
                                 <label for="character-images" class="form-label">キャラクター画像</label>
                                 <div class="row">
                                     <div class="col-md-8">
-                                        <input type="file" class="form-control" id="character-images" name="character_images" 
-                                               accept="image/jpeg,image/jpg,image/png,image/gif">
-                                        <small class="text-muted">対応形式: JPG, PNG, GIF (最大5MB)</small>
+                                        <input type="file" class="form-control" id="character-images" name="character_images"
+                                               accept="image/jpeg,image/jpg,image/png,image/gif" multiple
+                                               data-max-images="{% if user.is_premium %}10{% else %}2{% endif %}">
+                                        <small class="text-muted">対応形式: JPG, PNG, GIF (1枚最大5MB / 現在の添付上限: 最大{% if user.is_premium %}10{% else %}2{% endif %}枚)</small>
                                     </div>
                                     <div class="col-md-4">
                                         <div id="image-preview" class="text-center" style="display: none;">
                                             <img id="preview-img" src="" alt="プレビュー" class="img-fluid rounded" 
                                                  style="max-height: 150px;">
+                                            <div id="image-preview-count" class="small text-muted mt-2"></div>
                                             <div class="mt-2">
                                                 <button type="button" class="btn btn-sm btn-danger" id="remove-image">
                                                     <i class="fas fa-trash"></i> 削除

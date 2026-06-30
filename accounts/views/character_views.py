@@ -19,6 +19,11 @@ from django.db import OperationalError, IntegrityError, transaction
 from ..character_models import GrowthRecord
 from ..serializers import GrowthRecordSerializer
 from ..share_serializers import SharedCharacterSheetSerializer
+from ..character_image_limits import (
+    character_image_limit_error_message,
+    collect_character_image_uploads,
+    get_character_image_limit,
+)
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 
@@ -1092,12 +1097,13 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                     continue
                 equipment_data.append(equipment)
 
-            image_files = []
-            if 'character_image' in request.FILES:
-                image_files.append(request.FILES['character_image'])
-            if 'character_images' in request.FILES:
-                for image in request.FILES.getlist('character_images'):
-                    image_files.append(image)
+            image_files = collect_character_image_uploads(request.FILES)
+            image_limit = get_character_image_limit(request.user)
+            if len(image_files) > image_limit:
+                return Response(
+                    {'error': character_image_limit_error_message(image_limit)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             with transaction.atomic():
                 character_data = {
@@ -1298,6 +1304,14 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             from scenarios.models import Scenario
             scenario_obj = Scenario.objects.filter(id=scenario_id).first()
 
+        image_files = collect_character_image_uploads(request.FILES)
+        image_limit = get_character_image_limit(request.user)
+        if len(image_files) > image_limit:
+            return Response(
+                {'error': character_image_limit_error_message(image_limit)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
             character_data = {
                 'user': request.user,
@@ -1409,14 +1423,6 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                     quantity=equipment.get('quantity', 1),
                     weight=equipment.get('weight')
                 )
-
-            image_files = []
-            if 'character_image' in request.FILES:
-                image_files.append(request.FILES['character_image'])
-
-            if 'character_images' in request.FILES:
-                for image in request.FILES.getlist('character_images'):
-                    image_files.append(image)
 
             for index, image_file in enumerate(image_files):
                 CharacterImage.objects.create(
@@ -2536,6 +2542,8 @@ class CharacterDetailView(TemplateView):
                 'character_id': character.id,
                 'is_public_view': self.is_public_view,
                 'can_edit_character': (not self.is_public_view) and self.request.user.is_authenticated and character.user_id == self.request.user.id,
+                'character_images_api_url': f'/api/accounts/character-sheets/{character.id}/images/',
+                'character_images_zip_url': f'/api/accounts/character-sheets/{character.id}/images/download/',
                 'assigned_skills': assigned_skills,
                 'weapons': weapons,
                 'armor': armor,
@@ -2577,6 +2585,8 @@ def character_public_view_6th(request, character_id):
         'character_id': character.id,
         'is_public_view': True,
         'can_edit_character': False,
+        'character_images_api_url': f'/api/accounts/character-sheets/{character.id}/images/',
+        'character_images_zip_url': f'/api/accounts/character-sheets/{character.id}/images/download/',
         'assigned_skills': assigned_skills,
         'weapons': weapons,
         'armor': armor,

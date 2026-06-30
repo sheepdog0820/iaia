@@ -109,6 +109,12 @@ urlpatterns = [
              'post': 'create'
          }),
          name='character-image-list'),
+    path('character-sheets/<int:character_sheet_id>/images/download/',
+         CharacterImageViewSet.as_view({'get': 'download'}),
+         name='character-images-download'),
+    path('character-sheets/<int:character_id>/images/download/',
+         CharacterImageViewSet.as_view({'get': 'download'}),
+         name='character-image-download'),
     path('character-sheets/<int:character_sheet_id>/images/<int:pk>/', 
          CharacterImageViewSet.as_view({
              'get': 'retrieve',

@@ -2,20 +2,113 @@
 キャラクター画像管理ビュー
 画像のアップロード・並び替え・削除などを提供
 """
+import io
+import logging
+import os
+import re
+import zipfile
+
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.db import transaction
 from accounts.models import CharacterSheet, CharacterImage
 from accounts.serializers import CharacterImageSerializer
 from accounts.views.mixins import CharacterSheetAccessMixin
-import logging
 
 logger = logging.getLogger(__name__)
+
+
+def can_read_character_images(character_sheet, user):
+    """Return whether a user can read images attached to a character sheet."""
+    if CharacterSheetAccessMixin.is_publicly_readable(character_sheet):
+        return True
+    if user and user.is_authenticated:
+        return CharacterSheetAccessMixin.can_read_character_sheet(character_sheet, user)
+    return False
+
+
+def _safe_original_filename(field_file):
+    basename = os.path.basename(getattr(field_file, "name", "") or "")
+    basename = re.sub(r"^\d+_[0-9a-f]{8}_", "", basename)
+    basename = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', "_", basename).strip(" ._")
+    return basename or "image"
+
+
+def _unique_zip_name(filename, used_names):
+    if filename not in used_names:
+        used_names.add(filename)
+        return filename
+
+    base, ext = os.path.splitext(filename)
+    suffix = 2
+    while True:
+        candidate = f"{base}_{suffix}{ext}"
+        if candidate not in used_names:
+            used_names.add(candidate)
+            return candidate
+        suffix += 1
+
+
+def _read_storage_file(field_file):
+    if not field_file or not getattr(field_file, "name", ""):
+        return None
+
+    try:
+        with field_file.storage.open(field_file.name, "rb") as image_file:
+            return image_file.read()
+    except Exception:
+        logger.warning(
+            "Failed to add character image to ZIP: %s",
+            getattr(field_file, "name", ""),
+            exc_info=True,
+        )
+        return None
+
+
+def build_character_images_zip_response(character_sheet):
+    images = list(character_sheet.images.order_by("order", "uploaded_at", "id"))
+    zip_entries = []
+
+    if images:
+        for index, character_image in enumerate(images, start=1):
+            prefix = f"{index:02d}_"
+            if character_image.is_main:
+                prefix += "main_"
+            zip_entries.append((prefix, character_image.image))
+    elif character_sheet.character_image:
+        zip_entries.append(("01_main_", character_sheet.character_image))
+
+    output = io.BytesIO()
+    used_names = set()
+    written_count = 0
+
+    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+        for prefix, field_file in zip_entries:
+            content = _read_storage_file(field_file)
+            if content is None:
+                continue
+
+            member_name = _unique_zip_name(
+                f"{prefix}{_safe_original_filename(field_file)}",
+                used_names,
+            )
+            archive.writestr(member_name, content)
+            written_count += 1
+
+    if written_count == 0:
+        raise Http404("Character images not found")
+
+    payload = output.getvalue()
+    filename = f"character_{character_sheet.id}_images.zip"
+    response = HttpResponse(payload, content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["Content-Length"] = str(len(payload))
+    return response
 
 
 class CharacterImageViewSet(viewsets.ModelViewSet):
@@ -41,7 +134,7 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
 
         if require_owner and self._character_sheet.user != self.request.user:
             raise PermissionDenied("このキャラクターの画像にはアクセスできません。")
-        if not require_owner and self.request.user.is_authenticated and not CharacterSheetAccessMixin.can_read_character_sheet(self._character_sheet, self.request.user):
+        if not require_owner and not can_read_character_images(self._character_sheet, self.request.user):
             raise Http404("Character sheet not found")
 
         return self._character_sheet
@@ -82,6 +175,12 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
 
         return Response({"count": queryset.count(), "results": serializer.data})
+
+    @action(detail=False, methods=["get"], url_path="download")
+    def download(self, request, **kwargs):
+        """Download all readable character images as a ZIP archive."""
+        character = self._get_character_sheet(require_owner=False)
+        return build_character_images_zip_response(character)
 
     def destroy(self, request, *args, **kwargs):
         """画像の削除"""

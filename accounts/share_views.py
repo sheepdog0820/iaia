@@ -21,6 +21,8 @@ from accounts.share_serializers import (
     SharedSessionSerializer,
     SharedStatsSerializer,
 )
+from accounts.serializers import CharacterImageSerializer
+from accounts.views.character_image_views import build_character_images_zip_response
 from scenarios.models import Scenario
 from schedules.models import DatePoll, HandoutInfo, SessionParticipant, TRPGSession
 
@@ -202,7 +204,16 @@ def _attach_participant_character_share_urls(request, participants):
         )
 
 
-def _build_character_detail_context(request, character, *, is_public_view, can_edit_character, shared_api_url=''):
+def _build_character_detail_context(
+    request,
+    character,
+    *,
+    is_public_view,
+    can_edit_character,
+    shared_api_url='',
+    images_api_url='',
+    images_zip_url='',
+):
     assigned_skills = character.skills.filter(
         current_value__gt=django_models.F('base_value')
     ).order_by('skill_name')
@@ -232,6 +243,10 @@ def _build_character_detail_context(request, character, *, is_public_view, can_e
     }
     if shared_api_url:
         context['character_shared_api_url'] = shared_api_url
+    if images_api_url:
+        context['character_images_api_url'] = images_api_url
+    if images_zip_url:
+        context['character_images_zip_url'] = images_zip_url
     return context
 
 
@@ -432,6 +447,22 @@ class SharedSessionDetailView(APIView):
         return Response(SharedSessionSerializer(session, context={'request': request}).data)
 
 
+def _shared_character_or_404(token, request):
+    share_link = _active_share_or_none(token, ShareLink.ResourceType.CHARACTER, request)
+    queryset = CharacterSheet.objects.prefetch_related('skills', 'equipment', 'images')
+    if share_link:
+        return get_object_or_404(
+            queryset,
+            pk=share_link.object_id,
+            access_scope__in=('link', 'public'),
+        )
+    return get_object_or_404(
+        queryset,
+        share_token=_uuid_token_or_404(token),
+        access_scope__in=('link', 'public'),
+    )
+
+
 class SharedCharacterDetailView(APIView):
     permission_classes = [AllowAny]
 
@@ -451,6 +482,24 @@ class SharedCharacterDetailView(APIView):
                 access_scope__in=('link', 'public'),
             )
         return Response(SharedCharacterSheetSerializer(character, context={'request': request}).data)
+
+
+class SharedCharacterImagesView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, token):
+        character = _shared_character_or_404(token, request)
+        images = character.images.order_by('order', 'uploaded_at', 'id')
+        serializer = CharacterImageSerializer(images, many=True, context={'request': request})
+        return Response({'count': images.count(), 'results': serializer.data})
+
+
+class SharedCharacterImagesZipView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, token):
+        character = _shared_character_or_404(token, request)
+        return build_character_images_zip_response(character)
 
 
 class SharedScenarioDetailView(APIView):
@@ -507,6 +556,14 @@ class FixedSharedCharacterView(APIView):
                 'shared-character-detail',
                 kwargs={'token': character.share_token},
             )
+        images_api_url = reverse(
+            'shared-character-images-list',
+            kwargs={'token': character.share_token},
+        )
+        images_zip_url = reverse(
+            'shared-character-images-zip',
+            kwargs={'token': character.share_token},
+        )
         return render(
             request,
             'accounts/character_detail.html',
@@ -516,6 +573,8 @@ class FixedSharedCharacterView(APIView):
                 is_public_view=not is_owner,
                 can_edit_character=is_owner,
                 shared_api_url=shared_api_url,
+                images_api_url=images_api_url,
+                images_zip_url=images_zip_url,
             ),
         )
 

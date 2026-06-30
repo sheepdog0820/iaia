@@ -7,6 +7,8 @@ Directly tests the character creation page for JavaScript errors without login.
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from pathlib import Path
+import re
 
 User = get_user_model()
 
@@ -84,6 +86,25 @@ class SimpleJavaScriptErrorTest(TestCase):
         self.assertIn('id="luck_display"', content)
         self.assertIn('id="know_display"', content)
         self.assertIn('id="damage_bonus_display"', content)
+
+    def test_skill_allocation_inputs_start_blank_in_character_js(self):
+        """Check skill allocation inputs do not prefill 0 in create pages."""
+        js_paths = [
+            Path('static/accounts/js/character6th.js'),
+            Path('static/accounts/js/character7th.js'),
+        ]
+        input_classes = ['occupation-skill', 'interest-skill', 'other-skill']
+
+        for js_path in js_paths:
+            content = js_path.read_text(encoding='utf-8')
+            for input_class in input_classes:
+                blank_pattern = rf'<input type="number" class="[^"]*{input_class}[^"]*"[^>]*value=""'
+                zero_pattern = rf'<input type="number" class="[^"]*{input_class}[^"]*"[^>]*value="0"'
+                self.assertRegex(content, blank_pattern, str(js_path))
+                self.assertIsNone(re.search(zero_pattern, content), str(js_path))
+
+            self.assertIn('const occ = getSkillInputNumber(occEl, { blankZero: true });', content)
+            self.assertIn("input.value = '';", content)
 
     def test_character6th_js_includes_session_context_loader(self):
         """Check that JS includes next session context loader"""

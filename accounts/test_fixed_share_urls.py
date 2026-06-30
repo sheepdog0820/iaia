@@ -127,6 +127,14 @@ class FixedShareUrlTests(APITestCase):
         self.assertEqual(anonymous_response.status_code, status.HTTP_200_OK)
         self.assertContains(anonymous_response, 'Fixed URL Investigator')
         self.assertContains(anonymous_response, 'data-public-view="true"')
+        self.assertContains(
+            anonymous_response,
+            f'data-character-images-api-url="/share/characters/{character.share_token}/images/"',
+        )
+        self.assertContains(
+            anonymous_response,
+            f'data-character-images-zip-url="/share/characters/{character.share_token}/images.zip"',
+        )
         self.assertNotContains(anonymous_response, 'id="editButton"')
         self.assertNotContains(anonymous_response, 'private notes must not render')
 

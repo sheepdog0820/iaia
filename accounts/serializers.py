@@ -16,6 +16,10 @@ from .character_models import (
     CharacterSkill, CharacterEquipment, CharacterImage,
     GrowthRecord, SkillGrowthRecord, CharacterDiceRollSetting
 )
+from .character_image_limits import (
+    character_image_limit_error_message,
+    get_character_image_limit_for_sheet,
+)
 
 
 def validate_character_image(image):
@@ -956,7 +960,7 @@ class CharacterImageSerializer(serializers.ModelSerializer):
         if not character_sheet:
             raise serializers.ValidationError("キャラクターシートが指定されていません。")
         
-        # 画像数制限チェック（10枚まで）
+        # 画像数制限チェック（通常2枚、プレミアム10枚まで）
         existing_count = CharacterImage.objects.filter(
             character_sheet=character_sheet
         ).count()
@@ -965,9 +969,10 @@ class CharacterImageSerializer(serializers.ModelSerializer):
             # 更新の場合は現在の画像を除外
             existing_count -= 1
         
-        if existing_count >= 10:
+        limit = get_character_image_limit_for_sheet(character_sheet)
+        if existing_count + 1 > limit:
             raise serializers.ValidationError(
-                "1キャラクターにつき最大10枚まで画像をアップロードできます。"
+                character_image_limit_error_message(limit)
             )
         
         # 総容量制限チェック（30MB）
