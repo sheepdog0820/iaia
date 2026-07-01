@@ -10,7 +10,11 @@
 <meta property="og:description" content="{{ character.name }}{% if character.occupation %} / {{ character.occupation }}{% endif %}{% if character.player_name %} / PL: {{ character.player_name }}{% endif %}">
 <meta property="og:url" content="{{ request.build_absolute_uri }}">
 <meta name="twitter:card" content="summary">
-{% if character.character_image %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ character.character_image.url }}">{% endif %}
+{% if character_og_image_url %}
+<meta property="og:image" content="{{ character_og_image_url }}">
+<meta name="twitter:image" content="{{ character_og_image_url }}">
+<meta property="og:image:alt" content="{{ character.name }}">
+{% endif %}
 {% endif %}
 {% endblock %}
 

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from accounts.character_image_utils import get_character_preview_image_url
 from accounts.character_models import CharacterEquipment, CharacterSheet, CharacterSkill
 from accounts.models import ShareLink
 from scenarios.models import Scenario, ScenarioHandout
@@ -134,12 +135,8 @@ class SharedCharacterSheetSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_character_image_url(self, obj):
-        if not obj.character_image:
-            return None
         request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(obj.character_image.url)
-        return obj.character_image.url
+        return get_character_preview_image_url(obj, request) or None
 
     def get_background_info(self, obj):
         try:

@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.character_models import CharacterSheet
+from accounts.character_image_utils import get_character_preview_image_url
 from accounts.models import GroupMembership, ShareLink
 from accounts.share_serializers import (
     FixedShareUrlIssueSerializer,
@@ -237,6 +238,7 @@ def _build_character_detail_context(
         'is_public_view': is_public_view,
         'is_shared_view': True,
         'can_edit_character': can_edit_character,
+        'character_og_image_url': get_character_preview_image_url(character, request),
         'assigned_skills': assigned_skills,
         'weapons': weapons,
         'armor': armor,
@@ -559,7 +561,7 @@ class FixedSharedCharacterView(APIView):
                 'parent_sheet',
                 'sixth_edition_data',
                 'user',
-            ).prefetch_related('skills', 'equipment'),
+            ).prefetch_related('skills', 'equipment', 'images'),
             share_token=share_token,
             access_scope__in=('link', 'public'),
         )

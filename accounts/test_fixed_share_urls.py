@@ -4,7 +4,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.character_models import CharacterSheet
+from accounts.character_models import CharacterImage, CharacterSheet
 from accounts.models import CustomUser, Group, GroupMembership
 from scenarios.models import Scenario, ScenarioHandout
 from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
@@ -167,6 +167,77 @@ class FixedShareUrlTests(APITestCase):
         self.assertEqual(closed_response.status_code, status.HTTP_404_NOT_FOUND)
         closed_ccfolia_response = self.client.get(f'/share/characters/{character.share_token}/ccfolia.json')
         self.assertEqual(closed_ccfolia_response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_character_fixed_share_og_image_uses_main_character_image_record(self):
+        character = self.create_character(
+            access_scope='link',
+            character_image='character_sheets/legacy.png',
+        )
+        CharacterImage.objects.create(
+            character_sheet=character,
+            image='character_images/2026/07/first.png',
+            is_main=False,
+            order=0,
+        )
+        CharacterImage.objects.create(
+            character_sheet=character,
+            image='character_images/2026/07/main.png',
+            is_main=True,
+            order=1,
+        )
+
+        self.client.force_authenticate(user=None)
+        response = self.client.get(f'/share/characters/{character.share_token}/view/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(
+            response,
+            '<meta property="og:image" content="http://testserver/media/character_images/2026/07/main.png">',
+        )
+        self.assertContains(
+            response,
+            '<meta name="twitter:image" content="http://testserver/media/character_images/2026/07/main.png">',
+        )
+        self.assertNotContains(response, 'character_sheets/legacy.png')
+
+    def test_character_fixed_share_og_image_uses_first_character_image_when_no_main(self):
+        character = self.create_character(access_scope='link')
+        CharacterImage.objects.create(
+            character_sheet=character,
+            image='character_images/2026/07/first.png',
+            is_main=False,
+            order=0,
+        )
+        CharacterImage.objects.create(
+            character_sheet=character,
+            image='character_images/2026/07/second.png',
+            is_main=False,
+            order=1,
+        )
+
+        self.client.force_authenticate(user=None)
+        response = self.client.get(f'/share/characters/{character.share_token}/view/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(
+            response,
+            '<meta property="og:image" content="http://testserver/media/character_images/2026/07/first.png">',
+        )
+
+    def test_character_fixed_share_og_image_keeps_legacy_fallback(self):
+        character = self.create_character(
+            access_scope='link',
+            character_image='character_sheets/legacy.png',
+        )
+
+        self.client.force_authenticate(user=None)
+        response = self.client.get(f'/share/characters/{character.share_token}/view/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(
+            response,
+            '<meta property="og:image" content="http://testserver/media/character_sheets/legacy.png">',
+        )
 
     def test_session_fixed_share_url_reuses_existing_share_token(self):
         session = self.create_session()

@@ -24,6 +24,7 @@ from ..character_image_limits import (
     collect_character_image_uploads,
     get_character_image_limit,
 )
+from ..character_image_utils import get_character_preview_image_url
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 
@@ -2553,6 +2554,7 @@ class CharacterDetailView(TemplateView):
                 'character_id': character.id,
                 'is_public_view': self.is_public_view,
                 'can_edit_character': (not self.is_public_view) and self.request.user.is_authenticated and character.user_id == self.request.user.id,
+                'character_og_image_url': get_character_preview_image_url(character, self.request),
                 'character_images_api_url': f'/api/accounts/character-sheets/{character.id}/images/',
                 'character_images_zip_url': f'/api/accounts/character-sheets/{character.id}/images/download/',
                 'character_ccfolia_json_url': f'/api/accounts/character-sheets/{character.id}/ccfolia_json/',
@@ -2579,7 +2581,7 @@ class Character6thDetailView(CharacterDetailView):
 def character_public_view_6th(request, character_id):
     character = get_object_or_404(
         CharacterSheet.objects.select_related('parent_sheet', 'sixth_edition_data', 'user')
-        .prefetch_related('skills', 'equipment', 'versions'),
+        .prefetch_related('skills', 'equipment', 'versions', 'images'),
         id=character_id,
     )
     if not CharacterSheetAccessMixin.is_publicly_readable(character):
@@ -2598,6 +2600,7 @@ def character_public_view_6th(request, character_id):
         'character_id': character.id,
         'is_public_view': True,
         'can_edit_character': False,
+        'character_og_image_url': get_character_preview_image_url(character, request),
         'character_images_api_url': f'/api/accounts/character-sheets/{character.id}/images/',
         'character_images_zip_url': f'/api/accounts/character-sheets/{character.id}/images/download/',
         'character_ccfolia_json_url': f'/api/accounts/character-sheets/{character.id}/public/ccfolia_json/',
