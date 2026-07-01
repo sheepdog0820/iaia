@@ -22,6 +22,9 @@ from accounts.views.mixins import CharacterSheetAccessMixin
 
 logger = logging.getLogger(__name__)
 
+ZIP_IMAGE_ORDERING = ("order", "uploaded_at", "id")
+ZIP_CONTENT_TYPE = "application/zip"
+
 
 def can_read_character_images(character_sheet, user):
     """Return whether a user can read images attached to a character sheet."""
@@ -54,6 +57,27 @@ def _unique_zip_name(filename, used_names):
         suffix += 1
 
 
+def _zip_entry_prefix(index, character_image):
+    prefix = f"{index:02d}_"
+    if character_image.is_main:
+        prefix += "main_"
+    return prefix
+
+
+def _collect_zip_entries(character_sheet):
+    images = list(character_sheet.images.order_by(*ZIP_IMAGE_ORDERING))
+    if images:
+        return [
+            (_zip_entry_prefix(index, character_image), character_image.image)
+            for index, character_image in enumerate(images, start=1)
+        ]
+
+    if character_sheet.character_image:
+        return [("01_main_", character_sheet.character_image)]
+
+    return []
+
+
 def _read_storage_file(field_file):
     if not field_file or not getattr(field_file, "name", ""):
         return None
@@ -70,42 +94,38 @@ def _read_storage_file(field_file):
         return None
 
 
-def build_character_images_zip_response(character_sheet):
-    images = list(character_sheet.images.order_by("order", "uploaded_at", "id"))
-    zip_entries = []
-
-    if images:
-        for index, character_image in enumerate(images, start=1):
-            prefix = f"{index:02d}_"
-            if character_image.is_main:
-                prefix += "main_"
-            zip_entries.append((prefix, character_image.image))
-    elif character_sheet.character_image:
-        zip_entries.append(("01_main_", character_sheet.character_image))
-
-    output = io.BytesIO()
+def _write_zip_entries(archive, zip_entries):
     used_names = set()
     written_count = 0
 
-    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
-        for prefix, field_file in zip_entries:
-            content = _read_storage_file(field_file)
-            if content is None:
-                continue
+    for prefix, field_file in zip_entries:
+        content = _read_storage_file(field_file)
+        if content is None:
+            continue
 
-            member_name = _unique_zip_name(
-                f"{prefix}{_safe_original_filename(field_file)}",
-                used_names,
-            )
-            archive.writestr(member_name, content)
-            written_count += 1
+        member_name = _unique_zip_name(
+            f"{prefix}{_safe_original_filename(field_file)}",
+            used_names,
+        )
+        archive.writestr(member_name, content)
+        written_count += 1
+
+    return written_count
+
+
+def build_character_images_zip_response(character_sheet):
+    zip_entries = _collect_zip_entries(character_sheet)
+    output = io.BytesIO()
+
+    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+        written_count = _write_zip_entries(archive, zip_entries)
 
     if written_count == 0:
         raise Http404("Character images not found")
 
     payload = output.getvalue()
     filename = f"character_{character_sheet.id}_images.zip"
-    response = HttpResponse(payload, content_type="application/zip")
+    response = HttpResponse(payload, content_type=ZIP_CONTENT_TYPE)
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     response["Content-Length"] = str(len(payload))
     return response

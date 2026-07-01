@@ -22,6 +22,49 @@ router.register(r'dice-roll-settings', views.DiceRollSettingViewSet, basename='d
 # Character skills and equipment are now handled as nested resources
 router.register(r'admin/users', AdminUserViewSet, basename='admin-user')
 
+CHARACTER_IMAGE_LIST_ACTIONS = {'get': 'list', 'post': 'create'}
+CHARACTER_IMAGE_DETAIL_ACTIONS = {
+    'get': 'retrieve',
+    'put': 'update',
+    'patch': 'partial_update',
+    'delete': 'destroy',
+}
+CHARACTER_IMAGE_SET_MAIN_ACTIONS = {'post': 'set_main', 'patch': 'set_main'}
+CHARACTER_IMAGE_REORDER_ACTIONS = {'patch': 'reorder'}
+CHARACTER_IMAGE_DOWNLOAD_ACTIONS = {'get': 'download'}
+
+
+def character_image_urlpatterns(parameter_name, route_name_prefix):
+    base_path = f'character-sheets/<int:{parameter_name}>/images'
+    return [
+        path(
+            f'{base_path}/',
+            CharacterImageViewSet.as_view(CHARACTER_IMAGE_LIST_ACTIONS),
+            name=f'{route_name_prefix}-list',
+        ),
+        path(
+            f'{base_path}/download/',
+            CharacterImageViewSet.as_view(CHARACTER_IMAGE_DOWNLOAD_ACTIONS),
+            name=f'{route_name_prefix}-download',
+        ),
+        path(
+            f'{base_path}/<int:pk>/',
+            CharacterImageViewSet.as_view(CHARACTER_IMAGE_DETAIL_ACTIONS),
+            name=f'{route_name_prefix}-detail',
+        ),
+        path(
+            f'{base_path}/<int:pk>/set_main/',
+            CharacterImageViewSet.as_view(CHARACTER_IMAGE_SET_MAIN_ACTIONS),
+            name=f'{route_name_prefix}-set-main',
+        ),
+        path(
+            f'{base_path}/reorder/',
+            CharacterImageViewSet.as_view(CHARACTER_IMAGE_REORDER_ACTIONS),
+            name=f'{route_name_prefix}-reorder',
+        ),
+    ]
+
+
 urlpatterns = [
     # Authentication URLs
     path('login/', views.CustomLoginView.as_view(), name='login'),
@@ -97,52 +140,8 @@ urlpatterns = [
     path('export/', export_views.ExportStatisticsView.as_view(), name='export_legacy'),
     
     # Character Image Management API
-    path('character-sheets/<int:character_sheet_id>/images/', 
-         CharacterImageViewSet.as_view({
-             'get': 'list',
-             'post': 'create'
-         }), 
-         name='character-images-list'),
-    path('character-sheets/<int:character_id>/images/',
-         CharacterImageViewSet.as_view({
-             'get': 'list',
-             'post': 'create'
-         }),
-         name='character-image-list'),
-    path('character-sheets/<int:character_sheet_id>/images/download/',
-         CharacterImageViewSet.as_view({'get': 'download'}),
-         name='character-images-download'),
-    path('character-sheets/<int:character_id>/images/download/',
-         CharacterImageViewSet.as_view({'get': 'download'}),
-         name='character-image-download'),
-    path('character-sheets/<int:character_sheet_id>/images/<int:pk>/', 
-         CharacterImageViewSet.as_view({
-             'get': 'retrieve',
-             'put': 'update',
-             'patch': 'partial_update',
-             'delete': 'destroy'
-         }), 
-         name='character-images-detail'),
-    path('character-sheets/<int:character_id>/images/<int:pk>/',
-         CharacterImageViewSet.as_view({
-             'get': 'retrieve',
-             'put': 'update',
-             'patch': 'partial_update',
-             'delete': 'destroy'
-         }),
-         name='character-image-detail'),
-    path('character-sheets/<int:character_sheet_id>/images/<int:pk>/set_main/',
-         CharacterImageViewSet.as_view({'post': 'set_main', 'patch': 'set_main'}),
-         name='character-images-set-main'),
-    path('character-sheets/<int:character_id>/images/<int:pk>/set_main/',
-         CharacterImageViewSet.as_view({'post': 'set_main', 'patch': 'set_main'}),
-         name='character-image-set-main'),
-    path('character-sheets/<int:character_sheet_id>/images/reorder/',
-         CharacterImageViewSet.as_view({'patch': 'reorder'}),
-         name='character-images-reorder'),
-    path('character-sheets/<int:character_id>/images/reorder/',
-         CharacterImageViewSet.as_view({'patch': 'reorder'}),
-         name='character-image-reorder'),
+    *character_image_urlpatterns('character_sheet_id', 'character-images'),
+    *character_image_urlpatterns('character_id', 'character-image'),
     
     # Character Skill Management API
     path('character-sheets/<int:character_sheet_id>/skills/', 
