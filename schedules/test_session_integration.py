@@ -573,7 +573,8 @@ class CalendarExportIntegrationTestCase(APITestCase):
             self.sessions.append(session)
         
         # 来月のセッション
-        next_month = now + timedelta(days=30)
+        current_month_start = now.replace(day=1)
+        next_month = (current_month_start + timedelta(days=32)).replace(day=1)
         for i in range(2):
             session = TRPGSession.objects.create(
                 title=f'来月のセッション{i+1}',

@@ -198,7 +198,7 @@
 
         const gameSystem = normalizeToken(config?.gameSystem).toLowerCase();
         const scenarioRecommended = tokenizeSkills(config?.scenarioRecommendedSkills);
-        const available = gameSystem === 'coc'
+        const available = ['coc6', 'coc7'].includes(gameSystem)
             ? mergeSkillCandidates(COC_BASE_SKILL_NAMES, scenarioRecommended)
             : mergeSkillCandidates(scenarioRecommended);
 

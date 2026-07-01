@@ -26,6 +26,7 @@ class RepositoryHygieneTests(SimpleTestCase):
             '.env.example',
             '.env.local-oauth.example',
             '.env.production.example',
+            '.env.qnap.example',
             '.env.staging.example',
         }
         forbidden = []

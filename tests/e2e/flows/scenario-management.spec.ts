@@ -14,7 +14,7 @@ test.describe('scenarios', () => {
     const scenarioTitle = `E2E Scenario ${Date.now()}`;
 
     await setInputValue(page, '#scenarioTitle', scenarioTitle);
-    await page.selectOption('#scenarioSystem', 'coc');
+    await page.selectOption('#scenarioSystem', 'coc6');
     await setInputValue(page, '#scenarioAuthor', 'Playwright');
     await setInputValue(page, '#scenarioSummary', 'Smoke scenario created by Playwright tests.');
 
@@ -38,7 +38,7 @@ test.describe('scenarios', () => {
     await expect(page.locator('#addScenarioModal')).toBeVisible();
 
     await setInputValue(page, '#scenarioTitle', `E2E Scenario Empty Skills ${Date.now()}`);
-    await page.selectOption('#scenarioSystem', 'coc');
+    await page.selectOption('#scenarioSystem', 'coc6');
     await setInputValue(page, '#scenarioAuthor', 'Playwright');
     await setInputValue(page, '#scenarioSummary', 'Scenario without recommended skills.');
 
@@ -56,7 +56,7 @@ test.describe('scenarios', () => {
     const scenario = await page.evaluate(async ({ scenarioTitle }) => {
       const response = await (window as any).axios.post('/api/scenarios/scenarios/', {
         title: scenarioTitle,
-        game_system: 'coc',
+        game_system: 'coc6',
         author: 'Playwright',
         summary: 'Structured scenario data.',
         recommended_skills: 'Spot Hidden',

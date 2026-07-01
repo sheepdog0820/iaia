@@ -13,7 +13,7 @@ test.describe('scenario-session flow', () => {
     const { scenario, group } = await page.evaluate(async ({ scenarioTitle, groupName }) => {
       const scenarioResp = await (window as any).axios.post('/api/scenarios/scenarios/', {
         title: scenarioTitle,
-        game_system: 'coc',
+        game_system: 'coc7',
         author: 'Playwright',
         summary: 'Flow test scenario.',
         recommended_skills: 'Spot Hidden, Listen',
@@ -97,7 +97,7 @@ test.describe('scenario-session flow', () => {
     expect(copiedHandout.recommended_skills).toContain('Library Use');
 
     await page.goto(`/api/schedules/sessions/${session.id}/detail/`);
-    await expect(page.locator(`text=${scenarioTitle}`)).toBeVisible();
+    await expect(page.locator('#sessionOverviewCard').getByText(scenarioTitle)).toBeVisible();
 
     const nextContextResponsePromise = page.waitForResponse(resp => {
       if (resp.request().method() !== 'GET') return false;
@@ -134,7 +134,7 @@ test.describe('scenario-session flow', () => {
     const { scenario, group } = await page.evaluate(async ({ scenarioTitle, groupName }) => {
       const scenarioResp = await (window as any).axios.post('/api/scenarios/scenarios/', {
         title: scenarioTitle,
-        game_system: 'coc',
+        game_system: 'coc6',
         author: 'Playwright',
         summary: 'Flow test scenario.',
         recommended_skills: 'Spot Hidden, Listen',
@@ -218,7 +218,7 @@ test.describe('scenario-session flow', () => {
     expect(copiedHandout.recommended_skills).toContain('Occult');
 
     await page.goto(`/api/schedules/sessions/${session.id}/detail/`);
-    await expect(page.locator(`text=${scenarioTitle}`)).toBeVisible();
+    await expect(page.locator('#sessionOverviewCard').getByText(scenarioTitle)).toBeVisible();
 
     const nextContextResponsePromise = page.waitForResponse(resp => {
       if (resp.request().method() !== 'GET') return false;

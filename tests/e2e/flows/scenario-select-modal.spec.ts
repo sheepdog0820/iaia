@@ -15,7 +15,7 @@ test.describe('character create scenario select modal', () => {
 
       const scenarioResp = await axios.post('/api/scenarios/scenarios/', {
         title: scenarioTitle,
-        game_system: 'coc',
+        game_system: 'coc6',
         author: 'Playwright',
         summary: 'Scenario select modal test scenario.',
         recommended_skills: 'Spot Hidden, Listen',

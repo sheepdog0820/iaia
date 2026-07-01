@@ -203,7 +203,7 @@ clean_socialapps.py
 ngrok.log
 ngrok_err.log
 ngrok.exe
-node_modules/.package-lock.json
+node_modules/
 
 # Terraform provider cache and local state
 **/.terraform/*

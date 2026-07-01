@@ -239,7 +239,7 @@
                             <p class="mb-2">
                                 <span class="fw-semibold">{{ session.scenario.title }}</span>
                                 <span class="badge bg-secondary ms-2">{{ session.scenario.get_game_system_display }}</span>
-                                {% if session.scenario.game_system == 'coc' %}
+                                {% if session.scenario.game_system == 'coc6' or session.scenario.game_system == 'coc7' %}
                                     <span class="badge bg-dark ms-1">
                                         {% if session.coc_edition == '7th' %}CoC7{% else %}CoC6{% endif %}
                                     </span>
