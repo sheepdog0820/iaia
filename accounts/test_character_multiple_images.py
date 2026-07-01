@@ -511,6 +511,12 @@ class CharacterImageIntegrationTestCase(TestCase):
             self.assertContains(response, 'multiple')
             self.assertContains(response, 'data-max-images="2"')
             self.assertContains(response, '現在の添付上限: 最大2枚')
+            self.assertContains(response, 'id="characterImageUploadModal"')
+            self.assertContains(response, 'id="character-image-drop-zone"')
+            self.assertContains(response, 'id="character-image-select-btn"')
+            self.assertContains(response, 'id="character-image-modal-list"')
+            self.assertContains(response, 'id="image-existing-view"')
+            self.assertContains(response, 'id="image-preview-list"')
 
         self.user.is_premium = True
         self.user.save(update_fields=['is_premium'])

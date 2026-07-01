@@ -134,22 +134,31 @@
                             </div>
                             <div class="col-12">
                                 <label for="character-images" class="form-label">キャラクター画像</label>
-                                <div class="row">
-                                    <div class="col-md-8">
+                                <div class="row g-3 align-items-start">
+                                    <div class="col-lg-5">
                                         <input type="file" class="form-control" id="character-images" name="character_images"
                                                accept="image/jpeg,image/jpg,image/png,image/gif" multiple
                                                data-max-images="{% if user.is_premium %}10{% else %}2{% endif %}">
-                                        <small class="text-muted">対応形式: JPG, PNG, GIF (1枚最大5MB / 現在の添付上限: 最大{% if user.is_premium %}10{% else %}2{% endif %}枚)</small>
+                                        <div class="d-flex flex-wrap gap-2 mt-2">
+                                            <button type="button" class="btn btn-outline-primary btn-sm" id="open-image-upload-modal"
+                                                    data-bs-toggle="modal" data-bs-target="#characterImageUploadModal">
+                                                <i class="fas fa-images"></i> まとめて選択
+                                            </button>
+                                        </div>
+                                        <small class="text-muted d-block mt-2">対応形式: JPG, PNG, GIF (1枚最大5MB / 現在の添付上限: 最大{% if user.is_premium %}10{% else %}2{% endif %}枚)</small>
                                     </div>
-                                    <div class="col-md-4">
-                                        <div id="image-preview" class="text-center" style="display: none;">
-                                            <img id="preview-img" src="" alt="プレビュー" class="img-fluid rounded" 
-                                                 style="max-height: 150px;">
-                                            <div id="image-preview-count" class="small text-muted mt-2"></div>
-                                            <div class="mt-2">
-                                                <button type="button" class="btn btn-sm btn-danger" id="remove-image">
-                                                    <i class="fas fa-trash"></i> 削除
-                                                </button>
+                                    <div class="col-lg-7">
+                                        <div id="image-preview" class="character-image-preview" style="display: none;" aria-live="polite">
+                                            <div id="image-existing-view" class="character-image-existing-view" style="display: none;"></div>
+                                            <div id="image-selected-view" class="text-center" style="display: none;">
+                                                <img id="preview-img" src="" alt="プレビュー" class="img-fluid rounded character-image-main-preview">
+                                                <div id="image-preview-count" class="small text-muted mt-2"></div>
+                                                <div id="image-preview-list" class="row g-2 mt-2"></div>
+                                                <div class="mt-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" id="remove-image">
+                                                        <i class="fas fa-trash"></i> 選択をクリア
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -970,6 +979,34 @@
     </div>
 </div>
 
+<!-- キャラクター画像アップロードモーダル -->
+<div class="modal fade" id="characterImageUploadModal" tabindex="-1" aria-labelledby="characterImageUploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="characterImageUploadModalLabel">
+                    <i class="fas fa-images"></i> キャラクター画像
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="character-image-drop-zone" class="character-image-drop-zone" role="button" tabindex="0">
+                    <i class="fas fa-cloud-upload-alt fa-2x mb-2"></i>
+                    <div class="fw-bold">画像をドロップ</div>
+                    <div class="small text-muted">JPG / PNG / GIF</div>
+                    <button type="button" class="btn btn-primary btn-sm mt-3" id="character-image-select-btn">
+                        <i class="fas fa-folder-open"></i> ファイルを選択
+                    </button>
+                </div>
+                <div id="character-image-modal-list" class="row g-2 mt-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 固定フッター -->
 <div class="character-footer fixed-bottom bg-dark text-light py-2" id="characterFooter">
     <div class="container">
@@ -1007,7 +1044,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'accounts/css/character6th.css' %}?v=20260613-skill-contrast">
+<link rel="stylesheet" href="{% static 'accounts/css/character6th.css' %}?v=20260701-image-upload-modal">
 {% endblock %}
 
 {% block extra_js %}

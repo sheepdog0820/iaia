@@ -2470,6 +2470,12 @@ function initOccupationTemplates() {
         const imagePreview = document.getElementById('image-preview');
         const previewImg = document.getElementById('preview-img');
         const previewCount = document.getElementById('image-preview-count');
+        const selectedView = document.getElementById('image-selected-view');
+        const selectedList = document.getElementById('image-preview-list');
+        const existingView = document.getElementById('image-existing-view');
+        const dropZone = document.getElementById('character-image-drop-zone');
+        const selectBtn = document.getElementById('character-image-select-btn');
+        const modalList = document.getElementById('character-image-modal-list');
         const removeBtn = document.getElementById('remove-image');
         
         if (!imageInput) return;
@@ -2477,64 +2483,295 @@ function initOccupationTemplates() {
         const maxImages = parseInt(imageInput.dataset.maxImages || '2', 10) || 2;
         const maxFileSize = 5 * 1024 * 1024;
         const allowedImagePattern = /^image\/(jpeg|jpg|png|gif)$/;
+        let selectedFiles = [];
+        let previewUrls = [];
+        let existingImages = [];
+        let existingImageIndex = 0;
 
-        function resetImagePreview() {
-            imageInput.value = '';
-            if (previewImg) previewImg.src = '';
-            if (previewCount) previewCount.textContent = '';
-            if (imagePreview) imagePreview.style.display = 'none';
+        const escapeHtml = (value) => String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+
+        function revokePreviewUrls() {
+            previewUrls.forEach(url => URL.revokeObjectURL(url));
+            previewUrls = [];
         }
 
-        function showImagePreview(files) {
-            const firstFile = files[0];
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                if (previewImg) previewImg.src = e.target.result;
-                if (previewCount) {
-                    previewCount.textContent = files.length === 1
-                        ? firstFile.name
-                        : `${firstFile.name} ほか${files.length - 1}枚`;
-                }
-                if (imagePreview) imagePreview.style.display = 'block';
-            };
-            reader.readAsDataURL(firstFile);
-        }
-        
-        // ファイル選択時のプレビュー表示
-        imageInput.addEventListener('change', function(e) {
-            const files = Array.from(e.target.files || []);
-            if (files.length === 0) {
-                resetImagePreview();
-                return;
+        function syncImageInputFiles() {
+            if (typeof DataTransfer === 'undefined') {
+                return selectedFiles.length === 0;
             }
+            const transfer = new DataTransfer();
+            selectedFiles.forEach(file => transfer.items.add(file));
+            imageInput.files = transfer.files;
+            return true;
+        }
 
+        function fileKey(file) {
+            return [file.name, file.size, file.lastModified].join(':');
+        }
+
+        function validateFiles(files) {
             if (files.length > maxImages) {
                 notifyUser(`キャラクター画像は最大${maxImages}枚まで選択できます。`);
-                resetImagePreview();
-                return;
+                return false;
             }
 
             const oversizedFile = files.find(file => file.size > maxFileSize);
             if (oversizedFile) {
                 notifyUser('File size must be 5MB or less.');
-                resetImagePreview();
-                return;
+                return false;
             }
 
             const invalidTypeFile = files.find(file => !allowedImagePattern.test(file.type));
             if (invalidTypeFile) {
                 notifyUser('Please select JPG, PNG, or GIF images.');
-                resetImagePreview();
+                return false;
+            }
+
+            return true;
+        }
+
+        function setExistingImage(index) {
+            if (!Array.isArray(existingImages) || existingImages.length === 0) return;
+            existingImageIndex = Math.max(0, Math.min(index, existingImages.length - 1));
+            const selectedImage = existingImages[existingImageIndex];
+            const mainImage = existingView?.querySelector('.character-edit-main-image');
+            if (mainImage && selectedImage?.image_url) {
+                mainImage.src = selectedImage.image_url;
+                mainImage.dataset.imageIndex = String(existingImageIndex);
+            }
+
+            const counter = existingView?.querySelector('.character-edit-image-current');
+            if (counter) counter.textContent = String(existingImageIndex + 1);
+
+            existingView?.querySelectorAll('.character-edit-thumbnail-button').forEach(button => {
+                const isSelected = Number(button.dataset.imageIndex) === existingImageIndex;
+                button.classList.toggle('active', isSelected);
+                button.classList.toggle('border-primary', isSelected);
+                button.classList.toggle('border-3', isSelected);
+                button.classList.toggle('border-secondary', !isSelected);
+                button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+            });
+        }
+
+        function renderExistingImages() {
+            if (!existingView || selectedFiles.length > 0 || existingImages.length === 0) return;
+
+            const mainImage = existingImages[existingImageIndex] || existingImages[0];
+            const thumbnailHtml = existingImages.length > 1
+                ? `<div class="row g-2 mt-2">
+                    ${existingImages.map((image, index) => {
+                        const isSelected = index === existingImageIndex;
+                        const borderClass = isSelected ? 'active border-primary border-3' : 'border-secondary';
+                        const url = image.thumbnail_url || image.image_url;
+                        return `
+                            <div class="col-4 col-sm-3">
+                                <button type="button"
+                                        class="btn p-0 w-100 rounded border character-edit-thumbnail-button ${borderClass}"
+                                        data-image-index="${index}"
+                                        aria-label="画像${index + 1}を表示"
+                                        aria-pressed="${isSelected ? 'true' : 'false'}">
+                                    <img src="${escapeHtml(url)}"
+                                         class="img-fluid rounded character-edit-thumbnail-image"
+                                         alt="キャラクター画像 ${index + 1}">
+                                </button>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>`
+                : '';
+
+            existingView.innerHTML = `
+                <div class="mb-2">
+                    <img src="${escapeHtml(mainImage.image_url)}"
+                         class="img-fluid rounded shadow character-edit-main-image"
+                         alt="登録済みキャラクター画像"
+                         data-image-index="${existingImageIndex}">
+                </div>
+                <div class="character-edit-image-switcher d-flex align-items-center justify-content-between gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm character-edit-image-prev" aria-label="前の画像"${existingImages.length <= 1 ? ' disabled' : ''}>
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span class="small text-muted">
+                        登録済み <span class="character-edit-image-current">${existingImageIndex + 1}</span> / ${existingImages.length}
+                    </span>
+                    <button type="button" class="btn btn-outline-secondary btn-sm character-edit-image-next" aria-label="次の画像"${existingImages.length <= 1 ? ' disabled' : ''}>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+                ${thumbnailHtml}
+            `;
+
+            existingView.querySelector('.character-edit-image-prev')?.addEventListener('click', () => {
+                setExistingImage((existingImageIndex - 1 + existingImages.length) % existingImages.length);
+            });
+            existingView.querySelector('.character-edit-image-next')?.addEventListener('click', () => {
+                setExistingImage((existingImageIndex + 1) % existingImages.length);
+            });
+            existingView.querySelectorAll('.character-edit-thumbnail-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    const index = Number(button.dataset.imageIndex);
+                    if (!Number.isNaN(index)) setExistingImage(index);
+                });
+            });
+        }
+
+        function renderSelectedFileList(container) {
+            if (!container) return;
+            container.innerHTML = selectedFiles.map((file, index) => `
+                <div class="col-6 col-sm-4">
+                    <div class="character-image-preview-card">
+                        <img src="${previewUrls[index]}" class="img-fluid rounded character-image-preview-thumb" alt="${escapeHtml(file.name)}">
+                        <button type="button" class="btn btn-sm btn-danger" data-remove-image-index="${index}" aria-label="${escapeHtml(file.name)}を削除">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        <div class="small text-truncate mt-1" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</div>
+                    </div>
+                </div>
+            `).join('');
+            container.querySelectorAll('[data-remove-image-index]').forEach(button => {
+                button.addEventListener('click', () => {
+                    const index = Number(button.dataset.removeImageIndex);
+                    if (Number.isNaN(index)) return;
+                    selectedFiles.splice(index, 1);
+                    syncImageInputFiles();
+                    renderImagePreview();
+                });
+            });
+        }
+
+        function renderImagePreview() {
+            revokePreviewUrls();
+
+            if (selectedFiles.length === 0) {
+                if (selectedView) selectedView.style.display = 'none';
+                if (selectedList) selectedList.innerHTML = '';
+                if (modalList) modalList.innerHTML = '';
+                if (previewImg) previewImg.src = '';
+                if (previewCount) previewCount.textContent = '';
+
+                if (existingImages.length > 0) {
+                    if (imagePreview) imagePreview.style.display = 'block';
+                    if (existingView) existingView.style.display = 'block';
+                    renderExistingImages();
+                } else {
+                    if (existingView) {
+                        existingView.innerHTML = '';
+                        existingView.style.display = 'none';
+                    }
+                    if (imagePreview) imagePreview.style.display = 'none';
+                }
                 return;
             }
 
-            showImagePreview(files);
+            previewUrls = selectedFiles.map(file => URL.createObjectURL(file));
+            if (previewImg) previewImg.src = previewUrls[0];
+            if (previewCount) previewCount.textContent = `選択中 ${selectedFiles.length} / ${maxImages}枚`;
+            if (imagePreview) imagePreview.style.display = 'block';
+            if (existingView) existingView.style.display = 'none';
+            if (selectedView) selectedView.style.display = 'block';
+            renderSelectedFileList(selectedList);
+            renderSelectedFileList(modalList);
+        }
+
+        function resetImagePreview() {
+            selectedFiles = [];
+            imageInput.value = '';
+            syncImageInputFiles();
+            renderImagePreview();
+        }
+
+        function addImageFiles(fileList) {
+            const incomingFiles = Array.from(fileList || []);
+            if (incomingFiles.length === 0) return;
+
+            const selectedKeys = new Set(selectedFiles.map(fileKey));
+            const filesToAdd = incomingFiles.filter(file => !selectedKeys.has(fileKey(file)));
+            const nextFiles = selectedFiles.concat(filesToAdd);
+            if (!validateFiles(nextFiles)) {
+                syncImageInputFiles();
+                renderImagePreview();
+                return;
+            }
+
+            selectedFiles = nextFiles;
+            if (!syncImageInputFiles()) {
+                notifyUser('このブラウザではドラッグ&ドロップ添付を利用できません。');
+                selectedFiles = [];
+                imageInput.value = '';
+                renderImagePreview();
+                return;
+            }
+            renderImagePreview();
+        }
+
+        async function loadExistingCharacterImages() {
+            if (!isEditMode || !editCharacterId) return;
+
+            try {
+                const data = await fetchJson(`/api/accounts/character-sheets/${editCharacterId}/images/`);
+                const results = Array.isArray(data) ? data : (data?.results || []);
+                existingImages = results.filter(image => image?.image_url);
+                const mainImage = existingImages.find(image => image.is_main) || existingImages[0];
+                existingImageIndex = Math.max(0, existingImages.indexOf(mainImage));
+                renderImagePreview();
+            } catch (error) {
+                console.warn('Failed to load character images for edit:', error);
+            }
+        }
+
+        // ファイル選択時のプレビュー表示
+        imageInput.addEventListener('change', function(e) {
+            addImageFiles(e.target.files);
         });
-        
+
         // 画像を削除
         removeBtn?.addEventListener('click', function() {
             resetImagePreview();
         });
+
+        selectBtn?.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            imageInput.click();
+        });
+
+        dropZone?.addEventListener('click', function() {
+            imageInput.click();
+        });
+
+        dropZone?.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                imageInput.click();
+            }
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone?.addEventListener(eventName, function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.add('is-dragover');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone?.addEventListener(eventName, function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('is-dragover');
+            });
+        });
+
+        dropZone?.addEventListener('drop', function(e) {
+            addImageFiles(e.dataTransfer?.files);
+        });
+
+        void loadExistingCharacterImages();
     }
     
     // 初期化

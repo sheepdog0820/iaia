@@ -76,6 +76,47 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
                 self.assertIn('name="secret_ho_info"', template)
                 self.assertIn('秘匿HO情報', template)
 
+    def test_character_create_templates_have_bulk_image_modal_and_edit_preview_slots(self):
+        for relative_path in [
+            'templates/accounts/character_6th_create.html',
+            'templates/accounts/character_7th_create.html',
+        ]:
+            with self.subTest(relative_path=relative_path):
+                template = self.read_text(relative_path)
+
+                for marker in [
+                    'id="characterImageUploadModal"',
+                    'id="character-image-drop-zone"',
+                    'id="character-image-select-btn"',
+                    'id="character-image-modal-list"',
+                    'id="image-existing-view"',
+                    'id="image-selected-view"',
+                    'id="image-preview-list"',
+                    'data-bs-target="#characterImageUploadModal"',
+                ]:
+                    self.assertIn(marker, template)
+
+    def test_character_create_image_js_supports_drop_modal_and_existing_image_switcher(self):
+        for relative_path in [
+            'static/accounts/js/character6th.js',
+            'static/accounts/js/character7th.js',
+        ]:
+            with self.subTest(relative_path=relative_path):
+                script = self.read_text(relative_path)
+
+                for marker in [
+                    'new DataTransfer()',
+                    "document.getElementById('character-image-drop-zone')",
+                    "document.getElementById('character-image-modal-list')",
+                    "'dragover'",
+                    "dropZone?.addEventListener('drop'",
+                    "fetchJson(`/api/accounts/character-sheets/${editCharacterId}/images/`)",
+                    'character-edit-image-switcher',
+                    'character-edit-thumbnail-button',
+                    'renderExistingImages',
+                ]:
+                    self.assertIn(marker, script)
+
     def test_character_detail_reference_background_is_pdf_backstory_only(self):
         template = self.read_text('templates/accounts/character_detail.html')
         basic_block = self.extract_function_block(
