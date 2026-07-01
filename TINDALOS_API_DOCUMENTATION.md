@@ -58,7 +58,7 @@ GET /api/accounts/statistics/tindalos/?detailed=true&year=2025
                 {
                     "scenario__id": 1,
                     "scenario__title": "影の館",
-                    "scenario__game_system": "coc",
+                    "scenario__game_system": "coc6",
                     "play_count": 2
                 }
             ]
@@ -69,18 +69,18 @@ GET /api/accounts/statistics/tindalos/?detailed=true&year=2025
         {
             "scenario__id": 1,
             "scenario__title": "影の館",
-            "scenario__game_system": "coc",
+            "scenario__game_system": "coc6",
             "scenario__difficulty": "intermediate",
             "play_count": 8,
             "last_played": "2025-06-15T15:00:00Z",
-            "game_system_display": "クトゥルフ神話TRPG"
+            "game_system_display": "クトゥルフ神話TRPG 6版"
         },
         // ...
     ],
     "system_trends": [
         {
-            "system_code": "coc",
-            "system_name": "クトゥルフ神話TRPG",
+            "system_code": "coc6",
+            "system_name": "クトゥルフ神話TRPG 6版",
             "data": [
                 {"year": 2023, "count": 10},
                 {"year": 2024, "count": 15},
@@ -95,7 +95,7 @@ GET /api/accounts/statistics/tindalos/?detailed=true&year=2025
 #### SimpleTindalosMetricsView パラメータ
 - `detailed` (boolean, optional): trueの場合、詳細統計を含む
 - `year` (integer, optional): 特定年度でフィルタ
-- `game_system` (string, optional): ゲームシステムでフィルタ（例: 'coc', 'dnd', 'sw'）
+- `game_system` (string, optional): ゲームシステムでフィルタ（例: 'coc6', 'coc7'）
 
 ### 2. DetailedTindalosMetricsView
 **エンドポイント**: `/api/accounts/statistics/tindalos/detailed/`
@@ -122,8 +122,8 @@ GET /api/accounts/statistics/tindalos/detailed/?type=yearly_trends&start_year=20
             },
             "scenarios": 12,
             "systems": {
-                "クトゥルフ神話TRPG": 20,
-                "D&D": 4
+                "クトゥルフ神話TRPG 6版": 20,
+                "クトゥルフ神話TRPG 7版": 4
             }
         },
         // ...
@@ -214,8 +214,8 @@ GET /api/accounts/statistics/tindalos/detailed/?type=system_trends
     "period": "2021 - 2025",
     "systems": [
         {
-            "system_code": "coc",
-            "system_name": "クトゥルフ神話TRPG",
+            "system_code": "coc6",
+            "system_name": "クトゥルフ神話TRPG 6版",
             "yearly_data": [
                 {
                     "year": 2021,
@@ -257,11 +257,10 @@ GET /api/accounts/statistics/tindalos/detailed/?type=system_trends
 SimpleTindalosMetricsViewで`game_system`パラメータを使用して特定のゲームシステムのデータのみを取得できます。
 
 利用可能なゲームシステムコード:
-- `coc`: クトゥルフ神話TRPG
-- `dnd`: D&D
-- `sw`: ソード・ワールド
-- `insane`: インセイン
-- `other`: その他
+- `coc6`: クトゥルフ神話TRPG 6版
+- `coc7`: クトゥルフ神話TRPG 7版
+
+旧 `coc` 入力はシナリオ登録時に `coc6` へ正規化されます。D&D、ソード・ワールド、インセイン、その他のシナリオ登録は現在の実装では受け付けません。
 
 ## 実装詳細
 

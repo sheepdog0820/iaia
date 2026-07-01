@@ -54,7 +54,7 @@ python tests/performance/image_upload_load.py \
 | シナリオ画像 | 1MB | jpg/png/gif | 成功 |
 | シナリオ画像 | 5MB | jpg/png/gif | 成功または上限境界の明確なエラー |
 | シナリオ画像 | 上限超過 | jpg/png/gif | 400系、エラーメッセージ表示 |
-| 複数枚登録 | 10枚 | jpg/png/gif混在 | 上限内で成功、不正混入時は一括拒否 |
+| 複数枚登録 | 通常2枚 / プレミアム10枚 | jpg/png/gif混在 | 各上限内で成功、上限超過や不正混入時は明確なエラー |
 | 大量アクセス | 同時アップロード | jpg/png/gif混在 | worker、DB、S3、Redisが枯渇しない |
 
 ## 運用開始後の課題
@@ -94,7 +94,7 @@ python tests/performance/image_upload_load.py \
 | セッション管理 | 必須 | 作成、編集、削除、参加者管理、カレンダー表示を確認 |
 | キャラシ管理 | 必須 | CoC 6版/7版のみ。private/group/link/public/allowed users の直URLアクセスを確認。`link` は公開ID URLでは404、ShareLinkでのみ閲覧可能。`access_scope=private` 更新時に旧 `is_public` が残っても公開URL/APIが閉じることを `accounts.tests.BasicAccountsTestCase.test_access_scope_private_update_clears_legacy_public_flag` で確認 |
 | 秘匿HO | 必須 | GMは全件、割当PLは自分のHOのみ、公開HOは参加者全員、添付も同じ権限で確認 |
-| 画像アップロード | 必須 | キャラシ/セッション/シナリオ画像の保存、表示、上限超過時の明確なエラー |
+| 画像アップロード | 必須 | キャラシ/セッション/シナリオ画像の保存、表示、キャラシ画像の通常2枚/プレミアム10枚制限、上限超過時の明確なエラー |
 | 最低限のプレミアム判定 | 条件付き | Stripe CheckoutはISSUE-077完了まで非表示またはテストモード限定。運営コード/手動付与は監査ログ付きで確認 |
 
 ### βでは後回しにする機能

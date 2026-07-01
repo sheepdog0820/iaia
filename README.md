@@ -70,7 +70,7 @@
 - 高度なフィルタリング（ゲームシステム・難易度・時間・人数）
 - プレイ履歴記録・統計表示
 - GMメモ機能（公開・非公開）
-- マルチゲームシステム対応（CoC、D&D、ソードワールド等）
+- シナリオ登録・キャラクターシートはクトゥルフ神話TRPG 6版/7版に対応
 
 #### 🎨 **UI/UX**
 - **クトゥルフ神話テーマ**のダークデザイン
@@ -229,9 +229,9 @@ python create_admin.py
    - JSONダウンロード
 
 ##### 🖼️ 画像管理システム（新機能）
-- **複数画像対応**: メイン画像 + 追加画像（最大10枚）
+- **複数画像対応**: メイン画像 + 追加画像（通常ユーザー最大2枚、プレミアムユーザー最大10枚）
 - **画像ギャラリー**: サムネイル表示・モーダル拡大
-- **自動リサイズ**: アップロード時に最適化
+- **サーバ側検証**: 5MB以下、最大3000×4000px、対応形式を検証
 - **対応形式**: JPEG/PNG/GIF（最大5MB）
 
 ##### 📊 詳細表示画面
@@ -605,13 +605,13 @@ python migrate_character_images.py
 - `/api/accounts/character-sheets/` - キャラクター一覧・作成
 - `/api/accounts/character-sheets/{id}/` - 詳細・更新・削除
 - `/api/accounts/character-sheets/{id}/images/` - 画像管理
+- `/api/accounts/character-sheets/{id}/images/download/` - 表示可能な立ち絵画像のZIPダウンロード
+- `/share/characters/{token}/images/` - 固定共有リンク用の画像一覧
+- `/share/characters/{token}/images.zip` - 固定共有リンク用の立ち絵ZIPダウンロード
 - `/api/accounts/character-sheets/{id}/ccfolia_json/` - CCFOLIA連携
 
 #### 認証
-全APIエンドポイントは認証が必要です：
-```python
-permission_classes = [IsAuthenticated]
-```
+原則としてAPIエンドポイントは認証が必要です。公開キャラクターの画像一覧/ZIPや、`link`/`public` の固定共有リンク経由の画像一覧/ZIPなど、読み取り専用で匿名アクセスを許可する例外があります。画像一覧/ZIPのGETは対象キャラクターの閲覧権限を満たさない場合404を返します。
 
 ## 📈 デプロイ
 

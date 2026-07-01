@@ -393,7 +393,7 @@ tableno/
 **Scenario（シナリオ）**
 - title: タイトル
 - author: 作者
-- game_system: ゲームシステム（coc/dnd/sw/insane/other）
+- game_system: ゲームシステム（`coc6`/`coc7`。旧 `coc` 入力は `coc6` に正規化）
 - difficulty: 難易度（beginner/intermediate/advanced/expert）
 - estimated_duration: 推定プレイ時間（short/medium/long/campaign）
 - summary: 概要
@@ -700,6 +700,11 @@ tableno/
 - `POST /api/accounts/invitations/<id>/decline/` - 招待拒否
 - `GET /api/accounts/profile/` - プロフィール取得
 - `POST /api/accounts/friends/add/` - フレンド追加
+- `GET/POST /api/accounts/character-sheets/{id}/images/` - キャラクター画像一覧・アップロード
+- `GET/PUT/PATCH/DELETE /api/accounts/character-sheets/{id}/images/{image_id}/` - キャラクター画像詳細・更新・削除
+- `POST/PATCH /api/accounts/character-sheets/{id}/images/{image_id}/set_main/` - メイン画像設定
+- `PATCH /api/accounts/character-sheets/{id}/images/reorder/` - キャラクター画像並び替え
+- `GET /api/accounts/character-sheets/{id}/images/download/` - 表示可能な立ち絵画像のZIPダウンロード
 
 ### 4.3 統計・エクスポート関連
 - `GET /api/accounts/statistics/tindalos/` - Tindalos Metrics
@@ -825,6 +830,8 @@ tableno/
 - `POST /api/share-links/<id>/reissue/` - ShareLink再発行
 - `GET /share/sessions/<token>/` - セッション共有表示（秘匿HO、内部ユーザー情報なし）
 - `GET /share/characters/<token>/` - キャラクター共有表示（所有者、許可ユーザー、メモなし）
+- `GET /share/characters/<token>/images/` - 共有キャラクター画像一覧
+- `GET /share/characters/<token>/images.zip` - 共有キャラクター立ち絵ZIPダウンロード
 - `GET /share/scenarios/<token>/` - シナリオ共有表示（GMメモ、秘匿HO、作成者情報なし）
 - `GET /share/stats/<token>/` - セッション参加統計共有（ログインユーザー紐づけなし）
 

@@ -229,14 +229,18 @@
 ### 3.6 画像管理（複数枚・メイン画像・並び替え）
 
 - **内容**
-  - 複数画像アップロード（上限あり）
+  - 複数画像アップロード（通常ユーザー最大2枚、プレミアムユーザー最大10枚）
   - メイン画像の切替
   - 画像の並び替え
   - 詳細画面でのギャラリー表示（サムネイル + 拡大）
+  - 詳細画面での画像切替と立ち絵ZIPダウンロード
 - **API（代表）**
   - `/api/accounts/character-sheets/{id}/images/`
   - `/api/accounts/character-sheets/{id}/images/{pk}/set_main/`
   - `/api/accounts/character-sheets/{id}/images/reorder/`
+  - `/api/accounts/character-sheets/{id}/images/download/`
+  - `/share/characters/{token}/images/`
+  - `/share/characters/{token}/images.zip`
 - **状態**: **完成**
 
 ### 3.7 成長・バージョン管理

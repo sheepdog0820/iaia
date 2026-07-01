@@ -256,10 +256,10 @@
 
 #### 複数画像対応
 - メイン画像設定
-- 追加画像アップロード（最大10枚）
+- 追加画像アップロード（通常ユーザー最大2枚、プレミアムユーザー最大10枚）
 - 画像の並び替え（ドラッグ&ドロップ対応）
 - 画像の削除
-- サムネイル自動生成
+- サムネイルURL提供（現状は元画像URLを返却）
 - 画像ギャラリー表示
 
 #### 画像仕様
@@ -271,7 +271,6 @@
 #### 画像管理画面
 - グリッド表示（サムネイル一覧）
 - メイン画像の切り替え（ワンクリック）
-- 画像の説明文追加（オプション）
 - 画像のプレビューモーダル
 
 ### 4. CCFOLIA連携
@@ -565,7 +564,6 @@ class CharacterImage(models.Model):
     image = ImageField()
     is_main = BooleanField(default=False)
     order = IntegerField(default=0)
-    description = CharField(max_length=255, blank=True)  # 画像の説明
     uploaded_at = DateTimeField(auto_now_add=True)
 ```
 
@@ -675,8 +673,13 @@ document.addEventListener('DOMContentLoaded', function() {
 #### 画像管理
 - `GET /api/accounts/character-sheets/{id}/images/` - 画像一覧
 - `POST /api/accounts/character-sheets/{id}/images/` - 画像アップロード
-- `PUT /api/accounts/character-sheets/{id}/images/{image_id}/` - 画像更新（メイン設定、説明文）
+- `PUT/PATCH /api/accounts/character-sheets/{id}/images/{image_id}/` - 画像更新（画像差し替え、メインフラグ、表示順）
 - `DELETE /api/accounts/character-sheets/{id}/images/{image_id}/` - 画像削除
+- `POST/PATCH /api/accounts/character-sheets/{id}/images/{image_id}/set_main/` - メイン画像設定
+- `PATCH /api/accounts/character-sheets/{id}/images/reorder/` - 画像並び替え
+- `GET /api/accounts/character-sheets/{id}/images/download/` - 表示可能な立ち絵画像のZIPダウンロード
+- `GET /share/characters/{token}/images/` - 共有リンク経由の画像一覧
+- `GET /share/characters/{token}/images.zip` - 共有リンク経由の立ち絵ZIPダウンロード
 
 #### 装備管理
 - `GET /api/accounts/character-sheets/{id}/equipment/` - 装備一覧
@@ -791,7 +794,7 @@ document.addEventListener('DOMContentLoaded', function() {
   - 防具管理機能
   - CharacterEquipmentモデルの追加
 - **画像管理システムの強化**
-  - 複数画像アップロード（最大10枚）
+  - 複数画像アップロード（通常ユーザー最大2枚、プレミアムユーザー最大10枚）
   - メイン画像切り替え機能
   - CharacterImageモデルの追加
 
