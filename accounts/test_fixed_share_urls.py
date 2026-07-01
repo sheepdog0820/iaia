@@ -135,8 +135,25 @@ class FixedShareUrlTests(APITestCase):
             anonymous_response,
             f'data-character-images-zip-url="/share/characters/{character.share_token}/images.zip"',
         )
+        self.assertContains(anonymous_response, 'id="characterImagesDownloadLink"')
+        self.assertContains(
+            anonymous_response,
+            f'data-character-ccfolia-json-url="/share/characters/{character.share_token}/ccfolia.json"',
+        )
+        self.assertContains(
+            anonymous_response,
+            f'data-character-reference-url="/share/characters/{character.share_token}/view/"',
+        )
+        self.assertContains(anonymous_response, 'id="ccfoliaExportLink"')
+        self.assertContains(anonymous_response, 'ココフォリア用コピー')
+        self.assertNotContains(anonymous_response, 'download="character-')
         self.assertNotContains(anonymous_response, 'id="editButton"')
         self.assertNotContains(anonymous_response, 'private notes must not render')
+
+        ccfolia_response = self.client.get(f'/share/characters/{character.share_token}/ccfolia.json')
+        self.assertEqual(ccfolia_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(ccfolia_response.data['kind'], 'character')
+        self.assertEqual(ccfolia_response.data['data']['name'], 'Fixed URL Investigator')
 
         self.client.force_authenticate(self.other_user)
         logged_in_response = self.client.get(f'/share/characters/{character.share_token}/view/')
@@ -148,6 +165,8 @@ class FixedShareUrlTests(APITestCase):
         character.save(update_fields=['access_scope'])
         closed_response = self.client.get(f'/share/characters/{character.share_token}/view/')
         self.assertEqual(closed_response.status_code, status.HTTP_404_NOT_FOUND)
+        closed_ccfolia_response = self.client.get(f'/share/characters/{character.share_token}/ccfolia.json')
+        self.assertEqual(closed_ccfolia_response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_session_fixed_share_url_reuses_existing_share_token(self):
         session = self.create_session()

@@ -213,6 +213,8 @@ def _build_character_detail_context(
     shared_api_url='',
     images_api_url='',
     images_zip_url='',
+    ccfolia_json_url='',
+    reference_url='',
 ):
     assigned_skills = character.skills.filter(
         current_value__gt=django_models.F('base_value')
@@ -247,6 +249,10 @@ def _build_character_detail_context(
         context['character_images_api_url'] = images_api_url
     if images_zip_url:
         context['character_images_zip_url'] = images_zip_url
+    if ccfolia_json_url:
+        context['character_ccfolia_json_url'] = ccfolia_json_url
+    if reference_url:
+        context['character_reference_url'] = reference_url
     return context
 
 
@@ -502,6 +508,14 @@ class SharedCharacterImagesZipView(APIView):
         return build_character_images_zip_response(character)
 
 
+class SharedCharacterCcfoliaJsonView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, token):
+        character = _shared_character_or_404(token, request)
+        return Response(character.export_ccfolia_format())
+
+
 class SharedScenarioDetailView(APIView):
     permission_classes = [AllowAny]
 
@@ -564,6 +578,14 @@ class FixedSharedCharacterView(APIView):
             'shared-character-images-zip',
             kwargs={'token': character.share_token},
         )
+        ccfolia_json_url = reverse(
+            'shared-character-ccfolia-json',
+            kwargs={'token': character.share_token},
+        )
+        reference_url = reverse(
+            'fixed-shared-character-view',
+            kwargs={'share_token': character.share_token},
+        )
         return render(
             request,
             'accounts/character_detail.html',
@@ -575,6 +597,8 @@ class FixedSharedCharacterView(APIView):
                 shared_api_url=shared_api_url,
                 images_api_url=images_api_url,
                 images_zip_url=images_zip_url,
+                ccfolia_json_url=ccfolia_json_url,
+                reference_url=reference_url,
             ),
         )
 

@@ -15,7 +15,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container character-detail" id="characterDetailContainer" data-character-id="{{ character.id }}" data-public-view="{% if is_public_view %}true{% else %}false{% endif %}" data-shared-api-url="{{ character_shared_api_url|default:'' }}" data-character-images-api-url="{{ character_images_api_url|default:'' }}" data-character-images-zip-url="{{ character_images_zip_url|default:'' }}">
+<div class="container character-detail" id="characterDetailContainer" data-character-id="{{ character.id }}" data-public-view="{% if is_public_view %}true{% else %}false{% endif %}" data-shared-api-url="{{ character_shared_api_url|default:'' }}" data-character-images-api-url="{{ character_images_api_url|default:'' }}" data-character-images-zip-url="{{ character_images_zip_url|default:'' }}" data-character-ccfolia-json-url="{{ character_ccfolia_json_url|default:'' }}" data-character-reference-url="{{ character_reference_url|default:'' }}">
     <!-- ローディング -->
     <div class="text-center" id="loading">
         <div class="spinner-border text-primary" role="status">
@@ -36,8 +36,14 @@
                         <i class="fas fa-user-ninja text-primary"></i>
                         <span class="character-name"></span>
                     </h2>
-                    {% if can_edit_character %}
-                    <div class="character-actions">
+                    <div class="character-actions d-flex flex-wrap gap-2 justify-content-end">
+                        <a href="{{ character_images_zip_url|default:'#' }}" id="characterImagesDownloadLink" class="btn btn-outline-secondary d-none" download>
+                            <i class="fas fa-file-archive"></i> 画像ZIP
+                        </a>
+                        <button type="button" id="ccfoliaExportLink" class="btn btn-outline-success" disabled>
+                            <i class="fas fa-clipboard"></i> ココフォリア用コピー
+                        </button>
+                        {% if can_edit_character %}
                         <a href="/accounts/character/list/" class="btn btn-outline-secondary me-2">
                             <i class="fas fa-arrow-left"></i> 一覧に戻る
                         </a>
@@ -47,8 +53,8 @@
                         <a href="#" id="editButton" class="btn btn-outline-primary">
                             <i class="fas fa-edit"></i> 編集
                         </a>
+                        {% endif %}
                     </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -358,6 +364,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/ccfolia_character_copy.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const containerEl = document.getElementById('characterDetailContainer');
@@ -366,10 +373,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const sharedApiUrl = containerEl?.dataset?.sharedApiUrl || '';
     const characterImagesApiUrl = containerEl?.dataset?.characterImagesApiUrl || `/api/accounts/character-sheets/${characterId}/images/`;
     const characterImagesZipUrl = containerEl?.dataset?.characterImagesZipUrl || `/api/accounts/character-sheets/${characterId}/images/download/`;
+    const characterReferenceUrl = containerEl?.dataset?.characterReferenceUrl || window.location.href;
     const characterDetailApiUrl = sharedApiUrl || (isPublicView
         ? `/api/accounts/character-sheets/${characterId}/public/`
         : `/api/accounts/character-sheets/${characterId}/`);
     let character = null;
+
+    const ccfoliaExportLink = document.getElementById('ccfoliaExportLink');
+    const characterImagesDownloadLink = document.getElementById('characterImagesDownloadLink');
+    if (characterImagesDownloadLink && characterImagesZipUrl) {
+        characterImagesDownloadLink.href = characterImagesZipUrl;
+    }
+
+    function setImageDownloadVisibility(hasDownloadableImages) {
+        if (!characterImagesDownloadLink || !characterImagesZipUrl) return;
+        characterImagesDownloadLink.classList.toggle('d-none', !hasDownloadableImages);
+    }
 
     if (!characterDetailApiUrl || (!characterId && !sharedApiUrl)) {
         document.getElementById('loading').style.display = 'none';
@@ -379,6 +398,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     document.getElementById('createVersionAndEditButton')?.addEventListener('click', createVersionAndEdit);
+    ccfoliaExportLink?.addEventListener('click', copyCcfoliaCharacterForRoom);
     
     // ステータステキストを取得する関数
     function getStatusText(status) {
@@ -411,6 +431,9 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => {
                 character = response.data;
                 displayCharacter(character);
+                if (ccfoliaExportLink) {
+                    ccfoliaExportLink.disabled = false;
+                }
                 // Prefer versions embedded in character detail if available
                 if (character && Array.isArray(character.versions) && character.versions.length > 0) {
                     displayVersions(character.versions);
@@ -529,6 +552,76 @@ document.addEventListener('DOMContentLoaded', function() {
             .filter(Boolean);
 
         return parts.length > 0 ? parts.join('\n\n') : '未設定';
+    }
+
+    function characterNotifySuccess(message) {
+        if (window.ARKHAM?.showSuccess) {
+            window.ARKHAM.showSuccess(message);
+        } else {
+            alert(message);
+        }
+    }
+
+    function characterNotifyError(message) {
+        if (window.ARKHAM?.showError) {
+            window.ARKHAM.showError(message);
+        } else {
+            alert(message);
+        }
+    }
+
+    function getCharacterErrorMessage(error, fallback = '不明なエラー') {
+        return error?.response?.data?.detail
+            || error?.response?.data?.error
+            || error?.message
+            || fallback;
+    }
+
+    async function getCharacterReferenceUrlForCopy() {
+        const path = window.location.pathname || '';
+        const isNormalOwnerDetail = path.startsWith('/accounts/character/');
+        if (!isNormalOwnerDetail || !character?.id) {
+            return characterReferenceUrl;
+        }
+
+        const response = await axios.post('/api/share-links/fixed-url/', {
+            resource_type: 'character',
+            object_id: character.id,
+            auto_enable_link: true
+        });
+        return response.data?.share_url || characterReferenceUrl;
+    }
+
+    async function copyCcfoliaCharacterForRoom() {
+        if (!character) {
+            characterNotifyError('キャラクター情報の読み込み完了後にもう一度お試しください。');
+            return;
+        }
+        const helper = window.CCFOLIACharacterCopy;
+        if (!helper?.stringifyCharacter || !helper?.copyTextToClipboard) {
+            characterNotifyError('ココフォリア用コピーの準備に失敗しました。ページを再読み込みしてください。');
+            return;
+        }
+
+        const originalHtml = ccfoliaExportLink?.innerHTML;
+        try {
+            if (ccfoliaExportLink) {
+                ccfoliaExportLink.disabled = true;
+                ccfoliaExportLink.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> コピー中...';
+            }
+            const referenceUrl = await getCharacterReferenceUrlForCopy();
+            const text = helper.stringifyCharacter(character, referenceUrl);
+            await helper.copyTextToClipboard(text);
+            characterNotifySuccess('ココフォリア用キャラクター情報をコピーしました。ココフォリアの部屋で貼り付けできます。');
+        } catch (error) {
+            console.error('Failed to copy CCFOLIA character data:', error);
+            characterNotifyError('ココフォリア用コピーに失敗しました: ' + getCharacterErrorMessage(error));
+        } finally {
+            if (ccfoliaExportLink) {
+                ccfoliaExportLink.disabled = false;
+                ccfoliaExportLink.innerHTML = originalHtml;
+            }
+        }
     }
 
     function formatInfoValue(value) {
@@ -675,6 +768,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.count > 0) {
                     const images = data.results.filter(image => image.image_url);
                     if (images.length === 0) {
+                        setImageDownloadVisibility(false);
                         imageContainer.innerHTML = `
                             <div class="bg-light rounded shadow d-flex align-items-center justify-content-center"
                                  style="height: 300px;">
@@ -685,6 +779,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     const mainImage = images.find(img => img.is_main) || images[0];
                     const mainImageIndex = Math.max(0, images.indexOf(mainImage));
+                    setImageDownloadVisibility(true);
                     
                     let html = '';
                     
@@ -738,6 +833,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     const fallbackImageUrl = character.character_image || character.character_image_url;
                     if (fallbackImageUrl) {
+                        setImageDownloadVisibility(true);
                         imageContainer.innerHTML = `
                             <div class="mb-3">
                                 <img src="${escapeHtml(fallbackImageUrl)}" class="img-fluid rounded shadow main-character-image"
@@ -752,6 +848,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         return;
                     }
                     // デフォルト画像
+                    setImageDownloadVisibility(false);
                     imageContainer.innerHTML = `
                         <div class="bg-light rounded shadow d-flex align-items-center justify-content-center" 
                              style="height: 300px;">
@@ -765,6 +862,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // フォールバック: 従来の単一画像表示
                 const fallbackImageUrl = character.character_image || character.character_image_url;
                 if (fallbackImageUrl) {
+                    setImageDownloadVisibility(true);
                     imageContainer.innerHTML = `
                         <div class="mb-3">
                             <img src="${escapeHtml(fallbackImageUrl)}" class="img-fluid rounded shadow main-character-image"
@@ -777,6 +875,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         showImageModal(fallbackImageUrl, character.name);
                     });
                 } else {
+                    setImageDownloadVisibility(false);
                     imageContainer.innerHTML = `
                         <div class="bg-light rounded shadow d-flex align-items-center justify-content-center" 
                              style="height: 300px;">

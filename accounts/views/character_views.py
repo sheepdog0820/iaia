@@ -68,7 +68,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
     pagination_class = OptionalPagination
 
     def get_permissions(self):
-        if self.action == 'public_detail':
+        if self.action in ['public_detail', 'public_ccfolia_json']:
             return [AllowAny()]
         return super().get_permissions()
     
@@ -145,6 +145,17 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             raise Http404("Character sheet not found")
         serializer = SharedCharacterSheetSerializer(sheet, context={'request': request})
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='public/ccfolia_json', permission_classes=[AllowAny])
+    def public_ccfolia_json(self, request, pk=None):
+        sheet = get_object_or_404(
+            CharacterSheet.objects.select_related('sixth_edition_data')
+            .prefetch_related('skills', 'equipment'),
+            pk=pk,
+        )
+        if not CharacterSheetAccessMixin.is_publicly_readable(sheet):
+            raise Http404("Character sheet not found")
+        return Response(sheet.export_ccfolia_format())
 
     @action(detail=False, methods=['get'], permission_classes=[])
     def auth_check(self, request):
@@ -2544,6 +2555,8 @@ class CharacterDetailView(TemplateView):
                 'can_edit_character': (not self.is_public_view) and self.request.user.is_authenticated and character.user_id == self.request.user.id,
                 'character_images_api_url': f'/api/accounts/character-sheets/{character.id}/images/',
                 'character_images_zip_url': f'/api/accounts/character-sheets/{character.id}/images/download/',
+                'character_ccfolia_json_url': f'/api/accounts/character-sheets/{character.id}/ccfolia_json/',
+                'character_reference_url': f'/share/characters/{character.share_token}/view/',
                 'assigned_skills': assigned_skills,
                 'weapons': weapons,
                 'armor': armor,
@@ -2587,6 +2600,8 @@ def character_public_view_6th(request, character_id):
         'can_edit_character': False,
         'character_images_api_url': f'/api/accounts/character-sheets/{character.id}/images/',
         'character_images_zip_url': f'/api/accounts/character-sheets/{character.id}/images/download/',
+        'character_ccfolia_json_url': f'/api/accounts/character-sheets/{character.id}/public/ccfolia_json/',
+        'character_reference_url': f'/share/characters/{character.share_token}/view/',
         'assigned_skills': assigned_skills,
         'weapons': weapons,
         'armor': armor,

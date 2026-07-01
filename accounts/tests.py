@@ -450,6 +450,16 @@ class BasicAccountsTestCase(TestCase):
             access_scope='public',
         )
 
+        self.client.force_login(owner)
+        owner_page_response = self.client.get(
+            reverse('character_detail_6th', kwargs={'character_id': character.id})
+        )
+        self.assertEqual(owner_page_response.status_code, 200)
+        self.assertContains(
+            owner_page_response,
+            f'data-character-reference-url="/share/characters/{character.share_token}/view/"'
+        )
+
         self.client.logout()
 
         normal_api_response = self.client.get(f'/api/accounts/character-sheets/{character.id}/')
@@ -458,6 +468,13 @@ class BasicAccountsTestCase(TestCase):
         public_api_response = self.client.get(f'/api/accounts/character-sheets/{character.id}/public/')
         self.assertEqual(public_api_response.status_code, 200)
         self.assertEqual(public_api_response.json()['name'], 'Direct Link PC')
+
+        public_ccfolia_response = self.client.get(
+            f'/api/accounts/character-sheets/{character.id}/public/ccfolia_json/'
+        )
+        self.assertEqual(public_ccfolia_response.status_code, 200)
+        self.assertEqual(public_ccfolia_response.json()['kind'], 'character')
+        self.assertEqual(public_ccfolia_response.json()['data']['name'], 'Direct Link PC')
 
         normal_page_response = self.client.get(
             reverse('character_detail_6th', kwargs={'character_id': character.id})
@@ -471,6 +488,18 @@ class BasicAccountsTestCase(TestCase):
         self.assertContains(page_response, 'Direct Link PC')
         self.assertContains(page_response, 'og:title')
         self.assertContains(page_response, 'Direct Link PL')
+        self.assertContains(
+            page_response,
+            f'data-character-ccfolia-json-url="/api/accounts/character-sheets/{character.id}/public/ccfolia_json/"'
+        )
+        self.assertContains(
+            page_response,
+            f'data-character-reference-url="/share/characters/{character.share_token}/view/"'
+        )
+        self.assertContains(page_response, 'id="characterImagesDownloadLink"')
+        self.assertContains(page_response, 'id="ccfoliaExportLink"')
+        self.assertContains(page_response, 'ココフォリア用コピー')
+        self.assertNotContains(page_response, 'download="character-')
         self.assertNotContains(page_response, 'id="editButton"')
 
         character.access_scope = 'private'
@@ -479,6 +508,10 @@ class BasicAccountsTestCase(TestCase):
 
         private_public_api_response = self.client.get(f'/api/accounts/character-sheets/{character.id}/public/')
         self.assertEqual(private_public_api_response.status_code, 404)
+        private_public_ccfolia_response = self.client.get(
+            f'/api/accounts/character-sheets/{character.id}/public/ccfolia_json/'
+        )
+        self.assertEqual(private_public_ccfolia_response.status_code, 404)
 
         private_public_page_response = self.client.get(
             reverse('character_public_view', kwargs={'character_id': character.id})
