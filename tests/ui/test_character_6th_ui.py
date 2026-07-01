@@ -195,11 +195,12 @@ class Character6thTemplateRenderingTest(TestCase):
             age=25
         )
         
-        # Detail view is accessible (no ownership filter in view)
-        response = self.client.get(
-            reverse('character_detail_6th', kwargs={'character_id': character.id})
-        )
-        self.assertEqual(response.status_code, 200)
+        # Detail view should not expose another user's private character.
+        with self.assertLogs('django.request', level='WARNING'):
+            response = self.client.get(
+                reverse('character_detail_6th', kwargs={'character_id': character.id})
+            )
+        self.assertEqual(response.status_code, 404)
         
         # Try to edit (should get 404)
         with self.assertLogs('django.request', level='WARNING'):

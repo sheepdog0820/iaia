@@ -2013,14 +2013,24 @@ document.addEventListener('DOMContentLoaded', function() {
     border-left-color: #007bff;
 }
 
-.card-header-tabs .nav-link {
+.character-detail .card-header-tabs .nav-link {
     border-bottom: none;
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 1px 2px rgba(15, 23, 42, 0.35);
 }
 
-.card-header-tabs .nav-link.active {
-    background-color: transparent;
-    border-color: transparent transparent #dee2e6;
-    color: #007bff;
+.character-detail .card-header-tabs .nav-link:hover,
+.character-detail .card-header-tabs .nav-link:focus {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.character-detail .card-header-tabs .nav-link.active {
+    background-color: rgba(15, 23, 42, 0.24);
+    border-color: rgba(255, 255, 255, 0.35);
+    color: #ffffff;
+    font-weight: 700;
 }
 
 .growth-record-card {
