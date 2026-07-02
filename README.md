@@ -92,7 +92,7 @@ APP_ENV=local ENV_FILE=.env.development python manage.py runserver
 
 ### テストアカウント
 
-固定のテストアカウントやパスワードはREADMEに記載しません。ローカル環境で必要な場合は `python create_admin.py` や開発用管理コマンドで作成してください。
+固定のテストアカウントやパスワードはREADMEに記載しません。必要なアカウントは `python create_admin.py` や開発用管理コマンドでローカル環境で作成してください。
 
 ### よく使う確認コマンド
 

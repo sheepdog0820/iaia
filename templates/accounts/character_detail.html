@@ -1025,13 +1025,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function displaySkills(skills) {
         const container = document.getElementById('skillsContainer');
         
-        // デバッグ: 技能データを確認
-        console.log('技能データ:', skills);
-        console.log('技能数:', skills ? skills.length : 0);
-        if (skills && skills.length > 0) {
-            console.log('最初の技能:', skills[0]);
-        }
-        
         // 基本値より高い技能のみフィルタ
         const trainedSkills = skills.filter(skill => 
             skill.current_value > skill.base_value

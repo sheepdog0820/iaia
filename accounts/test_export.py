@@ -4,8 +4,10 @@
 
 import csv
 import json
-from datetime import timedelta
+from contextlib import redirect_stdout
+from datetime import datetime, timedelta
 from io import StringIO
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -293,6 +295,134 @@ class ExportFunctionalityTestCase(APITestCase):
         else:
             # 実装前は404であることを確認
             self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_statistics_export_handles_completed_session_without_date(self):
+        """日付未定の完了セッションが統計エクスポートを壊さない"""
+        TRPGSession.objects.create(
+            title="Undated Completed Session",
+            date=None,
+            gm=self.user,
+            group=self.group,
+            duration_minutes=120,
+            status="completed",
+        )
+
+        self.client.force_authenticate(user=self.user)
+
+        for format_type in ["json", "csv", "pdf"]:
+            with self.subTest(format_type=format_type):
+                response = self.client.get("/api/accounts/export/statistics/", {"format": format_type})
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        response = self.client.get("/api/accounts/export/statistics/", {"format": "json"})
+        data = response.json()
+        self.assertEqual(data["user_statistics"]["total_sessions"], 2)
+        self.assertEqual(list(data["session_statistics"]["by_year"].values())[0]["session_count"], 1)
+
+    def test_statistics_export_invalid_date_parameters_return_400(self):
+        """統計エクスポートの日付パラメータ不正は400として扱う"""
+        self.client.force_authenticate(user=self.user)
+
+        cases = [
+            ({"start_date": "2024/01/01"}, "Invalid start_date format. Use YYYY-MM-DD"),
+            ({"end_date": "2024/12/31"}, "Invalid end_date format. Use YYYY-MM-DD"),
+        ]
+        for params, expected_error in cases:
+            with self.subTest(params=params):
+                response = self.client.get("/api/accounts/export/statistics/", {"format": "json", **params})
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(response.json()["error"], expected_error)
+
+    def test_statistics_export_internal_value_error_returns_generic_500(self):
+        """統計エクスポート内部のValueErrorは生文字列を返さない"""
+        self.client.force_authenticate(user=self.user)
+
+        with patch(
+            "accounts.export_views.StatisticsExportView._collect_session_statistics",
+            side_effect=ValueError("internal detail"),
+        ):
+            with self.assertLogs("accounts.export_views", level="ERROR") as logs:
+                response = self.client.get("/api/accounts/export/statistics/", {"format": "json"})
+
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertEqual(response.json()["error"], "Error collecting statistics")
+        self.assertNotIn("internal detail", response.content.decode("utf-8"))
+        self.assertTrue(any("Error collecting statistics export data" in message for message in logs.output))
+
+    def test_statistics_export_populates_session_breakdowns(self):
+        """セッション統計のシステム別・月別内訳を実データで返す"""
+        self.session.date = timezone.make_aware(datetime(2024, 5, 5, 20, 0))
+        self.session.duration_minutes = 180
+        self.session.scenario = self.scenario
+        self.session.save(update_fields=["date", "duration_minutes", "scenario", "updated_at"])
+
+        scenario_7th = Scenario.objects.create(
+            title="Export Test Scenario 7th",
+            author="Export Author",
+            game_system="coc7",
+            created_by=self.user,
+        )
+        TRPGSession.objects.create(
+            title="Export Test Session 7th",
+            date=timezone.make_aware(datetime(2024, 5, 20, 20, 0)),
+            gm=self.user,
+            group=self.group,
+            scenario=scenario_7th,
+            duration_minutes=90,
+            status="completed",
+        )
+        TRPGSession.objects.create(
+            title="Export Test Session Unknown",
+            date=timezone.make_aware(datetime(2024, 6, 1, 20, 0)),
+            gm=self.user,
+            group=self.group,
+            duration_minutes=60,
+            status="completed",
+        )
+        TRPGSession.objects.create(
+            title="Export Test Session Undated Unknown",
+            date=None,
+            gm=self.user,
+            group=self.group,
+            duration_minutes=120,
+            status="completed",
+        )
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get("/api/accounts/export/statistics/", {"format": "json"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        session_statistics = response.json()["session_statistics"]
+        self.assertEqual(session_statistics["by_game_system"]["coc6"]["session_count"], 1)
+        self.assertEqual(session_statistics["by_game_system"]["coc6"]["total_minutes"], 180)
+        self.assertEqual(session_statistics["by_game_system"]["coc7"]["session_count"], 1)
+        self.assertEqual(session_statistics["by_game_system"]["coc7"]["total_minutes"], 90)
+        self.assertEqual(session_statistics["by_game_system"]["unknown"]["session_count"], 2)
+        self.assertEqual(session_statistics["by_game_system"]["unknown"]["total_minutes"], 180)
+        self.assertEqual(session_statistics["by_month"]["2024-05"]["session_count"], 2)
+        self.assertEqual(session_statistics["by_month"]["2024-05"]["total_minutes"], 270)
+        self.assertEqual(session_statistics["by_month"]["2024-06"]["session_count"], 1)
+        self.assertEqual(session_statistics["by_month"]["2024-06"]["total_minutes"], 60)
+
+    def test_statistics_export_does_not_write_debug_output_to_stdout(self):
+        """統計エクスポートは標準出力へデバッグ出力しない"""
+        self.client.force_authenticate(user=self.user)
+        stdout = StringIO()
+
+        with redirect_stdout(stdout):
+            response = self.client.get("/api/accounts/export/statistics/", {"format": "csv"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn("DEBUG:", stdout.getvalue())
+
+    def test_character_sheet_auth_check_debug_endpoint_is_not_public(self):
+        """公開デバッグ用auth_check APIは存在しない"""
+        anonymous_response = self.client.get("/api/accounts/character-sheets/auth_check/")
+        self.assertEqual(anonymous_response.status_code, status.HTTP_404_NOT_FOUND)
+
+        self.client.force_authenticate(user=self.user)
+        authenticated_response = self.client.get("/api/accounts/character-sheets/auth_check/")
+        self.assertEqual(authenticated_response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_export_formats_endpoint_new_spec(self):
         """新仕様: /api/accounts/export/formats/ エンドポイントのテスト"""

@@ -6,16 +6,16 @@ from django.urls import reverse
 
 class BillingLegalPagesTestCase(TestCase):
     MOJIBAKE_MARKERS = [
-        "郢ｧ",
-        "邵ｺ",
-        "隴�",
-        "髫ｱ",
-        "鬮ｯ",
-        "陷�",
-        "驍�",
-        "繝",
-        "譛",
-        "蜑",
+        chr(0x90E2) + chr(0xFF67),
+        chr(0x90B5) + chr(0xFF7A),
+        chr(0x96B4) + chr(0xFFFD),
+        chr(0x9AEB) + chr(0xFF71),
+        chr(0x9B2E) + chr(0xFF6F),
+        chr(0x9677) + chr(0xFFFD),
+        chr(0x9A4D) + chr(0xFFFD),
+        chr(0x7E5D),
+        chr(0x8B5B),
+        chr(0x8711),
     ]
 
     def setUp(self):

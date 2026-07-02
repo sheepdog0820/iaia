@@ -104,7 +104,6 @@
     // エラーをクリアするコマンド  
     window.clearJSErrors = function() {
         errors.length = 0;
-        console.log('JavaScript errors cleared');
     };
     
 })();

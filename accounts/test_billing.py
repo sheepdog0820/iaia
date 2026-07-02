@@ -4830,7 +4830,7 @@ class BillingAdminTestCase(TestCase):
             Path("accounts/admin.py"),
             Path("accounts/management/commands/issue_premium_code.py"),
         ]
-        markers = ["???", "�", "縝", "縺", "驕", "莉ｶ"]
+        markers = ["???", chr(0xFFFD), chr(0x7E1D), chr(0x7E3A), chr(0x9A55), chr(0x8389) + chr(0xFF76)]
 
         for file_path in paths:
             content = file_path.read_text(encoding="utf-8")

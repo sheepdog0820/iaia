@@ -165,6 +165,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
 
     queryset = CharacterSheet.objects.none()
     permission_classes = [IsAuthenticated]
+    lookup_value_regex = r"\d+"
 
     class OptionalPagination(PageNumberPagination):
         page_size = None
@@ -232,19 +233,6 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         queryset = self.get_queryset().filter(edition=edition)
         serializer = CharacterSheetListSerializer(queryset, many=True)
         return Response(serializer.data)
-
-    @action(detail=False, methods=["get"], permission_classes=[])
-    def auth_check(self, request):
-        """認証状態を確認するデバッグエンドポイント"""
-        return Response(
-            {
-                "is_authenticated": request.user.is_authenticated,
-                "user": request.user.username if request.user.is_authenticated else None,
-                "session_key": request.session.session_key if hasattr(request, "session") else None,
-                "auth_header": request.META.get("HTTP_AUTHORIZATION", "None"),
-                "csrf_token": request.META.get("HTTP_X_CSRFTOKEN", "None"),
-            }
-        )
 
     @action(detail=False, methods=["get"])
     def active(self, request):

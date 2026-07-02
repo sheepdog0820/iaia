@@ -234,7 +234,7 @@ print(json.dumps({
     "account_login_methods": sorted(settings.ACCOUNT_LOGIN_METHODS),
     "account_signup_fields": settings.ACCOUNT_SIGNUP_FIELDS,
     "account_email_verification": settings.ACCOUNT_EMAIL_VERIFICATION,
-    "account_email_required": settings.ACCOUNT_EMAIL_REQUIRED,
+    "has_legacy_account_email_required": hasattr(settings, "ACCOUNT_EMAIL_REQUIRED"),
     "account_prevent_enumeration": settings.ACCOUNT_PREVENT_ENUMERATION,
     "socialaccount_email_required": settings.SOCIALACCOUNT_EMAIL_REQUIRED,
     "account_forms": settings.ACCOUNT_FORMS,
@@ -248,7 +248,7 @@ print(json.dumps({
             ["email*", "password1*", "password2*"],
         )
         self.assertEqual(payload["account_email_verification"], "mandatory")
-        self.assertTrue(payload["account_email_required"])
+        self.assertFalse(payload["has_legacy_account_email_required"])
         self.assertTrue(payload["account_prevent_enumeration"])
         self.assertTrue(payload["socialaccount_email_required"])
         self.assertEqual(

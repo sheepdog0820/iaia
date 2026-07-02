@@ -5,6 +5,7 @@ from schedules.duration import effective_duration_expression
 """
 import csv
 import json
+import logging
 from io import BytesIO, StringIO
 
 from django.http import HttpResponse, JsonResponse
@@ -15,6 +16,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .statistics_views import GroupStatisticsView, TindalosMetricsView, UserRankingView
+
+logger = logging.getLogger(__name__)
+
+
+class InvalidDateParameterError(ValueError):
+    """Raised when statistics export date query parameters are invalid."""
 
 
 class PassthroughCSVRenderer(BaseRenderer):
@@ -451,11 +458,9 @@ class StatisticsExportView(APIView):
         - start_date: YYYY-MM-DD (開始日)
         - end_date: YYYY-MM-DD (終了日)
         """
-        print(f"DEBUG: StatisticsExportView.get called with params: {request.query_params}")
         export_format = request.query_params.get("format", "json")
         start_date = request.query_params.get("start_date")
         end_date = request.query_params.get("end_date")
-        print(f"DEBUG: Parsed format: {export_format}, start_date: {start_date}, end_date: {end_date}")
 
         # フォーマットの検証
         if export_format not in ["json", "csv", "pdf"]:
@@ -464,30 +469,23 @@ class StatisticsExportView(APIView):
         # 統計データの収集
         try:
             statistics_data = self._collect_user_statistics(request.user, start_date, end_date)
-        except Exception as e:
-            import traceback
-
-            traceback.print_exc()
-            return Response({"error": f"Error collecting statistics: {str(e)}"}, status=500)
+        except InvalidDateParameterError as e:
+            return Response({"error": str(e)}, status=400)
+        except Exception:
+            logger.exception("Error collecting statistics export data")
+            return Response({"error": "Error collecting statistics"}, status=500)
 
         # フォーマット別エクスポート
         try:
-            print(f"DEBUG: Export format: {export_format}")
             if export_format == "json":
-                print("DEBUG: Exporting as JSON")
                 return self._export_json(statistics_data)
             elif export_format == "csv":
-                print("DEBUG: Exporting as CSV")
                 return self._export_csv(statistics_data)
             elif export_format == "pdf":
-                print("DEBUG: Exporting as PDF")
                 return self._export_pdf(statistics_data)
-        except Exception as e:
-            import traceback
-
-            print(f"DEBUG: Export error: {str(e)}")
-            traceback.print_exc()
-            return Response({"error": f"Error exporting data: {str(e)}"}, status=500)
+        except Exception:
+            logger.exception("Error exporting statistics data")
+            return Response({"error": "Error exporting data"}, status=500)
 
     def _collect_user_statistics(self, user, start_date, end_date):
         """ユーザーの統計データを収集"""
@@ -530,14 +528,14 @@ class StatisticsExportView(APIView):
                 start_date_parsed = datetime.strptime(start_date, "%Y-%m-%d").date()
                 date_filter &= Q(date__gte=start_date_parsed)
             except ValueError:
-                raise ValueError("Invalid start_date format. Use YYYY-MM-DD")
+                raise InvalidDateParameterError("Invalid start_date format. Use YYYY-MM-DD")
 
         if end_date:
             try:
                 end_date_parsed = datetime.strptime(end_date, "%Y-%m-%d").date()
                 date_filter &= Q(date__lte=end_date_parsed)
             except ValueError:
-                raise ValueError("Invalid end_date format. Use YYYY-MM-DD")
+                raise InvalidDateParameterError("Invalid end_date format. Use YYYY-MM-DD")
 
         return date_filter, start_date_parsed, end_date_parsed
 
@@ -601,27 +599,42 @@ class StatisticsExportView(APIView):
         return play_history_details
 
     def _collect_session_breakdown_stats(self, user, date_filter):
-        """セッション内訳統計を収集（年別・システム別）"""
+        """セッション内訳統計を収集（年別・システム別・月別）"""
         from django.db.models import Q
 
-        from scenarios.models import PlayHistory
         from schedules.models import TRPGSession
 
         user_sessions = (
             TRPGSession.objects.filter(Q(participants=user) | Q(gm=user), status="completed")
             .filter(date_filter)
+            .select_related("scenario")
             .distinct()
         )
 
         session_stats = {"by_year": {}, "by_game_system": {}, "by_month": {}}
 
-        # 年別集計
         for session in user_sessions:
+            duration_minutes = session.effective_duration_minutes or 0
+            game_system = session.scenario.game_system if session.scenario else "unknown"
+            if game_system not in session_stats["by_game_system"]:
+                session_stats["by_game_system"][game_system] = {"session_count": 0, "total_minutes": 0}
+            session_stats["by_game_system"][game_system]["session_count"] += 1
+            session_stats["by_game_system"][game_system]["total_minutes"] += duration_minutes
+
+            if session.date is None:
+                continue
+
             year = session.date.year
             if year not in session_stats["by_year"]:
                 session_stats["by_year"][year] = {"session_count": 0, "total_minutes": 0}
             session_stats["by_year"][year]["session_count"] += 1
-            session_stats["by_year"][year]["total_minutes"] += session.effective_duration_minutes or 0
+            session_stats["by_year"][year]["total_minutes"] += duration_minutes
+
+            month = session.date.strftime("%Y-%m")
+            if month not in session_stats["by_month"]:
+                session_stats["by_month"][month] = {"session_count": 0, "total_minutes": 0}
+            session_stats["by_month"][month]["session_count"] += 1
+            session_stats["by_month"][month]["total_minutes"] += duration_minutes
 
         return session_stats
 
@@ -710,7 +723,6 @@ class StatisticsExportView(APIView):
     def _export_csv(self, data):
         """CSV形式でエクスポート"""
         try:
-            print(f"DEBUG: _export_csv called with data keys: {data.keys() if data else 'None'}")
             output = StringIO()
             writer = csv.writer(output)
 
@@ -762,11 +774,8 @@ class StatisticsExportView(APIView):
                 f'attachment; filename="statistics_export_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
             )
             return response
-        except Exception as e:
-            print(f"CSV export error: {e}")
-            import traceback
-
-            traceback.print_exc()
+        except Exception:
+            logger.exception("CSV statistics export failed")
             raise
 
     def _export_pdf(self, data):

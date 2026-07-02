@@ -33,7 +33,7 @@
                     {% endif %}
                     {% if scenario.url %}
                     <a class="btn btn-outline-primary btn-sm" href="{{ scenario.url }}" target="_blank" rel="noopener noreferrer">
-                        <i class="fas fa-external-link-alt"></i> ??????
+                        <i class="fas fa-external-link-alt"></i> 外部リンク
                     </a>
                     {% endif %}
                 </div>
@@ -51,15 +51,15 @@
             {% endif %}
 
             <div class="card mb-3">
-                <div class="card-header bg-primary text-white">??</div>
+                <div class="card-header bg-primary text-white">概要</div>
                 <div class="card-body">
-                    {% if scenario.summary %}<p class="mb-0">{{ scenario.summary|linebreaksbr }}</p>{% else %}<p class="text-muted mb-0">?????????</p>{% endif %}
+                    {% if scenario.summary %}<p class="mb-0">{{ scenario.summary|linebreaksbr }}</p>{% else %}<p class="text-muted mb-0">概要は公開されていません。</p>{% endif %}
                 </div>
             </div>
 
             {% if scenario.public_info %}
             <div class="card mb-3">
-                <div class="card-header bg-info text-white">PL????</div>
+                <div class="card-header bg-info text-white">PL向け情報</div>
                 <div class="card-body">{{ scenario.public_info|linebreaksbr }}</div>
             </div>
             {% endif %}
@@ -72,14 +72,14 @@
             {% endif %}
 
             <div class="card mb-3">
-                <div class="card-header bg-secondary text-white">??????</div>
+                <div class="card-header bg-secondary text-white">シナリオ情報</div>
                 <div class="card-body">
                     <dl class="row mb-0">
-                        {% if scenario.setting_era %}<dt class="col-sm-3">??</dt><dd class="col-sm-9">{{ scenario.setting_era }}</dd>{% endif %}
-                        {% if scenario.setting_location %}<dt class="col-sm-3">??</dt><dd class="col-sm-9">{{ scenario.setting_location }}</dd>{% endif %}
-                        {% if scenario.scenario_style %}<dt class="col-sm-3">??</dt><dd class="col-sm-9">{{ scenario.scenario_style }}</dd>{% endif %}
-                        {% if scenario.recommended_skills %}<dt class="col-sm-3">????</dt><dd class="col-sm-9">{{ scenario.recommended_skills }}</dd>{% endif %}
-                        {% if scenario.content_warnings %}<dt class="col-sm-3">????</dt><dd class="col-sm-9">{{ scenario.content_warnings|linebreaksbr }}</dd>{% endif %}
+                        {% if scenario.setting_era %}<dt class="col-sm-3">時代</dt><dd class="col-sm-9">{{ scenario.setting_era }}</dd>{% endif %}
+                        {% if scenario.setting_location %}<dt class="col-sm-3">舞台・地域</dt><dd class="col-sm-9">{{ scenario.setting_location }}</dd>{% endif %}
+                        {% if scenario.scenario_style %}<dt class="col-sm-3">形式</dt><dd class="col-sm-9">{{ scenario.scenario_style }}</dd>{% endif %}
+                        {% if scenario.recommended_skills %}<dt class="col-sm-3">推奨技能</dt><dd class="col-sm-9">{{ scenario.recommended_skills }}</dd>{% endif %}
+                        {% if scenario.content_warnings %}<dt class="col-sm-3">注意事項</dt><dd class="col-sm-9">{{ scenario.content_warnings|linebreaksbr }}</dd>{% endif %}
                     </dl>
                 </div>
             </div>

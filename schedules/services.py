@@ -2,10 +2,13 @@
 YouTube API連携サービス
 """
 
+import logging
 import re
 
 import requests
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
 class YouTubeService:
@@ -50,9 +53,8 @@ class YouTubeService:
                         "thumbnail_url": thumbnail_url,
                         "duration": YouTubeService.parse_duration(item["contentDetails"]["duration"]),
                     }
-        except Exception as e:
-            # エラーログを記録（本番環境ではloggingを使用）
-            print(f"YouTube API error: {e}")
+        except Exception:
+            logger.warning("YouTube API error while fetching video information", exc_info=True)
 
         return None
 
