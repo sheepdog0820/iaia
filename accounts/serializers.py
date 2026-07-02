@@ -2,7 +2,7 @@ import json
 import os
 
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import IntegrityError, models, transaction
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from PIL import Image
@@ -660,10 +660,6 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """キャラクターシート作成（関連データも含む）"""
-        import logging
-
-        logger = logging.getLogger(__name__)
-
         # 関連データを分離
         sixth_data = validated_data.pop("sixth_edition_data", None)
         skills_data = validated_data.pop("skills", [])
@@ -672,15 +668,6 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
 
         # リクエストオブジェクトから追加データを取得
         request = self.context.get("request")
-
-        # デバッグ情報
-        logger.info(
-            f"受信した能力値データ: str={validated_data.get('str_value')}, con={validated_data.get('con_value')}"
-        )
-        logger.info(f"validated_data keys: {list(validated_data.keys())}")
-        if request:
-            logger.info(f"request.data keys: {list(request.data.keys())}")
-            logger.info(f"skills_data in request: {'skills_data' in request.data}")
 
         # 6版固有データ処理
         if validated_data.get("edition") == "6th":
@@ -700,10 +687,8 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
                 skills_json = request.data.get("skills_data")
                 if skills_json:
                     skills_data = json.loads(skills_json)
-                    logger.info(f"パースしたスキルデータ数: {len(skills_data)}")
-            except (json.JSONDecodeError, TypeError) as e:
-                logger.error(f"スキルデータのパースエラー: {e}")
-                pass  # JSONデコードエラーの場合はスキップ
+            except (json.JSONDecodeError, TypeError) as exc:
+                raise serializers.ValidationError({"skills_data": "Invalid JSON format."}) from exc
 
         # 6版と7版で同じ値の扱いにする（変換なし）
         # データベースには入力された値をそのまま保存
@@ -744,35 +729,28 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             validated_data["version"] = latest_version + 1
             validated_data["parent_sheet"] = existing_chars.order_by("version").first()
 
-        # キャラクターシート作成
-        try:
+        with transaction.atomic():
             character_sheet = CharacterSheet.objects.create(**validated_data)
             if allowed_users:
                 character_sheet.allowed_users.set(allowed_users)
-            logger.info(f"キャラクターシート作成成功: ID={character_sheet.id}")
-        except Exception as e:
-            logger.error(f"キャラクターシート作成エラー: {e}")
-            logger.error(f"作成時のvalidated_data: {validated_data}")
-            raise
 
-        # 版別データ作成
-        if character_sheet.edition == "6th" and sixth_data:
-            CharacterSheet6th.objects.create(character_sheet=character_sheet, **sixth_data)
+            # 版別データ作成
+            if character_sheet.edition == "6th" and sixth_data:
+                CharacterSheet6th.objects.create(character_sheet=character_sheet, **sixth_data)
 
-        # スキルデータ作成
-        created_skills = []
-        for skill_data in skills_data:
-            try:
-                skill = CharacterSkill.objects.create(character_sheet=character_sheet, **skill_data)
-                created_skills.append(skill)
-            except Exception as e:
-                logger.error(f"スキル作成エラー: {e}, データ: {skill_data}")
+            # スキルデータ作成
+            for skill_data in skills_data:
+                try:
+                    CharacterSkill.objects.create(character_sheet=character_sheet, **skill_data)
+                except (ValidationError, IntegrityError, TypeError, ValueError) as exc:
+                    raise serializers.ValidationError({"skills_data": "Invalid skill data."}) from exc
 
-        logger.info(f"作成されたスキル数: {len(created_skills)}")
-
-        # 装備データ作成
-        for equipment_data_item in equipment_data:
-            CharacterEquipment.objects.create(character_sheet=character_sheet, **equipment_data_item)
+            # 装備データ作成
+            for equipment_data_item in equipment_data:
+                try:
+                    CharacterEquipment.objects.create(character_sheet=character_sheet, **equipment_data_item)
+                except (ValidationError, IntegrityError, TypeError, ValueError) as exc:
+                    raise serializers.ValidationError({"equipment": "Invalid equipment data."}) from exc
 
         return character_sheet
 

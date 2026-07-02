@@ -3,13 +3,14 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
 from schedules.models import SessionParticipant, TRPGSession
 
-from .character_models import CharacterSheet
+from .character_models import CharacterImage, CharacterSheet
 from .models import CustomUser, Group, GroupMembership
 
 User = get_user_model()
@@ -400,6 +401,21 @@ class BasicAccountsTestCase(TestCase):
             sanity_starting=50,
             access_scope="public",
         )
+        image_bytes = (
+            b"GIF89a\x01\x00\x01\x00\x80\x00\x00"
+            b"\x00\x00\x00\xff\xff\xff!\xf9\x04\x01"
+            b"\x00\x00\x00\x00,\x00\x00\x00\x00\x01"
+            b"\x00\x01\x00\x00\x02\x02D\x01\x00;"
+        )
+        CharacterImage.objects.create(
+            character_sheet=character,
+            image=SimpleUploadedFile(
+                "sensitive-original-name.gif",
+                image_bytes,
+                content_type="image/gif",
+            ),
+            is_main=True,
+        )
 
         self.client.force_login(owner)
         owner_page_response = self.client.get(reverse("character_detail_6th", kwargs={"character_id": character.id}))
@@ -449,6 +465,18 @@ class BasicAccountsTestCase(TestCase):
         self.assertContains(page_response, 'id="ccfoliaExportLink"')
         self.assertNotContains(page_response, 'download="character-')
         self.assertNotContains(page_response, 'id="editButton"')
+        self.assertNotContains(page_response, "characterImageFileNames")
+        self.assertNotContains(page_response, "sensitive-original-name")
+        self.assertNotContains(page_response, "character_images/")
+        self.assertContains(
+            page_response,
+            f'<meta property="og:image" content="http://testserver/share/characters/{character.share_token}/preview-image/">',
+        )
+
+        preview_image_response = self.client.get(f"/share/characters/{character.share_token}/preview-image/")
+        self.assertEqual(preview_image_response.status_code, 200)
+        self.assertEqual(b"".join(preview_image_response.streaming_content), image_bytes)
+        self.assertNotIn("sensitive-original-name", preview_image_response.get("Content-Disposition", ""))
 
         character.access_scope = "private"
         character.save(update_fields=["access_scope"])

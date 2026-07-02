@@ -16,6 +16,7 @@ def build_character_detail_context(
     images_zip_url="",
     ccfolia_json_url="",
     reference_url="",
+    preview_image_url=None,
 ):
     assigned_skills = character.skills.filter(current_value__gt=django_models.F("base_value")).order_by("skill_name")
     weapons = character.equipment.filter(item_type="weapon")
@@ -27,13 +28,16 @@ def build_character_detail_context(
         base_sheet = character.parent_sheet if character.parent_sheet else character
         versions = [base_sheet] + list(CharacterSheet.objects.filter(parent_sheet=base_sheet).order_by("version"))
 
+    if preview_image_url is None:
+        preview_image_url = get_character_preview_image_url(character, request)
+
     context = {
         "character": character,
         "character_id": character.id,
         "is_public_view": is_public_view,
         "is_shared_view": is_shared_view,
         "can_edit_character": can_edit_character,
-        "character_og_image_url": get_character_preview_image_url(character, request),
+        "character_og_image_url": preview_image_url,
         "assigned_skills": assigned_skills,
         "weapons": weapons,
         "armor": armor,

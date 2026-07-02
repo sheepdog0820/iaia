@@ -5,6 +5,7 @@
 """
 
 import json
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -97,6 +98,90 @@ class CharacterSheetAPITest(APITestCase):
             b"\x00\x01\x00\x00\x02\x02D\x01\x00;"
         )
         return SimpleUploadedFile(filename, gif_bytes, content_type="image/gif")
+
+    def test_create_character_rejects_invalid_skills_data_without_partial_character(self):
+        data = dict(self.character_data_6th)
+        data["name"] = "Invalid Skills JSON PC"
+        data["skills_data"] = "[{invalid"
+
+        response = self.client.post("/api/accounts/character-sheets/", data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("skills_data", str(response.data))
+        self.assertFalse(CharacterSheet.objects.filter(name="Invalid Skills JSON PC").exists())
+
+    def test_create_character_rejects_invalid_skill_without_partial_character(self):
+        data = dict(self.character_data_6th)
+        data["name"] = "Invalid Skill PC"
+        data["skills_data"] = json.dumps(
+            [
+                {
+                    "skill_name": "Invalid Skill",
+                    "base_value": -1,
+                    "occupation_points": 0,
+                    "interest_points": 0,
+                    "bonus_points": 0,
+                    "other_points": 0,
+                }
+            ]
+        )
+
+        response = self.client.post("/api/accounts/character-sheets/", data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("skills_data", str(response.data))
+        self.assertFalse(CharacterSheet.objects.filter(name="Invalid Skill PC").exists())
+        self.assertFalse(CharacterSkill.objects.filter(skill_name="Invalid Skill").exists())
+
+    def test_create_version_copies_full_skill_data(self):
+        data = dict(self.character_data_6th)
+        data["name"] = "Version Source PC"
+        character = CharacterSheet.objects.create(user=self.user, **data)
+        category = CharacterSkill.CATEGORY_CHOICES[0][0]
+        CharacterSkill.objects.create(
+            character_sheet=character,
+            skill_name="Custom Version Skill",
+            category=category,
+            base_value=10,
+            occupation_points=5,
+            interest_points=3,
+            bonus_points=7,
+            other_points=2,
+            notes="growth memo",
+        )
+
+        response = self.client.post(
+            f"/api/accounts/character-sheets/{character.id}/create_version/",
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        new_sheet = CharacterSheet.objects.get(id=response.data["id"])
+        copied_skill = new_sheet.skills.get(skill_name="Custom Version Skill")
+        self.assertEqual(copied_skill.category, category)
+        self.assertEqual(copied_skill.bonus_points, 7)
+        self.assertEqual(copied_skill.other_points, 2)
+        self.assertEqual(copied_skill.notes, "growth memo")
+
+    def test_create_version_rolls_back_when_skill_copy_fails(self):
+        data = dict(self.character_data_6th)
+        data["name"] = "Rollback Source PC"
+        character = CharacterSheet.objects.create(user=self.user, **data)
+        CharacterSkill.objects.create(character_sheet=character, skill_name="Rollback Skill", base_value=10)
+
+        with patch(
+            "accounts.views.character_views.CharacterSkill.objects.create",
+            side_effect=RuntimeError("copy failed"),
+        ):
+            with self.assertRaises(RuntimeError):
+                self.client.post(
+                    f"/api/accounts/character-sheets/{character.id}/create_version/",
+                    {},
+                    format="json",
+                )
+
+        self.assertFalse(CharacterSheet.objects.filter(parent_sheet=character).exists())
 
     def test_create_6th_edition_character(self):
         """6版キャラクターシート作成テスト"""

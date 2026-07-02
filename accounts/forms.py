@@ -1,3 +1,5 @@
+import logging
+
 from allauth.account.forms import ResetPasswordForm as AllauthResetPasswordForm
 from allauth.account.models import EmailAddress
 from django import forms
@@ -12,6 +14,8 @@ from .character_image_limits import (
 )
 from .character_models import CharacterSheet, CharacterSheet6th
 from .models import CustomUser
+
+logger = logging.getLogger(__name__)
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -871,11 +875,6 @@ class CharacterSheet6thForm(forms.ModelForm):
         pow_val = cleaned_data.get("pow_value", 10)
         cleaned_data["sanity_starting"] = pow_val * 5
 
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.info(f"POW: {pow_val}, Calculated SAN starting: {cleaned_data['sanity_starting']}")
-
         # 現在値フィールドのデフォルト値設定
         # 値が明示的に設定されていない場合のみデフォルト値を設定
         if "hit_points_current" not in cleaned_data or cleaned_data["hit_points_current"] is None:
@@ -898,13 +897,6 @@ class CharacterSheet6thForm(forms.ModelForm):
         return cleaned_data
 
     def save(self, commit=True):
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.info(f"CharacterSheet6thForm.save called with commit={commit}")
-        logger.info(f"Form files: {self.files}")
-        logger.info(f"Form data contains character_images: {'character_images' in self.files}")
-
         instance = super().save(commit=False)
         instance.edition = "6th"  # 強制的に6版に設定
         if self.user:
@@ -1006,18 +998,11 @@ class CharacterSheet6thForm(forms.ModelForm):
 
     def _save_character_images(self, character_sheet):
         """複数画像の保存処理"""
-        import logging
-
         from .character_models import CharacterImage
 
-        logger = logging.getLogger(__name__)
-
         # フォームから複数画像を取得
-        logger.info(f"Available files in form: {list(self.files.keys())}")
         images = collect_character_image_uploads(self.files)
-        logger.info(f"Images from getlist: {images}")
         if not images:
-            logger.info(f"No images to save for character_sheet {character_sheet.id}")
             return
 
         image_limit = get_character_image_limit(character_sheet.user)
@@ -1027,10 +1012,8 @@ class CharacterSheet6thForm(forms.ModelForm):
         # 既存の画像がない場合のみ保存（重複エラーを防ぐ）
         existing_images = CharacterImage.objects.filter(character_sheet=character_sheet)
         if existing_images.exists():
-            logger.warning(f"Images already exist for character_sheet {character_sheet.id}. Skipping image save.")
+            logger.warning("Images already exist for character_sheet %s. Skipping image save.", character_sheet.id)
             return
-
-        logger.info(f"Saving {len(images)} images for character_sheet {character_sheet.id}")
 
         # 複数画像を保存
         for index, image_file in enumerate(images):
@@ -1041,7 +1024,6 @@ class CharacterSheet6thForm(forms.ModelForm):
                     is_main=(index == 0),  # 最初の画像をメインに設定
                     order=index,
                 )
-                logger.info(f"Image {index} saved successfully")
-            except Exception as e:
-                logger.error(f"Error saving image {index}: {str(e)}")
+            except Exception:
+                logger.exception("Error saving character image")
                 raise

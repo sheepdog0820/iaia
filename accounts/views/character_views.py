@@ -3,6 +3,7 @@ Character sheet management views
 """
 
 import json
+import logging
 import math
 import re
 import time
@@ -27,6 +28,8 @@ from ..serializers import GrowthRecordSerializer
 from .base_views import BaseViewSet, PermissionMixin
 from .common_imports import *
 from .mixins import CharacterNestedResourceMixin, CharacterSheetAccessMixin, ErrorHandlerMixin
+
+logger = logging.getLogger(__name__)
 
 COC6_BASIC_SKILL_NAMES = [
     "回避",
@@ -304,52 +307,56 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             if key not in ["id", "version", "created_at", "updated_at", "parent_sheet", "user"]:
                 new_data[key] = value
 
-        # Create new character sheet
-        new_sheet = CharacterSheet.objects.create(**new_data)
+        with transaction.atomic():
+            # Create new character sheet
+            new_sheet = CharacterSheet.objects.create(**new_data)
 
-        # Update current values individually to avoid save method auto-calculation
-        update_fields = {}
-        for key, value in request.data.items():
-            if key in ["hit_points_current", "magic_points_current", "sanity_current"]:
-                update_fields[key] = value
+            # Update current values individually to avoid save method auto-calculation
+            update_fields = {}
+            for key, value in request.data.items():
+                if key in ["hit_points_current", "magic_points_current", "sanity_current"]:
+                    update_fields[key] = value
 
-        if update_fields:
-            CharacterSheet.objects.filter(id=new_sheet.id).update(**update_fields)
-            new_sheet.refresh_from_db()
+            if update_fields:
+                CharacterSheet.objects.filter(id=new_sheet.id).update(**update_fields)
+                new_sheet.refresh_from_db()
 
-        # Copy original skills
-        for skill in original_sheet.skills.all():
-            CharacterSkill.objects.create(
-                character_sheet=new_sheet,
-                skill_name=skill.skill_name,
-                base_value=skill.base_value,
-                occupation_points=skill.occupation_points,
-                interest_points=skill.interest_points,
-                other_points=skill.other_points,
-            )
+            # Copy original skills
+            for skill in original_sheet.skills.all():
+                CharacterSkill.objects.create(
+                    character_sheet=new_sheet,
+                    skill_name=skill.skill_name,
+                    category=skill.category,
+                    base_value=skill.base_value,
+                    occupation_points=skill.occupation_points,
+                    interest_points=skill.interest_points,
+                    bonus_points=skill.bonus_points,
+                    other_points=skill.other_points,
+                    notes=skill.notes,
+                )
 
-        # Copy original equipment
-        for equipment in original_sheet.equipment.all():
-            CharacterEquipment.objects.create(
-                character_sheet=new_sheet,
-                item_type=equipment.item_type,
-                name=equipment.name,
-                skill_name=equipment.skill_name,
-                damage=equipment.damage,
-                base_range=equipment.base_range,
-                attacks_per_round=equipment.attacks_per_round,
-                ammo=equipment.ammo,
-                malfunction_number=equipment.malfunction_number,
-                armor_points=equipment.armor_points,
-                description=equipment.description,
-                quantity=equipment.quantity,
-                weight=equipment.weight,
-            )
+            # Copy original equipment
+            for equipment in original_sheet.equipment.all():
+                CharacterEquipment.objects.create(
+                    character_sheet=new_sheet,
+                    item_type=equipment.item_type,
+                    name=equipment.name,
+                    skill_name=equipment.skill_name,
+                    damage=equipment.damage,
+                    base_range=equipment.base_range,
+                    attacks_per_round=equipment.attacks_per_round,
+                    ammo=equipment.ammo,
+                    malfunction_number=equipment.malfunction_number,
+                    armor_points=equipment.armor_points,
+                    description=equipment.description,
+                    quantity=equipment.quantity,
+                    weight=equipment.weight,
+                )
 
-        # Copy edition-specific data
-        if original_sheet.edition == "6th" and hasattr(original_sheet, "sixth_edition_data"):
-            sixth_data = original_sheet.sixth_edition_data
-            CharacterSheet6th.objects.create(character_sheet=new_sheet, mental_disorder=sixth_data.mental_disorder)
+            # Copy edition-specific data
+            if original_sheet.edition == "6th" and hasattr(original_sheet, "sixth_edition_data"):
+                sixth_data = original_sheet.sixth_edition_data
+                CharacterSheet6th.objects.create(character_sheet=new_sheet, mental_disorder=sixth_data.mental_disorder)
 
         # Return created character sheet
         response_serializer = CharacterSheetSerializer(new_sheet)
@@ -2571,36 +2578,23 @@ class Character6thCreateView(FormView):
         return context
 
     def form_valid(self, form):
-        import logging
-
-        logger = logging.getLogger(__name__)
-
         try:
-            logger.info("Form validation successful, saving character sheet...")
             character_sheet = form.save()
-            logger.info(f"Character sheet saved with ID: {character_sheet.id}")
 
             # 画像処理はフォームのsaveメソッドで既に実行されているため、ここでは何もしない
 
             messages.success(self.request, f"クトゥルフ神話TRPG 6版探索者「{character_sheet.name}」が作成されました！")
 
             # 作成したキャラクターの詳細画面にリダイレクト
-            logger.info(f"Redirecting to character detail page: {character_sheet.id}")
             return redirect("character_detail_6th", character_id=character_sheet.id)
 
-        except Exception as e:
-            logger.error(f"Error in form_valid: {str(e)}", exc_info=True)
-            messages.error(self.request, f"探索者の作成中にエラーが発生しました: {str(e)}")
+        except Exception:
+            logger.exception("Error creating 6th edition character sheet")
+            messages.error(self.request, "探索者の作成中にエラーが発生しました。")
             return self.form_invalid(form)
 
     def form_invalid(self, form):
-        # 詳細なエラー情報をログに出力
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.error(f"Form validation errors: {form.errors}")
-        logger.error(f"Form data: {form.data}")
-        logger.error(f"Form files: {form.files}")
+        logger.warning("Character sheet form validation failed: fields=%s", list(form.errors.keys()))
 
         # エラーメッセージを詳細化
         error_messages = []

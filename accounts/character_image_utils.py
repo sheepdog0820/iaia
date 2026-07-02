@@ -10,10 +10,10 @@ def _image_url(image_field):
         return ""
 
 
-def get_character_preview_image_url(character, request=None):
-    """Return the image URL that should represent a character in previews."""
+def get_character_preview_image_field(character):
+    """Return the image field that should represent a character in previews."""
     if not character:
-        return ""
+        return None
 
     image_field = None
     images = getattr(character, "images", None)
@@ -29,6 +29,12 @@ def get_character_preview_image_url(character, request=None):
     if not image_field and character.character_image:
         image_field = character.character_image
 
+    return image_field
+
+
+def get_character_preview_image_url(character, request=None):
+    """Return the image URL that should represent a character in previews."""
+    image_field = get_character_preview_image_field(character)
     url = _image_url(image_field)
     if url and request:
         return request.build_absolute_uri(url)

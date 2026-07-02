@@ -190,15 +190,18 @@ class FixedShareUrlTests(APITestCase):
         response = self.client.get(f"/share/characters/{character.share_token}/view/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        preview_image_url = f"http://testserver/share/characters/{character.share_token}/preview-image/"
         self.assertContains(
             response,
-            '<meta property="og:image" content="http://testserver/media/character_images/2026/07/main.png">',
+            f'<meta property="og:image" content="{preview_image_url}">',
         )
         self.assertContains(
             response,
-            '<meta name="twitter:image" content="http://testserver/media/character_images/2026/07/main.png">',
+            f'<meta name="twitter:image" content="{preview_image_url}">',
         )
         self.assertNotContains(response, "character_sheets/legacy.png")
+        self.assertNotContains(response, "first.png")
+        self.assertNotContains(response, "main.png")
 
     def test_character_fixed_share_og_image_uses_first_character_image_when_no_main(self):
         character = self.create_character(access_scope="link")
@@ -221,8 +224,10 @@ class FixedShareUrlTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertContains(
             response,
-            '<meta property="og:image" content="http://testserver/media/character_images/2026/07/first.png">',
+            f'<meta property="og:image" content="http://testserver/share/characters/{character.share_token}/preview-image/">',
         )
+        self.assertNotContains(response, "first.png")
+        self.assertNotContains(response, "second.png")
 
     def test_character_fixed_share_og_image_keeps_legacy_fallback(self):
         character = self.create_character(
@@ -236,8 +241,9 @@ class FixedShareUrlTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertContains(
             response,
-            '<meta property="og:image" content="http://testserver/media/character_sheets/legacy.png">',
+            f'<meta property="og:image" content="http://testserver/share/characters/{character.share_token}/preview-image/">',
         )
+        self.assertNotContains(response, "character_sheets/legacy.png")
 
     def test_session_fixed_share_url_reuses_existing_share_token(self):
         session = self.create_session()

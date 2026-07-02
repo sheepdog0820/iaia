@@ -1,7 +1,9 @@
 import json
+import mimetypes
+import os
 import uuid
 
-from django.http import Http404
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from rest_framework import status
@@ -10,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.character_detail_context import build_character_detail_context
+from accounts.character_image_utils import get_character_preview_image_field
 from accounts.character_models import CharacterSheet
 from accounts.models import GroupMembership, ShareLink
 from accounts.serializers import CharacterImageSerializer
@@ -454,6 +457,32 @@ class SharedCharacterImagesZipView(APIView):
         return build_character_images_zip_response(character)
 
 
+class SharedCharacterPreviewImageView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, token):
+        character = _shared_character_or_404(token, request)
+        image_field = get_character_preview_image_field(character)
+        if not image_field:
+            raise Http404("Character preview image not found")
+
+        try:
+            image_file = image_field.open("rb")
+        except (FileNotFoundError, ValueError, OSError):
+            raise Http404("Character preview image not found")
+
+        content_type = mimetypes.guess_type(image_field.name)[0] or "application/octet-stream"
+        _, extension = os.path.splitext(image_field.name)
+        response = FileResponse(
+            image_file,
+            as_attachment=False,
+            content_type=content_type,
+            filename=f"character-image{extension.lower()}",
+        )
+        response["Cache-Control"] = "private, max-age=300"
+        return response
+
+
 class SharedCharacterCcfoliaJsonView(APIView):
     permission_classes = [AllowAny]
 
@@ -532,6 +561,11 @@ class FixedSharedCharacterView(APIView):
             "fixed-shared-character-view",
             kwargs={"share_token": character.share_token},
         )
+        preview_image_url = ""
+        if get_character_preview_image_field(character):
+            preview_image_url = request.build_absolute_uri(
+                reverse("shared-character-preview-image", kwargs={"token": character.share_token})
+            )
         return render(
             request,
             "accounts/character_detail.html",
@@ -546,6 +580,7 @@ class FixedSharedCharacterView(APIView):
                 images_zip_url=images_zip_url,
                 ccfolia_json_url=ccfolia_json_url,
                 reference_url=reference_url,
+                preview_image_url=preview_image_url,
             ),
         )
 
