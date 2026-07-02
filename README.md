@@ -1,33 +1,38 @@
 # Tableno
 
-Tableno is a TRPG schedule and character management web application for Call of Cthulhu campaigns.
+Tableno is a Django-based TRPG schedule and character management application for Call of Cthulhu campaigns.
 
-![Python](https://img.shields.io/badge/Python-3.11-blue.svg)
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)
 ![Django](https://img.shields.io/badge/Django-5.2-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 ## 現在実装済み機能
 
+現在の中核機能は、ローカルテストで継続確認している範囲です。
+
 - アカウント管理: メールログイン、Google/X/Discord OAuth、プロフィール、フレンド、グループ、招待リンク。
-- セッション管理: TRPGセッション、参加者、日程、秘匿ハンドアウト、添付、YouTubeリンク、カレンダー表示。
+- セッション管理: TRPGセッション、参加者、日程調整、秘匿ハンドアウト、添付、YouTubeリンク、カレンダー表示。
 - シナリオ管理: シナリオ情報、プレイ履歴、GMメモ、ハンドアウトテンプレート。
 - キャラクター管理: クトゥルフ神話TRPG 6版/7版のキャラクター作成、一覧、詳細、編集、画像、技能、装備、ステータス管理。
-- 共有機能: `private` / `group` / `link` / `public` の公開範囲と、推測困難な `ShareLink` による安全な共有URL。
+- 共有機能: `private` / `group` / `link` / `public` の公開範囲と、推測困難な固定共有URL。
 - API/運用補助: Django REST Framework、OpenAPI (`/api/schema/`)、Swagger UI (`/api/docs/`)、ヘルスチェック、Celery/AsyncJob基盤。
-- 外部連携の基盤: Discord通知、Google Calendar/Sheets連携、WebSocket通知。公開利用前の外部サービス実地検証は別途必要です。
+- 課金安全ゲート: Stripe Checkout/Customer Portal導入前の設定検証、リリースゲート、監査ログ、法務ページ確認。
 
-詳細は以下を参照してください。
+外部連携のうち Google Calendar/Sheets、advanced Discord notifications、WebSocket notifications は実装済み基盤がありますが、広範な公開利用前に `docs/release/PUBLIC_RELEASE_TASKS.md` に沿った real external-service verification が必要です。
+
+詳細仕様:
 
 - キャラクターシート仕様: `docs/character_sheet/`
 - 共有リンク仕様: `docs/specifications/SAFE_SHARE_LINKS.md`
 - 公開前タスク: `docs/release/PUBLIC_RELEASE_TASKS.md`
+- 現在のWeb機能一覧: `docs/CURRENT_WEBAPP_FEATURES.md`
 - プロジェクト仕様: `SPECIFICATION.md`
 
 ## 開発中機能
 
-- Stripe Checkout/Customer Portalを使った課金機能と運用ゲート。
+- Stripe Checkout/Customer Portalの本番導入前検証と外部Stripe test-mode確認。
 - AWS staging/production運用手順、Terraform、CloudWatch/Sentry連携の実環境検証。
-- Google Calendar/Sheets、Discord通知、WebSocket通知の公開運用前検証。
+- Google Calendar/Sheets、advanced Discord notifications、WebSocket notifications の公開運用前検証。
 - キャラクター管理コードの分割と保守性改善。
 - スマホ利用時の一覧・編集画面UX改善。
 
@@ -38,14 +43,36 @@ Tableno is a TRPG schedule and character management web application for Call of 
 - Redisキャッシュ、DBインデックス、重い画面の性能改善。
 - モバイルE2Eの拡充と実機確認フロー。
 
+## 現在の品質ゲート
+
+GitHub Actions (`.github/workflows/django-ci.yml`) は `main` とPull Requestで以下を実行します。
+
+- `python manage.py check`
+- `python manage.py makemigrations --check --dry-run`
+- `python manage.py migrate --noinput` と `python manage.py migrate --check`
+- `python -m pytest`
+- `python -m flake8 .`
+- `python -m black --check .`
+- `python -m isort --check-only .`
+- Docker Compose config check
+- production settings の `python manage.py check --deploy`
+- `python manage.py billing_release_gate`
+
+2026-07-02時点のローカル確認では、上記相当のチェックとシステムテストが通過しています。
+
+- `python -m pytest -q`: `1058 passed, 3 skipped, 158 warnings, 53 subtests passed`
+- `python -m pytest tests/system -q -rs`: `16 passed, 1 skipped`
+
+主な残警告は Django 6.0向けの非推奨警告、timezone有効時の naive datetime 警告、古いunittest形式の戻り値警告です。失敗はありません。
+
 ## 環境要件
 
-- Python 3.11
-- Django 5.2系 (`requirements.txt` は `>=5.2,<5.3`)
+- Python: 3.11+
+- Django 5.2系 (`requirements.txt` は `Django>=5.2.0,<5.3`)
 - Node.js 18+ (Playwrightを使う場合)
 - Docker / Docker Compose (Docker起動を使う場合)
 
-`.python-version` は `3.11` に固定しています。ローカルの既定 `python` が別バージョンの場合は、Python 3.11の仮想環境を有効化してからコマンドを実行してください。
+`.python-version` は `3.11` に固定しています。Dockerfile、README、CIはいずれもPython 3.11系に統一しています。
 
 ## ローカル起動手順
 
@@ -63,13 +90,18 @@ APP_ENV=local ENV_FILE=.env.development python manage.py runserver
 
 起動後は `http://127.0.0.1:8000` にアクセスします。
 
-品質確認の基本コマンド:
+### テストアカウント
+
+固定のテストアカウントやパスワードはREADMEに記載しません。ローカル環境で必要な場合は `python create_admin.py` や開発用管理コマンドで作成してください。
+
+### よく使う確認コマンド
 
 ```bash
 python manage.py check
 python manage.py makemigrations --check --dry-run
 python manage.py migrate --check
 python -m pytest
+python -m pytest tests/system -q -rs
 python -m flake8 .
 python -m black --check .
 python -m isort --check-only .
@@ -85,6 +117,8 @@ cp .env.docker.example .env.docker
 # 必要に応じて .env.compose の ENV_FILE を調整します
 docker compose --env-file .env.compose up --build
 ```
+
+`.env.compose` はComposeの変数展開用、`.env.docker.example` はDjangoアプリenvのサンプルです。Composeの `env_file` 側で `SECRET_KEY` などに `$` を含める場合は、Composeに展開されないよう `$$` にエスケープしてください。
 
 ステージング/本番相当のMySQL構成は `docker-compose.mysql.yml` を使います。詳細は `DOCKER_SETUP.md` を参照してください。
 
@@ -104,7 +138,7 @@ APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql
 APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
 ```
 
-AWS開発環境への反映や検証は `docs/runbooks/` と `infrastructure/terraform/` の内容に従います。
+AWS環境への反映や検証は `docs/runbooks/` と `infrastructure/terraform/` の内容に従います。GitHub Actionsのリモート実行結果、Docker daemonを使った最新の実ビルド、外部Stripe確認、実SNS/RDS復旧確認、正式法務レビューは公開前ゲートとして残っています。
 
 ## 注意事項
 
@@ -112,5 +146,5 @@ AWS開発環境への反映や検証は `docs/runbooks/` と `infrastructure/ter
 - `APP_ENV=local` は開発用、`aws-pre` / `aws-prod` は `tableno.settings_production` を使う運用環境用です。
 - 開発用ログイン、モックOAuth、サンプルデータはローカル検証専用です。
 - Stripe Checkoutは設定が揃い、運用ゲートを通過するまで既定で無効です。
-- Google Calendar/Sheets、Discord通知、WebSocket通知は実装済みでも、公開運用前に外部サービス実地検証が必要です。
+- Google Calendar/Sheets、advanced Discord notifications、WebSocket notifications は実装済みでも、公開運用前に real external-service verification が必要です。
 - キャラクターシートはクトゥルフ神話TRPG 6版/7版のみを正式対象にします。

@@ -1,6 +1,6 @@
 # Docker Setup
 
-TablenoのDocker起動手順です。Pythonランタイムは `Dockerfile` とCIに合わせて Python 3.11 に統一しています。
+TablenoのDocker起動手順です。Pythonランタイムは `Dockerfile` とCIに合わせて Python 3.11+ に統一しています。
 
 ## 前提
 
@@ -61,6 +61,7 @@ ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml exec web pyt
 
 - `.env.*` の実値はコミットしないでください。
 - Composeの `.env.compose` とDjangoが読む `ENV_FILE` は用途が異なります。
-- `SECRET_KEY` などに `$` を含める場合、Composeの変数展開対象になるファイルでは `$$` にエスケープしてください。
+- 開発用Composeは `.env.compose` から `ENV_FILE` を渡し、Django側のサンプルenvとして `.env.docker.example` を使います。
+- Composeの `env_file` 側で `SECRET_KEY` などに `$` を含める場合、Composeの変数展開対象になるファイルでは `$$` にエスケープしてください。
 - `APP_ENV=aws-pre` / `APP_ENV=aws-prod` は `tableno.settings_production` を使います。
 - 本番/ステージング相当では、Web/Celeryコンテナ起動時に自動で `migrate` や `collectstatic` を実行しない前提です。
