@@ -4,28 +4,26 @@ from django.db import migrations
 
 
 def forwards(apps, schema_editor):
-    TRPGSession = apps.get_model('schedules', 'TRPGSession')
-    SessionOccurrence = apps.get_model('schedules', 'SessionOccurrence')
-    SessionOccurrenceParticipant = apps.get_model('schedules', 'SessionOccurrenceParticipant')
-    SessionParticipant = apps.get_model('schedules', 'SessionParticipant')
+    TRPGSession = apps.get_model("schedules", "TRPGSession")
+    SessionOccurrence = apps.get_model("schedules", "SessionOccurrence")
+    SessionOccurrenceParticipant = apps.get_model("schedules", "SessionOccurrenceParticipant")
+    SessionParticipant = apps.get_model("schedules", "SessionParticipant")
 
     for session in TRPGSession.objects.all().iterator():
         if SessionOccurrence.objects.filter(session_id=session.id).exists():
             continue
-        if not getattr(session, 'date', None):
+        if not getattr(session, "date", None):
             continue
 
         occurrence = SessionOccurrence.objects.create(
             session_id=session.id,
             start_at=session.date,
             is_primary=True,
-            content='',
+            content="",
         )
 
-        user_ids = set(
-            SessionParticipant.objects.filter(session_id=session.id).values_list('user_id', flat=True)
-        )
-        if getattr(session, 'gm_id', None):
+        user_ids = set(SessionParticipant.objects.filter(session_id=session.id).values_list("user_id", flat=True))
+        if getattr(session, "gm_id", None):
             user_ids.add(session.gm_id)
 
         SessionOccurrenceParticipant.objects.bulk_create(
@@ -39,8 +37,8 @@ def forwards(apps, schema_editor):
 
 
 def backwards(apps, schema_editor):
-    SessionOccurrence = apps.get_model('schedules', 'SessionOccurrence')
-    SessionOccurrenceParticipant = apps.get_model('schedules', 'SessionOccurrenceParticipant')
+    SessionOccurrence = apps.get_model("schedules", "SessionOccurrence")
+    SessionOccurrenceParticipant = apps.get_model("schedules", "SessionOccurrenceParticipant")
 
     SessionOccurrenceParticipant.objects.all().delete()
     SessionOccurrence.objects.all().delete()
@@ -49,10 +47,9 @@ def backwards(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('schedules', '0017_sessionoccurrence_sessionoccurrenceparticipant_and_more'),
+        ("schedules", "0017_sessionoccurrence_sessionoccurrenceparticipant_and_more"),
     ]
 
     operations = [
         migrations.RunPython(forwards, backwards),
     ]
-

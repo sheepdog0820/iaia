@@ -4,69 +4,69 @@ from django.db import migrations, models
 
 
 def migrate_handout_identity_fields(apps, schema_editor):
-    HandoutInfo = apps.get_model('schedules', 'HandoutInfo')
+    HandoutInfo = apps.get_model("schedules", "HandoutInfo")
     for handout in HandoutInfo.objects.all().iterator():
         updates = []
         if not handout.name:
             handout.name = handout.title
-            updates.append('name')
+            updates.append("name")
         if not handout.code and handout.handout_number:
-            handout.code = f'HO{handout.handout_number}'
-            updates.append('code')
+            handout.code = f"HO{handout.handout_number}"
+            updates.append("code")
         if not handout.order:
             handout.order = handout.handout_number or handout.id
-            updates.append('order')
+            updates.append("order")
         if updates:
             handout.save(update_fields=updates)
 
 
 def reverse_handout_identity_fields(apps, schema_editor):
-    HandoutInfo = apps.get_model('schedules', 'HandoutInfo')
-    HandoutInfo.objects.update(code='', name='', order=0)
+    HandoutInfo = apps.get_model("schedules", "HandoutInfo")
+    HandoutInfo.objects.update(code="", name="", order=0)
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('schedules', '0039_trpgsession_actual_duration_minutes'),
+        ("schedules", "0039_trpgsession_actual_duration_minutes"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='handoutinfo',
-            options={'ordering': ['order', 'id']},
+            name="handoutinfo",
+            options={"ordering": ["order", "id"]},
         ),
         migrations.AlterUniqueTogether(
-            name='handoutinfo',
+            name="handoutinfo",
             unique_together=set(),
         ),
         migrations.AddField(
-            model_name='handoutinfo',
-            name='code',
-            field=models.CharField(blank=True, default='', max_length=50),
+            model_name="handoutinfo",
+            name="code",
+            field=models.CharField(blank=True, default="", max_length=50),
         ),
         migrations.AddField(
-            model_name='handoutinfo',
-            name='name',
-            field=models.CharField(blank=True, default='', max_length=100),
+            model_name="handoutinfo",
+            name="name",
+            field=models.CharField(blank=True, default="", max_length=100),
         ),
         migrations.AddField(
-            model_name='handoutinfo',
-            name='order',
+            model_name="handoutinfo",
+            name="order",
             field=models.PositiveIntegerField(default=0),
         ),
         migrations.AlterField(
-            model_name='handoutinfo',
-            name='handout_number',
-            field=models.IntegerField(blank=True, help_text='ハンドアウト番号（HO1-HO4）', null=True),
+            model_name="handoutinfo",
+            name="handout_number",
+            field=models.IntegerField(blank=True, help_text="ハンドアウト番号（HO1-HO4）", null=True),
         ),
         migrations.AddIndex(
-            model_name='handoutinfo',
-            index=models.Index(fields=['session', 'order'], name='schedules_h_session_ac8a69_idx'),
+            model_name="handoutinfo",
+            index=models.Index(fields=["session", "order"], name="schedules_h_session_ac8a69_idx"),
         ),
         migrations.AddIndex(
-            model_name='handoutinfo',
-            index=models.Index(fields=['session', 'code'], name='schedules_h_session_c9fe14_idx'),
+            model_name="handoutinfo",
+            index=models.Index(fields=["session", "code"], name="schedules_h_session_c9fe14_idx"),
         ),
         migrations.RunPython(
             migrate_handout_identity_fields,

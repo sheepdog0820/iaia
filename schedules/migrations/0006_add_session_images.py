@@ -9,27 +9,43 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('schedules', '0005_add_player_slots_and_handout_numbers'),
+        ("schedules", "0005_add_player_slots_and_handout_numbers"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='SessionImage',
+            name="SessionImage",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('image', models.ImageField(help_text='セッションに関連する画像', upload_to='session_images/%Y/%m/%d/')),
-                ('title', models.CharField(blank=True, help_text='画像のタイトル', max_length=200)),
-                ('description', models.TextField(blank=True, help_text='画像の説明')),
-                ('order', models.PositiveIntegerField(default=0, help_text='表示順序')),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('session', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='images', to='schedules.trpgsession')),
-                ('uploaded_by', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='uploaded_session_images', to=settings.AUTH_USER_MODEL)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                (
+                    "image",
+                    models.ImageField(help_text="セッションに関連する画像", upload_to="session_images/%Y/%m/%d/"),
+                ),
+                ("title", models.CharField(blank=True, help_text="画像のタイトル", max_length=200)),
+                ("description", models.TextField(blank=True, help_text="画像の説明")),
+                ("order", models.PositiveIntegerField(default=0, help_text="表示順序")),
+                ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "session",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, related_name="images", to="schedules.trpgsession"
+                    ),
+                ),
+                (
+                    "uploaded_by",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="uploaded_session_images",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'ordering': ['order', 'created_at'],
-                'indexes': [models.Index(fields=['session', 'order'], name='schedules_s_session_172726_idx')],
+                "ordering": ["order", "created_at"],
+                "indexes": [models.Index(fields=["session", "order"], name="schedules_s_session_172726_idx")],
             },
         ),
     ]

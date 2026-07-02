@@ -1,165 +1,140 @@
 """
 Group management views
 """
+
 from datetime import timedelta
 
 from django.db import transaction
 from django.urls import reverse
 from django.views import View
 
-from .common_imports import *
-from .base_views import PermissionMixin
-from .mixins import GroupAccessMixin, ErrorHandlerMixin
 from schedules.notifications import GroupNotificationService
+
+from .base_views import PermissionMixin
+from .common_imports import *
+from .mixins import ErrorHandlerMixin, GroupAccessMixin
 
 
 def _is_group_admin(group, user):
-    return GroupMembership.objects.filter(
-        group=group,
-        user=user,
-        role='admin'
-    ).exists()
+    return GroupMembership.objects.filter(group=group, user=user, role="admin").exists()
 
 
 def _serialize_group_invite_link(request, invite_link, token=None):
     data = {
-        'id': invite_link.pk,
-        'group': invite_link.group_id,
-        'group_name': invite_link.group.name,
-        'expires_at': invite_link.expires_at,
-        'revoked_at': invite_link.revoked_at,
-        'max_uses': invite_link.max_uses,
-        'use_count': invite_link.use_count,
-        'is_active': invite_link.is_active,
-        'created_at': invite_link.created_at,
+        "id": invite_link.pk,
+        "group": invite_link.group_id,
+        "group_name": invite_link.group.name,
+        "expires_at": invite_link.expires_at,
+        "revoked_at": invite_link.revoked_at,
+        "max_uses": invite_link.max_uses,
+        "use_count": invite_link.use_count,
+        "is_active": invite_link.is_active,
+        "created_at": invite_link.created_at,
     }
     if token:
-        path = reverse('group-invite-link-landing', kwargs={'token': token})
-        data.update({
-            'token': token,
-            'invitation_url': request.build_absolute_uri(path),
-        })
+        path = reverse("group-invite-link-landing", kwargs={"token": token})
+        data.update(
+            {
+                "token": token,
+                "invitation_url": request.build_absolute_uri(path),
+            }
+        )
     return data
 
 
 class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewsets.ModelViewSet):
     """Group management ViewSet with permission checks"""
+
     queryset = Group.objects.none()
     serializer_class = GroupSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         """Get groups accessible to current user"""
         # 参加中のグループ + 公開グループ（重複除去）
-        return Group.objects.filter(
-            Q(members=self.request.user) | Q(visibility='public')
-        ).distinct()
-    
+        return Group.objects.filter(Q(members=self.request.user) | Q(visibility="public")).distinct()
+
     def get_object(self):
         """Override to add permission checks"""
         obj = super().get_object()
-        
+
         # アクション別の権限チェック
-        action = getattr(self, 'action', None)
-        
+        action = getattr(self, "action", None)
+
         # 管理者のみアクセス可能なアクション
-        admin_only_actions = ['update', 'partial_update', 'destroy', 'invite', 'remove_member', 'set_member_role']
+        admin_only_actions = ["update", "partial_update", "destroy", "invite", "remove_member", "set_member_role"]
         if action in admin_only_actions:
             self.check_admin_permission(obj, self.request.user)
-        
+
         # グループアクセス権チェック
         elif not self.check_group_access(obj, self.request.user):
             raise Http404("Group not found")
-        
+
         return obj
-    
+
     def perform_create(self, serializer):
         """Set creator and add as admin member"""
         group = serializer.save(created_by=self.request.user)
         # Create admin membership
-        GroupMembership.objects.create(
-            user=self.request.user,
-            group=group,
-            role='admin'
-        )
-    
-    @action(detail=False, methods=['get'])
+        GroupMembership.objects.create(user=self.request.user, group=group, role="admin")
+
+    @action(detail=False, methods=["get"])
     def public(self, request):
         """Get public groups"""
-        public_groups = Group.objects.filter(visibility='public')
-        query = request.query_params.get('q', '').strip()
+        public_groups = Group.objects.filter(visibility="public")
+        query = request.query_params.get("q", "").strip()
         if query:
-            public_groups = public_groups.filter(
-                Q(name__icontains=query) | Q(description__icontains=query)
-            )
+            public_groups = public_groups.filter(Q(name__icontains=query) | Q(description__icontains=query))
         serializer = self.get_serializer(public_groups, many=True)
         return Response(serializer.data)
-    
-    @action(detail=False, methods=['get'])
+
+    @action(detail=False, methods=["get"])
     def private(self, request):
         """Get user's private groups"""
-        private_groups = Group.objects.filter(
-            members=request.user,
-            visibility='private'
-        )
+        private_groups = Group.objects.filter(members=request.user, visibility="private")
         serializer = self.get_serializer(private_groups, many=True)
         return Response(serializer.data)
-    
-    @action(detail=True, methods=['post'])
+
+    @action(detail=True, methods=["post"])
     def join(self, request, pk=None):
         """Join a public group"""
         group = self.get_object()
-        
-        if group.visibility != 'public':
-            return Response(
-                {'error': 'このグループは招待制です'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
+
+        if group.visibility != "public":
+            return Response({"error": "このグループは招待制です"}, status=status.HTTP_403_FORBIDDEN)
+
         # Check if already a member
         if GroupMembership.objects.filter(user=request.user, group=group).exists():
-            return Response(
-                {'error': '既にメンバーです'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+            return Response({"error": "既にメンバーです"}, status=status.HTTP_400_BAD_REQUEST)
+
         # Add as member
-        GroupMembership.objects.create(
-            user=request.user,
-            group=group,
-            role='member'
-        )
-        
-        return Response(
-            {'success': True, 'message': 'グループに参加しました'},
-            status=status.HTTP_201_CREATED
-        )
-    
-    @action(detail=False, methods=['get'])
+        GroupMembership.objects.create(user=request.user, group=group, role="member")
+
+        return Response({"success": True, "message": "グループに参加しました"}, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["get"])
     def all_groups(self, request):
         """Get all groups (joined + public)"""
         groups = self.get_queryset()
-        query = request.query_params.get('q', '').strip()
+        query = request.query_params.get("q", "").strip()
         if query:
-            groups = groups.filter(
-                Q(name__icontains=query) | Q(description__icontains=query)
-            )
+            groups = groups.filter(Q(name__icontains=query) | Q(description__icontains=query))
         serializer = self.get_serializer(groups, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def search(self, request):
         """Search public groups by keyword"""
-        query = request.query_params.get('q', '').strip()
+        query = request.query_params.get("q", "").strip()
         if not query:
             return Response([])
-        groups = Group.objects.filter(visibility='public').filter(
+        groups = Group.objects.filter(visibility="public").filter(
             Q(name__icontains=query) | Q(description__icontains=query)
         )
         serializer = self.get_serializer(groups, many=True)
         return Response(serializer.data)
-    
-    @action(detail=True, methods=['get'])
+
+    @action(detail=True, methods=["get"])
     def members(self, request, pk=None):
         """Get group members"""
         group = self.get_object()
@@ -167,73 +142,66 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
         serializer = GroupMembershipSerializer(memberships, many=True)
         return Response(serializer.data)
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def member_characters(self, request, pk=None):
         """Get group members and their available character sheets"""
         group = self.get_object()
 
         if not group.members.filter(id=request.user.id).exists():
-            return Response(
-                {'error': 'このグループに参加していません'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({"error": "このグループに参加していません"}, status=status.HTTP_403_FORBIDDEN)
 
-        target_user_id = request.query_params.get('user_id')
-        memberships = GroupMembership.objects.filter(group=group).select_related('user')
+        target_user_id = request.query_params.get("user_id")
+        memberships = GroupMembership.objects.filter(group=group).select_related("user")
 
         if target_user_id:
             memberships = memberships.filter(user_id=target_user_id)
             if not memberships.exists():
-                return Response(
-                    {'error': '対象ユーザーがグループに存在しません'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({"error": "対象ユーザーがグループに存在しません"}, status=status.HTTP_400_BAD_REQUEST)
 
         results = []
         for membership in memberships:
             member = membership.user
-            character_queryset = CharacterSheet.objects.filter(
-                user=member,
-                is_active=True
-            ).order_by('-updated_at')
+            character_queryset = CharacterSheet.objects.filter(user=member, is_active=True).order_by("-updated_at")
 
             if member.id != request.user.id:
-                character_queryset = character_queryset.filter(access_scope='public')
+                character_queryset = character_queryset.filter(access_scope="public")
 
             characters = [
                 {
-                    'id': sheet.id,
-                    'name': sheet.name,
-                    'edition': sheet.edition,
-                    'is_public': sheet.is_public,
-                    'is_active': sheet.is_active
+                    "id": sheet.id,
+                    "name": sheet.name,
+                    "edition": sheet.edition,
+                    "access_scope": sheet.access_scope,
+                    "is_active": sheet.is_active,
                 }
                 for sheet in character_queryset
             ]
 
-            results.append({
-                'user_id': member.id,
-                'username': member.username,
-                'nickname': member.nickname,
-                'role': membership.role,
-                'characters': characters
-            })
+            results.append(
+                {
+                    "user_id": member.id,
+                    "username": member.username,
+                    "nickname": member.nickname,
+                    "role": membership.role,
+                    "characters": characters,
+                }
+            )
 
         return Response(results)
-    
-    @action(detail=True, methods=['post'])
+
+    @action(detail=True, methods=["post"])
     def invite(self, request, pk=None):
         """Invite user to group (admin only)"""
         group = self.get_object()
         notification_service = GroupNotificationService()
-        
+
         try:
             GroupInvitation.expire_pending()
 
-            invitee_ids = request.data.get('invitee_ids')
+            invitee_ids = request.data.get("invitee_ids")
             if isinstance(invitee_ids, str):
                 invitee_ids = [invitee_ids]
-            message = request.data.get('message', '')
+            message = request.data.get("message", "")
             invitations = []
             skipped = []
 
@@ -242,20 +210,20 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
                     try:
                         invitee = CustomUser.objects.get(id=raw_id)
                     except CustomUser.DoesNotExist:
-                        skipped.append({'invitee_id': raw_id, 'reason': 'not_found'})
+                        skipped.append({"invitee_id": raw_id, "reason": "not_found"})
                         continue
 
                     if GroupMembership.objects.filter(user=invitee, group=group).exists():
-                        skipped.append({'invitee_id': raw_id, 'reason': 'already_member'})
+                        skipped.append({"invitee_id": raw_id, "reason": "already_member"})
                         continue
 
                     invitation = GroupInvitation.objects.filter(group=group, invitee=invitee).first()
-                    if invitation and invitation.status == 'pending':
-                        skipped.append({'invitee_id': raw_id, 'reason': 'already_invited'})
+                    if invitation and invitation.status == "pending":
+                        skipped.append({"invitee_id": raw_id, "reason": "already_invited"})
                         continue
 
                     if invitation:
-                        invitation.status = 'pending'
+                        invitation.status = "pending"
                         invitation.inviter = request.user
                         invitation.message = message
                         invitation.created_at = timezone.now()
@@ -263,54 +231,38 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
                         invitation.save()
                     else:
                         invitation = GroupInvitation.objects.create(
-                            group=group,
-                            inviter=request.user,
-                            invitee=invitee,
-                            message=message
+                            group=group, inviter=request.user, invitee=invitee, message=message
                         )
 
                     invitations.append(invitation)
 
                     # Send notification (best-effort; does not block invite flow)
                     notification_service.send_group_invitation_notification(
-                        group=group,
-                        inviter=request.user,
-                        invitee=invitee,
-                        invitation_message=message
+                        group=group, inviter=request.user, invitee=invitee, invitation_message=message
                     )
 
                 serializer = GroupInvitationSerializer(invitations, many=True)
                 return Response(
-                    {
-                        'count': len(invitations),
-                        'results': serializer.data,
-                        'skipped': skipped
-                    },
-                    status=status.HTTP_201_CREATED
+                    {"count": len(invitations), "results": serializer.data, "skipped": skipped},
+                    status=status.HTTP_201_CREATED,
                 )
 
-            username = request.data.get('username')
-            user_id = request.data.get('user_id')
+            username = request.data.get("username")
+            user_id = request.data.get("user_id")
             if user_id:
                 invitee = CustomUser.objects.get(id=user_id)
             else:
                 invitee = CustomUser.objects.get(username=username)
 
             if GroupMembership.objects.filter(user=invitee, group=group).exists():
-                return Response(
-                    {'error': '既にメンバーです'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({"error": "既にメンバーです"}, status=status.HTTP_400_BAD_REQUEST)
 
             invitation = GroupInvitation.objects.filter(group=group, invitee=invitee).first()
-            if invitation and invitation.status == 'pending':
-                return Response(
-                    {'error': '既に招待済みです'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            if invitation and invitation.status == "pending":
+                return Response({"error": "既に招待済みです"}, status=status.HTTP_400_BAD_REQUEST)
 
             if invitation:
-                invitation.status = 'pending'
+                invitation.status = "pending"
                 invitation.inviter = request.user
                 invitation.message = message
                 invitation.created_at = timezone.now()
@@ -318,306 +270,221 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
                 invitation.save()
             else:
                 invitation = GroupInvitation.objects.create(
-                    group=group,
-                    inviter=request.user,
-                    invitee=invitee,
-                    message=message
+                    group=group, inviter=request.user, invitee=invitee, message=message
                 )
 
             # Send notification for single invite
             notification_service.send_group_invitation_notification(
-                group=group,
-                inviter=request.user,
-                invitee=invitee,
-                invitation_message=message
+                group=group, inviter=request.user, invitee=invitee, invitation_message=message
             )
 
             serializer = GroupInvitationSerializer(invitation)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-            
+
         except CustomUser.DoesNotExist:
-            return Response(
-                {'error': 'ユーザーが見つかりません'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-    
-    @action(detail=True, methods=['post'])
+            return Response({"error": "ユーザーが見つかりません"}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=True, methods=["post"])
     def leave(self, request, pk=None):
         """Leave group"""
         group = self.get_object()
-        
+
         try:
             membership = GroupMembership.objects.get(user=request.user, group=group)
 
             # 作成者が退出するとグループが管理不能になりやすいので禁止
             if request.user == group.created_by:
                 return Response(
-                    {'error': 'グループ作成者は退出できません（削除するか、別の管理者へ移譲してください）'},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"error": "グループ作成者は退出できません（削除するか、別の管理者へ移譲してください）"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             # 最後の管理者は退出できない（管理不能防止）
-            if membership.role == 'admin':
-                admin_count = GroupMembership.objects.filter(group=group, role='admin').count()
+            if membership.role == "admin":
+                admin_count = GroupMembership.objects.filter(group=group, role="admin").count()
                 if admin_count <= 1:
                     return Response(
-                        {'error': '最後の管理者は退出できません（他のメンバーを管理者にしてから退出してください）'},
-                        status=status.HTTP_400_BAD_REQUEST
+                        {"error": "最後の管理者は退出できません（他のメンバーを管理者にしてから退出してください）"},
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
 
             membership.delete()
-            return Response(
-                {'success': True, 'message': 'グループから退出しました'},
-                status=status.HTTP_200_OK
-            )
+            return Response({"success": True, "message": "グループから退出しました"}, status=status.HTTP_200_OK)
         except GroupMembership.DoesNotExist:
-            return Response(
-                {'error': 'メンバーではありません'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-    
-    @action(detail=True, methods=['post'])
+            return Response({"error": "メンバーではありません"}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=["post"])
     def set_member_role(self, request, pk=None):
         """Set member role (admin only)"""
         group = self.get_object()
 
-        user_id = request.data.get('user_id')
-        role = request.data.get('role')
+        user_id = request.data.get("user_id")
+        role = request.data.get("role")
 
         if not user_id or not role:
-            return Response(
-                {'error': 'user_id and role are required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "user_id and role are required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if role not in ['admin', 'member']:
-            return Response(
-                {'error': 'role must be admin or member'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        if role not in ["admin", "member"]:
+            return Response({"error": "role must be admin or member"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             membership = GroupMembership.objects.get(group=group, user_id=user_id)
         except GroupMembership.DoesNotExist:
-            return Response(
-                {'error': 'Member not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Member not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # 作成者は常に管理者（安全対策）
-        if membership.user == group.created_by and role != 'admin':
-            return Response(
-                {'error': 'グループ作成者の管理者権限は解除できません'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        if membership.user == group.created_by and role != "admin":
+            return Response({"error": "グループ作成者の管理者権限は解除できません"}, status=status.HTTP_400_BAD_REQUEST)
 
         if membership.role == role:
-            return Response(
-                {'success': True, 'message': '変更はありません'},
-                status=status.HTTP_200_OK
-            )
+            return Response({"success": True, "message": "変更はありません"}, status=status.HTTP_200_OK)
 
         # 最後の管理者の権限は解除できない（管理不能防止）
-        if membership.role == 'admin' and role == 'member':
-            admin_count = GroupMembership.objects.filter(group=group, role='admin').count()
+        if membership.role == "admin" and role == "member":
+            admin_count = GroupMembership.objects.filter(group=group, role="admin").count()
             if admin_count <= 1:
-                return Response(
-                    {'error': '最後の管理者の権限は解除できません'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({"error": "最後の管理者の権限は解除できません"}, status=status.HTTP_400_BAD_REQUEST)
 
         membership.role = role
-        membership.save(update_fields=['role'])
+        membership.save(update_fields=["role"])
 
-        return Response(
-            {'success': True, 'message': 'メンバー権限を更新しました'},
-            status=status.HTTP_200_OK
-        )
+        return Response({"success": True, "message": "メンバー権限を更新しました"}, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=['delete'])
+    @action(detail=True, methods=["delete"])
     def remove_member(self, request, pk=None):
         """Remove member from group (admin only)"""
         group = self.get_object()
-        
+
         try:
-            user_id = request.data.get('user_id')
-            username = request.data.get('username')
+            user_id = request.data.get("user_id")
+            username = request.data.get("username")
             if user_id:
                 user = CustomUser.objects.get(id=user_id)
             elif username:
                 user = CustomUser.objects.get(username=username)
             else:
-                return Response(
-                    {'error': 'ユーザー指定が必要です'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({"error": "ユーザー指定が必要です"}, status=status.HTTP_400_BAD_REQUEST)
             membership = GroupMembership.objects.get(user=user, group=group)
-            
+
             # Cannot remove group creator
             if user == group.created_by:
-                return Response(
-                    {'error': 'グループ作成者は除名できません'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
+                return Response({"error": "グループ作成者は除名できません"}, status=status.HTTP_400_BAD_REQUEST)
+
             membership.delete()
-            return Response({'success': True}, status=status.HTTP_200_OK)
-            
+            return Response({"success": True}, status=status.HTTP_200_OK)
+
         except (CustomUser.DoesNotExist, GroupMembership.DoesNotExist):
-            return Response(
-                {'error': 'メンバーが見つかりません'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "メンバーが見つかりません"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class GroupInvitationViewSet(viewsets.ModelViewSet):
     """Group invitation management ViewSet"""
+
     queryset = GroupInvitation.objects.none()
     serializer_class = GroupInvitationSerializer
     permission_classes = [IsAuthenticated]
-    
+
     def get_queryset(self):
         """Get invitations for current user"""
         GroupInvitation.expire_pending()
         return GroupInvitation.objects.filter(invitee=self.request.user)
-    
+
     def perform_create(self, serializer):
         """Create invitation only when the requester can manage the group."""
         GroupInvitation.expire_pending()
 
-        group = serializer.validated_data['group']
-        invitee = serializer.validated_data['invitee']
-        is_group_admin = GroupMembership.objects.filter(
-            group=group,
-            user=self.request.user,
-            role='admin'
-        ).exists()
+        group = serializer.validated_data["group"]
+        invitee = serializer.validated_data["invitee"]
+        is_group_admin = GroupMembership.objects.filter(group=group, user=self.request.user, role="admin").exists()
 
         if not is_group_admin:
-            raise PermissionDenied('グループ管理者のみ招待できます')
+            raise PermissionDenied("グループ管理者のみ招待できます")
 
         if GroupMembership.objects.filter(group=group, user=invitee).exists():
-            raise DRFValidationError({'invitee': '既にメンバーです'})
+            raise DRFValidationError({"invitee": "既にメンバーです"})
 
-        if GroupInvitation.objects.filter(
-            group=group,
-            invitee=invitee,
-            status='pending'
-        ).exists():
-            raise DRFValidationError({'invitee': '既に招待済みです'})
+        if GroupInvitation.objects.filter(group=group, invitee=invitee, status="pending").exists():
+            raise DRFValidationError({"invitee": "既に招待済みです"})
 
         invitation = serializer.save(inviter=self.request.user)
         GroupNotificationService().send_group_invitation_notification(
-            group=group,
-            inviter=self.request.user,
-            invitee=invitee,
-            invitation_message=invitation.message
+            group=group, inviter=self.request.user, invitee=invitee, invitation_message=invitation.message
         )
-    
-    @action(detail=True, methods=['post'])
+
+    @action(detail=True, methods=["post"])
     def accept(self, request, pk=None):
         """Accept group invitation"""
         invitation = self.get_object()
-        
-        if invitation.status != 'pending':
-            return Response(
-                {'error': '招待は既に処理されています'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+
+        if invitation.status != "pending":
+            return Response({"error": "招待は既に処理されています"}, status=status.HTTP_400_BAD_REQUEST)
 
         if invitation.is_expired:
             invitation.mark_expired()
-            return Response(
-                {'error': '招待の期限が切れています'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+            return Response({"error": "招待の期限が切れています"}, status=status.HTTP_400_BAD_REQUEST)
+
         # Check if already a member
-        if GroupMembership.objects.filter(
-            user=invitation.invitee, 
-            group=invitation.group
-        ).exists():
-            return Response(
-                {'error': '既にメンバーです'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+        if GroupMembership.objects.filter(user=invitation.invitee, group=invitation.group).exists():
+            return Response({"error": "既にメンバーです"}, status=status.HTTP_400_BAD_REQUEST)
+
         # Create membership
-        GroupMembership.objects.create(
-            user=invitation.invitee,
-            group=invitation.group,
-            role='member'
-        )
-        
+        GroupMembership.objects.create(user=invitation.invitee, group=invitation.group, role="member")
+
         # Update invitation status
-        invitation.status = 'accepted'
+        invitation.status = "accepted"
         invitation.responded_at = timezone.now()
         invitation.save()
-        
-        return Response({'success': True}, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=['post'])
+        return Response({"success": True}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
     def decline(self, request, pk=None):
         """Decline group invitation"""
         invitation = self.get_object()
-        
-        if invitation.status != 'pending':
-            return Response(
-                {'error': '招待は既に処理されています'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+
+        if invitation.status != "pending":
+            return Response({"error": "招待は既に処理されています"}, status=status.HTTP_400_BAD_REQUEST)
 
         if invitation.is_expired:
             invitation.mark_expired()
-            return Response(
-                {'error': '招待の期限が切れています'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+            return Response({"error": "招待の期限が切れています"}, status=status.HTTP_400_BAD_REQUEST)
+
         # Update invitation status
-        invitation.status = 'declined'
+        invitation.status = "declined"
         invitation.responded_at = timezone.now()
         invitation.save()
-        
-        return Response({'success': True}, status=status.HTTP_200_OK)
+
+        return Response({"success": True}, status=status.HTTP_200_OK)
 
 
 class GroupInviteLinkCreateView(APIView):
     """Create and list token-based group invitation links."""
+
     permission_classes = [IsAuthenticated]
 
     def _get_group(self, request, group_id):
         group = get_object_or_404(Group, pk=group_id)
         if not _is_group_admin(group, request.user):
-            self.permission_denied(request, message='グループ管理者のみ招待URLを管理できます')
+            self.permission_denied(request, message="グループ管理者のみ招待URLを管理できます")
         return group
 
     def get(self, request, group_id):
         group = self._get_group(request, group_id)
-        invite_links = group.invite_links.select_related('group').all()
-        return Response([
-            _serialize_group_invite_link(request, invite_link)
-            for invite_link in invite_links
-        ])
+        invite_links = group.invite_links.select_related("group").all()
+        return Response([_serialize_group_invite_link(request, invite_link) for invite_link in invite_links])
 
     def post(self, request, group_id):
         group = self._get_group(request, group_id)
 
         try:
-            expires_in_hours = int(request.data.get('expires_in_hours', 168))
+            expires_in_hours = int(request.data.get("expires_in_hours", 168))
         except (TypeError, ValueError):
-            return Response(
-                {'expires_in_hours': '整数で指定してください'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"expires_in_hours": "整数で指定してください"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            max_uses = int(request.data.get('max_uses', 1))
+            max_uses = int(request.data.get("max_uses", 1))
         except (TypeError, ValueError):
-            return Response(
-                {'max_uses': '整数で指定してください'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"max_uses": "整数で指定してください"}, status=status.HTTP_400_BAD_REQUEST)
 
         expires_in_hours = max(1, min(expires_in_hours, 720))
         max_uses = max(1, min(max_uses, 1000))
@@ -627,27 +494,25 @@ class GroupInviteLinkCreateView(APIView):
             expires_at=timezone.now() + timedelta(hours=expires_in_hours),
             max_uses=max_uses,
         )
-        return Response(
-            _serialize_group_invite_link(request, invite_link, token=token),
-            status=status.HTTP_201_CREATED
-        )
+        return Response(_serialize_group_invite_link(request, invite_link, token=token), status=status.HTTP_201_CREATED)
 
 
 class GroupInviteLinkRevokeView(APIView):
     """Revoke a token-based group invitation link."""
+
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, group_id, invite_link_id):
         invite_link = get_object_or_404(
-            GroupInviteLink.objects.select_related('group'),
+            GroupInviteLink.objects.select_related("group"),
             pk=invite_link_id,
             group_id=group_id,
         )
         if not _is_group_admin(invite_link.group, request.user):
-            self.permission_denied(request, message='グループ管理者のみ招待URLを失効できます')
+            self.permission_denied(request, message="グループ管理者のみ招待URLを失効できます")
 
         invite_link.revoked_at = timezone.now()
-        invite_link.save(update_fields=['revoked_at'])
+        invite_link.save(update_fields=["revoked_at"])
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -655,71 +520,59 @@ class GroupInviteLinkLandingView(View):
     """Public landing page for a group invitation link."""
 
     def get(self, request, token):
-        invite_link = GroupInviteLink.objects.select_related(
-            'group', 'created_by'
-        ).filter(token_digest=GroupInviteLink.digest(token)).first()
+        invite_link = (
+            GroupInviteLink.objects.select_related("group", "created_by")
+            .filter(token_digest=GroupInviteLink.digest(token))
+            .first()
+        )
         if not invite_link:
             return render(
                 request,
-                'groups/invite_link.html',
-                {'invalid': True},
+                "groups/invite_link.html",
+                {"invalid": True},
                 status=404,
             )
 
         is_member = (
             request.user.is_authenticated
-            and GroupMembership.objects.filter(
-                group=invite_link.group,
-                user=request.user
-            ).exists()
+            and GroupMembership.objects.filter(group=invite_link.group, user=request.user).exists()
         )
-        return render(request, 'groups/invite_link.html', {
-            'invite_link': invite_link,
-            'token': token,
-            'active': invite_link.is_active,
-            'is_member': is_member,
-        })
+        return render(
+            request,
+            "groups/invite_link.html",
+            {
+                "invite_link": invite_link,
+                "token": token,
+                "active": invite_link.is_active,
+                "is_member": is_member,
+            },
+        )
 
 
 class GroupInviteLinkJoinView(APIView):
     """Join a group through an active invitation link after login."""
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request, token):
-        invite_link = GroupInviteLink.objects.select_related('group').filter(
-            token_digest=GroupInviteLink.digest(token)
-        ).first()
+        invite_link = (
+            GroupInviteLink.objects.select_related("group").filter(token_digest=GroupInviteLink.digest(token)).first()
+        )
         if not invite_link:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-        if GroupMembership.objects.filter(
-            group=invite_link.group,
-            user=request.user
-        ).exists():
-            return Response(
-                _serialize_group_invite_link(request, invite_link),
-                status=status.HTTP_200_OK
-            )
+        if GroupMembership.objects.filter(group=invite_link.group, user=request.user).exists():
+            return Response(_serialize_group_invite_link(request, invite_link), status=status.HTTP_200_OK)
 
         with transaction.atomic():
-            locked = GroupInviteLink.objects.select_for_update().select_related(
-                'group'
-            ).get(pk=invite_link.pk)
+            locked = GroupInviteLink.objects.select_for_update().select_related("group").get(pk=invite_link.pk)
             if not locked.is_active:
                 return Response(
-                    {'detail': '招待URLは期限切れ、失効済み、または使用上限に達しています'},
-                    status=status.HTTP_410_GONE
+                    {"detail": "招待URLは期限切れ、失効済み、または使用上限に達しています"}, status=status.HTTP_410_GONE
                 )
 
-            GroupMembership.objects.create(
-                group=locked.group,
-                user=request.user,
-                role='member'
-            )
+            GroupMembership.objects.create(group=locked.group, user=request.user, role="member")
             locked.use_count += 1
-            locked.save(update_fields=['use_count'])
+            locked.save(update_fields=["use_count"])
 
-        return Response(
-            _serialize_group_invite_link(request, locked),
-            status=status.HTTP_201_CREATED
-        )
+        return Response(_serialize_group_invite_link(request, locked), status=status.HTTP_201_CREATED)

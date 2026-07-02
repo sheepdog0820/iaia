@@ -4,53 +4,51 @@ Simple JavaScript Error Detection Test
 Directly tests the character creation page for JavaScript errors without login.
 """
 
-from django.test import TestCase, Client
-from django.contrib.auth import get_user_model
-from django.urls import reverse
-from pathlib import Path
 import re
+from pathlib import Path
+
+from django.contrib.auth import get_user_model
+from django.test import Client, TestCase
+from django.urls import reverse
 
 User = get_user_model()
 
 
 class SimpleJavaScriptErrorTest(TestCase):
     """Test JavaScript errors using Django test client"""
-    
+
     def setUp(self):
         self.client = Client()
-        self.user = User.objects.create_user(
-            username='testuser',
-            password='testpass123'
-        )
-        self.client.login(username='testuser', password='testpass123')
-        
+        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        self.client.login(username="testuser", password="testpass123")
+
     def test_character_create_page_renders_without_errors(self):
         """Test that character creation page renders core UI structure"""
-        response = self.client.get('/accounts/character/create/6th/')
+        response = self.client.get("/accounts/character/create/6th/")
         self.assertEqual(response.status_code, 200)
-        
-        content = response.content.decode('utf-8')
+
+        content = response.content.decode("utf-8")
         self.assertIn('id="character-sheet-form"', content)
         self.assertIn('id="mainTabs"', content)
         self.assertIn('id="skillsContainer"', content)
-        
-        for field_id in ['character-name', 'age', 'str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu']:
+
+        for field_id in ["character-name", "age", "str", "con", "pow", "dex", "app", "siz", "int", "edu"]:
             self.assertIn(f'id="{field_id}"', content)
-        
+
     def test_javascript_assets_included(self):
         """Check that required JS/CSS assets are included"""
-        response = self.client.get('/accounts/character/create/6th/')
-        content = response.content.decode('utf-8')
-        
-        self.assertIn('/static/accounts/js/character6th.js', content)
-        self.assertIn('/static/js/arkham.js', content)
-        self.assertIn('/static/accounts/css/character6th.css', content)
-        
+        response = self.client.get("/accounts/character/create/6th/")
+        content = response.content.decode("utf-8")
+
+        self.assertIn("/static/accounts/js/character6th.js", content)
+        self.assertIn("/static/js/arkham.js", content)
+        self.assertIn("/static/accounts/css/character6th.css", content)
+
     def test_skill_section_targets_exist(self):
         """Check that skill tab containers exist for JS rendering"""
-        response = self.client.get('/accounts/character/create/6th/')
-        content = response.content.decode('utf-8')
-        
+        response = self.client.get("/accounts/character/create/6th/")
+        content = response.content.decode("utf-8")
+
         self.assertIn('id="skillTabs"', content)
         self.assertIn('id="skillTabContent"', content)
         self.assertIn('id="combatSkills"', content)
@@ -59,26 +57,26 @@ class SimpleJavaScriptErrorTest(TestCase):
 
     def test_recommended_skill_controls_exist(self):
         """Check that recommended skill controls exist for JS interactions"""
-        response = self.client.get('/accounts/character/create/6th/')
-        content = response.content.decode('utf-8')
+        response = self.client.get("/accounts/character/create/6th/")
+        content = response.content.decode("utf-8")
 
         for field_id in [
-            'recommendedSkillsControl',
-            'recommendedSkillInput',
-            'addRecommendedSkill',
-            'loadScenarioRecommended',
-            'clearRecommendedSkills',
-            'recommendedSkillsChips',
-            'scenarioRecommendedHint',
-            'retryScenarioRecommended',
+            "recommendedSkillsControl",
+            "recommendedSkillInput",
+            "addRecommendedSkill",
+            "loadScenarioRecommended",
+            "clearRecommendedSkills",
+            "recommendedSkillsChips",
+            "scenarioRecommendedHint",
+            "retryScenarioRecommended",
         ]:
             self.assertIn(f'id="{field_id}"', content)
-        
+
     def test_derived_stat_targets_exist(self):
         """Check that derived stat targets exist for JS updates"""
-        response = self.client.get('/accounts/character/create/6th/')
-        content = response.content.decode('utf-8')
-        
+        response = self.client.get("/accounts/character/create/6th/")
+        content = response.content.decode("utf-8")
+
         self.assertIn('id="hp"', content)
         self.assertIn('id="mp_display"', content)
         self.assertIn('id="san_display"', content)
@@ -90,26 +88,26 @@ class SimpleJavaScriptErrorTest(TestCase):
     def test_skill_allocation_inputs_start_blank_in_character_js(self):
         """Check skill allocation inputs do not prefill 0 in create pages."""
         js_paths = [
-            Path('static/accounts/js/character6th.js'),
-            Path('static/accounts/js/character7th.js'),
+            Path("static/accounts/js/character6th.js"),
+            Path("static/accounts/js/character7th.js"),
         ]
-        input_classes = ['occupation-skill', 'interest-skill', 'other-skill']
+        input_classes = ["occupation-skill", "interest-skill", "other-skill"]
 
         for js_path in js_paths:
-            content = js_path.read_text(encoding='utf-8')
+            content = js_path.read_text(encoding="utf-8")
             for input_class in input_classes:
                 blank_pattern = rf'<input type="number" class="[^"]*{input_class}[^"]*"[^>]*value=""'
                 zero_pattern = rf'<input type="number" class="[^"]*{input_class}[^"]*"[^>]*value="0"'
                 self.assertRegex(content, blank_pattern, str(js_path))
                 self.assertIsNone(re.search(zero_pattern, content), str(js_path))
 
-            self.assertIn('const occ = getSkillInputNumber(occEl, { blankZero: true });', content)
+            self.assertIn("const occ = getSkillInputNumber(occEl, { blankZero: true });", content)
             self.assertIn("input.value = '';", content)
 
     def test_character6th_js_includes_session_context_loader(self):
         """Check that JS includes next session context loader"""
-        with open('static/accounts/js/character6th.js', 'r', encoding='utf-8') as f:
+        with open("static/accounts/js/character6th.js", "r", encoding="utf-8") as f:
             content = f.read()
 
-        self.assertIn('fetchNextSessionContext', content)
-        self.assertIn('/api/schedules/sessions/next-context/', content)
+        self.assertIn("fetchNextSessionContext", content)
+        self.assertIn("/api/schedules/sessions/next-context/", content)

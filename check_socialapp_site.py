@@ -1,10 +1,12 @@
 """
 SocialAppとSiteの紐付け確認スクリプト
 """
+
 import os
+
 import django
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tableno.settings")
 django.setup()
 
 from allauth.socialaccount.models import SocialApp
@@ -12,7 +14,7 @@ from django.contrib.sites.models import Site
 
 # Google SocialAppを取得
 try:
-    app = SocialApp.objects.get(provider='google')
+    app = SocialApp.objects.get(provider="google")
     print(f"SocialApp: {app.name} (provider={app.provider})")
     print(f"Client ID: {app.client_id[:20]}...")
     print(f"Associated sites: {list(app.sites.all())}")

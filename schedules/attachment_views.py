@@ -8,7 +8,7 @@
 
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -29,19 +29,21 @@ class HandoutAttachmentListCreateView(APIView):
 
     def get(self, request, handout_id: int):
         handout = get_object_or_404(
-            HandoutInfo.objects.select_related('session'),
+            HandoutInfo.objects.select_related("session"),
             id=handout_id,
         )
         if not _user_can_view_handout(handout, request.user):
-            return Response({'error': 'このハンドアウトにアクセスする権限がありません'}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"error": "このハンドアウトにアクセスする権限がありません"}, status=status.HTTP_403_FORBIDDEN
+            )
 
-        attachments = HandoutAttachment.objects.filter(handout_id=handout.id).order_by('created_at')
-        serializer = HandoutAttachmentSerializer(attachments, many=True, context={'request': request})
+        attachments = HandoutAttachment.objects.filter(handout_id=handout.id).order_by("created_at")
+        serializer = HandoutAttachmentSerializer(attachments, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, handout_id: int):
         handout = get_object_or_404(
-            HandoutInfo.objects.select_related('session'),
+            HandoutInfo.objects.select_related("session"),
             id=handout_id,
         )
 
@@ -49,17 +51,17 @@ class HandoutAttachmentListCreateView(APIView):
         try:
             attachment = service.upload_attachment(
                 handout=handout,
-                file=request.FILES.get('file'),
+                file=request.FILES.get("file"),
                 uploaded_by=request.user,
-                description=request.data.get('description', ''),
+                description=request.data.get("description", ""),
             )
         except PermissionError as exc:
-            return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"error": str(exc)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as exc:
             # ValidationError も含めて 400 で返す
-            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = HandoutAttachmentSerializer(attachment, context={'request': request})
+        serializer = HandoutAttachmentSerializer(attachment, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -67,18 +69,18 @@ class HandoutAttachmentDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, pk: int):
-        attachment = HandoutAttachment.objects.select_related('handout__session').filter(id=pk).first()
+        attachment = HandoutAttachment.objects.select_related("handout__session").filter(id=pk).first()
         if not attachment:
-            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
         if not _user_can_view_handout(attachment.handout, request.user):
-            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
         service = HandoutAttachmentService()
         try:
             ok = service.delete_attachment(pk, request.user)
         except PermissionError as exc:
-            return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"error": str(exc)}, status=status.HTTP_403_FORBIDDEN)
 
         if not ok:
-            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)

@@ -6,12 +6,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0017_alter_charactersheet_app_value_and_more'),
+        ("accounts", "0017_alter_charactersheet_app_value_and_more"),
     ]
 
     operations = [
         migrations.AlterUniqueTogether(
-            name='charactersheet',
+            name="charactersheet",
             unique_together=set(),
         ),
     ]

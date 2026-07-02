@@ -6,23 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0039_premiumauditlog_restored_action'),
+        ("accounts", "0039_premiumauditlog_restored_action"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='premiumauditlog',
-            name='action',
+            model_name="premiumauditlog",
+            name="action",
             field=models.CharField(
                 choices=[
-                    ('granted', 'Granted'),
-                    ('restored', 'Restored'),
-                    ('revoked', 'Revoked'),
-                    ('payment_failed', 'Payment failed'),
-                    ('payment_recovered', 'Payment recovered'),
-                    ('refunded', 'Refunded'),
-                    ('disputed', 'Disputed'),
-                    ('webhook', 'Webhook'),
+                    ("granted", "Granted"),
+                    ("restored", "Restored"),
+                    ("revoked", "Revoked"),
+                    ("payment_failed", "Payment failed"),
+                    ("payment_recovered", "Payment recovered"),
+                    ("refunded", "Refunded"),
+                    ("disputed", "Disputed"),
+                    ("webhook", "Webhook"),
                 ],
                 db_index=True,
                 max_length=32,

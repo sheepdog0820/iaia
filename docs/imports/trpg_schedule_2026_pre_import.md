@@ -17,43 +17,12 @@
 ## Usage
 
 ```bash
+python manage.py import_trpg_schedule --excel-path "<TRPG schedule workbook.xlsx>" --output-json docs/imports/trpg_schedule_2026_pre_import.json --summary-md docs/imports/trpg_schedule_2026_pre_import.md --extract-only
 python manage.py import_trpg_schedule --input-json docs/imports/trpg_schedule_2026_pre_import.json --dry-run
 python manage.py import_trpg_schedule --input-json docs/imports/trpg_schedule_2026_pre_import.json --group-name "TRPGスケジュール表2026" --default-gm-username <username>
 ```
 
-### Current CSV import mode
-
-`import_trpg_schedule` also supports direct CSV import for legacy Tableno-safe sharing data.
-
-```bash
-python manage.py import_trpg_schedule \
-  --sessions-csv docs/imports/legacy_sessions.csv \
-  --participants-csv docs/imports/legacy_participants.csv \
-  --aliases-csv docs/imports/legacy_aliases.csv \
-  --group-name "TRPGスケジュール表2026 過去データ" \
-  --default-gm-username <internal-owner-username> \
-  --dry-run
-
-python manage.py import_trpg_schedule \
-  --sessions-csv docs/imports/legacy_sessions.csv \
-  --participants-csv docs/imports/legacy_participants.csv \
-  --aliases-csv docs/imports/legacy_aliases.csv \
-  --group-name "TRPGスケジュール表2026 過去データ" \
-  --default-gm-username <internal-owner-username>
-```
-
-CSV columns:
-
-- sessions: `legacy_session_id,title,date,duration_minutes,scenario_title,gm_name,visibility`
-- participants: `legacy_session_id,participant_name,role,character_name,character_sheet_url`
-- aliases: `identity_key,display_name,alias,memo`
-
-Behavior:
-
-- CSV participants are imported as `ParticipantIdentity` / `ParticipantIdentityAlias`; they are not linked to login users and are not claimable through this import path.
-- `session.gm` is the internal owner used for management. Shared display uses the GM `ParticipantIdentity.display_name` when present.
-- `--dry-run` reports counts and duplicate rows without writing to DB.
-- Duplicate CSV rows abort the real import unless `--allow-duplicates` is passed. The command runs inside a transaction, so failures roll back DB writes.
+Current import supports Excel/JSON only. Direct legacy CSV import was removed before public release.
 
 ## 要確認セッション
 

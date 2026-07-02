@@ -6,23 +6,22 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('schedules', '0025_sessionparticipant_guest_participants'),
+        ("schedules", "0025_sessionparticipant_guest_participants"),
     ]
 
     operations = [
         migrations.RemoveConstraint(
-            model_name='sessionparticipant',
-            name='sessionparticipant_user_or_guest_name',
+            model_name="sessionparticipant",
+            name="sessionparticipant_user_or_guest_name",
         ),
         migrations.AddConstraint(
-            model_name='sessionparticipant',
+            model_name="sessionparticipant",
             constraint=models.CheckConstraint(
                 check=(
-                    (models.Q(user__isnull=False) & models.Q(guest_name=''))
-                    | (models.Q(user__isnull=True) & ~models.Q(guest_name=''))
+                    (models.Q(user__isnull=False) & models.Q(guest_name=""))
+                    | (models.Q(user__isnull=True) & ~models.Q(guest_name=""))
                 ),
-                name='sessionparticipant_user_or_guest_name',
+                name="sessionparticipant_user_or_guest_name",
             ),
         ),
     ]
-

@@ -5,33 +5,33 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0037_premiumauditlog_actor'),
+        ("accounts", "0037_premiumauditlog_actor"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='charactersheet',
-            name='access_scope',
+            model_name="charactersheet",
+            name="access_scope",
             field=models.CharField(
                 choices=[
-                    ('private', 'Private'),
-                    ('group', 'Group'),
-                    ('public', 'Public'),
+                    ("private", "Private"),
+                    ("group", "Group"),
+                    ("public", "Public"),
                 ],
-                default='group',
+                default="group",
                 max_length=10,
-                verbose_name='Access scope',
+                verbose_name="Access scope",
             ),
         ),
         migrations.AddField(
-            model_name='charactersheet',
-            name='allowed_users',
+            model_name="charactersheet",
+            name="allowed_users",
             field=models.ManyToManyField(
                 blank=True,
-                related_name='readable_character_sheets',
+                related_name="readable_character_sheets",
                 to=settings.AUTH_USER_MODEL,
-                verbose_name='Allowed users',
+                verbose_name="Allowed users",
             ),
         ),
     ]

@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0005_charactersheet_session_count_and_more'),
+        ("accounts", "0005_charactersheet_session_count_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='charactersheet',
-            name='cocoholia_character_id',
-            field=models.CharField(blank=True, max_length=100, verbose_name='CocoholiaキャラクターID'),
+            model_name="charactersheet",
+            name="cocoholia_character_id",
+            field=models.CharField(blank=True, max_length=100, verbose_name="CocoholiaキャラクターID"),
         ),
         migrations.AddField(
-            model_name='charactersheet',
-            name='cocoholia_sync_enabled',
-            field=models.BooleanField(default=False, verbose_name='Cocoholia同期有効'),
+            model_name="charactersheet",
+            name="cocoholia_sync_enabled",
+            field=models.BooleanField(default=False, verbose_name="Cocoholia同期有効"),
         ),
     ]

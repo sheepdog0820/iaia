@@ -301,16 +301,16 @@ document.addEventListener('DOMContentLoaded', function() {
                             
                             <div class="row text-center small mb-2 character-stats">
                                 <div class="col-4">
-                                    <div class="text-danger"><strong>HP</strong></div>
-                                    <div>${hp}/${maxHp}</div>
+                                    <div class="text-danger character-stat-label"><strong>HP</strong></div>
+                                    <div class="character-stat-value">${hp}/${maxHp}</div>
                                 </div>
                                 <div class="col-4">
-                                    <div class="text-primary"><strong>MP</strong></div>
-                                    <div>${mp}/${maxMp}</div>
+                                    <div class="text-primary character-stat-label"><strong>MP</strong></div>
+                                    <div class="character-stat-value">${mp}/${maxMp}</div>
                                 </div>
                                 <div class="col-4">
-                                    <div class="text-warning"><strong>SAN</strong></div>
-                                    <div>${san}/${maxSan}</div>
+                                    <div class="text-warning character-stat-label"><strong>SAN</strong></div>
+                                    <div class="character-stat-value">${san}/${maxSan}</div>
                                 </div>
                             </div>
                             
@@ -320,38 +320,36 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         
                         <div class="card-footer bg-transparent">
-                            <div class="d-flex align-items-center gap-2 character-card-actions">
-                                 <div class="btn-group flex-grow-1" role="group">
-                                    <a href="/accounts/character/${character.id}/" class="btn btn-outline-primary btn-sm">
-                                        <i class="fas fa-eye"></i> 詳細
-                                    </a>
-                                    <a href="/accounts/character/create/${character.edition || '6th'}/?id=${character.id}" class="btn btn-outline-secondary btn-sm">
-                                        <i class="fas fa-edit"></i> 編集
-                                    </a>
-                                 </div>
-                                <div class="dropdown">
-                                     <button class="btn btn-outline-dark btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="その他">
-                                         <i class="fas fa-ellipsis-h"></i>
-                                     </button>
-                                         <ul class="dropdown-menu dropdown-menu-end">
-                                        <li>
-                                            <button type="button" class="dropdown-item" onclick="copyCharacterUrl(${character.id})">
-                                                <i class="fas fa-link me-2"></i> URLをコピー
-                                            </button>
-                                        </li>
-                                        <li><hr class="dropdown-divider"></li>
-                                         <li>
-                                             <button type="button" class="dropdown-item" onclick="createVersion(${character.id})">
-                                                 <i class="fas fa-copy me-2"></i> 複製
-                                             </button>
-                                         </li>
-                                        <li>
-                                            <button type="button" class="dropdown-item text-danger" onclick="deleteCharacter(${character.id})">
-                                                <i class="fas fa-trash me-2"></i> 削除
-                                            </button>
-                                        </li>
-                                    </ul>
-                                </div>
+                            <div class="character-card-actions" role="group" aria-label="キャラクター操作">
+                                <a href="/accounts/character/${character.id}/" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-eye"></i>
+                                    <span>詳細</span>
+                                </a>
+                                <a href="/accounts/character/create/${character.edition || '6th'}/?id=${character.id}" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-edit"></i>
+                                    <span>編集</span>
+                                </a>
+                                <button type="button" class="btn btn-outline-character-copy btn-sm" onclick="copyCharacterUrl(${character.id})">
+                                    <i class="fas fa-link"></i>
+                                    <span>リンクコピー</span>
+                                </button>
+                            </div>
+                            <div class="dropdown character-card-more">
+                                <button class="btn btn-link btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    その他
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <button type="button" class="dropdown-item" onclick="createVersion(${character.id})">
+                                            <i class="fas fa-copy me-2"></i> 複製
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button type="button" class="dropdown-item text-danger" onclick="deleteCharacter(${character.id})">
+                                            <i class="fas fa-trash me-2"></i> 削除
+                                        </button>
+                                    </li>
+                                </ul>
                             </div>
                         </div>
                     </div>

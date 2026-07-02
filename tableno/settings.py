@@ -14,27 +14,29 @@ import json
 import os
 import sys
 from pathlib import Path
+
 from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
 def _load_env_file():
-    env_file = os.environ.get('ENV_FILE')
+    env_file = os.environ.get("ENV_FILE")
     if not env_file:
         return
     env_path = Path(env_file)
     if not env_path.is_absolute():
         env_path = BASE_DIR / env_path
     if not env_path.exists():
-        raise RuntimeError(f'ENV_FILE not found: {env_path}')
-    with env_path.open(encoding='utf-8') as handle:
+        raise RuntimeError(f"ENV_FILE not found: {env_path}")
+    with env_path.open(encoding="utf-8") as handle:
         for raw_line in handle:
             line = raw_line.strip()
-            if not line or line.startswith('#') or '=' not in line:
+            if not line or line.startswith("#") or "=" not in line:
                 continue
-            key, value = line.split('=', 1)
-            key = key.strip().lstrip('\ufeff')
+            key, value = line.split("=", 1)
+            key = key.strip().lstrip("\ufeff")
             value = value.strip()
             if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
                 value = value[1:-1]
@@ -45,9 +47,9 @@ def _is_placeholder_env_value(value):
     normalized = value.strip().lower()
     return (
         not normalized
-        or normalized.startswith('your-')
-        or normalized.endswith('-here')
-        or normalized in {'changeme', 'replace-me', 'example', 'dummy'}
+        or normalized.startswith("your-")
+        or normalized.endswith("-here")
+        or normalized in {"changeme", "replace-me", "example", "dummy"}
     )
 
 
@@ -55,9 +57,9 @@ def _merge_secret_mapping(raw_payload, source_name):
     try:
         payload = json.loads(raw_payload)
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f'Invalid JSON in {source_name}') from exc
+        raise RuntimeError(f"Invalid JSON in {source_name}") from exc
     if not isinstance(payload, dict):
-        raise RuntimeError(f'{source_name} must be a JSON object')
+        raise RuntimeError(f"{source_name} must be a JSON object")
 
     for key, value in payload.items():
         if not isinstance(key, str) or value is None:
@@ -68,18 +70,18 @@ def _merge_secret_mapping(raw_payload, source_name):
 
 
 def _load_secret_sources():
-    raw_json = os.environ.get('AWS_SECRETS_JSON', '').strip()
+    raw_json = os.environ.get("AWS_SECRETS_JSON", "").strip()
     if raw_json:
-        _merge_secret_mapping(raw_json, 'AWS_SECRETS_JSON')
+        _merge_secret_mapping(raw_json, "AWS_SECRETS_JSON")
 
-    secret_file = os.environ.get('AWS_SECRETS_FILE', '').strip()
+    secret_file = os.environ.get("AWS_SECRETS_FILE", "").strip()
     if secret_file:
         secret_path = Path(secret_file)
         if not secret_path.exists():
-            raise RuntimeError(f'AWS_SECRETS_FILE not found: {secret_path}')
+            raise RuntimeError(f"AWS_SECRETS_FILE not found: {secret_path}")
         _merge_secret_mapping(
-            secret_path.read_text(encoding='utf-8'),
-            f'AWS_SECRETS_FILE({secret_path})',
+            secret_path.read_text(encoding="utf-8"),
+            f"AWS_SECRETS_FILE({secret_path})",
         )
 
 
@@ -87,13 +89,14 @@ def _get_bool(name, default=False):
     value = os.environ.get(name)
     if value is None:
         return default
-    return value.lower() in ('1', 'true', 'yes', 'on')
+    return value.lower() in ("1", "true", "yes", "on")
 
 
 def _split_env_list(value):
-    return [item.strip() for item in value.split(',') if item.strip()]
+    return [item.strip() for item in value.split(",") if item.strip()]
 
-def _get_first_env(*names, default=''):
+
+def _get_first_env(*names, default=""):
     for name in names:
         value = os.environ.get(name)
         if value:
@@ -108,21 +111,21 @@ _load_secret_sources()
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-APP_ENV = os.environ.get('APP_ENV', 'local').strip().lower()
-ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development').strip().lower()
+APP_ENV = os.environ.get("APP_ENV", "local").strip().lower()
+ENVIRONMENT = os.environ.get("ENVIRONMENT", "development").strip().lower()
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY')
+SECRET_KEY = os.environ.get("SECRET_KEY")
 if not SECRET_KEY:
-    raise RuntimeError('SECRET_KEY is required')
+    raise RuntimeError("SECRET_KEY is required")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = _get_bool('DEBUG', default=True)
+DEBUG = _get_bool("DEBUG", default=True)
 
-ALLOWED_HOSTS = _split_env_list(os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1'))
+ALLOWED_HOSTS = _split_env_list(os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1"))
 
 CSRF_TRUSTED_ORIGINS = _split_env_list(
-    os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://127.0.0.1:8000,http://localhost:8000')
+    os.environ.get("CSRF_TRUSTED_ORIGINS", "http://127.0.0.1:8000,http://localhost:8000")
 )
 
 # ngrok等のリバースプロキシ経由でHTTPSを判定する
@@ -133,89 +136,83 @@ USE_X_FORWARDED_HOST = True
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'django.contrib.sites',
-    
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-    'allauth.socialaccount.providers.google',
-    'allauth.socialaccount.providers.discord',
-    'allauth.socialaccount.providers.twitter_oauth2',
-    'rest_framework',
-    'rest_framework.authtoken',
-    'drf_spectacular',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "django.contrib.sites",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
+    "allauth.socialaccount.providers.discord",
+    "allauth.socialaccount.providers.twitter_oauth2",
+    "rest_framework",
+    "rest_framework.authtoken",
+    "drf_spectacular",
     # 'corsheaders',  # 8000番ポート統一のため無効化
-    'crispy_forms',
-    'crispy_bootstrap5',
-    
-    'accounts',
-    'schedules.apps.SchedulesConfig',
-    'scenarios',
+    "crispy_forms",
+    "crispy_bootstrap5",
+    "accounts",
+    "schedules.apps.SchedulesConfig",
+    "scenarios",
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
+    "django.middleware.security.SecurityMiddleware",
     # 'corsheaders.middleware.CorsMiddleware',  # 8000番ポート統一のため無効化
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
-ROOT_URLCONF = 'tableno.urls'
+ROOT_URLCONF = "tableno.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-                'tableno.context_processors.runtime_capabilities',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+                "tableno.context_processors.runtime_capabilities",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'tableno.wsgi.application'
+WSGI_APPLICATION = "tableno.wsgi.application"
 
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-        'OPTIONS': {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+        "OPTIONS": {
             # NOTE: Disable sqlite statement cache to avoid rare KeyError crashes under
             # multi-threaded test servers (e.g. LiveServer/Selenium).
-            'cached_statements': 0,
-            'timeout': 20,
+            "cached_statements": 0,
+            "timeout": 20,
         },
     }
 }
 
-if (
-    'test' in sys.argv
-    or 'PYTEST_CURRENT_TEST' in os.environ
-    or 'pytest' in Path(sys.argv[0]).name.lower()
-):
-    DATABASES['default'].setdefault('TEST', {})
-    DATABASES['default']['TEST']['NAME'] = BASE_DIR / 'test_db.sqlite3'
+if "test" in sys.argv or "PYTEST_CURRENT_TEST" in os.environ or "pytest" in Path(sys.argv[0]).name.lower():
+    DATABASES["default"].setdefault("TEST", {})
+    DATABASES["default"]["TEST"]["NAME"] = BASE_DIR / "test_db.sqlite3"
 
 
 # Password validation
@@ -223,16 +220,16 @@ if (
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -240,9 +237,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'ja'
+LANGUAGE_CODE = "ja"
 
-TIME_ZONE = 'Asia/Tokyo'
+TIME_ZONE = "Asia/Tokyo"
 
 USE_I18N = True
 
@@ -252,99 +249,111 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "static/"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-TEST_RUNNER = 'tableno.test_runner.ProjectDiscoverRunner'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+TEST_RUNNER = "tableno.test_runner.ProjectDiscoverRunner"
 
 # Custom User Model
-AUTH_USER_MODEL = 'accounts.CustomUser'
+AUTH_USER_MODEL = "accounts.CustomUser"
 
 # Authentication settings
 AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
-    'allauth.account.auth_backends.AuthenticationBackend',
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
 ]
 
 # Site設定（開発環境では動的にサイトを検出）
-SITE_ID = int(os.environ.get('SITE_ID', '1'))
+SITE_ID = int(os.environ.get("SITE_ID", "1"))
 
 # Allauth settings（django-allauth統一版）
 # NOTE: ACCOUNT_* の一部設定キーは非推奨になったため新キーへ移行
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 ACCOUNT_EMAIL_VERIFICATION = os.environ.get(
-    'ACCOUNT_EMAIL_VERIFICATION',
-    'none' if DEBUG else 'mandatory',
+    "ACCOUNT_EMAIL_VERIFICATION",
+    "none" if DEBUG else "mandatory",
 )
 ACCOUNT_LOGIN_ON_SIGNUP = True
 ACCOUNT_SIGNUP_FORM_CLASS = None
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_ONLY = False  # 通常ログインとソーシャルログイン両方を許可
 ACCOUNT_PREVENT_ENUMERATION = _get_bool(
-    'ACCOUNT_PREVENT_ENUMERATION',
+    "ACCOUNT_PREVENT_ENUMERATION",
     default=not DEBUG,
 )
 SOCIALACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_FORMS = {'reset_password': 'accounts.forms.CustomPasswordResetForm'}
+ACCOUNT_FORMS = {"reset_password": "accounts.forms.CustomPasswordResetForm"}
 
 # Custom adapters
-ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
-SOCIALACCOUNT_ADAPTER = 'accounts.adapters.CustomSocialAccountAdapter'
+ACCOUNT_ADAPTER = "accounts.adapters.CustomAccountAdapter"
+SOCIALACCOUNT_ADAPTER = "accounts.adapters.CustomSocialAccountAdapter"
 
 # Email settings for development
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-CONTACT_EMAIL = os.environ.get('CONTACT_EMAIL', 'support@tableno.jp')
-SUPPORT_EMAIL = os.environ.get('SUPPORT_EMAIL', CONTACT_EMAIL)
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@tableno.jp')
-SERVER_EMAIL = os.environ.get('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
-ADMINS = [('Admin', os.environ.get('ADMIN_EMAIL', SUPPORT_EMAIL))]
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "support@tableno.jp")
+SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", CONTACT_EMAIL)
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@tableno.jp")
+SERVER_EMAIL = os.environ.get("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
+ADMINS = [("Admin", os.environ.get("ADMIN_EMAIL", SUPPORT_EMAIL))]
 MANAGERS = ADMINS
 
-STRIPE_CHECKOUT_ENABLED = _get_bool('STRIPE_CHECKOUT_ENABLED', default=False)
-STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
-STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
-STRIPE_PREMIUM_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRICE_ID', '')
-STRIPE_PREMIUM_YEARLY_PRICE_ID = os.environ.get('STRIPE_PREMIUM_YEARLY_PRICE_ID', '')
-STRIPE_PREMIUM_EXPECTED_CURRENCY = os.environ.get('STRIPE_PREMIUM_EXPECTED_CURRENCY', '').strip().lower()
+STRIPE_CHECKOUT_ENABLED = _get_bool("STRIPE_CHECKOUT_ENABLED", default=False)
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PREMIUM_PRICE_ID = os.environ.get("STRIPE_PREMIUM_PRICE_ID", "")
+STRIPE_PREMIUM_YEARLY_PRICE_ID = os.environ.get("STRIPE_PREMIUM_YEARLY_PRICE_ID", "")
+STRIPE_PREMIUM_EXPECTED_CURRENCY = os.environ.get("STRIPE_PREMIUM_EXPECTED_CURRENCY", "").strip().lower()
 STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT = os.environ.get(
-    'STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT',
-    '',
+    "STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT",
+    "",
 ).strip()
 STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT = os.environ.get(
-    'STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT',
-    '',
+    "STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT",
+    "",
 ).strip()
-STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
+STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
 STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID = os.environ.get(
-    'STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID',
-    '',
+    "STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID",
+    "",
 )
-STRIPE_REVOKE_ON_REFUND_OR_DISPUTE = _get_bool('STRIPE_REVOKE_ON_REFUND_OR_DISPUTE', default=True)
-PREMIUM_PRICE_LABEL = os.environ.get('PREMIUM_PRICE_LABEL', '月額480円 / 年額4,800円')
-PREMIUM_MONTHLY_PRICE_LABEL = os.environ.get('PREMIUM_MONTHLY_PRICE_LABEL', '月額プラン')
-PREMIUM_MONTHLY_PRICE_DESCRIPTION = os.environ.get('PREMIUM_MONTHLY_PRICE_DESCRIPTION', '480円/月')
-PREMIUM_YEARLY_PRICE_LABEL = os.environ.get('PREMIUM_YEARLY_PRICE_LABEL', '年額プラン')
-PREMIUM_YEARLY_PRICE_DESCRIPTION = os.environ.get('PREMIUM_YEARLY_PRICE_DESCRIPTION', '4,800円/年')
-LEGAL_PAYMENT_METHOD = os.environ.get('LEGAL_PAYMENT_METHOD', 'Stripe Checkoutで利用可能なクレジットカード等の決済手段。')
-LEGAL_PAYMENT_TIMING = os.environ.get('LEGAL_PAYMENT_TIMING', '\u521d\u56de\u7533\u3057\u8fbc\u307f\u6642\u306b\u8ab2\u91d1\u3055\u308c\u3001\u4ee5\u5f8c\u306f\u9078\u629e\u3057\u305f\u6708\u984d\u307e\u305f\u306f\u5e74\u984d\u30b5\u30d6\u30b9\u30af\u30ea\u30d7\u30b7\u30e7\u30f3\u3068\u3057\u3066\u81ea\u52d5\u66f4\u65b0\u3055\u308c\u307e\u3059\u3002')
-LEGAL_SERVICE_DELIVERY_TIMING = os.environ.get('LEGAL_SERVICE_DELIVERY_TIMING', '決済完了後、Stripe Webhookの処理完了をもってプレミアム機能を利用できます。')
-LEGAL_CANCELLATION_METHOD = os.environ.get('LEGAL_CANCELLATION_METHOD', 'ログイン後のプレミアム管理画面からStripe Customer Portalへ移動し、いつでも解約できます。')
-LEGAL_CANCELLATION_EFFECT = os.environ.get('LEGAL_CANCELLATION_EFFECT', '解約後も支払い済み期間の終了まではプレミアム機能を利用できます。')
+STRIPE_REVOKE_ON_REFUND_OR_DISPUTE = _get_bool("STRIPE_REVOKE_ON_REFUND_OR_DISPUTE", default=True)
+PREMIUM_PRICE_LABEL = os.environ.get("PREMIUM_PRICE_LABEL", "月額480円 / 年額4,800円")
+PREMIUM_MONTHLY_PRICE_LABEL = os.environ.get("PREMIUM_MONTHLY_PRICE_LABEL", "月額プラン")
+PREMIUM_MONTHLY_PRICE_DESCRIPTION = os.environ.get("PREMIUM_MONTHLY_PRICE_DESCRIPTION", "480円/月")
+PREMIUM_YEARLY_PRICE_LABEL = os.environ.get("PREMIUM_YEARLY_PRICE_LABEL", "年額プラン")
+PREMIUM_YEARLY_PRICE_DESCRIPTION = os.environ.get("PREMIUM_YEARLY_PRICE_DESCRIPTION", "4,800円/年")
+LEGAL_PAYMENT_METHOD = os.environ.get(
+    "LEGAL_PAYMENT_METHOD", "Stripe Checkoutで利用可能なクレジットカード等の決済手段。"
+)
+LEGAL_PAYMENT_TIMING = os.environ.get(
+    "LEGAL_PAYMENT_TIMING",
+    "\u521d\u56de\u7533\u3057\u8fbc\u307f\u6642\u306b\u8ab2\u91d1\u3055\u308c\u3001\u4ee5\u5f8c\u306f\u9078\u629e\u3057\u305f\u6708\u984d\u307e\u305f\u306f\u5e74\u984d\u30b5\u30d6\u30b9\u30af\u30ea\u30d7\u30b7\u30e7\u30f3\u3068\u3057\u3066\u81ea\u52d5\u66f4\u65b0\u3055\u308c\u307e\u3059\u3002",
+)
+LEGAL_SERVICE_DELIVERY_TIMING = os.environ.get(
+    "LEGAL_SERVICE_DELIVERY_TIMING", "決済完了後、Stripe Webhookの処理完了をもってプレミアム機能を利用できます。"
+)
+LEGAL_CANCELLATION_METHOD = os.environ.get(
+    "LEGAL_CANCELLATION_METHOD",
+    "ログイン後のプレミアム管理画面からStripe Customer Portalへ移動し、いつでも解約できます。",
+)
+LEGAL_CANCELLATION_EFFECT = os.environ.get(
+    "LEGAL_CANCELLATION_EFFECT", "解約後も支払い済み期間の終了まではプレミアム機能を利用できます。"
+)
 LEGAL_REFUND_POLICY = os.environ.get(
-    'LEGAL_REFUND_POLICY',
-    'デジタルサービスの性質上、決済完了後のお客様都合による返金は原則として受け付けません。重複請求や誤請求が確認された場合は個別に対応します。',
+    "LEGAL_REFUND_POLICY",
+    "デジタルサービスの性質上、決済完了後のお客様都合による返金は原則として受け付けません。重複請求や誤請求が確認された場合は個別に対応します。",
 )
-LEGAL_SELLER_NAME = os.environ.get('LEGAL_SELLER_NAME', 'タブレノ運営')
-LEGAL_SELLER_ADDRESS = os.environ.get('LEGAL_SELLER_ADDRESS', '請求があった場合、遅滞なく開示します。')
-LEGAL_SELLER_PHONE = os.environ.get('LEGAL_SELLER_PHONE', '請求があった場合、遅滞なく開示します。')
-PUBLIC_SITE_URL = os.environ.get('PUBLIC_SITE_URL', '')
+LEGAL_SELLER_NAME = os.environ.get("LEGAL_SELLER_NAME", "タブレノ運営")
+LEGAL_SELLER_ADDRESS = os.environ.get("LEGAL_SELLER_ADDRESS", "請求があった場合、遅滞なく開示します。")
+LEGAL_SELLER_PHONE = os.environ.get("LEGAL_SELLER_PHONE", "請求があった場合、遅滞なく開示します。")
+PUBLIC_SITE_URL = os.environ.get("PUBLIC_SITE_URL", "")
 
-LOGIN_REDIRECT_URL = '/accounts/dashboard/'
-LOGOUT_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = "/accounts/dashboard/"
+LOGOUT_REDIRECT_URL = "/"
 
 # Social account providers configuration
 SOCIALACCOUNT_PROVIDERS = {
@@ -378,100 +387,100 @@ if DEVELOPMENT_MODE:
     pass
 
 # Authentication URLs
-LOGIN_URL = '/accounts/login/'
+LOGIN_URL = "/accounts/login/"
 
 # REST Framework settings
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+        "rest_framework.authentication.BasicAuthentication",
     ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
     ],
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+        "rest_framework.renderers.BrowsableAPIRenderer",
     ],
 }
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Tableno API',
-    'DESCRIPTION': 'TRPG session, group, scenario and character management API.',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'PREPROCESSING_HOOKS': ['tableno.schema_hooks.filter_api_endpoints'],
-    'ENUM_NAME_OVERRIDES': {
-        'AsyncJobStatusEnum': 'schedules.models.AsyncJob.Status',
-        'CharacterStatusEnum': 'accounts.character_models.CharacterSheet.STATUS_CHOICES',
-        'DiscordDeliveryStatusEnum': 'accounts.models.DiscordDelivery.Status',
-        'GoogleCalendarSyncStatusEnum': 'schedules.models.GoogleCalendarSync.Status',
-        'GroupLinkStatusEnum': 'accounts.models.GroupLink.Status',
-        'HandoutReleaseStatusEnum': 'schedules.models.HandoutInfo.ReleaseStatus',
-        'InvitationStatusEnum': 'accounts.models.GroupInvitation.STATUS_CHOICES',
-        'SessionStatusEnum': 'schedules.models.TRPGSession.STATUS_CHOICES',
-        'GroupVisibilityEnum': 'accounts.models.Group.VISIBILITY_CHOICES',
-        'SessionVisibilityEnum': 'schedules.models.TRPGSession.VISIBILITY_CHOICES',
-        'ScenarioVisibilityEnum': 'scenarios.models.Scenario.VISIBILITY_CHOICES',
-        'GroupMemberRoleEnum': 'accounts.models.GroupMembership.ROLE_CHOICES',
-        'SessionParticipantRoleEnum': 'schedules.models.SessionParticipant.ROLE_CHOICES',
-        'PlayerSlotEnum': 'schedules.models.SessionParticipant.PLAYER_SLOT_CHOICES',
+    "TITLE": "Tableno API",
+    "DESCRIPTION": "TRPG session, group, scenario and character management API.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "PREPROCESSING_HOOKS": ["tableno.schema_hooks.filter_api_endpoints"],
+    "ENUM_NAME_OVERRIDES": {
+        "AsyncJobStatusEnum": "schedules.models.AsyncJob.Status",
+        "CharacterStatusEnum": "accounts.character_models.CharacterSheet.STATUS_CHOICES",
+        "DiscordDeliveryStatusEnum": "accounts.models.DiscordDelivery.Status",
+        "GoogleCalendarSyncStatusEnum": "schedules.models.GoogleCalendarSync.Status",
+        "GroupLinkStatusEnum": "accounts.models.GroupLink.Status",
+        "HandoutReleaseStatusEnum": "schedules.models.HandoutInfo.ReleaseStatus",
+        "InvitationStatusEnum": "accounts.models.GroupInvitation.STATUS_CHOICES",
+        "SessionStatusEnum": "schedules.models.TRPGSession.STATUS_CHOICES",
+        "GroupVisibilityEnum": "accounts.models.Group.VISIBILITY_CHOICES",
+        "SessionVisibilityEnum": "schedules.models.TRPGSession.VISIBILITY_CHOICES",
+        "ScenarioVisibilityEnum": "scenarios.models.Scenario.VISIBILITY_CHOICES",
+        "GroupMemberRoleEnum": "accounts.models.GroupMembership.ROLE_CHOICES",
+        "SessionParticipantRoleEnum": "schedules.models.SessionParticipant.ROLE_CHOICES",
+        "PlayerSlotEnum": "schedules.models.SessionParticipant.PLAYER_SLOT_CHOICES",
     },
 }
 
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', os.environ.get('REDIS_URL', 'redis://localhost:6379/1'))
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", os.environ.get("REDIS_URL", "redis://localhost:6379/1"))
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)
 CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = int(os.environ.get('CELERY_TASK_TIME_LIMIT', '900'))
-CELERY_TASK_SOFT_TIME_LIMIT = int(os.environ.get('CELERY_TASK_SOFT_TIME_LIMIT', '840'))
+CELERY_TASK_TIME_LIMIT = int(os.environ.get("CELERY_TASK_TIME_LIMIT", "900"))
+CELERY_TASK_SOFT_TIME_LIMIT = int(os.environ.get("CELERY_TASK_SOFT_TIME_LIMIT", "840"))
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULE = {
-    'publish-scheduled-handouts': {
-        'task': 'schedules.tasks.publish_scheduled_handouts',
-        'schedule': 60.0,
+    "publish-scheduled-handouts": {
+        "task": "schedules.tasks.publish_scheduled_handouts",
+        "schedule": 60.0,
     },
-    'expire-async-jobs': {
-        'task': 'schedules.tasks.expire_async_jobs',
-        'schedule': 3600.0,
+    "expire-async-jobs": {
+        "task": "schedules.tasks.expire_async_jobs",
+        "schedule": 3600.0,
     },
-    'expire-premium-access': {
-        'task': 'schedules.tasks.expire_premium_access',
-        'schedule': 3600.0,
+    "expire-premium-access": {
+        "task": "schedules.tasks.expire_premium_access",
+        "schedule": 3600.0,
     },
-    'sync-japanese-holidays-monthly': {
-        'task': 'schedules.tasks.sync_japanese_holidays',
-        'schedule': crontab(minute=20, hour=3, day_of_month='1'),
+    "sync-japanese-holidays-monthly": {
+        "task": "schedules.tasks.sync_japanese_holidays",
+        "schedule": crontab(minute=20, hour=3, day_of_month="1"),
     },
 }
 
 JAPANESE_HOLIDAY_CSV_URL = os.environ.get(
-    'JAPANESE_HOLIDAY_CSV_URL',
-    'https://www8.cao.go.jp/chosei/shukujitsu/syukujitsu.csv',
+    "JAPANESE_HOLIDAY_CSV_URL",
+    "https://www8.cao.go.jp/chosei/shukujitsu/syukujitsu.csv",
 )
 
-ASGI_APPLICATION = 'tableno.asgi.application'
+ASGI_APPLICATION = "tableno.asgi.application"
 WEBSOCKET_NOTIFICATIONS_ENABLED = _get_bool(
-    'WEBSOCKET_NOTIFICATIONS_ENABLED',
+    "WEBSOCKET_NOTIFICATIONS_ENABLED",
     default=False,
 )
-if os.environ.get('APP_ENV', 'local').startswith('aws-'):
+if os.environ.get("APP_ENV", "local").startswith("aws-"):
     CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
-            'CONFIG': {
-                'hosts': [os.environ.get('REDIS_URL', 'redis://localhost:6379/1')],
-                'capacity': 1000,
-                'expiry': 60,
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [os.environ.get("REDIS_URL", "redis://localhost:6379/1")],
+                "capacity": 1000,
+                "expiry": 60,
             },
         },
     }
 else:
     CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
         },
     }
 
@@ -484,7 +493,7 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 #     'http://localhost:3000',
 #     'http://127.0.0.1:3000',
 # ]
-# 
+#
 # CORS_ALLOW_CREDENTIALS = True
 # CORS_ALLOW_HEADERS = [
 #     'accept',
@@ -499,99 +508,99 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 # ]
 
 # Static files
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [
-    BASE_DIR / 'static',
+    BASE_DIR / "static",
 ]
 
 # Media files
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 # YouTube API設定
-YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY', '')
-YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3'
+YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
+YOUTUBE_API_BASE_URL = "https://www.googleapis.com/youtube/v3"
 
 # Google OAuth API認証（API経由）設定
 GOOGLE_OAUTH_CLIENT_ID = _get_first_env(
-    'GOOGLE_CLIENT_ID',
-    'GOOGLE_OAUTH_CLIENT_ID',
-    'GOOGLE_OAUTH2_CLIENT_ID',
-    'CLIENT_ID',
-    default='',
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_OAUTH_CLIENT_ID",
+    "GOOGLE_OAUTH2_CLIENT_ID",
+    "CLIENT_ID",
+    default="",
 )
 GOOGLE_OAUTH_CLIENT_SECRET = _get_first_env(
-    'GOOGLE_CLIENT_SECRET',
-    'GOOGLE_OAUTH_CLIENT_SECRET',
-    'GOOGLE_OAUTH2_CLIENT_SECRET',
-    'CLIENT_SECRET',
-    default='',
+    "GOOGLE_CLIENT_SECRET",
+    "GOOGLE_OAUTH_CLIENT_SECRET",
+    "GOOGLE_OAUTH2_CLIENT_SECRET",
+    "CLIENT_SECRET",
+    default="",
 )
 
 # Discord OAuth API認証（API経由）設定
 DISCORD_CLIENT_ID = _get_first_env(
-    'DISCORD_CLIENT_ID',
-    'DISCORD_OAUTH_CLIENT_ID',
-    default='',
+    "DISCORD_CLIENT_ID",
+    "DISCORD_OAUTH_CLIENT_ID",
+    default="",
 )
 DISCORD_CLIENT_SECRET = _get_first_env(
-    'DISCORD_CLIENT_SECRET',
-    'DISCORD_OAUTH_CLIENT_SECRET',
-    default='',
+    "DISCORD_CLIENT_SECRET",
+    "DISCORD_OAUTH_CLIENT_SECRET",
+    default="",
 )
 DISCORD_REDIRECT_URI = _get_first_env(
-    'DISCORD_REDIRECT_URI',
-    default='',
+    "DISCORD_REDIRECT_URI",
+    default="",
 )
 
 # X (Twitter) OAuth API認証（API経由）設定
 TWITTER_CLIENT_ID = _get_first_env(
-    'TWITTER_CLIENT_ID',
-    'TWITTER_OAUTH_CLIENT_ID',
-    'TWITTER_OAUTH2_CLIENT_ID',
-    'X_CLIENT_ID',
-    default='',
+    "TWITTER_CLIENT_ID",
+    "TWITTER_OAUTH_CLIENT_ID",
+    "TWITTER_OAUTH2_CLIENT_ID",
+    "X_CLIENT_ID",
+    default="",
 )
 TWITTER_CLIENT_SECRET = _get_first_env(
-    'TWITTER_CLIENT_SECRET',
-    'TWITTER_OAUTH_CLIENT_SECRET',
-    'TWITTER_OAUTH2_CLIENT_SECRET',
-    'X_CLIENT_SECRET',
-    default='',
+    "TWITTER_CLIENT_SECRET",
+    "TWITTER_OAUTH_CLIENT_SECRET",
+    "TWITTER_OAUTH2_CLIENT_SECRET",
+    "X_CLIENT_SECRET",
+    default="",
 )
 TWITTER_REDIRECT_URI = _get_first_env(
-    'TWITTER_REDIRECT_URI',
-    'TWITTER_OAUTH_REDIRECT_URI',
-    'TWITTER_OAUTH2_REDIRECT_URI',
-    'X_REDIRECT_URI',
-    default='',
+    "TWITTER_REDIRECT_URI",
+    "TWITTER_OAUTH_REDIRECT_URI",
+    "TWITTER_OAUTH2_REDIRECT_URI",
+    "X_REDIRECT_URI",
+    default="",
 )
 # FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')  # 8000番ポート統一のため無効化
 
 # Logging configuration for debugging OAuth
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
         },
     },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
         },
     },
-    'loggers': {
-        'allauth': {
-            'handlers': ['console'],
-            'level': 'DEBUG' if DEBUG else 'INFO',
+    "loggers": {
+        "allauth": {
+            "handlers": ["console"],
+            "level": "DEBUG" if DEBUG else "INFO",
         },
-        'django.request': {
-            'handlers': ['console'],
-            'level': 'DEBUG' if DEBUG else 'INFO',
+        "django.request": {
+            "handlers": ["console"],
+            "level": "DEBUG" if DEBUG else "INFO",
         },
     },
 }

@@ -6,9 +6,9 @@ import io
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
-from PIL import Image
 
 from accounts.models import CustomUser
 from scenarios.models import Scenario, ScenarioImage
@@ -19,52 +19,52 @@ class ScenarioImageTestCase(APITestCase):
 
     def setUp(self):
         self.creator = CustomUser.objects.create_user(
-            username='scenario_creator',
-            email='creator@example.com',
-            password='password',
-            nickname='作成者',
+            username="scenario_creator",
+            email="creator@example.com",
+            password="password",
+            nickname="作成者",
         )
         self.uploader = CustomUser.objects.create_user(
-            username='scenario_uploader',
-            email='uploader@example.com',
-            password='password',
-            nickname='投稿者',
+            username="scenario_uploader",
+            email="uploader@example.com",
+            password="password",
+            nickname="投稿者",
         )
         self.other_user = CustomUser.objects.create_user(
-            username='scenario_other',
-            email='other@example.com',
-            password='password',
-            nickname='その他',
+            username="scenario_other",
+            email="other@example.com",
+            password="password",
+            nickname="その他",
         )
 
         self.scenario = Scenario.objects.create(
-            title='画像付きシナリオ',
-            author='Test Author',
-            summary='Test Summary',
-            game_system='coc',
-            difficulty='intermediate',
-            estimated_duration='medium',
+            title="画像付きシナリオ",
+            author="Test Author",
+            summary="Test Summary",
+            game_system="coc",
+            difficulty="intermediate",
+            estimated_duration="medium",
             created_by=self.creator,
         )
 
-    def create_test_image(self, name='test.png'):
+    def create_test_image(self, name="test.png"):
         file = io.BytesIO()
-        image = Image.new('RGB', (100, 100), color='blue')
-        image.save(file, 'PNG')
+        image = Image.new("RGB", (100, 100), color="blue")
+        image.save(file, "PNG")
         file.seek(0)
         return SimpleUploadedFile(
             name=name,
             content=file.getvalue(),
-            content_type='image/png',
+            content_type="image/png",
         )
 
-    def create_padded_image(self, name, target_size, image_format='PNG', content_type='image/png'):
+    def create_padded_image(self, name, target_size, image_format="PNG", content_type="image/png"):
         file = io.BytesIO()
-        image = Image.new('RGB', (100, 100), color='blue')
+        image = Image.new("RGB", (100, 100), color="blue")
         image.save(file, image_format)
         content = file.getvalue()
         if len(content) < target_size:
-            content += b'\0' * (target_size - len(content))
+            content += b"\0" * (target_size - len(content))
         return SimpleUploadedFile(
             name=name,
             content=content,
@@ -77,23 +77,23 @@ class ScenarioImageTestCase(APITestCase):
 
         image_file = self.create_test_image()
         data = {
-            'scenario': self.scenario.id,
-            'image': image_file,
-            'title': '表紙',
-            'description': 'シナリオの表紙画像',
+            "scenario": self.scenario.id,
+            "image": image_file,
+            "title": "表紙",
+            "description": "シナリオの表紙画像",
         }
 
         response = self.client.post(
-            reverse('scenario-image-list'),
+            reverse("scenario-image-list"),
             data,
-            format='multipart',
+            format="multipart",
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['uploaded_by'], self.uploader.id)
-        self.assertIsNotNone(response.data['image_url'])
+        self.assertEqual(response.data["uploaded_by"], self.uploader.id)
+        self.assertIsNotNone(response.data["image_url"])
 
-        created = ScenarioImage.objects.get(id=response.data['id'])
+        created = ScenarioImage.objects.get(id=response.data["id"])
         self.assertEqual(created.scenario, self.scenario)
         self.assertEqual(created.uploaded_by, self.uploader)
 
@@ -101,62 +101,62 @@ class ScenarioImageTestCase(APITestCase):
         """複数画像の一括アップロード"""
         self.client.force_authenticate(user=self.creator)
 
-        images = [self.create_test_image(f'image{i}.png') for i in range(3)]
+        images = [self.create_test_image(f"image{i}.png") for i in range(3)]
         data = {
-            'scenario_id': self.scenario.id,
-            'images': images,
+            "scenario_id": self.scenario.id,
+            "images": images,
         }
 
         response = self.client.post(
-            reverse('scenario-image-bulk-upload'),
+            reverse("scenario-image-bulk-upload"),
             data,
-            format='multipart',
+            format="multipart",
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(len(response.data), 3)
 
         for i, image_data in enumerate(response.data):
-            self.assertEqual(image_data['order'], i + 1)
+            self.assertEqual(image_data["order"], i + 1)
 
     def test_upload_accepts_supported_image_formats_and_size_boundary(self):
         """jpg/png/gif と5MB境界の画像を受け付ける"""
         self.client.force_authenticate(user=self.uploader)
 
         cases = [
-            ('scenario.jpg', 'JPEG', 'image/jpeg'),
-            ('scenario.png', 'PNG', 'image/png'),
-            ('scenario.gif', 'GIF', 'image/gif'),
+            ("scenario.jpg", "JPEG", "image/jpeg"),
+            ("scenario.png", "PNG", "image/png"),
+            ("scenario.gif", "GIF", "image/gif"),
         ]
         for filename, image_format, content_type in cases:
             with self.subTest(filename=filename):
                 response = self.client.post(
-                    reverse('scenario-image-list'),
+                    reverse("scenario-image-list"),
                     {
-                        'scenario': self.scenario.id,
-                        'image': self.create_padded_image(
+                        "scenario": self.scenario.id,
+                        "image": self.create_padded_image(
                             filename,
                             target_size=1024 * 1024,
                             image_format=image_format,
                             content_type=content_type,
                         ),
-                        'title': filename,
+                        "title": filename,
                     },
-                    format='multipart',
+                    format="multipart",
                 )
                 self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         response = self.client.post(
-            reverse('scenario-image-list'),
+            reverse("scenario-image-list"),
             {
-                'scenario': self.scenario.id,
-                'image': self.create_padded_image(
-                    'scenario-5mb.png',
+                "scenario": self.scenario.id,
+                "image": self.create_padded_image(
+                    "scenario-5mb.png",
                     target_size=5 * 1024 * 1024,
                 ),
-                'title': '5MB境界',
+                "title": "5MB境界",
             },
-            format='multipart',
+            format="multipart",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -165,32 +165,32 @@ class ScenarioImageTestCase(APITestCase):
         self.client.force_authenticate(user=self.uploader)
 
         response = self.client.post(
-            reverse('scenario-image-list'),
+            reverse("scenario-image-list"),
             {
-                'scenario': self.scenario.id,
-                'image': self.create_padded_image(
-                    'too-large.png',
+                "scenario": self.scenario.id,
+                "image": self.create_padded_image(
+                    "too-large.png",
                     target_size=(5 * 1024 * 1024) + 1,
                 ),
-                'title': '上限超過',
+                "title": "上限超過",
             },
-            format='multipart',
+            format="multipart",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('5MB', str(response.data))
+        self.assertIn("5MB", str(response.data))
 
         response = self.client.post(
-            reverse('scenario-image-list'),
+            reverse("scenario-image-list"),
             {
-                'scenario': self.scenario.id,
-                'image': SimpleUploadedFile(
-                    'not-image.txt',
-                    b'not an image',
-                    content_type='text/plain',
+                "scenario": self.scenario.id,
+                "image": SimpleUploadedFile(
+                    "not-image.txt",
+                    b"not an image",
+                    content_type="text/plain",
                 ),
-                'title': '非画像',
+                "title": "非画像",
             },
-            format='multipart',
+            format="multipart",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -199,18 +199,18 @@ class ScenarioImageTestCase(APITestCase):
         self.client.force_authenticate(user=self.creator)
 
         response = self.client.post(
-            reverse('scenario-image-bulk-upload'),
+            reverse("scenario-image-bulk-upload"),
             {
-                'scenario_id': self.scenario.id,
-                'images': [
-                    self.create_test_image('valid.png'),
+                "scenario_id": self.scenario.id,
+                "images": [
+                    self.create_test_image("valid.png"),
                     self.create_padded_image(
-                        'too-large.png',
+                        "too-large.png",
                         target_size=(5 * 1024 * 1024) + 1,
                     ),
                 ],
             },
-            format='multipart',
+            format="multipart",
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -221,25 +221,25 @@ class ScenarioImageTestCase(APITestCase):
         image = ScenarioImage.objects.create(
             scenario=self.scenario,
             image=self.create_test_image(),
-            title='順序変更テスト',
+            title="順序変更テスト",
             uploaded_by=self.uploader,
             order=1,
         )
 
         self.client.force_authenticate(user=self.creator)
         response = self.client.post(
-            reverse('scenario-image-reorder', kwargs={'pk': image.id}),
-            {'order': 5},
-            format='json',
+            reverse("scenario-image-reorder", kwargs={"pk": image.id}),
+            {"order": 5},
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['order'], 5)
+        self.assertEqual(response.data["order"], 5)
 
         self.client.force_authenticate(user=self.uploader)
         response = self.client.post(
-            reverse('scenario-image-reorder', kwargs={'pk': image.id}),
-            {'order': 10},
-            format='json',
+            reverse("scenario-image-reorder", kwargs={"pk": image.id}),
+            {"order": 10},
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -248,8 +248,8 @@ class ScenarioImageTestCase(APITestCase):
         images = [
             ScenarioImage.objects.create(
                 scenario=self.scenario,
-                image=self.create_test_image(f'bulk{i}.png'),
-                title=f'画像{i}',
+                image=self.create_test_image(f"bulk{i}.png"),
+                title=f"画像{i}",
                 uploaded_by=self.uploader,
                 order=i + 1,
             )
@@ -258,12 +258,12 @@ class ScenarioImageTestCase(APITestCase):
 
         self.client.force_authenticate(user=self.creator)
         response = self.client.post(
-            reverse('scenario-image-reorder-bulk'),
+            reverse("scenario-image-reorder-bulk"),
             {
-                'scenario_id': self.scenario.id,
-                'ordered_ids': [images[1].id, images[2].id, images[0].id],
+                "scenario_id": self.scenario.id,
+                "ordered_ids": [images[1].id, images[2].id, images[0].id],
             },
-            format='json',
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -277,33 +277,29 @@ class ScenarioImageTestCase(APITestCase):
         # 作成者以外は実行不可
         self.client.force_authenticate(user=self.uploader)
         response = self.client.post(
-            reverse('scenario-image-reorder-bulk'),
+            reverse("scenario-image-reorder-bulk"),
             {
-                'scenario_id': self.scenario.id,
-                'ordered_ids': [images[0].id, images[1].id, images[2].id],
+                "scenario_id": self.scenario.id,
+                "ordered_ids": [images[0].id, images[1].id, images[2].id],
             },
-            format='json',
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
         # 不正な順序指定は反映されない
         self.client.force_authenticate(user=self.creator)
-        before_orders = {
-            image.id: ScenarioImage.objects.get(id=image.id).order for image in images
-        }
+        before_orders = {image.id: ScenarioImage.objects.get(id=image.id).order for image in images}
         response = self.client.post(
-            reverse('scenario-image-reorder-bulk'),
+            reverse("scenario-image-reorder-bulk"),
             {
-                'scenario_id': self.scenario.id,
-                'ordered_ids': [images[0].id, images[0].id, images[1].id],
+                "scenario_id": self.scenario.id,
+                "ordered_ids": [images[0].id, images[0].id, images[1].id],
             },
-            format='json',
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-        after_orders = {
-            image.id: ScenarioImage.objects.get(id=image.id).order for image in images
-        }
+        after_orders = {image.id: ScenarioImage.objects.get(id=image.id).order for image in images}
         self.assertEqual(before_orders, after_orders)
 
     def test_delete_image_permissions(self):
@@ -311,38 +307,38 @@ class ScenarioImageTestCase(APITestCase):
         image = ScenarioImage.objects.create(
             scenario=self.scenario,
             image=self.create_test_image(),
-            title='削除テスト',
+            title="削除テスト",
             uploaded_by=self.uploader,
         )
 
         self.client.force_authenticate(user=self.uploader)
         response = self.client.delete(
-            reverse('scenario-image-detail', kwargs={'pk': image.id}),
+            reverse("scenario-image-detail", kwargs={"pk": image.id}),
         )
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
         image2 = ScenarioImage.objects.create(
             scenario=self.scenario,
             image=self.create_test_image(),
-            title='削除テスト2',
+            title="削除テスト2",
             uploaded_by=self.uploader,
         )
 
         self.client.force_authenticate(user=self.creator)
         response = self.client.delete(
-            reverse('scenario-image-detail', kwargs={'pk': image2.id}),
+            reverse("scenario-image-detail", kwargs={"pk": image2.id}),
         )
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
         image3 = ScenarioImage.objects.create(
             scenario=self.scenario,
             image=self.create_test_image(),
-            title='削除テスト3',
+            title="削除テスト3",
             uploaded_by=self.uploader,
         )
 
         self.client.force_authenticate(user=self.other_user)
         response = self.client.delete(
-            reverse('scenario-image-detail', kwargs={'pk': image3.id}),
+            reverse("scenario-image-detail", kwargs={"pk": image3.id}),
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

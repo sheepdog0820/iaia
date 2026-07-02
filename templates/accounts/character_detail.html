@@ -378,9 +378,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const characterImagesApiUrl = containerEl?.dataset?.characterImagesApiUrl || `/api/accounts/character-sheets/${characterId}/images/`;
     const characterImagesZipUrl = containerEl?.dataset?.characterImagesZipUrl || `/api/accounts/character-sheets/${characterId}/images/download/`;
     const characterReferenceUrl = containerEl?.dataset?.characterReferenceUrl || window.location.href;
-    const characterDetailApiUrl = sharedApiUrl || (isPublicView
-        ? `/api/accounts/character-sheets/${characterId}/public/`
-        : `/api/accounts/character-sheets/${characterId}/`);
+    const characterDetailApiUrl = sharedApiUrl || `/api/accounts/character-sheets/${characterId}/`;
     let character = null;
 
     const ccfoliaExportLink = document.getElementById('ccfoliaExportLink');

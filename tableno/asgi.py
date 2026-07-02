@@ -17,9 +17,9 @@ from django.core.asgi import get_asgi_application
 
 import schedules.routing
 
-application = ProtocolTypeRouter({
-    'http': get_asgi_application(),
-    'websocket': AuthMiddlewareStack(
-        URLRouter(schedules.routing.websocket_urlpatterns)
-    ),
-})
+application = ProtocolTypeRouter(
+    {
+        "http": get_asgi_application(),
+        "websocket": AuthMiddlewareStack(URLRouter(schedules.routing.websocket_urlpatterns)),
+    }
+)

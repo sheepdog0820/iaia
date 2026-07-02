@@ -465,10 +465,10 @@
 ### 4.15 安全な共有リンク
 
 - **内容**
-  - 詳細仕様: `docs/specifications/SAFE_SHARE_LINKS_AND_LEGACY_IMPORT.md`
+  - 詳細仕様: `docs/specifications/SAFE_SHARE_LINKS.md`
   - `ShareLink` によるセッション、キャラクター、シナリオ、統計のリンク共有
-  - `link` は通常の公開一覧/公開ID URLには出さず、ShareLink URLを知る人のみ閲覧可能
-  - `public` は公開URL/APIで閲覧可能。必要に応じてShareLinkも発行可能
+  - `link`: fixed share URL or issued ShareLink URL only; not publicly listed and not readable by ID.
+  - `public`: readable through shared URL/API surfaces and can also use ShareLink.
   - raw token は発行/再発行レスポンスでのみ返し、DBには SHA-256 digest を保存
   - セッション共有は秘匿HO、内部ユーザー情報、claim/OAuth情報を返さない
   - キャラクター共有は所有者、許可ユーザー、メモ、version note を返さない
@@ -482,8 +482,8 @@
   - `GET /share/characters/{token}/`
   - `GET /share/scenarios/{token}/`
   - `GET /share/stats/{token}/`
-- **レガシー公開URL**
-  - `/sessions/<uuid:share_token>/view/` and `/s/<uuid:share_token>/` - `visibility='public'` のセッション詳細のみ
+- **Fixed share URL**
+  - `/share/sessions/<uuid:share_token>/view/` - session share page for `visibility='link'` / `visibility='public'`
 - **状態**: **完成**
 
 ### 4.16 セッション完了時の自動記録（プレイ履歴）
@@ -593,20 +593,14 @@
   - `/api/accounts/admin/users/`
 - **状態**: **一部完成**（UIはDjango admin中心、運用フローは要設計）
 
-### 7.3 過去セッションCSV取り込み
+### 7.3 Schedule Import
 
-- **内容**
-  - `import_trpg_schedule` は従来の Excel/JSON 取り込みに加え、CSV取り込みをサポート
-  - `--sessions-csv`、`--participants-csv`、`--aliases-csv` でセッション、参加者、表示名エイリアスを取り込む
-  - CSV取り込みの参加者は `ParticipantIdentity` / `ParticipantIdentityAlias` として保存し、ログインユーザーへ自動紐づけしない
-  - 過去セッションの `session.gm` は内部管理用ユーザー。共有表示ではGMロールの `ParticipantIdentity.display_name` を優先
-  - `--dry-run` はDBへ書き込まず、件数と重複を表示
-  - 重複がある本取り込みは `--allow-duplicates` がない限り中断し、transaction rollback される
-- **CSV列**
-  - sessions: `legacy_session_id,title,date,duration_minutes,scenario_title,gm_name,visibility`
-  - participants: `legacy_session_id,participant_name,role,character_name,character_sheet_url`
-  - aliases: `identity_key,display_name,alias,memo`
-- **状態**: **完成**
+- `import_trpg_schedule` supports Excel/JSON only.
+- `--excel-path` parses the source workbook and can write `--output-json` / `--summary-md`.
+- `--input-json` imports a prepared payload into the database.
+- `--extract-only` parses only; `--dry-run` reports planned counts without DB writes.
+- Direct legacy CSV import was removed before public release.
+- **Status**: complete
 
 ---
 

@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0021_alter_characterimage_image'),
+        ("accounts", "0021_alter_characterimage_image"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='charactersheet',
-            name='is_public',
-            field=models.BooleanField(default=False, verbose_name='公開設定'),
+            model_name="charactersheet",
+            name="is_public",
+            field=models.BooleanField(default=False, verbose_name="公開設定"),
         ),
     ]

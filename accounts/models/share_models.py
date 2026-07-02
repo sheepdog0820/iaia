@@ -8,15 +8,15 @@ from django.utils import timezone
 
 class ShareLink(models.Model):
     class ResourceType(models.TextChoices):
-        CHARACTER = 'character', 'Character'
-        SESSION = 'session', 'Session'
-        SCENARIO = 'scenario', 'Scenario'
-        PROFILE_STATS = 'profile_stats', 'Profile stats'
+        CHARACTER = "character", "Character"
+        SESSION = "session", "Session"
+        SCENARIO = "scenario", "Scenario"
+        PROFILE_STATS = "profile_stats", "Profile stats"
 
     class ViewLevel(models.TextChoices):
-        SUMMARY = 'summary', 'Summary'
-        STANDARD = 'standard', 'Standard'
-        FULL = 'full', 'Full'
+        SUMMARY = "summary", "Summary"
+        STANDARD = "standard", "Standard"
+        FULL = "full", "Full"
 
     resource_type = models.CharField(max_length=20, choices=ResourceType.choices)
     object_id = models.PositiveIntegerField()
@@ -24,7 +24,7 @@ class ShareLink(models.Model):
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='created_share_links',
+        related_name="created_share_links",
     )
     expires_at = models.DateTimeField(null=True, blank=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
@@ -37,18 +37,18 @@ class ShareLink(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=['resource_type', 'object_id']),
-            models.Index(fields=['created_by', 'created_at']),
+            models.Index(fields=["resource_type", "object_id"]),
+            models.Index(fields=["created_by", "created_at"]),
         ]
 
     def __str__(self):
-        return f'{self.resource_type}:{self.object_id}'
+        return f"{self.resource_type}:{self.object_id}"
 
     @staticmethod
     def digest(token):
-        return hashlib.sha256(token.encode('utf-8')).hexdigest()
+        return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
     @classmethod
     def issue(
@@ -76,13 +76,15 @@ class ShareLink(models.Model):
     @classmethod
     def active_for_token(cls, token, resource_type):
         now = timezone.now()
-        return cls.objects.filter(
-            token_digest=cls.digest(token),
-            resource_type=resource_type,
-            revoked_at__isnull=True,
-        ).filter(
-            models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=now)
-        ).first()
+        return (
+            cls.objects.filter(
+                token_digest=cls.digest(token),
+                resource_type=resource_type,
+                revoked_at__isnull=True,
+            )
+            .filter(models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=now))
+            .first()
+        )
 
     @property
     def is_active(self):
@@ -93,11 +95,11 @@ class ShareLink(models.Model):
     def revoke(self, save=True):
         self.revoked_at = timezone.now()
         if save:
-            self.save(update_fields=['revoked_at'])
+            self.save(update_fields=["revoked_at"])
 
     def reissue(self):
         token = secrets.token_urlsafe(32)
         self.token_digest = self.digest(token)
         self.revoked_at = None
-        self.save(update_fields=['token_digest', 'revoked_at'])
+        self.save(update_fields=["token_digest", "revoked_at"])
         return token

@@ -7,14 +7,14 @@ def can_manage_session(session: TRPGSession, user) -> bool:
         return False
     if session.gm_id == user.id:
         return True
-    if getattr(session, 'created_by_id', None) == user.id:
+    if getattr(session, "created_by_id", None) == user.id:
         return True
     if session.group_id:
         if session.group.created_by_id == user.id:
             return True
-        if GroupMembership.objects.filter(group_id=session.group_id, user=user, role='admin').exists():
+        if GroupMembership.objects.filter(group_id=session.group_id, user=user, role="admin").exists():
             return True
-    return SessionParticipant.objects.filter(session=session, user=user, role='gm').exists()
+    return SessionParticipant.objects.filter(session=session, user=user, role="gm").exists()
 
 
 def can_view_handout(handout: HandoutInfo, user) -> bool:

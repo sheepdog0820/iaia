@@ -9,30 +9,63 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0001_initial'),
+        ("accounts", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='group',
-            name='visibility',
-            field=models.CharField(choices=[('private', 'プライベート'), ('public', '公開')], default='private', max_length=10),
+            model_name="group",
+            name="visibility",
+            field=models.CharField(
+                choices=[("private", "プライベート"), ("public", "公開")], default="private", max_length=10
+            ),
         ),
         migrations.CreateModel(
-            name='GroupInvitation',
+            name="GroupInvitation",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('status', models.CharField(choices=[('pending', '保留中'), ('accepted', '承認済み'), ('declined', '拒否'), ('expired', '期限切れ')], default='pending', max_length=10)),
-                ('message', models.TextField(blank=True, help_text='招待メッセージ')),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('responded_at', models.DateTimeField(blank=True, null=True)),
-                ('group', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='invitations', to='accounts.group')),
-                ('invitee', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='received_invitations', to=settings.AUTH_USER_MODEL)),
-                ('inviter', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='sent_invitations', to=settings.AUTH_USER_MODEL)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("pending", "保留中"),
+                            ("accepted", "承認済み"),
+                            ("declined", "拒否"),
+                            ("expired", "期限切れ"),
+                        ],
+                        default="pending",
+                        max_length=10,
+                    ),
+                ),
+                ("message", models.TextField(blank=True, help_text="招待メッセージ")),
+                ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
+                ("responded_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "group",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, related_name="invitations", to="accounts.group"
+                    ),
+                ),
+                (
+                    "invitee",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="received_invitations",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "inviter",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="sent_invitations",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-created_at'],
-                'unique_together': {('group', 'invitee')},
+                "ordering": ["-created_at"],
+                "unique_together": {("group", "invitee")},
             },
         ),
     ]

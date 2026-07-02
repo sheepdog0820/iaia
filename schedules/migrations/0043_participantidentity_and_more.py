@@ -8,43 +8,58 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('schedules', '0042_alter_trpgsession_visibility'),
+        ("schedules", "0042_alter_trpgsession_visibility"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='ParticipantIdentity',
+            name="ParticipantIdentity",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('display_name', models.CharField(max_length=100)),
-                ('normalized_name', models.CharField(blank=True, db_index=True, max_length=100)),
-                ('legacy_source', models.CharField(blank=True, max_length=100)),
-                ('legacy_key', models.CharField(blank=True, db_index=True, max_length=255)),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("display_name", models.CharField(max_length=100)),
+                ("normalized_name", models.CharField(blank=True, db_index=True, max_length=100)),
+                ("legacy_source", models.CharField(blank=True, max_length=100)),
+                ("legacy_key", models.CharField(blank=True, db_index=True, max_length=255)),
+                ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
             ],
             options={
-                'ordering': ['display_name', 'id'],
-                'indexes': [models.Index(fields=['normalized_name', 'legacy_source'], name='schedules_p_normali_fd260a_idx')],
+                "ordering": ["display_name", "id"],
+                "indexes": [
+                    models.Index(fields=["normalized_name", "legacy_source"], name="schedules_p_normali_fd260a_idx")
+                ],
             },
         ),
         migrations.AddField(
-            model_name='sessionparticipant',
-            name='participant_identity',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='session_participations', to='schedules.participantidentity'),
+            model_name="sessionparticipant",
+            name="participant_identity",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="session_participations",
+                to="schedules.participantidentity",
+            ),
         ),
         migrations.CreateModel(
-            name='ParticipantIdentityAlias',
+            name="ParticipantIdentityAlias",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('alias', models.CharField(max_length=100)),
-                ('normalized_alias', models.CharField(blank=True, db_index=True, max_length=100)),
-                ('source', models.CharField(blank=True, max_length=50)),
-                ('identity', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='aliases', to='schedules.participantidentity')),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("alias", models.CharField(max_length=100)),
+                ("normalized_alias", models.CharField(blank=True, db_index=True, max_length=100)),
+                ("source", models.CharField(blank=True, max_length=50)),
+                (
+                    "identity",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="aliases",
+                        to="schedules.participantidentity",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['alias', 'id'],
-                'indexes': [models.Index(fields=['normalized_alias', 'source'], name='schedules_p_normali_860b37_idx')],
+                "ordering": ["alias", "id"],
+                "indexes": [models.Index(fields=["normalized_alias", "source"], name="schedules_p_normali_860b37_idx")],
             },
         ),
     ]

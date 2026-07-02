@@ -6,28 +6,28 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('schedules', '0010_trpgsession_scenario'),
+        ("schedules", "0010_trpgsession_scenario"),
     ]
 
     operations = [
         migrations.RenameIndex(
-            model_name='sessionlog',
-            new_name='schedules_s_session_628b50_idx',
-            old_name='schedules_s_session_07710f_idx',
+            model_name="sessionlog",
+            new_name="schedules_s_session_628b50_idx",
+            old_name="schedules_s_session_07710f_idx",
         ),
         migrations.RenameIndex(
-            model_name='sessionlog',
-            new_name='schedules_s_created_a09bf1_idx',
-            old_name='schedules_s_created_94f6a5_idx',
+            model_name="sessionlog",
+            new_name="schedules_s_created_a09bf1_idx",
+            old_name="schedules_s_created_94f6a5_idx",
         ),
         migrations.RenameIndex(
-            model_name='sessionnote',
-            new_name='schedules_s_session_5f99db_idx',
-            old_name='schedules_s_session_b5512b_idx',
+            model_name="sessionnote",
+            new_name="schedules_s_session_5f99db_idx",
+            old_name="schedules_s_session_b5512b_idx",
         ),
         migrations.RenameIndex(
-            model_name='sessionnote',
-            new_name='schedules_s_author__9d2f97_idx',
-            old_name='schedules_s_author_b9a0b3_idx',
+            model_name="sessionnote",
+            new_name="schedules_s_author__9d2f97_idx",
+            old_name="schedules_s_author_b9a0b3_idx",
         ),
     ]

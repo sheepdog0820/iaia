@@ -9,40 +9,40 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import CustomUser, Group
-from schedules.models import TRPGSession, SessionOccurrence, SessionParticipant
+from schedules.models import SessionOccurrence, SessionParticipant, TRPGSession
 
 
 class SessionOccurrenceAPITestCase(APITestCase):
     def setUp(self):
         self.gm_user = CustomUser.objects.create_user(
-            username='gm_user',
-            email='gm@example.com',
-            password='pass1234',
-            nickname='GM',
+            username="gm_user",
+            email="gm@example.com",
+            password="pass1234",
+            nickname="GM",
         )
         self.member_user = CustomUser.objects.create_user(
-            username='member_user',
-            email='member@example.com',
-            password='pass1234',
-            nickname='Member',
+            username="member_user",
+            email="member@example.com",
+            password="pass1234",
+            nickname="Member",
         )
         self.group = Group.objects.create(
-            name='Test Group',
-            description='Group for occurrence tests',
+            name="Test Group",
+            description="Group for occurrence tests",
             created_by=self.gm_user,
         )
         self.group.members.add(self.gm_user, self.member_user)
 
         self.session = TRPGSession.objects.create(
-            title='Test Session',
-            description='',
+            title="Test Session",
+            description="",
             date=timezone.now().replace(microsecond=0),
             duration_minutes=180,
-            location='',
+            location="",
             gm=self.gm_user,
             group=self.group,
-            status='planned',
-            visibility='group',
+            status="planned",
+            visibility="group",
         )
         self.primary_occurrence = self.session.occurrences.get(is_primary=True)
 
@@ -58,9 +58,9 @@ class SessionOccurrenceAPITestCase(APITestCase):
         new_start_at = (self.session.date + timedelta(days=7)).replace(microsecond=0)
 
         response = self.client.patch(
-            f'/api/schedules/occurrences/{self.primary_occurrence.id}/',
-            {'start_at': new_start_at.isoformat()},
-            format='json',
+            f"/api/schedules/occurrences/{self.primary_occurrence.id}/",
+            {"start_at": new_start_at.isoformat()},
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -72,27 +72,27 @@ class SessionOccurrenceAPITestCase(APITestCase):
     def test_create_occurrence_sets_primary_when_session_date_is_none(self):
         self.client.force_authenticate(user=self.gm_user)
         undated_session = TRPGSession.objects.create(
-            title='Undated Session',
-            description='',
+            title="Undated Session",
+            description="",
             date=None,
             duration_minutes=0,
-            location='',
+            location="",
             gm=self.gm_user,
             group=self.group,
-            status='planned',
-            visibility='group',
+            status="planned",
+            visibility="group",
         )
 
         start_at = (timezone.now() + timedelta(days=5)).replace(microsecond=0)
         response = self.client.post(
-            '/api/schedules/occurrences/',
-            {'session': undated_session.id, 'start_at': start_at.isoformat(), 'content': ''},
-            format='json',
+            "/api/schedules/occurrences/",
+            {"session": undated_session.id, "start_at": start_at.isoformat(), "content": ""},
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         undated_session.refresh_from_db()
-        occurrence = SessionOccurrence.objects.get(id=response.data['id'])
+        occurrence = SessionOccurrence.objects.get(id=response.data["id"])
         self.assertTrue(occurrence.is_primary)
         self.assertEqual(occurrence.start_at, start_at)
         self.assertEqual(undated_session.date, start_at)
@@ -106,57 +106,57 @@ class SessionOccurrenceAPITestCase(APITestCase):
         start_at = (self.session.date + timedelta(days=1)).replace(microsecond=0)
 
         response = self.client.post(
-            '/api/schedules/occurrences/',
+            "/api/schedules/occurrences/",
             {
-                'session': self.session.id,
-                'start_at': start_at.isoformat(),
-                'content': '',
+                "session": self.session.id,
+                "start_at": start_at.isoformat(),
+                "content": "",
             },
-            format='json',
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-        occurrence = SessionOccurrence.objects.get(id=response.data['id'])
+        occurrence = SessionOccurrence.objects.get(id=response.data["id"])
         self.assertFalse(occurrence.is_primary)
         self.assertEqual(occurrence.start_at, start_at)
-        self.assertEqual(occurrence.content, '')
+        self.assertEqual(occurrence.content, "")
 
     def test_non_gm_cannot_create_occurrence(self):
         self.client.force_authenticate(user=self.member_user)
         start_at = (self.session.date + timedelta(days=2)).replace(microsecond=0)
 
         response = self.client.post(
-            '/api/schedules/occurrences/',
-            {'session': self.session.id, 'start_at': start_at.isoformat(), 'content': ''},
-            format='json',
+            "/api/schedules/occurrences/",
+            {"session": self.session.id, "start_at": start_at.isoformat(), "content": ""},
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_occurrence_participants_must_belong_to_group(self):
         self.client.force_authenticate(user=self.gm_user)
         outsider = CustomUser.objects.create_user(
-            username='outsider',
-            email='outsider@example.com',
-            password='pass1234',
+            username="outsider",
+            email="outsider@example.com",
+            password="pass1234",
         )
         start_at = (self.session.date + timedelta(days=3)).replace(microsecond=0)
 
         response = self.client.post(
-            '/api/schedules/occurrences/',
+            "/api/schedules/occurrences/",
             {
-                'session': self.session.id,
-                'start_at': start_at.isoformat(),
-                'participants': [outsider.id],
-                'content': '',
+                "session": self.session.id,
+                "start_at": start_at.isoformat(),
+                "participants": [outsider.id],
+                "content": "",
             },
-            format='json',
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('participants', response.data)
+        self.assertIn("participants", response.data)
 
     def test_delete_primary_occurrence_is_rejected(self):
         self.client.force_authenticate(user=self.gm_user)
-        response = self.client.delete(f'/api/schedules/occurrences/{self.primary_occurrence.id}/')
+        response = self.client.delete(f"/api/schedules/occurrences/{self.primary_occurrence.id}/")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(SessionOccurrence.objects.filter(id=self.primary_occurrence.id).exists())
 
@@ -165,7 +165,7 @@ class SessionOccurrenceAPITestCase(APITestCase):
         start_at = (self.session.date + timedelta(days=4)).replace(microsecond=0)
         occurrence = SessionOccurrence.objects.create(session=self.session, start_at=start_at)
 
-        response = self.client.delete(f'/api/schedules/occurrences/{occurrence.id}/')
+        response = self.client.delete(f"/api/schedules/occurrences/{occurrence.id}/")
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(SessionOccurrence.objects.filter(id=occurrence.id).exists())
 
@@ -174,26 +174,26 @@ class SessionOccurrenceAPITestCase(APITestCase):
         SessionParticipant.objects.create(
             session=self.session,
             user=self.member_user,
-            role='player',
+            role="player",
         )
         SessionParticipant.objects.create(
             session=self.session,
-            guest_name='Guest Player',
-            role='player',
+            guest_name="Guest Player",
+            role="player",
         )
         start = (self.session.date - timedelta(days=1)).replace(microsecond=0)
         end = (self.session.date + timedelta(days=1)).replace(microsecond=0)
 
         response = self.client.get(
-            '/api/schedules/calendar/',
-            {'start': start.isoformat(), 'end': end.isoformat()},
+            "/api/schedules/calendar/",
+            {"start": start.isoformat(), "end": end.isoformat()},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         events = response.data
-        target = next((e for e in events if e.get('session_id') == self.session.id), None)
+        target = next((e for e in events if e.get("session_id") == self.session.id), None)
         self.assertIsNotNone(target)
-        self.assertEqual(target.get('id'), self.primary_occurrence.id)
-        self.assertEqual(target.get('occurrence_id'), self.primary_occurrence.id)
-        self.assertIn(self.member_user.nickname, target.get('participant_names', []))
-        self.assertIn('Guest Player', target.get('guest_names', []))
+        self.assertEqual(target.get("id"), self.primary_occurrence.id)
+        self.assertEqual(target.get("occurrence_id"), self.primary_occurrence.id)
+        self.assertIn(self.member_user.nickname, target.get("participant_names", []))
+        self.assertIn("Guest Player", target.get("guest_names", []))

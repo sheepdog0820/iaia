@@ -9,40 +9,47 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0033_groupinvitelink'),
+        ("accounts", "0033_groupinvitelink"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='StripeWebhookEvent',
+            name="StripeWebhookEvent",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('event_id', models.CharField(max_length=255, unique=True)),
-                ('event_type', models.CharField(max_length=255)),
-                ('processed_at', models.DateTimeField(default=django.utils.timezone.now)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("event_id", models.CharField(max_length=255, unique=True)),
+                ("event_type", models.CharField(max_length=255)),
+                ("processed_at", models.DateTimeField(default=django.utils.timezone.now)),
             ],
             options={
-                'ordering': ['-processed_at'],
+                "ordering": ["-processed_at"],
             },
         ),
         migrations.CreateModel(
-            name='PremiumSubscription',
+            name="PremiumSubscription",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('stripe_customer_id', models.CharField(blank=True, db_index=True, max_length=255)),
-                ('stripe_subscription_id', models.CharField(blank=True, db_index=True, max_length=255)),
-                ('subscription_status', models.CharField(blank=True, db_index=True, max_length=64)),
-                ('current_period_end', models.DateTimeField(blank=True, null=True)),
-                ('cancel_at_period_end', models.BooleanField(default=False)),
-                ('last_webhook_event_id', models.CharField(blank=True, max_length=255)),
-                ('last_payment_failed_at', models.DateTimeField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='premium_subscription', to=settings.AUTH_USER_MODEL)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("stripe_customer_id", models.CharField(blank=True, db_index=True, max_length=255)),
+                ("stripe_subscription_id", models.CharField(blank=True, db_index=True, max_length=255)),
+                ("subscription_status", models.CharField(blank=True, db_index=True, max_length=64)),
+                ("current_period_end", models.DateTimeField(blank=True, null=True)),
+                ("cancel_at_period_end", models.BooleanField(default=False)),
+                ("last_webhook_event_id", models.CharField(blank=True, max_length=255)),
+                ("last_payment_failed_at", models.DateTimeField(blank=True, null=True)),
+                ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="premium_subscription",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Premium subscription',
-                'verbose_name_plural': 'Premium subscriptions',
+                "verbose_name": "Premium subscription",
+                "verbose_name_plural": "Premium subscriptions",
             },
         ),
     ]

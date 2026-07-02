@@ -8,8 +8,16 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import Group as CustomGroup
-from .models import TRPGSession, SessionSeries, SessionAvailability, DatePoll, DatePollOption, DatePollComment, SessionOccurrence
 
+from .models import (
+    DatePoll,
+    DatePollComment,
+    DatePollOption,
+    SessionAvailability,
+    SessionOccurrence,
+    SessionSeries,
+    TRPGSession,
+)
 
 User = get_user_model()
 
@@ -17,25 +25,25 @@ User = get_user_model()
 class AdvancedSchedulingModelsTestCase(TestCase):
     def setUp(self):
         self.gm = User.objects.create_user(
-            username='gmuser',
-            email='gm@example.com',
-            password='pass123',
-            nickname='GM User',
+            username="gmuser",
+            email="gm@example.com",
+            password="pass123",
+            nickname="GM User",
         )
         self.group = CustomGroup.objects.create(
-            name='Test Group',
+            name="Test Group",
             created_by=self.gm,
         )
         self.group.members.add(self.gm)
 
-    @patch('schedules.models.timezone.localdate')
+    @patch("schedules.models.timezone.localdate")
     def test_get_next_session_dates_weekly_includes_future_start_date(self, mocked_localdate):
         mocked_localdate.return_value = date(2026, 1, 1)
         series = SessionSeries.objects.create(
-            title='Weekly Series',
+            title="Weekly Series",
             group=self.group,
             gm=self.gm,
-            recurrence='weekly',
+            recurrence="weekly",
             weekday=0,  # Monday
             start_date=date(2026, 1, 5),
         )
@@ -43,14 +51,14 @@ class AdvancedSchedulingModelsTestCase(TestCase):
         dates = series.get_next_session_dates(count=3)
         self.assertEqual(dates, [date(2026, 1, 5), date(2026, 1, 12), date(2026, 1, 19)])
 
-    @patch('schedules.models.timezone.localdate')
+    @patch("schedules.models.timezone.localdate")
     def test_get_next_session_dates_biweekly_respects_start_date_parity(self, mocked_localdate):
         mocked_localdate.return_value = date(2026, 1, 10)
         series = SessionSeries.objects.create(
-            title='Biweekly Series',
+            title="Biweekly Series",
             group=self.group,
             gm=self.gm,
-            recurrence='biweekly',
+            recurrence="biweekly",
             weekday=0,  # Monday
             start_date=date(2026, 1, 5),
         )
@@ -58,14 +66,14 @@ class AdvancedSchedulingModelsTestCase(TestCase):
         dates = series.get_next_session_dates(count=2)
         self.assertEqual(dates, [date(2026, 1, 19), date(2026, 2, 2)])
 
-    @patch('schedules.models.timezone.localdate')
+    @patch("schedules.models.timezone.localdate")
     def test_get_next_session_dates_monthly_supports_end_of_month(self, mocked_localdate):
         mocked_localdate.return_value = date(2026, 1, 15)
         series = SessionSeries.objects.create(
-            title='Monthly Series',
+            title="Monthly Series",
             group=self.group,
             gm=self.gm,
-            recurrence='monthly',
+            recurrence="monthly",
             day_of_month=31,
             start_date=date(2026, 1, 30),
         )
@@ -73,14 +81,14 @@ class AdvancedSchedulingModelsTestCase(TestCase):
         dates = series.get_next_session_dates(count=3)
         self.assertEqual(dates, [date(2026, 1, 31), date(2026, 2, 28), date(2026, 3, 31)])
 
-    @patch('schedules.models.timezone.localdate')
+    @patch("schedules.models.timezone.localdate")
     def test_get_next_session_dates_custom_interval_does_not_drift(self, mocked_localdate):
         mocked_localdate.return_value = date(2026, 1, 15)
         series = SessionSeries.objects.create(
-            title='Custom Series',
+            title="Custom Series",
             group=self.group,
             gm=self.gm,
-            recurrence='custom',
+            recurrence="custom",
             custom_interval_days=10,
             start_date=date(2026, 1, 1),
         )
@@ -92,82 +100,82 @@ class AdvancedSchedulingModelsTestCase(TestCase):
 class AdvancedSchedulingAPITestCase(APITestCase):
     def setUp(self):
         self.gm = User.objects.create_user(
-            username='gmuser',
-            email='gm@example.com',
-            password='pass123',
-            nickname='GM User',
+            username="gmuser",
+            email="gm@example.com",
+            password="pass123",
+            nickname="GM User",
         )
         self.member = User.objects.create_user(
-            username='member',
-            email='member@example.com',
-            password='pass123',
-            nickname='Member',
+            username="member",
+            email="member@example.com",
+            password="pass123",
+            nickname="Member",
         )
         self.outsider = User.objects.create_user(
-            username='outsider',
-            email='outsider@example.com',
-            password='pass123',
-            nickname='Outsider',
+            username="outsider",
+            email="outsider@example.com",
+            password="pass123",
+            nickname="Outsider",
         )
         self.group = CustomGroup.objects.create(
-            name='Test Group',
+            name="Test Group",
             created_by=self.gm,
         )
         self.group.members.add(self.gm, self.member)
 
         self.session = TRPGSession.objects.create(
-            title='Test Session',
+            title="Test Session",
             date=timezone.now() + timedelta(days=1),
             gm=self.gm,
             group=self.group,
-            visibility='group',
-            status='planned',
+            visibility="group",
+            status="planned",
         )
 
-    @patch('schedules.models.timezone.localdate')
+    @patch("schedules.models.timezone.localdate")
     def test_session_series_generate_sessions_creates_and_deduplicates(self, mocked_localdate):
         mocked_localdate.return_value = date(2026, 1, 1)
         series = SessionSeries.objects.create(
-            title='Weekly Series',
+            title="Weekly Series",
             group=self.group,
             gm=self.gm,
-            recurrence='weekly',
+            recurrence="weekly",
             weekday=0,
             start_date=date(2026, 1, 5),
             duration_minutes=180,
         )
 
         self.client.force_authenticate(user=self.gm)
-        response = self.client.post(f'/api/schedules/session-series/{series.id}/generate_sessions/', {'count': 2})
+        response = self.client.post(f"/api/schedules/session-series/{series.id}/generate_sessions/", {"count": 2})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['created_count'], 2)
+        self.assertEqual(response.data["created_count"], 2)
         self.assertEqual(TRPGSession.objects.filter(series=series).count(), 2)
 
-        response2 = self.client.post(f'/api/schedules/session-series/{series.id}/generate_sessions/', {'count': 2})
+        response2 = self.client.post(f"/api/schedules/session-series/{series.id}/generate_sessions/", {"count": 2})
         self.assertEqual(response2.status_code, status.HTTP_200_OK)
-        self.assertEqual(response2.data['created_count'], 0)
+        self.assertEqual(response2.data["created_count"], 0)
 
-    @patch('schedules.models.timezone.localdate')
+    @patch("schedules.models.timezone.localdate")
     def test_session_series_generate_sessions_forbidden_for_non_gm(self, mocked_localdate):
         mocked_localdate.return_value = date(2026, 1, 1)
         series = SessionSeries.objects.create(
-            title='Weekly Series',
+            title="Weekly Series",
             group=self.group,
             gm=self.gm,
-            recurrence='weekly',
+            recurrence="weekly",
             weekday=0,
             start_date=date(2026, 1, 5),
         )
 
         self.client.force_authenticate(user=self.member)
-        response = self.client.post(f'/api/schedules/session-series/{series.id}/generate_sessions/', {'count': 1})
+        response = self.client.post(f"/api/schedules/session-series/{series.id}/generate_sessions/", {"count": 1})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_session_availability_vote_requires_session_visibility(self):
         self.client.force_authenticate(user=self.outsider)
         response = self.client.post(
-            '/api/schedules/availability/vote/',
-            {'session_id': self.session.id, 'status': 'available'},
+            "/api/schedules/availability/vote/",
+            {"session_id": self.session.id, "status": "available"},
         )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
@@ -175,20 +183,20 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         self.client.force_authenticate(user=self.member)
 
         response = self.client.post(
-            '/api/schedules/availability/vote/',
-            {'session_id': self.session.id, 'status': 'available', 'comment': ''},
+            "/api/schedules/availability/vote/",
+            {"session_id": self.session.id, "status": "available", "comment": ""},
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(SessionAvailability.objects.filter(session=self.session, user=self.member).count(), 1)
 
         response2 = self.client.post(
-            '/api/schedules/availability/vote/',
-            {'session_id': self.session.id, 'status': 'maybe', 'comment': 'late'},
+            "/api/schedules/availability/vote/",
+            {"session_id": self.session.id, "status": "maybe", "comment": "late"},
         )
         self.assertEqual(response2.status_code, status.HTTP_200_OK)
         self.assertEqual(
             SessionAvailability.objects.get(session=self.session, user=self.member).status,
-            'maybe',
+            "maybe",
         )
 
     def test_session_availability_for_session_requires_visibility(self):
@@ -196,20 +204,20 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         SessionAvailability.objects.create(
             session=self.session,
             user=self.member,
-            status='available',
+            status="available",
         )
         SessionAvailability.objects.create(
             session=self.session,
             user=self.gm,
-            status='unavailable',
+            status="unavailable",
         )
 
-        response = self.client.get(f'/api/schedules/availability/for_session/?session_id={self.session.id}')
+        response = self.client.get(f"/api/schedules/availability/for_session/?session_id={self.session.id}")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
 
         self.client.force_authenticate(user=self.outsider)
-        response2 = self.client.get(f'/api/schedules/availability/for_session/?session_id={self.session.id}')
+        response2 = self.client.get(f"/api/schedules/availability/for_session/?session_id={self.session.id}")
         self.assertEqual(response2.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_date_poll_create_vote_and_confirm(self):
@@ -219,39 +227,39 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         option_dt2 = (timezone.now() + timedelta(days=4)).isoformat()
 
         response = self.client.post(
-            '/api/schedules/date-polls/',
+            "/api/schedules/date-polls/",
             {
-                'title': 'Date Poll',
-                'description': 'Pick a date',
-                'group': self.group.id,
-                'create_session_on_confirm': True,
-                'options': [
-                    {'datetime': option_dt1, 'note': 'A'},
-                    {'datetime': option_dt2, 'note': 'B'},
+                "title": "Date Poll",
+                "description": "Pick a date",
+                "group": self.group.id,
+                "create_session_on_confirm": True,
+                "options": [
+                    {"datetime": option_dt1, "note": "A"},
+                    {"datetime": option_dt2, "note": "B"},
                 ],
             },
-            format='json',
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-        poll = DatePoll.objects.get(title='Date Poll')
+        poll = DatePoll.objects.get(title="Date Poll")
         self.assertEqual(poll.created_by, self.gm)
         self.assertEqual(poll.options.count(), 2)
 
-        option = DatePollOption.objects.filter(poll=poll).order_by('datetime').first()
+        option = DatePollOption.objects.filter(poll=poll).order_by("datetime").first()
         self.client.force_authenticate(user=self.member)
         vote_response = self.client.post(
-            f'/api/schedules/date-polls/{poll.id}/vote/',
-            {'votes': [{'option_id': option.id, 'status': 'available', 'comment': ''}]},
-            format='json',
+            f"/api/schedules/date-polls/{poll.id}/vote/",
+            {"votes": [{"option_id": option.id, "status": "available", "comment": ""}]},
+            format="json",
         )
         self.assertEqual(vote_response.status_code, status.HTTP_200_OK)
 
         self.client.force_authenticate(user=self.gm)
         confirm_response = self.client.post(
-            f'/api/schedules/date-polls/{poll.id}/confirm/',
-            {'option_id': option.id},
-            format='json',
+            f"/api/schedules/date-polls/{poll.id}/confirm/",
+            {"option_id": option.id},
+            format="json",
         )
         self.assertEqual(confirm_response.status_code, status.HTTP_200_OK)
         poll.refresh_from_db()
@@ -259,17 +267,17 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         self.assertIsNotNone(poll.session)
 
         confirm_again = self.client.post(
-            f'/api/schedules/date-polls/{poll.id}/confirm/',
-            {'option_id': option.id},
-            format='json',
+            f"/api/schedules/date-polls/{poll.id}/confirm/",
+            {"option_id": option.id},
+            format="json",
         )
         self.assertEqual(confirm_again.status_code, status.HTTP_400_BAD_REQUEST)
 
         self.client.force_authenticate(user=self.member)
         confirm_not_creator = self.client.post(
-            f'/api/schedules/date-polls/{poll.id}/confirm/',
-            {'option_id': option.id},
-            format='json',
+            f"/api/schedules/date-polls/{poll.id}/confirm/",
+            {"option_id": option.id},
+            format="json",
         )
         self.assertEqual(confirm_not_creator.status_code, status.HTTP_403_FORBIDDEN)
 
@@ -277,38 +285,38 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         self.client.force_authenticate(user=self.gm)
 
         undated_session = TRPGSession.objects.create(
-            title='Undated Session',
+            title="Undated Session",
             date=None,
             gm=self.gm,
             group=self.group,
-            visibility='group',
-            status='planned',
+            visibility="group",
+            status="planned",
         )
 
         option_dt = (timezone.now() + timedelta(days=10)).replace(microsecond=0)
         response = self.client.post(
-            '/api/schedules/date-polls/',
+            "/api/schedules/date-polls/",
             {
-                'title': 'Poll for Existing Session',
-                'description': 'Pick a date',
-                'group': self.group.id,
-                'session': undated_session.id,
-                'create_session_on_confirm': False,
-                'options': [
-                    {'datetime': option_dt.isoformat(), 'note': 'A'},
+                "title": "Poll for Existing Session",
+                "description": "Pick a date",
+                "group": self.group.id,
+                "session": undated_session.id,
+                "create_session_on_confirm": False,
+                "options": [
+                    {"datetime": option_dt.isoformat(), "note": "A"},
                 ],
             },
-            format='json',
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-        poll = DatePoll.objects.get(title='Poll for Existing Session')
-        option = poll.options.get(note='A')
+        poll = DatePoll.objects.get(title="Poll for Existing Session")
+        option = poll.options.get(note="A")
 
         confirm_response = self.client.post(
-            f'/api/schedules/date-polls/{poll.id}/confirm/',
-            {'option_id': option.id},
-            format='json',
+            f"/api/schedules/date-polls/{poll.id}/confirm/",
+            {"option_id": option.id},
+            format="json",
         )
         self.assertEqual(confirm_response.status_code, status.HTTP_200_OK)
 
@@ -321,109 +329,109 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         self.client.force_authenticate(user=self.gm)
 
         undated_session1 = TRPGSession.objects.create(
-            title='Undated Session 1',
+            title="Undated Session 1",
             date=None,
             gm=self.gm,
             group=self.group,
-            visibility='group',
-            status='planned',
+            visibility="group",
+            status="planned",
         )
         undated_session2 = TRPGSession.objects.create(
-            title='Undated Session 2',
+            title="Undated Session 2",
             date=None,
             gm=self.gm,
             group=self.group,
-            visibility='group',
-            status='planned',
+            visibility="group",
+            status="planned",
         )
 
         option_dt = (timezone.now() + timedelta(days=10)).replace(microsecond=0)
         create_payload = {
-            'title': 'Poll',
-            'description': '',
-            'group': self.group.id,
-            'create_session_on_confirm': False,
-            'options': [{'datetime': option_dt.isoformat(), 'note': 'A'}],
+            "title": "Poll",
+            "description": "",
+            "group": self.group.id,
+            "create_session_on_confirm": False,
+            "options": [{"datetime": option_dt.isoformat(), "note": "A"}],
         }
 
         response1 = self.client.post(
-            '/api/schedules/date-polls/',
-            {**create_payload, 'session': undated_session1.id, 'title': 'Poll 1'},
-            format='json',
+            "/api/schedules/date-polls/",
+            {**create_payload, "session": undated_session1.id, "title": "Poll 1"},
+            format="json",
         )
         self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
 
         response2 = self.client.post(
-            '/api/schedules/date-polls/',
-            {**create_payload, 'session': undated_session2.id, 'title': 'Poll 2'},
-            format='json',
+            "/api/schedules/date-polls/",
+            {**create_payload, "session": undated_session2.id, "title": "Poll 2"},
+            format="json",
         )
         self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
 
-        list_response = self.client.get(f'/api/schedules/date-polls/?session_id={undated_session1.id}')
+        list_response = self.client.get(f"/api/schedules/date-polls/?session_id={undated_session1.id}")
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(list_response.data), 1)
-        self.assertEqual(list_response.data[0]['session'], undated_session1.id)
+        self.assertEqual(list_response.data[0]["session"], undated_session1.id)
 
     def test_date_poll_comments_create_and_list(self):
         self.client.force_authenticate(user=self.gm)
 
         undated_session = TRPGSession.objects.create(
-            title='Undated Session',
+            title="Undated Session",
             date=None,
             gm=self.gm,
             group=self.group,
-            visibility='group',
-            status='planned',
+            visibility="group",
+            status="planned",
         )
 
         option_dt = (timezone.now() + timedelta(days=7)).replace(microsecond=0)
         create_response = self.client.post(
-            '/api/schedules/date-polls/',
+            "/api/schedules/date-polls/",
             {
-                'title': 'Poll With Comments',
-                'description': 'Discuss schedule',
-                'group': self.group.id,
-                'session': undated_session.id,
-                'create_session_on_confirm': False,
-                'options': [{'datetime': option_dt.isoformat(), 'note': 'A'}],
+                "title": "Poll With Comments",
+                "description": "Discuss schedule",
+                "group": self.group.id,
+                "session": undated_session.id,
+                "create_session_on_confirm": False,
+                "options": [{"datetime": option_dt.isoformat(), "note": "A"}],
             },
-            format='json',
+            format="json",
         )
         self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
 
-        poll = DatePoll.objects.get(title='Poll With Comments')
+        poll = DatePoll.objects.get(title="Poll With Comments")
 
         self.client.force_authenticate(user=self.member)
         post_response = self.client.post(
-            f'/api/schedules/date-polls/{poll.id}/comments/',
-            {'content': 'この日なら参加できます！'},
-            format='json',
+            f"/api/schedules/date-polls/{poll.id}/comments/",
+            {"content": "この日なら参加できます！"},
+            format="json",
         )
         self.assertEqual(post_response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(post_response.data.get('content'), 'この日なら参加できます！')
-        self.assertEqual(post_response.data.get('user'), self.member.id)
-        self.assertIn('user_detail', post_response.data)
+        self.assertEqual(post_response.data.get("content"), "この日なら参加できます！")
+        self.assertEqual(post_response.data.get("user"), self.member.id)
+        self.assertIn("user_detail", post_response.data)
 
         blank_response = self.client.post(
-            f'/api/schedules/date-polls/{poll.id}/comments/',
-            {'content': '   '},
-            format='json',
+            f"/api/schedules/date-polls/{poll.id}/comments/",
+            {"content": "   "},
+            format="json",
         )
         self.assertEqual(blank_response.status_code, status.HTTP_400_BAD_REQUEST)
 
         long_response = self.client.post(
-            f'/api/schedules/date-polls/{poll.id}/comments/',
-            {'content': 'a' * 501},
-            format='json',
+            f"/api/schedules/date-polls/{poll.id}/comments/",
+            {"content": "a" * 501},
+            format="json",
         )
         self.assertEqual(long_response.status_code, status.HTTP_400_BAD_REQUEST)
 
         self.client.force_authenticate(user=self.gm)
         post_response2 = self.client.post(
-            f'/api/schedules/date-polls/{poll.id}/comments/',
-            {'content': '了解です。候補を増やします。'},
-            format='json',
+            f"/api/schedules/date-polls/{poll.id}/comments/",
+            {"content": "了解です。候補を増やします。"},
+            format="json",
         )
         self.assertEqual(post_response2.status_code, status.HTTP_201_CREATED)
 
@@ -431,16 +439,16 @@ class AdvancedSchedulingAPITestCase(APITestCase):
 
         self.client.force_authenticate(user=self.member)
         list_response = self.client.get(
-            f'/api/schedules/date-polls/{poll.id}/comments/',
+            f"/api/schedules/date-polls/{poll.id}/comments/",
         )
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(list_response.data), 2)
-        self.assertEqual(list_response.data[0].get('content'), 'この日なら参加できます！')
-        self.assertEqual(list_response.data[1].get('content'), '了解です。候補を増やします。')
+        self.assertEqual(list_response.data[0].get("content"), "この日なら参加できます！")
+        self.assertEqual(list_response.data[1].get("content"), "了解です。候補を増やします。")
 
         self.client.force_authenticate(user=self.outsider)
         outsider_response = self.client.get(
-            f'/api/schedules/date-polls/{poll.id}/comments/',
+            f"/api/schedules/date-polls/{poll.id}/comments/",
         )
         self.assertEqual(outsider_response.status_code, status.HTTP_404_NOT_FOUND)
 
@@ -448,108 +456,108 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         self.client.force_authenticate(user=self.gm)
 
         dated_session = TRPGSession.objects.create(
-            title='Dated Session',
+            title="Dated Session",
             date=timezone.now() + timedelta(days=1),
             gm=self.gm,
             group=self.group,
-            visibility='group',
-            status='planned',
+            visibility="group",
+            status="planned",
         )
 
         option_dt = (timezone.now() + timedelta(days=10)).replace(microsecond=0)
         response = self.client.post(
-            '/api/schedules/date-polls/',
+            "/api/schedules/date-polls/",
             {
-                'title': 'Poll for Dated Session',
-                'description': '',
-                'group': self.group.id,
-                'session': dated_session.id,
-                'create_session_on_confirm': False,
-                'options': [{'datetime': option_dt.isoformat(), 'note': 'A'}],
+                "title": "Poll for Dated Session",
+                "description": "",
+                "group": self.group.id,
+                "session": dated_session.id,
+                "create_session_on_confirm": False,
+                "options": [{"datetime": option_dt.isoformat(), "note": "A"}],
             },
-            format='json',
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('session', response.data)
+        self.assertIn("session", response.data)
 
     def test_date_poll_create_rejects_duplicate_open_poll_for_session(self):
         self.client.force_authenticate(user=self.gm)
 
         undated_session = TRPGSession.objects.create(
-            title='Undated Session',
+            title="Undated Session",
             date=None,
             gm=self.gm,
             group=self.group,
-            visibility='group',
-            status='planned',
+            visibility="group",
+            status="planned",
         )
 
         option_dt = (timezone.now() + timedelta(days=10)).replace(microsecond=0)
         payload = {
-            'title': 'Poll 1',
-            'description': '',
-            'group': self.group.id,
-            'session': undated_session.id,
-            'create_session_on_confirm': False,
-            'options': [{'datetime': option_dt.isoformat(), 'note': 'A'}],
+            "title": "Poll 1",
+            "description": "",
+            "group": self.group.id,
+            "session": undated_session.id,
+            "create_session_on_confirm": False,
+            "options": [{"datetime": option_dt.isoformat(), "note": "A"}],
         }
 
-        response1 = self.client.post('/api/schedules/date-polls/', payload, format='json')
+        response1 = self.client.post("/api/schedules/date-polls/", payload, format="json")
         self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
 
-        response2 = self.client.post('/api/schedules/date-polls/', {**payload, 'title': 'Poll 2'}, format='json')
+        response2 = self.client.post("/api/schedules/date-polls/", {**payload, "title": "Poll 2"}, format="json")
         self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('session', response2.data)
+        self.assertIn("session", response2.data)
 
     def test_session_date_poll_view_renders_for_group_member(self):
         undated_session = TRPGSession.objects.create(
-            title='Undated Session',
+            title="Undated Session",
             date=None,
             gm=self.gm,
             group=self.group,
-            visibility='group',
-            status='planned',
+            visibility="group",
+            status="planned",
         )
 
         self.client.force_authenticate(user=self.member)
         response = self.client.get(
-            f'/api/schedules/sessions/{undated_session.id}/date-poll/',
-            HTTP_ACCEPT='text/html',
+            f"/api/schedules/sessions/{undated_session.id}/date-poll/",
+            HTTP_ACCEPT="text/html",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertContains(response, '日程募集・投票')
+        self.assertContains(response, "日程募集・投票")
         self.assertContains(response, undated_session.title)
 
     def test_session_date_poll_view_denies_outsider(self):
         undated_session = TRPGSession.objects.create(
-            title='Undated Session',
+            title="Undated Session",
             date=None,
             gm=self.gm,
             group=self.group,
-            visibility='group',
-            status='planned',
+            visibility="group",
+            status="planned",
         )
 
         self.client.force_authenticate(user=self.outsider)
         response = self.client.get(
-            f'/api/schedules/sessions/{undated_session.id}/date-poll/',
-            HTTP_ACCEPT='text/html',
+            f"/api/schedules/sessions/{undated_session.id}/date-poll/",
+            HTTP_ACCEPT="text/html",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_session_detail_shows_open_date_poll_badge(self):
         undated_session = TRPGSession.objects.create(
-            title='Undated Session',
+            title="Undated Session",
             date=None,
             gm=self.gm,
             group=self.group,
-            visibility='group',
-            status='planned',
+            visibility="group",
+            status="planned",
         )
 
         poll = DatePoll.objects.create(
-            title='Poll for Session',
-            description='Pick a date',
+            title="Poll for Session",
+            description="Pick a date",
             group=self.group,
             created_by=self.gm,
             deadline=timezone.now() + timedelta(days=1),
@@ -560,13 +568,13 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         DatePollOption.objects.create(
             poll=poll,
             datetime=(timezone.now() + timedelta(days=10)).replace(microsecond=0),
-            note='A',
+            note="A",
         )
 
         self.client.force_authenticate(user=self.member)
         response = self.client.get(
-            f'/api/schedules/sessions/{undated_session.id}/detail/',
-            HTTP_ACCEPT='text/html',
+            f"/api/schedules/sessions/{undated_session.id}/detail/",
+            HTTP_ACCEPT="text/html",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertContains(response, 'data-testid="openDatePollBadge"')
@@ -581,9 +589,9 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         )
 
         response = self.client.get(
-            f'/api/schedules/sessions/{self.session.id}/detail/?occurrence_id={extra_occurrence.id}',
-            HTTP_ACCEPT='text/html',
+            f"/api/schedules/sessions/{self.session.id}/detail/?occurrence_id={extra_occurrence.id}",
+            HTTP_ACCEPT="text/html",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertContains(response, f'id=\"occurrence-{extra_occurrence.id}\"')
-        self.assertContains(response, 'data-testid=\"selectedOccurrenceBadge\"')
+        self.assertContains(response, f'id="occurrence-{extra_occurrence.id}"')
+        self.assertContains(response, 'data-testid="selectedOccurrenceBadge"')

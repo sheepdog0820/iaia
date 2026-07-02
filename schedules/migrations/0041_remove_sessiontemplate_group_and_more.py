@@ -4,10 +4,10 @@ from django.db import migrations
 
 
 def delete_session_template_image_files(apps, schema_editor):
-    SessionTemplateImage = apps.get_model('schedules', 'SessionTemplateImage')
-    for image in SessionTemplateImage.objects.exclude(image='').iterator():
+    SessionTemplateImage = apps.get_model("schedules", "SessionTemplateImage")
+    for image in SessionTemplateImage.objects.exclude(image="").iterator():
         field_file = image.image
-        image_name = getattr(field_file, 'name', None)
+        image_name = getattr(field_file, "name", None)
         if not image_name:
             continue
         try:
@@ -21,7 +21,7 @@ def delete_session_template_image_files(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('schedules', '0040_alter_handoutinfo_options_and_more'),
+        ("schedules", "0040_alter_handoutinfo_options_and_more"),
     ]
 
     operations = [
@@ -30,12 +30,12 @@ class Migration(migrations.Migration):
             migrations.RunPython.noop,
         ),
         migrations.DeleteModel(
-            name='SessionTemplateImage',
+            name="SessionTemplateImage",
         ),
         migrations.DeleteModel(
-            name='SessionTemplateHandout',
+            name="SessionTemplateHandout",
         ),
         migrations.DeleteModel(
-            name='SessionTemplate',
+            name="SessionTemplate",
         ),
     ]

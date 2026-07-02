@@ -2,8 +2,8 @@ import logging
 
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
-from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
@@ -35,74 +35,74 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
     カスタムソーシャルアカウントアダプター
     ソーシャルログイン時の処理をカスタマイズ
     """
-    
+
     def is_open_for_signup(self, request, sociallogin):
         """
         ソーシャルアカウントからのサインアップを許可
         """
         return True
-    
+
     def save_user(self, request, sociallogin, form=None):
         """
         ソーシャルログイン時のユーザー保存処理
         """
         user = super().save_user(request, sociallogin, form)
-        
+
         # ソーシャルアカウントから取得した情報でプロフィールを更新
         extra_data = sociallogin.account.extra_data
-        
-        if sociallogin.account.provider == 'google':
+
+        if sociallogin.account.provider == "google":
             # Googleアカウントからの情報取得
-            if 'name' in extra_data:
-                names = extra_data['name'].split(' ', 1)
+            if "name" in extra_data:
+                names = extra_data["name"].split(" ", 1)
                 user.first_name = names[0]
                 if len(names) > 1:
                     user.last_name = names[1]
-            
-            if 'email' in extra_data and not user.email:
-                user.email = extra_data['email']
-                
-            if 'picture' in extra_data:
+
+            if "email" in extra_data and not user.email:
+                user.email = extra_data["email"]
+
+            if "picture" in extra_data:
                 # プロフィール画像のURLを保存（実装は後で追加可能）
                 pass
-                
-        elif sociallogin.account.provider == 'twitter_oauth2':
+
+        elif sociallogin.account.provider == "twitter_oauth2":
             # X (Twitter) アカウントからの情報取得
-            if 'name' in extra_data:
-                names = extra_data['name'].split(' ', 1)
+            if "name" in extra_data:
+                names = extra_data["name"].split(" ", 1)
                 user.first_name = names[0]
                 if len(names) > 1:
                     user.last_name = names[1]
-                    
-            username = extra_data.get('username') or extra_data.get('screen_name')
+
+            username = extra_data.get("username") or extra_data.get("screen_name")
             if username and not user.nickname:
                 user.nickname = username
-        elif sociallogin.account.provider == 'discord':
-            display_name = extra_data.get('global_name') or extra_data.get('username')
+        elif sociallogin.account.provider == "discord":
+            display_name = extra_data.get("global_name") or extra_data.get("username")
             if display_name:
                 user.first_name = display_name
-            if extra_data.get('email') and extra_data.get('verified', False) and not user.email:
-                user.email = extra_data['email']
+            if extra_data.get("email") and extra_data.get("verified", False) and not user.email:
+                user.email = extra_data["email"]
             if display_name and not user.nickname:
                 user.nickname = display_name
 
         # ニックネームが設定されていない場合はユーザー名を使用
         if not user.nickname:
             user.nickname = user.username
-            
+
         user.save()
         return user
-    
+
     def pre_social_login(self, request, sociallogin):
         """
         ソーシャルログイン前の処理
         既存のユーザーとの紐付けなどを行う
         """
         # メールアドレスが一致する既存ユーザーがいる場合は連携
-        if sociallogin.account.provider in ('google', 'discord'):
-            email = sociallogin.account.extra_data.get('email')
-            verified = sociallogin.account.extra_data.get('verified', False)
-            if email and (sociallogin.account.provider == 'google' or verified):
+        if sociallogin.account.provider in ("google", "discord"):
+            email = sociallogin.account.extra_data.get("email")
+            verified = sociallogin.account.extra_data.get("verified", False)
+            if email and (sociallogin.account.provider == "google" or verified):
                 try:
                     existing_user = User.objects.get(email=email)
                     sociallogin.connect(request, existing_user)

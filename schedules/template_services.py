@@ -1,23 +1,22 @@
 from .models import HandoutInfo, SessionParticipant
 
-
-TEMPLATE_PLACEHOLDER_PREFIX = '[template]'
+TEMPLATE_PLACEHOLDER_PREFIX = "[template]"
 
 
 def build_template_placeholder_name(slot=None, index=None):
     if slot:
-        return f'{TEMPLATE_PLACEHOLDER_PREFIX} player-{slot}'
+        return f"{TEMPLATE_PLACEHOLDER_PREFIX} player-{slot}"
     suffix = index or 1
-    return f'{TEMPLATE_PLACEHOLDER_PREFIX} recipient-{suffix}'
+    return f"{TEMPLATE_PLACEHOLDER_PREFIX} recipient-{suffix}"
 
 
 def is_template_placeholder_name(name):
     if not isinstance(name, str):
         return False
-    if not name.startswith(f'{TEMPLATE_PLACEHOLDER_PREFIX} '):
+    if not name.startswith(f"{TEMPLATE_PLACEHOLDER_PREFIX} "):
         return False
-    suffix = name[len(TEMPLATE_PLACEHOLDER_PREFIX) + 1:]
-    return suffix.startswith('player-') or suffix.startswith('recipient-')
+    suffix = name[len(TEMPLATE_PLACEHOLDER_PREFIX) + 1 :]
+    return suffix.startswith("player-") or suffix.startswith("recipient-")
 
 
 def clone_scenario_handouts_to_session(scenario, session):
@@ -27,7 +26,7 @@ def clone_scenario_handouts_to_session(scenario, session):
     slot_placeholders = {}
     anonymous_index = 0
 
-    for handout_template in scenario.handout_templates.order_by('order', 'id'):
+    for handout_template in scenario.handout_templates.order_by("order", "id"):
         assigned_slot = handout_template.assigned_player_slot
         if assigned_slot:
             participant = slot_placeholders.get(assigned_slot)
@@ -36,7 +35,7 @@ def clone_scenario_handouts_to_session(scenario, session):
                     session=session,
                     user=None,
                     guest_name=build_template_placeholder_name(slot=assigned_slot),
-                    role='player',
+                    role="player",
                     player_slot=None,
                 )
                 slot_placeholders[assigned_slot] = participant
@@ -46,18 +45,16 @@ def clone_scenario_handouts_to_session(scenario, session):
                 session=session,
                 user=None,
                 guest_name=build_template_placeholder_name(index=anonymous_index),
-                role='player',
+                role="player",
                 player_slot=None,
             )
 
         recommended_skills = handout_template.recommended_skills
         skill_names = [
-            skill.name
-            for skill in handout_template.recommended_skill_items.order_by('order', 'id')
-            if skill.name
+            skill.name for skill in handout_template.recommended_skill_items.order_by("order", "id") if skill.name
         ]
         if skill_names:
-            recommended_skills = ', '.join(skill_names)
+            recommended_skills = ", ".join(skill_names)
 
         HandoutInfo.objects.create(
             session=session,
@@ -75,7 +72,7 @@ def clone_scenario_handouts_to_session(scenario, session):
 
 
 def bind_slot_handouts_to_participant(participant):
-    session = getattr(participant, 'session', None)
+    session = getattr(participant, "session", None)
     if session is None:
         return
     _rebind_slot_handouts_for_session(session)
@@ -83,34 +80,32 @@ def bind_slot_handouts_to_participant(participant):
 
 def _rebind_slot_handouts_for_session(session):
     handouts = list(
-        HandoutInfo.objects.select_related('participant').filter(
+        HandoutInfo.objects.select_related("participant")
+        .filter(
             session=session,
             assigned_player_slot__isnull=False,
-        ).order_by('assigned_player_slot', 'id')
+        )
+        .order_by("assigned_player_slot", "id")
     )
     if not handouts:
         _cleanup_unused_template_placeholders(session)
         return
 
-    slots = sorted({
-        handout.assigned_player_slot
-        for handout in handouts
-        if handout.assigned_player_slot is not None
-    })
+    slots = sorted({handout.assigned_player_slot for handout in handouts if handout.assigned_player_slot is not None})
     participants_by_slot = {
         participant.player_slot: participant
         for participant in SessionParticipant.objects.filter(
             session=session,
-            role='player',
+            role="player",
             player_slot__in=slots,
-        ).order_by('id')
+        ).order_by("id")
     }
     placeholders_by_name = {
         participant.guest_name: participant
         for participant in SessionParticipant.objects.filter(
             session=session,
             user__isnull=True,
-            role='player',
+            role="player",
             guest_name__startswith=TEMPLATE_PLACEHOLDER_PREFIX,
         )
         if is_template_placeholder_name(participant.guest_name)
@@ -128,7 +123,7 @@ def _rebind_slot_handouts_for_session(session):
                     session=session,
                     user=None,
                     guest_name=placeholder_name,
-                    role='player',
+                    role="player",
                     player_slot=None,
                 )
                 placeholders_by_name[placeholder_name] = target_participant
@@ -138,7 +133,7 @@ def _rebind_slot_handouts_for_session(session):
             updated_handouts.append(handout)
 
     if updated_handouts:
-        HandoutInfo.objects.bulk_update(updated_handouts, ['participant'])
+        HandoutInfo.objects.bulk_update(updated_handouts, ["participant"])
 
     _cleanup_unused_template_placeholders(session)
 
@@ -149,7 +144,7 @@ def _cleanup_unused_template_placeholders(session):
         for participant in SessionParticipant.objects.filter(
             session=session,
             user__isnull=True,
-            role='player',
+            role="player",
             handouts__isnull=True,
             guest_name__startswith=TEMPLATE_PLACEHOLDER_PREFIX,
         )

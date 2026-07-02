@@ -9,39 +9,62 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0034_stripewebhookevent_premiumsubscription'),
+        ("accounts", "0034_stripewebhookevent_premiumsubscription"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='PremiumAccessCode',
+            name="PremiumAccessCode",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('code_digest', models.CharField(db_index=True, max_length=64, unique=True)),
-                ('label', models.CharField(blank=True, max_length=100)),
-                ('note', models.TextField(blank=True)),
-                ('max_uses', models.PositiveIntegerField(default=1)),
-                ('use_count', models.PositiveIntegerField(default=0)),
-                ('expires_at', models.DateTimeField(blank=True, db_index=True, null=True)),
-                ('revoked_at', models.DateTimeField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='created_premium_access_codes', to=settings.AUTH_USER_MODEL)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("code_digest", models.CharField(db_index=True, max_length=64, unique=True)),
+                ("label", models.CharField(blank=True, max_length=100)),
+                ("note", models.TextField(blank=True)),
+                ("max_uses", models.PositiveIntegerField(default=1)),
+                ("use_count", models.PositiveIntegerField(default=0)),
+                ("expires_at", models.DateTimeField(blank=True, db_index=True, null=True)),
+                ("revoked_at", models.DateTimeField(blank=True, null=True)),
+                ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="created_premium_access_codes",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-created_at'],
+                "ordering": ["-created_at"],
             },
         ),
         migrations.CreateModel(
-            name='PremiumAccessCodeRedemption',
+            name="PremiumAccessCodeRedemption",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('redeemed_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('access_code', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='redemptions', to='accounts.premiumaccesscode')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='premium_code_redemptions', to=settings.AUTH_USER_MODEL)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("redeemed_at", models.DateTimeField(default=django.utils.timezone.now)),
+                (
+                    "access_code",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="redemptions",
+                        to="accounts.premiumaccesscode",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="premium_code_redemptions",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-redeemed_at'],
-                'unique_together': {('access_code', 'user')},
+                "ordering": ["-redeemed_at"],
+                "unique_together": {("access_code", "user")},
             },
         ),
     ]

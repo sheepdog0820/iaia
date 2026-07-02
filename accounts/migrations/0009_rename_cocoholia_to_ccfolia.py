@@ -6,26 +6,26 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0008_remove_7th_edition'),
+        ("accounts", "0008_remove_7th_edition"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='charactersheet',
-            name='cocoholia_character_id',
+            model_name="charactersheet",
+            name="cocoholia_character_id",
         ),
         migrations.RemoveField(
-            model_name='charactersheet',
-            name='cocoholia_sync_enabled',
+            model_name="charactersheet",
+            name="cocoholia_sync_enabled",
         ),
         migrations.AddField(
-            model_name='charactersheet',
-            name='ccfolia_character_id',
-            field=models.CharField(blank=True, max_length=100, verbose_name='CCFOLIAキャラクターID'),
+            model_name="charactersheet",
+            name="ccfolia_character_id",
+            field=models.CharField(blank=True, max_length=100, verbose_name="CCFOLIAキャラクターID"),
         ),
         migrations.AddField(
-            model_name='charactersheet',
-            name='ccfolia_sync_enabled',
-            field=models.BooleanField(default=False, verbose_name='CCFOLIA同期有効'),
+            model_name="charactersheet",
+            name="ccfolia_sync_enabled",
+            field=models.BooleanField(default=False, verbose_name="CCFOLIA同期有効"),
         ),
     ]

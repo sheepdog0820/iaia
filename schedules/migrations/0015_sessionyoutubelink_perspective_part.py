@@ -6,19 +6,25 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('schedules', '0014_session_invitations'),
+        ("schedules", "0014_session_invitations"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='sessionyoutubelink',
-            name='perspective',
-            field=models.CharField(blank=True, help_text='例: GM視点 / PL1視点 / 全体', max_length=100, verbose_name='視点'),
+            model_name="sessionyoutubelink",
+            name="perspective",
+            field=models.CharField(
+                blank=True, help_text="例: GM視点 / PL1視点 / 全体", max_length=100, verbose_name="視点"
+            ),
         ),
         migrations.AddField(
-            model_name='sessionyoutubelink',
-            name='part_number',
-            field=models.PositiveIntegerField(blank=True, help_text='分割されている場合のパート番号（例: 1,2,3）', null=True, verbose_name='パート番号'),
+            model_name="sessionyoutubelink",
+            name="part_number",
+            field=models.PositiveIntegerField(
+                blank=True,
+                help_text="分割されている場合のパート番号（例: 1,2,3）",
+                null=True,
+                verbose_name="パート番号",
+            ),
         ),
     ]
-

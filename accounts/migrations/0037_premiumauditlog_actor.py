@@ -8,13 +8,19 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0036_premiumsubscription_access_source_and_more'),
+        ("accounts", "0036_premiumsubscription_access_source_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='premiumauditlog',
-            name='actor',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='premium_audit_actions', to=settings.AUTH_USER_MODEL),
+            model_name="premiumauditlog",
+            name="actor",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="premium_audit_actions",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
     ]

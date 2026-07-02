@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# システムパッケージ更新とPostgreSQL関連ライブラリのインストール
+# Install system packages required by Python, PostgreSQL, and MySQL dependencies.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     default-libmysqlclient-dev \
@@ -15,22 +15,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Pythonの依存関係を先にインストール（キャッシュ効率化）
+# Install Python dependencies first to improve Docker layer caching.
 COPY requirements.txt /app/requirements.txt
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r /app/requirements.txt
 
-# アプリケーションコードをコピー
+# Copy application code.
 COPY . /app
 
-# 静的ファイル用ディレクトリ作成
+# Prepare runtime directories for collected static files and uploads.
 RUN mkdir -p /app/staticfiles /app/media
 
-# 起動スクリプトをコピーして実行権限を付与
+# Install the entrypoint used by Docker Compose and runtime containers.
 COPY ./docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# ポート8000を公開
 EXPOSE 8000
 
 ENTRYPOINT ["/entrypoint.sh"]

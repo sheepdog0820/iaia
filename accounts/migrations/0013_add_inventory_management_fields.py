@@ -7,33 +7,51 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0012_add_occupation_multiplier'),
+        ("accounts", "0012_add_occupation_multiplier"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='characterequipment',
-            name='weight',
-            field=models.FloatField(blank=True, null=True, verbose_name='重量(kg)'),
+            model_name="characterequipment",
+            name="weight",
+            field=models.FloatField(blank=True, null=True, verbose_name="重量(kg)"),
         ),
         migrations.AddField(
-            model_name='charactersheet6th',
-            name='annual_income',
-            field=models.DecimalField(decimal_places=2, default=0.0, max_digits=12, validators=[django.core.validators.MinValueValidator(0)], verbose_name='年収'),
+            model_name="charactersheet6th",
+            name="annual_income",
+            field=models.DecimalField(
+                decimal_places=2,
+                default=0.0,
+                max_digits=12,
+                validators=[django.core.validators.MinValueValidator(0)],
+                verbose_name="年収",
+            ),
         ),
         migrations.AddField(
-            model_name='charactersheet6th',
-            name='assets',
-            field=models.DecimalField(decimal_places=2, default=0.0, max_digits=12, validators=[django.core.validators.MinValueValidator(0)], verbose_name='その他資産'),
+            model_name="charactersheet6th",
+            name="assets",
+            field=models.DecimalField(
+                decimal_places=2,
+                default=0.0,
+                max_digits=12,
+                validators=[django.core.validators.MinValueValidator(0)],
+                verbose_name="その他資産",
+            ),
         ),
         migrations.AddField(
-            model_name='charactersheet6th',
-            name='cash',
-            field=models.DecimalField(decimal_places=2, default=0.0, max_digits=12, validators=[django.core.validators.MinValueValidator(0)], verbose_name='現金・資産'),
+            model_name="charactersheet6th",
+            name="cash",
+            field=models.DecimalField(
+                decimal_places=2,
+                default=0.0,
+                max_digits=12,
+                validators=[django.core.validators.MinValueValidator(0)],
+                verbose_name="現金・資産",
+            ),
         ),
         migrations.AddField(
-            model_name='charactersheet6th',
-            name='real_estate',
-            field=models.TextField(blank=True, verbose_name='不動産'),
+            model_name="charactersheet6th",
+            name="real_estate",
+            field=models.TextField(blank=True, verbose_name="不動産"),
         ),
     ]

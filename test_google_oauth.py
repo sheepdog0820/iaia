@@ -1,18 +1,22 @@
 """
 Google OAuth クライアント疎通確認スクリプト
 """
+
 import os
 import sys
+
 import django
 
 # Django設定
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tableno.settings")
 django.setup()
 
+import json
+
+import requests
 from allauth.socialaccount.models import SocialApp
 from django.contrib.sites.models import Site
-import requests
-import json
+
 
 def test_oauth_configuration():
     """OAuth設定の確認"""
@@ -22,7 +26,7 @@ def test_oauth_configuration():
 
     # データベースから設定取得
     try:
-        app = SocialApp.objects.get(provider='google')
+        app = SocialApp.objects.get(provider="google")
         print(f"\n[OK] SocialApp found in database")
         print(f"  Provider: {app.provider}")
         print(f"  Name: {app.name}")
@@ -38,6 +42,7 @@ def test_oauth_configuration():
         return False
 
     return app
+
 
 def test_token_endpoint_client_auth(app):
     """トークンエンドポイントでクライアント認証が通るかを簡易確認（ダミーcodeで判定）"""
@@ -78,6 +83,7 @@ def test_token_endpoint_client_auth(app):
     print(f"  [INFO] 予期しない応答: {body}")
     return False
 
+
 def test_client_credentials(app):
     """クライアント認証情報のテスト"""
     print("\n" + "=" * 60)
@@ -89,7 +95,7 @@ def test_client_credentials(app):
 
     # 1. クライアントIDの形式チェック
     print("\n1. クライアントID形式チェック:")
-    if client_id.endswith('.apps.googleusercontent.com'):
+    if client_id.endswith(".apps.googleusercontent.com"):
         print("  [OK] クライアントIDの形式が正しい")
     else:
         print("  [ERROR] クライアントIDの形式が不正")
@@ -124,6 +130,7 @@ def test_client_credentials(app):
 
     return True
 
+
 def test_oauth_flow_urls():
     """OAuth フロー URL の確認"""
     print("\n" + "=" * 60)
@@ -142,6 +149,7 @@ def test_oauth_flow_urls():
     print(f"  - http://127.0.0.1:8000/accounts/google/login/callback/")
 
     return True
+
 
 def test_manual_oauth_request(app):
     """手動でOAuth認証URLを生成してテスト"""
@@ -169,6 +177,7 @@ def test_manual_oauth_request(app):
 
     return True
 
+
 def check_google_cloud_console_settings():
     """Google Cloud Console 設定確認用の情報を表示"""
     print("\n" + "=" * 60)
@@ -191,6 +200,7 @@ def check_google_cloud_console_settings():
     print("\n確認URL: https://console.cloud.google.com/apis/credentials")
 
     return True
+
 
 def main():
     """メイン処理"""
@@ -233,5 +243,6 @@ def main():
     print("3. 生成された認証URLをブラウザで開いてテストしてください")
     print("\n")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

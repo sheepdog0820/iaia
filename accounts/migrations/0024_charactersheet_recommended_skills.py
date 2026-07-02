@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0023_alter_skillgrowthrecord_growth_amount_and_more'),
+        ("accounts", "0023_alter_skillgrowthrecord_growth_amount_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='charactersheet',
-            name='recommended_skills',
-            field=models.JSONField(blank=True, default=list, verbose_name='推奨技能'),
+            model_name="charactersheet",
+            name="recommended_skills",
+            field=models.JSONField(blank=True, default=list, verbose_name="推奨技能"),
         ),
     ]

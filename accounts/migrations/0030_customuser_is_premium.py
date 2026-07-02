@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0029_alter_charactersheet_edition'),
+        ("accounts", "0029_alter_charactersheet_edition"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='customuser',
-            name='is_premium',
-            field=models.BooleanField(default=False, help_text='課金ユーザ（高権限ユーザ）'),
+            model_name="customuser",
+            name="is_premium",
+            field=models.BooleanField(default=False, help_text="課金ユーザ（高権限ユーザ）"),
         ),
     ]

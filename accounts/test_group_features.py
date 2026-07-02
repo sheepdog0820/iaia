@@ -1,15 +1,14 @@
-from datetime import timedelta
 import math
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from rest_framework.test import APITestCase
 from rest_framework import status
+from rest_framework.test import APITestCase
 
-from accounts.models import Friend, Group, GroupMembership, GroupInvitation
 from accounts.character_models import CharacterSheet
+from accounts.models import Friend, Group, GroupInvitation, GroupMembership
 from schedules.models import HandoutNotification, UserNotificationPreferences
-
 
 User = get_user_model()
 
@@ -17,262 +16,214 @@ User = get_user_model()
 class FriendAPITestCase(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username='friend_user',
-            email='friend_user@example.com',
-            password='pass123',
-            nickname='Friend User',
+            username="friend_user",
+            email="friend_user@example.com",
+            password="pass123",
+            nickname="Friend User",
         )
         self.friend = User.objects.create_user(
-            username='friend_target',
-            email='friend_target@example.com',
-            password='pass123',
-            nickname='Friend Target',
-            trpg_history='friend private history',
+            username="friend_target",
+            email="friend_target@example.com",
+            password="pass123",
+            nickname="Friend Target",
+            trpg_history="friend private history",
         )
         Friend.objects.create(user=self.user, friend=self.friend)
         self.client.force_authenticate(user=self.user)
 
     def test_friend_list_does_not_expose_private_profile_fields(self):
-        response = self.client.get('/api/accounts/friends/')
+        response = self.client.get("/api/accounts/friends/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        friend_detail = response.data[0]['friend_detail']
-        self.assertEqual(friend_detail['nickname'], 'Friend Target')
-        self.assertNotIn('email', friend_detail)
-        self.assertNotIn('trpg_history', friend_detail)
-        self.assertNotIn('first_name', friend_detail)
-        self.assertNotIn('last_name', friend_detail)
+        friend_detail = response.data[0]["friend_detail"]
+        self.assertEqual(friend_detail["nickname"], "Friend Target")
+        self.assertNotIn("email", friend_detail)
+        self.assertNotIn("trpg_history", friend_detail)
+        self.assertNotIn("first_name", friend_detail)
+        self.assertNotIn("last_name", friend_detail)
 
 
 class GroupSearchAPITestCase(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username='search_user',
-            email='search@example.com',
-            password='pass123',
-            nickname='Search User'
+            username="search_user", email="search@example.com", password="pass123", nickname="Search User"
         )
         self.owner = User.objects.create_user(
-            username='owner_user',
-            email='owner@example.com',
-            password='pass123',
-            nickname='Owner User',
-            trpg_history='owner private history',
+            username="owner_user",
+            email="owner@example.com",
+            password="pass123",
+            nickname="Owner User",
+            trpg_history="owner private history",
         )
         self.client.force_authenticate(user=self.user)
 
         self.public_group = Group.objects.create(
-            name='Arkham Seekers',
-            description='Public investigation group',
-            visibility='public',
-            created_by=self.owner
+            name="Arkham Seekers", description="Public investigation group", visibility="public", created_by=self.owner
         )
-        GroupMembership.objects.create(user=self.owner, group=self.public_group, role='admin')
+        GroupMembership.objects.create(user=self.owner, group=self.public_group, role="admin")
 
         self.private_group = Group.objects.create(
-            name='Arkham Secret',
-            description='Private group',
-            visibility='private',
-            created_by=self.owner
+            name="Arkham Secret", description="Private group", visibility="private", created_by=self.owner
         )
-        GroupMembership.objects.create(user=self.owner, group=self.private_group, role='admin')
+        GroupMembership.objects.create(user=self.owner, group=self.private_group, role="admin")
 
     def test_public_group_search(self):
-        response = self.client.get('/api/accounts/groups/search/?q=Arkham')
+        response = self.client.get("/api/accounts/groups/search/?q=Arkham")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['id'], self.public_group.id)
+        self.assertEqual(response.data[0]["id"], self.public_group.id)
 
     def test_public_groups_filter(self):
-        response = self.client.get('/api/accounts/groups/public/?q=Secret')
+        response = self.client.get("/api/accounts/groups/public/?q=Secret")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 0)
 
     def test_public_group_listing_does_not_expose_member_private_profile_fields(self):
-        response = self.client.get('/api/accounts/groups/public/?q=Arkham')
+        response = self.client.get("/api/accounts/groups/public/?q=Arkham")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
-        member_detail = response.data[0]['members_detail'][0]['user_detail']
-        self.assertEqual(member_detail['nickname'], 'Owner User')
-        self.assertNotIn('email', member_detail)
-        self.assertNotIn('trpg_history', member_detail)
-        self.assertNotIn('first_name', member_detail)
-        self.assertNotIn('last_name', member_detail)
+        member_detail = response.data[0]["members_detail"][0]["user_detail"]
+        self.assertEqual(member_detail["nickname"], "Owner User")
+        self.assertNotIn("email", member_detail)
+        self.assertNotIn("trpg_history", member_detail)
+        self.assertNotIn("first_name", member_detail)
+        self.assertNotIn("last_name", member_detail)
 
     def test_public_group_members_endpoint_does_not_expose_private_profile_fields(self):
-        response = self.client.get(f'/api/accounts/groups/{self.public_group.id}/members/')
+        response = self.client.get(f"/api/accounts/groups/{self.public_group.id}/members/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        member_detail = response.data[0]['user_detail']
-        self.assertEqual(member_detail['nickname'], 'Owner User')
-        self.assertNotIn('email', member_detail)
-        self.assertNotIn('trpg_history', member_detail)
-        self.assertNotIn('first_name', member_detail)
-        self.assertNotIn('last_name', member_detail)
+        member_detail = response.data[0]["user_detail"]
+        self.assertEqual(member_detail["nickname"], "Owner User")
+        self.assertNotIn("email", member_detail)
+        self.assertNotIn("trpg_history", member_detail)
+        self.assertNotIn("first_name", member_detail)
+        self.assertNotIn("last_name", member_detail)
 
 
 class GroupInvitationFlowAPITestCase(APITestCase):
     def setUp(self):
         self.inviter = User.objects.create_user(
-            username='inviter',
-            email='inviter@example.com',
-            password='pass123',
-            nickname='Inviter',
-            trpg_history='inviter private history',
+            username="inviter",
+            email="inviter@example.com",
+            password="pass123",
+            nickname="Inviter",
+            trpg_history="inviter private history",
         )
         self.invitee1 = User.objects.create_user(
-            username='invitee1',
-            email='invitee1@example.com',
-            password='pass123',
-            nickname='Invitee1',
-            trpg_history='invitee1 private history',
+            username="invitee1",
+            email="invitee1@example.com",
+            password="pass123",
+            nickname="Invitee1",
+            trpg_history="invitee1 private history",
         )
         self.invitee2 = User.objects.create_user(
-            username='invitee2',
-            email='invitee2@example.com',
-            password='pass123',
-            nickname='Invitee2'
+            username="invitee2", email="invitee2@example.com", password="pass123", nickname="Invitee2"
         )
-        self.group = Group.objects.create(
-            name='Invite Group',
-            visibility='private',
-            created_by=self.inviter
-        )
-        GroupMembership.objects.create(user=self.inviter, group=self.group, role='admin')
+        self.group = Group.objects.create(name="Invite Group", visibility="private", created_by=self.inviter)
+        GroupMembership.objects.create(user=self.inviter, group=self.group, role="admin")
 
     def test_bulk_invite(self):
         self.client.force_authenticate(user=self.inviter)
         response = self.client.post(
-            f'/api/accounts/groups/{self.group.id}/invite/',
-            {
-                'invitee_ids': [self.invitee1.id, self.invitee2.id],
-                'message': 'Join us'
-            },
-            format='json'
+            f"/api/accounts/groups/{self.group.id}/invite/",
+            {"invitee_ids": [self.invitee1.id, self.invitee2.id], "message": "Join us"},
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['count'], 2)
-        self.assertEqual(len(response.data['results']), 2)
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual(len(response.data["results"]), 2)
         self.assertEqual(GroupInvitation.objects.filter(group=self.group).count(), 2)
 
     def test_bulk_invite_skips_members(self):
-        GroupMembership.objects.create(user=self.invitee2, group=self.group, role='member')
+        GroupMembership.objects.create(user=self.invitee2, group=self.group, role="member")
         self.client.force_authenticate(user=self.inviter)
         response = self.client.post(
-            f'/api/accounts/groups/{self.group.id}/invite/',
-            {
-                'invitee_ids': [self.invitee1.id, self.invitee2.id],
-                'message': 'Join us'
-            },
-            format='json'
+            f"/api/accounts/groups/{self.group.id}/invite/",
+            {"invitee_ids": [self.invitee1.id, self.invitee2.id], "message": "Join us"},
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['count'], 1)
-        skipped = response.data['skipped']
-        self.assertTrue(any(item['reason'] == 'already_member' for item in skipped))
+        self.assertEqual(response.data["count"], 1)
+        skipped = response.data["skipped"]
+        self.assertTrue(any(item["reason"] == "already_member" for item in skipped))
 
     def test_invitation_expired_on_accept(self):
         invitation = GroupInvitation.objects.create(
-            group=self.group,
-            inviter=self.inviter,
-            invitee=self.invitee1,
-            message='Join us'
+            group=self.group, inviter=self.inviter, invitee=self.invitee1, message="Join us"
         )
         invitation.created_at = timezone.now() - timedelta(days=8)
-        invitation.save(update_fields=['created_at'])
+        invitation.save(update_fields=["created_at"])
 
         self.client.force_authenticate(user=self.invitee1)
-        response = self.client.post(f'/api/accounts/invitations/{invitation.id}/accept/')
+        response = self.client.post(f"/api/accounts/invitations/{invitation.id}/accept/")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
         invitation.refresh_from_db()
-        self.assertEqual(invitation.status, 'expired')
+        self.assertEqual(invitation.status, "expired")
         self.assertIsNotNone(invitation.responded_at)
 
     def test_invitation_list_marks_expired(self):
         invitation = GroupInvitation.objects.create(
-            group=self.group,
-            inviter=self.inviter,
-            invitee=self.invitee1,
-            message='Join us'
+            group=self.group, inviter=self.inviter, invitee=self.invitee1, message="Join us"
         )
         invitation.created_at = timezone.now() - timedelta(days=8)
-        invitation.save(update_fields=['created_at'])
+        invitation.save(update_fields=["created_at"])
 
         self.client.force_authenticate(user=self.invitee1)
-        response = self.client.get('/api/accounts/invitations/')
+        response = self.client.get("/api/accounts/invitations/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data[0]['status'], 'expired')
+        self.assertEqual(response.data[0]["status"], "expired")
 
     def test_non_admin_cannot_create_invitation_directly(self):
         self.client.force_authenticate(user=self.invitee1)
 
         response = self.client.post(
-            '/api/accounts/invitations/',
-            {
-                'group': self.group.id,
-                'invitee': self.invitee2.id,
-                'message': 'Join us'
-            },
-            format='json'
+            "/api/accounts/invitations/",
+            {"group": self.group.id, "invitee": self.invitee2.id, "message": "Join us"},
+            format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertFalse(
-            GroupInvitation.objects.filter(
-                group=self.group,
-                inviter=self.invitee1,
-                invitee=self.invitee2
-            ).exists()
+            GroupInvitation.objects.filter(group=self.group, inviter=self.invitee1, invitee=self.invitee2).exists()
         )
 
     def test_admin_can_create_invitation_directly(self):
         self.client.force_authenticate(user=self.inviter)
 
         response = self.client.post(
-            '/api/accounts/invitations/',
-            {
-                'group': self.group.id,
-                'invitee': self.invitee1.id,
-                'message': 'Join us'
-            },
-            format='json'
+            "/api/accounts/invitations/",
+            {"group": self.group.id, "invitee": self.invitee1.id, "message": "Join us"},
+            format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['inviter'], self.inviter.id)
-        self.assertEqual(response.data['inviter_detail']['nickname'], 'Inviter')
-        self.assertEqual(response.data['invitee_detail']['nickname'], 'Invitee1')
-        self.assertNotIn('email', response.data['inviter_detail'])
-        self.assertNotIn('trpg_history', response.data['inviter_detail'])
-        self.assertNotIn('email', response.data['invitee_detail'])
-        self.assertNotIn('trpg_history', response.data['invitee_detail'])
+        self.assertEqual(response.data["inviter"], self.inviter.id)
+        self.assertEqual(response.data["inviter_detail"]["nickname"], "Inviter")
+        self.assertEqual(response.data["invitee_detail"]["nickname"], "Invitee1")
+        self.assertNotIn("email", response.data["inviter_detail"])
+        self.assertNotIn("trpg_history", response.data["inviter_detail"])
+        self.assertNotIn("email", response.data["invitee_detail"])
+        self.assertNotIn("trpg_history", response.data["invitee_detail"])
         self.assertTrue(
             GroupInvitation.objects.filter(
-                group=self.group,
-                inviter=self.inviter,
-                invitee=self.invitee1,
-                status='pending'
+                group=self.group, inviter=self.inviter, invitee=self.invitee1, status="pending"
             ).exists()
         )
 
     def test_invitation_list_does_not_expose_private_profile_fields(self):
-        GroupInvitation.objects.create(
-            group=self.group,
-            inviter=self.inviter,
-            invitee=self.invitee1,
-            message='Join us'
-        )
+        GroupInvitation.objects.create(group=self.group, inviter=self.inviter, invitee=self.invitee1, message="Join us")
 
         self.client.force_authenticate(user=self.invitee1)
 
-        response = self.client.get('/api/accounts/invitations/')
+        response = self.client.get("/api/accounts/invitations/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data[0]['inviter_detail']['nickname'], 'Inviter')
-        self.assertNotIn('email', response.data[0]['inviter_detail'])
-        self.assertNotIn('trpg_history', response.data[0]['inviter_detail'])
+        self.assertEqual(response.data[0]["inviter_detail"]["nickname"], "Inviter")
+        self.assertNotIn("email", response.data[0]["inviter_detail"])
+        self.assertNotIn("trpg_history", response.data[0]["inviter_detail"])
 
 
 class GroupInvitationNotificationTestCase(APITestCase):
@@ -280,41 +231,28 @@ class GroupInvitationNotificationTestCase(APITestCase):
 
     def setUp(self):
         self.inviter = User.objects.create_user(
-            username='inviter_notify',
-            email='inviter_notify@example.com',
-            password='pass123',
-            nickname='InviterNotify'
+            username="inviter_notify", email="inviter_notify@example.com", password="pass123", nickname="InviterNotify"
         )
         self.invitee = User.objects.create_user(
-            username='invitee_notify',
-            email='invitee_notify@example.com',
-            password='pass123',
-            nickname='InviteeNotify'
+            username="invitee_notify", email="invitee_notify@example.com", password="pass123", nickname="InviteeNotify"
         )
-        self.group = Group.objects.create(
-            name='Notify Group',
-            visibility='private',
-            created_by=self.inviter
-        )
-        GroupMembership.objects.create(user=self.inviter, group=self.group, role='admin')
+        self.group = Group.objects.create(name="Notify Group", visibility="private", created_by=self.inviter)
+        GroupMembership.objects.create(user=self.inviter, group=self.group, role="admin")
         self.client.force_authenticate(user=self.inviter)
 
     def test_notification_created_on_invite(self):
         response = self.client.post(
-            f'/api/accounts/groups/{self.group.id}/invite/',
-            {'user_id': self.invitee.id},
-            format='json'
+            f"/api/accounts/groups/{self.group.id}/invite/", {"user_id": self.invitee.id}, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         notification = HandoutNotification.objects.filter(
-            recipient=self.invitee,
-            notification_type='group_invitation'
+            recipient=self.invitee, notification_type="group_invitation"
         ).first()
         self.assertIsNotNone(notification)
         self.assertEqual(notification.sender, self.inviter)
-        self.assertEqual(notification.metadata.get('group_id'), self.group.id)
-        self.assertEqual(notification.metadata.get('group_name'), self.group.name)
+        self.assertEqual(notification.metadata.get("group_id"), self.group.id)
+        self.assertEqual(notification.metadata.get("group_name"), self.group.name)
 
     def test_notification_respects_user_preferences(self):
         prefs = UserNotificationPreferences.get_or_create_for_user(self.invitee)
@@ -322,17 +260,12 @@ class GroupInvitationNotificationTestCase(APITestCase):
         prefs.save()
 
         response = self.client.post(
-            f'/api/accounts/groups/{self.group.id}/invite/',
-            {'user_id': self.invitee.id},
-            format='json'
+            f"/api/accounts/groups/{self.group.id}/invite/", {"user_id": self.invitee.id}, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertFalse(
-            HandoutNotification.objects.filter(
-                recipient=self.invitee,
-                notification_type='group_invitation'
-            ).exists()
+            HandoutNotification.objects.filter(recipient=self.invitee, notification_type="group_invitation").exists()
         )
 
 
@@ -341,64 +274,50 @@ class GroupMemberRoleManagementTestCase(APITestCase):
 
     def setUp(self):
         self.owner = User.objects.create_user(
-            username='role_owner',
-            email='role_owner@example.com',
-            password='pass123',
-            nickname='RoleOwner'
+            username="role_owner", email="role_owner@example.com", password="pass123", nickname="RoleOwner"
         )
         self.member = User.objects.create_user(
-            username='role_member',
-            email='role_member@example.com',
-            password='pass123',
-            nickname='RoleMember'
+            username="role_member", email="role_member@example.com", password="pass123", nickname="RoleMember"
         )
 
-        self.group = Group.objects.create(
-            name='Role Group',
-            visibility='private',
-            created_by=self.owner
-        )
-        GroupMembership.objects.create(user=self.owner, group=self.group, role='admin')
-        GroupMembership.objects.create(user=self.member, group=self.group, role='member')
+        self.group = Group.objects.create(name="Role Group", visibility="private", created_by=self.owner)
+        GroupMembership.objects.create(user=self.owner, group=self.group, role="admin")
+        GroupMembership.objects.create(user=self.member, group=self.group, role="member")
 
     def test_admin_can_promote_and_demote_member(self):
         self.client.force_authenticate(user=self.owner)
 
         response = self.client.post(
-            f'/api/accounts/groups/{self.group.id}/set_member_role/',
-            {'user_id': self.member.id, 'role': 'admin'},
-            format='json'
+            f"/api/accounts/groups/{self.group.id}/set_member_role/",
+            {"user_id": self.member.id, "role": "admin"},
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(
-            GroupMembership.objects.filter(group=self.group, user=self.member, role='admin').exists()
-        )
+        self.assertTrue(GroupMembership.objects.filter(group=self.group, user=self.member, role="admin").exists())
 
         response = self.client.post(
-            f'/api/accounts/groups/{self.group.id}/set_member_role/',
-            {'user_id': self.member.id, 'role': 'member'},
-            format='json'
+            f"/api/accounts/groups/{self.group.id}/set_member_role/",
+            {"user_id": self.member.id, "role": "member"},
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(
-            GroupMembership.objects.filter(group=self.group, user=self.member, role='member').exists()
-        )
+        self.assertTrue(GroupMembership.objects.filter(group=self.group, user=self.member, role="member").exists())
 
     def test_non_admin_cannot_change_roles(self):
         self.client.force_authenticate(user=self.member)
         response = self.client.post(
-            f'/api/accounts/groups/{self.group.id}/set_member_role/',
-            {'user_id': self.member.id, 'role': 'admin'},
-            format='json'
+            f"/api/accounts/groups/{self.group.id}/set_member_role/",
+            {"user_id": self.member.id, "role": "admin"},
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_cannot_demote_creator(self):
         self.client.force_authenticate(user=self.owner)
         response = self.client.post(
-            f'/api/accounts/groups/{self.group.id}/set_member_role/',
-            {'user_id': self.owner.id, 'role': 'member'},
-            format='json'
+            f"/api/accounts/groups/{self.group.id}/set_member_role/",
+            {"user_id": self.owner.id, "role": "member"},
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -408,35 +327,25 @@ class GroupLeaveSafetyTestCase(APITestCase):
 
     def setUp(self):
         self.owner = User.objects.create_user(
-            username='leave_owner',
-            email='leave_owner@example.com',
-            password='pass123',
-            nickname='LeaveOwner'
+            username="leave_owner", email="leave_owner@example.com", password="pass123", nickname="LeaveOwner"
         )
         self.member = User.objects.create_user(
-            username='leave_member',
-            email='leave_member@example.com',
-            password='pass123',
-            nickname='LeaveMember'
+            username="leave_member", email="leave_member@example.com", password="pass123", nickname="LeaveMember"
         )
 
-        self.group = Group.objects.create(
-            name='Leave Group',
-            visibility='private',
-            created_by=self.owner
-        )
-        GroupMembership.objects.create(user=self.owner, group=self.group, role='admin')
-        GroupMembership.objects.create(user=self.member, group=self.group, role='member')
+        self.group = Group.objects.create(name="Leave Group", visibility="private", created_by=self.owner)
+        GroupMembership.objects.create(user=self.owner, group=self.group, role="admin")
+        GroupMembership.objects.create(user=self.member, group=self.group, role="member")
 
     def test_creator_cannot_leave(self):
         self.client.force_authenticate(user=self.owner)
-        response = self.client.post(f'/api/accounts/groups/{self.group.id}/leave/', format='json')
+        response = self.client.post(f"/api/accounts/groups/{self.group.id}/leave/", format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(GroupMembership.objects.filter(group=self.group, user=self.owner).exists())
 
     def test_member_can_leave(self):
         self.client.force_authenticate(user=self.member)
-        response = self.client.post(f'/api/accounts/groups/{self.group.id}/leave/', format='json')
+        response = self.client.post(f"/api/accounts/groups/{self.group.id}/leave/", format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(GroupMembership.objects.filter(group=self.group, user=self.member).exists())
 
@@ -444,55 +353,42 @@ class GroupLeaveSafetyTestCase(APITestCase):
 class GroupMemberCharactersAPITestCase(APITestCase):
     def setUp(self):
         self.admin = User.objects.create_user(
-            username='admin_user',
-            email='admin@example.com',
-            password='pass123',
-            nickname='Admin User'
+            username="admin_user", email="admin@example.com", password="pass123", nickname="Admin User"
         )
         self.member = User.objects.create_user(
-            username='member_user',
-            email='member@example.com',
-            password='pass123',
-            nickname='Member User'
+            username="member_user", email="member@example.com", password="pass123", nickname="Member User"
         )
         self.non_member = User.objects.create_user(
-            username='outsider',
-            email='outsider@example.com',
-            password='pass123',
-            nickname='Outsider'
+            username="outsider", email="outsider@example.com", password="pass123", nickname="Outsider"
         )
 
-        self.group = Group.objects.create(
-            name='Character Group',
-            visibility='private',
-            created_by=self.admin
-        )
-        GroupMembership.objects.create(user=self.admin, group=self.group, role='admin')
-        GroupMembership.objects.create(user=self.member, group=self.group, role='member')
+        self.group = Group.objects.create(name="Character Group", visibility="private", created_by=self.admin)
+        GroupMembership.objects.create(user=self.admin, group=self.group, role="admin")
+        GroupMembership.objects.create(user=self.member, group=self.group, role="member")
 
-        self.create_character(self.admin, 'Admin Public', is_public=True)
-        self.create_character(self.admin, 'Admin Private', is_public=False)
-        self.create_character(self.member, 'Member Public', is_public=True)
-        self.create_character(self.member, 'Member Private', is_public=False)
+        self.create_character(self.admin, "Admin Public", access_scope="public")
+        self.create_character(self.admin, "Admin Private", access_scope="private")
+        self.create_character(self.member, "Member Public", access_scope="public")
+        self.create_character(self.member, "Member Private", access_scope="private")
 
-    def create_character(self, user, name, is_public):
+    def create_character(self, user, name, access_scope):
         stats = {
-            'str_value': 10,
-            'con_value': 12,
-            'pow_value': 11,
-            'dex_value': 10,
-            'app_value': 9,
-            'siz_value': 11,
-            'int_value': 12,
-            'edu_value': 13
+            "str_value": 10,
+            "con_value": 12,
+            "pow_value": 11,
+            "dex_value": 10,
+            "app_value": 9,
+            "siz_value": 11,
+            "int_value": 12,
+            "edu_value": 13,
         }
-        hp_max = math.ceil((stats['con_value'] + stats['siz_value']) / 2)
-        mp_max = stats['pow_value']
-        san_start = stats['pow_value'] * 5
+        hp_max = math.ceil((stats["con_value"] + stats["siz_value"]) / 2)
+        mp_max = stats["pow_value"]
+        san_start = stats["pow_value"] * 5
 
         return CharacterSheet.objects.create(
             user=user,
-            edition='6th',
+            edition="6th",
             name=name,
             age=25,
             **stats,
@@ -503,130 +399,105 @@ class GroupMemberCharactersAPITestCase(APITestCase):
             sanity_starting=san_start,
             sanity_max=99,
             sanity_current=san_start,
-            is_public=is_public,
-            access_scope='public' if is_public else 'private',
-            is_active=True
+            access_scope=access_scope,
+            is_active=True,
         )
 
     def test_member_characters_visibility(self):
         self.client.force_authenticate(user=self.admin)
-        response = self.client.get(f'/api/accounts/groups/{self.group.id}/member_characters/')
+        response = self.client.get(f"/api/accounts/groups/{self.group.id}/member_characters/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         data = response.data
-        admin_entry = next(item for item in data if item['user_id'] == self.admin.id)
-        member_entry = next(item for item in data if item['user_id'] == self.member.id)
+        admin_entry = next(item for item in data if item["user_id"] == self.admin.id)
+        member_entry = next(item for item in data if item["user_id"] == self.member.id)
 
-        self.assertEqual(len(admin_entry['characters']), 2)
-        self.assertEqual(len(member_entry['characters']), 1)
-        self.assertTrue(member_entry['characters'][0]['is_public'])
+        self.assertEqual(len(admin_entry["characters"]), 2)
+        self.assertEqual(len(member_entry["characters"]), 1)
+        self.assertEqual(member_entry["characters"][0]["access_scope"], "public")
 
-    def test_member_characters_hide_legacy_public_flag_when_scope_is_not_public(self):
-        legacy_group_character = self.create_character(self.member, 'Member Legacy Group', is_public=True)
-        legacy_group_character.access_scope = 'group'
-        legacy_group_character.save(update_fields=['access_scope'])
+    def test_member_characters_only_include_public_scope(self):
+        self.create_character(self.member, "Member Group Scope", access_scope="group")
 
         self.client.force_authenticate(user=self.admin)
-        response = self.client.get(f'/api/accounts/groups/{self.group.id}/member_characters/')
+        response = self.client.get(f"/api/accounts/groups/{self.group.id}/member_characters/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        member_entry = next(item for item in response.data if item['user_id'] == self.member.id)
-        character_names = {character['name'] for character in member_entry['characters']}
-        self.assertIn('Member Public', character_names)
-        self.assertNotIn('Member Legacy Group', character_names)
+        member_entry = next(item for item in response.data if item["user_id"] == self.member.id)
+        character_names = {character["name"] for character in member_entry["characters"]}
+        self.assertIn("Member Public", character_names)
+        self.assertNotIn("Member Group Scope", character_names)
 
     def test_member_characters_non_member_forbidden(self):
         self.client.force_authenticate(user=self.non_member)
-        response = self.client.get(f'/api/accounts/groups/{self.group.id}/member_characters/')
+        response = self.client.get(f"/api/accounts/groups/{self.group.id}/member_characters/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class GroupAdminActionsAPITestCase(APITestCase):
     def setUp(self):
         self.admin = User.objects.create_user(
-            username='admin_action_user',
-            email='admin_action@example.com',
-            password='pass123',
-            nickname='Admin Action'
+            username="admin_action_user", email="admin_action@example.com", password="pass123", nickname="Admin Action"
         )
         self.member = User.objects.create_user(
-            username='member_action_user',
-            email='member_action@example.com',
-            password='pass123',
-            nickname='Member Action'
+            username="member_action_user",
+            email="member_action@example.com",
+            password="pass123",
+            nickname="Member Action",
         )
         self.group = Group.objects.create(
-            name='Action Group',
-            description='Initial description',
-            visibility='private',
-            created_by=self.admin
+            name="Action Group", description="Initial description", visibility="private", created_by=self.admin
         )
-        GroupMembership.objects.create(user=self.admin, group=self.group, role='admin')
-        GroupMembership.objects.create(user=self.member, group=self.group, role='member')
+        GroupMembership.objects.create(user=self.admin, group=self.group, role="admin")
+        GroupMembership.objects.create(user=self.member, group=self.group, role="member")
 
     def test_admin_can_update_group(self):
         self.client.force_authenticate(user=self.admin)
         response = self.client.patch(
-            f'/api/accounts/groups/{self.group.id}/',
-            {
-                'name': 'Updated Group',
-                'description': 'Updated description',
-                'visibility': 'public'
-            },
-            format='json'
+            f"/api/accounts/groups/{self.group.id}/",
+            {"name": "Updated Group", "description": "Updated description", "visibility": "public"},
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.group.refresh_from_db()
-        self.assertEqual(self.group.name, 'Updated Group')
-        self.assertEqual(self.group.description, 'Updated description')
-        self.assertEqual(self.group.visibility, 'public')
+        self.assertEqual(self.group.name, "Updated Group")
+        self.assertEqual(self.group.description, "Updated description")
+        self.assertEqual(self.group.visibility, "public")
 
     def test_member_cannot_update_group(self):
         self.client.force_authenticate(user=self.member)
         response = self.client.patch(
-            f'/api/accounts/groups/{self.group.id}/',
-            {'name': 'Blocked Update'},
-            format='json'
+            f"/api/accounts/groups/{self.group.id}/", {"name": "Blocked Update"}, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_admin_can_delete_group(self):
         self.client.force_authenticate(user=self.admin)
-        response = self.client.delete(f'/api/accounts/groups/{self.group.id}/')
+        response = self.client.delete(f"/api/accounts/groups/{self.group.id}/")
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Group.objects.filter(id=self.group.id).exists())
 
     def test_member_cannot_delete_group(self):
         self.client.force_authenticate(user=self.member)
-        response = self.client.delete(f'/api/accounts/groups/{self.group.id}/')
+        response = self.client.delete(f"/api/accounts/groups/{self.group.id}/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_admin_can_remove_member_by_user_id(self):
         self.client.force_authenticate(user=self.admin)
         response = self.client.delete(
-            f'/api/accounts/groups/{self.group.id}/remove_member/',
-            data={'user_id': self.member.id},
-            format='json'
+            f"/api/accounts/groups/{self.group.id}/remove_member/", data={"user_id": self.member.id}, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertFalse(
-            GroupMembership.objects.filter(user=self.member, group=self.group).exists()
-        )
+        self.assertFalse(GroupMembership.objects.filter(user=self.member, group=self.group).exists())
 
     def test_remove_member_requires_user_identifier(self):
         self.client.force_authenticate(user=self.admin)
-        response = self.client.delete(
-            f'/api/accounts/groups/{self.group.id}/remove_member/',
-            data={},
-            format='json'
-        )
+        response = self.client.delete(f"/api/accounts/groups/{self.group.id}/remove_member/", data={}, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_member_cannot_remove_member(self):
         self.client.force_authenticate(user=self.member)
         response = self.client.delete(
-            f'/api/accounts/groups/{self.group.id}/remove_member/',
-            data={'user_id': self.admin.id},
-            format='json'
+            f"/api/accounts/groups/{self.group.id}/remove_member/", data={"user_id": self.admin.id}, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

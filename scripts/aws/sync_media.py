@@ -1,4 +1,5 @@
 """Plan or execute a local media directory sync to S3."""
+
 from __future__ import annotations
 
 import argparse

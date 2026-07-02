@@ -1,0 +1,49 @@
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+exclude = '''
+/(
+    \.git
+  | \.pytest_cache
+  | \.venv
+  | \.codex
+  | \.claude
+  | venv
+  | venv_local311
+  | node_modules
+  | staticfiles
+  | media
+  | codex-build-output
+  | playwright-report
+  | test-results
+  | tmp
+  | skills
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+py_version = 311
+skip = [
+  ".git",
+  ".pytest_cache",
+  ".codex",
+  ".claude",
+  "venv",
+  "venv_local311",
+  "node_modules",
+  "staticfiles",
+  "media",
+  "codex-build-output",
+  "playwright-report",
+  "test-results",
+  "tmp",
+  "skills",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tableno.settings"
+python_files = ["test_*.py", "*_test.py", "tests.py"]
+testpaths = ["accounts", "api", "scenarios", "schedules", "tableno"]
+addopts = "--reuse-db"

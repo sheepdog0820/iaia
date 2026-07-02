@@ -1,39 +1,42 @@
-from schedules.duration import effective_duration_expression
-from rest_framework import serializers
-from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema_field
-from django.core.exceptions import ValidationError
-from django.db import models
-from PIL import Image
 import json
 import os
-from .models import (
-    CustomUser, Friend, Group, GroupMembership, GroupInvitation
-)
+
+from django.core.exceptions import ValidationError
+from django.db import models
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
+from PIL import Image
+from rest_framework import serializers
+
 from scenarios.models import Scenario
+from schedules.duration import effective_duration_expression
+
+from .character_image_limits import character_image_limit_error_message, get_character_image_limit_for_sheet
 from .character_models import (
-    CharacterSheet, CharacterSheet6th,
-    CharacterSkill, CharacterEquipment, CharacterImage,
-    GrowthRecord, SkillGrowthRecord, CharacterDiceRollSetting
+    CharacterDiceRollSetting,
+    CharacterEquipment,
+    CharacterImage,
+    CharacterSheet,
+    CharacterSheet6th,
+    CharacterSkill,
+    GrowthRecord,
+    SkillGrowthRecord,
 )
-from .character_image_limits import (
-    character_image_limit_error_message,
-    get_character_image_limit_for_sheet,
-)
+from .models import CustomUser, Friend, Group, GroupInvitation, GroupMembership
 
 
 def validate_character_image(image):
     """キャラクター画像のバリデーション"""
     if not image:
         return image
-    
+
     # ファイルサイズチェック（5MB以下）
     max_size = 5 * 1024 * 1024  # 5MB
     if image.size > max_size:
         raise ValidationError("画像ファイルのサイズは5MB以下にしてください。")
-    
+
     # ファイル形式チェック
-    allowed_formats = ['JPEG', 'PNG', 'GIF']
+    allowed_formats = ["JPEG", "PNG", "GIF"]
     try:
         with Image.open(image) as img:
             if img.format not in allowed_formats:
@@ -44,154 +47,179 @@ def validate_character_image(image):
             estimated_size = img.width * img.height * len(img.getbands())
             if estimated_size > max_size * 5:
                 raise ValidationError("画像ファイルのサイズは5MB以下にしてください。")
-            
+
             # 画像サイズチェック（最大3000x4000px）
             max_width, max_height = 3000, 4000
             if img.width > max_width or img.height > max_height:
-                raise ValidationError(
-                    f"画像サイズが大きすぎます。最大{max_width}x{max_height}ピクセルにしてください。"
-                )
-                
+                raise ValidationError(f"画像サイズが大きすぎます。最大{max_width}x{max_height}ピクセルにしてください。")
+
     except Exception as e:
         if isinstance(e, ValidationError):
             raise
         raise ValidationError("画像ファイルが破損しているか、サポートされていない形式です。")
-    
+
     return image
 
 
 class JSONListField(serializers.ListField):
     """JSON文字列または配列を受け取れるリストフィールド"""
+
     def to_internal_value(self, data):
-        if data is None or data == '':
+        if data is None or data == "":
             return []
         if isinstance(data, str):
             try:
                 data = json.loads(data)
             except json.JSONDecodeError as exc:
-                raise serializers.ValidationError('リスト形式のJSONを指定してください。') from exc
+                raise serializers.ValidationError("リスト形式のJSONを指定してください。") from exc
         return super().to_internal_value(data)
 
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'nickname', 'trpg_history', 
-                 'profile_image', 'first_name', 'last_name', 'date_joined']
-        read_only_fields = ['id', 'username', 'date_joined']
+        fields = [
+            "id",
+            "username",
+            "email",
+            "nickname",
+            "trpg_history",
+            "profile_image",
+            "first_name",
+            "last_name",
+            "date_joined",
+        ]
+        read_only_fields = ["id", "username", "date_joined"]
 
 
 class PublicUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'nickname', 'profile_image']
+        fields = ["id", "username", "nickname", "profile_image"]
         read_only_fields = fields
 
 
 class FriendSerializer(serializers.ModelSerializer):
-    friend_username = serializers.CharField(source='friend.username', read_only=True)
-    friend_nickname = serializers.CharField(source='friend.nickname', read_only=True)
-    
+    friend_username = serializers.CharField(source="friend.username", read_only=True)
+    friend_nickname = serializers.CharField(source="friend.nickname", read_only=True)
+
     class Meta:
         model = Friend
-        fields = ['id', 'friend', 'friend_username', 'friend_nickname', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = ["id", "friend", "friend_username", "friend_nickname", "created_at"]
+        read_only_fields = ["id", "created_at"]
 
 
 class GroupMembershipSerializer(serializers.ModelSerializer):
-    user_detail = PublicUserSerializer(source='user', read_only=True)
-    user_username = serializers.CharField(source='user.username', read_only=True)
-    user_nickname = serializers.CharField(source='user.nickname', read_only=True)
-    
+    user_detail = PublicUserSerializer(source="user", read_only=True)
+    user_username = serializers.CharField(source="user.username", read_only=True)
+    user_nickname = serializers.CharField(source="user.nickname", read_only=True)
+
     class Meta:
         model = GroupMembership
-        fields = ['id', 'user', 'user_detail', 'user_username', 'user_nickname', 'role', 'joined_at']
-        read_only_fields = ['id', 'joined_at']
+        fields = ["id", "user", "user_detail", "user_username", "user_nickname", "role", "joined_at"]
+        read_only_fields = ["id", "joined_at"]
 
 
 class GroupSerializer(serializers.ModelSerializer):
-    members_detail = GroupMembershipSerializer(
-        source='groupmembership_set', 
-        many=True, 
-        read_only=True
-    )
+    members_detail = GroupMembershipSerializer(source="groupmembership_set", many=True, read_only=True)
     member_count = serializers.SerializerMethodField()
     session_count = serializers.SerializerMethodField()
     total_play_hours = serializers.SerializerMethodField()
-    created_by_name = serializers.CharField(source='created_by.nickname', read_only=True)
+    created_by_name = serializers.CharField(source="created_by.nickname", read_only=True)
     is_member = serializers.SerializerMethodField()
     member_role = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Group
-        fields = ['id', 'name', 'description', 'visibility', 'created_by', 'created_by_name',
-                 'created_at', 'members_detail', 'member_count', 'session_count', 'total_play_hours',
-                 'is_member', 'member_role']
-        read_only_fields = ['id', 'created_by', 'created_at']
-    
+        fields = [
+            "id",
+            "name",
+            "description",
+            "visibility",
+            "created_by",
+            "created_by_name",
+            "created_at",
+            "members_detail",
+            "member_count",
+            "session_count",
+            "total_play_hours",
+            "is_member",
+            "member_role",
+        ]
+        read_only_fields = ["id", "created_by", "created_at"]
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_member_count(self, obj):
         return obj.members.count()
-    
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_session_count(self, obj):
         return obj.sessions.count()
-    
+
     @extend_schema_field(OpenApiTypes.FLOAT)
     def get_total_play_hours(self, obj):
         from django.db.models import Sum
-        total_minutes = obj.sessions.filter(status='completed').aggregate(
-            total=Sum(effective_duration_expression())
-        )['total'] or 0
+
+        total_minutes = (
+            obj.sessions.filter(status="completed").aggregate(total=Sum(effective_duration_expression()))["total"] or 0
+        )
         return round(total_minutes / 60, 1)
-    
+
     @extend_schema_field(OpenApiTypes.BOOL)
     def get_is_member(self, obj):
         """ユーザーがこのグループのメンバーかどうか"""
-        request = self.context.get('request')
+        request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False
-        
+
         # ViewSetから設定された場合
-        if hasattr(obj, 'is_member'):
+        if hasattr(obj, "is_member"):
             return obj.is_member
-        
+
         # 直接チェック
-        return GroupMembership.objects.filter(
-            group=obj, user=request.user
-        ).exists()
-    
+        return GroupMembership.objects.filter(group=obj, user=request.user).exists()
+
     @extend_schema_field(OpenApiTypes.STR)
     def get_member_role(self, obj):
         """ユーザーのグループでの役割"""
-        request = self.context.get('request')
+        request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return None
-        
+
         # ViewSetから設定された場合
-        if hasattr(obj, 'member_role'):
+        if hasattr(obj, "member_role"):
             return obj.member_role
-        
+
         # 直接チェック
-        membership = GroupMembership.objects.filter(
-            group=obj, user=request.user
-        ).first()
+        membership = GroupMembership.objects.filter(group=obj, user=request.user).first()
         return membership.role if membership else None
 
 
 class GroupInvitationSerializer(serializers.ModelSerializer):
-    inviter_detail = PublicUserSerializer(source='inviter', read_only=True)
-    invitee_detail = PublicUserSerializer(source='invitee', read_only=True)
-    group_detail = GroupSerializer(source='group', read_only=True)
+    inviter_detail = PublicUserSerializer(source="inviter", read_only=True)
+    invitee_detail = PublicUserSerializer(source="invitee", read_only=True)
+    group_detail = GroupSerializer(source="group", read_only=True)
     expires_at = serializers.SerializerMethodField()
     is_expired = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = GroupInvitation
-        fields = ['id', 'group', 'group_detail', 'inviter', 'inviter_detail', 
-                 'invitee', 'invitee_detail', 'status', 'message', 'created_at', 'responded_at',
-                 'expires_at', 'is_expired']
-        read_only_fields = ['id', 'inviter', 'created_at', 'responded_at', 'expires_at', 'is_expired']
+        fields = [
+            "id",
+            "group",
+            "group_detail",
+            "inviter",
+            "inviter_detail",
+            "invitee",
+            "invitee_detail",
+            "status",
+            "message",
+            "created_at",
+            "responded_at",
+            "expires_at",
+            "is_expired",
+        ]
+        read_only_fields = ["id", "inviter", "created_at", "responded_at", "expires_at", "is_expired"]
 
     @extend_schema_field(OpenApiTypes.DATETIME)
     def get_expires_at(self, obj):
@@ -203,125 +231,194 @@ class GroupInvitationSerializer(serializers.ModelSerializer):
 
 
 class FriendDetailSerializer(serializers.ModelSerializer):
-    friend_detail = PublicUserSerializer(source='friend', read_only=True)
-    
+    friend_detail = PublicUserSerializer(source="friend", read_only=True)
+
     class Meta:
         model = Friend
-        fields = ['id', 'friend', 'friend_detail', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = ["id", "friend", "friend_detail", "created_at"]
+        read_only_fields = ["id", "created_at"]
 
 
 # キャラクターシート関連のシリアライザー
 
+
 class CharacterSkillSerializer(serializers.ModelSerializer):
     """キャラクタースキルシリアライザー"""
+
     class Meta:
         model = CharacterSkill
         fields = [
-            'id', 'skill_name', 'base_value', 'occupation_points', 
-            'interest_points', 'other_points', 'current_value'
+            "id",
+            "skill_name",
+            "base_value",
+            "occupation_points",
+            "interest_points",
+            "other_points",
+            "current_value",
         ]
-        read_only_fields = ['id', 'current_value']
+        read_only_fields = ["id", "current_value"]
 
 
 class CharacterEquipmentSerializer(serializers.ModelSerializer):
     """キャラクター装備シリアライザー"""
+
     equipment_type = serializers.CharField(write_only=True, required=False)
     armor_value = serializers.IntegerField(write_only=True, required=False)
 
     def to_internal_value(self, data):
         payload = data.copy()
-        if 'equipment_type' in payload and 'item_type' not in payload:
-            payload['item_type'] = payload.get('equipment_type')
-        if 'armor_value' in payload and 'armor_points' not in payload:
-            payload['armor_points'] = payload.get('armor_value')
+        if "equipment_type" in payload and "item_type" not in payload:
+            payload["item_type"] = payload.get("equipment_type")
+        if "armor_value" in payload and "armor_points" not in payload:
+            payload["armor_points"] = payload.get("armor_value")
         return super().to_internal_value(payload)
 
     class Meta:
         model = CharacterEquipment
         fields = [
-            'id', 'item_type', 'name', 'skill_name', 'damage', 'base_range',
-            'attacks_per_round', 'ammo', 'malfunction_number', 'armor_points',
-            'description', 'quantity', 'weight', 'equipment_type', 'armor_value'
+            "id",
+            "item_type",
+            "name",
+            "skill_name",
+            "damage",
+            "base_range",
+            "attacks_per_round",
+            "ammo",
+            "malfunction_number",
+            "armor_points",
+            "description",
+            "quantity",
+            "weight",
+            "equipment_type",
+            "armor_value",
         ]
-        read_only_fields = ['id']
+        read_only_fields = ["id"]
 
 
 class CharacterSheet6thSerializer(serializers.ModelSerializer):
     """6版固有データシリアライザー"""
+
     class Meta:
         model = CharacterSheet6th
-        fields = [
-            'mental_disorder', 'idea_roll', 'luck_roll', 'know_roll', 'damage_bonus'
-        ]
-        read_only_fields = ['idea_roll', 'luck_roll', 'know_roll', 'damage_bonus']
-
-
+        fields = ["mental_disorder", "idea_roll", "luck_roll", "know_roll", "damage_bonus"]
+        read_only_fields = ["idea_roll", "luck_roll", "know_roll", "damage_bonus"]
 
 
 class CharacterSheetSerializer(serializers.ModelSerializer):
     """キャラクターシートメインシリアライザー"""
+
     # 関連データ
     skills = CharacterSkillSerializer(many=True, read_only=True)
     equipment = CharacterEquipmentSerializer(many=True, read_only=True)
-    
+
     # 版別データ
     sixth_edition_data = CharacterSheet6thSerializer(read_only=True)
     character_6th = serializers.SerializerMethodField()
     character_7th = serializers.SerializerMethodField()
     background_info = serializers.SerializerMethodField()
-    
+
     # 計算済みフィールド
     abilities = serializers.DictField(read_only=True)
-    
+
     # バージョン関連
     versions = serializers.SerializerMethodField()
-    parent_sheet_name = serializers.CharField(source='parent_sheet.name', read_only=True)
-    
+    parent_sheet_name = serializers.CharField(source="parent_sheet.name", read_only=True)
+
     # ユーザー情報
-    user_nickname = serializers.CharField(source='user.nickname', read_only=True)
+    user_nickname = serializers.CharField(source="user.nickname", read_only=True)
     allowed_user_ids = serializers.PrimaryKeyRelatedField(
-        source='allowed_users',
+        source="allowed_users",
         queryset=CustomUser.objects.all(),
         many=True,
         required=False,
     )
 
-    scenario_id = serializers.IntegerField(source='source_scenario_id', read_only=True)
-    scenario_title = serializers.CharField(source='source_scenario_title', read_only=True)
-    game_system = serializers.CharField(source='source_scenario_game_system', read_only=True)
-    
+    scenario_id = serializers.IntegerField(source="source_scenario_id", read_only=True)
+    scenario_title = serializers.CharField(source="source_scenario_title", read_only=True)
+    game_system = serializers.CharField(source="source_scenario_game_system", read_only=True)
+
     # エイリアスフィールド（テスト互換性のため）
-    hp_current = serializers.IntegerField(source='hit_points_current')
-    mp_current = serializers.IntegerField(source='magic_points_current')
-    san_current = serializers.IntegerField(source='sanity_current')
-    
+    hp_current = serializers.IntegerField(source="hit_points_current")
+    mp_current = serializers.IntegerField(source="magic_points_current")
+    san_current = serializers.IntegerField(source="sanity_current")
+
     class Meta:
         model = CharacterSheet
         fields = [
-            'id', 'edition', 'name', 'player_name', 'age', 'gender', 'occupation',
-            'birthplace', 'residence', 'recommended_skills', 'occupation_skills', 'scenario_id', 'scenario_title', 'game_system',
-            'str_value', 'con_value', 'pow_value',
-            'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
-            'hit_points_max', 'hit_points_current', 'magic_points_max',
-            'magic_points_current', 'sanity_starting', 'sanity_max', 'sanity_current',
-            'hp_current', 'mp_current', 'san_current',  # エイリアス追加
-            'version', 'parent_sheet', 'parent_sheet_name',
-            'notes', 'secret_ho_info', 'is_active', 'is_public', 'access_scope', 'allowed_user_ids',
-            'status', 'created_at', 'updated_at',
-            'skills', 'equipment', 'sixth_edition_data', 'character_6th', 'character_7th',
-            'background_info', 'abilities', 'versions', 'user_nickname'
+            "id",
+            "edition",
+            "name",
+            "player_name",
+            "age",
+            "gender",
+            "occupation",
+            "birthplace",
+            "residence",
+            "recommended_skills",
+            "occupation_skills",
+            "scenario_id",
+            "scenario_title",
+            "game_system",
+            "str_value",
+            "con_value",
+            "pow_value",
+            "dex_value",
+            "app_value",
+            "siz_value",
+            "int_value",
+            "edu_value",
+            "hit_points_max",
+            "hit_points_current",
+            "magic_points_max",
+            "magic_points_current",
+            "sanity_starting",
+            "sanity_max",
+            "sanity_current",
+            "hp_current",
+            "mp_current",
+            "san_current",  # エイリアス追加
+            "version",
+            "parent_sheet",
+            "parent_sheet_name",
+            "notes",
+            "secret_ho_info",
+            "is_active",
+            "access_scope",
+            "allowed_user_ids",
+            "status",
+            "created_at",
+            "updated_at",
+            "skills",
+            "equipment",
+            "sixth_edition_data",
+            "character_6th",
+            "character_7th",
+            "background_info",
+            "abilities",
+            "versions",
+            "user_nickname",
         ]
         read_only_fields = [
-            'id', 'user', 'hit_points_max', 'magic_points_max', 'sanity_starting',
-            'sanity_max', 'created_at', 'updated_at', 'abilities', 'versions',
-            'user_nickname', 'character_6th', 'character_7th', 'background_info'
+            "id",
+            "user",
+            "hit_points_max",
+            "magic_points_max",
+            "sanity_starting",
+            "sanity_max",
+            "created_at",
+            "updated_at",
+            "abilities",
+            "versions",
+            "user_nickname",
+            "character_6th",
+            "character_7th",
+            "background_info",
         ]
 
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_character_6th(self, obj):
         """詳細画面互換用の6版固有データ"""
-        if obj.edition != '6th':
+        if obj.edition != "6th":
             return None
         try:
             return CharacterSheet6thSerializer(obj.sixth_edition_data).data
@@ -331,26 +428,26 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_character_7th(self, obj):
         """7版固有の計算済みデータ"""
-        if obj.edition != '7th':
+        if obj.edition != "7th":
             return None
 
         return {
-            'damage_bonus': obj.calculate_damage_bonus_7th(),
-            'build': obj.calculate_build_7th(),
-            'move_rate': obj.calculate_move_rate_7th(),
-            'dodge': obj.get_7th_skill_base_value('回避'),
-            'max_luck': obj.pow_value,
-            'current_luck': obj.pow_value,
-            'occupation_points': obj.calculate_occupation_points(),
-            'interest_points': obj.calculate_hobby_points(),
-            'personal_description': '',
-            'ideology_beliefs': '',
-            'significant_people': '',
-            'meaningful_locations': '',
-            'treasured_possessions': '',
-            'traits': '',
-            'injuries_scars': '',
-            'phobias_manias': '',
+            "damage_bonus": obj.calculate_damage_bonus_7th(),
+            "build": obj.calculate_build_7th(),
+            "move_rate": obj.calculate_move_rate_7th(),
+            "dodge": obj.get_7th_skill_base_value("回避"),
+            "max_luck": obj.pow_value,
+            "current_luck": obj.pow_value,
+            "occupation_points": obj.calculate_occupation_points(),
+            "interest_points": obj.calculate_hobby_points(),
+            "personal_description": "",
+            "ideology_beliefs": "",
+            "significant_people": "",
+            "meaningful_locations": "",
+            "treasured_possessions": "",
+            "traits": "",
+            "injuries_scars": "",
+            "phobias_manias": "",
         }
 
     @extend_schema_field(OpenApiTypes.OBJECT)
@@ -360,39 +457,39 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             background = obj.background_info
         except AttributeError:
             return {
-                'appearance_description': '',
-                'beliefs_ideology': '',
-                'significant_people': '',
-                'meaningful_locations': '',
-                'treasured_possessions': '',
-                'traits_mannerisms': '',
-                'personal_history': '',
-                'important_events': '',
-                'scars_injuries': '',
-                'phobias_manias': '',
-                'arcane_tomes_spells_artifacts': '',
-                'encounters_with_strange_entities': '',
-                'fellow_investigators': '',
-                'notes_memo': '',
+                "appearance_description": "",
+                "beliefs_ideology": "",
+                "significant_people": "",
+                "meaningful_locations": "",
+                "treasured_possessions": "",
+                "traits_mannerisms": "",
+                "personal_history": "",
+                "important_events": "",
+                "scars_injuries": "",
+                "phobias_manias": "",
+                "arcane_tomes_spells_artifacts": "",
+                "encounters_with_strange_entities": "",
+                "fellow_investigators": "",
+                "notes_memo": "",
             }
 
         return {
-            'appearance_description': background.appearance_description,
-            'beliefs_ideology': background.beliefs_ideology,
-            'significant_people': background.significant_people,
-            'meaningful_locations': background.meaningful_locations,
-            'treasured_possessions': background.treasured_possessions,
-            'traits_mannerisms': background.traits_mannerisms,
-            'personal_history': background.personal_history,
-            'important_events': background.important_events,
-            'scars_injuries': background.scars_injuries,
-            'phobias_manias': background.phobias_manias,
-            'arcane_tomes_spells_artifacts': background.arcane_tomes_spells_artifacts,
-            'encounters_with_strange_entities': background.encounters_with_strange_entities,
-            'fellow_investigators': background.fellow_investigators,
-            'notes_memo': background.notes_memo,
+            "appearance_description": background.appearance_description,
+            "beliefs_ideology": background.beliefs_ideology,
+            "significant_people": background.significant_people,
+            "meaningful_locations": background.meaningful_locations,
+            "treasured_possessions": background.treasured_possessions,
+            "traits_mannerisms": background.traits_mannerisms,
+            "personal_history": background.personal_history,
+            "important_events": background.important_events,
+            "scars_injuries": background.scars_injuries,
+            "phobias_manias": background.phobias_manias,
+            "arcane_tomes_spells_artifacts": background.arcane_tomes_spells_artifacts,
+            "encounters_with_strange_entities": background.encounters_with_strange_entities,
+            "fellow_investigators": background.fellow_investigators,
+            "notes_memo": background.notes_memo,
         }
-    
+
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_versions(self, obj):
         """このキャラクターのバージョン一覧を返す"""
@@ -402,99 +499,91 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
         else:
             # 親バージョンの場合、自分のバージョン一覧を返す
             base_sheet = obj
-        
-        versions = CharacterSheet.objects.filter(
-            parent_sheet=base_sheet
-        ).order_by('version')
-        
+
+        versions = CharacterSheet.objects.filter(parent_sheet=base_sheet).order_by("version")
+
         # 親バージョンも含める
         all_versions = [base_sheet] + list(versions)
-        
+
         return [
-            {
-                'id': v.id,
-                'version': v.version,
-                'name': v.name,
-                'updated_at': v.updated_at,
-                'is_current': v.id == obj.id
-            }
+            {"id": v.id, "version": v.version, "name": v.name, "updated_at": v.updated_at, "is_current": v.id == obj.id}
             for v in all_versions
         ]
-    
+
     def validate_age(self, value):
         """年齢のバリデーション"""
         if value < 15 or value > 90:
             raise serializers.ValidationError("年齢は15歳から90歳の間で設定してください。")
         return value
-    
+
     def validate(self, data):
         """能力値の総合バリデーション"""
         # 能力値の合計チェック（新規作成時のみ）
         if not self.instance:  # 新規作成時
             ability_sum = (
-                data.get('str_value', 0) + data.get('con_value', 0) +
-                data.get('pow_value', 0) + data.get('dex_value', 0) +
-                data.get('app_value', 0) + data.get('siz_value', 0) +
-                data.get('int_value', 0) + data.get('edu_value', 0)
+                data.get("str_value", 0)
+                + data.get("con_value", 0)
+                + data.get("pow_value", 0)
+                + data.get("dex_value", 0)
+                + data.get("app_value", 0)
+                + data.get("siz_value", 0)
+                + data.get("int_value", 0)
+                + data.get("edu_value", 0)
             )
-            
+
             # 一般的な3d6×5の合計値チェック（420±50程度）
             if ability_sum < 320 or ability_sum > 520:
-                raise serializers.ValidationError(
-                    "能力値の合計が異常です。適切な値を設定してください。"
-                )
-        
+                raise serializers.ValidationError("能力値の合計が異常です。適切な値を設定してください。")
+
         return data
-    
+
     def create(self, validated_data):
         """キャラクターシート作成"""
         # 現在のユーザーを設定
-        validated_data['user'] = self.context['request'].user
-        
+        validated_data["user"] = self.context["request"].user
+
         # 同名キャラクター対応 - ユニークIDで管理、名前の重複は許可
         # バージョン番号は常に1から開始（独立したキャラクターとして扱う）
-        validated_data['version'] = 1
-        validated_data['parent_sheet'] = None
-        
+        validated_data["version"] = 1
+        validated_data["parent_sheet"] = None
+
         return super().create(validated_data)
 
 
 class CharacterSheetCreateSerializer(serializers.ModelSerializer):
     """キャラクターシート作成専用シリアライザー"""
+
     # 版別データ
     sixth_edition_data = CharacterSheet6thSerializer(required=False)
 
     recommended_skills = JSONListField(child=serializers.CharField(), required=False)
     occupation_skills = JSONListField(child=serializers.CharField(), required=False)
     scenario_id = serializers.PrimaryKeyRelatedField(
-        source='source_scenario',
-        queryset=Scenario.objects.all(),
-        required=False,
-        allow_null=True
+        source="source_scenario", queryset=Scenario.objects.all(), required=False, allow_null=True
     )
-    scenario_title = serializers.CharField(source='source_scenario_title', required=False, allow_blank=True)
-    game_system = serializers.CharField(source='source_scenario_game_system', required=False, allow_blank=True)
-    
+    scenario_title = serializers.CharField(source="source_scenario_title", required=False, allow_blank=True)
+    game_system = serializers.CharField(source="source_scenario_game_system", required=False, allow_blank=True)
+
     # スキルデータ
     skills = CharacterSkillSerializer(many=True, required=False)
-    
+
     # 装備データ
     equipment = CharacterEquipmentSerializer(many=True, required=False)
-    
+
     # 現在値フィールドをオプショナルに
     hit_points_current = serializers.IntegerField(required=False)
     magic_points_current = serializers.IntegerField(required=False)
     sanity_current = serializers.IntegerField(required=False)
-    
+
     # 画像フィールド
     character_image = serializers.ImageField(required=False, validators=[validate_character_image])
     allowed_user_ids = serializers.PrimaryKeyRelatedField(
-        source='allowed_users',
+        source="allowed_users",
         queryset=CustomUser.objects.all(),
         many=True,
         required=False,
     )
-    
+
     # 能力値フィールドをカスタムバリデーションに
     str_value = serializers.IntegerField()
     con_value = serializers.IntegerField()
@@ -504,124 +593,156 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
     siz_value = serializers.IntegerField()
     int_value = serializers.IntegerField()
     edu_value = serializers.IntegerField()
-    
+
     class Meta:
         model = CharacterSheet
         fields = [
-            'id', 'edition', 'name', 'player_name', 'age', 'gender', 'occupation',
-            'birthplace', 'residence', 'recommended_skills', 'occupation_skills', 'scenario_id', 'scenario_title', 'game_system',
-            'str_value', 'con_value', 'pow_value',
-            'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
-            'hit_points_current', 'magic_points_current', 'sanity_current',
-            'notes', 'secret_ho_info', 'is_public', 'access_scope', 'allowed_user_ids', 'sixth_edition_data',
-            'skills', 'equipment', 'character_image'
+            "id",
+            "edition",
+            "name",
+            "player_name",
+            "age",
+            "gender",
+            "occupation",
+            "birthplace",
+            "residence",
+            "recommended_skills",
+            "occupation_skills",
+            "scenario_id",
+            "scenario_title",
+            "game_system",
+            "str_value",
+            "con_value",
+            "pow_value",
+            "dex_value",
+            "app_value",
+            "siz_value",
+            "int_value",
+            "edu_value",
+            "hit_points_current",
+            "magic_points_current",
+            "sanity_current",
+            "notes",
+            "secret_ho_info",
+            "access_scope",
+            "allowed_user_ids",
+            "sixth_edition_data",
+            "skills",
+            "equipment",
+            "character_image",
         ]
-        read_only_fields = ['id']
-    
+        read_only_fields = ["id"]
+
     def validate(self, data):
         """版別のバリデーション"""
-        edition = data.get('edition')
-        
+        edition = data.get("edition")
+
         # 能力値制限を削除 - ユーザーの自由度を最大化
         # 6版・7版問わず、1-999の範囲で自由に設定可能
-        
+
         # 基本的な妥当性チェックのみ実施
-        for field in ['str_value', 'con_value', 'pow_value', 'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value']:
+        for field in [
+            "str_value",
+            "con_value",
+            "pow_value",
+            "dex_value",
+            "app_value",
+            "siz_value",
+            "int_value",
+            "edu_value",
+        ]:
             value = data.get(field)
             if value is not None:
                 if value < 1 or value > 999:
-                    raise serializers.ValidationError({
-                        field: "能力値は1から999の間で設定してください。"
-                    })
-        
+                    raise serializers.ValidationError({field: "能力値は1から999の間で設定してください。"})
+
         return data
-    
+
     def create(self, validated_data):
         """キャラクターシート作成（関連データも含む）"""
         import logging
+
         logger = logging.getLogger(__name__)
-        
+
         # 関連データを分離
-        sixth_data = validated_data.pop('sixth_edition_data', None)
-        skills_data = validated_data.pop('skills', [])
-        equipment_data = validated_data.pop('equipment', [])
-        allowed_users = validated_data.pop('allowed_users', [])
-        
+        sixth_data = validated_data.pop("sixth_edition_data", None)
+        skills_data = validated_data.pop("skills", [])
+        equipment_data = validated_data.pop("equipment", [])
+        allowed_users = validated_data.pop("allowed_users", [])
+
         # リクエストオブジェクトから追加データを取得
-        request = self.context.get('request')
-        
+        request = self.context.get("request")
+
         # デバッグ情報
-        logger.info(f"受信した能力値データ: str={validated_data.get('str_value')}, con={validated_data.get('con_value')}")
+        logger.info(
+            f"受信した能力値データ: str={validated_data.get('str_value')}, con={validated_data.get('con_value')}"
+        )
         logger.info(f"validated_data keys: {list(validated_data.keys())}")
         if request:
             logger.info(f"request.data keys: {list(request.data.keys())}")
             logger.info(f"skills_data in request: {'skills_data' in request.data}")
-        
+
         # 6版固有データ処理
-        if validated_data.get('edition') == '6th':
+        if validated_data.get("edition") == "6th":
             if not sixth_data:
                 sixth_data = {}
             # mental_disorder を直接リクエストから取得
-            if request and 'mental_disorder' in request.data:
-                sixth_data['mental_disorder'] = request.data.get('mental_disorder', '')
+            if request and "mental_disorder" in request.data:
+                sixth_data["mental_disorder"] = request.data.get("mental_disorder", "")
             else:
-                sixth_data.setdefault('mental_disorder', '')
-        
+                sixth_data.setdefault("mental_disorder", "")
+
         # フロントエンドからのスキルデータを処理
-        if request and 'skills_data' in request.data:
+        if request and "skills_data" in request.data:
             import json
+
             try:
-                skills_json = request.data.get('skills_data')
+                skills_json = request.data.get("skills_data")
                 if skills_json:
                     skills_data = json.loads(skills_json)
                     logger.info(f"パースしたスキルデータ数: {len(skills_data)}")
             except (json.JSONDecodeError, TypeError) as e:
                 logger.error(f"スキルデータのパースエラー: {e}")
                 pass  # JSONデコードエラーの場合はスキップ
-        
+
         # 6版と7版で同じ値の扱いにする（変換なし）
         # データベースには入力された値をそのまま保存
-        
+
         # 派生ステータスを計算して設定
-        if validated_data.get('edition') == '6th':
+        if validated_data.get("edition") == "6th":
             # 6版の計算式
             import math
-            hp_max = math.ceil((validated_data.get('con_value', 10) + validated_data.get('siz_value', 10)) / 2)
-            mp_max = validated_data.get('pow_value', 10)
-            san_start = validated_data.get('pow_value', 10) * 5
+
+            hp_max = math.ceil((validated_data.get("con_value", 10) + validated_data.get("siz_value", 10)) / 2)
+            mp_max = validated_data.get("pow_value", 10)
+            san_start = validated_data.get("pow_value", 10) * 5
             san_max = 99  # 99 - クトゥルフ神話技能（初期値0）
         else:
             # 7版の計算式（将来的に実装）
-            hp_max = (validated_data.get('con_value', 50) + validated_data.get('siz_value', 50)) // 10
-            mp_max = validated_data.get('pow_value', 50) // 5
-            san_start = validated_data.get('pow_value', 50)
+            hp_max = (validated_data.get("con_value", 50) + validated_data.get("siz_value", 50)) // 10
+            mp_max = validated_data.get("pow_value", 50) // 5
+            san_start = validated_data.get("pow_value", 50)
             san_max = 99  # 99 - クトゥルフ神話技能（初期値0）
-        
+
         # 派生ステータスを設定
-        validated_data['hit_points_max'] = hp_max
-        validated_data['hit_points_current'] = validated_data.get('hit_points_current', hp_max)
-        validated_data['magic_points_max'] = mp_max
-        validated_data['magic_points_current'] = validated_data.get('magic_points_current', mp_max)
-        validated_data['sanity_starting'] = san_start
-        validated_data['sanity_max'] = san_max
-        validated_data['sanity_current'] = validated_data.get('sanity_current', san_start)
-        
+        validated_data["hit_points_max"] = hp_max
+        validated_data["hit_points_current"] = validated_data.get("hit_points_current", hp_max)
+        validated_data["magic_points_max"] = mp_max
+        validated_data["magic_points_current"] = validated_data.get("magic_points_current", mp_max)
+        validated_data["sanity_starting"] = san_start
+        validated_data["sanity_max"] = san_max
+        validated_data["sanity_current"] = validated_data.get("sanity_current", san_start)
+
         # 現在のユーザーを設定
-        validated_data['user'] = self.context['request'].user
-        
+        validated_data["user"] = self.context["request"].user
+
         # 同名キャラクターが存在する場合、バージョン番号を調整
-        existing_chars = CharacterSheet.objects.filter(
-            user=validated_data['user'],
-            name=validated_data['name']
-        )
-        
+        existing_chars = CharacterSheet.objects.filter(user=validated_data["user"], name=validated_data["name"])
+
         if existing_chars.exists():
-            latest_version = existing_chars.order_by('-version').first().version
-            validated_data['version'] = latest_version + 1
-            validated_data['parent_sheet'] = existing_chars.order_by('version').first()
-        
-        if 'access_scope' in validated_data:
-            validated_data['is_public'] = validated_data['access_scope'] == 'public'
+            latest_version = existing_chars.order_by("-version").first().version
+            validated_data["version"] = latest_version + 1
+            validated_data["parent_sheet"] = existing_chars.order_by("version").first()
 
         # キャラクターシート作成
         try:
@@ -633,258 +754,280 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             logger.error(f"キャラクターシート作成エラー: {e}")
             logger.error(f"作成時のvalidated_data: {validated_data}")
             raise
-        
+
         # 版別データ作成
-        if character_sheet.edition == '6th' and sixth_data:
-            CharacterSheet6th.objects.create(
-                character_sheet=character_sheet,
-                **sixth_data
-            )
-        
+        if character_sheet.edition == "6th" and sixth_data:
+            CharacterSheet6th.objects.create(character_sheet=character_sheet, **sixth_data)
+
         # スキルデータ作成
         created_skills = []
         for skill_data in skills_data:
             try:
-                skill = CharacterSkill.objects.create(
-                    character_sheet=character_sheet,
-                    **skill_data
-                )
+                skill = CharacterSkill.objects.create(character_sheet=character_sheet, **skill_data)
                 created_skills.append(skill)
             except Exception as e:
                 logger.error(f"スキル作成エラー: {e}, データ: {skill_data}")
-        
+
         logger.info(f"作成されたスキル数: {len(created_skills)}")
-        
+
         # 装備データ作成
         for equipment_data_item in equipment_data:
-            CharacterEquipment.objects.create(
-                character_sheet=character_sheet,
-                **equipment_data_item
-            )
-        
+            CharacterEquipment.objects.create(character_sheet=character_sheet, **equipment_data_item)
+
         return character_sheet
 
 
 class CharacterSheetListSerializer(serializers.ModelSerializer):
     """キャラクターシート一覧表示用シリアライザー"""
-    user_nickname = serializers.CharField(source='user.nickname', read_only=True)
+
+    user_nickname = serializers.CharField(source="user.nickname", read_only=True)
     skill_count = serializers.SerializerMethodField()
     equipment_count = serializers.SerializerMethodField()
     latest_version = serializers.SerializerMethodField()
-    
+
     # HP/MP/SAN値を追加
-    max_hp = serializers.IntegerField(source='hit_points_max', read_only=True)
-    current_hp = serializers.IntegerField(source='hit_points_current', read_only=True)
-    max_mp = serializers.IntegerField(source='magic_points_max', read_only=True)
-    current_mp = serializers.IntegerField(source='magic_points_current', read_only=True)
-    max_san = serializers.IntegerField(source='sanity_max', read_only=True)
-    current_san = serializers.IntegerField(source='sanity_current', read_only=True)
-    
+    max_hp = serializers.IntegerField(source="hit_points_max", read_only=True)
+    current_hp = serializers.IntegerField(source="hit_points_current", read_only=True)
+    max_mp = serializers.IntegerField(source="magic_points_max", read_only=True)
+    current_mp = serializers.IntegerField(source="magic_points_current", read_only=True)
+    max_san = serializers.IntegerField(source="sanity_max", read_only=True)
+    current_san = serializers.IntegerField(source="sanity_current", read_only=True)
+
     class Meta:
         model = CharacterSheet
         fields = [
-            'id', 'edition', 'name', 'player_name', 'age', 'occupation', 'status',
-            'version', 'character_image', 'is_active', 'created_at', 'updated_at',
-            'user_nickname', 'skill_count', 'equipment_count', 'latest_version',
-            'max_hp', 'current_hp', 'max_mp', 'current_mp', 'max_san', 'current_san'
+            "id",
+            "edition",
+            "name",
+            "player_name",
+            "age",
+            "occupation",
+            "status",
+            "version",
+            "character_image",
+            "is_active",
+            "created_at",
+            "updated_at",
+            "user_nickname",
+            "skill_count",
+            "equipment_count",
+            "latest_version",
+            "max_hp",
+            "current_hp",
+            "max_mp",
+            "current_mp",
+            "max_san",
+            "current_san",
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
-    
+        read_only_fields = ["id", "created_at", "updated_at"]
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_skill_count(self, obj):
         """スキル数を返す"""
-        annotated = getattr(obj, 'skill_count', None)
+        annotated = getattr(obj, "skill_count", None)
         if annotated is not None:
             return annotated
         return obj.skills.count()
-    
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_equipment_count(self, obj):
         """装備数を返す"""
-        annotated = getattr(obj, 'equipment_count', None)
+        annotated = getattr(obj, "equipment_count", None)
         if annotated is not None:
             return annotated
         return obj.equipment.count()
-    
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_latest_version(self, obj):
         """最新バージョン番号を返す"""
-        annotated = getattr(obj, 'latest_version', None)
+        annotated = getattr(obj, "latest_version", None)
         if annotated is not None:
             return annotated
         if obj.parent_sheet:
             base_sheet = obj.parent_sheet
         else:
             base_sheet = obj
-        
-        latest = CharacterSheet.objects.filter(
-            parent_sheet=base_sheet
-        ).order_by('-version').first()
-        
+
+        latest = CharacterSheet.objects.filter(parent_sheet=base_sheet).order_by("-version").first()
+
         if latest:
             return latest.version
         return base_sheet.version
-    
+
     def to_representation(self, instance):
         """シリアライズ時にメイン画像を追加"""
         data = super().to_representation(instance)
-        
+
         # 新しい画像システムのメイン画像を取得
         try:
             main_image = instance.images.filter(is_main=True).first()
             if main_image:
-                request = self.context.get('request')
+                request = self.context.get("request")
                 if request:
-                    data['character_image'] = request.build_absolute_uri(main_image.image.url)
+                    data["character_image"] = request.build_absolute_uri(main_image.image.url)
             elif instance.images.exists():
                 # メイン画像が設定されていない場合は最初の画像を使用
-                first_image = instance.images.order_by('order', 'created_at').first()
+                first_image = instance.images.order_by("order", "created_at").first()
                 if first_image:
-                    request = self.context.get('request')
+                    request = self.context.get("request")
                     if request:
-                        data['character_image'] = request.build_absolute_uri(first_image.image.url)
+                        data["character_image"] = request.build_absolute_uri(first_image.image.url)
         except Exception as e:
             # エラーが発生した場合は元のcharacter_imageフィールドを使用
             pass
-        
+
         return data
 
 
 class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
     """キャラクターシート更新用シリアライザー"""
+
     # エイリアスフィールド（テスト互換性のため）
-    hp_current = serializers.IntegerField(source='hit_points_current', required=False)
-    mp_current = serializers.IntegerField(source='magic_points_current', required=False)
-    san_current = serializers.IntegerField(source='sanity_current', required=False)
+    hp_current = serializers.IntegerField(source="hit_points_current", required=False)
+    mp_current = serializers.IntegerField(source="magic_points_current", required=False)
+    san_current = serializers.IntegerField(source="sanity_current", required=False)
     recommended_skills = JSONListField(child=serializers.CharField(), required=False)
     occupation_skills = JSONListField(child=serializers.CharField(), required=False)
     scenario_id = serializers.PrimaryKeyRelatedField(
-        source='source_scenario',
-        queryset=Scenario.objects.all(),
-        required=False,
-        allow_null=True
+        source="source_scenario", queryset=Scenario.objects.all(), required=False, allow_null=True
     )
-    scenario_title = serializers.CharField(source='source_scenario_title', required=False, allow_blank=True)
-    game_system = serializers.CharField(source='source_scenario_game_system', required=False, allow_blank=True)
+    scenario_title = serializers.CharField(source="source_scenario_title", required=False, allow_blank=True)
+    game_system = serializers.CharField(source="source_scenario_game_system", required=False, allow_blank=True)
     character_image = serializers.ImageField(required=False, validators=[validate_character_image])
     allowed_user_ids = serializers.PrimaryKeyRelatedField(
-        source='allowed_users',
+        source="allowed_users",
         queryset=CustomUser.objects.all(),
         many=True,
         required=False,
     )
-    
+
     class Meta:
         model = CharacterSheet
         fields = [
-            'name', 'player_name', 'age', 'gender', 'occupation',
-            'birthplace', 'residence', 'recommended_skills', 'occupation_skills', 'scenario_id', 'scenario_title', 'game_system',
-            'str_value', 'con_value', 'pow_value',
-            'dex_value', 'app_value', 'siz_value', 'int_value', 'edu_value',
-            'hit_points_current', 'magic_points_current', 'sanity_current',
-            'hp_current', 'mp_current', 'san_current',  # エイリアス追加
-            'notes', 'secret_ho_info', 'is_active', 'access_scope', 'allowed_user_ids', 'status',
-            'character_image'
+            "name",
+            "player_name",
+            "age",
+            "gender",
+            "occupation",
+            "birthplace",
+            "residence",
+            "recommended_skills",
+            "occupation_skills",
+            "scenario_id",
+            "scenario_title",
+            "game_system",
+            "str_value",
+            "con_value",
+            "pow_value",
+            "dex_value",
+            "app_value",
+            "siz_value",
+            "int_value",
+            "edu_value",
+            "hit_points_current",
+            "magic_points_current",
+            "sanity_current",
+            "hp_current",
+            "mp_current",
+            "san_current",  # エイリアス追加
+            "notes",
+            "secret_ho_info",
+            "is_active",
+            "access_scope",
+            "allowed_user_ids",
+            "status",
+            "character_image",
         ]
-    
+
     def validate_name(self, value):
         """名前の重複チェック（同一ユーザー内）"""
         if self.instance and self.instance.name != value:
-            existing = CharacterSheet.objects.filter(
-                user=self.instance.user,
-                name=value
-            ).exclude(id=self.instance.id)
-            
+            existing = CharacterSheet.objects.filter(user=self.instance.user, name=value).exclude(id=self.instance.id)
+
             if existing.exists():
-                raise serializers.ValidationError(
-                    "同じ名前のキャラクターが既に存在します。"
-                )
+                raise serializers.ValidationError("同じ名前のキャラクターが既に存在します。")
         return value
-    
+
     def update(self, instance, validated_data):
         """更新処理（画像削除対応）"""
         ability_fields = {
-            'str_value', 'con_value', 'pow_value', 'dex_value',
-            'app_value', 'siz_value', 'int_value', 'edu_value', 'age',
+            "str_value",
+            "con_value",
+            "pow_value",
+            "dex_value",
+            "app_value",
+            "siz_value",
+            "int_value",
+            "edu_value",
+            "age",
         }
         current_fields = {
-            'hit_points_current', 'magic_points_current', 'sanity_current',
+            "hit_points_current",
+            "magic_points_current",
+            "sanity_current",
         }
         old_stats = instance.calculate_derived_stats()
         old_current = {
-            'hit_points_current': instance.hit_points_current,
-            'magic_points_current': instance.magic_points_current,
-            'sanity_current': instance.sanity_current,
+            "hit_points_current": instance.hit_points_current,
+            "magic_points_current": instance.magic_points_current,
+            "sanity_current": instance.sanity_current,
         }
         old_auto_current = {
-            'hit_points_current': old_stats['hit_points_max'],
-            'magic_points_current': old_stats['magic_points_max'],
-            'sanity_current': old_stats['sanity_starting'],
+            "hit_points_current": old_stats["hit_points_max"],
+            "magic_points_current": old_stats["magic_points_max"],
+            "sanity_current": old_stats["sanity_starting"],
         }
         recalculation_needed = any(
-            field in validated_data and getattr(instance, field) != validated_data[field]
-            for field in ability_fields
+            field in validated_data and getattr(instance, field) != validated_data[field] for field in ability_fields
         )
         explicitly_supplied_current = current_fields.intersection(validated_data.keys())
 
         # リクエストから削除フラグをチェック
-        request = self.context.get('request')
-        delete_image = request.data.get('delete_image') == 'true' if request else False
-        
+        request = self.context.get("request")
+        delete_image = request.data.get("delete_image") == "true" if request else False
+
         # 画像削除フラグが設定されている場合
         if delete_image:
             if instance.character_image:
                 instance.character_image.delete(save=False)
-            validated_data['character_image'] = None
-        elif 'character_image' in validated_data:
+            validated_data["character_image"] = None
+        elif "character_image" in validated_data:
             # 通常の画像更新処理
-            new_image = validated_data['character_image']
+            new_image = validated_data["character_image"]
             # 空文字列が渡された場合は画像を削除
-            if new_image == '' or new_image is None:
+            if new_image == "" or new_image is None:
                 if instance.character_image:
                     instance.character_image.delete(save=False)
-                validated_data['character_image'] = None
+                validated_data["character_image"] = None
 
-        if 'access_scope' in validated_data:
-            validated_data['is_public'] = validated_data['access_scope'] == 'public'
-        
         updated = super().update(instance, validated_data)
 
         if recalculation_needed:
             new_stats = updated.calculate_derived_stats()
-            updated.hit_points_max = new_stats['hit_points_max']
-            updated.magic_points_max = new_stats['magic_points_max']
-            updated.sanity_starting = new_stats['sanity_starting']
-            updated.sanity_max = new_stats['sanity_max']
+            updated.hit_points_max = new_stats["hit_points_max"]
+            updated.magic_points_max = new_stats["magic_points_max"]
+            updated.sanity_starting = new_stats["sanity_starting"]
+            updated.sanity_max = new_stats["sanity_max"]
 
-            if (
-                old_current['hit_points_current'] == old_auto_current['hit_points_current']
-                and (
-                    'hit_points_current' not in explicitly_supplied_current
-                    or validated_data.get('hit_points_current') == old_auto_current['hit_points_current']
-                )
+            if old_current["hit_points_current"] == old_auto_current["hit_points_current"] and (
+                "hit_points_current" not in explicitly_supplied_current
+                or validated_data.get("hit_points_current") == old_auto_current["hit_points_current"]
             ):
-                updated.hit_points_current = new_stats['hit_points_max']
-            if (
-                old_current['magic_points_current'] == old_auto_current['magic_points_current']
-                and (
-                    'magic_points_current' not in explicitly_supplied_current
-                    or validated_data.get('magic_points_current') == old_auto_current['magic_points_current']
-                )
+                updated.hit_points_current = new_stats["hit_points_max"]
+            if old_current["magic_points_current"] == old_auto_current["magic_points_current"] and (
+                "magic_points_current" not in explicitly_supplied_current
+                or validated_data.get("magic_points_current") == old_auto_current["magic_points_current"]
             ):
-                updated.magic_points_current = new_stats['magic_points_max']
-            if (
-                old_current['sanity_current'] == old_auto_current['sanity_current']
-                and (
-                    'sanity_current' not in explicitly_supplied_current
-                    or validated_data.get('sanity_current') == old_auto_current['sanity_current']
-                )
+                updated.magic_points_current = new_stats["magic_points_max"]
+            if old_current["sanity_current"] == old_auto_current["sanity_current"] and (
+                "sanity_current" not in explicitly_supplied_current
+                or validated_data.get("sanity_current") == old_auto_current["sanity_current"]
             ):
-                updated.sanity_current = new_stats['sanity_starting']
+                updated.sanity_current = new_stats["sanity_starting"]
 
             updated.save()
 
-            if updated.edition == '6th':
+            if updated.edition == "6th":
                 sixth_data = updated.sheet_6th
                 if sixth_data:
                     sixth_data.save()
@@ -898,83 +1041,93 @@ class CharacterDiceRollSettingSerializer(serializers.ModelSerializer):
     class Meta:
         model = CharacterDiceRollSetting
         fields = [
-            'id', 'setting_name', 'description', 'is_default',
-            'str_dice_count', 'str_dice_sides', 'str_bonus',
-            'con_dice_count', 'con_dice_sides', 'con_bonus',
-            'pow_dice_count', 'pow_dice_sides', 'pow_bonus',
-            'dex_dice_count', 'dex_dice_sides', 'dex_bonus',
-            'app_dice_count', 'app_dice_sides', 'app_bonus',
-            'siz_dice_count', 'siz_dice_sides', 'siz_bonus',
-            'int_dice_count', 'int_dice_sides', 'int_bonus',
-            'edu_dice_count', 'edu_dice_sides', 'edu_bonus',
-            'created_at', 'updated_at'
+            "id",
+            "setting_name",
+            "description",
+            "is_default",
+            "str_dice_count",
+            "str_dice_sides",
+            "str_bonus",
+            "con_dice_count",
+            "con_dice_sides",
+            "con_bonus",
+            "pow_dice_count",
+            "pow_dice_sides",
+            "pow_bonus",
+            "dex_dice_count",
+            "dex_dice_sides",
+            "dex_bonus",
+            "app_dice_count",
+            "app_dice_sides",
+            "app_bonus",
+            "siz_dice_count",
+            "siz_dice_sides",
+            "siz_bonus",
+            "int_dice_count",
+            "int_dice_sides",
+            "int_bonus",
+            "edu_dice_count",
+            "edu_dice_sides",
+            "edu_bonus",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class CharacterImageSerializer(serializers.ModelSerializer):
     """キャラクター画像シリアライザー"""
-    image = serializers.ImageField(
-        error_messages={
-            'invalid_image': '画像ファイルをアップロードしてください。'
-        }
-    )
+
+    image = serializers.ImageField(error_messages={"invalid_image": "画像ファイルをアップロードしてください。"})
     image_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = CharacterImage
-        fields = [
-            'id', 'image', 'image_url', 'thumbnail_url', 
-            'is_main', 'order', 'uploaded_at'
-        ]
-        read_only_fields = ['id', 'uploaded_at', 'image_url', 'thumbnail_url']
-    
+        fields = ["id", "image", "image_url", "thumbnail_url", "is_main", "order", "uploaded_at"]
+        read_only_fields = ["id", "uploaded_at", "image_url", "thumbnail_url"]
+
     @extend_schema_field(OpenApiTypes.URI)
     def get_image_url(self, obj):
         """画像のフルURLを返す"""
         if obj.image:
-            request = self.context.get('request')
+            request = self.context.get("request")
             if request:
                 return request.build_absolute_uri(obj.image.url)
             return obj.image.url
         return None
-    
+
     @extend_schema_field(OpenApiTypes.URI)
     def get_thumbnail_url(self, obj):
         """サムネイルURLを返す（現時点では元画像と同じ）"""
         # TODO: 実際のサムネイル生成機能を実装
         return self.get_image_url(obj)
-    
+
     def validate_image(self, value):
         """画像ファイルのバリデーション"""
         if not value:
             raise serializers.ValidationError("画像ファイルは必須です。")
-        
+
         # 既存のバリデーション関数を使用
         return validate_character_image(value)
-    
+
     def validate(self, attrs):
         """追加バリデーション"""
-        character_sheet = self.context.get('character_sheet')
+        character_sheet = self.context.get("character_sheet")
         if not character_sheet:
             raise serializers.ValidationError("キャラクターシートが指定されていません。")
-        
+
         # 画像数制限チェック（通常2枚、プレミアム10枚まで）
-        existing_count = CharacterImage.objects.filter(
-            character_sheet=character_sheet
-        ).count()
-        
+        existing_count = CharacterImage.objects.filter(character_sheet=character_sheet).count()
+
         if self.instance:
             # 更新の場合は現在の画像を除外
             existing_count -= 1
-        
+
         limit = get_character_image_limit_for_sheet(character_sheet)
         if existing_count + 1 > limit:
-            raise serializers.ValidationError(
-                character_image_limit_error_message(limit)
-            )
-        
+            raise serializers.ValidationError(character_image_limit_error_message(limit))
+
         # 総容量制限チェック（30MB）
         def estimate_size(image_file):
             size = image_file.size
@@ -995,133 +1148,139 @@ class CharacterImageSerializer(serializers.ModelSerializer):
         for img in CharacterImage.objects.filter(character_sheet=character_sheet):
             if img.image and img != self.instance:
                 total_size += estimate_size(img.image)
-        
-        new_image = attrs.get('image')
+
+        new_image = attrs.get("image")
         if new_image:
             total_size += estimate_size(new_image)
-        
+
         max_total_size = 30 * 1024 * 1024  # 30MB
         if total_size > max_total_size:
-            raise serializers.ValidationError(
-                f"総容量が30MBを超えています。現在: {total_size / 1024 / 1024:.1f}MB"
-            )
-        
+            raise serializers.ValidationError(f"総容量が30MBを超えています。現在: {total_size / 1024 / 1024:.1f}MB")
+
         # メイン画像の一意性チェック
-        if attrs.get('is_main', False):
-            existing_main = CharacterImage.objects.filter(
-                character_sheet=character_sheet,
-                is_main=True
-            ).exclude(pk=self.instance.pk if self.instance else None)
-            
+        if attrs.get("is_main", False):
+            existing_main = CharacterImage.objects.filter(character_sheet=character_sheet, is_main=True).exclude(
+                pk=self.instance.pk if self.instance else None
+            )
+
             if existing_main.exists():
                 # 既存のメイン画像をFalseに更新
                 existing_main.update(is_main=False)
-        
+
         return attrs
-    
+
     def create(self, validated_data):
         """画像作成時の処理"""
-        character_sheet = self.context.get('character_sheet')
-        validated_data['character_sheet'] = character_sheet
-        
+        character_sheet = self.context.get("character_sheet")
+        validated_data["character_sheet"] = character_sheet
+
         # 順序番号の自動設定
-        if 'order' not in validated_data:
-            max_order = CharacterImage.objects.filter(
-                character_sheet=character_sheet
-            ).aggregate(max_order=models.Max('order'))['max_order']
-            validated_data['order'] = (max_order or -1) + 1
-        
+        if "order" not in validated_data:
+            max_order = CharacterImage.objects.filter(character_sheet=character_sheet).aggregate(
+                max_order=models.Max("order")
+            )["max_order"]
+            validated_data["order"] = (max_order or -1) + 1
+
         return super().create(validated_data)
 
 
 class SkillGrowthRecordSerializer(serializers.ModelSerializer):
     """スキル成長記録のシリアライザー"""
-    
+
     class Meta:
         model = SkillGrowthRecord
         fields = [
-            'id', 'skill_name', 'had_experience_check', 'growth_roll_result',
-            'old_value', 'new_value', 'growth_amount', 'notes'
+            "id",
+            "skill_name",
+            "had_experience_check",
+            "growth_roll_result",
+            "old_value",
+            "new_value",
+            "growth_amount",
+            "notes",
         ]
-        read_only_fields = ['id', 'growth_amount']
-    
+        read_only_fields = ["id", "growth_amount"]
+
     def validate(self, attrs):
         """スキル成長のバリデーション"""
-        old_value = attrs.get('old_value', 0)
-        new_value = attrs.get('new_value', 0)
-        
+        old_value = attrs.get("old_value", 0)
+        new_value = attrs.get("new_value", 0)
+
         # 新しい値が古い値以上であることを確認
         if new_value < old_value:
-            raise serializers.ValidationError(
-                "新しい値は古い値以上である必要があります。"
-            )
-        
+            raise serializers.ValidationError("新しい値は古い値以上である必要があります。")
+
         # 成長量を自動計算
-        attrs['growth_amount'] = new_value - old_value
-        
+        attrs["growth_amount"] = new_value - old_value
+
         return attrs
 
 
 class GrowthRecordSerializer(serializers.ModelSerializer):
     """成長記録のシリアライザー"""
+
     skill_growths = SkillGrowthRecordSerializer(many=True, read_only=True)
     net_sanity_change = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = GrowthRecord
         fields = [
-            'id', 'session_date', 'scenario_name', 'gm_name',
-            'sanity_gained', 'sanity_lost', 'net_sanity_change',
-            'experience_gained', 'special_rewards', 'notes',
-            'skill_growths', 'created_at', 'updated_at'
+            "id",
+            "session_date",
+            "scenario_name",
+            "gm_name",
+            "sanity_gained",
+            "sanity_lost",
+            "net_sanity_change",
+            "experience_gained",
+            "special_rewards",
+            "notes",
+            "skill_growths",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'net_sanity_change']
-    
+        read_only_fields = ["id", "created_at", "updated_at", "net_sanity_change"]
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_net_sanity_change(self, obj):
         """SAN値の正味変化を返す"""
         return obj.calculate_net_sanity_change()
-    
+
     def validate(self, attrs):
         """成長記録のバリデーション"""
         # SAN値の妥当性チェック
-        sanity_gained = attrs.get('sanity_gained', 0)
-        sanity_lost = attrs.get('sanity_lost', 0)
-        
+        sanity_gained = attrs.get("sanity_gained", 0)
+        sanity_lost = attrs.get("sanity_lost", 0)
+
         if sanity_gained < 0 or sanity_gained > 99:
-            raise serializers.ValidationError(
-                "獲得SAN値は0から99の範囲である必要があります。"
-            )
-        
+            raise serializers.ValidationError("獲得SAN値は0から99の範囲である必要があります。")
+
         if sanity_lost < 0 or sanity_lost > 99:
-            raise serializers.ValidationError(
-                "喪失SAN値は0から99の範囲である必要があります。"
-            )
-        
+            raise serializers.ValidationError("喪失SAN値は0から99の範囲である必要があります。")
+
         return attrs
 
 
 class GrowthRecordCreateSerializer(GrowthRecordSerializer):
     """成長記録作成用のシリアライザー"""
+
     skill_growths = SkillGrowthRecordSerializer(many=True, required=False)
-    
+
     def create(self, validated_data):
         """成長記録とスキル成長を同時に作成"""
-        skill_growths_data = validated_data.pop('skill_growths', [])
+        skill_growths_data = validated_data.pop("skill_growths", [])
         growth_record = GrowthRecord.objects.create(**validated_data)
-        
+
         # スキル成長記録を作成
         for skill_growth_data in skill_growths_data:
-            SkillGrowthRecord.objects.create(
-                growth_record=growth_record,
-                **skill_growth_data
-            )
-        
+            SkillGrowthRecord.objects.create(growth_record=growth_record, **skill_growth_data)
+
         return growth_record
 
 
 class UserDetailSerializer(serializers.ModelSerializer):
     """管理者用ユーザー詳細シリアライザー"""
+
     group_count = serializers.SerializerMethodField()
     character_count = serializers.SerializerMethodField()
     gm_session_count = serializers.SerializerMethodField()
@@ -1129,52 +1288,68 @@ class UserDetailSerializer(serializers.ModelSerializer):
     oauth_providers = serializers.SerializerMethodField()
     last_login_formatted = serializers.SerializerMethodField()
     date_joined_formatted = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = CustomUser
         fields = [
-            'id', 'username', 'email', 'nickname', 'first_name', 'last_name',
-            'is_active', 'is_staff', 'is_superuser', 'last_login', 'date_joined',
-            'trpg_history', 'profile_image', 'group_count', 'character_count',
-            'gm_session_count', 'player_session_count', 'oauth_providers',
-            'last_login_formatted', 'date_joined_formatted'
+            "id",
+            "username",
+            "email",
+            "nickname",
+            "first_name",
+            "last_name",
+            "is_active",
+            "is_staff",
+            "is_superuser",
+            "last_login",
+            "date_joined",
+            "trpg_history",
+            "profile_image",
+            "group_count",
+            "character_count",
+            "gm_session_count",
+            "player_session_count",
+            "oauth_providers",
+            "last_login_formatted",
+            "date_joined_formatted",
         ]
-        read_only_fields = ['id', 'last_login', 'date_joined']
-    
+        read_only_fields = ["id", "last_login", "date_joined"]
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_group_count(self, obj):
         """参加グループ数"""
         return obj.groupmembership_set.count()
-    
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_character_count(self, obj):
         """作成キャラクター数"""
         return obj.character_sheets.filter(is_active=True).count()
-    
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_gm_session_count(self, obj):
         """GMとして開催したセッション数"""
         return obj.gm_sessions.count()
-    
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_player_session_count(self, obj):
         """プレイヤーとして参加したセッション数"""
         return obj.sessionparticipant_set.count()
-    
+
     @extend_schema_field(serializers.ListField(child=serializers.CharField()))
     def get_oauth_providers(self, obj):
         """連携済みOAuth"""
         from allauth.socialaccount.models import SocialAccount
+
         social_accounts = SocialAccount.objects.filter(user=obj)
         return [account.provider for account in social_accounts]
-    
+
     @extend_schema_field(OpenApiTypes.STR)
     def get_last_login_formatted(self, obj):
         """最終ログイン日時（フォーマット済み）"""
         if obj.last_login:
             return obj.last_login.strftime("%Y年%m月%d日 %H:%M")
         return "未ログイン"
-    
+
     @extend_schema_field(OpenApiTypes.STR)
     def get_date_joined_formatted(self, obj):
         """登録日時（フォーマット済み）"""

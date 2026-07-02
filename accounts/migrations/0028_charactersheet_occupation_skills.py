@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0027_customuser_trpg_introduction_sheet'),
+        ("accounts", "0027_customuser_trpg_introduction_sheet"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='charactersheet',
-            name='occupation_skills',
-            field=models.JSONField(blank=True, default=list, verbose_name='職業技能'),
+            model_name="charactersheet",
+            name="occupation_skills",
+            field=models.JSONField(blank=True, default=list, verbose_name="職業技能"),
         ),
     ]

@@ -3,10 +3,12 @@
 Twitter/X OAuth設定スクリプト
 django-allauthのSocialAppを設定します
 """
+
+import argparse
 import os
 import sys
-import argparse
 from pathlib import Path
+
 import django
 
 REPO_ROOT = Path(__file__).resolve().parent
@@ -18,53 +20,55 @@ def _ensure_default_env_file():
 
     The Django settings loader only reads an env file when `ENV_FILE` is set.
     """
-    if os.environ.get('ENV_FILE'):
+    if os.environ.get("ENV_FILE"):
         return
-    for candidate in ('.env.development', '.env'):
+    for candidate in (".env.development", ".env"):
         env_path = REPO_ROOT / candidate
         if env_path.exists():
-            os.environ['ENV_FILE'] = str(env_path)
+            os.environ["ENV_FILE"] = str(env_path)
             return
 
 
 _ensure_default_env_file()
 
 # Django設定を読み込み
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tableno.settings")
 django.setup()
 
+from allauth.socialaccount.models import SocialApp
 from django.conf import settings as django_settings
 from django.contrib.sites.models import Site
-from allauth.socialaccount.models import SocialApp
 
 # 環境変数から認証情報を取得
-TWITTER_CLIENT_ID = getattr(django_settings, 'TWITTER_CLIENT_ID', '')
-TWITTER_CLIENT_SECRET = getattr(django_settings, 'TWITTER_CLIENT_SECRET', '')
-DEFAULT_SITE_DOMAIN = os.environ.get('SITE_DOMAIN', '127.0.0.1:8000')
-DEFAULT_SITE_NAME = os.environ.get('SITE_NAME', 'タブレノ (Local Development)')
+TWITTER_CLIENT_ID = getattr(django_settings, "TWITTER_CLIENT_ID", "")
+TWITTER_CLIENT_SECRET = getattr(django_settings, "TWITTER_CLIENT_SECRET", "")
+DEFAULT_SITE_DOMAIN = os.environ.get("SITE_DOMAIN", "127.0.0.1:8000")
+DEFAULT_SITE_NAME = os.environ.get("SITE_NAME", "タブレノ (Local Development)")
+
 
 def default_scheme(domain: str) -> str:
-    if domain.startswith('localhost') or domain.startswith('127.0.0.1'):
-        return 'http'
-    return 'https'
+    if domain.startswith("localhost") or domain.startswith("127.0.0.1"):
+        return "http"
+    return "https"
+
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='X (Twitter) OAuth設定スクリプト')
+    parser = argparse.ArgumentParser(description="X (Twitter) OAuth設定スクリプト")
     parser.add_argument(
-        '--domain',
+        "--domain",
         default=DEFAULT_SITE_DOMAIN,
-        help='django.contrib.sites のドメイン (例: 127.0.0.1:8000, your-ngrok-domain.ngrok-free.dev)',
+        help="django.contrib.sites のドメイン (例: 127.0.0.1:8000, your-ngrok-domain.ngrok-free.dev)",
     )
     parser.add_argument(
-        '--scheme',
-        choices=['http', 'https'],
+        "--scheme",
+        choices=["http", "https"],
         default=None,
-        help='コールバックURLのスキーム (未指定ならドメインから推測)',
+        help="コールバックURLのスキーム (未指定ならドメインから推測)",
     )
     parser.add_argument(
-        '--name',
+        "--name",
         default=DEFAULT_SITE_NAME,
-        help='Siteの表示名',
+        help="Siteの表示名",
     )
     args = parser.parse_args()
     if args.scheme is None:
@@ -104,7 +108,7 @@ def setup_twitter_oauth(site_domain: str, site_name: str, site_scheme: str):
     # 既存のTwitter Appを確認
     print("\n[2/3] X (Twitter) SocialApp設定を確認中...")
     try:
-        twitter_app = SocialApp.objects.get(provider='twitter_oauth2')
+        twitter_app = SocialApp.objects.get(provider="twitter_oauth2")
         print("  X (Twitter) SocialAppが既に存在します")
         print(f"  Client ID: {twitter_app.client_id[:20]}...")
         print("  Secret: ******************** (セキュリティのため非表示)")
@@ -127,10 +131,7 @@ def setup_twitter_oauth(site_domain: str, site_name: str, site_scheme: str):
 
         # Twitter Social Appを作成
         twitter_app = SocialApp.objects.create(
-            provider='twitter_oauth2',
-            name='X',
-            client_id=client_id,
-            secret=client_secret
+            provider="twitter_oauth2", name="X", client_id=client_id, secret=client_secret
         )
         twitter_app.sites.add(site)
         print("  [OK] X (Twitter) SocialAppを作成しました")
@@ -152,6 +153,6 @@ def setup_twitter_oauth(site_domain: str, site_name: str, site_scheme: str):
     print(f"   {base_url}/accounts/twitter_oauth2/login/callback/")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = parse_args()
     setup_twitter_oauth(args.domain, args.name, args.scheme)

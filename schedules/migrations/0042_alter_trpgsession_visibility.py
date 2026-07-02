@@ -6,13 +6,22 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('schedules', '0041_remove_sessiontemplate_group_and_more'),
+        ("schedules", "0041_remove_sessiontemplate_group_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='trpgsession',
-            name='visibility',
-            field=models.CharField(choices=[('private', 'プライベート'), ('group', 'グループ内'), ('link', 'リンク共有'), ('public', '公開')], default='group', max_length=10),
+            model_name="trpgsession",
+            name="visibility",
+            field=models.CharField(
+                choices=[
+                    ("private", "プライベート"),
+                    ("group", "グループ内"),
+                    ("link", "リンク共有"),
+                    ("public", "公開"),
+                ],
+                default="group",
+                max_length=10,
+            ),
         ),
     ]

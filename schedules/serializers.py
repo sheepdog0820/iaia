@@ -1,61 +1,74 @@
-from rest_framework import serializers
+from datetime import datetime
+from datetime import time as time_cls
+
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
-from django.core.exceptions import ValidationError as DjangoValidationError
-from .models import (
-    TRPGSession,
-    SessionOccurrence,
-    SessionParticipant,
-    SessionInvitation,
-    SessionReward,
-    HandoutInfo,
-    HandoutAttachment,
-    HandoutNotification,
-    UserNotificationPreferences,
-    SessionImage,
-    SessionYouTubeLink,
-    # 高度なスケジューリング機能（ISSUE-017）
-    SessionSeries,
-    SessionAvailability,
+from rest_framework import serializers
+
+from accounts.models import CustomUser, Group
+from accounts.serializers import PublicUserSerializer, validate_character_image
+from scenarios.access import can_view_scenario
+from scenarios.models import Scenario
+from schedules.handout_access import can_view_handout
+
+from .models import (  # 高度なスケジューリング機能（ISSUE-017）
     DatePoll,
+    DatePollComment,
     DatePollOption,
     DatePollVote,
-    DatePollComment,
+    HandoutAttachment,
+    HandoutInfo,
+    HandoutNotification,
+    SessionAvailability,
+    SessionImage,
+    SessionInvitation,
+    SessionOccurrence,
+    SessionParticipant,
+    SessionReward,
+    SessionSeries,
+    SessionYouTubeLink,
+    TRPGSession,
+    UserNotificationPreferences,
 )
-from accounts.serializers import PublicUserSerializer, validate_character_image
-from accounts.models import CustomUser, Group
-from scenarios.models import Scenario
-from scenarios.access import can_view_scenario
-from schedules.handout_access import can_view_handout
-from django.utils import timezone
-from datetime import datetime, time as time_cls
 
 
 class NullableIntegerField(serializers.IntegerField):
     """空文字をnullとして扱えるIntegerField（フォーム送信対策）"""
 
     def to_internal_value(self, data):
-        if data == '':
+        if data == "":
             data = None
         return super().to_internal_value(data)
 
 
 class SessionImageSerializer(serializers.ModelSerializer):
     """セッション画像シリアライザー"""
-    uploaded_by_detail = PublicUserSerializer(source='uploaded_by', read_only=True)
+
+    uploaded_by_detail = PublicUserSerializer(source="uploaded_by", read_only=True)
     image_url = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = SessionImage
-        fields = ['id', 'image', 'image_url', 'title', 'description', 
-                 'order', 'uploaded_by', 'uploaded_by_detail', 
-                 'created_at', 'updated_at']
-        read_only_fields = ['id', 'uploaded_by', 'created_at', 'updated_at']
+        fields = [
+            "id",
+            "image",
+            "image_url",
+            "title",
+            "description",
+            "order",
+            "uploaded_by",
+            "uploaded_by_detail",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "uploaded_by", "created_at", "updated_at"]
 
     @extend_schema_field(OpenApiTypes.URI)
     def get_image_url(self, obj):
         if obj.image:
-            request = self.context.get('request')
+            request = self.context.get("request")
             if request:
                 return request.build_absolute_uri(obj.image.url)
             return obj.image.url
@@ -67,211 +80,242 @@ class SessionImageSerializer(serializers.ModelSerializer):
 
 class SessionYouTubeLinkSerializer(serializers.ModelSerializer):
     """セッションYouTube動画リンクシリアライザー"""
-    added_by_detail = PublicUserSerializer(source='added_by', read_only=True)
+
+    added_by_detail = PublicUserSerializer(source="added_by", read_only=True)
     part_number = NullableIntegerField(min_value=1, required=False, allow_null=True)
     duration_display = serializers.CharField(read_only=True)
-    
+
     class Meta:
         model = SessionYouTubeLink
-        fields = ['id', 'youtube_url', 'video_id', 'title', 'duration_seconds',
-                 'duration_display', 'channel_name', 'thumbnail_url', 'description',
-                 'perspective', 'part_number', 'order', 'added_by', 'added_by_detail',
-                 'created_at', 'updated_at']
-        read_only_fields = ['id', 'video_id', 'title', 'duration_seconds', 
-                           'channel_name', 'thumbnail_url', 'added_by', 
-                           'created_at', 'updated_at']
+        fields = [
+            "id",
+            "youtube_url",
+            "video_id",
+            "title",
+            "duration_seconds",
+            "duration_display",
+            "channel_name",
+            "thumbnail_url",
+            "description",
+            "perspective",
+            "part_number",
+            "order",
+            "added_by",
+            "added_by_detail",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "video_id",
+            "title",
+            "duration_seconds",
+            "channel_name",
+            "thumbnail_url",
+            "added_by",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class SessionParticipantSerializer(serializers.ModelSerializer):
-    user_detail = PublicUserSerializer(source='user', read_only=True)
+    user_detail = PublicUserSerializer(source="user", read_only=True)
     character_sheet_detail = serializers.SerializerMethodField()
     display_name = serializers.CharField(read_only=True)
-     
+
     class Meta:
         model = SessionParticipant
         fields = [
-            'id',
-            'session',
-            'user',
-            'user_detail',
-            'participant_identity',
-            'guest_name',
-            'display_name',
-            'role',
-            'character_name',
-            'character_sheet_url',
-            'player_slot',
-            'character_sheet',
-            'character_sheet_detail',
+            "id",
+            "session",
+            "user",
+            "user_detail",
+            "participant_identity",
+            "guest_name",
+            "display_name",
+            "role",
+            "character_name",
+            "character_sheet_url",
+            "player_slot",
+            "character_sheet",
+            "character_sheet_detail",
         ]
-        read_only_fields = ['id']
+        read_only_fields = ["id"]
 
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_character_sheet_detail(self, obj):
         if obj.character_sheet:
             return {
-                'id': obj.character_sheet.id,
-                'name': obj.character_sheet.name,
-                'occupation': obj.character_sheet.occupation,
-                'age': obj.character_sheet.age,
-                'hp_current': obj.character_sheet.hp_current,
-                'mp_current': obj.character_sheet.mp_current,
-                'san_current': obj.character_sheet.san_current,
-                'hit_points_current': obj.character_sheet.hit_points_current,
-                'magic_points_current': obj.character_sheet.magic_points_current,
-                'sanity_current': obj.character_sheet.sanity_current
+                "id": obj.character_sheet.id,
+                "name": obj.character_sheet.name,
+                "occupation": obj.character_sheet.occupation,
+                "age": obj.character_sheet.age,
+                "hp_current": obj.character_sheet.hp_current,
+                "mp_current": obj.character_sheet.mp_current,
+                "san_current": obj.character_sheet.san_current,
+                "hit_points_current": obj.character_sheet.hit_points_current,
+                "magic_points_current": obj.character_sheet.magic_points_current,
+                "sanity_current": obj.character_sheet.sanity_current,
             }
         return None
 
     def validate(self, attrs):
-        user = attrs.get('user')
-        guest_name = attrs.get('guest_name')
-        role = attrs.get('role')
-        character_sheet = attrs.get('character_sheet')
+        user = attrs.get("user")
+        guest_name = attrs.get("guest_name")
+        role = attrs.get("role")
+        character_sheet = attrs.get("character_sheet")
 
         if self.instance is not None:
-            if 'user' not in attrs:
+            if "user" not in attrs:
                 user = self.instance.user
-            if 'guest_name' not in attrs:
+            if "guest_name" not in attrs:
                 guest_name = self.instance.guest_name
-            if 'role' not in attrs:
+            if "role" not in attrs:
                 role = self.instance.role
-            if 'character_sheet' not in attrs:
+            if "character_sheet" not in attrs:
                 character_sheet = self.instance.character_sheet
 
-        normalized_guest_name = (guest_name or '').strip()
+        normalized_guest_name = (guest_name or "").strip()
         if not user and not normalized_guest_name:
-            raise serializers.ValidationError({'guest_name': 'guest_name is required when user is empty'})
+            raise serializers.ValidationError({"guest_name": "guest_name is required when user is empty"})
 
         if user and normalized_guest_name:
-            raise serializers.ValidationError({'guest_name': 'guest_name cannot be set when user is present'})
+            raise serializers.ValidationError({"guest_name": "guest_name cannot be set when user is present"})
 
-        if role == 'gm' and not user:
-            raise serializers.ValidationError({'role': 'Guest participant cannot be GM'})
+        if role == "gm" and not user:
+            raise serializers.ValidationError({"role": "Guest participant cannot be GM"})
 
         if character_sheet and not user:
-            raise serializers.ValidationError({'character_sheet': 'Guest participant cannot have character_sheet'})
+            raise serializers.ValidationError({"character_sheet": "Guest participant cannot have character_sheet"})
 
-        if 'guest_name' in attrs:
-            attrs['guest_name'] = normalized_guest_name
+        if "guest_name" in attrs:
+            attrs["guest_name"] = normalized_guest_name
 
         return attrs
 
 
 class SessionRewardSerializer(serializers.ModelSerializer):
-    session = serializers.IntegerField(source='participant.session_id', read_only=True)
-    session_title = serializers.CharField(source='participant.session.title', read_only=True)
-    participant_detail = SessionParticipantSerializer(source='participant', read_only=True)
-    created_by_detail = PublicUserSerializer(source='created_by', read_only=True)
+    session = serializers.IntegerField(source="participant.session_id", read_only=True)
+    session_title = serializers.CharField(source="participant.session.title", read_only=True)
+    participant_detail = SessionParticipantSerializer(source="participant", read_only=True)
+    created_by_detail = PublicUserSerializer(source="created_by", read_only=True)
 
     class Meta:
         model = SessionReward
         fields = [
-            'id',
-            'session',
-            'session_title',
-            'participant',
-            'participant_detail',
-            'created_by',
-            'created_by_detail',
-            'experience_points',
-            'special_rewards',
-            'notes',
-            'applied_growth_record',
-            'applied_at',
-            'created_at',
-            'updated_at',
+            "id",
+            "session",
+            "session_title",
+            "participant",
+            "participant_detail",
+            "created_by",
+            "created_by_detail",
+            "experience_points",
+            "special_rewards",
+            "notes",
+            "applied_growth_record",
+            "applied_at",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = [
-            'id',
-            'session',
-            'session_title',
-            'participant_detail',
-            'created_by',
-            'created_by_detail',
-            'applied_growth_record',
-            'applied_at',
-            'created_at',
-            'updated_at',
+            "id",
+            "session",
+            "session_title",
+            "participant_detail",
+            "created_by",
+            "created_by_detail",
+            "applied_growth_record",
+            "applied_at",
+            "created_at",
+            "updated_at",
         ]
 
     def validate_participant(self, participant):
         if self.instance and participant != self.instance.participant:
-            raise serializers.ValidationError('participant cannot be changed')
+            raise serializers.ValidationError("participant cannot be changed")
         return participant
 
 
 class HandoutInfoSerializer(serializers.ModelSerializer):
     participant = serializers.PrimaryKeyRelatedField(
-        queryset=SessionParticipant.objects.all(),
-        required=False,
-        allow_null=True
+        queryset=SessionParticipant.objects.all(), required=False, allow_null=True
     )
-    participant_detail = SessionParticipantSerializer(source='participant', read_only=True)
-    recipient = serializers.PrimaryKeyRelatedField(
-        queryset=CustomUser.objects.all(),
-        write_only=True,
-        required=False
-    )
-    
+    participant_detail = SessionParticipantSerializer(source="participant", read_only=True)
+    recipient = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all(), write_only=True, required=False)
+
     class Meta:
         model = HandoutInfo
-        fields = ['id', 'session', 'participant', 'participant_detail', 
-                 'code', 'name', 'title', 'content', 'recommended_skills', 'is_secret', 'handout_number',
-                 'assigned_player_slot', 'release_conditions', 'release_status',
-                 'order', 'next_evaluation_at', 'released_at', 'created_at', 'updated_at',
-                 'recipient']
+        fields = [
+            "id",
+            "session",
+            "participant",
+            "participant_detail",
+            "code",
+            "name",
+            "title",
+            "content",
+            "recommended_skills",
+            "is_secret",
+            "handout_number",
+            "assigned_player_slot",
+            "release_conditions",
+            "release_status",
+            "order",
+            "next_evaluation_at",
+            "released_at",
+            "created_at",
+            "updated_at",
+            "recipient",
+        ]
         read_only_fields = [
-            'id', 'release_status', 'next_evaluation_at', 'released_at',
-            'created_at', 'updated_at',
+            "id",
+            "release_status",
+            "next_evaluation_at",
+            "released_at",
+            "created_at",
+            "updated_at",
         ]
 
     def validate(self, attrs):
-        recipient = attrs.pop('recipient', None)
-        participant = attrs.get('participant')
-        session = attrs.get('session')
+        recipient = attrs.pop("recipient", None)
+        participant = attrs.get("participant")
+        session = attrs.get("session")
 
         if recipient and not participant:
             if not session:
-                raise serializers.ValidationError({'session': 'session is required when using recipient'})
-            participant = SessionParticipant.objects.filter(
-                session=session,
-                user=recipient
-            ).first()
+                raise serializers.ValidationError({"session": "session is required when using recipient"})
+            participant = SessionParticipant.objects.filter(session=session, user=recipient).first()
             if not participant:
-                raise serializers.ValidationError({'recipient': 'Recipient is not a participant in this session'})
-            attrs['participant'] = participant
+                raise serializers.ValidationError({"recipient": "Recipient is not a participant in this session"})
+            attrs["participant"] = participant
 
-        if not attrs.get('participant') and not getattr(self.instance, 'participant', None):
-            raise serializers.ValidationError({'participant': 'participant or recipient is required'})
+        if not attrs.get("participant") and not getattr(self.instance, "participant", None):
+            raise serializers.ValidationError({"participant": "participant or recipient is required"})
 
-        session = attrs.get('session') or getattr(self.instance, 'session', None)
-        participant = attrs.get('participant') or getattr(self.instance, 'participant', None)
+        session = attrs.get("session") or getattr(self.instance, "session", None)
+        participant = attrs.get("participant") or getattr(self.instance, "participant", None)
         if session and participant and participant.session_id != session.id:
-            raise serializers.ValidationError(
-                {'participant': 'Participant must belong to the handout session.'}
-            )
+            raise serializers.ValidationError({"participant": "Participant must belong to the handout session."})
         conditions = attrs.get(
-            'release_conditions',
-            getattr(self.instance, 'release_conditions', {}),
+            "release_conditions",
+            getattr(self.instance, "release_conditions", {}),
         )
         if conditions:
             from .handout_release import validate_release_conditions
+
             try:
                 validate_release_conditions(conditions, session, self.instance)
             except DjangoValidationError as exc:
-                raise serializers.ValidationError(
-                    {'release_conditions': exc.messages}
-                ) from exc
+                raise serializers.ValidationError({"release_conditions": exc.messages}) from exc
         return attrs
 
     def _set_release_state(self, instance):
         from .handout_release import get_next_evaluation_at
+
         if instance.release_conditions and instance.is_secret:
             instance.release_status = HandoutInfo.ReleaseStatus.WAITING
-            instance.next_evaluation_at = get_next_evaluation_at(
-                instance.release_conditions
-            )
+            instance.next_evaluation_at = get_next_evaluation_at(instance.release_conditions)
             instance.released_at = None
         elif not instance.is_secret:
             instance.release_status = HandoutInfo.ReleaseStatus.RELEASED
@@ -281,12 +325,14 @@ class HandoutInfoSerializer(serializers.ModelSerializer):
             instance.release_status = HandoutInfo.ReleaseStatus.MANUAL
             instance.released_at = None
             instance.next_evaluation_at = None
-        instance.save(update_fields=[
-            'release_status',
-            'next_evaluation_at',
-            'released_at',
-            'updated_at',
-        ])
+        instance.save(
+            update_fields=[
+                "release_status",
+                "next_evaluation_at",
+                "released_at",
+                "updated_at",
+            ]
+        )
         return instance
 
     def create(self, validated_data):
@@ -299,43 +345,43 @@ class HandoutInfoSerializer(serializers.ModelSerializer):
 class HandoutAttachmentSerializer(serializers.ModelSerializer):
     """ハンドアウト添付ファイルシリアライザー"""
 
-    uploaded_by_detail = PublicUserSerializer(source='uploaded_by', read_only=True)
+    uploaded_by_detail = PublicUserSerializer(source="uploaded_by", read_only=True)
     file_url = serializers.SerializerMethodField()
 
     class Meta:
         model = HandoutAttachment
         fields = [
-            'id',
-            'handout',
-            'file',
-            'file_url',
-            'original_filename',
-            'file_type',
-            'file_size',
-            'content_type',
-            'description',
-            'uploaded_by',
-            'uploaded_by_detail',
-            'created_at',
+            "id",
+            "handout",
+            "file",
+            "file_url",
+            "original_filename",
+            "file_type",
+            "file_size",
+            "content_type",
+            "description",
+            "uploaded_by",
+            "uploaded_by_detail",
+            "created_at",
         ]
         read_only_fields = [
-            'id',
-            'handout',
-            'file_url',
-            'original_filename',
-            'file_type',
-            'file_size',
-            'content_type',
-            'uploaded_by',
-            'uploaded_by_detail',
-            'created_at',
+            "id",
+            "handout",
+            "file_url",
+            "original_filename",
+            "file_type",
+            "file_size",
+            "content_type",
+            "uploaded_by",
+            "uploaded_by_detail",
+            "created_at",
         ]
 
     @extend_schema_field(OpenApiTypes.URI)
     def get_file_url(self, obj):
         if not obj.file:
             return None
-        request = self.context.get('request')
+        request = self.context.get("request")
         if request:
             return request.build_absolute_uri(obj.file.url)
         return obj.file.url
@@ -344,94 +390,100 @@ class HandoutAttachmentSerializer(serializers.ModelSerializer):
 class TRPGSessionSerializer(serializers.ModelSerializer):
     date = serializers.DateTimeField(required=False, allow_null=True)
     effective_duration_minutes = serializers.IntegerField(read_only=True)
-    group_name = serializers.CharField(source='group.name', read_only=True)
-    group = serializers.PrimaryKeyRelatedField(
-        queryset=Group.objects.all(),
-        required=False,
-        allow_null=True
-    )
+    group_name = serializers.CharField(source="group.name", read_only=True)
+    group = serializers.PrimaryKeyRelatedField(queryset=Group.objects.all(), required=False, allow_null=True)
     session_date = serializers.DateField(write_only=True, required=False)
     start_time = serializers.TimeField(write_only=True, required=False)
     estimated_hours = serializers.FloatField(write_only=True, required=False)
     min_players = serializers.IntegerField(write_only=True, required=False)
     max_players = serializers.IntegerField(write_only=True, required=False)
-    gm_detail = PublicUserSerializer(source='gm', read_only=True)
-    created_by_detail = PublicUserSerializer(source='created_by', read_only=True)
-    scenario = serializers.PrimaryKeyRelatedField(
-        queryset=Scenario.objects.all(),
-        required=False,
-        allow_null=True
-    )
+    gm_detail = PublicUserSerializer(source="gm", read_only=True)
+    created_by_detail = PublicUserSerializer(source="created_by", read_only=True)
+    scenario = serializers.PrimaryKeyRelatedField(queryset=Scenario.objects.all(), required=False, allow_null=True)
     scenario_detail = serializers.SerializerMethodField()
     participants = serializers.SerializerMethodField()
-    participants_detail = SessionParticipantSerializer(
-        source='sessionparticipant_set', 
-        many=True, 
-        read_only=True
-    )
-    handouts_detail = HandoutInfoSerializer(
-        source='handouts', 
-        many=True, 
-        read_only=True
-    )
-    images_detail = SessionImageSerializer(
-        source='images',
-        many=True,
-        read_only=True
-    )
-    youtube_links_detail = SessionYouTubeLinkSerializer(
-        source='youtube_links',
-        many=True,
-        read_only=True
-    )
+    participants_detail = SessionParticipantSerializer(source="sessionparticipant_set", many=True, read_only=True)
+    handouts_detail = HandoutInfoSerializer(source="handouts", many=True, read_only=True)
+    images_detail = SessionImageSerializer(source="images", many=True, read_only=True)
+    youtube_links_detail = SessionYouTubeLinkSerializer(source="youtube_links", many=True, read_only=True)
     participant_count = serializers.SerializerMethodField()
     guest_count = serializers.SerializerMethodField()
     youtube_total_duration = serializers.IntegerField(read_only=True)
     youtube_total_duration_display = serializers.CharField(read_only=True)
     youtube_video_count = serializers.IntegerField(read_only=True)
-    
+
     class Meta:
         model = TRPGSession
-        fields = ['id', 'title', 'description', 'date', 'location', 
-                 'youtube_url', 'status', 'visibility', 'gm', 'gm_detail',
-                 'created_by', 'created_by_detail',
-                 'group', 'group_name', 'scenario', 'coc_edition', 'scenario_detail', 'duration_minutes', 'actual_duration_minutes', 'effective_duration_minutes', 'participants', 'participants_detail',
-                 'handouts_detail', 'images_detail', 'youtube_links_detail',
-                 'participant_count', 'guest_count', 'youtube_total_duration', 
-                 'youtube_total_duration_display', 'youtube_video_count',
-                 'created_at', 'updated_at', 'session_date', 'start_time',
-                 'estimated_hours', 'min_players', 'max_players']
-        read_only_fields = ['id', 'gm', 'created_by', 'created_at', 'updated_at']
+        fields = [
+            "id",
+            "title",
+            "description",
+            "date",
+            "location",
+            "youtube_url",
+            "status",
+            "visibility",
+            "gm",
+            "gm_detail",
+            "created_by",
+            "created_by_detail",
+            "group",
+            "group_name",
+            "scenario",
+            "coc_edition",
+            "scenario_detail",
+            "duration_minutes",
+            "actual_duration_minutes",
+            "effective_duration_minutes",
+            "participants",
+            "participants_detail",
+            "handouts_detail",
+            "images_detail",
+            "youtube_links_detail",
+            "participant_count",
+            "guest_count",
+            "youtube_total_duration",
+            "youtube_total_duration_display",
+            "youtube_video_count",
+            "created_at",
+            "updated_at",
+            "session_date",
+            "start_time",
+            "estimated_hours",
+            "min_players",
+            "max_players",
+        ]
+        read_only_fields = ["id", "gm", "created_by", "created_at", "updated_at"]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        request = self.context.get('request')
-        user = getattr(request, 'user', None)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
         visible_handouts = [
             handout
             for handout in instance.handouts.select_related(
-                'participant',
-                'participant__user',
+                "participant",
+                "participant__user",
             )
             if can_view_handout(handout, user)
         ]
-        data['handouts_detail'] = HandoutInfoSerializer(
+        data["handouts_detail"] = HandoutInfoSerializer(
             visible_handouts,
             many=True,
             context=self.context,
         ).data
         return data
-    
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_participant_count(self, obj):
         return obj.participants.count()
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_guest_count(self, obj):
-        annotated_value = getattr(obj, 'guest_count', None)
+        annotated_value = getattr(obj, "guest_count", None)
         if isinstance(annotated_value, int):
             return annotated_value
-        prefetched_participants = getattr(obj, '_prefetched_objects_cache', {}).get('sessionparticipant_set')
+        prefetched_participants = getattr(obj, "_prefetched_objects_cache", {}).get("sessionparticipant_set")
         if prefetched_participants is not None:
             return sum(1 for p in prefetched_participants if p.user_id is None)
         return obj.sessionparticipant_set.filter(user__isnull=True).count()
@@ -441,20 +493,20 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         if not obj.scenario:
             return None
         return {
-            'id': obj.scenario.id,
-            'title': obj.scenario.title,
-            'game_system': obj.scenario.game_system,
-            'recommended_skills': obj.scenario.recommended_skills,
-            'semi_recommended_skills': obj.scenario.semi_recommended_skills,
-            'recommended_skill_items': [
+            "id": obj.scenario.id,
+            "title": obj.scenario.title,
+            "game_system": obj.scenario.game_system,
+            "recommended_skills": obj.scenario.recommended_skills,
+            "semi_recommended_skills": obj.scenario.semi_recommended_skills,
+            "recommended_skill_items": [
                 {
-                    'id': skill.id,
-                    'name': skill.name,
-                    'level': skill.level,
-                    'description': skill.description,
-                    'order': skill.order,
+                    "id": skill.id,
+                    "name": skill.name,
+                    "level": skill.level,
+                    "description": skill.description,
+                    "order": skill.order,
                 }
-                for skill in obj.scenario.recommended_skill_items.order_by('order', 'id')
+                for skill in obj.scenario.recommended_skill_items.order_by("order", "id")
             ],
         }
 
@@ -466,94 +518,93 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
             context=self.context,
         ).data
         for participant in participants:
-            detail = participant.get('character_sheet_detail')
+            detail = participant.get("character_sheet_detail")
             if detail:
-                participant['character_sheet'] = detail
+                participant["character_sheet"] = detail
         return participants
 
     def validate(self, attrs):
-        session_date = attrs.pop('session_date', None)
-        start_time = attrs.pop('start_time', None)
-        estimated_hours = attrs.pop('estimated_hours', None)
-        attrs.pop('min_players', None)
-        attrs.pop('max_players', None)
+        session_date = attrs.pop("session_date", None)
+        start_time = attrs.pop("start_time", None)
+        estimated_hours = attrs.pop("estimated_hours", None)
+        attrs.pop("min_players", None)
+        attrs.pop("max_players", None)
 
-        if session_date and 'date' not in attrs:
+        if session_date and "date" not in attrs:
             if not start_time:
                 start_time = time_cls(0, 0)
             session_dt = datetime.combine(session_date, start_time)
             if timezone.is_naive(session_dt):
                 session_dt = timezone.make_aware(session_dt, timezone.get_current_timezone())
-            attrs['date'] = session_dt
+            attrs["date"] = session_dt
 
-        if estimated_hours is not None and 'duration_minutes' not in attrs:
-            attrs['duration_minutes'] = int(float(estimated_hours) * 60)
+        if estimated_hours is not None and "duration_minutes" not in attrs:
+            attrs["duration_minutes"] = int(float(estimated_hours) * 60)
 
-        request = self.context.get('request')
-        user = getattr(request, 'user', None)
-        if 'scenario' in attrs:
-            scenario = attrs.get('scenario')
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if "scenario" in attrs:
+            scenario = attrs.get("scenario")
             if user and scenario is not None and not can_view_scenario(user, scenario):
-                raise serializers.ValidationError({
-                    'scenario': '参照できないシナリオは設定できません'
-                })
+                raise serializers.ValidationError({"scenario": "参照できないシナリオは設定できません"})
 
-        if self.instance is not None and 'scenario' in attrs:
+        if self.instance is not None and "scenario" in attrs:
             current_scenario_id = self.instance.scenario_id
-            next_scenario = attrs.get('scenario')
+            next_scenario = attrs.get("scenario")
             next_scenario_id = next_scenario.id if next_scenario else None
             if current_scenario_id != next_scenario_id:
-                if not getattr(user, 'has_premium_access', False):
-                    raise serializers.ValidationError({
-                        'scenario': 'シナリオ情報を変更するにはプレミアム権限が必要です'
-                    })
+                if not getattr(user, "has_premium_access", False):
+                    raise serializers.ValidationError(
+                        {"scenario": "シナリオ情報を変更するにはプレミアム権限が必要です"}
+                    )
 
         return attrs
 
+
 class SessionOccurrenceSerializer(serializers.ModelSerializer):
-    session_title = serializers.CharField(source='session.title', read_only=True)
+    session_title = serializers.CharField(source="session.title", read_only=True)
     participants = serializers.PrimaryKeyRelatedField(
         queryset=CustomUser.objects.all(),
         many=True,
         required=False,
     )
-    participants_detail = PublicUserSerializer(source='participants', many=True, read_only=True)
+    participants_detail = PublicUserSerializer(source="participants", many=True, read_only=True)
 
     class Meta:
         model = SessionOccurrence
         fields = [
-            'id',
-            'session',
-            'session_title',
-            'start_at',
-            'content',
-            'is_primary',
-            'participants',
-            'participants_detail',
-            'created_at',
-            'updated_at',
+            "id",
+            "session",
+            "session_title",
+            "start_at",
+            "content",
+            "is_primary",
+            "participants",
+            "participants_detail",
+            "created_at",
+            "updated_at",
         ]
         read_only_fields = [
-            'id',
-            'is_primary',
-            'created_at',
-            'updated_at',
-            'session_title',
+            "id",
+            "is_primary",
+            "created_at",
+            "updated_at",
+            "session_title",
         ]
 
     def validate(self, attrs):
-        session = attrs.get('session') or getattr(self.instance, 'session', None)
-        participants = attrs.get('participants')
+        session = attrs.get("session") or getattr(self.instance, "session", None)
+        participants = attrs.get("participants")
 
-        if session and participants is not None and getattr(session, 'group_id', None):
-            allowed_ids = set(session.group.members.values_list('id', flat=True))
-            if getattr(session, 'gm_id', None):
+        if session and participants is not None and getattr(session, "group_id", None):
+            allowed_ids = set(session.group.members.values_list("id", flat=True))
+            if getattr(session, "gm_id", None):
                 allowed_ids.add(session.gm_id)
 
             invalid_ids = [user.id for user in participants if user.id not in allowed_ids]
             if invalid_ids:
                 raise serializers.ValidationError(
-                    {'participants': 'All participants must belong to the session group.'}
+                    {"participants": "All participants must belong to the session group."}
                 )
 
         return attrs
@@ -561,61 +612,80 @@ class SessionOccurrenceSerializer(serializers.ModelSerializer):
 
 class CalendarEventSerializer(serializers.ModelSerializer):
     """カレンダー表示用の軽量シリアライザー"""
-    gm_name = serializers.CharField(source='gm.nickname', read_only=True)
-    
+
+    gm_name = serializers.CharField(source="gm.nickname", read_only=True)
+
     class Meta:
         model = TRPGSession
-        fields = ['id', 'title', 'date', 'status', 'gm_name', 'location']
+        fields = ["id", "title", "date", "status", "gm_name", "location"]
 
 
 class SessionListSerializer(serializers.ModelSerializer):
     """セッション一覧表示用の見やすいシリアライザー"""
-    gm_name = serializers.CharField(source='gm.nickname', read_only=True)
-    group_name = serializers.CharField(source='group.name', read_only=True)
+
+    gm_name = serializers.CharField(source="gm.nickname", read_only=True)
+    group_name = serializers.CharField(source="group.name", read_only=True)
     participant_count = serializers.SerializerMethodField()
     guest_count = serializers.SerializerMethodField()
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
-    visibility_display = serializers.CharField(source='get_visibility_display', read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    visibility_display = serializers.CharField(source="get_visibility_display", read_only=True)
     date_formatted = serializers.SerializerMethodField()
     youtube_total_duration_display = serializers.CharField(read_only=True)
     youtube_video_count = serializers.IntegerField(read_only=True)
     effective_duration_minutes = serializers.IntegerField(read_only=True)
-    
+
     class Meta:
         model = TRPGSession
         fields = [
-            'id', 'title', 'description', 'date', 'date_formatted',
-            'location', 'status', 'status_display', 'visibility', 'visibility_display',
-            'gm_name', 'group_name', 'participant_count', 'guest_count', 'duration_minutes', 'actual_duration_minutes', 'effective_duration_minutes',
-            'youtube_url', 'youtube_total_duration_display', 'youtube_video_count'
+            "id",
+            "title",
+            "description",
+            "date",
+            "date_formatted",
+            "location",
+            "status",
+            "status_display",
+            "visibility",
+            "visibility_display",
+            "gm_name",
+            "group_name",
+            "participant_count",
+            "guest_count",
+            "duration_minutes",
+            "actual_duration_minutes",
+            "effective_duration_minutes",
+            "youtube_url",
+            "youtube_total_duration_display",
+            "youtube_video_count",
         ]
-    
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_participant_count(self, obj):
         return obj.participants.count()
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_guest_count(self, obj):
-        annotated_value = getattr(obj, 'guest_count', None)
+        annotated_value = getattr(obj, "guest_count", None)
         if isinstance(annotated_value, int):
             return annotated_value
-        prefetched_participants = getattr(obj, '_prefetched_objects_cache', {}).get('sessionparticipant_set')
+        prefetched_participants = getattr(obj, "_prefetched_objects_cache", {}).get("sessionparticipant_set")
         if prefetched_participants is not None:
             return sum(1 for p in prefetched_participants if p.user_id is None)
         return obj.sessionparticipant_set.filter(user__isnull=True).count()
-    
+
     @extend_schema_field(OpenApiTypes.STR)
     def get_date_formatted(self, obj):
         if obj.date:
-            return obj.date.strftime('%Y年%m月%d日 %H:%M')
+            return obj.date.strftime("%Y年%m月%d日 %H:%M")
         return None
 
 
 class UpcomingSessionSerializer(serializers.ModelSerializer):
     """ホーム画面の次回セッション表示用シリアライザー"""
-    gm_name = serializers.CharField(source='gm.nickname', read_only=True)
-    group_name = serializers.CharField(source='group.name', read_only=True)
-    visibility_display = serializers.CharField(source='get_visibility_display', read_only=True)
+
+    gm_name = serializers.CharField(source="gm.nickname", read_only=True)
+    group_name = serializers.CharField(source="group.name", read_only=True)
+    visibility_display = serializers.CharField(source="get_visibility_display", read_only=True)
     participant_count = serializers.SerializerMethodField()
     guest_count = serializers.SerializerMethodField()
     date_formatted = serializers.SerializerMethodField()
@@ -624,78 +694,96 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
     participants_summary = serializers.SerializerMethodField()
     duration_display = serializers.SerializerMethodField()
     effective_duration_minutes = serializers.IntegerField(read_only=True)
-    
+
     class Meta:
         model = TRPGSession
         fields = [
-            'id', 'title', 'description', 'date', 'date_formatted', 'time_formatted', 'date_display',
-            'location', 'status', 'visibility', 'visibility_display', 'gm_name', 'group_name', 'participant_count',
-            'guest_count', 'participants_summary', 'duration_minutes', 'actual_duration_minutes', 'effective_duration_minutes', 'duration_display'
+            "id",
+            "title",
+            "description",
+            "date",
+            "date_formatted",
+            "time_formatted",
+            "date_display",
+            "location",
+            "status",
+            "visibility",
+            "visibility_display",
+            "gm_name",
+            "group_name",
+            "participant_count",
+            "guest_count",
+            "participants_summary",
+            "duration_minutes",
+            "actual_duration_minutes",
+            "effective_duration_minutes",
+            "duration_display",
         ]
-    
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_participant_count(self, obj):
         return obj.participants.count()
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_guest_count(self, obj):
-        annotated_value = getattr(obj, 'guest_count', None)
+        annotated_value = getattr(obj, "guest_count", None)
         if isinstance(annotated_value, int):
             return annotated_value
-        prefetched_participants = getattr(obj, '_prefetched_objects_cache', {}).get('sessionparticipant_set')
+        prefetched_participants = getattr(obj, "_prefetched_objects_cache", {}).get("sessionparticipant_set")
         if prefetched_participants is not None:
             return sum(1 for p in prefetched_participants if p.user_id is None)
         return obj.sessionparticipant_set.filter(user__isnull=True).count()
-    
+
     @extend_schema_field(OpenApiTypes.STR)
     def get_date_formatted(self, obj):
         if obj.date:
-            return obj.date.strftime('%Y年%m月%d日')
+            return obj.date.strftime("%Y年%m月%d日")
         return None
-    
+
     @extend_schema_field(OpenApiTypes.STR)
     def get_time_formatted(self, obj):
         if obj.date:
-            return obj.date.strftime('%H:%M')
+            return obj.date.strftime("%H:%M")
         return None
-    
+
     @extend_schema_field(OpenApiTypes.STR)
     def get_date_display(self, obj):
         if obj.date:
             from datetime import datetime, timedelta
+
             now = datetime.now()
             session_date = obj.date.replace(tzinfo=None) if obj.date.tzinfo else obj.date
-            
+
             # 今日の場合
             if session_date.date() == now.date():
                 return f"今日 {obj.date.strftime('%H:%M')}"
-            
+
             # 明日の場合
             elif session_date.date() == (now + timedelta(days=1)).date():
                 return f"明日 {obj.date.strftime('%H:%M')}"
-            
+
             # 今週内の場合
             elif session_date.date() <= (now + timedelta(days=7)).date():
-                weekdays = ['月', '火', '水', '木', '金', '土', '日']
+                weekdays = ["月", "火", "水", "木", "金", "土", "日"]
                 weekday = weekdays[session_date.weekday()]
                 return f"{session_date.strftime('%m/%d')}({weekday}) {obj.date.strftime('%H:%M')}"
-            
+
             # それ以外
             else:
-                return obj.date.strftime('%Y年%m月%d日 %H:%M')
+                return obj.date.strftime("%Y年%m月%d日 %H:%M")
         return None
-    
+
     @extend_schema_field(OpenApiTypes.STR)
     def get_participants_summary(self, obj):
         """参加者の簡易表示"""
-        participants = obj.sessionparticipant_set.select_related('user').all()
-        
+        participants = obj.sessionparticipant_set.select_related("user").all()
+
         if not participants:
             return "参加者なし"
-        
+
         # GMを除く参加者
-        players = [p for p in participants if p.role != 'gm']
-        
+        players = [p for p in participants if p.role != "gm"]
+
         if len(players) == 0:
             return "GM のみ"
         elif len(players) <= 3:
@@ -707,7 +795,7 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
             names = [p.display_name for p in players[:2]]
             remaining = len(players) - 2
             return f"{', '.join(names)} 他{remaining}人"
-    
+
     @extend_schema_field(OpenApiTypes.STR)
     def get_duration_display(self, obj):
         duration_minutes = obj.effective_duration_minutes
@@ -725,63 +813,78 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
 
 # ===== ハンドアウト通知関連シリアライザー =====
 
+
 class UserBasicSerializer(serializers.ModelSerializer):
     """ユーザー基本情報シリアライザー"""
+
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'nickname']
+        fields = ["id", "username", "nickname"]
 
 
 class HandoutBasicSerializer(serializers.ModelSerializer):
     """ハンドアウト基本情報シリアライザー"""
-    session_title = serializers.CharField(source='session.title', read_only=True)
-    session_id = serializers.IntegerField(source='session_id', read_only=True)
-    
+
+    session_title = serializers.CharField(source="session.title", read_only=True)
+    session_id = serializers.IntegerField(source="session_id", read_only=True)
+
     class Meta:
         model = HandoutInfo
-        fields = ['id', 'title', 'session_id', 'session_title', 'is_secret']
+        fields = ["id", "title", "session_id", "session_title", "is_secret"]
 
 
 class HandoutNotificationSerializer(serializers.ModelSerializer):
     """ハンドアウト通知シリアライザー"""
-    
+
     recipient = UserBasicSerializer(read_only=True)
     sender = UserBasicSerializer(read_only=True)
-    notification_type_display = serializers.CharField(
-        source='get_notification_type_display', 
-        read_only=True
-    )
+    notification_type_display = serializers.CharField(source="get_notification_type_display", read_only=True)
     handout_info = serializers.SerializerMethodField()
     time_since_created = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = HandoutNotification
         fields = [
-            'id', 'handout_id', 'recipient', 'sender', 
-            'notification_type', 'notification_type_display',
-            'message', 'metadata', 'is_read', 'created_at', 'read_at',
-            'handout_info', 'time_since_created'
+            "id",
+            "handout_id",
+            "recipient",
+            "sender",
+            "notification_type",
+            "notification_type_display",
+            "message",
+            "metadata",
+            "is_read",
+            "created_at",
+            "read_at",
+            "handout_info",
+            "time_since_created",
         ]
         read_only_fields = [
-            'id', 'handout_id', 'recipient', 'sender',
-            'notification_type', 'message', 'metadata', 'created_at'
+            "id",
+            "handout_id",
+            "recipient",
+            "sender",
+            "notification_type",
+            "message",
+            "metadata",
+            "created_at",
         ]
-    
+
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_handout_info(self, obj):
         """ハンドアウト情報を取得"""
         try:
             handout = HandoutInfo.objects.select_related(
-                'session',
-                'session__gm',
-                'session__group',
-                'participant',
-                'participant__user',
+                "session",
+                "session__gm",
+                "session__group",
+                "participant",
+                "participant__user",
             ).get(id=obj.handout_id)
         except HandoutInfo.DoesNotExist:
             return None
 
-        request = self.context.get('request')
+        request = self.context.get("request")
         if request and not can_view_handout(handout, request.user):
             return None
 
@@ -790,12 +893,13 @@ class HandoutNotificationSerializer(serializers.ModelSerializer):
     @extend_schema_field(OpenApiTypes.STR)
     def get_time_since_created(self, obj):
         """作成からの経過時間を人間が読みやすい形式で返す"""
-        from django.utils import timezone
         import datetime
-        
+
+        from django.utils import timezone
+
         now = timezone.now()
         diff = now - obj.created_at
-        
+
         if diff.days > 0:
             return f"{diff.days}日前"
         elif diff.seconds > 3600:
@@ -810,55 +914,52 @@ class HandoutNotificationSerializer(serializers.ModelSerializer):
 
 class UserNotificationPreferencesSerializer(serializers.ModelSerializer):
     """ユーザー通知設定シリアライザー"""
-    
+
     user = UserBasicSerializer(read_only=True)
-    
+
     class Meta:
         model = UserNotificationPreferences
         fields = [
-            'id', 'user', 'handout_notifications_enabled',
-            'session_notifications_enabled', 'group_notifications_enabled',
-            'friend_notifications_enabled',
-            'email_notifications_enabled', 'browser_notifications_enabled',
-            'created_at', 'updated_at'
+            "id",
+            "user",
+            "handout_notifications_enabled",
+            "session_notifications_enabled",
+            "group_notifications_enabled",
+            "friend_notifications_enabled",
+            "email_notifications_enabled",
+            "browser_notifications_enabled",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
-    
+        read_only_fields = ["id", "user", "created_at", "updated_at"]
+
     def validate(self, data):
         """通知設定のバリデーション"""
         # 少なくとも一つの通知方法または通知種別を有効にする必要がある
         current = {
-            'handout': data.get(
-                'handout_notifications_enabled',
-                getattr(self.instance, 'handout_notifications_enabled', False)
+            "handout": data.get(
+                "handout_notifications_enabled", getattr(self.instance, "handout_notifications_enabled", False)
             ),
-            'session': data.get(
-                'session_notifications_enabled',
-                getattr(self.instance, 'session_notifications_enabled', False)
+            "session": data.get(
+                "session_notifications_enabled", getattr(self.instance, "session_notifications_enabled", False)
             ),
-            'group': data.get(
-                'group_notifications_enabled',
-                getattr(self.instance, 'group_notifications_enabled', False)
+            "group": data.get(
+                "group_notifications_enabled", getattr(self.instance, "group_notifications_enabled", False)
             ),
-            'friend': data.get(
-                'friend_notifications_enabled',
-                getattr(self.instance, 'friend_notifications_enabled', False)
+            "friend": data.get(
+                "friend_notifications_enabled", getattr(self.instance, "friend_notifications_enabled", False)
             ),
-            'email': data.get(
-                'email_notifications_enabled',
-                getattr(self.instance, 'email_notifications_enabled', False)
+            "email": data.get(
+                "email_notifications_enabled", getattr(self.instance, "email_notifications_enabled", False)
             ),
-            'browser': data.get(
-                'browser_notifications_enabled',
-                getattr(self.instance, 'browser_notifications_enabled', False)
+            "browser": data.get(
+                "browser_notifications_enabled", getattr(self.instance, "browser_notifications_enabled", False)
             ),
         }
 
         if not any(current.values()):
-            raise serializers.ValidationError(
-                "少なくとも一つの通知方法を有効にしてください"
-            )
-        
+            raise serializers.ValidationError("少なくとも一つの通知方法を有効にしてください")
+
         return data
 
 
@@ -866,10 +967,10 @@ class SessionInvitationSerializer(serializers.ModelSerializer):
     """セッション招待シリアライザー（一覧表示＋受諾/辞退導線用）"""
 
     inviter = UserBasicSerializer(read_only=True)
-    session_id = serializers.IntegerField(source='session.id', read_only=True)
-    session_title = serializers.CharField(source='session.title', read_only=True)
-    session_date = serializers.DateTimeField(source='session.date', read_only=True)
-    session_visibility = serializers.CharField(source='session.visibility', read_only=True)
+    session_id = serializers.IntegerField(source="session.id", read_only=True)
+    session_title = serializers.CharField(source="session.title", read_only=True)
+    session_date = serializers.DateTimeField(source="session.date", read_only=True)
+    session_visibility = serializers.CharField(source="session.visibility", read_only=True)
     session_group = serializers.SerializerMethodField()
     expires_at = serializers.SerializerMethodField()
     is_expired = serializers.SerializerMethodField()
@@ -877,29 +978,29 @@ class SessionInvitationSerializer(serializers.ModelSerializer):
     class Meta:
         model = SessionInvitation
         fields = [
-            'id',
-            'session_id',
-            'session_title',
-            'session_date',
-            'session_visibility',
-            'session_group',
-            'inviter',
-            'status',
-            'invited_role',
-            'message',
-            'created_at',
-            'responded_at',
-            'expires_at',
-            'is_expired',
+            "id",
+            "session_id",
+            "session_title",
+            "session_date",
+            "session_visibility",
+            "session_group",
+            "inviter",
+            "status",
+            "invited_role",
+            "message",
+            "created_at",
+            "responded_at",
+            "expires_at",
+            "is_expired",
         ]
         read_only_fields = fields
 
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_session_group(self, obj):
-        group = getattr(obj.session, 'group', None)
+        group = getattr(obj.session, "group", None)
         if not group:
             return None
-        return {'id': group.id, 'name': group.name}
+        return {"id": group.id, "name": group.name}
 
     @extend_schema_field(OpenApiTypes.DATETIME)
     def get_expires_at(self, obj):
@@ -918,28 +1019,43 @@ class SessionInvitationSerializer(serializers.ModelSerializer):
 class SessionSeriesSerializer(serializers.ModelSerializer):
     """セッションシリーズ/キャンペーン シリアライザ"""
 
-    gm_detail = PublicUserSerializer(source='gm', read_only=True)
-    group_name = serializers.CharField(source='group.name', read_only=True)
-    recurrence_display = serializers.CharField(source='get_recurrence_display', read_only=True)
-    weekday_display = serializers.CharField(source='get_weekday_display', read_only=True)
+    gm_detail = PublicUserSerializer(source="gm", read_only=True)
+    group_name = serializers.CharField(source="group.name", read_only=True)
+    recurrence_display = serializers.CharField(source="get_recurrence_display", read_only=True)
+    weekday_display = serializers.CharField(source="get_weekday_display", read_only=True)
     session_count = serializers.SerializerMethodField()
     next_session_dates = serializers.SerializerMethodField()
 
     class Meta:
         model = SessionSeries
         fields = [
-            'id', 'title', 'description',
-            'group', 'group_name', 'gm', 'gm_detail', 'scenario',
-            'recurrence', 'recurrence_display',
-            'weekday', 'weekday_display', 'day_of_month',
-            'start_time', 'duration_minutes',
-            'custom_interval_days',
-            'start_date', 'end_date',
-            'auto_create_sessions', 'auto_create_weeks_ahead',
-            'is_active', 'session_count', 'next_session_dates',
-            'created_at', 'updated_at',
+            "id",
+            "title",
+            "description",
+            "group",
+            "group_name",
+            "gm",
+            "gm_detail",
+            "scenario",
+            "recurrence",
+            "recurrence_display",
+            "weekday",
+            "weekday_display",
+            "day_of_month",
+            "start_time",
+            "duration_minutes",
+            "custom_interval_days",
+            "start_date",
+            "end_date",
+            "auto_create_sessions",
+            "auto_create_weeks_ahead",
+            "is_active",
+            "session_count",
+            "next_session_dates",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ["id", "created_at", "updated_at"]
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_session_count(self, obj):
@@ -957,105 +1073,119 @@ class SessionSeriesCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SessionSeries
         fields = [
-            'title', 'description', 'group', 'scenario',
-            'recurrence', 'weekday', 'day_of_month',
-            'start_time', 'duration_minutes',
-            'custom_interval_days',
-            'start_date', 'end_date',
-            'auto_create_sessions', 'auto_create_weeks_ahead',
+            "title",
+            "description",
+            "group",
+            "scenario",
+            "recurrence",
+            "weekday",
+            "day_of_month",
+            "start_time",
+            "duration_minutes",
+            "custom_interval_days",
+            "start_date",
+            "end_date",
+            "auto_create_sessions",
+            "auto_create_weeks_ahead",
         ]
 
     def validate(self, attrs):
-        recurrence = attrs.get('recurrence', 'none')
+        recurrence = attrs.get("recurrence", "none")
 
-        if recurrence in ['weekly', 'biweekly'] and attrs.get('weekday') is None:
-            raise serializers.ValidationError({
-                'weekday': '毎週/隔週の場合は曜日を指定してください'
-            })
+        if recurrence in ["weekly", "biweekly"] and attrs.get("weekday") is None:
+            raise serializers.ValidationError({"weekday": "毎週/隔週の場合は曜日を指定してください"})
 
-        if recurrence == 'monthly' and attrs.get('day_of_month') is None:
-            raise serializers.ValidationError({
-                'day_of_month': '毎月の場合は日を指定してください'
-            })
+        if recurrence == "monthly" and attrs.get("day_of_month") is None:
+            raise serializers.ValidationError({"day_of_month": "毎月の場合は日を指定してください"})
 
-        if recurrence == 'custom' and not attrs.get('custom_interval_days'):
-            raise serializers.ValidationError({
-                'custom_interval_days': 'カスタムの場合は間隔を指定してください'
-            })
+        if recurrence == "custom" and not attrs.get("custom_interval_days"):
+            raise serializers.ValidationError({"custom_interval_days": "カスタムの場合は間隔を指定してください"})
 
-        group = attrs.get('group')
-        request = self.context.get('request')
-        user = getattr(request, 'user', None)
+        group = attrs.get("group")
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
         if group and user and user.is_authenticated:
             if not (group.created_by_id == user.id or group.members.filter(id=user.id).exists()):
-                raise serializers.ValidationError({
-                    'group': 'このグループでシリーズを作成する権限がありません'
-                })
+                raise serializers.ValidationError({"group": "このグループでシリーズを作成する権限がありません"})
 
         return attrs
 
     def create(self, validated_data):
-        validated_data['gm'] = self.context['request'].user
+        validated_data["gm"] = self.context["request"].user
         return super().create(validated_data)
 
 
 class SessionAvailabilitySerializer(serializers.ModelSerializer):
     """参加可能日投票シリアライザ"""
 
-    user_detail = PublicUserSerializer(source='user', read_only=True)
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    user_detail = PublicUserSerializer(source="user", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
 
     class Meta:
         model = SessionAvailability
         fields = [
-            'id', 'session', 'occurrence', 'proposed_date',
-            'user', 'user_detail', 'status', 'status_display', 'comment',
-            'created_at', 'updated_at',
+            "id",
+            "session",
+            "occurrence",
+            "proposed_date",
+            "user",
+            "user_detail",
+            "status",
+            "status_display",
+            "comment",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+        read_only_fields = ["id", "user", "created_at", "updated_at"]
 
     def create(self, validated_data):
-        validated_data['user'] = self.context['request'].user
+        validated_data["user"] = self.context["request"].user
         return super().create(validated_data)
 
 
 class DatePollVoteSerializer(serializers.ModelSerializer):
     """日程調整投票シリアライザ"""
 
-    user_detail = PublicUserSerializer(source='user', read_only=True)
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    user_detail = PublicUserSerializer(source="user", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
 
     class Meta:
         model = DatePollVote
         fields = [
-            'id', 'option', 'user', 'user_detail',
-            'status', 'status_display', 'comment',
-            'created_at', 'updated_at',
+            "id",
+            "option",
+            "user",
+            "user_detail",
+            "status",
+            "status_display",
+            "comment",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+        read_only_fields = ["id", "user", "created_at", "updated_at"]
 
     def create(self, validated_data):
-        validated_data['user'] = self.context['request'].user
+        validated_data["user"] = self.context["request"].user
         return super().create(validated_data)
 
 
 class DatePollCommentSerializer(serializers.ModelSerializer):
     """日程調整コメント（チャット）シリアライザ"""
 
-    user_detail = PublicUserSerializer(source='user', read_only=True)
+    user_detail = PublicUserSerializer(source="user", read_only=True)
 
     class Meta:
         model = DatePollComment
         fields = [
-            'id',
-            'poll',
-            'user',
-            'user_detail',
-            'content',
-            'created_at',
-            'updated_at',
+            "id",
+            "poll",
+            "user",
+            "user_detail",
+            "content",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ['id', 'poll', 'user', 'created_at', 'updated_at']
+        read_only_fields = ["id", "poll", "user", "created_at", "updated_at"]
 
 
 class DatePollOptionSerializer(serializers.ModelSerializer):
@@ -1069,52 +1199,68 @@ class DatePollOptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = DatePollOption
         fields = [
-            'id', 'poll', 'datetime', 'note',
-            'votes', 'available_count', 'maybe_count', 'unavailable_count',
-            'created_at',
+            "id",
+            "poll",
+            "datetime",
+            "note",
+            "votes",
+            "available_count",
+            "maybe_count",
+            "unavailable_count",
+            "created_at",
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ["id", "created_at"]
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_available_count(self, obj):
-        return obj.votes.filter(status='available').count()
+        return obj.votes.filter(status="available").count()
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_maybe_count(self, obj):
-        return obj.votes.filter(status='maybe').count()
+        return obj.votes.filter(status="maybe").count()
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_unavailable_count(self, obj):
-        return obj.votes.filter(status='unavailable').count()
+        return obj.votes.filter(status="unavailable").count()
 
 
 class DatePollSerializer(serializers.ModelSerializer):
     """日程調整シリアライザ"""
 
-    created_by_detail = PublicUserSerializer(source='created_by', read_only=True)
-    group_name = serializers.CharField(source='group.name', read_only=True)
+    created_by_detail = PublicUserSerializer(source="created_by", read_only=True)
+    group_name = serializers.CharField(source="group.name", read_only=True)
     options = DatePollOptionSerializer(many=True, read_only=True)
     session_detail = serializers.SerializerMethodField()
 
     class Meta:
         model = DatePoll
         fields = [
-            'id', 'title', 'description',
-            'group', 'group_name', 'created_by', 'created_by_detail',
-            'deadline', 'is_closed', 'selected_date',
-            'create_session_on_confirm', 'session', 'session_detail',
-            'options',
-            'created_at', 'updated_at',
+            "id",
+            "title",
+            "description",
+            "group",
+            "group_name",
+            "created_by",
+            "created_by_detail",
+            "deadline",
+            "is_closed",
+            "selected_date",
+            "create_session_on_confirm",
+            "session",
+            "session_detail",
+            "options",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ['id', 'created_by', 'session', 'created_at', 'updated_at']
+        read_only_fields = ["id", "created_by", "session", "created_at", "updated_at"]
 
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_session_detail(self, obj):
         if obj.session:
             return {
-                'id': obj.session.id,
-                'title': obj.session.title,
-                'date': obj.session.date.isoformat() if obj.session.date else None,
+                "id": obj.session.id,
+                "title": obj.session.title,
+                "date": obj.session.date.isoformat() if obj.session.date else None,
             }
         return None
 
@@ -1133,65 +1279,58 @@ class DatePollCreateSerializer(serializers.ModelSerializer):
         queryset=TRPGSession.objects.all(),
         required=False,
         allow_null=True,
-        help_text='既存セッションに紐付ける場合のセッションID',
+        help_text="既存セッションに紐付ける場合のセッションID",
     )
     options = DatePollOptionCreateSerializer(
         many=True,
         write_only=True,
         allow_empty=False,
-        help_text="候補日リスト [{'datetime': '2024-01-01T19:00:00', 'note': '備考'}]"
+        help_text="候補日リスト [{'datetime': '2024-01-01T19:00:00', 'note': '備考'}]",
     )
 
     class Meta:
         model = DatePoll
         fields = [
-            'title', 'description', 'group',
-            'deadline', 'create_session_on_confirm',
-            'session',
-            'options',
+            "title",
+            "description",
+            "group",
+            "deadline",
+            "create_session_on_confirm",
+            "session",
+            "options",
         ]
 
     def validate(self, attrs):
-        group = attrs.get('group')
-        session = attrs.get('session')
-        request = self.context.get('request')
-        user = getattr(request, 'user', None)
+        group = attrs.get("group")
+        session = attrs.get("session")
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
         if group and user and user.is_authenticated:
             if not (group.created_by_id == user.id or group.members.filter(id=user.id).exists()):
-                raise serializers.ValidationError({
-                    'group': 'このグループで日程調整を作成する権限がありません'
-                })
+                raise serializers.ValidationError({"group": "このグループで日程調整を作成する権限がありません"})
 
         if session:
             if group and session.group_id != group.id:
-                raise serializers.ValidationError({
-                    'session': 'セッションと日程調整のグループが一致しません'
-                })
+                raise serializers.ValidationError({"session": "セッションと日程調整のグループが一致しません"})
             if user and user.is_authenticated and session.gm_id != user.id:
-                raise serializers.ValidationError({
-                    'session': 'セッションのGMのみが日程調整を作成できます'
-                })
+                raise serializers.ValidationError({"session": "セッションのGMのみが日程調整を作成できます"})
             if session.date is not None:
-                raise serializers.ValidationError({
-                    'session': '日程が確定済みのセッションには日程調整を作成できません'
-                })
+                raise serializers.ValidationError({"session": "日程が確定済みのセッションには日程調整を作成できません"})
             if DatePoll.objects.filter(session=session, is_closed=False).exists():
-                raise serializers.ValidationError({
-                    'session': 'このセッションには未締め切りの日程調整が既にあります'
-                })
+                raise serializers.ValidationError({"session": "このセッションには未締め切りの日程調整が既にあります"})
         return attrs
 
     def create(self, validated_data):
-        options_data = validated_data.pop('options')
-        validated_data['created_by'] = self.context['request'].user
+        options_data = validated_data.pop("options")
+        validated_data["created_by"] = self.context["request"].user
 
         poll = DatePoll.objects.create(**validated_data)
 
         for option_data in options_data:
             DatePollOption.objects.create(
                 poll=poll,
-                datetime=option_data['datetime'],
-                note=option_data.get('note', ''),
+                datetime=option_data["datetime"],
+                note=option_data.get("note", ""),
             )
 
         return poll

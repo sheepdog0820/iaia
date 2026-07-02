@@ -6,24 +6,24 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0007_characterdicerollsetting'),
+        ("accounts", "0007_characterdicerollsetting"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='characterskill',
-            name='fifth_value',
+            model_name="characterskill",
+            name="fifth_value",
         ),
         migrations.RemoveField(
-            model_name='characterskill',
-            name='half_value',
+            model_name="characterskill",
+            name="half_value",
         ),
         migrations.AlterField(
-            model_name='charactersheet',
-            name='edition',
-            field=models.CharField(choices=[('6th', '6版')], max_length=3),
+            model_name="charactersheet",
+            name="edition",
+            field=models.CharField(choices=[("6th", "6版")], max_length=3),
         ),
         migrations.DeleteModel(
-            name='CharacterSheet7th',
+            name="CharacterSheet7th",
         ),
     ]

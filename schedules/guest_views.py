@@ -1,23 +1,17 @@
 from datetime import timedelta
 
 from django.db import IntegrityError, transaction
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views import View
-from django.shortcuts import render
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import (
-    GuestClaimAudit,
-    GuestInvitation,
-    SessionParticipant,
-    TRPGSession,
-)
 from .handout_access import can_manage_session
+from .models import GuestClaimAudit, GuestInvitation, SessionParticipant, TRPGSession
 
 
 class GuestInvitationCreateView(APIView):
@@ -28,10 +22,10 @@ class GuestInvitationCreateView(APIView):
         if not can_manage_session(session, request.user):
             self.permission_denied(request)
         try:
-            expires_in_hours = int(request.data.get('expires_in_hours', 168))
+            expires_in_hours = int(request.data.get("expires_in_hours", 168))
         except (TypeError, ValueError):
             return Response(
-                {'expires_in_hours': 'Must be an integer.'},
+                {"expires_in_hours": "Must be an integer."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         expires_in_hours = max(1, min(expires_in_hours, 720))
@@ -40,39 +34,48 @@ class GuestInvitationCreateView(APIView):
             created_by=request.user,
             expires_at=timezone.now() + timedelta(hours=expires_in_hours),
         )
-        path = reverse('guest-invitation-landing', kwargs={'token': token})
-        return Response({
-            'id': invitation.pk,
-            'token': token,
-            'invitation_url': request.build_absolute_uri(path),
-            'expires_at': invitation.expires_at,
-        }, status=status.HTTP_201_CREATED)
+        path = reverse("guest-invitation-landing", kwargs={"token": token})
+        return Response(
+            {
+                "id": invitation.pk,
+                "token": token,
+                "invitation_url": request.build_absolute_uri(path),
+                "expires_at": invitation.expires_at,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class GuestInvitationLandingView(View):
     def get(self, request, token):
-        invitation = GuestInvitation.objects.select_related(
-            'session', 'session__gm'
-        ).filter(token_digest=GuestInvitation.digest(token)).first()
+        invitation = (
+            GuestInvitation.objects.select_related("session", "session__gm")
+            .filter(token_digest=GuestInvitation.digest(token))
+            .first()
+        )
         if not invitation:
             return render(
                 request,
-                'schedules/guest_invitation.html',
-                {'invalid': True},
+                "schedules/guest_invitation.html",
+                {"invalid": True},
                 status=404,
             )
         if not invitation.is_active or invitation.participant_id:
             return render(
                 request,
-                'schedules/guest_invitation.html',
-                {'inactive': True},
+                "schedules/guest_invitation.html",
+                {"inactive": True},
                 status=status.HTTP_410_GONE,
             )
-        return render(request, 'schedules/guest_invitation.html', {
-            'invitation': invitation,
-            'token': token,
-            'active': True,
-        })
+        return render(
+            request,
+            "schedules/guest_invitation.html",
+            {
+                "invitation": invitation,
+                "token": token,
+                "active": True,
+            },
+        )
 
 
 class GuestInvitationRevokeView(APIView):
@@ -87,7 +90,7 @@ class GuestInvitationRevokeView(APIView):
         if not can_manage_session(invitation.session, request.user):
             self.permission_denied(request)
         invitation.revoked_at = timezone.now()
-        invitation.save(update_fields=['revoked_at'])
+        invitation.save(update_fields=["revoked_at"])
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -96,119 +99,128 @@ class GuestInvitationRespondView(APIView):
     authentication_classes = []
 
     def post(self, request, token):
-        invitation = GuestInvitation.objects.select_related('session').filter(
-            token_digest=GuestInvitation.digest(token)
-        ).first()
+        invitation = (
+            GuestInvitation.objects.select_related("session").filter(token_digest=GuestInvitation.digest(token)).first()
+        )
         if not invitation:
             return Response(status=status.HTTP_404_NOT_FOUND)
         if not invitation.is_active:
             return Response(
-                {'detail': 'Invitation is expired or revoked.'},
+                {"detail": "Invitation is expired or revoked."},
                 status=status.HTTP_410_GONE,
             )
         if invitation.participant_id:
             return Response(
-                {'detail': 'Invitation has already been used.'},
+                {"detail": "Invitation has already been used."},
                 status=status.HTTP_409_CONFLICT,
             )
-        guest_name = str(request.data.get('guest_name', '')).strip()
+        guest_name = str(request.data.get("guest_name", "")).strip()
         if not guest_name:
             return Response(
-                {'guest_name': 'This field is required.'},
+                {"guest_name": "This field is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        player_slot = request.data.get('player_slot')
-        if player_slot not in (None, ''):
+        player_slot = request.data.get("player_slot")
+        if player_slot not in (None, ""):
             try:
                 player_slot = int(player_slot)
             except (TypeError, ValueError):
                 return Response(
-                    {'player_slot': 'Must be an integer.'},
+                    {"player_slot": "Must be an integer."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             if player_slot not in {1, 2, 3, 4}:
                 return Response(
-                    {'player_slot': 'Must be between 1 and 4.'},
+                    {"player_slot": "Must be between 1 and 4."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         else:
             player_slot = None
         try:
             with transaction.atomic():
-                locked = GuestInvitation.objects.select_for_update().get(
-                    pk=invitation.pk
-                )
+                locked = GuestInvitation.objects.select_for_update().get(pk=invitation.pk)
                 if locked.participant_id:
                     return Response(
-                        {'detail': 'Invitation has already been used.'},
+                        {"detail": "Invitation has already been used."},
                         status=status.HTTP_409_CONFLICT,
                     )
                 participant = SessionParticipant.objects.create(
                     session=locked.session,
                     user=None,
                     guest_name=guest_name,
-                    role='player',
+                    role="player",
                     player_slot=player_slot,
-                    character_name=request.data.get('character_name', ''),
-                    character_sheet_url=request.data.get('character_sheet_url', ''),
+                    character_name=request.data.get("character_name", ""),
+                    character_sheet_url=request.data.get("character_sheet_url", ""),
                 )
                 locked.participant = participant
                 locked.responded_at = timezone.now()
-                locked.save(update_fields=['participant', 'responded_at'])
+                locked.save(update_fields=["participant", "responded_at"])
         except IntegrityError:
             return Response(
-                {'detail': 'The requested player slot is already occupied.'},
+                {"detail": "The requested player slot is already occupied."},
                 status=status.HTTP_409_CONFLICT,
             )
-        return Response({
-            'participant_id': participant.pk,
-            'session_id': participant.session_id,
-            'guest_name': participant.guest_name,
-            'player_slot': participant.player_slot,
-            'claim_token': token,
-        }, status=status.HTTP_201_CREATED)
+        return Response(
+            {
+                "participant_id": participant.pk,
+                "session_id": participant.session_id,
+                "guest_name": participant.guest_name,
+                "player_slot": participant.player_slot,
+                "claim_token": token,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class GuestParticipantClaimView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, participant_id):
-        claim_token = str(request.data.get('claim_token') or request.data.get('token') or '').strip()
+        claim_token = str(request.data.get("claim_token") or request.data.get("token") or "").strip()
         if not claim_token:
             return Response(
-                {'detail': 'Guest claim token is required.'},
+                {"detail": "Guest claim token is required."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         try:
             with transaction.atomic():
-                participant = SessionParticipant.objects.select_for_update().select_related(
-                    'session'
-                ).get(pk=participant_id)
+                participant = (
+                    SessionParticipant.objects.select_for_update().select_related("session").get(pk=participant_id)
+                )
                 if participant.user_id:
                     return Response(
-                        {'detail': 'Participant is already claimed.'},
+                        {"detail": "Participant is already claimed."},
                         status=status.HTTP_409_CONFLICT,
                     )
-                invitation = GuestInvitation.objects.select_for_update().filter(
-                    participant=participant,
-                    token_digest=GuestInvitation.digest(claim_token),
-                ).first()
+                invitation = (
+                    GuestInvitation.objects.select_for_update()
+                    .filter(
+                        participant=participant,
+                        token_digest=GuestInvitation.digest(claim_token),
+                    )
+                    .first()
+                )
                 if not invitation:
                     return Response(
-                        {'detail': 'Guest claim token is invalid.'},
+                        {"detail": "Guest claim token is invalid."},
                         status=status.HTTP_403_FORBIDDEN,
                     )
                 if not invitation.is_active:
                     return Response(
-                        {'detail': 'Guest invitation is expired or revoked.'},
+                        {"detail": "Guest invitation is expired or revoked."},
                         status=status.HTTP_410_GONE,
                     )
-                if SessionParticipant.objects.filter(
-                    session=participant.session,
-                    user=request.user,
-                ).exclude(pk=participant.pk).exists():
+                if (
+                    SessionParticipant.objects.filter(
+                        session=participant.session,
+                        user=request.user,
+                    )
+                    .exclude(pk=participant.pk)
+                    .exists()
+                ):
                     return Response(
-                        {'detail': 'User already participates in this session.'},
+                        {"detail": "User already participates in this session."},
                         status=status.HTTP_409_CONFLICT,
                     )
                 guest_name = participant.guest_name
@@ -221,19 +233,21 @@ class GuestParticipantClaimView(APIView):
                     character_sheet_url=participant.character_sheet_url,
                 )
                 participant.user = request.user
-                participant.guest_name = ''
-                participant.save(update_fields=['user', 'guest_name'])
+                participant.guest_name = ""
+                participant.save(update_fields=["user", "guest_name"])
         except SessionParticipant.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
         except IntegrityError:
             return Response(
-                {'detail': 'Participant claim conflicts with an existing slot.'},
+                {"detail": "Participant claim conflicts with an existing slot."},
                 status=status.HTTP_409_CONFLICT,
             )
-        return Response({
-            'participant_id': participant.pk,
-            'session_id': participant.session_id,
-            'claimed_by': request.user.pk,
-            'character_name': participant.character_name,
-            'character_sheet_url': participant.character_sheet_url,
-        })
+        return Response(
+            {
+                "participant_id": participant.pk,
+                "session_id": participant.session_id,
+                "claimed_by": request.user.pk,
+                "character_name": participant.character_name,
+                "character_sheet_url": participant.character_sheet_url,
+            }
+        )

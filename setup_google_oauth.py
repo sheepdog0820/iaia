@@ -3,10 +3,12 @@
 Google OAuth設定スクリプト
 django-allauthのSocialAppを設定します
 """
+
+import argparse
 import os
 import sys
-import argparse
 from pathlib import Path
+
 import django
 
 REPO_ROOT = Path(__file__).resolve().parent
@@ -18,54 +20,55 @@ def _ensure_default_env_file():
 
     The Django settings loader only reads an env file when `ENV_FILE` is set.
     """
-    if os.environ.get('ENV_FILE'):
+    if os.environ.get("ENV_FILE"):
         return
-    for candidate in ('.env.development', '.env'):
+    for candidate in (".env.development", ".env"):
         env_path = REPO_ROOT / candidate
         if env_path.exists():
-            os.environ['ENV_FILE'] = str(env_path)
+            os.environ["ENV_FILE"] = str(env_path)
             return
 
 
 _ensure_default_env_file()
 
 # Django設定を読み込み
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tableno.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tableno.settings")
 django.setup()
 
+from allauth.socialaccount.models import SocialApp
 from django.conf import settings as django_settings
 from django.contrib.sites.models import Site
-from allauth.socialaccount.models import SocialApp
 
 # 環境変数から認証情報を取得
-GOOGLE_CLIENT_ID = getattr(django_settings, 'GOOGLE_OAUTH_CLIENT_ID', '')
-GOOGLE_CLIENT_SECRET = getattr(django_settings, 'GOOGLE_OAUTH_CLIENT_SECRET', '')
-DEFAULT_SITE_DOMAIN = os.environ.get('SITE_DOMAIN', '127.0.0.1:8000')
-DEFAULT_SITE_NAME = os.environ.get('SITE_NAME', 'タブレノ (Local Development)')
+GOOGLE_CLIENT_ID = getattr(django_settings, "GOOGLE_OAUTH_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = getattr(django_settings, "GOOGLE_OAUTH_CLIENT_SECRET", "")
+DEFAULT_SITE_DOMAIN = os.environ.get("SITE_DOMAIN", "127.0.0.1:8000")
+DEFAULT_SITE_NAME = os.environ.get("SITE_NAME", "タブレノ (Local Development)")
+
 
 def default_scheme(domain: str) -> str:
-    if domain.startswith('localhost') or domain.startswith('127.0.0.1'):
-        return 'http'
-    return 'https'
+    if domain.startswith("localhost") or domain.startswith("127.0.0.1"):
+        return "http"
+    return "https"
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Google OAuth設定スクリプト')
+    parser = argparse.ArgumentParser(description="Google OAuth設定スクリプト")
     parser.add_argument(
-        '--domain',
+        "--domain",
         default=DEFAULT_SITE_DOMAIN,
-        help='django.contrib.sites のドメイン (例: 127.0.0.1:8000, your-ngrok-domain.ngrok-free.dev)',
+        help="django.contrib.sites のドメイン (例: 127.0.0.1:8000, your-ngrok-domain.ngrok-free.dev)",
     )
     parser.add_argument(
-        '--scheme',
-        choices=['http', 'https'],
+        "--scheme",
+        choices=["http", "https"],
         default=None,
-        help='コールバックURLのスキーム (未指定ならドメインから推測)',
+        help="コールバックURLのスキーム (未指定ならドメインから推測)",
     )
     parser.add_argument(
-        '--name',
+        "--name",
         default=DEFAULT_SITE_NAME,
-        help='Siteの表示名',
+        help="Siteの表示名",
     )
     args = parser.parse_args()
     if args.scheme is None:
@@ -102,7 +105,7 @@ def setup_google_oauth(site_domain: str, site_name: str, site_scheme: str):
     # 既存のGoogle Appを確認
     print(f"\n[2/3] Google SocialApp設定を確認中...")
     try:
-        google_app = SocialApp.objects.get(provider='google')
+        google_app = SocialApp.objects.get(provider="google")
         print(f"  Google SocialAppが既に存在します")
         print(f"  Client ID: {google_app.client_id[:20]}...")
         print(f"  Secret: {'*' * 20}... (セキュリティのため非表示)")
@@ -125,10 +128,7 @@ def setup_google_oauth(site_domain: str, site_name: str, site_scheme: str):
 
         # Google Social Appを作成
         google_app = SocialApp.objects.create(
-            provider='google',
-            name='Google',
-            client_id=GOOGLE_CLIENT_ID,
-            secret=GOOGLE_CLIENT_SECRET
+            provider="google", name="Google", client_id=GOOGLE_CLIENT_ID, secret=GOOGLE_CLIENT_SECRET
         )
         google_app.sites.add(site)
         print(f"  [OK] Google SocialAppを作成しました")
@@ -149,6 +149,7 @@ def setup_google_oauth(site_domain: str, site_name: str, site_scheme: str):
     print(f"\n[NOTE] 注意: Google Cloud ConsoleのリダイレクトURIに以下が登録されていることを確認してください:")
     print(f"   {base_url}/accounts/google/login/callback/")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     args = parse_args()
     setup_google_oauth(args.domain, args.name, args.scheme)

@@ -5,89 +5,88 @@
 """
 
 import json
-from django.test import TestCase
+
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from rest_framework.test import APITestCase
+from django.test import TestCase
 from rest_framework import status
-from .character_models import CharacterSheet, CharacterSheet6th, CharacterSkill, CharacterEquipment
+from rest_framework.test import APITestCase
+
+from .character_models import CharacterEquipment, CharacterSheet, CharacterSheet6th, CharacterSkill
 
 User = get_user_model()
 
 
 class CharacterSheetAPITest(APITestCase):
     """キャラクターシートAPI統合テスト"""
-    
+
     def setUp(self):
         """テストデータ準備"""
         # テストユーザー作成
         self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123',
-            nickname='テストユーザー'
+            username="testuser", email="test@example.com", password="testpass123", nickname="テストユーザー"
         )
-        
+
         # 認証
         self.client.force_authenticate(user=self.user)
-        
+
         # テスト用キャラクターシートデータ
         # 6版は3d6の値（3-18）を使用
         self.character_data_6th = {
-            'edition': '6th',
-            'name': 'テスト探索者6版',
-            'player_name': 'テストプレイヤー',
-            'age': 28,
-            'gender': '男性',
-            'occupation': '私立探偵',
-            'birthplace': '東京',
-            'residence': '横浜',
-            'str_value': 13,  # 3d6の値
-            'con_value': 14,  # 3d6の値
-            'pow_value': 15,  # 3d6の値
-            'dex_value': 16,  # 3d6の値
-            'app_value': 12,  # 3d6の値
-            'siz_value': 13,  # 3d6の値
-            'int_value': 17,  # 3d6の値
-            'edu_value': 16,  # 3d6の値
-            'hit_points_current': 14,  # (CON14 + SIZ13) / 2 = 13.5 → 14
-            'magic_points_current': 15,  # POW15
-            'sanity_current': 75,  # POW15 * 5
-            'notes': '6版テストキャラクター'
+            "edition": "6th",
+            "name": "テスト探索者6版",
+            "player_name": "テストプレイヤー",
+            "age": 28,
+            "gender": "男性",
+            "occupation": "私立探偵",
+            "birthplace": "東京",
+            "residence": "横浜",
+            "str_value": 13,  # 3d6の値
+            "con_value": 14,  # 3d6の値
+            "pow_value": 15,  # 3d6の値
+            "dex_value": 16,  # 3d6の値
+            "app_value": 12,  # 3d6の値
+            "siz_value": 13,  # 3d6の値
+            "int_value": 17,  # 3d6の値
+            "edu_value": 16,  # 3d6の値
+            "hit_points_current": 14,  # (CON14 + SIZ13) / 2 = 13.5 → 14
+            "magic_points_current": 15,  # POW15
+            "sanity_current": 75,  # POW15 * 5
+            "notes": "6版テストキャラクター",
         }
-        
+
         self.character_data_7th = {
-            'edition': '7th',
-            'name': 'テスト探索者7版',
-            'player_name': 'テストプレイヤー',
-            'age': 25,
-            'gender': '女性',
-            'occupation': '大学生',
-            'birthplace': '大阪',
-            'residence': '京都',
-            'str_value': 60,
-            'con_value': 65,
-            'pow_value': 70,
-            'dex_value': 85,
-            'app_value': 80,
-            'siz_value': 55,
-            'int_value': 90,
-            'edu_value': 85,
-            'hit_points_current': 12,
-            'magic_points_current': 14,
-            'sanity_current': 70,
-            'notes': '7版テストキャラクター',
-            'seventh_edition_data': {
-                'luck_points': 75,
-                'personal_description': '好奇心旺盛な大学生',
-                'ideology_beliefs': '真実を追求する',
-                'significant_people': '指導教授',
-                'meaningful_locations': '大学図書館',
-                'treasured_possessions': '祖母の指輪',
-                'traits': '几帳面',
-                'injuries_scars': 'なし',
-                'phobias_manias': '高所恐怖症'
-            }
+            "edition": "7th",
+            "name": "テスト探索者7版",
+            "player_name": "テストプレイヤー",
+            "age": 25,
+            "gender": "女性",
+            "occupation": "大学生",
+            "birthplace": "大阪",
+            "residence": "京都",
+            "str_value": 60,
+            "con_value": 65,
+            "pow_value": 70,
+            "dex_value": 85,
+            "app_value": 80,
+            "siz_value": 55,
+            "int_value": 90,
+            "edu_value": 85,
+            "hit_points_current": 12,
+            "magic_points_current": 14,
+            "sanity_current": 70,
+            "notes": "7版テストキャラクター",
+            "seventh_edition_data": {
+                "luck_points": 75,
+                "personal_description": "好奇心旺盛な大学生",
+                "ideology_beliefs": "真実を追求する",
+                "significant_people": "指導教授",
+                "meaningful_locations": "大学図書館",
+                "treasured_possessions": "祖母の指輪",
+                "traits": "几帳面",
+                "injuries_scars": "なし",
+                "phobias_manias": "高所恐怖症",
+            },
         }
 
     def create_test_gif(self, filename="test.gif"):
@@ -98,29 +97,29 @@ class CharacterSheetAPITest(APITestCase):
             b"\x00\x01\x00\x00\x02\x02D\x01\x00;"
         )
         return SimpleUploadedFile(filename, gif_bytes, content_type="image/gif")
-    
+
     def test_create_6th_edition_character(self):
         """6版キャラクターシート作成テスト"""
-        url = '/api/accounts/character-sheets/'
-        response = self.client.post(url, self.character_data_6th, format='json')
-        
+        url = "/api/accounts/character-sheets/"
+        response = self.client.post(url, self.character_data_6th, format="json")
+
         # デバッグ出力
-        
+
         if response.status_code != status.HTTP_201_CREATED:
             # Fail the test with detailed error message
             self.fail(f"Character creation failed with status {response.status_code}: {response.data}")
-        
+
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['edition'], '6th')
-        self.assertEqual(response.data['name'], 'テスト探索者6版')
-        
+        self.assertEqual(response.data["edition"], "6th")
+        self.assertEqual(response.data["name"], "テスト探索者6版")
+
         # データベースでも確認
-        character = CharacterSheet.objects.get(id=response.data['id'])
-        self.assertEqual(character.edition, '6th')
+        character = CharacterSheet.objects.get(id=response.data["id"])
+        self.assertEqual(character.edition, "6th")
         self.assertEqual(character.hit_points_max, 14)  # ceil((CON14 + SIZ13) / 2) = 14
         self.assertEqual(character.magic_points_max, 15)  # POW15
-        
-        return response.data['id']
+
+        return response.data["id"]
 
     def test_create_6th_edition_character_with_image(self):
         """6版キャラクター作成（画像付き）のテスト"""
@@ -141,10 +140,7 @@ class CharacterSheetAPITest(APITestCase):
         """通常ユーザーは作成APIで3枚以上の画像を添付できない"""
         data = dict(self.character_data_6th)
         data["name"] = "通常ユーザー画像上限"
-        data["character_images"] = [
-            self.create_test_gif(f"normal-limit-{i}.gif")
-            for i in range(3)
-        ]
+        data["character_images"] = [self.create_test_gif(f"normal-limit-{i}.gif") for i in range(3)]
 
         response = self.client.post(
             "/api/accounts/character-sheets/create_6th_edition/",
@@ -160,16 +156,9 @@ class CharacterSheetAPITest(APITestCase):
         """プレミアムユーザーは作成APIで10枚まで画像を添付できる"""
         self.user.is_premium = True
         self.user.save(update_fields=["is_premium"])
-        data = {
-            key: value
-            for key, value in self.character_data_7th.items()
-            if key != "seventh_edition_data"
-        }
+        data = {key: value for key, value in self.character_data_7th.items() if key != "seventh_edition_data"}
         data["name"] = "プレミアム画像10枚"
-        data["character_images"] = [
-            self.create_test_gif(f"premium-create-{i}.gif")
-            for i in range(10)
-        ]
+        data["character_images"] = [self.create_test_gif(f"premium-create-{i}.gif") for i in range(10)]
 
         response = self.client.post(
             "/api/accounts/character-sheets/create_7th_edition/",
@@ -180,7 +169,7 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         character = CharacterSheet.objects.get(id=response.data["id"])
         self.assertEqual(character.images.count(), 10)
-    
+
     def test_create_6th_edition_character_with_equipment(self):
         """6版作成APIで武器・防具・アイテムを同時登録できる"""
         data = dict(self.character_data_6th)
@@ -237,20 +226,20 @@ class CharacterSheetAPITest(APITestCase):
 
     def test_create_7th_edition_character(self):
         """7版キャラクターシート作成テスト"""
-        url = '/api/accounts/character-sheets/create_7th_edition/'
-        response = self.client.post(url, self.character_data_7th, format='json')
+        url = "/api/accounts/character-sheets/create_7th_edition/"
+        response = self.client.post(url, self.character_data_7th, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['edition'], '7th')
-        self.assertEqual(response.data['name'], 'テスト探索者7版')
-        self.assertEqual(response.data['character_7th']['damage_bonus'], "+0")
-        self.assertEqual(response.data['character_7th']['build'], 0)
-        self.assertEqual(response.data['character_7th']['move_rate'], 9)
-        self.assertEqual(response.data['character_7th']['dodge'], 42)
-        self.assertIsNone(response.data['character_6th'])
+        self.assertEqual(response.data["edition"], "7th")
+        self.assertEqual(response.data["name"], "テスト探索者7版")
+        self.assertEqual(response.data["character_7th"]["damage_bonus"], "+0")
+        self.assertEqual(response.data["character_7th"]["build"], 0)
+        self.assertEqual(response.data["character_7th"]["move_rate"], 9)
+        self.assertEqual(response.data["character_7th"]["dodge"], 42)
+        self.assertIsNone(response.data["character_6th"])
 
-        character = CharacterSheet.objects.get(id=response.data['id'])
-        self.assertEqual(character.edition, '7th')
+        character = CharacterSheet.objects.get(id=response.data["id"])
+        self.assertEqual(character.edition, "7th")
         self.assertEqual(character.hit_points_max, (character.con_value + character.siz_value) // 10)
         self.assertEqual(character.magic_points_max, character.pow_value // 5)
         self.assertEqual(character.sanity_starting, character.pow_value)
@@ -265,8 +254,8 @@ class CharacterSheetAPITest(APITestCase):
         """7版派生値はパーセンテージ能力値をそのまま扱う"""
         character = CharacterSheet.objects.create(
             user=self.user,
-            edition='7th',
-            name='7th Boundary',
+            edition="7th",
+            name="7th Boundary",
             age=25,
             str_value=40,
             con_value=45,
@@ -285,8 +274,8 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(character.calculate_damage_bonus_7th(), "+0")
         self.assertEqual(character.calculate_build_7th(), 0)
         self.assertEqual(character.calculate_move_rate_7th(), 7)
-        self.assertEqual(character.get_7th_skill_base_value('回避'), 35)
-        self.assertEqual(character.get_7th_skill_base_value('母国語'), 80)
+        self.assertEqual(character.get_7th_skill_base_value("回避"), 35)
+        self.assertEqual(character.get_7th_skill_base_value("母国語"), 80)
 
     def test_create_7th_edition_character_with_skills_uses_7th_point_rules(self):
         """7版APIは技能を保存し、職業/趣味ポイントを7版基準で計算できる"""
@@ -323,7 +312,7 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(character.calculate_hobby_points(), 180)
         self.assertEqual(character.calculate_used_occupation_points(), 20)
         self.assertEqual(character.calculate_used_hobby_points(), 3)
-    
+
     def test_create_7th_edition_character_with_equipment(self):
         """7版作成APIで武器・防具・アイテムを同時登録できる"""
         data = dict(self.character_data_7th)
@@ -381,59 +370,59 @@ class CharacterSheetAPITest(APITestCase):
     def test_list_character_sheets(self):
         """キャラクターシート一覧取得テスト"""
         # まずキャラクター作成
-        self.client.post('/api/accounts/character-sheets/', self.character_data_6th, format='json')
+        self.client.post("/api/accounts/character-sheets/", self.character_data_6th, format="json")
         # 7版は現在サポートされていないため、6版のみでテスト
-        
-        url = '/api/accounts/character-sheets/'
+
+        url = "/api/accounts/character-sheets/"
         response = self.client.get(url)
-        
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
-    
+
     def test_get_character_sheet_detail(self):
         """キャラクターシート詳細取得テスト"""
         # キャラクター作成
-        create_response = self.client.post('/api/accounts/character-sheets/', self.character_data_6th, format='json')
-        character_id = create_response.data['id']
-        
-        url = f'/api/accounts/character-sheets/{character_id}/'
+        create_response = self.client.post("/api/accounts/character-sheets/", self.character_data_6th, format="json")
+        character_id = create_response.data["id"]
+
+        url = f"/api/accounts/character-sheets/{character_id}/"
         response = self.client.get(url)
-        
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['id'], character_id)
-        self.assertIn('abilities', response.data)
-        self.assertIn('skills', response.data)
-        self.assertIn('equipment', response.data)
-    
+        self.assertEqual(response.data["id"], character_id)
+        self.assertIn("abilities", response.data)
+        self.assertIn("skills", response.data)
+        self.assertIn("equipment", response.data)
+
     def test_update_character_sheet(self):
         """キャラクターシート更新テスト"""
         # キャラクター作成
-        create_response = self.client.post('/api/accounts/character-sheets/', self.character_data_6th, format='json')
-        character_id = create_response.data['id']
-        
+        create_response = self.client.post("/api/accounts/character-sheets/", self.character_data_6th, format="json")
+        character_id = create_response.data["id"]
+
         # 更新データ
         update_data = {
-            'name': '更新された探索者',
-            'age': 30,
-            'hit_points_current': 10,
-            'sanity_current': 65,
-            'notes': '更新されたメモ'
+            "name": "更新された探索者",
+            "age": 30,
+            "hit_points_current": 10,
+            "sanity_current": 65,
+            "notes": "更新されたメモ",
         }
-        
-        url = f'/api/accounts/character-sheets/{character_id}/'
-        response = self.client.patch(url, update_data, format='json')
-        
+
+        url = f"/api/accounts/character-sheets/{character_id}/"
+        response = self.client.patch(url, update_data, format="json")
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['name'], '更新された探索者')
-        self.assertEqual(response.data['age'], 30)
-        self.assertEqual(response.data['hit_points_current'], 10)
+        self.assertEqual(response.data["name"], "更新された探索者")
+        self.assertEqual(response.data["age"], 30)
+        self.assertEqual(response.data["hit_points_current"], 10)
 
     def test_patch_recalculates_6th_derived_stats_when_abilities_change(self):
         """6版は能力値更新時に最大値と6版固有ロールを再計算する"""
         character = CharacterSheet.objects.create(
             user=self.user,
-            edition='6th',
-            name='再計算6版',
+            edition="6th",
+            name="再計算6版",
             age=28,
             str_value=10,
             con_value=10,
@@ -447,15 +436,15 @@ class CharacterSheetAPITest(APITestCase):
         CharacterSheet6th.objects.create(character_sheet=character)
 
         response = self.client.patch(
-            f'/api/accounts/character-sheets/{character.id}/',
+            f"/api/accounts/character-sheets/{character.id}/",
             {
-                'con_value': 18,
-                'pow_value': 12,
-                'siz_value': 16,
-                'int_value': 14,
-                'edu_value': 13,
+                "con_value": 18,
+                "pow_value": 12,
+                "siz_value": 16,
+                "int_value": 14,
+                "edu_value": 13,
             },
-            format='json'
+            format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -470,14 +459,14 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(sixth.idea_roll, 70)
         self.assertEqual(sixth.luck_roll, 60)
         self.assertEqual(sixth.know_roll, 65)
-        self.assertEqual(sixth.damage_bonus, '+1D4')
+        self.assertEqual(sixth.damage_bonus, "+1D4")
 
     def test_patch_preserves_manual_current_values_during_recalculation(self):
         """現在HP/MP/SANが手入力済みなら最大値再計算時も保持する"""
         character = CharacterSheet.objects.create(
             user=self.user,
-            edition='6th',
-            name='手入力保持6版',
+            edition="6th",
+            name="手入力保持6版",
             age=28,
             str_value=10,
             con_value=10,
@@ -492,16 +481,16 @@ class CharacterSheetAPITest(APITestCase):
         character.hit_points_current = 7
         character.magic_points_current = 3
         character.sanity_current = 22
-        character.save(update_fields=['hit_points_current', 'magic_points_current', 'sanity_current'])
+        character.save(update_fields=["hit_points_current", "magic_points_current", "sanity_current"])
 
         response = self.client.patch(
-            f'/api/accounts/character-sheets/{character.id}/',
+            f"/api/accounts/character-sheets/{character.id}/",
             {
-                'con_value': 18,
-                'pow_value': 12,
-                'siz_value': 16,
+                "con_value": 18,
+                "pow_value": 12,
+                "siz_value": 16,
             },
-            format='json'
+            format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -517,8 +506,8 @@ class CharacterSheetAPITest(APITestCase):
         """7版は能力値更新時に7版式の最大HP/MP/SANへ再計算する"""
         character = CharacterSheet.objects.create(
             user=self.user,
-            edition='7th',
-            name='再計算7版',
+            edition="7th",
+            name="再計算7版",
             age=35,
             str_value=50,
             con_value=50,
@@ -531,16 +520,16 @@ class CharacterSheetAPITest(APITestCase):
         )
 
         response = self.client.patch(
-            f'/api/accounts/character-sheets/{character.id}/',
+            f"/api/accounts/character-sheets/{character.id}/",
             {
-                'con_value': 80,
-                'pow_value': 70,
-                'siz_value': 60,
-                'str_value': 90,
-                'dex_value': 80,
-                'age': 45,
+                "con_value": 80,
+                "pow_value": 70,
+                "siz_value": 60,
+                "str_value": 90,
+                "dex_value": 80,
+                "age": 45,
             },
-            format='json'
+            format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -553,44 +542,40 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(character.sanity_current, 70)
         self.assertEqual(character.calculate_build_7th(), 1)
         self.assertEqual(character.calculate_move_rate_7th(), 8)
-    
+
     def test_delete_character_sheet(self):
         """キャラクターシート削除テスト"""
         # キャラクター作成
-        create_response = self.client.post('/api/accounts/character-sheets/', self.character_data_6th, format='json')
-        character_id = create_response.data['id']
-        
-        url = f'/api/accounts/character-sheets/{character_id}/'
+        create_response = self.client.post("/api/accounts/character-sheets/", self.character_data_6th, format="json")
+        character_id = create_response.data["id"]
+
+        url = f"/api/accounts/character-sheets/{character_id}/"
         response = self.client.delete(url)
-        
+
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        
+
         # 削除確認
         self.assertFalse(CharacterSheet.objects.filter(id=character_id).exists())
-    
+
     def test_create_character_version(self):
         """キャラクターシートバージョン作成テスト"""
         # 元キャラクター作成
-        create_response = self.client.post('/api/accounts/character-sheets/', self.character_data_6th, format='json')
-        original_id = create_response.data['id']
-        
+        create_response = self.client.post("/api/accounts/character-sheets/", self.character_data_6th, format="json")
+        original_id = create_response.data["id"]
+
         # バージョン作成
-        version_data = {
-            'hit_points_current': 8,
-            'sanity_current': 60,
-            'notes': 'バージョン2のメモ'
-        }
-        
-        url = f'/api/accounts/character-sheets/{original_id}/create_version/'
-        response = self.client.post(url, version_data, format='json')
-        
+        version_data = {"hit_points_current": 8, "sanity_current": 60, "notes": "バージョン2のメモ"}
+
+        url = f"/api/accounts/character-sheets/{original_id}/create_version/"
+        response = self.client.post(url, version_data, format="json")
+
         # デバッグ出力
-        
+
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['version'], 2)
-        self.assertEqual(response.data['parent_sheet'], original_id)
-        self.assertEqual(response.data['hit_points_current'], 8)
-    
+        self.assertEqual(response.data["version"], 2)
+        self.assertEqual(response.data["parent_sheet"], original_id)
+        self.assertEqual(response.data["hit_points_current"], 8)
+
     def test_create_character_version_copies_equipment_weight(self):
         """create_version が装備(weight含む)を引き継ぐ"""
         data = dict(self.character_data_6th)
@@ -653,82 +638,82 @@ class CharacterSheetAPITest(APITestCase):
     def test_filter_by_edition(self):
         """版別フィルタリングテスト"""
         # 両版のキャラクター作成
-        self.client.post('/api/accounts/character-sheets/', self.character_data_6th, format='json')
-        self.client.post('/api/accounts/character-sheets/create_7th_edition/', self.character_data_7th, format='json')
-        
+        self.client.post("/api/accounts/character-sheets/", self.character_data_6th, format="json")
+        self.client.post("/api/accounts/character-sheets/create_7th_edition/", self.character_data_7th, format="json")
+
         # 6版のみ取得
-        url = '/api/accounts/character-sheets/by_edition/?edition=6th'
+        url = "/api/accounts/character-sheets/by_edition/?edition=6th"
         response = self.client.get(url)
-        
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['edition'], '6th')
+        self.assertEqual(response.data[0]["edition"], "6th")
 
         # 7版のみ取得
-        url = '/api/accounts/character-sheets/by_edition/?edition=7th'
+        url = "/api/accounts/character-sheets/by_edition/?edition=7th"
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['edition'], '7th')
-    
+        self.assertEqual(response.data[0]["edition"], "7th")
+
     def test_character_skills(self):
         """キャラクタースキルテスト"""
         # キャラクター作成
-        create_response = self.client.post('/api/accounts/character-sheets/', self.character_data_6th, format='json')
-        character_id = create_response.data['id']
-        
+        create_response = self.client.post("/api/accounts/character-sheets/", self.character_data_6th, format="json")
+        character_id = create_response.data["id"]
+
         # スキル追加
         skill_data = {
-            'skill_name': '目星',
-            'base_value': 25,
-            'occupation_points': 40,
-            'interest_points': 10,
-            'other_points': 0
+            "skill_name": "目星",
+            "base_value": 25,
+            "occupation_points": 40,
+            "interest_points": 10,
+            "other_points": 0,
         }
-        
-        url = f'/api/accounts/character-sheets/{character_id}/skills/'
-        response = self.client.post(url, skill_data, format='json')
-        
+
+        url = f"/api/accounts/character-sheets/{character_id}/skills/"
+        response = self.client.post(url, skill_data, format="json")
+
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['skill_name'], '目星')
-        self.assertEqual(response.data['current_value'], 75)  # 25+40+10+0
-        
+        self.assertEqual(response.data["skill_name"], "目星")
+        self.assertEqual(response.data["current_value"], 75)  # 25+40+10+0
+
         # スキル一覧取得
         response = self.client.get(url)
-        
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
-    
+
     def test_character_equipment(self):
         """キャラクター装備テスト"""
         # キャラクター作成
-        create_response = self.client.post('/api/accounts/character-sheets/', self.character_data_6th, format='json')
-        character_id = create_response.data['id']
-        
+        create_response = self.client.post("/api/accounts/character-sheets/", self.character_data_6th, format="json")
+        character_id = create_response.data["id"]
+
         # 装備追加
         equipment_data = {
-            'item_type': 'weapon',
-            'name': '.38リボルバー',
-            'skill_name': '拳銃',
-            'damage': '1d10',
-            'base_range': '15m',
-            'attacks_per_round': 3,
-            'ammo': 6,
-            'malfunction_number': 100,
-            'description': '一般的な回転式拳銃',
-            'quantity': 1
+            "item_type": "weapon",
+            "name": ".38リボルバー",
+            "skill_name": "拳銃",
+            "damage": "1d10",
+            "base_range": "15m",
+            "attacks_per_round": 3,
+            "ammo": 6,
+            "malfunction_number": 100,
+            "description": "一般的な回転式拳銃",
+            "quantity": 1,
         }
-        
-        url = f'/api/accounts/character-sheets/{character_id}/equipment/'
-        response = self.client.post(url, equipment_data, format='json')
-        
+
+        url = f"/api/accounts/character-sheets/{character_id}/equipment/"
+        response = self.client.post(url, equipment_data, format="json")
+
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['name'], '.38リボルバー')
-        self.assertEqual(response.data['item_type'], 'weapon')
-        
+        self.assertEqual(response.data["name"], ".38リボルバー")
+        self.assertEqual(response.data["item_type"], "weapon")
+
         # 装備一覧取得
         response = self.client.get(url)
-        
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)

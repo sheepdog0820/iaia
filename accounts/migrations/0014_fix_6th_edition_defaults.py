@@ -6,28 +6,28 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0013_add_inventory_management_fields'),
+        ("accounts", "0013_add_inventory_management_fields"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='charactersheet6th',
-            name='damage_bonus',
-            field=models.CharField(default='+0', max_length=10, verbose_name='ダメージボーナス'),
+            model_name="charactersheet6th",
+            name="damage_bonus",
+            field=models.CharField(default="+0", max_length=10, verbose_name="ダメージボーナス"),
         ),
         migrations.AlterField(
-            model_name='charactersheet6th',
-            name='idea_roll',
-            field=models.IntegerField(default=0, verbose_name='アイデアロール'),
+            model_name="charactersheet6th",
+            name="idea_roll",
+            field=models.IntegerField(default=0, verbose_name="アイデアロール"),
         ),
         migrations.AlterField(
-            model_name='charactersheet6th',
-            name='know_roll',
-            field=models.IntegerField(default=0, verbose_name='知識ロール'),
+            model_name="charactersheet6th",
+            name="know_roll",
+            field=models.IntegerField(default=0, verbose_name="知識ロール"),
         ),
         migrations.AlterField(
-            model_name='charactersheet6th',
-            name='luck_roll',
-            field=models.IntegerField(default=0, verbose_name='幸運ロール'),
+            model_name="charactersheet6th",
+            name="luck_roll",
+            field=models.IntegerField(default=0, verbose_name="幸運ロール"),
         ),
     ]

@@ -9,19 +9,18 @@ from ..serializers import CharacterDiceRollSettingSerializer
 
 class DiceRollSettingViewSet(viewsets.ModelViewSet):
     """Dice roll setting API."""
+
     queryset = CharacterDiceRollSetting.objects.none()
     serializer_class = CharacterDiceRollSettingSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return CharacterDiceRollSetting.objects.filter(
-            user=self.request.user
-        ).order_by('-is_default', 'setting_name')
+        return CharacterDiceRollSetting.objects.filter(user=self.request.user).order_by("-is_default", "setting_name")
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-    @action(detail=True, methods=['post'], url_path='set-default')
+    @action(detail=True, methods=["post"], url_path="set-default")
     def set_default(self, request, pk=None):
         setting = self.get_object()
         setting.set_as_default()

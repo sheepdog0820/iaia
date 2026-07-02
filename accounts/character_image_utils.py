@@ -3,26 +3,26 @@
 
 def _image_url(image_field):
     if not image_field:
-        return ''
+        return ""
     try:
         return image_field.url
     except ValueError:
-        return ''
+        return ""
 
 
 def get_character_preview_image_url(character, request=None):
     """Return the image URL that should represent a character in previews."""
     if not character:
-        return ''
+        return ""
 
     image_field = None
-    images = getattr(character, 'images', None)
+    images = getattr(character, "images", None)
     if images is not None:
-        main_image = images.filter(is_main=True).order_by('order', 'uploaded_at', 'id').first()
+        main_image = images.filter(is_main=True).order_by("order", "uploaded_at", "id").first()
         if main_image and main_image.image:
             image_field = main_image.image
         else:
-            first_image = images.order_by('order', 'uploaded_at', 'id').first()
+            first_image = images.order_by("order", "uploaded_at", "id").first()
             if first_image and first_image.image:
                 image_field = first_image.image
 

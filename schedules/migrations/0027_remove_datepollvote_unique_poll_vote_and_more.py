@@ -8,53 +8,53 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('schedules', '0026_sessionparticipant_guest_xor_constraint'),
+        ("schedules", "0026_sessionparticipant_guest_xor_constraint"),
     ]
 
     operations = [
         migrations.RemoveConstraint(
-            model_name='datepollvote',
-            name='unique_poll_vote',
+            model_name="datepollvote",
+            name="unique_poll_vote",
         ),
         migrations.RemoveConstraint(
-            model_name='sessionavailability',
-            name='unique_session_availability_vote',
+            model_name="sessionavailability",
+            name="unique_session_availability_vote",
         ),
         migrations.RemoveConstraint(
-            model_name='sessionavailability',
-            name='unique_occurrence_availability_vote',
+            model_name="sessionavailability",
+            name="unique_occurrence_availability_vote",
         ),
         migrations.RenameIndex(
-            model_name='datepollcomment',
-            new_name='schedules_d_poll_id_3d2652_idx',
-            old_name='date_poll_comment_poll_created',
+            model_name="datepollcomment",
+            new_name="schedules_d_poll_id_3d2652_idx",
+            old_name="date_poll_comment_poll_created",
         ),
         migrations.RenameIndex(
-            model_name='datepollcomment',
-            new_name='schedules_d_user_id_5ef6d4_idx',
-            old_name='date_poll_comment_user_created',
+            model_name="datepollcomment",
+            new_name="schedules_d_user_id_5ef6d4_idx",
+            old_name="date_poll_comment_user_created",
         ),
         migrations.RenameIndex(
-            model_name='sessionavailability',
-            new_name='schedules_s_session_db3679_idx',
-            old_name='schedules_s_session_avail_idx',
+            model_name="sessionavailability",
+            new_name="schedules_s_session_db3679_idx",
+            old_name="schedules_s_session_avail_idx",
         ),
         migrations.RenameIndex(
-            model_name='sessionavailability',
-            new_name='schedules_s_occurre_0fcc5c_idx',
-            old_name='schedules_o_occur_avail_idx',
+            model_name="sessionavailability",
+            new_name="schedules_s_occurre_0fcc5c_idx",
+            old_name="schedules_o_occur_avail_idx",
         ),
         migrations.RenameIndex(
-            model_name='sessionavailability',
-            new_name='schedules_s_propose_f45a44_idx',
-            old_name='schedules_p_proposed_idx',
+            model_name="sessionavailability",
+            new_name="schedules_s_propose_f45a44_idx",
+            old_name="schedules_p_proposed_idx",
         ),
         migrations.AlterUniqueTogether(
-            name='datepollvote',
-            unique_together={('option', 'user')},
+            name="datepollvote",
+            unique_together={("option", "user")},
         ),
         migrations.AlterUniqueTogether(
-            name='sessionavailability',
-            unique_together={('occurrence', 'user'), ('session', 'user')},
+            name="sessionavailability",
+            unique_together={("occurrence", "user"), ("session", "user")},
         ),
     ]

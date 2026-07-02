@@ -7,23 +7,33 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0022_add_character_public_field'),
+        ("accounts", "0022_add_character_public_field"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='skillgrowthrecord',
-            name='growth_amount',
-            field=models.IntegerField(default=0, validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(999)], verbose_name='成長量'),
+            model_name="skillgrowthrecord",
+            name="growth_amount",
+            field=models.IntegerField(
+                default=0,
+                validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(999)],
+                verbose_name="成長量",
+            ),
         ),
         migrations.AlterField(
-            model_name='skillgrowthrecord',
-            name='new_value',
-            field=models.IntegerField(validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(999)], verbose_name='成長後技能値'),
+            model_name="skillgrowthrecord",
+            name="new_value",
+            field=models.IntegerField(
+                validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(999)],
+                verbose_name="成長後技能値",
+            ),
         ),
         migrations.AlterField(
-            model_name='skillgrowthrecord',
-            name='old_value',
-            field=models.IntegerField(validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(999)], verbose_name='成長前技能値'),
+            model_name="skillgrowthrecord",
+            name="old_value",
+            field=models.IntegerField(
+                validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(999)],
+                verbose_name="成長前技能値",
+            ),
         ),
     ]

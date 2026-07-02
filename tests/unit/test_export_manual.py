@@ -19,7 +19,10 @@ def run() -> int:
     django.setup()
 
     from django.test import Client
-    from accounts.models import CustomUser, Group as CustomGroup, GroupMembership
+
+    from accounts.models import CustomUser
+    from accounts.models import Group as CustomGroup
+    from accounts.models import GroupMembership
 
     client = Client()
 
@@ -44,4 +47,3 @@ def run() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(run())
-

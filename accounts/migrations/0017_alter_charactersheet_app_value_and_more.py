@@ -7,48 +7,72 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0016_alter_charactersheet_app_value_and_more'),
+        ("accounts", "0016_alter_charactersheet_app_value_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='charactersheet',
-            name='app_value',
-            field=models.IntegerField(validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)], verbose_name='外見(APP)'),
+            model_name="charactersheet",
+            name="app_value",
+            field=models.IntegerField(
+                validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)],
+                verbose_name="外見(APP)",
+            ),
         ),
         migrations.AlterField(
-            model_name='charactersheet',
-            name='con_value',
-            field=models.IntegerField(validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)], verbose_name='体力(CON)'),
+            model_name="charactersheet",
+            name="con_value",
+            field=models.IntegerField(
+                validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)],
+                verbose_name="体力(CON)",
+            ),
         ),
         migrations.AlterField(
-            model_name='charactersheet',
-            name='dex_value',
-            field=models.IntegerField(validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)], verbose_name='敏捷性(DEX)'),
+            model_name="charactersheet",
+            name="dex_value",
+            field=models.IntegerField(
+                validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)],
+                verbose_name="敏捷性(DEX)",
+            ),
         ),
         migrations.AlterField(
-            model_name='charactersheet',
-            name='edu_value',
-            field=models.IntegerField(validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)], verbose_name='教育(EDU)'),
+            model_name="charactersheet",
+            name="edu_value",
+            field=models.IntegerField(
+                validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)],
+                verbose_name="教育(EDU)",
+            ),
         ),
         migrations.AlterField(
-            model_name='charactersheet',
-            name='int_value',
-            field=models.IntegerField(validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)], verbose_name='知識(INT)'),
+            model_name="charactersheet",
+            name="int_value",
+            field=models.IntegerField(
+                validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)],
+                verbose_name="知識(INT)",
+            ),
         ),
         migrations.AlterField(
-            model_name='charactersheet',
-            name='pow_value',
-            field=models.IntegerField(validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)], verbose_name='意志力(POW)'),
+            model_name="charactersheet",
+            name="pow_value",
+            field=models.IntegerField(
+                validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)],
+                verbose_name="意志力(POW)",
+            ),
         ),
         migrations.AlterField(
-            model_name='charactersheet',
-            name='siz_value',
-            field=models.IntegerField(validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)], verbose_name='体格(SIZ)'),
+            model_name="charactersheet",
+            name="siz_value",
+            field=models.IntegerField(
+                validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)],
+                verbose_name="体格(SIZ)",
+            ),
         ),
         migrations.AlterField(
-            model_name='charactersheet',
-            name='str_value',
-            field=models.IntegerField(validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)], verbose_name='筋力(STR)'),
+            model_name="charactersheet",
+            name="str_value",
+            field=models.IntegerField(
+                validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(999)],
+                verbose_name="筋力(STR)",
+            ),
         ),
     ]

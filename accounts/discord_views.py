@@ -13,33 +13,33 @@ from .models import DiscordDelivery, Group, GroupDiscordSettings, GroupMembershi
 
 class GroupDiscordSettingsSerializer(serializers.ModelSerializer):
     webhook_url = serializers.URLField(write_only=True, required=False, allow_blank=True)
-    configured = serializers.BooleanField(source='is_configured', read_only=True)
+    configured = serializers.BooleanField(source="is_configured", read_only=True)
 
     class Meta:
         model = GroupDiscordSettings
-        fields = ['enabled', 'event_types', 'webhook_url', 'configured', 'disabled_at']
-        read_only_fields = ['configured', 'disabled_at']
+        fields = ["enabled", "event_types", "webhook_url", "configured", "disabled_at"]
+        read_only_fields = ["configured", "disabled_at"]
 
     def validate_event_types(self, value):
         allowed = {
-            'session_created',
-            'session_updated',
-            'session_cancelled',
-            'handout_released',
+            "session_created",
+            "session_updated",
+            "session_cancelled",
+            "handout_released",
         }
         unknown = set(value) - allowed
         if unknown:
-            raise serializers.ValidationError(f'Unknown event types: {sorted(unknown)}')
+            raise serializers.ValidationError(f"Unknown event types: {sorted(unknown)}")
         return value
 
     def update(self, instance, validated_data):
-        webhook_url = validated_data.pop('webhook_url', None)
+        webhook_url = validated_data.pop("webhook_url", None)
         if webhook_url is not None:
             instance.set_webhook_url(webhook_url)
         for field, value in validated_data.items():
             setattr(instance, field, value)
         if instance.enabled and not instance.is_configured:
-            raise serializers.ValidationError({'enabled': 'A webhook URL is required.'})
+            raise serializers.ValidationError({"enabled": "A webhook URL is required."})
         instance.failure_count = 0
         instance.disabled_at = None
         instance.save()
@@ -53,9 +53,7 @@ class GroupDiscordSettingsView(APIView):
         group = get_object_or_404(Group, pk=group_id)
         is_admin = (
             group.created_by_id == request.user.id
-            or GroupMembership.objects.filter(
-                group=group, user=request.user, role='admin'
-            ).exists()
+            or GroupMembership.objects.filter(group=group, user=request.user, role="admin").exists()
         )
         if not is_admin:
             self.permission_denied(request)
@@ -77,15 +75,15 @@ class DiscordDeliverySerializer(serializers.ModelSerializer):
     class Meta:
         model = DiscordDelivery
         fields = [
-            'id',
-            'event_type',
-            'status',
-            'attempts',
-            'last_error',
-            'created_at',
-            'sent_at',
-            'payload',
-            'idempotency_key',
+            "id",
+            "event_type",
+            "status",
+            "attempts",
+            "last_error",
+            "created_at",
+            "sent_at",
+            "payload",
+            "idempotency_key",
         ]
         read_only_fields = fields
 
@@ -97,10 +95,7 @@ class DiscordDeliveryRetryResponseSerializer(serializers.Serializer):
 
 def _is_group_admin(user, group):
     return (
-        group.created_by_id == user.id
-        or GroupMembership.objects.filter(
-            group=group, user=user, role='admin'
-        ).exists()
+        group.created_by_id == user.id or GroupMembership.objects.filter(group=group, user=user, role="admin").exists()
     )
 
 
@@ -123,8 +118,8 @@ class GroupDiscordDeliveryListView(APIView):
     @extend_schema(
         responses=DiscordDeliverySerializer(many=True),
         parameters=[
-            OpenApiParameter('status', OpenApiTypes.STR, OpenApiParameter.QUERY),
-            OpenApiParameter('event_type', OpenApiTypes.STR, OpenApiParameter.QUERY),
+            OpenApiParameter("status", OpenApiTypes.STR, OpenApiParameter.QUERY),
+            OpenApiParameter("event_type", OpenApiTypes.STR, OpenApiParameter.QUERY),
         ],
     )
     def get(self, request, group_id):
@@ -133,13 +128,13 @@ class GroupDiscordDeliveryListView(APIView):
         if not settings_obj:
             return Response([])
         queryset = DiscordDelivery.objects.filter(settings=settings_obj)
-        delivery_status = request.query_params.get('status')
+        delivery_status = request.query_params.get("status")
         if delivery_status:
             queryset = queryset.filter(status=delivery_status)
-        event_type = request.query_params.get('event_type')
+        event_type = request.query_params.get("event_type")
         if event_type:
             queryset = queryset.filter(event_type=event_type)
-        deliveries = queryset.order_by('-created_at')[:50]
+        deliveries = queryset.order_by("-created_at")[:50]
         return Response(DiscordDeliverySerializer(deliveries, many=True).data)
 
 
@@ -152,7 +147,7 @@ class GroupDiscordDeliveryRetryView(APIView):
             self.permission_denied(request)
         settings_obj = GroupDiscordSettings.objects.filter(group=group).first()
         return get_object_or_404(
-            DiscordDelivery.objects.select_related('settings', 'settings__group'),
+            DiscordDelivery.objects.select_related("settings", "settings__group"),
             pk=delivery_id,
             settings=settings_obj,
         )
@@ -163,35 +158,35 @@ class GroupDiscordDeliveryRetryView(APIView):
         settings_obj = delivery.settings
         if delivery.status != DiscordDelivery.Status.FAILED:
             return Response(
-                {'detail': 'Only failed Discord deliveries can be retried.'},
+                {"detail": "Only failed Discord deliveries can be retried."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not settings_obj.enabled:
             return Response(
-                {'detail': 'Discord notifications are disabled for this group.'},
+                {"detail": "Discord notifications are disabled for this group."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not settings_obj.is_configured:
             return Response(
-                {'detail': 'A Discord webhook URL is required.'},
+                {"detail": "A Discord webhook URL is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if delivery.event_type not in settings_obj.event_types:
             return Response(
-                {'detail': 'This Discord event type is disabled.'},
+                {"detail": "This Discord event type is disabled."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not _broker_available():
-            delivery.last_error = 'Background task broker is unavailable.'
-            delivery.save(update_fields=['last_error'])
+            delivery.last_error = "Background task broker is unavailable."
+            delivery.save(update_fields=["last_error"])
             return Response(
-                {'delivery_id': delivery.pk, 'queued': False},
+                {"delivery_id": delivery.pk, "queued": False},
                 status=status.HTTP_202_ACCEPTED,
             )
 
         delivery.status = DiscordDelivery.Status.PENDING
-        delivery.last_error = ''
-        delivery.save(update_fields=['status', 'last_error'])
+        delivery.last_error = ""
+        delivery.save(update_fields=["status", "last_error"])
         send_discord_webhook.delay(
             group_id,
             delivery.event_type,
@@ -199,6 +194,6 @@ class GroupDiscordDeliveryRetryView(APIView):
             delivery.idempotency_key,
         )
         return Response(
-            {'delivery_id': delivery.pk, 'queued': True},
+            {"delivery_id": delivery.pk, "queued": True},
             status=status.HTTP_202_ACCEPTED,
         )

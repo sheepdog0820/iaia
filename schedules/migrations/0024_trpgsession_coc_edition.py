@@ -6,19 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('schedules', '0023_date_poll_comments'),
+        ("schedules", "0023_date_poll_comments"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='trpgsession',
-            name='coc_edition',
+            model_name="trpgsession",
+            name="coc_edition",
             field=models.CharField(
-                choices=[('6th', 'CoC 6版'), ('7th', 'CoC 7版')],
-                default='6th',
-                help_text='クトゥルフ神話TRPGの版（探索者作成で使用）',
+                choices=[("6th", "CoC 6版"), ("7th", "CoC 7版")],
+                default="6th",
+                help_text="クトゥルフ神話TRPGの版（探索者作成で使用）",
                 max_length=3,
             ),
         ),
     ]
-

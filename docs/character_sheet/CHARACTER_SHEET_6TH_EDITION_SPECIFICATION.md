@@ -341,14 +341,14 @@ CCB<={EDU}*5 【EDU × 5】
 #### 公開設定
 - **private（デフォルト）**: 作成者のみ閲覧・編集可能
 - **group**: 所属グループの権限に従って閲覧可能
-- **link**: 通常の公開URL/APIでは閲覧不可。`ShareLink` のURLを知る人のみ共有用レスポンスを閲覧可能
-- **public**: 公開URL/APIで閲覧可能。必要に応じて `ShareLink` も発行可能
-- `is_public` はレガシー互換フィールド。現行の公開判定は `access_scope` を正本とする
+- **link**: not listed publicly and not readable by ID. Readable only through a fixed share URL or issued `ShareLink` URL.
+- **public**: readable through shared URL/API surfaces. A `ShareLink` can also be issued when needed.
+- `access_scope` is the canonical visibility field.
 
 #### アクセス制御
 - 自分のキャラクター: 全権限（閲覧・編集・削除）
 - 他ユーザーの `public` キャラクター: 閲覧のみ
-- 他ユーザーの `link` キャラクター: 通常の公開ID URLでは404。`ShareLink` 共有URLでは閲覧のみ
+- Other users can read `link` characters only through fixed share URLs or issued `ShareLink` URLs; ID reads return 404.
 - 他ユーザーの `private` キャラクター: アクセス不可
 - 共有レスポンスでは所有者情報、許可ユーザー、キャラクターメモ、version note を返さない
 
@@ -519,7 +519,6 @@ class CharacterSheet(models.Model):
     
     # 公開設定
     access_scope = CharField(default='private')  # private/group/link/public
-    is_public = BooleanField(default=False)  # レガシー互換。公開判定はaccess_scopeを優先
     
     # バージョン管理
     version = IntegerField(default=1)
@@ -698,7 +697,6 @@ document.addEventListener('DOMContentLoaded', function() {
 - `GET /api/accounts/character-sheets/?search={keyword}` - キャラクター名検索
 - `GET /api/accounts/character-sheets/?status={status}` - ステータスフィルター
 - `GET /api/accounts/character-sheets/?access_scope={private|group|link|public}` - 公開範囲フィルター
-- `GET /api/accounts/character-sheets/?is_public={true/false}` - レガシー公開設定フィルター
 
 ### レスポンス形式
 
@@ -725,7 +723,6 @@ document.addEventListener('DOMContentLoaded', function() {
     "sanity_max": 99,
     "sanity_current": 75,
     "access_scope": "private",
-    "is_public": false,
     "status": "alive",
     "version": 1,
     "session_count": 0,
@@ -787,7 +784,7 @@ document.addEventListener('DOMContentLoaded', function() {
   - 検索・フィルター機能の仕様追加
   - 削除機能とカスケード削除の仕様追加
   - セッション連携機能の詳細追加
-  - データモデルに`is_public`、`version`、`parent_sheet`、`session_count`フィールド追加
+  - Added `version`, `parent_sheet`, and `session_count` fields.
   - API仕様にバージョン管理と検索エンドポイント追加
 - **武器・装備管理システムの追加**
   - クトゥルフ神話TRPG第6版準拠の武器管理

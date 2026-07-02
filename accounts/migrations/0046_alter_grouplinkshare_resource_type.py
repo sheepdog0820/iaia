@@ -6,13 +6,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0045_merge_character_access_and_billing'),
+        ("accounts", "0045_merge_character_access_and_billing"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='grouplinkshare',
-            name='resource_type',
-            field=models.CharField(choices=[('session', 'Session'), ('date_poll', 'Date poll'), ('scenario', 'Scenario')], max_length=32),
+            model_name="grouplinkshare",
+            name="resource_type",
+            field=models.CharField(
+                choices=[("session", "Session"), ("date_poll", "Date poll"), ("scenario", "Scenario")], max_length=32
+            ),
         ),
     ]

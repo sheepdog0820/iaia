@@ -8,6 +8,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: test-secret-key-for-ci-with-enough-length-and-variety-12345
+      APP_ENV: local
+      ENV_FILE: .env.example
 
     steps:
       - uses: actions/checkout@v4
@@ -15,6 +19,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
 
       - name: Install dependencies
         run: |
@@ -22,10 +27,33 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Django check
-        env:
-          SECRET_KEY: test-secret-key-for-ci-with-enough-length-and-variety-12345
         run: |
           python manage.py check
+
+      - name: Migration file check
+        run: |
+          python manage.py makemigrations --check --dry-run
+
+      - name: Migration apply/check
+        run: |
+          python manage.py migrate --noinput
+          python manage.py migrate --check
+
+      - name: Run pytest
+        run: |
+          python -m pytest
+
+      - name: Flake8
+        run: |
+          python -m flake8 .
+
+      - name: Black check
+        run: |
+          python -m black --check .
+
+      - name: isort check
+        run: |
+          python -m isort --check-only .
 
       - name: Docker Compose config check
         env:
@@ -103,9 +131,3 @@ jobs:
           LEGAL_SELLER_PHONE: 000-0000-0000
         run: |
           python manage.py billing_release_gate
-
-      - name: Run tests
-        env:
-          SECRET_KEY: test-secret-key-for-ci-with-enough-length-and-variety-12345
-        run: |
-          python manage.py test --noinput

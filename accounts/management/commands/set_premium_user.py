@@ -1,5 +1,5 @@
-from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand, CommandError
 
 from accounts.billing import create_premium_audit_log
 
@@ -36,10 +36,7 @@ class Command(BaseCommand):
         reason = options["reason"]
 
         User = get_user_model()
-        user = (
-            User.objects.filter(username=identifier).first()
-            or User.objects.filter(email=identifier).first()
-        )
+        user = User.objects.filter(username=identifier).first() or User.objects.filter(email=identifier).first()
         if user is None:
             raise CommandError(f"User not found: {identifier}")
 

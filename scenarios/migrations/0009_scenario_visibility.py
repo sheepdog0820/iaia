@@ -6,13 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('scenarios', '0008_scenariohandoutrecommendedskill_and_more'),
+        ("scenarios", "0008_scenariohandoutrecommendedskill_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='scenario',
-            name='visibility',
-            field=models.CharField(choices=[('private', 'Private'), ('group', 'Group'), ('link', 'Link'), ('public', 'Public')], default='public', max_length=10),
+            model_name="scenario",
+            name="visibility",
+            field=models.CharField(
+                choices=[("private", "Private"), ("group", "Group"), ("link", "Link"), ("public", "Public")],
+                default="public",
+                max_length=10,
+            ),
         ),
     ]

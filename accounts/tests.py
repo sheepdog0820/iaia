@@ -1,13 +1,16 @@
 import json
-from django.test import TestCase, Client
-from django.contrib.auth import get_user_model
-from django.urls import reverse
-from django.conf import settings
-from django.utils import timezone
 from datetime import timedelta
-from .models import CustomUser, Group, GroupMembership
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.test import Client, TestCase
+from django.urls import reverse
+from django.utils import timezone
+
+from schedules.models import SessionParticipant, TRPGSession
+
 from .character_models import CharacterSheet
-from schedules.models import TRPGSession, SessionParticipant
+from .models import CustomUser, Group, GroupMembership
 
 User = get_user_model()
 
@@ -16,108 +19,103 @@ class BasicAccountsTestCase(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = User.objects.create_user(
-            username='basicuser',
-            email='basic@example.com',
-            password='basicpass123',
-            nickname='Basic User'
+            username="basicuser", email="basic@example.com", password="basicpass123", nickname="Basic User"
         )
 
     def test_custom_user_model(self):
         """カスタムユーザーモデルのテスト"""
         self.assertIsInstance(self.user, CustomUser)
-        self.assertEqual(self.user.email, 'basic@example.com')
-        self.assertEqual(self.user.nickname, 'Basic User')
+        self.assertEqual(self.user.email, "basic@example.com")
+        self.assertEqual(self.user.nickname, "Basic User")
 
     def test_user_str_representation(self):
         """ユーザー文字列表現のテスト"""
-        self.assertEqual(str(self.user), 'Basic User')
+        self.assertEqual(str(self.user), "Basic User")
 
     def test_login_view(self):
         """ログインビューのテスト"""
-        response = self.client.get('/accounts/login/')
+        response = self.client.get("/accounts/login/")
         self.assertEqual(response.status_code, 200)
 
     def test_signup_view(self):
         """サインアップビューのテスト"""
-        response = self.client.get('/accounts/signup/')
+        response = self.client.get("/accounts/signup/")
         self.assertEqual(response.status_code, 200)
 
     def test_dashboard_view_unauthenticated(self):
         """未認証ダッシュボードビューのテスト"""
-        response = self.client.get('/accounts/dashboard/')
+        response = self.client.get("/accounts/dashboard/")
         self.assertEqual(response.status_code, 302)
 
     def test_dashboard_view_authenticated(self):
         """認証済みダッシュボードビューのテスト"""
         self.client.force_login(self.user)
-        response = self.client.get('/accounts/dashboard/')
+        response = self.client.get("/accounts/dashboard/")
         self.assertEqual(response.status_code, 200)
 
     def test_profile_edit_saves_trpg_introduction_sheet(self):
         """プロフィール編集でTRPG自己紹介シートが保存されること"""
         self.client.force_login(self.user)
 
-        response = self.client.post('/accounts/profile/edit/', data={
-            'nickname': 'Updated User',
-            'email': 'basic@example.com',
-            'first_name': '太郎',
-            'last_name': '田中',
-            'trpg_history': 'CoC中心に遊んでいます',
-
-            'trpg_env': ['online'],
-            'trpg_tools': 'Discord / CCFOLIA',
-
-            'trpg_systems_played': ['coc6'],
-            'trpg_systems_favorite': ['coc6'],
-
-            'trpg_scenario_structure': 'semi_free',
-            'trpg_loss_preference': 'conditional',
-            'trpg_loss_preference_note': 'KPと相談したい',
-
-            'trpg_ng_expression': ['gore'],
-            'trpg_ng_share_method': 'kp_only',
-
-            'trpg_free_comment': 'よろしくお願いします',
-            'trpg_profile_visibility': 'participants',
-        })
+        response = self.client.post(
+            "/accounts/profile/edit/",
+            data={
+                "nickname": "Updated User",
+                "email": "basic@example.com",
+                "first_name": "太郎",
+                "last_name": "田中",
+                "trpg_history": "CoC中心に遊んでいます",
+                "trpg_env": ["online"],
+                "trpg_tools": "Discord / CCFOLIA",
+                "trpg_systems_played": ["coc6"],
+                "trpg_systems_favorite": ["coc6"],
+                "trpg_scenario_structure": "semi_free",
+                "trpg_loss_preference": "conditional",
+                "trpg_loss_preference_note": "KPと相談したい",
+                "trpg_ng_expression": ["gore"],
+                "trpg_ng_share_method": "kp_only",
+                "trpg_free_comment": "よろしくお願いします",
+                "trpg_profile_visibility": "participants",
+            },
+        )
         self.assertEqual(response.status_code, 302)
 
         self.user.refresh_from_db()
         sheet = self.user.trpg_introduction_sheet
 
-        self.assertEqual(sheet.get('basic', {}).get('environment'), ['online'])
-        self.assertEqual(sheet.get('basic', {}).get('tools'), 'Discord / CCFOLIA')
-        self.assertEqual(sheet.get('systems', {}).get('played'), ['coc6'])
-        self.assertEqual(sheet.get('scenario', {}).get('loss'), 'conditional')
-        self.assertEqual(sheet.get('ng', {}).get('expression'), ['gore'])
-        self.assertEqual(sheet.get('visibility'), 'participants')
+        self.assertEqual(sheet.get("basic", {}).get("environment"), ["online"])
+        self.assertEqual(sheet.get("basic", {}).get("tools"), "Discord / CCFOLIA")
+        self.assertEqual(sheet.get("systems", {}).get("played"), ["coc6"])
+        self.assertEqual(sheet.get("scenario", {}).get("loss"), "conditional")
+        self.assertEqual(sheet.get("ng", {}).get("expression"), ["gore"])
+        self.assertEqual(sheet.get("visibility"), "participants")
 
     def test_user_profile_view_requires_shared_group(self):
         """グループメンバーのプロフィール参照は共通グループが必要"""
         owner = User.objects.create_user(
-            username='owneruser',
-            email='owner@example.com',
-            password='pass1234',
-            nickname='Owner User',
+            username="owneruser",
+            email="owner@example.com",
+            password="pass1234",
+            nickname="Owner User",
         )
         other = User.objects.create_user(
-            username='otheruser',
-            email='other@example.com',
-            password='pass1234',
-            nickname='Other User',
+            username="otheruser",
+            email="other@example.com",
+            password="pass1234",
+            nickname="Other User",
         )
         outsider = User.objects.create_user(
-            username='outsider',
-            email='outsider@example.com',
-            password='pass1234',
-            nickname='Outsider',
+            username="outsider",
+            email="outsider@example.com",
+            password="pass1234",
+            nickname="Outsider",
         )
 
-        group = Group.objects.create(name='Shared Group', created_by=owner)
-        GroupMembership.objects.create(user=owner, group=group, role='admin')
-        GroupMembership.objects.create(user=other, group=group, role='member')
+        group = Group.objects.create(name="Shared Group", created_by=owner)
+        GroupMembership.objects.create(user=owner, group=group, role="admin")
+        GroupMembership.objects.create(user=other, group=group, role="member")
 
-        url = f'/accounts/users/{other.id}/profile/'
+        url = f"/accounts/users/{other.id}/profile/"
 
         self.client.force_login(outsider)
         response = self.client.get(url)
@@ -130,20 +128,20 @@ class BasicAccountsTestCase(TestCase):
 
     def test_user_detail_api_does_not_expose_other_users(self):
         other = User.objects.create_user(
-            username='apiother',
-            email='apiother@example.com',
-            password='pass1234',
-            nickname='API Other',
-            trpg_history='private history',
+            username="apiother",
+            email="apiother@example.com",
+            password="pass1234",
+            nickname="API Other",
+            trpg_history="private history",
         )
 
         self.client.force_login(self.user)
 
-        own_response = self.client.get(f'/api/accounts/users/{self.user.id}/')
+        own_response = self.client.get(f"/api/accounts/users/{self.user.id}/")
         self.assertEqual(own_response.status_code, 200)
-        self.assertEqual(own_response.json()['email'], self.user.email)
+        self.assertEqual(own_response.json()["email"], self.user.email)
 
-        other_response = self.client.get(f'/api/accounts/users/{other.id}/')
+        other_response = self.client.get(f"/api/accounts/users/{other.id}/")
         self.assertEqual(other_response.status_code, 404)
         self.assertNotContains(
             other_response,
@@ -159,32 +157,32 @@ class BasicAccountsTestCase(TestCase):
     def test_character_detail_api_allows_session_gm(self):
         """ログイン済みユーザーは他人のキャラも参照できる"""
         gm = User.objects.create_user(
-            username='gmuser',
-            email='gm@example.com',
-            password='pass1234',
-            nickname='GM User',
+            username="gmuser",
+            email="gm@example.com",
+            password="pass1234",
+            nickname="GM User",
         )
         player = User.objects.create_user(
-            username='playeruser',
-            email='player@example.com',
-            password='pass1234',
-            nickname='Player User',
+            username="playeruser",
+            email="player@example.com",
+            password="pass1234",
+            nickname="Player User",
         )
         outsider = User.objects.create_user(
-            username='outsideruser',
-            email='outsider@example.com',
-            password='pass1234',
-            nickname='Outsider User',
+            username="outsideruser",
+            email="outsider@example.com",
+            password="pass1234",
+            nickname="Outsider User",
         )
 
-        group = Group.objects.create(name='Session Group', created_by=gm)
-        GroupMembership.objects.create(user=gm, group=group, role='admin')
-        GroupMembership.objects.create(user=player, group=group, role='member')
+        group = Group.objects.create(name="Session Group", created_by=gm)
+        GroupMembership.objects.create(user=gm, group=group, role="admin")
+        GroupMembership.objects.create(user=player, group=group, role="member")
 
         character = CharacterSheet.objects.create(
             user=player,
-            edition='6th',
-            name='Test PC',
+            edition="6th",
+            name="Test PC",
             age=20,
             str_value=10,
             con_value=10,
@@ -201,85 +199,80 @@ class BasicAccountsTestCase(TestCase):
             sanity_max=50,
             sanity_current=50,
             sanity_starting=50,
-            is_public=False,
         )
 
         session = TRPGSession.objects.create(
-            title='Test Session',
-            description='',
+            title="Test Session",
+            description="",
             date=timezone.now() + timedelta(days=1),
-            location='オンライン',
+            location="オンライン",
             gm=gm,
             group=group,
-            status='planned',
-            visibility='private',
+            status="planned",
+            visibility="private",
             duration_minutes=60,
         )
         SessionParticipant.objects.create(
             session=session,
             user=player,
-            role='player',
+            role="player",
             player_slot=1,
             character_sheet=character,
         )
 
         self.client.force_login(gm)
-        response = self.client.get(f'/api/accounts/character-sheets/{character.id}/')
+        response = self.client.get(f"/api/accounts/character-sheets/{character.id}/")
         self.assertEqual(response.status_code, 200)
 
         self.client.force_login(player)
-        response = self.client.get(f'/api/accounts/character-sheets/{character.id}/')
+        response = self.client.get(f"/api/accounts/character-sheets/{character.id}/")
         self.assertEqual(response.status_code, 200)
 
         self.client.force_login(outsider)
-        response = self.client.get(f'/api/accounts/character-sheets/{character.id}/')
+        response = self.client.get(f"/api/accounts/character-sheets/{character.id}/")
         self.assertEqual(response.status_code, 404)
 
         self.client.force_login(gm)
-        response = self.client.get(
-            reverse('character_detail_6th', kwargs={'character_id': character.id})
-        )
+        response = self.client.get(reverse("character_detail_6th", kwargs={"character_id": character.id}))
         self.assertEqual(response.status_code, 200)
 
         self.client.force_login(outsider)
-        response = self.client.get(
-            reverse('character_detail_6th', kwargs={'character_id': character.id})
-        )
+        response = self.client.get(reverse("character_detail_6th", kwargs={"character_id": character.id}))
         self.assertEqual(response.status_code, 404)
 
     def test_character_sheet_access_scope_group_private_public_and_allowed_users(self):
         owner = User.objects.create_user(
-            username='scope_owner',
-            email='scope_owner@example.com',
-            password='pass1234',
-            nickname='Scope Owner',
+            username="scope_owner",
+            email="scope_owner@example.com",
+            password="pass1234",
+            nickname="Scope Owner",
         )
         group_user = User.objects.create_user(
-            username='scope_group_user',
-            email='scope_group@example.com',
-            password='pass1234',
-            nickname='Scope Group',
+            username="scope_group_user",
+            email="scope_group@example.com",
+            password="pass1234",
+            nickname="Scope Group",
         )
         allowed_user = User.objects.create_user(
-            username='scope_allowed_user',
-            email='scope_allowed@example.com',
-            password='pass1234',
-            nickname='Scope Allowed',
+            username="scope_allowed_user",
+            email="scope_allowed@example.com",
+            password="pass1234",
+            nickname="Scope Allowed",
         )
         outsider = User.objects.create_user(
-            username='scope_outsider',
-            email='scope_outsider@example.com',
-            password='pass1234',
-            nickname='Scope Outsider',
+            username="scope_outsider",
+            email="scope_outsider@example.com",
+            password="pass1234",
+            nickname="Scope Outsider",
         )
-        group = Group.objects.create(name='Scope Group', created_by=owner)
-        GroupMembership.objects.create(user=owner, group=group, role='admin')
-        GroupMembership.objects.create(user=group_user, group=group, role='member')
+        group = Group.objects.create(name="Scope Group", created_by=owner)
+        GroupMembership.objects.create(user=owner, group=group, role="admin")
+        GroupMembership.objects.create(user=group_user, group=group, role="member")
 
         character = CharacterSheet.objects.create(
             user=owner,
-            edition='6th',
-            name='Scoped PC',
+            edition="6th",
+            name="Scoped PC",
             age=20,
             str_value=10,
             con_value=10,
@@ -297,7 +290,7 @@ class BasicAccountsTestCase(TestCase):
             sanity_current=50,
             sanity_starting=50,
         )
-        url = f'/api/accounts/character-sheets/{character.id}/'
+        url = f"/api/accounts/character-sheets/{character.id}/"
 
         self.client.force_login(group_user)
         response = self.client.get(url)
@@ -307,8 +300,8 @@ class BasicAccountsTestCase(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 404)
 
-        character.access_scope = 'private'
-        character.save(update_fields=['access_scope'])
+        character.access_scope = "private"
+        character.save(update_fields=["access_scope"])
         character.allowed_users.add(allowed_user)
 
         self.client.force_login(group_user)
@@ -319,24 +312,24 @@ class BasicAccountsTestCase(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
-        character.access_scope = 'public'
-        character.save(update_fields=['access_scope'])
+        character.access_scope = "public"
+        character.save(update_fields=["access_scope"])
 
         self.client.force_login(outsider)
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
-    def test_access_scope_private_update_clears_legacy_public_flag(self):
+    def test_access_scope_private_update_closes_fixed_share_view(self):
         owner = User.objects.create_user(
-            username='legacy_public_owner',
-            email='legacy_public_owner@example.com',
-            password='pass1234',
-            nickname='Legacy Public Owner',
+            username="scope_update_owner",
+            email="scope_update_owner@example.com",
+            password="pass1234",
+            nickname="Scope Update Owner",
         )
         character = CharacterSheet.objects.create(
             user=owner,
-            edition='6th',
-            name='Legacy Public PC',
+            edition="6th",
+            name="Scope Update PC",
             age=20,
             str_value=10,
             con_value=10,
@@ -353,42 +346,42 @@ class BasicAccountsTestCase(TestCase):
             sanity_max=50,
             sanity_current=50,
             sanity_starting=50,
-            is_public=True,
-            access_scope='public',
+            access_scope="public",
         )
         self.client.force_login(owner)
 
         response = self.client.patch(
-            f'/api/accounts/character-sheets/{character.id}/',
-            data=json.dumps({'access_scope': 'private'}),
-            content_type='application/json',
+            f"/api/accounts/character-sheets/{character.id}/",
+            data=json.dumps({"access_scope": "private"}),
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
         character.refresh_from_db()
-        self.assertEqual(character.access_scope, 'private')
-        self.assertFalse(character.is_public)
+        self.assertEqual(character.access_scope, "private")
 
         self.client.logout()
-        public_api_response = self.client.get(f'/api/accounts/character-sheets/{character.id}/public/')
-        self.assertEqual(public_api_response.status_code, 404)
+        old_public_api_response = self.client.get(f"/api/accounts/character-sheets/{character.id}/public/")
+        self.assertEqual(old_public_api_response.status_code, 404)
 
-        public_page_response = self.client.get(
-            reverse('character_public_view', kwargs={'character_id': character.id})
+        fixed_share_response = self.client.get(
+            reverse("fixed-shared-character-view", kwargs={"share_token": character.share_token})
         )
-        self.assertEqual(public_page_response.status_code, 404)
+        self.assertEqual(fixed_share_response.status_code, 404)
 
-    def test_character_group_scope_ignores_legacy_public_flag_for_public_urls(self):
+    def test_fixed_character_share_view_requires_shareable_scope(self):
         owner = User.objects.create_user(
-            username='legacy_group_owner',
-            email='legacy_group_owner@example.com',
-            password='pass1234',
-            nickname='Legacy Group Owner',
+            username="direct_link_owner",
+            email="direct_link_owner@example.com",
+            password="pass1234",
+            nickname="Direct Link Owner",
         )
         character = CharacterSheet.objects.create(
             user=owner,
-            edition='6th',
-            name='Legacy Group PC',
+            edition="6th",
+            name="Direct Link PC",
+            player_name="Direct Link PL",
+            occupation="Investigator",
             age=20,
             str_value=10,
             con_value=10,
@@ -405,158 +398,90 @@ class BasicAccountsTestCase(TestCase):
             sanity_max=50,
             sanity_current=50,
             sanity_starting=50,
-            is_public=True,
-            access_scope='group',
-        )
-
-        self.client.logout()
-        public_api_response = self.client.get(f'/api/accounts/character-sheets/{character.id}/public/')
-        self.assertEqual(public_api_response.status_code, 404)
-
-        public_page_response = self.client.get(
-            reverse('character_public_view', kwargs={'character_id': character.id})
-        )
-        self.assertEqual(public_page_response.status_code, 404)
-
-    def test_character_public_view_mode_requires_public_scope(self):
-        owner = User.objects.create_user(
-            username='direct_link_owner',
-            email='direct_link_owner@example.com',
-            password='pass1234',
-            nickname='Direct Link Owner',
-        )
-        character = CharacterSheet.objects.create(
-            user=owner,
-            edition='6th',
-            name='Direct Link PC',
-            player_name='Direct Link PL',
-            occupation='Investigator',
-            age=20,
-            str_value=10,
-            con_value=10,
-            pow_value=10,
-            dex_value=10,
-            app_value=10,
-            siz_value=10,
-            int_value=10,
-            edu_value=10,
-            hit_points_max=10,
-            hit_points_current=10,
-            magic_points_max=10,
-            magic_points_current=10,
-            sanity_max=50,
-            sanity_current=50,
-            sanity_starting=50,
-            access_scope='public',
+            access_scope="public",
         )
 
         self.client.force_login(owner)
-        owner_page_response = self.client.get(
-            reverse('character_detail_6th', kwargs={'character_id': character.id})
-        )
+        owner_page_response = self.client.get(reverse("character_detail_6th", kwargs={"character_id": character.id}))
         self.assertEqual(owner_page_response.status_code, 200)
         self.assertContains(
-            owner_page_response,
-            f'data-character-reference-url="/share/characters/{character.share_token}/view/"'
+            owner_page_response, f'data-character-reference-url="/share/characters/{character.share_token}/view/"'
         )
 
         self.client.logout()
 
-        normal_api_response = self.client.get(f'/api/accounts/character-sheets/{character.id}/')
+        normal_api_response = self.client.get(f"/api/accounts/character-sheets/{character.id}/")
         self.assertIn(normal_api_response.status_code, [302, 401, 403])
 
-        public_api_response = self.client.get(f'/api/accounts/character-sheets/{character.id}/public/')
-        self.assertEqual(public_api_response.status_code, 200)
-        self.assertEqual(public_api_response.json()['name'], 'Direct Link PC')
-
-        public_ccfolia_response = self.client.get(
-            f'/api/accounts/character-sheets/{character.id}/public/ccfolia_json/'
+        old_public_api_response = self.client.get(f"/api/accounts/character-sheets/{character.id}/public/")
+        self.assertEqual(old_public_api_response.status_code, 404)
+        old_public_ccfolia_response = self.client.get(
+            f"/api/accounts/character-sheets/{character.id}/public/ccfolia_json/"
         )
-        self.assertEqual(public_ccfolia_response.status_code, 200)
-        self.assertEqual(public_ccfolia_response.json()['kind'], 'character')
-        self.assertEqual(public_ccfolia_response.json()['data']['name'], 'Direct Link PC')
+        self.assertEqual(old_public_ccfolia_response.status_code, 404)
 
-        normal_page_response = self.client.get(
-            reverse('character_detail_6th', kwargs={'character_id': character.id})
-        )
+        shared_api_response = self.client.get(f"/share/characters/{character.share_token}/")
+        self.assertEqual(shared_api_response.status_code, 200)
+        self.assertEqual(shared_api_response.json()["name"], "Direct Link PC")
+
+        shared_ccfolia_response = self.client.get(f"/share/characters/{character.share_token}/ccfolia.json")
+        self.assertEqual(shared_ccfolia_response.status_code, 200)
+        self.assertEqual(shared_ccfolia_response.json()["kind"], "character")
+        self.assertEqual(shared_ccfolia_response.json()["data"]["name"], "Direct Link PC")
+
+        normal_page_response = self.client.get(reverse("character_detail_6th", kwargs={"character_id": character.id}))
         self.assertEqual(normal_page_response.status_code, 302)
 
         page_response = self.client.get(
-            reverse('character_public_view', kwargs={'character_id': character.id})
+            reverse("fixed-shared-character-view", kwargs={"share_token": character.share_token})
         )
         self.assertEqual(page_response.status_code, 200)
-        self.assertContains(page_response, 'Direct Link PC')
-        self.assertContains(page_response, 'og:title')
-        self.assertContains(page_response, 'Direct Link PL')
+        self.assertContains(page_response, "Direct Link PC")
+        self.assertContains(page_response, "og:title")
+        self.assertContains(page_response, "Direct Link PL")
         self.assertContains(
-            page_response,
-            f'data-character-ccfolia-json-url="/api/accounts/character-sheets/{character.id}/public/ccfolia_json/"'
+            page_response, f'data-character-ccfolia-json-url="/share/characters/{character.share_token}/ccfolia.json"'
         )
         self.assertContains(
-            page_response,
-            f'data-character-reference-url="/share/characters/{character.share_token}/view/"'
+            page_response, f'data-character-reference-url="/share/characters/{character.share_token}/view/"'
         )
         self.assertContains(page_response, 'id="characterImagesDownloadLink"')
         self.assertContains(page_response, 'id="ccfoliaExportLink"')
-        self.assertContains(page_response, 'ココフォリア用コピー')
         self.assertNotContains(page_response, 'download="character-')
         self.assertNotContains(page_response, 'id="editButton"')
 
-        character.access_scope = 'private'
-        character.is_public = False
-        character.save(update_fields=['access_scope', 'is_public'])
+        character.access_scope = "private"
+        character.save(update_fields=["access_scope"])
 
-        private_public_api_response = self.client.get(f'/api/accounts/character-sheets/{character.id}/public/')
-        self.assertEqual(private_public_api_response.status_code, 404)
-        private_public_ccfolia_response = self.client.get(
-            f'/api/accounts/character-sheets/{character.id}/public/ccfolia_json/'
+        private_shared_api_response = self.client.get(f"/share/characters/{character.share_token}/")
+        self.assertEqual(private_shared_api_response.status_code, 404)
+        private_fixed_page_response = self.client.get(
+            reverse("fixed-shared-character-view", kwargs={"share_token": character.share_token})
         )
-        self.assertEqual(private_public_ccfolia_response.status_code, 404)
-
-        private_public_page_response = self.client.get(
-            reverse('character_public_view', kwargs={'character_id': character.id})
-        )
-        self.assertEqual(private_public_page_response.status_code, 404)
+        self.assertEqual(private_fixed_page_response.status_code, 404)
 
 
 class GroupBasicTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username='groupowner',
-            email='owner@example.com',
-            password='pass123',
-            nickname='Group Owner'
+            username="groupowner", email="owner@example.com", password="pass123", nickname="Group Owner"
         )
 
     def test_group_creation(self):
         """グループ作成のテスト"""
-        group = Group.objects.create(
-            name='Test Group',
-            description='Test Description',
-            created_by=self.user
-        )
-        self.assertEqual(group.name, 'Test Group')
+        group = Group.objects.create(name="Test Group", description="Test Description", created_by=self.user)
+        self.assertEqual(group.name, "Test Group")
         self.assertEqual(group.created_by, self.user)
 
     def test_group_str_representation(self):
         """グループ文字列表現のテスト"""
-        group = Group.objects.create(
-            name='Test Group',
-            created_by=self.user
-        )
-        self.assertEqual(str(group), 'Test Group')
+        group = Group.objects.create(name="Test Group", created_by=self.user)
+        self.assertEqual(str(group), "Test Group")
 
     def test_group_membership_creation(self):
         """グループメンバーシップ作成のテスト"""
-        group = Group.objects.create(
-            name='Test Group',
-            created_by=self.user
-        )
-        membership = GroupMembership.objects.create(
-            user=self.user,
-            group=group,
-            role='admin'
-        )
-        self.assertEqual(membership.role, 'admin')
+        group = Group.objects.create(name="Test Group", created_by=self.user)
+        membership = GroupMembership.objects.create(user=self.user, group=group, role="admin")
+        self.assertEqual(membership.role, "admin")
         self.assertEqual(membership.user, self.user)
         self.assertEqual(membership.group, group)

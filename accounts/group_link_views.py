@@ -9,33 +9,30 @@ from rest_framework.views import APIView
 from scenarios.models import Scenario
 from schedules.models import DatePoll, TRPGSession
 
-from .models import (
-    Group,
-    GroupLink,
-    GroupLinkShare,
-    GroupMembership,
-)
+from .models import Group, GroupLink, GroupLinkShare, GroupMembership
 
 
 def _is_group_admin(user, group):
     return (
-        group.created_by_id == user.id
-        or GroupMembership.objects.filter(
-            user=user, group=group, role='admin'
-        ).exists()
+        group.created_by_id == user.id or GroupMembership.objects.filter(user=user, group=group, role="admin").exists()
     )
 
 
 class GroupLinkSerializer(serializers.ModelSerializer):
-    source_group_name = serializers.CharField(source='source_group.name', read_only=True)
-    target_group_name = serializers.CharField(source='target_group.name', read_only=True)
+    source_group_name = serializers.CharField(source="source_group.name", read_only=True)
+    target_group_name = serializers.CharField(source="target_group.name", read_only=True)
 
     class Meta:
         model = GroupLink
         fields = [
-            'id', 'source_group', 'source_group_name',
-            'target_group', 'target_group_name', 'status',
-            'created_at', 'responded_at',
+            "id",
+            "source_group",
+            "source_group_name",
+            "target_group",
+            "target_group_name",
+            "status",
+            "created_at",
+            "responded_at",
         ]
 
 
@@ -50,17 +47,17 @@ class GroupLinkListCreateView(APIView):
 
     def get(self, request, group_id):
         group = self._group(request, group_id)
-        links = GroupLink.objects.filter(
-            Q(source_group=group) | Q(target_group=group)
-        ).select_related('source_group', 'target_group')
+        links = GroupLink.objects.filter(Q(source_group=group) | Q(target_group=group)).select_related(
+            "source_group", "target_group"
+        )
         return Response(GroupLinkSerializer(links, many=True).data)
 
     def post(self, request, group_id):
         source_group = self._group(request, group_id)
-        target_group = get_object_or_404(Group, pk=request.data.get('target_group_id'))
+        target_group = get_object_or_404(Group, pk=request.data.get("target_group_id"))
         if source_group == target_group:
             return Response(
-                {'target_group_id': 'A group cannot link to itself.'},
+                {"target_group_id": "A group cannot link to itself."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         existing = GroupLink.objects.filter(
@@ -98,7 +95,7 @@ class GroupLinkAcceptView(APIView):
         link.status = GroupLink.Status.ACCEPTED
         link.responded_by = request.user
         link.responded_at = timezone.now()
-        link.save(update_fields=['status', 'responded_by', 'responded_at'])
+        link.save(update_fields=["status", "responded_by", "responded_at"])
         return Response(GroupLinkSerializer(link).data)
 
 
@@ -107,12 +104,12 @@ class GroupLinkDetailView(APIView):
 
     def delete(self, request, group_id, link_id):
         link = get_object_or_404(
-            GroupLink.objects.select_related('source_group', 'target_group'),
+            GroupLink.objects.select_related("source_group", "target_group"),
             pk=link_id,
         )
         group = get_object_or_404(Group, pk=group_id)
         if group not in {link.source_group, link.target_group}:
-            raise serializers.ValidationError('Group is not part of this link.')
+            raise serializers.ValidationError("Group is not part of this link.")
         if not _is_group_admin(request.user, group):
             self.permission_denied(request)
         link.delete()
@@ -125,9 +122,7 @@ def _validate_shared_resource(owner_group, resource_type, object_id):
     if resource_type == GroupLinkShare.ResourceType.DATE_POLL:
         return DatePoll.objects.filter(pk=object_id, group=owner_group).exists()
     if resource_type == GroupLinkShare.ResourceType.SCENARIO:
-        return Scenario.objects.filter(
-            pk=object_id, sessions__group=owner_group
-        ).exists()
+        return Scenario.objects.filter(pk=object_id, sessions__group=owner_group).exists()
     return False
 
 
@@ -145,11 +140,11 @@ class GroupLinkShareView(APIView):
             return Response(status=status.HTTP_404_NOT_FOUND)
         if not _is_group_admin(request.user, owner_group):
             self.permission_denied(request)
-        resource_type = request.data.get('resource_type')
-        object_id = request.data.get('object_id')
+        resource_type = request.data.get("resource_type")
+        object_id = request.data.get("object_id")
         if not _validate_shared_resource(owner_group, resource_type, object_id):
             return Response(
-                {'detail': 'Resource does not belong to this group.'},
+                {"detail": "Resource does not belong to this group."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         share, created = GroupLinkShare.objects.get_or_create(
@@ -157,13 +152,16 @@ class GroupLinkShareView(APIView):
             owner_group=owner_group,
             resource_type=resource_type,
             object_id=object_id,
-            defaults={'created_by': request.user},
+            defaults={"created_by": request.user},
         )
-        return Response({
-            'id': share.pk,
-            'resource_type': share.resource_type,
-            'object_id': share.object_id,
-        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        return Response(
+            {
+                "id": share.pk,
+                "resource_type": share.resource_type,
+                "object_id": share.object_id,
+            },
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 
     def delete(self, request, group_id, link_id):
         link = get_object_or_404(GroupLink, pk=link_id)
@@ -173,7 +171,7 @@ class GroupLinkShareView(APIView):
         deleted, _ = GroupLinkShare.objects.filter(
             link=link,
             owner_group=owner_group,
-            resource_type=request.data.get('resource_type'),
-            object_id=request.data.get('object_id'),
+            resource_type=request.data.get("resource_type"),
+            object_id=request.data.get("object_id"),
         ).delete()
         return Response(status=status.HTTP_204_NO_CONTENT if deleted else status.HTTP_404_NOT_FOUND)

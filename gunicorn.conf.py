@@ -1,6 +1,7 @@
 """
 Gunicorn設定ファイル
 """
+
 import multiprocessing
 import os
 
@@ -21,7 +22,7 @@ threads = 2
 # デーモン化
 daemon = False
 raw_env = [
-    'DJANGO_SETTINGS_MODULE=tableno.settings_production',
+    "DJANGO_SETTINGS_MODULE=tableno.settings_production",
 ]
 
 # ロギング
@@ -31,7 +32,7 @@ loglevel = "info"
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
 
 # プロセス名
-proc_name = 'tableno'
+proc_name = "tableno"
 
 # サーバーメカニクス
 preload_app = True

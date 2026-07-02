@@ -9,49 +9,75 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0035_premiumaccesscode_premiumaccesscoderedemption'),
+        ("accounts", "0035_premiumaccesscode_premiumaccesscoderedemption"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='premiumsubscription',
-            name='access_source',
-            field=models.CharField(choices=[('manual', 'Manual'), ('stripe', 'Stripe'), ('promo_code', 'Promo code')], db_index=True, default='manual', max_length=32),
+            model_name="premiumsubscription",
+            name="access_source",
+            field=models.CharField(
+                choices=[("manual", "Manual"), ("stripe", "Stripe"), ("promo_code", "Promo code")],
+                db_index=True,
+                default="manual",
+                max_length=32,
+            ),
         ),
         migrations.AddField(
-            model_name='premiumsubscription',
-            name='last_refund_or_dispute_at',
+            model_name="premiumsubscription",
+            name="last_refund_or_dispute_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='premiumsubscription',
-            name='premium_expires_at',
+            model_name="premiumsubscription",
+            name="premium_expires_at",
             field=models.DateTimeField(blank=True, db_index=True, null=True),
         ),
         migrations.AddField(
-            model_name='premiumsubscription',
-            name='revoked_at',
+            model_name="premiumsubscription",
+            name="revoked_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='premiumsubscription',
-            name='revoked_reason',
+            model_name="premiumsubscription",
+            name="revoked_reason",
             field=models.CharField(blank=True, max_length=255),
         ),
         migrations.CreateModel(
-            name='PremiumAuditLog',
+            name="PremiumAuditLog",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('action', models.CharField(choices=[('granted', 'Granted'), ('revoked', 'Revoked'), ('payment_failed', 'Payment failed'), ('refunded', 'Refunded'), ('disputed', 'Disputed'), ('webhook', 'Webhook')], db_index=True, max_length=32)),
-                ('source', models.CharField(blank=True, db_index=True, max_length=32)),
-                ('reason', models.CharField(blank=True, max_length=255)),
-                ('stripe_event_id', models.CharField(blank=True, db_index=True, max_length=255)),
-                ('metadata', models.JSONField(blank=True, default=dict)),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='premium_audit_logs', to=settings.AUTH_USER_MODEL)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                (
+                    "action",
+                    models.CharField(
+                        choices=[
+                            ("granted", "Granted"),
+                            ("revoked", "Revoked"),
+                            ("payment_failed", "Payment failed"),
+                            ("refunded", "Refunded"),
+                            ("disputed", "Disputed"),
+                            ("webhook", "Webhook"),
+                        ],
+                        db_index=True,
+                        max_length=32,
+                    ),
+                ),
+                ("source", models.CharField(blank=True, db_index=True, max_length=32)),
+                ("reason", models.CharField(blank=True, max_length=255)),
+                ("stripe_event_id", models.CharField(blank=True, db_index=True, max_length=255)),
+                ("metadata", models.JSONField(blank=True, default=dict)),
+                ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="premium_audit_logs",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-created_at'],
+                "ordering": ["-created_at"],
             },
         ),
     ]

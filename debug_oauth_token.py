@@ -1,18 +1,20 @@
 """
 Google OAuthトークン交換のデバッグスクリプト
 """
-import requests
+
 import json
+
+import requests
 from decouple import config
 
 # 環境変数から設定を読み込み
-CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
-CLIENT_SECRET = config('GOOGLE_CLIENT_SECRET', default='')
-REDIRECT_URI = 'http://127.0.0.1:8000/accounts/google/login/callback/'
+CLIENT_ID = config("GOOGLE_CLIENT_ID", default="")
+CLIENT_SECRET = config("GOOGLE_CLIENT_SECRET", default="")
+REDIRECT_URI = "http://127.0.0.1:8000/accounts/google/login/callback/"
 
 # ダミーのauthorization_code（実際のテストでは本物のcodeを使用）
 # これはテスト用なので失敗しますが、エラーメッセージから問題を特定できます
-DUMMY_CODE = 'test_code_12345'
+DUMMY_CODE = "test_code_12345"
 
 print("=" * 60)
 print("Google OAuth Token Exchange Debug")
@@ -27,15 +29,15 @@ if not CLIENT_ID or not CLIENT_SECRET:
     exit(1)
 
 # トークンエンドポイント
-token_url = 'https://oauth2.googleapis.com/token'
+token_url = "https://oauth2.googleapis.com/token"
 
 # リクエストデータ
 data = {
-    'code': DUMMY_CODE,
-    'client_id': CLIENT_ID,
-    'client_secret': CLIENT_SECRET,
-    'redirect_uri': REDIRECT_URI,
-    'grant_type': 'authorization_code'
+    "code": DUMMY_CODE,
+    "client_id": CLIENT_ID,
+    "client_secret": CLIENT_SECRET,
+    "redirect_uri": REDIRECT_URI,
+    "grant_type": "authorization_code",
 }
 
 print("\nリクエスト情報:")
@@ -57,15 +59,15 @@ try:
         print(f"\nレスポンスボディ:")
         print(json.dumps(response_json, indent=2, ensure_ascii=False))
 
-        if 'error' in response_json:
-            error_code = response_json.get('error')
-            error_desc = response_json.get('error_description', '')
+        if "error" in response_json:
+            error_code = response_json.get("error")
+            error_desc = response_json.get("error_description", "")
 
             print("\n" + "=" * 60)
             print("エラー分析")
             print("=" * 60)
 
-            if error_code == 'invalid_client':
+            if error_code == "invalid_client":
                 print("\n[ERROR] invalid_client")
                 print("考えられる原因:")
                 print("1. クライアントIDが間違っている")
@@ -76,7 +78,7 @@ try:
                 print("- Google Cloud Consoleでクライアント情報を再確認")
                 print("- 新しいOAuth 2.0クライアントを作成")
 
-            elif error_code == 'invalid_grant':
+            elif error_code == "invalid_grant":
                 print("\n[INFO] invalid_grant (expected)")
                 print("これは正常です。ダミーのcodeを使用したため。")
                 print("実際の認証フローでは正しいcodeが使用されます。")
