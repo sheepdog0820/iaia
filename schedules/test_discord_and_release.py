@@ -1,3 +1,4 @@
+from schedules import session_permissions
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
@@ -289,7 +290,7 @@ class HandoutReleaseTestCase(APITestCase):
             date=timezone.now() + timedelta(days=1),
             status="planned",
         )
-        self.participant = SessionParticipant.objects.create(
+        self.participant = session_permissions.create_participant(
             session=self.session,
             user=self.player,
             role="player",

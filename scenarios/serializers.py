@@ -110,6 +110,7 @@ class ScenarioSerializer(serializers.ModelSerializer):
     created_by_detail = UserSerializer(source="created_by", read_only=True)
     play_count = serializers.SerializerMethodField()
     total_play_time = serializers.SerializerMethodField()
+    can_manage = serializers.SerializerMethodField()
     game_system = serializers.CharField(required=False)
     recommended_skills = serializers.CharField(allow_blank=True, required=False)
     semi_recommended_skills = serializers.CharField(allow_blank=True, required=False)
@@ -158,8 +159,29 @@ class ScenarioSerializer(serializers.ModelSerializer):
             "updated_at",
             "play_count",
             "total_play_time",
+            "can_manage",
         ]
         read_only_fields = ["id", "created_by", "created_at", "updated_at"]
+
+    def _can_manage(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        return bool(user and user.is_authenticated and obj.created_by_id == user.id)
+
+    @extend_schema_field(OpenApiTypes.BOOL)
+    def get_can_manage(self, obj):
+        return self._can_manage(obj)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if self._can_manage(instance):
+            return data
+
+        data.pop("gm_notes", None)
+        data["handout_templates"] = [
+            handout for handout in data.get("handout_templates", []) if not handout.get("is_secret")
+        ]
+        return data
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_play_count(self, obj):

@@ -3,10 +3,12 @@ from datetime import datetime
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.db.models import Count, Q, Sum
+from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.views.generic import TemplateView
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -112,10 +114,22 @@ class ScenarioImageViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = ScenarioImage.objects.select_related("scenario", "uploaded_by")
+        queryset = queryset.filter(
+            scenario__in=visible_scenarios(Scenario.objects.all(), self.request.user),
+        )
         scenario_id = self.request.query_params.get("scenario_id") or self.request.query_params.get("scenario")
         if scenario_id:
             queryset = queryset.filter(scenario_id=scenario_id)
         return queryset
+
+    def _get_upload_target_scenario(self, scenario_id):
+        scenario = get_object_or_404(
+            visible_scenarios(Scenario.objects.all(), self.request.user),
+            id=scenario_id,
+        )
+        if scenario.created_by_id != self.request.user.id:
+            raise PermissionDenied("Only scenario creator can upload images")
+        return scenario
 
     def create(self, request, *args, **kwargs):
         scenario_id = request.data.get("scenario")
@@ -125,19 +139,14 @@ class ScenarioImageViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            Scenario.objects.get(id=scenario_id)
-        except Scenario.DoesNotExist:
-            return Response(
-                {"error": "Scenario not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        self._upload_target_scenario = self._get_upload_target_scenario(scenario_id)
 
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
-        scenario_id = self.request.data.get("scenario")
-        scenario = Scenario.objects.get(id=scenario_id)
+        scenario = getattr(self, "_upload_target_scenario", None)
+        if scenario is None:
+            scenario = self._get_upload_target_scenario(self.request.data.get("scenario"))
         serializer.save(uploaded_by=self.request.user, scenario=scenario)
 
     def perform_update(self, serializer):
@@ -173,12 +182,9 @@ class ScenarioImageViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            scenario = Scenario.objects.get(id=scenario_id)
-        except Scenario.DoesNotExist:
-            return Response(
-                {"error": "Scenario not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            scenario = self._get_upload_target_scenario(scenario_id)
+        except Http404:
+            return Response({"error": "Scenario not found"}, status=status.HTTP_404_NOT_FOUND)
 
         created_images = []
         with transaction.atomic():
@@ -388,7 +394,7 @@ class ScenarioArchiveView(APIView):
         # ユーザーのプレイ履歴も含める
         user_played_scenarios = PlayHistory.objects.filter(user=request.user).values_list("scenario_id", flat=True)
 
-        serializer = ScenarioSerializer(scenarios, many=True)
+        serializer = ScenarioSerializer(scenarios, many=True, context={"request": request})
         data = serializer.data
 
         # プレイ済みフラグを追加

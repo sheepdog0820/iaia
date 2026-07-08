@@ -2,6 +2,7 @@
 セッション画像機能のテスト
 """
 
+from schedules import session_permissions
 import io
 from datetime import timedelta
 
@@ -54,7 +55,7 @@ class SessionImageTestCase(APITestCase):
         )
 
         # 参加者追加
-        SessionParticipant.objects.create(session=self.session, user=self.player1, role="player")
+        session_permissions.create_participant(session=self.session, user=self.player1, role="player")
 
     def create_test_image(self, name="test.png"):
         """テスト用画像ファイルを作成"""

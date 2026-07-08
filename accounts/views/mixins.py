@@ -59,7 +59,12 @@ class CharacterSheetAccessMixin:
             ).exists():
                 return True
 
-        return character_sheet.session_participations.filter(session__gm=user).exists()
+        from schedules.models import SessionParticipantRole
+
+        return character_sheet.session_participations.filter(
+            session__sessionparticipant__user=user,
+            session__sessionparticipant__participant_roles__role=SessionParticipantRole.Role.GM,
+        ).exists()
 
     def get_object(self):
         """キャラクターシートのアクセス制御"""

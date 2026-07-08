@@ -10,7 +10,7 @@ from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.models import CustomUser
+from accounts.models import CustomUser, Group, GroupMembership
 from scenarios.models import Scenario, ScenarioImage
 
 
@@ -46,6 +46,10 @@ class ScenarioImageTestCase(APITestCase):
             estimated_duration="medium",
             created_by=self.creator,
         )
+        self.group = Group.objects.create(name="Scenario Image Group", created_by=self.creator)
+        GroupMembership.objects.create(group=self.group, user=self.creator, role="admin")
+        GroupMembership.objects.create(group=self.group, user=self.uploader, role="member")
+        GroupMembership.objects.create(group=self.group, user=self.other_user, role="member")
 
     def create_test_image(self, name="test.png"):
         file = io.BytesIO()
@@ -71,9 +75,9 @@ class ScenarioImageTestCase(APITestCase):
             content_type=content_type,
         )
 
-    def test_user_can_upload_image(self):
-        """任意ユーザーが画像をアップロードできる（アップロード者として記録される）"""
-        self.client.force_authenticate(user=self.uploader)
+    def test_scenario_creator_can_upload_image(self):
+        """シナリオ作成者が画像をアップロードできる（アップロード者として記録される）"""
+        self.client.force_authenticate(user=self.creator)
 
         image_file = self.create_test_image()
         data = {
@@ -90,12 +94,29 @@ class ScenarioImageTestCase(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["uploaded_by"], self.uploader.id)
+        self.assertEqual(response.data["uploaded_by"], self.creator.id)
         self.assertIsNotNone(response.data["image_url"])
 
         created = ScenarioImage.objects.get(id=response.data["id"])
         self.assertEqual(created.scenario, self.scenario)
-        self.assertEqual(created.uploaded_by, self.uploader)
+        self.assertEqual(created.uploaded_by, self.creator)
+
+    def test_non_creator_cannot_upload_image(self):
+        """シナリオ作成者以外は画像をアップロードできない"""
+        self.client.force_authenticate(user=self.uploader)
+
+        response = self.client.post(
+            reverse("scenario-image-list"),
+            {
+                "scenario": self.scenario.id,
+                "image": self.create_test_image(),
+                "title": "表紙",
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(ScenarioImage.objects.count(), 0)
 
     def test_bulk_upload_images(self):
         """複数画像の一括アップロード"""
@@ -121,7 +142,7 @@ class ScenarioImageTestCase(APITestCase):
 
     def test_upload_accepts_supported_image_formats_and_size_boundary(self):
         """jpg/png/gif と5MB境界の画像を受け付ける"""
-        self.client.force_authenticate(user=self.uploader)
+        self.client.force_authenticate(user=self.creator)
 
         cases = [
             ("scenario.jpg", "JPEG", "image/jpeg"),
@@ -162,7 +183,7 @@ class ScenarioImageTestCase(APITestCase):
 
     def test_upload_rejects_oversized_and_non_image_files(self):
         """上限超過と非画像ファイルを拒否する"""
-        self.client.force_authenticate(user=self.uploader)
+        self.client.force_authenticate(user=self.creator)
 
         response = self.client.post(
             reverse("scenario-image-list"),
@@ -214,6 +235,22 @@ class ScenarioImageTestCase(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(ScenarioImage.objects.count(), 0)
+
+    def test_non_creator_cannot_bulk_upload_images(self):
+        """シナリオ作成者以外は複数画像もアップロードできない"""
+        self.client.force_authenticate(user=self.uploader)
+
+        response = self.client.post(
+            reverse("scenario-image-bulk-upload"),
+            {
+                "scenario_id": self.scenario.id,
+                "images": [self.create_test_image("image.png")],
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(ScenarioImage.objects.count(), 0)
 
     def test_reorder_images(self):

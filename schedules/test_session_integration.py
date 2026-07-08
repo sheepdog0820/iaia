@@ -14,7 +14,15 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import CustomUser, Group
-from schedules.models import HandoutNotification, SessionParticipant, TRPGSession, UserNotificationPreferences
+from schedules import session_permissions
+from schedules.models import (
+    HandoutNotification,
+    SessionParticipant,
+    SessionParticipantRole,
+    SessionPermission,
+    TRPGSession,
+    UserNotificationPreferences,
+)
 
 
 class SessionManagementIntegrationTestCase(APITestCase):
@@ -70,7 +78,13 @@ class SessionManagementIntegrationTestCase(APITestCase):
         session_id = response.data["id"]
         session = TRPGSession.objects.get(pk=session_id)
         self.assertEqual(session.created_by, self.players[0])
-        self.assertEqual(session.gm, self.players[0])
+        self.assertIsNone(session.gm)
+        self.assertTrue(
+            SessionPermission.objects.filter(session=session, user=self.players[0], role="owner").exists()
+        )
+        self.assertFalse(
+            SessionPermission.objects.filter(session=session, user=self.players[0], role="secret_keeper").exists()
+        )
 
         assign_url = reverse("session-assign-roles", kwargs={"pk": session_id})
         response = self.client.post(
@@ -78,8 +92,8 @@ class SessionManagementIntegrationTestCase(APITestCase):
             {
                 "gm_user_id": self.gm.id,
                 "participants": [
-                    {"user_id": self.players[0].id, "role": "player", "player_slot": 1},
-                    {"user_id": self.players[1].id, "role": "player", "player_slot": 2},
+                    {"user_id": self.players[0].id, "roles": ["player"], "player_slot": 1},
+                    {"user_id": self.players[1].id, "roles": ["player"], "player_slot": 2},
                 ],
             },
             format="json",
@@ -89,8 +103,20 @@ class SessionManagementIntegrationTestCase(APITestCase):
         session.refresh_from_db()
         self.assertEqual(session.gm, self.gm)
         self.assertEqual(
-            SessionParticipant.objects.get(session=session, user=self.gm).role,
+            session_permissions.get_primary_participant_role(
+                SessionParticipant.objects.get(session=session, user=self.gm)
+            ),
             "gm",
+        )
+        self.assertTrue(
+            SessionParticipantRole.objects.filter(
+                participant__session=session,
+                participant__user=self.gm,
+                role="gm",
+            ).exists()
+        )
+        self.assertTrue(
+            SessionPermission.objects.filter(session=session, user=self.gm, role="secret_keeper").exists()
         )
         self.assertEqual(
             SessionParticipant.objects.get(session=session, user=self.players[1]).player_slot,
@@ -135,7 +161,7 @@ class SessionManagementIntegrationTestCase(APITestCase):
         session_id = response.data["id"]
         session = TRPGSession.objects.get(pk=session_id)
         self.assertEqual(session.created_by, self.players[0])
-        self.assertEqual(session.gm, self.players[0])
+        self.assertIsNone(session.gm)
 
         self.client.force_authenticate(user=self.gm)
         response = self.client.post(
@@ -143,7 +169,7 @@ class SessionManagementIntegrationTestCase(APITestCase):
             {
                 "gm_user_id": self.players[1].id,
                 "participants": [
-                    {"user_id": self.players[0].id, "role": "player", "player_slot": 1},
+                    {"user_id": self.players[0].id, "roles": ["player"], "player_slot": 1},
                 ],
             },
             format="json",
@@ -153,7 +179,9 @@ class SessionManagementIntegrationTestCase(APITestCase):
         session.refresh_from_db()
         self.assertEqual(session.gm, self.players[1])
         self.assertEqual(
-            SessionParticipant.objects.get(session=session, user=self.players[0]).role,
+            session_permissions.get_primary_participant_role(
+                SessionParticipant.objects.get(session=session, user=self.players[0])
+            ),
             "player",
         )
 
@@ -193,7 +221,7 @@ class SessionManagementIntegrationTestCase(APITestCase):
 
         response = self.client.post(
             reverse("session-invite", kwargs={"pk": session_id}),
-            {"user_id": self.players[0].id, "role": "gm"},
+            {"user_id": self.players[0].id, "roles": ["gm"]},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -209,7 +237,7 @@ class SessionManagementIntegrationTestCase(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         participant = SessionParticipant.objects.get(session_id=session_id, user=self.players[0])
-        self.assertEqual(participant.role, "gm")
+        self.assertEqual(session_permissions.get_primary_participant_role(participant), "gm")
 
     def test_invitation_role_defaults_to_player_and_rejects_invalid_role(self):
         self.client.force_authenticate(user=self.gm)
@@ -241,7 +269,7 @@ class SessionManagementIntegrationTestCase(APITestCase):
 
         response = self.client.post(
             reverse("session-invite", kwargs={"pk": session_id}),
-            {"user_id": self.players[1].id, "role": "keeper"},
+            {"user_id": self.players[1].id, "roles": ["keeper"]},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -265,6 +293,8 @@ class SessionManagementIntegrationTestCase(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         session_id = response.data["id"]
+        session = TRPGSession.objects.get(pk=session_id)
+        session_permissions.assign_session_gm(session, self.gm, granted_by=self.players[0])
 
         self.client.force_authenticate(user=self.gm)
         response = self.client.post(

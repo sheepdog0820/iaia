@@ -46,7 +46,7 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
 
     def extract_python_skill_names(self, text, marker):
         block = self.extract_bracket_block(text, marker)
-        return set(re.findall(r"'([^']+)'", block))
+        return {match[0] or match[1] for match in re.findall(r"'([^']+)'|\"([^\"]+)\"", block)}
 
     def test_6th_default_skills_do_not_include_7th_only_skills(self):
         script = self.read_text("static/accounts/js/character6th.js")
@@ -301,6 +301,30 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         self.assertIn("response.data.share_url", template)
         self.assertNotIn("/characters/${character.id}/view/", template)
         self.assertNotIn("/characters/${characterId}/view/", template)
+
+    def test_scenario_archive_direct_link_uses_fixed_token_url(self):
+        template = self.read_text("templates/scenarios/archive.html")
+
+        self.assertIn("copyScenarioPublicUrl(${scenario.id})", template)
+        self.assertIn("openScenarioShareView(${scenario.id})", template)
+        self.assertIn("直接リンクをコピー", template)
+        self.assertIn("直接リンクを開く", template)
+        self.assertIn("シナリオ直接リンクをコピーしました。", template)
+        self.assertIn("axios.post('/api/share-links/fixed-url/'", template)
+        self.assertIn("resource_type: 'scenario'", template)
+        self.assertIn("auto_enable_link: true", template)
+        self.assertIn("response.data.share_url", template)
+        self.assertNotIn("/scenarios/${scenario.id}/view/", template)
+        self.assertNotIn("/scenarios/${scenarioId}/view/", template)
+
+    def test_scenario_archive_edit_controls_are_owner_only(self):
+        template = self.read_text("templates/scenarios/archive.html")
+
+        self.assertIn("const recommendedSkillEditHtml = canManage ?", template)
+        self.assertIn("const imageUploadControlsHtml = canManage ?", template)
+        self.assertIn("${recommendedSkillEditHtml}", template)
+        self.assertIn("${imageUploadControlsHtml}", template)
+        self.assertIn("const scenarioShareControlsHtml = canManage ?", template)
 
     def test_ccfolia_default_skills_are_split_by_edition(self):
         template = self.read_text("templates/schedules/session_detail.html")

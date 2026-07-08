@@ -1,3 +1,4 @@
+from schedules import session_permissions
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -41,7 +42,7 @@ class SessionVisibilitySerializerTestCase(APITestCase):
             group=self.group,
             visibility="public",
         )
-        self.participant = SessionParticipant.objects.create(
+        self.participant = session_permissions.create_participant(
             session=self.session,
             user=self.player,
             role="player",

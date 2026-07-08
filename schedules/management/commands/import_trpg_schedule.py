@@ -14,7 +14,8 @@ from django.utils import timezone
 
 from accounts.models import Group, GroupMembership
 from scenarios.models import Scenario
-from schedules.models import SessionParticipant, SessionYouTubeLink, TRPGSession
+from schedules import session_permissions
+from schedules.models import SessionParticipant, SessionParticipantRole, SessionYouTubeLink, TRPGSession
 
 YOUTUBE_URL_RE = re.compile(r"https?://(?:www\.)?(?:youtube\.com|youtu\.be)/[^\s\n\r]+")
 
@@ -493,10 +494,14 @@ class Command(BaseCommand):
         created_count = 0
         updated_count = 0
 
-        _, created = SessionParticipant.objects.get_or_create(
+        gm_participant, created = SessionParticipant.objects.get_or_create(
             session=session,
             user=gm,
-            defaults={"role": "gm"},
+        )
+        session_permissions.set_participant_roles(
+            gm_participant,
+            [SessionParticipantRole.Role.GM],
+            granted_by=gm,
         )
         if created:
             created_count += 1
@@ -507,7 +512,6 @@ class Command(BaseCommand):
             user = self._resolve_user(member)
             character_name = self._character_name_for_member(member, members, character_names)
             defaults = {
-                "role": "player",
                 "character_name": character_name,
             }
             if user:
@@ -524,6 +528,11 @@ class Command(BaseCommand):
                     guest_name=member,
                     defaults=defaults,
                 )
+            session_permissions.set_participant_roles(
+                participant,
+                [SessionParticipantRole.Role.PLAYER],
+                granted_by=gm,
+            )
             if created:
                 created_count += 1
             elif character_name and not participant.character_name:

@@ -2,6 +2,7 @@
 ハンドアウト管理機能の詳細テストケース
 """
 
+from schedules import session_permissions
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -12,6 +13,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import Group
 
+from . import session_permissions
 from .models import HandoutInfo, SessionParticipant, TRPGSession
 
 User = get_user_model()
@@ -43,12 +45,13 @@ class HandoutManagementDetailTestCase(APITestCase):
         self.session = TRPGSession.objects.create(
             title="Test Session", date=timezone.now() + timedelta(days=1), gm=self.gm_user, group=self.group
         )
+        session_permissions.assign_session_gm(self.session, self.gm_user, granted_by=self.gm_user)
 
         # 参加者作成
-        self.participant1 = SessionParticipant.objects.create(
+        self.participant1 = session_permissions.create_participant(
             session=self.session, user=self.player1, role="player", character_name="Character 1"
         )
-        self.participant2 = SessionParticipant.objects.create(
+        self.participant2 = session_permissions.create_participant(
             session=self.session, user=self.player2, role="player", character_name="Character 2"
         )
 
@@ -329,7 +332,7 @@ class HandoutManagementDetailTestCase(APITestCase):
         )
 
         # 他のセッションのハンドアウト（アクセス不可）
-        other_participant = SessionParticipant.objects.create(
+        other_participant = session_permissions.create_participant(
             session=other_session, user=self.other_user, role="player"
         )
         HandoutInfo.objects.create(

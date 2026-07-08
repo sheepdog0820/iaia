@@ -321,6 +321,13 @@
     top: 0.5rem;
     right: 0.5rem;
     z-index: 2;
+    display: flex;
+    gap: 0.25rem;
+}
+
+.scenario-direct-link-control .form-control[readonly] {
+    background-color: var(--secondary-bg);
+    color: var(--text-primary);
 }
 
 .scenario-list-item {
@@ -889,14 +896,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 const safeSummary = escapeHtml(scenario?.summary || 'あらすじなし');
                 const safeAuthor = escapeHtml(scenario?.author || '不明');
                 const playCount = Number(scenario?.play_count) || 0;
-                const deleteButton = canManageScenario(scenario)
-                    ? `<div class="scenario-card-actions"><button type="button" class="btn btn-sm btn-danger" title="削除" aria-label="削除" onclick="event.stopPropagation(); deleteScenario(${scenario.id});"><i class="fas fa-trash"></i></button></div>`
+                const manageActions = canManageScenario(scenario)
+                    ? `<div class="scenario-card-actions" role="group" aria-label="シナリオ操作">
+                        <button type="button" class="btn btn-sm btn-info text-white" title="直接リンクをコピー" aria-label="直接リンクをコピー" onclick="event.stopPropagation(); copyScenarioPublicUrl(${scenario.id});"><i class="fas fa-link"></i></button>
+                        <button type="button" class="btn btn-sm btn-danger" title="削除" aria-label="削除" onclick="event.stopPropagation(); deleteScenario(${scenario.id});"><i class="fas fa-trash"></i></button>
+                    </div>`
                     : '';
 
                 return `
                     <div class="col-md-6 col-lg-4 mb-4">
                         <div class="card scenario-card h-100 position-relative" onclick="showScenarioDetail(${scenario.id})">
-                            ${deleteButton}
+                            ${manageActions}
                             <div class="card-img-top">
                                 <i class="fas fa-book"></i>
                             </div>
@@ -928,13 +938,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 const safeDuration = escapeHtml(getDurationLabel(scenario?.estimated_duration));
                 const safePlayers = escapeHtml(scenario?.recommended_players || '指定なし');
                 const playCount = Number(scenario?.play_count) || 0;
-                const deleteButton = canManageScenario(scenario)
-                    ? `<div class="scenario-card-actions"><button type="button" class="btn btn-sm btn-danger" title="削除" aria-label="削除" onclick="event.stopPropagation(); deleteScenario(${scenario.id});"><i class="fas fa-trash"></i></button></div>`
+                const manageActions = canManageScenario(scenario)
+                    ? `<div class="scenario-card-actions" role="group" aria-label="シナリオ操作">
+                        <button type="button" class="btn btn-sm btn-info text-white" title="直接リンクをコピー" aria-label="直接リンクをコピー" onclick="event.stopPropagation(); copyScenarioPublicUrl(${scenario.id});"><i class="fas fa-link"></i></button>
+                        <button type="button" class="btn btn-sm btn-danger" title="削除" aria-label="削除" onclick="event.stopPropagation(); deleteScenario(${scenario.id});"><i class="fas fa-trash"></i></button>
+                    </div>`
                     : '';
 
                 return `
                     <div class="card scenario-list-item mb-2 position-relative" onclick="showScenarioDetail(${scenario.id})">
-                        ${deleteButton}
+                        ${manageActions}
                         <div class="card-body">
                             <div class="row align-items-center">
                                 <div class="col-md-6">
@@ -1410,6 +1423,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const scenario = response.data;
             window.currentScenario = scenario;
             const canReorderImages = canReorderScenarioImages(scenario);
+            const canManage = canManageScenario(scenario);
             scenarioImageScenarioId = scenario.id;
             scenarioImageOrderCache = [];
             scenarioImageReorderSaving = false;
@@ -1426,6 +1440,62 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const normalizedUrl = normalizeExternalUrl(scenario?.url);
             const safeUrl = normalizedUrl ? escapeHtml(normalizedUrl) : '';
+            const recommendedSkillEditHtml = canManage ? `
+                <div class="mt-3">
+                    <label class="form-label small text-muted">推奨技能を編集</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control" id="scenarioRecommendedSkillsEdit" placeholder="例: 目星, 図書館" list="scenarioSkillOptions">
+                        <button class="btn btn-outline-primary" type="button" onclick="saveScenarioRecommendedSkills(${scenario.id})">
+                            <i class="fas fa-save"></i> 保存
+                        </button>
+                    </div>
+                    <div class="form-text">カンマ区切りで入力できます。</div>
+                    <small class="text-warning d-block mt-1 d-none" id="scenarioRecommendedSkillsEditWarning"></small>
+                </div>
+            ` : '';
+            const imageUploadControlsHtml = canManage ? `
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                    <input type="file"
+                           class="form-control form-control-sm"
+                           id="scenarioImagesInput"
+                           accept="image/*"
+                           multiple
+                           style="max-width: 320px;">
+                    <button type="button"
+                             class="btn btn-sm btn-info text-white"
+                             id="uploadScenarioImagesBtn"
+                             onclick="uploadScenarioImages(${scenario.id})">
+                        <i class="fas fa-upload"></i> アップロード
+                    </button>
+                    <small class="text-muted">最大10枚/1回</small>
+                </div>
+            ` : '';
+            const scenarioShareControlsHtml = canManage ? `
+                <div class="scenario-direct-link-control mt-2">
+                    <label class="form-label small text-muted mb-1" for="scenarioShareUrlValue">直接リンク</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text"
+                               class="form-control"
+                               id="scenarioShareUrlValue"
+                               readonly
+                               placeholder="コピーまたは表示時に発行されます">
+                        <button class="btn btn-outline-info"
+                                type="button"
+                                title="直接リンクをコピー"
+                                aria-label="直接リンクをコピー"
+                                onclick="copyScenarioPublicUrl(${scenario.id})">
+                            <i class="fas fa-link"></i> コピー
+                        </button>
+                        <button class="btn btn-outline-success"
+                                type="button"
+                                title="直接リンクを開く"
+                                aria-label="直接リンクを開く"
+                                onclick="openScenarioShareView(${scenario.id})">
+                            <i class="fas fa-eye"></i> 開く
+                        </button>
+                    </div>
+                </div>
+            ` : '';
 
             const playHistoryHtml = scenario.play_history && scenario.play_history.length > 0
                 ? scenario.play_history.map(play => {
@@ -1492,37 +1562,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             </tr>
                         </table>
                         
-                        <div class="mt-3">
-                            <label class="form-label small text-muted">推奨技能を編集</label>
-                            <div class="input-group input-group-sm">
-                                <input type="text" class="form-control" id="scenarioRecommendedSkillsEdit" placeholder="例: 目星, 図書館" list="scenarioSkillOptions">
-                                <button class="btn btn-outline-primary" type="button" onclick="saveScenarioRecommendedSkills(${scenario.id})">
-                                    <i class="fas fa-save"></i> 保存
-                                </button>
-                            </div>
-                            <div class="form-text">カンマ区切りで入力できます。</div>
-                            <small class="text-warning d-block mt-1 d-none" id="scenarioRecommendedSkillsEditWarning"></small>
-                        </div>
+                        ${recommendedSkillEditHtml}
                         
                         <h6 class="mt-4">あらすじ</h6>
                         <p>${safeSummary}</p>
 
                         <h6 class="mt-4"><i class="fas fa-images"></i> 画像</h6>
-                        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
-                            <input type="file"
-                                   class="form-control form-control-sm"
-                                   id="scenarioImagesInput"
-                                   accept="image/*"
-                                   multiple
-                                   style="max-width: 320px;">
-                            <button type="button"
-                                     class="btn btn-sm btn-info text-white"
-                                     id="uploadScenarioImagesBtn"
-                                     onclick="uploadScenarioImages(${scenario.id})">
-                                <i class="fas fa-upload"></i> アップロード
-                            </button>
-                            <small class="text-muted">最大10枚/1回</small>
-                        </div>
+                        ${imageUploadControlsHtml}
                         ${canReorderImages ? `
                             <div class="text-muted small mb-2">
                                 <i class="fas fa-grip-vertical"></i> ドラッグ&ドロップで並び替え（自動保存）
@@ -1545,16 +1591,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             <button class="btn btn-outline-primary btn-sm w-100 mt-2" onclick="applyScenarioRecommendedSkills()">
                                 <i class="fas fa-star"></i> 推奨技能で探索者作成
                             </button>
-                            <button class="btn btn-outline-info btn-sm w-100 mt-2" onclick="copyScenarioPublicUrl(${scenario.id})">
-                                <i class="fas fa-link"></i> Copy view URL
-                            </button>
-                            <button class="btn btn-outline-success btn-sm w-100 mt-2" type="button" onclick="openScenarioShareView(${scenario.id})">
-                                <i class="fas fa-eye"></i> Open view mode
-                            </button>
-                            <button class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="openScenarioEditModal(${scenario.id})">
-                                <i class="fas fa-edit"></i> シナリオを編集
-                            </button>
-                            ${canManageScenario(scenario) ? `
+                            ${scenarioShareControlsHtml}
+                            ${canManage ? `
+                                <button class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="openScenarioEditModal(${scenario.id})">
+                                    <i class="fas fa-edit"></i> シナリオを編集
+                                </button>
                                 <button class="btn btn-outline-danger btn-sm w-100 mt-2" onclick="deleteScenario(${scenario.id})">
                                     <i class="fas fa-trash"></i> シナリオを削除
                                 </button>
@@ -1607,7 +1648,12 @@ document.addEventListener('DOMContentLoaded', function() {
             object_id: scenarioId,
             auto_enable_link: true
         });
-        return response.data.share_url;
+        const shareUrl = response.data.share_url || '';
+        const shareUrlInput = document.getElementById('scenarioShareUrlValue');
+        if (shareUrlInput) {
+            shareUrlInput.value = shareUrl;
+        }
+        return shareUrl;
     }
 
     window.copyScenarioPublicUrl = async function(scenarioId) {
@@ -1615,18 +1661,29 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             url = await getScenarioShareUrl(scenarioId);
             await copyTextToClipboard(url);
-            notifySuccess('View URL copied');
+            notifySuccess('シナリオ直接リンクをコピーしました。');
         } catch (error) {
-            notifyError('Failed to copy URL' + (url ? ': ' + url : ''));
+            notifyError('シナリオ直接リンクのコピーに失敗しました。' + (url ? `手動でコピーしてください: ${url}` : ''));
         }
     };
 
     window.openScenarioShareView = async function(scenarioId) {
+        const newWindow = window.open('about:blank', '_blank');
+        if (newWindow) {
+            newWindow.opener = null;
+        }
         try {
             const url = await getScenarioShareUrl(scenarioId);
-            window.open(url, '_blank', 'noopener,noreferrer');
+            if (newWindow) {
+                newWindow.location.href = url;
+            } else {
+                window.open(url, '_blank', 'noopener,noreferrer');
+            }
         } catch (error) {
-            notifyError('Failed to open view URL');
+            if (newWindow) {
+                newWindow.close();
+            }
+            notifyError('シナリオ直接リンクを開けませんでした: ' + getErrorMessage(error));
         }
     };
 

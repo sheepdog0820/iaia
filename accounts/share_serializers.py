@@ -4,7 +4,7 @@ from accounts.character_image_utils import get_character_preview_image_url
 from accounts.character_models import CharacterEquipment, CharacterSheet, CharacterSkill
 from accounts.models import ShareLink
 from scenarios.models import Scenario, ScenarioHandout
-from schedules.models import SessionParticipant, TRPGSession
+from schedules.models import SessionParticipant, SessionParticipantRole, TRPGSession
 
 
 class ShareLinkSerializer(serializers.ModelSerializer):
@@ -180,12 +180,13 @@ class SharedCharacterSheetSerializer(serializers.ModelSerializer):
 class SharedSessionParticipantSerializer(serializers.ModelSerializer):
     display_name = serializers.CharField(read_only=True)
     character_sheet = serializers.SerializerMethodField()
+    roles = serializers.SerializerMethodField()
 
     class Meta:
         model = SessionParticipant
         fields = [
             "display_name",
-            "role",
+            "roles",
             "character_name",
             "character_sheet_url",
             "player_slot",
@@ -202,6 +203,9 @@ class SharedSessionParticipantSerializer(serializers.ModelSerializer):
             "name": sheet.name,
             "access_scope": sheet.access_scope,
         }
+
+    def get_roles(self, obj):
+        return list(obj.participant_roles.values_list("role", flat=True))
 
 
 class SharedSessionSerializer(serializers.ModelSerializer):
@@ -234,23 +238,25 @@ class SharedSessionSerializer(serializers.ModelSerializer):
                 "user",
                 "participant_identity",
             )
-            .filter(role="gm")
+            .filter(participant_roles__role=SessionParticipantRole.Role.GM)
             .order_by("id")
             .first()
         )
         if gm_participant:
             return gm_participant.display_name
-        return obj.gm.nickname or obj.gm.username
+        if obj.gm_id:
+            return obj.gm.nickname or obj.gm.username
+        return None
 
     def get_participants(self, obj):
-        participants = obj.sessionparticipant_set.select_related(
-            "user",
-            "participant_identity",
-            "character_sheet",
-        ).order_by(
-            "role",
-            "player_slot",
-            "id",
+        participants = (
+            obj.sessionparticipant_set.select_related(
+                "user",
+                "participant_identity",
+                "character_sheet",
+            )
+            .prefetch_related("participant_roles")
+            .order_by("player_slot", "id")
         )
         return SharedSessionParticipantSerializer(
             participants,
@@ -348,8 +354,8 @@ class SharedStatsSerializer(serializers.Serializer):
         participants = obj.sessionparticipant_set.all()
         return {
             "participation_count": participants.count(),
-            "gm_count": participants.filter(role="gm").count(),
-            "player_count": participants.filter(role="player").count(),
+            "gm_count": participants.filter(participant_roles__role=SessionParticipantRole.Role.GM).count(),
+            "player_count": participants.filter(participant_roles__role=SessionParticipantRole.Role.PLAYER).count(),
             "duration_minutes": obj.effective_duration_minutes,
         }
 
@@ -357,12 +363,14 @@ class SharedStatsSerializer(serializers.Serializer):
         return [
             {
                 "display_name": participant.display_name,
-                "role": participant.role,
+                "roles": list(participant.participant_roles.values_list("role", flat=True)),
                 "character_name": participant.character_name,
                 "character_sheet_url": participant.character_sheet_url,
             }
             for participant in obj.sessionparticipant_set.select_related(
                 "user",
                 "participant_identity",
-            ).order_by("role", "player_slot", "id")
+            )
+            .prefetch_related("participant_roles")
+            .order_by("player_slot", "id")
         ]

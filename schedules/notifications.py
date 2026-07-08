@@ -15,6 +15,20 @@ from .models import HandoutNotification, UserNotificationPreferences
 logger = logging.getLogger(__name__)
 
 
+def _user_display_name(user, fallback="Unassigned"):
+    if user is None:
+        return fallback
+    return user.nickname or user.username
+
+
+def _session_gm_name(session):
+    return _user_display_name(session.gm)
+
+
+def _notification_sender(session, fallback_user=None):
+    return session.gm or session.created_by or fallback_user
+
+
 class HandoutNotificationService:
     """ハンドアウト通知サービスクラス"""
 
@@ -30,7 +44,7 @@ class HandoutNotificationService:
         """
         try:
             recipient = handout.participant.user
-            sender = handout.session.gm
+            sender = _notification_sender(handout.session, recipient)
 
             if recipient is None:
                 logger.info(f"ゲスト参加者のため通知をスキップ: handout={handout.id}")
@@ -79,12 +93,16 @@ class HandoutNotificationService:
         try:
             # 公開ハンドアウトの場合、全参加者に通知
             if not handout.is_secret:
-                recipients = handout.session.participants.exclude(id=handout.session.gm.id)
+                recipients = handout.session.participants.all()
+                if handout.session.gm_id:
+                    recipients = recipients.exclude(id=handout.session.gm_id)
             else:
                 # 秘匿ハンドアウトの場合、対象者のみに通知
                 recipients = [handout.participant.user]
 
-            sender = handout.session.gm
+            sender = _notification_sender(handout.session)
+            if sender is None:
+                return False
             notification_count = 0
 
             for recipient in recipients:
@@ -133,7 +151,7 @@ class HandoutNotificationService:
         """
         try:
             recipient = handout.participant.user
-            sender = handout.session.gm
+            sender = _notification_sender(handout.session, recipient)
 
             if recipient is None:
                 logger.info(f"ゲスト参加者のため通知をスキップ: handout={handout.id}")
@@ -209,7 +227,7 @@ class HandoutNotificationService:
         return (
             f"【{handout.session.title}】\n"
             f"新しいハンドアウト「{handout.title}」が作成されました。\n"
-            f"GM: {handout.session.gm.nickname}"
+            f"GM: {_session_gm_name(handout.session)}"
         )
 
     def _create_handout_published_message(self, handout):
@@ -217,7 +235,7 @@ class HandoutNotificationService:
         return (
             f"【{handout.session.title}】\n"
             f"ハンドアウト「{handout.title}」が公開されました。\n"
-            f"GM: {handout.session.gm.nickname}"
+            f"GM: {_session_gm_name(handout.session)}"
         )
 
     def _create_handout_updated_message(self, handout):
@@ -225,7 +243,7 @@ class HandoutNotificationService:
         return (
             f"【{handout.session.title}】\n"
             f"ハンドアウト「{handout.title}」が更新されました。\n"
-            f"GM: {handout.session.gm.nickname}"
+            f"GM: {_session_gm_name(handout.session)}"
         )
 
     def _send_email_notification(self, notification):
@@ -327,7 +345,12 @@ class SessionNotificationService(HandoutNotificationService):
         """
         try:
             # セッション参加者全員に通知（GM除く）
-            participants = session.participants.exclude(id=session.gm.id).all()
+            participants = session.participants.all()
+            if session.gm_id:
+                participants = participants.exclude(id=session.gm_id)
+            sender = _notification_sender(session)
+            if sender is None:
+                return 0
             notification_count = 0
 
             for participant in participants:
@@ -343,7 +366,7 @@ class SessionNotificationService(HandoutNotificationService):
                 notification = HandoutNotification.objects.create(
                     handout_id=0,  # セッション通知なのでhandout_idは0
                     recipient=participant,
-                    sender=session.gm,
+                    sender=sender,
                     notification_type="schedule_change",
                     message=message,
                     is_read=False,
@@ -356,7 +379,7 @@ class SessionNotificationService(HandoutNotificationService):
                         "session_title": session.title,
                         "old_date": old_date.isoformat() if old_date else None,
                         "new_date": new_date.isoformat() if new_date else None,
-                        "gm_name": session.gm.nickname or session.gm.username,
+                        "gm_name": _session_gm_name(session),
                     }
                     notification.save()
 
@@ -386,7 +409,12 @@ class SessionNotificationService(HandoutNotificationService):
         """
         try:
             # セッション参加者全員に通知（GM除く）
-            participants = session.participants.exclude(id=session.gm.id).all()
+            participants = session.participants.all()
+            if session.gm_id:
+                participants = participants.exclude(id=session.gm_id)
+            sender = _notification_sender(session)
+            if sender is None:
+                return 0
             notification_count = 0
 
             for participant in participants:
@@ -402,7 +430,7 @@ class SessionNotificationService(HandoutNotificationService):
                 notification = HandoutNotification.objects.create(
                     handout_id=0,  # セッション通知なのでhandout_idは0
                     recipient=participant,
-                    sender=session.gm,
+                    sender=sender,
                     notification_type="session_cancelled",
                     message=message,
                     is_read=False,
@@ -410,7 +438,7 @@ class SessionNotificationService(HandoutNotificationService):
                         "session_id": session.id,
                         "session_title": session.title,
                         "session_date": session.date.isoformat() if session.date else None,
-                        "gm_name": session.gm.nickname or session.gm.username,
+                        "gm_name": _session_gm_name(session),
                         "cancel_reason": reason or "",
                     },
                 )
@@ -442,8 +470,11 @@ class SessionNotificationService(HandoutNotificationService):
         try:
             # セッション参加者全員に通知（GM含む）
             participants = list(session.participants.all())
-            if session.gm not in participants:
+            if session.gm_id and session.gm not in participants:
                 participants.append(session.gm)
+            sender = _notification_sender(session)
+            if sender is None:
+                return 0
 
             notification_count = 0
 
@@ -460,7 +491,7 @@ class SessionNotificationService(HandoutNotificationService):
                 notification = HandoutNotification.objects.create(
                     handout_id=0,  # セッション通知なのでhandout_idは0
                     recipient=participant,
-                    sender=session.gm,
+                    sender=sender,
                     notification_type="session_reminder",
                     message=message,
                     is_read=False,
@@ -469,7 +500,7 @@ class SessionNotificationService(HandoutNotificationService):
                         "session_title": session.title,
                         "session_date": session.date.isoformat() if session.date else None,
                         "hours_before": hours_before,
-                        "gm_name": session.gm.nickname or session.gm.username,
+                        "gm_name": _session_gm_name(session),
                     },
                 )
 
@@ -494,7 +525,7 @@ class SessionNotificationService(HandoutNotificationService):
             f"{inviter.nickname or inviter.username}さんからセッションに招待されました。\n\n"
             f"セッション: {session.title}\n"
             f"日時: {date_label}\n"
-            f"GM: {session.gm.nickname or session.gm.username}\n"
+            f"GM: {_session_gm_name(session)}\n"
             f"場所: {session.location or 'オンライン'}"
         )
 
@@ -507,7 +538,7 @@ class SessionNotificationService(HandoutNotificationService):
             f"セッション「{session.title}」の開催日時が変更されました。\n\n"
             f"変更前: {old_label}\n"
             f"変更後: {new_label}\n"
-            f"GM: {session.gm.nickname or session.gm.username}"
+            f"GM: {_session_gm_name(session)}"
         )
 
     def _create_session_cancelled_message(self, session, reason=None):
@@ -517,7 +548,7 @@ class SessionNotificationService(HandoutNotificationService):
             f"【セッションキャンセル】\n"
             f"セッション「{session.title}」がキャンセルされました。\n\n"
             f"予定日時: {date_label}\n"
-            f"GM: {session.gm.nickname or session.gm.username}"
+            f"GM: {_session_gm_name(session)}"
         )
         if reason:
             message += f"\n理由: {reason}"
@@ -531,7 +562,7 @@ class SessionNotificationService(HandoutNotificationService):
             f"{hours_before}時間後にセッションが開催されます。\n\n"
             f"セッション: {session.title}\n"
             f"日時: {date_label}\n"
-            f"GM: {session.gm.nickname or session.gm.username}\n"
+            f"GM: {_session_gm_name(session)}\n"
             f"場所: {session.location or 'オンライン'}"
         )
 

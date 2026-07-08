@@ -7,6 +7,7 @@ from rest_framework.test import APITestCase
 
 from accounts.character_models import CharacterSheet, GrowthRecord
 from accounts.models import CustomUser, Group
+from schedules import session_permissions
 from schedules.models import SessionParticipant, SessionReward, TRPGSession
 
 
@@ -61,20 +62,27 @@ class SessionRewardsAPITestCase(APITestCase):
             visibility="group",
         )
 
-        self.participant_co_gm = SessionParticipant.objects.create(
+        self.participant_co_gm = session_permissions.create_participant(
             session=self.session,
             user=self.co_gm,
             role="gm",
         )
-        self.participant1 = SessionParticipant.objects.create(
+        self.participant1 = session_permissions.create_participant(
             session=self.session,
             user=self.player1,
             role="player",
         )
-        self.participant2 = SessionParticipant.objects.create(
+        self.participant2 = session_permissions.create_participant(
             session=self.session,
             user=self.player2,
             role="player",
+        )
+        session_permissions.assign_session_gm(self.session, self.gm, granted_by=self.gm)
+        session_permissions.assign_session_gm(
+            self.session,
+            self.co_gm,
+            granted_by=self.gm,
+            sync_legacy_gm=False,
         )
 
         self.character1 = CharacterSheet.objects.create(
@@ -146,8 +154,14 @@ class SessionRewardsAPITestCase(APITestCase):
             status="planned",
             visibility="group",
         )
-        other_player = SessionParticipant.objects.create(session=other_session, user=self.player1, role="player")
-        SessionParticipant.objects.create(session=other_session, user=self.co_gm, role="gm")
+        other_player = session_permissions.create_participant(session=other_session, user=self.player1, role="player")
+        session_permissions.create_participant(session=other_session, user=self.co_gm, role="gm")
+        session_permissions.assign_session_gm(
+            other_session,
+            self.co_gm,
+            granted_by=self.gm,
+            sync_legacy_gm=False,
+        )
 
         self.client.force_authenticate(user=self.co_gm)
         ok = self.client.post(
@@ -273,7 +287,7 @@ class SessionRewardsUITestCase(TestCase):
             status="planned",
             visibility="group",
         )
-        SessionParticipant.objects.create(session=self.session, user=self.player, role="player")
+        session_permissions.create_participant(session=self.session, user=self.player, role="player")
 
     def test_session_detail_reward_ui_visibility(self):
         # 参加者には表示される

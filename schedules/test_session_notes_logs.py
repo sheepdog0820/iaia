@@ -1,3 +1,4 @@
+from schedules import session_permissions
 from datetime import timedelta
 
 from django.test import TestCase
@@ -80,7 +81,7 @@ class SessionNotesLogsRemovedUITestCase(TestCase):
             status="planned",
             visibility="group",
         )
-        SessionParticipant.objects.create(session=self.session, user=self.player, role="player")
+        session_permissions.create_participant(session=self.session, user=self.player, role="player")
 
     def test_session_detail_does_not_show_notes_logs_ui(self):
         self.client.login(username="player1", password="pass1234")

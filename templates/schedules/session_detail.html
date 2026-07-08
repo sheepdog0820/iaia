@@ -66,6 +66,14 @@
                             <i class="fas fa-user-plus"></i> 招待
                         </button>
                     {% endif %}
+                    {% if can_manage_permissions and not is_public_view %}
+                        <button class="btn btn-outline-warning"
+                                data-bs-toggle="modal"
+                                data-bs-target="#sessionPermissionsModal"
+                                onclick="loadSessionPermissions()">
+                            <i class="fas fa-user-shield"></i> 権限管理
+                        </button>
+                    {% endif %}
                     {% if can_edit %}
                         <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editSessionModal">
                             <i class="fas fa-edit"></i> セッション編集
@@ -201,13 +209,17 @@
                         <div class="col-md-6">
                             <h6><i class="fas fa-user"></i> GM</h6>
                             <p class="mb-3">
-                                {% if session.gm.profile_image %}
+                                {% if session.gm and session.gm.profile_image %}
                                     <img src="{{ session.gm.profile_image.url }}" alt="GM" 
                                          class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;">
                                 {% else %}
                                     <i class="fas fa-user-circle me-2"></i>
                                 {% endif %}
-                                {{ session.gm.nickname|default:session.gm.username }}
+                                {% if session.gm %}
+                                    {{ session.gm.nickname|default:session.gm.username }}
+                                {% else %}
+                                    <span class="text-muted">未設定</span>
+                                {% endif %}
                             </p>
 
                             <h6><i class="fas fa-flag"></i> ステータス</h6>
@@ -528,14 +540,20 @@
                 <div class="card-body">
                     <div class="mb-3">
                         <span class="badge bg-primary">GM</span>
-                        <span class="ms-2">{{ session.gm.nickname|default:session.gm.username }}</span>
+                        <span class="ms-2">
+                            {% if session.gm %}
+                                {{ session.gm.nickname|default:session.gm.username }}
+                            {% else %}
+                                未設定
+                            {% endif %}
+                        </span>
                     </div>
 
                     <div class="small text-muted mb-2">PL</div>
                     {% if participants %}
                         <div class="d-flex flex-wrap gap-2">
                             {% for participant in participants %}
-                                {% if participant.role != 'gm' %}
+                                {% if not participant.is_gm_role %}
                                     <span class="badge bg-secondary">{{ participant.display_name }}</span>
                                 {% endif %}
                             {% endfor %}
@@ -575,7 +593,7 @@
                                         {% endif %}
                                         <div>
                                             <h6 class="mb-1">{{ participant.display_name }}</h6>
-                                            {% if participant.role == 'gm' %}
+                                            {% if participant.is_gm_role %}
                                                 <span class="badge bg-primary">GM</span>
                                             {% else %}
                                                 <span class="badge bg-secondary">PL</span>
@@ -628,30 +646,84 @@
                                         </p>
                                     {% endif %}
                                     
-                                    {% if can_edit and participant.user %}
+                                    {% if not participant.user and not can_edit and not is_public_view %}
+                                    <div class="mt-2">
+                                        <button class="btn btn-sm btn-outline-success w-100"
+                                                type="button"
+                                                onclick="requestParticipantClaim({{ participant.id }})">
+                                            <i class="fas fa-user-check"></i> これは自分です
+                                        </button>
+                                    </div>
+                                    {% endif %}
+
+                                    {% if can_edit %}
+                                    <div class="mt-2 border rounded p-2 participant-role-editor" data-participant-id="{{ participant.id }}">
+                                        <div class="small text-muted mb-1">参加者ロール</div>
+                                        <div class="d-flex flex-wrap gap-3">
+                                            <div class="form-check form-check-inline mb-0">
+                                                <input class="form-check-input participant-role-checkbox"
+                                                       type="checkbox"
+                                                       id="participant-role-{{ participant.id }}-gm"
+                                                       data-participant-id="{{ participant.id }}"
+                                                       value="gm"
+                                                       onchange="saveParticipantRolesFromCheckboxes({{ participant.id }})"
+                                                       {% if participant.is_gm_role %}checked{% endif %}>
+                                                <label class="form-check-label small" for="participant-role-{{ participant.id }}-gm">GM</label>
+                                            </div>
+                                            <div class="form-check form-check-inline mb-0">
+                                                <input class="form-check-input participant-role-checkbox"
+                                                       type="checkbox"
+                                                       id="participant-role-{{ participant.id }}-player"
+                                                       data-participant-id="{{ participant.id }}"
+                                                       value="player"
+                                                       onchange="saveParticipantRolesFromCheckboxes({{ participant.id }})"
+                                                       {% if participant.is_player_role %}checked{% endif %}>
+                                                <label class="form-check-label small" for="participant-role-{{ participant.id }}-player">PL</label>
+                                            </div>
+                                            <div class="form-check form-check-inline mb-0">
+                                                <input class="form-check-input participant-role-checkbox"
+                                                       type="checkbox"
+                                                       id="participant-role-{{ participant.id }}-observer"
+                                                       data-participant-id="{{ participant.id }}"
+                                                       value="observer"
+                                                       onchange="saveParticipantRolesFromCheckboxes({{ participant.id }})"
+                                                       {% if participant.is_observer_role %}checked{% endif %}>
+                                                <label class="form-check-label small" for="participant-role-{{ participant.id }}-observer">見学</label>
+                                            </div>
+                                        </div>
+                                        {% if participant.user and participant.user_id != session.gm_id %}
+                                            <button class="btn btn-sm btn-outline-primary mt-2"
+                                                    onclick="assignMainGm({{ participant.user.id }})">
+                                                <i class="fas fa-crown"></i> 主GM
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+
+                                    {% comment %}
                                     <div class="mt-2 d-flex flex-wrap gap-2">
-                                        {% if participant.user_id != session.gm_id %}
+                                        {% if not participant.user or participant.user_id != session.gm_id %}
                                             <button class="btn btn-sm btn-outline-primary"
                                                     onclick="assignMainGm({{ participant.user.id }})">
                                                 <i class="fas fa-crown"></i> 主GM
                                             </button>
                                         {% endif %}
-                                        {% if participant.role == 'gm' and participant.user_id != session.gm_id %}
+                                        {% if participant.is_gm_role and participant.user_id != session.gm_id %}
                                             <button class="btn btn-sm btn-outline-secondary"
                                                     onclick="changeParticipantRole({{ participant.id }}, 'player')">
                                                 <i class="fas fa-user"></i> PL
                                             </button>
-                                        {% elif participant.role != 'gm' %}
+                                        {% elif not participant.is_gm_role %}
                                             <button class="btn btn-sm btn-outline-secondary"
                                                     onclick="changeParticipantRole({{ participant.id }}, 'gm')">
                                                 <i class="fas fa-user-shield"></i> 共同GM
                                             </button>
                                         {% endif %}
                                     </div>
-                                    {% endif %}
+                                    {% endcomment %}
 
-                                    {% if can_edit and participant.role != 'gm' %}
-                                    <div class="mt-2 d-flex gap-2">
+                                    {% if can_edit %}
+                                    <div class="mt-2 d-flex gap-2 flex-wrap">
                                         {% if participant.user %}
                                             <button class="btn btn-sm btn-outline-primary"
                                                     onclick="openCharacterLinkModal({{ participant.id }}, {{ participant.user.id }}, {{ participant.character_sheet_id|default:'null' }}, {{ participant.player_slot|default:'null' }}, '{{ participant.character_name|escapejs }}', '{{ participant.character_sheet_url|escapejs }}')">
@@ -659,11 +731,11 @@
                                             </button>
                                         {% else %}
                                             <button class="btn btn-sm btn-outline-primary"
-                                                    onclick="openGuestParticipantModal({{ participant.id }}, '{{ participant.guest_name|escapejs }}', {{ participant.player_slot|default:'null' }}, '{{ participant.character_name|escapejs }}', '{{ participant.character_sheet_url|escapejs }}')">
+                                                    onclick="openGuestParticipantModal({{ participant.id }}, '{{ participant.guest_name|escapejs }}', {{ participant.player_slot|default:'null' }}, '{{ participant.character_name|escapejs }}', '{{ participant.character_sheet_url|escapejs }}', '{{ participant.role_values|join:"," }}', {{ participant.participant_identity_id|default:'null' }})">
                                                 <i class="fas fa-user-edit"></i> ゲスト設定
                                             </button>
                                         {% endif %}
-                                        {% if participant.user_id != session.gm_id %}
+                                        {% if not participant.user or participant.user_id != session.gm_id %}
                                         <button class="btn btn-sm btn-outline-danger" 
                                                 onclick="removeParticipant({{ participant.id }})">
                                             <i class="fas fa-user-minus"></i> 除名
@@ -680,6 +752,17 @@
                         </div>
                         {% endfor %}
                     </div>
+                    {% if can_edit and not is_public_view %}
+                    <div class="border rounded p-3 mt-3" id="sessionClaimRequestsPanel">
+                        <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                            <h6 class="mb-0"><i class="fas fa-user-check"></i> claim申請</h6>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" onclick="loadSessionClaimRequests()">
+                                更新
+                            </button>
+                        </div>
+                        <div id="sessionClaimRequestsList" class="text-muted small">申請はまだ読み込まれていません。</div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             {% endif %}
@@ -707,14 +790,14 @@
             </div>
 
             <!-- ハンドアウト情報 -->
-            {% if handouts or can_edit %}
+            {% if handouts or can_manage_secret_content %}
             <div class="card mb-4">
                 <div class="card-header bg-warning">
                     <div class="d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
                             <i class="fas fa-scroll"></i> ハンドアウト情報
                         </h6>
-                        {% if can_edit %}
+                        {% if can_manage_secret_content %}
                         <div class="btn-group btn-group-sm">
                             <a href="/api/schedules/sessions/{{ session.id }}/handouts/manage/" 
                                class="btn btn-outline-light">
@@ -739,7 +822,7 @@
                                         <i class="fas fa-eye-slash text-warning ms-1" title="秘匿情報"></i>
                                     {% endif %}
                                 </h6>
-                                {% if can_edit %}
+                                {% if can_manage_secret_content %}
                                 <div class="btn-group btn-group-sm">
                                     <button class="btn btn-outline-primary" onclick="editHandout({{ handout.id }})">
                                         <i class="fas fa-edit"></i>
@@ -750,7 +833,7 @@
                                 </div>
                                 {% endif %}
                             </div>
-                            {% if can_edit %}
+                            {% if can_manage_secret_content %}
                                 <p class="small text-muted mb-2">
                                     <i class="fas fa-user"></i> {{ handout.participant.display_name }}
                                 </p>
@@ -931,6 +1014,7 @@
                     <select class="form-select" id="inviteRole">
                         <option value="player" selected>PLとして招待</option>
                         <option value="gm">GMとして招待</option>
+                        <option value="observer">見学として招待</option>
                     </select>
                 </div>
                 <div class="mt-3">
@@ -1049,6 +1133,31 @@
 </div>
 {% endif %}
 
+{% if can_manage_permissions and not is_public_view %}
+<div class="modal fade" id="sessionPermissionsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-user-shield"></i> 権限管理</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-light border small">
+                    owner/manager は基本情報・参加者・共有リンクを管理できます。秘匿HO、GMメモ、KP/GM用シナリオ情報を見るには secret_keeper が必要です。
+                </div>
+                <div id="sessionPermissionsMessage" class="mb-3"></div>
+                <div id="sessionPermissionsList" class="border rounded p-3">
+                    <span class="text-muted small">読み込み中...</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% if can_edit %}
 <div class="modal fade" id="guestParticipantModal" tabindex="-1">
     <div class="modal-dialog">
@@ -1060,11 +1169,49 @@
             <div class="modal-body">
                 <input type="hidden" id="guestParticipantId">
                 <div class="mb-3">
+                    <label for="guest_participant_identity" class="form-label">グループ仮メンバーから選択</label>
+                    <select class="form-select" id="guest_participant_identity" onchange="applyGuestParticipantIdentitySelection()">
+                        <option value="">手入力で追加</option>
+                    </select>
+                    <div class="form-text">選択すると表示名をゲスト名に反映し、グループ内人物マスタに紐づけます。</div>
+                </div>
+                <div class="mb-3">
                     <label for="guest_participant_name" class="form-label">ゲスト名 *</label>
                     <input type="text" class="form-control" id="guest_participant_name" placeholder="例: PL1 たろう" required>
                 </div>
                 <div class="mb-3">
                     <label for="guest_player_slot" class="form-label">プレイヤー枠（任意）</label>
+                    <div class="mb-3">
+                        <label class="form-label">参加者ロール</label>
+                        <div class="d-flex flex-wrap gap-3">
+                            <div class="form-check form-check-inline mb-0">
+                                <input class="form-check-input guest-participant-role-checkbox"
+                                       type="checkbox"
+                                       id="guest_role_gm"
+                                       value="gm"
+                                       onchange="updateGuestPlayerSlotState()">
+                                <label class="form-check-label" for="guest_role_gm">GM</label>
+                            </div>
+                            <div class="form-check form-check-inline mb-0">
+                                <input class="form-check-input guest-participant-role-checkbox"
+                                       type="checkbox"
+                                       id="guest_role_player"
+                                       value="player"
+                                       onchange="updateGuestPlayerSlotState()"
+                                       checked>
+                                <label class="form-check-label" for="guest_role_player">PL</label>
+                            </div>
+                            <div class="form-check form-check-inline mb-0">
+                                <input class="form-check-input guest-participant-role-checkbox"
+                                       type="checkbox"
+                                       id="guest_role_observer"
+                                       value="observer"
+                                       onchange="updateGuestPlayerSlotState()">
+                                <label class="form-check-label" for="guest_role_observer">見学</label>
+                            </div>
+                        </div>
+                        <div class="form-text">少なくとも1つ選択してください。PLを外すとプレイヤー枠は保存されません。</div>
+                    </div>
                     <select class="form-select" id="guest_player_slot">
                         <option value="">未指定</option>
                         <option value="1">プレイヤー1</option>
@@ -1729,9 +1876,10 @@ let groupMemberCharacters = new Map();
 let groupMemberNames = new Map();
 const SESSION_ID = {{ session.id }};
 const SELECTED_OCCURRENCE_ID = {% if selected_occurrence_id %}{{ selected_occurrence_id }}{% else %}null{% endif %};
-const GROUP_ID = {{ session.group.id }};
+const GROUP_ID = {% if session.group_id %}{{ session.group_id }}{% else %}null{% endif %};
 const IS_GM = {% if can_edit %}true{% else %}false{% endif %};
 const CAN_INVITE = {% if can_invite %}true{% else %}false{% endif %};
+const CAN_MANAGE_PERMISSIONS = {% if can_manage_permissions %}true{% else %}false{% endif %};
 const CAN_MANAGE_REWARDS = CAN_INVITE;
 const IS_PARTICIPANT = {% if is_participant %}true{% else %}false{% endif %};
 const IS_PUBLIC_VIEW = {% if is_public_view %}true{% else %}false{% endif %};
@@ -1776,10 +1924,85 @@ function getSessionErrorMessage(error, fallback = '不明なエラー') {
 }
 
 const SESSION_EXISTING_MEMBER_IDS = new Set([
-    {{ session.gm.id }},
+    {% if session.gm_id %}{{ session.gm_id }},{% endif %}
     {% for participant in participants %}{% if participant.user %}{{ participant.user.id }},{% endif %}{% endfor %}
 ]);
+const SESSION_USED_PARTICIPANT_IDENTITY_IDS = new Set([
+    {% for participant in participants %}{% if participant.participant_identity_id %}{{ participant.participant_identity_id }},{% endif %}{% endfor %}
+]);
 const SESSION_INVITATION_STATUS_BY_USER_ID = {{ invitation_status_by_user_id_json|default:"{}"|safe }};
+let groupTemporaryMembersForSession = [];
+
+const PARTICIPANT_ROLE_LABELS = {
+    gm: 'GM',
+    player: 'PL',
+    observer: '見学'
+};
+const SESSION_PERMISSION_ROLE_LABELS = {
+    owner: 'owner',
+    manager: 'manager',
+    secret_keeper: 'secret_keeper',
+    viewer: 'viewer'
+};
+
+function normalizeRoleArray(roles, fallback = ['player']) {
+    let values = roles;
+    if (typeof values === 'string') {
+        values = values.split(',').map(value => value.trim()).filter(Boolean);
+    } else if (!Array.isArray(values)) {
+        values = values ? [values] : [];
+    }
+    const normalized = [...new Set(values.map(value => String(value).trim()).filter(Boolean))];
+    return normalized.length ? normalized : [...fallback];
+}
+
+function participantRolesPayload(roles) {
+    return { roles: normalizeRoleArray(roles) };
+}
+
+function checkedValues(selector) {
+    return Array.from(document.querySelectorAll(selector))
+        .filter(input => input.checked)
+        .map(input => input.value);
+}
+
+async function loadGroupTemporaryMembers(selectedIdentityId = null) {
+    const select = document.getElementById('guest_participant_identity');
+    if (!select) return;
+    select.innerHTML = '<option value="">手入力で追加</option>';
+    select.disabled = !GROUP_ID;
+    if (!GROUP_ID) {
+        return;
+    }
+
+    try {
+        const response = await axios.get(`/api/accounts/groups/${GROUP_ID}/temporary-members/`);
+        groupTemporaryMembersForSession = response.data?.temporary_members || [];
+        const selectedId = selectedIdentityId ? Number(selectedIdentityId) : null;
+        groupTemporaryMembersForSession
+            .filter(member => !SESSION_USED_PARTICIPANT_IDENTITY_IDS.has(Number(member.id)) || Number(member.id) === selectedId)
+            .forEach(member => {
+                select.add(new Option(member.display_name, String(member.id)));
+            });
+        select.disabled = groupTemporaryMembersForSession.length === 0;
+        if (selectedId && Array.from(select.options).some(option => option.value === String(selectedId))) {
+            select.value = String(selectedId);
+        }
+    } catch (error) {
+        console.warn('Failed to load temporary members:', error);
+        select.disabled = true;
+    }
+}
+
+function applyGuestParticipantIdentitySelection() {
+    const select = document.getElementById('guest_participant_identity');
+    const nameInput = document.getElementById('guest_participant_name');
+    if (!select || !nameInput) return;
+    const member = groupTemporaryMembersForSession.find(item => String(item.id) === String(select.value));
+    if (member) {
+        nameInput.value = member.display_name || '';
+    }
+}
 
 function formatPollDateTime(value) {
     if (!value) return '';
@@ -2731,8 +2954,13 @@ function bindCharacterNameAutoFill(selectId, inputId) {
 
 async function loadGroupMemberCharacters() {
     {% if can_edit %}
+    if (!GROUP_ID) {
+        groupMemberCharacters = new Map();
+        groupMemberNames = new Map();
+        return;
+    }
     try {
-        const response = await axios.get('/api/accounts/groups/{{ session.group.id }}/member_characters/');
+        const response = await axios.get(`/api/accounts/groups/${GROUP_ID}/member_characters/`);
         const data = response.data || [];
         groupMemberCharacters = new Map();
         groupMemberNames = new Map();
@@ -3726,7 +3954,7 @@ async function loadSessionRewards() {
         ]);
 
         const participants = (participantsResp.data || [])
-            .filter(p => p.role !== 'gm')
+            .filter(p => !(p.roles || []).includes('gm'))
             .sort((a, b) => ((a.player_slot || 999) - (b.player_slot || 999)) || (a.id - b.id));
 
         sessionRewards = rewardsResp.data || [];
@@ -3984,15 +4212,44 @@ async function saveLinkedCharacter() {
     }
 }
 
-function openGuestParticipantModal(participantId, guestName = '', playerSlot = null, characterName = '', characterSheetUrl = '') {
+function setGuestRoleChecks(roles) {
+    const selectedRoles = normalizeRoleArray(roles, ['player']);
+    document.querySelectorAll('.guest-participant-role-checkbox').forEach(input => {
+        input.checked = selectedRoles.includes(input.value);
+    });
+}
+
+function getGuestRoleValues() {
+    return checkedValues('.guest-participant-role-checkbox');
+}
+
+function updateGuestPlayerSlotState() {
+    const roles = getGuestRoleValues();
+    const playerSlotEl = document.getElementById('guest_player_slot');
+    if (!playerSlotEl) return;
+    const hasPlayerRole = roles.includes('player');
+    playerSlotEl.disabled = !hasPlayerRole;
+    if (!hasPlayerRole) {
+        playerSlotEl.value = '';
+    }
+}
+
+function openGuestParticipantModal(participantId, guestName = '', playerSlot = null, characterName = '', characterSheetUrl = '', roles = 'player', participantIdentityId = null) {
     const modalEl = document.getElementById('guestParticipantModal');
     if (!modalEl) return;
 
     document.getElementById('guestParticipantId').value = participantId || '';
+    const identitySelect = document.getElementById('guest_participant_identity');
+    if (identitySelect) {
+        identitySelect.value = participantIdentityId ? String(participantIdentityId) : '';
+    }
     document.getElementById('guest_participant_name').value = guestName || '';
     document.getElementById('guest_player_slot').value = playerSlot ? String(playerSlot) : '';
     document.getElementById('guest_character_name').value = characterName || '';
     document.getElementById('guest_character_sheet_url').value = characterSheetUrl || '';
+    setGuestRoleChecks(roles);
+    updateGuestPlayerSlotState();
+    loadGroupTemporaryMembers(participantIdentityId).then(applyGuestParticipantIdentitySelection);
 
     const modal = new bootstrap.Modal(modalEl);
     modal.show();
@@ -4001,21 +4258,32 @@ function openGuestParticipantModal(participantId, guestName = '', playerSlot = n
 async function saveGuestParticipant() {
     const participantId = document.getElementById('guestParticipantId')?.value;
     const guestName = (document.getElementById('guest_participant_name')?.value || '').trim();
+    const participantIdentityId = document.getElementById('guest_participant_identity')?.value || '';
     const playerSlotValue = document.getElementById('guest_player_slot')?.value;
     const characterName = document.getElementById('guest_character_name')?.value || '';
     const characterSheetUrl = document.getElementById('guest_character_sheet_url')?.value || '';
+    const roles = getGuestRoleValues();
 
-    if (!guestName) {
+    if (!guestName && !participantIdentityId) {
         sessionNotifyError('ゲスト名は必須です');
+        return;
+    }
+
+    if (roles.length === 0) {
+        sessionNotifyError('参加者ロールを1つ以上選択してください');
         return;
     }
 
     const payload = {
         guest_name: guestName,
-        player_slot: playerSlotValue ? Number(playerSlotValue) : null,
+        roles,
+        player_slot: roles.includes('player') && playerSlotValue ? Number(playerSlotValue) : null,
         character_name: characterName,
         character_sheet_url: characterSheetUrl,
     };
+    if (participantIdentityId) {
+        payload.participant_identity = Number(participantIdentityId);
+    }
 
     try {
         if (participantId) {
@@ -4062,11 +4330,261 @@ async function changeParticipantRole(participantId, role) {
     if (!confirmed) return;
 
     try {
-        await axios.patch(`/api/schedules/participants/${participantId}/`, { role });
+        await axios.patch(`/api/schedules/participants/${participantId}/`, participantRolesPayload(role));
         sessionNotifySuccess(`参加者を${label}に変更しました`);
         window.location.reload();
     } catch (error) {
         sessionNotifyError('参加者ロールの変更に失敗しました: ' + getSessionErrorMessage(error));
+    }
+}
+
+async function saveParticipantRolesFromCheckboxes(participantId) {
+    const roles = checkedValues(`.participant-role-checkbox[data-participant-id="${participantId}"]`);
+    if (roles.length === 0) {
+        sessionNotifyError('参加者ロールを1つ以上選択してください');
+        return;
+    }
+
+    try {
+        await axios.patch(`/api/schedules/participants/${participantId}/`, participantRolesPayload(roles));
+        sessionNotifySuccess('参加者ロールを更新しました');
+        window.location.reload();
+    } catch (error) {
+        sessionNotifyError('参加者ロールの更新に失敗しました: ' + getSessionErrorMessage(error));
+    }
+}
+
+function roleCheckboxHtml({ name, value, checked, cssClass, dataAttrs = '' }) {
+    const id = `${cssClass}-${value}-${dataAttrs}-${name}`.replace(/[^a-zA-Z0-9_-]/g, '-');
+    return `
+        <div class="form-check form-check-inline mb-1">
+            <input class="form-check-input ${cssClass}"
+                   type="checkbox"
+                   id="${escapeHtml(id)}"
+                   value="${escapeHtml(value)}"
+                   ${dataAttrs}
+                   ${checked ? 'checked' : ''}>
+            <label class="form-check-label small" for="${escapeHtml(id)}">${escapeHtml(name)}</label>
+        </div>
+    `;
+}
+
+function renderParticipantRoleControls(participantId, roles, checkboxClass) {
+    if (!participantId) {
+        return '<span class="text-muted small">未参加</span>';
+    }
+    const currentRoles = new Set(roles || []);
+    const controls = Object.entries(PARTICIPANT_ROLE_LABELS).map(([value, label]) => (
+        roleCheckboxHtml({
+            name: label,
+            value,
+            checked: currentRoles.has(value),
+            cssClass: checkboxClass,
+            dataAttrs: `data-participant-id="${escapeHtml(participantId)}"`
+        })
+    )).join('');
+    return `
+        <div>${controls}</div>
+        <button type="button" class="btn btn-sm btn-outline-primary mt-1"
+                onclick="savePermissionPanelParticipantRoles(${Number(participantId)})">
+            保存
+        </button>
+    `;
+}
+
+function renderSessionPermissionControls(userId, roles) {
+    const currentRoles = new Set(roles || []);
+    const controls = Object.entries(SESSION_PERMISSION_ROLE_LABELS).map(([value, label]) => (
+        roleCheckboxHtml({
+            name: label,
+            value,
+            checked: currentRoles.has(value),
+            cssClass: 'session-permission-checkbox',
+            dataAttrs: `data-user-id="${escapeHtml(userId)}"`
+        })
+    )).join('');
+    return `
+        <div>${controls}</div>
+        <button type="button" class="btn btn-sm btn-outline-primary mt-1"
+                onclick="saveSessionPermissionRoles(${Number(userId)})">
+            保存
+        </button>
+    `;
+}
+
+function renderSessionPermissions(data) {
+    const container = document.getElementById('sessionPermissionsList');
+    if (!container) return;
+
+    const users = data.users || [];
+    const guests = data.guests || [];
+    const userRows = users.map(user => {
+        const badges = [
+            user.is_created_by ? '<span class="badge bg-primary ms-1">creator</span>' : '',
+            user.is_legacy_gm ? '<span class="badge bg-dark ms-1">main GM</span>' : '',
+            user.is_group_admin ? '<span class="badge bg-info text-dark ms-1">group admin</span>' : ''
+        ].join('');
+        return `
+            <tr>
+                <td>
+                    <div class="fw-semibold">${escapeHtml(user.display_name || user.username || '')}${badges}</div>
+                    <div class="text-muted small">@${escapeHtml(user.username || '')}</div>
+                </td>
+                <td>${renderParticipantRoleControls(user.participant_id, user.participant_roles, 'permission-panel-participant-role-checkbox')}</td>
+                <td>${renderSessionPermissionControls(user.user_id, user.permission_roles)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    const guestRows = guests.map(guest => `
+        <tr>
+            <td>
+                <div class="fw-semibold">${escapeHtml(guest.display_name || '')}</div>
+                <div class="text-muted small">guest participant</div>
+            </td>
+            <td>${renderParticipantRoleControls(guest.participant_id, guest.participant_roles, 'permission-panel-participant-role-checkbox')}</td>
+            <td><span class="text-muted small">登録ユーザーのみ</span></td>
+        </tr>
+    `).join('');
+
+    container.innerHTML = `
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th style="min-width: 180px;">対象</th>
+                        <th style="min-width: 260px;">参加者ロール</th>
+                        <th style="min-width: 320px;">SessionPermission</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${userRows || '<tr><td colspan="3" class="text-muted">対象ユーザーがいません</td></tr>'}
+                    ${guestRows}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function loadSessionPermissions() {
+    if (!CAN_MANAGE_PERMISSIONS) return;
+    const container = document.getElementById('sessionPermissionsList');
+    if (container) {
+        container.innerHTML = '<span class="text-muted small">読み込み中...</span>';
+    }
+    try {
+        const response = await axios.get(`/api/schedules/sessions/${SESSION_ID}/permissions/`);
+        renderSessionPermissions(response.data || {});
+    } catch (error) {
+        if (container) {
+            container.innerHTML = `<div class="alert alert-danger mb-0">${escapeHtml(getSessionErrorMessage(error))}</div>`;
+        }
+    }
+}
+
+async function saveSessionPermissionRoles(userId) {
+    const roles = checkedValues(`.session-permission-checkbox[data-user-id="${userId}"]`);
+    try {
+        const response = await axios.patch(`/api/schedules/sessions/${SESSION_ID}/permissions/`, {
+            user_id: userId,
+            permission_roles: roles
+        });
+        renderSessionPermissions(response.data || {});
+        sessionNotifySuccess('セッション権限を更新しました');
+    } catch (error) {
+        sessionNotifyError('セッション権限の更新に失敗しました: ' + getSessionErrorMessage(error));
+    }
+}
+
+async function savePermissionPanelParticipantRoles(participantId) {
+    const roles = checkedValues(`.permission-panel-participant-role-checkbox[data-participant-id="${participantId}"]`);
+    if (roles.length === 0) {
+        sessionNotifyError('参加者ロールを1つ以上選択してください');
+        return;
+    }
+    try {
+        await axios.patch(`/api/schedules/participants/${participantId}/`, participantRolesPayload(roles));
+        await loadSessionPermissions();
+        sessionNotifySuccess('参加者ロールを更新しました');
+    } catch (error) {
+        sessionNotifyError('参加者ロールの更新に失敗しました: ' + getSessionErrorMessage(error));
+    }
+}
+
+function renderSessionClaimRequests(claims) {
+    const container = document.getElementById('sessionClaimRequestsList');
+    if (!container) return;
+    if (!claims || claims.length === 0) {
+        container.innerHTML = '<span class="text-muted small">保留中のclaim申請はありません。</span>';
+        return;
+    }
+
+    container.innerHTML = claims.map(claim => `
+        <div class="d-flex flex-column flex-md-row justify-content-between gap-2 border rounded p-2 mb-2">
+            <div>
+                <div class="fw-semibold">${escapeHtml(claim.target_display_name || '')}</div>
+                <div class="small text-muted">
+                    申請者: ${escapeHtml(claim.requested_by_name || '')}
+                    ${claim.message ? ` / ${escapeHtml(claim.message)}` : ''}
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-success" type="button" onclick="approveSessionClaimRequest(${Number(claim.id)})">
+                    承認
+                </button>
+                <button class="btn btn-sm btn-outline-danger" type="button" onclick="rejectSessionClaimRequest(${Number(claim.id)})">
+                    却下
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function loadSessionClaimRequests() {
+    if (!IS_GM || IS_PUBLIC_VIEW) return;
+    const container = document.getElementById('sessionClaimRequestsList');
+    if (container) {
+        container.innerHTML = '<span class="text-muted small">読み込み中...</span>';
+    }
+    try {
+        const response = await axios.get(`/api/sessions/${SESSION_ID}/claim-requests/`);
+        renderSessionClaimRequests(response.data?.claim_requests || []);
+    } catch (error) {
+        if (container) {
+            container.innerHTML = `<div class="alert alert-danger mb-0">${escapeHtml(getSessionErrorMessage(error))}</div>`;
+        }
+    }
+}
+
+async function requestParticipantClaim(participantId) {
+    try {
+        await axios.post(`/api/participants/${participantId}/claim-requests/`, {
+            message: 'これは自分です'
+        });
+        sessionNotifySuccess('claim申請を送信しました。管理者の承認を待ってください。');
+    } catch (error) {
+        sessionNotifyError('claim申請に失敗しました: ' + getSessionErrorMessage(error));
+    }
+}
+
+async function approveSessionClaimRequest(claimId) {
+    try {
+        await axios.post(`/api/sessions/${SESSION_ID}/claim-requests/${claimId}/approve/`, {});
+        sessionNotifySuccess('claim申請を承認しました。');
+        await loadSessionClaimRequests();
+        setTimeout(() => window.location.reload(), 500);
+    } catch (error) {
+        sessionNotifyError('claim承認に失敗しました: ' + getSessionErrorMessage(error));
+    }
+}
+
+async function rejectSessionClaimRequest(claimId) {
+    try {
+        await axios.post(`/api/sessions/${SESSION_ID}/claim-requests/${claimId}/reject/`, {});
+        sessionNotifySuccess('claim申請を却下しました。');
+        await loadSessionClaimRequests();
+    } catch (error) {
+        sessionNotifyError('claim却下に失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
@@ -4254,7 +4772,7 @@ window.sendSessionInvitations = async function() {
         try {
             await axios.post(
                 `/api/schedules/sessions/${encodeURIComponent(SESSION_ID)}/invite/`,
-                { user_id: userId, message, role },
+                { user_id: userId, message, ...participantRolesPayload(role) },
                 { headers: { 'Content-Type': 'application/json' } },
             );
             successCount += 1;
@@ -4313,6 +4831,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (IS_PUBLIC_VIEW) return;
 
     preloadCcfoliaCharacters();
+
+    if (IS_GM) {
+        loadSessionClaimRequests();
+    }
 
     if (IS_GM && window.HandoutSkillPicker) {
         window.HandoutSkillPicker.attach({

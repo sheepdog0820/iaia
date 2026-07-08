@@ -1,3 +1,4 @@
+from schedules import session_permissions
 from io import StringIO
 
 from django.core.management import call_command
@@ -46,7 +47,7 @@ class RepairPastImportCharacterLinkTests(TestCase):
 
     def test_links_unique_character_sheet_by_source_scenario(self):
         character = self._create_character("Linked Character", source_scenario=self.scenario)
-        participant = SessionParticipant.objects.create(
+        participant = session_permissions.create_participant(
             session=self.session,
             user=self.player,
             role="player",
@@ -64,7 +65,7 @@ class RepairPastImportCharacterLinkTests(TestCase):
     def test_skips_ambiguous_character_sheet_candidates(self):
         self._create_character("Candidate A", source_scenario=self.scenario)
         self._create_character("Candidate B", source_scenario=self.scenario)
-        participant = SessionParticipant.objects.create(
+        participant = session_permissions.create_participant(
             session=self.session,
             user=self.player,
             role="player",
@@ -81,7 +82,7 @@ class RepairPastImportCharacterLinkTests(TestCase):
     def test_prefers_unique_character_name_over_scenario_candidates(self):
         target = self._create_character("Imported Name")
         self._create_character("Other Scenario Character", source_scenario=self.scenario)
-        participant = SessionParticipant.objects.create(
+        participant = session_permissions.create_participant(
             session=self.session,
             user=self.player,
             role="player",

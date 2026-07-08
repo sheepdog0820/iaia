@@ -2,6 +2,7 @@
 セッション通知機能単体テスト（ISSUE-013）
 """
 
+from schedules import session_permissions
 import json
 from datetime import datetime, timedelta
 
@@ -49,7 +50,7 @@ class SessionNotificationServiceTestCase(TestCase):
         )
 
         # 参加者追加
-        SessionParticipant.objects.create(session=self.session, user=self.player1, role="player")
+        session_permissions.create_participant(session=self.session, user=self.player1, role="player")
 
         # 通知サービス
         self.notification_service = SessionNotificationService()
@@ -140,7 +141,7 @@ class SessionNotificationServiceTestCase(TestCase):
     def test_send_session_reminder_notification(self):
         """セッションリマインダー通知の送信テスト"""
         # GMも参加者として追加
-        SessionParticipant.objects.create(session=self.session, user=self.gm, role="gm")
+        session_permissions.create_participant(session=self.session, user=self.gm, role="gm")
 
         # 通知送信（24時間前）
         count = self.notification_service.send_session_reminder_notification(self.session, hours_before=24)
@@ -217,7 +218,7 @@ class SessionInviteAPITestCase(APITestCase):
     def test_invite_already_participant(self):
         """既に参加者の場合のエラー"""
         # playerを参加者として追加
-        SessionParticipant.objects.create(session=self.session, user=self.player, role="player")
+        session_permissions.create_participant(session=self.session, user=self.player, role="player")
 
         url = reverse("session-invite", kwargs={"pk": self.session.pk})
         data = {"user_id": self.player.id}
@@ -267,7 +268,7 @@ class SessionUpdateNotificationTestCase(APITestCase):
             status="planned",
         )
 
-        SessionParticipant.objects.create(session=self.session, user=self.player, role="player")
+        session_permissions.create_participant(session=self.session, user=self.player, role="player")
 
         self.client.force_authenticate(user=self.gm)
 

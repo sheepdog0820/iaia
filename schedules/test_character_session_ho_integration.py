@@ -2,6 +2,7 @@
 キャラクター作成、セッション作成、HOごとのキャラクター設定の統合テスト
 """
 
+from schedules import session_permissions
 import json
 from datetime import datetime, timedelta
 
@@ -13,7 +14,7 @@ from rest_framework.test import APITestCase
 
 from accounts.character_models import CharacterSheet, CharacterSkill
 from accounts.models import CustomUser, Group
-from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
+from schedules.models import HandoutInfo, SessionParticipant, SessionParticipantRole, TRPGSession
 
 
 class CharacterSessionHOIntegrationTestCase(APITestCase):
@@ -108,6 +109,7 @@ class CharacterSessionHOIntegrationTestCase(APITestCase):
             "status": "planned",
             "visibility": "private",
             "duration_minutes": 240,
+            "as_gm": True,
         }
 
         response = self.client.post(reverse("session-list"), session_data, format="json")
@@ -197,10 +199,11 @@ class CharacterSessionHOIntegrationTestCase(APITestCase):
 
         # 4人の参加者が正しく登録されているか確認
         participants = response.data["participants_detail"]
-        self.assertEqual(len(participants), 4)  # 4プレイヤーのみ（GMは別管理）
+        self.assertEqual(len(participants), 5)
+        self.assertEqual(len([p for p in participants if "gm" in p.get("roles", [])]), 1)
 
         # プレイヤーの情報を確認
-        player_participants = [p for p in participants if p["role"] == "player"]
+        player_participants = [p for p in participants if "player" in p.get("roles", [])]
         self.assertEqual(len(player_participants), 4)
 
         for i, participant in enumerate(sorted(player_participants, key=lambda x: x["player_slot"])):
@@ -214,7 +217,13 @@ class CharacterSessionHOIntegrationTestCase(APITestCase):
         # ===== STEP 7: 統計情報の確認 =====
         # GMの視点から全体を確認
         self.assertEqual(HandoutInfo.objects.filter(session=session).count(), 4)
-        self.assertEqual(SessionParticipant.objects.filter(session=session, role="player").count(), 4)
+        self.assertEqual(
+            SessionParticipant.objects.filter(
+                session=session,
+                participant_roles__role=SessionParticipantRole.Role.PLAYER,
+            ).count(),
+            4,
+        )
 
         # 各ハンドアウトが正しいプレイヤー枠に割り当てられているか
         for i in range(4):
@@ -259,7 +268,7 @@ class CharacterSessionHOIntegrationTestCase(APITestCase):
                 sanity_starting=50,
             )
 
-            SessionParticipant.objects.create(
+            session_permissions.create_participant(
                 session=session, user=self.players[i], role="player", player_slot=i + 1, character_sheet=character
             )
 

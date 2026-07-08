@@ -3,6 +3,7 @@
 完全なユーザーフローを検証
 """
 
+from schedules import session_permissions
 from datetime import datetime, timedelta
 
 from django.contrib.auth import get_user_model
@@ -205,22 +206,23 @@ class CharacterToSessionIntegrationTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         session = TRPGSession.objects.get(title="悪霊の家 - 恐怖の一夜")
-        self.assertEqual(session.gm, self.gm_user)
+        self.assertEqual(session.created_by, self.gm_user)
+        self.assertIsNone(session.gm)
         self.assertEqual(session.group, self.group)
 
         # === Step 5: プレイヤーがセッションに参加登録 ===
         # プレイヤー1が参加
-        participant1 = SessionParticipant.objects.create(
+        participant1 = session_permissions.create_participant(
             session=session, user=self.player1, role="player", character_name=char1.name, character_sheet=char1
         )
 
         # プレイヤー2が参加
-        participant2 = SessionParticipant.objects.create(
+        participant2 = session_permissions.create_participant(
             session=session, user=self.player2, role="player", character_name=char2.name, character_sheet=char2
         )
 
         # プレイヤー3が参加（負傷状態で）
-        participant3 = SessionParticipant.objects.create(
+        participant3 = session_permissions.create_participant(
             session=session, user=self.player3, role="player", character_name=char3.name, character_sheet=char3
         )
 
@@ -363,7 +365,7 @@ class CharacterToSessionIntegrationTestCase(TestCase):
         session = TRPGSession.objects.get(title="狂気の宴")
 
         # 発狂キャラクターでも参加可能
-        participant = SessionParticipant.objects.create(
+        participant = session_permissions.create_participant(
             session=session, user=self.player2, role="player", character_name=character.name, character_sheet=character
         )
         self.assertEqual(participant.character_sheet.sanity_current, 0)

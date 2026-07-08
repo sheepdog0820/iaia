@@ -247,6 +247,78 @@ class GuestClaimAudit(models.Model):
     claimed_at = models.DateTimeField(default=timezone.now)
 
 
+class ParticipantClaimRequest(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    participant = models.ForeignKey(
+        "SessionParticipant",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="claim_requests",
+    )
+    participant_identity = models.ForeignKey(
+        "ParticipantIdentity",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="claim_requests",
+    )
+    requested_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name="participant_claim_requests",
+    )
+    reviewed_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_participant_claim_requests",
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    message = models.TextField(blank=True, default="")
+    review_comment = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(participant__isnull=False) | models.Q(participant_identity__isnull=False),
+                name="participant_claim_has_target",
+            ),
+            models.UniqueConstraint(
+                fields=["participant", "requested_by"],
+                condition=models.Q(status="pending"),
+                name="uniq_pending_participant_claim",
+            ),
+            models.UniqueConstraint(
+                fields=["participant_identity", "requested_by"],
+                condition=models.Q(status="pending"),
+                name="uniq_pending_identity_claim",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["status", "created_at"], name="part_claim_status_created_idx"),
+            models.Index(fields=["requested_by", "status"], name="part_claim_requester_idx"),
+        ]
+
+    def __str__(self):
+        target = self.participant or self.participant_identity
+        return f"{self.requested_by} claims {target} ({self.status})"
+
+
 class TRPGSession(models.Model):
     STATUS_CHOICES = [
         ("planned", "予定"),
@@ -275,7 +347,13 @@ class TRPGSession(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="planned")
     visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default="group")
 
-    gm = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="gm_sessions")
+    gm = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="gm_sessions",
+    )
     created_by = models.ForeignKey(
         CustomUser,
         on_delete=models.SET_NULL,
@@ -283,7 +361,13 @@ class TRPGSession(models.Model):
         blank=True,
         related_name="created_sessions",
     )
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="sessions")
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sessions",
+    )
     scenario = models.ForeignKey(
         "scenarios.Scenario", on_delete=models.SET_NULL, null=True, blank=True, related_name="sessions"
     )
@@ -380,7 +464,7 @@ class TRPGSession(models.Model):
             old_date = TRPGSession.objects.filter(pk=self.pk).values_list("date", flat=True).first()
 
         auto_group_created = False
-        if not self.group_id and self.gm_id:
+        if not self.group_id and self.gm_id and self.visibility == "group":
             group_name = f"{self.gm.nickname or self.gm.username} Default Group"
             group, _ = Group.objects.get_or_create(
                 name=group_name, created_by=self.gm, defaults={"visibility": "private"}
@@ -504,13 +588,39 @@ def normalize_participant_name(value):
 
 
 class ParticipantIdentity(models.Model):
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="participant_identities",
+    )
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="participant_identities",
+    )
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_participant_identities",
+    )
     display_name = models.CharField(max_length=100)
     normalized_name = models.CharField(max_length=100, db_index=True, blank=True)
+    is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["display_name", "id"]
+        indexes = [
+            models.Index(fields=["group", "normalized_name"], name="part_identity_group_name_idx"),
+            models.Index(fields=["user"], name="part_identity_user_idx"),
+        ]
 
     def save(self, *args, **kwargs):
         self.normalized_name = normalize_participant_name(self.display_name)
@@ -541,11 +651,6 @@ class ParticipantIdentityAlias(models.Model):
 
 
 class SessionParticipant(models.Model):
-    ROLE_CHOICES = [
-        ("gm", "GM"),
-        ("player", "PL"),
-    ]
-
     PLAYER_SLOT_CHOICES = [
         (1, "プレイヤー1"),
         (2, "プレイヤー2"),
@@ -568,7 +673,6 @@ class SessionParticipant(models.Model):
         default="",
         help_text="ゲスト参加者名（ログインなし参加者）",
     )
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="player")
     character_name = models.CharField(max_length=100, blank=True)
     character_sheet_url = models.URLField(blank=True)
 
@@ -600,12 +704,6 @@ class SessionParticipant(models.Model):
                 name="sessionparticipant_user_or_guest_name",
             ),
             models.CheckConstraint(
-                check=(
-                    ~models.Q(role="gm") | models.Q(user__isnull=False) | models.Q(participant_identity__isnull=False)
-                ),
-                name="sessionparticipant_gm_requires_user",
-            ),
-            models.CheckConstraint(
                 check=models.Q(character_sheet__isnull=True) | models.Q(user__isnull=False),
                 name="sessionparticipant_character_sheet_requires_user",
             ),
@@ -621,7 +719,81 @@ class SessionParticipant(models.Model):
 
     def __str__(self):
         slot_display = f" (Slot {self.player_slot})" if self.player_slot else ""
-        return f"{self.display_name} in {self.session.title} ({self.role}){slot_display}"
+        roles = ",".join(self.participant_roles.values_list("role", flat=True)) if self.pk else ""
+        return f"{self.display_name} in {self.session.title} ({roles or 'no-role'}){slot_display}"
+
+
+class SessionParticipantRole(models.Model):
+    class Role(models.TextChoices):
+        GM = "gm", "GM"
+        PLAYER = "player", "Player"
+        OBSERVER = "observer", "Observer"
+
+    participant = models.ForeignKey(
+        SessionParticipant,
+        on_delete=models.CASCADE,
+        related_name="participant_roles",
+    )
+    role = models.CharField(max_length=16, choices=Role.choices, db_index=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["participant", "role"],
+                name="uniq_participant_role",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["role"], name="participant_role_role_idx"),
+            models.Index(fields=["participant", "role"], name="participant_role_lookup_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.participant.display_name} as {self.role}"
+
+
+class SessionPermission(models.Model):
+    class Role(models.TextChoices):
+        OWNER = "owner", "Owner"
+        MANAGER = "manager", "Manager"
+        SECRET_KEEPER = "secret_keeper", "Secret keeper"
+        VIEWER = "viewer", "Viewer"
+
+    session = models.ForeignKey(
+        TRPGSession,
+        on_delete=models.CASCADE,
+        related_name="session_permissions",
+    )
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name="session_permissions",
+    )
+    role = models.CharField(max_length=32, choices=Role.choices, db_index=True)
+    granted_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="granted_session_permissions",
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["session", "user", "role"],
+                name="uniq_session_permission_role",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["session", "role"], name="sess_perm_session_role_idx"),
+            models.Index(fields=["user", "role"], name="sess_perm_user_role_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.user} can {self.role} {self.session}"
 
 
 class SessionInvitation(models.Model):
@@ -637,6 +809,7 @@ class SessionInvitation(models.Model):
     INVITED_ROLE_CHOICES = [
         ("player", "PL"),
         ("gm", "GM"),
+        ("observer", "Observer"),
     ]
 
     session = models.ForeignKey(TRPGSession, on_delete=models.CASCADE, related_name="invitations")

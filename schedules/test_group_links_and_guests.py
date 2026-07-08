@@ -1,3 +1,4 @@
+from schedules import session_permissions
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -224,7 +225,7 @@ class GuestInvitationClaimTestCase(APITestCase):
 
     def test_existing_participation_rejects_claim_without_partial_update(self):
         invitation, participant, token = self.issue_and_respond()
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=self.session,
             user=self.claimant,
             role="player",

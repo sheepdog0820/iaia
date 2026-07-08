@@ -34,9 +34,13 @@ class TRPGSessionAdmin(admin.ModelAdmin):
 
 @admin.register(SessionParticipant)
 class SessionParticipantAdmin(admin.ModelAdmin):
-    list_display = ("session", "user", "role", "character_name")
-    list_filter = ("role",)
+    list_display = ("session", "user", "roles_display", "character_name")
+    list_filter = ("participant_roles__role",)
     search_fields = ("session__title", "user__username", "character_name")
+
+    @admin.display(description="roles")
+    def roles_display(self, obj):
+        return ", ".join(obj.participant_roles.values_list("role", flat=True))
 
 
 @admin.register(HandoutInfo)

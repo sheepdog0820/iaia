@@ -3,6 +3,7 @@
 キャラクターシートとセッション機能の連携を検証
 """
 
+from schedules import session_permissions
 import json
 from datetime import datetime, timedelta
 
@@ -15,7 +16,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import CharacterSheet, CharacterSkill, Group, GroupMembership
 from scenarios.models import PlayHistory, Scenario
-from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
+from schedules.models import HandoutInfo, SessionParticipant, SessionParticipantRole, TRPGSession
 
 User = get_user_model()
 
@@ -363,7 +364,7 @@ class RealtimeStatusUpdateTestCase(TestCase):
             sanity_current=80,
         )
 
-        self.participant = SessionParticipant.objects.create(
+        self.participant = session_permissions.create_participant(
             session=self.session, user=self.player, character_name=self.character.name, character_sheet=self.character
         )
 
@@ -445,7 +446,7 @@ class SessionStatisticsUpdateTestCase(TestCase):
         )
 
         # 参加者登録
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=self.session,
             user=self.player1,
             role="player",
@@ -453,7 +454,7 @@ class SessionStatisticsUpdateTestCase(TestCase):
             character_sheet=self.char1,
         )
 
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=self.session,
             user=self.player2,
             role="player",
@@ -505,7 +506,10 @@ class SessionStatisticsUpdateTestCase(TestCase):
         insane = 0
         total_san_loss = 0
 
-        participants = SessionParticipant.objects.filter(session=self.session, role="player")  # プレイヤーのみカウント
+        participants = SessionParticipant.objects.filter(
+            session=self.session,
+            participant_roles__role=SessionParticipantRole.Role.PLAYER,
+        )  # プレイヤーのみカウント
         for participant in participants:
             char = participant.character_sheet
 
@@ -697,7 +701,7 @@ class CrossUserCollaborationTestCase(TestCase):
                 sanity_current=80,
             )
 
-            participant = SessionParticipant.objects.create(session=session, user=player, character_name=char.name)
+            participant = session_permissions.create_participant(session=session, user=player, character_name=char.name)
             participants.append(participant)
 
         # GMが秘密情報を配布
@@ -792,7 +796,7 @@ class CrossUserCollaborationTestCase(TestCase):
             sanity_current=80,
         )
 
-        participant = SessionParticipant.objects.create(session=session, user=player, character_name=char.name)
+        participant = session_permissions.create_participant(session=session, user=player, character_name=char.name)
 
         # サブGMがセッション情報を確認できることを確認
         # visibility='public'なのでアクセス可能なはず
@@ -855,7 +859,7 @@ class SessionCharacterSyncTestCase(TestCase):
             status="planned",
         )
 
-        participant = SessionParticipant.objects.create(
+        participant = session_permissions.create_participant(
             session=session, user=self.player, character_name=self.character.name
         )
 
@@ -912,7 +916,7 @@ class SessionCharacterSyncTestCase(TestCase):
                 sanity_current=50 + i * 5,
             )
 
-            participant = SessionParticipant.objects.create(session=session, user=player, character_name=char.name)
+            participant = session_permissions.create_participant(session=session, user=player, character_name=char.name)
             participants.append(participant)
 
         # グループにメンバーを追加
@@ -954,7 +958,7 @@ class SessionCharacterSyncTestCase(TestCase):
                 duration_minutes=240,
             )
 
-            SessionParticipant.objects.create(session=session, user=self.player, character_name=self.character.name)
+            session_permissions.create_participant(session=session, user=self.player, character_name=self.character.name)
 
             sessions_data.append(
                 {"session": session, "experience_gained": 5 + i, "skills_improved": ["図書館", "目星"][i % 2]}

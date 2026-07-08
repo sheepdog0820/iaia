@@ -8,8 +8,17 @@ from django.db import transaction
 from django.urls import reverse
 from django.views import View
 
+from schedules.models import ParticipantClaimRequest, ParticipantIdentity
 from schedules.notifications import GroupNotificationService
+from schedules.participant_claims import (
+    ClaimRequestError,
+    approve_claim_request,
+    create_identity_claim_request,
+    reject_claim_request,
+    serialize_claim_request,
+)
 
+from ..serializers import GroupTemporaryMemberSerializer
 from .base_views import PermissionMixin
 from .common_imports import *
 from .mixins import ErrorHandlerMixin, GroupAccessMixin
@@ -42,6 +51,29 @@ def _serialize_group_invite_link(request, invite_link, token=None):
     return data
 
 
+def _serialize_group_session(session):
+    gm_name = ""
+    if session.gm_id:
+        gm_name = session.gm.nickname or session.gm.username
+    created_by_name = ""
+    if session.created_by_id:
+        created_by_name = session.created_by.nickname or session.created_by.username
+
+    return {
+        "id": session.pk,
+        "title": session.title,
+        "date": session.date.isoformat() if session.date else None,
+        "status": session.status,
+        "status_display": session.get_status_display(),
+        "visibility": session.visibility,
+        "visibility_display": session.get_visibility_display(),
+        "location": session.location,
+        "gm_name": gm_name,
+        "created_by_name": created_by_name,
+        "detail_url": reverse("session_detail", kwargs={"pk": session.pk}),
+    }
+
+
 class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewsets.ModelViewSet):
     """Group management ViewSet with permission checks"""
 
@@ -64,7 +96,8 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
         # 管理者のみアクセス可能なアクション
         admin_only_actions = ["update", "partial_update", "destroy", "invite", "remove_member", "set_member_role"]
         if action in admin_only_actions:
-            self.check_admin_permission(obj, self.request.user)
+            if not _is_group_admin(obj, self.request.user):
+                raise PermissionDenied("Admin permission is required for this group action.")
 
         # グループアクセス権チェック
         elif not self.check_group_access(obj, self.request.user):
@@ -142,6 +175,179 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
         serializer = GroupMembershipSerializer(memberships, many=True)
         return Response(serializer.data)
 
+    @action(detail=True, methods=["get", "post"], url_path="temporary-members")
+    def temporary_members(self, request, pk=None):
+        """List or create name-only group members."""
+        group = self.get_object()
+        is_member = GroupMembership.objects.filter(group=group, user=request.user).exists()
+        is_admin = _is_group_admin(group, request.user)
+
+        if request.method == "GET":
+            if not is_member:
+                return Response(
+                    {
+                        "group": group.pk,
+                        "can_view_temporary_members": False,
+                        "can_manage_temporary_members": False,
+                        "temporary_members": [],
+                    }
+                )
+
+            identities = (
+                ParticipantIdentity.objects.filter(group=group, user__isnull=True, is_active=True)
+                .annotate(linked_session_count=Count("session_participations"))
+                .order_by("display_name", "id")
+            )
+            serializer = GroupTemporaryMemberSerializer(identities, many=True)
+            return Response(
+                {
+                    "group": group.pk,
+                    "can_view_temporary_members": True,
+                    "can_manage_temporary_members": is_admin,
+                    "temporary_members": serializer.data,
+                }
+            )
+
+        if not is_admin:
+            return Response({"error": "Admin permission is required."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = GroupTemporaryMemberSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        identity = serializer.save(group=group, created_by=request.user)
+        return Response(GroupTemporaryMemberSerializer(identity).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["patch", "delete"], url_path=r"temporary-members/(?P<identity_id>\d+)")
+    def temporary_member_detail(self, request, pk=None, identity_id=None):
+        """Update or remove a name-only group member."""
+        group = self.get_object()
+        if not _is_group_admin(group, request.user):
+            return Response({"error": "Admin permission is required."}, status=status.HTTP_403_FORBIDDEN)
+
+        identity = get_object_or_404(
+            ParticipantIdentity.objects.filter(group=group, user__isnull=True, is_active=True),
+            pk=identity_id,
+        )
+
+        if request.method == "PATCH":
+            serializer = GroupTemporaryMemberSerializer(identity, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+
+        linked_session_count = identity.session_participations.count()
+        if linked_session_count:
+            identity.is_active = False
+            identity.save(update_fields=["is_active", "updated_at"])
+            serializer = GroupTemporaryMemberSerializer(identity)
+            return Response(
+                {
+                    "success": True,
+                    "deleted": False,
+                    "temporary_member": serializer.data,
+                    "message": "Temporary member was hidden because it is linked to session history.",
+                }
+            )
+
+        identity.delete()
+        return Response({"success": True, "deleted": True})
+
+    @action(detail=True, methods=["post"], url_path=r"temporary-members/(?P<identity_id>\d+)/claim-requests")
+    def temporary_member_claim_request(self, request, pk=None, identity_id=None):
+        """Request account linkage for a name-only group member."""
+        group = self.get_object()
+        identity = get_object_or_404(
+            ParticipantIdentity.objects.filter(group=group, user__isnull=True, is_active=True),
+            pk=identity_id,
+        )
+
+        try:
+            claim, created = create_identity_claim_request(
+                identity=identity,
+                requested_by=request.user,
+                message=request.data.get("message", ""),
+            )
+        except ClaimRequestError as exc:
+            return Response({"detail": exc.message}, status=exc.status_code)
+
+        claim = (
+            ParticipantClaimRequest.objects.select_related(
+                "requested_by",
+                "reviewed_by",
+                "participant_identity",
+                "participant_identity__group",
+            )
+            .get(pk=claim.pk)
+        )
+        return Response(
+            serialize_claim_request(claim),
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["get"], url_path="temporary-member-claims")
+    def temporary_member_claims(self, request, pk=None):
+        """List claim requests for temporary group members."""
+        group = self.get_object()
+        if not _is_group_admin(group, request.user):
+            return Response({"error": "Admin permission is required."}, status=status.HTTP_403_FORBIDDEN)
+
+        status_filter = request.query_params.get("status", ParticipantClaimRequest.Status.PENDING)
+        claims = (
+            ParticipantClaimRequest.objects.select_related(
+                "requested_by",
+                "reviewed_by",
+                "participant",
+                "participant__session",
+                "participant__session__group",
+                "participant__participant_identity",
+                "participant_identity",
+                "participant_identity__group",
+            )
+            .filter(participant_identity__group=group)
+            .order_by("-created_at", "-id")
+        )
+        if status_filter:
+            claims = claims.filter(status=status_filter)
+
+        return Response(
+            {
+                "group": group.pk,
+                "can_manage_claim_requests": True,
+                "claim_requests": [serialize_claim_request(claim) for claim in claims],
+            }
+        )
+
+    @action(detail=True, methods=["post"], url_path=r"temporary-member-claims/(?P<claim_id>\d+)/approve")
+    def approve_temporary_member_claim(self, request, pk=None, claim_id=None):
+        group = self.get_object()
+        if not _is_group_admin(group, request.user):
+            return Response({"error": "Admin permission is required."}, status=status.HTTP_403_FORBIDDEN)
+        claim = get_object_or_404(ParticipantClaimRequest, pk=claim_id, participant_identity__group=group)
+
+        try:
+            claim = approve_claim_request(claim.pk, reviewed_by=request.user)
+        except ClaimRequestError as exc:
+            return Response({"detail": exc.message}, status=exc.status_code)
+
+        return Response(serialize_claim_request(claim))
+
+    @action(detail=True, methods=["post"], url_path=r"temporary-member-claims/(?P<claim_id>\d+)/reject")
+    def reject_temporary_member_claim(self, request, pk=None, claim_id=None):
+        group = self.get_object()
+        if not _is_group_admin(group, request.user):
+            return Response({"error": "Admin permission is required."}, status=status.HTTP_403_FORBIDDEN)
+        claim = get_object_or_404(ParticipantClaimRequest, pk=claim_id, participant_identity__group=group)
+
+        try:
+            claim = reject_claim_request(
+                claim.pk,
+                reviewed_by=request.user,
+                review_comment=request.data.get("review_comment", ""),
+            )
+        except ClaimRequestError as exc:
+            return Response({"detail": exc.message}, status=exc.status_code)
+
+        return Response(serialize_claim_request(claim))
+
     @action(detail=True, methods=["get"])
     def member_characters(self, request, pk=None):
         """Get group members and their available character sheets"""
@@ -188,6 +394,41 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
             )
 
         return Response(results)
+
+    @action(detail=True, methods=["get"])
+    def sessions(self, request, pk=None):
+        """Get group session basics for members, or a count for public non-members."""
+        from schedules.models import TRPGSession
+
+        group = self.get_object()
+        sessions = (
+            TRPGSession.objects.filter(group=group)
+            .select_related("gm", "created_by")
+            .order_by("-date", "-id")
+        )
+        session_count = sessions.count()
+        is_member = GroupMembership.objects.filter(group=group, user=request.user).exists()
+
+        if not is_member:
+            return Response(
+                {
+                    "group": group.pk,
+                    "session_count": session_count,
+                    "can_view_sessions": False,
+                    "can_create_session": False,
+                    "sessions": [],
+                }
+            )
+
+        return Response(
+            {
+                "group": group.pk,
+                "session_count": session_count,
+                "can_view_sessions": True,
+                "can_create_session": True,
+                "sessions": [_serialize_group_session(session) for session in sessions],
+            }
+        )
 
     @action(detail=True, methods=["post"])
     def invite(self, request, pk=None):

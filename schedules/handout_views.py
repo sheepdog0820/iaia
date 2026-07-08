@@ -12,25 +12,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import GroupMembership
-
-from .models import HandoutInfo, SessionParticipant, TRPGSession
+from . import session_permissions
+from .models import HandoutInfo, SessionParticipant, SessionParticipantRole, SessionPermission, TRPGSession
 from .serializers import HandoutInfoSerializer, SessionParticipantSerializer
-
-
-def _can_manage_session(session, user):
-    if not user or not user.is_authenticated:
-        return False
-    if session.gm_id == user.id:
-        return True
-    if getattr(session, "created_by_id", None) == user.id:
-        return True
-    if session.group_id:
-        if session.group.created_by_id == user.id:
-            return True
-        if GroupMembership.objects.filter(group_id=session.group_id, user=user, role="admin").exists():
-            return True
-    return SessionParticipant.objects.filter(session=session, user=user, role="gm").exists()
 
 
 class GMHandoutManagementView(APIView):
@@ -38,12 +22,20 @@ class GMHandoutManagementView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    def _attach_participant_role_flags(self, participants):
+        for participant in participants:
+            role_values = set(participant.participant_roles.values_list("role", flat=True))
+            participant.role_values = sorted(role_values)
+            participant.is_gm_role = SessionParticipantRole.Role.GM.value in role_values
+            participant.is_player_role = SessionParticipantRole.Role.PLAYER.value in role_values
+            participant.is_observer_role = SessionParticipantRole.Role.OBSERVER.value in role_values
+
     def get(self, request, session_id):
         """ハンドアウト管理画面の表示"""
         session = get_object_or_404(TRPGSession, id=session_id)
 
         # GM権限チェック
-        if not _can_manage_session(session, request.user):
+        if not session_permissions.can_manage_secret_content(request.user, session):
             if "application/json" in request.headers.get("Accept", ""):
                 return Response({"error": "GM権限が必要です"}, status=status.HTTP_403_FORBIDDEN)
             else:
@@ -58,7 +50,11 @@ class GMHandoutManagementView(APIView):
 
     def _get_json_response(self, session):
         """JSON形式でハンドアウト管理データを返す"""
-        participants = SessionParticipant.objects.filter(session=session).select_related("user")
+        participants = (
+            SessionParticipant.objects.filter(session=session)
+            .select_related("user")
+            .prefetch_related("participant_roles")
+        )
         handouts = HandoutInfo.objects.filter(session=session).select_related("participant__user")
 
         # 参加者ごとにハンドアウトを整理
@@ -86,7 +82,12 @@ class GMHandoutManagementView(APIView):
 
     def _get_html_response(self, request, session):
         """HTML形式でハンドアウト管理画面を返す"""
-        participants = SessionParticipant.objects.filter(session=session).select_related("user")
+        participants = (
+            SessionParticipant.objects.filter(session=session)
+            .select_related("user")
+            .prefetch_related("participant_roles")
+        )
+        self._attach_participant_role_flags(participants)
         handouts = HandoutInfo.objects.filter(session=session).select_related("participant__user")
         guest_count = participants.filter(user__isnull=True).count()
 
@@ -110,13 +111,13 @@ class HandoutManagementViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         # GMとしてのセッションのハンドアウト、または自分宛のハンドアウト
-        admin_group_ids = GroupMembership.objects.filter(user=user, role="admin").values_list("group_id", flat=True)
+        secret_session_ids = SessionPermission.objects.filter(
+            user=user,
+            role=SessionPermission.Role.SECRET_KEEPER,
+        ).values_list("session_id", flat=True)
         return (
             HandoutInfo.objects.filter(
-                Q(session__gm=user)
-                | Q(session__created_by=user)
-                | Q(session__group__created_by=user)
-                | Q(session__group_id__in=admin_group_ids)
+                Q(session_id__in=secret_session_ids)
                 | Q(participant__user=user)
             )
             .distinct()
@@ -126,7 +127,7 @@ class HandoutManagementViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """ハンドアウト作成（GM権限チェック）"""
         session = serializer.validated_data["session"]
-        if not _can_manage_session(session, self.request.user):
+        if not session_permissions.can_manage_secret_content(self.request.user, session):
             from rest_framework.exceptions import PermissionDenied
 
             raise PermissionDenied("GM権限が必要です")
@@ -135,7 +136,7 @@ class HandoutManagementViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         """ハンドアウト更新（GM権限チェック）"""
         instance = self.get_object()
-        if not _can_manage_session(instance.session, self.request.user):
+        if not session_permissions.can_manage_secret_content(self.request.user, instance.session):
             from rest_framework.exceptions import PermissionDenied
 
             raise PermissionDenied("GM権限が必要です")
@@ -143,7 +144,7 @@ class HandoutManagementViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         """ハンドアウト削除（GM権限チェック）"""
-        if not _can_manage_session(instance.session, self.request.user):
+        if not session_permissions.can_manage_secret_content(self.request.user, instance.session):
             from rest_framework.exceptions import PermissionDenied
 
             raise PermissionDenied("GM権限が必要です")
@@ -161,7 +162,7 @@ class HandoutManagementViewSet(viewsets.ModelViewSet):
         session = get_object_or_404(TRPGSession, id=session_id)
 
         # GM権限チェック
-        if not _can_manage_session(session, request.user):
+        if not session_permissions.can_manage_secret_content(request.user, session):
             return Response({"error": "GM権限が必要です"}, status=status.HTTP_403_FORBIDDEN)
 
         created_handouts = []
@@ -205,11 +206,11 @@ class HandoutManagementViewSet(viewsets.ModelViewSet):
 
         # アクセス権限チェック
         user = request.user
-        if not _can_manage_session(session, user) and not session.participants.filter(id=user.id).exists():
+        if not session_permissions.can_view_session_basic(user, session):
             return Response({"error": "このセッションにアクセスする権限がありません"}, status=status.HTTP_403_FORBIDDEN)
 
         # GMの場合は全てのハンドアウト、参加者の場合は自分のハンドアウトのみ
-        if _can_manage_session(session, user):
+        if session_permissions.can_view_secret_content(user, session):
             handouts = HandoutInfo.objects.filter(session=session)
         else:
             user_participant = SessionParticipant.objects.filter(session=session, user=user).first()
@@ -232,7 +233,7 @@ class HandoutManagementViewSet(viewsets.ModelViewSet):
         handout = get_object_or_404(HandoutInfo, id=handout_id)
 
         # GM権限チェック
-        if not _can_manage_session(handout.session, request.user):
+        if not session_permissions.can_manage_secret_content(request.user, handout.session):
             return Response({"error": "GM権限が必要です"}, status=status.HTTP_403_FORBIDDEN)
 
         # 秘匿フラグを切り替え
@@ -339,7 +340,7 @@ class HandoutTemplateView(APIView):
         participant = get_object_or_404(SessionParticipant, id=participant_id)
 
         # GM権限チェック
-        if not _can_manage_session(session, request.user):
+        if not session_permissions.can_manage_secret_content(request.user, session):
             return Response({"error": "GM権限が必要です"}, status=status.HTTP_403_FORBIDDEN)
 
         # テンプレート取得（実際の実装では上記のテンプレートを使用）

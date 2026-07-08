@@ -61,6 +61,10 @@ from schedules.guest_views import (
     GuestInvitationRespondView,
     GuestInvitationRevokeView,
     GuestParticipantClaimView,
+    ParticipantClaimRequestCreateView,
+    SessionClaimRequestApproveView,
+    SessionClaimRequestListView,
+    SessionClaimRequestRejectView,
 )
 from schedules.integration_views import (
     CalendarSubscriptionRotateView,
@@ -245,6 +249,26 @@ urlpatterns = [
         "api/participants/<int:participant_id>/claim/",
         GuestParticipantClaimView.as_view(),
         name="guest-participant-claim",
+    ),
+    path(
+        "api/participants/<int:participant_id>/claim-requests/",
+        ParticipantClaimRequestCreateView.as_view(),
+        name="participant-claim-request-create",
+    ),
+    path(
+        "api/sessions/<int:session_id>/claim-requests/",
+        SessionClaimRequestListView.as_view(),
+        name="session-claim-request-list",
+    ),
+    path(
+        "api/sessions/<int:session_id>/claim-requests/<int:claim_id>/approve/",
+        SessionClaimRequestApproveView.as_view(),
+        name="session-claim-request-approve",
+    ),
+    path(
+        "api/sessions/<int:session_id>/claim-requests/<int:claim_id>/reject/",
+        SessionClaimRequestRejectView.as_view(),
+        name="session-claim-request-reject",
     ),
     path("admin/", admin.site.urls),
     path(

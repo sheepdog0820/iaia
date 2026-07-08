@@ -6,7 +6,7 @@ from django.db.models import Count, Q
 from accounts.character_models import CharacterSheet
 from accounts.models import Group, GroupMembership
 from scenarios.models import Scenario
-from schedules.models import SessionParticipant, TRPGSession
+from schedules.models import SessionParticipant, SessionParticipantRole, TRPGSession
 
 
 class Command(BaseCommand):
@@ -96,14 +96,27 @@ class Command(BaseCommand):
             SessionParticipant.objects.filter(session_id__in=session_ids)
             .values("session_id")
             .annotate(
-                gm_count=Count("id", filter=Q(role="gm")),
-                player_count=Count("id", filter=Q(role="player")),
+                gm_count=Count(
+                    "id",
+                    filter=Q(participant_roles__role=SessionParticipantRole.Role.GM),
+                ),
+                player_count=Count(
+                    "id",
+                    filter=Q(participant_roles__role=SessionParticipantRole.Role.PLAYER),
+                ),
             )
         )
         counts_by_session = {row["session_id"]: row for row in participant_counts}
         for session in sessions:
             counts = counts_by_session.get(session.id, {"gm_count": 0, "player_count": 0})
-            gm_participant = SessionParticipant.objects.filter(session=session, user=session.gm, role="gm").exists()
+            if not session.gm_id:
+                issues.append(f"gm missing: session_id={session.id} title={session.title}")
+                continue
+            gm_participant = SessionParticipant.objects.filter(
+                session=session,
+                user=session.gm,
+                participant_roles__role=SessionParticipantRole.Role.GM,
+            ).exists()
             if not gm_participant:
                 issues.append(
                     f"gm participant missing: session_id={session.id} title={session.title} gm={session.gm.username}"

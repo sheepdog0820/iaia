@@ -8,9 +8,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.character_models import GrowthRecord
-from accounts.models import GroupMembership
-
-from .models import SessionParticipant, SessionReward, TRPGSession
+from . import session_permissions
+from .models import SessionParticipant, SessionParticipantRole, SessionPermission, SessionReward, TRPGSession
 from .serializers import SessionRewardSerializer
 
 
@@ -41,19 +40,13 @@ class SessionRewardViewSet(viewsets.ModelViewSet):
                 return queryset.filter(participant__session=session)
             return queryset.filter(participant__session=session, participant__user=user)
 
-        admin_group_ids = GroupMembership.objects.filter(
+        manager_session_ids = SessionPermission.objects.filter(
             user=user,
-            role="admin",
-        ).values_list("group_id", flat=True)
+            role=SessionPermission.Role.SECRET_KEEPER,
+        ).values_list("session_id", flat=True)
         return queryset.filter(
-            Q(participant__session__gm=user)
-            | Q(participant__session__created_by=user)
-            | Q(participant__session__group__created_by=user)
-            | Q(participant__session__group_id__in=admin_group_ids)
+            Q(participant__session_id__in=manager_session_ids)
             | Q(participant__user=user)
-            | Q(
-                participant__session__sessionparticipant__user=user, participant__session__sessionparticipant__role="gm"
-            )
         ).distinct()
 
     def create(self, request, *args, **kwargs):
@@ -72,7 +65,7 @@ class SessionRewardViewSet(viewsets.ModelViewSet):
         participant = get_object_or_404(SessionParticipant, id=participant_id)
         if participant.session_id != session.id:
             return Response({"error": "participant is not part of this session"}, status=status.HTTP_400_BAD_REQUEST)
-        if participant.role == "gm":
+        if self._is_gm_participant(participant):
             return Response({"error": "Cannot create rewards for GM participants"}, status=status.HTTP_400_BAD_REQUEST)
         if SessionReward.objects.filter(participant=participant).exists():
             return Response({"error": "Reward already exists for this participant"}, status=status.HTTP_400_BAD_REQUEST)
@@ -128,7 +121,9 @@ class SessionRewardViewSet(viewsets.ModelViewSet):
 
             session_date = self._get_session_date(session)
             scenario_name = session.scenario.title if session.scenario else session.title
-            gm_name = session.gm.nickname or session.gm.username
+            gm_name = ""
+            if session.gm_id:
+                gm_name = session.gm.nickname or session.gm.username
 
             growth_record = reward.applied_growth_record
             if growth_record:
@@ -183,18 +178,13 @@ class SessionRewardViewSet(viewsets.ModelViewSet):
         return timezone.now().date()
 
     def _has_session_access(self, session, user):
-        return self._is_session_manager(session, user) or session.participants.filter(id=user.id).exists()
+        return session_permissions.can_view_session_basic(user, session)
 
     def _is_session_manager(self, session, user):
-        if not user or not user.is_authenticated:
-            return False
-        if session.gm_id == user.id:
-            return True
-        if getattr(session, "created_by_id", None) == user.id:
-            return True
-        if session.group_id:
-            if session.group.created_by_id == user.id:
-                return True
-            if GroupMembership.objects.filter(group_id=session.group_id, user=user, role="admin").exists():
-                return True
-        return SessionParticipant.objects.filter(session=session, user=user, role="gm").exists()
+        return session_permissions.can_manage_secret_content(user, session)
+
+    def _is_gm_participant(self, participant):
+        return SessionParticipantRole.objects.filter(
+            participant=participant,
+            role=SessionParticipantRole.Role.GM,
+        ).exists()

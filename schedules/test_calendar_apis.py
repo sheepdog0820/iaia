@@ -2,6 +2,7 @@
 カレンダー統合API単体テスト（ISSUE-008）
 """
 
+from schedules import session_permissions
 import json
 from datetime import datetime, timedelta
 
@@ -60,8 +61,9 @@ class MonthlyEventListViewTestCase(APITestCase):
         )
 
         # 参加者追加
-        SessionParticipant.objects.create(session=self.session1, user=self.user, role="player")
-        SessionParticipant.objects.create(session=self.session2, user=self.gm_user, role="player")
+        session_permissions.create_participant(session=self.session1, user=self.user, role="player")
+        session_permissions.create_participant(session=self.session2, user=self.user, role="gm")
+        session_permissions.create_participant(session=self.session2, user=self.gm_user, role="player")
 
     def test_monthly_events_success(self):
         """月別イベント一覧の正常取得"""
@@ -138,6 +140,34 @@ class MonthlyEventListViewTestCase(APITestCase):
         response = self.client.get(url, {"month": "2025-06"})
         self.assertIn(response.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
+    def test_monthly_events_use_gm_participant_role_without_legacy_gm(self):
+        """gm_id が空でもGM参加者ロールならGMとして扱う"""
+        now = timezone.now()
+        role_session = TRPGSession.objects.create(
+            title="Role GM Monthly Session",
+            date=now.replace(day=25, hour=20, minute=0),
+            gm=None,
+            created_by=self.gm_user,
+            group=self.group,
+            status="planned",
+            visibility="group",
+            duration_minutes=180,
+        )
+        session_permissions.create_participant(session=role_session, user=self.user, role="gm")
+
+        response = self.client.get(reverse("monthly_events"), {"month": now.strftime("%Y-%m")})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        role_events = [
+            event
+            for date_group in response.data["dates"]
+            for event in date_group["events"]
+            if event["session_id"] == role_session.id
+        ]
+        self.assertEqual(1, len(role_events))
+        self.assertTrue(role_events[0]["is_gm"])
+        self.assertFalse(role_events[0]["is_participant"])
+
 
 class SessionAggregationViewTestCase(APITestCase):
     """セッション予定集約APIのテストケース"""
@@ -172,6 +202,7 @@ class SessionAggregationViewTestCase(APITestCase):
                 status="planned",
                 duration_minutes=180,
             )
+            session_permissions.create_participant(session=session, user=self.user, role="gm")
             self.sessions.append(session)
 
         # 参加者として3セッション
@@ -186,7 +217,7 @@ class SessionAggregationViewTestCase(APITestCase):
                 status="planned",
                 duration_minutes=240,
             )
-            SessionParticipant.objects.create(session=session, user=self.user, role="player")
+            session_permissions.create_participant(session=session, user=self.user, role="player")
             self.sessions.append(session)
 
     def test_session_aggregation_success(self):
@@ -269,6 +300,33 @@ class SessionAggregationViewTestCase(APITestCase):
                 self.assertIn("title", session)
                 self.assertIn("date", session)
 
+    def test_session_aggregation_uses_gm_participant_role_without_legacy_gm(self):
+        """gm_id が空でもGM参加者ロールならGM集約に入る"""
+        role_session = TRPGSession.objects.create(
+            title="Role GM Aggregation Session",
+            date=timezone.now() + timedelta(days=2),
+            gm=None,
+            created_by=self.user,
+            group=self.group1,
+            status="planned",
+            duration_minutes=180,
+        )
+        session_permissions.create_participant(session=role_session, user=self.user, role="gm")
+
+        response = self.client.get(reverse("session_aggregation"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        gm_session_ids = {
+            item["session_id"]
+            for item in response.data["aggregations"]["by_role"]["as_gm"]
+        }
+        player_session_ids = {
+            item["session_id"]
+            for item in response.data["aggregations"]["by_role"]["as_player"]
+        }
+        self.assertIn(role_session.id, gm_session_ids)
+        self.assertNotIn(role_session.id, player_session_ids)
+
 
 class ICalExportViewTestCase(APITestCase):
     """iCal形式エクスポートAPIのテストケース"""
@@ -296,6 +354,7 @@ class ICalExportViewTestCase(APITestCase):
             status="planned",
             duration_minutes=180,
         )
+        session_permissions.create_participant(session=self.session, user=self.user, role="gm")
 
     def test_ical_export_success(self):
         """iCal形式エクスポートの正常動作"""
@@ -323,6 +382,25 @@ class ICalExportViewTestCase(APITestCase):
         # アラームの確認（plannedステータスのみ）
         self.assertIn("BEGIN:VALARM", content)
         self.assertIn("END:VALARM", content)
+
+    def test_ical_export_uses_gm_participant_role_without_legacy_gm(self):
+        """gm_id が空でもGM参加者ロールならiCal上でGM表示になる"""
+        role_session = TRPGSession.objects.create(
+            title="Role GM iCal Session",
+            date=timezone.now() + timedelta(days=4),
+            gm=None,
+            created_by=self.user,
+            group=self.group,
+            status="planned",
+            duration_minutes=180,
+        )
+        session_permissions.create_participant(session=role_session, user=self.user, role="gm")
+
+        response = self.client.get(reverse("ical_export"))
+        content = response.content.decode("utf-8")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("SUMMARY:[GM] Role GM iCal Session", content)
 
     def test_ical_export_custom_days(self):
         """カスタム期間でのエクスポート"""

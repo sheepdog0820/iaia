@@ -1,3 +1,4 @@
+from schedules import session_permissions
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -45,11 +46,11 @@ class BasicScheduleTestCase(TestCase):
             title="Test Session", date=timezone.now() + timedelta(days=1), gm=self.user1, group=self.group
         )
 
-        participant = SessionParticipant.objects.create(session=session, user=self.user2, role="player")
+        participant = session_permissions.create_participant(session=session, user=self.user2, role="player")
 
         self.assertEqual(participant.session, session)
         self.assertEqual(participant.user, self.user2)
-        self.assertEqual(participant.role, "player")
+        self.assertEqual(session_permissions.get_primary_participant_role(participant), "player")
 
     def test_session_coc_edition_default(self):
         """セッションのCoC版デフォルト値のテスト"""
@@ -75,7 +76,7 @@ class BasicScheduleTestCase(TestCase):
             title="Test Session", date=timezone.now() + timedelta(days=1), gm=self.user1, group=self.group
         )
 
-        participant = SessionParticipant.objects.create(session=session, user=self.user2, role="player")
+        participant = session_permissions.create_participant(session=session, user=self.user2, role="player")
 
         handout = HandoutInfo.objects.create(
             session=session, participant=participant, title="Test Handout", content="Handout content"
@@ -91,7 +92,7 @@ class BasicScheduleTestCase(TestCase):
             title="Test Session", date=timezone.now() + timedelta(days=1), gm=self.user1, group=self.group
         )
 
-        participant = SessionParticipant.objects.create(session=session, user=self.user2, role="player")
+        participant = session_permissions.create_participant(session=session, user=self.user2, role="player")
 
         secret_handout = HandoutInfo.objects.create(
             session=session, participant=participant, title="Secret Handout", content="Secret content", is_secret=True

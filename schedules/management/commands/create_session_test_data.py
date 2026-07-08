@@ -13,7 +13,8 @@ from django.utils import timezone
 
 from accounts.character_models import CharacterSheet, CharacterSkill
 from accounts.models import Group
-from schedules.models import HandoutInfo, SessionImage, SessionParticipant, SessionYouTubeLink, TRPGSession
+from schedules import session_permissions
+from schedules.models import HandoutInfo, SessionImage, SessionParticipant, SessionParticipantRole, SessionYouTubeLink, TRPGSession
 
 User = get_user_model()
 
@@ -252,10 +253,10 @@ class Command(BaseCommand):
 
         # 参加者を追加（4人枠）
         for i in range(4):
-            SessionParticipant.objects.create(
+            session_permissions.create_participant(
                 session=session1,
                 user=players[i],
-                role="player",
+                roles=[SessionParticipantRole.Role.PLAYER],
                 player_slot=i + 1,
                 character_sheet=characters[i * 2],  # 各プレイヤーの1つ目のキャラクター
             )
@@ -302,10 +303,10 @@ class Command(BaseCommand):
 
         # 2人だけ参加登録済み
         for i in range(2):
-            SessionParticipant.objects.create(
+            session_permissions.create_participant(
                 session=session2,
                 user=players[i],
-                role="player",
+                roles=[SessionParticipantRole.Role.PLAYER],
                 player_slot=i + 1,
                 character_sheet=characters[i * 2 + 1],  # 各プレイヤーの2つ目のキャラクター
             )
@@ -349,10 +350,10 @@ class Command(BaseCommand):
         participants = [players[2], players[3], players[4]]
         session3_character_sheets = [characters[5], characters[6], characters[7]]
         for i, player in enumerate(participants):
-            SessionParticipant.objects.create(
+            session_permissions.create_participant(
                 session=session3,
                 user=player,
-                role="player",
+                roles=[SessionParticipantRole.Role.PLAYER],
                 player_slot=i + 1,
                 character_sheet=session3_character_sheets[i],
             )

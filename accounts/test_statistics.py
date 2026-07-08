@@ -1,3 +1,4 @@
+from schedules import session_permissions
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -54,8 +55,8 @@ class StatisticsViewsTestCase(APITestCase):
                 status="completed",
             )
             # 参加者追加
-            SessionParticipant.objects.create(session=session, user=self.user1, role="gm")
-            SessionParticipant.objects.create(session=session, user=self.user2, role="player")
+            session_permissions.create_participant(session=session, user=self.user1, role="gm")
+            session_permissions.create_participant(session=session, user=self.user2, role="player")
             # プレイ履歴追加
             PlayHistory.objects.create(
                 scenario=self.scenario, user=self.user1, session=session, played_date=session.date, role="gm"
@@ -74,7 +75,7 @@ class StatisticsViewsTestCase(APITestCase):
                 duration_minutes=240,
                 status="completed",
             )
-            SessionParticipant.objects.create(session=session, user=self.user1, role="gm")
+            session_permissions.create_participant(session=session, user=self.user1, role="gm")
 
     def test_tindalos_metrics_unauthenticated(self):
         """未認証でのTindalos Metricsアクセステスト"""

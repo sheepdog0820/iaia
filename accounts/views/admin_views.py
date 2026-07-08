@@ -129,9 +129,11 @@ class AdminUserViewSet(viewsets.ModelViewSet):
         user = self.get_object()
 
         # 最近のセッション参加
-        recent_sessions = user.sessionparticipant_set.select_related("session__gm", "session__group").order_by(
-            "-session__date"
-        )[:10]
+        recent_sessions = (
+            user.sessionparticipant_set.select_related("session__gm", "session__group")
+            .prefetch_related("participant_roles")
+            .order_by("-session__date")[:10]
+        )
 
         # GMとして開催したセッション
         gm_sessions = user.gm_sessions.select_related("group").order_by("-date")[:10]
@@ -147,8 +149,8 @@ class AdminUserViewSet(viewsets.ModelViewSet):
                         "id": p.session.id,
                         "title": p.session.title,
                         "date": p.session.date,
-                        "role": p.role,
-                        "gm": p.session.gm.username,
+                        "roles": list(p.participant_roles.values_list("role", flat=True)),
+                        "gm": p.session.gm.username if p.session.gm_id else None,
                     }
                     for p in recent_sessions
                 ],

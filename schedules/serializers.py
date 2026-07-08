@@ -26,6 +26,7 @@ from .models import (  # 高度なスケジューリング機能（ISSUE-017）
     SessionInvitation,
     SessionOccurrence,
     SessionParticipant,
+    SessionParticipantRole,
     SessionReward,
     SessionSeries,
     SessionYouTubeLink,
@@ -122,6 +123,7 @@ class SessionParticipantSerializer(serializers.ModelSerializer):
     user_detail = PublicUserSerializer(source="user", read_only=True)
     character_sheet_detail = serializers.SerializerMethodField()
     display_name = serializers.CharField(read_only=True)
+    roles = serializers.SerializerMethodField()
 
     class Meta:
         model = SessionParticipant
@@ -133,7 +135,7 @@ class SessionParticipantSerializer(serializers.ModelSerializer):
             "participant_identity",
             "guest_name",
             "display_name",
-            "role",
+            "roles",
             "character_name",
             "character_sheet_url",
             "player_slot",
@@ -159,10 +161,13 @@ class SessionParticipantSerializer(serializers.ModelSerializer):
             }
         return None
 
+    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
+    def get_roles(self, obj):
+        return list(obj.participant_roles.values_list("role", flat=True))
+
     def validate(self, attrs):
         user = attrs.get("user")
         guest_name = attrs.get("guest_name")
-        role = attrs.get("role")
         character_sheet = attrs.get("character_sheet")
 
         if self.instance is not None:
@@ -170,8 +175,6 @@ class SessionParticipantSerializer(serializers.ModelSerializer):
                 user = self.instance.user
             if "guest_name" not in attrs:
                 guest_name = self.instance.guest_name
-            if "role" not in attrs:
-                role = self.instance.role
             if "character_sheet" not in attrs:
                 character_sheet = self.instance.character_sheet
 
@@ -181,9 +184,6 @@ class SessionParticipantSerializer(serializers.ModelSerializer):
 
         if user and normalized_guest_name:
             raise serializers.ValidationError({"guest_name": "guest_name cannot be set when user is present"})
-
-        if role == "gm" and not user:
-            raise serializers.ValidationError({"role": "Guest participant cannot be GM"})
 
         if character_sheet and not user:
             raise serializers.ValidationError({"character_sheet": "Guest participant cannot have character_sheet"})
@@ -613,17 +613,21 @@ class SessionOccurrenceSerializer(serializers.ModelSerializer):
 class CalendarEventSerializer(serializers.ModelSerializer):
     """カレンダー表示用の軽量シリアライザー"""
 
-    gm_name = serializers.CharField(source="gm.nickname", read_only=True)
+    gm_name = serializers.SerializerMethodField()
 
     class Meta:
         model = TRPGSession
         fields = ["id", "title", "date", "status", "gm_name", "location"]
 
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_gm_name(self, obj):
+        return obj.gm.nickname or obj.gm.username if obj.gm_id else None
+
 
 class SessionListSerializer(serializers.ModelSerializer):
     """セッション一覧表示用の見やすいシリアライザー"""
 
-    gm_name = serializers.CharField(source="gm.nickname", read_only=True)
+    gm_name = serializers.SerializerMethodField()
     group_name = serializers.CharField(source="group.name", read_only=True)
     participant_count = serializers.SerializerMethodField()
     guest_count = serializers.SerializerMethodField()
@@ -663,6 +667,10 @@ class SessionListSerializer(serializers.ModelSerializer):
     def get_participant_count(self, obj):
         return obj.participants.count()
 
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_gm_name(self, obj):
+        return obj.gm.nickname or obj.gm.username if obj.gm_id else None
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_guest_count(self, obj):
         annotated_value = getattr(obj, "guest_count", None)
@@ -683,7 +691,7 @@ class SessionListSerializer(serializers.ModelSerializer):
 class UpcomingSessionSerializer(serializers.ModelSerializer):
     """ホーム画面の次回セッション表示用シリアライザー"""
 
-    gm_name = serializers.CharField(source="gm.nickname", read_only=True)
+    gm_name = serializers.SerializerMethodField()
     group_name = serializers.CharField(source="group.name", read_only=True)
     visibility_display = serializers.CharField(source="get_visibility_display", read_only=True)
     participant_count = serializers.SerializerMethodField()
@@ -723,6 +731,10 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
     @extend_schema_field(OpenApiTypes.INT)
     def get_participant_count(self, obj):
         return obj.participants.count()
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_gm_name(self, obj):
+        return obj.gm.nickname or obj.gm.username if obj.gm_id else None
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_guest_count(self, obj):
@@ -782,7 +794,11 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
             return "参加者なし"
 
         # GMを除く参加者
-        players = [p for p in participants if p.role != "gm"]
+        players = [
+            p
+            for p in participants
+            if not p.participant_roles.filter(role=SessionParticipantRole.Role.GM).exists()
+        ]
 
         if len(players) == 0:
             return "GM のみ"

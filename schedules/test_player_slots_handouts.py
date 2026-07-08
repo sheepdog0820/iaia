@@ -13,6 +13,7 @@ from rest_framework.test import APITestCase
 
 from accounts.character_models import CharacterSheet
 from accounts.models import CustomUser, Group
+from schedules import session_permissions
 from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
 
 
@@ -53,7 +54,8 @@ class PlayerSlotHandoutTestCase(APITestCase):
         )
 
         # GMは自動的に参加者となる
-        SessionParticipant.objects.create(session=self.session, user=self.gm, role="gm")
+        session_permissions.create_participant(session=self.session, user=self.gm, role="gm")
+        session_permissions.assign_session_gm(self.session, self.gm, granted_by=self.gm)
 
         # キャラクター作成（各プレイヤー用）
         self.characters = []
@@ -128,7 +130,7 @@ class PlayerSlotHandoutTestCase(APITestCase):
 
         # プレイヤーを枠に割り当て
         for i in range(4):
-            participant = SessionParticipant.objects.create(
+            participant = session_permissions.create_participant(
                 session=self.session,
                 user=self.players[i],
                 role="player",
@@ -181,7 +183,7 @@ class PlayerSlotHandoutTestCase(APITestCase):
     def test_handout_visibility_by_slot(self):
         """プレイヤー枠に基づくハンドアウトの可視性"""
         # プレイヤー1を枠2に割り当て
-        participant = SessionParticipant.objects.create(
+        participant = session_permissions.create_participant(
             session=self.session, user=self.players[0], role="player", player_slot=2
         )
 
@@ -226,7 +228,7 @@ class PlayerSlotHandoutTestCase(APITestCase):
         """GMは全てのハンドアウトを閲覧可能"""
         # 4つのハンドアウトを作成
         for i in range(4):
-            participant = SessionParticipant.objects.create(
+            participant = session_permissions.create_participant(
                 session=self.session, user=self.players[i], role="player", player_slot=i + 1
             )
 

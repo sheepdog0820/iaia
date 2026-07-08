@@ -55,13 +55,17 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            {% if session.gm.profile_image %}
+                                            {% if session.gm and session.gm.profile_image %}
                                                 <img src="{{ session.gm.profile_image.url }}" alt="GM" 
                                                      class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">
                                             {% else %}
                                                 <i class="fas fa-user-circle me-2"></i>
                                             {% endif %}
-                                            {{ session.gm.nickname|default:session.gm.username }}
+                                            {% if session.gm %}
+                                                {{ session.gm.nickname|default:session.gm.username }}
+                                            {% else %}
+                                                <span class="text-muted">未設定</span>
+                                            {% endif %}
                                         </td>
                                         <td>
                                             <span class="badge bg-info">{{ session.participants.count }}人</span>
@@ -143,7 +147,13 @@
                                     </div>
                                     <div>
                                         <dt><i class="fas fa-user"></i> GM</dt>
-                                        <dd>{{ session.gm.nickname|default:session.gm.username }}</dd>
+                                        <dd>
+                                            {% if session.gm %}
+                                                {{ session.gm.nickname|default:session.gm.username }}
+                                            {% else %}
+                                                <span class="text-muted">未設定</span>
+                                            {% endif %}
+                                        </dd>
                                     </div>
                                     <div>
                                         <dt><i class="fas fa-users"></i> 参加者</dt>

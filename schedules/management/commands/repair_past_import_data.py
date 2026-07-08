@@ -7,7 +7,8 @@ from django.db.models import Q
 
 from accounts.character_models import CharacterSheet
 from accounts.models import Group, GroupMembership
-from schedules.models import SessionParticipant, TRPGSession
+from schedules import session_permissions
+from schedules.models import SessionParticipant, SessionParticipantRole, TRPGSession
 
 
 class Command(BaseCommand):
@@ -106,7 +107,7 @@ class Command(BaseCommand):
                     session_id__in=session_ids,
                     user__isnull=True,
                     guest_name__in=guest_aliases,
-                    role="player",
+                    participant_roles__role=SessionParticipantRole.Role.PLAYER,
                 ).select_related("session")
                 for participant in guests:
                     duplicate_exists = (
@@ -136,25 +137,27 @@ class Command(BaseCommand):
 
             if not options["no_ensure_gm_participants"]:
                 for session in sessions:
+                    if not session.gm_id:
+                        self.stdout.write(f"gm participant skipped: session=#{session.id} gm is not set")
+                        continue
                     participant = SessionParticipant.objects.filter(session=session, user=session.gm).first()
                     if participant is None:
                         stats["gm_participants_created"] += 1
                         self.stdout.write(f"gm participant create: session=#{session.id} gm={session.gm.username}")
                         if not options["dry_run"]:
-                            SessionParticipant.objects.create(session=session, user=session.gm, role="gm")
-                    elif participant.role != "gm":
+                            session_permissions.assign_session_gm(session, session.gm, granted_by=owner)
+                    elif SessionParticipantRole.Role.GM.value not in session_permissions.get_participant_role_values(participant):
                         stats["gm_participants_updated"] += 1
                         self.stdout.write(f"gm participant role update: session=#{session.id} gm={session.gm.username}")
                         if not options["dry_run"]:
-                            participant.role = "gm"
-                            participant.save(update_fields=["role"])
+                            session_permissions.assign_session_gm(session, session.gm, granted_by=owner)
 
             if not options["no_link_character_sheets"]:
                 participants = (
                     SessionParticipant.objects.filter(
                         session_id__in=session_ids,
                         user__isnull=False,
-                        role="player",
+                        participant_roles__role=SessionParticipantRole.Role.PLAYER,
                         character_sheet__isnull=True,
                     )
                     .select_related("session", "session__scenario", "user")

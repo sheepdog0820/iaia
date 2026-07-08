@@ -243,6 +243,56 @@ class ScenarioAPITestCase(APITestCase):
             self.assertEqual(data["title"], "Test Scenario")
             self.assertEqual(data["created_by"], self.user1.id)
 
+    def test_scenario_owner_detail_includes_secret_fields(self):
+        self.scenario.gm_notes = "Owner GM truth"
+        self.scenario.save(update_fields=["gm_notes"])
+        ScenarioHandout.objects.create(
+            scenario=self.scenario,
+            title="Secret owner HO",
+            content="Secret owner content",
+            is_secret=True,
+            handout_number=1,
+        )
+
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.get(f"/api/scenarios/scenarios/{self.scenario.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["gm_notes"], "Owner GM truth")
+        self.assertEqual([handout["title"] for handout in data["handout_templates"]], ["Secret owner HO"])
+        self.assertTrue(data["can_manage"])
+
+    def test_group_member_detail_omits_secret_fields(self):
+        self.scenario.gm_notes = "Owner GM truth"
+        self.scenario.save(update_fields=["gm_notes"])
+        secret_handout = ScenarioHandout.objects.create(
+            scenario=self.scenario,
+            title="Secret owner HO",
+            content="Secret owner content",
+            is_secret=True,
+            handout_number=1,
+        )
+        public_handout = ScenarioHandout.objects.create(
+            scenario=self.scenario,
+            title="Public owner HO",
+            content="Public owner content",
+            is_secret=False,
+            handout_number=2,
+        )
+
+        self.client.force_authenticate(user=self.user2)
+        response = self.client.get(f"/api/scenarios/scenarios/{self.scenario.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertNotIn("gm_notes", data)
+        self.assertFalse(data["can_manage"])
+        self.assertEqual([handout["title"] for handout in data["handout_templates"]], [public_handout.title])
+        serialized = response.content.decode()
+        self.assertNotIn(secret_handout.title, serialized)
+        self.assertNotIn(secret_handout.content, serialized)
+
     def test_scenario_public_view_mode_is_readable_without_login(self):
         self.scenario.gm_notes = "Secret GM Notes"
         self.scenario.created_by.trpg_history = "Creator private history"

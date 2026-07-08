@@ -2,6 +2,7 @@
 セッション複数日程 (SessionOccurrence) のAPI/同期テスト
 """
 
+from schedules import session_permissions
 from datetime import timedelta
 
 from django.utils import timezone
@@ -171,12 +172,12 @@ class SessionOccurrenceAPITestCase(APITestCase):
 
     def test_calendar_events_use_occurrence_id(self):
         self.client.force_authenticate(user=self.member_user)
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=self.session,
             user=self.member_user,
             role="player",
         )
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=self.session,
             guest_name="Guest Player",
             role="player",

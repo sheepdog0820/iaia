@@ -7,7 +7,8 @@ from django.utils import timezone
 
 from accounts.models import CustomUser, Friend, Group, GroupMembership
 from scenarios.models import PlayHistory, Scenario, ScenarioNote
-from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
+from schedules import session_permissions
+from schedules.models import HandoutInfo, SessionParticipant, SessionParticipantRole, TRPGSession
 
 User = get_user_model()
 
@@ -262,17 +263,21 @@ class Command(BaseCommand):
             sessions.append(session)
 
             # セッション参加者を追加
-            SessionParticipant.objects.create(session=session, user=gm, role="gm")
+            session_permissions.create_participant(
+                session=session,
+                user=gm,
+                roles=[SessionParticipantRole.Role.GM],
+            )
 
             # PLを追加
             group_members = [m.user for m in group.groupmembership_set.all() if m.user != gm]
             participants = random.sample(group_members, min(scenario.player_count, len(group_members)))
 
             for participant in participants:
-                SessionParticipant.objects.create(
+                session_permissions.create_participant(
                     session=session,
                     user=participant,
-                    role="player",
+                    roles=[SessionParticipantRole.Role.PLAYER],
                     character_name=f"{participant.nickname}のPC",
                     character_sheet_url="https://charasheet.vampire-blood.net/example",
                 )
@@ -298,7 +303,11 @@ class Command(BaseCommand):
             sessions.append(session)
 
             # GMを参加者として追加
-            SessionParticipant.objects.create(session=session, user=gm, role="gm")
+            session_permissions.create_participant(
+                session=session,
+                user=gm,
+                roles=[SessionParticipantRole.Role.GM],
+            )
 
         return sessions
 
@@ -313,11 +322,12 @@ class Command(BaseCommand):
             for participant in participants:
                 # 重複チェック
                 if not PlayHistory.objects.filter(user=participant.user, session=session).exists():
+                    participant_role = session_permissions.get_primary_participant_role(participant)
                     PlayHistory.objects.create(
                         scenario=scenario,
                         user=participant.user,
                         session=session,
                         played_date=session.date,
-                        role=participant.role,
-                        notes=f"{scenario.title}をプレイ。{participant.role}として参加。",
+                        role=participant_role,
+                        notes=f"{scenario.title}をプレイ。{participant_role}として参加。",
                     )

@@ -8,7 +8,14 @@ from rest_framework.test import APITestCase
 
 from accounts.character_models import CharacterSheet
 from accounts.models import Friend, Group, GroupInvitation, GroupMembership
-from schedules.models import HandoutNotification, UserNotificationPreferences
+from schedules.models import (
+    HandoutNotification,
+    ParticipantClaimRequest,
+    ParticipantIdentity,
+    SessionParticipant,
+    TRPGSession,
+    UserNotificationPreferences,
+)
 
 User = get_user_model()
 
@@ -432,6 +439,316 @@ class GroupMemberCharactersAPITestCase(APITestCase):
         self.client.force_authenticate(user=self.non_member)
         response = self.client.get(f"/api/accounts/groups/{self.group.id}/member_characters/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class GroupSessionsAPITestCase(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="group_session_admin",
+            email="group_session_admin@example.com",
+            password="pass123",
+            nickname="Group Session Admin",
+        )
+        self.member = User.objects.create_user(
+            username="group_session_member",
+            email="group_session_member@example.com",
+            password="pass123",
+            nickname="Group Session Member",
+        )
+        self.outsider = User.objects.create_user(
+            username="group_session_outsider",
+            email="group_session_outsider@example.com",
+            password="pass123",
+            nickname="Group Session Outsider",
+        )
+        self.group = Group.objects.create(name="Session Group", visibility="private", created_by=self.admin)
+        GroupMembership.objects.create(user=self.admin, group=self.group, role="admin")
+        GroupMembership.objects.create(user=self.member, group=self.group, role="member")
+
+        self.session = TRPGSession.objects.create(
+            title="Group Session",
+            description="Public session summary",
+            date=timezone.now() + timedelta(days=1),
+            location="Discord",
+            status="planned",
+            visibility="group",
+            group=self.group,
+            gm=self.admin,
+            created_by=self.admin,
+        )
+        other_group = Group.objects.create(name="Other Session Group", visibility="private", created_by=self.admin)
+        GroupMembership.objects.create(user=self.admin, group=other_group, role="admin")
+        self.other_session = TRPGSession.objects.create(
+            title="Other Group Session",
+            date=timezone.now() + timedelta(days=2),
+            status="planned",
+            visibility="group",
+            group=other_group,
+            gm=self.admin,
+            created_by=self.admin,
+        )
+
+    def test_group_admin_can_list_group_sessions(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(f"/api/accounts/groups/{self.group.id}/sessions/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["can_view_sessions"])
+        self.assertTrue(response.data["can_create_session"])
+        self.assertEqual(response.data["session_count"], 1)
+        self.assertEqual(len(response.data["sessions"]), 1)
+        session_data = response.data["sessions"][0]
+        self.assertEqual(session_data["id"], self.session.id)
+        self.assertEqual(session_data["title"], "Group Session")
+        self.assertEqual(session_data["location"], "Discord")
+        self.assertEqual(session_data["status"], "planned")
+        self.assertIn("/api/schedules/sessions/", session_data["detail_url"])
+        self.assertNotIn("handouts_detail", session_data)
+        self.assertNotIn("gm_notes", session_data)
+
+    def test_group_member_can_list_group_sessions(self):
+        self.client.force_authenticate(user=self.member)
+
+        response = self.client.get(f"/api/accounts/groups/{self.group.id}/sessions/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["can_view_sessions"])
+        self.assertEqual([item["id"] for item in response.data["sessions"]], [self.session.id])
+
+    def test_non_member_cannot_list_private_group_sessions(self):
+        self.client.force_authenticate(user=self.outsider)
+
+        response = self.client.get(f"/api/accounts/groups/{self.group.id}/sessions/")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_public_group_non_member_gets_session_count_only(self):
+        public_group = Group.objects.create(name="Public Session Group", visibility="public", created_by=self.admin)
+        GroupMembership.objects.create(user=self.admin, group=public_group, role="admin")
+        TRPGSession.objects.create(
+            title="Public Group Session",
+            date=timezone.now() + timedelta(days=3),
+            status="planned",
+            visibility="group",
+            group=public_group,
+            gm=self.admin,
+            created_by=self.admin,
+        )
+
+        self.client.force_authenticate(user=self.outsider)
+        response = self.client.get(f"/api/accounts/groups/{public_group.id}/sessions/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["can_view_sessions"])
+        self.assertFalse(response.data["can_create_session"])
+        self.assertEqual(response.data["session_count"], 1)
+        self.assertEqual(response.data["sessions"], [])
+
+
+class GroupTemporaryMemberAPITestCase(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="temp_admin",
+            email="temp_admin@example.com",
+            password="pass123",
+            nickname="Temp Admin",
+        )
+        self.member = User.objects.create_user(
+            username="temp_member",
+            email="temp_member@example.com",
+            password="pass123",
+            nickname="Temp Member",
+        )
+        self.outsider = User.objects.create_user(
+            username="temp_outsider",
+            email="temp_outsider@example.com",
+            password="pass123",
+            nickname="Temp Outsider",
+        )
+        self.group = Group.objects.create(name="Temp Group", visibility="private", created_by=self.admin)
+        GroupMembership.objects.create(user=self.admin, group=self.group, role="admin")
+        GroupMembership.objects.create(user=self.member, group=self.group, role="member")
+
+    def test_admin_can_create_list_update_and_delete_unused_temporary_member(self):
+        self.client.force_authenticate(user=self.admin)
+
+        create_response = self.client.post(
+            f"/api/accounts/groups/{self.group.id}/temporary-members/",
+            {"display_name": "Guest Keeper"},
+            format="json",
+        )
+
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        identity_id = create_response.data["id"]
+        self.assertEqual(create_response.data["display_name"], "Guest Keeper")
+        self.assertIsNone(create_response.data["user"])
+        self.assertTrue(create_response.data["is_active"])
+        self.assertEqual(create_response.data["linked_session_count"], 0)
+
+        list_response = self.client.get(f"/api/accounts/groups/{self.group.id}/temporary-members/")
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(list_response.data["can_view_temporary_members"])
+        self.assertTrue(list_response.data["can_manage_temporary_members"])
+        self.assertEqual([item["id"] for item in list_response.data["temporary_members"]], [identity_id])
+
+        update_response = self.client.patch(
+            f"/api/accounts/groups/{self.group.id}/temporary-members/{identity_id}/",
+            {"display_name": "Renamed Keeper"},
+            format="json",
+        )
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(update_response.data["display_name"], "Renamed Keeper")
+
+        delete_response = self.client.delete(f"/api/accounts/groups/{self.group.id}/temporary-members/{identity_id}/")
+        self.assertEqual(delete_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(delete_response.data["deleted"])
+        self.assertFalse(ParticipantIdentity.objects.filter(pk=identity_id).exists())
+
+    def test_member_can_list_but_cannot_manage_temporary_members(self):
+        identity = ParticipantIdentity.objects.create(
+            group=self.group,
+            created_by=self.admin,
+            display_name="Read Only Guest",
+        )
+        self.client.force_authenticate(user=self.member)
+
+        list_response = self.client.get(f"/api/accounts/groups/{self.group.id}/temporary-members/")
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(list_response.data["can_view_temporary_members"])
+        self.assertFalse(list_response.data["can_manage_temporary_members"])
+        self.assertEqual([item["id"] for item in list_response.data["temporary_members"]], [identity.id])
+
+        create_response = self.client.post(
+            f"/api/accounts/groups/{self.group.id}/temporary-members/",
+            {"display_name": "Blocked Guest"},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_403_FORBIDDEN)
+
+        update_response = self.client.patch(
+            f"/api/accounts/groups/{self.group.id}/temporary-members/{identity.id}/",
+            {"display_name": "Blocked Rename"},
+            format="json",
+        )
+        self.assertEqual(update_response.status_code, status.HTTP_403_FORBIDDEN)
+
+        delete_response = self.client.delete(f"/api/accounts/groups/{self.group.id}/temporary-members/{identity.id}/")
+        self.assertEqual(delete_response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_non_member_cannot_list_private_group_temporary_members(self):
+        ParticipantIdentity.objects.create(group=self.group, created_by=self.admin, display_name="Hidden Guest")
+        self.client.force_authenticate(user=self.outsider)
+
+        response = self.client.get(f"/api/accounts/groups/{self.group.id}/temporary-members/")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_public_group_non_member_does_not_receive_temporary_member_list(self):
+        public_group = Group.objects.create(name="Public Temp Group", visibility="public", created_by=self.admin)
+        GroupMembership.objects.create(user=self.admin, group=public_group, role="admin")
+        ParticipantIdentity.objects.create(group=public_group, created_by=self.admin, display_name="Public Hidden")
+        self.client.force_authenticate(user=self.outsider)
+
+        response = self.client.get(f"/api/accounts/groups/{public_group.id}/temporary-members/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["can_view_temporary_members"])
+        self.assertFalse(response.data["can_manage_temporary_members"])
+        self.assertEqual(response.data["temporary_members"], [])
+
+    def test_delete_linked_temporary_member_hides_it_without_breaking_session_history(self):
+        identity = ParticipantIdentity.objects.create(
+            group=self.group,
+            created_by=self.admin,
+            display_name="Linked Guest",
+        )
+        session = TRPGSession.objects.create(
+            title="Linked Session",
+            date=timezone.now() + timedelta(days=1),
+            status="planned",
+            visibility="group",
+            group=self.group,
+            created_by=self.admin,
+        )
+        participant = SessionParticipant.objects.create(
+            session=session,
+            participant_identity=identity,
+            guest_name="Linked Guest",
+        )
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.delete(f"/api/accounts/groups/{self.group.id}/temporary-members/{identity.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data["deleted"])
+        identity.refresh_from_db()
+        participant.refresh_from_db()
+        self.assertFalse(identity.is_active)
+        self.assertEqual(participant.participant_identity_id, identity.id)
+
+        list_response = self.client.get(f"/api/accounts/groups/{self.group.id}/temporary-members/")
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_response.data["temporary_members"], [])
+
+    def test_registered_identity_is_not_treated_as_temporary_member(self):
+        ParticipantIdentity.objects.create(
+            group=self.group,
+            user=self.member,
+            created_by=self.admin,
+            display_name="Registered Identity",
+        )
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(f"/api/accounts/groups/{self.group.id}/temporary-members/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["temporary_members"], [])
+
+    def test_group_temporary_member_claim_requires_admin_approval(self):
+        identity = ParticipantIdentity.objects.create(
+            group=self.group,
+            created_by=self.admin,
+            display_name="Claim Me",
+        )
+        self.client.force_authenticate(user=self.member)
+
+        request_response = self.client.post(
+            f"/api/accounts/groups/{self.group.id}/temporary-members/{identity.id}/claim-requests/",
+            {"message": "これは自分です"},
+            format="json",
+        )
+
+        self.assertEqual(request_response.status_code, status.HTTP_201_CREATED)
+        identity.refresh_from_db()
+        self.assertIsNone(identity.user_id)
+        claim = ParticipantClaimRequest.objects.get(pk=request_response.data["id"])
+        self.assertEqual(claim.status, ParticipantClaimRequest.Status.PENDING)
+
+        own_approve_response = self.client.post(
+            f"/api/accounts/groups/{self.group.id}/temporary-member-claims/{claim.id}/approve/",
+            {},
+            format="json",
+        )
+        self.assertEqual(own_approve_response.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(user=self.admin)
+        list_response = self.client.get(f"/api/accounts/groups/{self.group.id}/temporary-member-claims/")
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data["claim_requests"]), 1)
+
+        approve_response = self.client.post(
+            f"/api/accounts/groups/{self.group.id}/temporary-member-claims/{claim.id}/approve/",
+            {},
+            format="json",
+        )
+
+        self.assertEqual(approve_response.status_code, status.HTTP_200_OK)
+        identity.refresh_from_db()
+        claim.refresh_from_db()
+        self.assertEqual(identity.user_id, self.member.id)
+        self.assertEqual(claim.status, ParticipantClaimRequest.Status.APPROVED)
+        self.assertTrue(GroupMembership.objects.filter(group=self.group, user=self.member, role="member").exists())
 
 
 class GroupAdminActionsAPITestCase(APITestCase):

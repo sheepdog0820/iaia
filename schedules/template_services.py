@@ -1,4 +1,5 @@
-from .models import HandoutInfo, SessionParticipant
+from . import session_permissions
+from .models import HandoutInfo, SessionParticipant, SessionParticipantRole
 
 TEMPLATE_PLACEHOLDER_PREFIX = "[template]"
 
@@ -31,21 +32,21 @@ def clone_scenario_handouts_to_session(scenario, session):
         if assigned_slot:
             participant = slot_placeholders.get(assigned_slot)
             if participant is None:
-                participant = SessionParticipant.objects.create(
+                participant = session_permissions.create_participant(
                     session=session,
                     user=None,
                     guest_name=build_template_placeholder_name(slot=assigned_slot),
-                    role="player",
+                    roles=[SessionParticipantRole.Role.PLAYER],
                     player_slot=None,
                 )
                 slot_placeholders[assigned_slot] = participant
         else:
             anonymous_index += 1
-            participant = SessionParticipant.objects.create(
+            participant = session_permissions.create_participant(
                 session=session,
                 user=None,
                 guest_name=build_template_placeholder_name(index=anonymous_index),
-                role="player",
+                roles=[SessionParticipantRole.Role.PLAYER],
                 player_slot=None,
             )
 
@@ -96,7 +97,7 @@ def _rebind_slot_handouts_for_session(session):
         participant.player_slot: participant
         for participant in SessionParticipant.objects.filter(
             session=session,
-            role="player",
+            participant_roles__role=SessionParticipantRole.Role.PLAYER,
             player_slot__in=slots,
         ).order_by("id")
     }
@@ -105,7 +106,7 @@ def _rebind_slot_handouts_for_session(session):
         for participant in SessionParticipant.objects.filter(
             session=session,
             user__isnull=True,
-            role="player",
+            participant_roles__role=SessionParticipantRole.Role.PLAYER,
             guest_name__startswith=TEMPLATE_PLACEHOLDER_PREFIX,
         )
         if is_template_placeholder_name(participant.guest_name)
@@ -119,11 +120,11 @@ def _rebind_slot_handouts_for_session(session):
             placeholder_name = build_template_placeholder_name(slot=assigned_slot)
             target_participant = placeholders_by_name.get(placeholder_name)
             if target_participant is None:
-                target_participant = SessionParticipant.objects.create(
+                target_participant = session_permissions.create_participant(
                     session=session,
                     user=None,
                     guest_name=placeholder_name,
-                    role="player",
+                    roles=[SessionParticipantRole.Role.PLAYER],
                     player_slot=None,
                 )
                 placeholders_by_name[placeholder_name] = target_participant
@@ -144,7 +145,7 @@ def _cleanup_unused_template_placeholders(session):
         for participant in SessionParticipant.objects.filter(
             session=session,
             user__isnull=True,
-            role="player",
+            participant_roles__role=SessionParticipantRole.Role.PLAYER,
             handouts__isnull=True,
             guest_name__startswith=TEMPLATE_PLACEHOLDER_PREFIX,
         )

@@ -180,7 +180,13 @@
 
                     <div class="mb-2">
                         <div class="small text-muted"><i class="fas fa-user"></i> GM</div>
-                        <div>{{ session.gm.nickname|default:session.gm.username }}</div>
+                        <div>
+                            {% if session.gm %}
+                                {{ session.gm.nickname|default:session.gm.username }}
+                            {% else %}
+                                <span class="text-muted">未設定</span>
+                            {% endif %}
+                        </div>
                     </div>
 
                     <div class="mb-2">

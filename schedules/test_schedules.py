@@ -1,3 +1,4 @@
+from schedules import session_permissions
 import uuid
 from datetime import timedelta
 
@@ -12,7 +13,7 @@ from accounts.models import CharacterSheet
 from accounts.models import Group as CustomGroup
 from scenarios.models import Scenario, ScenarioHandout, ScenarioHandoutRecommendedSkill
 
-from .models import HandoutInfo, SessionInvitation, SessionParticipant, TRPGSession
+from .models import HandoutInfo, SessionInvitation, SessionParticipant, SessionPermission, TRPGSession
 
 User = get_user_model()
 
@@ -55,13 +56,13 @@ class ScheduleModelsTestCase(TestCase):
             title="Test Session", date=timezone.now() + timedelta(days=1), gm=self.user1, group=self.group
         )
 
-        participant = SessionParticipant.objects.create(
+        participant = session_permissions.create_participant(
             session=session, user=self.user2, role="player", character_name="Test Character"
         )
 
         self.assertEqual(participant.session, session)
         self.assertEqual(participant.user, self.user2)
-        self.assertEqual(participant.role, "player")
+        self.assertEqual(session_permissions.get_primary_participant_role(participant), "player")
         self.assertEqual(participant.character_name, "Test Character")
 
     def test_handout_creation(self):
@@ -70,7 +71,7 @@ class ScheduleModelsTestCase(TestCase):
             title="Test Session", date=timezone.now() + timedelta(days=1), gm=self.user1, group=self.group
         )
 
-        participant = SessionParticipant.objects.create(session=session, user=self.user2, role="player")
+        participant = session_permissions.create_participant(session=session, user=self.user2, role="player")
 
         handout = HandoutInfo.objects.create(
             session=session,
@@ -176,12 +177,12 @@ class ScheduleAPITestCase(APITestCase):
         """セッション一覧JSONにguest_countが含まれる"""
         self.client.force_authenticate(user=self.user1)
 
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=self.session,
             user=self.user2,
             role="player",
         )
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=self.session,
             user=None,
             guest_name="ゲスト参加者",
@@ -256,12 +257,12 @@ class ScheduleAPITestCase(APITestCase):
         """セッション詳細JSONにguest_countが含まれる"""
         self.client.force_authenticate(user=self.user1)
 
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=self.session,
             user=self.user2,
             role="player",
         )
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=self.session,
             user=None,
             guest_name="ゲスト参加者",
@@ -279,12 +280,12 @@ class ScheduleAPITestCase(APITestCase):
         """次回セッションAPIにguest_countが含まれ、participant_countは従来通り"""
         self.client.force_authenticate(user=self.user1)
 
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=self.session,
             user=self.user2,
             role="player",
         )
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=self.session,
             user=None,
             guest_name="ゲスト参加者",
@@ -314,7 +315,7 @@ class ScheduleAPITestCase(APITestCase):
             gm=self.user1,
             group=self.group,
         )
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=far_session,
             user=self.user2,
             role="player",
@@ -367,7 +368,7 @@ class ScheduleAPITestCase(APITestCase):
         )
 
         for session in [future_soon, future_far, past_recent, past_old]:
-            SessionParticipant.objects.create(
+            session_permissions.create_participant(
                 session=session,
                 user=self.user2,
                 role="player",
@@ -412,7 +413,7 @@ class ScheduleAPITestCase(APITestCase):
         )
 
         for session in [future_soon, future_far, past_recent, past_old]:
-            SessionParticipant.objects.create(
+            session_permissions.create_participant(
                 session=session,
                 user=self.user2,
                 role="player",
@@ -459,7 +460,7 @@ class ScheduleAPITestCase(APITestCase):
         )
 
         for session in [future_session, past_recent, past_old]:
-            SessionParticipant.objects.create(
+            session_permissions.create_participant(
                 session=session,
                 user=self.user2,
                 role="player",
@@ -492,7 +493,21 @@ class ScheduleAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         created_session = TRPGSession.objects.get(title="New Session")
-        self.assertEqual(created_session.gm, self.user1)
+        self.assertIsNone(created_session.gm)
+        self.assertTrue(
+            SessionPermission.objects.filter(
+                session=created_session,
+                user=self.user1,
+                role=SessionPermission.Role.OWNER,
+            ).exists()
+        )
+        self.assertFalse(
+            SessionPermission.objects.filter(
+                session=created_session,
+                user=self.user1,
+                role=SessionPermission.Role.SECRET_KEEPER,
+            ).exists()
+        )
         self.assertEqual(created_session.duration_minutes, 240)
 
     def test_session_creation_copies_scenario_handouts(self):
@@ -544,7 +559,7 @@ class ScheduleAPITestCase(APITestCase):
         self.assertEqual(common_handout.title, "探索者共通")
         self.assertEqual(common_handout.recommended_skills, "目星")
 
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=created_session,
             user=self.user2,
             role="player",
@@ -688,7 +703,7 @@ class ScheduleAPITestCase(APITestCase):
 
         # 参加者が作成されたことを確認
         participant = SessionParticipant.objects.get(session=self.session, user=self.user2)
-        self.assertEqual(participant.role, "player")
+        self.assertEqual(session_permissions.get_primary_participant_role(participant), "player")
 
     def test_session_join_duplicate(self):
         """重複セッション参加テスト"""
@@ -722,17 +737,35 @@ class ScheduleAPITestCase(APITestCase):
     def test_participant_create_role_gm_forbidden(self):
         """一般ユーザーが参加者作成でGM権限を指定できない"""
         self.client.force_authenticate(user=self.user2)
-        response = self.client.post(
+        legacy_response = self.client.post(
             "/api/schedules/participants/", {"session": self.session.id, "role": "gm"}, format="json"
+        )
+        self.assertEqual(legacy_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("roles", str(legacy_response.data))
+
+        response = self.client.post(
+            "/api/schedules/participants/", {"session": self.session.id, "roles": ["gm"]}, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_participant_update_role_gm_forbidden(self):
         """一般ユーザーが自分の参加情報をGMに昇格できない"""
-        participant = SessionParticipant.objects.create(session=self.session, user=self.user2, role="player")
+        participant = session_permissions.create_participant(session=self.session, user=self.user2, role="player")
 
         self.client.force_authenticate(user=self.user2)
-        response = self.client.patch(f"/api/schedules/participants/{participant.id}/", {"role": "gm"}, format="json")
+        legacy_response = self.client.patch(
+            f"/api/schedules/participants/{participant.id}/",
+            {"role": "gm"},
+            format="json",
+        )
+        self.assertEqual(legacy_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("roles", str(legacy_response.data))
+
+        response = self.client.patch(
+            f"/api/schedules/participants/{participant.id}/",
+            {"roles": ["gm"]},
+            format="json",
+        )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_non_premium_manager_cannot_change_session_scenario(self):
@@ -774,7 +807,7 @@ class ScheduleAPITestCase(APITestCase):
         self.assertEqual(self.session.scenario, other_scenario)
 
     def test_manager_can_update_registered_participant_character_fields(self):
-        participant = SessionParticipant.objects.create(
+        participant = session_permissions.create_participant(
             session=self.session,
             user=self.user2,
             role="player",
@@ -804,7 +837,7 @@ class ScheduleAPITestCase(APITestCase):
         )
         self.group.members.add(user3)
 
-        participant = SessionParticipant.objects.create(session=self.session, user=self.user2, role="player")
+        participant = session_permissions.create_participant(session=self.session, user=self.user2, role="player")
 
         self.client.force_authenticate(user=user3)
         response = self.client.delete(f"/api/schedules/participants/{participant.id}/")
@@ -812,14 +845,14 @@ class ScheduleAPITestCase(APITestCase):
 
     def test_gm_can_delete_other_participant(self):
         """GMは参加者を除名できる"""
-        participant = SessionParticipant.objects.create(session=self.session, user=self.user2, role="player")
+        participant = session_permissions.create_participant(session=self.session, user=self.user2, role="player")
 
         self.client.force_authenticate(user=self.user1)
         response = self.client.delete(f"/api/schedules/participants/{participant.id}/")
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
     def test_main_gm_participant_cannot_be_deleted(self):
-        participant = SessionParticipant.objects.create(session=self.session, user=self.user1, role="player")
+        participant = session_permissions.create_participant(session=self.session, user=self.user1, role="player")
 
         self.client.force_authenticate(user=self.user1)
         response = self.client.delete(f"/api/schedules/participants/{participant.id}/")
@@ -828,8 +861,8 @@ class ScheduleAPITestCase(APITestCase):
         self.assertTrue(SessionParticipant.objects.filter(id=participant.id).exists())
 
     def test_session_detail_does_not_show_remove_button_for_main_gm(self):
-        main_gm_participant = SessionParticipant.objects.create(session=self.session, user=self.user1, role="player")
-        removable_participant = SessionParticipant.objects.create(session=self.session, user=self.user2, role="player")
+        main_gm_participant = session_permissions.create_participant(session=self.session, user=self.user1, role="player")
+        removable_participant = session_permissions.create_participant(session=self.session, user=self.user2, role="player")
 
         self.client.force_authenticate(user=self.user1)
         response = self.client.get(
@@ -843,8 +876,8 @@ class ScheduleAPITestCase(APITestCase):
 
     def test_player_slot_conflict_on_update(self):
         """プレイヤー枠の重複は更新時も拒否される"""
-        SessionParticipant.objects.create(session=self.session, user=self.user1, role="gm", player_slot=1)
-        p2 = SessionParticipant.objects.create(session=self.session, user=self.user2, role="player", player_slot=2)
+        session_permissions.create_participant(session=self.session, user=self.user1, role="gm", player_slot=1)
+        p2 = session_permissions.create_participant(session=self.session, user=self.user2, role="player", player_slot=2)
 
         self.client.force_authenticate(user=self.user1)
         response = self.client.patch(f"/api/schedules/participants/{p2.id}/", {"player_slot": 1}, format="json")
@@ -894,7 +927,7 @@ class ScheduleAPITestCase(APITestCase):
 
     def test_session_complete_with_guest_participant(self):
         """ゲスト参加者がいてもセッション完了処理が落ちない"""
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=self.session,
             guest_name="Guest Player",
             role="player",
@@ -933,7 +966,7 @@ class ScheduleAPITestCase(APITestCase):
         self.client.force_authenticate(user=self.user1)
 
         # 参加者作成
-        SessionParticipant.objects.create(session=self.session, user=self.user2, role="player")
+        session_permissions.create_participant(session=self.session, user=self.user2, role="player")
 
         response = self.client.get("/api/schedules/participants/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -943,7 +976,7 @@ class ScheduleAPITestCase(APITestCase):
         self.client.force_authenticate(user=self.user1)
 
         # 参加者とハンドアウト作成
-        participant = SessionParticipant.objects.create(session=self.session, user=self.user2, role="player")
+        participant = session_permissions.create_participant(session=self.session, user=self.user2, role="player")
 
         HandoutInfo.objects.create(
             session=self.session, participant=participant, title="Test Handout", content="Secret info"
@@ -1004,7 +1037,7 @@ class ScheduleAPITestCase(APITestCase):
             edu_value=50,
             access_scope="link",
         )
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=self.session,
             user=self.user2,
             role="player",
@@ -1039,7 +1072,7 @@ class ScheduleAPITestCase(APITestCase):
             edu_value=50,
             access_scope="private",
         )
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=self.session,
             user=self.user2,
             role="player",
@@ -1146,7 +1179,7 @@ class PublicSessionLinkTestCase(APITestCase):
             group=self.group,
             visibility="private",
         )
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=self.session,
             user=self.player,
             role="player",

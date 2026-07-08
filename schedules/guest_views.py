@@ -10,8 +10,15 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .handout_access import can_manage_session
-from .models import GuestClaimAudit, GuestInvitation, SessionParticipant, TRPGSession
+from . import session_permissions
+from .models import GuestClaimAudit, GuestInvitation, ParticipantClaimRequest, SessionParticipant, SessionParticipantRole, TRPGSession
+from .participant_claims import (
+    ClaimRequestError,
+    approve_claim_request,
+    create_participant_claim_request,
+    reject_claim_request,
+    serialize_claim_request,
+)
 
 
 class GuestInvitationCreateView(APIView):
@@ -19,7 +26,7 @@ class GuestInvitationCreateView(APIView):
 
     def post(self, request, session_id):
         session = get_object_or_404(TRPGSession, pk=session_id)
-        if not can_manage_session(session, request.user):
+        if not session_permissions.can_manage_participants(request.user, session):
             self.permission_denied(request)
         try:
             expires_in_hours = int(request.data.get("expires_in_hours", 168))
@@ -87,7 +94,7 @@ class GuestInvitationRevokeView(APIView):
             pk=invitation_id,
             session_id=session_id,
         )
-        if not can_manage_session(invitation.session, request.user):
+        if not session_permissions.can_manage_participants(request.user, invitation.session):
             self.permission_denied(request)
         invitation.revoked_at = timezone.now()
         invitation.save(update_fields=["revoked_at"])
@@ -144,11 +151,12 @@ class GuestInvitationRespondView(APIView):
                         {"detail": "Invitation has already been used."},
                         status=status.HTTP_409_CONFLICT,
                     )
-                participant = SessionParticipant.objects.create(
+                participant = session_permissions.create_participant(
                     session=locked.session,
+                    roles=[SessionParticipantRole.Role.PLAYER],
+                    granted_by=locked.created_by,
                     user=None,
                     guest_name=guest_name,
-                    role="player",
                     player_slot=player_slot,
                     character_name=request.data.get("character_name", ""),
                     character_sheet_url=request.data.get("character_sheet_url", ""),
@@ -251,3 +259,118 @@ class GuestParticipantClaimView(APIView):
                 "character_sheet_url": participant.character_sheet_url,
             }
         )
+
+
+class ParticipantClaimRequestCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, participant_id):
+        participant = get_object_or_404(
+            SessionParticipant.objects.select_related(
+                "session",
+                "session__group",
+                "participant_identity",
+                "participant_identity__group",
+            ),
+            pk=participant_id,
+        )
+        if not session_permissions.can_view_session_basic(request.user, participant.session):
+            self.permission_denied(request)
+
+        try:
+            claim, created = create_participant_claim_request(
+                participant=participant,
+                requested_by=request.user,
+                message=request.data.get("message", ""),
+            )
+        except ClaimRequestError as exc:
+            return Response({"detail": exc.message}, status=exc.status_code)
+
+        return Response(
+            serialize_claim_request(
+                ParticipantClaimRequest.objects.select_related(
+                    "requested_by",
+                    "reviewed_by",
+                    "participant",
+                    "participant__session",
+                    "participant__session__group",
+                    "participant__participant_identity",
+                    "participant_identity",
+                    "participant_identity__group",
+                ).get(pk=claim.pk)
+            ),
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class SessionClaimRequestListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, session_id):
+        session = get_object_or_404(TRPGSession.objects.select_related("group"), pk=session_id)
+        if not session_permissions.can_manage_participants(request.user, session):
+            self.permission_denied(request)
+
+        status_filter = request.query_params.get("status", ParticipantClaimRequest.Status.PENDING)
+        claims = (
+            ParticipantClaimRequest.objects.select_related(
+                "requested_by",
+                "reviewed_by",
+                "participant",
+                "participant__session",
+                "participant__session__group",
+                "participant__participant_identity",
+                "participant_identity",
+                "participant_identity__group",
+            )
+            .filter(participant__session=session)
+            .order_by("-created_at", "-id")
+        )
+        if status_filter:
+            claims = claims.filter(status=status_filter)
+
+        return Response(
+            {
+                "session": session.pk,
+                "can_manage_claim_requests": True,
+                "claim_requests": [serialize_claim_request(claim) for claim in claims],
+            }
+        )
+
+
+class SessionClaimRequestApproveView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, session_id, claim_id):
+        session = get_object_or_404(TRPGSession.objects.select_related("group"), pk=session_id)
+        if not session_permissions.can_manage_participants(request.user, session):
+            self.permission_denied(request)
+        claim = get_object_or_404(ParticipantClaimRequest, pk=claim_id, participant__session=session)
+
+        try:
+            claim = approve_claim_request(claim.pk, reviewed_by=request.user)
+        except ClaimRequestError as exc:
+            return Response({"detail": exc.message}, status=exc.status_code)
+
+        return Response(serialize_claim_request(claim))
+
+
+class SessionClaimRequestRejectView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, session_id, claim_id):
+        session = get_object_or_404(TRPGSession.objects.select_related("group"), pk=session_id)
+        if not session_permissions.can_manage_participants(request.user, session):
+            self.permission_denied(request)
+        claim = get_object_or_404(ParticipantClaimRequest, pk=claim_id, participant__session=session)
+
+        try:
+            claim = reject_claim_request(
+                claim.pk,
+                reviewed_by=request.user,
+                review_comment=request.data.get("review_comment", ""),
+            )
+        except ClaimRequestError as exc:
+            return Response({"detail": exc.message}, status=exc.status_code)
+
+        return Response(serialize_claim_request(claim))

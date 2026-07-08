@@ -7,7 +7,8 @@ from rest_framework.test import APITestCase
 from accounts.character_models import CharacterImage, CharacterSheet
 from accounts.models import CustomUser, Group, GroupMembership
 from scenarios.models import Scenario, ScenarioHandout
-from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
+from schedules import session_permissions
+from schedules.models import HandoutInfo, TRPGSession
 
 
 class FixedShareUrlTests(APITestCase):
@@ -247,7 +248,7 @@ class FixedShareUrlTests(APITestCase):
 
     def test_session_fixed_share_url_reuses_existing_share_token(self):
         session = self.create_session()
-        participant = SessionParticipant.objects.create(
+        participant = session_permissions.create_participant(
             session=session,
             user=self.other_user,
             role="player",
@@ -287,6 +288,20 @@ class FixedShareUrlTests(APITestCase):
         session.save(update_fields=["visibility"])
         closed_response = self.client.get(f"/share/sessions/{session.share_token}/view/")
         self.assertEqual(closed_response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_session_gm_participant_role_can_issue_fixed_share_url(self):
+        session = self.create_session(gm=None)
+        session_permissions.create_participant(
+            session=session,
+            user=self.other_user,
+            role="gm",
+        )
+
+        self.client.force_authenticate(self.other_user)
+        response = self.issue_fixed_url("session", session.id)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn(f"/share/sessions/{session.share_token}/view/", response.data["share_url"])
 
     def test_scenario_fixed_share_url_is_stable_and_safe(self):
         scenario = self.create_scenario(gm_notes="Owner-only GM note")

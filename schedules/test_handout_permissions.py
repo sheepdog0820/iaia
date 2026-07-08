@@ -1,3 +1,4 @@
+from schedules import session_permissions
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -44,19 +45,19 @@ class HandoutPermissionTestCase(APITestCase):
             visibility="private",
         )
 
-        self.player_a_slot1 = SessionParticipant.objects.create(
+        self.player_a_slot1 = session_permissions.create_participant(
             session=self.session_a,
             user=self.player,
             role="player",
             player_slot=1,
         )
-        self.player_b_slot2 = SessionParticipant.objects.create(
+        self.player_b_slot2 = session_permissions.create_participant(
             session=self.session_b,
             user=self.player,
             role="player",
             player_slot=2,
         )
-        self.other_a_slot2 = SessionParticipant.objects.create(
+        self.other_a_slot2 = session_permissions.create_participant(
             session=self.session_a,
             user=self.other_player,
             role="player",

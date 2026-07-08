@@ -2,7 +2,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from .models import HandoutInfo, HandoutView
+from .models import HandoutInfo, HandoutView, SessionParticipantRole
 
 LEAF_TYPES = {
     "datetime_reached",
@@ -106,7 +106,9 @@ def evaluate_release_conditions(handout, now=None):
         if condition_type == "session_status":
             return handout.session.status == value
         if condition_type == "participant_role":
-            return handout.participant.role == value
+            return handout.participant.participant_roles.filter(
+                role=SessionParticipantRole.Role(value),
+            ).exists()
         if condition_type == "player_slot":
             return handout.participant.player_slot == int(value)
         if condition_type == "handout_viewed":

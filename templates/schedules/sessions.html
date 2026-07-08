@@ -547,12 +547,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <strong>${p.user_detail.nickname}</strong>
-                                ${p.role === 'gm' ? '<span class="badge bg-primary ms-2">GM</span>' : ''}
+                                ${(p.roles || []).includes('gm') ? '<span class="badge bg-primary ms-2">GM</span>' : ''}
                                 ${p.character_name ? `<br><small class="text-muted">キャラクター: ${p.character_name}</small>` : ''}
                                 ${p.character_sheet_url ? `<br><a href="${p.character_sheet_url}" target="_blank" class="character-sheet-link"><i class="fas fa-file-alt"></i> キャラクターシート</a>` : ''}
                             </div>
                             <div>
-                                ${p.role !== 'gm' ? `
+                                ${!(p.roles || []).includes('gm') ? `
                                     <button class="btn btn-sm btn-outline-danger" onclick="removeParticipant(${sessionId}, ${p.id})">
                                         <i class="fas fa-user-minus"></i>
                                     </button>

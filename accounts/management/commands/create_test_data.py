@@ -7,7 +7,8 @@ from django.utils import timezone
 
 from accounts.models import CustomUser, Friend, Group, GroupInvitation, GroupMembership
 from scenarios.models import PlayHistory, Scenario, ScenarioNote
-from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
+from schedules import session_permissions
+from schedules.models import HandoutInfo, SessionParticipant, SessionParticipantRole, TRPGSession
 
 
 class Command(BaseCommand):
@@ -330,10 +331,10 @@ class Command(BaseCommand):
             )
 
             # GMを参加者として追加
-            SessionParticipant.objects.create(
+            session_permissions.create_participant(
                 session=session,
                 user=gm,
-                role="gm",
+                roles=[SessionParticipantRole.Role.GM],
                 character_name=f"GM_{gm.nickname}",
                 character_sheet_url=(
                     f"https://charasheet.vampire-blood.net/{random.randint(100000, 999999)}"
@@ -361,10 +362,10 @@ class Command(BaseCommand):
             ]
 
             for j, pl in enumerate(pls):
-                SessionParticipant.objects.create(
+                session_permissions.create_participant(
                     session=session,
                     user=pl,
-                    role="player",
+                    roles=[SessionParticipantRole.Role.PLAYER],
                     character_name=character_names[j % len(character_names)],
                     character_sheet_url=(
                         f"https://charasheet.vampire-blood.net/{random.randint(100000, 999999)}"
@@ -384,12 +385,13 @@ class Command(BaseCommand):
                 scenario = random.choice(scenarios)
 
                 for participant in session.sessionparticipant_set.all():
+                    participant_role = session_permissions.get_primary_participant_role(participant)
                     PlayHistory.objects.create(
                         scenario=scenario,
                         user=participant.user,
                         session=session,
                         played_date=session.date,
-                        role=participant.role,
+                        role=participant_role,
                         notes=(
                             random.choice(
                                 [

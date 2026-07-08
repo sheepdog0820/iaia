@@ -55,6 +55,27 @@ class GroupInviteLinkAPITestCase(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_admin_can_list_invite_links(self):
+        issued = self.issue_link()
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(f"/api/accounts/groups/{self.group.id}/invite-links/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], issued.data["id"])
+        self.assertTrue(response.data[0]["is_active"])
+        self.assertNotIn("token", response.data[0])
+        self.assertNotIn("invitation_url", response.data[0])
+
+    def test_non_admin_cannot_list_invite_links(self):
+        self.issue_link()
+        self.client.force_authenticate(user=self.member)
+
+        response = self.client.get(f"/api/accounts/groups/{self.group.id}/invite-links/")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_anonymous_user_can_view_invite_landing_page(self):
         issued = self.issue_link()
         token = issued.data["token"]

@@ -6,8 +6,9 @@ from django.db.models.functions import TruncMonth, TruncYear
 from django.utils.dateparse import parse_date, parse_datetime
 
 from scenarios.models import PlayHistory, Scenario
+from schedules import session_permissions
 from schedules.duration import effective_duration_expression
-from schedules.models import SessionParticipant, TRPGSession
+from schedules.models import SessionParticipant, SessionParticipantRole, TRPGSession
 
 from .utils.statistics import CharacterStatistics, GroupStatistics, SessionStatistics, TindalosMetrics
 from .views.common_imports import *
@@ -503,8 +504,8 @@ class TindalosMetricsView(APIView):
                         round(session.effective_duration_minutes / 60, 1) if session.effective_duration_minutes else 0
                     ),
                     "group_name": session.group.name if session.group else "",
-                    "gm_name": session.gm.nickname or session.gm.username,
-                    "role": participant.role if participant else "player",
+                    "gm_name": session.gm.nickname or session.gm.username if session.gm_id else "",
+                    "role": session_permissions.get_primary_participant_role(participant) if participant else "player",
                     "character_name": participant.character_name if participant else "",
                 }
             )
@@ -894,7 +895,7 @@ class UserRankingView(APIView):
         player_rows = (
             SessionParticipant.objects.filter(
                 session__in=sessions,
-                role="player",
+                participant_roles__role=SessionParticipantRole.Role.PLAYER,
                 user_id__isnull=False,
             )
             .values("user_id")
@@ -1432,7 +1433,10 @@ class GroupStatisticsView(APIView):
             data["total_play_minutes"] += gm_minutes
 
         player_stats = (
-            SessionParticipant.objects.filter(session__in=sessions, role="player")
+            SessionParticipant.objects.filter(
+                session__in=sessions,
+                participant_roles__role=SessionParticipantRole.Role.PLAYER,
+            )
             .values("user_id")
             .annotate(
                 session_count=Count("session", distinct=True),

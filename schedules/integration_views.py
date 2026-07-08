@@ -14,7 +14,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import CharacterSheet
+from accounts.models import CharacterSheet, GroupMembership
 
 from .google_tokens import get_google_access_token
 from .models import (
@@ -22,6 +22,7 @@ from .models import (
     CalendarSubscription,
     GoogleCalendarSync,
     GoogleIntegration,
+    SessionParticipantRole,
     SessionOccurrence,
     TRPGSession,
 )
@@ -58,7 +59,23 @@ def _escape_ical(value):
 
 
 def _visible_user_sessions(user):
-    return TRPGSession.objects.filter(Q(gm=user) | Q(sessionparticipant__user=user)).distinct()
+    admin_group_ids = GroupMembership.objects.filter(user=user, role="admin").values_list("group_id", flat=True)
+    return TRPGSession.objects.filter(
+        Q(created_by=user)
+        | Q(group__created_by=user)
+        | Q(group_id__in=admin_group_ids)
+        | Q(sessionparticipant__user=user)
+        | Q(session_permissions__user=user)
+    ).distinct()
+
+
+def _gm_role_session_ids_for(user):
+    return set(
+        SessionParticipantRole.objects.filter(
+            participant__user=user,
+            role=SessionParticipantRole.Role.GM,
+        ).values_list("participant__session_id", flat=True)
+    )
 
 
 def _build_ical(user):
@@ -79,8 +96,9 @@ def _build_ical(user):
         f"X-WR-CALNAME:Tableno - {_escape_ical(user.nickname or user.username)}",
     ]
     stamp = now.strftime("%Y%m%dT%H%M%SZ")
+    gm_role_session_ids = _gm_role_session_ids_for(user)
     for session in sessions:
-        role = "GM" if session.gm_id == user.id else "Player"
+        role = "GM" if session.id in gm_role_session_ids else "Player"
         if session.date is None:
             lines.extend(
                 [

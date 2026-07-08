@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from accounts.models import Group
 from scenarios.models import Scenario
-from schedules.models import SessionParticipant, SessionYouTubeLink, TRPGSession
+from schedules.models import SessionParticipant, SessionParticipantRole, SessionYouTubeLink, TRPGSession
 
 
 class ImportTRPGScheduleCommandTests(TestCase):
@@ -82,11 +82,18 @@ class ImportTRPGScheduleCommandTests(TestCase):
         self.assertIn("source_rows=10", session.description)
         self.assertIn("メイサイ視点", session.description)
 
-        participants = SessionParticipant.objects.order_by("role", "guest_name", "user__username")
+        participants = SessionParticipant.objects.order_by("guest_name", "user__username")
         self.assertEqual(participants.count(), 3)
-        self.assertTrue(participants.filter(user=self.gm, role="gm").exists())
-        self.assertTrue(participants.filter(user=self.player, role="player").exists())
-        self.assertTrue(participants.filter(guest_name="未登録PL", role="player").exists())
+        self.assertTrue(participants.filter(user=self.gm, participant_roles__role=SessionParticipantRole.Role.GM).exists())
+        self.assertTrue(
+            participants.filter(user=self.player, participant_roles__role=SessionParticipantRole.Role.PLAYER).exists()
+        )
+        self.assertTrue(
+            participants.filter(
+                guest_name="未登録PL",
+                participant_roles__role=SessionParticipantRole.Role.PLAYER,
+            ).exists()
+        )
 
         self.assertEqual(SessionYouTubeLink.objects.count(), 1)
         link = SessionYouTubeLink.objects.get()

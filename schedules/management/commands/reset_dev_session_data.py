@@ -21,7 +21,8 @@ from django.db import connection, transaction
 from django.utils import timezone
 
 from accounts.models import Group, GroupMembership
-from schedules.models import SessionOccurrence, TRPGSession
+from schedules import session_permissions
+from schedules.models import SessionOccurrence, SessionParticipantRole, TRPGSession
 
 User = get_user_model()
 
@@ -114,7 +115,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("開発用セッション手動テストデータの準備が完了しました"))
         self.stdout.write("ログイン:")
         self.stdout.write("- /accounts/dev-login/ からユーザーを選択してログイン")
-        self.stdout.write("- 管理者: create_admin.py でローカル作成")
+        self.stdout.write("- 管理者: scripts/dev/create_admin.py でローカル作成")
         self.stdout.write("- GM: keeper1, keeper2 / keeper123")
         self.stdout.write("- PL: investigator1-6 / player123")
 
@@ -300,7 +301,12 @@ class Command(BaseCommand):
                 user = User.objects.filter(username=username).first()
                 if not user:
                     continue
-                multi.sessionparticipant_set.create(user=user, role="player", player_slot=slot)
+                session_permissions.create_participant(
+                    session=multi,
+                    user=user,
+                    roles=[SessionParticipantRole.Role.PLAYER],
+                    player_slot=slot,
+                )
 
             # Primary occurrence attendance
             primary = multi.occurrences.filter(is_primary=True).first()

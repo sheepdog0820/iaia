@@ -17,7 +17,8 @@ from django.utils import timezone
 from accounts.character_models import CharacterSheet, CharacterSkill
 from accounts.models import Group
 from scenarios.models import Scenario
-from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
+from schedules import session_permissions
+from schedules.models import HandoutInfo, SessionParticipant, SessionParticipantRole, TRPGSession
 
 User = get_user_model()
 
@@ -99,10 +100,10 @@ class Command(BaseCommand):
 
             participant = SessionParticipant.objects.filter(session=session, user=user).first()
             if not participant:
-                participant = SessionParticipant.objects.create(
+                participant = session_permissions.create_participant(
                     session=session,
                     user=user,
-                    role="player",
+                    roles=[SessionParticipantRole.Role.PLAYER],
                     player_slot=slot,
                     character_name=character.name,
                     character_sheet=character,

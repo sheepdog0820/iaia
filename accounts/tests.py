@@ -1,3 +1,4 @@
+from schedules import session_permissions
 import json
 from datetime import timedelta
 
@@ -213,7 +214,7 @@ class BasicAccountsTestCase(TestCase):
             visibility="private",
             duration_minutes=60,
         )
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=session,
             user=player,
             role="player",

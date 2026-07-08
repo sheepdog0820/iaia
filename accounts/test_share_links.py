@@ -1,3 +1,4 @@
+from schedules import session_permissions
 from datetime import timedelta
 
 from django.urls import reverse
@@ -96,7 +97,7 @@ class ShareLinkApiTests(APITestCase):
     def test_issue_share_link_for_link_session_and_shared_api_hides_secret_data(self):
         character = self.create_character(access_scope="public")
         session = self.create_session()
-        participant = SessionParticipant.objects.create(
+        participant = session_permissions.create_participant(
             session=session,
             user=self.player,
             role="player",
@@ -149,7 +150,7 @@ class ShareLinkApiTests(APITestCase):
         identity = ParticipantIdentity.objects.create(
             display_name="Imported GM Display",
         )
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=session,
             user=None,
             guest_name="legacy-gm",
@@ -322,14 +323,14 @@ class ShareLinkApiTests(APITestCase):
         identity = ParticipantIdentity.objects.create(
             display_name="Imported GM",
         )
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=session,
             user=self.owner,
             participant_identity=identity,
             role="gm",
             character_name="",
         )
-        SessionParticipant.objects.create(
+        session_permissions.create_participant(
             session=session,
             user=None,
             guest_name="Legacy Player",
@@ -366,4 +367,4 @@ class ShareLinkApiTests(APITestCase):
 
         self.assertEqual(identity.normalized_name, "kenta")
         self.assertEqual(alias.normalized_alias, "endo")
-        self.assertFalse(hasattr(identity, "user_id"))
+        self.assertIsNone(identity.user_id)

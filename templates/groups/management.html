@@ -238,7 +238,7 @@
 
 <!-- 招待URL発行モーダル -->
 <div class="modal fade" id="inviteLinkModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">招待URLを発行</h5>
@@ -272,11 +272,47 @@
                 <div class="small text-muted mt-3">
                     未ログインユーザーは招待ページを閲覧できます。参加確定にはログインまたは会員登録が必要です。
                 </div>
+                <hr class="my-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">発行済みURL</h6>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" id="refreshInviteLinksBtn">
+                        <i class="fas fa-sync-alt"></i> 更新
+                    </button>
+                </div>
+                <div id="inviteLinksList" class="invite-link-list">
+                    <p class="text-muted mb-0">グループを選択すると発行済みURLを表示します</p>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
                 <button type="button" class="btn btn-primary" id="createInviteLinkBtn">
                     <i class="fas fa-link"></i> URLを発行
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 仮メンバー登録/編集モーダル -->
+<div class="modal fade" id="temporaryMemberModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="temporaryMemberModalTitle">仮メンバー登録</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="temporaryMemberForm">
+                    <div class="mb-3">
+                        <label class="form-label" for="temporaryMemberName">表示名</label>
+                        <input class="form-control" id="temporaryMemberName" maxlength="100" required>
+                        <div class="form-text">ログインしていないグループ参加者を名前だけで管理します。</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-primary" id="saveTemporaryMemberBtn">
+                    <i class="fas fa-save"></i> 保存
                 </button>
             </div>
         </div>
@@ -337,6 +373,28 @@
 .invite-list {
     max-height: 300px;
     overflow-y: auto;
+}
+
+.group-session-list,
+.invite-link-list,
+.temporary-member-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.group-session-item,
+.invite-link-item,
+.temporary-member-item {
+    padding: 0.75rem;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.group-session-item:hover,
+.invite-link-item:hover,
+.temporary-member-item:hover {
+    background-color: rgba(255, 255, 255, 0.08);
 }
 
 .invite-item {
@@ -409,7 +467,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let friends = [];
     let currentGroupId = null;
     let currentGroupDetail = null;
+    let currentTemporaryMembers = [];
+    let currentTemporaryMemberClaimRequests = [];
     let editingGroupId = null;
+    let editingTemporaryMemberId = null;
     let selectedFriends = new Set();
     let currentViewType = 'my';
     let invitations = [];
@@ -430,6 +491,289 @@ document.addEventListener('DOMContentLoaded', function() {
         if (Array.isArray(data)) return data;
         if (Array.isArray(data?.results)) return data.results;
         return [];
+    }
+
+    function formatDateTime(value) {
+        if (!value) return '未定';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '未定';
+        return date.toLocaleString('ja-JP', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function formatDate(value) {
+        if (!value) return '未設定';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '未設定';
+        return date.toLocaleDateString('ja-JP', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+    }
+
+    function getGroupSessionCreateUrl(groupId) {
+        return `/api/schedules/calendar/view/?open_create=1&group_id=${encodeURIComponent(groupId)}`;
+    }
+
+    function renderGroupSessionItem(session) {
+        const dateText = formatDateTime(session.date);
+        const locationText = session.location ? escapeHtml(session.location) : '場所未定';
+        const gmText = session.gm_name ? `GM: ${escapeHtml(session.gm_name)}` : 'GM未設定';
+        return `
+            <div class="group-session-item">
+                <div class="d-flex flex-column flex-lg-row justify-content-between gap-2">
+                    <div>
+                        <div class="fw-semibold">${escapeHtml(session.title)}</div>
+                        <div class="small text-muted">
+                            <i class="fas fa-calendar-alt"></i> ${dateText}
+                            <span class="ms-2"><i class="fas fa-map-marker-alt"></i> ${locationText}</span>
+                        </div>
+                        <div class="small text-muted">${gmText}</div>
+                    </div>
+                    <div class="d-flex align-items-start gap-2">
+                        <span class="badge bg-secondary">${escapeHtml(session.status_display || session.status)}</span>
+                        <a class="btn btn-sm btn-outline-primary" href="${escapeHtml(session.detail_url)}">
+                            開く
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderGroupSessionsSection(group, sessionsData) {
+        const sessionCount = sessionsData?.session_count ?? group.session_count ?? 0;
+        const canViewSessions = Boolean(sessionsData?.can_view_sessions);
+        const canCreateSession = Boolean(sessionsData?.can_create_session);
+
+        if (!canViewSessions) {
+            return `
+                <div class="mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">所属セッション</h6>
+                        <span class="badge bg-secondary">${sessionCount}件</span>
+                    </div>
+                    <p class="text-muted small mb-0">参加中メンバーのみセッション一覧を閲覧できます。</p>
+                </div>
+            `;
+        }
+
+        const sessions = sessionsData.sessions || [];
+        const sessionItems = sessions.length > 0
+            ? sessions.map(renderGroupSessionItem).join('')
+            : '<p class="text-muted mb-0">このグループに紐づくセッションはまだありません。</p>';
+        const createButton = canCreateSession ? `
+            <a class="btn btn-sm btn-outline-primary" href="${getGroupSessionCreateUrl(group.id)}">
+                <i class="fas fa-plus"></i> セッション作成
+            </a>
+        ` : '';
+
+        return `
+            <div class="mt-4">
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-2">
+                    <div>
+                        <h6 class="mb-0">所属セッション</h6>
+                        <div class="text-muted small">${sessionCount}件</div>
+                    </div>
+                    ${createButton}
+                </div>
+                <div class="group-session-list">
+                    ${sessionItems}
+                </div>
+            </div>
+        `;
+    }
+
+    function renderTemporaryMembersSection(data) {
+        if (!data?.can_view_temporary_members) {
+            return '';
+        }
+
+        const members = data.temporary_members || [];
+        const canManage = Boolean(data.can_manage_temporary_members);
+        const canRequestClaim = Boolean(currentGroupDetail?.is_member) && !canManage;
+        const addButton = canManage ? `
+            <button class="btn btn-sm btn-outline-primary" type="button" onclick="openTemporaryMemberModal()">
+                <i class="fas fa-user-plus"></i> 仮メンバー追加
+            </button>
+        ` : '';
+        const items = members.length > 0
+            ? members.map(member => {
+                const linkedCount = Number(member.linked_session_count || 0);
+                const linkedText = linkedCount > 0
+                    ? `<div class="small text-muted">${linkedCount}件のセッション履歴に紐づき</div>`
+                    : '';
+                return `
+                    <div class="temporary-member-item">
+                        <div class="d-flex flex-column flex-lg-row justify-content-between gap-2">
+                            <div>
+                                <div class="fw-semibold">
+                                    <i class="fas fa-user-clock"></i> ${escapeHtml(member.display_name)}
+                                    <span class="badge bg-secondary ms-2">未登録</span>
+                                </div>
+                                ${linkedText}
+                            </div>
+                            ${canManage ? `
+                                <div class="d-flex align-items-start gap-2">
+                                    <button class="btn btn-sm btn-outline-secondary" type="button" onclick="openTemporaryMemberModal(${member.id})">
+                                        編集
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" type="button" onclick="removeTemporaryMember(${member.id})">
+                                        削除
+                                    </button>
+                                </div>
+                            ` : ''}
+                            ${canRequestClaim ? `
+                                <div class="d-flex align-items-start gap-2">
+                                    <button class="btn btn-sm btn-outline-success" type="button" onclick="requestTemporaryMemberClaim(${member.id})">
+                                        これは自分です
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('')
+            : '<p class="text-muted mb-0">仮メンバーはまだ登録されていません。</p>';
+
+        return `
+            <div class="mt-4">
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-2">
+                    <div>
+                        <h6 class="mb-0">仮メンバー</h6>
+                        <div class="text-muted small">${members.length}人</div>
+                    </div>
+                    ${addButton}
+                </div>
+                <div class="temporary-member-list">
+                    ${items}
+                </div>
+            </div>
+        `;
+    }
+
+    function renderTemporaryMemberClaimsSection(data) {
+        const claims = data?.claim_requests || [];
+        if (!data?.can_manage_claim_requests) {
+            return '';
+        }
+        const items = claims.length > 0
+            ? claims.map(claim => `
+                <div class="temporary-member-item">
+                    <div class="d-flex flex-column flex-lg-row justify-content-between gap-2">
+                        <div>
+                            <div class="fw-semibold">${escapeHtml(claim.target_display_name || '')}</div>
+                            <div class="small text-muted">
+                                申請者: ${escapeHtml(claim.requested_by_name || '')}
+                                ${claim.message ? ` / ${escapeHtml(claim.message)}` : ''}
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-start gap-2">
+                            <button class="btn btn-sm btn-outline-success" type="button" onclick="approveTemporaryMemberClaim(${Number(claim.id)})">
+                                承認
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" type="button" onclick="rejectTemporaryMemberClaim(${Number(claim.id)})">
+                                却下
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('')
+            : '<p class="text-muted mb-0">保留中のclaim申請はありません。</p>';
+
+        return `
+            <div class="mt-4">
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                    <h6 class="mb-0">仮メンバーclaim申請</h6>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" onclick="showGroupDetail(${currentGroupId})">
+                        更新
+                    </button>
+                </div>
+                <div class="temporary-member-list">
+                    ${items}
+                </div>
+            </div>
+        `;
+    }
+
+    function inviteLinkStatus(link) {
+        if (link.revoked_at) {
+            return { label: '失効済み', badge: 'secondary' };
+        }
+        if (link.is_active) {
+            return { label: '有効', badge: 'success' };
+        }
+        const expiresAt = link.expires_at ? new Date(link.expires_at) : null;
+        if (expiresAt && !Number.isNaN(expiresAt.getTime()) && expiresAt <= new Date()) {
+            return { label: '期限切れ', badge: 'warning' };
+        }
+        if (link.use_count >= link.max_uses) {
+            return { label: '使用上限', badge: 'warning' };
+        }
+        return { label: '無効', badge: 'secondary' };
+    }
+
+    function renderInviteLinks(links) {
+        const container = document.getElementById('inviteLinksList');
+        if (!container) return;
+
+        if (!links.length) {
+            container.innerHTML = '<p class="text-muted mb-0">発行済みURLはありません。</p>';
+            return;
+        }
+
+        container.innerHTML = links.map(link => {
+            const status = inviteLinkStatus(link);
+            const canRevoke = Boolean(link.is_active);
+            return `
+                <div class="invite-link-item">
+                    <div class="d-flex flex-column flex-lg-row justify-content-between gap-2">
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="badge bg-${status.badge}">${status.label}</span>
+                                <span class="small text-muted">使用 ${link.use_count} / ${link.max_uses}</span>
+                            </div>
+                            <div class="small text-muted">発行日: ${formatDate(link.created_at)}</div>
+                            <div class="small text-muted">期限: ${formatDateTime(link.expires_at)}</div>
+                        </div>
+                        <div class="d-flex align-items-start">
+                            ${canRevoke ? `
+                                <button class="btn btn-sm btn-outline-danger" type="button" onclick="revokeInviteLink(${link.id})">
+                                    失効
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function loadInviteLinks() {
+        const container = document.getElementById('inviteLinksList');
+        if (!container || !currentGroupId) return;
+
+        container.innerHTML = `
+            <div class="text-center py-3">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        `;
+
+        try {
+            const response = await axios.get(`/api/accounts/groups/${currentGroupId}/invite-links/`);
+            renderInviteLinks(response.data || []);
+        } catch (error) {
+            console.error('Error loading invite links:', error);
+            container.innerHTML = '<div class="alert alert-danger mb-0">招待URLの読み込みに失敗しました。</div>';
+        }
     }
 
     function isDevelopmentGroup(group) {
@@ -698,8 +1042,47 @@ document.addEventListener('DOMContentLoaded', function() {
             // メンバー情報取得
             const membersResponse = await axios.get(`/api/accounts/groups/${groupId}/members/`);
             const members = membersResponse.data;
+            let sessionsData = {
+                session_count: group.session_count || 0,
+                can_view_sessions: false,
+                can_create_session: false,
+                sessions: []
+            };
+            try {
+                const sessionsResponse = await axios.get(`/api/accounts/groups/${groupId}/sessions/`);
+                sessionsData = sessionsResponse.data;
+            } catch (sessionError) {
+                console.error('Error loading group sessions:', sessionError);
+            }
+            let temporaryMembersData = {
+                can_view_temporary_members: false,
+                can_manage_temporary_members: false,
+                temporary_members: []
+            };
+            let temporaryMemberClaimsData = {
+                can_manage_claim_requests: false,
+                claim_requests: []
+            };
+            try {
+                const temporaryMembersResponse = await axios.get(`/api/accounts/groups/${groupId}/temporary-members/`);
+                temporaryMembersData = temporaryMembersResponse.data;
+                currentTemporaryMembers = temporaryMembersData.temporary_members || [];
+            } catch (temporaryMemberError) {
+                console.error('Error loading temporary members:', temporaryMemberError);
+                currentTemporaryMembers = [];
+            }
             const isAdmin = group.member_role === 'admin';
             const isMember = group.is_member;
+            if (isAdmin) {
+                try {
+                    const claimResponse = await axios.get(`/api/accounts/groups/${groupId}/temporary-member-claims/`);
+                    temporaryMemberClaimsData = claimResponse.data;
+                    currentTemporaryMemberClaimRequests = temporaryMemberClaimsData.claim_requests || [];
+                } catch (claimError) {
+                    console.error('Error loading temporary member claims:', claimError);
+                    currentTemporaryMemberClaimRequests = [];
+                }
+            }
             const adminCount = members.filter(member => member.role === 'admin').length;
             let actionButtons = '';
 
@@ -712,6 +1095,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         <button class="btn btn-outline-primary w-100 mb-2" onclick="openInviteLinkModal(${group.id})">
                             <i class="fas fa-link"></i> 招待URLを発行
                         </button>
+                        <a class="btn btn-outline-success w-100 mb-2" href="${getGroupSessionCreateUrl(group.id)}">
+                            <i class="fas fa-calendar-plus"></i> セッションを作成
+                        </a>
                         <button class="btn btn-outline-primary w-100 mb-2" onclick="openEditGroupModal()">
                             <i class="fas fa-pen"></i> グループを編集
                         </button>
@@ -723,6 +1109,9 @@ document.addEventListener('DOMContentLoaded', function() {
             } else if (isMember) {
                 actionButtons = `
                     <div class="mt-3">
+                        <a class="btn btn-outline-primary w-100 mb-2" href="${getGroupSessionCreateUrl(group.id)}">
+                            <i class="fas fa-calendar-plus"></i> セッションを作成
+                        </a>
                         <button class="btn btn-outline-danger w-100" onclick="leaveGroup(${group.id})">
                             <i class="fas fa-sign-out-alt"></i> グループを退出
                         </button>
@@ -774,6 +1163,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 `;
             }).join('');
+            const temporaryMembersHtml = renderTemporaryMembersSection(temporaryMembersData);
+            const temporaryMemberClaimsHtml = renderTemporaryMemberClaimsSection(temporaryMemberClaimsData);
             
             titleEl.textContent = group.name;
             bodyEl.innerHTML = `
@@ -795,11 +1186,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="stat-label">総プレイ時間</div>
                             </div>
                         </div>
+
+                        ${renderGroupSessionsSection(group, sessionsData)}
                         
                         <h6 class="mt-4">メンバー一覧</h6>
                         <div class="members-list">
                             ${membersHtml || '<p class="text-muted mb-0">メンバーがいません</p>'}
                         </div>
+                        ${temporaryMembersHtml}
+                        ${temporaryMemberClaimsHtml}
                     </div>
                     <div class="col-md-4">
                         <div class="card bg-dark">
@@ -847,7 +1242,147 @@ document.addEventListener('DOMContentLoaded', function() {
         modal.show();
     };
 
+    window.openTemporaryMemberModal = function(identityId = null) {
+        editingTemporaryMemberId = identityId;
+        const member = identityId
+            ? currentTemporaryMembers.find(item => item.id === Number(identityId))
+            : null;
+        if (identityId && !member) {
+            ARKHAM.showError('仮メンバーが見つかりません');
+            return;
+        }
+
+        const form = document.getElementById('temporaryMemberForm');
+        form.reset();
+        document.getElementById('temporaryMemberModalTitle').textContent = member ? '仮メンバー編集' : '仮メンバー登録';
+        document.getElementById('temporaryMemberName').value = member?.display_name || '';
+
+        const modal = new bootstrap.Modal(document.getElementById('temporaryMemberModal'));
+        modal.show();
+        setTimeout(() => document.getElementById('temporaryMemberName')?.focus(), 150);
+    };
+
+    document.getElementById('saveTemporaryMemberBtn')?.addEventListener('click', async function() {
+        if (!currentGroupId) {
+            ARKHAM.showError('対象グループが見つかりません');
+            return;
+        }
+
+        const form = document.getElementById('temporaryMemberForm');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const displayName = document.getElementById('temporaryMemberName').value.trim();
+        if (!displayName) {
+            ARKHAM.showError('表示名を入力してください');
+            return;
+        }
+
+        const button = this;
+        button.disabled = true;
+        try {
+            const data = { display_name: displayName };
+            if (editingTemporaryMemberId) {
+                await axios.patch(
+                    `/api/accounts/groups/${currentGroupId}/temporary-members/${editingTemporaryMemberId}/`,
+                    data
+                );
+                ARKHAM.showSuccess('仮メンバーを更新しました');
+            } else {
+                await axios.post(`/api/accounts/groups/${currentGroupId}/temporary-members/`, data);
+                ARKHAM.showSuccess('仮メンバーを登録しました');
+            }
+
+            bootstrap.Modal.getInstance(document.getElementById('temporaryMemberModal'))?.hide();
+            editingTemporaryMemberId = null;
+            await showGroupDetail(currentGroupId);
+        } catch (error) {
+            console.error('Error saving temporary member:', error);
+            ARKHAM.handleError(error);
+        } finally {
+            button.disabled = false;
+        }
+    });
+
+    window.removeTemporaryMember = async function(identityId) {
+        if (!currentGroupId) {
+            ARKHAM.showError('対象グループが見つかりません');
+            return;
+        }
+
+        const confirmed = await confirmAction('この仮メンバーを削除しますか？', {
+            title: '仮メンバーを削除',
+            confirmText: '削除する',
+            cancelText: 'キャンセル',
+            variant: 'danger'
+        });
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            const response = await axios.delete(`/api/accounts/groups/${currentGroupId}/temporary-members/${identityId}/`);
+            if (response.data?.deleted === false) {
+                ARKHAM.showSuccess('セッション履歴に紐づくため、仮メンバーを非表示にしました');
+            } else {
+                ARKHAM.showSuccess('仮メンバーを削除しました');
+            }
+            await showGroupDetail(currentGroupId);
+        } catch (error) {
+            console.error('Error removing temporary member:', error);
+            ARKHAM.handleError(error);
+        }
+    };
+
     // メンバー招待
+    window.requestTemporaryMemberClaim = async function(identityId) {
+        if (!currentGroupId) {
+            ARKHAM.showError('対象グループが見つかりません');
+            return;
+        }
+        try {
+            await axios.post(`/api/accounts/groups/${currentGroupId}/temporary-members/${identityId}/claim-requests/`, {
+                message: 'これは自分です'
+            });
+            ARKHAM.showSuccess('claim申請を送信しました。管理者の承認を待ってください。');
+        } catch (error) {
+            console.error('Error requesting temporary member claim:', error);
+            ARKHAM.handleError(error);
+        }
+    };
+
+    window.approveTemporaryMemberClaim = async function(claimId) {
+        if (!currentGroupId) {
+            ARKHAM.showError('対象グループが見つかりません');
+            return;
+        }
+        try {
+            await axios.post(`/api/accounts/groups/${currentGroupId}/temporary-member-claims/${claimId}/approve/`, {});
+            ARKHAM.showSuccess('claim申請を承認しました。');
+            await showGroupDetail(currentGroupId);
+        } catch (error) {
+            console.error('Error approving temporary member claim:', error);
+            ARKHAM.handleError(error);
+        }
+    };
+
+    window.rejectTemporaryMemberClaim = async function(claimId) {
+        if (!currentGroupId) {
+            ARKHAM.showError('対象グループが見つかりません');
+            return;
+        }
+        try {
+            await axios.post(`/api/accounts/groups/${currentGroupId}/temporary-member-claims/${claimId}/reject/`, {});
+            ARKHAM.showSuccess('claim申請を却下しました。');
+            await showGroupDetail(currentGroupId);
+        } catch (error) {
+            console.error('Error rejecting temporary member claim:', error);
+            ARKHAM.handleError(error);
+        }
+    };
+
     window.inviteMembers = async function(groupId) {
         const modal = new bootstrap.Modal(document.getElementById('inviteMemberModal'));
         const container = document.getElementById('inviteFriendsList');
@@ -897,9 +1432,12 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('generatedInviteLink').value = '';
         document.getElementById('inviteLinkExpiresHours').value = '168';
         document.getElementById('inviteLinkMaxUses').value = '1';
+        loadInviteLinks();
         const modal = new bootstrap.Modal(document.getElementById('inviteLinkModal'));
         modal.show();
     };
+
+    document.getElementById('refreshInviteLinksBtn')?.addEventListener('click', loadInviteLinks);
 
     document.getElementById('createInviteLinkBtn').addEventListener('click', async function() {
         if (!currentGroupId) {
@@ -916,6 +1454,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             document.getElementById('generatedInviteLink').value = response.data.invitation_url;
             ARKHAM.showSuccess('招待URLを発行しました');
+            await loadInviteLinks();
         } catch (error) {
             console.error('Error creating invite link:', error);
             ARKHAM.handleError(error);
@@ -940,6 +1479,32 @@ document.addEventListener('DOMContentLoaded', function() {
             ARKHAM.showSuccess('招待URLをコピーしました');
         }
     });
+
+    window.revokeInviteLink = async function(linkId) {
+        if (!currentGroupId) {
+            ARKHAM.showError('対象グループが見つかりません');
+            return;
+        }
+
+        const confirmed = await confirmAction('この招待URLを失効しますか？', {
+            title: '招待URLを失効',
+            confirmText: '失効する',
+            cancelText: 'キャンセル',
+            variant: 'danger'
+        });
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            await axios.delete(`/api/accounts/groups/${currentGroupId}/invite-links/${linkId}/`);
+            ARKHAM.showSuccess('招待URLを失効しました');
+            await loadInviteLinks();
+        } catch (error) {
+            console.error('Error revoking invite link:', error);
+            ARKHAM.handleError(error);
+        }
+    };
 
     // グループ作成
     document.getElementById('saveGroupBtn').addEventListener('click', async function() {

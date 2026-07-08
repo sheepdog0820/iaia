@@ -12,6 +12,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import CharacterSheet, Group
 from schedules.google_tokens import get_google_access_token
+from schedules import session_permissions
 from schedules.models import AsyncJob, CalendarSubscription, GoogleCalendarSync, GoogleIntegration, TRPGSession
 from schedules.tasks import sync_google_calendar
 
@@ -31,18 +32,20 @@ class CalendarSubscriptionTestCase(APITestCase):
         )
         self.group = Group.objects.create(name="Calendar Group", created_by=self.user)
         self.other_group = Group.objects.create(name="Other Group", created_by=self.other)
-        TRPGSession.objects.create(
+        future_session = TRPGSession.objects.create(
             title="Owned Future Session",
             gm=self.user,
             group=self.group,
             date=timezone.now() + timedelta(days=10),
         )
-        TRPGSession.objects.create(
+        undated_session = TRPGSession.objects.create(
             title="Owned Undated Session",
             gm=self.user,
             group=self.group,
             date=None,
         )
+        session_permissions.create_participant(session=future_session, user=self.user, role="gm")
+        session_permissions.create_participant(session=undated_session, user=self.user, role="gm")
         TRPGSession.objects.create(
             title="Private Other Session",
             gm=self.other,
@@ -79,6 +82,23 @@ class CalendarSubscriptionTestCase(APITestCase):
             self.client.get(f"/calendar/subscribe/{second}.ics").status_code,
             status.HTTP_200_OK,
         )
+
+    def test_subscription_marks_gm_participant_role_without_legacy_gm(self):
+        role_session = TRPGSession.objects.create(
+            title="Role GM Subscription Session",
+            gm=None,
+            created_by=self.user,
+            group=self.group,
+            date=timezone.now() + timedelta(days=12),
+        )
+        session_permissions.create_participant(session=role_session, user=self.user, role="gm")
+
+        token = self.client.post("/api/calendar/subscription-token/rotate/").data["token"]
+        feed = self.client.get(f"/calendar/subscribe/{token}.ics")
+        content = feed.content.decode("utf-8")
+
+        self.assertEqual(feed.status_code, status.HTTP_200_OK)
+        self.assertIn("SUMMARY:[GM] Role GM Subscription Session", content)
 
 
 class GoogleIntegrationTestCase(APITestCase):

@@ -10,6 +10,7 @@ from rest_framework import serializers
 
 from scenarios.models import Scenario
 from schedules.duration import effective_duration_expression
+from schedules.models import ParticipantIdentity
 
 from .character_image_limits import character_image_limit_error_message, get_character_image_limit_for_sheet
 from .character_models import (
@@ -118,6 +119,47 @@ class GroupMembershipSerializer(serializers.ModelSerializer):
         model = GroupMembership
         fields = ["id", "user", "user_detail", "user_username", "user_nickname", "role", "joined_at"]
         read_only_fields = ["id", "joined_at"]
+
+
+class GroupTemporaryMemberSerializer(serializers.ModelSerializer):
+    user_detail = PublicUserSerializer(source="user", read_only=True)
+    linked_session_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ParticipantIdentity
+        fields = [
+            "id",
+            "group",
+            "display_name",
+            "normalized_name",
+            "user",
+            "user_detail",
+            "is_active",
+            "linked_session_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "group",
+            "normalized_name",
+            "user",
+            "user_detail",
+            "is_active",
+            "linked_session_count",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate_display_name(self, value):
+        value = (value or "").strip()
+        if not value:
+            raise serializers.ValidationError("display_name is required.")
+        return value
+
+    @extend_schema_field(OpenApiTypes.INT)
+    def get_linked_session_count(self, obj):
+        return getattr(obj, "linked_session_count", obj.session_participations.count())
 
 
 class GroupSerializer(serializers.ModelSerializer):

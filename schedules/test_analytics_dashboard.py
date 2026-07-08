@@ -1,3 +1,4 @@
+from schedules import session_permissions
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -58,9 +59,9 @@ class SessionAnalyticsDashboardApiTestCase(APITestCase):
             duration_minutes=240,
         )
 
-        SessionParticipant.objects.create(session=self.session1, user=self.player1, role="player")
-        SessionParticipant.objects.create(session=self.session2, user=self.player1, role="player")
-        SessionParticipant.objects.create(session=self.session2, user=self.player2, role="player")
+        session_permissions.create_participant(session=self.session1, user=self.player1, role="player")
+        session_permissions.create_participant(session=self.session2, user=self.player1, role="player")
+        session_permissions.create_participant(session=self.session2, user=self.player2, role="player")
 
     def test_dashboard_returns_expected_shape(self):
         self.client.force_authenticate(user=self.gm)

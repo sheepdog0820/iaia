@@ -3,6 +3,7 @@
 基本的なセッションとキャラクターの連携を確認
 """
 
+from schedules import session_permissions
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -74,7 +75,7 @@ class SimpleSessionCharacterTest(TestCase):
         self.assertEqual(session.group, self.group)
 
         # キャラクター参加
-        participant = SessionParticipant.objects.create(
+        participant = session_permissions.create_participant(
             session=session, user=self.player, character_name=self.character.name
         )
 
@@ -160,9 +161,9 @@ class SimpleSessionCharacterTest(TestCase):
         )
 
         # 両方のキャラクターが参加
-        SessionParticipant.objects.create(session=session, user=self.player, character_name=self.character.name)
+        session_permissions.create_participant(session=session, user=self.player, character_name=self.character.name)
 
-        SessionParticipant.objects.create(session=session, user=player2, character_name=character2.name)
+        session_permissions.create_participant(session=session, user=player2, character_name=character2.name)
 
         # 参加者数確認
         participants = SessionParticipant.objects.filter(session=session)

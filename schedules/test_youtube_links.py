@@ -2,6 +2,7 @@
 セッションYouTubeリンク機能のテスト
 """
 
+from schedules import session_permissions
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
@@ -210,7 +211,7 @@ class SessionYouTubeLinkAPITestCase(APITestCase):
         )
 
         # 参加者追加
-        SessionParticipant.objects.create(session=self.session, user=self.player1, role="player")
+        session_permissions.create_participant(session=self.session, user=self.player1, role="player")
 
     @patch("schedules.services.YouTubeService.fetch_video_info")
     def test_gm_can_add_youtube_link(self, mock_fetch):
@@ -767,7 +768,7 @@ class YouTubeLinkStatisticsAPITestCase(APITestCase):
         )
 
         # 参加者追加
-        SessionParticipant.objects.create(session=self.session, user=self.player, role="player")
+        session_permissions.create_participant(session=self.session, user=self.player, role="player")
 
         # テスト動画追加
         from schedules.models import SessionYouTubeLink

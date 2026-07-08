@@ -146,6 +146,13 @@
 
                     <div class="mb-3">
                         <label for="sessionScenarioSelect" class="form-label">関連シナリオ</label>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="sessionSelfAsGm" checked>
+                            <label class="form-check-label" for="sessionSelfAsGm">
+                                自分をKP/GMにする
+                            </label>
+                            <div class="form-text">OFFの場合、作成者は基本情報の管理者になり、KP/GMと秘匿管理者は後から設定します。</div>
+                        </div>
                         <div class="input-group">
                             <select class="form-select" id="sessionScenarioSelect">
                                 <option value="">未設定</option>
@@ -711,6 +718,24 @@ document.addEventListener('DOMContentLoaded', function() {
         return openCreate === '1' || openCreate === 'true';
     }
 
+    function requestedCreateGroupId() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('group_id') || params.get('group') || '';
+    }
+
+    function selectRequestedCreateGroup() {
+        const requestedGroup = requestedCreateGroupId();
+        const select = document.getElementById('sessionGroup');
+        if (!requestedGroup || !select) return false;
+        if (!Array.from(select.options).some(option => option.value === requestedGroup)) return false;
+
+        if (select.value !== requestedGroup) {
+            select.value = requestedGroup;
+        }
+        loadGroupMembers(requestedGroup);
+        return true;
+    }
+
     async function fetchScenarioDetail(scenarioId) {
         const numericId = parseInt(scenarioId, 10);
         if (!Number.isFinite(numericId) || numericId <= 0) return null;
@@ -1028,6 +1053,8 @@ document.addEventListener('DOMContentLoaded', function() {
             select.innerHTML = '<option value="">グループを選択...</option>' +
                 userGroups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
 
+            selectRequestedCreateGroup();
+
         } catch (error) {
             console.error('Error loading groups:', error);
         }
@@ -1233,7 +1260,8 @@ document.addEventListener('DOMContentLoaded', function() {
             description: document.getElementById('sessionDescription').value,
             youtube_url: document.getElementById('sessionYoutube').value,
             visibility: document.getElementById('sessionVisibility').value,
-            coc_edition: document.getElementById('sessionCocEdition').value
+            coc_edition: document.getElementById('sessionCocEdition').value,
+            as_gm: document.getElementById('sessionSelfAsGm')?.checked || false
         };
         const scenarioId = document.getElementById('sessionScenarioId')?.value;
         if (scenarioId) {
@@ -1274,7 +1302,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初期化
     initCalendar();
     loadUpcomingSessions();
-    loadGroups();
+    const groupsLoadedPromise = loadGroups();
     loadScenarioChoices();
 
     const newSessionModalEl = document.getElementById('newSessionModal');
@@ -1282,6 +1310,7 @@ document.addEventListener('DOMContentLoaded', function() {
         setCreateMode('new');
         loadScenarioLink();
         loadScenarioChoices();
+        groupsLoadedPromise.then(selectRequestedCreateGroup);
     });
 
     document.getElementById('clearSessionScenario')?.addEventListener('click', () => {

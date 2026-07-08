@@ -425,7 +425,9 @@ SPECTACULAR_SETTINGS = {
         "SessionVisibilityEnum": "schedules.models.TRPGSession.VISIBILITY_CHOICES",
         "ScenarioVisibilityEnum": "scenarios.models.Scenario.VISIBILITY_CHOICES",
         "GroupMemberRoleEnum": "accounts.models.GroupMembership.ROLE_CHOICES",
-        "SessionParticipantRoleEnum": "schedules.models.SessionParticipant.ROLE_CHOICES",
+        "SessionParticipantRoleEnum": "schedules.models.SessionParticipantRole.Role",
+        "SessionPermissionRoleEnum": "schedules.models.SessionPermission.Role",
+        "SessionInvitationInvitedRoleEnum": "schedules.models.SessionInvitation.INVITED_ROLE_CHOICES",
         "PlayerSlotEnum": "schedules.models.SessionParticipant.PLAYER_SLOT_CHOICES",
     },
 }

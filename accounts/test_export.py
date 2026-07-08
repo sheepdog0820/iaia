@@ -2,6 +2,7 @@
 統計データエクスポート機能のテストケース
 """
 
+from schedules import session_permissions
 import csv
 import json
 from contextlib import redirect_stdout
@@ -55,7 +56,7 @@ class ExportFunctionalityTestCase(APITestCase):
         )
 
         # 参加者とプレイ履歴作成
-        SessionParticipant.objects.create(session=self.session, user=self.user, role="gm")
+        session_permissions.create_participant(session=self.session, user=self.user, role="gm")
         PlayHistory.objects.create(
             scenario=self.scenario, user=self.user, session=self.session, played_date=self.session.date, role="gm"
         )

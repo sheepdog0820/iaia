@@ -2,6 +2,7 @@
 GMハンドアウト管理機能のテスト
 """
 
+from schedules import session_permissions
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
@@ -10,6 +11,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import Group
 
+from . import session_permissions
 from .models import HandoutInfo, SessionParticipant, TRPGSession
 
 User = get_user_model()
@@ -46,13 +48,14 @@ class HandoutManagementTestCase(APITestCase):
         )
 
         # 参加者作成
-        self.gm_participant = SessionParticipant.objects.create(session=self.session, user=self.gm_user, role="gm")
+        self.gm_participant = session_permissions.create_participant(session=self.session, user=self.gm_user, role="gm")
+        session_permissions.assign_session_gm(self.session, self.gm_user, granted_by=self.gm_user)
 
-        self.player1_participant = SessionParticipant.objects.create(
+        self.player1_participant = session_permissions.create_participant(
             session=self.session, user=self.player1, role="player", character_name="探索者A"
         )
 
-        self.player2_participant = SessionParticipant.objects.create(
+        self.player2_participant = session_permissions.create_participant(
             session=self.session, user=self.player2, role="player", character_name="探索者B"
         )
 
@@ -303,8 +306,9 @@ class HandoutManagementIntegrationTestCase(TestCase):
             group=self.group,
             duration_minutes=180,
         )
+        session_permissions.assign_session_gm(self.session, self.gm_user, granted_by=self.gm_user)
 
-        self.player1_participant = SessionParticipant.objects.create(
+        self.player1_participant = session_permissions.create_participant(
             session=self.session, user=self.player1, role="player", character_name="Test Character"
         )
 
@@ -349,7 +353,7 @@ class HandoutManagementIntegrationTestCase(TestCase):
         # 6. 他のプレイヤーからは秘匿ハンドアウトが見えないことを確認
         other_player = User.objects.create_user(username="other_player", email="other@example.com", password="pass123")
 
-        SessionParticipant.objects.create(session=self.session, user=other_player, role="player")
+        session_permissions.create_participant(session=self.session, user=other_player, role="player")
 
         self.client.login(username="other_player", password="pass123")
         response = self.client.get(f"/api/schedules/sessions/{self.session.id}/detail/")

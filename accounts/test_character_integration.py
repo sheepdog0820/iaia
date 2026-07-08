@@ -3,6 +3,7 @@
 作成、参照、編集、バージョン管理の一連の流れをテスト
 """
 
+from schedules import session_permissions
 import io
 import json
 import math
@@ -922,7 +923,7 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
         print(f"OK セッション作成: {session.title}")
 
         # セッション参加者としてキャラクターを登録
-        participant = SessionParticipant.objects.create(
+        participant = session_permissions.create_participant(
             session=session,
             user=self.user,
             role="player",
@@ -932,7 +933,7 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
         print("OK セッション参加者登録: 成功")
 
         # GMも参加者として登録
-        gm_participant = SessionParticipant.objects.create(session=session, user=gm_user, role="gm")
+        gm_participant = session_permissions.create_participant(session=session, user=gm_user, role="gm")
 
         # ハンドアウトを作成
         from schedules.models import HandoutInfo

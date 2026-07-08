@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 from accounts.character_detail_context import build_character_detail_context
 from accounts.character_image_utils import get_character_preview_image_field
 from accounts.character_models import CharacterSheet
-from accounts.models import GroupMembership, ShareLink
+from accounts.models import ShareLink
 from accounts.serializers import CharacterImageSerializer
 from accounts.share_serializers import (
     FixedShareUrlIssueSerializer,
@@ -27,7 +27,8 @@ from accounts.share_serializers import (
 )
 from accounts.views.character_image_views import build_character_images_zip_response
 from scenarios.models import Scenario
-from schedules.models import DatePoll, HandoutInfo, SessionParticipant, TRPGSession
+from schedules import session_permissions
+from schedules.models import DatePoll, HandoutInfo, SessionParticipant, SessionParticipantRole, TRPGSession
 
 SHARED_API_NAMES = {
     ShareLink.ResourceType.CHARACTER: "shared-character-detail",
@@ -44,26 +45,7 @@ FIXED_SHARED_VIEW_NAMES = {
 
 
 def _can_manage_session(session, user):
-    if not user or not user.is_authenticated:
-        return False
-    if session.gm_id == user.id:
-        return True
-    if getattr(session, "created_by_id", None) == user.id:
-        return True
-    if session.group_id:
-        if session.group.created_by_id == user.id:
-            return True
-        if GroupMembership.objects.filter(
-            group_id=session.group_id,
-            user=user,
-            role="admin",
-        ).exists():
-            return True
-    return SessionParticipant.objects.filter(
-        session=session,
-        user=user,
-        role="gm",
-    ).exists()
+    return session_permissions.can_manage_share_links(user, session)
 
 
 def _build_share_url(request, resource_type, token):
@@ -205,9 +187,24 @@ def _attach_participant_character_share_urls(request, participants):
         )
 
 
+def _attach_participant_role_flags(participants):
+    for participant in participants:
+        role_values = set(participant.participant_roles.values_list("role", flat=True))
+        participant.role_values = sorted(role_values)
+        participant.is_gm_role = SessionParticipantRole.Role.GM.value in role_values
+        participant.is_player_role = SessionParticipantRole.Role.PLAYER.value in role_values
+        participant.is_observer_role = SessionParticipantRole.Role.OBSERVER.value in role_values
+    return participants
+
+
 def _build_session_detail_context(request, session, *, is_public_view):
-    participants = SessionParticipant.objects.filter(session=session).select_related("user", "character_sheet")
+    participants = (
+        SessionParticipant.objects.filter(session=session)
+        .select_related("user", "character_sheet")
+        .prefetch_related("participant_roles")
+    )
     _attach_participant_character_share_urls(request, participants)
+    _attach_participant_role_flags(participants)
 
     guest_count = participants.filter(user__isnull=True).count()
     occurrences = session.occurrences.prefetch_related("participants").order_by("start_at", "id")
@@ -248,7 +245,7 @@ def _build_session_detail_context(request, session, *, is_public_view):
     user = request.user
     user_participant = participants.filter(user=user).first()
     is_gm = session.gm == user
-    is_co_gm = participants.filter(user=user, role="gm").exists()
+    is_co_gm = participants.filter(user=user, participant_roles__role=SessionParticipantRole.Role.GM).exists()
     is_session_manager = _can_manage_session(session, user)
     is_participant = participants.filter(user=user).exists()
 
