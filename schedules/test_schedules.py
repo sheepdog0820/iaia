@@ -1247,6 +1247,7 @@ class PublicSessionLinkTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertContains(response, 'id="copyPublicSessionLinkBtn"')
         self.assertContains(response, 'data-share-url=""')
+        self.assertContains(response, 'const PUBLIC_SESSION_URL = "";')
         self.assertNotContains(response, f"/share/sessions/{self.session.share_token}/view/")
 
     def test_fixed_session_share_view_has_copy_link_button(self):
