@@ -221,6 +221,39 @@ class CharacterSheetAPITest(APITestCase):
         character = CharacterSheet.objects.get(id=response.data["id"])
         self.assertTrue(character.images.exists())
 
+    def test_create_6th_edition_character_with_non_default_occupation_point_method(self):
+        """6版作成APIは選択された職業技能ポイント方式で技能超過を判定する"""
+        data = dict(self.character_data_6th)
+        data.update(
+            {
+                "name": "6th DEX method PC",
+                "edu_value": 10,
+                "dex_value": 18,
+                "occupation_point_method": "edu10dex10",
+                "skills": [
+                    {
+                        "skill_name": "回避",
+                        "base_value": 36,
+                        "occupation_points": 280,
+                        "interest_points": 0,
+                        "other_points": 0,
+                    }
+                ],
+            }
+        )
+
+        response = self.client.post(
+            "/api/accounts/character-sheets/create_6th_edition/",
+            data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        character = CharacterSheet.objects.get(id=response.data["id"])
+        self.assertEqual(character.occupation_point_method, "edu10dex10")
+        self.assertEqual(character.calculate_occupation_points(), 280)
+        self.assertEqual(character.calculate_used_occupation_points(), 280)
+
     def test_create_6th_edition_rejects_normal_user_over_image_limit(self):
         """通常ユーザーは作成APIで3枚以上の画像を添付できない"""
         data = dict(self.character_data_6th)
@@ -397,6 +430,77 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(character.calculate_hobby_points(), 180)
         self.assertEqual(character.calculate_used_occupation_points(), 20)
         self.assertEqual(character.calculate_used_hobby_points(), 3)
+
+    def test_create_7th_edition_character_with_non_default_occupation_point_method(self):
+        """7版作成APIはEDU×4以外の職業技能ポイント方式で保存できる"""
+        data = dict(self.character_data_7th)
+        data.update(
+            {
+                "name": "7th DEX method PC",
+                "edu_value": 50,
+                "dex_value": 90,
+                "occupation_point_method": "edu2dex2",
+                "skills": [
+                    {
+                        "skill_name": "回避",
+                        "base_value": 45,
+                        "occupation_points": 280,
+                        "interest_points": 0,
+                        "other_points": 0,
+                        "current_value": 325,
+                    }
+                ],
+            }
+        )
+
+        response = self.client.post(
+            "/api/accounts/character-sheets/create_7th_edition/",
+            data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        character = CharacterSheet.objects.get(id=response.data["id"])
+        self.assertEqual(character.occupation_point_method, "edu2dex2")
+        self.assertEqual(character.calculate_occupation_points(), 280)
+        self.assertEqual(character.calculate_used_occupation_points(), 280)
+        self.assertEqual(response.data["character_7th"]["occupation_points"], 280)
+
+    def test_update_7th_edition_character_with_non_default_occupation_point_method_allows_skill_sync(self):
+        """7版編集時も保存済みの職業技能ポイント方式で技能同期できる"""
+        data = dict(self.character_data_7th)
+        data.update({"name": "7th edit method PC", "edu_value": 50, "dex_value": 90})
+        create_response = self.client.post(
+            "/api/accounts/character-sheets/create_7th_edition/",
+            data,
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        character_id = create_response.data["id"]
+
+        patch_response = self.client.patch(
+            f"/api/accounts/character-sheets/{character_id}/",
+            {"occupation_point_method": "edu2dex2"},
+            format="json",
+        )
+        self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
+
+        skill_response = self.client.post(
+            f"/api/accounts/character-sheets/{character_id}/skills/",
+            {
+                "skill_name": "回避",
+                "base_value": 45,
+                "occupation_points": 280,
+                "interest_points": 0,
+                "other_points": 0,
+            },
+            format="json",
+        )
+
+        self.assertEqual(skill_response.status_code, status.HTTP_201_CREATED)
+        character = CharacterSheet.objects.get(id=character_id)
+        self.assertEqual(character.occupation_point_method, "edu2dex2")
+        self.assertEqual(character.calculate_used_occupation_points(), 280)
 
     def test_create_7th_edition_character_with_equipment(self):
         """7版作成APIで武器・防具・アイテムを同時登録できる"""

@@ -394,6 +394,7 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             "age",
             "gender",
             "occupation",
+            "occupation_point_method",
             "birthplace",
             "residence",
             "recommended_skills",
@@ -646,6 +647,7 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             "age",
             "gender",
             "occupation",
+            "occupation_point_method",
             "birthplace",
             "residence",
             "recommended_skills",
@@ -697,6 +699,12 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             if value is not None:
                 if value < 1 or value > 999:
                     raise serializers.ValidationError({field: "能力値は1から999の間で設定してください。"})
+
+        occupation_point_method = data.get("occupation_point_method")
+        if occupation_point_method and occupation_point_method not in CharacterSheet.valid_occupation_point_methods_for_edition(
+            edition
+        ):
+            raise serializers.ValidationError({"occupation_point_method": "この版では利用できない計算方式です。"})
 
         return data
 
@@ -822,6 +830,7 @@ class CharacterSheetListSerializer(serializers.ModelSerializer):
             "player_name",
             "age",
             "occupation",
+            "occupation_point_method",
             "status",
             "version",
             "character_image",
@@ -929,6 +938,7 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
             "age",
             "gender",
             "occupation",
+            "occupation_point_method",
             "birthplace",
             "residence",
             "recommended_skills",
@@ -967,6 +977,16 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
             if existing.exists():
                 raise serializers.ValidationError("同じ名前のキャラクターが既に存在します。")
         return value
+
+    def validate(self, data):
+        """版に合わない職業技能ポイント方式を拒否する"""
+        occupation_point_method = data.get("occupation_point_method")
+        edition = self.instance.edition if self.instance else data.get("edition")
+        if occupation_point_method and occupation_point_method not in CharacterSheet.valid_occupation_point_methods_for_edition(
+            edition
+        ):
+            raise serializers.ValidationError({"occupation_point_method": "この版では利用できない計算方式です。"})
+        return data
 
     def update(self, instance, validated_data):
         """更新処理（画像削除対応）"""

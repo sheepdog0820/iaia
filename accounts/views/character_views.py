@@ -272,6 +272,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             "age": original_sheet.age,
             "gender": original_sheet.gender,
             "occupation": original_sheet.occupation,
+            "occupation_point_method": original_sheet.occupation_point_method,
             "birthplace": original_sheet.birthplace,
             "residence": original_sheet.residence,
             "source_scenario": original_sheet.source_scenario,
@@ -396,15 +397,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         """Get skill points summary for a character"""
         sheet = self.get_object()
 
-        # Calculate occupation skill points
-        if sheet.edition == "6th":
-            # Default is EDU × 20, but check for custom multiplier
-            occupation_total = sheet.edu_value * sheet.occupation_multiplier
-            hobby_total = sheet.int_value * 10
-        else:
-            # 7th edition (if implemented)
-            occupation_total = sheet.edu_value * 4
-            hobby_total = sheet.int_value * 2
+        occupation_total = sheet.calculate_occupation_points()
+        hobby_total = sheet.calculate_hobby_points()
 
         # Calculate used points
         skills = sheet.skills.all()
@@ -1059,6 +1053,16 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
 
         return Response(version_data)
 
+    @staticmethod
+    def _parse_occupation_point_method(request_data, edition):
+        """リクエストの職業技能ポイント方式を版別に検証する"""
+        occupation_point_method = (request_data.get("occupation_point_method") or "").strip()
+        if occupation_point_method and occupation_point_method not in CharacterSheet.valid_occupation_point_methods_for_edition(
+            edition
+        ):
+            raise ValueError("occupation_point_method is not valid for this edition")
+        return occupation_point_method
+
     @action(detail=False, methods=["post"])
     def create_6th_edition(self, request):
         """6th edition character creation endpoint (Cthulhu Mythos TRPG exclusive)"""
@@ -1142,6 +1146,11 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
+        try:
+            occupation_point_method = self._parse_occupation_point_method(request.data, "6th")
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
         scenario_id_raw = request.data.get("scenario_id")
         scenario_title = (request.data.get("scenario_title") or "").strip()
         scenario_game_system = (request.data.get("game_system") or "").strip()
@@ -1217,6 +1226,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                     "age": parse_int(request.data.get("age", 25), "age", min_value=0, max_value=999, default=25),
                     "gender": request.data.get("gender", ""),
                     "occupation": request.data.get("occupation", ""),
+                    "occupation_point_method": occupation_point_method,
                     "birthplace": request.data.get("birthplace", ""),
                     "residence": request.data.get("residence", ""),
                     "recommended_skills": recommended_skills,
@@ -1374,6 +1384,11 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
+        try:
+            occupation_point_method = self._parse_occupation_point_method(request.data, "7th")
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
         scenario_id_raw = request.data.get("scenario_id")
         scenario_title = (request.data.get("scenario_title") or "").strip()
         scenario_game_system = (request.data.get("game_system") or "").strip()
@@ -1405,6 +1420,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 "age": parse_int(request.data.get("age"), "age", min_value=15, max_value=999, default=25),
                 "gender": request.data.get("gender", ""),
                 "occupation": request.data.get("occupation", ""),
+                "occupation_point_method": occupation_point_method,
                 "birthplace": request.data.get("birthplace", ""),
                 "residence": request.data.get("residence", ""),
                 "recommended_skills": recommended_skills,

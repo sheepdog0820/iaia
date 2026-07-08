@@ -60,6 +60,46 @@ class CharacterSheet(models.Model):
         ("retired", "引退"),
     ]
 
+    OCCUPATION_POINT_METHODS_6TH = frozenset(
+        [
+            "edu20",
+            "edu10app10",
+            "edu10dex10",
+            "edu10pow10",
+            "edu10str10",
+            "edu10con10",
+            "edu10siz10",
+        ]
+    )
+    OCCUPATION_POINT_METHODS_7TH = frozenset(
+        [
+            "edu4",
+            "edu2app2",
+            "edu2dex2",
+            "edu2pow2",
+            "edu2str2",
+            "edu2con2",
+            "edu2siz2",
+        ]
+    )
+    OCCUPATION_POINT_METHOD_CHOICES = [
+        ("", "未指定"),
+        ("edu20", "EDU×20"),
+        ("edu10app10", "EDU×10＋APP×10"),
+        ("edu10dex10", "EDU×10＋DEX×10"),
+        ("edu10pow10", "EDU×10＋POW×10"),
+        ("edu10str10", "EDU×10＋STR×10"),
+        ("edu10con10", "EDU×10＋CON×10"),
+        ("edu10siz10", "EDU×10＋SIZ×10"),
+        ("edu4", "EDU×4"),
+        ("edu2app2", "EDU×2＋APP×2"),
+        ("edu2dex2", "EDU×2＋DEX×2"),
+        ("edu2pow2", "EDU×2＋POW×2"),
+        ("edu2str2", "EDU×2＋STR×2"),
+        ("edu2con2", "EDU×2＋CON×2"),
+        ("edu2siz2", "EDU×2＋SIZ×2"),
+    ]
+
     # 基本情報
     ACCESS_SCOPE_CHOICES = [
         ("private", "Private"),
@@ -110,6 +150,13 @@ class CharacterSheet(models.Model):
     # 職業技能ポイント倍率（デフォルトは20）
     occupation_multiplier = models.IntegerField(
         default=20, validators=[MinValueValidator(15), MaxValueValidator(30)], verbose_name="職業技能ポイント倍率"
+    )
+    occupation_point_method = models.CharField(
+        max_length=20,
+        choices=OCCUPATION_POINT_METHOD_CHOICES,
+        blank=True,
+        default="",
+        verbose_name="職業技能ポイント計算方式",
     )
 
     # 副次ステータス
@@ -464,10 +511,48 @@ class CharacterSheet(models.Model):
         return CharacterSyncManager.resolve_sync_conflict(self, conflict_data)
 
     # 技能ポイント管理メソッド
+    @classmethod
+    def valid_occupation_point_methods_for_edition(cls, edition):
+        """版別に利用可能な職業技能ポイント計算方式を返す"""
+        if edition == "7th":
+            return cls.OCCUPATION_POINT_METHODS_7TH
+        return cls.OCCUPATION_POINT_METHODS_6TH
+
+    def get_occupation_point_method(self):
+        """保存された計算方式を版別に正規化して返す"""
+        method = (self.occupation_point_method or "").strip()
+        if method in self.valid_occupation_point_methods_for_edition(self.edition):
+            return method
+        return "edu4" if self.edition == "7th" else ""
+
     def calculate_occupation_points(self):
         """職業技能ポイントを計算"""
         if self.edition == "7th":
-            return self.edu_value * 4
+            method = self.get_occupation_point_method()
+            calculation_methods = {
+                "edu4": self.edu_value * 4,
+                "edu2app2": self.edu_value * 2 + self.app_value * 2,
+                "edu2dex2": self.edu_value * 2 + self.dex_value * 2,
+                "edu2pow2": self.edu_value * 2 + self.pow_value * 2,
+                "edu2str2": self.edu_value * 2 + self.str_value * 2,
+                "edu2con2": self.edu_value * 2 + self.con_value * 2,
+                "edu2siz2": self.edu_value * 2 + self.siz_value * 2,
+            }
+            return calculation_methods.get(method, self.edu_value * 4)
+
+        method = self.get_occupation_point_method()
+        calculation_methods = {
+            "edu20": self.edu_value * 20,
+            "edu10app10": self.edu_value * 10 + self.app_value * 10,
+            "edu10dex10": self.edu_value * 10 + self.dex_value * 10,
+            "edu10pow10": self.edu_value * 10 + self.pow_value * 10,
+            "edu10str10": self.edu_value * 10 + self.str_value * 10,
+            "edu10con10": self.edu_value * 10 + self.con_value * 10,
+            "edu10siz10": self.edu_value * 10 + self.siz_value * 10,
+        }
+        if method in calculation_methods:
+            return calculation_methods[method]
+
         if hasattr(self, "occupation_multiplier") and self.occupation_multiplier:
             return self.edu_value * self.occupation_multiplier
         return self.edu_value * 20  # デフォルトはEDU×20
@@ -2015,6 +2100,7 @@ class CharacterVersionManager:
             age=character.age,
             gender=character.gender,
             occupation=character.occupation,
+            occupation_point_method=character.occupation_point_method,
             birthplace=character.birthplace,
             residence=character.residence,
             recommended_skills=list(character.recommended_skills or []),
@@ -2170,6 +2256,7 @@ class CharacterVersionManager:
             age=target_version.age,
             gender=target_version.gender,
             occupation=target_version.occupation,
+            occupation_point_method=target_version.occupation_point_method,
             birthplace=target_version.birthplace,
             residence=target_version.residence,
             recommended_skills=list(target_version.recommended_skills or []),
@@ -2247,6 +2334,7 @@ class CharacterExportManager:
                 "edition": character.edition,
                 "age": character.age,
                 "occupation": character.occupation,
+                "occupation_point_method": character.occupation_point_method,
                 "abilities": character.abilities,
             },
             "skills": [

@@ -2872,6 +2872,10 @@ function initOccupationTemplates() {
         setValueById('siz', sheet.siz_value);
         setValueById('int', sheet.int_value);
         setValueById('edu', sheet.edu_value);
+        const occupationMethodSelect = document.getElementById('occupationMethod');
+        if (occupationMethodSelect && sheet.occupation_point_method) {
+            occupationMethodSelect.value = sheet.occupation_point_method;
+        }
 
         // Current status (do not overwrite on derived recalculation)
         setValueById('current_hp', sheet.hit_points_current);
@@ -2996,6 +3000,7 @@ function initOccupationTemplates() {
             age: data.age ? parseInt(data.age, 10) : null,
             gender: data.gender || '',
             occupation: data.occupation || '',
+            occupation_point_method: document.getElementById('occupationMethod')?.value || 'edu4',
             birthplace: data.birthplace || '',
             residence: data.residence || '',
             secret_ho_info: data.secret_ho_info || '',
@@ -3305,6 +3310,7 @@ function initOccupationTemplates() {
             player_name: apiData.player_name,
             gender: apiData.gender,
             occupation: apiData.occupation,
+            occupation_point_method: apiData.occupation_point_method,
             birthplace: apiData.birthplace,
             residence: apiData.residence,
             recommended_skills: apiData.recommended_skills || [],

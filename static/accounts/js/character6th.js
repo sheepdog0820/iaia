@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const editCharacterId = urlParams.get('id');
     const isEditMode = !!editCharacterId;
+    let loadedOccupationPointMethod = '';
 
     const notifyUser = (message) => {
         const text = String(message || '');
@@ -2866,6 +2867,11 @@ function initOccupationTemplates() {
         setValueById('siz', sheet.siz_value);
         setValueById('int', sheet.int_value);
         setValueById('edu', sheet.edu_value);
+        const occupationMethodSelect = document.getElementById('occupationMethod');
+        loadedOccupationPointMethod = sheet.occupation_point_method || '';
+        if (occupationMethodSelect && loadedOccupationPointMethod) {
+            occupationMethodSelect.value = loadedOccupationPointMethod;
+        }
 
         // Current status (do not overwrite on derived recalculation)
         setValueById('current_hp', sheet.hit_points_current);
@@ -3003,6 +3009,10 @@ function initOccupationTemplates() {
             int_value: parseInt(data.int_value, 10),
             edu_value: parseInt(data.edu_value, 10)
         };
+        const occupationPointMethod = document.getElementById('occupationMethod')?.value || 'edu20';
+        if (occupationPointMethod !== 'edu20' || (isEditMode && loadedOccupationPointMethod)) {
+            apiData.occupation_point_method = occupationPointMethod;
+        }
         const backgroundData = {
             traits_mannerisms: data.traits_mannerisms || '',
             appearance_description: data.appearance || '',
@@ -3299,6 +3309,7 @@ function initOccupationTemplates() {
             player_name: apiData.player_name,
             gender: apiData.gender,
             occupation: apiData.occupation,
+            occupation_point_method: apiData.occupation_point_method,
             birthplace: apiData.birthplace,
             residence: apiData.residence,
             recommended_skills: apiData.recommended_skills || [],
