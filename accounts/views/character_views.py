@@ -2594,7 +2594,7 @@ class Character6thCreateView(FormView):
             return self.form_invalid(form)
 
     def form_invalid(self, form):
-        logger.warning("Character sheet form validation failed: fields=%s", list(form.errors.keys()))
+        logger.error("Character sheet form validation failed: fields=%s", list(form.errors.keys()))
 
         # エラーメッセージを詳細化
         error_messages = []

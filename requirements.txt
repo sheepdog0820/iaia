@@ -1,62 +1,49 @@
-# Core Django
+# Core Django runtime
 Django>=5.2.0,<5.3
 djangorestframework>=3.14.0
 drf-spectacular>=0.27.0
 
-# Authentication & Authorization
+# Authentication and authorization
 django-allauth>=65.0,<66.0
-djangorestframework-simplejwt>=5.3.0  # JWT token support
-cryptography>=41.0.0  # required by allauth providers
+djangorestframework-simplejwt>=5.3.0
+cryptography>=41.0.0
 
-# Google OAuth
+# OAuth providers
 google-auth>=2.23.0
 google-auth-oauthlib>=1.1.0
 google-auth-httplib2>=0.1.0
 
-# Database
-psycopg2-binary>=2.9.0  # PostgreSQL support
-mysqlclient>=2.2.0      # MySQL support (production)
+# Databases
+psycopg[binary]>=3.2.0
+mysqlclient>=2.2.0
 
-# Configuration
+# Configuration and API support
 python-decouple>=3.8
-
-# API & CORS
 django-cors-headers>=4.3.0
+requests>=2.31.0
 
-# Image Processing
+# Application UI and content handling
 Pillow>=10.0.0
-
-# Form Styling
 django-crispy-forms>=2.1
 crispy-bootstrap5>=0.7
 openpyxl>=3.1.0
 
-# Production Server
+# Production server and static assets
 gunicorn>=21.2.0
 whitenoise>=6.6.0
 django-compressor>=4.4
 django-storages>=1.14.4
 boto3>=1.35.0
 
-# Caching & Background Tasks
+# Caching, realtime, and background tasks
 redis>=5.0.0
 django-redis>=5.4.0
 celery>=5.3.0
 channels>=4.1.0
 channels-redis>=4.2.0
 daphne>=4.1.0
-requests>=2.31.0
-stripe>=12.0.0
 
-# Security & Monitoring
+# Billing, security, and monitoring
+stripe>=12.0.0
 django-ratelimit>=4.1.0
 sentry-sdk>=1.38.0
-
-# Development & Testing
-django-debug-toolbar>=4.2.0
-pytest-django>=4.7.0
-factory-boy>=3.3.0
-
-# UI Testing (Added 2025-06-27)
-selenium>=4.33.0
-webdriver-manager>=4.0.2

@@ -18,6 +18,7 @@ from accounts.models import CustomUser
 from accounts.models import Group as CustomGroup
 from accounts.models import GroupMembership
 from scenarios.models import PlayHistory, Scenario
+from schedules import session_permissions
 from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
 
 User = get_user_model()
@@ -55,7 +56,7 @@ class ExportFunctionTestCase(APITestCase):
             )
 
             # GMも参加者として追加
-            SessionParticipant.objects.create(session=session, user=self.user, role="gm")
+            session_permissions.create_participant(session=session, user=self.user, role="gm")
 
             PlayHistory.objects.create(
                 scenario=self.scenario,
@@ -153,7 +154,7 @@ class StatisticsFunctionTestCase(APITestCase):
             )
 
             # GMも参加者として追加
-            SessionParticipant.objects.create(session=session, user=self.user, role="gm")
+            session_permissions.create_participant(session=session, user=self.user, role="gm")
 
             PlayHistory.objects.create(
                 scenario=scenario,
@@ -286,13 +287,14 @@ class HandoutManagementTestCase(APITestCase):
         self.session = TRPGSession.objects.create(
             title="Handout Test Session", date=timezone.now(), gm=self.gm, group=self.group
         )
+        session_permissions.assign_session_gm(self.session, self.gm)
 
         # 参加者作成
-        self.participant1 = SessionParticipant.objects.create(
+        self.participant1 = session_permissions.create_participant(
             session=self.session, user=self.player1, role="player", character_name="Character 1"
         )
 
-        self.participant2 = SessionParticipant.objects.create(
+        self.participant2 = session_permissions.create_participant(
             session=self.session, user=self.player2, role="player", character_name="Character 2"
         )
 

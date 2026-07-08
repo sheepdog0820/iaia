@@ -20,6 +20,10 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
     .toBeLessThanOrEqual(metrics.clientWidth + 1);
 }
 
+function futureIso(minutesFromNow: number): string {
+  return new Date(Date.now() + minutesFromNow * 60 * 1000).toISOString();
+}
+
 test.describe('mobile responsive release checks', () => {
   for (const viewport of mobileViewports) {
     test(`sessions list is usable on ${viewport.name}`, async ({ page }) => {
@@ -28,7 +32,8 @@ test.describe('mobile responsive release checks', () => {
       await page.waitForFunction(() => (window as any).axios?.post);
 
       const suffix = `${viewport.name}-${Date.now()}`;
-      const session = await page.evaluate(async (suffixValue: string) => {
+      const sessionDate = futureIso(10);
+      const session = await page.evaluate(async ({ suffixValue, sessionDateValue }) => {
         const axios = (window as any).axios;
         const groupResponse = await axios.post('/api/accounts/groups/', {
           name: `Mobile E2E Group ${suffixValue}`,
@@ -36,7 +41,7 @@ test.describe('mobile responsive release checks', () => {
         });
         const sessionResponse = await axios.post('/api/schedules/sessions/', {
           title: `Mobile E2E Session ${suffixValue}`,
-          date: '2035-01-02T12:00:00.000Z',
+          date: sessionDateValue,
           group: groupResponse.data.id,
           duration_minutes: 120,
           location: 'Online',
@@ -44,9 +49,9 @@ test.describe('mobile responsive release checks', () => {
           description: 'Mobile responsive release check.',
         });
         return sessionResponse.data;
-      }, suffix);
+      }, { suffixValue: suffix, sessionDateValue: sessionDate });
 
-      await page.goto('/api/schedules/sessions/view/');
+      await page.goto('/api/schedules/sessions/view/?limit=100&period=future');
       await expect(page.locator('h1, h2, h3').filter({ hasText: /セッション|Chrono|R'lyeh/ }).first())
         .toBeVisible();
       await expect(page.locator('body')).toContainText(session.title);
@@ -82,9 +87,9 @@ test.describe('mobile responsive release checks', () => {
         return response.data;
       }, `${viewport.name}-${Date.now()}`);
 
-      await page.goto(`/accounts/character/${character.id}/edit/`);
-      await expect(page.locator('#characterForm')).toBeVisible();
-      await expect(page.locator('#name')).toHaveValue(character.name);
+      await page.goto(`/accounts/character/create/6th/?id=${character.id}`);
+      await expect(page.locator('#character-sheet-form')).toBeVisible();
+      await expect(page.locator('#character-name')).toHaveValue(character.name);
       await expect(page.locator('#occupation')).toBeVisible();
       await expect(page.locator('button[type="submit"], #footerSaveCharacter').first()).toBeVisible();
       await expectNoHorizontalOverflow(page);

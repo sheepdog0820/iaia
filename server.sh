@@ -90,7 +90,7 @@ start_server() {
         log_info "📝 ログファイル: $LOG_FILE"
         
         # 管理者アカウント情報
-        log_info "👤 管理者: create_admin.py 実行時に表示されるパスワード"
+        log_info "👤 管理者: scripts/dev/create_admin.py 実行時に表示されるパスワード"
         log_info "🎮 デモ: http://localhost:$SERVER_PORT/accounts/demo/"
         
         # 完了音

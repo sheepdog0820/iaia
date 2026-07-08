@@ -239,7 +239,7 @@ if ($publicSiteDomain) {
 if ($RunSetup) {
     $python = Resolve-PythonPath
     $env:ENV_FILE = $EnvFile
-    $setupScript = Join-Path $repoRoot "setup_twitter_oauth.py"
+    $setupScript = Join-Path $repoRoot "scripts/dev/setup_twitter_oauth.py"
     if ($publicSiteDomain) {
         & $python $setupScript "--domain" $publicSiteDomain "--scheme" ($publicUri.Scheme)
     } else {

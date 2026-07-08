@@ -13,6 +13,7 @@ from rest_framework.test import APITestCase
 
 from accounts.character_models import CharacterEquipment, CharacterSheet, CharacterSkill
 from accounts.models import CustomUser, Group
+from schedules import session_permissions
 from schedules.models import SessionParticipant, TRPGSession
 
 
@@ -119,7 +120,7 @@ class SimpleCharacterSessionTestCase(APITestCase):
         join_data = {
             "character_name": "テスト探索者",
             "character_sheet_url": f"/accounts/character/6th/{character_id}/",
-            "role": "player",
+            "roles": ["player"],
         }
 
         response = self.client.post(reverse("session-join", kwargs={"pk": session_id}), join_data, format="json")
@@ -135,7 +136,7 @@ class SimpleCharacterSessionTestCase(APITestCase):
         participant = SessionParticipant.objects.get(session_id=session_id, user=self.player_user)
 
         # 参加者レコードが作成されたことを確認
-        self.assertEqual(participant.role, "player")
+        self.assertEqual(session_permissions.get_primary_participant_role(participant), "player")
         self.assertEqual(participant.user, self.player_user)
 
         # character_nameとcharacter_sheet_urlは手動で更新

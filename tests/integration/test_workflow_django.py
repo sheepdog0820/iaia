@@ -85,6 +85,7 @@ class WorkflowIntegrationTestCase(TestCase):
             "group": group_id,
             "visibility": "group",
             "status": "planned",
+            "as_gm": True,
         }
         response = self.client.post("/api/schedules/sessions/", session_data)
         self.assertEqual(response.status_code, 201)
@@ -214,6 +215,7 @@ class WorkflowIntegrationTestCase(TestCase):
             "group": user_group_id,
             "visibility": "group",
             "status": "planned",
+            "as_gm": True,
         }
         response = self.client.post("/api/schedules/sessions/", gm_session_data)
         self.assertEqual(response.status_code, 201)
@@ -229,6 +231,7 @@ class WorkflowIntegrationTestCase(TestCase):
             "group": gm_group_id,
             "visibility": "group",
             "status": "planned",
+            "as_gm": True,
         }
         response = self.client.post("/api/schedules/sessions/", participant_session_data)
         self.assertEqual(response.status_code, 201)

@@ -11,7 +11,7 @@
 | S | 権限テスト | キャラシ、HO、GMメモの他人閲覧不可を対象テストで確認済み | 公開前に全権限テストを再実行 |
 | A | OAuth設定確認 | ローカルでは設定状態表示のみE2E化済み | Stg/ProdのGoogle、Discord、X callbackを実認可で確認 |
 | A | 画像アップロード負荷試験 | 1MB/5MB/上限超過、jpg/png/gifを自動テスト化。ローカルHTTP負荷プローブ実行済み | Stg/Prod相当で `tests/performance/image_upload_load.py` を実行 |
-| A | バックアップ手順作成 | `docs/backup.md` 作成済み | 本番AWS値で復旧リハーサル |
+| A | バックアップ手順作成 | `docs/infrastructure/backup.md` 作成済み | 本番AWS値で復旧リハーサル |
 
 ### OAuth Stg / Prod確認
 
@@ -140,6 +140,6 @@ python tests/performance/image_upload_load.py \
 | グループ外卓漏れなし | group/private卓を外部ユーザーが見られない | `manage.py test --noinput` は 1120件 OK、skipped=3 まで到達して再確認済み |
 | Stripe状態ずれなし | Checkout/Webhook/返金/異議/手動/プロモコードが監査ログ付きで確認済み | ローカルテスト済み。外部Stripe確認は未完 |
 | エラー監視 | Sentry/CloudWatch等の通知先が設定済み | `SENTRY_DSN` 対応、CloudWatch/SNS Runbook と Terraform はあり。実SNS購読/通知試験は未完 |
-| DBバックアップ | バックアップ/復旧手順が実環境で確認済み | `docs/backup.md`, `docs/runbooks/AWS_DATABASE_MIGRATION.md`, RDS backup retention設定あり。実RDS復旧リハーサルは未完 |
+| DBバックアップ | バックアップ/復旧手順が実環境で確認済み | `docs/infrastructure/backup.md`, `docs/runbooks/AWS_DATABASE_MIGRATION.md`, RDS backup retention設定あり。実RDS復旧リハーサルは未完 |
 | 法務/問い合わせ | 利用規約、プライバシーポリシー、特商法表示、問い合わせ先が本番実値かつ正式レビュー済み | `/terms/`, `/privacy/`, `/contact/`, `/commercial-disclosure/` と `tests.unit.test_public_legal_pages`, `tests.unit.test_billing_legal_pages`, `billing_preflight --strict` はローカル確認済み。正式法務レビュー、運営者実値、問い合わせ先実配送確認は未完 |
 | 管理者確認 | ユーザー/課金状態/監査ログを管理画面で確認可能 | `accounts.test_billing` の `BillingAdminTestCase` でユーザー/課金状態/監査ログの表示・フィルタ・操作をローカル確認済み。実aws-pre目視確認は未完 |

@@ -114,6 +114,7 @@ class PlayerWorkflowIntegrationTest(APITestCase):
             "group": group_id,
             "visibility": "group",
             "status": "planned",
+            "as_gm": True,
         }
         response = self.client.post("/api/schedules/sessions/", session_data)
         self.assertEqual(response.status_code, 201)
@@ -336,6 +337,7 @@ class GMWorkflowIntegrationTest(APITestCase):
             "visibility": "group",
             "status": "planned",
             "youtube_url": "https://youtube.com/live/test123",
+            "as_gm": True,
         }
         response = self.client.post("/api/schedules/sessions/", session_data)
         self.assertEqual(response.status_code, 201)
@@ -513,6 +515,7 @@ class CalendarFilterIntegrationTest(APITestCase):
             "group": group_id,
             "visibility": "group",
             "status": "planned",
+            "as_gm": True,
         }
         response = self.client.post("/api/schedules/sessions/", session_data)
         self.assertEqual(response.status_code, 201)
@@ -529,6 +532,7 @@ class CalendarFilterIntegrationTest(APITestCase):
             "group": group_id,
             "visibility": "group",
             "status": "planned",
+            "as_gm": True,
         }
         response = self.client.post("/api/schedules/sessions/", session_data)
         participant_session_id = response.data["id"]

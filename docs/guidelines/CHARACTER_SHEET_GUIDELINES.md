@@ -44,10 +44,10 @@ docs/character_sheet/
 ```
 
 ### 関連仕様書
-- **[CHARACTER_SHEET_FEATURES.md](../../CHARACTER_SHEET_FEATURES.md)** - 実装済み機能の完全リスト
+- **[docs/character_sheet/CHARACTER_SHEET_FEATURES.md](../../docs/character_sheet/CHARACTER_SHEET_FEATURES.md)** - 実装済み機能の完全リスト
   - 基本情報、能力値、スキル管理、戦闘・装備、インベントリなど全機能の詳細
   - 各機能の実装状態（✅完了/❌未実装）を確認可能
-- **[SKILL_TAB_SPECIFICATION.md](../../SKILL_TAB_SPECIFICATION.md)** - 技能タブUI仕様
+- **[docs/character_sheet/SKILL_TAB_SPECIFICATION.md](../../docs/character_sheet/SKILL_TAB_SPECIFICATION.md)** - 技能タブUI仕様
   - 技能分類（戦闘/探索/行動/交渉/知識）の定義
   - タブ切り替えとフィルタリング機能の実装仕様
   - 3列レイアウトとレスポンシブデザインの詳細

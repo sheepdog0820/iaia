@@ -11,7 +11,7 @@
 | 作業内容 | 参照ガイドライン |
 |---------|-----------------|
 | **新機能開発** | 1. [課題管理](docs/guidelines/ISSUE_MANAGEMENT_GUIDELINES.md)<br>2. [TDD](docs/guidelines/TDD_GUIDELINES.md) |
-| **キャラクターシート開発** | 1. [キャラクターシート制限事項](docs/guidelines/CHARACTER_SHEET_GUIDELINES.md)<br>2. [機能一覧](CHARACTER_SHEET_FEATURES.md) - 実装済み機能の詳細<br>3. [技能タブ仕様](SKILL_TAB_SPECIFICATION.md) - 技能タブUI仕様<br>4. [一覧画面仕様](docs/specifications/CHARACTER_LIST_SPECIFICATION.md) - キャラクター一覧画面の仕様 |
+| **キャラクターシート開発** | 1. [キャラクターシート制限事項](docs/guidelines/CHARACTER_SHEET_GUIDELINES.md)<br>2. [機能一覧](docs/character_sheet/CHARACTER_SHEET_FEATURES.md) - 実装済み機能の詳細<br>3. [技能タブ仕様](docs/character_sheet/SKILL_TAB_SPECIFICATION.md) - 技能タブUI仕様<br>4. [一覧画面仕様](docs/specifications/CHARACTER_LIST_SPECIFICATION.md) - キャラクター一覧画面の仕様 |
 | **JavaScript修正** | [JavaScript](docs/guidelines/JAVASCRIPT_GUIDELINES.md) |
 | **画面・UI修正** | 1. [UIリファクタリング](docs/guidelines/UI_REFACTORING_GUIDELINES.md)<br>2. [画面遷移チェック](docs/guidelines/NAVIGATION_CHECK_GUIDELINES.md) |
 | **テスト作成** | [TDD](docs/guidelines/TDD_GUIDELINES.md) |
@@ -33,7 +33,7 @@ pip install -r requirements.txt
 python3 manage.py migrate
 
 # スーパーユーザー作成（自動化済み）
-python3 create_admin.py  # パスワードは実行時に表示されます
+python3 scripts/dev/create_admin.py  # パスワードは実行時に表示されます
 
 # サンプルデータ生成
 python3 manage.py create_sample_data
@@ -114,15 +114,15 @@ tests/
 ### 仕様書
 - [キャラクターシート6版仕様書](docs/character_sheet/CHARACTER_SHEET_6TH_EDITION_SPECIFICATION.md)
 - [キャラクター一覧画面仕様書](docs/specifications/CHARACTER_LIST_SPECIFICATION.md)
-- [プロジェクト仕様書](SPECIFICATION.md)
+- [プロジェクト仕様書](docs/specifications/PROJECT_SPECIFICATION.md)
 
 ### 管理ファイル
-- [課題管理](ISSUES.md) - 現在の課題と優先順位
-- [完了課題](ISSUES_CLOSED.md) - 完了済み課題のアーカイブ
+- [課題管理](docs/archive/issues.md) - 現在の課題と優先順位
+- [完了課題](docs/archive/issues_closed.md) - 完了済み課題のアーカイブ
 
 ### テスト関連
-- [Seleniumインストールガイド](docs/SELENIUM_INSTALLATION_GUIDE.md)
-- [E2Eテストセットアップ](docs/E2E_TEST_SETUP.md)
+- [Seleniumインストールガイド](docs/testing/SELENIUM_INSTALLATION_GUIDE.md)
+- [E2Eテストセットアップ](docs/testing/E2E_TEST_SETUP.md)
 - [UIテストケース・結果](docs/test_results/ui/README.md) - キャラクター作成画面のテストドキュメント
 
 ## 🌐 環境情報

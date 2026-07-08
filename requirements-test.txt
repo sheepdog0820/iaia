@@ -1,0 +1,15 @@
+# Test requirements
+-r requirements-dev.txt
+
+# Python tests
+pytest>=7.4.0
+pytest-django>=4.7.0
+pytest-cov>=4.1.0
+factory-boy>=3.3.0
+faker>=20.0.0
+PyYAML>=6.0.0
+
+# Browser and UI tests
+selenium>=4.33.0
+webdriver-manager>=4.0.2
+playwright>=1.53.0

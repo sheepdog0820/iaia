@@ -24,6 +24,7 @@ from accounts.billing import (
     mark_invoice_payment_succeeded,
     mark_refund_or_dispute,
     redeem_premium_access_code,
+    require_price_id,
     sync_subscription_object,
 )
 from accounts.models import PremiumSubscription, StripeWebhookEvent
@@ -79,8 +80,10 @@ class CheckoutSessionView(APIView):
                 {"error": "Stripe Checkout is disabled until billing verification is complete"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
+        plan = request.data.get("plan", "monthly")
         try:
-            session = create_checkout_session(request, plan=request.data.get("plan", "monthly"))
+            require_price_id(plan)
+            session = create_checkout_session(request, plan=plan)
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except ImproperlyConfigured as exc:

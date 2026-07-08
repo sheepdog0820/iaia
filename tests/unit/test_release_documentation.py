@@ -22,18 +22,18 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
 
         self.assertIn("### テストアカウント", content)
         self.assertIn("ローカル環境で作成してください。", content)
-        self.assertIn("python create_admin.py", content)
+        self.assertIn("python scripts/dev/create_admin.py", content)
 
     def test_release_documents_do_not_publish_fixed_admin_password(self):
         checked_paths = [
             "AGENTS.md",
             "CLAUDE.md",
-            "SPECIFICATION.md",
-            "SESSION_TEST_DATA_SPECIFICATION.md",
-            "TEST_DATA_MANAGEMENT.md",
-            "TEST_DATA_README.md",
+            "docs/specifications/PROJECT_SPECIFICATION.md",
+            "docs/specifications/session/SESSION_TEST_DATA_SPECIFICATION.md",
+            "docs/testing/TEST_DATA_MANAGEMENT.md",
+            "docs/testing/TEST_DATA_README.md",
             "accounts/views/dev_login_view.py",
-            "create_admin.py",
+            "scripts/dev/create_admin.py",
             "schedules/management/commands/create_session_test_data.py",
             "schedules/management/commands/reset_dev_session_data.py",
             "server.sh",
@@ -62,7 +62,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
             resolve("/accounts/twitter/login/callback/")
 
     def test_x_oauth_design_uses_configured_allauth_provider(self):
-        design = (self.ROOT / "docs/X_OAUTH_LINKING_DESIGN.md").read_text(encoding="utf-8")
+        design = (self.ROOT / "docs/specifications/oauth/X_OAUTH_LINKING_DESIGN.md").read_text(encoding="utf-8")
 
         self.assertIn("allauth.socialaccount.providers.twitter_oauth2", design)
         self.assertIn("provider: `twitter_oauth2`", design)
@@ -155,7 +155,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
 
     def test_billing_release_gate_is_documented(self):
         runbook = (self.ROOT / "docs/runbooks/STRIPE_BILLING_OPERATIONS.md").read_text(encoding="utf-8")
-        deployment_guide = (self.ROOT / "docs/DEPLOYMENT_GUIDE.md").read_text(encoding="utf-8")
+        deployment_guide = (self.ROOT / "docs/infrastructure/DEPLOYMENT_GUIDE.md").read_text(encoding="utf-8")
 
         for content in (runbook, deployment_guide):
             self.assertIn("billing_release_gate", content)
@@ -192,7 +192,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
             "CONTACT_EMAIL",
         ]
         checked_paths = [
-            "docs/DEPLOYMENT_GUIDE.md",
+            "docs/infrastructure/DEPLOYMENT_GUIDE.md",
             "docs/release/AWS_PRE_RELEASE_CHECKLIST.md",
             "docs/runbooks/STRIPE_BILLING_OPERATIONS.md",
         ]
@@ -317,7 +317,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
 
     def test_stripe_key_mode_is_documented(self):
         checked_paths = [
-            "docs/DEPLOYMENT_GUIDE.md",
+            "docs/infrastructure/DEPLOYMENT_GUIDE.md",
             "docs/runbooks/STRIPE_BILLING_OPERATIONS.md",
         ]
 
@@ -327,7 +327,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
             self.assertIn("sk_test_", content, f"{relative_path} does not document test Stripe keys")
 
         for relative_path in [
-            "docs/DEPLOYMENT_GUIDE.md",
+            "docs/infrastructure/DEPLOYMENT_GUIDE.md",
             "docs/release/AWS_PRE_RELEASE_CHECKLIST.md",
         ]:
             content = (self.ROOT / relative_path).read_text(encoding="utf-8")
@@ -405,8 +405,8 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
 
     def test_external_integrations_are_documented_as_beta_gated(self):
         readme = (self.ROOT / "README.md").read_text(encoding="utf-8")
-        features = (self.ROOT / "docs/CURRENT_WEBAPP_FEATURES.md").read_text(encoding="utf-8")
-        specification = (self.ROOT / "SPECIFICATION.md").read_text(encoding="utf-8")
+        features = (self.ROOT / "docs/specifications/CURRENT_WEBAPP_FEATURES.md").read_text(encoding="utf-8")
+        specification = (self.ROOT / "docs/specifications/PROJECT_SPECIFICATION.md").read_text(encoding="utf-8")
 
         for content in (readme, features, specification):
             self.assertIn("docs/release/PUBLIC_RELEASE_TASKS.md", content)
@@ -417,7 +417,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
 
     def test_password_reset_verification_guard_is_documented(self):
         release_tasks = (self.ROOT / "docs/release/PUBLIC_RELEASE_TASKS.md").read_text(encoding="utf-8")
-        features = (self.ROOT / "docs/CURRENT_WEBAPP_FEATURES.md").read_text(encoding="utf-8")
+        features = (self.ROOT / "docs/specifications/CURRENT_WEBAPP_FEATURES.md").read_text(encoding="utf-8")
 
         self.assertIn("未確認メールへのリセットメール抑止", release_tasks)
         self.assertIn("ACCOUNT_FORMS.reset_password=accounts.forms.CustomPasswordResetForm", release_tasks)
@@ -426,7 +426,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
 
     def test_account_deletion_billing_guard_is_documented(self):
         release_tasks = (self.ROOT / "docs/release/PUBLIC_RELEASE_TASKS.md").read_text(encoding="utf-8")
-        features = (self.ROOT / "docs/CURRENT_WEBAPP_FEATURES.md").read_text(encoding="utf-8")
+        features = (self.ROOT / "docs/specifications/CURRENT_WEBAPP_FEATURES.md").read_text(encoding="utf-8")
         runbook = (self.ROOT / "docs/runbooks/STRIPE_BILLING_OPERATIONS.md").read_text(encoding="utf-8")
 
         for content in (release_tasks, features):
@@ -485,8 +485,8 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
         self.assertEqual(fixed_url.url_name, "fixed-shared-session-view")
 
     def test_current_features_documents_fixed_session_share_url(self):
-        features = (self.ROOT / "docs/CURRENT_WEBAPP_FEATURES.md").read_text(encoding="utf-8")
-        specification = (self.ROOT / "SPECIFICATION.md").read_text(encoding="utf-8")
+        features = (self.ROOT / "docs/specifications/CURRENT_WEBAPP_FEATURES.md").read_text(encoding="utf-8")
+        specification = (self.ROOT / "docs/specifications/PROJECT_SPECIFICATION.md").read_text(encoding="utf-8")
 
         for content in (features, specification):
             self.assertIn("/share/sessions/<uuid:share_token>/view/", content)
@@ -520,7 +520,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
             "accounts.test_billing",
             "SENTRY_DSN",
             "CloudWatch/SNS Runbook",
-            "docs/backup.md",
+            "docs/infrastructure/backup.md",
             "AWS_DATABASE_MIGRATION.md",
             "BillingAdminTestCase",
             "tests.unit.test_public_legal_pages",
@@ -632,7 +632,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
             "docs/runbooks/STRIPE_BILLING_OPERATIONS.md",
             "docs/runbooks/STRIPE_BILLING_VERIFICATION_RECORD_TEMPLATE.md",
             "docs/release/aws-pre-release-record-20260621-billing.md",
-            "ISSUES.md",
+            "docs/archive/issues.md",
             "templates/account/billing.html",
             "templates/premium/features.html",
             "tableno/legal_views.py",
@@ -667,8 +667,8 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
 
     def test_low_cost_manual_jobs_include_premium_expiration(self):
         checked_paths = [
-            "docs/DEPLOYMENT_GUIDE.md",
-            "docs/AWS_ECS_SETUP_GUIDE.md",
+            "docs/infrastructure/DEPLOYMENT_GUIDE.md",
+            "docs/infrastructure/AWS_ECS_SETUP_GUIDE.md",
             "docs/runbooks/AWS_INCIDENT_RESPONSE.md",
             "docs/release/AWS_PRE_RELEASE_CHECKLIST.md",
         ]
@@ -689,7 +689,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
         )
 
     def test_issue_077_tracks_stripe_external_verification_scope(self):
-        issues = (self.ROOT / "ISSUES.md").read_text(encoding="utf-8")
+        issues = (self.ROOT / "docs/archive/issues.md").read_text(encoding="utf-8")
 
         self.assertIn("ISSUE-077: Stripe billing aws-pre verification before paid feature exposure", issues)
         self.assertIn("231 tests passed", issues)
@@ -708,7 +708,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
 
     def test_mcp_stripe_verification_record_keeps_issue_077_open(self):
         record = (self.ROOT / "docs" / "runbooks" / "billing-verification-mcp-20260622.md").read_text(encoding="utf-8")
-        issues = (self.ROOT / "ISSUES.md").read_text(encoding="utf-8")
+        issues = (self.ROOT / "docs/archive/issues.md").read_text(encoding="utf-8")
         release_record = (self.ROOT / "docs" / "release" / "aws-pre-release-record-20260621-billing.md").read_text(
             encoding="utf-8"
         )
@@ -751,7 +751,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
         release_record = (self.ROOT / "docs" / "release" / "aws-pre-release-record-20260621-billing.md").read_text(
             encoding="utf-8"
         )
-        issues = (self.ROOT / "ISSUES.md").read_text(encoding="utf-8")
+        issues = (self.ROOT / "docs/archive/issues.md").read_text(encoding="utf-8")
 
         required_items = [
             "Commercial disclosure and pricing pages",
@@ -791,7 +791,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
 
     def test_public_release_tasks_documents_monitoring_and_backup_evidence(self):
         checklist = (self.ROOT / "docs" / "release" / "PUBLIC_RELEASE_TASKS.md").read_text(encoding="utf-8")
-        backup_runbook = (self.ROOT / "docs" / "backup.md").read_text(encoding="utf-8")
+        backup_runbook = (self.ROOT / "docs" / "infrastructure" / "backup.md").read_text(encoding="utf-8")
         incident_runbook = (self.ROOT / "docs" / "runbooks" / "AWS_INCIDENT_RESPONSE.md").read_text(encoding="utf-8")
         migration_runbook = (self.ROOT / "docs" / "runbooks" / "AWS_DATABASE_MIGRATION.md").read_text(encoding="utf-8")
         production_settings = (self.ROOT / "tableno" / "settings_production.py").read_text(encoding="utf-8")
@@ -799,7 +799,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
         self.assertIn("SENTRY_DSN", checklist)
         self.assertIn("CloudWatch/SNS Runbook", checklist)
         self.assertIn("実SNS購読/通知試験は未完", checklist)
-        self.assertIn("docs/backup.md", checklist)
+        self.assertIn("docs/infrastructure/backup.md", checklist)
         self.assertIn("AWS_DATABASE_MIGRATION.md", checklist)
         self.assertIn("実RDS復旧リハーサルは未完", checklist)
         self.assertIn("SENTRY_DSN", production_settings)
@@ -817,7 +817,7 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
         release_record = (self.ROOT / "docs" / "release" / "aws-pre-release-record-20260621-billing.md").read_text(
             encoding="utf-8"
         )
-        issues = (self.ROOT / "ISSUES.md").read_text(encoding="utf-8")
+        issues = (self.ROOT / "docs/archive/issues.md").read_text(encoding="utf-8")
 
         self.assertIn("Stripe\u8ab2\u91d1\u78ba\u8a8d\u8a18\u9332", record)
         self.assertIn("| \u74b0\u5883 | local |", record)

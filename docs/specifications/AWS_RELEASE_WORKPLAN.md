@@ -79,9 +79,9 @@ Terraform、移行Runbook、障害一次対応Runbookは実装済みです。AWS
 
 ## 関連文書
 
-- `docs/AWS_ECS_SETUP_GUIDE.md`
-- `docs/DEPLOYMENT_GUIDE.md`
-- `docs/SECRETS_ROTATION_RUNBOOK.md`
+- `docs/infrastructure/AWS_ECS_SETUP_GUIDE.md`
+- `docs/infrastructure/DEPLOYMENT_GUIDE.md`
+- `docs/runbooks/SECRETS_ROTATION_RUNBOOK.md`
 - `docs/release/AWS_PRE_RELEASE_CHECKLIST.md`
 - `docs/release/AWS_PRE_RELEASE_RUNBOOK.md`
 - `docs/release/AWS_PRE_RELEASE_RECORD_TEMPLATE.md`
@@ -89,4 +89,4 @@ Terraform、移行Runbook、障害一次対応Runbookは実装済みです。AWS
 - `docs/runbooks/AWS_DATABASE_MIGRATION.md`
 - `docs/runbooks/AWS_INCIDENT_RESPONSE.md`
 - `infrastructure/terraform/`
-- `REQUIRED_SETTINGS.md`
+- `docs/setup/REQUIRED_SETTINGS.md`

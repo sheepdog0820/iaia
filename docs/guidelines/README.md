@@ -20,7 +20,7 @@
 - [NAVIGATION_CHECK_GUIDELINES.md](./NAVIGATION_CHECK_GUIDELINES.md) - 画面編集時の必須遷移チェックガイド
 
 ### 📋 課題管理
-- [ISSUE_MANAGEMENT_GUIDELINES.md](./ISSUE_MANAGEMENT_GUIDELINES.md) - ISSUES.mdを使った課題管理と進捗追跡ガイド
+- [ISSUE_MANAGEMENT_GUIDELINES.md](./ISSUE_MANAGEMENT_GUIDELINES.md) - docs/archive/issues.mdを使った課題管理と進捗追跡ガイド
 
 ## 用途別参照ガイド
 
@@ -31,8 +31,8 @@
 
 ### キャラクターシート作業時
 1. 🎯 [CHARACTER_SHEET_GUIDELINES.md](./CHARACTER_SHEET_GUIDELINES.md) - 制限事項確認
-2. 📋 [CHARACTER_SHEET_FEATURES.md](../../CHARACTER_SHEET_FEATURES.md) - 実装済み機能リスト確認
-3. 📐 [SKILL_TAB_SPECIFICATION.md](../../SKILL_TAB_SPECIFICATION.md) - 技能タブUI実装時の参照
+2. 📋 [docs/character_sheet/CHARACTER_SHEET_FEATURES.md](../../docs/character_sheet/CHARACTER_SHEET_FEATURES.md) - 実装済み機能リスト確認
+3. 📐 [docs/character_sheet/SKILL_TAB_SPECIFICATION.md](../../docs/character_sheet/SKILL_TAB_SPECIFICATION.md) - 技能タブUI実装時の参照
 4. 🧪 [TDD_GUIDELINES.md](./TDD_GUIDELINES.md) - テスト作成
 
 ### JavaScript修正時

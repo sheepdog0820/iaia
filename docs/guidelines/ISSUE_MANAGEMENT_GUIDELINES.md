@@ -4,11 +4,12 @@
 
 ## 🔍 作業開始時の必須チェック
 
-**新しい作業を開始する前に、必ずISSUES.mdを確認してください。**
+**新しい作業を開始する前に、GitHub Issuesを確認してください。** `docs/archive/issues.md` は移行前のローカル課題メモのスナップショットです。
 
 ```bash
 # 作業開始時に実行
-cat ISSUES.md | head -50  # 優先課題の確認
+gh issue list --state open --limit 20  # 優先課題の確認
+# GitHub未接続環境では docs/archive/issues.md を移行元スナップショットとして参照
 ```
 
 ### チェック項目
@@ -47,7 +48,7 @@ ls -la accounts/migrations/*character*.py accounts/migrations/*background*.py
 
 ## 📝 作業完了時の必須更新
 
-**作業完了後は、必ずISSUES.mdの進捗を更新してください。**
+**作業完了後は、対応するGitHub Issueへ結果・検証・残課題を記録してください。** ローカルアーカイブは履歴確認用として扱います。
 
 ### 更新手順
 1. **該当ISSUE-XXXの状態更新**
@@ -77,7 +78,7 @@ ls -la accounts/migrations/*character*.py accounts/migrations/*background*.py
 5. **課題クローズ処理**（完全実装完了時）
    ```bash
    # 完全実装完了時のクローズ処理
-   python3 scripts/close_issue.py ISSUE-XXX
+   python3 scripts/maintenance/close_issue_archive.py ISSUE-XXX
    ```
 
 6. **次期優先順位の調整**
@@ -91,33 +92,33 @@ ls -la accounts/migrations/*character*.py accounts/migrations/*background*.py
 
 ```bash
 # 1. 課題クローズスクリプト実行
-python3 scripts/close_issue.py ISSUE-XXX
+python3 scripts/maintenance/close_issue_archive.py ISSUE-XXX
 
 # 2. 仕様書自動更新確認
-grep -A 10 "ISSUE-XXX" SPECIFICATION.md
+grep -A 10 "ISSUE-XXX" docs/specifications/PROJECT_SPECIFICATION.md
 
 # 3. 統計更新確認
-head -20 ISSUES.md
+head -20 docs/archive/issues.md
 ```
 
 ### クローズ処理の効果
-- **ISSUES.md**: 完了済み課題を削除、統計更新
-- **ISSUES_CLOSED.md**: 完了済み課題をアーカイブ
-- **SPECIFICATION.md**: 実装詳細を仕様書に記載
+- **docs/archive/issues.md**: 完了済み課題を削除、統計更新
+- **docs/archive/issues_closed.md**: 完了済み課題をアーカイブ
+- **docs/specifications/PROJECT_SPECIFICATION.md**: 実装詳細を仕様書に記載
 - **統計情報**: 進捗率と完了数の自動更新
 
 ### 対象ファイル
-- **現在進行中**: `ISSUES.md` - 日常開発で参照
-- **完了済み**: `ISSUES_CLOSED.md` - 履歴確認時のみ参照
-- **実装仕様**: `SPECIFICATION.md` - 実装詳細の永続記録
+- **現在進行中**: `docs/archive/issues.md` - 日常開発で参照
+- **完了済み**: `docs/archive/issues_closed.md` - 履歴確認時のみ参照
+- **実装仕様**: `docs/specifications/PROJECT_SPECIFICATION.md` - 実装詳細の永続記録
 
 ## 🎯 進捗管理のベストプラクティス
 
 ### 作業開始時
 ```bash
 # 1. 課題確認
-echo "=== 📋 ISSUES.md確認 ==="
-grep -A 5 "次の最優先課題" ISSUES.md
+echo "=== 📋 docs/archive/issues.md確認 ==="
+grep -A 5 "次の最優先課題" docs/archive/issues.md
 
 # 2. 関連ファイル確認
 echo "=== 📁 関連ファイル確認 ==="
@@ -134,16 +135,16 @@ python3 manage.py test --dry-run | tail -5
 python3 manage.py test
 
 # 2. 進捗更新
-echo "=== 📝 ISSUES.md更新 ==="
-# ISSUES.mdを編集して進捗を更新
+echo "=== 📝 docs/archive/issues.md更新 ==="
+# docs/archive/issues.mdを編集して進捗を更新
 
 # 3. 完了通知
-echo "✅ 課題XXX完了 - ISSUES.md更新済み" && echo -e "\a\a\a"
+echo "✅ 課題XXX完了 - docs/archive/issues.md更新済み" && echo -e "\a\a\a"
 ```
 
 ## 🚨 必須ルール
 
-1. **ISSUES.md確認なしでの作業開始禁止**
+1. **docs/archive/issues.md確認なしでの作業開始禁止**
    - 重複作業や優先順位間違いを防止
 
 2. **進捗更新なしでの作業完了禁止**
@@ -157,10 +158,10 @@ echo "✅ 課題XXX完了 - ISSUES.md更新済み" && echo -e "\a\a\a"
 
 ## 📊 課題管理ファイル
 
-すべての課題とチケットは `ISSUES.md` ファイルで管理されています。
-新しい課題を発見した場合は、ISSUES.mdファイルに適切な優先度とカテゴリで追加してください。
+すべての課題とチケットは `docs/archive/issues.md` ファイルで管理されています。
+新しい課題を発見した場合は、GitHub Issuesに適切な優先度とカテゴリで追加してください。
 
-**重要**: ISSUES.mdは開発の中央管理ファイルです。常に最新状態を保ってください。
+**重要**: GitHub Issuesを開発の中央管理として常に最新状態に保ってください。
 
 ## 📈 進捗レポートのフォーマット
 
@@ -209,7 +210,7 @@ echo "✅ 課題XXX完了 - ISSUES.md更新済み" && echo -e "\a\a\a"
 ### 作業完了時の通知
 ```bash
 # 作業完了時の音声通知
-echo "✅ 課題XXX完了 - ISSUES.md更新済み" && echo -e "\a\a\a"
+echo "✅ 課題XXX完了 - docs/archive/issues.md更新済み" && echo -e "\a\a\a"
 
 # 品質ゲート通過通知
 echo "✅ 品質ゲート通過 - 実装完了!" && echo -e "\a\a\a"
@@ -220,7 +221,7 @@ for i in {1..3}; do echo -e "\a"; sleep 0.5; done
 ```
 
 ### 定期リマインダー
-- **毎朝**: ISSUES.md確認
+- **毎朝**: docs/archive/issues.md確認
 - **作業開始時**: 実装状況確認
 - **作業完了時**: 進捗更新
 - **週末**: 週次レポート作成

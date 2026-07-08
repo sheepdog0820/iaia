@@ -247,7 +247,7 @@ ECS安定化待ちとスモークテストを再実施します。
 2. DB変更の影響範囲を確認する。
 3. 開発環境であれば、必要に応じてRDSスナップショットから復旧する。
 4. 復旧後に旧imageへ戻す。
-5. `docs/backup.md` と `docs/runbooks/AWS_DATABASE_MIGRATION.md` に沿って復旧結果を記録する。
+5. `docs/infrastructure/backup.md` と `docs/runbooks/AWS_DATABASE_MIGRATION.md` に沿って復旧結果を記録する。
 
 ### 7.3 緊急停止
 

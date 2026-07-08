@@ -1,3 +1,5 @@
+import os
+
 from django.db import models as django_models
 
 from .character_image_utils import get_character_preview_image_url
@@ -31,6 +33,12 @@ def build_character_detail_context(
     if preview_image_url is None:
         preview_image_url = get_character_preview_image_url(character, request)
 
+    character_image_file_names = []
+    if can_edit_character:
+        character_image_file_names = [
+            os.path.basename(image.image.name) for image in character.images.order_by("order", "id") if image.image
+        ]
+
     context = {
         "character": character,
         "character_id": character.id,
@@ -43,6 +51,7 @@ def build_character_detail_context(
         "armor": armor,
         "items": items,
         "versions": versions,
+        "character_image_file_names": character_image_file_names,
     }
 
     optional_urls = {

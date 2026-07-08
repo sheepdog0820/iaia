@@ -137,7 +137,7 @@ class DockerEntrypointTests(SimpleTestCase):
 
     def test_compose_dollar_interpolation_warning_is_documented(self):
         readme = (self.ROOT / "README.md").read_text(encoding="utf-8")
-        docker_setup = (self.ROOT / "DOCKER_SETUP.md").read_text(encoding="utf-8")
+        docker_setup = (self.ROOT / "docs/setup/DOCKER_SETUP.md").read_text(encoding="utf-8")
         env_example = (self.ROOT / ".env.example").read_text(encoding="utf-8")
 
         for content in (readme, docker_setup):
@@ -166,17 +166,22 @@ class DockerEntrypointTests(SimpleTestCase):
             "actions/setup-python@v5",
             "Install dependencies",
             "Django check",
+            "Migration file check",
+            "Migration apply/check",
+            "Run pytest",
+            "Flake8",
+            "Black check",
+            "isort check",
             "Docker Compose config check",
             "Django deploy check",
             "Billing release gate",
-            "Run tests",
         ]
         self.assertEqual(step_names, expected_order)
 
     def test_ci_workflow_yaml_parser_dependency_is_declared(self):
-        requirements_dev = (self.ROOT / "requirements-dev.txt").read_text(encoding="utf-8")
+        requirements_test = (self.ROOT / "requirements-test.txt").read_text(encoding="utf-8")
 
-        self.assertIn("PyYAML>=6.0.0", requirements_dev)
+        self.assertIn("PyYAML>=6.0.0", requirements_test)
 
     def test_ci_runs_compose_config_check(self):
         workflow = (self.ROOT / ".github" / "workflows" / "django-ci.yml").read_text(encoding="utf-8")
@@ -201,8 +206,8 @@ class DockerEntrypointTests(SimpleTestCase):
         self.assertIn('STRIPE_CHECKOUT_ENABLED: "False"', workflow)
         self.assertIn("python manage.py billing_release_gate", workflow)
         self.assertLess(
+            workflow.index("Run pytest"),
             workflow.index("Billing release gate"),
-            workflow.index("Run tests"),
         )
 
     def test_python_version_is_consistent_for_release_paths(self):
@@ -210,10 +215,10 @@ class DockerEntrypointTests(SimpleTestCase):
         workflow = (self.ROOT / ".github" / "workflows" / "django-ci.yml").read_text(encoding="utf-8")
         docs_to_check = [
             self.ROOT / "README.md",
-            self.ROOT / "DOCKER_SETUP.md",
+            self.ROOT / "docs/setup/DOCKER_SETUP.md",
             self.ROOT / "AGENTS.md",
             self.ROOT / "CLAUDE.md",
-            self.ROOT / "SPECIFICATION.md",
+            self.ROOT / "docs/specifications/PROJECT_SPECIFICATION.md",
         ]
         python_version_file = self.ROOT / ".python-version"
 

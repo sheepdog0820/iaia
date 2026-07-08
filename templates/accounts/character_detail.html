@@ -20,6 +20,7 @@
 
 {% block content %}
 <div class="container character-detail" id="characterDetailContainer" data-character-id="{{ character.id }}" data-public-view="{% if is_public_view %}true{% else %}false{% endif %}" data-shared-api-url="{{ character_shared_api_url|default:'' }}" data-character-images-api-url="{{ character_images_api_url|default:'' }}" data-character-images-zip-url="{{ character_images_zip_url|default:'' }}" data-character-ccfolia-json-url="{{ character_ccfolia_json_url|default:'' }}" data-character-reference-url="{{ character_reference_url|default:'' }}">
+    {{ character_image_file_names|json_script:"character-image-file-names" }}
     <!-- ローディング -->
     <div class="text-center" id="loading">
         <div class="spinner-border text-primary" role="status">

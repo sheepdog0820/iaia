@@ -73,8 +73,7 @@ class Character6thBasicUITest(TestCase):
 
         # Try to access as different user
         response = self.client.get(reverse("character_detail_6th", kwargs={"character_id": character.id}))
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'id="characterContent"')
+        self.assertEqual(response.status_code, 404)
 
     def test_character_creation_post(self):
         """Test character creation via POST"""

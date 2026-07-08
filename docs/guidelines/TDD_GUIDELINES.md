@@ -361,8 +361,8 @@ iaia/
 ├── schedules/management/commands/
 │   └── create_session_test_data.py # セッション専用
 ├── check_test_data.py              # データ確認用ユーティリティ
-├── TEST_DATA_README.md             # テストユーザー情報
-└── TEST_DATA_MANAGEMENT.md         # このガイドの詳細版
+├── docs/testing/TEST_DATA_README.md             # テストユーザー情報
+└── docs/testing/TEST_DATA_MANAGEMENT.md         # このガイドの詳細版
 ```
 
 ### テストデータ管理ルール

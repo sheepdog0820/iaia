@@ -100,7 +100,7 @@ test.describe('sessions', () => {
     }, `E2E Session Summary Group ${suffix}`);
 
     const sessionTitle = `Unified Summary Session ${suffix}`;
-    const sessionDate = '2035-01-01T12:00:00.000Z';
+    const sessionDate = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     const session = await page.evaluate(async ({ groupId, title, date }) => {
       const response = await (window as any).axios.post('/api/schedules/sessions/', {
@@ -145,7 +145,7 @@ test.describe('sessions', () => {
     await expect(upcomingCard).toContainText('GM:');
     await expect(upcomingCard).toContainText('グループ:');
 
-    await page.goto('/api/schedules/sessions/view/');
+    await page.goto('/api/schedules/sessions/view/?limit=100&period=future');
     const listLink = page.locator(`a[href="/api/schedules/sessions/${session.id}/detail/"]`).first();
     await expect(listLink).toBeVisible();
     await expect(listLink).toContainText(sessionTitle);

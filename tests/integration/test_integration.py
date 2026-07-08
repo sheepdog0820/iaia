@@ -179,6 +179,7 @@ class SessionScenarioIntegrationTestCase(APITestCase):
             "group": self.group.id,
             "duration_minutes": 240,
             "scenario": self.scenario.id,
+            "as_gm": True,
         }
         response = self.client.post("/api/schedules/sessions/", session_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -188,7 +189,7 @@ class SessionScenarioIntegrationTestCase(APITestCase):
         participant_data = {
             "session": session_id,
             "user": self.player.id,
-            "role": "player",
+            "roles": ["player"],
             "character_name": "Dr. Margaret Blackwood",
             "character_sheet_url": "https://example.com/character/margaret",
         }
@@ -424,6 +425,7 @@ class EndToEndBusinessFlowTestCase(TransactionTestCase):
                 "visibility": "group",
                 "group": group_id,
                 "duration_minutes": 240,
+                "as_gm": True,
             }
             response = self.client.post("/api/schedules/sessions/", session_data)
             session_id = response.data["id"]
@@ -434,7 +436,7 @@ class EndToEndBusinessFlowTestCase(TransactionTestCase):
                 participant_data = {
                     "session": session_id,
                     "user": player.id,
-                    "role": "player",
+                    "roles": ["player"],
                     "character_name": f"Character {j+1}",
                     "character_sheet_url": f"https://example.com/character/{j+1}",
                 }

@@ -14,6 +14,7 @@ from rest_framework.test import APITestCase
 
 from accounts.character_models import CharacterBackground, CharacterEquipment, CharacterSheet, CharacterSkill
 from accounts.models import CustomUser, Group
+from schedules import session_permissions
 from schedules.models import SessionParticipant, TRPGSession
 
 
@@ -162,6 +163,7 @@ class CharacterSessionIntegrationTestCase(APITestCase):
             "max_participants": 4,
             "min_participants": 2,
             "youtube_url": "",
+            "as_gm": True,
         }
 
         session_url = reverse("session-list")
@@ -182,7 +184,7 @@ class CharacterSessionIntegrationTestCase(APITestCase):
         join_data = {
             "character_name": "探索者・田中太郎",
             "character_sheet_id": character_id,  # キャラクターシートのID
-            "role": "player",
+            "roles": ["player"],
         }
 
         response = self.client.post(join_url, join_data, format="json")
@@ -242,7 +244,7 @@ class CharacterSessionIntegrationTestCase(APITestCase):
         join_data2 = {
             "character_name": "探索者・山田花子",
             "character_sheet_id": character2_id,  # キャラクターシートのID
-            "role": "player",
+            "roles": ["player"],
         }
 
         response = self.client.post(join_url, join_data2, format="json")
@@ -260,10 +262,11 @@ class CharacterSessionIntegrationTestCase(APITestCase):
         # participants_detailフィールドを使用
         participants_key = "participants_detail" if "participants_detail" in response.data else "participants"
         self.assertIn(participants_key, response.data)
-        self.assertEqual(len(response.data[participants_key]), 2)
+        player_participants = [p for p in response.data[participants_key] if p and "player" in p.get("roles", [])]
+        self.assertEqual(len(player_participants), 2)
 
         # 参加者のキャラクター情報確認
-        participants_data = response.data[participants_key]
+        participants_data = player_participants
         character_names = []
         for p in participants_data:
             if p is None:
@@ -354,7 +357,7 @@ class CharacterReferenceInSessionTestCase(APITestCase):
         )
 
         # 参加者追加
-        self.participant = SessionParticipant.objects.create(
+        self.participant = session_permissions.create_participant(
             session=self.session,
             user=self.player_user,
             character_name=self.character.name,

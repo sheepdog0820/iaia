@@ -224,13 +224,17 @@ test.describe('integration settings', () => {
     await page.click('#guest-response-form button[type="submit"]');
     const response = await responsePromise;
     expect(response.status()).toBe(201);
-    const participantId = (await response.json()).participant_id;
+    const guestResponse = await response.json();
+    const participantId = guestResponse.participant_id;
     await expect(page.locator('#guest-response-message')).toContainText('参加を登録しました');
 
-    const claimResult = await page.evaluate(async (id: number) => {
-      const claimResponse = await (window as any).axios.post(`/api/participants/${id}/claim/`);
+    const claimResult = await page.evaluate(async ({ id, claimToken }) => {
+      const claimResponse = await (window as any).axios.post(
+        `/api/participants/${id}/claim/`,
+        { claim_token: claimToken },
+      );
       return claimResponse.data;
-    }, participantId);
+    }, { id: participantId, claimToken: guestResponse.claim_token });
     expect(claimResult.participant_id).toBe(participantId);
     expect(claimResult.character_name).toBe('E2E Investigator');
   });

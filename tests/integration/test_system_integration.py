@@ -17,6 +17,7 @@ from accounts.models import CustomUser, Friend
 from accounts.models import Group as CustomGroup
 from accounts.models import GroupInvitation, GroupMembership
 from scenarios.models import PlayHistory, Scenario, ScenarioNote
+from schedules import session_permissions
 from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
 
 User = get_user_model()
@@ -82,6 +83,7 @@ class AuthenticationPermissionIntegrationTestCase(APITestCase):
         self.session = TRPGSession.objects.create(
             title="Test Session", date=timezone.now() + timedelta(days=1), gm=self.group_admin, group=self.private_group
         )
+        session_permissions.assign_session_gm(self.session, self.group_admin)
 
     def test_unauthenticated_access_restrictions(self):
         """未認証ユーザーのアクセス制限テスト"""
@@ -174,7 +176,7 @@ class AuthenticationPermissionIntegrationTestCase(APITestCase):
         """ハンドアウト秘匿情報のアクセス制御テスト"""
 
         # セッション参加者を作成
-        participant = SessionParticipant.objects.create(
+        participant = session_permissions.create_participant(
             session=self.session, user=self.group_member, role="player", character_name="Test Character"
         )
 
@@ -425,6 +427,7 @@ class CompleteWorkflowIntegrationTestCase(TransactionTestCase):
                 "visibility": "group",
                 "group": circle_id,
                 "duration_minutes": 360,  # 6 hours per session
+                "as_gm": True,
             }
             response = self.client.post("/api/schedules/sessions/", session_data)
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -437,7 +440,7 @@ class CompleteWorkflowIntegrationTestCase(TransactionTestCase):
                 participant_data = {
                     "session": session_id,
                     "user": player.id,
-                    "role": "player",
+                    "roles": ["player"],
                     "character_name": f"Investigator Character {j+1}",
                     "character_sheet_url": f"https://charaeno.sakasin.net/character/{j+1}",
                 }

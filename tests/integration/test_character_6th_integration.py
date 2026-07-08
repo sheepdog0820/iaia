@@ -30,6 +30,7 @@ from accounts.character_models import (
     CharacterSkill,
     GrowthRecord,
 )
+from schedules import session_permissions
 from schedules.models import SessionParticipant, TRPGSession
 
 User = get_user_model()
@@ -248,6 +249,7 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
             "estimated_hours": 4,
             "min_players": 3,
             "max_players": 5,
+            "as_gm": True,
             "location": "オンライン",
         }
         response = self.client.post("/api/schedules/sessions/", session_data)
@@ -333,6 +335,7 @@ class Character6thFullWorkflowIntegrationTest(TransactionTestCase):
                 "session_date": f"2024-03-{i*7:02d}",
                 "start_time": "19:00:00",
                 "estimated_hours": 4,
+                "as_gm": True,
             }
             response = self.client.post("/api/schedules/sessions/", session_data)
             session_id = response.data["id"]
@@ -631,6 +634,7 @@ class Character6thSessionIntegrationTest(TransactionTestCase):
         self.session = TRPGSession.objects.create(
             gm=self.gm, title="Test Session", session_date="2024-03-01", start_time="19:00:00", estimated_hours=4
         )
+        session_permissions.assign_session_gm(self.session, self.gm)
 
     def test_session_participation_with_character(self):
         """Test character participation in sessions"""
@@ -651,13 +655,14 @@ class Character6thSessionIntegrationTest(TransactionTestCase):
         response = client.get(f"/api/schedules/sessions/{self.session.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        participant_data = response.data["participants"][0]
+        participant_data = next(p for p in response.data["participants"] if p["user"] == self.player.id)
+        self.assertEqual(participant_data["character_sheet"]["id"], self.character.id)
         self.assertEqual(participant_data["character_sheet"]["name"], self.character.name)
 
     def test_character_handout_integration(self):
         """Test character receiving handouts in session"""
         # Player joins session
-        SessionParticipant.objects.create(session=self.session, user=self.player, character_sheet=self.character)
+        session_permissions.create_participant(session=self.session, user=self.player, character_sheet=self.character)
 
         # GM creates handout
         client = APIClient()

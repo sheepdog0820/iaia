@@ -63,8 +63,8 @@ class LegacyRemovalStaticTests(SimpleTestCase):
 
         docs = [
             "README.md",
-            "SPECIFICATION.md",
-            "docs/CURRENT_WEBAPP_FEATURES.md",
+            "docs/specifications/PROJECT_SPECIFICATION.md",
+            "docs/specifications/CURRENT_WEBAPP_FEATURES.md",
             "docs/specifications/SAFE_SHARE_LINKS.md",
             "docs/imports/trpg_schedule_2026_pre_import.md",
             "docs/character_sheet/CHARACTER_SHEET_6TH_EDITION_SPECIFICATION.md",
