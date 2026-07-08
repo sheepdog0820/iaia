@@ -1,5 +1,7 @@
 import json
+import uuid
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 
 from django.db import transaction
 from django.db.models import Case, Count, DateTimeField, F, IntegerField, Prefetch, Q, Sum, Value, When
@@ -16,6 +18,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import CharacterSheet, CustomUser, Group, GroupLink, GroupLinkShare, GroupMembership
+from accounts.views.mixins import CharacterSheetAccessMixin
 from schedules.duration import effective_duration_expression
 
 from .models import (  # 高度なスケジューリング機能（ISSUE-017）
@@ -33,7 +36,6 @@ from .models import (  # 高度なスケジューリング機能（ISSUE-017）
     SessionOccurrence,
     SessionParticipant,
     SessionParticipantRole,
-    SessionPermission,
     SessionSeries,
     SessionYouTubeLink,
     TRPGSession,
@@ -67,7 +69,6 @@ def _visible_sessions_for(user):
     group_ids = GroupMembership.objects.filter(user=user).values_list("group_id", flat=True)
     owned_group_ids = Group.objects.filter(created_by=user).values_list("id", flat=True)
     participant_session_ids = SessionParticipant.objects.filter(user=user).values_list("session_id", flat=True)
-    permission_session_ids = SessionPermission.objects.filter(user=user).values_list("session_id", flat=True)
     shared_session_ids = (
         GroupLinkShare.objects.filter(
             resource_type=GroupLinkShare.ResourceType.SESSION,
@@ -85,9 +86,50 @@ def _visible_sessions_for(user):
         | Q(group_id__in=group_ids)
         | Q(group_id__in=owned_group_ids)
         | Q(id__in=participant_session_ids)
-        | Q(id__in=permission_session_ids)
         | Q(id__in=shared_session_ids)
     ).distinct()
+
+
+def _tableno_character_name_from_url(character_sheet_url, user):
+    value = str(character_sheet_url or "").strip()
+    if not value:
+        return ""
+
+    try:
+        parsed_url = urlparse(value)
+    except (TypeError, ValueError):
+        return ""
+
+    path_parts = [part for part in parsed_url.path.split("/") if part]
+    character_sheet = None
+
+    def readable_character_sheet_by_id(raw_id):
+        try:
+            character_sheet_id = int(raw_id)
+        except (TypeError, ValueError):
+            return None
+        sheet = CharacterSheet.objects.filter(pk=character_sheet_id).first()
+        if sheet and not CharacterSheetAccessMixin.can_read_character_sheet(sheet, user):
+            return None
+        return sheet
+
+    if len(path_parts) >= 3 and path_parts[0:2] == ["share", "characters"]:
+        try:
+            share_token = uuid.UUID(path_parts[2])
+        except (TypeError, ValueError):
+            return ""
+        character_sheet = CharacterSheet.objects.filter(
+            share_token=share_token,
+            access_scope__in=("link", "public"),
+        ).first()
+    elif len(path_parts) >= 4 and path_parts[0:3] == ["api", "accounts", "character-sheets"]:
+        character_sheet = readable_character_sheet_by_id(path_parts[3])
+    elif len(path_parts) >= 4 and path_parts[0:3] == ["accounts", "character", "6th"]:
+        character_sheet = readable_character_sheet_by_id(path_parts[3])
+    elif len(path_parts) >= 3 and path_parts[0:2] == ["accounts", "character"]:
+        character_sheet = readable_character_sheet_by_id(path_parts[2])
+
+    return character_sheet.name if character_sheet else ""
 
 
 def _gm_role_session_ids_for(user):
@@ -158,7 +200,7 @@ def _is_assignable_session_user(session, user):
         return True
     if getattr(session, "created_by_id", None) == user.id:
         return True
-    if SessionPermission.objects.filter(session=session, user=user).exists():
+    if SessionParticipant.objects.filter(session=session, user=user).exists():
         return True
     return session_permissions.is_session_gm(user, session)
 
@@ -183,12 +225,14 @@ def _participant_role_values(participant):
 
 def _participant_primary_role(participant):
     roles = _participant_role_values(participant)
+    if SessionParticipantRole.Role.OWNER.value in roles:
+        return SessionParticipantRole.Role.OWNER.value
+    if SessionParticipantRole.Role.MANAGER.value in roles:
+        return SessionParticipantRole.Role.MANAGER.value
     if SessionParticipantRole.Role.GM.value in roles:
         return SessionParticipantRole.Role.GM.value
     if SessionParticipantRole.Role.PLAYER.value in roles:
         return SessionParticipantRole.Role.PLAYER.value
-    if SessionParticipantRole.Role.OBSERVER.value in roles:
-        return SessionParticipantRole.Role.OBSERVER.value
     return SessionParticipantRole.Role.PLAYER.value
 
 
@@ -241,40 +285,32 @@ def _resolve_participant_identity_for_session(session, raw_identity_id, *, exclu
     return identity
 
 
-def _permission_roles_from_request_data(data):
-    if "permission_roles" not in data:
-        raise ValueError("permission_roles is required.")
-
-    if hasattr(data, "getlist"):
-        raw_roles = data.getlist("permission_roles")
-    else:
-        raw_roles = data.get("permission_roles")
-
-    if isinstance(raw_roles, str):
-        raw_roles = [raw_roles]
-    elif raw_roles is None:
-        raw_roles = []
-
-    normalized_roles = {role.value if hasattr(role, "value") else str(role) for role in raw_roles if role}
-    valid_roles = {choice.value for choice in SessionPermission.Role}
-    invalid_roles = normalized_roles - valid_roles
-    if invalid_roles:
-        raise ValueError(f"Unknown session permission roles: {', '.join(sorted(invalid_roles))}")
-    return normalized_roles
-
-
 def _attach_participant_role_flags(participants):
     for participant in participants:
         role_values = _participant_role_values(participant)
         participant.role_values = sorted(role_values)
+        participant.is_owner_role = SessionParticipantRole.Role.OWNER.value in role_values
+        participant.is_manager_role = SessionParticipantRole.Role.MANAGER.value in role_values
         participant.is_gm_role = SessionParticipantRole.Role.GM.value in role_values
         participant.is_player_role = SessionParticipantRole.Role.PLAYER.value in role_values
-        participant.is_observer_role = SessionParticipantRole.Role.OBSERVER.value in role_values
     return participants
 
 
 def _sync_participant_roles(participant, roles, *, granted_by=None):
     return session_permissions.set_participant_roles(participant, roles, granted_by=granted_by)
+
+
+def _handout_player_slot_options(handouts, *, include_titles=True):
+    options_by_slot = {}
+    for handout in handouts:
+        slot = handout.assigned_player_slot
+        if not slot or slot in options_by_slot:
+            continue
+        code = handout.code or (f"HO{handout.handout_number}" if handout.handout_number else f"PL{slot}")
+        title = (handout.name or handout.title or "") if include_titles else ""
+        label = f"{code}: {title}" if title else code
+        options_by_slot[slot] = {"value": slot, "label": label}
+    return [options_by_slot[slot] for slot in sorted(options_by_slot)]
 
 
 def _user_display_name(user):
@@ -290,42 +326,25 @@ def _session_permission_scope_payload(session):
     )
     participant_by_user_id = {participant.user_id: participant for participant in participants if participant.user_id}
 
-    user_ids = set(participant_by_user_id)
-    if session.created_by_id:
-        user_ids.add(session.created_by_id)
-    if session.gm_id:
-        user_ids.add(session.gm_id)
-
-    explicit_permissions = list(
-        SessionPermission.objects.filter(session=session)
-        .select_related("user")
-        .order_by("user_id", "role")
-    )
-    permission_roles_by_user_id = {}
-    for permission in explicit_permissions:
-        user_ids.add(permission.user_id)
-        permission_roles_by_user_id.setdefault(permission.user_id, set()).add(permission.role)
-
     group_admin_ids = set()
     if session.group_id:
-        user_ids.update(session.group.members.values_list("id", flat=True))
         if session.group.created_by_id:
-            user_ids.add(session.group.created_by_id)
             group_admin_ids.add(session.group.created_by_id)
         group_admin_ids.update(
             GroupMembership.objects.filter(group=session.group, role="admin").values_list("user_id", flat=True)
         )
 
-    users = CustomUser.objects.filter(id__in=user_ids).order_by("nickname", "username", "id")
+    users = CustomUser.objects.filter(id__in=participant_by_user_id).order_by("nickname", "username", "id")
     user_rows = []
     for user in users:
         participant = participant_by_user_id.get(user.id)
+        if participant and SessionParticipantRole.Role.MANAGER.value in _participant_role_values(participant):
+            continue
         user_rows.append(
             {
                 "user_id": user.id,
                 "display_name": _user_display_name(user),
                 "username": user.username,
-                "permission_roles": sorted(permission_roles_by_user_id.get(user.id, set())),
                 "participant_id": participant.id if participant else None,
                 "participant_roles": sorted(_participant_role_values(participant)) if participant else [],
                 "is_participant": bool(participant),
@@ -346,11 +365,9 @@ def _session_permission_scope_payload(session):
     ]
 
     return {
-        "permission_roles": [
-            {"value": choice.value, "label": choice.label} for choice in SessionPermission.Role
-        ],
         "participant_roles": [
-            {"value": choice.value, "label": choice.label} for choice in SessionParticipantRole.Role
+            {"value": SessionParticipantRole.Role.GM.value, "label": SessionParticipantRole.Role.GM.label},
+            {"value": SessionParticipantRole.Role.PLAYER.value, "label": SessionParticipantRole.Role.PLAYER.label},
         ],
         "users": user_rows,
         "guests": guest_rows,
@@ -673,7 +690,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                 )
 
         character_name = request.data.get("character_name", "").strip()
-        if not character_name and character_sheet:
+        if character_sheet:
             character_name = character_sheet.name
 
         participant, created = SessionParticipant.objects.get_or_create(
@@ -691,8 +708,8 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             # 既存の参加者の情報を更新
             if player_slot:
                 participant.player_slot = player_slot
-            if "character_name" in request.data:
-                participant.character_name = request.data.get("character_name", "")
+            if "character_name" in request.data or character_sheet:
+                participant.character_name = character_sheet.name if character_sheet else request.data.get("character_name", "")
             if "character_sheet_url" in request.data:
                 participant.character_sheet_url = request.data.get("character_sheet_url", "")
             if "character_sheet_id" in request.data or "character_sheet" in request.data:
@@ -743,44 +760,37 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         session = self.get_object()
         if not session_permissions.can_manage_permissions(request.user, session):
             return Response(
-                {"detail": "Only a session permission manager can manage permissions."},
+                {"detail": "権限管理者のみ権限を管理できます。"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         if request.method == "GET":
             return Response(_session_permission_scope_payload(session))
 
-        user_id = request.data.get("user_id") or request.data.get("user")
-        if not user_id:
-            return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+        participant_id = request.data.get("participant_id") or request.data.get("participant")
+        if not participant_id:
+            return Response({"error": "participant_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            target_user = CustomUser.objects.get(id=user_id)
-        except (CustomUser.DoesNotExist, TypeError, ValueError):
-            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+            participant = SessionParticipant.objects.get(id=participant_id, session=session)
+        except (SessionParticipant.DoesNotExist, TypeError, ValueError):
+            return Response({"error": "Participant not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        if not _is_assignable_session_user(session, target_user):
-            return Response(
-                {"error": "User is not a member of this session scope"},
-                status=status.HTTP_400_BAD_REQUEST,
+        if participant.user_id == session.created_by_id:
+            return Response({"error": "The session creator role cannot be changed"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            desired_roles = session_permissions.normalize_assignable_participant_roles(
+                _roles_from_request_data(request.data)
             )
-
-        try:
-            desired_roles = _permission_roles_from_request_data(request.data)
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
-            existing_roles = session_permissions.get_session_permission_roles(target_user, session)
-            for role in existing_roles - desired_roles:
-                session_permissions.revoke_session_permission(session, target_user, role)
-            for role in desired_roles - existing_roles:
-                session_permissions.grant_session_permission(
-                    session,
-                    target_user,
-                    role,
-                    granted_by=request.user,
-                )
+            _sync_participant_roles(participant, desired_roles, granted_by=request.user)
+            if SessionParticipantRole.Role.GM.value in desired_roles and participant.user_id:
+                session.gm = participant.user
+                session.save(update_fields=["gm", "updated_at"])
 
         return Response(_session_permission_scope_payload(session))
 
@@ -883,9 +893,11 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                     return error_response
 
                 try:
-                    desired_roles = _roles_from_request_data(
-                        item,
-                        default_roles=[SessionParticipantRole.Role.PLAYER],
+                    desired_roles = session_permissions.normalize_assignable_participant_roles(
+                        _roles_from_request_data(
+                            item,
+                            default_roles=[SessionParticipantRole.Role.PLAYER],
+                        )
                     )
                 except ValueError as exc:
                     return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -939,7 +951,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                     },
                 )
                 if gm_user_id and target_user.id == int(gm_user_id):
-                    desired_roles.add(SessionParticipantRole.Role.GM.value)
+                    desired_roles = {SessionParticipantRole.Role.GM.value}
                 _sync_participant_roles(participant, desired_roles, granted_by=request.user)
                 bind_slot_handouts_to_participant(participant)
                 updated_participants.append(participant)
@@ -981,9 +993,11 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             )
         message = (request.data.get("message") or "").strip()
         try:
-            invited_roles = _roles_from_request_data(
-                request.data,
-                default_roles=[SessionParticipantRole.Role.PLAYER],
+            invited_roles = session_permissions.normalize_assignable_participant_roles(
+                _roles_from_request_data(
+                    request.data,
+                    default_roles=[SessionParticipantRole.Role.PLAYER],
+                )
             )
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -1134,14 +1148,14 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             participant__user=user,
             role=SessionParticipantRole.Role.GM,
         ).values_list("participant__session_id", flat=True)
+        legacy_gm_session_ids = TRPGSession.objects.filter(gm=user).values_list("id", flat=True)
+        gm_role_session_ids = set(gm_role_session_ids) | set(legacy_gm_session_ids)
         gm_role_session_id_set = set(gm_role_session_ids)
-        permission_session_ids = SessionPermission.objects.filter(user=user).values_list("session_id", flat=True)
 
         sessions = (
             TRPGSession.objects.filter(
                 Q(created_by=user)
                 | Q(id__in=participant_session_ids)
-                | Q(id__in=permission_session_ids)
             )
             .select_related("gm", "group", "scenario")
             .prefetch_related("sessionparticipant_set__user")
@@ -1236,17 +1250,14 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="editable-choices")
     def editable_choices(self, request):
-        co_gm_session_ids = SessionParticipantRole.objects.filter(
+        manageable_session_ids = SessionParticipantRole.objects.filter(
             participant__user=request.user,
-            role=SessionParticipantRole.Role.GM,
+            role__in=session_permissions.MANAGEMENT_ROLES,
         ).values_list("participant__session_id", flat=True)
-        manager_session_ids = SessionPermission.objects.filter(
-            user=request.user,
-            role__in=[SessionPermission.Role.OWNER, SessionPermission.Role.MANAGER],
-        ).values_list("session_id", flat=True)
+        legacy_gm_session_ids = TRPGSession.objects.filter(gm=request.user).values_list("id", flat=True)
         sessions = (
             self.get_queryset()
-            .filter(Q(id__in=manager_session_ids) | Q(id__in=co_gm_session_ids))
+            .filter(Q(id__in=manageable_session_ids) | Q(id__in=legacy_gm_session_ids))
             .select_related("group")[:200]
         )
         return Response(
@@ -1467,9 +1478,11 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             try:
-                participant_roles = _roles_from_request_data(
-                    request.data,
-                    default_roles=[SessionParticipantRole.Role.PLAYER],
+                participant_roles = session_permissions.normalize_assignable_participant_roles(
+                    _roles_from_request_data(
+                        request.data,
+                        default_roles=[SessionParticipantRole.Role.PLAYER],
+                    )
                 )
             except ValueError as exc:
                 return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -1493,14 +1506,20 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
+            character_sheet_url = request.data.get("character_sheet_url", "")
+            character_name = request.data.get("character_name", "")
+            resolved_character_name = _tableno_character_name_from_url(character_sheet_url, request.user)
+            if resolved_character_name:
+                character_name = resolved_character_name
+
             serializer = self.get_serializer(
                 data={
                     "session": session.id,
                     "user": None,
                     "participant_identity": participant_identity.id if participant_identity else None,
                     "guest_name": guest_name,
-                    "character_name": request.data.get("character_name", ""),
-                    "character_sheet_url": request.data.get("character_sheet_url", ""),
+                    "character_name": character_name,
+                    "character_sheet_url": character_sheet_url,
                     "player_slot": slot_value,
                     "character_sheet": None,
                 }
@@ -1547,9 +1566,11 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
                 )
 
         try:
-            participant_roles = _roles_from_request_data(
-                request.data,
-                default_roles=[SessionParticipantRole.Role.PLAYER],
+            participant_roles = session_permissions.normalize_assignable_participant_roles(
+                _roles_from_request_data(
+                    request.data,
+                    default_roles=[SessionParticipantRole.Role.PLAYER],
+                )
             )
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -1605,9 +1626,13 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
             return Response(
                 {"error": "Only a session manager can change participant role"}, status=status.HTTP_403_FORBIDDEN
             )
+        if role_change_requested and instance.user_id == instance.session.created_by_id:
+            return Response({"error": "The session creator role cannot be changed"}, status=status.HTTP_400_BAD_REQUEST)
         if role_change_requested:
             try:
-                self._participant_roles_for_save = _roles_from_request_data(request_payload)
+                self._participant_roles_for_save = session_permissions.normalize_assignable_participant_roles(
+                    _roles_from_request_data(request_payload)
+                )
             except ValueError as exc:
                 return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
             data.pop("roles", None)
@@ -1672,12 +1697,18 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 try:
-                    CharacterSheet.objects.get(id=raw_value, user=instance.user)
+                    character_sheet = CharacterSheet.objects.get(id=raw_value, user=instance.user)
                 except CharacterSheet.DoesNotExist:
                     return Response(
                         {"error": "Character sheet not found or not owned by participant"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+                data["character_name"] = character_sheet.name
+
+        if "character_sheet_url" in data:
+            resolved_character_name = _tableno_character_name_from_url(data.get("character_sheet_url"), request.user)
+            if resolved_character_name:
+                data["character_name"] = resolved_character_name
 
         serializer = self.get_serializer(instance, data=data, partial=partial)
         serializer.is_valid(raise_exception=True)
@@ -1689,12 +1720,18 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
         participant = serializer.save()
         roles = getattr(self, "_participant_roles_for_save", [SessionParticipantRole.Role.PLAYER])
         _sync_participant_roles(participant, roles, granted_by=self.request.user)
+        if SessionParticipantRole.Role.GM.value in roles and participant.user_id:
+            participant.session.gm = participant.user
+            participant.session.save(update_fields=["gm", "updated_at"])
         bind_slot_handouts_to_participant(participant)
 
     def perform_update(self, serializer):
         participant = serializer.save()
         if hasattr(self, "_participant_roles_for_save"):
             _sync_participant_roles(participant, self._participant_roles_for_save, granted_by=self.request.user)
+            if SessionParticipantRole.Role.GM.value in self._participant_roles_for_save and participant.user_id:
+                participant.session.gm = participant.user
+                participant.session.save(update_fields=["gm", "updated_at"])
         bind_slot_handouts_to_participant(participant)
 
     def destroy(self, request, *args, **kwargs):
@@ -1704,7 +1741,7 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
         is_session_manager = session_permissions.can_manage_participants(request.user, instance.session)
 
         if instance.user_id == instance.session.gm_id:
-            return Response({"error": "Cannot remove main GM"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "GMは除名できません。"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Participants can remove themselves.
         if instance.user == request.user:
@@ -1744,10 +1781,9 @@ class HandoutInfoViewSet(viewsets.ModelViewSet):
             session_id=OuterRef("session_id"),
             player_slot=OuterRef("assigned_player_slot"),
         )
-        secret_session_ids = SessionPermission.objects.filter(
-            user=user,
-            role=SessionPermission.Role.SECRET_KEEPER,
-        ).values_list("session_id", flat=True)
+        secret_session_ids = TRPGSession.objects.filter(
+            Q(gm=user) | Q(sessionparticipant__user=user, sessionparticipant__participant_roles__role=SessionParticipantRole.Role.GM)
+        ).values_list("id", flat=True)
 
         return (
             HandoutInfo.objects.annotate(matches_assigned_slot=Exists(matching_assigned_slot))
@@ -2798,6 +2834,32 @@ class SessionDetailView(APIView):
         )
         _attach_participant_character_share_urls(request, participants)
         _attach_participant_role_flags(participants)
+        gm_participants = [
+            participant
+            for participant in participants
+            if participant.is_gm_role or (participant.user_id and participant.user_id == session.gm_id)
+        ]
+        player_participants = [
+            participant
+            for participant in participants
+            if participant.is_player_role and not participant.is_gm_role and not participant.is_owner_role and not participant.is_manager_role
+        ]
+        if can_view_secret_content:
+            player_slot_handouts = handouts
+            include_player_slot_titles = True
+        elif can_edit:
+            player_slot_handouts = HandoutInfo.objects.filter(
+                session=session,
+                assigned_player_slot__isnull=False,
+            ).only("assigned_player_slot", "code", "handout_number", "name", "title")
+            include_player_slot_titles = False
+        else:
+            player_slot_handouts = handouts
+            include_player_slot_titles = True
+        player_slot_options = _handout_player_slot_options(
+            player_slot_handouts,
+            include_titles=include_player_slot_titles,
+        )
 
         open_date_poll = DatePoll.objects.filter(session=session, is_closed=False).first()
         invitation_status_by_user_id = {}
@@ -2822,8 +2884,11 @@ class SessionDetailView(APIView):
         context = {
             "session": session,
             "participants": participants,
+            "gm_participants": gm_participants,
+            "player_participants": player_participants,
             "occurrences": occurrences,
             "handouts": handouts,
+            "player_slot_options": player_slot_options,
             "is_gm": is_gm,
             "is_co_gm": is_co_gm,
             "is_session_manager": is_session_manager,
@@ -2915,6 +2980,16 @@ class PublicSessionDetailView(APIView):
         )
         _attach_participant_character_share_urls(request, participants)
         _attach_participant_role_flags(participants)
+        gm_participants = [
+            participant
+            for participant in participants
+            if participant.is_gm_role or (participant.user_id and participant.user_id == session.gm_id)
+        ]
+        player_participants = [
+            participant
+            for participant in participants
+            if participant.is_player_role and not participant.is_gm_role and not participant.is_owner_role and not participant.is_manager_role
+        ]
         guest_count = participants.filter(user__isnull=True).count()
 
         occurrences = session.occurrences.prefetch_related("participants").order_by("start_at", "id")
@@ -2931,8 +3006,11 @@ class PublicSessionDetailView(APIView):
         context = {
             "session": session,
             "participants": participants,
+            "gm_participants": gm_participants,
+            "player_participants": player_participants,
             "occurrences": occurrences,
             "handouts": HandoutInfo.objects.none(),
+            "player_slot_options": [],
             "is_gm": False,
             "is_participant": False,
             "can_edit": False,

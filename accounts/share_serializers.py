@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import serializers
 
 from accounts.character_image_utils import get_character_preview_image_url
@@ -352,9 +353,12 @@ class SharedStatsSerializer(serializers.Serializer):
 
     def get_totals(self, obj):
         participants = obj.sessionparticipant_set.all()
+        gm_filter = Q(participant_roles__role=SessionParticipantRole.Role.GM)
+        if obj.gm_id:
+            gm_filter |= Q(user_id=obj.gm_id)
         return {
             "participation_count": participants.count(),
-            "gm_count": participants.filter(participant_roles__role=SessionParticipantRole.Role.GM).count(),
+            "gm_count": participants.filter(gm_filter).distinct().count(),
             "player_count": participants.filter(participant_roles__role=SessionParticipantRole.Role.PLAYER).count(),
             "duration_minutes": obj.effective_duration_minutes,
         }

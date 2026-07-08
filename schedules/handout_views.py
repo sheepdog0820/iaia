@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import session_permissions
-from .models import HandoutInfo, SessionParticipant, SessionParticipantRole, SessionPermission, TRPGSession
+from .models import HandoutInfo, SessionParticipant, SessionParticipantRole, TRPGSession
 from .serializers import HandoutInfoSerializer, SessionParticipantSerializer
 
 
@@ -28,7 +28,6 @@ class GMHandoutManagementView(APIView):
             participant.role_values = sorted(role_values)
             participant.is_gm_role = SessionParticipantRole.Role.GM.value in role_values
             participant.is_player_role = SessionParticipantRole.Role.PLAYER.value in role_values
-            participant.is_observer_role = SessionParticipantRole.Role.OBSERVER.value in role_values
 
     def get(self, request, session_id):
         """ハンドアウト管理画面の表示"""
@@ -111,10 +110,9 @@ class HandoutManagementViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         # GMとしてのセッションのハンドアウト、または自分宛のハンドアウト
-        secret_session_ids = SessionPermission.objects.filter(
-            user=user,
-            role=SessionPermission.Role.SECRET_KEEPER,
-        ).values_list("session_id", flat=True)
+        secret_session_ids = TRPGSession.objects.filter(
+            Q(gm=user) | Q(sessionparticipant__user=user, sessionparticipant__participant_roles__role=SessionParticipantRole.Role.GM)
+        ).values_list("id", flat=True)
         return (
             HandoutInfo.objects.filter(
                 Q(session_id__in=secret_session_ids)

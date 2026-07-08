@@ -4,12 +4,18 @@ from django.db import transaction
 
 from accounts.models import GroupMembership
 
-from .models import SessionParticipant, SessionParticipantRole, SessionPermission, TRPGSession
+from .models import SessionParticipant, SessionParticipantRole, TRPGSession
 
 
-BASIC_MANAGEMENT_PERMISSION_ROLES = (
-    SessionPermission.Role.OWNER,
-    SessionPermission.Role.MANAGER,
+MANAGEMENT_ROLES = (
+    SessionParticipantRole.Role.OWNER.value,
+    SessionParticipantRole.Role.MANAGER.value,
+    SessionParticipantRole.Role.GM.value,
+)
+
+VISIBLE_ASSIGNABLE_ROLES = (
+    SessionParticipantRole.Role.GM.value,
+    SessionParticipantRole.Role.PLAYER.value,
 )
 
 
@@ -17,75 +23,52 @@ def _is_authenticated(user) -> bool:
     return bool(user and getattr(user, "is_authenticated", False))
 
 
-def get_session_permission_roles(user, session: TRPGSession) -> set[str]:
+def _role_value(role) -> str:
+    return role.value if hasattr(role, "value") else str(role)
+
+
+def _user_participant(user, session: TRPGSession) -> SessionParticipant | None:
     if not _is_authenticated(user):
-        return set()
-    return set(
-        SessionPermission.objects.filter(session=session, user=user).values_list(
-            "role",
-            flat=True,
-        )
-    )
+        return None
+    return SessionParticipant.objects.filter(session=session, user=user).first()
 
 
-def has_session_permission(user, session: TRPGSession, *roles: str) -> bool:
-    if not roles or not _is_authenticated(user):
-        return False
-    return SessionPermission.objects.filter(session=session, user=user, role__in=roles).exists()
-
-
-def grant_session_permission(
-    session: TRPGSession,
-    user,
-    role: str,
-    *,
-    granted_by=None,
-) -> SessionPermission:
-    if not _is_authenticated(user):
-        raise ValueError("Session permissions require an authenticated user.")
-    permission, _ = SessionPermission.objects.get_or_create(
-        session=session,
-        user=user,
-        role=role,
-        defaults={"granted_by": granted_by},
-    )
-    return permission
-
-
-def revoke_session_permission(session: TRPGSession, user, role: str) -> int:
-    if not _is_authenticated(user):
-        return 0
-    deleted, _ = SessionPermission.objects.filter(session=session, user=user, role=role).delete()
-    return deleted
+def _single_role_for_participant(participant: SessionParticipant) -> str | None:
+    if not participant.pk:
+        return None
+    return participant.participant_roles.values_list("role", flat=True).first()
 
 
 def get_participant_role_values(participant: SessionParticipant) -> set[str]:
-    if not participant.pk:
-        return set()
-    return set(participant.participant_roles.values_list("role", flat=True))
+    role = _single_role_for_participant(participant)
+    return {role} if role else set()
 
 
 def normalize_participant_roles(roles) -> set[str]:
-    normalized_roles = {role.value if hasattr(role, "value") else str(role) for role in roles if role}
+    normalized_roles = [_role_value(role) for role in roles if role]
     valid_roles = {choice.value for choice in SessionParticipantRole.Role}
-    invalid_roles = normalized_roles - valid_roles
+    invalid_roles = set(normalized_roles) - valid_roles
     if invalid_roles:
         raise ValueError(f"Unknown participant roles: {', '.join(sorted(invalid_roles))}")
-    return normalized_roles or {SessionParticipantRole.Role.PLAYER.value}
+    if len(set(normalized_roles)) > 1:
+        raise ValueError("Session participants accept exactly one role.")
+    return set(normalized_roles) or {SessionParticipantRole.Role.PLAYER.value}
+
+
+def normalize_assignable_participant_roles(roles) -> set[str]:
+    normalized = normalize_participant_roles(roles)
+    invalid_roles = normalized - set(VISIBLE_ASSIGNABLE_ROLES)
+    if invalid_roles:
+        raise ValueError("Only GM or PL roles can be assigned from this screen.")
+    return normalized
 
 
 def get_primary_participant_role(participant: SessionParticipant) -> str:
-    roles = get_participant_role_values(participant)
-    if SessionParticipantRole.Role.GM.value in roles:
-        return SessionParticipantRole.Role.GM.value
-    if SessionParticipantRole.Role.PLAYER.value in roles:
-        return SessionParticipantRole.Role.PLAYER.value
-    if SessionParticipantRole.Role.OBSERVER.value in roles:
-        return SessionParticipantRole.Role.OBSERVER.value
-    return SessionParticipantRole.Role.PLAYER.value
+    return _single_role_for_participant(participant) or SessionParticipantRole.Role.PLAYER.value
 
 
 def has_participant_role(user, session: TRPGSession, role: str) -> bool:
+    role = _role_value(role)
     if not _is_authenticated(user):
         return False
     return SessionParticipantRole.objects.filter(
@@ -96,7 +79,15 @@ def has_participant_role(user, session: TRPGSession, role: str) -> bool:
 
 
 def is_session_gm(user, session: TRPGSession) -> bool:
-    return has_participant_role(user, session, SessionParticipantRole.Role.GM.value)
+    if not _is_authenticated(user):
+        return False
+    return session.gm_id == user.id or has_participant_role(user, session, SessionParticipantRole.Role.GM.value)
+
+
+def _effective_participant_role(participant: SessionParticipant, role: str) -> str:
+    if participant.user_id and participant.session.created_by_id == participant.user_id:
+        return SessionParticipantRole.Role.OWNER.value
+    return role
 
 
 def assign_participant_role(
@@ -105,18 +96,12 @@ def assign_participant_role(
     *,
     granted_by=None,
 ) -> SessionParticipantRole:
-    role = role.value if hasattr(role, "value") else str(role)
-    participant_role, _ = SessionParticipantRole.objects.get_or_create(
+    role = _role_value(role)
+    normalized_role = _effective_participant_role(participant, next(iter(normalize_participant_roles([role]))))
+    participant_role, _ = SessionParticipantRole.objects.update_or_create(
         participant=participant,
-        role=role,
+        defaults={"role": normalized_role},
     )
-    if role == SessionParticipantRole.Role.GM.value and participant.user_id:
-        grant_session_permission(
-            participant.session,
-            participant.user,
-            SessionPermission.Role.SECRET_KEEPER,
-            granted_by=granted_by,
-        )
     return participant_role
 
 
@@ -125,28 +110,9 @@ def set_participant_roles(
     roles,
     *,
     granted_by=None,
-    revoke_removed_gm_secret_keeper: bool = True,
 ) -> set[str]:
     normalized_roles = normalize_participant_roles(roles)
-
-    existing_roles = get_participant_role_values(participant)
-    for role in normalized_roles - existing_roles:
-        assign_participant_role(participant, role, granted_by=granted_by)
-
-    roles_to_remove = existing_roles - normalized_roles
-    if roles_to_remove:
-        SessionParticipantRole.objects.filter(participant=participant, role__in=roles_to_remove).delete()
-        if (
-            SessionParticipantRole.Role.GM.value in roles_to_remove
-            and revoke_removed_gm_secret_keeper
-            and participant.user_id
-        ):
-            revoke_session_permission(
-                participant.session,
-                participant.user,
-                SessionPermission.Role.SECRET_KEEPER,
-            )
-
+    assign_participant_role(participant, next(iter(normalized_roles)), granted_by=granted_by)
     return normalized_roles
 
 
@@ -175,17 +141,15 @@ def create_participant(
 def revoke_participant_role(
     participant: SessionParticipant,
     role: str,
-    *,
-    revoke_auto_secret_keeper: bool = False,
 ) -> int:
-    role = role.value if hasattr(role, "value") else str(role)
+    role = _role_value(role)
+    if (
+        participant.user_id
+        and participant.session.created_by_id == participant.user_id
+        and role == SessionParticipantRole.Role.OWNER.value
+    ):
+        return 0
     deleted, _ = SessionParticipantRole.objects.filter(participant=participant, role=role).delete()
-    if role == SessionParticipantRole.Role.GM.value and revoke_auto_secret_keeper and participant.user_id:
-        revoke_session_permission(
-            participant.session,
-            participant.user,
-            SessionPermission.Role.SECRET_KEEPER,
-        )
     return deleted
 
 
@@ -221,7 +185,10 @@ def assign_session_gm(
         session=session,
         user=user,
     )
-    assign_participant_role(participant, SessionParticipantRole.Role.GM, granted_by=granted_by)
+    if session.created_by_id == user.id:
+        assign_participant_role(participant, SessionParticipantRole.Role.OWNER, granted_by=granted_by)
+    else:
+        assign_participant_role(participant, SessionParticipantRole.Role.GM, granted_by=granted_by)
 
     if sync_legacy_gm and session.gm_id != user.id:
         session.gm = user
@@ -240,10 +207,13 @@ def initialize_created_session_permissions(
 ) -> None:
     created_by = created_by or session.created_by
     if created_by:
-        grant_session_permission(
-            session,
-            created_by,
-            SessionPermission.Role.OWNER,
+        participant, _ = SessionParticipant.objects.get_or_create(
+            session=session,
+            user=created_by,
+        )
+        assign_participant_role(
+            participant,
+            SessionParticipantRole.Role.OWNER,
             granted_by=granted_by,
         )
 
@@ -273,19 +243,25 @@ def can_view_session_basic(user, session: TRPGSession) -> bool:
         return True
     if not _is_authenticated(user):
         return False
-    if SessionPermission.objects.filter(session=session, user=user).exists():
-        return True
     if SessionParticipant.objects.filter(session=session, user=user).exists():
         return True
     return is_group_member(user, session) or is_group_admin(user, session)
 
 
+def _has_management_role(user, session: TRPGSession) -> bool:
+    if not _is_authenticated(user):
+        return False
+    return SessionParticipantRole.objects.filter(
+        participant__session=session,
+        participant__user=user,
+        role__in=MANAGEMENT_ROLES,
+    ).exists()
+
+
 def can_edit_session_basic(user, session: TRPGSession) -> bool:
     if not _is_authenticated(user):
         return False
-    if has_session_permission(user, session, *BASIC_MANAGEMENT_PERMISSION_ROLES):
-        return True
-    return is_session_gm(user, session) or is_group_admin(user, session)
+    return _has_management_role(user, session) or is_session_gm(user, session) or is_group_admin(user, session)
 
 
 def can_manage_participants(user, session: TRPGSession) -> bool:
@@ -299,11 +275,11 @@ def can_manage_share_links(user, session: TRPGSession) -> bool:
 def can_manage_permissions(user, session: TRPGSession) -> bool:
     if not _is_authenticated(user):
         return False
-    return has_session_permission(user, session, SessionPermission.Role.OWNER) or is_group_admin(user, session)
+    return _has_management_role(user, session) or is_session_gm(user, session) or is_group_admin(user, session)
 
 
 def can_view_secret_content(user, session: TRPGSession) -> bool:
-    return has_session_permission(user, session, SessionPermission.Role.SECRET_KEEPER)
+    return is_session_gm(user, session)
 
 
 def can_manage_secret_content(user, session: TRPGSession) -> bool:

@@ -13,7 +13,7 @@ from accounts.models import CharacterSheet
 from accounts.models import Group as CustomGroup
 from scenarios.models import Scenario, ScenarioHandout, ScenarioHandoutRecommendedSkill
 
-from .models import HandoutInfo, SessionInvitation, SessionParticipant, SessionPermission, TRPGSession
+from .models import HandoutInfo, SessionInvitation, SessionParticipant, SessionParticipantRole, TRPGSession
 
 User = get_user_model()
 
@@ -495,19 +495,13 @@ class ScheduleAPITestCase(APITestCase):
         created_session = TRPGSession.objects.get(title="New Session")
         self.assertIsNone(created_session.gm)
         self.assertTrue(
-            SessionPermission.objects.filter(
-                session=created_session,
-                user=self.user1,
-                role=SessionPermission.Role.OWNER,
+            SessionParticipantRole.objects.filter(
+                participant__session=created_session,
+                participant__user=self.user1,
+                role=SessionParticipantRole.Role.OWNER,
             ).exists()
         )
-        self.assertFalse(
-            SessionPermission.objects.filter(
-                session=created_session,
-                user=self.user1,
-                role=SessionPermission.Role.SECRET_KEEPER,
-            ).exists()
-        )
+        self.assertFalse(session_permissions.can_view_secret_content(self.user1, created_session))
         self.assertEqual(created_session.duration_minutes, 240)
 
     def test_session_creation_copies_scenario_handouts(self):
@@ -830,6 +824,74 @@ class ScheduleAPITestCase(APITestCase):
         self.assertEqual(participant.character_name, "Updated Character")
         self.assertEqual(participant.character_sheet_url, "https://example.com/updated-sheet")
 
+    def test_manager_linking_internal_character_uses_sheet_name(self):
+        participant = session_permissions.create_participant(
+            session=self.session,
+            user=self.user2,
+            role="player",
+            character_name="Manual Character",
+        )
+        character = CharacterSheet.objects.create(
+            user=self.user2,
+            edition="7th",
+            name="Linked Sheet Investigator",
+            age=30,
+            str_value=50,
+            con_value=50,
+            pow_value=50,
+            dex_value=50,
+            app_value=50,
+            siz_value=50,
+            int_value=50,
+            edu_value=50,
+        )
+        self.client.force_authenticate(user=self.user1)
+
+        response = self.client.patch(
+            f"/api/schedules/participants/{participant.id}/",
+            {
+                "character_name": "Ignored Manual Name",
+                "character_sheet_id": character.id,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        participant.refresh_from_db()
+        self.assertEqual(participant.character_sheet, character)
+        self.assertEqual(participant.character_name, "Linked Sheet Investigator")
+
+    def test_joining_with_internal_character_uses_sheet_name(self):
+        character = CharacterSheet.objects.create(
+            user=self.user2,
+            edition="7th",
+            name="Join Sheet Investigator",
+            age=30,
+            str_value=50,
+            con_value=50,
+            pow_value=50,
+            dex_value=50,
+            app_value=50,
+            siz_value=50,
+            int_value=50,
+            edu_value=50,
+        )
+        self.client.force_authenticate(user=self.user2)
+
+        response = self.client.post(
+            f"/api/schedules/sessions/{self.session.id}/join/",
+            {
+                "character_name": "Ignored Join Name",
+                "character_sheet_id": character.id,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        participant = SessionParticipant.objects.get(session=self.session, user=self.user2)
+        self.assertEqual(participant.character_sheet, character)
+        self.assertEqual(participant.character_name, "Join Sheet Investigator")
+
     def test_participant_delete_other_forbidden(self):
         """GM以外が他人の参加情報を削除できない"""
         user3 = User.objects.create_user(
@@ -858,6 +920,7 @@ class ScheduleAPITestCase(APITestCase):
         response = self.client.delete(f"/api/schedules/participants/{participant.id}/")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["error"], "GMは除名できません。")
         self.assertTrue(SessionParticipant.objects.filter(id=participant.id).exists())
 
     def test_session_detail_does_not_show_remove_button_for_main_gm(self):
@@ -911,6 +974,67 @@ class ScheduleAPITestCase(APITestCase):
                 guest_name="Guest Player",
             ).exists()
         )
+
+    def test_guest_participant_tableno_character_url_uses_character_name(self):
+        character = CharacterSheet.objects.create(
+            user=self.user2,
+            edition="7th",
+            name="URL連携探索者",
+            age=30,
+            str_value=50,
+            con_value=50,
+            pow_value=50,
+            dex_value=50,
+            app_value=50,
+            siz_value=50,
+            int_value=50,
+            edu_value=50,
+            access_scope="link",
+        )
+        participant = session_permissions.create_participant(
+            session=self.session,
+            user=None,
+            guest_name="Guest Player",
+            role="player",
+        )
+        self.client.force_authenticate(user=self.user1)
+
+        response = self.client.patch(
+            f"/api/schedules/participants/{participant.id}/",
+            {
+                "character_name": "手入力名",
+                "character_sheet_url": f"https://tableno.example/share/characters/{character.share_token}/view/",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        participant.refresh_from_db()
+        self.assertEqual(participant.character_name, "URL連携探索者")
+        self.assertEqual(response.data["character_name"], "URL連携探索者")
+
+    def test_guest_participant_invalid_tableno_character_url_keeps_manual_name(self):
+        participant = session_permissions.create_participant(
+            session=self.session,
+            user=None,
+            guest_name="Guest Player",
+            role="player",
+        )
+        self.client.force_authenticate(user=self.user1)
+
+        response = self.client.patch(
+            f"/api/schedules/participants/{participant.id}/",
+            {
+                "character_name": "Manual Guest PC",
+                "character_sheet_url": "https://tableno.example/api/accounts/character-sheets/not-a-number/",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        participant.refresh_from_db()
+        self.assertEqual(participant.character_name, "Manual Guest PC")
+        self.assertEqual(response.data["character_name"], "Manual Guest PC")
 
     def test_non_gm_cannot_create_guest_participant(self):
         """GM以外はゲスト参加者を作成できない"""

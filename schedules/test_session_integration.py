@@ -19,7 +19,6 @@ from schedules.models import (
     HandoutNotification,
     SessionParticipant,
     SessionParticipantRole,
-    SessionPermission,
     TRPGSession,
     UserNotificationPreferences,
 )
@@ -80,11 +79,13 @@ class SessionManagementIntegrationTestCase(APITestCase):
         self.assertEqual(session.created_by, self.players[0])
         self.assertIsNone(session.gm)
         self.assertTrue(
-            SessionPermission.objects.filter(session=session, user=self.players[0], role="owner").exists()
+            SessionParticipantRole.objects.filter(
+                participant__session=session,
+                participant__user=self.players[0],
+                role=SessionParticipantRole.Role.OWNER,
+            ).exists()
         )
-        self.assertFalse(
-            SessionPermission.objects.filter(session=session, user=self.players[0], role="secret_keeper").exists()
-        )
+        self.assertFalse(session_permissions.can_view_secret_content(self.players[0], session))
 
         assign_url = reverse("session-assign-roles", kwargs={"pk": session_id})
         response = self.client.post(
@@ -115,9 +116,7 @@ class SessionManagementIntegrationTestCase(APITestCase):
                 role="gm",
             ).exists()
         )
-        self.assertTrue(
-            SessionPermission.objects.filter(session=session, user=self.gm, role="secret_keeper").exists()
-        )
+        self.assertTrue(session_permissions.can_view_secret_content(self.gm, session))
         self.assertEqual(
             SessionParticipant.objects.get(session=session, user=self.players[1]).player_slot,
             2,
@@ -182,7 +181,7 @@ class SessionManagementIntegrationTestCase(APITestCase):
             session_permissions.get_primary_participant_role(
                 SessionParticipant.objects.get(session=session, user=self.players[0])
             ),
-            "player",
+            "owner",
         )
 
         response = self.client.patch(

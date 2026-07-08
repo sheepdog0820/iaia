@@ -191,22 +191,51 @@ def _attach_participant_role_flags(participants):
     for participant in participants:
         role_values = set(participant.participant_roles.values_list("role", flat=True))
         participant.role_values = sorted(role_values)
+        participant.is_owner_role = SessionParticipantRole.Role.OWNER.value in role_values
+        participant.is_manager_role = SessionParticipantRole.Role.MANAGER.value in role_values
         participant.is_gm_role = SessionParticipantRole.Role.GM.value in role_values
         participant.is_player_role = SessionParticipantRole.Role.PLAYER.value in role_values
-        participant.is_observer_role = SessionParticipantRole.Role.OBSERVER.value in role_values
     return participants
 
 
+def _handout_player_slot_options(handouts, *, include_titles=True):
+    options_by_slot = {}
+    for handout in handouts:
+        slot = handout.assigned_player_slot
+        if not slot or slot in options_by_slot:
+            continue
+        code = handout.code or (f"HO{handout.handout_number}" if handout.handout_number else f"PL{slot}")
+        title = (handout.name or handout.title or "") if include_titles else ""
+        label = f"{code}: {title}" if title else code
+        options_by_slot[slot] = {"value": slot, "label": label}
+    return [options_by_slot[slot] for slot in sorted(options_by_slot)]
+
+
 def _build_session_detail_context(request, session, *, is_public_view):
-    participants = (
+    participants_qs = (
         SessionParticipant.objects.filter(session=session)
         .select_related("user", "character_sheet")
         .prefetch_related("participant_roles")
     )
+    participants = list(participants_qs)
     _attach_participant_character_share_urls(request, participants)
     _attach_participant_role_flags(participants)
 
-    guest_count = participants.filter(user__isnull=True).count()
+    gm_participants = [
+        participant
+        for participant in participants
+        if participant.is_gm_role or (participant.user_id and participant.user_id == session.gm_id)
+    ]
+    player_participants = [
+        participant
+        for participant in participants
+        if participant.is_player_role
+        and not participant.is_gm_role
+        and not participant.is_owner_role
+        and not participant.is_manager_role
+    ]
+
+    guest_count = sum(1 for participant in participants if participant.user_id is None)
     occurrences = session.occurrences.prefetch_related("participants").order_by("start_at", "id")
     selected_occurrence, selected_occurrence_id = _get_selected_occurrence_from_request(
         request,
@@ -220,8 +249,11 @@ def _build_session_detail_context(request, session, *, is_public_view):
         return {
             "session": session,
             "participants": participants,
+            "gm_participants": gm_participants,
+            "player_participants": player_participants,
             "occurrences": occurrences,
             "handouts": HandoutInfo.objects.none(),
+            "player_slot_options": [],
             "is_gm": False,
             "is_co_gm": False,
             "is_session_manager": False,
@@ -243,11 +275,11 @@ def _build_session_detail_context(request, session, *, is_public_view):
         }
 
     user = request.user
-    user_participant = participants.filter(user=user).first()
+    user_participant = next((participant for participant in participants if participant.user_id == user.id), None)
     is_gm = session.gm == user
-    is_co_gm = participants.filter(user=user, participant_roles__role=SessionParticipantRole.Role.GM).exists()
+    is_co_gm = any(participant.user_id == user.id and participant.is_gm_role for participant in participants)
     is_session_manager = _can_manage_session(session, user)
-    is_participant = participants.filter(user=user).exists()
+    is_participant = user_participant is not None
 
     if is_gm:
         handouts = HandoutInfo.objects.filter(session=session).select_related("participant__user")
@@ -255,6 +287,22 @@ def _build_session_detail_context(request, session, *, is_public_view):
         handouts = HandoutInfo.objects.filter(participant=user_participant)
     else:
         handouts = HandoutInfo.objects.none()
+    if is_gm or is_co_gm:
+        player_slot_handouts = HandoutInfo.objects.filter(session=session)
+        include_player_slot_titles = True
+    elif is_session_manager:
+        player_slot_handouts = HandoutInfo.objects.filter(
+            session=session,
+            assigned_player_slot__isnull=False,
+        ).only("assigned_player_slot", "code", "handout_number", "name", "title")
+        include_player_slot_titles = False
+    else:
+        player_slot_handouts = handouts
+        include_player_slot_titles = True
+    player_slot_options = _handout_player_slot_options(
+        player_slot_handouts,
+        include_titles=include_player_slot_titles,
+    )
 
     open_date_poll = DatePoll.objects.filter(session=session, is_closed=False).first()
     invitation_status_by_user_id = {}
@@ -275,8 +323,11 @@ def _build_session_detail_context(request, session, *, is_public_view):
     return {
         "session": session,
         "participants": participants,
+        "gm_participants": gm_participants,
+        "player_participants": player_participants,
         "occurrences": occurrences,
         "handouts": handouts,
+        "player_slot_options": player_slot_options,
         "is_gm": is_gm,
         "is_co_gm": is_co_gm,
         "is_session_manager": is_session_manager,

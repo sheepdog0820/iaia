@@ -725,9 +725,10 @@ class SessionParticipant(models.Model):
 
 class SessionParticipantRole(models.Model):
     class Role(models.TextChoices):
+        OWNER = "owner", "作成者"
+        MANAGER = "manager", "運用管理者"
         GM = "gm", "GM"
-        PLAYER = "player", "Player"
-        OBSERVER = "observer", "Observer"
+        PLAYER = "player", "PL"
 
     participant = models.ForeignKey(
         SessionParticipant,
@@ -740,8 +741,8 @@ class SessionParticipantRole(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["participant", "role"],
-                name="uniq_participant_role",
+                fields=["participant"],
+                name="uniq_participant_single_role",
             ),
         ]
         indexes = [
@@ -751,49 +752,6 @@ class SessionParticipantRole(models.Model):
 
     def __str__(self):
         return f"{self.participant.display_name} as {self.role}"
-
-
-class SessionPermission(models.Model):
-    class Role(models.TextChoices):
-        OWNER = "owner", "Owner"
-        MANAGER = "manager", "Manager"
-        SECRET_KEEPER = "secret_keeper", "Secret keeper"
-        VIEWER = "viewer", "Viewer"
-
-    session = models.ForeignKey(
-        TRPGSession,
-        on_delete=models.CASCADE,
-        related_name="session_permissions",
-    )
-    user = models.ForeignKey(
-        CustomUser,
-        on_delete=models.CASCADE,
-        related_name="session_permissions",
-    )
-    role = models.CharField(max_length=32, choices=Role.choices, db_index=True)
-    granted_by = models.ForeignKey(
-        CustomUser,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="granted_session_permissions",
-    )
-    created_at = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["session", "user", "role"],
-                name="uniq_session_permission_role",
-            ),
-        ]
-        indexes = [
-            models.Index(fields=["session", "role"], name="sess_perm_session_role_idx"),
-            models.Index(fields=["user", "role"], name="sess_perm_user_role_idx"),
-        ]
-
-    def __str__(self):
-        return f"{self.user} can {self.role} {self.session}"
 
 
 class SessionInvitation(models.Model):
@@ -809,7 +767,6 @@ class SessionInvitation(models.Model):
     INVITED_ROLE_CHOICES = [
         ("player", "PL"),
         ("gm", "GM"),
-        ("observer", "Observer"),
     ]
 
     session = models.ForeignKey(TRPGSession, on_delete=models.CASCADE, related_name="invitations")

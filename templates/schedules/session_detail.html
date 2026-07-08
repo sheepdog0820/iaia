@@ -70,7 +70,7 @@
                         <button class="btn btn-outline-warning"
                                 data-bs-toggle="modal"
                                 data-bs-target="#sessionPermissionsModal"
-                                onclick="loadSessionPermissions()">
+                                onclick="loadRoleManagement()">
                             <i class="fas fa-user-shield"></i> 権限管理
                         </button>
                     {% endif %}
@@ -208,19 +208,49 @@
                         </div>
                         <div class="col-md-6">
                             <h6><i class="fas fa-user"></i> GM</h6>
-                            <p class="mb-3">
-                                {% if session.gm and session.gm.profile_image %}
-                                    <img src="{{ session.gm.profile_image.url }}" alt="GM" 
-                                         class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;">
-                                {% else %}
-                                    <i class="fas fa-user-circle me-2"></i>
-                                {% endif %}
-                                {% if session.gm %}
+                            <div class="mb-3">
+                                {% if gm_participants %}
+                                    <div class="d-flex flex-wrap gap-2 align-items-stretch">
+                                        {% for gm_participant in gm_participants %}
+                                            <div class="border rounded px-2 py-2 d-flex flex-column gap-1">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="badge bg-primary">GM</span>
+                                                    <span class="fw-semibold">{{ gm_participant.display_name }}</span>
+                                                </div>
+                                                {% if gm_participant.character_name %}
+                                                    <div class="small text-muted">
+                                                        NPC: {{ gm_participant.character_name }}
+                                                    </div>
+                                                {% elif gm_participant.character_sheet %}
+                                                    <div class="small text-muted">
+                                                        NPC: {{ gm_participant.character_sheet.name }}
+                                                    </div>
+                                                {% endif %}
+                                                {% if can_edit and not is_public_view %}
+                                                    <div>
+                                                        {% if gm_participant.user %}
+                                                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                                                    onclick="openCharacterLinkModal({{ gm_participant.id }}, {{ gm_participant.user.id }}, {{ gm_participant.character_sheet_id|default:'null' }}, {{ gm_participant.player_slot|default:'null' }}, '{{ gm_participant.character_name|escapejs }}', '{{ gm_participant.character_sheet_url|escapejs }}')">
+                                                                <i class="fas fa-link"></i> NPC設定
+                                                            </button>
+                                                        {% else %}
+                                                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                                                    onclick="openGuestParticipantModal({{ gm_participant.id }}, '{{ gm_participant.guest_name|escapejs }}', {{ gm_participant.player_slot|default:'null' }}, '{{ gm_participant.character_name|escapejs }}', '{{ gm_participant.character_sheet_url|escapejs }}', {{ gm_participant.participant_identity_id|default:'null' }})">
+                                                                <i class="fas fa-user-edit"></i> NPC設定
+                                                            </button>
+                                                        {% endif %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% elif session.gm %}
+                                    <span class="badge bg-primary me-2">GM</span>
                                     {{ session.gm.nickname|default:session.gm.username }}
                                 {% else %}
                                     <span class="text-muted">未設定</span>
                                 {% endif %}
-                            </p>
+                            </div>
 
                             <h6><i class="fas fa-flag"></i> ステータス</h6>
                             <p class="mb-3">
@@ -534,32 +564,18 @@
             <div class="card mb-4" id="sessionParticipantsCard">
                 <div class="card-header bg-info">
                     <h5 class="mb-0">
-                        <i class="fas fa-users"></i> 参加者 ({{ session.participants.count }}人{% if guest_count %} +ゲスト{{ guest_count }}人{% endif %})
+                        <i class="fas fa-users"></i> PL一覧 ({{ player_participants|length }}人)
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <span class="badge bg-primary">GM</span>
-                        <span class="ms-2">
-                            {% if session.gm %}
-                                {{ session.gm.nickname|default:session.gm.username }}
-                            {% else %}
-                                未設定
-                            {% endif %}
-                        </span>
-                    </div>
-
-                    <div class="small text-muted mb-2">PL</div>
-                    {% if participants %}
+                    {% if player_participants %}
                         <div class="d-flex flex-wrap gap-2">
-                            {% for participant in participants %}
-                                {% if not participant.is_gm_role %}
-                                    <span class="badge bg-secondary">{{ participant.display_name }}</span>
-                                {% endif %}
+                            {% for participant in player_participants %}
+                                <span class="badge bg-secondary">{{ participant.display_name }}</span>
                             {% endfor %}
                         </div>
                     {% else %}
-                        <p class="text-muted mb-0">参加者がいません</p>
+                        <p class="text-muted mb-0">PLがいません</p>
                     {% endif %}
                 </div>
             </div>
@@ -568,7 +584,7 @@
                 <div class="card-header bg-info">
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
-                            <i class="fas fa-users"></i> 参加者一覧 ({{ session.participants.count }}人{% if guest_count %} +ゲスト{{ guest_count }}人{% endif %})
+                            <i class="fas fa-users"></i> PL一覧 ({{ player_participants|length }}人)
                         </h5>
                         {% if can_edit %}
                             <button class="btn btn-outline-light btn-sm" type="button"
@@ -580,7 +596,7 @@
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        {% for participant in participants %}
+                        {% for participant in player_participants %}
                         <div class="col-md-6 mb-3">
                             <div class="card h-100">
                                 <div class="card-body">
@@ -593,11 +609,7 @@
                                         {% endif %}
                                         <div>
                                             <h6 class="mb-1">{{ participant.display_name }}</h6>
-                                            {% if participant.is_gm_role %}
-                                                <span class="badge bg-primary">GM</span>
-                                            {% else %}
-                                                <span class="badge bg-secondary">PL</span>
-                                            {% endif %}
+                                            <span class="badge bg-secondary">PL</span>
                                             {% if participant.player_slot %}
                                                 <span class="badge bg-light text-dark ms-1">PL{{ participant.player_slot }}</span>
                                             {% endif %}
@@ -657,72 +669,6 @@
                                     {% endif %}
 
                                     {% if can_edit %}
-                                    <div class="mt-2 border rounded p-2 participant-role-editor" data-participant-id="{{ participant.id }}">
-                                        <div class="small text-muted mb-1">参加者ロール</div>
-                                        <div class="d-flex flex-wrap gap-3">
-                                            <div class="form-check form-check-inline mb-0">
-                                                <input class="form-check-input participant-role-checkbox"
-                                                       type="checkbox"
-                                                       id="participant-role-{{ participant.id }}-gm"
-                                                       data-participant-id="{{ participant.id }}"
-                                                       value="gm"
-                                                       onchange="saveParticipantRolesFromCheckboxes({{ participant.id }})"
-                                                       {% if participant.is_gm_role %}checked{% endif %}>
-                                                <label class="form-check-label small" for="participant-role-{{ participant.id }}-gm">GM</label>
-                                            </div>
-                                            <div class="form-check form-check-inline mb-0">
-                                                <input class="form-check-input participant-role-checkbox"
-                                                       type="checkbox"
-                                                       id="participant-role-{{ participant.id }}-player"
-                                                       data-participant-id="{{ participant.id }}"
-                                                       value="player"
-                                                       onchange="saveParticipantRolesFromCheckboxes({{ participant.id }})"
-                                                       {% if participant.is_player_role %}checked{% endif %}>
-                                                <label class="form-check-label small" for="participant-role-{{ participant.id }}-player">PL</label>
-                                            </div>
-                                            <div class="form-check form-check-inline mb-0">
-                                                <input class="form-check-input participant-role-checkbox"
-                                                       type="checkbox"
-                                                       id="participant-role-{{ participant.id }}-observer"
-                                                       data-participant-id="{{ participant.id }}"
-                                                       value="observer"
-                                                       onchange="saveParticipantRolesFromCheckboxes({{ participant.id }})"
-                                                       {% if participant.is_observer_role %}checked{% endif %}>
-                                                <label class="form-check-label small" for="participant-role-{{ participant.id }}-observer">見学</label>
-                                            </div>
-                                        </div>
-                                        {% if participant.user and participant.user_id != session.gm_id %}
-                                            <button class="btn btn-sm btn-outline-primary mt-2"
-                                                    onclick="assignMainGm({{ participant.user.id }})">
-                                                <i class="fas fa-crown"></i> 主GM
-                                            </button>
-                                        {% endif %}
-                                    </div>
-                                    {% endif %}
-
-                                    {% comment %}
-                                    <div class="mt-2 d-flex flex-wrap gap-2">
-                                        {% if not participant.user or participant.user_id != session.gm_id %}
-                                            <button class="btn btn-sm btn-outline-primary"
-                                                    onclick="assignMainGm({{ participant.user.id }})">
-                                                <i class="fas fa-crown"></i> 主GM
-                                            </button>
-                                        {% endif %}
-                                        {% if participant.is_gm_role and participant.user_id != session.gm_id %}
-                                            <button class="btn btn-sm btn-outline-secondary"
-                                                    onclick="changeParticipantRole({{ participant.id }}, 'player')">
-                                                <i class="fas fa-user"></i> PL
-                                            </button>
-                                        {% elif not participant.is_gm_role %}
-                                            <button class="btn btn-sm btn-outline-secondary"
-                                                    onclick="changeParticipantRole({{ participant.id }}, 'gm')">
-                                                <i class="fas fa-user-shield"></i> 共同GM
-                                            </button>
-                                        {% endif %}
-                                    </div>
-                                    {% endcomment %}
-
-                                    {% if can_edit %}
                                     <div class="mt-2 d-flex gap-2 flex-wrap">
                                         {% if participant.user %}
                                             <button class="btn btn-sm btn-outline-primary"
@@ -731,7 +677,7 @@
                                             </button>
                                         {% else %}
                                             <button class="btn btn-sm btn-outline-primary"
-                                                    onclick="openGuestParticipantModal({{ participant.id }}, '{{ participant.guest_name|escapejs }}', {{ participant.player_slot|default:'null' }}, '{{ participant.character_name|escapejs }}', '{{ participant.character_sheet_url|escapejs }}', '{{ participant.role_values|join:"," }}', {{ participant.participant_identity_id|default:'null' }})">
+                                                    onclick="openGuestParticipantModal({{ participant.id }}, '{{ participant.guest_name|escapejs }}', {{ participant.player_slot|default:'null' }}, '{{ participant.character_name|escapejs }}', '{{ participant.character_sheet_url|escapejs }}', {{ participant.participant_identity_id|default:'null' }})">
                                                 <i class="fas fa-user-edit"></i> ゲスト設定
                                             </button>
                                         {% endif %}
@@ -748,14 +694,14 @@
                         </div>
                         {% empty %}
                         <div class="col-12">
-                            <p class="text-muted text-center">参加者がいません</p>
+                            <p class="text-muted text-center">PLがいません</p>
                         </div>
                         {% endfor %}
                     </div>
                     {% if can_edit and not is_public_view %}
                     <div class="border rounded p-3 mt-3" id="sessionClaimRequestsPanel">
                         <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-                            <h6 class="mb-0"><i class="fas fa-user-check"></i> claim申請</h6>
+                            <h6 class="mb-0"><i class="fas fa-user-check"></i> 参加者紐付け申請</h6>
                             <button class="btn btn-sm btn-outline-secondary" type="button" onclick="loadSessionClaimRequests()">
                                 更新
                             </button>
@@ -1014,7 +960,6 @@
                     <select class="form-select" id="inviteRole">
                         <option value="player" selected>PLとして招待</option>
                         <option value="gm">GMとして招待</option>
-                        <option value="observer">見学として招待</option>
                     </select>
                 </div>
                 <div class="mt-3">
@@ -1050,16 +995,17 @@
                         <input type="text" class="form-control" id="edit_character_name" 
                                value="{{ user_participant.character_name }}">
                     </div>
+                    {% if player_slot_options %}
                     <div class="mb-3">
-                        <label for="edit_player_slot" class="form-label">プレイヤー枠（任意）</label>
+                        <label for="edit_player_slot" class="form-label">プレイヤー枠（ハンドアウト）</label>
                         <select class="form-select" id="edit_player_slot">
                             <option value="">未設定</option>
-                            <option value="1" {% if user_participant.player_slot == 1 %}selected{% endif %}>プレイヤー1</option>
-                            <option value="2" {% if user_participant.player_slot == 2 %}selected{% endif %}>プレイヤー2</option>
-                            <option value="3" {% if user_participant.player_slot == 3 %}selected{% endif %}>プレイヤー3</option>
-                            <option value="4" {% if user_participant.player_slot == 4 %}selected{% endif %}>プレイヤー4</option>
+                            {% for slot_option in player_slot_options %}
+                                <option value="{{ slot_option.value }}" {% if user_participant.player_slot == slot_option.value %}selected{% endif %}>{{ slot_option.label }}</option>
+                            {% endfor %}
                         </select>
                     </div>
+                    {% endif %}
                     <div class="mb-3">
                         <label for="edit_character_sheet_id" class="form-label">キャラクターシート（内部）</label>
                         <select class="form-select" id="edit_character_sheet_id" data-selected="{{ user_participant.character_sheet_id|default:'' }}">
@@ -1096,16 +1042,17 @@
             <div class="modal-body">
                 <input type="hidden" id="linkParticipantId">
                 <input type="hidden" id="linkParticipantUserId">
+                {% if player_slot_options %}
                 <div class="mb-3">
-                    <label for="link_player_slot" class="form-label">プレイヤー枠（任意）</label>
+                    <label for="link_player_slot" class="form-label">プレイヤー枠（ハンドアウト）</label>
                     <select class="form-select" id="link_player_slot">
                         <option value="">未設定</option>
-                        <option value="1">プレイヤー1</option>
-                        <option value="2">プレイヤー2</option>
-                        <option value="3">プレイヤー3</option>
-                        <option value="4">プレイヤー4</option>
+                        {% for slot_option in player_slot_options %}
+                            <option value="{{ slot_option.value }}">{{ slot_option.label }}</option>
+                        {% endfor %}
                     </select>
                 </div>
+                {% endif %}
                 <div class="mb-3">
                     <label for="link_character_name" class="form-label">キャラクター名（任意）</label>
                     <input type="text" class="form-control" id="link_character_name" placeholder="例: 伊達 真琴">
@@ -1143,7 +1090,7 @@
             </div>
             <div class="modal-body">
                 <div class="alert alert-light border small">
-                    owner/manager は基本情報・参加者・共有リンクを管理できます。秘匿HO、GMメモ、KP/GM用シナリオ情報を見るには secret_keeper が必要です。
+                    作成者は固定です。参加済みユーザーのGM/PL切り替えだけをここで管理します。
                 </div>
                 <div id="sessionPermissionsMessage" class="mb-3"></div>
                 <div id="sessionPermissionsList" class="border rounded p-3">
@@ -1163,7 +1110,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">ゲスト参加者設定</h5>
+                <h5 class="modal-title">ゲスト設定</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -1179,47 +1126,17 @@
                     <label for="guest_participant_name" class="form-label">ゲスト名 *</label>
                     <input type="text" class="form-control" id="guest_participant_name" placeholder="例: PL1 たろう" required>
                 </div>
+                {% if player_slot_options %}
                 <div class="mb-3">
-                    <label for="guest_player_slot" class="form-label">プレイヤー枠（任意）</label>
-                    <div class="mb-3">
-                        <label class="form-label">参加者ロール</label>
-                        <div class="d-flex flex-wrap gap-3">
-                            <div class="form-check form-check-inline mb-0">
-                                <input class="form-check-input guest-participant-role-checkbox"
-                                       type="checkbox"
-                                       id="guest_role_gm"
-                                       value="gm"
-                                       onchange="updateGuestPlayerSlotState()">
-                                <label class="form-check-label" for="guest_role_gm">GM</label>
-                            </div>
-                            <div class="form-check form-check-inline mb-0">
-                                <input class="form-check-input guest-participant-role-checkbox"
-                                       type="checkbox"
-                                       id="guest_role_player"
-                                       value="player"
-                                       onchange="updateGuestPlayerSlotState()"
-                                       checked>
-                                <label class="form-check-label" for="guest_role_player">PL</label>
-                            </div>
-                            <div class="form-check form-check-inline mb-0">
-                                <input class="form-check-input guest-participant-role-checkbox"
-                                       type="checkbox"
-                                       id="guest_role_observer"
-                                       value="observer"
-                                       onchange="updateGuestPlayerSlotState()">
-                                <label class="form-check-label" for="guest_role_observer">見学</label>
-                            </div>
-                        </div>
-                        <div class="form-text">少なくとも1つ選択してください。PLを外すとプレイヤー枠は保存されません。</div>
-                    </div>
+                    <label for="guest_player_slot" class="form-label">プレイヤー枠（ハンドアウト）</label>
                     <select class="form-select" id="guest_player_slot">
                         <option value="">未指定</option>
-                        <option value="1">プレイヤー1</option>
-                        <option value="2">プレイヤー2</option>
-                        <option value="3">プレイヤー3</option>
-                        <option value="4">プレイヤー4</option>
+                        {% for slot_option in player_slot_options %}
+                            <option value="{{ slot_option.value }}">{{ slot_option.label }}</option>
+                        {% endfor %}
                     </select>
                 </div>
+                {% endif %}
                 <div class="mb-3">
                     <label for="guest_character_name" class="form-label">キャラクター名（任意）</label>
                     <input type="text" class="form-control" id="guest_character_name" placeholder="例: 伊達 真琴">
@@ -1227,7 +1144,8 @@
                 <div class="mb-3">
                     <label for="guest_character_sheet_url" class="form-label">キャラクターシートURL（任意）</label>
                     <input type="url" class="form-control" id="guest_character_sheet_url" placeholder="https://...">
-                    <div class="form-text">ログイン不要の参加者向け。内部キャラクターシートは紐付けできません。</div>
+                    <div class="form-text">タブレノのキャラクターURLの場合、キャラクター名を自動取得します。</div>
+                    <div class="form-text d-none" id="guest_character_url_lookup_status"></div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -1935,14 +1853,7 @@ let groupTemporaryMembersForSession = [];
 
 const PARTICIPANT_ROLE_LABELS = {
     gm: 'GM',
-    player: 'PL',
-    observer: '見学'
-};
-const SESSION_PERMISSION_ROLE_LABELS = {
-    owner: 'owner',
-    manager: 'manager',
-    secret_keeper: 'secret_keeper',
-    viewer: 'viewer'
+    player: 'PL'
 };
 
 function normalizeRoleArray(roles, fallback = ['player']) {
@@ -2943,13 +2854,96 @@ function bindCharacterNameAutoFill(selectId, inputId) {
     const inputEl = document.getElementById(inputId);
     if (!selectEl || !inputEl) return;
 
-    selectEl.addEventListener('change', () => {
-        if (inputEl.value.trim()) return;
+    const applySelectedSheetName = () => {
         const sheet = characterSheetMap.get(selectEl.value);
         if (sheet && sheet.name) {
             inputEl.value = sheet.name;
         }
-    });
+    };
+
+    selectEl.addEventListener('change', applySelectedSheetName);
+    applySelectedSheetName();
+}
+
+function tablenoCharacterApiUrlFromUrl(rawUrl) {
+    const value = String(rawUrl || '').trim();
+    if (!value) return '';
+
+    let parsedUrl;
+    try {
+        parsedUrl = new URL(value, window.location.origin);
+    } catch (_) {
+        return '';
+    }
+
+    const path = parsedUrl.pathname.replace(/\/+$/, '');
+    const sharedMatch = path.match(/^\/share\/characters\/([^/]+)(?:\/view)?$/);
+    if (sharedMatch) {
+        return `/share/characters/${encodeURIComponent(sharedMatch[1])}/`;
+    }
+
+    const apiMatch = path.match(/^\/api\/accounts\/character-sheets\/(\d+)$/);
+    if (apiMatch) {
+        return `/api/accounts/character-sheets/${apiMatch[1]}/`;
+    }
+
+    const detailMatch = path.match(/^\/accounts\/character\/(?:6th\/)?(\d+)$/);
+    if (detailMatch) {
+        return `/api/accounts/character-sheets/${detailMatch[1]}/`;
+    }
+
+    return '';
+}
+
+function setGuestCharacterUrlLookupStatus(message, variant = 'muted') {
+    const statusEl = document.getElementById('guest_character_url_lookup_status');
+    if (!statusEl) return;
+
+    statusEl.textContent = message || '';
+    statusEl.className = 'form-text';
+    if (variant === 'success') {
+        statusEl.classList.add('text-success');
+    } else if (variant === 'danger') {
+        statusEl.classList.add('text-danger');
+    } else {
+        statusEl.classList.add('text-muted');
+    }
+    statusEl.classList.toggle('d-none', !message);
+}
+
+async function applyGuestCharacterNameFromUrl({ showStatus = true } = {}) {
+    const urlEl = document.getElementById('guest_character_sheet_url');
+    const nameEl = document.getElementById('guest_character_name');
+    if (!urlEl || !nameEl) return '';
+
+    const apiUrl = tablenoCharacterApiUrlFromUrl(urlEl.value);
+    if (!apiUrl) {
+        setGuestCharacterUrlLookupStatus('');
+        return '';
+    }
+
+    if (showStatus) {
+        setGuestCharacterUrlLookupStatus('キャラクター名を取得中...', 'muted');
+    }
+
+    try {
+        const response = await axios.get(apiUrl);
+        const name = response.data?.name || '';
+        if (!name) {
+            setGuestCharacterUrlLookupStatus('キャラクター名を取得できませんでした。', 'danger');
+            return '';
+        }
+        nameEl.value = name;
+        if (showStatus) {
+            setGuestCharacterUrlLookupStatus(`キャラクター名を取得しました: ${name}`, 'success');
+        }
+        return name;
+    } catch (error) {
+        if (showStatus) {
+            setGuestCharacterUrlLookupStatus('キャラクター名を取得できませんでした。', 'danger');
+        }
+        return '';
+    }
 }
 
 async function loadGroupMemberCharacters() {
@@ -4112,6 +4106,10 @@ async function joinSession() {
     };
     if (characterSheetId) {
         data.character_sheet_id = characterSheetId;
+        const selectedSheet = characterSheetMap.get(String(characterSheetId));
+        if (selectedSheet?.name) {
+            data.character_name = selectedSheet.name;
+        }
     }
 
     try {
@@ -4126,14 +4124,21 @@ async function joinSession() {
 // 参加情報更新
 async function updateParticipant() {
     const characterSheetId = document.getElementById('edit_character_sheet_id').value;
-    const playerSlotValue = document.getElementById('edit_player_slot')?.value || '';
+    const playerSlotEl = document.getElementById('edit_player_slot');
+    const playerSlotValue = playerSlotEl?.value || '';
     const data = {
         character_name: document.getElementById('edit_character_name').value,
-        character_sheet_url: document.getElementById('edit_character_sheet_url').value,
-        player_slot: playerSlotValue ? Number(playerSlotValue) : null
+        character_sheet_url: document.getElementById('edit_character_sheet_url').value
     };
+    if (playerSlotEl) {
+        data.player_slot = playerSlotValue ? Number(playerSlotValue) : null;
+    }
     if (characterSheetId) {
         data.character_sheet_id = characterSheetId;
+        const selectedSheet = characterSheetMap.get(String(characterSheetId));
+        if (selectedSheet?.name) {
+            data.character_name = selectedSheet.name;
+        }
     } else {
         data.character_sheet_id = '';
     }
@@ -4159,7 +4164,10 @@ function openCharacterLinkModal(participantId, userId, currentCharacterId, playe
 
     document.getElementById('linkParticipantId').value = participantId;
     document.getElementById('linkParticipantUserId').value = userId;
-    document.getElementById('link_player_slot').value = playerSlot ? String(playerSlot) : '';
+    const playerSlotEl = document.getElementById('link_player_slot');
+    if (playerSlotEl) {
+        playerSlotEl.value = playerSlot ? String(playerSlot) : '';
+    }
     document.getElementById('link_character_name').value = characterName || '';
     document.getElementById('link_character_sheet_url').value = characterSheetUrl || '';
 
@@ -4175,6 +4183,16 @@ function openCharacterLinkModal(participantId, userId, currentCharacterId, playe
     if (currentCharacterId) {
         selectEl.value = String(currentCharacterId);
     }
+    const applyLinkedCharacterName = () => {
+        const selected = characters.find(char => String(char.id) === String(selectEl.value));
+        if (selected?.name) {
+            document.getElementById('link_character_name').value = selected.name;
+        }
+    };
+    selectEl.onchange = applyLinkedCharacterName;
+    if (currentCharacterId && !characterName) {
+        applyLinkedCharacterName();
+    }
 
     modal.show();
 }
@@ -4183,7 +4201,8 @@ async function saveLinkedCharacter() {
     const participantId = document.getElementById('linkParticipantId').value;
     const userId = document.getElementById('linkParticipantUserId').value;
     const characterId = document.getElementById('linkCharacterSelect').value;
-    const playerSlotValue = document.getElementById('link_player_slot').value;
+    const playerSlotEl = document.getElementById('link_player_slot');
+    const playerSlotValue = playerSlotEl?.value || '';
     const characterName = document.getElementById('link_character_name').value || '';
     const characterSheetUrl = document.getElementById('link_character_sheet_url').value || '';
 
@@ -4194,12 +4213,14 @@ async function saveLinkedCharacter() {
 
     const data = {
         character_sheet_id: characterId || '',
-        player_slot: playerSlotValue ? Number(playerSlotValue) : null,
         character_name: characterName,
         character_sheet_url: characterSheetUrl,
     };
+    if (playerSlotEl) {
+        data.player_slot = playerSlotValue ? Number(playerSlotValue) : null;
+    }
 
-    if (!characterName && selected && selected.name) {
+    if (selected && selected.name) {
         data.character_name = selected.name;
     }
 
@@ -4212,29 +4233,7 @@ async function saveLinkedCharacter() {
     }
 }
 
-function setGuestRoleChecks(roles) {
-    const selectedRoles = normalizeRoleArray(roles, ['player']);
-    document.querySelectorAll('.guest-participant-role-checkbox').forEach(input => {
-        input.checked = selectedRoles.includes(input.value);
-    });
-}
-
-function getGuestRoleValues() {
-    return checkedValues('.guest-participant-role-checkbox');
-}
-
-function updateGuestPlayerSlotState() {
-    const roles = getGuestRoleValues();
-    const playerSlotEl = document.getElementById('guest_player_slot');
-    if (!playerSlotEl) return;
-    const hasPlayerRole = roles.includes('player');
-    playerSlotEl.disabled = !hasPlayerRole;
-    if (!hasPlayerRole) {
-        playerSlotEl.value = '';
-    }
-}
-
-function openGuestParticipantModal(participantId, guestName = '', playerSlot = null, characterName = '', characterSheetUrl = '', roles = 'player', participantIdentityId = null) {
+function openGuestParticipantModal(participantId, guestName = '', playerSlot = null, characterName = '', characterSheetUrl = '', participantIdentityId = null) {
     const modalEl = document.getElementById('guestParticipantModal');
     if (!modalEl) return;
 
@@ -4244,11 +4243,17 @@ function openGuestParticipantModal(participantId, guestName = '', playerSlot = n
         identitySelect.value = participantIdentityId ? String(participantIdentityId) : '';
     }
     document.getElementById('guest_participant_name').value = guestName || '';
-    document.getElementById('guest_player_slot').value = playerSlot ? String(playerSlot) : '';
+    const playerSlotEl = document.getElementById('guest_player_slot');
+    if (playerSlotEl) {
+        playerSlotEl.value = playerSlot ? String(playerSlot) : '';
+    }
     document.getElementById('guest_character_name').value = characterName || '';
     document.getElementById('guest_character_sheet_url').value = characterSheetUrl || '';
-    setGuestRoleChecks(roles);
-    updateGuestPlayerSlotState();
+    if (tablenoCharacterApiUrlFromUrl(characterSheetUrl)) {
+        applyGuestCharacterNameFromUrl({ showStatus: false });
+    } else {
+        setGuestCharacterUrlLookupStatus('');
+    }
     loadGroupTemporaryMembers(participantIdentityId).then(applyGuestParticipantIdentitySelection);
 
     const modal = new bootstrap.Modal(modalEl);
@@ -4259,28 +4264,27 @@ async function saveGuestParticipant() {
     const participantId = document.getElementById('guestParticipantId')?.value;
     const guestName = (document.getElementById('guest_participant_name')?.value || '').trim();
     const participantIdentityId = document.getElementById('guest_participant_identity')?.value || '';
-    const playerSlotValue = document.getElementById('guest_player_slot')?.value;
-    const characterName = document.getElementById('guest_character_name')?.value || '';
+    const playerSlotEl = document.getElementById('guest_player_slot');
+    const playerSlotValue = playerSlotEl?.value || '';
     const characterSheetUrl = document.getElementById('guest_character_sheet_url')?.value || '';
-    const roles = getGuestRoleValues();
+    if (characterSheetUrl) {
+        await applyGuestCharacterNameFromUrl({ showStatus: false });
+    }
+    const characterName = document.getElementById('guest_character_name')?.value || '';
 
     if (!guestName && !participantIdentityId) {
         sessionNotifyError('ゲスト名は必須です');
         return;
     }
 
-    if (roles.length === 0) {
-        sessionNotifyError('参加者ロールを1つ以上選択してください');
-        return;
-    }
-
     const payload = {
         guest_name: guestName,
-        roles,
-        player_slot: roles.includes('player') && playerSlotValue ? Number(playerSlotValue) : null,
         character_name: characterName,
         character_sheet_url: characterSheetUrl,
     };
+    if (playerSlotEl) {
+        payload.player_slot = playerSlotValue ? Number(playerSlotValue) : null;
+    }
     if (participantIdentityId) {
         payload.participant_identity = Number(participantIdentityId);
     }
@@ -4288,10 +4292,10 @@ async function saveGuestParticipant() {
     try {
         if (participantId) {
             await axios.patch(`/api/schedules/participants/${participantId}/`, payload);
-            sessionNotifySuccess('ゲスト参加者を更新しました');
+            sessionNotifySuccess('ゲストを更新しました');
         } else {
             await axios.post('/api/schedules/participants/', { session: SESSION_ID, ...payload });
-            sessionNotifySuccess('ゲスト参加者を追加しました');
+            sessionNotifySuccess('ゲストを追加しました');
         }
         location.reload();
     } catch (error) {
@@ -4320,71 +4324,23 @@ async function assignMainGm(userId) {
     }
 }
 
-async function changeParticipantRole(participantId, role) {
-    const label = role === 'gm' ? '共同GM' : 'PL';
-    const confirmed = await sessionConfirm(`この参加者を${label}に変更しますか？`, {
-        title: '参加者ロール変更',
-        confirmText: '変更',
-        confirmVariant: 'primary'
-    });
-    if (!confirmed) return;
-
-    try {
-        await axios.patch(`/api/schedules/participants/${participantId}/`, participantRolesPayload(role));
-        sessionNotifySuccess(`参加者を${label}に変更しました`);
-        window.location.reload();
-    } catch (error) {
-        sessionNotifyError('参加者ロールの変更に失敗しました: ' + getSessionErrorMessage(error));
-    }
-}
-
-async function saveParticipantRolesFromCheckboxes(participantId) {
-    const roles = checkedValues(`.participant-role-checkbox[data-participant-id="${participantId}"]`);
-    if (roles.length === 0) {
-        sessionNotifyError('参加者ロールを1つ以上選択してください');
-        return;
-    }
-
-    try {
-        await axios.patch(`/api/schedules/participants/${participantId}/`, participantRolesPayload(roles));
-        sessionNotifySuccess('参加者ロールを更新しました');
-        window.location.reload();
-    } catch (error) {
-        sessionNotifyError('参加者ロールの更新に失敗しました: ' + getSessionErrorMessage(error));
-    }
-}
-
-function roleCheckboxHtml({ name, value, checked, cssClass, dataAttrs = '' }) {
-    const id = `${cssClass}-${value}-${dataAttrs}-${name}`.replace(/[^a-zA-Z0-9_-]/g, '-');
-    return `
-        <div class="form-check form-check-inline mb-1">
-            <input class="form-check-input ${cssClass}"
-                   type="checkbox"
-                   id="${escapeHtml(id)}"
-                   value="${escapeHtml(value)}"
-                   ${dataAttrs}
-                   ${checked ? 'checked' : ''}>
-            <label class="form-check-label small" for="${escapeHtml(id)}">${escapeHtml(name)}</label>
-        </div>
-    `;
-}
-
-function renderParticipantRoleControls(participantId, roles, checkboxClass) {
+function renderParticipantRoleControls(participantId, roles) {
     if (!participantId) {
         return '<span class="text-muted small">未参加</span>';
     }
     const currentRoles = new Set(roles || []);
-    const controls = Object.entries(PARTICIPANT_ROLE_LABELS).map(([value, label]) => (
-        roleCheckboxHtml({
-            name: label,
-            value,
-            checked: currentRoles.has(value),
-            cssClass: checkboxClass,
-            dataAttrs: `data-participant-id="${escapeHtml(participantId)}"`
-        })
+    if (currentRoles.has('owner')) {
+        return '<span class="badge bg-primary">作成者</span>';
+    }
+    const currentRole = currentRoles.has('gm') ? 'gm' : 'player';
+    const options = Object.entries(PARTICIPANT_ROLE_LABELS).map(([value, label]) => (
+        `<option value="${escapeHtml(value)}" ${value === currentRole ? 'selected' : ''}>${escapeHtml(label)}</option>`
     )).join('');
     return `
-        <div>${controls}</div>
+        <select class="form-select form-select-sm permission-panel-participant-role-select"
+                data-participant-id="${escapeHtml(participantId)}">
+            ${options}
+        </select>
         <button type="button" class="btn btn-sm btn-outline-primary mt-1"
                 onclick="savePermissionPanelParticipantRoles(${Number(participantId)})">
             保存
@@ -4392,27 +4348,7 @@ function renderParticipantRoleControls(participantId, roles, checkboxClass) {
     `;
 }
 
-function renderSessionPermissionControls(userId, roles) {
-    const currentRoles = new Set(roles || []);
-    const controls = Object.entries(SESSION_PERMISSION_ROLE_LABELS).map(([value, label]) => (
-        roleCheckboxHtml({
-            name: label,
-            value,
-            checked: currentRoles.has(value),
-            cssClass: 'session-permission-checkbox',
-            dataAttrs: `data-user-id="${escapeHtml(userId)}"`
-        })
-    )).join('');
-    return `
-        <div>${controls}</div>
-        <button type="button" class="btn btn-sm btn-outline-primary mt-1"
-                onclick="saveSessionPermissionRoles(${Number(userId)})">
-            保存
-        </button>
-    `;
-}
-
-function renderSessionPermissions(data) {
+function renderRoleManagement(data) {
     const container = document.getElementById('sessionPermissionsList');
     if (!container) return;
 
@@ -4420,9 +4356,9 @@ function renderSessionPermissions(data) {
     const guests = data.guests || [];
     const userRows = users.map(user => {
         const badges = [
-            user.is_created_by ? '<span class="badge bg-primary ms-1">creator</span>' : '',
-            user.is_legacy_gm ? '<span class="badge bg-dark ms-1">main GM</span>' : '',
-            user.is_group_admin ? '<span class="badge bg-info text-dark ms-1">group admin</span>' : ''
+            user.is_created_by ? '<span class="badge bg-primary ms-1">作成者</span>' : '',
+            user.is_legacy_gm ? '<span class="badge bg-dark ms-1">GM</span>' : '',
+            user.is_group_admin ? '<span class="badge bg-info text-dark ms-1">グループ管理者</span>' : ''
         ].join('');
         return `
             <tr>
@@ -4430,8 +4366,7 @@ function renderSessionPermissions(data) {
                     <div class="fw-semibold">${escapeHtml(user.display_name || user.username || '')}${badges}</div>
                     <div class="text-muted small">@${escapeHtml(user.username || '')}</div>
                 </td>
-                <td>${renderParticipantRoleControls(user.participant_id, user.participant_roles, 'permission-panel-participant-role-checkbox')}</td>
-                <td>${renderSessionPermissionControls(user.user_id, user.permission_roles)}</td>
+                <td>${renderParticipantRoleControls(user.participant_id, user.participant_roles)}</td>
             </tr>
         `;
     }).join('');
@@ -4440,10 +4375,9 @@ function renderSessionPermissions(data) {
         <tr>
             <td>
                 <div class="fw-semibold">${escapeHtml(guest.display_name || '')}</div>
-                <div class="text-muted small">guest participant</div>
+                <div class="text-muted small">ゲスト</div>
             </td>
-            <td>${renderParticipantRoleControls(guest.participant_id, guest.participant_roles, 'permission-panel-participant-role-checkbox')}</td>
-            <td><span class="text-muted small">登録ユーザーのみ</span></td>
+            <td>${renderParticipantRoleControls(guest.participant_id, guest.participant_roles)}</td>
         </tr>
     `).join('');
 
@@ -4453,12 +4387,11 @@ function renderSessionPermissions(data) {
                 <thead>
                     <tr>
                         <th style="min-width: 180px;">対象</th>
-                        <th style="min-width: 260px;">参加者ロール</th>
-                        <th style="min-width: 320px;">SessionPermission</th>
+                        <th style="min-width: 220px;">ロール</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${userRows || '<tr><td colspan="3" class="text-muted">対象ユーザーがいません</td></tr>'}
+                    ${userRows || '<tr><td colspan="2" class="text-muted">対象ユーザーがいません</td></tr>'}
                     ${guestRows}
                 </tbody>
             </table>
@@ -4466,7 +4399,7 @@ function renderSessionPermissions(data) {
     `;
 }
 
-async function loadSessionPermissions() {
+async function loadRoleManagement() {
     if (!CAN_MANAGE_PERMISSIONS) return;
     const container = document.getElementById('sessionPermissionsList');
     if (container) {
@@ -4474,7 +4407,7 @@ async function loadSessionPermissions() {
     }
     try {
         const response = await axios.get(`/api/schedules/sessions/${SESSION_ID}/permissions/`);
-        renderSessionPermissions(response.data || {});
+        renderRoleManagement(response.data || {});
     } catch (error) {
         if (container) {
             container.innerHTML = `<div class="alert alert-danger mb-0">${escapeHtml(getSessionErrorMessage(error))}</div>`;
@@ -4482,29 +4415,18 @@ async function loadSessionPermissions() {
     }
 }
 
-async function saveSessionPermissionRoles(userId) {
-    const roles = checkedValues(`.session-permission-checkbox[data-user-id="${userId}"]`);
-    try {
-        const response = await axios.patch(`/api/schedules/sessions/${SESSION_ID}/permissions/`, {
-            user_id: userId,
-            permission_roles: roles
-        });
-        renderSessionPermissions(response.data || {});
-        sessionNotifySuccess('セッション権限を更新しました');
-    } catch (error) {
-        sessionNotifyError('セッション権限の更新に失敗しました: ' + getSessionErrorMessage(error));
-    }
-}
-
 async function savePermissionPanelParticipantRoles(participantId) {
-    const roles = checkedValues(`.permission-panel-participant-role-checkbox[data-participant-id="${participantId}"]`);
-    if (roles.length === 0) {
-        sessionNotifyError('参加者ロールを1つ以上選択してください');
+    const role = document.querySelector(`.permission-panel-participant-role-select[data-participant-id="${participantId}"]`)?.value;
+    if (!role) {
+        sessionNotifyError('参加者ロールを選択してください');
         return;
     }
     try {
-        await axios.patch(`/api/schedules/participants/${participantId}/`, participantRolesPayload(roles));
-        await loadSessionPermissions();
+        const response = await axios.patch(`/api/schedules/sessions/${SESSION_ID}/permissions/`, {
+            participant_id: participantId,
+            roles: [role]
+        });
+        renderRoleManagement(response.data || {});
         sessionNotifySuccess('参加者ロールを更新しました');
     } catch (error) {
         sessionNotifyError('参加者ロールの更新に失敗しました: ' + getSessionErrorMessage(error));
@@ -4515,7 +4437,7 @@ function renderSessionClaimRequests(claims) {
     const container = document.getElementById('sessionClaimRequestsList');
     if (!container) return;
     if (!claims || claims.length === 0) {
-        container.innerHTML = '<span class="text-muted small">保留中のclaim申請はありません。</span>';
+        container.innerHTML = '<span class="text-muted small">保留中の参加者紐付け申請はありません。</span>';
         return;
     }
 
@@ -4561,30 +4483,30 @@ async function requestParticipantClaim(participantId) {
         await axios.post(`/api/participants/${participantId}/claim-requests/`, {
             message: 'これは自分です'
         });
-        sessionNotifySuccess('claim申請を送信しました。管理者の承認を待ってください。');
+        sessionNotifySuccess('参加者紐付け申請を送信しました。管理者の承認を待ってください。');
     } catch (error) {
-        sessionNotifyError('claim申請に失敗しました: ' + getSessionErrorMessage(error));
+        sessionNotifyError('参加者紐付け申請に失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
 async function approveSessionClaimRequest(claimId) {
     try {
         await axios.post(`/api/sessions/${SESSION_ID}/claim-requests/${claimId}/approve/`, {});
-        sessionNotifySuccess('claim申請を承認しました。');
+        sessionNotifySuccess('参加者紐付け申請を承認しました。');
         await loadSessionClaimRequests();
         setTimeout(() => window.location.reload(), 500);
     } catch (error) {
-        sessionNotifyError('claim承認に失敗しました: ' + getSessionErrorMessage(error));
+        sessionNotifyError('参加者紐付け申請の承認に失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
 async function rejectSessionClaimRequest(claimId) {
     try {
         await axios.post(`/api/sessions/${SESSION_ID}/claim-requests/${claimId}/reject/`, {});
-        sessionNotifySuccess('claim申請を却下しました。');
+        sessionNotifySuccess('参加者紐付け申請を却下しました。');
         await loadSessionClaimRequests();
     } catch (error) {
-        sessionNotifyError('claim却下に失敗しました: ' + getSessionErrorMessage(error));
+        sessionNotifyError('参加者紐付け申請の却下に失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
@@ -4904,6 +4826,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (inviteSearchEl) {
         inviteSearchEl.addEventListener('input', () => {
             renderInviteMembersList(inviteSearchEl.value);
+        });
+    }
+
+    const guestCharacterSheetUrlEl = document.getElementById('guest_character_sheet_url');
+    if (guestCharacterSheetUrlEl) {
+        guestCharacterSheetUrlEl.addEventListener('change', () => {
+            applyGuestCharacterNameFromUrl();
+        });
+        guestCharacterSheetUrlEl.addEventListener('blur', () => {
+            applyGuestCharacterNameFromUrl();
         });
     }
 });
