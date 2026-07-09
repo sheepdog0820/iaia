@@ -114,71 +114,81 @@
 
     const COC7_DEFAULT_SKILLS = [
         { name: '回避', base: 'DEX/2' },
-        { name: 'キック', base: 25 },
-        { name: '組み付き', base: 25 },
-        { name: 'こぶし（パンチ）', base: 25 },
-        { name: '頭突き', base: 25 },
+        { name: '近接戦闘（格闘）', base: 25 },
         { name: '投擲', base: 20 },
-        { name: 'マーシャルアーツ', base: 1 },
-        { name: '拳銃', base: 20 },
-        { name: 'サブマシンガン', base: 15 },
-        { name: 'ショットガン', base: 25 },
-        { name: 'マシンガン', base: 10 },
-        { name: 'ライフル', base: 25 },
+        { name: '射撃（拳銃）', base: 20 },
+        { name: '射撃（ライフル／ショットガン）', base: 25 },
         { name: '応急手当', base: 30 },
         { name: '鍵開け', base: 1 },
         { name: '鑑定', base: 5 },
-        { name: '隠す', base: 15 },
-        { name: '隠れる', base: 20 },
+        { name: '隠密', base: 20 },
         { name: '聞き耳', base: 20 },
-        { name: '忍び歩き', base: 20 },
-        { name: '写真術', base: 10 },
         { name: '精神分析', base: 1 },
         { name: '追跡', base: 10 },
         { name: '登攀', base: 20 },
         { name: '図書館', base: 20 },
         { name: '目星', base: 25 },
-        { name: '運転', base: 20 },
+        { name: '手さばき', base: 10 },
+        { name: '運転（自動車）', base: 20 },
         { name: '機械修理', base: 10 },
         { name: '重機械操作', base: 1 },
         { name: '乗馬', base: 5 },
         { name: '水泳', base: 20 },
-        { name: '製作', base: 5 },
+        { name: '芸術／製作', base: 5 },
         { name: '操縦', base: 1 },
         { name: '跳躍', base: 20 },
         { name: '電気修理', base: 10 },
+        { name: '電子工学', base: 1 },
         { name: 'ナビゲート', base: 10 },
-        { name: '手さばき', base: 10 },
         { name: 'サバイバル', base: 10 },
         { name: '変装', base: 5 },
         { name: '言いくるめ', base: 5 },
         { name: '魅惑', base: 15 },
         { name: '信用', base: 0 },
         { name: '説得', base: 10 },
-        { name: '値切り', base: 5 },
         { name: '威圧', base: 15 },
-        { name: '他の言語', base: 1 },
+        { name: 'ほかの言語', base: 1 },
         { name: '母国語', base: 'EDU' },
         { name: '医学', base: 1 },
         { name: 'オカルト', base: 5 },
-        { name: '化学', base: 1 },
+        { name: '科学', base: 1 },
         { name: 'クトゥルフ神話', base: 0 },
-        { name: '芸術', base: 5 },
         { name: '経理', base: 5 },
         { name: '考古学', base: 1 },
         { name: 'コンピューター', base: 5 },
         { name: '心理学', base: 10 },
         { name: '人類学', base: 1 },
-        { name: '生物学', base: 1 },
-        { name: '地質学', base: 1 },
-        { name: '電子工学', base: 1 },
-        { name: '天文学', base: 1 },
-        { name: '博物学', base: 10 },
-        { name: '物理学', base: 1 },
+        { name: '自然', base: 10 },
         { name: '法律', base: 5 },
-        { name: '薬学', base: 1 },
         { name: '歴史', base: 5 },
     ];
+
+    const COC7_SKILL_NAME_ALIASES = new Map([
+        ['隠れる', '隠密'],
+        ['忍び歩き', '隠密'],
+        ['隠す', '手さばき'],
+        ['近接戦闘', '近接戦闘（格闘）'],
+        ['格闘技', '近接戦闘（格闘）'],
+        ['キック', '近接戦闘（格闘）'],
+        ['組み付き', '近接戦闘（格闘）'],
+        ['こぶし（パンチ）', '近接戦闘（格闘）'],
+        ['頭突き', '近接戦闘（格闘）'],
+        ['マーシャルアーツ', '近接戦闘（格闘）'],
+        ['拳銃', '射撃（拳銃）'],
+        ['ショットガン', '射撃（ライフル／ショットガン）'],
+        ['ライフル', '射撃（ライフル／ショットガン）'],
+        ['運転', '運転（自動車）'],
+        ['芸術', '芸術／製作'],
+        ['製作', '芸術／製作'],
+        ['他の言語', 'ほかの言語'],
+        ['化学', '科学'],
+        ['生物学', '科学'],
+        ['地質学', '科学'],
+        ['天文学', '科学'],
+        ['物理学', '科学'],
+        ['薬学', '科学'],
+        ['博物学', '自然'],
+    ]);
 
     function resolveSkillBase(base, abilities) {
         if (base === 'DEX*2') return Math.min(abilities.DEX * 2, 999);
@@ -201,9 +211,11 @@
         (Array.isArray(character.skills) ? character.skills : []).forEach(skill => {
             if (!skill?.skill_name || !Number.isFinite(Number(skill.current_value))) return;
             const skillName = String(skill.skill_name);
+            const normalizedSkillName = edition === '7th' ? (COC7_SKILL_NAME_ALIASES.get(skillName) || skillName) : skillName;
             const skillValue = toNumber(skill.current_value);
-            if (skillValues.has(skillName)) {
-                skillValues.set(skillName, skillValue);
+            if (skillValues.has(normalizedSkillName)) {
+                const value = normalizedSkillName === skillName ? skillValue : Math.max(skillValues.get(normalizedSkillName), skillValue);
+                skillValues.set(normalizedSkillName, value);
             } else {
                 customSkills.set(skillName, skillValue);
             }

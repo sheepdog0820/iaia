@@ -6,7 +6,41 @@ from django.test import SimpleTestCase
 
 
 class CharacterCreateUiStaticTests(SimpleTestCase):
-    SEVENTH_ONLY_SKILL_LABELS = ["鑑定", "手さばき", "サバイバル", "魅惑", "威圧"]
+    SEVENTH_ONLY_SKILL_LABELS = [
+        "鑑定",
+        "隠密",
+        "手さばき",
+        "サバイバル",
+        "魅惑",
+        "威圧",
+        "近接戦闘（格闘）",
+        "射撃（拳銃）",
+        "芸術／製作",
+        "科学",
+        "自然",
+        "ほかの言語",
+    ]
+    SEVENTH_REMOVED_SKILL_LABELS = [
+        "隠す",
+        "隠れる",
+        "忍び歩き",
+        "キック",
+        "組み付き",
+        "こぶし（パンチ）",
+        "頭突き",
+        "マーシャルアーツ",
+        "拳銃",
+        "ショットガン",
+        "ライフル",
+        "値切り",
+        "他の言語",
+        "芸術",
+        "製作",
+        "化学",
+        "生物学",
+        "薬学",
+        "博物学",
+    ]
 
     def read_text(self, relative_path):
         return (Path(settings.BASE_DIR) / relative_path).read_text(encoding="utf-8")
@@ -48,14 +82,51 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         block = self.extract_bracket_block(text, marker)
         return {match[0] or match[1] for match in re.findall(r"'([^']+)'|\"([^\"]+)\"", block)}
 
+    def extract_js_object_skill_names(self, text, marker, next_marker):
+        block = self.extract_between(text, marker, next_marker)
+        return {match[0] or match[1] for match in re.findall(r"name:\s*'([^']+)'|name:\s*\"([^\"]+)\"", block)}
+
     def test_6th_default_skills_do_not_include_7th_only_skills(self):
         script = self.read_text("static/accounts/js/character6th.js")
 
         for skill_label in self.SEVENTH_ONLY_SKILL_LABELS:
             self.assertNotIn(f'name: "{skill_label}"', script)
 
-        for skill_key in ["appraise", "sleight_of_hand", "survival", "charm", "intimidate"]:
+        for skill_key in [
+            "appraise",
+            "stealth",
+            "sleight_of_hand",
+            "survival",
+            "charm",
+            "intimidate",
+            "melee_brawl",
+            "firearms_handgun",
+            "art_craft",
+            "science",
+        ]:
             self.assertNotIn(f'"{skill_key}"', script)
+
+    def test_7th_create_skill_list_uses_current_7th_skill_names(self):
+        script = self.read_text("static/accounts/js/character7th.js")
+        seventh_names = self.extract_js_object_skill_names(script, "const SKILLS_7TH = {", "const SKILL_CATEGORY_KEYS")
+
+        for skill_label in self.SEVENTH_ONLY_SKILL_LABELS:
+            self.assertIn(skill_label, seventh_names)
+        for skill_label in self.SEVENTH_REMOVED_SKILL_LABELS:
+            self.assertNotIn(skill_label, seventh_names)
+
+        self.assertEqual(48, len(seventh_names))
+
+    def test_7th_create_secondary_status_uses_percentile_values(self):
+        template = self.read_text("templates/accounts/character_7th_create.html")
+        script = self.read_text("static/accounts/js/character7th.js")
+
+        self.assertIn("const idea = int;", script)
+        self.assertIn("const luck = pow;", script)
+        self.assertIn("const know = edu;", script)
+        self.assertNotIn('title="INT×5"', template)
+        self.assertNotIn('title="POW×5"', template)
+        self.assertNotIn('title="EDU×5"', template)
 
     def test_6th_create_labels_use_custom_and_status_roll_copy(self):
         template = self.read_text("templates/accounts/character_6th_create.html")
@@ -335,9 +406,11 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         for skill_label in self.SEVENTH_ONLY_SKILL_LABELS:
             self.assertNotIn(skill_label, sixth_names)
             self.assertIn(skill_label, seventh_names)
+        for skill_label in self.SEVENTH_REMOVED_SKILL_LABELS:
+            self.assertNotIn(skill_label, seventh_names)
 
         self.assertEqual(60, len(sixth_names))
-        self.assertEqual(65, len(seventh_names))
+        self.assertEqual(48, len(seventh_names))
         self.assertIn(
             "const defaultSkills = edition === '7th' ? CCFOLIA_COC7_DEFAULT_SKILLS : CCFOLIA_COC6_DEFAULT_SKILLS;",
             template,
@@ -363,13 +436,22 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
             "マシンガン",
             "ライフル",
         ]
+        expected_7th_combat_order = [
+            "回避",
+            "近接戦闘（格闘）",
+            "投擲",
+            "射撃（拳銃）",
+            "射撃（ライフル／ショットガン）",
+        ]
         self.assertEqual(expected_combat_order, sixth_names[:12])
-        self.assertEqual(expected_combat_order, seventh_names[:12])
+        self.assertEqual(expected_7th_combat_order, seventh_names[:5])
 
-        for names in [sixth_names, seventh_names]:
-            self.assertLess(names.index("目星"), names.index("運転"))
-            self.assertLess(names.index("変装"), names.index("言いくるめ"))
-            self.assertLess(names.index("母国語"), names.index("医学"))
+        self.assertLess(sixth_names.index("目星"), sixth_names.index("運転"))
+        self.assertLess(sixth_names.index("変装"), sixth_names.index("言いくるめ"))
+        self.assertLess(sixth_names.index("母国語"), sixth_names.index("医学"))
+        self.assertLess(seventh_names.index("目星"), seventh_names.index("運転（自動車）"))
+        self.assertLess(seventh_names.index("変装"), seventh_names.index("言いくるめ"))
+        self.assertLess(seventh_names.index("母国語"), seventh_names.index("医学"))
 
         self.assertIn("const skillValues = new Map();", template)
         self.assertIn("const customSkills = new Map();", template)
@@ -386,7 +468,9 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
                 for skill_label in self.SEVENTH_ONLY_SKILL_LABELS:
                     self.assertNotIn(skill_label, sixth_names)
                     self.assertIn(skill_label, seventh_names)
+                for skill_label in self.SEVENTH_REMOVED_SKILL_LABELS:
+                    self.assertNotIn(skill_label, seventh_names)
 
                 self.assertEqual(60, len(sixth_names))
-                self.assertEqual(65, len(seventh_names))
+                self.assertEqual(48, len(seventh_names))
                 self.assertNotIn("common_skills = [", source)

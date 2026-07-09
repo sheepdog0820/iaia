@@ -239,7 +239,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const weaponFields = `
             <div class="col-12 col-md-6">
                 <label class="form-label small mb-1" for="${uid}-skill_name">技能</label>
-                <input type="text" class="form-control form-control-sm" id="${uid}-skill_name" data-field="skill_name" placeholder="例: 拳銃 / こぶし（パンチ）">
+                <input type="text" class="form-control form-control-sm" id="${uid}-skill_name" data-field="skill_name" placeholder="例: 射撃（拳銃） / 近接戦闘（格闘）">
             </div>
             <div class="col-6 col-md-3">
                 <label class="form-label small mb-1" for="${uid}-damage">ダメージ</label>
@@ -447,45 +447,36 @@ document.addEventListener('DOMContentLoaded', function() {
     const SKILLS_7TH = {
         combat: {
             dodge: { base: "DEX/2", name: "回避" },
-            kick: { base: 25, name: "キック" },
-            grapple: { base: 25, name: "組み付き" },
-            fist_punch: { base: 25, name: "こぶし（パンチ）" },
-            head_butt: { base: 25, name: "頭突き" },
+            melee_brawl: { base: 25, name: "近接戦闘（格闘）" },
             throw: { base: 20, name: "投擲" },
-            martial_arts: { base: 1, name: "マーシャルアーツ" },
-            handgun: { base: 20, name: "拳銃" },
-            submachine_gun: { base: 15, name: "サブマシンガン" },
-            shotgun: { base: 25, name: "ショットガン" },
-            machine_gun: { base: 10, name: "マシンガン" },
-            rifle: { base: 25, name: "ライフル" }
+            firearms_handgun: { base: 20, name: "射撃（拳銃）" },
+            firearms_rifle_shotgun: { base: 25, name: "射撃（ライフル／ショットガン）" }
         },
         exploration: {
             first_aid: { base: 30, name: "応急手当" },
             locksmith: { base: 1, name: "鍵開け" },
             appraise: { base: 5, name: "鑑定" },
-            conceal: { base: 15, name: "隠す" },
-            hide: { base: 20, name: "隠れる" },
+            stealth: { base: 20, name: "隠密" },
             listen: { base: 20, name: "聞き耳" },
-            sneak: { base: 20, name: "忍び歩き" },
-            photography: { base: 10, name: "写真術" },
             psychoanalysis: { base: 1, name: "精神分析" },
             track: { base: 10, name: "追跡" },
             climb: { base: 20, name: "登攀" },
             library_use: { base: 20, name: "図書館" },
-            spot_hidden: { base: 25, name: "目星" }
+            spot_hidden: { base: 25, name: "目星" },
+            sleight_of_hand: { base: 10, name: "手さばき" }
         },
         action: {
-            drive_auto: { base: 20, name: "運転" },
+            drive_auto: { base: 20, name: "運転（自動車）" },
             mechanical_repair: { base: 10, name: "機械修理" },
             operate_heavy_machine: { base: 1, name: "重機械操作" },
             ride: { base: 5, name: "乗馬" },
             swim: { base: 20, name: "水泳" },
-            craft: { base: 5, name: "製作" },
+            art_craft: { base: 5, name: "芸術／製作" },
             pilot: { base: 1, name: "操縦" },
             jump: { base: 20, name: "跳躍" },
             electrical_repair: { base: 10, name: "電気修理" },
+            electronics: { base: 1, name: "電子工学" },
             navigate: { base: 10, name: "ナビゲート" },
-            sleight_of_hand: { base: 10, name: "手さばき" },
             survival: { base: 10, name: "サバイバル" },
             disguise: { base: 5, name: "変装" }
         },
@@ -494,30 +485,22 @@ document.addEventListener('DOMContentLoaded', function() {
             charm: { base: 15, name: "魅惑" },
             credit_rating: { base: 0, name: "信用" },
             persuade: { base: 10, name: "説得" },
-            bargain: { base: 5, name: "値切り" },
             intimidate: { base: 15, name: "威圧" },
-            language_other: { base: 1, name: "他の言語" },
+            language_other: { base: 1, name: "ほかの言語" },
             language_own: { base: "EDU", name: "母国語" }
         },
         knowledge: {
             medicine: { base: 1, name: "医学" },
             occult: { base: 5, name: "オカルト" },
-            chemistry: { base: 1, name: "化学" },
+            science: { base: 1, name: "科学" },
             cthulhu_mythos: { base: 0, name: "クトゥルフ神話" },
-            art: { base: 5, name: "芸術" },
             accounting: { base: 5, name: "経理" },
             archaeology: { base: 1, name: "考古学" },
             computer_use: { base: 5, name: "コンピューター" },
             psychology: { base: 10, name: "心理学" },
             anthropology: { base: 1, name: "人類学" },
-            biology: { base: 1, name: "生物学" },
-            geology: { base: 1, name: "地質学" },
-            electronics: { base: 1, name: "電子工学" },
-            astronomy: { base: 1, name: "天文学" },
-            natural_world: { base: 10, name: "博物学" },
-            physics: { base: 1, name: "物理学" },
+            natural_world: { base: 10, name: "自然" },
             law: { base: 5, name: "法律" },
-            pharmacy: { base: 1, name: "薬学" },
             history: { base: 5, name: "歴史" }
         }
     };
@@ -543,6 +526,32 @@ document.addEventListener('DOMContentLoaded', function() {
             .map(([key, skill]) => [skill?.name, key])
             .filter(([name]) => !!name)
     );
+    const SKILL_NAME_ALIASES = new Map([
+        ['隠れる', 'stealth'],
+        ['忍び歩き', 'stealth'],
+        ['隠す', 'sleight_of_hand'],
+        ['近接戦闘', 'melee_brawl'],
+        ['格闘技', 'melee_brawl'],
+        ['キック', 'melee_brawl'],
+        ['組み付き', 'melee_brawl'],
+        ['こぶし（パンチ）', 'melee_brawl'],
+        ['頭突き', 'melee_brawl'],
+        ['マーシャルアーツ', 'melee_brawl'],
+        ['拳銃', 'firearms_handgun'],
+        ['ショットガン', 'firearms_rifle_shotgun'],
+        ['ライフル', 'firearms_rifle_shotgun'],
+        ['運転', 'drive_auto'],
+        ['芸術', 'art_craft'],
+        ['製作', 'art_craft'],
+        ['他の言語', 'language_other'],
+        ['化学', 'science'],
+        ['生物学', 'science'],
+        ['地質学', 'science'],
+        ['天文学', 'science'],
+        ['物理学', 'science'],
+        ['薬学', 'science'],
+        ['博物学', 'natural_world'],
+    ]);
     const CUSTOM_SKILL_CATEGORIES = ['combat', 'exploration', 'action', 'social', 'knowledge', 'all'];
     const CUSTOM_SKILL_DEFAULT_CATEGORY = 'knowledge';
     let customSkillCounter = 0;
@@ -797,11 +806,17 @@ function updateGlobalDiceFormula() {
         const hp = Math.floor((con + siz) / 10);
         const mp = Math.floor(pow / 5);  // MP = POW / 5
         const san = pow;  // SAN = POW
+        const idea = int;  // アイデア = INT
+        const luck = pow;  // 幸運 = POW
+        const know = edu;  // 知識 = EDU
         const sanMax = 99;  // 99 - クトゥルフ神話技能（初期値0）
         
         if (document.getElementById('hp')) document.getElementById('hp').value = hp;
         if (document.getElementById('mp')) document.getElementById('mp').value = mp;
         if (document.getElementById('san')) document.getElementById('san').value = san;
+        if (document.getElementById('idea')) document.getElementById('idea').value = idea;
+        if (document.getElementById('luck')) document.getElementById('luck').value = luck;
+        if (document.getElementById('know')) document.getElementById('know').value = know;
         
         // Set current values as starting defaults
         const currentHpEl = document.getElementById('current_hp');
@@ -820,6 +835,9 @@ function updateGlobalDiceFormula() {
         updateDisplay('hp_display', hp);
         updateDisplay('mp_display', mp);
         updateDisplay('san_display', san);
+        updateDisplay('idea_display', idea);
+        updateDisplay('luck_display', luck);
+        updateDisplay('know_display', know);
         
         // 7th edition specific derived calculations
         calculateDerivedStats7th(str, con, pow, dex, int, edu, siz);
@@ -835,16 +853,49 @@ function updateGlobalDiceFormula() {
     function calculateDerivedStats7th(str, con, pow, dex, int, edu, siz) {
         const total = str + siz;
         let damageBonus;
+        let build;
 
-        if (total <= 64) damageBonus = "-2";
-        else if (total <= 84) damageBonus = "-1";
-        else if (total <= 124) damageBonus = "+0";
-        else if (total <= 164) damageBonus = "+1D4";
-        else if (total <= 204) damageBonus = "+1D6";
-        else if (total <= 284) damageBonus = "+2D6";
-        else if (total <= 364) damageBonus = "+3D6";
-        else if (total <= 444) damageBonus = "+4D6";
-        else damageBonus = "+5D6";
+        if (total <= 64) {
+            damageBonus = "-2";
+            build = -2;
+        } else if (total <= 84) {
+            damageBonus = "-1";
+            build = -1;
+        } else if (total <= 124) {
+            damageBonus = "+0";
+            build = 0;
+        } else if (total <= 164) {
+            damageBonus = "+1D4";
+            build = 1;
+        } else if (total <= 204) {
+            damageBonus = "+1D6";
+            build = 2;
+        } else if (total <= 284) {
+            damageBonus = "+2D6";
+            build = 3;
+        } else if (total <= 364) {
+            damageBonus = "+3D6";
+            build = 4;
+        } else if (total <= 444) {
+            damageBonus = "+4D6";
+            build = 5;
+        } else {
+            damageBonus = "+5D6";
+            build = 6;
+        }
+
+        let moveRate;
+        if (str < siz && dex < siz) moveRate = 7;
+        else if (str > siz && dex > siz) moveRate = 9;
+        else moveRate = 8;
+
+        const age = parseInt(document.getElementById('age')?.value, 10) || 0;
+        if (age >= 80) moveRate -= 5;
+        else if (age >= 70) moveRate -= 4;
+        else if (age >= 60) moveRate -= 3;
+        else if (age >= 50) moveRate -= 2;
+        else if (age >= 40) moveRate -= 1;
+        moveRate = Math.max(1, moveRate);
 
         const damageBonusDisplay = (damageBonus || '').toUpperCase();
         if (document.getElementById('damage-bonus')) {
@@ -853,6 +904,14 @@ function updateGlobalDiceFormula() {
         const damageDisplayEl = document.getElementById('damage_bonus_display');
         if (damageDisplayEl) {
             damageDisplayEl.textContent = damageBonusDisplay;
+        }
+        const buildDisplayEl = document.getElementById('build_display');
+        if (buildDisplayEl) {
+            buildDisplayEl.textContent = build;
+        }
+        const moveRateDisplayEl = document.getElementById('move_rate_display');
+        if (moveRateDisplayEl) {
+            moveRateDisplayEl.textContent = moveRate;
         }
     }
 
@@ -1414,6 +1473,7 @@ function updateGlobalDiceFormula() {
         if (ALL_SKILLS_7TH[trimmed]) return trimmed;
         const lower = trimmed.toLowerCase();
         if (ALL_SKILLS_7TH[lower]) return lower;
+        if (SKILL_NAME_ALIASES.has(trimmed)) return SKILL_NAME_ALIASES.get(trimmed);
         return SKILL_NAME_TO_KEY.get(trimmed) || null;
     }
 
@@ -2253,6 +2313,7 @@ function updateGlobalDiceFormula() {
     document.querySelectorAll('.ability-score').forEach(input => {
         input.addEventListener('input', calculateDerivedStats);
     });
+    document.getElementById('age')?.addEventListener('input', calculateDerivedStats);
 
     const resetSkillAllocations = () => {
         skillCards.forEach(({ card }) => {
@@ -2279,95 +2340,95 @@ function updateGlobalDiceFormula() {
             {
                 name: "大学教授",
                 skills: ["library_use", "psychology", "persuade", "credit_rating", "history", "natural_world", "language_other", "occult"],
-                multiplier: 20,
+                multiplier: 4,
                 description: "大学の教員・研究者"
             },
             {
                 name: "考古学者",
-                skills: ["archaeology", "library_use", "history", "spot_hidden", "navigate", "photography", "language_other", "appraise"],
-                multiplier: 20,
+                skills: ["archaeology", "library_use", "history", "spot_hidden", "navigate", "science", "language_other", "appraise"],
+                multiplier: 4,
                 description: "遺跡や遺物の調査研究者"
             },
             {
                 name: "司書",
                 skills: ["library_use", "accounting", "computer_use", "history", "psychology", "language_other", "spot_hidden", "persuade"],
-                multiplier: 20,
+                multiplier: 4,
                 description: "図書館・文書館の専門職"
             }
         ],
         investigation: [
             {
                 name: "私立探偵",
-                skills: ["spot_hidden", "listen", "track", "psychology", "persuade", "photography", "hide", "law"],
-                multiplier: 20,
+                skills: ["spot_hidden", "listen", "track", "psychology", "persuade", "stealth", "sleight_of_hand", "law"],
+                multiplier: 4,
                 description: "独立系の調査員"
             },
             {
                 name: "記者",
-                skills: ["persuade", "psychology", "spot_hidden", "listen", "photography", "fast_talk", "library_use", "language_other"],
-                multiplier: 20,
+                skills: ["persuade", "psychology", "spot_hidden", "listen", "computer_use", "fast_talk", "library_use", "language_other"],
+                multiplier: 4,
                 description: "新聞記者・雑誌ライター"
             },
             {
                 name: "警察官",
-                skills: ["law", "spot_hidden", "listen", "intimidate", "handgun", "grapple", "drive_auto", "first_aid"],
-                multiplier: 20,
+                skills: ["law", "spot_hidden", "listen", "intimidate", "firearms_handgun", "melee_brawl", "drive_auto", "first_aid"],
+                multiplier: 4,
                 description: "法執行機関の職員"
             }
         ],
         combat: [
             {
                 name: "軍人",
-                skills: ["rifle", "handgun", "dodge", "first_aid", "intimidate", "survival", "navigate", "drive_auto"],
-                multiplier: 20,
+                skills: ["firearms_rifle_shotgun", "firearms_handgun", "dodge", "first_aid", "intimidate", "survival", "navigate", "drive_auto"],
+                multiplier: 4,
                 description: "現役または元軍人"
             },
             {
                 name: "格闘家",
-                skills: ["martial_arts", "dodge", "kick", "grapple", "psychology", "intimidate", "jump", "first_aid"],
-                multiplier: 20,
+                skills: ["melee_brawl", "dodge", "throw", "psychology", "intimidate", "jump", "first_aid", "swim"],
+                multiplier: 4,
                 description: "武道家・ボクサー等"
             }
         ],
         medical: [
             {
                 name: "医師",
-                skills: ["medicine", "first_aid", "biology", "pharmacy", "psychology", "credit_rating", "persuade", "language_other"],
-                multiplier: 20,
+                skills: ["medicine", "first_aid", "science", "psychology", "credit_rating", "persuade", "language_other", "library_use"],
+                multiplier: 4,
                 description: "医師・外科医"
             },
             {
                 name: "看護師",
-                skills: ["medicine", "first_aid", "biology", "psychology", "persuade", "listen", "spot_hidden", "pharmacy"],
-                multiplier: 20,
+                skills: ["medicine", "first_aid", "science", "psychology", "persuade", "listen", "spot_hidden", "credit_rating"],
+                multiplier: 4,
                 description: "医療スタッフ"
             }
         ],
         arts: [
             {
                 name: "芸術家",
-                skills: ["art", "psychology", "spot_hidden", "history", "persuade", "charm", "language_other", "appraise"],
-                multiplier: 20,
+                skills: ["art_craft", "psychology", "spot_hidden", "history", "persuade", "charm", "language_other", "appraise"],
+                multiplier: 4,
                 description: "画家・彫刻家・演者など"
             },
             {
                 name: "作家",
                 skills: ["language_own", "language_other", "library_use", "psychology", "history", "occult", "persuade", "spot_hidden"],
-                multiplier: 20,
+                multiplier: 4,
                 description: "小説家・著述家"
             }
         ],
         others: [
             {
                 name: "犯罪者",
-                skills: ["hide", "sneak", "locksmith", "sleight_of_hand", "spot_hidden", "listen", "bargain", "disguise"],
-                multiplier: 20,
+                skills: ["stealth", "locksmith", "sleight_of_hand", "spot_hidden", "listen", "fast_talk", "disguise", "appraise"],
+                multiplier: 4,
                 description: "常習犯・無法者"
             },
             {
                 name: "コレクター",
-                skills: ["credit_rating", "ride", "art", "language_other", "handgun", "history", "charm", "accounting"],
-                multiplier: 20,
+                skills: ["credit_rating", "ride", "art_craft", "language_other", "firearms_handgun", "history", "charm", "accounting"],
+                multiplier: 4,
                 description: "収集家・愛好家"
             }
         ]
@@ -2408,7 +2469,7 @@ function initOccupationTemplates() {
                    data-occupation='${JSON.stringify(occ)}'>
                     <div class="d-flex w-100 justify-content-between">
                         <h6 class="mb-1">${occ.name}</h6>
-                        <small>倍率: EDU x${occ.multiplier}</small>
+                        <small>方式: EDU x${occ.multiplier}</small>
                     </div>
                     <p class="mb-1 text-muted small">${occ.description}</p>
                     <small>推奨技能: ${skillDisplay}</small>
@@ -2436,8 +2497,8 @@ function initOccupationTemplates() {
         
         // 職業ポイント計算方法を設定
         const methodSelect = document.getElementById('occupationMethod');
-        if (methodSelect && occupation.multiplier === 20) {
-            methodSelect.value = 'edu20';
+        if (methodSelect && occupation.multiplier === 4) {
+            methodSelect.value = 'edu4';
         }
         
         // 職業技能をセット

@@ -322,7 +322,7 @@
                             <div class="derived-card d-none">
                                 <div class="derived-card-header">
                                     <span class="derived-label">HP</span>
-                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="(CON+SIZ)/2" aria-label="HP計算式">
+                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="(CON+SIZ)÷10" aria-label="HP計算式">
                                         <i class="fas fa-circle-question"></i>
                                     </button>
                                 </div>
@@ -332,7 +332,7 @@
                             <div class="derived-card d-none">
                                 <div class="derived-card-header">
                                     <span class="derived-label">MP</span>
-                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="POW" aria-label="MP計算式">
+                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="POW÷5" aria-label="MP計算式">
                                         <i class="fas fa-circle-question"></i>
                                     </button>
                                 </div>
@@ -342,7 +342,7 @@
                             <div class="derived-card d-none">
                                 <div class="derived-card-header">
                                     <span class="derived-label">SAN</span>
-                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="POW×5" aria-label="SAN計算式">
+                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="POW" aria-label="SAN計算式">
                                         <i class="fas fa-circle-question"></i>
                                     </button>
                                 </div>
@@ -352,7 +352,7 @@
                             <div class="derived-card">
                                 <div class="derived-card-header">
                                     <span class="derived-label">アイデア</span>
-                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="INT×5" aria-label="アイデア計算式">
+                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="INT" aria-label="アイデア計算式">
                                         <i class="fas fa-circle-question"></i>
                                     </button>
                                 </div>
@@ -362,7 +362,7 @@
                             <div class="derived-card">
                                 <div class="derived-card-header">
                                     <span class="derived-label">幸運</span>
-                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="POW×5" aria-label="幸運計算式">
+                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="POW" aria-label="幸運計算式">
                                         <i class="fas fa-circle-question"></i>
                                     </button>
                                 </div>
@@ -372,7 +372,7 @@
                             <div class="derived-card">
                                 <div class="derived-card-header">
                                     <span class="derived-label">知識</span>
-                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="EDU×5" aria-label="知識計算式">
+                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="EDU" aria-label="知識計算式">
                                         <i class="fas fa-circle-question"></i>
                                     </button>
                                 </div>
@@ -388,6 +388,24 @@
                                 </div>
                                 <div class="derived-value" id="damage_bonus_display">--</div>
                                 <input type="hidden" id="damage-bonus" name="damage_bonus">
+                            </div>
+                            <div class="derived-card">
+                                <div class="derived-card-header">
+                                    <span class="derived-label">ビルド</span>
+                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="STR+SIZ" aria-label="ビルド計算式">
+                                        <i class="fas fa-circle-question"></i>
+                                    </button>
+                                </div>
+                                <div class="derived-value" id="build_display">--</div>
+                            </div>
+                            <div class="derived-card">
+                                <div class="derived-card-header">
+                                    <span class="derived-label">移動率</span>
+                                    <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="STR/DEX/SIZと年齢" aria-label="移動率計算式">
+                                        <i class="fas fa-circle-question"></i>
+                                    </button>
+                                </div>
+                                <div class="derived-value" id="move_rate_display">--</div>
                             </div>
                         </div>
                     </div>
