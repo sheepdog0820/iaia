@@ -29,9 +29,15 @@
                         </a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
+                            {% if user.has_premium_access %}
                             <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#ccfoliaImportModal">
-                                <i class="fas fa-file-import text-danger"></i> CCFOLIAインポート
+                                <i class="fas fa-file-import text-danger"></i> CCFOLIAインポート（プレミアム）
                             </button>
+                            {% else %}
+                            <a class="dropdown-item" href="{% url 'billing' %}">
+                                <i class="fas fa-crown text-warning"></i> CCFOLIAインポート（プレミアム）
+                            </a>
+                            {% endif %}
                         </li>
                     </ul>
                 </div>
@@ -101,6 +107,7 @@
     </div>
 </div>
 
+{% if user.has_premium_access %}
 <!-- CCFOLIAインポートモーダル -->
 <div class="modal fade" id="ccfoliaImportModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -114,14 +121,39 @@
             <div class="modal-body">
                 <form id="ccfoliaImportForm">
                     <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label for="ccfoliaImportAge" class="form-label">年齢（未記載の場合）</label>
-                            <input type="number" class="form-control" id="ccfoliaImportAge" min="15" max="90" value="20" required>
+                        <div class="col-md-3 mb-3">
+                            <label for="ccfoliaImportEdition" class="form-label">版</label>
+                            <select class="form-select" id="ccfoliaImportEdition" required>
+                                <option value="6th" selected>6版</option>
+                                <option value="7th">7版</option>
+                            </select>
                         </div>
-                        <div class="col-md-8 mb-3">
+                        <div class="col-md-3 mb-3">
+                            <label for="ccfoliaImportAge" class="form-label">年齢</label>
+                            <input type="number" class="form-control" id="ccfoliaImportAge" min="15" max="90" placeholder="未入力可">
+                        </div>
+                        <div class="col-md-6 mb-3">
                             <div class="alert alert-secondary mb-0" role="alert">
                                 ココフォリアの「キャラクター出力」JSON（<code>{"kind":"character","data":{...}}</code>）を貼り付けてください。
                             </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="ccfoliaImportOccupation" class="form-label">職業</label>
+                            <input type="text" class="form-control" id="ccfoliaImportOccupation" maxlength="100">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="ccfoliaImportGender" class="form-label">性別</label>
+                            <input type="text" class="form-control" id="ccfoliaImportGender" maxlength="50">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="ccfoliaImportBirthplace" class="form-label">出身地</label>
+                            <input type="text" class="form-control" id="ccfoliaImportBirthplace" maxlength="100">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="ccfoliaImportResidence" class="form-label">居住地</label>
+                            <input type="text" class="form-control" id="ccfoliaImportResidence" maxlength="100">
                         </div>
                     </div>
                     <div class="mb-3">
@@ -136,6 +168,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
@@ -262,6 +295,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const maxMp = character.max_mp || 0;
             const san = character.current_san !== null && character.current_san !== undefined ? character.current_san : character.max_san || 0;
             const maxSan = character.max_san || 0;
+            const ageLabel = character.age || character.age === 0 ? `${character.age}歳` : '未設定';
             
             // 画像URLの決定（統一化）
             let imageUrl = DEFAULT_CHARACTER_IMAGE;
@@ -295,7 +329,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             
                             <div class="text-muted small mb-2 character-meta">
                                 <div><strong>職業:</strong> ${character.occupation || '未設定'}</div>
-                                <div><strong>年齢:</strong> ${character.age || '未設定'}歳</div>
+                                <div><strong>年齢:</strong> ${ageLabel}</div>
                                 <div><strong>バージョン:</strong> ${character.version}</div>
                             </div>
                             
@@ -483,14 +517,61 @@ document.addEventListener('DOMContentLoaded', function() {
     // CCFOLIAインポート
     const importForm = document.getElementById('ccfoliaImportForm');
     if (importForm) {
+        const editionEl = document.getElementById('ccfoliaImportEdition');
+        const jsonEl = document.getElementById('ccfoliaImportJson');
+        let editionTouched = false;
+
+        function normalizeImportEdition(value) {
+            const text = String(value || '').toLowerCase().replace(/[_\-\s]/g, '');
+            if (!text) return '';
+            if (['7', '7th', 'coc7', 'coc7th'].includes(text) || text.includes('7版')) return '7th';
+            if (['6', '6th', 'coc6', 'coc6th'].includes(text) || text.includes('6版')) return '6th';
+            return '';
+        }
+
+        function detectImportEdition(payload) {
+            const candidates = [
+                payload?.edition,
+                payload?.sourceVersion,
+                payload?.source_version,
+                payload?.gameSystem,
+                payload?.data?.edition,
+                payload?.data?.sourceVersion,
+                payload?.data?.source_version,
+                payload?.data?.gameSystem,
+            ];
+            for (const candidate of candidates) {
+                const normalized = normalizeImportEdition(candidate);
+                if (normalized) return normalized;
+            }
+            return '';
+        }
+
+        editionEl?.addEventListener('change', () => {
+            editionTouched = true;
+        });
+
+        jsonEl?.addEventListener('input', () => {
+            if (editionTouched || !editionEl) return;
+            try {
+                const detected = detectImportEdition(JSON.parse(jsonEl.value));
+                if (detected) editionEl.value = detected;
+            } catch (error) {
+                // 入力中のJSONは未完成のことが多いため、ここでは通知しない。
+            }
+        });
+
         importForm.addEventListener('submit', async (event) => {
             event.preventDefault();
 
             const submitBtn = document.getElementById('ccfoliaImportSubmitBtn');
             const ageEl = document.getElementById('ccfoliaImportAge');
-            const jsonEl = document.getElementById('ccfoliaImportJson');
+            const occupationEl = document.getElementById('ccfoliaImportOccupation');
+            const genderEl = document.getElementById('ccfoliaImportGender');
+            const birthplaceEl = document.getElementById('ccfoliaImportBirthplace');
+            const residenceEl = document.getElementById('ccfoliaImportResidence');
 
-            const age = ageEl ? ageEl.value : '20';
+            const age = ageEl ? ageEl.value.trim() : '';
             const jsonText = (jsonEl ? jsonEl.value : '').trim();
             if (!jsonText) {
                 ARKHAM.showError('CCFOLIA JSONを入力してください。');
@@ -507,9 +588,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
             try {
                 if (submitBtn) submitBtn.disabled = true;
-                await axios.post('/api/accounts/character-sheets/import_ccfolia_json/', {
+                const response = await axios.post('/api/accounts/character-sheets/import_ccfolia_json/', {
                     ccfolia: payload,
-                    age: age
+                    edition: editionEl ? editionEl.value : '6th',
+                    age: age,
+                    occupation: occupationEl ? occupationEl.value.trim() : '',
+                    gender: genderEl ? genderEl.value.trim() : '',
+                    birthplace: birthplaceEl ? birthplaceEl.value.trim() : '',
+                    residence: residenceEl ? residenceEl.value.trim() : ''
                 });
 
                 ARKHAM.showSuccess('キャラクターをインポートしました。');
@@ -519,7 +605,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const modal = bootstrap.Modal.getInstance(modalEl);
                 if (modal) modal.hide();
 
-                loadCharacters();
+                window.location.href = `/accounts/character/${response.data.id}/`;
             } catch (error) {
                 console.error('CCFOLIAインポートに失敗しました:', error);
                 const message = error.response?.data?.ccfolia || error.response?.data?.detail || error.message;

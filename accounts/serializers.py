@@ -555,6 +555,8 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
 
     def validate_age(self, value):
         """年齢のバリデーション"""
+        if value is None:
+            return value
         if value < 15 or value > 90:
             raise serializers.ValidationError("年齢は15歳から90歳の間で設定してください。")
         return value

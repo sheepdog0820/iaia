@@ -64,6 +64,44 @@ class Character6thAPITestCase(APITestCase):
             interest_points=15,
         )
 
+    def make_ccfolia_payload(self, *, name="CCFOLIA Import Test", source_version="6th", commands=None):
+        return {
+            "kind": "character",
+            "sourceVersion": source_version,
+            "data": {
+                "name": name,
+                "initiative": 60,
+                "externalUrl": "https://iachara.com/view/13055362",
+                "iconUrl": "https://image.iaproject.app/example",
+                "commands": commands
+                if commands is not None
+                else "\n".join(
+                    [
+                        "1d100<={SAN} 【正気度ロール】",
+                        "CCB<=75 【目星】",
+                        "CCB<=70 【母国語】",
+                        "CCB<=0 【クトゥルフ神話】",
+                        "CCB<={STR}*5 【STR × 5】",
+                    ]
+                ),
+                "status": [
+                    {"label": "HP", "value": 10, "max": 10},
+                    {"label": "MP", "value": 8, "max": 8},
+                    {"label": "SAN", "value": 40, "max": 40},
+                ],
+                "params": [
+                    {"label": "STR", "value": "50"},
+                    {"label": "CON", "value": "55"},
+                    {"label": "POW", "value": "55"},
+                    {"label": "DEX", "value": "60"},
+                    {"label": "APP", "value": "45"},
+                    {"label": "SIZ", "value": "55"},
+                    {"label": "INT", "value": "70"},
+                    {"label": "EDU", "value": "80"},
+                ],
+            },
+        }
+
     def test_character_list_api_endpoint(self):
         """キャラクター一覧APIエンドポイントの存在テスト"""
         # character-sheetsエンドポイントを使用
@@ -76,6 +114,35 @@ class Character6thAPITestCase(APITestCase):
         url = reverse("character-sheet-detail", kwargs={"pk": self.character.id})
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
+
+    def test_character_create_api_accepts_null_age(self):
+        """年齢未設定のキャラクターをAPIから作成できる"""
+        url = reverse("character-sheet-list")
+        response = self.client.post(
+            url,
+            {
+                "edition": "6th",
+                "name": "No Age Character",
+                "age": None,
+                "gender": "",
+                "occupation": "Private Investigator",
+                "birthplace": "",
+                "residence": "",
+                "str_value": 60,
+                "con_value": 60,
+                "pow_value": 60,
+                "dex_value": 60,
+                "app_value": 60,
+                "siz_value": 60,
+                "int_value": 60,
+                "edu_value": 60,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        character = CharacterSheet.objects.get(id=response.data["id"])
+        self.assertIsNone(character.age)
 
     def test_ccfolia_export_format(self):
         """CCFOLIA形式でのデータエクスポートテスト"""
@@ -185,6 +252,8 @@ class Character6thAPITestCase(APITestCase):
 
     def test_ccfolia_import_api_endpoint(self):
         """CCFOLIA JSONインポートAPIテスト"""
+        self.user.is_premium = True
+        self.user.save(update_fields=["is_premium"])
         url = reverse("character-sheet-import-ccfolia-json")
 
         ccfolia_payload = {
@@ -284,6 +353,8 @@ class Character6thAPITestCase(APITestCase):
         self.assertIn("CCB<=0 【クトゥルフ神話】", exported_commands)
 
     def test_ccfolia_import_api_endpoint_accepts_7th_edition(self):
+        self.user.is_premium = True
+        self.user.save(update_fields=["is_premium"])
         url = reverse("character-sheet-import-ccfolia-json")
 
         ccfolia_payload = {
@@ -338,6 +409,68 @@ class Character6thAPITestCase(APITestCase):
         self.assertTrue(imported.skills.filter(skill_name="Spot Hidden").exists())
         self.assertTrue(imported.skills.filter(skill_name="Library Use").exists())
 
+    def test_ccfolia_import_requires_premium_access(self):
+        url = reverse("character-sheet-import-ccfolia-json")
+        payload = self.make_ccfolia_payload(name="Free User Import Attempt")
+
+        response = self.client.post(url, {"ccfolia": payload, "age": 20, "edition": "6th"}, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data["detail"], "CCFOLIAインポートはプレミアム機能です。")
+        self.assertFalse(CharacterSheet.objects.filter(name="Free User Import Attempt").exists())
+
+    def test_ccfolia_import_uses_form_edition_and_optional_profile_fields(self):
+        self.user.is_premium = True
+        self.user.save(update_fields=["is_premium"])
+        url = reverse("character-sheet-import-ccfolia-json")
+        commands = "\n".join(
+            [
+                "1d100<={SAN} 【正気度ロール】",
+                "CC<=55 【目星】",
+                "CCB<=40 【図書館】",
+                "CC<=300 【STR × 5】",
+                "CC<=90 【幸運】",
+                "CCB<=70 【アイデア】",
+                "CCB<=80 【知識】",
+            ]
+        )
+        payload = self.make_ccfolia_payload(
+            name="画面指定7版インポート",
+            source_version="6th",
+            commands=commands,
+        )
+
+        response = self.client.post(
+            url,
+            {
+                "ccfolia": payload,
+                "edition": "7th",
+                "age": "",
+                "occupation": "古書店員",
+                "gender": "女性",
+                "birthplace": "札幌",
+                "residence": "東京",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        imported = CharacterSheet.objects.get(id=response.data["id"])
+        self.assertEqual(imported.edition, "7th")
+        self.assertIsNone(imported.age)
+        self.assertEqual(imported.occupation, "古書店員")
+        self.assertEqual(imported.gender, "女性")
+        self.assertEqual(imported.birthplace, "札幌")
+        self.assertEqual(imported.residence, "東京")
+        self.assertIn("外部URL: https://iachara.com/view/13055362", imported.notes)
+        self.assertIn("アイコンURL: https://image.iaproject.app/example", imported.notes)
+        self.assertTrue(imported.skills.filter(skill_name="目星", base_value=25, other_points=30).exists())
+        self.assertTrue(imported.skills.filter(skill_name="図書館", base_value=20, other_points=20).exists())
+        self.assertFalse(imported.skills.filter(skill_name="STR × 5").exists())
+        self.assertFalse(imported.skills.filter(skill_name="幸運").exists())
+        self.assertFalse(imported.skills.filter(skill_name="アイデア").exists())
+        self.assertFalse(imported.skills.filter(skill_name="知識").exists())
+
     def test_api_authentication_required(self):
         """API認証必須テスト"""
         self.client.logout()
@@ -359,6 +492,47 @@ class Character6thAPITestCase(APITestCase):
         url = reverse("character-sheet-detail", kwargs={"pk": self.character.id})
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class CCFOLIAImportUITestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="uiuser", password="testpass123", email="ui@example.com")
+
+    def test_character_list_shows_billing_link_for_non_premium_import(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("character_list"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, "CCFOLIAインポート（プレミアム）")
+        self.assertContains(response, reverse("billing"))
+        self.assertNotContains(response, 'id="ccfoliaImportModal"')
+
+    def test_character_list_shows_premium_import_form_fields(self):
+        self.user.is_premium = True
+        self.user.save(update_fields=["is_premium"])
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("character_list"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for marker in [
+            'id="ccfoliaImportModal"',
+            'id="ccfoliaImportEdition"',
+            'id="ccfoliaImportAge"',
+            'id="ccfoliaImportOccupation"',
+            'id="ccfoliaImportGender"',
+            'id="ccfoliaImportBirthplace"',
+            'id="ccfoliaImportResidence"',
+            'id="ccfoliaImportJson"',
+            "年齢",
+            "職業",
+            "性別",
+            "出身地",
+            "居住地",
+            "window.location.href = `/accounts/character/${response.data.id}/`;",
+        ]:
+            self.assertContains(response, marker)
 
 
 class CCFOLIASynchronizationTestCase(TestCase):

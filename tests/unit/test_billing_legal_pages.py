@@ -142,11 +142,13 @@ class BillingLegalPagesTestCase(TestCase):
             "character_management",
             "session_management",
             "scenario_archive",
+            "ccfolia_import",
             "billing_management",
             "premium_code",
         ):
             self.assertContains(response, f'data-feature="{feature_key}"')
         self.assertContains(response, "シナリオアーカイブ")
+        self.assertContains(response, "CCFOLIAインポート")
         self.assertContains(response, "利用不可")
         self.assertContains(response, "Stripe Customer Portal")
         self.assertContains(response, "運営発行コード")

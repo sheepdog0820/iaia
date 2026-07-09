@@ -115,7 +115,12 @@ class CharacterSheet(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="alive", verbose_name="状態")
 
     # 個人情報
-    age = models.IntegerField(validators=[MinValueValidator(15), MaxValueValidator(90)], verbose_name="年齢")
+    age = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(15), MaxValueValidator(90)],
+        verbose_name="年齢",
+    )
     gender = models.CharField(max_length=50, blank=True, verbose_name="性別")
     occupation = models.CharField(max_length=100, blank=True, verbose_name="職業")
     birthplace = models.CharField(max_length=100, blank=True, verbose_name="出身地")

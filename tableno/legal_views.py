@@ -74,6 +74,13 @@ PREMIUM_FEATURE_ROWS = [
         "note": "プレミアム限定機能です。",
     },
     {
+        "key": "ccfolia_import",
+        "name": "CCFOLIAインポート",
+        "free": "利用不可",
+        "premium": "利用可",
+        "note": "いあきゃら等のCCFOLIA出力JSONからキャラクターを作成できます。",
+    },
+    {
         "key": "billing_management",
         "name": "支払い方法・解約管理",
         "free": "-",

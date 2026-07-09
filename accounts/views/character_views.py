@@ -451,6 +451,12 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
     @action(detail=False, methods=["post"], url_path="import_ccfolia_json")
     def import_ccfolia_json(self, request):
         """Import a character sheet from CCFOLIA format JSON"""
+        if not getattr(request.user, "has_premium_access", False):
+            return Response(
+                {"detail": "CCFOLIAインポートはプレミアム機能です。"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         try:
             ccfolia_payload = self._extract_ccfolia_payload(request.data)
             parsed = self._parse_ccfolia_character(ccfolia_payload)
@@ -459,15 +465,21 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         except Exception as exc:
             raise DRFValidationError({"ccfolia": f"Invalid payload: {exc}"}) from exc
 
-        age = request.data.get("age", 20)
-        try:
-            age = int(age)
-        except (TypeError, ValueError) as exc:
-            raise DRFValidationError({"age": "age must be an integer"}) from exc
-        if age < 15 or age > 90:
-            raise DRFValidationError({"age": "age must be between 15 and 90"})
+        raw_age = request.data.get("age")
+        if raw_age in (None, "", "null", "None"):
+            age = None
+        else:
+            try:
+                age = int(raw_age)
+            except (TypeError, ValueError) as exc:
+                raise DRFValidationError({"age": "age must be an integer"}) from exc
+            if age < 15 or age > 90:
+                raise DRFValidationError({"age": "age must be between 15 and 90"})
 
         user = request.user
+
+        def optional_text(field_name):
+            return str(request.data.get(field_name) or "").strip()
 
         external_url = parsed.get("external_url") or ""
         icon_url = parsed.get("icon_url") or ""
@@ -526,10 +538,10 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 name=name,
                 player_name="",
                 age=age,
-                gender="",
-                occupation="",
-                birthplace="",
-                residence="",
+                gender=optional_text("gender"),
+                occupation=optional_text("occupation"),
+                birthplace=optional_text("birthplace"),
+                residence=optional_text("residence"),
                 recommended_skills=[],
                 str_value=abilities["STR"],
                 con_value=abilities["CON"],
@@ -565,7 +577,10 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 normalized = self._normalize_skill_name(skill_name)
                 base_name = self._base_skill_name(normalized)
 
-                inferred_base = character_sheet._get_skill_base_value(base_name)
+                if edition == "7th":
+                    inferred_base = character_sheet.get_7th_skill_base_value(base_name)
+                else:
+                    inferred_base = character_sheet._get_skill_base_value(base_name)
                 base_value = inferred_base if inferred_base <= total_value else total_value
                 other_points = max(total_value - base_value, 0)
 
@@ -781,8 +796,9 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         if not isinstance(commands, str) or not commands.strip():
             return {}
 
-        ccb_re = re.compile(r"^CCB<=\s*(\d+)\s*【(.+?)】")
+        ccb_re = re.compile(r"^CCB?\s*<=\s*(\d+)\s*【(.+?)】", re.IGNORECASE)
         ignore = {"正気度ロール", "アイデア", "幸運", "知識"}
+        ability_labels = {"STR", "CON", "POW", "DEX", "APP", "SIZ", "INT", "EDU"}
         totals = {}
 
         for raw_line in commands.splitlines():
@@ -795,6 +811,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             value = int(match.group(1))
             label = match.group(2).strip()
             if not label or label in ignore:
+                continue
+            if label.upper() in ability_labels:
                 continue
             if "×" in label or re.search(r"(?i)x\s*\d", label):
                 continue
