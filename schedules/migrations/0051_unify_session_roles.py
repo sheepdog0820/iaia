@@ -95,6 +95,8 @@ def unify_roles(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
+
     dependencies = [
         ("schedules", "0050_participantclaimrequest"),
     ]
