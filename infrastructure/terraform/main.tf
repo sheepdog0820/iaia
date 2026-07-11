@@ -295,6 +295,36 @@ resource "aws_s3_bucket_versioning" "assets" {
   }
 }
 
+resource "aws_s3_bucket_lifecycle_configuration" "assets" {
+  bucket = aws_s3_bucket.assets.id
+
+  rule {
+    id     = "retain-recent-noncurrent-versions"
+    status = "Enabled"
+    filter {}
+    noncurrent_version_expiration {
+      noncurrent_days           = 30
+      newer_noncurrent_versions = 3
+    }
+  }
+
+  rule {
+    id     = "remove-expired-delete-markers"
+    status = "Enabled"
+    filter {}
+    expiration { expired_object_delete_marker = true }
+  }
+
+  rule {
+    id     = "abort-incomplete-multipart-uploads"
+    status = "Enabled"
+    filter {}
+    abort_incomplete_multipart_upload { days_after_initiation = 7 }
+  }
+
+  depends_on = [aws_s3_bucket_versioning.assets]
+}
+
 resource "aws_cloudfront_origin_access_control" "assets" {
   name                              = local.name
   description                       = "OAC for Tableno assets"
