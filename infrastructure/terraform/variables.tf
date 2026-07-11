@@ -78,6 +78,12 @@ variable "db_backup_retention_period" {
   default = 7
 }
 
+variable "db_backup_window" {
+  description = "Preferred RDS backup window in UTC."
+  type        = string
+  default     = null
+}
+
 variable "db_performance_insights_enabled" {
   type    = bool
   default = true
@@ -106,6 +112,18 @@ variable "enable_elasticache" {
 variable "desired_count" {
   type    = number
   default = 1
+}
+
+variable "enable_off_hours_schedule" {
+  description = "Stop the pre-environment ECS service and RDS instance outside business hours."
+  type        = bool
+  default     = false
+}
+
+variable "off_hours_schedule_timezone" {
+  description = "IANA timezone used by EventBridge Scheduler for off-hours schedules."
+  type        = string
+  default     = "Asia/Tokyo"
 }
 
 variable "enable_worker_service" {

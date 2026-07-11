@@ -63,6 +63,9 @@ locals {
     local.app_redis_environment,
     [for key, value in var.extra_environment : { name = key, value = value }],
   )
+  maintenance_response_html = <<-HTML
+    <!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>メンテナンス中 | タブレノ</title><style>body{margin:0;background:#f4f1ea;color:#28323c;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:grid;min-height:100vh;place-items:center}.card{box-sizing:border-box;width:min(92%,560px);padding:40px 28px;border-radius:20px;background:#fff;box-shadow:0 14px 40px #24303b1f;text-align:center}.mark{display:inline-grid;width:64px;height:64px;border-radius:50%;background:#e7f0ee;color:#28665d;place-items:center;font-size:30px;font-weight:700}h1{margin:20px 0 12px;font-size:26px}p{margin:8px 0;line-height:1.7}.time{margin-top:20px;padding:12px;border-radius:12px;background:#f4f7f6;font-weight:700}</style></head><body><main class="card"><div class="mark">i</div><h1>ただいまメンテナンス中です</h1><p>タブレノをご利用いただきありがとうございます。</p><p>毎日 02:00〜08:05 は開発環境のメンテナンス時間です。</p><div class="time">08:05頃に再開予定です</div></main></body></html>
+  HTML
 }
 
 resource "aws_vpc" "main" {
@@ -241,6 +244,7 @@ resource "aws_db_instance" "main" {
   db_subnet_group_name         = aws_db_subnet_group.main.name
   vpc_security_group_ids       = [aws_security_group.data.id]
   backup_retention_period      = local.backup_retention
+  backup_window                = var.db_backup_window
   deletion_protection          = var.enable_deletion_protection
   skip_final_snapshot          = !var.enable_deletion_protection
   multi_az                     = var.db_multi_az
@@ -565,6 +569,140 @@ resource "aws_ecs_service" "app" {
     container_port   = 8000
   }
   depends_on = [aws_lb_listener.https]
+}
+
+resource "aws_iam_role" "off_hours_scheduler" {
+  count = var.enable_off_hours_schedule ? 1 : 0
+  name  = "${local.name}-off-hours-scheduler"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "scheduler.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "off_hours_scheduler" {
+  count = var.enable_off_hours_schedule ? 1 : 0
+  name  = "${local.name}-off-hours-scheduler"
+  role  = aws_iam_role.off_hours_scheduler[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ecs:UpdateService"]
+        Resource = "arn:aws:ecs:${var.aws_region}:${local.account_id}:service/${local.name}/${local.name}"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "rds:StartDBInstance",
+          "rds:StopDBInstance",
+        ]
+        Resource = "arn:aws:rds:${var.aws_region}:${local.account_id}:db:${local.name}"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["elasticloadbalancing:ModifyListener"]
+        Resource = aws_lb_listener.https.arn
+      },
+    ]
+  })
+}
+
+locals {
+  off_hours_schedules = var.enable_off_hours_schedule ? {
+    maintenance_on = {
+      description = "Show the Tableno maintenance page before ECS stops at 01:59 JST"
+      schedule    = "cron(59 1 * * ? *)"
+      target_arn  = "arn:aws:scheduler:::aws-sdk:elasticloadbalancingv2:modifyListener"
+      input = jsonencode({
+        ListenerArn = aws_lb_listener.https.arn
+        DefaultActions = [{
+          Type = "fixed-response"
+          FixedResponseConfig = {
+            StatusCode  = "503"
+            ContentType = "text/html"
+            MessageBody = trimspace(local.maintenance_response_html)
+          }
+        }]
+      })
+    }
+    ecs_stop = {
+      description = "Scale the Tableno pre ECS service to zero at 02:00 JST"
+      schedule    = "cron(0 2 * * ? *)"
+      target_arn  = "arn:aws:scheduler:::aws-sdk:ecs:updateService"
+      input = jsonencode({
+        Cluster      = local.name
+        Service      = local.name
+        DesiredCount = 0
+      })
+    }
+    rds_stop = {
+      description = "Stop the Tableno pre RDS instance after ECS at 02:05 JST"
+      schedule    = "cron(5 2 * * ? *)"
+      target_arn  = "arn:aws:scheduler:::aws-sdk:rds:stopDBInstance"
+      input       = jsonencode({ DbInstanceIdentifier = local.name })
+    }
+    rds_start = {
+      description = "Start the Tableno pre RDS instance before ECS at 07:30 JST"
+      schedule    = "cron(30 7 * * ? *)"
+      target_arn  = "arn:aws:scheduler:::aws-sdk:rds:startDBInstance"
+      input       = jsonencode({ DbInstanceIdentifier = local.name })
+    }
+    ecs_start = {
+      description = "Scale the Tableno pre ECS service to its configured count at 08:00 JST"
+      schedule    = "cron(0 8 * * ? *)"
+      target_arn  = "arn:aws:scheduler:::aws-sdk:ecs:updateService"
+      input = jsonencode({
+        Cluster      = local.name
+        Service      = local.name
+        DesiredCount = var.desired_count
+      })
+    }
+    maintenance_off = {
+      description = "Restore normal ALB forwarding after ECS starts at 08:05 JST"
+      schedule    = "cron(5 8 * * ? *)"
+      target_arn  = "arn:aws:scheduler:::aws-sdk:elasticloadbalancingv2:modifyListener"
+      input = jsonencode({
+        ListenerArn = aws_lb_listener.https.arn
+        DefaultActions = [{
+          Type           = "forward"
+          TargetGroupArn = aws_lb_target_group.app.arn
+        }]
+      })
+    }
+  } : {}
+}
+
+resource "aws_scheduler_schedule" "off_hours" {
+  for_each = local.off_hours_schedules
+
+  name                         = "${local.name}-${replace(each.key, "_", "-")}"
+  description                  = each.value.description
+  schedule_expression          = each.value.schedule
+  schedule_expression_timezone = var.off_hours_schedule_timezone
+  state                        = "ENABLED"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = each.value.target_arn
+    role_arn = aws_iam_role.off_hours_scheduler[0].arn
+    input    = each.value.input
+
+    retry_policy {
+      maximum_event_age_in_seconds = 3600
+      maximum_retry_attempts       = 3
+    }
+  }
 }
 
 resource "aws_ecs_service" "worker" {
