@@ -831,6 +831,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
   statistic           = "Sum"
   threshold           = 5
   dimensions          = { LoadBalancer = aws_lb.app.arn_suffix }
+  treat_missing_data  = var.environment == "aws-pre" ? "notBreaching" : "missing"
   alarm_actions       = [aws_sns_topic.alarms.arn]
 }
 
@@ -844,6 +845,7 @@ resource "aws_cloudwatch_metric_alarm" "ecs_cpu" {
   statistic           = "Average"
   threshold           = 80
   dimensions          = { ClusterName = aws_ecs_cluster.app.name, ServiceName = aws_ecs_service.app.name }
+  treat_missing_data  = var.environment == "aws-pre" ? "notBreaching" : "missing"
   alarm_actions       = [aws_sns_topic.alarms.arn]
 }
 
@@ -857,6 +859,7 @@ resource "aws_cloudwatch_metric_alarm" "ecs_memory" {
   statistic           = "Average"
   threshold           = 80
   dimensions          = { ClusterName = aws_ecs_cluster.app.name, ServiceName = aws_ecs_service.app.name }
+  treat_missing_data  = var.environment == "aws-pre" ? "notBreaching" : "missing"
   alarm_actions       = [aws_sns_topic.alarms.arn]
 }
 
