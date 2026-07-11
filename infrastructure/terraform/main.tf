@@ -446,6 +446,49 @@ resource "aws_cloudwatch_log_group" "app" {
   retention_in_days = var.environment == "aws-prod" ? 90 : var.cloudwatch_log_retention_days
 }
 
+resource "aws_ecr_lifecycle_policy" "tableno" {
+  count      = var.environment == "aws-pre" ? 1 : 0
+  repository = var.project_name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Expire untagged images after one day"
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countUnit   = "days"
+          countNumber = 1
+        }
+        action = { type = "expire" }
+      },
+      {
+        rulePriority = 2
+        description  = "Keep the five newest aws-pre images"
+        selection = {
+          tagStatus     = "tagged"
+          tagPrefixList = ["aws-pre-"]
+          countType     = "imageCountMoreThan"
+          countNumber   = 5
+        }
+        action = { type = "expire" }
+      },
+      {
+        rulePriority = 3
+        description  = "Keep the newest staging image"
+        selection = {
+          tagStatus     = "tagged"
+          tagPrefixList = ["staging"]
+          countType     = "imageCountMoreThan"
+          countNumber   = 1
+        }
+        action = { type = "expire" }
+      },
+    ]
+  })
+}
+
 resource "aws_iam_role" "ecs_execution" {
   name = "${local.name}-ecs-execution"
   assume_role_policy = jsonencode({
