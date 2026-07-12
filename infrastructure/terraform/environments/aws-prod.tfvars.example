@@ -24,4 +24,11 @@ extra_secret_names = [
   "ADMIN_EMAIL",
   "CONTACT_EMAIL",
   "SUPPORT_EMAIL",
+  "LINE_CHANNEL_SECRET",
+  "LINE_CHANNEL_ACCESS_TOKEN",
 ]
+
+extra_environment = {
+  LINE_SUPPORT_ADMIN_EMAIL = "support@example.com"
+  LINE_WEBHOOK_USE_CELERY  = "true"
+}

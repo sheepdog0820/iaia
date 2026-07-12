@@ -158,6 +158,7 @@ INSTALLED_APPS = [
     "accounts",
     "schedules.apps.SchedulesConfig",
     "scenarios",
+    "support.apps.SupportConfig",
 ]
 
 MIDDLEWARE = [
@@ -351,6 +352,13 @@ LEGAL_SELLER_NAME = os.environ.get("LEGAL_SELLER_NAME", "タブレノ運営")
 LEGAL_SELLER_ADDRESS = os.environ.get("LEGAL_SELLER_ADDRESS", "請求があった場合、遅滞なく開示します。")
 LEGAL_SELLER_PHONE = os.environ.get("LEGAL_SELLER_PHONE", "請求があった場合、遅滞なく開示します。")
 PUBLIC_SITE_URL = os.environ.get("PUBLIC_SITE_URL", "")
+LINE_CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET", "")
+LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
+LINE_SUPPORT_ADMIN_EMAIL = os.environ.get("LINE_SUPPORT_ADMIN_EMAIL", "")
+LINE_API_TIMEOUT_SECONDS = int(os.environ.get("LINE_API_TIMEOUT_SECONDS", "5"))
+LINE_MAX_ATTACHMENT_BYTES = int(os.environ.get("LINE_MAX_ATTACHMENT_BYTES", str(10 * 1024 * 1024)))
+LINE_TICKET_FOLLOWUP_HOURS = int(os.environ.get("LINE_TICKET_FOLLOWUP_HOURS", "24"))
+LINE_WEBHOOK_USE_CELERY = _get_bool("LINE_WEBHOOK_USE_CELERY", default=False)
 
 LOGIN_REDIRECT_URL = "/accounts/dashboard/"
 LOGOUT_REDIRECT_URL = "/"

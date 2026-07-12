@@ -71,6 +71,15 @@
 - `LEGAL_SELLER_ADDRESS`
 - `LEGAL_SELLER_PHONE`
 - `CONTACT_EMAIL`
+- `LINE_CHANNEL_SECRET`
+- `LINE_CHANNEL_ACCESS_TOKEN`
+- `LINE_SUPPORT_ADMIN_EMAIL`
+- `LINE_WEBHOOK_USE_CELERY`（workerを起動する環境のみ`True`）
+
+LINE Messaging APIのWebhookは `/api/integrations/line/webhook/` で受信します。
+`aws-pre` の低コスト構成では `LINE_WEBHOOK_USE_CELERY=False` とし、既存Webタスク内で処理します。
+workerを常時起動する環境では `True` にすると、イベントをDBへ保存してからCeleryへ渡し、Webhookへ先に応答できます。
+Channel secretとチャネルアクセストークンはTask Definitionへ平文設定せず、Secrets Managerから注入してください。
 
 本番設定では未設定値を起動時に検出して失敗します。OAuthのIDとSecretは必ず対で設定します。
 

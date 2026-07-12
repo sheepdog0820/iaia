@@ -85,6 +85,7 @@ from tableno.legal_views import (
 )
 
 urlpatterns = [
+    path("api/integrations/", include("support.urls")),
     path("health/live/", health_live_view, name="health_live"),
     path("health/live", health_live_view),
     path("health/ready/", health_ready_view, name="health_ready"),
