@@ -1180,7 +1180,7 @@ class ScheduleAPITestCase(APITestCase):
         )
         self.assertNotContains(response, f"/characters/{character.id}/view/")
 
-    def test_session_detail_character_copy_does_not_render_legacy_public_url(self):
+    def test_session_detail_private_character_uses_authenticated_direct_url(self):
         character = CharacterSheet.objects.create(
             user=self.user2,
             edition="7th",
@@ -1210,7 +1210,9 @@ class ScheduleAPITestCase(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertContains(response, f"copyParticipantCharacterShareUrl({character.id})")
+        character_url = reverse("character_detail_6th", kwargs={"character_id": character.id})
+        self.assertContains(response, character_url)
+        self.assertContains(response, f'data-copy-url="{character_url}"')
         self.assertNotContains(response, f"/characters/{character.id}/view/")
 
     def test_session_invitation_decline_does_not_create_participant(self):

@@ -17,7 +17,15 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import CharacterSheet, CustomUser, Group, GroupLink, GroupLinkShare, GroupMembership
+from accounts.models import (
+    CharacterSheet,
+    CharacterSkill,
+    CustomUser,
+    Group,
+    GroupLink,
+    GroupLinkShare,
+    GroupMembership,
+)
 from accounts.views.mixins import CharacterSheetAccessMixin
 from schedules.duration import effective_duration_expression
 
@@ -41,6 +49,7 @@ from .models import (  # 高度なスケジューリング機能（ISSUE-017）
     TRPGSession,
 )
 from .notifications import SessionNotificationService
+from .recommended_skill_comparison import build_recommended_skill_comparison
 from .serializers import CalendarEventSerializer  # 高度なスケジューリング機能（ISSUE-017）
 from .serializers import (
     DatePollCommentSerializer,
@@ -2783,8 +2792,19 @@ class SessionDetailView(APIView):
 
     def get_html_response(self, request, session, user):
         # 参加者情報
-        participants = SessionParticipant.objects.filter(session=session).select_related("user", "character_sheet")
+        participants = (
+            SessionParticipant.objects.filter(session=session)
+            .select_related("user", "character_sheet", "participant_identity")
+            .prefetch_related(
+                "participant_roles",
+                Prefetch("character_sheet__skills", queryset=CharacterSkill.objects.order_by("id")),
+            )
+        )
         guest_count = participants.filter(user__isnull=True).count()
+        has_temporary_member_participant = participants.filter(
+            participant_identity__user__isnull=True,
+            participant_identity__is_active=True,
+        ).exists()
 
         occurrences = session.occurrences.prefetch_related("participants").order_by("start_at", "id")
 
@@ -2842,8 +2862,17 @@ class SessionDetailView(APIView):
         player_participants = [
             participant
             for participant in participants
-            if participant.is_player_role and not participant.is_gm_role and not participant.is_owner_role and not participant.is_manager_role
+            if participant.is_player_role
+            and not participant.is_gm_role
+            and not participant.is_owner_role
+            and not participant.is_manager_role
         ]
+        recommended_skill_comparison = None
+        if session.scenario and (is_gm or is_participant):
+            recommended_skill_comparison = build_recommended_skill_comparison(
+                session.scenario,
+                player_participants,
+            )
         if can_view_secret_content:
             player_slot_handouts = handouts
             include_player_slot_titles = True
@@ -2886,6 +2915,8 @@ class SessionDetailView(APIView):
             "participants": participants,
             "gm_participants": gm_participants,
             "player_participants": player_participants,
+            "recommended_skill_comparison": recommended_skill_comparison,
+            "has_temporary_member_participant": has_temporary_member_participant,
             "occurrences": occurrences,
             "handouts": handouts,
             "player_slot_options": player_slot_options,

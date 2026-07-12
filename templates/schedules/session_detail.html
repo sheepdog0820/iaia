@@ -582,113 +582,160 @@
             {% else %}
             <div class="card mb-4" id="sessionParticipantsCard">
                 <div class="card-header bg-info">
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <h5 class="mb-0">
                             <i class="fas fa-users"></i> PL一覧 ({{ player_participants|length }}人)
                         </h5>
-                        {% if can_edit %}
+                        <div class="d-flex flex-wrap gap-2">
+                            {% if recommended_skill_comparison %}
+                            <button class="btn btn-outline-warning btn-sm" type="button"
+                                    data-bs-toggle="modal" data-bs-target="#recommendedSkillComparisonModal">
+                                <i class="fas fa-star"></i> 推奨技能比較
+                            </button>
+                            {% endif %}
+                            {% if can_edit and has_temporary_member_participant %}
+                            <button class="btn btn-outline-light btn-sm" type="button"
+                                    data-bs-toggle="modal" data-bs-target="#sessionClaimRequestsModal">
+                                <i class="fas fa-user-check"></i> 参加者紐付け申請
+                            </button>
+                            {% endif %}
+                            {% if can_edit %}
                             <button class="btn btn-outline-light btn-sm" type="button"
                                     onclick="openGuestParticipantModal(null)">
                                 <i class="fas fa-user-plus"></i> ゲスト追加
                             </button>
-                        {% endif %}
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
                 <div class="card-body">
                     <div class="row">
                         {% for participant in player_participants %}
-                        <div class="col-md-6 mb-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex align-items-center mb-2">
+                        <div class="col-12 col-md-6 mb-3 d-flex">
+                            <div class="card h-100 w-100 session-participant-card">
+                                <div class="card-body p-3 d-flex flex-column">
+                                    <div class="participant-summary d-flex flex-wrap align-items-start gap-2 mb-2">
                                         {% if participant.user.profile_image %}
                                             <img src="{{ participant.user.profile_image.url }}" alt="プロフィール" 
-                                                 class="rounded-circle me-3" style="width: 48px; height: 48px; object-fit: cover;">
+                                                 class="rounded-circle flex-shrink-0" style="width: 40px; height: 40px; object-fit: cover;">
                                         {% else %}
-                                            <i class="fas fa-user-circle fa-3x me-3"></i>
+                                            <i class="fas fa-user-circle fa-2x flex-shrink-0"></i>
                                         {% endif %}
-                                        <div>
-                                            <h6 class="mb-1">{{ participant.display_name }}</h6>
+                                        <div class="d-flex flex-grow-1 flex-wrap align-items-center gap-2 me-auto">
+                                            <h6 class="participant-name mb-0 fw-semibold">{{ participant.display_name }}</h6>
                                             <span class="badge bg-secondary">PL</span>
                                             {% if participant.player_slot %}
-                                                <span class="badge bg-light text-dark ms-1">PL{{ participant.player_slot }}</span>
+                                                <span class="badge bg-light text-dark">PL{{ participant.player_slot }}</span>
                                             {% endif %}
                                         </div>
                                     </div>
                                     
                                     {% if participant.character_name %}
-                                    <p class="mb-2">
-                                        <i class="fas fa-mask"></i> <strong>キャラクター:</strong> {{ participant.character_name }}
-                                    </p>
+                                    <div class="participant-character-name d-flex align-items-center gap-2 small mb-2">
+                                        <i class="fas fa-mask fa-fw text-muted"></i>
+                                        <span class="text-muted">キャラクター</span>
+                                        <span class="fw-semibold">{{ participant.character_name }}</span>
+                                        {% if participant.character_sheet %}
+                                        <button type="button" class="btn btn-sm btn-outline-secondary ms-auto participant-character-url-copy"
+                                                aria-label="{{ participant.display_name }}のキャラクターURLをコピー"
+                                                title="キャラクターURLをコピー"
+                                                data-copy-url="{% url 'character_detail_6th' participant.character_sheet.id %}">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                        {% elif participant.character_sheet_url %}
+                                        <button type="button" class="btn btn-sm btn-outline-secondary ms-auto participant-character-url-copy"
+                                                aria-label="{{ participant.display_name }}のキャラクターURLをコピー"
+                                                title="キャラクターURLをコピー"
+                                                data-copy-url="{{ participant.character_sheet_url }}">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
                                     {% elif participant.character_sheet %}
-                                    <p class="mb-2">
-                                        <i class="fas fa-mask"></i> <strong>キャラクター:</strong> {{ participant.character_sheet.name }}
-                                    </p>
+                                    <div class="participant-character-name d-flex align-items-center gap-2 small mb-2">
+                                        <i class="fas fa-mask fa-fw text-muted"></i>
+                                        <span class="text-muted">キャラクター</span>
+                                        <span class="fw-semibold">{{ participant.character_sheet.name }}</span>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary ms-auto participant-character-url-copy"
+                                                aria-label="{{ participant.display_name }}のキャラクターURLをコピー"
+                                                title="キャラクターURLをコピー"
+                                                data-copy-url="{% url 'character_detail_6th' participant.character_sheet.id %}">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
+                                    {% elif participant.character_sheet_url %}
+                                    <div class="participant-character-name d-flex align-items-center gap-2 small mb-2">
+                                        <i class="fas fa-link fa-fw text-muted"></i>
+                                        <span class="text-muted">外部キャラクター</span>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary ms-auto participant-character-url-copy"
+                                                aria-label="{{ participant.display_name }}のキャラクターURLをコピー"
+                                                title="キャラクターURLをコピー"
+                                                data-copy-url="{{ participant.character_sheet_url }}">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
                                     {% endif %}
                                     
-                                    {% if participant.character_sheet %}
-                                        {% if participant.character_sheet_share_url or not is_public_view %}
-                                        <p class="mb-2 d-flex gap-2">
-                                            <a href="{% if participant.character_sheet_share_url %}{{ participant.character_sheet_share_url }}{% else %}{% url 'character_detail_6th' participant.character_sheet.id %}{% endif %}" class="btn btn-sm btn-outline-info flex-grow-1"{% if participant.character_sheet_share_url %} target="_blank" rel="noopener noreferrer"{% endif %}>
-                                                <i class="fas fa-file-alt"></i> キャラクターシート
+                                    {% if participant.character_sheet or participant.character_sheet_url or can_edit %}
+                                    <div class="participant-output-actions d-flex flex-wrap gap-1 mb-2">
+                                        <div class="participant-card-actions d-flex flex-wrap gap-1">
+                                            {% if participant.character_sheet %}
+                                            <a href="{% url 'character_detail_6th' participant.character_sheet.id %}"
+                                               class="btn btn-sm btn-outline-info participant-reference-action"
+                                               target="_blank" rel="noopener noreferrer">
+                                                <i class="fas fa-external-link-alt fa-fw"></i> 参照
                                             </a>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                    onclick="{% if participant.character_sheet_share_url %}copyUrl('{{ participant.character_sheet_share_url|escapejs }}', 'URL'){% else %}copyParticipantCharacterShareUrl({{ participant.character_sheet.id }}){% endif %}">
-                                                <i class="fas fa-copy"></i>
-                                            </button>
-                                        </p>
-                                        {% endif %}
-                                        {% if not is_public_view %}
-                                        <p class="mb-2">
-                                            <button type="button" class="btn btn-sm btn-outline-success w-100"
-                                                    onclick="copyCcfoliaCharacter({{ participant.character_sheet.id }}{% if participant.character_sheet_share_url %}, '{{ participant.character_sheet_share_url|escapejs }}'{% endif %})">
-                                                <i class="fas fa-clipboard"></i> ココフォリア用コピー
-                                            </button>
-                                        </p>
-                                        {% endif %}
-                                    {% elif participant.character_sheet_url %}
-                                        <p class="mb-2 d-flex gap-2">
-                                            <a href="{{ participant.character_sheet_url }}" target="_blank" class="btn btn-sm btn-outline-info flex-grow-1">
-                                                <i class="fas fa-file-alt"></i> キャラクターシート
+                                            {% elif participant.character_sheet_url %}
+                                            <a href="{{ participant.character_sheet_url }}"
+                                               class="btn btn-sm btn-outline-info participant-reference-action"
+                                               target="_blank" rel="noopener noreferrer">
+                                                <i class="fas fa-external-link-alt fa-fw"></i> 参照
                                             </a>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                    onclick="copyUrl('{{ participant.character_sheet_url|escapejs }}', 'キャラクターURL')">
-                                                <i class="fas fa-copy"></i>
-                                            </button>
-                                        </p>
+                                            {% endif %}
+                                            {% if can_edit %}
+                                                {% if participant.user %}
+                                                <button type="button" class="btn btn-sm btn-outline-primary participant-edit-action"
+                                                        onclick="openCharacterLinkModal({{ participant.id }}, {{ participant.user.id }}, {{ participant.character_sheet_id|default:'null' }}, {{ participant.player_slot|default:'null' }}, '{{ participant.character_name|escapejs }}', '{{ participant.character_sheet_url|escapejs }}')">
+                                                    <i class="fas fa-pen fa-fw"></i> 編集
+                                                </button>
+                                                {% else %}
+                                                <button type="button" class="btn btn-sm btn-outline-primary participant-edit-action"
+                                                        onclick="openGuestParticipantModal({{ participant.id }}, '{{ participant.guest_name|escapejs }}', {{ participant.player_slot|default:'null' }}, '{{ participant.character_name|escapejs }}', '{{ participant.character_sheet_url|escapejs }}', {{ participant.participant_identity_id|default:'null' }})">
+                                                    <i class="fas fa-pen fa-fw"></i> 編集
+                                                </button>
+                                                {% endif %}
+                                                {% if not participant.user or participant.user_id != session.gm_id %}
+                                                <button type="button" class="btn btn-sm btn-outline-danger participant-delete-action"
+                                                        onclick="removeParticipant({{ participant.id }})">
+                                                    <i class="fas fa-trash-alt fa-fw"></i> 削除
+                                                </button>
+                                                {% endif %}
+                                            {% endif %}
+                                        </div>
+                                        {% if participant.character_sheet and not is_public_view %}
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-success flex-grow-1 text-start justify-content-start participant-character-export"
+                                                data-bs-toggle="tooltip" data-bs-placement="top"
+                                                title="ココフォリアに貼り付け可能なキャラクターデータをJSON形式でコピーします"
+                                                aria-label="出力（JSON形式）"
+                                                data-character-id="{{ participant.character_sheet.id }}"
+                                                data-character-detail-url="{% url 'character_detail_6th' participant.character_sheet.id %}">
+                                            <i class="fas fa-file-export fa-fw me-2"></i>出力
+                                        </button>
+                                        {% endif %}
+                                    </div>
                                     {% endif %}
                                     
                                     {% if not participant.user and not can_edit and not is_public_view %}
-                                    <div class="mt-2">
-                                        <button class="btn btn-sm btn-outline-success w-100"
+                                    <div class="mt-2 pt-2 border-top">
+                                        <button class="btn btn-sm btn-outline-success w-100 text-start justify-content-start"
                                                 type="button"
                                                 onclick="requestParticipantClaim({{ participant.id }})">
-                                            <i class="fas fa-user-check"></i> これは自分です
+                                            <i class="fas fa-user-check fa-fw me-2"></i>これは自分です
                                         </button>
                                     </div>
                                     {% endif %}
 
-                                    {% if can_edit %}
-                                    <div class="mt-2 d-flex gap-2 flex-wrap">
-                                        {% if participant.user %}
-                                            <button class="btn btn-sm btn-outline-primary"
-                                                    onclick="openCharacterLinkModal({{ participant.id }}, {{ participant.user.id }}, {{ participant.character_sheet_id|default:'null' }}, {{ participant.player_slot|default:'null' }}, '{{ participant.character_name|escapejs }}', '{{ participant.character_sheet_url|escapejs }}')">
-                                                <i class="fas fa-link"></i> キャラクター設定
-                                            </button>
-                                        {% else %}
-                                            <button class="btn btn-sm btn-outline-primary"
-                                                    onclick="openGuestParticipantModal({{ participant.id }}, '{{ participant.guest_name|escapejs }}', {{ participant.player_slot|default:'null' }}, '{{ participant.character_name|escapejs }}', '{{ participant.character_sheet_url|escapejs }}', {{ participant.participant_identity_id|default:'null' }})">
-                                                <i class="fas fa-user-edit"></i> ゲスト設定
-                                            </button>
-                                        {% endif %}
-                                        {% if not participant.user or participant.user_id != session.gm_id %}
-                                        <button class="btn btn-sm btn-outline-danger" 
-                                                onclick="removeParticipant({{ participant.id }})">
-                                            <i class="fas fa-user-minus"></i> 除名
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -698,19 +745,106 @@
                         </div>
                         {% endfor %}
                     </div>
-                    {% if can_edit and not is_public_view %}
-                    <div class="border rounded p-3 mt-3" id="sessionClaimRequestsPanel">
-                        <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-                            <h6 class="mb-0"><i class="fas fa-user-check"></i> 参加者紐付け申請</h6>
-                            <button class="btn btn-sm btn-outline-secondary" type="button" onclick="loadSessionClaimRequests()">
-                                更新
-                            </button>
-                        </div>
-                        <div id="sessionClaimRequestsList" class="text-muted small">申請はまだ読み込まれていません。</div>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
+            {% if can_edit and has_temporary_member_participant %}
+            <div class="modal fade" id="sessionClaimRequestsModal" tabindex="-1"
+                 aria-labelledby="sessionClaimRequestsTitle" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="sessionClaimRequestsTitle">
+                                <i class="fas fa-user-check"></i> 参加者紐付け申請
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="sessionClaimRequestsList" class="text-muted small">申請はまだ読み込まれていません。</div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-outline-secondary" type="button" onclick="loadSessionClaimRequests()">
+                                <i class="fas fa-sync-alt"></i> 更新
+                            </button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% if recommended_skill_comparison %}
+            <div class="modal fade" id="recommendedSkillComparisonModal" tabindex="-1"
+                 aria-labelledby="recommendedSkillComparisonTitle" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="recommendedSkillComparisonTitle">
+                                <i class="fas fa-star text-warning"></i> 推奨技能比較
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="small text-muted mb-3">
+                                シナリオの推奨技能を、タブレノ内キャラクターごとに比較しています。
+                            </p>
+                            <section id="recommendedSkillComparison" aria-label="参加キャラクターごとの推奨技能値比較">
+                                <div class="table-responsive border rounded">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <caption class="visually-hidden">参加キャラクターごとの推奨技能値比較</caption>
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th scope="col" class="text-nowrap">推奨技能</th>
+                                                {% for character in recommended_skill_comparison.characters %}
+                                                <th scope="col" class="text-nowrap text-center">
+                                                    <span class="d-block">{{ character.character_name }}</span>
+                                                    <span class="small fw-normal text-muted">{{ character.participant_name }}</span>
+                                                </th>
+                                                {% endfor %}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for skill_row in recommended_skill_comparison.rows %}
+                                            <tr>
+                                                <th scope="row" class="text-nowrap">
+                                                    <span class="d-block">{{ skill_row.name }}</span>
+                                                    {% if skill_row.level == 'recommended' %}
+                                                        <span class="badge bg-warning text-dark">{{ skill_row.level_label }}</span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">{{ skill_row.level_label }}</span>
+                                                    {% endif %}
+                                                </th>
+                                                {% for cell in skill_row.cells %}
+                                                <td class="text-center">
+                                                    {% if cell.matches %}
+                                                        {% for match in cell.matches %}
+                                                        <div{% if not forloop.last %} class="mb-1"{% endif %}>
+                                                            {% if cell.show_match_names %}
+                                                                <span class="d-block small text-muted">{{ match.name }}</span>
+                                                            {% endif %}
+                                                            <span class="fw-semibold">{{ match.value }}%</span>
+                                                            {% if match.is_initial %}
+                                                                <span class="badge bg-light text-dark border">初期値</span>
+                                                            {% endif %}
+                                                        </div>
+                                                        {% endfor %}
+                                                    {% else %}
+                                                        <span class="text-muted">未登録</span>
+                                                    {% endif %}
+                                                </td>
+                                                {% endfor %}
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </section>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
             {% endif %}
 
         </div>
@@ -1314,6 +1448,42 @@
     .session-detail-actions .btn {
         flex: 1 1 100%;
         justify-content: center;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .participant-output-actions {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .participant-card-actions {
+        display: contents !important;
+    }
+
+    .participant-card-actions .btn,
+    .participant-output-actions > .participant-character-export {
+        width: 100%;
+        min-width: 0;
+        justify-content: flex-start;
+        padding-inline: 0.35rem;
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+}
+
+@media (min-width: 768px) {
+    .participant-output-actions {
+        flex-wrap: nowrap !important;
+    }
+
+    .participant-card-actions {
+        flex-shrink: 0;
+    }
+
+    .participant-output-actions > .participant-character-export {
+        width: auto !important;
+        flex: 1 1 auto;
     }
 }
 
@@ -2320,17 +2490,6 @@ async function getFixedCharacterShareUrl(characterSheetId) {
     return response.data.share_url || '';
 }
 
-async function copyParticipantCharacterShareUrl(characterSheetId) {
-    try {
-        const shareUrl = await getFixedCharacterShareUrl(characterSheetId);
-        await copyUrl(shareUrl, 'URL');
-    } catch (error) {
-        sessionNotifyError('URLのコピーに失敗しました: ' + getSessionErrorMessage(error));
-    }
-}
-
-window.copyParticipantCharacterShareUrl = copyParticipantCharacterShareUrl;
-
 const ccfoliaCharacterCache = new Map();
 const ccfoliaCharacterRequests = new Map();
 
@@ -2610,10 +2769,10 @@ async function loadCcfoliaCharacter(characterSheetId) {
 }
 
 function preloadCcfoliaCharacters() {
-    document.querySelectorAll('button[onclick^="copyCcfoliaCharacter"]').forEach(button => {
-        const match = button.getAttribute('onclick')?.match(/copyCcfoliaCharacter\((\d+)/);
-        if (match?.[1]) {
-            loadCcfoliaCharacter(match[1]).catch(error => {
+    document.querySelectorAll('.participant-character-export[data-character-id]').forEach(button => {
+        const characterId = button.dataset.characterId;
+        if (characterId) {
+            loadCcfoliaCharacter(characterId).catch(error => {
                 console.warn('Failed to preload CCFOLIA character data:', error);
             });
         }
@@ -2636,7 +2795,7 @@ async function copyCcfoliaCharacter(characterSheetId, detailUrl) {
         sessionNotifySuccess('ココフォリア用キャラクター情報をコピーしました。ココフォリアの部屋で貼り付けできます。');
     } catch (error) {
         console.error('Failed to copy CCFOLIA character data:', error);
-        sessionNotifyError('ココフォリア用コピーに失敗しました: ' + getSessionErrorMessage(error));
+        sessionNotifyError('出力に失敗しました: ' + getSessionErrorMessage(error));
     }
 }
 
@@ -4748,6 +4907,22 @@ window.sendSessionInvitations = async function() {
 
 document.addEventListener('DOMContentLoaded', () => {
     setupCopyPublicSessionLinkButton();
+
+    document.querySelectorAll('.participant-character-url-copy[data-copy-url]').forEach(button => {
+        button.addEventListener('click', () => {
+            copyUrl(button.dataset.copyUrl, 'キャラクターURL');
+        });
+    });
+
+    document.querySelectorAll('.participant-character-export[data-character-id]').forEach(button => {
+        button.addEventListener('click', () => {
+            copyCcfoliaCharacter(button.dataset.characterId, button.dataset.characterDetailUrl);
+        });
+    });
+
+    document.querySelectorAll('.participant-character-export[data-bs-toggle="tooltip"]').forEach(element => {
+        bootstrap.Tooltip.getOrCreateInstance(element);
+    });
 
     if (SELECTED_OCCURRENCE_ID) {
         const selectedEl = document.getElementById(`occurrence-${SELECTED_OCCURRENCE_ID}`);
