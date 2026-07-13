@@ -6,7 +6,7 @@ from rest_framework.routers import DefaultRouter
 
 from .. import export_views, statistics_views, views
 from ..views.admin_views import AdminUserViewSet
-from ..views.character_image_views import CharacterImageViewSet
+from ..views.character_image_views import CharacterImageBackgroundRemovalView, CharacterImageViewSet
 from ..views.character_views import GrowthRecordViewSet
 from ..views.dev_login_view import DevLoginView
 from ..views.user_profile_view import UserProfileView
@@ -147,6 +147,7 @@ urlpatterns = [
     path("export/statistics/", export_views.StatisticsExportView.as_view(), name="export_statistics"),
     path("export/", export_views.ExportStatisticsView.as_view(), name="export_legacy"),
     # Character Image Management API
+    path("character-images/remove-background/", CharacterImageBackgroundRemovalView.as_view(), name="character-image-remove-background"),
     *character_image_urlpatterns("character_sheet_id", "character-images"),
     *character_image_urlpatterns("character_id", "character-image"),
     # Character Skill Management API

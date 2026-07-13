@@ -173,6 +173,29 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
                 self.assertIn("setCharacterSaveLoadingState(true);", script)
                 self.assertIn(".finally(() => setCharacterSaveLoadingState(false))", script)
 
+    def test_background_removal_control_explains_premium_access(self):
+        for relative_path in [
+            "templates/accounts/character_6th_create.html",
+            "templates/accounts/character_7th_create.html",
+        ]:
+            with self.subTest(relative_path=relative_path):
+                template = self.read_text(relative_path)
+
+                self.assertIn('id="remove-background-upload"', template)
+                self.assertIn("透過選択", template)
+                self.assertIn("プレミアム機能です。画像の背景を自動で透過して選択できます。", template)
+                self.assertIn("画像の背景を自動で透過し、透過PNGとして選択します。", template)
+
+        for relative_path in [
+            "static/accounts/js/character6th.js",
+            "static/accounts/js/character7th.js",
+        ]:
+            with self.subTest(relative_path=relative_path):
+                script = self.read_text(relative_path)
+
+                self.assertIn("背景を透過中...", script)
+                self.assertIn("透過選択", script)
+
     def test_character_create_templates_have_bulk_image_modal_and_edit_preview_slots(self):
         for relative_path in [
             "templates/accounts/character_6th_create.html",

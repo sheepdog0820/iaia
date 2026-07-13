@@ -24,6 +24,7 @@ requests>=2.31.0
 
 # Application UI and content handling
 Pillow>=10.0.0
+rembg[cpu]>=2.0.67
 django-crispy-forms>=2.1
 crispy-bootstrap5>=0.7
 openpyxl>=3.1.0

@@ -2538,6 +2538,8 @@ function initOccupationTemplates() {
         const selectBtn = document.getElementById('character-image-select-btn');
         const modalList = document.getElementById('character-image-modal-list');
         const removeBtn = document.getElementById('remove-image');
+        const backgroundRemovalBtn = document.getElementById('remove-background-upload');
+        const backgroundRemovalInput = document.getElementById('background-removal-image');
         
         if (!imageInput) return;
 
@@ -2788,6 +2790,37 @@ function initOccupationTemplates() {
         // ファイル選択時のプレビュー表示
         imageInput.addEventListener('change', function(e) {
             addImageFiles(e.target.files);
+        });
+
+        backgroundRemovalBtn?.addEventListener('click', () => backgroundRemovalInput?.click());
+        backgroundRemovalInput?.addEventListener('change', async function(e) {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            if (!validateFiles([file])) {
+                e.target.value = '';
+                return;
+            }
+            backgroundRemovalBtn.disabled = true;
+            backgroundRemovalBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> 背景を透過中...';
+            try {
+                const upload = new FormData();
+                upload.append('image', file);
+                const response = await fetch('/api/accounts/character-images/remove-background/', {
+                    method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: upload,
+                });
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.detail || error.error || 'Background removal failed.');
+                }
+                const transparentFile = new File([await response.blob()], `${file.name.replace(/\.[^.]+$/, '')}-transparent.png`, { type: 'image/png' });
+                addImageFiles([transparentFile]);
+            } catch (error) {
+                notifyUser(error.message || 'Background removal failed.');
+            } finally {
+                backgroundRemovalBtn.disabled = false;
+                backgroundRemovalBtn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> 透過選択';
+                e.target.value = '';
+            }
         });
 
         // 画像を削除

@@ -7,17 +7,21 @@ import io
 import logging
 import os
 import re
+import warnings
 import zipfile
 
 from django.db import transaction
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
+from PIL import Image, UnidentifiedImageError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from accounts.background_removal import remove_background
 from accounts.models import CharacterImage, CharacterSheet
 from accounts.serializers import CharacterImageSerializer
 from accounts.views.mixins import CharacterSheetAccessMixin
@@ -26,6 +30,73 @@ logger = logging.getLogger(__name__)
 
 ZIP_IMAGE_ORDERING = ("order", "uploaded_at", "id")
 ZIP_CONTENT_TYPE = "application/zip"
+BACKGROUND_REMOVAL_MAX_DIMENSION = 4096
+BACKGROUND_REMOVAL_MAX_PIXELS = 16_000_000
+BACKGROUND_REMOVAL_ALLOWED_FORMATS = {"JPEG", "PNG", "GIF"}
+
+
+def _validate_background_removal_image(image_bytes, *, allowed_formats):
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(image_bytes)) as opened_image:
+                opened_image.verify()
+            with Image.open(io.BytesIO(image_bytes)) as opened_image:
+                if opened_image.format not in allowed_formats:
+                    return "Unsupported image format."
+                if (
+                    opened_image.width > BACKGROUND_REMOVAL_MAX_DIMENSION
+                    or opened_image.height > BACKGROUND_REMOVAL_MAX_DIMENSION
+                ):
+                    return f"Image dimensions must not exceed {BACKGROUND_REMOVAL_MAX_DIMENSION}px."
+                if opened_image.width * opened_image.height > BACKGROUND_REMOVAL_MAX_PIXELS:
+                    return "Image contains too many pixels."
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning, UnidentifiedImageError, OSError):
+        return "A valid image file is required."
+
+    return None
+
+
+class CharacterImageBackgroundRemovalView(APIView):
+    """Remove a portrait background for premium users and return a PNG."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not getattr(request.user, "is_premium", False):
+            raise PermissionDenied("Background removal is a premium feature.")
+
+        image = request.FILES.get("image")
+        if image is None:
+            return Response({"error": "image is required"}, status=status.HTTP_400_BAD_REQUEST)
+        if image.size > 5 * 1024 * 1024:
+            return Response({"error": "Image size must be 5MB or less."}, status=status.HTTP_400_BAD_REQUEST)
+
+        source = image.read()
+        validation_error = _validate_background_removal_image(
+            source,
+            allowed_formats=BACKGROUND_REMOVAL_ALLOWED_FORMATS,
+        )
+        if validation_error:
+            return Response({"error": validation_error}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            transparent_png = remove_background(source)
+        except Exception:
+            logger.exception("Character image background removal failed")
+            return Response({"error": "Background removal could not be completed."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        if not isinstance(transparent_png, bytes) or _validate_background_removal_image(
+            transparent_png,
+            allowed_formats={"PNG"},
+        ):
+            logger.error("Character image background removal returned an invalid PNG")
+            return Response({"error": "Background removal could not be completed."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        filename_root = os.path.splitext(_safe_original_filename(image))[0] or "character"
+        response = HttpResponse(transparent_png, content_type="image/png")
+        response["Content-Disposition"] = f'attachment; filename="{filename_root}-transparent.png"'
+        return response
 
 
 def can_read_character_images(character_sheet, user):

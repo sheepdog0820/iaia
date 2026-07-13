@@ -146,6 +146,14 @@
                                                     data-bs-toggle="modal" data-bs-target="#characterImageUploadModal">
                                                 <i class="fas fa-images"></i> まとめて選択
                                             </button>
+                                            <span data-bs-toggle="tooltip" data-bs-placement="top" tabindex="0"
+                                                  title="{% if user.is_premium %}画像の背景を自動で透過し、透過PNGとして選択します。{% else %}プレミアム機能です。画像の背景を自動で透過して選択できます。{% endif %}">
+                                                <button type="button" class="btn btn-outline-primary btn-sm" id="remove-background-upload"
+                                                        {% if not user.is_premium %}disabled aria-disabled="true"{% endif %}>
+                                                    <i class="fas fa-wand-magic-sparkles"></i> 透過選択
+                                                </button>
+                                            </span>
+                                            <input type="file" id="background-removal-image" accept="image/jpeg,image/jpg,image/png,image/gif" class="d-none">
                                         </div>
                                         <small class="text-muted d-block mt-2">対応形式: JPG, PNG, GIF (1枚最大5MB / 現在の添付上限: 最大{% if user.is_premium %}10{% else %}2{% endif %}枚)</small>
                                     </div>
