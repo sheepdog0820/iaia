@@ -110,6 +110,7 @@ class CharacterSheet(models.Model):
 
     user = models.ForeignKey("accounts.CustomUser", on_delete=models.CASCADE, related_name="character_sheets")
     edition = models.CharField(max_length=3, choices=EDITION_CHOICES)
+    name_kana = models.CharField(max_length=100, blank=True, verbose_name="Character name reading")
     name = models.CharField(max_length=100, verbose_name="探索者名")
     player_name = models.CharField(max_length=100, blank=True, verbose_name="プレイヤー名")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="alive", verbose_name="状態")
@@ -2429,10 +2430,13 @@ class CharacterExportManager:
             commands.append(f"CCB<={{{ability}}}*5 【{ability} × 5】")
 
         # CCFOLIA標準形式
+        memo = f"読み仮名: {character.name_kana}" if character.name_kana else ""
+
         ccfolia_data = {
             "kind": "character",
             "data": {
                 "name": character.name,
+                "memo": memo,
                 "initiative": character.dex_value,  # DEXを行動力として使用
                 "externalUrl": "",  # 外部URLは空
                 "iconUrl": "",  # アイコンURLは空

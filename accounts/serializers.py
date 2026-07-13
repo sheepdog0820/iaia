@@ -404,6 +404,7 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             "id",
             "edition",
             "name",
+            "name_kana",
             "player_name",
             "age",
             "gender",
@@ -659,6 +660,7 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             "id",
             "edition",
             "name",
+            "name_kana",
             "player_name",
             "age",
             "gender",
@@ -950,6 +952,7 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
         model = CharacterSheet
         fields = [
             "name",
+            "name_kana",
             "player_name",
             "age",
             "gender",

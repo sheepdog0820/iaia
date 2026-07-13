@@ -708,6 +708,7 @@ class CharacterSheet6thForm(forms.ModelForm):
         model = CharacterSheet
         fields = [
             "name",
+            "name_kana",
             "player_name",
             "age",
             "gender",

@@ -1308,6 +1308,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 "user": request.user,
                 "edition": "7th",
                 "name": request.data["name"],
+                "name_kana": request.data.get("name_kana", ""),
                 "player_name": request.data.get("player_name", request.user.nickname or request.user.username),
                 "age": parse_int(request.data.get("age"), "age", min_value=15, max_value=999, default=25),
                 "gender": request.data.get("gender", ""),

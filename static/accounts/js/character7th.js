@@ -2903,6 +2903,7 @@ function initOccupationTemplates() {
 
         // Basic info
         setValueById('character-name', sheet.name);
+        setValueById('character-name-kana', sheet.name_kana);
         setValueById('player-name', sheet.player_name);
         setValueById('age', sheet.age);
         setValueById('gender', sheet.gender);
@@ -3057,6 +3058,7 @@ function initOccupationTemplates() {
         const apiData = {
             edition: '7th',
             name: data.name,
+            name_kana: data.name_kana || '',
             player_name: data.player_name || '',
             age: data.age ? parseInt(data.age, 10) : null,
             gender: data.gender || '',
@@ -3368,6 +3370,7 @@ function initOccupationTemplates() {
     async function updateCharacterSheet(characterId, apiData, data, imageFiles = [], backgroundData = {}) {
         const updatePayload = {
             name: apiData.name,
+            name_kana: apiData.name_kana,
             player_name: apiData.player_name,
             gender: apiData.gender,
             occupation: apiData.occupation,

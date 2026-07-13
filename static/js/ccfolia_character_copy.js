@@ -267,17 +267,11 @@
             { label: '年齢', value: character.age ? String(character.age) : '-' },
             sixth.damage_bonus ? { label: 'DB', value: String(sixth.damage_bonus) } : null,
         ].filter(Boolean);
-        const memoLines = [
-            character.occupation ? `職業: ${character.occupation}` : '',
-            character.age ? `年齢: ${character.age}` : '',
-            character.notes ? String(character.notes) : '',
-        ].filter(Boolean);
-
         return {
             kind: 'character',
             data: {
                 name: character.name || '無名の探索者',
-                memo: memoLines.join('\n'),
+                memo: character.name_kana ? `読み仮名: ${character.name_kana}` : '',
                 initiative: abilities.DEX || 0,
                 externalUrl: toAbsoluteUrl(detailUrl),
                 status: [
