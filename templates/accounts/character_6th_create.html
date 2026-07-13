@@ -9,9 +9,6 @@
     <div class="row mb-2 align-items-center character-creator-header">
         <div class="col-12 text-lg-end">
             <div class="character-creator-actions d-inline-flex align-items-center gap-2">
-                <button type="submit" class="btn btn-primary btn-sm" form="character-sheet-form">
-                    <i class="fas fa-save"></i> 保存
-                </button>
                 <button type="button" class="btn btn-outline-primary btn-sm" id="createVersionButton" style="display: none;">
                     <i class="fas fa-code-branch"></i> 新バージョン
                 </button>
@@ -90,7 +87,7 @@
                             </div>
                             <div class="col-lg-4 col-md-6">
                                 <label for="player-name" class="form-label">プレイヤー名</label>
-                                <input type="text" class="form-control" id="player-name" name="player_name" 
+                                <input type="text" class="form-control" id="player-name" name="player_name" value="{{ default_player_name }}"
                                        placeholder="あなたの名前">
                             </div>
                             <div class="col-6 col-md-6 col-lg-4">
@@ -1039,10 +1036,17 @@
                     <i class="fas fa-code-branch"></i> 新バージョン
                 </button>
                 <button type="button" class="btn btn-success btn-sm" id="footerSaveCharacter">
-                    <i class="fas fa-save"></i> 探索者保存
+                    <i class="fas fa-save"></i> 保存
                 </button>
             </div>
         </div>
+    </div>
+</div>
+
+<div id="character-save-loading" class="position-fixed top-0 start-0 w-100 h-100 d-none align-items-center justify-content-center bg-dark bg-opacity-50" style="z-index: 2000;" role="status" aria-live="assertive" aria-label="保存中">
+    <div class="bg-white rounded shadow p-4 text-center">
+        <div class="spinner-border text-primary mb-3" role="presentation"></div>
+        <div class="fw-semibold">保存中です。しばらくお待ちください。</div>
     </div>
 </div>
 

@@ -147,6 +147,32 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
                 self.assertIn('name="secret_ho_info"', template)
                 self.assertIn("秘匿HO情報", template)
 
+    def test_character_create_uses_single_footer_save_button_and_loading_indicator(self):
+        for relative_path in [
+            "templates/accounts/character_6th_create.html",
+            "templates/accounts/character_7th_create.html",
+        ]:
+            with self.subTest(relative_path=relative_path):
+                template = self.read_text(relative_path)
+
+                header_block = self.extract_between(template, "<!-- ヘッダー -->", "<!-- フォーム -->")
+                self.assertNotIn('form="character-sheet-form"', header_block)
+                self.assertIn('id="footerSaveCharacter"', template)
+                self.assertIn('<i class="fas fa-save"></i> 保存', template)
+                self.assertIn('id="character-save-loading"', template)
+                self.assertIn('保存中です。しばらくお待ちください。', template)
+
+        for relative_path in [
+            "static/accounts/js/character6th.js",
+            "static/accounts/js/character7th.js",
+        ]:
+            with self.subTest(relative_path=relative_path):
+                script = self.read_text(relative_path)
+
+                self.assertIn("function setCharacterSaveLoadingState(isSaving)", script)
+                self.assertIn("setCharacterSaveLoadingState(true);", script)
+                self.assertIn(".finally(() => setCharacterSaveLoadingState(false))", script)
+
     def test_character_create_templates_have_bulk_image_modal_and_edit_preview_slots(self):
         for relative_path in [
             "templates/accounts/character_6th_create.html",

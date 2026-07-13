@@ -3410,11 +3410,30 @@ function initOccupationTemplates() {
         await replaceCharacterImages(characterId, imageFiles);
     }
     
+    let isCharacterSaving = false;
+    const footerSaveBtn = document.getElementById('footerSaveCharacter');
+
+    function setCharacterSaveLoadingState(isSaving) {
+        const loadingIndicator = document.getElementById('character-save-loading');
+        isCharacterSaving = isSaving;
+        loadingIndicator?.classList.toggle('d-none', !isSaving);
+        loadingIndicator?.classList.toggle('d-flex', isSaving);
+
+        if (footerSaveBtn) {
+            footerSaveBtn.disabled = isSaving;
+            footerSaveBtn.setAttribute('aria-busy', String(isSaving));
+            footerSaveBtn.innerHTML = isSaving
+                ? '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> 保存中...'
+                : `<i class="fas fa-save"></i> ${isEditMode ? '探索者を更新' : '保存'}`;
+        }
+    }
+
     // Form submit handling
     const characterForm = document.getElementById('character-sheet-form');
     if (characterForm) {
         characterForm.addEventListener('submit', async function(e) {
             e.preventDefault();
+            if (isCharacterSaving) return;
 
             let collected;
             try {
@@ -3425,6 +3444,7 @@ function initOccupationTemplates() {
             }
 
             const { apiData, data, formData, imageFiles, backgroundData } = collected;
+            setCharacterSaveLoadingState(true);
 
             if (isEditMode) {
                 try {
@@ -3434,6 +3454,8 @@ function initOccupationTemplates() {
                 } catch (error) {
                     console.error('Error:', error);
                     notifyUser(error?.error ? ('Error: ' + error.error) : 'Network error occurred.');
+                } finally {
+                    setCharacterSaveLoadingState(false);
                 }
                 return;
             }
@@ -3461,7 +3483,7 @@ function initOccupationTemplates() {
                 imageFiles.forEach(file => submitFormData.append('character_images', file));
 
                 // Send to API with multipart/form-data
-                fetch('/accounts/character-sheets/create_7th_edition/', {
+                return fetch('/accounts/character-sheets/create_7th_edition/', {
                     method: 'POST',
                     headers: {
                         'X-CSRFToken': csrfToken,
@@ -3492,10 +3514,11 @@ function initOccupationTemplates() {
                         } else {
                             notifyUser('Network error occurred.');
                         }
-                    });
+                    })
+                    .finally(() => setCharacterSaveLoadingState(false));
             } else {
                 // Send JSON payload without image
-                fetch('/accounts/character-sheets/create_7th_edition/', {
+                return fetch('/accounts/character-sheets/create_7th_edition/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3527,11 +3550,11 @@ function initOccupationTemplates() {
                         } else {
                             notifyUser('Network error occurred.');
                         }
-                    });
+                    })
+                    .finally(() => setCharacterSaveLoadingState(false));
             }
         });
     }
-    const footerSaveBtn = document.getElementById('footerSaveCharacter');
     if (footerSaveBtn && characterForm) {
         footerSaveBtn.addEventListener('click', () => {
             // Trigger submit with HTML5 validation

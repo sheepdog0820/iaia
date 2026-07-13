@@ -2481,6 +2481,7 @@ class Character6thCreateView(FormView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["edition"] = "6th"
+        context["default_player_name"] = self.request.user.nickname or self.request.user.username
         context["edition_name"] = "6版"
 
         context["available_skills"] = COC6_BASIC_SKILL_NAMES
@@ -2533,6 +2534,7 @@ class Character7thCreateView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["edition"] = "7th"
+        context["default_player_name"] = self.request.user.nickname or self.request.user.username
         context["edition_name"] = "7版"
         context["available_skills"] = COC7_BASIC_SKILL_NAMES
         return context
