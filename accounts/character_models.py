@@ -433,7 +433,14 @@ class CharacterSheet(models.Model):
         Returns:
             新しいバージョンのCharacterSheetオブジェクト
         """
-        return CharacterVersionManager.create_new_version(self, version_note, session_count, copy_skills)
+        from .services.character_version_service import CharacterVersionService
+
+        return CharacterVersionService.create_version(
+            source_character=self,
+            actor=self.user,
+            validated_data={"version_note": version_note, "session_count": session_count or (self.session_count + 1)},
+            copy_policy={"copy_skills": copy_skills},
+        )
 
     def create_version(self, version_note="", session_count=None, copy_skills=False):
         """create_version 互換メソッド"""
@@ -2208,81 +2215,14 @@ class CharacterVersionManager:
 
     @staticmethod
     def create_new_version(character, version_note="", session_count=None, copy_skills=False):
-        """新しいバージョンを作成"""
-        from django.core.exceptions import ValidationError
+        from .services.character_version_service import CharacterVersionService
 
-        # バージョンメモの長さ制限
-        if len(version_note) > 1000:
-            raise ValidationError("バージョンメモは1000文字以内で入力してください")
-
-        # 次のバージョン番号を取得
-        latest_version = CharacterVersionManager.get_latest_version(character)
-        next_version = latest_version.version + 1
-
-        # 新しいキャラクターシートを作成
-        new_character = CharacterSheet.objects.create(
-            user=character.user,
-            edition=character.edition,
-            name=character.name,
-            player_name=character.player_name,
-            age=character.age,
-            gender=character.gender,
-            occupation=character.occupation,
-            occupation_point_method=character.occupation_point_method,
-            birthplace=character.birthplace,
-            residence=character.residence,
-            recommended_skills=list(character.recommended_skills or []),
-            occupation_skills=list(character.occupation_skills or []),
-            source_scenario=character.source_scenario,
-            source_scenario_title=character.source_scenario_title,
-            source_scenario_game_system=character.source_scenario_game_system,
-            str_value=character.str_value,
-            con_value=character.con_value,
-            pow_value=character.pow_value,
-            dex_value=character.dex_value,
-            app_value=character.app_value,
-            siz_value=character.siz_value,
-            int_value=character.int_value,
-            edu_value=character.edu_value,
-            hit_points_max=character.hit_points_max,
-            hit_points_current=character.hit_points_current,
-            magic_points_max=character.magic_points_max,
-            magic_points_current=character.magic_points_current,
-            sanity_starting=character.sanity_starting,
-            sanity_max=character.sanity_max,
-            sanity_current=character.sanity_current,
-            version=next_version,
-            parent_sheet=character,
-            character_image=character.character_image,
-            notes=character.notes,
-            secret_ho_info=character.secret_ho_info,
-            version_note=version_note,
-            session_count=session_count or (character.session_count + 1),
-            is_active=True,
+        return CharacterVersionService.create_version(
+            source_character=character,
+            actor=character.user,
+            validated_data={"version_note": version_note, "session_count": session_count or (character.session_count + 1)},
+            copy_policy={"copy_skills": copy_skills},
         )
-
-        # 6版固有データのコピー
-        if character.edition == "6th" and hasattr(character, "sixth_edition_data"):
-            CharacterSheet6th.objects.create(
-                character_sheet=new_character, mental_disorder=character.sixth_edition_data.mental_disorder
-            )
-
-        # 技能のコピー
-        if copy_skills:
-            for skill in character.skills.all():
-                CharacterSkill.objects.create(
-                    character_sheet=new_character,
-                    skill_name=skill.skill_name,
-                    category=skill.category,
-                    base_value=skill.base_value,
-                    occupation_points=skill.occupation_points,
-                    interest_points=skill.interest_points,
-                    bonus_points=skill.bonus_points,
-                    other_points=skill.other_points,
-                    notes=skill.notes,
-                )
-
-        return new_character
 
     @staticmethod
     def get_version_history(character):
@@ -2371,73 +2311,17 @@ class CharacterVersionManager:
 
     @staticmethod
     def rollback_to_version(current_character, target_version):
-        """指定バージョンにロールバック"""
-        # 現在のバージョンから新しいバージョンを作成
-        next_version = CharacterVersionManager.get_latest_version(current_character).version + 1
+        from .services.character_version_service import CharacterVersionService
 
-        # ロールバック先のデータを使って新バージョンを作成
-        rolled_back = CharacterSheet.objects.create(
-            user=target_version.user,
-            edition=target_version.edition,
-            name=target_version.name,
-            player_name=target_version.player_name,
-            age=target_version.age,
-            gender=target_version.gender,
-            occupation=target_version.occupation,
-            occupation_point_method=target_version.occupation_point_method,
-            birthplace=target_version.birthplace,
-            residence=target_version.residence,
-            recommended_skills=list(target_version.recommended_skills or []),
-            occupation_skills=list(target_version.occupation_skills or []),
-            source_scenario=target_version.source_scenario,
-            source_scenario_title=target_version.source_scenario_title,
-            source_scenario_game_system=target_version.source_scenario_game_system,
-            str_value=target_version.str_value,
-            con_value=target_version.con_value,
-            pow_value=target_version.pow_value,
-            dex_value=target_version.dex_value,
-            app_value=target_version.app_value,
-            siz_value=target_version.siz_value,
-            int_value=target_version.int_value,
-            edu_value=target_version.edu_value,
-            hit_points_max=target_version.hit_points_max,
-            hit_points_current=target_version.hit_points_current,
-            magic_points_max=target_version.magic_points_max,
-            magic_points_current=target_version.magic_points_current,
-            sanity_starting=target_version.sanity_starting,
-            sanity_max=target_version.sanity_max,
-            sanity_current=target_version.sanity_current,
-            version=next_version,
-            parent_sheet=current_character,  # 現在のバージョンを親にする
-            character_image=target_version.character_image,
-            notes=target_version.notes,
-            secret_ho_info=target_version.secret_ho_info,
-            version_note=f"バージョン{target_version.version}からのロールバック",
-            session_count=current_character.session_count,
-            is_active=True,
+        return CharacterVersionService.create_version(
+            source_character=target_version,
+            actor=current_character.user,
+            validated_data={
+                "version_note": f"Rollback from version {target_version.version}",
+                "session_count": current_character.session_count,
+            },
+            parent_character=current_character,
         )
-
-        # 6版固有データのコピー
-        if target_version.edition == "6th" and hasattr(target_version, "sixth_edition_data"):
-            CharacterSheet6th.objects.create(
-                character_sheet=rolled_back, mental_disorder=target_version.sixth_edition_data.mental_disorder
-            )
-
-        # 技能のコピー
-        for skill in target_version.skills.all():
-            CharacterSkill.objects.create(
-                character_sheet=rolled_back,
-                skill_name=skill.skill_name,
-                category=skill.category,
-                base_value=skill.base_value,
-                occupation_points=skill.occupation_points,
-                interest_points=skill.interest_points,
-                bonus_points=skill.bonus_points,
-                other_points=skill.other_points,
-                notes=skill.notes,
-            )
-
-        return rolled_back
 
     @staticmethod
     def get_version_statistics(character):

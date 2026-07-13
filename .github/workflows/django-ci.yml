@@ -7,6 +7,7 @@ on:
 
 jobs:
   test:
+    name: Unit / Integration
     runs-on: ubuntu-latest
     env:
       SECRET_KEY: test-secret-key-for-ci-with-enough-length-and-variety-12345
@@ -41,7 +42,15 @@ jobs:
 
       - name: Run pytest
         run: |
-          python -m pytest
+          python -m pytest accounts api scenarios schedules tableno tests/unit tests/integration \
+            --cov=accounts --cov=schedules --cov=scenarios --cov=tableno \
+            --cov-report=term-missing --cov-report=xml --cov-fail-under=70
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
 
       - name: Flake8
         run: |
@@ -131,3 +140,105 @@ jobs:
           LEGAL_SELLER_PHONE: 000-0000-0000
         run: |
           python manage.py billing_release_gate
+
+  system:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install --upgrade pip && pip install -r requirements-test.txt
+      - run: python -m pytest tests/system -q -rs
+
+  production-database:
+    runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: test-secret-key-for-ci-with-enough-length-and-variety-12345
+      APP_ENV: local
+      DJANGO_SETTINGS_MODULE: tableno.settings_production
+      ENVIRONMENT: staging
+      ALLOWED_HOSTS: localhost
+      CSRF_TRUSTED_ORIGINS: http://localhost
+      SITE_ID: "1"
+      DB_ENGINE: postgres
+      DB_NAME: tableno_ci
+      DB_USER: tableno_ci
+      DB_PASSWORD: tableno_ci_password
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      USE_REDIS_CACHE: "False"
+      USE_S3_STORAGE: "False"
+      STRIPE_SECRET_KEY: sk_test_ci_secret
+      STRIPE_WEBHOOK_SECRET: whsec_ci_secret
+      STRIPE_PREMIUM_PRICE_ID: price_ci_monthly
+      STRIPE_CHECKOUT_ENABLED: "False"
+      PUBLIC_SITE_URL: https://staging.example.com
+      PREMIUM_PRICE_LABEL: CI test premium plan
+      LEGAL_PAYMENT_METHOD: Credit card via Stripe Checkout.
+      LEGAL_PAYMENT_TIMING: Charged when the subscription starts.
+      LEGAL_SERVICE_DELIVERY_TIMING: Premium access starts after webhook processing.
+      LEGAL_CANCELLATION_METHOD: Users can cancel from the premium management page.
+      LEGAL_CANCELLATION_EFFECT: Access remains active until the paid period ends.
+      LEGAL_REFUND_POLICY: Refunds are handled by support after review.
+      LEGAL_SELLER_NAME: Tableno CI
+      LEGAL_SELLER_ADDRESS: 1-1 CI Test Address
+      LEGAL_SELLER_PHONE: 000-0000-0000
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: tableno_ci
+          POSTGRES_USER: tableno_ci
+          POSTGRES_PASSWORD: tableno_ci_password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install --upgrade pip && pip install -r requirements-test.txt
+      - run: python manage.py check && python manage.py makemigrations --check --dry-run && python manage.py migrate --noinput && python manage.py migrate --check
+      - run: python -m pytest accounts/test_character_6th_versioning.py accounts/test_share_links.py -q
+
+  playwright:
+    runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: test-secret-key-for-ci-with-enough-length-and-variety-12345
+      APP_ENV: local
+      ENV_FILE: .env.example
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: python -m pip install --upgrade pip && pip install -r requirements-test.txt && npm ci
+      - run: npx playwright install --with-deps chromium && npm run test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            playwright-report
+            test-results
+
+  lint-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install --upgrade pip && pip install -r requirements-test.txt
+      - run: python -m flake8 . && python -m black --check . && python -m isort --check-only .
+      - run: python -m bandit -r accounts schedules scenarios tableno && python -m pip_audit

@@ -26,6 +26,20 @@ from .character_models import (
 from .models import CustomUser, Friend, Group, GroupInvitation, GroupMembership
 
 
+class CharacterVersionCreateSerializer(serializers.Serializer):
+    """Explicitly allowed inputs for a character-version request."""
+
+    version_note = serializers.CharField(required=False, allow_blank=True, max_length=1000)
+    copy_skills = serializers.BooleanField(default=True)
+    copy_equipment = serializers.BooleanField(default=True)
+    copy_images = serializers.BooleanField(default=True)
+    copy_background = serializers.BooleanField(default=True)
+    hit_points_current = serializers.IntegerField(required=False)
+    magic_points_current = serializers.IntegerField(required=False)
+    sanity_current = serializers.IntegerField(required=False)
+    notes = serializers.CharField(required=False, allow_blank=True)
+
+
 def validate_character_image(image):
     """キャラクター画像のバリデーション"""
     if not image:

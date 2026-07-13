@@ -13,7 +13,14 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .character_models import CharacterEquipment, CharacterSheet, CharacterSheet6th, CharacterSkill
+from .character_models import (
+    CharacterBackground,
+    CharacterEquipment,
+    CharacterImage,
+    CharacterSheet,
+    CharacterSheet6th,
+    CharacterSkill,
+)
 
 User = get_user_model()
 
@@ -164,6 +171,66 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(copied_skill.other_points, 2)
         self.assertEqual(copied_skill.notes, "growth memo")
 
+    def test_create_version_copies_security_and_related_data(self):
+        data = dict(self.character_data_6th)
+        data["name"] = "Complete Version Source"
+        character = CharacterSheet.objects.create(user=self.user, **data)
+        allowed_user = User.objects.create_user(username="allowed", password="testpass123")
+        character.access_scope = "link"
+        character.secret_ho_info = "secret handout"
+        character.recommended_skills = ["Spot Hidden"]
+        character.occupation_skills = ["Library Use"]
+        character.save()
+        character.allowed_users.add(allowed_user)
+        CharacterBackground.objects.create(character_sheet=character, personal_history="A long history")
+        gif = b"GIF87a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
+        CharacterImage.objects.create(
+            character_sheet=character,
+            image=SimpleUploadedFile("main.gif", gif, content_type="image/gif"),
+            is_main=True,
+            order=0,
+        )
+        CharacterImage.objects.create(
+            character_sheet=character,
+            image=SimpleUploadedFile("sub.gif", gif, content_type="image/gif"),
+            order=1,
+        )
+
+        response = self.client.post(
+            f"/api/accounts/character-sheets/{character.id}/create_version/",
+            {"version_note": "after session", "user": allowed_user.id, "version": 999},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        new_sheet = CharacterSheet.objects.get(id=response.data["id"])
+        self.assertEqual(new_sheet.user, self.user)
+        self.assertEqual(new_sheet.version, 2)
+        self.assertEqual(new_sheet.parent_sheet, character)
+        self.assertEqual(new_sheet.access_scope, "link")
+        self.assertEqual(new_sheet.secret_ho_info, "secret handout")
+        self.assertEqual(new_sheet.recommended_skills, ["Spot Hidden"])
+        self.assertEqual(new_sheet.occupation_skills, ["Library Use"])
+        self.assertEqual(list(new_sheet.allowed_users.all()), [allowed_user])
+        self.assertNotEqual(new_sheet.share_token, character.share_token)
+        self.assertEqual(new_sheet.background_info.personal_history, "A long history")
+        self.assertEqual(
+            list(new_sheet.images.values_list("order", "is_main")),
+            [(0, True), (1, False)],
+        )
+
+    def test_create_version_rejects_invalid_version_input(self):
+        character = CharacterSheet.objects.create(user=self.user, **self.character_data_6th)
+
+        response = self.client.post(
+            f"/api/accounts/character-sheets/{character.id}/create_version/",
+            {"version_note": "x" * 1001, "copy_skills": "not-a-boolean"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(CharacterSheet.objects.filter(parent_sheet=character).exists())
+
     def test_create_version_rolls_back_when_skill_copy_fails(self):
         data = dict(self.character_data_6th)
         data["name"] = "Rollback Source PC"
@@ -171,7 +238,7 @@ class CharacterSheetAPITest(APITestCase):
         CharacterSkill.objects.create(character_sheet=character, skill_name="Rollback Skill", base_value=10)
 
         with patch(
-            "accounts.views.character_views.CharacterSkill.objects.create",
+            "accounts.services.character_version_service.CharacterSkill.objects.create",
             side_effect=RuntimeError("copy failed"),
         ):
             with self.assertRaises(RuntimeError):

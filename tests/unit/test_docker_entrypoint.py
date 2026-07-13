@@ -161,7 +161,7 @@ class DockerEntrypointTests(SimpleTestCase):
         steps = workflow["jobs"]["test"]["steps"]
         step_names = [step.get("name") or step.get("uses") for step in steps]
 
-        expected_order = [
+        self.assertEqual(step_names[:7], [
             "actions/checkout@v4",
             "actions/setup-python@v5",
             "Install dependencies",
@@ -169,14 +169,13 @@ class DockerEntrypointTests(SimpleTestCase):
             "Migration file check",
             "Migration apply/check",
             "Run pytest",
-            "Flake8",
-            "Black check",
-            "isort check",
-            "Docker Compose config check",
-            "Django deploy check",
-            "Billing release gate",
-        ]
-        self.assertEqual(step_names, expected_order)
+        ])
+        self.assertIn("coverage-xml", str(steps))
+        self.assertIn("Billing release gate", step_names)
+        self.assertEqual(
+            {"test", "system", "production-database", "playwright", "lint-security"},
+            set(workflow["jobs"]),
+        )
 
     def test_ci_workflow_yaml_parser_dependency_is_declared(self):
         requirements_test = (self.ROOT / "requirements-test.txt").read_text(encoding="utf-8")

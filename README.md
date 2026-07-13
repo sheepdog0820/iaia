@@ -93,7 +93,7 @@ GitHub Actions (`.github/workflows/django-ci.yml`) は `main` とPull Requestで
 
 2026-07-02時点のローカル確認では、上記相当のチェックとシステムテストが通過しています。
 
-- `python -m pytest -q`: `1058 passed, 3 skipped, 158 warnings, 53 subtests passed`
+- `python -m pytest --collect-only -q`: `1479 tests collected`
 - `python -m pytest tests/system -q -rs`: `16 passed, 1 skipped`
 
 ## Development Commands

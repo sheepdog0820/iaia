@@ -45,5 +45,5 @@ skip = [
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "tableno.settings"
 python_files = ["test_*.py", "*_test.py", "tests.py"]
-testpaths = ["accounts", "api", "scenarios", "schedules", "tableno"]
+testpaths = ["accounts", "api", "scenarios", "schedules", "tableno", "tests"]
 addopts = "--reuse-db"

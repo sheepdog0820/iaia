@@ -24,7 +24,8 @@ from ..character_image_limits import (
     get_character_image_limit,
 )
 from ..character_models import GrowthRecord
-from ..serializers import GrowthRecordSerializer
+from ..serializers import CharacterSheetSerializer, CharacterVersionCreateSerializer, GrowthRecordSerializer
+from ..services.character_version_service import CharacterVersionService
 from .base_views import BaseViewSet, PermissionMixin
 from .common_imports import *
 from .mixins import CharacterNestedResourceMixin, CharacterSheetAccessMixin, ErrorHandlerMixin
@@ -229,121 +230,16 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
 
     @action(detail=True, methods=["post"])
     def create_version(self, request, pk=None):
-        """Create new version of character sheet"""
-        original_sheet = self.get_object()
-
-        # Set parent sheet
-        if original_sheet.parent_sheet:
-            parent_sheet = original_sheet.parent_sheet
-        else:
-            parent_sheet = original_sheet
-
-        # Set new version number
-        latest_version = CharacterSheet.objects.filter(parent_sheet=parent_sheet).order_by("-version").first()
-
-        if latest_version:
-            new_version = latest_version.version + 1
-        else:
-            new_version = parent_sheet.version + 1
-
-        # Copy original data
-        new_data = {
-            "user": request.user,
-            "edition": original_sheet.edition,
-            "name": original_sheet.name,
-            "player_name": original_sheet.player_name,
-            "age": original_sheet.age,
-            "gender": original_sheet.gender,
-            "occupation": original_sheet.occupation,
-            "occupation_point_method": original_sheet.occupation_point_method,
-            "birthplace": original_sheet.birthplace,
-            "residence": original_sheet.residence,
-            "source_scenario": original_sheet.source_scenario,
-            "source_scenario_title": original_sheet.source_scenario_title,
-            "source_scenario_game_system": original_sheet.source_scenario_game_system,
-            "str_value": original_sheet.str_value,
-            "con_value": original_sheet.con_value,
-            "pow_value": original_sheet.pow_value,
-            "dex_value": original_sheet.dex_value,
-            "app_value": original_sheet.app_value,
-            "siz_value": original_sheet.siz_value,
-            "int_value": original_sheet.int_value,
-            "edu_value": original_sheet.edu_value,
-            "hit_points_max": original_sheet.hit_points_max,
-            "hit_points_current": original_sheet.hit_points_current,
-            "magic_points_max": original_sheet.magic_points_max,
-            "magic_points_current": original_sheet.magic_points_current,
-            "sanity_starting": original_sheet.sanity_starting,
-            "sanity_max": original_sheet.sanity_max,
-            "sanity_current": original_sheet.sanity_current,
-            "version": new_version,
-            "parent_sheet": parent_sheet,
-            "notes": original_sheet.notes,
-            "is_active": original_sheet.is_active,
-        }
-
-        # Copy character image if exists
-        if original_sheet.character_image:
-            new_data["character_image"] = original_sheet.character_image
-
-        # Override with request data
-        for key, value in request.data.items():
-            if key not in ["id", "version", "created_at", "updated_at", "parent_sheet", "user"]:
-                new_data[key] = value
-
-        with transaction.atomic():
-            # Create new character sheet
-            new_sheet = CharacterSheet.objects.create(**new_data)
-
-            # Update current values individually to avoid save method auto-calculation
-            update_fields = {}
-            for key, value in request.data.items():
-                if key in ["hit_points_current", "magic_points_current", "sanity_current"]:
-                    update_fields[key] = value
-
-            if update_fields:
-                CharacterSheet.objects.filter(id=new_sheet.id).update(**update_fields)
-                new_sheet.refresh_from_db()
-
-            # Copy original skills
-            for skill in original_sheet.skills.all():
-                CharacterSkill.objects.create(
-                    character_sheet=new_sheet,
-                    skill_name=skill.skill_name,
-                    category=skill.category,
-                    base_value=skill.base_value,
-                    occupation_points=skill.occupation_points,
-                    interest_points=skill.interest_points,
-                    bonus_points=skill.bonus_points,
-                    other_points=skill.other_points,
-                    notes=skill.notes,
-                )
-
-            # Copy original equipment
-            for equipment in original_sheet.equipment.all():
-                CharacterEquipment.objects.create(
-                    character_sheet=new_sheet,
-                    item_type=equipment.item_type,
-                    name=equipment.name,
-                    skill_name=equipment.skill_name,
-                    damage=equipment.damage,
-                    base_range=equipment.base_range,
-                    attacks_per_round=equipment.attacks_per_round,
-                    ammo=equipment.ammo,
-                    malfunction_number=equipment.malfunction_number,
-                    armor_points=equipment.armor_points,
-                    description=equipment.description,
-                    quantity=equipment.quantity,
-                    weight=equipment.weight,
-                )
-
-            # Copy edition-specific data
-            if original_sheet.edition == "6th" and hasattr(original_sheet, "sixth_edition_data"):
-                sixth_data = original_sheet.sixth_edition_data
-                CharacterSheet6th.objects.create(character_sheet=new_sheet, mental_disorder=sixth_data.mental_disorder)
-
-        # Return created character sheet
-        response_serializer = CharacterSheetSerializer(new_sheet)
+        """Create a new version through the single versioning service."""
+        source_character = self.get_object()
+        serializer = CharacterVersionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        new_sheet = CharacterVersionService.create_version(
+            source_character=source_character,
+            actor=request.user,
+            validated_data=serializer.validated_data,
+        )
+        response_serializer = CharacterSheetSerializer(new_sheet, context={"request": request})
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"])
@@ -375,7 +271,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         serializer = CharacterSheetSerializer(sheet)
         return Response(serializer.data)
 
-    @action(detail=True, methods=["get"], url_path="skill-points-summary")
+    @action(detail=True, methods=["get"], url_path="skill-points-summary", url_name="skill-points-summary")
     def skill_points_summary(self, request, pk=None):
         """Get skill points summary for a character"""
         sheet = self.get_object()
@@ -415,11 +311,6 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         }
 
         return Response(summary)
-
-    @action(detail=True, methods=["get"], url_path="skill_points_summary")
-    def skill_points_summary_alias(self, request, pk=None):
-        """Compatibility alias for skill_points_summary"""
-        return self.skill_points_summary(request, pk=pk)
 
     @action(detail=True, methods=["get"], url_path="ccfolia_json")
     def ccfolia_json(self, request, pk=None):
