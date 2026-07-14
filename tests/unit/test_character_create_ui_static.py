@@ -256,6 +256,14 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         self.assertIn(".character-detail .character-actions", stylesheet)
         self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", stylesheet)
 
+    def test_session_detail_actions_use_compact_mobile_layout(self):
+        template = self.read_text("templates/schedules/session_detail.html")
+
+        self.assertIn(".session-detail-actions", template)
+        self.assertIn("display: grid !important;", template)
+        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", template)
+        self.assertIn("white-space: nowrap;", template)
+
     def test_character_create_templates_have_bulk_image_modal_and_edit_preview_slots(self):
         for relative_path in [
             "templates/accounts/character_6th_create.html",
