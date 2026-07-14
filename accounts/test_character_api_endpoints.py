@@ -2,6 +2,8 @@
 Test character API endpoints
 """
 
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -86,6 +88,29 @@ class CharacterAPIEndpointsTest(TestCase):
         skill.refresh_from_db()
         self.assertEqual(skill.occupation_points, 50)
         self.assertEqual(skill.interest_points, 10)
+
+    def test_skill_update_logs_character_and_skill_ids_when_save_fails(self):
+        """Unexpected skill save failures must retain enough context for CloudWatch diagnosis."""
+        skill = CharacterSkill.objects.create(character_sheet=self.character, skill_name="運転（自動車）", base_value=20)
+        self.client.raise_request_exception = False
+
+        with patch("accounts.views.character_views.CharacterSkillSerializer.save", side_effect=RuntimeError("save failed")):
+            with self.assertLogs("accounts.views.character_views", level="ERROR") as logs:
+                response = self.client.patch(
+                    f"/accounts/character-sheets/{self.character.id}/skills/{skill.id}/",
+                    {
+                        "skill_name": skill.skill_name,
+                        "base_value": skill.base_value,
+                        "occupation_points": skill.occupation_points,
+                        "interest_points": skill.interest_points,
+                        "other_points": skill.other_points,
+                    },
+                    format="json",
+                )
+
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertIn(f"character_sheet_id={self.character.id}", "\n".join(logs.output))
+        self.assertIn(f"skill_id={skill.id}", "\n".join(logs.output))
 
     def test_batch_allocate_skill_points_endpoint(self):
         """Test batch-allocate-skill-points endpoint"""

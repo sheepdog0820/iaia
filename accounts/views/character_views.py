@@ -2151,6 +2151,22 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
 
     # get_queryset and perform_create are now handled by CharacterNestedResourceMixin
 
+    def perform_update(self, serializer):
+        """Log unexpected skill-save failures with the identifiers needed for diagnosis."""
+        skill = serializer.instance
+        try:
+            serializer.save()
+        except Exception:
+            logger.exception(
+                "Character skill update failed: character_sheet_id=%s skill_id=%s skill_name=%r user_id=%s fields=%s",
+                skill.character_sheet_id,
+                skill.id,
+                skill.skill_name,
+                self.request.user.id,
+                sorted(serializer.validated_data.keys()),
+            )
+            raise
+
     @action(detail=False, methods=["post"])
     def create_custom_skill(self, request):
         """Create custom skill (specializations, languages, etc.)"""
