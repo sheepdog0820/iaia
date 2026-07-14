@@ -462,7 +462,7 @@ class BasicAccountsTestCase(TestCase):
         self.assertContains(
             page_response, f'data-character-reference-url="/share/characters/{character.share_token}/view/"'
         )
-        self.assertContains(page_response, 'id="characterImagesDownloadLink"')
+        self.assertNotContains(page_response, 'id="characterImagesDownloadLink"')
         self.assertContains(page_response, 'id="ccfoliaExportLink"')
         self.assertNotContains(page_response, 'download="character-')
         self.assertNotContains(page_response, 'id="editButton"')

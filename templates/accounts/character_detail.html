@@ -42,18 +42,15 @@
                         <span class="character-name"></span>
                     </h2>
                     <div class="character-actions d-flex flex-wrap gap-2 justify-content-end">
-                        <a href="{{ character_images_zip_url|default:'#' }}" id="characterImagesDownloadLink" class="btn btn-outline-secondary d-none" download>
-                            <i class="fas fa-file-archive"></i> 画像ZIP
-                        </a>
                         <button type="button" id="ccfoliaExportLink" class="btn btn-outline-success" disabled>
                             <i class="fas fa-clipboard"></i> ココフォリア用コピー
                         </button>
                         {% if can_edit_character %}
                         <a href="/accounts/character/list/" class="btn btn-outline-secondary me-2">
-                            <i class="fas fa-arrow-left"></i> 一覧に戻る
+                            <i class="fas fa-arrow-left"></i> 戻る
                         </a>
                         <button type="button" id="createVersionAndEditButton" class="btn btn-outline-success me-2 d-none">
-                            <i class="fas fa-code-branch"></i> 新しいバージョンを作成して編集
+                            <i class="fas fa-code-branch"></i> 再作成
                         </button>
                         <a href="#" id="editButton" class="btn btn-outline-primary">
                             <i class="fas fa-edit"></i> 編集
@@ -376,6 +373,10 @@ document.addEventListener('DOMContentLoaded', function() {
     let character = null;
 
     const ccfoliaExportLink = document.getElementById('ccfoliaExportLink');
+    if (ccfoliaExportLink) {
+        ccfoliaExportLink.innerHTML = '<i class="fas fa-file-export"></i> 出力';
+        ccfoliaExportLink.setAttribute('aria-label', '出力');
+    }
     const characterImagesDownloadLink = document.getElementById('characterImagesDownloadLink');
     if (characterImagesDownloadLink && characterImagesZipUrl) {
         characterImagesDownloadLink.href = characterImagesZipUrl;
@@ -2044,6 +2045,22 @@ document.addEventListener('DOMContentLoaded', function() {
 #growthRecordModal .form-label {
     font-size: 0.875rem;
     font-weight: 500;
+}
+@media (max-width: 575.98px) {
+    #characterContent .character-actions {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+        gap: 0.4rem;
+    }
+
+    #characterContent .character-actions > .btn {
+        min-width: 0;
+        margin-right: 0 !important;
+        padding: 0.4rem 0.35rem;
+        font-size: 0.78rem;
+        white-space: nowrap;
+    }
 }
 </style>
 {% endblock %}

@@ -136,7 +136,7 @@ class FixedShareUrlTests(APITestCase):
             anonymous_response,
             f'data-character-images-zip-url="/share/characters/{character.share_token}/images.zip"',
         )
-        self.assertContains(anonymous_response, 'id="characterImagesDownloadLink"')
+        self.assertNotContains(anonymous_response, 'id="characterImagesDownloadLink"')
         self.assertContains(
             anonymous_response,
             f'data-character-ccfolia-json-url="/share/characters/{character.share_token}/ccfolia.json"',

@@ -1165,13 +1165,17 @@ a:focus,
     .character-detail .character-actions {
         width: 100%;
         display: grid;
-        gap: 0.5rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.4rem;
     }
 
     .character-detail .character-actions .btn {
-        width: 100%;
+        min-width: 0;
         justify-content: center;
         margin-right: 0 !important;
+        padding: 0.4rem 0.35rem;
+        font-size: 0.78rem;
+        white-space: nowrap;
     }
 
     .character-detail #equipmentTabs,

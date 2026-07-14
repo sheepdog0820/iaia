@@ -244,6 +244,18 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
                 self.assertIn("左クリックで編集、右クリックで初期値に戻す", script)
                 self.assertNotIn("Base value (left click to edit, right click to reset)", script)
 
+    def test_character_detail_actions_use_compact_mobile_layout(self):
+        template = self.read_text("templates/accounts/character_detail.html")
+        stylesheet = self.read_text("static/css/arkham_modern.css")
+
+        self.assertIn('<i class="fas fa-arrow-left"></i> 戻る', template)
+        self.assertIn('<i class="fas fa-code-branch"></i> 再作成', template)
+        self.assertIn("ccfoliaExportLink.setAttribute('aria-label', '出力')", template)
+        self.assertIn("#characterContent .character-actions", template)
+        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", template)
+        self.assertIn(".character-detail .character-actions", stylesheet)
+        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", stylesheet)
+
     def test_character_create_templates_have_bulk_image_modal_and_edit_preview_slots(self):
         for relative_path in [
             "templates/accounts/character_6th_create.html",
