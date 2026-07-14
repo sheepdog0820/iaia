@@ -196,6 +196,54 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
                 self.assertIn("背景を透過中...", script)
                 self.assertIn("透過選択", script)
 
+    def test_skill_tab_has_dark_mode_colors_without_overriding_light_mode(self):
+        stylesheet = self.read_text("static/accounts/css/character6th.css")
+
+        self.assertIn("@media (prefers-color-scheme: dark)", stylesheet)
+        self.assertIn(".character-create-page .skills-tab .skill-item", stylesheet)
+        self.assertIn(".skills-point-panel.bg-light", stylesheet)
+        self.assertIn(".skills-control-panel.bg-light", stylesheet)
+        self.assertIn("background-color: #1e293b !important;", stylesheet)
+        self.assertIn("background-color: #0f172a !important;", stylesheet)
+        self.assertIn("--skill-input-text: #f8fafc;", stylesheet)
+        self.assertIn("-webkit-text-fill-color: var(--skill-input-text) !important;", stylesheet)
+        self.assertIn("--skill-input-bg: #0f172a;", stylesheet)
+        self.assertIn("--skill-input-label-bg: #172554;", stylesheet)
+        self.assertIn("--skill-input-border: #60a5fa;", stylesheet)
+        self.assertIn("input[type=\"number\"]:focus", stylesheet)
+        self.assertIn("input[type=\"number\"]::selection", stylesheet)
+        self.assertIn("padding: 13px 0.35rem 0;", stylesheet)
+        self.assertIn("line-height: 21px;", stylesheet)
+        self.assertIn(".character-create-page .character-footer", stylesheet)
+
+        for relative_path in [
+            "templates/accounts/character_6th_create.html",
+            "templates/accounts/character_7th_create.html",
+        ]:
+            with self.subTest(template=relative_path):
+                template = self.read_text(relative_path)
+                self.assertIn("?v=20260714-dark-mode-9", template)
+                self.assertIn(
+                    'class="badge footer-skill-badge me-1" id="occupationUsedFooter"',
+                    template,
+                )
+                self.assertIn(
+                    'class="badge footer-skill-badge ms-1" id="interestTotalFooter"',
+                    template,
+                )
+
+        self.assertIn(".character-create-page .footer-skill-badge", stylesheet)
+        self.assertIn("background-color: #2563eb !important;", stylesheet)
+
+        for relative_path in [
+            "static/accounts/js/character6th.js",
+            "static/accounts/js/character7th.js",
+        ]:
+            with self.subTest(script=relative_path):
+                script = self.read_text(relative_path)
+                self.assertIn("左クリックで編集、右クリックで初期値に戻す", script)
+                self.assertNotIn("Base value (left click to edit, right click to reset)", script)
+
     def test_character_create_templates_have_bulk_image_modal_and_edit_preview_slots(self):
         for relative_path in [
             "templates/accounts/character_6th_create.html",

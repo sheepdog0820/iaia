@@ -684,9 +684,10 @@ label[for="character-name"]::after {
 
 .skills-tab .skill-item .form-control-sm {
     height: 36px;
-    padding: 0.95rem 0.35rem 0.15rem;
+    /* Keep the value centered in the area below the overlaid skill label. */
+    padding: 13px 0.35rem 0;
     font-size: 0.85rem;
-    line-height: 1.2;
+    line-height: 21px;
     color: #111827;
     background-color: #ffffff;
 }
@@ -1302,6 +1303,163 @@ hr {
     opacity: 1 !important;
 }
 
+.character-create-page .skills-tab {
+    --skill-input-bg: #ffffff;
+    --skill-input-label-bg: #dbeafe;
+    --skill-input-border: #3b82f6;
+    --skill-input-text: #1e293b;
+    --skill-input-label-text: #1d4ed8;
+}
+
+.character-create-page .skills-point-panel.bg-light,
+.character-create-page .skills-control-panel.bg-light {
+    background-color: #f8fafc !important;
+}
+
+.character-create-page .skills-tab .skill-item input[type="number"],
+.character-create-page .skills-tab .skill-item input[type="text"] {
+    background-color: var(--skill-input-bg) !important;
+    border-color: var(--skill-input-border) !important;
+    color: var(--skill-input-text) !important;
+    -webkit-text-fill-color: var(--skill-input-text) !important;
+    caret-color: var(--skill-input-text) !important;
+}
+
+.character-create-page .skills-tab .skill-item input[type="number"] {
+    color-scheme: light;
+}
+
+.character-create-page .skills-tab .skill-item input[type="number"]::-webkit-inner-spin-button {
+    opacity: 1;
+}
+
+.character-create-page .skills-tab .skill-item input[type="number"]:focus,
+.character-create-page .skills-tab .skill-item input[type="text"]:focus {
+    background-color: var(--skill-input-bg) !important;
+    border-color: var(--skill-input-border) !important;
+    color: var(--skill-input-text) !important;
+    -webkit-text-fill-color: var(--skill-input-text) !important;
+    box-shadow: 0 0 0 0.15rem rgba(96, 165, 250, 0.35) !important;
+}
+
+.character-create-page .skills-tab .skill-item input[type="number"]::selection,
+.character-create-page .skills-tab .skill-item input[type="text"]::selection {
+    background-color: #93c5fd;
+    color: #0f172a;
+}
+
+.character-create-page .character-footer {
+    background-color: #f8fafc !important;
+    color: #1e293b !important;
+    border-top-color: #cbd5e1;
+}
+
+.character-create-page .skills-tab .skill-input-group-base::before,
+.character-create-page .skills-tab .skill-input-group-occ::before,
+.character-create-page .skills-tab .skill-input-group-int::before,
+.character-create-page .skills-tab .skill-input-group-other::before {
+    background-color: var(--skill-input-label-bg);
+    border-color: var(--skill-input-border);
+    color: var(--skill-input-label-text);
+}
+
+@media (prefers-color-scheme: dark) {
+    .character-create-page .skills-tab {
+        --skill-input-bg: #0f172a;
+        --skill-input-label-bg: #172554;
+        --skill-input-border: #60a5fa;
+        --skill-input-text: #f8fafc;
+        --skill-input-label-text: #bfdbfe;
+    }
+
+    .character-create-page .character-footer {
+        background-color: #1e293b !important;
+        color: #e2e8f0 !important;
+        border-top-color: #475569;
+    }
+
+    .character-create-page .tab-content,
+    .character-create-page .skills-system-card,
+    .character-create-page .skills-system-body,
+    .character-create-page #skillTabContent,
+    .character-create-page #skillTabContent .tab-pane {
+        background-color: #1e293b !important;
+        color: #e2e8f0 !important;
+        border-color: #475569 !important;
+    }
+
+    .character-create-page .skills-point-panel.bg-light,
+    .character-create-page .skills-control-panel.bg-light {
+        background-color: #1e293b !important;
+        color: #e2e8f0 !important;
+        border-color: #475569 !important;
+    }
+
+    .character-create-page .skills-tab .skill-item,
+    .character-create-page .skills-tab .skill-item:hover,
+    .character-create-page .skills-tab .skill-item.skill-recommended,
+    .character-create-page .skills-tab .skill-recommended .skill-item,
+    .character-create-page .skills-tab .skill-occupation .skill-item,
+    .character-create-page .skills-tab .custom-skill .skill-item {
+        background-color: #1e293b !important;
+        color: #e2e8f0 !important;
+        border-color: #475569 !important;
+    }
+
+    .character-create-page .skills-tab .skill-item .skill-name,
+    .character-create-page .skills-tab .skill-item label,
+    .character-create-page .skills-tab .skill-item .form-label,
+    .character-create-page .skills-tab .skill-item .skill-item-title,
+    .character-create-page .skills-tab .text-muted {
+        color: #cbd5e1 !important;
+        -webkit-text-fill-color: #cbd5e1 !important;
+    }
+
+    .character-create-page .skills-tab .skill-item .form-control,
+    .character-create-page .skills-tab .skill-item .form-select,
+    .character-create-page .skills-tab .skill-item .input-group-text,
+    .character-create-page .skills-system-card .form-control,
+    .character-create-page .skills-system-card .form-select,
+    .character-create-page .skills-system-card .input-group-text {
+        background-color: #0f172a !important;
+        color: #e2e8f0 !important;
+        border-color: #475569 !important;
+        -webkit-text-fill-color: #e2e8f0 !important;
+        caret-color: #e2e8f0 !important;
+    }
+
+    .character-create-page .skills-tab .skill-item .form-control::placeholder,
+    .character-create-page .skills-system-card .form-control::placeholder {
+        color: #94a3b8 !important;
+    }
+
+    .character-create-page .skills-tab .skill-item input[type="number"],
+    .character-create-page .skills-tab .skill-item input[type="text"] {
+        color: var(--skill-input-text) !important;
+        -webkit-text-fill-color: var(--skill-input-text) !important;
+        caret-color: var(--skill-input-text) !important;
+    }
+
+    .character-create-page .skills-tab .skill-item input[type="number"] {
+        color-scheme: dark;
+    }
+
+    .character-create-page .nav-tabs .nav-link {
+        color: #cbd5e1;
+    }
+
+    .character-create-page .nav-tabs .nav-link.active {
+        background-color: #1e293b;
+        border-color: #475569 #475569 #1e293b;
+        color: #93c5fd;
+    }
+}
+
 .character-create-page .footer-bar .btn {
     min-height: 38px;
+}
+
+.character-create-page .footer-skill-badge {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
 }

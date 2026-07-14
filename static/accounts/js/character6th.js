@@ -956,7 +956,7 @@ function updateGlobalDiceFormula() {
                                        id="base_${key}" value="${baseValue}" min="0" max="999"
                                        data-skill="${key}" data-default="${skill?.base ?? 0}"
                                        aria-label="${skillName} 初期値"
-                                       title="Base value (left click to edit, right click to reset)"
+                                       title="左クリックで編集、右クリックで初期値に戻す"
                                        data-bs-toggle="tooltip"
                                        data-bs-placement="top">
                             </div>
