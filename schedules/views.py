@@ -68,6 +68,7 @@ from .serializers import (
     SessionSeriesSerializer,
     SessionYouTubeLinkSerializer,
     TRPGSessionSerializer,
+    build_internal_character_url,
 )
 from .services import YouTubeService
 from . import session_permissions
@@ -99,15 +100,15 @@ def _visible_sessions_for(user):
     ).distinct()
 
 
-def _tableno_character_name_from_url(character_sheet_url, user):
+def _tableno_character_from_url(character_sheet_url, user):
     value = str(character_sheet_url or "").strip()
     if not value:
-        return ""
+        return None
 
     try:
         parsed_url = urlparse(value)
     except (TypeError, ValueError):
-        return ""
+        return None
 
     path_parts = [part for part in parsed_url.path.split("/") if part]
     character_sheet = None
@@ -126,7 +127,7 @@ def _tableno_character_name_from_url(character_sheet_url, user):
         try:
             share_token = uuid.UUID(path_parts[2])
         except (TypeError, ValueError):
-            return ""
+            return None
         character_sheet = CharacterSheet.objects.filter(
             share_token=share_token,
             access_scope__in=("link", "public"),
@@ -138,6 +139,11 @@ def _tableno_character_name_from_url(character_sheet_url, user):
     elif len(path_parts) >= 3 and path_parts[0:2] == ["accounts", "character"]:
         character_sheet = readable_character_sheet_by_id(path_parts[2])
 
+    return character_sheet
+
+
+def _tableno_character_name_from_url(character_sheet_url, user):
+    character_sheet = _tableno_character_from_url(character_sheet_url, user)
     return character_sheet.name if character_sheet else ""
 
 
@@ -701,6 +707,14 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         character_name = request.data.get("character_name", "").strip()
         if character_sheet:
             character_name = character_sheet.name
+        character_sheet_url = request.data.get("character_sheet_url", "")
+        if not character_sheet:
+            character_sheet_from_url = _tableno_character_from_url(character_sheet_url, request.user)
+            if character_sheet_from_url and character_sheet_from_url.user_id == request.user.id:
+                character_sheet = character_sheet_from_url
+                character_name = character_sheet.name
+        if character_sheet:
+            character_sheet_url = build_internal_character_url(request, character_sheet)
 
         participant, created = SessionParticipant.objects.get_or_create(
             session=session,
@@ -708,7 +722,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             defaults={
                 "player_slot": player_slot,
                 "character_name": character_name,
-                "character_sheet_url": request.data.get("character_sheet_url", ""),
+                "character_sheet_url": character_sheet_url,
                 "character_sheet": character_sheet,
             },
         )
@@ -719,8 +733,8 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                 participant.player_slot = player_slot
             if "character_name" in request.data or character_sheet:
                 participant.character_name = character_sheet.name if character_sheet else request.data.get("character_name", "")
-            if "character_sheet_url" in request.data:
-                participant.character_sheet_url = request.data.get("character_sheet_url", "")
+            if "character_sheet_url" in request.data or character_sheet:
+                participant.character_sheet_url = character_sheet_url
             if "character_sheet_id" in request.data or "character_sheet" in request.data:
                 participant.character_sheet = character_sheet
             participant.save()
@@ -1715,9 +1729,12 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
                 data["character_name"] = character_sheet.name
 
         if "character_sheet_url" in data:
-            resolved_character_name = _tableno_character_name_from_url(data.get("character_sheet_url"), request.user)
-            if resolved_character_name:
-                data["character_name"] = resolved_character_name
+            character_sheet_from_url = _tableno_character_from_url(data.get("character_sheet_url"), request.user)
+            if character_sheet_from_url:
+                data["character_name"] = character_sheet_from_url.name
+                if instance.user_id and character_sheet_from_url.user_id == instance.user_id:
+                    if data.get("character_sheet") in [None, "", "null", "None"]:
+                        data["character_sheet"] = character_sheet_from_url.id
 
         serializer = self.get_serializer(instance, data=data, partial=partial)
         serializer.is_valid(raise_exception=True)

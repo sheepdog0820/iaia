@@ -860,7 +860,10 @@ class SessionCharacterSyncTestCase(TestCase):
         )
 
         participant = session_permissions.create_participant(
-            session=session, user=self.player, character_name=self.character.name
+            session=session,
+            user=self.player,
+            character_name=self.character.name,
+            character_sheet=self.character,
         )
 
         # キャラクター削除
@@ -868,12 +871,10 @@ class SessionCharacterSyncTestCase(TestCase):
         response = self.client.delete(f"/api/accounts/character-sheets/{self.character.id}/")
 
         # 削除後の参加者状態確認
-        participant.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
-        # キャラクターシートがNULLになるか、参加がキャンセルされるか（実装による）
-        # 現在のモデルではcharacter_nameのみ保持
-        # キャラクターが削除されてもSessionParticipantはcharacter_nameを保持
-        self.assertTrue(participant.character_name is not None)
+        # キャラクターに紐づくセッション参加情報も削除されることを確認
+        self.assertFalse(SessionParticipant.objects.filter(pk=participant.pk).exists())
 
     def test_session_cancellation_notification(self):
         """セッションキャンセル時の通知"""

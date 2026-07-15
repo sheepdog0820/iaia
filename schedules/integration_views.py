@@ -65,7 +65,6 @@ def _visible_user_sessions(user):
         | Q(group__created_by=user)
         | Q(group_id__in=admin_group_ids)
         | Q(sessionparticipant__user=user)
-        | Q(session_permissions__user=user)
     ).distinct()
 
 

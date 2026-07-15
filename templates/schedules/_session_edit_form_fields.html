@@ -9,7 +9,7 @@
             <div class="col-md-8 mb-3">
                 <label for="{{ title_id }}" class="form-label">セッションタイトル</label>
                 <input
-                    type="text"
+                    type="hidden"
                     class="form-control"
                     id="{{ title_id }}"
                     value="{{ title_value|default_if_none:'' }}"
@@ -85,6 +85,7 @@
                     placeholder="未設定"
                     readonly
                 >
+                <select class="form-select mt-2" id="{{ group_id }}Select"></select>
                 <div class="form-text">グループ変更は新規作成時に設定してください。</div>
             </div>
         </div>

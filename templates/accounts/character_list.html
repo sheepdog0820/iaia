@@ -440,7 +440,7 @@ document.addEventListener('DOMContentLoaded', function() {
     async function deleteCharacter(characterId, characterName) {
         const resolvedName = characterName || allCharacters.find(char => char.id === characterId)?.name;
         const name = resolvedName || `ID:${characterId}`;
-        const confirmed = await ARKHAM.confirm(`「${name}」を削除しますか？この操作は取り消せません。`, {
+        const confirmed = await ARKHAM.confirm(`「${name}」を削除しますか？セッションに登録されている場合、その参加情報も削除されます。この操作は取り消せません。`, {
             title: 'キャラクター削除',
             confirmText: '削除',
             confirmClass: 'btn-danger'

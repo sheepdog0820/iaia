@@ -2,6 +2,7 @@ from datetime import datetime
 from datetime import time as time_cls
 
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.urls import reverse
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
@@ -12,6 +13,11 @@ from accounts.serializers import PublicUserSerializer, validate_character_image
 from scenarios.access import can_view_scenario
 from scenarios.models import Scenario
 from schedules.handout_access import can_view_handout
+
+
+def build_internal_character_url(request, character_sheet):
+    path = reverse("character_detail", kwargs={"character_id": character_sheet.id})
+    return request.build_absolute_uri(path) if request else path
 
 from .models import (  # 高度なスケジューリング機能（ISSUE-017）
     DatePoll,
@@ -187,6 +193,11 @@ class SessionParticipantSerializer(serializers.ModelSerializer):
 
         if character_sheet and not user:
             raise serializers.ValidationError({"character_sheet": "Guest participant cannot have character_sheet"})
+
+        if character_sheet:
+            attrs["character_sheet_url"] = build_internal_character_url(
+                self.context.get("request"), character_sheet
+            )
 
         if "guest_name" in attrs:
             attrs["guest_name"] = normalized_guest_name
@@ -543,6 +554,10 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
 
         request = self.context.get("request")
         user = getattr(request, "user", None)
+        if "group" in attrs and user and attrs["group"] is not None:
+            group = attrs["group"]
+            if group.created_by_id != user.id and not group.members.filter(id=user.id).exists():
+                raise serializers.ValidationError({"group": "You must belong to the selected group."})
         if "scenario" in attrs:
             scenario = attrs.get("scenario")
             if user and scenario is not None and not can_view_scenario(user, scenario):

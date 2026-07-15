@@ -493,6 +493,10 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('editSessionStatus').value = session.status;
             document.getElementById('editSessionLocation').value = session.location || '';
             document.getElementById('editSessionGroupLabel').value = session.group_name || '';
+            const groupSelect = document.getElementById('editSessionGroupLabelSelect');
+            const groupsResponse = await axios.get('/api/accounts/groups/');
+            groupSelect.innerHTML = '<option value="">未設定</option>' + groupsResponse.data.map(group => `<option value="${group.id}">${escapeHtml(group.name)}</option>`).join('');
+            groupSelect.value = session.group || '';
             document.getElementById('editSessionScenarioTitle').value = session.scenario_detail?.title || '';
             document.getElementById('editSessionVisibility').value = session.visibility || 'group';
             document.getElementById('editSessionCocEdition').value = session.coc_edition || '6th';
@@ -517,7 +521,8 @@ document.addEventListener('DOMContentLoaded', function() {
             visibility: document.getElementById('editSessionVisibility').value,
             coc_edition: document.getElementById('editSessionCocEdition').value,
             youtube_url: document.getElementById('editSessionYoutube').value,
-            description: document.getElementById('editSessionDescription').value
+            description: document.getElementById('editSessionDescription').value,
+            group: document.getElementById('editSessionGroupLabelSelect').value || null
         };
 
         try {

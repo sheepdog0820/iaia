@@ -684,7 +684,7 @@ class SessionParticipant(models.Model):
     # 新規フィールド: キャラクターシート直接参照
     character_sheet = models.ForeignKey(
         "accounts.CharacterSheet",
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="session_participations",

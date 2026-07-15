@@ -639,7 +639,7 @@
                                         <button type="button" class="btn btn-sm btn-outline-secondary ms-auto participant-character-url-copy"
                                                 aria-label="{{ participant.display_name }}のキャラクターURLをコピー"
                                                 title="キャラクターURLをコピー"
-                                                data-copy-url="{% url 'character_detail_6th' participant.character_sheet.id %}">
+                                                data-copy-url="{% if participant.character_sheet.access_scope == 'link' or participant.character_sheet.access_scope == 'public' %}{% url 'fixed-shared-character-view' participant.character_sheet.share_token %}{% else %}{% url 'character_detail_6th' participant.character_sheet.id %}{% endif %}">
                                             <i class="fas fa-copy"></i>
                                         </button>
                                         {% elif participant.character_sheet_url %}
@@ -659,7 +659,7 @@
                                         <button type="button" class="btn btn-sm btn-outline-secondary ms-auto participant-character-url-copy"
                                                 aria-label="{{ participant.display_name }}のキャラクターURLをコピー"
                                                 title="キャラクターURLをコピー"
-                                                data-copy-url="{% url 'character_detail_6th' participant.character_sheet.id %}">
+                                                data-copy-url="{% if participant.character_sheet.access_scope == 'link' or participant.character_sheet.access_scope == 'public' %}{% url 'fixed-shared-character-view' participant.character_sheet.share_token %}{% else %}{% url 'character_detail_6th' participant.character_sheet.id %}{% endif %}">
                                             <i class="fas fa-copy"></i>
                                         </button>
                                     </div>
@@ -680,7 +680,7 @@
                                     <div class="participant-output-actions d-flex flex-wrap gap-1 mb-2">
                                         <div class="participant-card-actions d-flex flex-wrap gap-1">
                                             {% if participant.character_sheet %}
-                                            <a href="{% url 'character_detail_6th' participant.character_sheet.id %}"
+                                            <a href="{% if participant.character_sheet.access_scope == 'link' or participant.character_sheet.access_scope == 'public' %}{% url 'fixed-shared-character-view' participant.character_sheet.share_token %}{% else %}{% url 'character_detail_6th' participant.character_sheet.id %}{% endif %}"
                                                class="btn btn-sm btn-outline-info participant-reference-action"
                                                target="_blank" rel="noopener noreferrer">
                                                 <i class="fas fa-external-link-alt fa-fw"></i> 参照
@@ -3004,8 +3004,8 @@ async function loadCharacterSheets() {
 
         populateCharacterSelect('character_sheet_id');
         populateCharacterSelect('edit_character_sheet_id');
-        bindCharacterNameAutoFill('character_sheet_id', 'character_name');
-        bindCharacterNameAutoFill('edit_character_sheet_id', 'edit_character_name');
+        bindCharacterNameAutoFill('character_sheet_id', 'character_name', 'character_sheet_url');
+        bindCharacterNameAutoFill('edit_character_sheet_id', 'edit_character_name', 'edit_character_sheet_url');
     } catch (error) {
         console.error('キャラクターシートの取得に失敗しました:', error);
     }
@@ -3026,9 +3026,31 @@ function populateCharacterSelect(selectId) {
     }
 }
 
-function bindCharacterNameAutoFill(selectId, inputId) {
+function internalCharacterDetailUrl(characterId) {
+    return characterId ? `${window.location.origin}/accounts/character/${characterId}/` : '';
+}
+
+function applyInternalCharacterUrl(selectEl, urlEl) {
+    if (!selectEl || !urlEl) return;
+
+    const characterId = selectEl.value;
+    if (characterId) {
+        urlEl.value = internalCharacterDetailUrl(characterId);
+        urlEl.disabled = true;
+        urlEl.dataset.internalCharacterUrl = 'true';
+    } else {
+        if (urlEl.dataset.internalCharacterUrl === 'true') {
+            urlEl.value = '';
+        }
+        urlEl.disabled = false;
+        delete urlEl.dataset.internalCharacterUrl;
+    }
+}
+
+function bindCharacterNameAutoFill(selectId, inputId, urlInputId) {
     const selectEl = document.getElementById(selectId);
     const inputEl = document.getElementById(inputId);
+    const urlEl = document.getElementById(urlInputId);
     if (!selectEl || !inputEl) return;
 
     const applySelectedSheetName = () => {
@@ -3036,6 +3058,7 @@ function bindCharacterNameAutoFill(selectId, inputId) {
         if (sheet && sheet.name) {
             inputEl.value = sheet.name;
         }
+        applyInternalCharacterUrl(selectEl, urlEl);
     };
 
     selectEl.addEventListener('change', applySelectedSheetName);
@@ -4347,6 +4370,7 @@ function openCharacterLinkModal(participantId, userId, currentCharacterId, playe
     }
     document.getElementById('link_character_name').value = characterName || '';
     document.getElementById('link_character_sheet_url').value = characterSheetUrl || '';
+    const urlEl = document.getElementById('link_character_sheet_url');
 
     const characters = groupMemberCharacters.get(String(userId)) || [];
     if (characters.length === 0) {
@@ -4365,10 +4389,13 @@ function openCharacterLinkModal(participantId, userId, currentCharacterId, playe
         if (selected?.name) {
             document.getElementById('link_character_name').value = selected.name;
         }
+        applyInternalCharacterUrl(selectEl, urlEl);
     };
     selectEl.onchange = applyLinkedCharacterName;
     if (currentCharacterId && !characterName) {
         applyLinkedCharacterName();
+    } else {
+        applyInternalCharacterUrl(selectEl, urlEl);
     }
 
     modal.show();

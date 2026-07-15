@@ -860,6 +860,10 @@ class ScheduleAPITestCase(APITestCase):
         participant.refresh_from_db()
         self.assertEqual(participant.character_sheet, character)
         self.assertEqual(participant.character_name, "Linked Sheet Investigator")
+        self.assertEqual(
+            participant.character_sheet_url,
+            f"http://testserver/accounts/character/{character.id}/",
+        )
 
     def test_joining_with_internal_character_uses_sheet_name(self):
         character = CharacterSheet.objects.create(
@@ -891,6 +895,41 @@ class ScheduleAPITestCase(APITestCase):
         participant = SessionParticipant.objects.get(session=self.session, user=self.user2)
         self.assertEqual(participant.character_sheet, character)
         self.assertEqual(participant.character_name, "Join Sheet Investigator")
+        self.assertEqual(
+            participant.character_sheet_url,
+            f"http://testserver/accounts/character/{character.id}/",
+        )
+
+    def test_joining_with_owned_tableno_character_url_links_character_sheet(self):
+        character = CharacterSheet.objects.create(
+            user=self.user2,
+            edition="7th",
+            name="URL参加探索者",
+            age=30,
+            str_value=50,
+            con_value=50,
+            pow_value=50,
+            dex_value=50,
+            app_value=50,
+            siz_value=50,
+            int_value=50,
+            edu_value=50,
+            access_scope="link",
+        )
+        self.client.force_authenticate(user=self.user2)
+
+        response = self.client.post(
+            f"/api/schedules/sessions/{self.session.id}/join/",
+            {
+                "character_sheet_url": f"https://tableno.example/share/characters/{character.share_token}/view/",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        participant = SessionParticipant.objects.get(session=self.session, user=self.user2)
+        self.assertEqual(participant.character_sheet, character)
+        self.assertEqual(participant.character_name, "URL参加探索者")
 
     def test_participant_delete_other_forbidden(self):
         """GM以外が他人の参加情報を削除できない"""
@@ -1012,6 +1051,46 @@ class ScheduleAPITestCase(APITestCase):
         participant.refresh_from_db()
         self.assertEqual(participant.character_name, "URL連携探索者")
         self.assertEqual(response.data["character_name"], "URL連携探索者")
+
+    def test_participant_tableno_character_url_links_owned_character_sheet(self):
+        character = CharacterSheet.objects.create(
+            user=self.user2,
+            edition="7th",
+            name="URL紐づけ探索者",
+            age=30,
+            str_value=50,
+            con_value=50,
+            pow_value=50,
+            dex_value=50,
+            app_value=50,
+            siz_value=50,
+            int_value=50,
+            edu_value=50,
+            access_scope="link",
+        )
+        participant = session_permissions.create_participant(
+            session=self.session,
+            user=self.user2,
+            role="player",
+        )
+        self.client.force_authenticate(user=self.user1)
+
+        response = self.client.patch(
+            f"/api/schedules/participants/{participant.id}/",
+            {
+                "character_sheet_url": f"https://tableno.example/share/characters/{character.share_token}/view/",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        participant.refresh_from_db()
+        self.assertEqual(participant.character_sheet, character)
+        self.assertEqual(participant.character_name, "URL紐づけ探索者")
+        self.assertEqual(
+            participant.character_sheet_url,
+            f"http://testserver/accounts/character/{character.id}/",
+        )
 
     def test_guest_participant_invalid_tableno_character_url_keeps_manual_name(self):
         participant = session_permissions.create_participant(
