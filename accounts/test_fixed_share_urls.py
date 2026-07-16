@@ -4,7 +4,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.character_models import CharacterImage, CharacterSheet
+from accounts.character_models import CharacterSheet, CharacterSheet6th
 from accounts.models import CustomUser, Group, GroupMembership
 from scenarios.models import Scenario, ScenarioHandout
 from schedules import session_permissions
@@ -60,7 +60,12 @@ class FixedShareUrlTests(APITestCase):
             "notes": "private notes must not render",
         }
         values.update(overrides)
-        return CharacterSheet.objects.create(**values)
+        user = values.pop("user")
+        edition = values.pop("edition")
+        access_scope = values.pop("access_scope")
+        character = CharacterSheet.objects.create(user=user, edition=edition, access_scope=access_scope)
+        CharacterSheet6th.objects.create(character_sheet=character, **values)
+        return character
 
     def create_session(self, **overrides):
         values = {
@@ -174,14 +179,12 @@ class FixedShareUrlTests(APITestCase):
             access_scope="link",
             character_image="character_sheets/legacy.png",
         )
-        CharacterImage.objects.create(
-            character_sheet=character,
+        character.system_data.images.create(
             image="character_images/2026/07/first.png",
             is_main=False,
             order=0,
         )
-        CharacterImage.objects.create(
-            character_sheet=character,
+        character.system_data.images.create(
             image="character_images/2026/07/main.png",
             is_main=True,
             order=1,
@@ -206,14 +209,12 @@ class FixedShareUrlTests(APITestCase):
 
     def test_character_fixed_share_og_image_uses_first_character_image_when_no_main(self):
         character = self.create_character(access_scope="link")
-        CharacterImage.objects.create(
-            character_sheet=character,
+        character.system_data.images.create(
             image="character_images/2026/07/first.png",
             is_main=False,
             order=0,
         )
-        CharacterImage.objects.create(
-            character_sheet=character,
+        character.system_data.images.create(
             image="character_images/2026/07/second.png",
             is_main=False,
             order=1,

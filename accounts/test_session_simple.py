@@ -10,6 +10,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
+from accounts.character_models import CharacterSheet6th
 from accounts.models import CharacterSheet, Group, GroupMembership
 from scenarios.models import Scenario
 from schedules.models import SessionParticipant, TRPGSession
@@ -36,9 +37,9 @@ class SimpleSessionCharacterTest(TestCase):
         GroupMembership.objects.create(user=self.player, group=self.group, role="member")
 
         # キャラクター作成
-        self.character = CharacterSheet.objects.create(
-            user=self.player,
-            edition="6th",
+        self.character = CharacterSheet.objects.create(user=self.player, edition="6th")
+        CharacterSheet6th.objects.create(
+            character_sheet=self.character,
             name="テスト探索者",
             player_name=self.player.username,
             age=25,
@@ -76,7 +77,7 @@ class SimpleSessionCharacterTest(TestCase):
 
         # キャラクター参加
         participant = session_permissions.create_participant(
-            session=session, user=self.player, character_name=self.character.name
+            session=session, user=self.player, character_name=self.character.system_data.name
         )
 
         self.assertIsNotNone(participant.id)
@@ -90,14 +91,15 @@ class SimpleSessionCharacterTest(TestCase):
     def test_character_status_update(self):
         """キャラクターステータス更新テスト"""
         # キャラクターのHP更新
-        original_hp = self.character.hit_points_current
-        self.character.hit_points_current = 10
-        self.character.save()
+        detail = self.character.system_data
+        original_hp = detail.hit_points_current
+        detail.hit_points_current = 10
+        detail.save()
 
         # 更新確認
         self.character.refresh_from_db()
-        self.assertEqual(self.character.hit_points_current, 10)
-        self.assertNotEqual(self.character.hit_points_current, original_hp)
+        self.assertEqual(self.character.system_data.hit_points_current, 10)
+        self.assertNotEqual(self.character.system_data.hit_points_current, original_hp)
 
     def test_session_lifecycle(self):
         """セッションのライフサイクルテスト"""
@@ -131,9 +133,9 @@ class SimpleSessionCharacterTest(TestCase):
         GroupMembership.objects.create(user=player2, group=self.group, role="member")
 
         # キャラクター2作成
-        character2 = CharacterSheet.objects.create(
-            user=player2,
-            edition="6th",
+        character2 = CharacterSheet.objects.create(user=player2, edition="6th")
+        CharacterSheet6th.objects.create(
+            character_sheet=character2,
             name="テスト探索者2",
             player_name=player2.username,
             age=30,
@@ -161,9 +163,9 @@ class SimpleSessionCharacterTest(TestCase):
         )
 
         # 両方のキャラクターが参加
-        session_permissions.create_participant(session=session, user=self.player, character_name=self.character.name)
+        session_permissions.create_participant(session=session, user=self.player, character_name=self.character.system_data.name)
 
-        session_permissions.create_participant(session=session, user=player2, character_name=character2.name)
+        session_permissions.create_participant(session=session, user=player2, character_name=character2.system_data.name)
 
         # 参加者数確認
         participants = SessionParticipant.objects.filter(session=session)

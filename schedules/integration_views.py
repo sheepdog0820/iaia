@@ -14,6 +14,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.character_models import CharacterSheet6th, CharacterSheet7th
 from accounts.models import CharacterSheet, GroupMembership
 
 from .google_tokens import get_google_access_token
@@ -334,9 +335,9 @@ class GoogleSheetsImportView(APIView):
             instance = None
             if conflict_action == "update" and row.get("id"):
                 instance = CharacterSheet.objects.filter(pk=row["id"], user=request.user).first()
+            edition = row["edition"]
             values = {
                 "name": row["name"],
-                "edition": row["edition"],
                 "age": int(row["age"]),
                 "occupation": row.get("occupation", ""),
                 "str_value": int(row["STR"]),
@@ -347,23 +348,28 @@ class GoogleSheetsImportView(APIView):
                 "siz_value": int(row["SIZ"]),
                 "int_value": int(row["INT"]),
                 "edu_value": int(row["EDU"]),
+                "hit_points_max": 1,
+                "hit_points_current": 1,
+                "magic_points_max": 1,
+                "magic_points_current": 1,
+                "sanity_starting": int(row.get("SAN") or row["POW"]),
+                "sanity_max": 99,
+                "sanity_current": int(row.get("SAN") or row["POW"]),
             }
             if instance:
+                if instance.edition != edition:
+                    return Response(
+                        {"detail": "既存キャラクターの版は変更できません。"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                detail = instance.system_data
                 for field, value in values.items():
-                    setattr(instance, field, value)
-                instance.save()
+                    setattr(detail, field, value)
+                detail.save()
             else:
-                instance = CharacterSheet.objects.create(
-                    user=request.user,
-                    hit_points_max=1,
-                    hit_points_current=1,
-                    magic_points_max=1,
-                    magic_points_current=1,
-                    sanity_starting=int(row.get("SAN") or row["POW"]),
-                    sanity_max=99,
-                    sanity_current=int(row.get("SAN") or row["POW"]),
-                    **values,
-                )
+                instance = CharacterSheet.objects.create(user=request.user, edition=edition)
+                detail_model = CharacterSheet6th if edition == "6th" else CharacterSheet7th
+                detail_model.objects.create(character_sheet=instance, **values)
             imported.append(instance.pk)
         return Response({"imported_ids": imported}, status=status.HTTP_201_CREATED)
 
@@ -383,24 +389,25 @@ class GoogleSheetsExportView(APIView):
             characters = characters.filter(pk__in=request.data["character_ids"])
         rows = []
         for character in characters.order_by("id"):
+            detail = character.system_data
             rows.append(
                 [
                     character.pk,
-                    character.name,
+                    detail.name,
                     character.edition,
-                    character.age,
-                    character.occupation,
-                    character.str_value,
-                    character.con_value,
-                    character.pow_value,
-                    character.dex_value,
-                    character.app_value,
-                    character.siz_value,
-                    character.int_value,
-                    character.edu_value,
-                    character.hit_points_current,
-                    character.magic_points_current,
-                    character.sanity_current,
+                    detail.age,
+                    detail.occupation,
+                    detail.str_value,
+                    detail.con_value,
+                    detail.pow_value,
+                    detail.dex_value,
+                    detail.app_value,
+                    detail.siz_value,
+                    detail.int_value,
+                    detail.edu_value,
+                    detail.hit_points_current,
+                    detail.magic_points_current,
+                    detail.sanity_current,
                 ]
             )
         spreadsheet_id = request.data.get("spreadsheet_id")

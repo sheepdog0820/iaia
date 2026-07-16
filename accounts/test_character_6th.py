@@ -14,7 +14,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .character_models import CharacterEquipment, CharacterSheet, CharacterSheet6th, CharacterSkill
+from .character_models import CharacterSheet, CharacterSheet6th, CharacterSkill6th as CharacterSkill
+from .test_character_factories import create_6th_character
 
 User = get_user_model()
 
@@ -28,7 +29,7 @@ class Character6thModelTestCase(TestCase):
     def test_character_6th_creation(self):
         """6版キャラクター作成の基本テスト"""
         # 6版仕様の値（3d6 = 3-18）
-        character = CharacterSheet.objects.create(
+        character, char_6th = create_6th_character(
             user=self.user,
             name="田中太郎",
             age=28,
@@ -56,7 +57,9 @@ class Character6thModelTestCase(TestCase):
         )
 
         # 6版固有データ（自動計算される）
-        char_6th = CharacterSheet6th.objects.create(character_sheet=character, mental_disorder="")
+        char_6th.mental_disorder = ""
+        char_6th.save(update_fields=["mental_disorder"])
+        character = char_6th
 
         self.assertEqual(character.name, "田中太郎")
         self.assertEqual(character.edition, "6th")
@@ -73,7 +76,7 @@ class Character6thModelTestCase(TestCase):
 
     def test_derived_stats_calculation(self):
         """副次ステータス自動計算テスト"""
-        character = CharacterSheet(
+        _, character = create_6th_character(
             user=self.user,
             name="計算テスト",
             age=25,
@@ -114,7 +117,7 @@ class Character6thModelTestCase(TestCase):
         ]
 
         for str_val, siz_val, expected in test_cases:
-            character = CharacterSheet.objects.create(
+            character, char_6th = create_6th_character(
                 user=self.user,
                 name="ダメージボーナステスト",
                 age=25,
@@ -136,8 +139,6 @@ class Character6thModelTestCase(TestCase):
                 sanity_max=99,
                 sanity_current=50,
             )
-            char_6th = CharacterSheet6th.objects.create(character_sheet=character)
-
             self.assertEqual(
                 char_6th.damage_bonus, expected, f"STR {str_val} + SIZ {siz_val} = {str_val + siz_val} → {expected}"
             )
@@ -149,7 +150,7 @@ class Character6thSkillTestCase(TestCase):
     def test_max_sanity_calculation_with_cthulhu_mythos(self):
         """クトゥルフ神話技能による最大SAN値の計算テスト"""
         user = User.objects.create_user(username="test", password="test")
-        character = CharacterSheet.objects.create(
+        _, character = create_6th_character(
             user=user,
             name="SAN Test",
             edition="6th",
@@ -183,22 +184,26 @@ class Character6thSkillTestCase(TestCase):
             occupation_points=0,
             interest_points=0,
             other_points=20,
+            current_value=20,
         )
 
         # 最大SAN値が更新されているはず
+        character.update_max_sanity()
         character.refresh_from_db()
         self.assertEqual(character.sanity_max, 79)  # 99 - 20 = 79
 
         # クトゥルフ神話技能を増やす
         cthulhu_skill.other_points = 50
+        cthulhu_skill.current_value = 50
         cthulhu_skill.save()
 
+        character.update_max_sanity()
         character.refresh_from_db()
         self.assertEqual(character.sanity_max, 49)  # 99 - 50 = 49
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123")
-        self.character = CharacterSheet.objects.create(
+        _, self.character = create_6th_character(
             user=self.user,
             name="Test Character",
             edition="6th",
@@ -279,7 +284,7 @@ class Character6thOccupationTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123")
-        self.character = CharacterSheet.objects.create(
+        _, self.character = create_6th_character(
             user=self.user,
             name="Test Character",
             edition="6th",
@@ -339,7 +344,7 @@ class Character6thVersioningTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123")
-        self.character = CharacterSheet.objects.create(
+        _, self.character = create_6th_character(
             user=self.user,
             name="Test Character",
             edition="6th",

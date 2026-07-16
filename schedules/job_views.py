@@ -79,24 +79,25 @@ def _sheet_export_values(user, payload):
         characters = characters.filter(pk__in=character_ids)
     rows = []
     for character in characters.order_by("id"):
+        detail = character.system_data
         rows.append(
             [
                 character.pk,
-                character.name,
+                detail.name,
                 character.edition,
-                character.age,
-                character.occupation,
-                character.str_value,
-                character.con_value,
-                character.pow_value,
-                character.dex_value,
-                character.app_value,
-                character.siz_value,
-                character.int_value,
-                character.edu_value,
-                character.hit_points_current,
-                character.magic_points_current,
-                character.sanity_current,
+                detail.age,
+                detail.occupation,
+                detail.str_value,
+                detail.con_value,
+                detail.pow_value,
+                detail.dex_value,
+                detail.app_value,
+                detail.siz_value,
+                detail.int_value,
+                detail.edu_value,
+                detail.hit_points_current,
+                detail.magic_points_current,
+                detail.sanity_current,
             ]
         )
     return [SHEET_COLUMNS] + rows

@@ -1,5 +1,7 @@
 """Helpers for resolving character sheet image URLs."""
 
+from django.core.exceptions import ObjectDoesNotExist
+
 
 def _image_url(image_field):
     if not image_field:
@@ -15,8 +17,13 @@ def get_character_preview_image_field(character):
     if not character:
         return None
 
+    try:
+        detail = character.system_data
+    except (AttributeError, ValueError, ObjectDoesNotExist):
+        detail = character
+
     image_field = None
-    images = getattr(character, "images", None)
+    images = getattr(detail, "images", None)
     if images is not None:
         main_image = images.filter(is_main=True).order_by("order", "uploaded_at", "id").first()
         if main_image and main_image.image:
@@ -26,8 +33,8 @@ def get_character_preview_image_field(character):
             if first_image and first_image.image:
                 image_field = first_image.image
 
-    if not image_field and character.character_image:
-        image_field = character.character_image
+    if not image_field:
+        image_field = getattr(detail, "character_image", None)
 
     return image_field
 

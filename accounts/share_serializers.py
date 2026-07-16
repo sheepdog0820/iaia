@@ -2,8 +2,9 @@ from django.db.models import Q
 from rest_framework import serializers
 
 from accounts.character_image_utils import get_character_preview_image_url
-from accounts.character_models import CharacterEquipment, CharacterSheet, CharacterSkill
+from accounts.character_models import CharacterEquipment6th, CharacterSheet, CharacterSheet6th, CharacterSheet7th, CharacterSkill6th
 from accounts.models import ShareLink
+from accounts.skill_edition import incompatible_basic_skill_names
 from scenarios.models import Scenario, ScenarioHandout
 from schedules.models import SessionParticipant, SessionParticipantRole, TRPGSession
 
@@ -53,7 +54,7 @@ class FixedShareUrlIssueSerializer(serializers.Serializer):
 
 class SharedCharacterSkillSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CharacterSkill
+        model = CharacterSkill6th
         fields = [
             "id",
             "skill_name",
@@ -70,7 +71,7 @@ class SharedCharacterSkillSerializer(serializers.ModelSerializer):
 
 class SharedCharacterEquipmentSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CharacterEquipment
+        model = CharacterEquipment6th
         fields = [
             "id",
             "item_type",
@@ -90,8 +91,34 @@ class SharedCharacterEquipmentSerializer(serializers.ModelSerializer):
 
 
 class SharedCharacterSheetSerializer(serializers.ModelSerializer):
-    skills = SharedCharacterSkillSerializer(many=True, read_only=True)
-    equipment = SharedCharacterEquipmentSerializer(many=True, read_only=True)
+    name = serializers.CharField(source="system_data.name", read_only=True)
+    player_name = serializers.CharField(source="system_data.player_name", read_only=True)
+    status = serializers.CharField(source="system_data.status", read_only=True)
+    version = serializers.IntegerField(source="system_data.version", read_only=True)
+    age = serializers.IntegerField(source="system_data.age", read_only=True)
+    gender = serializers.CharField(source="system_data.gender", read_only=True)
+    occupation = serializers.CharField(source="system_data.occupation", read_only=True)
+    birthplace = serializers.CharField(source="system_data.birthplace", read_only=True)
+    residence = serializers.CharField(source="system_data.residence", read_only=True)
+    recommended_skills = serializers.CharField(source="system_data.recommended_skills", read_only=True)
+    str_value = serializers.IntegerField(source="system_data.str_value", read_only=True)
+    con_value = serializers.IntegerField(source="system_data.con_value", read_only=True)
+    pow_value = serializers.IntegerField(source="system_data.pow_value", read_only=True)
+    dex_value = serializers.IntegerField(source="system_data.dex_value", read_only=True)
+    app_value = serializers.IntegerField(source="system_data.app_value", read_only=True)
+    siz_value = serializers.IntegerField(source="system_data.siz_value", read_only=True)
+    int_value = serializers.IntegerField(source="system_data.int_value", read_only=True)
+    edu_value = serializers.IntegerField(source="system_data.edu_value", read_only=True)
+    hit_points_max = serializers.IntegerField(source="system_data.hit_points_max", read_only=True)
+    hit_points_current = serializers.IntegerField(source="system_data.hit_points_current", read_only=True)
+    magic_points_max = serializers.IntegerField(source="system_data.magic_points_max", read_only=True)
+    magic_points_current = serializers.IntegerField(source="system_data.magic_points_current", read_only=True)
+    sanity_starting = serializers.IntegerField(source="system_data.sanity_starting", read_only=True)
+    sanity_max = serializers.IntegerField(source="system_data.sanity_max", read_only=True)
+    sanity_current = serializers.IntegerField(source="system_data.sanity_current", read_only=True)
+    session_count = serializers.IntegerField(source="system_data.session_count", read_only=True)
+    skills = serializers.SerializerMethodField()
+    equipment = serializers.SerializerMethodField()
     abilities = serializers.DictField(read_only=True)
     character_image_url = serializers.SerializerMethodField()
     background_info = serializers.SerializerMethodField()
@@ -138,6 +165,53 @@ class SharedCharacterSheetSerializer(serializers.ModelSerializer):
     def get_character_image_url(self, obj):
         request = self.context.get("request")
         return get_character_preview_image_url(obj, request) or None
+
+    @staticmethod
+    def _system_data(obj):
+        try:
+            return obj.sixth_edition_data if obj.edition == "6th" else obj.seventh_edition_data
+        except (CharacterSheet6th.DoesNotExist, CharacterSheet7th.DoesNotExist):
+            return None
+
+    def get_skills(self, obj):
+        system_data = self._system_data(obj)
+        if system_data is None:
+            return []
+        skills = system_data.skills.exclude(skill_name__in=incompatible_basic_skill_names(obj.edition))
+        return SharedCharacterSkillSerializer(skills, many=True).data
+
+    def get_equipment(self, obj):
+        system_data = self._system_data(obj)
+        if system_data is None:
+            return []
+        return SharedCharacterEquipmentSerializer(system_data.equipment.all(), many=True).data
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        system_data = self._system_data(instance)
+        if system_data is None:
+            return data
+
+        fields = (
+            "name", "player_name", "status", "age", "gender", "occupation", "birthplace",
+            "residence", "recommended_skills", "str_value", "con_value", "pow_value", "dex_value",
+            "app_value", "siz_value", "int_value", "edu_value", "hit_points_max",
+            "hit_points_current", "magic_points_max", "magic_points_current", "sanity_starting",
+            "sanity_max", "sanity_current",
+        )
+        for field in fields:
+            data[field] = getattr(system_data, field)
+        data["abilities"] = {
+            "str": system_data.str_value,
+            "con": system_data.con_value,
+            "pow": system_data.pow_value,
+            "dex": system_data.dex_value,
+            "app": system_data.app_value,
+            "siz": system_data.siz_value,
+            "int": system_data.int_value,
+            "edu": system_data.edu_value,
+        }
+        return data
 
     def get_background_info(self, obj):
         try:
@@ -201,7 +275,7 @@ class SharedSessionParticipantSerializer(serializers.ModelSerializer):
             return None
         return {
             "id": sheet.id,
-            "name": sheet.name,
+            "name": sheet.system_data.name,
             "access_scope": sheet.access_scope,
         }
 

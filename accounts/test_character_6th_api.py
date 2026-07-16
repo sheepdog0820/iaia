@@ -10,9 +10,29 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .character_models import CharacterSheet, CharacterSheet6th, CharacterSkill
+from .character_models import CharacterSheet, CharacterSheet6th, CharacterSkill6th
+
+CharacterSkill = CharacterSkill6th
 
 User = get_user_model()
+
+
+def create_6th_character(**values):
+    """Build a registry row and its 6th-edition detail for API tests."""
+    user = values.pop("user")
+    values.pop("edition", None)
+    parent_sheet = values.pop("parent_sheet", None)
+    version = values.pop("version", 1)
+    registry = CharacterSheet.objects.create(user=user, edition="6th")
+    parent_data = parent_sheet.system_data if parent_sheet else None
+    detail = CharacterSheet6th(character_sheet=registry, parent_data=parent_data, version=version, **values)
+    stats = detail.calculate_derived_stats()
+    detail.hit_points_max = detail.hit_points_current = stats["hit_points_max"]
+    detail.magic_points_max = detail.magic_points_current = stats["magic_points_max"]
+    detail.sanity_starting = detail.sanity_current = stats["sanity_starting"]
+    detail.sanity_max = stats["sanity_max"]
+    detail.save()
+    return registry
 
 
 class Character6thAPITestCase(APITestCase):
@@ -23,7 +43,7 @@ class Character6thAPITestCase(APITestCase):
         self.client.force_authenticate(user=self.user)
 
         # テストキャラクター作成
-        self.character = CharacterSheet.objects.create(
+        self.character = create_6th_character(
             user=self.user,
             name="田中太郎",
             edition="6th",
@@ -42,11 +62,11 @@ class Character6thAPITestCase(APITestCase):
         )
 
         # 6版固有データ
-        self.character_6th = CharacterSheet6th.objects.create(character_sheet=self.character, mental_disorder="")
+        self.character_6th = self.character.system_data
 
         # テスト技能
         CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="目星",
             category="探索系",
             base_value=25,
@@ -56,7 +76,7 @@ class Character6thAPITestCase(APITestCase):
         )
 
         CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="説得",
             category="対人系",
             base_value=15,
@@ -142,7 +162,7 @@ class Character6thAPITestCase(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         character = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertIsNone(character.age)
+        self.assertIsNone(character.system_data.age)
 
     def test_ccfolia_export_format(self):
         """CCFOLIA形式でのデータエクスポートテスト"""
@@ -204,19 +224,19 @@ class Character6thAPITestCase(APITestCase):
     def test_version_export_api(self):
         """バージョンデータエクスポートAPIテスト"""
         # 新バージョン作成
-        new_version = CharacterSheet.objects.create(
+        new_version = create_6th_character(
             user=self.user,
-            name=self.character.name,
+            name=self.character.system_data.name,
             edition="6th",
-            age=self.character.age,
+            age=self.character.system_data.age,
             str_value=15,  # 変更点
-            con_value=self.character.con_value,
-            pow_value=self.character.pow_value,
-            dex_value=self.character.dex_value,
-            app_value=self.character.app_value,
-            siz_value=self.character.siz_value,
-            int_value=self.character.int_value,
-            edu_value=self.character.edu_value,
+            con_value=self.character.system_data.con_value,
+            pow_value=self.character.system_data.pow_value,
+            dex_value=self.character.system_data.dex_value,
+            app_value=self.character.system_data.app_value,
+            siz_value=self.character.system_data.siz_value,
+            int_value=self.character.system_data.int_value,
+            edu_value=self.character.system_data.edu_value,
             parent_sheet=self.character,
             version=2,
         )
@@ -295,30 +315,30 @@ class Character6thAPITestCase(APITestCase):
         self.assertIn("id", response.data)
 
         imported = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertEqual(imported.name, "東雲　日和 (しののめ　ひより)")
+        self.assertEqual(imported.system_data.name, "東雲　日和 (しののめ　ひより)")
         self.assertEqual(imported.edition, "6th")
-        self.assertEqual(imported.age, 20)
+        self.assertEqual(imported.system_data.age, 20)
 
-        self.assertEqual(imported.str_value, 5)
-        self.assertEqual(imported.con_value, 9)
-        self.assertEqual(imported.pow_value, 8)
-        self.assertEqual(imported.dex_value, 6)
-        self.assertEqual(imported.app_value, 13)
-        self.assertEqual(imported.siz_value, 10)
-        self.assertEqual(imported.int_value, 14)
-        self.assertEqual(imported.edu_value, 14)
+        self.assertEqual(imported.system_data.str_value, 5)
+        self.assertEqual(imported.system_data.con_value, 9)
+        self.assertEqual(imported.system_data.pow_value, 8)
+        self.assertEqual(imported.system_data.dex_value, 6)
+        self.assertEqual(imported.system_data.app_value, 13)
+        self.assertEqual(imported.system_data.siz_value, 10)
+        self.assertEqual(imported.system_data.int_value, 14)
+        self.assertEqual(imported.system_data.edu_value, 14)
 
-        self.assertEqual(imported.hit_points_current, 10)
-        self.assertEqual(imported.hit_points_max, 10)
-        self.assertEqual(imported.magic_points_current, 8)
-        self.assertEqual(imported.magic_points_max, 8)
-        self.assertEqual(imported.sanity_current, 40)
-        self.assertEqual(imported.sanity_max, 99)  # 99 - クトゥルフ神話(0)
+        self.assertEqual(imported.system_data.hit_points_current, 10)
+        self.assertEqual(imported.system_data.hit_points_max, 10)
+        self.assertEqual(imported.system_data.magic_points_current, 8)
+        self.assertEqual(imported.system_data.magic_points_max, 8)
+        self.assertEqual(imported.system_data.sanity_current, 40)
+        self.assertEqual(imported.system_data.sanity_max, 99)  # 99 - クトゥルフ神話(0)
 
         self.assertTrue(hasattr(imported, "sixth_edition_data"))
-        self.assertTrue(imported.skills.filter(skill_name="目星").exists())
-        self.assertTrue(imported.skills.filter(skill_name="母国語").exists())
-        self.assertTrue(imported.skills.filter(skill_name="クトゥルフ神話").exists())
+        self.assertTrue(imported.system_data.skills.filter(skill_name="目星").exists())
+        self.assertTrue(imported.system_data.skills.filter(skill_name="母国語").exists())
+        self.assertTrue(imported.system_data.skills.filter(skill_name="クトゥルフ神話").exists())
 
         # エクスポート（出力）も同じCCFOLIA形式で確認（import→export の往復）
         export_url = reverse("character-sheet-ccfolia-json", kwargs={"pk": imported.id})
@@ -393,21 +413,21 @@ class Character6thAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         imported = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertEqual(imported.name, "7th Import Test")
+        self.assertEqual(imported.system_data.name, "7th Import Test")
         self.assertEqual(imported.edition, "7th")
-        self.assertEqual(imported.age, 22)
-        self.assertEqual(imported.str_value, 50)
-        self.assertEqual(imported.pow_value, 55)
-        self.assertEqual(imported.hit_points_current, 11)
-        self.assertEqual(imported.hit_points_max, 11)
-        self.assertEqual(imported.magic_points_current, 11)
-        self.assertEqual(imported.magic_points_max, 11)
-        self.assertEqual(imported.sanity_current, 55)
-        self.assertEqual(imported.sanity_starting, 55)
-        self.assertEqual(imported.sanity_max, 99)
+        self.assertEqual(imported.system_data.age, 22)
+        self.assertEqual(imported.system_data.str_value, 50)
+        self.assertEqual(imported.system_data.pow_value, 55)
+        self.assertEqual(imported.system_data.hit_points_current, 11)
+        self.assertEqual(imported.system_data.hit_points_max, 11)
+        self.assertEqual(imported.system_data.magic_points_current, 11)
+        self.assertEqual(imported.system_data.magic_points_max, 11)
+        self.assertEqual(imported.system_data.sanity_current, 55)
+        self.assertEqual(imported.system_data.sanity_starting, 55)
+        self.assertEqual(imported.system_data.sanity_max, 99)
         self.assertFalse(CharacterSheet6th.objects.filter(character_sheet=imported).exists())
-        self.assertTrue(imported.skills.filter(skill_name="Spot Hidden").exists())
-        self.assertTrue(imported.skills.filter(skill_name="Library Use").exists())
+        self.assertTrue(imported.system_data.skills.filter(skill_name="Spot Hidden").exists())
+        self.assertTrue(imported.system_data.skills.filter(skill_name="Library Use").exists())
 
     def test_ccfolia_import_requires_premium_access(self):
         url = reverse("character-sheet-import-ccfolia-json")
@@ -417,7 +437,7 @@ class Character6thAPITestCase(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(response.data["detail"], "CCFOLIAインポートはプレミアム機能です。")
-        self.assertFalse(CharacterSheet.objects.filter(name="Free User Import Attempt").exists())
+        self.assertFalse(CharacterSheet.objects.by_system_name("Free User Import Attempt", user=self.user).exists())
 
     def test_ccfolia_import_uses_form_edition_and_optional_profile_fields(self):
         self.user.is_premium = True
@@ -457,6 +477,7 @@ class Character6thAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         imported = CharacterSheet.objects.get(id=response.data["id"])
         self.assertEqual(imported.edition, "7th")
+        imported = imported.system_data
         self.assertIsNone(imported.age)
         self.assertEqual(imported.occupation, "古書店員")
         self.assertEqual(imported.gender, "女性")
@@ -541,7 +562,7 @@ class CCFOLIASynchronizationTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123")
 
-        self.character = CharacterSheet.objects.create(
+        self.character = create_6th_character(
             user=self.user,
             name="同期テストキャラ",
             edition="6th",
@@ -559,18 +580,18 @@ class CCFOLIASynchronizationTestCase(TestCase):
     def test_ccfolia_sync_settings(self):
         """CCFOLIA同期設定のテスト"""
         # 同期設定フィールドが存在することをテスト
-        self.character.ccfolia_sync_enabled = True
-        self.character.ccfolia_character_id = "ccfolia_123"
-        self.character.save()
+        self.character.system_data.ccfolia_sync_enabled = True
+        self.character.system_data.ccfolia_character_id = "ccfolia_123"
+        self.character.system_data.save()
 
-        self.assertTrue(self.character.ccfolia_sync_enabled)
-        self.assertEqual(self.character.ccfolia_character_id, "ccfolia_123")
+        self.assertTrue(self.character.system_data.ccfolia_sync_enabled)
+        self.assertEqual(self.character.system_data.ccfolia_character_id, "ccfolia_123")
 
     def test_auto_sync_on_update(self):
         """更新時の自動同期テスト"""
         # 同期が有効な場合、キャラクター更新時にCCFOLIAへの同期処理が呼ばれる
-        self.character.ccfolia_sync_enabled = True
-        self.character.save()
+        self.character.system_data.ccfolia_sync_enabled = True
+        self.character.system_data.save()
 
         # 実際の同期処理はWebhookやAPIコール
         # ここではメソッドの存在をテスト
@@ -595,7 +616,7 @@ class BulkExportTestCase(TestCase):
         # 複数キャラクター作成
         self.characters = []
         for i in range(3):
-            char = CharacterSheet.objects.create(
+            char = create_6th_character(
                 user=self.user,
                 name=f"テストキャラ{i+1}",
                 edition="6th",

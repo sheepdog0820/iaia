@@ -14,7 +14,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from accounts.character_models import CharacterSheet, CharacterSkill
+from accounts.character_models import CharacterSheet, CharacterSheet6th
 from accounts.models import Group
 from scenarios.models import Scenario
 from schedules import session_permissions
@@ -105,7 +105,7 @@ class Command(BaseCommand):
                     user=user,
                     roles=[SessionParticipantRole.Role.PLAYER],
                     player_slot=slot,
-                    character_name=character.name,
+                    character_name=character.system_data.name,
                     character_sheet=character,
                 )
             else:
@@ -116,8 +116,8 @@ class Command(BaseCommand):
                 if participant.character_sheet_id != character.id:
                     participant.character_sheet = character
                     changed = True
-                if participant.character_name != character.name:
-                    participant.character_name = character.name
+                if participant.character_name != character.system_data.name:
+                    participant.character_name = character.system_data.name
                     changed = True
                 if changed:
                     participant.save(update_fields=["player_slot", "character_sheet", "character_name"])
@@ -164,8 +164,10 @@ class Command(BaseCommand):
         target_sessions.delete()
 
         # 探索者（ユーザー単位で削除するのは危険なので、名前プレフィックスで対象のみ）
-        CharacterSkill.objects.filter(character_sheet__name__startswith="【FLOWTEST】").delete()
-        CharacterSheet.objects.filter(name__startswith="【FLOWTEST】").delete()
+        flow_characters = CharacterSheet.objects.filter(
+            sixth_edition_data__name__startswith="【FLOWTEST】"
+        )
+        flow_characters.delete()
 
         # シナリオ/グループ
         Scenario.objects.filter(title=scenario_title).delete()
@@ -288,14 +290,14 @@ class Command(BaseCommand):
         recommended_skills,
         skills,
     ):
-        character = CharacterSheet.objects.filter(user=user, name=name).first()
+        character = CharacterSheet.objects.by_system_name(name, user=user, edition="6th").first()
         if not character:
-            character = CharacterSheet.objects.create(
-                user=user,
+            character = CharacterSheet.objects.create(user=user, edition="6th")
+            detail = CharacterSheet6th.objects.create(
+                character_sheet=character,
                 name=name,
                 occupation=occupation,
                 age=age,
-                edition="6th",
                 recommended_skills=list(recommended_skills or []),
                 source_scenario=source_scenario,
                 source_scenario_title=source_scenario.title if source_scenario else "",
@@ -316,25 +318,26 @@ class Command(BaseCommand):
                 sanity_current=65,
                 sanity_starting=65,
             )
+        else:
+            detail = character.system_data
 
         changed = False
-        if source_scenario and character.source_scenario_id != source_scenario.id:
-            character.source_scenario = source_scenario
-            character.source_scenario_title = source_scenario.title
-            character.source_scenario_game_system = source_scenario.game_system
+        if source_scenario and detail.source_scenario_id != source_scenario.id:
+            detail.source_scenario = source_scenario
+            detail.source_scenario_title = source_scenario.title
+            detail.source_scenario_game_system = source_scenario.game_system
             changed = True
         desired_recommended = list(recommended_skills or [])
-        if desired_recommended and character.recommended_skills != desired_recommended:
-            character.recommended_skills = desired_recommended
+        if desired_recommended and detail.recommended_skills != desired_recommended:
+            detail.recommended_skills = desired_recommended
             changed = True
         if changed:
-            character.save(
+            detail.save(
                 update_fields=[
                     "source_scenario",
                     "source_scenario_title",
                     "source_scenario_game_system",
                     "recommended_skills",
-                    "updated_at",
                 ]
             )
 
@@ -345,7 +348,7 @@ class Command(BaseCommand):
             except (TypeError, ValueError):
                 continue
 
-            base_value = character._get_skill_base_value(skill_name)
+            base_value = detail.get_skill_base_value(skill_name)
             if base_value is None:
                 base_value = 0
             try:
@@ -360,11 +363,11 @@ class Command(BaseCommand):
             else:
                 occupation_points = desired_total - base_value
 
-            skill = CharacterSkill.objects.filter(character_sheet=character, skill_name=skill_name).first()
+            skill = detail.skills.filter(skill_name=skill_name).first()
             if not skill:
-                skill = CharacterSkill(character_sheet=character, skill_name=skill_name)
+                skill = detail.skills.model(character_sheet=detail, skill_name=skill_name)
 
-            skill.category = character._get_skill_category(skill_name)
+            skill.category = detail.get_skill_category(skill_name)
             skill.base_value = base_value
             skill.occupation_points = occupation_points
             skill.interest_points = 0

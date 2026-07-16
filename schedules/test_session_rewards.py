@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.character_models import CharacterSheet, GrowthRecord
+from accounts.character_models import CharacterSheet, CharacterSheet6th, GrowthRecord
 from accounts.models import CustomUser, Group
 from schedules import session_permissions
 from schedules.models import SessionParticipant, SessionReward, TRPGSession
@@ -85,9 +85,9 @@ class SessionRewardsAPITestCase(APITestCase):
             sync_legacy_gm=False,
         )
 
-        self.character1 = CharacterSheet.objects.create(
-            user=self.player1,
-            edition="6th",
+        self.character1 = CharacterSheet.objects.create(user=self.player1, edition="6th")
+        CharacterSheet6th.objects.create(
+            character_sheet=self.character1,
             name="PC1",
             age=25,
             str_value=10,

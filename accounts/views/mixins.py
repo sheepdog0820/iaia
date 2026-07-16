@@ -134,6 +134,9 @@ class CharacterNestedResourceMixin:
         """キャラクターシート関連リソースのクエリセット"""
         try:
             character_sheet = self.get_character_sheet()
+            relation_name = getattr(self, "system_data_relation", None)
+            if relation_name:
+                return getattr(character_sheet.system_data, relation_name).all()
             return self.get_model().objects.filter(character_sheet=character_sheet)
         except (ValidationError, Http404):
             return self.get_model().objects.none()
@@ -141,6 +144,15 @@ class CharacterNestedResourceMixin:
     def perform_create(self, serializer):
         """作成時にキャラクターシートを関連付け"""
         character_sheet = self.get_character_sheet()
+        relation_name = getattr(self, "system_data_relation", None)
+        if relation_name:
+            related_manager = getattr(character_sheet.system_data, relation_name)
+            instance = related_manager.model.objects.create(
+                character_sheet=character_sheet.system_data,
+                **serializer.validated_data,
+            )
+            serializer.instance = instance
+            return
         serializer.save(character_sheet=character_sheet)
 
     def get_model(self):

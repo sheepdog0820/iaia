@@ -6,9 +6,30 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from .character_models import CharacterSheet, CharacterSheet6th, CharacterSkill
+from .character_models import CharacterSheet, CharacterSheet6th, CharacterSkill6th as CharacterSkill
 
 User = get_user_model()
+
+
+def create_6th_character(**values):
+    user = values.pop("user")
+    values.pop("edition", None)
+    version = values.pop("version", 1)
+    parent_sheet = values.pop("parent_sheet", None)
+    registry = CharacterSheet.objects.create(user=user, edition="6th")
+    detail = CharacterSheet6th(
+        character_sheet=registry,
+        parent_data=parent_sheet.system_data if parent_sheet else None,
+        version=version,
+        **values,
+    )
+    stats = detail.calculate_derived_stats()
+    detail.hit_points_max = detail.hit_points_current = stats["hit_points_max"]
+    detail.magic_points_max = detail.magic_points_current = stats["magic_points_max"]
+    detail.sanity_starting = detail.sanity_current = stats["sanity_starting"]
+    detail.sanity_max = stats["sanity_max"]
+    detail.save()
+    return registry
 
 
 class CharacterVersioningTestCase(TestCase):
@@ -18,7 +39,7 @@ class CharacterVersioningTestCase(TestCase):
         self.user = User.objects.create_user(username="testuser", password="testpass123")
 
         # 元になるキャラクター
-        self.base_character = CharacterSheet.objects.create(
+        self.base_character = create_6th_character(
             user=self.user,
             name="田中太郎",
             edition="6th",
@@ -39,18 +60,18 @@ class CharacterVersioningTestCase(TestCase):
         # 新バージョンを作成するメソッドをテスト
         new_version = self.base_character.create_new_version(version_note="第2セッション後の成長")
 
-        self.assertEqual(new_version.version, 2)
-        self.assertEqual(new_version.parent_sheet, self.base_character)
-        self.assertEqual(new_version.name, self.base_character.name)
+        self.assertEqual(new_version.system_data.version, 2)
+        self.assertEqual(new_version.system_data.parent_data.character_sheet, self.base_character)
+        self.assertEqual(new_version.system_data.name, self.base_character.system_data.name)
         self.assertEqual(new_version.user, self.base_character.user)
 
     def test_version_note_field(self):
         """バージョンメモフィールドのテスト"""
         # バージョンメモフィールドが存在することを確認
-        self.base_character.version_note = "初期作成バージョン"
-        self.base_character.save()
+        self.base_character.system_data.version_note = "初期作成バージョン"
+        self.base_character.system_data.save()
 
-        self.assertEqual(self.base_character.version_note, "初期作成バージョン")
+        self.assertEqual(self.base_character.system_data.version_note, "初期作成バージョン")
 
     def test_get_version_history(self):
         """バージョン履歴取得テスト"""
@@ -73,13 +94,13 @@ class CharacterVersioningTestCase(TestCase):
 
         latest = self.base_character.get_latest_version()
         self.assertEqual(latest, version_3)
-        self.assertEqual(latest.version, 3)
+        self.assertEqual(latest.system_data.version, 3)
 
     def test_copy_skills_to_new_version(self):
         """技能のコピーテスト"""
         # 元バージョンに技能を追加
         original_skill = CharacterSkill.objects.create(
-            character_sheet=self.base_character,
+            character_sheet=self.base_character.system_data,
             skill_name="目星",
             category="探索系",
             base_value=25,
@@ -92,7 +113,7 @@ class CharacterVersioningTestCase(TestCase):
         new_version = self.base_character.create_new_version("セッション後の成長", copy_skills=True)
 
         # 技能がコピーされていることを確認
-        copied_skills = new_version.skills.all()
+        copied_skills = new_version.system_data.skills.all()
         self.assertEqual(copied_skills.count(), 1)
 
         copied_skill = copied_skills.first()
@@ -104,7 +125,7 @@ class CharacterVersioningTestCase(TestCase):
         """バージョン間比較テスト"""
         # 技能成長のシミュレーション
         CharacterSkill.objects.create(
-            character_sheet=self.base_character,
+            character_sheet=self.base_character.system_data,
             skill_name="目星",
             base_value=25,
             occupation_points=40,
@@ -114,7 +135,7 @@ class CharacterVersioningTestCase(TestCase):
         # 新バージョンで技能成長
         new_version = self.base_character.create_new_version("技能成長後")
         new_skill = CharacterSkill.objects.create(
-            character_sheet=new_version,
+            character_sheet=new_version.system_data,
             skill_name="目星",
             base_value=25,
             occupation_points=40,
@@ -135,8 +156,8 @@ class CharacterVersioningTestCase(TestCase):
         # バージョン2にロールバック
         rolled_back = version_3.rollback_to_version(version_2)
 
-        self.assertEqual(rolled_back.version, 4)  # 新しいバージョン番号
-        self.assertEqual(rolled_back.parent_sheet, version_3)
+        self.assertEqual(rolled_back.system_data.version, 4)  # 新しいバージョン番号
+        self.assertEqual(rolled_back.system_data.parent_data.character_sheet, version_3)
 
     def test_version_tree_structure(self):
         """バージョンツリー構造のテスト"""
@@ -161,7 +182,7 @@ class CharacterVersionMetadataTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123")
 
-        self.character = CharacterSheet.objects.create(
+        self.character = create_6th_character(
             user=self.user,
             name="テストキャラクター",
             edition="6th",
@@ -179,15 +200,15 @@ class CharacterVersionMetadataTestCase(TestCase):
     def test_version_metadata_preservation(self):
         """バージョンメタデータの保持テスト"""
         # メタデータ設定
-        self.character.version_note = "初期作成"
+        self.character.system_data.version_note = "初期作成"
         self.character.session_count = 0
         self.character.save()
 
         # 新バージョン作成
         new_version = self.character.create_new_version("第1セッション後", session_count=1)
 
-        self.assertEqual(new_version.version_note, "第1セッション後")
-        self.assertEqual(new_version.session_count, 1)
+        self.assertEqual(new_version.system_data.version_note, "第1セッション後")
+        self.assertEqual(new_version.system_data.session_count, 1)
 
     def test_version_statistics(self):
         """バージョン統計のテスト"""
@@ -205,7 +226,7 @@ class CharacterVersionMetadataTestCase(TestCase):
         """バージョンデータエクスポートテスト"""
         # 技能データを追加
         CharacterSkill.objects.create(
-            character_sheet=self.character, skill_name="目星", base_value=25, occupation_points=40
+            character_sheet=self.character.system_data, skill_name="目星", base_value=25, occupation_points=40
         )
 
         # エクスポートデータの取得
@@ -223,7 +244,7 @@ class CharacterVersionValidationTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123")
 
-        self.character = CharacterSheet.objects.create(
+        self.character = create_6th_character(
             user=self.user,
             name="テストキャラクター",
             edition="6th",
@@ -251,11 +272,11 @@ class CharacterVersionValidationTestCase(TestCase):
         version_2 = self.character.create_new_version("バージョン2")
 
         # バージョン番号が正しく設定されている
-        self.assertEqual(version_2.version, 2)
+        self.assertEqual(version_2.system_data.version, 2)
 
         # 同じバージョン番号での作成を防ぐ
         with self.assertRaises(ValidationError):
-            CharacterSheet.objects.create(
+            create_6th_character(
                 user=self.user,
                 name="テストキャラクター",
                 edition="6th",
@@ -278,5 +299,5 @@ class CharacterVersionValidationTestCase(TestCase):
 
         # 循環参照を作ろうとすると失敗する
         with self.assertRaises(ValidationError):
-            self.character.parent_sheet = version_2
-            self.character.save()
+            self.character.system_data.parent_data = version_2.system_data
+            self.character.system_data.save()

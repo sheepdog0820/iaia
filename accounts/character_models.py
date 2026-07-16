@@ -14,29 +14,22 @@ from django.utils import timezone
 
 
 class CharacterSheetManager(models.Manager):
+    def by_system_name(self, name, *, user=None, edition=None):
+        """Find registry rows by the name stored in their edition table."""
+        queryset = self.get_queryset()
+        if user is not None:
+            queryset = queryset.filter(user=user)
+        if edition == "6th":
+            return queryset.filter(edition="6th", sixth_edition_data__name=name)
+        if edition == "7th":
+            return queryset.filter(edition="7th", seventh_edition_data__name=name)
+        return queryset.filter(
+            models.Q(edition="6th", sixth_edition_data__name=name)
+            | models.Q(edition="7th", seventh_edition_data__name=name)
+        )
+
     def bulk_create(self, objs, **kwargs):
-        for obj in objs:
-            edition = getattr(obj, "edition", None)
-            if edition not in {"6th", "7th"}:
-                obj.edition = "6th"
-
-            stats = obj.calculate_derived_stats()
-
-            if obj.hit_points_max is None:
-                obj.hit_points_max = stats["hit_points_max"]
-            if obj.hit_points_current is None:
-                obj.hit_points_current = obj.hit_points_max
-            if obj.magic_points_max is None:
-                obj.magic_points_max = stats["magic_points_max"]
-            if obj.magic_points_current is None:
-                obj.magic_points_current = obj.magic_points_max
-            if obj.sanity_starting is None:
-                obj.sanity_starting = stats["sanity_starting"]
-            if obj.sanity_max is None:
-                obj.sanity_max = stats["sanity_max"]
-            if obj.sanity_current is None:
-                obj.sanity_current = obj.sanity_starting
-
+        # The registry has no derived character values.
         return super().bulk_create(objs, **kwargs)
 
 
@@ -110,85 +103,20 @@ class CharacterSheet(models.Model):
 
     user = models.ForeignKey("accounts.CustomUser", on_delete=models.CASCADE, related_name="character_sheets")
     edition = models.CharField(max_length=3, choices=EDITION_CHOICES)
-    name_kana = models.CharField(max_length=100, blank=True, verbose_name="Character name reading")
-    name = models.CharField(max_length=100, verbose_name="探索者名")
-    player_name = models.CharField(max_length=100, blank=True, verbose_name="プレイヤー名")
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="alive", verbose_name="状態")
 
     # 個人情報
-    age = models.IntegerField(
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(15), MaxValueValidator(90)],
-        verbose_name="年齢",
-    )
-    gender = models.CharField(max_length=50, blank=True, verbose_name="性別")
-    occupation = models.CharField(max_length=100, blank=True, verbose_name="職業")
-    birthplace = models.CharField(max_length=100, blank=True, verbose_name="出身地")
-    residence = models.CharField(max_length=100, blank=True, verbose_name="居住地")
-    recommended_skills = models.JSONField(default=list, blank=True, verbose_name="推奨技能")
-    occupation_skills = models.JSONField(default=list, blank=True, verbose_name="職業技能")
-    source_scenario = models.ForeignKey(
-        "scenarios.Scenario",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="linked_characters",
-        verbose_name="元シナリオ",
-    )
-    source_scenario_title = models.CharField(max_length=200, blank=True, verbose_name="元シナリオ名")
-    source_scenario_game_system = models.CharField(max_length=10, blank=True, verbose_name="元シナリオシステム")
 
     # 能力値 (範囲制限なし - ユーザーの自由度を最大化)
-    str_value = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(999)], verbose_name="筋力(STR)")
-    con_value = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(999)], verbose_name="体力(CON)")
-    pow_value = models.IntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(999)], verbose_name="意志力(POW)"
-    )
-    dex_value = models.IntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(999)], verbose_name="敏捷性(DEX)"
-    )
-    app_value = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(999)], verbose_name="外見(APP)")
-    siz_value = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(999)], verbose_name="体格(SIZ)")
-    int_value = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(999)], verbose_name="知識(INT)")
-    edu_value = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(999)], verbose_name="教育(EDU)")
 
     # 職業技能ポイント倍率（デフォルトは20）
-    occupation_multiplier = models.IntegerField(
-        default=20, validators=[MinValueValidator(15), MaxValueValidator(30)], verbose_name="職業技能ポイント倍率"
-    )
-    occupation_point_method = models.CharField(
-        max_length=20,
-        choices=OCCUPATION_POINT_METHOD_CHOICES,
-        blank=True,
-        default="",
-        verbose_name="職業技能ポイント計算方式",
-    )
 
     # 副次ステータス
-    hit_points_max = models.IntegerField(verbose_name="最大HP")
-    hit_points_current = models.IntegerField(verbose_name="現在HP")
-    magic_points_max = models.IntegerField(verbose_name="最大MP")
-    magic_points_current = models.IntegerField(verbose_name="現在MP")
-    sanity_starting = models.IntegerField(verbose_name="初期正気度")
-    sanity_max = models.IntegerField(verbose_name="最大正気度")
-    sanity_current = models.IntegerField(verbose_name="現在正気度")
 
     # バージョン管理
-    version = models.PositiveIntegerField(default=1, verbose_name="バージョン")
-    parent_sheet = models.ForeignKey(
-        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="versions", verbose_name="元キャラクター"
-    )
 
     # 画像
-    character_image = models.ImageField(upload_to="character_sheets/", blank=True, verbose_name="キャラクター画像")
 
     # メタデータ
-    notes = models.TextField(blank=True, verbose_name="メモ")
-    secret_ho_info = models.TextField(blank=True, default="", verbose_name="秘匿HO情報")
-    version_note = models.CharField(max_length=1000, blank=True, verbose_name="バージョンメモ")
-    session_count = models.PositiveIntegerField(default=0, verbose_name="セッション数")
-    is_active = models.BooleanField(default=True, verbose_name="アクティブ")
     access_scope = models.CharField(
         max_length=10,
         choices=ACCESS_SCOPE_CHOICES,
@@ -204,8 +132,6 @@ class CharacterSheet(models.Model):
     )
 
     # CCFOLIA連携
-    ccfolia_sync_enabled = models.BooleanField(default=False, verbose_name="CCFOLIA同期有効")
-    ccfolia_character_id = models.CharField(max_length=100, blank=True, verbose_name="CCFOLIAキャラクターID")
 
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
@@ -220,207 +146,28 @@ class CharacterSheet(models.Model):
         verbose_name_plural = "キャラクターシート"
 
     def __str__(self):
-        return f"{self.name} ({self.edition}) v{self.version}"
-
-    @property
-    def abilities(self):
-        """能力値辞書を返す"""
-        return {
-            "str": self.str_value,
-            "con": self.con_value,
-            "pow": self.pow_value,
-            "dex": self.dex_value,
-            "app": self.app_value,
-            "siz": self.siz_value,
-            "int": self.int_value,
-            "edu": self.edu_value,
-        }
-
-    # リアルタイムステータスのエイリアス（テスト互換性のため）
-    @property
-    def hp_current(self):
-        """現在HPのエイリアス"""
-        return self.hit_points_current
-
-    @hp_current.setter
-    def hp_current(self, value):
-        """現在HPのセッター"""
-        self.hit_points_current = value
-
-    @property
-    def mp_current(self):
-        """現在MPのエイリアス"""
-        return self.magic_points_current
-
-    @mp_current.setter
-    def mp_current(self, value):
-        """現在MPのセッター"""
-        self.magic_points_current = value
-
-    @property
-    def san_current(self):
-        """現在正気度のエイリアス"""
-        return self.sanity_current
-
-    @san_current.setter
-    def san_current(self, value):
-        """現在正気度のセッター"""
-        self.sanity_current = value
-
-    @property
-    def mp_max(self):
-        """最大MPのエイリアス"""
-        return self.magic_points_max
-
-    @property
-    def san_max(self):
-        """最大SANのエイリアス（6版は初期SANと同義）"""
-        if (self.edition or "6th") == "6th":
-            return self.sanity_starting
-        return self.sanity_max
-
-    @san_max.setter
-    def san_max(self, value):
-        """最大SANのセッター（6版は初期SANに反映）"""
-        if (self.edition or "6th") == "6th":
-            self.sanity_starting = value
-        else:
-            self.sanity_max = value
-
-    @property
-    def version_number(self):
-        """バージョン番号のエイリアス"""
-        return self.version
-
-    @version_number.setter
-    def version_number(self, value):
-        """バージョン番号のセッター"""
-        self.version = value
-
-    @property
-    def sheet_6th(self):
-        """6版データ取得のエイリアス"""
-        if self.edition != "6th":
-            return None
-        if not self.pk:
-            return None
         try:
-            return self.sixth_edition_data
-        except CharacterSheet6th.DoesNotExist:
-            return CharacterSheet6th.objects.create(character_sheet=self)
+            name = self.system_data.name
+        except (CharacterSheet6th.DoesNotExist, CharacterSheet7th.DoesNotExist):
+            name = "(detail missing)"
+        try:
+            version = self.system_data.version
+        except (CharacterSheet6th.DoesNotExist, CharacterSheet7th.DoesNotExist):
+            version = 0
+        return f"{name} ({self.edition}) v{version}"
 
     @property
-    def damage_bonus(self):
-        """ダメージボーナスのエイリアス"""
-        if self.edition == "6th" and hasattr(self, "sixth_edition_data"):
-            return self.sixth_edition_data.damage_bonus
-        return "+0"
+    def system_data(self):
+        """Return the edition-specific record for this registry entry."""
+        if self.edition == "6th":
+            return self.sixth_edition_data
+        if self.edition == "7th":
+            return self.seventh_edition_data
+        raise ValueError(f"Unsupported character system: {self.edition}")
 
     def calculate_derived_stats(self):
         """派生ステータスを計算"""
-        # 6版と7版で計算式が異なる
-        edition = self.edition or "6th"
-        if edition == "6th":
-            # 6版
-            # HP = (CON + SIZ) / 2 (端数切り上げ)
-            import math
-
-            hp_max = math.ceil((self.con_value + self.siz_value) / 2)
-            # MP = POW
-            mp_max = self.pow_value
-            # SAN = POW × 5
-            san_start = self.pow_value * 5
-            # 最大SAN = 99 - クトゥルフ神話技能
-            # この時点ではスキルが存在しない可能性があるため、デフォルトは99
-            san_max = 99
-        else:
-            # 7版
-            # HP = (CON + SIZ) / 10
-            hp_max = (self.con_value + self.siz_value) // 10
-            # MP = POW / 5
-            mp_max = self.pow_value // 5
-            # SAN = POW
-            san_start = self.pow_value
-            # 最大SAN = 99 - クトゥルフ神話技能
-            san_max = 99
-
-        return {
-            "hit_points_max": hp_max,
-            "magic_points_max": mp_max,
-            "sanity_starting": san_start,
-            "sanity_max": san_max,
-        }
-
-    def save(self, *args, **kwargs):
-        """保存時に派生ステータスを自動計算"""
-        from django.core.exceptions import ValidationError
-
-        if self.edition not in {"6th", "7th"}:
-            self.edition = "6th"
-
-        # 推奨技能を正規化
-        if self.recommended_skills is None:
-            self.recommended_skills = []
-        elif isinstance(self.recommended_skills, list):
-            self.recommended_skills = [str(skill).strip() for skill in self.recommended_skills if str(skill).strip()]
-        else:
-            self.recommended_skills = []
-
-        # 職業技能を正規化
-        if self.occupation_skills is None:
-            self.occupation_skills = []
-        elif isinstance(self.occupation_skills, list):
-            self.occupation_skills = [str(skill).strip() for skill in self.occupation_skills if str(skill).strip()]
-        else:
-            self.occupation_skills = []
-
-        # 循環参照の防止
-        if self.parent_sheet:
-            current = self.parent_sheet
-            while current:
-                if current == self:
-                    raise ValidationError("循環参照は許可されていません")
-                current = current.parent_sheet
-
-        # バージョン番号の重複チェック（バージョンアップ時のみ）
-        if not self.pk and self.parent_sheet:  # 新しいバージョン作成時のみ
-            existing = (
-                CharacterSheet.objects.filter(parent_sheet=self.parent_sheet, version=self.version)
-                .exclude(pk=self.pk)
-                .exists()
-            )
-            if existing:
-                raise ValidationError(f"バージョン{self.version}は既に存在します")
-
-        # 必須フィールドが未設定の場合は基本値から補完（テスト向けフォールバック）
-        stats = None
-        if (
-            self.hit_points_max is None
-            or self.magic_points_max is None
-            or self.sanity_starting is None
-            or self.sanity_max is None
-        ):
-            stats = self.calculate_derived_stats()
-
-        if self.hit_points_max is None:
-            self.hit_points_max = stats["hit_points_max"]
-        if self.hit_points_current is None:
-            self.hit_points_current = self.hit_points_max
-        if self.magic_points_max is None:
-            self.magic_points_max = stats["magic_points_max"]
-        if self.magic_points_current is None:
-            self.magic_points_current = self.magic_points_max
-        if self.sanity_starting is None:
-            self.sanity_starting = stats["sanity_starting"]
-        if self.sanity_max is None:
-            self.sanity_max = stats["sanity_max"]
-        if self.sanity_current is None:
-            self.sanity_current = self.sanity_starting
-
-        # saveメソッドでの自動計算を無効化
-        # フォームで全ての値を設定するため、モデルでの自動計算は行わない
-
-        super().save(*args, **kwargs)
+        return self.system_data.calculate_derived_stats()
 
     def create_new_version(self, version_note="", session_count=None, copy_skills=False):
         """
@@ -439,7 +186,10 @@ class CharacterSheet(models.Model):
         return CharacterVersionService.create_version(
             source_character=self,
             actor=self.user,
-            validated_data={"version_note": version_note, "session_count": session_count or (self.session_count + 1)},
+            validated_data={
+                "version_note": version_note,
+                "session_count": session_count or (self.system_data.session_count + 1),
+            },
             copy_policy={"copy_skills": copy_skills},
         )
 
@@ -465,7 +215,9 @@ class CharacterSheet(models.Model):
 
     def get_child_versions(self):
         """直接の子バージョンを取得"""
-        return self.versions.all()
+        detail_model = CharacterSheet6th if self.edition == "6th" else CharacterSheet7th
+        child_ids = detail_model.objects.filter(parent_data=self.system_data).values("character_sheet_id")
+        return CharacterSheet.objects.filter(pk__in=child_ids)
 
     def compare_with_version(self, other_version):
         """他のバージョンとの比較"""
@@ -481,26 +233,21 @@ class CharacterSheet(models.Model):
 
     def delete(self, *args, **kwargs):
         """子バージョンの参照を付け替えてから削除"""
-        for child in self.versions.all():
-            child.parent_sheet = self.parent_sheet
-            child.save(update_fields=["parent_sheet"])
         return super().delete(*args, **kwargs)
 
     def calculate_max_sanity(self):
-        """最大SAN値を計算（99 - クトゥルフ神話技能）"""
-        # クトゥルフ神話技能を探す
-        try:
-            cthulhu_skill = self.skills.get(skill_name="クトゥルフ神話")
-            cthulhu_value = cthulhu_skill.current_value
-        except CharacterSkill.DoesNotExist:
-            cthulhu_value = 0
-
-        return 99 - cthulhu_value
+        return self.system_data.calculate_max_sanity()
 
     def update_max_sanity(self):
         """最大SAN値を更新"""
-        self.sanity_max = self.calculate_max_sanity()
-        self.save(update_fields=["sanity_max"])
+        detail = self.system_data
+        try:
+            cthulhu_skill = detail.skills.get(skill_name="クトゥルフ神話")
+            cthulhu_value = cthulhu_skill.current_value
+        except detail.skills.model.DoesNotExist:
+            cthulhu_value = 0
+        detail.sanity_max = 99 - cthulhu_value
+        detail.save(update_fields=["sanity_max"])
 
     def export_version_data(self):
         """バージョンデータをエクスポート"""
@@ -532,118 +279,26 @@ class CharacterSheet(models.Model):
         return cls.OCCUPATION_POINT_METHODS_6TH
 
     def get_occupation_point_method(self):
-        """保存された計算方式を版別に正規化して返す"""
-        method = (self.occupation_point_method or "").strip()
-        if method in self.valid_occupation_point_methods_for_edition(self.edition):
-            return method
-        return "edu4" if self.edition == "7th" else ""
+        return self.system_data.get_occupation_point_method()
 
     def calculate_occupation_points(self):
-        """職業技能ポイントを計算"""
-        if self.edition == "7th":
-            method = self.get_occupation_point_method()
-            calculation_methods = {
-                "edu4": self.edu_value * 4,
-                "edu2app2": self.edu_value * 2 + self.app_value * 2,
-                "edu2dex2": self.edu_value * 2 + self.dex_value * 2,
-                "edu2pow2": self.edu_value * 2 + self.pow_value * 2,
-                "edu2str2": self.edu_value * 2 + self.str_value * 2,
-                "edu2con2": self.edu_value * 2 + self.con_value * 2,
-                "edu2siz2": self.edu_value * 2 + self.siz_value * 2,
-            }
-            return calculation_methods.get(method, self.edu_value * 4)
-
-        method = self.get_occupation_point_method()
-        calculation_methods = {
-            "edu20": self.edu_value * 20,
-            "edu10app10": self.edu_value * 10 + self.app_value * 10,
-            "edu10dex10": self.edu_value * 10 + self.dex_value * 10,
-            "edu10pow10": self.edu_value * 10 + self.pow_value * 10,
-            "edu10str10": self.edu_value * 10 + self.str_value * 10,
-            "edu10con10": self.edu_value * 10 + self.con_value * 10,
-            "edu10siz10": self.edu_value * 10 + self.siz_value * 10,
-        }
-        if method in calculation_methods:
-            return calculation_methods[method]
-
-        if hasattr(self, "occupation_multiplier") and self.occupation_multiplier:
-            return self.edu_value * self.occupation_multiplier
-        return self.edu_value * 20  # デフォルトはEDU×20
+        return self.system_data.calculate_occupation_points()
 
     def calculate_hobby_points(self):
-        """趣味技能ポイントを計算"""
-        if self.edition == "7th":
-            return self.int_value * 2
-        return self.int_value * 10  # INT×10
-
-    def calculate_damage_bonus_7th(self):
-        """7版ダメージボーナスを計算"""
-        total = self.str_value + self.siz_value
-
-        if total <= 64:
-            return "-2"
-        if total <= 84:
-            return "-1"
-        if total <= 124:
-            return "+0"
-        if total <= 164:
-            return "+1D4"
-        if total <= 204:
-            return "+1D6"
-        if total <= 284:
-            return "+2D6"
-        if total <= 364:
-            return "+3D6"
-        if total <= 444:
-            return "+4D6"
-        return "+5D6"
-
-    def calculate_build_7th(self):
-        """7版ビルドをダメージボーナス表に合わせて計算"""
-        total = self.str_value + self.siz_value
-
-        if total <= 64:
-            return -2
-        if total <= 84:
-            return -1
-        if total <= 124:
-            return 0
-        if total <= 164:
-            return 1
-        if total <= 204:
-            return 2
-        if total <= 284:
-            return 3
-        if total <= 364:
-            return 4
-        if total <= 444:
-            return 5
-        return 6
-
-    def calculate_move_rate_7th(self):
-        """7版移動率をSTR/DEX/SIZと年齢から計算"""
-        if self.str_value < self.siz_value and self.dex_value < self.siz_value:
-            move = 7
-        elif self.str_value > self.siz_value and self.dex_value > self.siz_value:
-            move = 9
-        else:
-            move = 8
-
-        age = self.age or 0
-        if age >= 80:
-            move -= 5
-        elif age >= 70:
-            move -= 4
-        elif age >= 60:
-            move -= 3
-        elif age >= 50:
-            move -= 2
-        elif age >= 40:
-            move -= 1
-
-        return max(1, move)
+        return self.system_data.calculate_hobby_points()
 
     def get_7th_skill_base_value(self, skill_name):
+        if isinstance(self, CharacterSheet):
+            detail = self.system_data
+            if skill_name == "母国語":
+                return detail.edu_value or 0
+            if skill_name == "回避":
+                return (detail.dex_value or 0) // 2
+            return 0
+        if isinstance(self, CharacterSheet):
+            detail = self.system_data
+            if skill_name:
+                return (detail.dex_value or 0) // 2
         """7版の代表的な技能初期値を返す"""
         if skill_name == "回避":
             return self.dex_value // 2
@@ -746,28 +401,8 @@ class CharacterSheet(models.Model):
         return self.calculate_hobby_points() - self.calculate_used_hobby_points()
 
     def get_occupation_recommended_skills(self):
-        """職業別推奨技能リストを取得"""
-        if self.edition == "7th":
-            occupation_skills_7th = {
-                "医師": ["医学", "応急手当", "科学", "心理学", "信用", "説得", "ほかの言語", "図書館"],
-                "教授": ["図書館", "母国語", "ほかの言語", "科学", "心理学", "歴史", "人類学", "説得"],
-                "警察官": ["射撃（拳銃）", "近接戦闘（格闘）", "心理学", "聞き耳", "目星", "運転（自動車）", "法律", "威圧"],
-                "探偵": ["目星", "聞き耳", "隠密", "手さばき", "心理学", "図書館", "法律", "説得"],
-                "記者": ["目星", "聞き耳", "図書館", "心理学", "説得", "信用", "コンピューター", "運転（自動車）"],
-                "考古学者": ["考古学", "歴史", "図書館", "目星", "ほかの言語", "登攀", "科学", "ナビゲート"],
-            }
-            return occupation_skills_7th.get(self.occupation, [])
-
-        occupation_skills = {
-            "医師": ["医学", "応急手当", "生物学", "薬学", "心理学", "精神分析", "信用", "言いくるめ"],
-            "教授": ["図書館", "母国語", "他の言語", "教育", "心理学", "歴史", "人類学", "説得"],
-            "警察官": ["拳銃", "格闘技", "心理学", "聞き耳", "目星", "運転", "法律", "威圧"],
-            "探偵": ["目星", "聞き耳", "隠れる", "忍び歩き", "心理学", "図書館", "法律", "説得"],
-            "記者": ["目星", "聞き耳", "図書館", "心理学", "説得", "信用", "写真術", "運転"],
-            "考古学者": ["考古学", "歴史", "図書館", "目星", "他の言語", "登攀", "機械修理", "ナビゲート"],
-        }
-
-        return occupation_skills.get(self.occupation, [])
+        """互換用。職業ルールは版別データから取得する。"""
+        return self.system_data.get_occupation_recommended_skills()
 
     def apply_occupation_template(self):
         """職業テンプレートを適用して推奨技能を作成"""
@@ -780,7 +415,7 @@ class CharacterSheet(models.Model):
 
         # 推奨技能を作成
         for skill_name in recommended_skills:
-            skill, created = CharacterSkill.objects.get_or_create(
+            skill, created = self.system_data.skills.get_or_create(
                 character_sheet=self,
                 skill_name=skill_name,
                 defaults={
@@ -928,28 +563,300 @@ class CharacterSheet(models.Model):
         return CharacterExportManager.export_ccfolia_format(self)
 
     def calculate_carry_capacity(self):
-        """運搬能力を計算（STRベース）"""
-        # 基本運搬能力 = STR * 3kg （簡易ルール）
-        return self.str_value * 3
+        return (self.system_data.str_value or 0) * 3
 
     def calculate_movement_penalty(self, total_weight):
-        """移動ペナルティを計算"""
-        carry_capacity = self.calculate_carry_capacity()
+        return self.system_data.calculate_movement_penalty(total_weight)
 
-        if total_weight <= carry_capacity:
-            return 0  # ペナルティなし
-        elif total_weight <= carry_capacity * 1.5:
-            return 10  # 軽度のペナルティ
-        elif total_weight <= carry_capacity * 2:
-            return 20  # 中度のペナルティ
+
+class CharacterSheetSystemData(models.Model):
+    """Edition-specific character data stored outside the registry table."""
+
+    name_kana = models.CharField(max_length=100, blank=True)
+    # Existing parent-table data is copied by migration.  These remain nullable
+    # during the compatibility transition so that already persisted 6th data
+    # can be upgraded without synthetic values.
+    name = models.CharField(max_length=100, null=True, blank=True)
+    player_name = models.CharField(max_length=100, blank=True)
+    status = models.CharField(max_length=10, choices=CharacterSheet.STATUS_CHOICES, default="alive")
+    age = models.IntegerField(null=True, blank=True)
+    gender = models.CharField(max_length=50, blank=True)
+    occupation = models.CharField(max_length=100, blank=True)
+    birthplace = models.CharField(max_length=100, blank=True)
+    residence = models.CharField(max_length=100, blank=True)
+    recommended_skills = models.JSONField(default=list, blank=True)
+    occupation_skills = models.JSONField(default=list, blank=True)
+    source_scenario = models.ForeignKey("scenarios.Scenario", on_delete=models.SET_NULL, null=True, blank=True)
+    source_scenario_title = models.CharField(max_length=200, blank=True)
+    source_scenario_game_system = models.CharField(max_length=10, blank=True)
+    str_value = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(999)])
+    con_value = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(999)])
+    pow_value = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(999)])
+    dex_value = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(999)])
+    app_value = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(999)])
+    siz_value = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(999)])
+    int_value = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(999)])
+    edu_value = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(999)])
+    occupation_multiplier = models.IntegerField(default=20)
+    occupation_point_method = models.CharField(max_length=20, blank=True, default="")
+    hit_points_max = models.IntegerField(null=True, blank=True)
+    hit_points_current = models.IntegerField(null=True, blank=True)
+    magic_points_max = models.IntegerField(null=True, blank=True)
+    magic_points_current = models.IntegerField(null=True, blank=True)
+    sanity_starting = models.IntegerField(null=True, blank=True)
+    sanity_max = models.IntegerField(null=True, blank=True)
+    sanity_current = models.IntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    secret_ho_info = models.TextField(blank=True, default="")
+    character_image = models.ImageField(upload_to="character_sheets/", blank=True)
+    is_active = models.BooleanField(default=True)
+    session_count = models.PositiveIntegerField(default=0)
+    ccfolia_sync_enabled = models.BooleanField(default=False)
+    ccfolia_character_id = models.CharField(max_length=100, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    version_note = models.CharField(max_length=1000, blank=True)
+
+    class Meta:
+        abstract = True
+
+    @property
+    def edition(self):
+        """Edition is owned by the registry but read through the detail API."""
+        return self.character_sheet.edition
+
+    @property
+    def abilities(self):
+        return {
+            "str": self.str_value,
+            "con": self.con_value,
+            "pow": self.pow_value,
+            "dex": self.dex_value,
+            "app": self.app_value,
+            "siz": self.siz_value,
+            "int": self.int_value,
+            "edu": self.edu_value,
+        }
+
+    def calculate_derived_stats(self):
+        """Calculate derived values from this edition's own ability values."""
+        import math
+
+        if self.character_sheet.edition == "6th":
+            return {
+                "hit_points_max": math.ceil(((self.con_value or 0) + (self.siz_value or 0)) / 2),
+                "magic_points_max": self.pow_value or 0,
+                "sanity_starting": (self.pow_value or 0) * 5,
+                "sanity_max": 99,
+            }
+        return {
+            "hit_points_max": ((self.con_value or 0) + (self.siz_value or 0)) // 10,
+            "magic_points_max": (self.pow_value or 0) // 5,
+            "sanity_starting": self.pow_value or 0,
+            "sanity_max": 99,
+        }
+
+    def save(self, *args, **kwargs):
+        """Initialize derived values on the edition-specific record itself."""
+        stats = self.calculate_derived_stats()
+        if self.hit_points_max is None:
+            self.hit_points_max = stats["hit_points_max"]
+        if self.hit_points_current is None:
+            self.hit_points_current = self.hit_points_max
+        if self.magic_points_max is None:
+            self.magic_points_max = stats["magic_points_max"]
+        if self.magic_points_current is None:
+            self.magic_points_current = self.magic_points_max
+        if self.sanity_starting is None:
+            self.sanity_starting = stats["sanity_starting"]
+        if self.sanity_max is None:
+            self.sanity_max = stats["sanity_max"]
+        if self.sanity_current is None:
+            self.sanity_current = self.sanity_starting
+        return super().save(*args, **kwargs)
+
+    def clean(self):
+        """Keep version lineage inside one edition and prevent cycles."""
+        from django.core.exceptions import ValidationError
+
+        if self.age is not None and not 15 <= self.age <= 90:
+            raise ValidationError({"age": "年齢は15から90の範囲で入力してください。"})
+
+        parent_data = getattr(self, "parent_data", None)
+        if parent_data is None:
+            return
+        if parent_data.character_sheet.edition != self.character_sheet.edition:
+            raise ValidationError({"parent_data": "親バージョンは同じ版でなければなりません。"})
+        if self.version <= parent_data.version:
+            raise ValidationError({"version": "バージョン番号は親より大きくしてください。"})
+        root = parent_data
+        while root.parent_data_id:
+            root = root.parent_data
+        if self.__class__.objects.filter(parent_data=root, version=self.version).exclude(pk=self.pk).exists():
+            raise ValidationError({"version": "同じ履歴内でバージョン番号は重複できません。"})
+        seen = {self.pk} if self.pk else set()
+        current = parent_data
+        while current is not None:
+            if current.pk in seen:
+                raise ValidationError({"parent_data": "バージョン履歴に循環参照は作成できません。"})
+            seen.add(current.pk)
+            current = current.parent_data
+
+    def calculate_occupation_points(self):
+        method = (self.occupation_point_method or "").strip()
+        if self.character_sheet.edition == "7th":
+            values = {
+                "edu4": (self.edu_value or 0) * 4,
+                "edu2app2": (self.edu_value or 0) * 2 + (self.app_value or 0) * 2,
+                "edu2dex2": (self.edu_value or 0) * 2 + (self.dex_value or 0) * 2,
+                "edu2pow2": (self.edu_value or 0) * 2 + (self.pow_value or 0) * 2,
+                "edu2str2": (self.edu_value or 0) * 2 + (self.str_value or 0) * 2,
+                "edu2con2": (self.edu_value or 0) * 2 + (self.con_value or 0) * 2,
+                "edu2siz2": (self.edu_value or 0) * 2 + (self.siz_value or 0) * 2,
+            }
+            return values.get(method, (self.edu_value or 0) * 4)
+        values = {
+            "edu20": (self.edu_value or 0) * 20,
+            "edu10app10": (self.edu_value or 0) * 10 + (self.app_value or 0) * 10,
+            "edu10dex10": (self.edu_value or 0) * 10 + (self.dex_value or 0) * 10,
+            "edu10pow10": (self.edu_value or 0) * 10 + (self.pow_value or 0) * 10,
+            "edu10str10": (self.edu_value or 0) * 10 + (self.str_value or 0) * 10,
+            "edu10con10": (self.edu_value or 0) * 10 + (self.con_value or 0) * 10,
+            "edu10siz10": (self.edu_value or 0) * 10 + (self.siz_value or 0) * 10,
+        }
+        return values.get(method, (self.edu_value or 0) * (self.occupation_multiplier or 20))
+
+    def calculate_hobby_points(self):
+        return (self.int_value or 0) * (2 if self.character_sheet.edition == "7th" else 10)
+
+    def get_occupation_point_method(self):
+        method = (self.occupation_point_method or "").strip()
+        valid = CharacterSheet.valid_occupation_point_methods_for_edition(self.edition)
+        if method in valid:
+            return method
+        return "edu4" if self.edition == "7th" else ""
+
+    def calculate_max_sanity(self):
+        skill = self.skills.filter(skill_name="クトゥルフ神話").only("current_value").first()
+        return 99 - (skill.current_value if skill else 0)
+
+    def update_max_sanity(self):
+        self.sanity_max = self.calculate_max_sanity()
+        self.save(update_fields=["sanity_max"])
+        return self.sanity_max
+
+    # Skill rules are invoked on an edition record.  The registry retains
+    # compatibility wrappers only; it no longer owns the underlying values.
+    def get_7th_skill_base_value(self, skill_name):
+        return CharacterSheet.get_7th_skill_base_value(self, skill_name)
+
+    def get_skill_base_value(self, skill_name):
+        return CharacterSheet._get_skill_base_value(self, skill_name)
+
+    def get_skill_category(self, skill_name):
+        return CharacterSheet._get_skill_category(self, skill_name)
+
+    def get_occupation_recommended_skills(self):
+        if self.edition == "7th":
+            skills = {
+                "医師": ["医学", "応急手当", "科学", "心理学", "信用", "説得", "ほかの言語", "図書館"],
+                "教授": ["図書館", "母国語", "ほかの言語", "科学", "心理学", "歴史", "人類学", "説得"],
+                "警察官": ["射撃（拳銃）", "近接戦闘（格闘）", "心理学", "聞き耳", "目星", "運転（自動車）", "法律", "威圧"],
+                "探偵": ["目星", "聞き耳", "隠密", "手さばき", "心理学", "図書館", "法律", "説得"],
+                "記者": ["目星", "聞き耳", "図書館", "心理学", "説得", "信用", "コンピューター", "運転（自動車）"],
+                "考古学者": ["考古学", "歴史", "図書館", "目星", "ほかの言語", "登攀", "科学", "ナビゲート"],
+            }
         else:
-            return 30  # 重度のペナルティ
+            skills = {
+                "医師": ["医学", "応急手当", "生物学", "薬学", "心理学", "精神分析", "信用", "言いくるめ"],
+                "教授": ["図書館", "母国語", "他の言語", "教育", "心理学", "歴史", "人類学", "説得"],
+                "警察官": ["拳銃", "格闘技", "心理学", "聞き耳", "目星", "運転", "法律", "威圧"],
+                "探偵": ["目星", "聞き耳", "隠れる", "忍び歩き", "心理学", "図書館", "法律", "説得"],
+                "記者": ["目星", "聞き耳", "図書館", "心理学", "説得", "信用", "写真術", "運転"],
+                "考古学者": ["考古学", "歴史", "図書館", "目星", "他の言語", "登攀", "機械修理", "ナビゲート"],
+            }
+        return skills.get(self.occupation, [])
+
+    def apply_occupation_template(self):
+        recommended_skills = self.get_occupation_recommended_skills()
+        if self.occupation == "医師":
+            self.occupation_multiplier = 25
+            self.save(update_fields=["occupation_multiplier"])
+        for skill_name in recommended_skills:
+            self.skills.get_or_create(
+                skill_name=skill_name,
+                defaults={
+                    "base_value": self.get_skill_base_value(skill_name),
+                    "category": self.get_skill_category(skill_name),
+                },
+            )
+        return len(recommended_skills)
+
+    def calculate_used_occupation_points(self):
+        from django.db.models import Sum
+
+        return self.skills.aggregate(total=Sum("occupation_points"))["total"] or 0
+
+    def calculate_used_hobby_points(self):
+        from django.db.models import Sum
+
+        return self.skills.aggregate(total=Sum("interest_points"))["total"] or 0
+
+    def calculate_remaining_occupation_points(self):
+        return self.calculate_occupation_points() - self.calculate_used_occupation_points()
+
+    def calculate_remaining_hobby_points(self):
+        return self.calculate_hobby_points() - self.calculate_used_hobby_points()
+
+    def calculate_carry_capacity(self):
+        return (self.str_value or 0) * 3
+
+    def calculate_movement_penalty(self, total_weight):
+        carry_capacity = (self.str_value or 0) * 3
+        if total_weight <= carry_capacity:
+            return 0
+        if total_weight <= carry_capacity * 1.5:
+            return 10
+        if total_weight <= carry_capacity * 2:
+            return 20
+        return 30
+
+    def calculate_damage_bonus_7th(self):
+        total = (self.str_value or 0) + (self.siz_value or 0)
+        if total <= 64: return "-2"
+        if total <= 84: return "-1"
+        if total <= 124: return "+0"
+        if total <= 164: return "+1D4"
+        if total <= 204: return "+1D6"
+        return "+2D6"
+
+    def calculate_build_7th(self):
+        total = (self.str_value or 0) + (self.siz_value or 0)
+        if total <= 64: return -2
+        if total <= 84: return -1
+        if total <= 124: return 0
+        if total <= 164: return 1
+        if total <= 204: return 2
+        return 3
+
+    def calculate_move_rate_7th(self):
+        strength, size, dexterity = self.str_value or 0, self.siz_value or 0, self.dex_value or 0
+        move = 7 if strength < size and dexterity < size else 9 if strength > size and dexterity > size else 8
+        for threshold, penalty in ((80, 5), (70, 4), (60, 3), (50, 2), (40, 1)):
+            if (self.age or 0) >= threshold:
+                return max(1, move - penalty)
+        return move
+
+    @classmethod
+    def sync_from_registry(cls, character_sheet, **overrides):
+        # Registry data deliberately contains no character attributes.
+        return cls.objects.update_or_create(character_sheet=character_sheet, defaults=overrides)[0]
 
 
-class CharacterSheet6th(models.Model):
+class CharacterSheet6th(CharacterSheetSystemData):
     """6版固有データ"""
 
     character_sheet = models.OneToOneField(CharacterSheet, on_delete=models.CASCADE, related_name="sixth_edition_data")
+    parent_data = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="versions")
 
     # 6版固有フィールド
     mental_disorder = models.TextField(blank=True, verbose_name="精神的障害")
@@ -976,6 +883,8 @@ class CharacterSheet6th(models.Model):
         """財務データのバリデーション"""
         from django.core.exceptions import ValidationError
 
+        super().clean()
+
         # 負の値チェック
         if self.cash < 0:
             raise ValidationError({"cash": "現金は0以上の値を入力してください。"})
@@ -999,15 +908,15 @@ class CharacterSheet6th(models.Model):
 
     def save(self, *args, **kwargs):
         """6版固有の計算を実行"""
-        if self.character_sheet:
+        if self.character_sheet_id and not getattr(self, "_skip_point_validation", False):
             # アイデア = INT × 5
-            self.idea_roll = self.character_sheet.int_value * 5
+            self.idea_roll = (self.int_value or 0) * 5
 
             # 幸運 = POW × 5
-            self.luck_roll = self.character_sheet.pow_value * 5
+            self.luck_roll = (self.pow_value or 0) * 5
 
             # 知識 = EDU × 5
-            self.know_roll = self.character_sheet.edu_value * 5
+            self.know_roll = (self.edu_value or 0) * 5
 
             # ダメージボーナス計算
             self.damage_bonus = self.calculate_damage_bonus_6th()
@@ -1017,9 +926,10 @@ class CharacterSheet6th(models.Model):
 
         super().save(*args, **kwargs)
 
+
     def calculate_damage_bonus_6th(self):
         """6版ダメージボーナス計算"""
-        total = self.character_sheet.str_value + self.character_sheet.siz_value
+        total = (self.str_value or 0) + (self.siz_value or 0)
 
         # クトゥルフ神話TRPG 6版の正式なダメージボーナス表
         if 2 <= total <= 12:
@@ -1046,8 +956,19 @@ class CharacterSheet6th(models.Model):
         return self.cash + self.assets
 
 
-class CharacterSkill(models.Model):
-    """キャラクタースキル"""
+class CharacterSheet7th(CharacterSheetSystemData):
+    """クトゥルフ神話TRPG 7版の専用データテーブル。"""
+
+    character_sheet = models.OneToOneField(CharacterSheet, on_delete=models.CASCADE, related_name="seventh_edition_data")
+    parent_data = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="versions")
+
+    class Meta:
+        verbose_name = "7版キャラクターシートデータ"
+        verbose_name_plural = "7版キャラクターシートデータ"
+
+
+class _LegacyCharacterSkill(models.Model):
+    """Historical pre-0059 schema; abstract and never used at runtime."""
 
     CATEGORY_CHOICES = [
         ("探索系", "探索系"),
@@ -1080,6 +1001,7 @@ class CharacterSkill(models.Model):
     notes = models.TextField(blank=True, verbose_name="備考")
 
     class Meta:
+        abstract = True
         unique_together = ["character_sheet", "skill_name"]
         ordering = ["skill_name"]
         verbose_name = "キャラクタースキル"
@@ -1128,7 +1050,12 @@ class CharacterSkill(models.Model):
         if self.character_sheet and not getattr(self, "_skip_point_validation", False):
             try:
                 # 職業技能ポイントのチェック
-                total_occupation_points = self.character_sheet.calculate_occupation_points()
+                system_data = (
+                    self.character_sheet.system_data
+                    if isinstance(self.character_sheet, CharacterSheet)
+                    else self.character_sheet
+                )
+                total_occupation_points = system_data.calculate_occupation_points()
                 used_occupation_points = (
                     self.character_sheet.skills.exclude(pk=self.pk).aggregate(total=models.Sum("occupation_points"))[
                         "total"
@@ -1144,7 +1071,7 @@ class CharacterSkill(models.Model):
                     )
 
                 # 趣味技能ポイントのチェック
-                total_hobby_points = self.character_sheet.calculate_hobby_points()
+                total_hobby_points = (system_data.int_value or 0) * (2 if system_data.edition == "7th" else 10)
                 used_hobby_points = (
                     self.character_sheet.skills.exclude(pk=self.pk).aggregate(total=models.Sum("interest_points"))[
                         "total"
@@ -1182,10 +1109,15 @@ class CharacterSkill(models.Model):
         self.current_value = min(total, max_skill_value)
 
         super().save(*args, **kwargs)
+        sync_edition_related_data(self)
 
         # クトゥルフ神話技能の場合、最大SAN値を更新
         if self.skill_name == "クトゥルフ神話" and self.character_sheet:
             self.character_sheet.update_max_sanity()
+
+    def delete(self, *args, **kwargs):
+        delete_edition_related_data(self)
+        return super().delete(*args, **kwargs)
 
     @classmethod
     def create_custom_skill(cls, character_sheet, skill_name, category="特殊・その他", **kwargs):
@@ -1207,11 +1139,11 @@ class CharacterSkill(models.Model):
         return skill
 
     def __str__(self):
-        return f"{self.character_sheet.name} - {self.skill_name}: {self.current_value}"
+        return f"{self.character_sheet.system_data.name} - {self.skill_name}: {self.current_value}"
 
 
-class CharacterEquipment(models.Model):
-    """キャラクター装備・所持品"""
+class _LegacyCharacterEquipment(models.Model):
+    """Historical pre-0059 schema; abstract and never used at runtime."""
 
     ITEM_TYPE_CHOICES = [
         ("weapon", "武器"),
@@ -1247,6 +1179,7 @@ class CharacterEquipment(models.Model):
         super().__init__(*args, **kwargs)
 
     class Meta:
+        abstract = True
         ordering = ["item_type", "name"]
         verbose_name = "キャラクター装備"
         verbose_name_plural = "キャラクター装備"
@@ -1287,9 +1220,14 @@ class CharacterEquipment(models.Model):
         """保存時にバリデーション実行"""
         self.full_clean()
         super().save(*args, **kwargs)
+        sync_edition_related_data(self)
+
+    def delete(self, *args, **kwargs):
+        delete_edition_related_data(self)
+        return super().delete(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.character_sheet.name} - {self.name}"
+        return f"{self.character_sheet.system_data.name} - {self.name}"
 
     @property
     def equipment_type(self):
@@ -1402,7 +1340,7 @@ class CharacterBackground(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.character_sheet.name} - 背景情報"
+        return f"{self.character_sheet.system_data.name} - 背景情報"
 
     @property
     def description(self):
@@ -1572,7 +1510,7 @@ class GrowthRecord(models.Model):
             self.notes = json.dumps(value, ensure_ascii=False)
 
     def __str__(self):
-        return f"{self.character_sheet.name} - {self.scenario_name} ({self.session_date})"
+        return f"{self.character_sheet.system_data.name} - {self.scenario_name} ({self.session_date})"
 
 
 class SkillGrowthRecord(models.Model):
@@ -1651,7 +1589,7 @@ class SkillGrowthRecord(models.Model):
 
     def __str__(self):
         growth_text = f"+{self.growth_amount}" if self.growth_amount > 0 else "変化なし"
-        return f"{self.growth_record.character_sheet.name} - {self.skill_name}: {self.old_value} → {self.new_value} ({growth_text})"
+        return f"{self.growth_record.character_sheet.system_data.name} - {self.skill_name}: {self.old_value} → {self.new_value} ({growth_text})"
 
 
 class CharacterDiceRollSetting(models.Model):
@@ -2164,11 +2102,8 @@ class CharacterDiceRollSetting(models.Model):
         )
 
 
-class CharacterImage(models.Model):
-    """
-    キャラクター画像モデル
-    1キャラクターに複数の画像を添付可能
-    """
+class _LegacyCharacterImage(models.Model):
+    """Historical pre-0059 schema; abstract and never used at runtime."""
 
     character_sheet = models.ForeignKey(
         CharacterSheet, on_delete=models.CASCADE, related_name="images", verbose_name="キャラクターシート"
@@ -2195,6 +2130,7 @@ class CharacterImage(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="アップロード日時")
 
     class Meta:
+        abstract = True
         ordering = ["order", "uploaded_at"]
         verbose_name = "キャラクター画像"
         verbose_name_plural = "キャラクター画像"
@@ -2204,11 +2140,313 @@ class CharacterImage(models.Model):
             )
         ]
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        sync_edition_related_data(self)
+
+    def delete(self, *args, **kwargs):
+        delete_edition_related_data(self)
+        return super().delete(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.character_sheet.name} - 画像{self.order + 1}"
+        return f"{self.character_sheet.system_data.name} - 画像{self.order + 1}"
 
 
 # ユーティリティクラス（長いメソッドを分離）
+
+
+class CharacterSkillSystemData(models.Model):
+    """Shared schema for skills stored in an edition-specific table."""
+
+    legacy_skill_id = models.BigIntegerField(null=True, blank=True, unique=True)
+    skill_name = models.CharField(max_length=100)
+    category = models.CharField(max_length=20, default="その他・独自")
+    base_value = models.IntegerField(default=0)
+    occupation_points = models.IntegerField(default=0)
+    interest_points = models.IntegerField(default=0)
+    bonus_points = models.IntegerField(default=0)
+    other_points = models.IntegerField(default=0)
+    current_value = models.IntegerField(default=0)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        abstract = True
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        point_fields = ("base_value", "occupation_points", "interest_points", "bonus_points", "other_points")
+        errors = {field: "0以上で指定してください。" for field in point_fields if getattr(self, field) < 0}
+        total = sum(getattr(self, field) for field in point_fields)
+        if total > 999:
+            errors["current_value"] = "技能値の合計は999を超えることはできません。"
+        if self.character_sheet_id and not getattr(self, "_skip_point_validation", False):
+            if self.occupation_points > self.character_sheet.calculate_occupation_points():
+                errors["occupation_points"] = "職業技能ポイントが上限を超えています。"
+            if self.interest_points > self.character_sheet.calculate_hobby_points():
+                errors["interest_points"] = "趣味技能ポイントが上限を超えています。"
+        if self.character_sheet_id:
+            used_points = self.character_sheet.skills.exclude(pk=self.pk).aggregate(
+                occupation=models.Sum("occupation_points"),
+                interest=models.Sum("interest_points"),
+            )
+            if (used_points["occupation"] or 0) + self.occupation_points > self.character_sheet.calculate_occupation_points():
+                errors["occupation_points"] = "職業技能ポイントの合計が上限を超えています。"
+            if (used_points["interest"] or 0) + self.interest_points > self.character_sheet.calculate_hobby_points():
+                errors["interest_points"] = "趣味技能ポイントの合計が上限を超えています。"
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        skip_point_validation = kwargs.pop("skip_point_validation", False)
+        if skip_point_validation:
+            self._skip_point_validation = True
+        try:
+            self.full_clean()
+        finally:
+            if skip_point_validation:
+                delattr(self, "_skip_point_validation")
+        self.current_value = sum(
+            getattr(self, field) for field in ("base_value", "occupation_points", "interest_points", "bonus_points", "other_points")
+        )
+        result = super().save(*args, **kwargs)
+        if self.skill_name == "\u30af\u30c8\u30a5\u30eb\u30d5\u795e\u8a71" and self.character_sheet_id:
+            self.character_sheet.update_max_sanity()
+        return result
+
+    @classmethod
+    def create_custom_skill(cls, character_sheet, skill_name, category="特殊・その他", **kwargs):
+        """Create a custom skill on an edition-specific character record."""
+        specialization = None
+        if "（" in skill_name and "）" in skill_name:
+            specialization = skill_name[skill_name.find("（") + 1 : skill_name.find("）")]
+        return cls.objects.create(
+            character_sheet=character_sheet,
+            skill_name=skill_name,
+            category=category,
+            notes=kwargs.get("notes", specialization or ""),
+            **{key: value for key, value in kwargs.items() if key != "notes"},
+        )
+
+    def get_occupation_recommended_skills(self):
+        if self.edition == "7th":
+            occupation_skills = {
+                "医師": ["医学", "応急手当", "科学", "心理学", "信用", "説得", "ほかの言語", "図書館"],
+                "教授": ["図書館", "母国語", "ほかの言語", "科学", "心理学", "歴史", "人類学", "説得"],
+                "警察官": ["射撃（拳銃）", "近接戦闘（格闘）", "心理学", "聞き耳", "目星", "運転（自動車）", "法律", "威圧"],
+                "探偵": ["目星", "聞き耳", "隠密", "手さばき", "心理学", "図書館", "法律", "説得"],
+                "記者": ["目星", "聞き耳", "図書館", "心理学", "説得", "信用", "コンピューター", "運転（自動車）"],
+                "考古学者": ["考古学", "歴史", "図書館", "目星", "ほかの言語", "登攀", "科学", "ナビゲート"],
+            }
+        else:
+            occupation_skills = {
+                "医師": ["医学", "応急手当", "生物学", "薬学", "心理学", "精神分析", "信用", "言いくるめ"],
+                "教授": ["図書館", "母国語", "他の言語", "教育", "心理学", "歴史", "人類学", "説得"],
+                "警察官": ["拳銃", "格闘技", "心理学", "聞き耳", "目星", "運転", "法律", "威圧"],
+                "探偵": ["目星", "聞き耳", "隠れる", "忍び歩き", "心理学", "図書館", "法律", "説得"],
+                "記者": ["目星", "聞き耳", "図書館", "心理学", "説得", "信用", "写真術", "運転"],
+                "考古学者": ["考古学", "歴史", "図書館", "目星", "他の言語", "登攀", "機械修理", "ナビゲート"],
+            }
+        return occupation_skills.get(self.occupation, [])
+
+    def apply_occupation_template(self):
+        recommended_skills = self.get_occupation_recommended_skills()
+        if self.occupation == "医師":
+            self.occupation_multiplier = 25
+            self.save(update_fields=["occupation_multiplier"])
+        for skill_name in recommended_skills:
+            self.skills.get_or_create(
+                skill_name=skill_name,
+                defaults={
+                    "base_value": self.character_sheet.system_data.get_skill_base_value(skill_name),
+                    "category": self.character_sheet.system_data.get_skill_category(skill_name),
+                },
+            )
+        return len(recommended_skills)
+
+
+class CharacterSkill6th(CharacterSkillSystemData):
+    character_sheet = models.ForeignKey(CharacterSheet6th, on_delete=models.CASCADE, related_name="skills")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["character_sheet", "skill_name"], name="unique_6th_skill_name")]
+        ordering = ["skill_name"]
+
+
+class CharacterSkill7th(CharacterSkillSystemData):
+    character_sheet = models.ForeignKey(CharacterSheet7th, on_delete=models.CASCADE, related_name="skills")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["character_sheet", "skill_name"], name="unique_7th_skill_name")]
+        ordering = ["skill_name"]
+
+
+class CharacterEquipmentSystemData(models.Model):
+    """Shared schema for equipment stored in an edition-specific table."""
+
+    legacy_equipment_id = models.BigIntegerField(null=True, blank=True, unique=True)
+    item_type = models.CharField(max_length=10)
+    name = models.CharField(max_length=100)
+    skill_name = models.CharField(max_length=100, blank=True)
+    damage = models.CharField(max_length=20, blank=True)
+    base_range = models.CharField(max_length=20, blank=True)
+    attacks_per_round = models.IntegerField(null=True, blank=True)
+    ammo = models.IntegerField(null=True, blank=True)
+    malfunction_number = models.IntegerField(null=True, blank=True)
+    armor_points = models.IntegerField(null=True, blank=True)
+    description = models.TextField(blank=True)
+    quantity = models.IntegerField(default=1)
+    weight = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        abstract = True
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        errors = {}
+        if not self.name or not self.name.strip():
+            errors["name"] = "装備名を入力してください。"
+        if self.attacks_per_round is not None and self.attacks_per_round < 0:
+            errors["attacks_per_round"] = "攻撃回数は0以上で入力してください。"
+        if self.ammo is not None and self.ammo < 0:
+            errors["ammo"] = "弾薬数は0以上で入力してください。"
+        if self.malfunction_number is not None and not 1 <= self.malfunction_number <= 100:
+            errors["malfunction_number"] = "故障ナンバーは1から100で入力してください。"
+        if self.armor_points is not None and self.armor_points < 0:
+            errors["armor_points"] = "防護点は0以上で入力してください。"
+        if self.quantity is not None and self.quantity < 1:
+            errors["quantity"] = "数量は0以上で指定してください。"
+        if self.weight is not None and self.weight < 0:
+            errors["weight"] = "重量は0以上で指定してください。"
+        if errors:
+            raise ValidationError(errors)
+
+
+class CharacterEquipment6th(CharacterEquipmentSystemData):
+    character_sheet = models.ForeignKey(CharacterSheet6th, on_delete=models.CASCADE, related_name="equipment")
+
+    class Meta:
+        ordering = ["item_type", "name"]
+
+
+class CharacterEquipment7th(CharacterEquipmentSystemData):
+    character_sheet = models.ForeignKey(CharacterSheet7th, on_delete=models.CASCADE, related_name="equipment")
+
+    class Meta:
+        ordering = ["item_type", "name"]
+
+
+class CharacterImageSystemData(models.Model):
+    """Edition-specific image metadata; the file itself remains in shared media storage."""
+
+    legacy_image_id = models.BigIntegerField(null=True, blank=True, unique=True)
+    image = models.ImageField(upload_to="character_images/")
+    is_main = models.BooleanField(default=False)
+    order = models.PositiveIntegerField(default=0)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        abstract = True
+
+
+class CharacterImage6th(CharacterImageSystemData):
+    character_sheet = models.ForeignKey(CharacterSheet6th, on_delete=models.CASCADE, related_name="images")
+
+    class Meta:
+        ordering = ["order", "uploaded_at"]
+        constraints = [models.UniqueConstraint(fields=["character_sheet"], condition=models.Q(is_main=True), name="unique_main_6th_image")]
+
+
+class CharacterImage7th(CharacterImageSystemData):
+    character_sheet = models.ForeignKey(CharacterSheet7th, on_delete=models.CASCADE, related_name="images")
+
+    class Meta:
+        ordering = ["order", "uploaded_at"]
+        constraints = [models.UniqueConstraint(fields=["character_sheet"], condition=models.Q(is_main=True), name="unique_main_7th_image")]
+
+
+def sync_edition_related_data(instance):
+    """Mirror legacy related rows into the edition table during the transition."""
+    registry = instance.character_sheet
+    if registry.edition == "6th":
+        try:
+            system_data = registry.sixth_edition_data
+        except CharacterSheet6th.DoesNotExist:
+            system_data = CharacterSheet6th.objects.create(character_sheet=registry)
+        skill_model, equipment_model, image_model = CharacterSkill6th, CharacterEquipment6th, CharacterImage6th
+    elif registry.edition == "7th":
+        try:
+            system_data = registry.seventh_edition_data
+        except CharacterSheet7th.DoesNotExist:
+            system_data = CharacterSheet7th.objects.create(character_sheet=registry)
+        skill_model, equipment_model, image_model = CharacterSkill7th, CharacterEquipment7th, CharacterImage7th
+    else:
+        return
+
+    if isinstance(instance, _LegacyCharacterSkill):
+        skill_model.objects.update_or_create(
+            legacy_skill_id=instance.id,
+            defaults={
+                "character_sheet": system_data,
+                "skill_name": instance.skill_name,
+                "category": instance.category,
+                "base_value": instance.base_value,
+                "occupation_points": instance.occupation_points,
+                "interest_points": instance.interest_points,
+                "bonus_points": instance.bonus_points,
+                "other_points": instance.other_points,
+                "current_value": instance.current_value,
+                "notes": instance.notes,
+            },
+        )
+    elif isinstance(instance, _LegacyCharacterEquipment):
+        equipment_model.objects.update_or_create(
+            legacy_equipment_id=instance.id,
+            defaults={
+                "character_sheet": system_data,
+                "item_type": instance.item_type,
+                "name": instance.name,
+                "skill_name": instance.skill_name,
+                "damage": instance.damage,
+                "base_range": instance.base_range,
+                "attacks_per_round": instance.attacks_per_round,
+                "ammo": instance.ammo,
+                "malfunction_number": instance.malfunction_number,
+                "armor_points": instance.armor_points,
+                "description": instance.description,
+                "quantity": instance.quantity,
+                "weight": instance.weight,
+            },
+        )
+    elif isinstance(instance, _LegacyCharacterImage):
+        image_model.objects.update_or_create(
+            legacy_image_id=instance.id,
+            defaults={
+                "character_sheet": system_data,
+                "image": instance.image.name,
+                "is_main": instance.is_main,
+                "order": instance.order,
+            },
+        )
+
+
+def delete_edition_related_data(instance):
+    """Remove the edition copy when a compatibility row is deleted."""
+    registry = instance.character_sheet
+    if registry.edition == "6th":
+        skill_model, equipment_model, image_model = CharacterSkill6th, CharacterEquipment6th, CharacterImage6th
+    elif registry.edition == "7th":
+        skill_model, equipment_model, image_model = CharacterSkill7th, CharacterEquipment7th, CharacterImage7th
+    else:
+        return
+
+    if isinstance(instance, _LegacyCharacterSkill):
+        skill_model.objects.filter(legacy_skill_id=instance.id).delete()
+    elif isinstance(instance, _LegacyCharacterEquipment):
+        equipment_model.objects.filter(legacy_equipment_id=instance.id).delete()
+    elif isinstance(instance, _LegacyCharacterImage):
+        image_model.objects.filter(legacy_image_id=instance.id).delete()
 
 
 class CharacterVersionManager:
@@ -2221,24 +2459,29 @@ class CharacterVersionManager:
         return CharacterVersionService.create_version(
             source_character=character,
             actor=character.user,
-            validated_data={"version_note": version_note, "session_count": session_count or (character.session_count + 1)},
+            validated_data={
+                "version_note": version_note,
+                "session_count": session_count or (character.system_data.session_count + 1),
+            },
             copy_policy={"copy_skills": copy_skills},
         )
 
     @staticmethod
     def get_version_history(character):
         """バージョン履歴を取得"""
-        root = CharacterVersionManager.get_root_version(character)
-        versions = [root]
+        root_data = character.system_data
+        while root_data.parent_data_id:
+            root_data = root_data.parent_data
+        versions = [root_data.character_sheet]
 
         # 子バージョンを再帰的に取得
-        def collect_versions(parent):
-            children = parent.versions.all().order_by("version")
+        def collect_versions(parent_data):
+            children = parent_data.versions.select_related("character_sheet").order_by("version")
             for child in children:
-                versions.append(child)
+                versions.append(child.character_sheet)
                 collect_versions(child)
 
-        collect_versions(root)
+        collect_versions(root_data)
         return versions
 
     @staticmethod
@@ -2250,10 +2493,10 @@ class CharacterVersionManager:
     @staticmethod
     def get_root_version(character):
         """ルートバージョンを取得"""
-        current = character
-        while current.parent_sheet:
-            current = current.parent_sheet
-        return current
+        current = character.system_data
+        while current.parent_data_id:
+            current = current.parent_data
+        return current.character_sheet
 
     @staticmethod
     def compare_versions(character1, character2):
@@ -2272,8 +2515,8 @@ class CharacterVersionManager:
             "int_value",
             "edu_value",
         ]:
-            val1 = getattr(character1, ability)
-            val2 = getattr(character2, ability)
+            val1 = getattr(character1.system_data, ability)
+            val2 = getattr(character2.system_data, ability)
             if val1 != val2:
                 ability_diffs[ability] = {"old": val1, "new": val2, "change": val2 - val1}
 
@@ -2282,8 +2525,8 @@ class CharacterVersionManager:
 
         # 技能の比較
         skill_diffs = {}
-        skills1 = {skill.skill_name: skill for skill in character1.skills.all()}
-        skills2 = {skill.skill_name: skill for skill in character2.skills.all()}
+        skills1 = {skill.skill_name: skill for skill in character1.system_data.skills.all()}
+        skills2 = {skill.skill_name: skill for skill in character2.system_data.skills.all()}
 
         # 追加された技能
         added_skills = set(skills2.keys()) - set(skills1.keys())
@@ -2318,8 +2561,8 @@ class CharacterVersionManager:
             source_character=target_version,
             actor=current_character.user,
             validated_data={
-                "version_note": f"Rollback from version {target_version.version}",
-                "session_count": current_character.session_count,
+                "version_note": f"Rollback from version {target_version.system_data.version}",
+                "session_count": current_character.system_data.session_count,
             },
             parent_character=current_character,
         )
@@ -2330,8 +2573,8 @@ class CharacterVersionManager:
         history = CharacterVersionManager.get_version_history(character)
         return {
             "total_versions": len(history),
-            "latest_version": history[-1].version if history else 1,
-            "total_sessions": history[-1].session_count if history else 0,
+            "latest_version": history[-1].system_data.version if history else 1,
+            "total_sessions": history[-1].system_data.session_count if history else 0,
         }
 
 
@@ -2340,11 +2583,13 @@ class CharacterExportManager:
 
     @staticmethod
     def export_version_data(character):
+        registry = character
+        character = registry.system_data
         """バージョンデータをエクスポート"""
         data = {
             "character_info": {
                 "name": character.name,
-                "edition": character.edition,
+                "edition": registry.edition,
                 "age": character.age,
                 "occupation": character.occupation,
                 "occupation_point_method": character.occupation_point_method,
@@ -2367,25 +2612,27 @@ class CharacterExportManager:
                 "version": character.version,
                 "note": character.version_note,
                 "session_count": character.session_count,
-                "created_at": character.created_at.isoformat(),
-                "updated_at": character.updated_at.isoformat(),
+                "created_at": registry.created_at.isoformat(),
+                "updated_at": registry.updated_at.isoformat(),
             },
         }
 
         # 6版固有データ
-        if character.edition == "6th" and hasattr(character, "sixth_edition_data"):
+        if registry.edition == "6th":
             data["sixth_edition"] = {
-                "idea_roll": character.sixth_edition_data.idea_roll,
-                "luck_roll": character.sixth_edition_data.luck_roll,
-                "know_roll": character.sixth_edition_data.know_roll,
-                "damage_bonus": character.sixth_edition_data.damage_bonus,
-                "mental_disorder": character.sixth_edition_data.mental_disorder,
+                "idea_roll": character.idea_roll,
+                "luck_roll": character.luck_roll,
+                "know_roll": character.know_roll,
+                "damage_bonus": character.damage_bonus,
+                "mental_disorder": character.mental_disorder,
             }
 
         return data
 
     @staticmethod
     def export_ccfolia_format(character):
+        registry = character
+        character = registry.system_data
         """CCFOLIA形式でのデータエクスポート"""
         # 技能値からコマンド文字列を生成
         commands = []
@@ -2494,7 +2741,7 @@ class CharacterExportManager:
                     {
                         "error": True,
                         "character_id": character.id,
-                        "character_name": character.name,
+                        "character_name": character.system_data.name,
                         "error_message": str(e),
                     }
                 )
@@ -2508,7 +2755,8 @@ class CharacterSyncManager:
     @staticmethod
     def sync_to_ccfolia(character):
         """CCFOLIAへの同期処理"""
-        if not character.ccfolia_sync_enabled:
+        system_data = character.system_data
+        if not system_data.ccfolia_sync_enabled:
             return {"status": "disabled", "message": "同期が無効です"}
 
         try:
@@ -2519,7 +2767,7 @@ class CharacterSyncManager:
             # ここではダミーレスポンス
             sync_result = {
                 "status": "success",
-                "character_id": character.ccfolia_character_id,
+                "character_id": system_data.ccfolia_character_id,
                 "data_sent": data,
                 "timestamp": timezone.now().isoformat(),
             }

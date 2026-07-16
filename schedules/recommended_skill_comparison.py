@@ -327,7 +327,7 @@ def build_recommended_skill_comparison(scenario, participants):
             "participant_id": participant.id,
             "participant_name": participant.display_name,
             "character_id": participant.character_sheet_id,
-            "character_name": participant.character_sheet.name,
+            "character_name": participant.character_sheet.system_data.name,
         }
         for participant in eligible_participants
     ]
@@ -335,7 +335,7 @@ def build_recommended_skill_comparison(scenario, participants):
     for row in rows:
         cells = []
         for participant in eligible_participants:
-            character = participant.character_sheet
+            character = participant.character_sheet.system_data
             matches = _stored_skill_matches(character, row["name"])
             if not matches:
                 initial_match = _initial_skill_match(character, row["name"])

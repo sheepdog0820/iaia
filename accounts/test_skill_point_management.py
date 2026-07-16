@@ -9,8 +9,9 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .character_models import CharacterSheet6th, CharacterSkill
+from .character_models import CharacterSheet6th, CharacterSkill6th as CharacterSkill
 from .models import CharacterSheet
+from .test_character_factories import create_6th_character
 
 User = get_user_model()
 
@@ -20,7 +21,7 @@ class SkillPointCalculationTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
+        _, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -34,7 +35,7 @@ class SkillPointCalculationTestCase(TestCase):
             int_value=14,  # INT×10 = 140 趣味技能ポイント
             edu_value=16,  # EDU×20 = 320 職業技能ポイント（標準）
         )
-        self.character_6th = CharacterSheet6th.objects.create(character_sheet=self.character)
+        self.character_6th = self.character
 
     def test_occupation_skill_points_calculation(self):
         """職業技能ポイントの計算テスト"""
@@ -91,7 +92,7 @@ class SkillPointValidationTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
+        _, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -119,7 +120,7 @@ class SkillPointValidationTestCase(TestCase):
 
     def test_skill_value_cap_validation(self):
         """技能値上限（999）のバリデーション"""
-        high_cap_character = CharacterSheet.objects.create(
+        _, high_cap_character = create_6th_character(
             user=self.user,
             name="High Cap Investigator",
             edition="6th",
@@ -165,7 +166,7 @@ class SkillPointManagementAPITestCase(APITestCase):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
         self.client.force_authenticate(user=self.user)
 
-        self.character = CharacterSheet.objects.create(
+        _, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -182,7 +183,7 @@ class SkillPointManagementAPITestCase(APITestCase):
 
     def test_get_skill_points_summary(self):
         """技能ポイントサマリー取得APIテスト"""
-        response = self.client.get(f"/accounts/character-sheets/{self.character.id}/skill-points-summary/")
+        response = self.client.get(f"/accounts/character-sheets/{self.character.character_sheet_id}/skill-points-summary/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["total_occupation_points"], 1200)
@@ -200,7 +201,7 @@ class SkillPointManagementAPITestCase(APITestCase):
         allocation_data = {"skill_id": skill.id, "occupation_points": 40, "interest_points": 15}
 
         response = self.client.post(
-            f"/accounts/character-sheets/{self.character.id}/allocate-skill-points/", allocation_data, format="json"
+            f"/accounts/character-sheets/{self.character.character_sheet_id}/allocate-skill-points/", allocation_data, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -225,7 +226,7 @@ class SkillPointManagementAPITestCase(APITestCase):
         }
 
         response = self.client.post(
-            f"/accounts/character-sheets/{self.character.id}/batch-allocate-skill-points/",
+            f"/accounts/character-sheets/{self.character.character_sheet_id}/batch-allocate-skill-points/",
             allocation_data,
             format="json",
         )
@@ -245,7 +246,7 @@ class SkillPointManagementAPITestCase(APITestCase):
         allocation_data = {"skill_id": skill.id, "occupation_points": 1250}  # 総ポイント1200を超える
 
         response = self.client.post(
-            f"/accounts/character-sheets/{self.character.id}/allocate-skill-points/", allocation_data, format="json"
+            f"/accounts/character-sheets/{self.character.character_sheet_id}/allocate-skill-points/", allocation_data, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -258,7 +259,7 @@ class SkillPointManagementAPITestCase(APITestCase):
             character_sheet=self.character, skill_name="図書館", base_value=25, occupation_points=40, interest_points=15
         )
 
-        response = self.client.post(f"/accounts/character-sheets/{self.character.id}/reset-skill-points/")
+        response = self.client.post(f"/accounts/character-sheets/{self.character.character_sheet_id}/reset-skill-points/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -274,7 +275,7 @@ class OccupationSkillSetTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
+        _, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",

@@ -8,11 +8,9 @@ The actual model definitions are organized in the models/ subdirectory.
 # Import character models directly from character_models module
 from .character_models import (
     CharacterDiceRollSetting,
-    CharacterEquipment,
     CharacterExportManager,
     CharacterSheet,
     CharacterSheet6th,
-    CharacterSkill,
     CharacterSyncManager,
     CharacterVersionManager,
 )
@@ -36,8 +34,6 @@ __all__ = [
     "GroupInviteLink",
     "CharacterSheet",
     "CharacterSheet6th",
-    "CharacterSkill",
-    "CharacterEquipment",
     "CharacterDiceRollSetting",
     "CharacterVersionManager",
     "CharacterExportManager",

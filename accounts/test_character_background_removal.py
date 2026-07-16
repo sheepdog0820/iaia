@@ -7,6 +7,7 @@ from django.urls import reverse
 from PIL import Image
 from rest_framework.test import APIClient
 
+from accounts.character_models import CharacterSheet6th
 from accounts.models import CharacterSheet, CustomUser
 from accounts.serializers import CharacterSheetSerializer
 
@@ -76,9 +77,9 @@ class CharacterBackgroundRemovalTests(TestCase):
         self.assertEqual(response.status_code, 503)
 
     def test_character_name_kana_is_serialized(self):
-        character = CharacterSheet.objects.create(
-            user=self.user,
-            edition="6th",
+        character = CharacterSheet.objects.create(user=self.user, edition="6th")
+        CharacterSheet6th.objects.create(
+            character_sheet=character,
             name="高島 静雄",
             name_kana="たかしま しずお",
             str_value=10,

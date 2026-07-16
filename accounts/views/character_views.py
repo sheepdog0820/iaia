@@ -9,11 +9,14 @@ import re
 import time
 from collections.abc import Mapping
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, OperationalError, transaction
+from django.db.models import Q
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
@@ -23,7 +26,7 @@ from ..character_image_limits import (
     collect_character_image_uploads,
     get_character_image_limit,
 )
-from ..character_models import GrowthRecord
+from ..character_models import CharacterEquipment6th, CharacterSkill6th, GrowthRecord
 from ..serializers import CharacterSheetSerializer, CharacterVersionCreateSerializer, GrowthRecordSerializer
 from ..services.character_version_service import CharacterVersionService
 from .base_views import BaseViewSet, PermissionMixin
@@ -163,33 +166,12 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
 
     def get_queryset(self):
         """Get user's character sheets only"""
-        from django.db.models import Count, F, IntegerField, Max, OuterRef, PositiveIntegerField, Q, Subquery
-        from django.db.models.functions import Coalesce
-
-        queryset = CharacterSheet.objects.select_related("parent_sheet", "sixth_edition_data", "user").order_by(
-            "-updated_at"
-        )
-
-        if self.action not in ["list", "active", "by_edition"]:
-            queryset = queryset.prefetch_related("skills", "equipment")
-        else:
-            base_sheet_ref = Coalesce(OuterRef("parent_sheet_id"), OuterRef("id"))
-            latest_version_subquery = (
-                CharacterSheet.objects.filter(parent_sheet_id=base_sheet_ref)
-                .values("parent_sheet_id")
-                .annotate(max_version=Max("version"))
-                .values("max_version")[:1]
-            )
-
-            queryset = queryset.annotate(
-                latest_version=Coalesce(
-                    Subquery(latest_version_subquery, output_field=PositiveIntegerField()),
-                    F("version"),
-                    output_field=PositiveIntegerField(),
-                ),
-                skill_count=Count("skills", distinct=True),
-                equipment_count=Count("equipment", distinct=True),
-            )
+        queryset = CharacterSheet.objects.select_related(
+            "sixth_edition_data", "seventh_edition_data", "user"
+        ).prefetch_related(
+            "sixth_edition_data__skills", "sixth_edition_data__equipment",
+            "seventh_edition_data__skills", "seventh_edition_data__equipment",
+        ).order_by("-updated_at")
 
         if self.action in ["list", "active", "by_edition"]:
             return queryset.filter(user=self.request.user)
@@ -224,7 +206,9 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
     @action(detail=False, methods=["get"])
     def active(self, request):
         """Get active character sheets"""
-        queryset = self.get_queryset().filter(is_active=True)
+        queryset = self.get_queryset().filter(
+            Q(sixth_edition_data__is_active=True) | Q(seventh_edition_data__is_active=True)
+        )
         serializer = CharacterSheetListSerializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -247,16 +231,21 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         """Get character sheet version history"""
         sheet = self.get_object()
 
-        if sheet.parent_sheet:
-            base_sheet = sheet.parent_sheet
-        else:
-            base_sheet = sheet
+        detail = sheet.system_data
+        root = detail
+        while root.parent_data_id:
+            root = root.parent_data
 
-        # Get all versions
-        versions = CharacterSheet.objects.filter(parent_sheet=base_sheet).order_by("version")
+        def belongs_to_root(candidate):
+            while candidate.parent_data_id:
+                candidate = candidate.parent_data
+            return candidate.pk == root.pk
 
-        # Include parent version
-        all_versions = [base_sheet] + list(versions)
+        all_versions = [
+            candidate.character_sheet
+            for candidate in detail.__class__.objects.select_related("character_sheet", "parent_data").order_by("version")
+            if belongs_to_root(candidate)
+        ]
 
         serializer = CharacterSheetListSerializer(all_versions, many=True)
         return Response(serializer.data)
@@ -265,8 +254,9 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
     def toggle_active(self, request, pk=None):
         """Toggle character sheet active status"""
         sheet = self.get_object()
-        sheet.is_active = not sheet.is_active
-        sheet.save()
+        detail = sheet.system_data
+        detail.is_active = not detail.is_active
+        detail.save(update_fields=["is_active"])
 
         serializer = CharacterSheetSerializer(sheet)
         return Response(serializer.data)
@@ -276,11 +266,11 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         """Get skill points summary for a character"""
         sheet = self.get_object()
 
-        occupation_total = sheet.calculate_occupation_points()
-        hobby_total = sheet.calculate_hobby_points()
+        occupation_total = sheet.system_data.calculate_occupation_points()
+        hobby_total = sheet.system_data.calculate_hobby_points()
 
         # Calculate used points
-        skills = sheet.skills.all()
+        skills = sheet.system_data.skills.all()
         occupation_used = sum(skill.occupation_points for skill in skills)
         hobby_used = sum(skill.interest_points for skill in skills)
 
@@ -396,19 +386,15 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         mythos = int(skill_totals.get("クトゥルフ神話", 0) or 0)
         sanity_max = max(0, 99 - mythos)
 
-        existing_chars = CharacterSheet.objects.filter(user=user, name=name, edition=edition)
-        if existing_chars.exists():
-            latest_version = existing_chars.order_by("-version").first().version
-            version = latest_version + 1
-            parent_sheet = existing_chars.order_by("version").first()
-        else:
-            version = 1
-            parent_sheet = None
+        detail_model = CharacterSheet6th if edition == "6th" else CharacterSheet7th
+        existing_details = [sheet.system_data for sheet in CharacterSheet.objects.by_system_name(name, user=user, edition=edition)]
+        version = max((detail.version for detail in existing_details), default=0) + 1
+        parent_data = min(existing_details, key=lambda detail: detail.version) if existing_details else None
 
         with transaction.atomic():
-            character_sheet = CharacterSheet.objects.create(
-                user=user,
-                edition=edition,
+            character_sheet = CharacterSheet.objects.create(user=user, edition=edition)
+            detail = detail_model.objects.create(
+                character_sheet=character_sheet,
                 name=name,
                 player_name="",
                 age=age,
@@ -434,11 +420,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 sanity_current=sanity_current,
                 notes=notes,
                 version=version,
-                parent_sheet=parent_sheet,
+                parent_data=parent_data,
             )
-
-            if edition == "6th":
-                CharacterSheet6th.objects.create(character_sheet=character_sheet, mental_disorder="")
 
             for skill_name, total_value in skill_totals.items():
                 if not skill_name:
@@ -452,15 +435,17 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 base_name = self._base_skill_name(normalized)
 
                 if edition == "7th":
-                    inferred_base = character_sheet.get_7th_skill_base_value(base_name)
+                    inferred_base = (detail.dex_value or 0) // 2 if base_name == "回避" else 0
                 else:
-                    inferred_base = character_sheet._get_skill_base_value(base_name)
+                    inferred_base = min(25, total_value)
+                if edition == "7th" and base_name in {"目星", "図書館"}:
+                    inferred_base = 25 if base_name == "目星" else 20
                 base_value = inferred_base if inferred_base <= total_value else total_value
                 other_points = max(total_value - base_value, 0)
 
-                category = character_sheet._get_skill_category(base_name)
-                skill = CharacterSkill(
-                    character_sheet=character_sheet,
+                category = detail.get_skill_category(base_name)
+                skill = detail.skills.model(
+                    character_sheet=detail,
                     skill_name=normalized,
                     category=category,
                     base_value=base_value,
@@ -721,8 +706,9 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             return Response({"error": "skill_name is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Get or create skill
-        skill, created = CharacterSkill.objects.get_or_create(
-            character_sheet=sheet, skill_name=skill_name, defaults={"base_value": 0}
+        detail = sheet.system_data
+        skill, created = detail.skills.get_or_create(
+            skill_name=skill_name, defaults={"base_value": 0}
         )
 
         # Update points
@@ -752,13 +738,14 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             return Response({"error": "skills array is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         updated_skills = []
+        detail = sheet.system_data
         for skill_data in skills_data:
             skill_name = skill_data.get("skill_name")
             if not skill_name:
                 continue
 
-            skill, created = CharacterSkill.objects.get_or_create(
-                character_sheet=sheet, skill_name=skill_name, defaults={"base_value": skill_data.get("base_value", 0)}
+            skill, created = detail.skills.get_or_create(
+                skill_name=skill_name, defaults={"base_value": skill_data.get("base_value", 0)}
             )
 
             # Update points
@@ -790,7 +777,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
 
         # Get weapons
         weapons = []
-        for equipment in sheet.equipment.filter(item_type="weapon"):
+        for equipment in sheet.system_data.equipment.filter(item_type="weapon"):
             weapons.append(
                 {
                     "name": equipment.name,
@@ -805,7 +792,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
 
         # Get combat skills
         combat_skills = []
-        for skill in sheet.skills.filter(
+        for skill in sheet.system_data.skills.filter(
             skill_name__in=["拳銃", "ライフル", "ショットガン", "こぶし", "キック", "ナイフ", "回避"]
         ):
             combat_skills.append({"name": skill.skill_name, "current_value": skill.current_value})
@@ -815,7 +802,10 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 "damage_bonus": damage_bonus,
                 "weapons": weapons,
                 "combat_skills": combat_skills,
-                "hp": {"current": sheet.hit_points_current, "max": sheet.hit_points_max},
+                "hp": {
+                    "current": sheet.system_data.hit_points_current,
+                    "max": sheet.system_data.hit_points_max,
+                },
             }
         )
 
@@ -838,30 +828,17 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 )
 
         # Get version history
-        versions = []
-        if sheet.parent_sheet:
-            base_sheet = sheet.parent_sheet
-            all_versions = CharacterSheet.objects.filter(parent_sheet=base_sheet).order_by("version")
-
-            for version in [base_sheet] + list(all_versions):
-                versions.append(
-                    {
-                        "version": version.version,
-                        "created_at": version.created_at.isoformat(),
-                        "session_count": version.session_count,
-                    }
-                )
-        else:
-            versions.append(
-                {
-                    "version": sheet.version,
-                    "created_at": sheet.created_at.isoformat(),
-                    "session_count": sheet.session_count,
-                }
-            )
+        versions = [
+            {
+                "version": version.system_data.version,
+                "created_at": version.created_at.isoformat(),
+                "session_count": version.system_data.session_count,
+            }
+            for version in sheet.get_version_history()
+        ]
 
         return Response(
-            {"session_count": sheet.session_count, "growth_records": growth_records, "version_history": versions}
+            {"session_count": sheet.system_data.session_count, "growth_records": growth_records, "version_history": versions}
         )
 
     @action(detail=True, methods=["post"])
@@ -917,7 +894,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         version_data = {
             "current_version": {
                 "id": sheet.id,
-                "version": sheet.version,
+                "version": sheet.system_data.version,
                 "created_at": sheet.created_at.isoformat(),
                 "updated_at": sheet.updated_at.isoformat(),
                 "data": CharacterSheetSerializer(sheet).data,
@@ -925,23 +902,15 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             "version_history": [],
         }
 
-        # Get history if parent sheet exists
-        if sheet.parent_sheet:
-            base_sheet = sheet.parent_sheet
-            versions = CharacterSheet.objects.filter(parent_sheet=base_sheet).order_by("version")
-
-            # Include parent sheet
-            all_versions = [base_sheet] + list(versions)
-
-            for version in all_versions:
-                version_info = {
-                    "id": version.id,
-                    "version": version.version,
-                    "created_at": version.created_at.isoformat(),
-                    "updated_at": version.updated_at.isoformat(),
-                    "is_current": version.id == sheet.id,
-                }
-                version_data["version_history"].append(version_info)
+        for version in sheet.get_version_history():
+            version_info = {
+                "id": version.id,
+                "version": version.system_data.version,
+                "created_at": version.created_at.isoformat(),
+                "updated_at": version.updated_at.isoformat(),
+                "is_current": version.id == sheet.id,
+            }
+            version_data["version_history"].append(version_info)
 
         return Response(version_data)
 
@@ -1147,27 +1116,24 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 if "character_image" in request.FILES:
                     character_data["character_image"] = request.FILES["character_image"]
 
-                character_sheet = CharacterSheet(**character_data)
-                stats = character_sheet.calculate_derived_stats()
-                character_sheet.hit_points_max = stats["hit_points_max"]
-                character_sheet.hit_points_current = stats["hit_points_max"]
-                character_sheet.magic_points_max = stats["magic_points_max"]
-                character_sheet.magic_points_current = stats["magic_points_max"]
-                character_sheet.sanity_starting = stats["sanity_starting"]
-                character_sheet.sanity_current = stats["sanity_starting"]
-                character_sheet.sanity_max = stats["sanity_max"]
-                character_sheet.save()
-
-                CharacterSheet6th.objects.create(
-                    character_sheet=character_sheet, mental_disorder=request.data.get("mental_disorder", "")
-                )
+                character_data.pop("user")
+                character_data.pop("edition")
+                character_sheet = CharacterSheet.objects.create(user=request.user, edition="6th")
+                character_data["mental_disorder"] = request.data.get("mental_disorder", "")
+                detail = CharacterSheet6th(character_sheet=character_sheet, **character_data)
+                stats = detail.calculate_derived_stats()
+                detail.hit_points_max = detail.hit_points_current = stats["hit_points_max"]
+                detail.magic_points_max = detail.magic_points_current = stats["magic_points_max"]
+                detail.sanity_starting = detail.sanity_current = stats["sanity_starting"]
+                detail.sanity_max = stats["sanity_max"]
+                detail.save()
 
                 for skill_data in skills_data:
-                    CharacterSkill.objects.create(character_sheet=character_sheet, **skill_data)
+                    detail.skills.model.objects.create(character_sheet=detail, **skill_data)
 
                 for equipment in equipment_data:
-                    CharacterEquipment.objects.create(
-                        character_sheet=character_sheet,
+                    detail.equipment.model.objects.create(
+                        character_sheet=detail,
                         item_type=equipment.get("item_type", "item"),
                         name=equipment["name"],
                         skill_name=equipment.get("skill_name", ""),
@@ -1183,17 +1149,21 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                     )
 
                 for index, image_file in enumerate(image_files):
-                    CharacterImage.objects.create(
-                        character_sheet=character_sheet, image=image_file, is_main=(index == 0), order=index
+                    detail.images.model.objects.create(
+                        character_sheet=detail, image=image_file, is_main=(index == 0), order=index
                     )
 
             response_serializer = CharacterSheetSerializer(character_sheet)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-        except (ValueError, ValidationError) as e:
-            return Response({"error": f"Character sheet creation failed: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
+        except (ValueError, DjangoValidationError) as exc:
+            if isinstance(exc, DjangoValidationError) and hasattr(exc, "message_dict"):
+                return Response(exc.message_dict, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            logger.exception("Unexpected error while creating 6th edition character: user_id=%s", request.user.id)
             return Response(
-                {"error": f"Character sheet creation failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "キャラクターシートの保存中にシステムエラーが発生しました。時間をおいて再度お試しください。"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     @action(detail=False, methods=["post"])
@@ -1342,19 +1312,16 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             if "character_image" in request.FILES:
                 character_data["character_image"] = request.FILES["character_image"]
 
-            character_sheet = CharacterSheet(**character_data)
-
-            stats = character_sheet.calculate_derived_stats()
-
-            character_sheet.hit_points_max = stats["hit_points_max"]
-            character_sheet.hit_points_current = stats["hit_points_max"]
-            character_sheet.magic_points_max = stats["magic_points_max"]
-            character_sheet.magic_points_current = stats["magic_points_max"]
-            character_sheet.sanity_starting = stats["sanity_starting"]
-            character_sheet.sanity_current = stats["sanity_starting"]
-            character_sheet.sanity_max = stats["sanity_max"]
-
-            character_sheet.save()
+            character_data.pop("user")
+            character_data.pop("edition")
+            character_sheet = CharacterSheet.objects.create(user=request.user, edition="7th")
+            detail = CharacterSheet7th(character_sheet=character_sheet, **character_data)
+            stats = detail.calculate_derived_stats()
+            detail.hit_points_max = detail.hit_points_current = stats["hit_points_max"]
+            detail.magic_points_max = detail.magic_points_current = stats["magic_points_max"]
+            detail.sanity_starting = detail.sanity_current = stats["sanity_starting"]
+            detail.sanity_max = stats["sanity_max"]
+            detail.save()
 
             try:
                 skills_data = parse_json_list(request.data.get("skills", []), "skills")
@@ -1385,8 +1352,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                     default=base_value + occupation_points + interest_points + other_points,
                 )
 
-                CharacterSkill.objects.create(
-                    character_sheet=character_sheet,
+                detail.skills.model.objects.create(
+                    character_sheet=detail,
                     skill_name=skill_data["skill_name"],
                     base_value=base_value,
                     occupation_points=occupation_points,
@@ -1403,8 +1370,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             for equipment in equipment_data:
                 if not isinstance(equipment, dict) or "name" not in equipment:
                     continue
-                CharacterEquipment.objects.create(
-                    character_sheet=character_sheet,
+                detail.equipment.model.objects.create(
+                    character_sheet=detail,
                     item_type=equipment.get("item_type", "item"),
                     name=equipment["name"],
                     skill_name=equipment.get("skill_name", ""),
@@ -1420,32 +1387,43 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 )
 
             for index, image_file in enumerate(image_files):
-                CharacterImage.objects.create(
-                    character_sheet=character_sheet, image=image_file, is_main=(index == 0), order=index
+                detail.images.model.objects.create(
+                    character_sheet=detail, image=image_file, is_main=(index == 0), order=index
                 )
 
             response_serializer = CharacterSheetSerializer(character_sheet)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
-        except Exception as e:
+        except DjangoValidationError as exc:
+            error_data = exc.message_dict if hasattr(exc, "message_dict") else {"error": exc.messages}
+            return Response(error_data, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            logger.exception("Unexpected error while creating 7th edition character: user_id=%s", request.user.id)
             return Response(
-                {"error": f"Character sheet creation failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "キャラクターシートの保存中にシステムエラーが発生しました。時間をおいて再度お試しください。"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     def _get_or_create_skill_with_retry(self, sheet, skill_name, base_value, skip_point_validation):
+        detail = sheet.system_data
+        skills = detail.skills
         """SQLiteのロックに備えて技能の作成をリトライする。"""
         max_attempts = 5
         for attempt in range(max_attempts):
             try:
-                skill = CharacterSkill.objects.filter(character_sheet=sheet, skill_name=skill_name).first()
+                skill = skills.filter(skill_name=skill_name).first()
                 if skill:
                     return skill, False
 
-                skill = CharacterSkill(character_sheet=sheet, skill_name=skill_name, base_value=base_value)
-                skill.save(skip_point_validation=skip_point_validation)
+                skill = skills.model(character_sheet=detail, skill_name=skill_name, base_value=base_value)
+                if not skip_point_validation:
+                    skill.full_clean()
+                skill.save()
                 return skill, True
             except IntegrityError:
-                skill = CharacterSkill.objects.filter(character_sheet=sheet, skill_name=skill_name).first()
+                skill = skills.filter(skill_name=skill_name).first()
                 if skill:
                     return skill, False
                 raise
@@ -1459,7 +1437,9 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         max_attempts = 5
         for attempt in range(max_attempts):
             try:
-                skill.save(skip_point_validation=skip_point_validation)
+                if not skip_point_validation:
+                    skill.full_clean()
+                skill.save()
                 return
             except OperationalError:
                 if attempt == max_attempts - 1:
@@ -1502,8 +1482,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         enforce_limits = True
         if skill_id:
             try:
-                skill = CharacterSkill.objects.get(id=skill_id, character_sheet=sheet)
-            except CharacterSkill.DoesNotExist:
+                skill = sheet.system_data.skills.get(id=skill_id)
+            except sheet.system_data.skills.model.DoesNotExist:
                 return Response({"error": "技能が見つかりません"}, status=status.HTTP_404_NOT_FOUND)
         else:
             skill, _ = self._get_or_create_skill_with_retry(
@@ -1519,10 +1499,10 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
 
         if enforce_limits:
             # ポイント不足チェック
-            if occupation_points > sheet.calculate_remaining_occupation_points() + skill.occupation_points:
+            if occupation_points > sheet.system_data.calculate_remaining_occupation_points() + skill.occupation_points:
                 return Response({"error": "職業技能ポイントが不足しています"}, status=status.HTTP_400_BAD_REQUEST)
 
-            if interest_points > sheet.calculate_remaining_hobby_points() + skill.interest_points:
+            if interest_points > sheet.system_data.calculate_remaining_hobby_points() + skill.interest_points:
                 return Response({"error": "趣味技能ポイントが不足しています"}, status=status.HTTP_400_BAD_REQUEST)
 
         # ポイント更新
@@ -1591,8 +1571,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
 
             if skill_id:
                 try:
-                    skill = CharacterSkill.objects.get(id=skill_id, character_sheet=sheet)
-                except CharacterSkill.DoesNotExist:
+                    skill = sheet.system_data.skills.get(id=skill_id)
+                except sheet.system_data.skills.model.DoesNotExist:
                     continue
             else:
                 skill, _ = self._get_or_create_skill_with_retry(
@@ -1622,8 +1602,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             return Response({"error": errors[0]}, status=status.HTTP_400_BAD_REQUEST)
 
         # 残りポイントを計算
-        remaining_occupation = sheet.calculate_occupation_points() - sheet.calculate_used_occupation_points()
-        remaining_hobby = sheet.calculate_hobby_points() - sheet.calculate_used_hobby_points()
+        remaining_occupation = sheet.system_data.calculate_remaining_occupation_points()
+        remaining_hobby = sheet.system_data.calculate_remaining_hobby_points()
 
         return Response(
             {
@@ -1639,7 +1619,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         sheet = self.get_object()
 
         # 全技能のポイントをリセット（個別にsaveしてcurrent_valueを自動計算）
-        skills = CharacterSkill.objects.filter(character_sheet=sheet)
+        skills = sheet.system_data.skills.all()
         for skill in skills:
             skill.occupation_points = 0
             skill.interest_points = 0
@@ -1653,11 +1633,12 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         sheet = self.get_object()
 
         # 武器・防具の取得
-        weapons = CharacterEquipment.objects.filter(character_sheet=sheet, item_type="weapon")
-        armors = CharacterEquipment.objects.filter(character_sheet=sheet, item_type="armor")
+        equipment = sheet.system_data.equipment
+        weapons = equipment.filter(item_type="weapon")
+        armors = equipment.filter(item_type="armor")
 
         # ダメージボーナスの取得
-        damage_bonus = sheet.damage_bonus
+        damage_bonus = sheet.system_data.damage_bonus
 
         # 総防護点の計算
         total_armor_points = sum(armor.armor_points or 0 for armor in armors)
@@ -1768,14 +1749,14 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         sheet = self.get_object()
 
         # アイテムの取得
-        items = CharacterEquipment.objects.filter(character_sheet=sheet, item_type="item")
+        items = sheet.system_data.equipment.filter(item_type="item")
 
         # 総重量の計算
         total_weight = sum((item.weight or 0) * item.quantity for item in items)
 
         # 運搬能力の計算
-        carry_capacity = sheet.calculate_carry_capacity()
-        movement_penalty = sheet.calculate_movement_penalty(total_weight)
+        carry_capacity = sheet.system_data.calculate_carry_capacity()
+        movement_penalty = sheet.system_data.calculate_movement_penalty(total_weight)
 
         summary = {
             "items": [
@@ -1817,7 +1798,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 continue
 
             try:
-                item = CharacterEquipment.objects.get(id=item_id, character_sheet=sheet)
+                item = sheet.system_data.equipment.get(id=item_id)
 
                 # 数量更新
                 if "quantity" in item_data:
@@ -1830,7 +1811,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 item.save()
                 updated_count += 1
 
-            except CharacterEquipment.DoesNotExist:
+            except sheet.system_data.equipment.model.DoesNotExist:
                 errors.append(f"Item with id {item_id} not found")
             except Exception as e:
                 errors.append(f"Failed to update item {item_id}: {str(e)}")
@@ -2090,8 +2071,8 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         # 基本統計
         record_count = growth_records.count()
         total_sessions = record_count
-        if sheet.session_count:
-            total_sessions = max(sheet.session_count, record_count)
+        if sheet.system_data.session_count:
+            total_sessions = max(sheet.system_data.session_count, record_count)
         total_sanity_lost = sum(record.sanity_lost for record in growth_records)
         total_sanity_gained = sum(record.sanity_gained for record in growth_records)
         total_experience = sum(record.experience_gained for record in growth_records)
@@ -2108,8 +2089,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             )
 
         # バージョン数
-        base_sheet = sheet.parent_sheet or sheet
-        version_count = 1 + CharacterSheet.objects.filter(parent_sheet=base_sheet).count()
+        version_count = len(sheet.get_version_history())
 
         growth_records_payload = []
         for record in growth_records:
@@ -2145,17 +2125,20 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
 class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, viewsets.ModelViewSet):
     """Character skill management ViewSet"""
 
-    queryset = CharacterSkill.objects.none()
+    queryset = CharacterSkill6th.objects.none()
     serializer_class = CharacterSkillSerializer
     permission_classes = [IsAuthenticated]
+    system_data_relation = "skills"
 
     # get_queryset and perform_create are now handled by CharacterNestedResourceMixin
 
     def perform_update(self, serializer):
-        """Log unexpected skill-save failures with the identifiers needed for diagnosis."""
+        """Return model validation errors to the client instead of turning them into 500s."""
         skill = serializer.instance
         try:
             serializer.save()
+        except DjangoValidationError as exc:
+            raise DRFValidationError(exc.message_dict if hasattr(exc, "message_dict") else exc.messages) from exc
         except Exception:
             logger.exception(
                 "Character skill update failed: character_sheet_id=%s skill_id=%s skill_name=%r user_id=%s fields=%s",
@@ -2182,8 +2165,8 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
 
         try:
             # Use custom skill creation helper
-            skill = CharacterSkill.create_custom_skill(
-                character_sheet=character_sheet,
+            skill = character_sheet.system_data.skills.model.create_custom_skill(
+                character_sheet=character_sheet.system_data,
                 skill_name=skill_name,
                 category=request.data.get("category", "特殊・その他"),
                 base_value=request.data.get("base_value", 5),
@@ -2286,6 +2269,9 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
         except CharacterSheet.DoesNotExist:
             return Response({"error": "Character sheet not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        detail = character_sheet.system_data
+        skill_model = detail.skills.model
+
         updated_skills = []
         created_skills = []
 
@@ -2295,7 +2281,7 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
             if skill_id:
                 # Update existing skill
                 try:
-                    skill = CharacterSkill.objects.get(id=skill_id, character_sheet__user=self.request.user)
+                    skill = skill_model.objects.get(id=skill_id, character_sheet=detail)
 
                     # Process updatable fields only
                     updatable_fields = [
@@ -2313,15 +2299,15 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
                     skill.save()
                     updated_skills.append(skill)
 
-                except CharacterSkill.DoesNotExist:
+                except skill_model.DoesNotExist:
                     continue
             else:
                 # Create new custom skill
                 skill_name = skill_data.get("skill_name")
                 if skill_name and skill_name.strip():
                     try:
-                        skill = CharacterSkill.create_custom_skill(
-                            character_sheet=character_sheet,
+                        skill = skill_model.create_custom_skill(
+                            character_sheet=detail,
                             skill_name=skill_name,
                             category=skill_data.get("category", "特殊・その他"),
                             base_value=skill_data.get("base_value", 5),
@@ -2343,9 +2329,10 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
 class CharacterEquipmentViewSet(CharacterNestedResourceMixin, viewsets.ModelViewSet):
     """Character equipment management ViewSet"""
 
-    queryset = CharacterEquipment.objects.none()
+    queryset = CharacterEquipment6th.objects.none()
     serializer_class = CharacterEquipmentSerializer
     permission_classes = [IsAuthenticated]
+    system_data_relation = "equipment"
 
     # get_queryset and perform_create are now handled by CharacterNestedResourceMixin
 
@@ -2383,8 +2370,11 @@ class CharacterListView(TemplateView):
         # Base queryset (show only user's character sheets)
         queryset = (
             CharacterSheet.objects.filter(user=user)
-            .select_related("parent_sheet", "sixth_edition_data", "user")
-            .prefetch_related("skills", "equipment")
+            .select_related("sixth_edition_data", "seventh_edition_data", "user")
+            .prefetch_related(
+                "sixth_edition_data__skills", "sixth_edition_data__equipment",
+                "seventh_edition_data__skills", "seventh_edition_data__equipment",
+            )
             .order_by("-updated_at")
         )
 
@@ -2393,13 +2383,22 @@ class CharacterListView(TemplateView):
             queryset = queryset.filter(edition=edition)
 
         if is_active == "active":
-            queryset = queryset.filter(is_active=True)
+            queryset = queryset.filter(
+                Q(edition="6th", sixth_edition_data__is_active=True)
+                | Q(edition="7th", seventh_edition_data__is_active=True)
+            )
         elif is_active == "inactive":
-            queryset = queryset.filter(is_active=False)
+            queryset = queryset.filter(
+                Q(edition="6th", sixth_edition_data__is_active=False)
+                | Q(edition="7th", seventh_edition_data__is_active=False)
+            )
 
         # Edition-based statistics (user's characters only)
         sixth_count = CharacterSheet.objects.filter(user=user, edition="6th").count()
-        active_count = CharacterSheet.objects.filter(user=user, is_active=True).count()
+        active_count = CharacterSheet.objects.filter(user=user).filter(
+            Q(edition="6th", sixth_edition_data__is_active=True)
+            | Q(edition="7th", seventh_edition_data__is_active=True)
+        ).count()
         total_count = CharacterSheet.objects.filter(user=user).count()
 
         context.update(
@@ -2447,8 +2446,11 @@ class CharacterDetailView(TemplateView):
 
         try:
             character = (
-                CharacterSheet.objects.select_related("parent_sheet", "sixth_edition_data", "user")
-                .prefetch_related("skills", "equipment", "versions")
+                CharacterSheet.objects.select_related("sixth_edition_data", "seventh_edition_data", "user")
+                .prefetch_related(
+                    "sixth_edition_data__skills", "sixth_edition_data__equipment",
+                    "seventh_edition_data__skills", "seventh_edition_data__equipment",
+                )
                 .get(id=character_id)
             )
 
@@ -2509,7 +2511,7 @@ class Character6thCreateView(FormView):
 
             # 画像処理はフォームのsaveメソッドで既に実行されているため、ここでは何もしない
 
-            messages.success(self.request, f"クトゥルフ神話TRPG 6版探索者「{character_sheet.name}」が作成されました！")
+            messages.success(self.request, f"クトゥルフ神話TRPG 6版探索者「{character_sheet.system_data.name}」が作成されました！")
 
             # 作成したキャラクターの詳細画面にリダイレクト
             return redirect("character_detail_6th", character_id=character_sheet.id)

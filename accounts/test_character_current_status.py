@@ -57,7 +57,7 @@ class CharacterCurrentStatusTestCase(TestCase):
         self.assertEqual(response.status_code, 302)
 
         # 作成されたキャラクターの確認
-        character = CharacterSheet.objects.get(name="テスト探索者")
+        character = CharacterSheet.objects.by_system_name("テスト探索者", user=self.user, edition="6th").get().system_data
 
         # 最大値は自動計算される
         self.assertEqual(character.hit_points_max, 15)  # フォームで指定した値
@@ -101,7 +101,7 @@ class CharacterCurrentStatusTestCase(TestCase):
         self.assertEqual(response.status_code, 302)
 
         # 作成されたキャラクターの確認
-        character = CharacterSheet.objects.get(name="テスト探索者2")
+        character = CharacterSheet.objects.by_system_name("テスト探索者2", user=self.user, edition="6th").get().system_data
 
         # 現在値は最大値で初期化される
         self.assertEqual(character.hit_points_current, character.hit_points_max)
@@ -143,7 +143,7 @@ class CharacterCurrentStatusTestCase(TestCase):
         self.assertEqual(response.status_code, 302)
 
         # 作成されたキャラクターの確認
-        character = CharacterSheet.objects.get(name="死亡探索者")
+        character = CharacterSheet.objects.by_system_name("死亡探索者", user=self.user, edition="6th").get().system_data
 
         # 0値が正しく保存される
         self.assertEqual(character.hit_points_current, 0)
@@ -185,7 +185,7 @@ class CharacterCurrentStatusTestCase(TestCase):
         self.assertEqual(response.status_code, 302)
 
         # 作成されたキャラクターの確認
-        character = CharacterSheet.objects.get(name="異常探索者")
+        character = CharacterSheet.objects.by_system_name("異常探索者", user=self.user, edition="6th").get().system_data
 
         # 負の値も保存される（制限なし）
         self.assertEqual(character.hit_points_current, -10)
@@ -227,7 +227,7 @@ class CharacterCurrentStatusTestCase(TestCase):
         self.assertEqual(response.status_code, 302)
 
         # 作成されたキャラクターの確認
-        character = CharacterSheet.objects.get(name="超人探索者")
+        character = CharacterSheet.objects.by_system_name("超人探索者", user=self.user, edition="6th").get().system_data
 
         # 最大値を超える値も保存される（制限なし）
         self.assertEqual(character.hit_points_current, 999)

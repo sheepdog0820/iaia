@@ -15,6 +15,33 @@ document.addEventListener('DOMContentLoaded', function() {
         console[danger ? 'error' : 'log'](text);
     };
 
+    const CHARACTER_FIELD_LABELS = {
+        name: '探索者名', age: '年齢', occupation: '職業', player_name: 'プレイヤー名',
+        skills: '技能', occupation_points: '職業技能ポイント', interest_points: '趣味技能ポイント',
+        base_value: '初期値', current_value: '現在値', equipment: '装備', character_images: 'キャラクター画像',
+        non_field_errors: '入力内容', detail: '入力内容', error: '入力内容',
+    };
+
+    const formatCharacterSaveError = (error) => {
+        if (!error || typeof error !== 'object') return '保存に失敗しました。通信状態を確認して、もう一度お試しください。';
+        if (/^HTTP\s+\d+$/.test(String(error.error || ''))) return '保存に失敗しました。時間をおいて、もう一度お試しください。';
+
+        const messages = [];
+        const collectMessages = (value, field = '') => {
+            if (Array.isArray(value)) {
+                value.forEach(item => collectMessages(item, field));
+            } else if (value && typeof value === 'object') {
+                Object.entries(value).forEach(([key, item]) => collectMessages(item, key));
+            } else if (value) {
+                const label = CHARACTER_FIELD_LABELS[field] || '入力内容';
+                messages.push(`${label}: ${value}`);
+            }
+        };
+
+        collectMessages(error);
+        return messages.length ? `保存できませんでした。\n${[...new Set(messages)].join('\n')}` : '保存に失敗しました。入力内容を確認してください。';
+    };
+
     const confirmUser = (message, options = {}) => {
         if (window.ARKHAM?.confirm) return window.ARKHAM.confirm(message, options);
         return Promise.resolve(false);
@@ -3486,7 +3513,7 @@ function initOccupationTemplates() {
                     window.location.href = `/accounts/character/${editCharacterId}/`;
                 } catch (error) {
                     console.error('Error:', error);
-                    notifyUser(error?.error ? ('Error: ' + error.error) : 'Network error occurred.');
+                    notifyUser(formatCharacterSaveError(error));
                 } finally {
                     setCharacterSaveLoadingState(false);
                 }
@@ -3542,11 +3569,7 @@ function initOccupationTemplates() {
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        if (error.error) {
-                            notifyUser('Error: ' + error.error);
-                        } else {
-                            notifyUser('Network error occurred.');
-                        }
+                        notifyUser(formatCharacterSaveError(error));
                     })
                     .finally(() => setCharacterSaveLoadingState(false));
             } else {
@@ -3578,11 +3601,7 @@ function initOccupationTemplates() {
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        if (error.error) {
-                            notifyUser('Error: ' + error.error);
-                        } else {
-                            notifyUser('Network error occurred.');
-                        }
+                        notifyUser(formatCharacterSaveError(error));
                     })
                     .finally(() => setCharacterSaveLoadingState(false));
             }
@@ -3621,7 +3640,7 @@ function initOccupationTemplates() {
             window.location.href = `/accounts/character/${newId}/`;
         } catch (error) {
             console.error('Error:', error);
-            notifyUser(error?.error ? ('Error: ' + error.error) : 'Network error occurred.');
+            notifyUser(formatCharacterSaveError(error));
         }
     }
 

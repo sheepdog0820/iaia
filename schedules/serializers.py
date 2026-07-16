@@ -153,17 +153,18 @@ class SessionParticipantSerializer(serializers.ModelSerializer):
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_character_sheet_detail(self, obj):
         if obj.character_sheet:
+            detail = obj.character_sheet.system_data
             return {
                 "id": obj.character_sheet.id,
-                "name": obj.character_sheet.name,
-                "occupation": obj.character_sheet.occupation,
-                "age": obj.character_sheet.age,
-                "hp_current": obj.character_sheet.hp_current,
-                "mp_current": obj.character_sheet.mp_current,
-                "san_current": obj.character_sheet.san_current,
-                "hit_points_current": obj.character_sheet.hit_points_current,
-                "magic_points_current": obj.character_sheet.magic_points_current,
-                "sanity_current": obj.character_sheet.sanity_current,
+                "name": detail.name,
+                "occupation": detail.occupation,
+                "age": detail.age,
+                "hp_current": detail.hit_points_current,
+                "mp_current": detail.magic_points_current,
+                "san_current": detail.sanity_current,
+                "hit_points_current": detail.hit_points_current,
+                "magic_points_current": detail.magic_points_current,
+                "sanity_current": detail.sanity_current,
             }
         return None
 

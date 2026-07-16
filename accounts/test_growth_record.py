@@ -12,10 +12,17 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .character_models import CharacterSheet6th, CharacterSkill, GrowthRecord, SkillGrowthRecord
+from .character_models import CharacterSheet6th, CharacterSkill6th, GrowthRecord, SkillGrowthRecord
 from .models import CharacterSheet
 
 User = get_user_model()
+CharacterSkill = CharacterSkill6th
+
+
+def create_6th_character(*, user, **values):
+    registry = CharacterSheet.objects.create(user=user, edition=values.pop("edition", "6th"))
+    CharacterSheet6th.objects.create(character_sheet=registry, **values)
+    return registry
 
 
 class GrowthRecordModelTestCase(TestCase):
@@ -23,7 +30,7 @@ class GrowthRecordModelTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
+        self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -37,7 +44,7 @@ class GrowthRecordModelTestCase(TestCase):
             int_value=50,
             edu_value=60,
         )
-        self.character_6th = CharacterSheet6th.objects.create(character_sheet=self.character)
+        self.character_6th = self.character.system_data
 
     def test_growth_record_creation(self):
         """成長記録の作成テスト"""
@@ -104,7 +111,7 @@ class SkillGrowthRecordModelTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
+        self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -118,7 +125,7 @@ class SkillGrowthRecordModelTestCase(TestCase):
             int_value=50,
             edu_value=60,
         )
-        self.character_6th = CharacterSheet6th.objects.create(character_sheet=self.character)
+        self.character_6th = self.character.system_data
 
         # 成長記録を作成
         self.growth_record = GrowthRecord.objects.create(
@@ -127,7 +134,7 @@ class SkillGrowthRecordModelTestCase(TestCase):
 
         # 技能を作成
         self.skill = CharacterSkill.objects.create(
-            character_sheet=self.character, skill_name="目星", base_value=25, occupation_points=40, current_value=65
+            character_sheet=self.character.system_data, skill_name="目星", base_value=25, occupation_points=40, current_value=65
         )
 
     def test_skill_growth_record_creation(self):
@@ -206,7 +213,7 @@ class GrowthRecordAPITestCase(APITestCase):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
         self.client.force_authenticate(user=self.user)
 
-        self.character = CharacterSheet.objects.create(
+        self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -220,7 +227,7 @@ class GrowthRecordAPITestCase(APITestCase):
             int_value=50,
             edu_value=60,
         )
-        self.character_6th = CharacterSheet6th.objects.create(character_sheet=self.character)
+        self.character_6th = self.character.system_data
 
     def test_create_growth_record_api(self):
         """成長記録作成APIテスト"""
@@ -276,7 +283,7 @@ class GrowthRecordAPITestCase(APITestCase):
 
         # 技能を作成
         skill = CharacterSkill.objects.create(
-            character_sheet=self.character, skill_name="目星", base_value=25, occupation_points=40, current_value=65
+            character_sheet=self.character.system_data, skill_name="目星", base_value=25, occupation_points=40, current_value=65
         )
 
         skill_growth_data = {
@@ -334,7 +341,7 @@ class GrowthRecordIntegrationTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
+        self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -349,13 +356,13 @@ class GrowthRecordIntegrationTestCase(TestCase):
             int_value=50,
             edu_value=60,
         )
-        self.character_6th = CharacterSheet6th.objects.create(character_sheet=self.character)
+        self.character_6th = self.character.system_data
 
     def test_complete_session_growth_workflow(self):
         """完全なセッション成長ワークフローのテスト"""
         # 1. セッション前の技能値を記録
         initial_skill = CharacterSkill.objects.create(
-            character_sheet=self.character, skill_name="目星", base_value=25, occupation_points=40, current_value=65
+            character_sheet=self.character.system_data, skill_name="目星", base_value=25, occupation_points=40, current_value=65
         )
 
         # 2. セッション記録を作成
@@ -388,9 +395,9 @@ class GrowthRecordIntegrationTestCase(TestCase):
         initial_skill.save()
 
         # 5. 正気度を更新（例）
-        initial_sanity = self.character.sanity_current
-        self.character.sanity_current = initial_sanity - 5
-        self.character.save()
+        initial_sanity = self.character_6th.sanity_current
+        self.character_6th.sanity_current = initial_sanity - 5
+        self.character_6th.save()
 
         # 検証
         self.assertEqual(growth_record.character_sheet, self.character)
@@ -402,8 +409,8 @@ class GrowthRecordIntegrationTestCase(TestCase):
         initial_skill.refresh_from_db()
         self.assertEqual(initial_skill.current_value, 70)
 
-        self.character.refresh_from_db()
-        self.assertEqual(self.character.sanity_current, initial_sanity - 5)
+        self.character_6th.refresh_from_db()
+        self.assertEqual(self.character_6th.sanity_current, initial_sanity - 5)
 
     def test_multiple_sessions_progression(self):
         """複数セッションでの成長進歩テスト"""

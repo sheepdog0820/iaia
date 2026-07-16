@@ -5,9 +5,19 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.character_models import CharacterSheet, CharacterSheet6th, CharacterSkill
+from accounts.character_models import CharacterSheet, CharacterSheet6th
 
 User = get_user_model()
+
+
+def create_6th_character(*, user, **values):
+    registry = CharacterSheet.objects.create(
+        user=user,
+        edition=values.pop("edition", "6th"),
+        access_scope=values.pop("access_scope", "private"),
+    )
+    CharacterSheet6th.objects.create(character_sheet=registry, **values)
+    return registry
 
 
 class CharacterSheetSaveTestCase(APITestCase):
@@ -53,7 +63,7 @@ class CharacterSheetSaveTestCase(APITestCase):
 
         # DBに保存されているか確認
         character = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertEqual(character.name, "テスト探索者")
+        self.assertEqual(character.system_data.name, "テスト探索者")
         self.assertEqual(character.user, self.user)
 
     def test_save_character_with_skills(self):
@@ -98,7 +108,7 @@ class CharacterSheetSaveTestCase(APITestCase):
 
         # 技能が保存されているか確認
         character = CharacterSheet.objects.get(id=response.data["id"])
-        skills = character.skills.all()
+        skills = character.system_data.skills.all()
         self.assertEqual(skills.count(), 2)
 
         meboshi = skills.get(skill_name="目星")
@@ -135,11 +145,11 @@ class CharacterSheetSaveTestCase(APITestCase):
             ],
         }
 
-        response = self.client.post("/accounts/character-sheets/create_6th_edition/", character_data, format="json")
+        response = self.client.post("/api/accounts/character-sheets/create_6th_edition/", character_data, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("Character sheet creation failed", response.data["error"])
-        self.assertFalse(CharacterSheet.objects.filter(user=self.user, name=character_name).exists())
+        self.assertIn("趣味技能ポイント", str(response.data))
+        self.assertFalse(CharacterSheet.objects.by_system_name(character_name, user=self.user, edition="6th").exists())
 
     def test_save_character_authentication_required(self):
         """認証: 未認証でのアクセス拒否"""
@@ -179,7 +189,7 @@ class CharacterSheetSaveTestCase(APITestCase):
     def test_update_existing_character(self):
         """正常系: 既存キャラクターの更新"""
         # まず作成
-        character = CharacterSheet.objects.create(
+        character = create_6th_character(
             user=self.user,
             edition="6th",
             name="更新前探索者",
@@ -210,7 +220,7 @@ class CharacterSheetSaveTestCase(APITestCase):
 
     def test_delete_character(self):
         """正常系: キャラクターの削除"""
-        character = CharacterSheet.objects.create(
+        character = create_6th_character(
             user=self.user,
             edition="6th",
             name="削除予定探索者",
@@ -234,7 +244,7 @@ class CharacterSheetSaveTestCase(APITestCase):
         """正常系: ユーザーのキャラクター一覧取得"""
         # 複数のキャラクターを作成
         for i in range(3):
-            CharacterSheet.objects.create(
+            create_6th_character(
                 user=self.user,
                 edition="6th",
                 name=f"探索者{i}",
@@ -251,7 +261,7 @@ class CharacterSheetSaveTestCase(APITestCase):
 
         # 他のユーザーのキャラクター（見えないはず）
         other_user = User.objects.create_user("other", "pass")
-        CharacterSheet.objects.create(
+        create_6th_character(
             user=other_user,
             edition="6th",
             name="他人の探索者",
@@ -298,10 +308,10 @@ class CharacterSheetSaveTestCase(APITestCase):
 
         # 派生ステータスが自動計算されているか確認
         character = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertEqual(character.hit_points_max, 15)  # (14 + 15) / 2 = 14.5 -> 15
-        self.assertEqual(character.magic_points_max, 11)  # POWと同じ
-        self.assertEqual(character.sanity_starting, 55)  # POW*5
-        self.assertEqual(character.sanity_max, 99)  # 初期値は99
+        self.assertEqual(character.system_data.hit_points_max, 15)  # (14 + 15) / 2 = 14.5 -> 15
+        self.assertEqual(character.system_data.magic_points_max, 11)  # POWと同じ
+        self.assertEqual(character.system_data.sanity_starting, 55)  # POW*5
+        self.assertEqual(character.system_data.sanity_max, 99)  # 初期値は99
 
     def test_save_6th_edition_specific_data(self):
         """正常系: 6版固有データの保存"""
@@ -338,7 +348,7 @@ class CharacterSheetSaveTestCase(APITestCase):
         """認可: 他人のキャラクターへのアクセス拒否"""
         # 他のユーザーのキャラクター
         other_user = User.objects.create_user("other", "pass")
-        character = CharacterSheet.objects.create(
+        character = create_6th_character(
             user=other_user,
             edition="6th",
             name="他人の探索者",

@@ -23,11 +23,11 @@ from rest_framework.test import APIClient, APITestCase
 from accounts.character_models import (
     CharacterBackground,
     CharacterDiceRollSetting,
-    CharacterEquipment,
+    CharacterEquipment6th as CharacterEquipment,
     CharacterImage,
     CharacterSheet,
     CharacterSheet6th,
-    CharacterSkill,
+    CharacterSkill6th as CharacterSkill,
     GrowthRecord,
 )
 from accounts.views.character_views import CharacterSheetViewSet
@@ -55,22 +55,12 @@ def create_test_character(user, **kwargs):
     if "edition" not in defaults:
         defaults["edition"] = "6th"
 
-    temp = CharacterSheet(user=user, **defaults)
-    stats = temp.calculate_derived_stats()
-
-    defaults.setdefault("hit_points_max", stats["hit_points_max"])
-    defaults.setdefault("magic_points_max", stats["magic_points_max"])
-    defaults.setdefault("sanity_starting", stats["sanity_starting"])
-    defaults.setdefault("sanity_max", stats["sanity_max"])
-
-    defaults.setdefault("hit_points_current", defaults["hit_points_max"])
-    defaults.setdefault("magic_points_current", defaults["magic_points_max"])
-    defaults.setdefault("sanity_current", defaults["sanity_starting"])
-
-    character = CharacterSheet.objects.create(user=user, **defaults)
-    if defaults.get("edition") == "6th":
-        CharacterSheet6th.objects.get_or_create(character_sheet=character)
-    return character
+    edition = defaults.pop("edition")
+    access_scope = defaults.pop("access_scope", "private")
+    registry = CharacterSheet.objects.create(user=user, edition=edition, access_scope=access_scope)
+    detail = CharacterSheet6th(character_sheet=registry, **defaults)
+    detail.save()
+    return registry
 
 
 class Character6thModelValidationTestCase(TestCase):
@@ -82,7 +72,7 @@ class Character6thModelValidationTestCase(TestCase):
     def test_ability_value_constraints(self):
         """Test ability values must be between 1 and 999"""
         # Test minimum values
-        character = CharacterSheet.objects.create(
+        character = create_test_character(
             user=self.user,
             name="Min Abilities",
             age=20,
@@ -103,29 +93,29 @@ class Character6thModelValidationTestCase(TestCase):
             sanity_max=5,
             sanity_current=5,
         )
-        character.full_clean()  # Should not raise
+        character.system_data.full_clean()  # Should not raise
 
         # Test maximum values
-        character.str_value = 999
-        character.con_value = 999
-        character.full_clean()  # Should not raise
+        character.system_data.str_value = 999
+        character.system_data.con_value = 999
+        character.system_data.full_clean()  # Should not raise
 
         # Test invalid values
-        character.str_value = 0
+        character.system_data.str_value = 0
         with self.assertRaises(ValidationError):
-            character.full_clean()
+            character.system_data.full_clean()
 
-        character.str_value = 1000
+        character.system_data.str_value = 1000
         with self.assertRaises(ValidationError):
-            character.full_clean()
+            character.system_data.full_clean()
 
     def test_age_constraints(self):
         """Test age must be between 15 and 90"""
-        character = CharacterSheet(
-            user=self.user,
+        registry = CharacterSheet.objects.create(user=self.user, edition="6th")
+        character = CharacterSheet6th(
+            character_sheet=registry,
             name="Age Test",
             age=15,  # Minimum
-            edition="6th",
             str_value=10,
             con_value=10,
             pow_value=10,
@@ -160,9 +150,9 @@ class Character6thModelValidationTestCase(TestCase):
         character = create_test_character(self.user, name="SAN Test", pow_value=50, sanity_max=50, sanity_current=50)
 
         # Test SAN current can equal SAN max
-        character.sanity_max = 50
-        character.sanity_current = 50
-        character.full_clean()  # Should not raise
+        character.system_data.sanity_max = 50
+        character.system_data.sanity_current = 50
+        character.system_data.full_clean()  # Should not raise
 
         # Note: The model doesn't seem to have validators for SAN current > max
         # This would need to be implemented in the model clean() method
@@ -182,9 +172,9 @@ class Character6thModelValidationTestCase(TestCase):
         )
 
         # Test values can be equal
-        character.hit_points_max = 12
-        character.hit_points_current = 12
-        character.full_clean()  # Should not raise
+        character.system_data.hit_points_max = 12
+        character.system_data.hit_points_current = 12
+        character.system_data.full_clean()  # Should not raise
 
         # Note: The model doesn't seem to have validators for current > max
         # This would need to be implemented in the model clean() method
@@ -209,8 +199,8 @@ class Character6thCalculationTestCase(TestCase):
 
         for con, siz, expected_hp in test_cases:
             character = create_test_character(self.user, name=f"HP Test {con}/{siz}", con_value=con, siz_value=siz)
-            self.assertEqual(character.hit_points_max, expected_hp)
-            self.assertEqual(character.hit_points_current, expected_hp)
+            self.assertEqual(character.system_data.hit_points_max, expected_hp)
+            self.assertEqual(character.system_data.hit_points_current, expected_hp)
 
     def test_mp_calculation(self):
         """Test MP = POW"""
@@ -218,8 +208,8 @@ class Character6thCalculationTestCase(TestCase):
 
         for pow_val in test_cases:
             character = create_test_character(self.user, name=f"MP Test POW={pow_val}", pow_value=pow_val)
-            self.assertEqual(character.magic_points_max, pow_val)
-            self.assertEqual(character.magic_points_current, pow_val)
+            self.assertEqual(character.system_data.magic_points_max, pow_val)
+            self.assertEqual(character.system_data.magic_points_current, pow_val)
 
     def test_san_calculation(self):
         """Test SAN = POW × 5"""
@@ -232,9 +222,9 @@ class Character6thCalculationTestCase(TestCase):
 
         for pow_val, expected_san in test_cases:
             character = create_test_character(self.user, name=f"SAN Test POW={pow_val}", pow_value=pow_val)
-            self.assertEqual(character.sanity_starting, expected_san)
-            self.assertEqual(character.sanity_current, expected_san)
-            self.assertEqual(character.sanity_max, 99)
+            self.assertEqual(character.system_data.sanity_starting, expected_san)
+            self.assertEqual(character.system_data.sanity_current, expected_san)
+            self.assertEqual(character.system_data.sanity_max, 99)
 
     def test_idea_luck_know_calculation(self):
         """Test 6th edition specific calculations"""
@@ -287,7 +277,7 @@ class Character6thCalculationTestCase(TestCase):
 
         self.assertEqual(character.calculate_occupation_points(), 18 * 20)
 
-        character.occupation_multiplier = 25
+        character.system_data.occupation_multiplier = 25
         self.assertEqual(character.calculate_occupation_points(), 18 * 25)
 
     def test_hobby_points_calculation(self):
@@ -321,7 +311,7 @@ class Character6thSkillManagementTestCase(TestCase):
     def test_skill_creation_and_validation(self):
         """Test skill creation with valid point allocations"""
         skill = CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="Test Skill",
             base_value=5,
             occupation_points=70,
@@ -362,7 +352,7 @@ class Character6thSkillManagementTestCase(TestCase):
 
         for name, base, occ, int_pts in skills_data:
             CharacterSkill.objects.create(
-                character_sheet=self.character,
+                character_sheet=self.character.system_data,
                 skill_name=name,
                 base_value=base,
                 occupation_points=occ,
@@ -370,11 +360,11 @@ class Character6thSkillManagementTestCase(TestCase):
             )
 
         # Calculate total allocated points
-        total_occupation = CharacterSkill.objects.filter(character_sheet=self.character).aggregate(
+        total_occupation = CharacterSkill.objects.filter(character_sheet=self.character.system_data).aggregate(
             total=models.Sum("occupation_points")
         )["total"]
 
-        total_interest = CharacterSkill.objects.filter(character_sheet=self.character).aggregate(
+        total_interest = CharacterSkill.objects.filter(character_sheet=self.character.system_data).aggregate(
             total=models.Sum("interest_points")
         )["total"]
 
@@ -391,7 +381,7 @@ class Character6thSkillManagementTestCase(TestCase):
     def test_cthulhu_mythos_special_case(self):
         """Test Cthulhu Mythos skill can store bonus/other points"""
         skill = CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="クトゥルフ神話",
             base_value=0,
             occupation_points=0,
@@ -403,15 +393,15 @@ class Character6thSkillManagementTestCase(TestCase):
 
     def test_san_max_reduction_with_cthulhu_mythos(self):
         """Test SAN max = 99 - Cthulhu Mythos"""
-        self.assertEqual(self.character.sanity_max, 99)
+        self.assertEqual(self.character.system_data.sanity_max, 99)
 
         cthulhu_skill = CharacterSkill.objects.create(
-            character_sheet=self.character, skill_name="クトゥルフ神話", base_value=0, bonus_points=15
+            character_sheet=self.character.system_data, skill_name="クトゥルフ神話", base_value=0, bonus_points=15
         )
 
         self.character.refresh_from_db()
         expected_san_max = 99 - cthulhu_skill.current_value
-        self.assertEqual(self.character.sanity_max, expected_san_max)
+        self.assertEqual(self.character.system_data.sanity_max, expected_san_max)
 
 
 class Character6thEquipmentTestCase(TestCase):
@@ -435,7 +425,7 @@ class Character6thEquipmentTestCase(TestCase):
     def test_equipment_creation(self):
         """Test equipment creation and validation"""
         weapon = CharacterEquipment.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             item_type="weapon",
             name="Test Revolver",
             damage="1D10",
@@ -447,7 +437,7 @@ class Character6thEquipmentTestCase(TestCase):
         self.assertAlmostEqual(weapon.weight * weapon.quantity, 0.5)
 
         armor = CharacterEquipment.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             item_type="armor",
             name="Leather Jacket",
             armor_points=1,
@@ -458,7 +448,7 @@ class Character6thEquipmentTestCase(TestCase):
         self.assertEqual(armor.armor_points, 1)
 
         item = CharacterEquipment.objects.create(
-            character_sheet=self.character, item_type="item", name="Ration", weight=0.1, quantity=20
+            character_sheet=self.character.system_data, item_type="item", name="Ration", weight=0.1, quantity=20
         )
 
         self.assertAlmostEqual(item.weight * item.quantity, 2.0)
@@ -474,7 +464,7 @@ class Character6thEquipmentTestCase(TestCase):
 
         for name, weight, qty in items:
             CharacterEquipment.objects.create(
-                character_sheet=self.character, item_type="item", name=name, weight=weight, quantity=qty
+                character_sheet=self.character.system_data, item_type="item", name=name, weight=weight, quantity=qty
             )
 
         total_weight = sum(weight * qty for _, weight, qty in items)
@@ -505,18 +495,18 @@ class Character6thVersioningTestCase(TestCase):
     def test_create_version(self):
         """Test creating a new version of a character"""
         CharacterSkill.objects.create(
-            character_sheet=self.original, skill_name="Test Skill", base_value=5, occupation_points=70
+            character_sheet=self.original.system_data, skill_name="Test Skill", base_value=5, occupation_points=70
         )
 
         version = self.original.create_new_version(copy_skills=True)
 
-        self.assertEqual(version.parent_sheet, self.original)
-        self.assertEqual(version.version, self.original.version + 1)
-        self.assertEqual(version.name, self.original.name)
-        self.assertEqual(version.age, self.original.age)
+        self.assertEqual(version.system_data.parent_data.character_sheet, self.original)
+        self.assertEqual(version.system_data.version, self.original.system_data.version + 1)
+        self.assertEqual(version.system_data.name, self.original.system_data.name)
+        self.assertEqual(version.system_data.age, self.original.system_data.age)
 
-        original_skills = CharacterSkill.objects.filter(character_sheet=self.original)
-        version_skills = CharacterSkill.objects.filter(character_sheet=version)
+        original_skills = CharacterSkill.objects.filter(character_sheet=self.original.system_data)
+        version_skills = CharacterSkill.objects.filter(character_sheet=version.system_data)
         self.assertEqual(original_skills.count(), version_skills.count())
 
         self.assertEqual(version.sixth_edition_data.damage_bonus, self.original.sixth_edition_data.damage_bonus)
@@ -524,29 +514,29 @@ class Character6thVersioningTestCase(TestCase):
     def test_create_version_copies_scenario_metadata(self):
         """Test scenario metadata is copied to new versions"""
         scenario = Scenario.objects.create(title="テストシナリオ", game_system="coc", created_by=self.user)
-        self.original.source_scenario = scenario
-        self.original.source_scenario_title = scenario.title
-        self.original.source_scenario_game_system = scenario.game_system
-        self.original.save()
+        self.original.system_data.source_scenario = scenario
+        self.original.system_data.source_scenario_title = scenario.title
+        self.original.system_data.source_scenario_game_system = scenario.game_system
+        self.original.system_data.save()
 
         version = self.original.create_new_version()
 
-        self.assertEqual(version.source_scenario, scenario)
-        self.assertEqual(version.source_scenario_title, scenario.title)
-        self.assertEqual(version.source_scenario_game_system, scenario.game_system)
+        self.assertEqual(version.system_data.source_scenario, scenario)
+        self.assertEqual(version.system_data.source_scenario_title, scenario.title)
+        self.assertEqual(version.system_data.source_scenario_game_system, scenario.game_system)
 
     def test_version_hierarchy(self):
         """Test multiple versions and hierarchy"""
         v2 = self.original.create_new_version()
         v3 = v2.create_new_version()
 
-        self.assertEqual(self.original.version, 1)
-        self.assertEqual(v2.version, 2)
-        self.assertEqual(v3.version, 3)
+        self.assertEqual(self.original.system_data.version, 1)
+        self.assertEqual(v2.system_data.version, 2)
+        self.assertEqual(v3.system_data.version, 3)
 
-        self.assertIsNone(self.original.parent_sheet)
-        self.assertEqual(v2.parent_sheet, self.original)
-        self.assertEqual(v3.parent_sheet, v2)
+        self.assertIsNone(self.original.system_data.parent_data)
+        self.assertEqual(v2.system_data.parent_data.character_sheet, self.original)
+        self.assertEqual(v3.system_data.parent_data.character_sheet, v2)
 
         versions = self.original.get_version_history()
         self.assertEqual(len(versions), 3)
@@ -555,9 +545,9 @@ class Character6thVersioningTestCase(TestCase):
         """Test prevention of circular version references"""
         v2 = self.original.create_new_version()
 
-        self.original.parent_sheet = v2
+        self.original.system_data.parent_data = v2.system_data
         with self.assertRaises(ValidationError):
-            self.original.save()
+            self.original.system_data.full_clean()
 
 
 class Character6thAPITestCase(APITestCase):
@@ -591,7 +581,7 @@ class Character6thAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         character = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertEqual(character.name, "API Test Character")
+        self.assertEqual(character.system_data.name, "API Test Character")
         self.assertEqual(character.user, self.user)
         self.assertEqual(character.edition, "6th")
 
@@ -625,9 +615,9 @@ class Character6thAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         character = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertEqual(character.source_scenario, scenario)
-        self.assertEqual(character.source_scenario_title, scenario.title)
-        self.assertEqual(character.source_scenario_game_system, scenario.game_system)
+        self.assertEqual(character.system_data.source_scenario, scenario)
+        self.assertEqual(character.system_data.source_scenario_title, scenario.title)
+        self.assertEqual(character.system_data.source_scenario_game_system, scenario.game_system)
         self.assertEqual(response.data["scenario_id"], scenario.id)
         self.assertEqual(response.data["scenario_title"], scenario.title)
         self.assertEqual(response.data["game_system"], scenario.game_system)
@@ -657,9 +647,9 @@ class Character6thAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         character = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertIsNone(character.source_scenario)
-        self.assertEqual(character.source_scenario_title, "手入力シナリオ")
-        self.assertEqual(character.source_scenario_game_system, "coc")
+        self.assertIsNone(character.system_data.source_scenario)
+        self.assertEqual(character.system_data.source_scenario_title, "手入力シナリオ")
+        self.assertEqual(character.system_data.source_scenario_game_system, "coc")
         self.assertIsNone(response.data["scenario_id"])
         self.assertEqual(response.data["scenario_title"], "手入力シナリオ")
         self.assertEqual(response.data["game_system"], "coc")
@@ -695,7 +685,7 @@ class Character6thAPITestCase(APITestCase):
     def test_skill_points_allocation_api(self):
         """Test skill point allocation endpoints"""
         character = create_test_character(self.user, name="Skill API Test", edu_value=16, int_value=10)
-        skill = CharacterSkill.objects.create(character_sheet=character, skill_name="Test Skill", base_value=5)
+        skill = CharacterSkill.objects.create(character_sheet=character.system_data, skill_name="Test Skill", base_value=5)
 
         response = self.client.get(f"/api/accounts/character-sheets/{character.id}/skill-points-summary/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -718,9 +708,9 @@ class Character6thAPITestCase(APITestCase):
         """Test batch skill point allocation"""
         character = create_test_character(self.user, name="Batch Skill Test", edu_value=16, int_value=10)
         skills = [
-            CharacterSkill.objects.create(character_sheet=character, skill_name="Skill A", base_value=5),
-            CharacterSkill.objects.create(character_sheet=character, skill_name="Skill B", base_value=30),
-            CharacterSkill.objects.create(character_sheet=character, skill_name="Skill C", base_value=5),
+            CharacterSkill.objects.create(character_sheet=character.system_data, skill_name="Skill A", base_value=5),
+            CharacterSkill.objects.create(character_sheet=character.system_data, skill_name="Skill B", base_value=30),
+            CharacterSkill.objects.create(character_sheet=character.system_data, skill_name="Skill C", base_value=5),
         ]
 
         allocations = [
@@ -736,8 +726,8 @@ class Character6thAPITestCase(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        total_occupation = sum(s.occupation_points for s in character.skills.all())
-        total_interest = sum(s.interest_points for s in character.skills.all())
+        total_occupation = sum(s.occupation_points for s in character.system_data.skills.all())
+        total_interest = sum(s.interest_points for s in character.system_data.skills.all())
         self.assertEqual(total_occupation, 140)
         self.assertEqual(total_interest, 20)
 
@@ -745,7 +735,7 @@ class Character6thAPITestCase(APITestCase):
         """Test CCFOLIA JSON export"""
         character = create_test_character(self.user, name="CCFOLIA Test", str_value=13)
         CharacterSkill.objects.create(
-            character_sheet=character, skill_name="Test Skill", base_value=5, occupation_points=70
+            character_sheet=character.system_data, skill_name="Test Skill", base_value=5, occupation_points=70
         )
 
         response = self.client.get(f"/api/accounts/character-sheets/{character.id}/ccfolia_json/")
@@ -763,7 +753,7 @@ class Character6thAPITestCase(APITestCase):
         character = create_test_character(self.user, name="Combat Test", str_value=16, siz_value=17)
 
         CharacterEquipment.objects.create(
-            character_sheet=character, item_type="weapon", name="Test Weapon", damage="1D10", attacks_per_round=2
+            character_sheet=character.system_data, item_type="weapon", name="Test Weapon", damage="1D10", attacks_per_round=2
         )
 
         response = self.client.get(f"/api/accounts/character-sheets/{character.id}/combat_summary/")
@@ -787,15 +777,15 @@ class Character6thAPITestCase(APITestCase):
         """Test character deletion and cascades"""
         character = create_test_character(self.user, name="Delete Test")
 
-        CharacterSkill.objects.create(character_sheet=character, skill_name="Test Skill", base_value=5)
-        CharacterEquipment.objects.create(character_sheet=character, item_type="item", name="Test Item")
+        CharacterSkill.objects.create(character_sheet=character.system_data, skill_name="Test Skill", base_value=5)
+        CharacterEquipment.objects.create(character_sheet=character.system_data, item_type="item", name="Test Item")
 
         response = self.client.delete(f"/api/accounts/character-sheets/{character.id}/")
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
         self.assertFalse(CharacterSheet.objects.filter(id=character.id).exists())
-        self.assertFalse(CharacterSkill.objects.filter(character_sheet=character).exists())
-        self.assertFalse(CharacterEquipment.objects.filter(character_sheet=character).exists())
+        self.assertFalse(CharacterSkill.objects.filter(character_sheet=character.system_data).exists())
+        self.assertFalse(CharacterEquipment.objects.filter(character_sheet=character.system_data).exists())
 
 
 class Character6thIntegrationTestCase(TransactionTestCase):
@@ -927,7 +917,7 @@ class Character6thErrorHandlingTestCase(APITestCase):
     def test_skill_overallocation(self):
         """Test prevention of skill point over-allocation"""
         character = create_test_character(self.user, name="Overallocation Test", edu_value=10)
-        skill = CharacterSkill.objects.create(character_sheet=character, skill_name="Test Skill", base_value=5)
+        skill = CharacterSkill.objects.create(character_sheet=character.system_data, skill_name="Test Skill", base_value=5)
 
         with self.assertLogs("django.request", level="WARNING"):
             response = self.client.post(
@@ -954,7 +944,7 @@ class Character6thErrorHandlingTestCase(APITestCase):
         character = create_test_character(self.user, name="Large Data Test", edu_value=10)
 
         skills = [
-            CharacterSkill.objects.create(character_sheet=character, skill_name=f"Skill {i}", base_value=5)
+            CharacterSkill.objects.create(character_sheet=character.system_data, skill_name=f"Skill {i}", base_value=5)
             for i in range(50)
         ]
 
@@ -967,7 +957,7 @@ class Character6thErrorHandlingTestCase(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        skill_count = CharacterSkill.objects.filter(character_sheet=character).count()
+        skill_count = CharacterSkill.objects.filter(character_sheet=character.system_data).count()
         self.assertEqual(skill_count, 50)
 
     def test_file_upload_validation(self):
@@ -993,32 +983,11 @@ class Character6thPerformanceTestCase(TestCase):
 
     def test_bulk_character_operations(self):
         """Test performance with many characters"""
-        characters = []
-        for i in range(20):
-            char = CharacterSheet(
-                user=self.user,
-                name=f"Character {i}",
-                age=25,
-                edition="6th",
-                str_value=10,
-                con_value=10,
-                pow_value=10,
-                dex_value=10,
-                app_value=10,
-                siz_value=10,
-                int_value=10,
-                edu_value=10,
-                hit_points_max=10,
-                hit_points_current=10,
-                magic_points_max=10,
-                magic_points_current=10,
-                sanity_starting=50,
-                sanity_max=99,
-                sanity_current=50,
-            )
-            characters.append(char)
-
-        CharacterSheet.objects.bulk_create(characters)
+        registries = [CharacterSheet(user=self.user, edition="6th") for _ in range(20)]
+        CharacterSheet.objects.bulk_create(registries)
+        CharacterSheet6th.objects.bulk_create(
+            [CharacterSheet6th(character_sheet=registry, name=f"Character {index}", age=25) for index, registry in enumerate(registries)]
+        )
 
         with self.assertNumQueries(1):
             chars = CharacterSheet.objects.filter(user=self.user).select_related("sixth_edition_data")
@@ -1031,7 +1000,7 @@ class Character6thPerformanceTestCase(TestCase):
         skills = []
         for i in range(100):
             skill = CharacterSkill(
-                character_sheet=character, skill_name=f"Skill {i}", base_value=5, occupation_points=1
+                character_sheet=character.system_data, skill_name=f"Skill {i}", base_value=5, occupation_points=1
             )
             skills.append(skill)
 
@@ -1041,8 +1010,8 @@ class Character6thPerformanceTestCase(TestCase):
 
         start = time.time()
 
-        total_occupation = sum(s.occupation_points for s in character.skills.all())
-        total_interest = sum(s.interest_points for s in character.skills.all())
+        total_occupation = sum(s.occupation_points for s in character.system_data.skills.all())
+        total_interest = sum(s.interest_points for s in character.system_data.skills.all())
 
         elapsed = time.time() - start
         self.assertLess(elapsed, 1.0)

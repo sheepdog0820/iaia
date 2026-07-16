@@ -17,9 +17,27 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
-from accounts.character_models import CharacterEquipment, CharacterSheet, CharacterSheet6th, CharacterSkill
+from accounts.character_models import CharacterSheet, CharacterSheet6th, CharacterSheet7th
 
 User = get_user_model()
+
+
+def create_test_character(**values):
+    user = values.pop("user")
+    edition = values.pop("edition", "6th")
+    access_scope = values.pop("access_scope", "group")
+    parent_sheet = values.pop("parent_sheet", None)
+    version = values.pop("version", 1)
+    registry = CharacterSheet._base_manager.create(user=user, edition=edition, access_scope=access_scope)
+    detail_model = CharacterSheet6th if edition == "6th" else CharacterSheet7th
+    detail = detail_model(
+        character_sheet=registry,
+        parent_data=parent_sheet.system_data if parent_sheet else None,
+        version=version,
+        **values,
+    )
+    detail.save()
+    return registry
 
 
 class CharacterSheetModelTestCase(TestCase):
@@ -31,7 +49,7 @@ class CharacterSheetModelTestCase(TestCase):
 
     def test_character_sheet_creation_6th(self):
         """6版キャラクターシート作成テスト"""
-        character = CharacterSheet.objects.create(
+        character = create_test_character(
             user=self.user1,
             edition="6th",
             name="テスト探索者6版",
@@ -48,22 +66,22 @@ class CharacterSheetModelTestCase(TestCase):
         )
 
         self.assertEqual(character.edition, "6th")
-        self.assertEqual(character.name, "テスト探索者6版")
-        self.assertEqual(character.version, 1)
-        self.assertIsNone(character.parent_sheet)
-        self.assertTrue(character.is_active)
+        self.assertEqual(character.system_data.name, "テスト探索者6版")
+        self.assertEqual(character.system_data.version, 1)
+        self.assertIsNone(character.system_data.parent_data)
+        self.assertTrue(character.system_data.is_active)
 
         # 自動計算値の確認
         import math
 
-        expected_hp = math.ceil((character.con_value + character.siz_value) / 2)
-        expected_mp = character.pow_value
-        self.assertEqual(character.hit_points_max, expected_hp)
-        self.assertEqual(character.magic_points_max, expected_mp)
+        expected_hp = math.ceil((character.system_data.con_value + character.system_data.siz_value) / 2)
+        expected_mp = character.system_data.pow_value
+        self.assertEqual(character.system_data.hit_points_max, expected_hp)
+        self.assertEqual(character.system_data.magic_points_max, expected_mp)
 
     def test_character_sheet_creation_7th(self):
         """7版キャラクターシート作成テスト"""
-        character = CharacterSheet.objects.create(
+        character = create_test_character(
             user=self.user1,
             edition="7th",
             name="テスト探索者7版",
@@ -80,26 +98,26 @@ class CharacterSheetModelTestCase(TestCase):
         )
 
         self.assertEqual(character.edition, "7th")
-        self.assertEqual(character.name, "テスト探索者7版")
-        self.assertEqual(character.version, 1)
-        self.assertIsNone(character.parent_sheet)
-        self.assertTrue(character.is_active)
+        self.assertEqual(character.system_data.name, "テスト探索者7版")
+        self.assertEqual(character.system_data.version, 1)
+        self.assertIsNone(character.system_data.parent_data)
+        self.assertTrue(character.system_data.is_active)
 
-        expected_hp = (character.con_value + character.siz_value) // 10
-        expected_mp = character.pow_value // 5
-        expected_san = character.pow_value
-        self.assertEqual(character.hit_points_max, expected_hp)
-        self.assertEqual(character.hit_points_current, expected_hp)
-        self.assertEqual(character.magic_points_max, expected_mp)
-        self.assertEqual(character.magic_points_current, expected_mp)
-        self.assertEqual(character.sanity_starting, expected_san)
-        self.assertEqual(character.sanity_current, expected_san)
-        self.assertEqual(character.sanity_max, 99)
+        expected_hp = (character.system_data.con_value + character.system_data.siz_value) // 10
+        expected_mp = character.system_data.pow_value // 5
+        expected_san = character.system_data.pow_value
+        self.assertEqual(character.system_data.hit_points_max, expected_hp)
+        self.assertEqual(character.system_data.hit_points_current, expected_hp)
+        self.assertEqual(character.system_data.magic_points_max, expected_mp)
+        self.assertEqual(character.system_data.magic_points_current, expected_mp)
+        self.assertEqual(character.system_data.sanity_starting, expected_san)
+        self.assertEqual(character.system_data.sanity_current, expected_san)
+        self.assertEqual(character.system_data.sanity_max, 99)
 
     def test_version_creation(self):
         """バージョン作成テスト"""
         # 元のキャラクターシートを作成
-        original = CharacterSheet.objects.create(
+        original = create_test_character(
             user=self.user1,
             edition="6th",
             name="オリジナル探索者",
@@ -115,7 +133,7 @@ class CharacterSheetModelTestCase(TestCase):
         )
 
         # バージョン2を作成
-        version2 = CharacterSheet.objects.create(
+        version2 = create_test_character(
             user=self.user1,
             edition="6th",
             name="オリジナル探索者",
@@ -132,17 +150,17 @@ class CharacterSheetModelTestCase(TestCase):
             version=2,
         )
 
-        self.assertEqual(version2.version, 2)
-        self.assertEqual(version2.parent_sheet, original)
-        self.assertEqual(version2.age, 26)
+        self.assertEqual(version2.system_data.version, 2)
+        self.assertEqual(version2.system_data.parent_data.character_sheet, original)
+        self.assertEqual(version2.system_data.age, 26)
 
         # オリジナルのバージョンリストに含まれることを確認
-        versions = original.versions.all()
+        versions = original.get_version_history()
         self.assertIn(version2, versions)
 
     def test_character_skills(self):
         """キャラクター技能テスト"""
-        character = CharacterSheet.objects.create(
+        character = create_test_character(
             user=self.user1,
             edition="6th",
             name="技能テスト探索者",
@@ -158,8 +176,9 @@ class CharacterSheetModelTestCase(TestCase):
         )
 
         # 技能を追加
-        skill = CharacterSkill.objects.create(
-            character_sheet=character,
+        detail = character.system_data
+        skill = detail.skills.model.objects.create(
+            character_sheet=detail,
             skill_name="図書館",
             base_value=25,
             occupation_points=40,
@@ -168,13 +187,13 @@ class CharacterSheetModelTestCase(TestCase):
             current_value=75,
         )
 
-        self.assertEqual(skill.character_sheet, character)
+        self.assertEqual(skill.character_sheet, detail)
         self.assertEqual(skill.current_value, 75)
-        self.assertEqual(character.skills.count(), 1)
+        self.assertEqual(detail.skills.count(), 1)
 
     def test_character_equipment(self):
         """キャラクター装備テスト"""
-        character = CharacterSheet.objects.create(
+        character = create_test_character(
             user=self.user1,
             edition="7th",
             name="装備テスト探索者",
@@ -190,8 +209,9 @@ class CharacterSheetModelTestCase(TestCase):
         )
 
         # 武器を追加
-        weapon = CharacterEquipment.objects.create(
-            character_sheet=character,
+        detail = character.system_data
+        weapon = detail.equipment.model.objects.create(
+            character_sheet=detail,
             item_type="weapon",
             name="ピストル",
             damage="1d10",
@@ -200,9 +220,9 @@ class CharacterSheetModelTestCase(TestCase):
             description="小型拳銃",
         )
 
-        self.assertEqual(weapon.character_sheet, character)
+        self.assertEqual(weapon.character_sheet, detail)
         self.assertEqual(weapon.item_type, "weapon")
-        self.assertEqual(character.equipment.count(), 1)
+        self.assertEqual(detail.equipment.count(), 1)
 
 
 class CharacterSheetAPITestCase(APITestCase):
@@ -215,7 +235,7 @@ class CharacterSheetAPITestCase(APITestCase):
         self.client = APIClient()
 
         # テスト用キャラクターシートを作成
-        self.character1 = CharacterSheet.objects.create(
+        self.character1 = create_test_character(
             user=self.user1,
             edition="6th",
             name="APIテスト探索者1",
@@ -230,7 +250,7 @@ class CharacterSheetAPITestCase(APITestCase):
             edu_value=80,
         )
 
-        self.character2 = CharacterSheet.objects.create(
+        self.character2 = create_test_character(
             user=self.user2,
             edition="7th",
             name="APIテスト探索者2",
@@ -336,8 +356,9 @@ class CharacterSheetAPITestCase(APITestCase):
 
         data = response.json()
         self.assertEqual(data["version"], 2)
-        self.assertEqual(data["parent_sheet"], self.character1.id)
-        self.assertEqual(data["name"], self.character1.name)
+        created_version = CharacterSheet.objects.get(id=data["id"])
+        self.assertEqual(created_version.system_data.parent_data.character_sheet_id, self.character1.id)
+        self.assertEqual(data["name"], self.character1.system_data.name)
 
     def test_edition_filter_api(self):
         """版別フィルタリングAPIテスト"""
@@ -368,7 +389,7 @@ class CharacterSheetWebViewTestCase(TestCase):
         self.client = Client()
 
         # テスト用キャラクターシートを作成
-        self.character1 = CharacterSheet.objects.create(
+        self.character1 = create_test_character(
             user=self.user1,
             edition="6th",
             name="Webテスト探索者1",
@@ -383,7 +404,7 @@ class CharacterSheetWebViewTestCase(TestCase):
             edu_value=80,
         )
 
-        self.character2 = CharacterSheet.objects.create(
+        self.character2 = create_test_character(
             user=self.user2,
             edition="7th",
             name="Webテスト探索者2",
@@ -546,7 +567,8 @@ class CharacterSheetIntegrationTestCase(TestCase):
 
         version_data = response.json()
         self.assertEqual(version_data["version"], 2)
-        self.assertEqual(version_data["parent_sheet"], character_id)
+        created_version = CharacterSheet.objects.get(id=version_data["id"])
+        self.assertEqual(created_version.system_data.parent_data.character_sheet_id, character_id)
 
         # 7. バージョン履歴確認
         response = api_client.get(f"/api/accounts/character-sheets/{character_id}/versions/")
@@ -558,7 +580,7 @@ class CharacterSheetIntegrationTestCase(TestCase):
     def test_cross_user_permission_matrix(self):
         """ユーザー間権限マトリックステスト"""
         # user1のキャラクター作成
-        character = CharacterSheet.objects.create(
+        character = create_test_character(
             user=self.user1,
             edition="6th",
             name="権限テスト探索者",

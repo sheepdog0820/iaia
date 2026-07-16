@@ -9,6 +9,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from accounts.character_models import CharacterSheet7th
 from accounts.models import CharacterSheet
 from accounts.models import Group as CustomGroup
 from scenarios.models import Scenario, ScenarioHandout, ScenarioHandoutRecommendedSkill
@@ -16,6 +17,13 @@ from scenarios.models import Scenario, ScenarioHandout, ScenarioHandoutRecommend
 from .models import HandoutInfo, SessionInvitation, SessionParticipant, SessionParticipantRole, TRPGSession
 
 User = get_user_model()
+
+
+def create_7th_character(user, **values):
+    access_scope = values.pop("access_scope", "private")
+    character = CharacterSheet.objects.create(user=user, edition="7th", access_scope=access_scope)
+    CharacterSheet7th.objects.create(character_sheet=character, **values)
+    return character
 
 
 class ScheduleModelsTestCase(TestCase):
@@ -831,9 +839,8 @@ class ScheduleAPITestCase(APITestCase):
             role="player",
             character_name="Manual Character",
         )
-        character = CharacterSheet.objects.create(
-            user=self.user2,
-            edition="7th",
+        character = create_7th_character(
+            self.user2,
             name="Linked Sheet Investigator",
             age=30,
             str_value=50,
@@ -866,9 +873,8 @@ class ScheduleAPITestCase(APITestCase):
         )
 
     def test_joining_with_internal_character_uses_sheet_name(self):
-        character = CharacterSheet.objects.create(
-            user=self.user2,
-            edition="7th",
+        character = create_7th_character(
+            self.user2,
             name="Join Sheet Investigator",
             age=30,
             str_value=50,
@@ -901,9 +907,8 @@ class ScheduleAPITestCase(APITestCase):
         )
 
     def test_joining_with_owned_tableno_character_url_links_character_sheet(self):
-        character = CharacterSheet.objects.create(
-            user=self.user2,
-            edition="7th",
+        character = create_7th_character(
+            self.user2,
             name="URL参加探索者",
             age=30,
             str_value=50,
@@ -1015,9 +1020,8 @@ class ScheduleAPITestCase(APITestCase):
         )
 
     def test_guest_participant_tableno_character_url_uses_character_name(self):
-        character = CharacterSheet.objects.create(
-            user=self.user2,
-            edition="7th",
+        character = create_7th_character(
+            self.user2,
             name="URL連携探索者",
             age=30,
             str_value=50,
@@ -1053,9 +1057,8 @@ class ScheduleAPITestCase(APITestCase):
         self.assertEqual(response.data["character_name"], "URL連携探索者")
 
     def test_participant_tableno_character_url_links_owned_character_sheet(self):
-        character = CharacterSheet.objects.create(
-            user=self.user2,
-            edition="7th",
+        character = create_7th_character(
+            self.user2,
             name="URL紐づけ探索者",
             age=30,
             str_value=50,
@@ -1225,9 +1228,8 @@ class ScheduleAPITestCase(APITestCase):
         self.assertContains(response, f'"{self.user2.id}": "pending"')
 
     def test_session_detail_uses_fixed_share_url_for_shareable_character_sheet(self):
-        character = CharacterSheet.objects.create(
-            user=self.user2,
-            edition="7th",
+        character = create_7th_character(
+            self.user2,
             name="Linked Investigator",
             age=30,
             str_value=50,
@@ -1260,9 +1262,8 @@ class ScheduleAPITestCase(APITestCase):
         self.assertNotContains(response, f"/characters/{character.id}/view/")
 
     def test_session_detail_private_character_uses_authenticated_direct_url(self):
-        character = CharacterSheet.objects.create(
-            user=self.user2,
-            edition="7th",
+        character = create_7th_character(
+            self.user2,
             name="Private Linked Investigator",
             age=30,
             str_value=50,
@@ -1405,9 +1406,8 @@ class PublicSessionLinkTestCase(APITestCase):
         self.assertNotContains(response, f"http://testserver/sessions/{self.session.share_token}/view/")
 
     def test_fixed_session_share_view_hides_private_character_internal_links(self):
-        character = CharacterSheet.objects.create(
-            user=self.player,
-            edition="7th",
+        character = create_7th_character(
+            self.player,
             name="Private Session PC",
             age=30,
             str_value=50,

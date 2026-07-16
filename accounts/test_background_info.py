@@ -22,10 +22,10 @@ class BackgroundModelTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
-            user=self.user,
+        self.character = CharacterSheet.objects.create(user=self.user, edition="6th")
+        self.character_6th = CharacterSheet6th.objects.create(
+            character_sheet=self.character,
             name="Test Investigator",
-            edition="6th",
             age=25,
             str_value=50,
             con_value=50,
@@ -36,7 +36,6 @@ class BackgroundModelTestCase(TestCase):
             int_value=50,
             edu_value=60,
         )
-        self.character_6th = CharacterSheet6th.objects.create(character_sheet=self.character)
 
     def test_background_model_creation(self):
         """背景情報モデルの作成テスト"""
@@ -105,10 +104,10 @@ class BackgroundAPITestCase(APITestCase):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
         self.client.force_authenticate(user=self.user)
 
-        self.character = CharacterSheet.objects.create(
-            user=self.user,
+        self.character = CharacterSheet.objects.create(user=self.user, edition="6th")
+        self.character_6th = CharacterSheet6th.objects.create(
+            character_sheet=self.character,
             name="Test Investigator",
-            edition="6th",
             age=25,
             str_value=50,
             con_value=50,
@@ -119,7 +118,6 @@ class BackgroundAPITestCase(APITestCase):
             int_value=50,
             edu_value=60,
         )
-        self.character_6th = CharacterSheet6th.objects.create(character_sheet=self.character)
 
     def test_get_background_summary_api(self):
         """背景情報サマリー取得APIテスト"""
@@ -146,9 +144,9 @@ class BackgroundAPITestCase(APITestCase):
 
     def test_character_serializers_include_safe_background_info(self):
         """詳細/共有シリアライザーは背景情報を返し、私的メモは共有しない"""
-        self.character.notes = "共有してはいけない私的メモ"
-        self.character.secret_ho_info = "共有してはいけない秘匿HO"
-        self.character.save(update_fields=["notes", "secret_ho_info"])
+        self.character_6th.notes = "共有してはいけない私的メモ"
+        self.character_6th.secret_ho_info = "共有してはいけない秘匿HO"
+        self.character_6th.save(update_fields=["notes", "secret_ho_info"])
         CharacterBackground.objects.create(
             character_sheet=self.character,
             appearance_description="長身で猫背",
@@ -225,8 +223,8 @@ class BackgroundAPITestCase(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.character.refresh_from_db()
-        self.assertEqual(self.character.secret_ho_info, "本人だけが見る秘匿HO")
+        self.character_6th.refresh_from_db()
+        self.assertEqual(self.character_6th.secret_ho_info, "本人だけが見る秘匿HO")
         self.assertEqual(response.data["secret_ho_info"], "本人だけが見る秘匿HO")
 
     def test_create_background_if_not_exists(self):
@@ -250,10 +248,10 @@ class BackgroundIntegrationTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
-            user=self.user,
+        self.character = CharacterSheet.objects.create(user=self.user, edition="6th")
+        self.character_6th = CharacterSheet6th.objects.create(
+            character_sheet=self.character,
             name="Test Investigator",
-            edition="6th",
             age=35,
             occupation="私立探偵",
             str_value=12,
@@ -265,7 +263,6 @@ class BackgroundIntegrationTestCase(TestCase):
             int_value=16,
             edu_value=18,
         )
-        self.character_6th = CharacterSheet6th.objects.create(character_sheet=self.character)
 
     def test_complete_background_setup(self):
         """完全な背景情報セットアップのテスト"""
@@ -326,7 +323,7 @@ class BackgroundIntegrationTestCase(TestCase):
         )
 
         # 職業と背景の整合性確認
-        self.assertEqual(self.character.occupation, "私立探偵")
+        self.assertEqual(self.character.system_data.occupation, "私立探偵")
         self.assertIn("探偵", background.appearance_description)
         self.assertIn("警察官", background.personal_history)
         self.assertIn("探偵", background.personal_history)

@@ -84,12 +84,6 @@ def is_session_gm(user, session: TRPGSession) -> bool:
     return session.gm_id == user.id or has_participant_role(user, session, SessionParticipantRole.Role.GM.value)
 
 
-def _effective_participant_role(participant: SessionParticipant, role: str) -> str:
-    if participant.user_id and participant.session.created_by_id == participant.user_id:
-        return SessionParticipantRole.Role.OWNER.value
-    return role
-
-
 def assign_participant_role(
     participant: SessionParticipant,
     role: str,
@@ -97,7 +91,7 @@ def assign_participant_role(
     granted_by=None,
 ) -> SessionParticipantRole:
     role = _role_value(role)
-    normalized_role = _effective_participant_role(participant, next(iter(normalize_participant_roles([role]))))
+    normalized_role = next(iter(normalize_participant_roles([role])))
     participant_role, _ = SessionParticipantRole.objects.update_or_create(
         participant=participant,
         defaults={"role": normalized_role},

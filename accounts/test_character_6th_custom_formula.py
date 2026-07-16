@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from .character_models import CharacterSheet
+from .character_models import CharacterSheet, CharacterSheet6th
 
 User = get_user_model()
 
@@ -20,10 +20,10 @@ class CustomFormulaCalculatorTestCase(TestCase):
         self.user = User.objects.create_user(username="testuser", password="testpass123")
 
         # テスト用キャラクター（7版仕様の値）
-        self.character = CharacterSheet.objects.create(
-            user=self.user,
+        registry = CharacterSheet.objects.create(user=self.user, edition="6th")
+        self.character = CharacterSheet6th.objects.create(
+            character_sheet=registry,
             name="Test Character",
-            edition="6th",
             age=25,
             str_value=60,  # 6版なら12
             con_value=70,  # 6版なら14
@@ -130,10 +130,10 @@ class OccupationSkillPointsTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123")
 
-        self.character = CharacterSheet.objects.create(
-            user=self.user,
+        registry = CharacterSheet.objects.create(user=self.user, edition="6th")
+        self.character = CharacterSheet6th.objects.create(
+            character_sheet=registry,
             name="Test Character",
-            edition="6th",
             age=25,
             str_value=60,
             con_value=70,

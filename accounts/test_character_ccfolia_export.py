@@ -2,7 +2,7 @@ from pathlib import Path
 
 from django.test import TestCase
 
-from accounts.models import CharacterSheet, CustomUser
+from accounts.models import CharacterSheet, CharacterSheet6th, CustomUser
 
 
 class CharacterCcfolliaExportTests(TestCase):
@@ -23,9 +23,9 @@ class CharacterCcfolliaExportTests(TestCase):
 
     def test_export_includes_name_kana_in_character_memo(self):
         user = CustomUser.objects.create_user(username="ccfolia-reader", password="testpass123")
-        character = CharacterSheet.objects.create(
-            user=user,
-            edition="6th",
+        character = CharacterSheet.objects.create(user=user, edition="6th")
+        CharacterSheet6th.objects.create(
+            character_sheet=character,
             name="高島 静雄",
             name_kana="たかしま しずお",
             notes="これはCCFOLIAのメモへ出力しない",

@@ -12,7 +12,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from PIL import Image, ImageDraw, ImageFont
 
-from accounts.models import CharacterImage, CharacterSheet, CharacterSheet6th, CharacterSkill
+from accounts.models import CharacterSheet, CharacterSheet6th
 
 User = get_user_model()
 
@@ -193,14 +193,13 @@ class Command(BaseCommand):
                 char_name = f"{char_data['name']}_{i+1}"
 
                 # 既存チェック
-                if CharacterSheet.objects.filter(user=user, name=char_name).exists():
+                if CharacterSheet.objects.by_system_name(char_name, user=user).exists():
                     self.stdout.write(self.style.WARNING(f"キャラクター {char_name} は既に存在します"))
                     continue
 
                 # キャラクターシート作成
-                character = CharacterSheet.objects.create(
-                    user=user,
-                    edition="6th",
+                character = CharacterSheet6th.objects.create(
+                    character_sheet=CharacterSheet.objects.create(user=user, edition="6th"),
                     name=char_name,
                     player_name=user.nickname or user.username,
                     age=char_data["age"],
@@ -223,12 +222,12 @@ class Command(BaseCommand):
                 )
 
                 # 6版固有データ
-                CharacterSheet6th.objects.create(character_sheet=character, mental_disorder="")
+                detail = character
 
                 # スキルデータ
                 for skill_name, base, occ, interest in char_data["skills"]:
-                    CharacterSkill.objects.create(
-                        character_sheet=character,
+                    detail.skills.model.objects.create(
+                        character_sheet=detail,
                         skill_name=skill_name,
                         base_value=base,
                         occupation_points=occ,
@@ -238,14 +237,14 @@ class Command(BaseCommand):
 
                 # メイン画像を作成
                 main_image_data = self.create_character_image(char_name, char_data["color"])
-                main_image = CharacterImage.objects.create(character_sheet=character, is_main=True, order=0)
+                main_image = detail.images.model.objects.create(character_sheet=detail, is_main=True, order=0)
                 main_image.image.save(f"{char_name}_main.png", ContentFile(main_image_data.read()), save=True)
 
                 # 追加画像を作成
                 additional_images = self.create_additional_images(char_name, 2)
                 for idx, (filename, image_data) in enumerate(additional_images):
-                    additional_image = CharacterImage.objects.create(
-                        character_sheet=character, is_main=False, order=idx + 1
+                    additional_image = detail.images.model.objects.create(
+                        character_sheet=detail, is_main=False, order=idx + 1
                     )
                     additional_image.image.save(f"{char_name}_{filename}", ContentFile(image_data.read()), save=True)
 

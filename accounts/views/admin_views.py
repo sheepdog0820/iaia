@@ -139,7 +139,10 @@ class AdminUserViewSet(viewsets.ModelViewSet):
         gm_sessions = user.gm_sessions.select_related("group").order_by("-date")[:10]
 
         # 作成したキャラクター
-        characters = user.character_sheets.filter(is_active=True).order_by("-created_at")[:10]
+        characters = user.character_sheets.filter(
+            Q(edition="6th", sixth_edition_data__is_active=True)
+            | Q(edition="7th", seventh_edition_data__is_active=True)
+        ).order_by("-created_at")[:10]
 
         return Response(
             {
@@ -161,8 +164,8 @@ class AdminUserViewSet(viewsets.ModelViewSet):
                 "characters": [
                     {
                         "id": c.id,
-                        "name": c.name,
-                        "occupation": c.occupation,
+                        "name": c.system_data.name,
+                        "occupation": c.system_data.occupation,
                         "edition": c.edition,
                         "created_at": c.created_at,
                     }

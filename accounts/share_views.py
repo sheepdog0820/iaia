@@ -452,7 +452,10 @@ class SharedSessionDetailView(APIView):
 
 def _shared_character_or_404(token, request):
     share_link = _active_share_or_none(token, ShareLink.ResourceType.CHARACTER, request)
-    queryset = CharacterSheet.objects.prefetch_related("skills", "equipment", "images")
+    queryset = CharacterSheet.objects.prefetch_related(
+        "sixth_edition_data__skills", "sixth_edition_data__equipment", "sixth_edition_data__images",
+        "seventh_edition_data__skills", "seventh_edition_data__equipment", "seventh_edition_data__images",
+    )
     if share_link:
         return get_object_or_404(
             queryset,
@@ -471,7 +474,10 @@ class SharedCharacterDetailView(APIView):
 
     def get(self, request, token):
         share_link = _active_share_or_none(token, ShareLink.ResourceType.CHARACTER, request)
-        queryset = CharacterSheet.objects.prefetch_related("skills", "equipment")
+        queryset = CharacterSheet.objects.prefetch_related(
+            "sixth_edition_data__skills", "sixth_edition_data__equipment",
+            "seventh_edition_data__skills", "seventh_edition_data__equipment",
+        )
         if share_link:
             character = get_object_or_404(
                 queryset,
@@ -492,7 +498,7 @@ class SharedCharacterImagesView(APIView):
 
     def get(self, request, token):
         character = _shared_character_or_404(token, request)
-        images = character.images.order_by("order", "uploaded_at", "id")
+        images = character.system_data.images.order_by("order", "uploaded_at", "id")
         serializer = CharacterImageSerializer(images, many=True, context={"request": request})
         return Response({"count": images.count(), "results": serializer.data})
 
@@ -579,10 +585,11 @@ class FixedSharedCharacterView(APIView):
     def get(self, request, share_token):
         character = get_object_or_404(
             CharacterSheet.objects.select_related(
-                "parent_sheet",
-                "sixth_edition_data",
-                "user",
-            ).prefetch_related("skills", "equipment", "images"),
+                "sixth_edition_data", "seventh_edition_data", "user",
+            ).prefetch_related(
+                "sixth_edition_data__skills", "sixth_edition_data__equipment", "sixth_edition_data__images",
+                "seventh_edition_data__skills", "seventh_edition_data__equipment", "seventh_edition_data__images",
+            ),
             share_token=share_token,
             access_scope__in=("link", "public"),
         )

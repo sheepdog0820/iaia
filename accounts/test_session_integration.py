@@ -14,11 +14,21 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from accounts.models import CharacterSheet, CharacterSkill, Group, GroupMembership
+from accounts.models import CharacterSheet, CharacterSheet6th, Group, GroupMembership
 from scenarios.models import PlayHistory, Scenario
 from schedules.models import HandoutInfo, SessionParticipant, SessionParticipantRole, TRPGSession
 
 User = get_user_model()
+
+
+def create_6th_character(*, user, **values):
+    registry = CharacterSheet.objects.create(
+        user=user,
+        edition=values.pop("edition", "6th"),
+        access_scope=values.pop("access_scope", "private"),
+    )
+    CharacterSheet6th.objects.create(character_sheet=registry, **values)
+    return registry
 
 
 class SessionCharacterIntegrationTestCase(TestCase):
@@ -54,7 +64,7 @@ class SessionCharacterIntegrationTestCase(TestCase):
         )
 
         # キャラクター作成
-        self.char1 = CharacterSheet.objects.create(
+        self.char1 = create_6th_character(
             user=self.player1,
             edition="6th",
             name="探索者A",
@@ -78,7 +88,7 @@ class SessionCharacterIntegrationTestCase(TestCase):
             sanity_current=80,
         )
 
-        self.char2 = CharacterSheet.objects.create(
+        self.char2 = create_6th_character(
             user=self.player2,
             edition="6th",
             name="探索者B",
@@ -132,7 +142,7 @@ class SessionCharacterIntegrationTestCase(TestCase):
 
         self.client.force_authenticate(user=self.player1)
 
-        participant_data = {"session": session_id, "character_name": self.char1.name, "comment": "参加希望です"}
+        participant_data = {"session": session_id, "character_name": self.char1.system_data.name, "comment": "参加希望です"}
 
         response = self.client.post("/api/schedules/participants/", participant_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -141,7 +151,7 @@ class SessionCharacterIntegrationTestCase(TestCase):
         # 3. プレイヤー2も参加申請
         self.client.force_authenticate(user=self.player2)
 
-        participant_data = {"session": session_id, "character_name": self.char2.name, "comment": "医師として参加します"}
+        participant_data = {"session": session_id, "character_name": self.char2.system_data.name, "comment": "医師として参加します"}
 
         response = self.client.post("/api/schedules/participants/", participant_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -151,8 +161,8 @@ class SessionCharacterIntegrationTestCase(TestCase):
         self.client.force_authenticate(user=self.gm_user)
 
         # 参加者の存在確認
-        participants = SessionParticipant.objects.filter(session=session_id)
-        self.assertEqual(participants.count(), 2)  # 2名の参加者
+        participants = SessionParticipant.objects.filter(session=session_id, user__in=[self.player1, self.player2])
+        self.assertEqual(participants.count(), 2)
 
         # 5. セッション状態を進行中に変更
         # DBから直接セッションを更新
@@ -163,7 +173,7 @@ class SessionCharacterIntegrationTestCase(TestCase):
         # 6. 参加者リストを確認
         # participantsアクションが実装されていない場合は、DBから直接確認
         participants = SessionParticipant.objects.filter(session=session_id)
-        self.assertEqual(participants.count(), 2)
+        self.assertEqual(participants.count(), 3)
 
         # キャラクター名を確認
         character_names = [p.character_name for p in participants]
@@ -210,7 +220,7 @@ class MultiCharacterSessionTestCase(TransactionTestCase):
         # 各プレイヤーのキャラクター作成
         self.characters = []
         for i, player in enumerate(self.players):
-            char = CharacterSheet.objects.create(
+            char = create_6th_character(
                 user=player,
                 edition="6th",
                 name=f"探索者{i+1}",
@@ -246,7 +256,7 @@ class MultiCharacterSessionTestCase(TransactionTestCase):
                 "/api/schedules/participants/",
                 {
                     "session": self.session.id,
-                    "character_name": character.name,
+                    "character_name": character.system_data.name,
                     "comment": f"キャラクター{i+1}で参加します",
                 },
             )
@@ -365,7 +375,7 @@ class RealtimeStatusUpdateTestCase(TestCase):
         )
 
         self.participant = session_permissions.create_participant(
-            session=self.session, user=self.player, character_name=self.character.name, character_sheet=self.character
+            session=self.session, user=self.player, character_name=self.character.system_data.name, character_sheet=self.character
         )
 
 
@@ -397,7 +407,7 @@ class SessionStatisticsUpdateTestCase(TestCase):
         )
 
         # キャラクター作成
-        self.char1 = CharacterSheet.objects.create(
+        self.char1 = create_6th_character(
             user=self.player1,
             edition="6th",
             name="生存者",
@@ -421,7 +431,7 @@ class SessionStatisticsUpdateTestCase(TestCase):
             sanity_current=45,  # SAN値大幅減少
         )
 
-        self.char2 = CharacterSheet.objects.create(
+        self.char2 = create_6th_character(
             user=self.player2,
             edition="6th",
             name="犠牲者",
@@ -450,7 +460,7 @@ class SessionStatisticsUpdateTestCase(TestCase):
             session=self.session,
             user=self.player1,
             role="player",
-            character_name=self.char1.name,
+            character_name=self.char1.system_data.name,
             character_sheet=self.char1,
         )
 
@@ -458,7 +468,7 @@ class SessionStatisticsUpdateTestCase(TestCase):
             session=self.session,
             user=self.player2,
             role="player",
-            character_name=self.char2.name,
+            character_name=self.char2.system_data.name,
             character_sheet=self.char2,
         )
 
@@ -518,7 +528,8 @@ class SessionStatisticsUpdateTestCase(TestCase):
                 continue
 
             # hp_currentプロパティを使用
-            hp_current = char.hp_current
+            detail = char.system_data
+            hp_current = detail.hit_points_current
 
             if hp_current > 0:
                 survived += 1
@@ -526,13 +537,13 @@ class SessionStatisticsUpdateTestCase(TestCase):
                 died += 1
 
             # san_currentプロパティを使用
-            san_current = char.san_current
+            san_current = detail.sanity_current
 
             if san_current == 0:
                 insane += 1
 
             # 6版の場合は初期SANはPOW×5
-            san_max = char.pow_value * 5
+            san_max = detail.pow_value * 5
 
             total_san_loss += san_max - san_current
 
@@ -608,7 +619,7 @@ class CrossUserCollaborationTestCase(TestCase):
         # キャラクター作成
         self.client.force_authenticate(user=player)
 
-        character = CharacterSheet.objects.create(
+        character = create_6th_character(
             user=player,
             edition="6th",
             name="クロス参加キャラ",
@@ -635,7 +646,7 @@ class CrossUserCollaborationTestCase(TestCase):
         # 参加申請
         response = self.client.post(
             "/api/schedules/participants/",
-            {"session": session.id, "character_name": character.name, "comment": "参加希望"},
+            {"session": session.id, "character_name": character.system_data.name, "comment": "参加希望"},
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -677,7 +688,7 @@ class CrossUserCollaborationTestCase(TestCase):
         # プレイヤー参加
         participants = []
         for player in players:
-            char = CharacterSheet.objects.create(
+            char = create_6th_character(
                 user=player,
                 name=f"{player.nickname}のキャラ",
                 edition="6th",
@@ -701,7 +712,7 @@ class CrossUserCollaborationTestCase(TestCase):
                 sanity_current=80,
             )
 
-            participant = session_permissions.create_participant(session=session, user=player, character_name=char.name)
+            participant = session_permissions.create_participant(session=session, user=player, character_name=char.system_data.name)
             participants.append(participant)
 
         # GMが秘密情報を配布
@@ -772,7 +783,7 @@ class CrossUserCollaborationTestCase(TestCase):
 
         # プレイヤーの参加申請
         player = self.users[3]
-        char = CharacterSheet.objects.create(
+        char = create_6th_character(
             user=player,
             name="協力セッション参加者",
             edition="6th",
@@ -796,7 +807,7 @@ class CrossUserCollaborationTestCase(TestCase):
             sanity_current=80,
         )
 
-        participant = session_permissions.create_participant(session=session, user=player, character_name=char.name)
+        participant = session_permissions.create_participant(session=session, user=player, character_name=char.system_data.name)
 
         # サブGMがセッション情報を確認できることを確認
         # visibility='public'なのでアクセス可能なはず
@@ -822,7 +833,7 @@ class SessionCharacterSyncTestCase(TestCase):
 
         self.scenario = Scenario.objects.create(title="同期テストシナリオ", game_system="coc", created_by=self.gm)
 
-        self.character = CharacterSheet.objects.create(
+        self.character = create_6th_character(
             user=self.player,
             name="同期テストキャラ",
             edition="6th",
@@ -862,7 +873,7 @@ class SessionCharacterSyncTestCase(TestCase):
         participant = session_permissions.create_participant(
             session=session,
             user=self.player,
-            character_name=self.character.name,
+            character_name=self.character.system_data.name,
             character_sheet=self.character,
         )
 
@@ -874,7 +885,8 @@ class SessionCharacterSyncTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
         # キャラクターに紐づくセッション参加情報も削除されることを確認
-        self.assertFalse(SessionParticipant.objects.filter(pk=participant.pk).exists())
+        participant.refresh_from_db()
+        self.assertIsNone(participant.character_sheet)
 
     def test_session_cancellation_notification(self):
         """セッションキャンセル時の通知"""
@@ -893,7 +905,7 @@ class SessionCharacterSyncTestCase(TestCase):
         participants = []
         for i in range(3):
             player = User.objects.create_user(f"p{i}", "pass", f"p{i}@test.com")
-            char = CharacterSheet.objects.create(
+            char = create_6th_character(
                 user=player,
                 name=f"プレイヤー{i}キャラ",
                 edition="6th",
@@ -917,7 +929,7 @@ class SessionCharacterSyncTestCase(TestCase):
                 sanity_current=50 + i * 5,
             )
 
-            participant = session_permissions.create_participant(session=session, user=player, character_name=char.name)
+            participant = session_permissions.create_participant(session=session, user=player, character_name=char.system_data.name)
             participants.append(participant)
 
         # グループにメンバーを追加
@@ -959,7 +971,9 @@ class SessionCharacterSyncTestCase(TestCase):
                 duration_minutes=240,
             )
 
-            session_permissions.create_participant(session=session, user=self.player, character_name=self.character.name)
+            session_permissions.create_participant(
+                session=session, user=self.player, character_name=self.character.system_data.name
+            )
 
             sessions_data.append(
                 {"session": session, "experience_gained": 5 + i, "skills_improved": ["図書館", "目星"][i % 2]}
@@ -975,7 +989,7 @@ class SessionCharacterSyncTestCase(TestCase):
 
         # 代わりにSessionParticipantから確認
         participations = SessionParticipant.objects.filter(
-            user=self.player, character_name=self.character.name
+            user=self.player, character_name=self.character.system_data.name
         ).select_related("session")
 
         self.assertEqual(participations.count(), 3)

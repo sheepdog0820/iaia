@@ -13,7 +13,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from accounts.models import CharacterSheet, CharacterSkill, Group, GroupMembership
+from accounts.models import CharacterSheet, Group, GroupMembership
 from scenarios.models import Scenario
 from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
 
@@ -108,10 +108,10 @@ class CharacterToSessionIntegrationTestCase(TestCase):
         self.assertEqual(response.status_code, 302)
 
         # キャラクターが作成されたことを確認
-        char1 = CharacterSheet.objects.get(name="田中太郎")
+        char1 = CharacterSheet.objects.by_system_name("田中太郎", user=self.player1, edition="6th").get()
         self.assertEqual(char1.user, self.player1)
-        self.assertEqual(char1.hit_points_current, 15)
-        self.assertEqual(char1.sanity_current, 80)
+        self.assertEqual(char1.system_data.hit_points_current, 15)
+        self.assertEqual(char1.system_data.sanity_current, 80)
 
         # === Step 2: プレイヤー2がキャラクターを作成 ===
         self.client.logout()
@@ -147,7 +147,7 @@ class CharacterToSessionIntegrationTestCase(TestCase):
         response = self.client.post(reverse("character_create_6th"), character_data2)
         self.assertEqual(response.status_code, 302)
 
-        char2 = CharacterSheet.objects.get(name="山田花子")
+        char2 = CharacterSheet.objects.by_system_name("山田花子", user=self.player2, edition="6th").get()
         self.assertEqual(char2.user, self.player2)
 
         # === Step 3: プレイヤー3がキャラクターを作成（負傷状態） ===
@@ -184,9 +184,9 @@ class CharacterToSessionIntegrationTestCase(TestCase):
         response = self.client.post(reverse("character_create_6th"), character_data3)
         self.assertEqual(response.status_code, 302)
 
-        char3 = CharacterSheet.objects.get(name="佐藤次郎")
-        self.assertEqual(char3.hit_points_current, 8)  # 負傷状態が保存される
-        self.assertEqual(char3.sanity_current, 65)  # SAN値減少が保存される
+        char3 = CharacterSheet.objects.by_system_name("佐藤次郎", user=self.player3, edition="6th").get()
+        self.assertEqual(char3.system_data.hit_points_current, 8)  # 負傷状態が保存される
+        self.assertEqual(char3.system_data.sanity_current, 65)  # SAN値減少が保存される
 
         # === Step 4: GMがセッションを作成 ===
         self.api_client.force_authenticate(user=self.gm_user)
@@ -213,22 +213,22 @@ class CharacterToSessionIntegrationTestCase(TestCase):
         # === Step 5: プレイヤーがセッションに参加登録 ===
         # プレイヤー1が参加
         participant1 = session_permissions.create_participant(
-            session=session, user=self.player1, role="player", character_name=char1.name, character_sheet=char1
+            session=session, user=self.player1, role="player", character_name=char1.system_data.name, character_sheet=char1
         )
 
         # プレイヤー2が参加
         participant2 = session_permissions.create_participant(
-            session=session, user=self.player2, role="player", character_name=char2.name, character_sheet=char2
+            session=session, user=self.player2, role="player", character_name=char2.system_data.name, character_sheet=char2
         )
 
         # プレイヤー3が参加（負傷状態で）
         participant3 = session_permissions.create_participant(
-            session=session, user=self.player3, role="player", character_name=char3.name, character_sheet=char3
+            session=session, user=self.player3, role="player", character_name=char3.system_data.name, character_sheet=char3
         )
 
         # 参加状況の確認
         participants = SessionParticipant.objects.filter(session=session)
-        self.assertEqual(participants.count(), 3)
+        self.assertEqual(participants.count(), 4)
 
         # キャラクターシートとの連携確認
         p1 = participants.get(user=self.player1)
@@ -238,7 +238,7 @@ class CharacterToSessionIntegrationTestCase(TestCase):
         p3 = participants.get(user=self.player3)
         self.assertEqual(p3.character_sheet, char3)
         # 負傷状態のキャラクターも参加可能
-        self.assertEqual(p3.character_sheet.hit_points_current, 8)
+        self.assertEqual(p3.character_sheet.system_data.hit_points_current, 8)
 
         # === Step 6: GMがハンドアウトを配布 ===
         # プレイヤー1へのハンドアウト
@@ -282,12 +282,12 @@ class CharacterToSessionIntegrationTestCase(TestCase):
         # データベースから直接確認
         session.refresh_from_db()
         self.assertEqual(session.title, "悪霊の家 - 恐怖の一夜")
-        self.assertEqual(session.participants.count(), 3)
+        self.assertEqual(session.participants.count(), 4)
 
         # キャラクターの現在状態確認
         char3.refresh_from_db()
-        self.assertEqual(char3.hit_points_current, 8)
-        self.assertEqual(char3.sanity_current, 65)
+        self.assertEqual(char3.system_data.hit_points_current, 8)
+        self.assertEqual(char3.system_data.sanity_current, 65)
 
         # === Step 8: セッション開始（ステータス変更） ===
         session.status = "ongoing"
@@ -344,9 +344,9 @@ class CharacterToSessionIntegrationTestCase(TestCase):
         response = self.client.post(reverse("character_create_6th"), character_data)
         self.assertEqual(response.status_code, 302)
 
-        character = CharacterSheet.objects.get(name="狂気の研究者")
-        character.status = "insane"
-        character.save()
+        character = CharacterSheet.objects.by_system_name("狂気の研究者", user=self.player2, edition="6th").get()
+        character.system_data.status = "insane"
+        character.system_data.save(update_fields=["status"])
 
         # セッション作成と参加（発狂キャラクターでも参加可能）
         self.api_client.force_authenticate(user=self.gm_user)
@@ -366,7 +366,7 @@ class CharacterToSessionIntegrationTestCase(TestCase):
 
         # 発狂キャラクターでも参加可能
         participant = session_permissions.create_participant(
-            session=session, user=self.player2, role="player", character_name=character.name, character_sheet=character
+            session=session, user=self.player2, role="player", character_name=character.system_data.name, character_sheet=character
         )
-        self.assertEqual(participant.character_sheet.sanity_current, 0)
-        self.assertEqual(participant.character_sheet.status, "insane")
+        self.assertEqual(participant.character_sheet.system_data.sanity_current, 0)
+        self.assertEqual(participant.character_sheet.system_data.status, "insane")

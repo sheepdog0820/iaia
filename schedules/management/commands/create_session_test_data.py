@@ -11,7 +11,7 @@ from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from accounts.character_models import CharacterSheet, CharacterSkill
+from accounts.character_models import CharacterSheet, CharacterSheet6th
 from accounts.models import Group
 from schedules import session_permissions
 from schedules.models import HandoutInfo, SessionImage, SessionParticipant, SessionParticipantRole, SessionYouTubeLink, TRPGSession
@@ -36,7 +36,6 @@ class Command(BaseCommand):
             HandoutInfo.objects.all().delete()
             SessionParticipant.objects.all().delete()
             TRPGSession.objects.all().delete()
-            CharacterSkill.objects.all().delete()
             CharacterSheet.objects.all().delete()
             self.stdout.write(self.style.SUCCESS("既存データを削除しました。"))
 
@@ -177,13 +176,13 @@ class Command(BaseCommand):
 
         for char_info in character_data:
             # 能力値をランダムに生成（6版用）
-            character = CharacterSheet.objects.create(
-                user=char_info["user"],
+            character = CharacterSheet.objects.create(user=char_info["user"], edition="6th")
+            detail = CharacterSheet6th.objects.create(
+                character_sheet=character,
                 name=char_info["name"],
                 occupation=char_info["occupation"],
                 age=char_info["age"],
                 recommended_skills=[skill_name for skill_name, _ in (char_info.get("skills") or [])],
-                edition="6th",
                 str_value=random.randint(8, 15),
                 con_value=random.randint(8, 15),
                 pow_value=random.randint(8, 15),
@@ -208,7 +207,7 @@ class Command(BaseCommand):
                 except (TypeError, ValueError):
                     continue
 
-                base_value = character._get_skill_base_value(skill_name)
+                base_value = detail.get_skill_base_value(skill_name)
                 if base_value is None:
                     base_value = 0
                 try:
@@ -222,10 +221,10 @@ class Command(BaseCommand):
                 else:
                     occupation_points = desired_total - base_value
 
-                skill = CharacterSkill(
-                    character_sheet=character,
+                skill = detail.skills.model(
+                    character_sheet=detail,
                     skill_name=skill_name,
-                    category=character._get_skill_category(skill_name),
+                    category=detail.get_skill_category(skill_name),
                     base_value=base_value,
                     occupation_points=occupation_points,
                     interest_points=0,

@@ -45,6 +45,19 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
     def read_text(self, relative_path):
         return (Path(settings.BASE_DIR) / relative_path).read_text(encoding="utf-8")
 
+    def test_character_save_errors_use_japanese_field_messages(self):
+        for relative_path in [
+            "static/accounts/js/character6th.js",
+            "static/accounts/js/character7th.js",
+        ]:
+            with self.subTest(relative_path=relative_path):
+                script = self.read_text(relative_path)
+                self.assertIn("const formatCharacterSaveError = (error) =>", script)
+                self.assertIn("name: '探索者名'", script)
+                self.assertIn("保存できませんでした。", script)
+                self.assertIn("notifyUser(formatCharacterSaveError(error));", script)
+                self.assertNotIn("Network error occurred.", script)
+
     def extract_bracket_block(self, text, marker):
         start = text.index(marker)
         bracket = text.index("[", start)

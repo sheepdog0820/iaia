@@ -3,7 +3,6 @@ import os
 from django.db import models as django_models
 
 from .character_image_utils import get_character_preview_image_url
-from .character_models import CharacterSheet
 
 
 def build_character_detail_context(
@@ -20,15 +19,15 @@ def build_character_detail_context(
     reference_url="",
     preview_image_url=None,
 ):
-    assigned_skills = character.skills.filter(current_value__gt=django_models.F("base_value")).order_by("skill_name")
-    weapons = character.equipment.filter(item_type="weapon")
-    armor = character.equipment.filter(item_type="armor")
-    items = character.equipment.filter(item_type="item")
+    system_data = character.system_data
+    assigned_skills = system_data.skills.filter(current_value__gt=django_models.F("base_value")).order_by("skill_name")
+    weapons = system_data.equipment.filter(item_type="weapon")
+    armor = system_data.equipment.filter(item_type="armor")
+    items = system_data.equipment.filter(item_type="item")
 
     versions = []
     if not is_public_view:
-        base_sheet = character.parent_sheet if character.parent_sheet else character
-        versions = [base_sheet] + list(CharacterSheet.objects.filter(parent_sheet=base_sheet).order_by("version"))
+        versions = character.get_version_history()
 
     if preview_image_url is None:
         preview_image_url = get_character_preview_image_url(character, request)
@@ -36,11 +35,12 @@ def build_character_detail_context(
     character_image_file_names = []
     if can_edit_character:
         character_image_file_names = [
-            os.path.basename(image.image.name) for image in character.images.order_by("order", "id") if image.image
+            os.path.basename(image.image.name) for image in system_data.images.order_by("order", "id") if image.image
         ]
 
     context = {
         "character": character,
+        "character_system_data": system_data,
         "character_id": character.id,
         "is_public_view": is_public_view,
         "is_shared_view": is_shared_view,

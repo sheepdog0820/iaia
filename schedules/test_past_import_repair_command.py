@@ -5,7 +5,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from accounts.character_models import CharacterSheet
+from accounts.character_models import CharacterSheet, CharacterSheet6th
 from accounts.models import Group
 from scenarios.models import Scenario
 from schedules.models import SessionParticipant, TRPGSession
@@ -98,9 +98,9 @@ class RepairPastImportCharacterLinkTests(TestCase):
         self.assertIn("character_sheets_linked=1", out.getvalue())
 
     def _create_character(self, name, source_scenario=None):
-        return CharacterSheet.objects.create(
-            user=self.player,
-            edition="6th",
+        character = CharacterSheet.objects.create(user=self.player, edition="6th")
+        CharacterSheet6th.objects.create(
+            character_sheet=character,
             name=name,
             age=30,
             str_value=10,
@@ -122,3 +122,4 @@ class RepairPastImportCharacterLinkTests(TestCase):
             source_scenario_title=source_scenario.title if source_scenario else "",
             source_scenario_game_system=source_scenario.game_system if source_scenario else "",
         )
+        return character

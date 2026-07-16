@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.character_models import CharacterSheet
+from accounts.character_models import CharacterSheet, CharacterSheet6th
 from accounts.models import Friend, Group, GroupInvitation, GroupMembership
 from schedules.models import (
     HandoutNotification,
@@ -393,9 +393,9 @@ class GroupMemberCharactersAPITestCase(APITestCase):
         mp_max = stats["pow_value"]
         san_start = stats["pow_value"] * 5
 
-        return CharacterSheet.objects.create(
-            user=user,
-            edition="6th",
+        character = CharacterSheet.objects.create(user=user, edition="6th", access_scope=access_scope)
+        CharacterSheet6th.objects.create(
+            character_sheet=character,
             name=name,
             age=25,
             **stats,
@@ -406,9 +406,9 @@ class GroupMemberCharactersAPITestCase(APITestCase):
             sanity_starting=san_start,
             sanity_max=99,
             sanity_current=san_start,
-            access_scope=access_scope,
             is_active=True,
         )
+        return character
 
     def test_member_characters_visibility(self):
         self.client.force_authenticate(user=self.admin)

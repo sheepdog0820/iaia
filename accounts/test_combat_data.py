@@ -9,8 +9,9 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .character_models import CharacterEquipment, CharacterSheet6th
+from .character_models import CharacterEquipment6th as CharacterEquipment, CharacterSheet6th
 from .models import CharacterSheet
+from .test_character_factories import create_6th_character
 
 User = get_user_model()
 
@@ -20,7 +21,7 @@ class CombatDataCalculationTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
+        self.character, self.character_6th = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -34,7 +35,6 @@ class CombatDataCalculationTestCase(TestCase):
             int_value=16,
             edu_value=12,
         )
-        self.character_6th = CharacterSheet6th.objects.create(character_sheet=self.character)
 
     def test_damage_bonus_calculation_6th(self):
         """6版ダメージボーナス計算テスト"""
@@ -56,9 +56,9 @@ class CombatDataCalculationTestCase(TestCase):
 
         for str_val, siz_val, expected_bonus in test_cases:
             with self.subTest(str=str_val, siz=siz_val):
-                self.character.str_value = str_val
-                self.character.siz_value = siz_val
-                self.character.save()
+                self.character_6th.str_value = str_val
+                self.character_6th.siz_value = siz_val
+                self.character_6th.save()
 
                 # 6版データの再計算
                 self.character_6th.save()
@@ -71,7 +71,7 @@ class WeaponManagementTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
+        self.character, _ = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -89,7 +89,7 @@ class WeaponManagementTestCase(TestCase):
     def test_weapon_creation(self):
         """武器作成テスト"""
         weapon = CharacterEquipment.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             item_type="weapon",
             name=".38口径リボルバー",
             skill_name="拳銃",
@@ -114,14 +114,14 @@ class WeaponManagementTestCase(TestCase):
         # 武器名必須チェック
         with self.assertRaises(ValidationError):
             weapon = CharacterEquipment(
-                character_sheet=self.character, item_type="weapon", name="", skill_name="拳銃"  # 空文字
+                character_sheet=self.character.system_data, item_type="weapon", name="", skill_name="拳銃"  # 空文字
             )
             weapon.full_clean()
 
         # 攻撃回数の範囲チェック
         with self.assertRaises(ValidationError):
             weapon = CharacterEquipment(
-                character_sheet=self.character, item_type="weapon", name="テスト武器", attacks_per_round=-1  # 負の値
+                character_sheet=self.character.system_data, item_type="weapon", name="テスト武器", attacks_per_round=-1  # 負の値
             )
             weapon.full_clean()
 
@@ -157,12 +157,12 @@ class WeaponManagementTestCase(TestCase):
         created_weapons = []
         for weapon_data in weapons_data:
             weapon = CharacterEquipment.objects.create(
-                character_sheet=self.character, item_type="weapon", **weapon_data
+                character_sheet=self.character.system_data, item_type="weapon", **weapon_data
             )
             created_weapons.append(weapon)
 
         # 武器が正しく作成されているか確認
-        weapons = CharacterEquipment.objects.filter(character_sheet=self.character, item_type="weapon")
+        weapons = CharacterEquipment.objects.filter(character_sheet=self.character.system_data, item_type="weapon")
         self.assertEqual(weapons.count(), 3)
 
         # 各武器の詳細確認
@@ -176,7 +176,7 @@ class ArmorManagementTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
+        self.character, _ = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -194,7 +194,7 @@ class ArmorManagementTestCase(TestCase):
     def test_armor_creation(self):
         """防具作成テスト"""
         armor = CharacterEquipment.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             item_type="armor",
             name="レザージャケット",
             armor_points=1,
@@ -210,7 +210,7 @@ class ArmorManagementTestCase(TestCase):
         # 防護点の範囲チェック
         with self.assertRaises(ValidationError):
             armor = CharacterEquipment(
-                character_sheet=self.character, item_type="armor", name="テスト防具", armor_points=-1  # 負の値
+                character_sheet=self.character.system_data, item_type="armor", name="テスト防具", armor_points=-1  # 負の値
             )
             armor.full_clean()
 
@@ -223,9 +223,9 @@ class ArmorManagementTestCase(TestCase):
         ]
 
         for armor_info in armor_data:
-            CharacterEquipment.objects.create(character_sheet=self.character, item_type="armor", **armor_info)
+            CharacterEquipment.objects.create(character_sheet=self.character.system_data, item_type="armor", **armor_info)
 
-        armors = CharacterEquipment.objects.filter(character_sheet=self.character, item_type="armor")
+        armors = CharacterEquipment.objects.filter(character_sheet=self.character.system_data, item_type="armor")
         self.assertEqual(armors.count(), 3)
 
         # 総防護点の計算
@@ -240,7 +240,7 @@ class CombatDataAPITestCase(APITestCase):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
         self.client.force_authenticate(user=self.user)
 
-        self.character = CharacterSheet.objects.create(
+        self.character, _ = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -298,7 +298,7 @@ class CombatDataAPITestCase(APITestCase):
         """武器一覧取得APIテスト"""
         # テスト用武器を作成
         CharacterEquipment.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             item_type="weapon",
             name=".38口径リボルバー",
             skill_name="拳銃",
@@ -315,7 +315,7 @@ class CombatDataAPITestCase(APITestCase):
         """防具一覧取得APIテスト"""
         # テスト用防具を作成
         CharacterEquipment.objects.create(
-            character_sheet=self.character, item_type="armor", name="レザージャケット", armor_points=1
+            character_sheet=self.character.system_data, item_type="armor", name="レザージャケット", armor_points=1
         )
 
         response = self.client.get(f"/accounts/character-sheets/{self.character.id}/equipment/?type=armor")
@@ -328,10 +328,10 @@ class CombatDataAPITestCase(APITestCase):
         """戦闘サマリー取得APIテスト"""
         # テスト用武器・防具を作成
         CharacterEquipment.objects.create(
-            character_sheet=self.character, item_type="weapon", name=".38口径リボルバー", damage="1D10"
+            character_sheet=self.character.system_data, item_type="weapon", name=".38口径リボルバー", damage="1D10"
         )
         CharacterEquipment.objects.create(
-            character_sheet=self.character, item_type="armor", name="レザージャケット", armor_points=1
+            character_sheet=self.character.system_data, item_type="armor", name="レザージャケット", armor_points=1
         )
 
         response = self.client.get(f"/accounts/character-sheets/{self.character.id}/combat-summary/")
@@ -345,7 +345,7 @@ class CombatDataAPITestCase(APITestCase):
     def test_update_weapon_api(self):
         """武器更新APIテスト"""
         weapon = CharacterEquipment.objects.create(
-            character_sheet=self.character, item_type="weapon", name=".38口径リボルバー", damage="1D10", ammo=6
+            character_sheet=self.character.system_data, item_type="weapon", name=".38口径リボルバー", damage="1D10", ammo=6
         )
 
         update_data = {"ammo": 5}  # 弾数を更新
@@ -360,7 +360,7 @@ class CombatDataAPITestCase(APITestCase):
     def test_delete_equipment_api(self):
         """装備削除APIテスト"""
         weapon = CharacterEquipment.objects.create(
-            character_sheet=self.character, item_type="weapon", name=".38口径リボルバー"
+            character_sheet=self.character.system_data, item_type="weapon", name=".38口径リボルバー"
         )
 
         response = self.client.delete(f"/accounts/character-sheets/{self.character.id}/equipment/{weapon.id}/")
@@ -377,7 +377,7 @@ class CombatCalculationIntegrationTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
+        self.character, self.character_6th = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -391,13 +391,12 @@ class CombatCalculationIntegrationTestCase(TestCase):
             int_value=16,
             edu_value=12,
         )
-        self.character_6th = CharacterSheet6th.objects.create(character_sheet=self.character)
 
     def test_complete_combat_setup(self):
         """完全な戦闘セットアップのテスト"""
         # 武器作成
         revolver = CharacterEquipment.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             item_type="weapon",
             name=".38口径リボルバー",
             skill_name="拳銃",
@@ -409,7 +408,7 @@ class CombatCalculationIntegrationTestCase(TestCase):
         )
 
         knife = CharacterEquipment.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             item_type="weapon",
             name="ナイフ",
             skill_name="格闘",
@@ -420,12 +419,12 @@ class CombatCalculationIntegrationTestCase(TestCase):
 
         # 防具作成
         leather_jacket = CharacterEquipment.objects.create(
-            character_sheet=self.character, item_type="armor", name="レザージャケット", armor_points=1
+            character_sheet=self.character.system_data, item_type="armor", name="レザージャケット", armor_points=1
         )
 
         # 戦闘データの確認
-        weapons = CharacterEquipment.objects.filter(character_sheet=self.character, item_type="weapon")
-        armors = CharacterEquipment.objects.filter(character_sheet=self.character, item_type="armor")
+        weapons = CharacterEquipment.objects.filter(character_sheet=self.character.system_data, item_type="weapon")
+        armors = CharacterEquipment.objects.filter(character_sheet=self.character.system_data, item_type="armor")
 
         self.assertEqual(weapons.count(), 2)
         self.assertEqual(armors.count(), 1)

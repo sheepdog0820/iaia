@@ -2,7 +2,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from accounts.models import CharacterSheet, CharacterSkill
+from accounts.models import CharacterSheet
+from accounts.test_character_factories import create_character_with_system_data
 from accounts.models import Group as CustomGroup
 from scenarios.models import Scenario
 
@@ -31,7 +32,7 @@ class RecommendedSkillComparisonServiceTests(TestCase):
 
     def create_character(self, *, edition="6th", name="比較探索者", dex_value=None, edu_value=None):
         is_seventh = edition == "7th"
-        character = CharacterSheet.objects.create(
+        character, _ = create_character_with_system_data(
             user=self.player,
             edition=edition,
             name=name,
@@ -84,8 +85,8 @@ class RecommendedSkillComparisonServiceTests(TestCase):
         self.scenario.recommended_skills = "目星, 母国語, 回避, こぶし（パンチ）"
         self.scenario.save()
         character, participant = self.create_character(edu_value=14, dex_value=12)
-        CharacterSkill.objects.create(
-            character_sheet=character,
+        character.system_data.skills.model.objects.create(
+            character_sheet=character.system_data,
             skill_name="目星",
             base_value=25,
             occupation_points=40,
@@ -121,14 +122,14 @@ class RecommendedSkillComparisonServiceTests(TestCase):
         self.scenario.recommended_skills = "芸術"
         self.scenario.save()
         character, participant = self.create_character()
-        CharacterSkill.objects.create(
-            character_sheet=character,
+        character.system_data.skills.model.objects.create(
+            character_sheet=character.system_data,
             skill_name="芸術（絵画）",
             base_value=5,
             occupation_points=55,
         )
-        CharacterSkill.objects.create(
-            character_sheet=character,
+        character.system_data.skills.model.objects.create(
+            character_sheet=character.system_data,
             skill_name="芸術(歌唱)",
             base_value=5,
             interest_points=35,
@@ -150,14 +151,14 @@ class RecommendedSkillComparisonServiceTests(TestCase):
         self.scenario.recommended_skills = "芸術（絵画）"
         self.scenario.save()
         character, participant = self.create_character()
-        CharacterSkill.objects.create(
-            character_sheet=character,
+        character.system_data.skills.model.objects.create(
+            character_sheet=character.system_data,
             skill_name="芸術（絵画）",
             base_value=5,
             occupation_points=55,
         )
-        CharacterSkill.objects.create(
-            character_sheet=character,
+        character.system_data.skills.model.objects.create(
+            character_sheet=character.system_data,
             skill_name="芸術（歌唱）",
             base_value=5,
             interest_points=35,
@@ -171,7 +172,7 @@ class RecommendedSkillComparisonServiceTests(TestCase):
         )
         self.assertFalse(comparison["rows"][0]["cells"][0]["show_match_names"])
 
-        character.skills.filter(skill_name="芸術（歌唱）").delete()
+        character.system_data.skills.filter(skill_name="芸術（歌唱）").delete()
         self.scenario.recommended_skills = "芸術"
         self.scenario.save()
 
@@ -184,8 +185,8 @@ class RecommendedSkillComparisonServiceTests(TestCase):
         self.scenario.recommended_skills = "拳銃"
         self.scenario.save()
         character, participant = self.create_character(edition="7th")
-        CharacterSkill.objects.create(
-            character_sheet=character,
+        character.system_data.skills.model.objects.create(
+            character_sheet=character.system_data,
             skill_name="射撃（拳銃）",
             base_value=20,
             occupation_points=40,
@@ -203,8 +204,8 @@ class RecommendedSkillComparisonServiceTests(TestCase):
         self.scenario.recommended_skills = "芸術（絵画）"
         self.scenario.save()
         character, participant = self.create_character(edition="7th")
-        CharacterSkill.objects.create(
-            character_sheet=character,
+        character.system_data.skills.model.objects.create(
+            character_sheet=character.system_data,
             skill_name="芸術／製作（絵画）",
             base_value=5,
             occupation_points=45,
@@ -269,7 +270,7 @@ class RecommendedSkillComparisonViewTests(TestCase):
             group=self.group,
             scenario=self.scenario,
         )
-        self.character = CharacterSheet.objects.create(
+        self.character, _ = create_character_with_system_data(
             user=self.player,
             edition="6th",
             name="表示比較探索者",
@@ -295,14 +296,14 @@ class RecommendedSkillComparisonViewTests(TestCase):
             role="player",
             character_sheet=self.character,
         )
-        CharacterSkill.objects.create(
-            character_sheet=self.character,
+        self.character.system_data.skills.model.objects.create(
+            character_sheet=self.character.system_data,
             skill_name="目星",
             base_value=25,
             occupation_points=40,
         )
-        CharacterSkill.objects.create(
-            character_sheet=self.character,
+        self.character.system_data.skills.model.objects.create(
+            character_sheet=self.character.system_data,
             skill_name="芸術（絵画）",
             base_value=5,
             interest_points=35,

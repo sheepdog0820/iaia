@@ -107,8 +107,8 @@ class DevLoginView(View):
                     session = row.session
                     slot = f"Slot{row.player_slot}" if row.player_slot else "Slot-"
                     character_name = ""
-                    if row.character_sheet_id and getattr(row.character_sheet, "name", ""):
-                        character_name = row.character_sheet.name
+                    if row.character_sheet_id:
+                        character_name = row.character_sheet.system_data.name
                     elif row.character_name:
                         character_name = row.character_name
                     character_label = f" / {character_name}" if character_name else ""

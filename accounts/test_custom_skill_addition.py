@@ -7,7 +7,8 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .character_models import CharacterSheet, CharacterSkill
+from .character_models import CharacterSheet, CharacterSkill6th as CharacterSkill
+from .test_character_factories import create_6th_character
 
 User = get_user_model()
 
@@ -18,7 +19,7 @@ class CustomSkillAdditionModelTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123")
 
-        self.character = CharacterSheet.objects.create(
+        self.character, _ = create_6th_character(
             user=self.user,
             name="Test Character",
             edition="6th",
@@ -36,7 +37,7 @@ class CustomSkillAdditionModelTestCase(TestCase):
     def test_custom_skill_creation_with_specialization(self):
         """専門技能（芸術、言語等）のカスタム技能作成テスト"""
         skill = CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="芸術（イラスト）",
             category="特殊・その他",
             base_value=5,
@@ -53,7 +54,7 @@ class CustomSkillAdditionModelTestCase(TestCase):
     def test_language_skill_creation(self):
         """言語技能のカスタム技能作成テスト"""
         skill = CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="他の言語（英語）",
             category="言語系",
             base_value=1,
@@ -70,13 +71,13 @@ class CustomSkillAdditionModelTestCase(TestCase):
         """カスタム技能名のバリデーションテスト"""
         # 技能名が空文字の場合は作成できない
         with self.assertRaises(Exception):
-            CharacterSkill.objects.create(character_sheet=self.character, skill_name="", base_value=10)  # 空文字
+            CharacterSkill.objects.create(character_sheet=self.character.system_data, skill_name="", base_value=10)  # 空文字
 
     def test_custom_skill_duplicate_names_allowed(self):
         """同じキャラクターでも異なる専門分野なら重複技能名を許可"""
         # 芸術（イラスト）
         skill1 = CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="芸術（イラスト）",
             category="特殊・その他",
             base_value=5,
@@ -85,7 +86,7 @@ class CustomSkillAdditionModelTestCase(TestCase):
 
         # 芸術（音楽）- 異なる専門分野
         skill2 = CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="芸術（音楽）",
             category="特殊・その他",
             base_value=5,
@@ -98,7 +99,7 @@ class CustomSkillAdditionModelTestCase(TestCase):
     def test_custom_skill_with_all_point_types(self):
         """全ポイント種類を含むカスタム技能テスト"""
         skill = CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="制作（プログラミング）",
             category="技術系",
             base_value=5,
@@ -121,7 +122,7 @@ class CustomSkillAdditionAPITestCase(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123")
 
-        self.character = CharacterSheet.objects.create(
+        self.character, _ = create_6th_character(
             user=self.user,
             name="Test Character",
             edition="6th",
@@ -174,7 +175,7 @@ class CustomSkillAdditionAPITestCase(APITestCase):
         """他のユーザーのキャラクターにカスタム技能を追加できないことをテスト"""
         other_user = User.objects.create_user(username="otheruser", password="otherpass123")
 
-        other_character = CharacterSheet.objects.create(
+        other_character, _ = create_6th_character(
             user=other_user,
             name="Other Character",
             edition="6th",
@@ -252,7 +253,7 @@ class CustomSkillCategoryTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123")
 
-        self.character = CharacterSheet.objects.create(
+        self.character, _ = create_6th_character(
             user=self.user,
             name="Test Character",
             edition="6th",
@@ -282,7 +283,7 @@ class CustomSkillCategoryTestCase(TestCase):
 
         for category, skill_name in categories:
             skill = CharacterSkill.objects.create(
-                character_sheet=self.character, skill_name=skill_name, category=category, base_value=10
+                character_sheet=self.character.system_data, skill_name=skill_name, category=category, base_value=10
             )
 
             self.assertEqual(skill.category, category)
@@ -292,7 +293,7 @@ class CustomSkillCategoryTestCase(TestCase):
         """カスタムカテゴリ作成テスト"""
         # 既存のカテゴリに分類しにくい技能
         skill = CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="占い（タロット）",
             category="特殊・その他",  # カスタム技能は基本的にこのカテゴリ
             base_value=5,
@@ -310,7 +311,7 @@ class CustomSkillValidationTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123")
 
-        self.character = CharacterSheet.objects.create(
+        self.character, _ = create_6th_character(
             user=self.user,
             name="Test Character",
             edition="6th",
@@ -330,7 +331,7 @@ class CustomSkillValidationTestCase(TestCase):
         # 長すぎる技能名
         long_skill_name = "非常に長い技能名" * 10  # 50文字程度
 
-        skill = CharacterSkill.objects.create(character_sheet=self.character, skill_name=long_skill_name, base_value=5)
+        skill = CharacterSkill.objects.create(character_sheet=self.character.system_data, skill_name=long_skill_name, base_value=5)
 
         # とりあえず作成は成功する（後でバリデーション追加予定）
         self.assertEqual(skill.skill_name, long_skill_name)
@@ -340,7 +341,7 @@ class CustomSkillValidationTestCase(TestCase):
         # 負の値は許可しない
         with self.assertRaises(Exception):
             CharacterSkill.objects.create(
-                character_sheet=self.character, skill_name="テスト技能", base_value=-5  # 負の値
+                character_sheet=self.character.system_data, skill_name="テスト技能", base_value=-5  # 負の値
             )
 
     def test_skill_specialization_format(self):
@@ -354,7 +355,7 @@ class CustomSkillValidationTestCase(TestCase):
         ]
 
         for skill_name in specialization_patterns:
-            skill = CharacterSkill.objects.create(character_sheet=self.character, skill_name=skill_name, base_value=5)
+            skill = CharacterSkill.objects.create(character_sheet=self.character.system_data, skill_name=skill_name, base_value=5)
 
             # 専門分野が（）で囲まれていることを確認
             self.assertTrue("（" in skill_name and "）" in skill_name)

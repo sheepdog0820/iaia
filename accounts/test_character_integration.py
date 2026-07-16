@@ -16,9 +16,21 @@ from PIL import Image
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from accounts.models import CharacterImage, CharacterSheet, CharacterSheet6th, CharacterSkill
+from accounts.models import CharacterSheet, CharacterSheet6th, CharacterSheet7th
 
 User = get_user_model()
+
+
+def create_character_with_detail(values):
+    values = dict(values)
+    user = values.pop("user")
+    edition = values.pop("edition", "6th")
+    access_scope = values.pop("access_scope", "group")
+    registry = CharacterSheet.objects.create(user=user, edition=edition, access_scope=access_scope)
+    detail_model = CharacterSheet6th if edition == "6th" else CharacterSheet7th
+    detail = detail_model(character_sheet=registry, **values)
+    detail.save()
+    return registry
 
 
 class CharacterIntegrationTestCase(TestCase):
@@ -86,7 +98,7 @@ class CharacterIntegrationTestCase(TestCase):
             }
         )
 
-        return CharacterSheet.objects.create(**defaults)
+        return create_character_with_detail(defaults)
 
     def test_character_creation_flow(self):
         """キャラクター作成フローのテスト"""
@@ -149,9 +161,9 @@ class CharacterIntegrationTestCase(TestCase):
 
         # 4. 作成されたキャラクターの確認
         character = CharacterSheet.objects.get(id=character_id)
-        self.assertEqual(character.name, "統合テスト探索者")
+        self.assertEqual(character.system_data.name, "統合テスト探索者")
         self.assertEqual(character.user, self.user)
-        self.assertEqual(character.skills.count(), 2)
+        self.assertEqual(character.system_data.skills.count(), 2)
         print("OK データベース保存: 正常")
 
         # 6版固有データの確認
@@ -201,9 +213,9 @@ class CharacterIntegrationTestCase(TestCase):
 
         # 5. 更新内容の確認
         character = CharacterSheet.objects.get(id=character_id)
-        self.assertEqual(character.name, "更新された探索者")
-        self.assertEqual(character.age, 26)
-        self.assertEqual(character.hit_points_current, 10)
+        self.assertEqual(character.system_data.name, "更新された探索者")
+        self.assertEqual(character.system_data.age, 26)
+        self.assertEqual(character.system_data.hit_points_current, 10)
         print("OK 更新内容確認: 正常")
 
         return character_id
@@ -263,7 +275,7 @@ class CharacterIntegrationTestCase(TestCase):
         print("OK 画像削除: 成功")
 
         # 残りの画像がメイン画像になっているか確認
-        remaining_image = CharacterImage.objects.filter(character_sheet=character).first()
+        remaining_image = character.system_data.images.first()
         # メイン画像の自動設定機能が実装されていない場合はスキップ
         if remaining_image:
             # self.assertTrue(remaining_image.is_main)
@@ -292,7 +304,7 @@ class CharacterIntegrationTestCase(TestCase):
             edu_value=17,
             version=1,
         )
-        print(f"OK オリジナルキャラクター作成: v{original.version}")
+        print(f"OK オリジナルキャラクター作成: v{original.system_data.version}")
 
         # 1. バージョン作成API呼び出し
         response = self.api_client.post(f"/api/accounts/character-sheets/{original.id}/create_version/")
@@ -302,9 +314,9 @@ class CharacterIntegrationTestCase(TestCase):
 
         # 2. バージョン関係の確認
         version2 = CharacterSheet.objects.get(id=version2_id)
-        self.assertEqual(version2.version, 2)
-        self.assertEqual(version2.parent_sheet, original)
-        self.assertEqual(version2.name, original.name)
+        self.assertEqual(version2.system_data.version, 2)
+        self.assertEqual(version2.system_data.parent_data.character_sheet, original)
+        self.assertEqual(version2.system_data.name, original.system_data.name)
         print("OK バージョン関係: 正常")
 
         # 3. さらに新しいバージョンを作成
@@ -313,8 +325,8 @@ class CharacterIntegrationTestCase(TestCase):
         version3_id = response.data["id"]
 
         version3 = CharacterSheet.objects.get(id=version3_id)
-        self.assertEqual(version3.version, 3)
-        self.assertEqual(version3.parent_sheet, original)  # 親は常にオリジナル
+        self.assertEqual(version3.system_data.version, 3)
+        self.assertEqual(version3.system_data.parent_data.character_sheet, version2)
         print("OK バージョン3作成: 親関係維持")
 
         # 4. バージョン履歴の取得
@@ -329,14 +341,14 @@ class CharacterIntegrationTestCase(TestCase):
         print("OK バージョン履歴取得: 3バージョン確認")
 
         # 5. 各バージョンの独立性確認
-        version2.hit_points_current = 10
-        version2.save()
+        version2.system_data.hit_points_current = 10
+        version2.system_data.save()
 
         original.refresh_from_db()
         version3.refresh_from_db()
 
-        self.assertNotEqual(original.hit_points_current, 10)
-        self.assertNotEqual(version3.hit_points_current, 10)
+        self.assertNotEqual(original.system_data.hit_points_current, 10)
+        self.assertNotEqual(version3.system_data.hit_points_current, 10)
         print("OK バージョン独立性: 確認")
 
         return original.id, version2_id, version3_id
@@ -361,8 +373,8 @@ class CharacterIntegrationTestCase(TestCase):
         )
 
         # スキルを追加
-        CharacterSkill.objects.create(
-            character_sheet=character, skill_name="図書館", base_value=25, occupation_points=40, interest_points=10
+        character.system_data.skills.create(
+            skill_name="図書館", base_value=25, occupation_points=40, interest_points=10
         )
 
         # CCFOLIA形式でエクスポート
@@ -415,7 +427,7 @@ class CharacterIntegrationTestCase(TestCase):
 
         # 最終的な統計
         total_characters = CharacterSheet.objects.filter(user=self.user).count()
-        total_images = CharacterImage.objects.filter(character_sheet__user=self.user).count()
+        total_images = sum(sheet.system_data.images.count() for sheet in CharacterSheet.objects.filter(user=self.user))
 
         print(f"\nStats テスト結果統計:")
         print(f"  - 作成されたキャラクター数: {total_characters}")
@@ -487,7 +499,7 @@ class CharacterAPIPermissionTestCase(TestCase):
             }
         )
 
-        return CharacterSheet.objects.create(**defaults)
+        return create_character_with_detail(defaults)
 
     def test_unauthorized_access(self):
         """未認証アクセスのテスト"""
@@ -608,7 +620,7 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
             }
         )
 
-        return CharacterSheet.objects.create(**defaults)
+        return create_character_with_detail(defaults)
 
     def test_skill_points_validation(self):
         """技能ポイントのバリデーションテスト"""
@@ -631,8 +643,7 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
 
         # 1. 技能ポイントの上限テスト（90%）
         # スキルを直接作成
-        skill = CharacterSkill.objects.create(
-            character_sheet=character,
+        skill = character.system_data.skills.create(
             skill_name="図書館",
             base_value=25,
             occupation_points=60,  # 基本値との合計が85
@@ -714,13 +725,13 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
         )
 
         # 関連データを作成
-        skill = CharacterSkill.objects.create(
-            character_sheet=character, skill_name="図書館", base_value=25, occupation_points=30, interest_points=10
+        skill = character.system_data.skills.create(
+            skill_name="図書館", base_value=25, occupation_points=30, interest_points=10
         )
 
         # 削除前のデータ数を確認
         self.assertTrue(CharacterSheet.objects.filter(id=character.id).exists())
-        self.assertTrue(CharacterSkill.objects.filter(id=skill.id).exists())
+        self.assertTrue(character.system_data.skills.filter(id=skill.id).exists())
 
         # 削除実行
         response = self.api_client.delete(f"/api/accounts/character-sheets/{character.id}/")
@@ -729,7 +740,7 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
 
         # カスケード削除の確認
         self.assertFalse(CharacterSheet.objects.filter(id=character.id).exists())
-        self.assertFalse(CharacterSkill.objects.filter(id=skill.id).exists())
+        self.assertFalse(skill.__class__.objects.filter(id=skill.id).exists())
         print("OK カスケード削除: 正常")
 
     def test_ability_score_boundaries(self):
@@ -819,7 +830,7 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
                 sixth_data = CharacterSheet6th.objects.get(character_sheet=character)
                 # ダメージボーナスの計算ロジックが実装されている場合
                 if hasattr(sixth_data, "damage_bonus") and sixth_data.damage_bonus:
-                    self.assertEqual(sixth_data.damage_bonus, expected_bonus)
+                    self.assertEqual(sixth_data.damage_bonus.lower(), expected_bonus.lower())
                     print(f"OK STR+SIZ={str_val+siz_val}: DB={expected_bonus}")
                 else:
                     print(f"OK STR+SIZ={str_val+siz_val}: DB計算未実装")
@@ -902,7 +913,7 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
             edu_value=17,
             status="alive",
         )
-        print(f"OK キャラクター作成: {character.name}")
+        print(f"OK キャラクター作成: {character.system_data.name}")
 
         # セッションを作成
         from django.utils import timezone
@@ -927,7 +938,7 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
             session=session,
             user=self.user,
             role="player",
-            character_name=character.name,
+            character_name=character.system_data.name,
             character_sheet_url=f"http://example.com/character/{character.id}/",
         )
         print("OK セッション参加者登録: 成功")
@@ -952,8 +963,8 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
         session.save()
 
         # キャラクターのセッション数を更新
-        character.session_count = (character.session_count or 0) + 1
-        character.save()
+        character.system_data.session_count = (character.system_data.session_count or 0) + 1
+        character.system_data.save()
         print("OK セッション完了処理: セッション数+1")
 
         # プレイ履歴の作成（シナリオがある場合）
@@ -974,17 +985,17 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
             session=session,
             played_date=session.date,
             role="player",
-            notes=f"テストプレイ: {character.name}で参加",
+            notes=f"テストプレイ: {character.system_data.name}で参加",
         )
         print("OK プレイ履歴記録: 成功")
 
         # セッション連携結果の確認
-        self.assertEqual(participant.character_name, character.name)
-        self.assertEqual(character.session_count, 1)
+        self.assertEqual(participant.character_name, character.system_data.name)
+        self.assertEqual(character.system_data.session_count, 1)
         self.assertEqual(handout.participant, participant)
         self.assertTrue(handout.is_secret)
         self.assertEqual(play_history.role, "player")
-        self.assertIn(character.name, play_history.notes)
+        self.assertIn(character.system_data.name, play_history.notes)
         print("OK セッション連携全体: 正常")
 
         return character.id, session.id

@@ -11,7 +11,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.character_models import CharacterSheet
+from accounts.character_models import CharacterSheet, CharacterSheet6th
 from accounts.models import CustomUser, Group
 from schedules import session_permissions
 from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
@@ -60,12 +60,12 @@ class PlayerSlotHandoutTestCase(APITestCase):
         # キャラクター作成（各プレイヤー用）
         self.characters = []
         for i, player in enumerate(self.players[:4]):
-            character = CharacterSheet.objects.create(
-                user=player,
+            character = CharacterSheet.objects.create(user=player, edition="6th")
+            CharacterSheet6th.objects.create(
+                character_sheet=character,
                 name=f"探索者{i+1}",
                 age=25 + i,
                 occupation="探偵",
-                edition="6th",
                 str_value=10,
                 con_value=10,
                 pow_value=10,

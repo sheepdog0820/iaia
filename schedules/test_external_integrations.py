@@ -271,4 +271,4 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertEqual(imported.status_code, status.HTTP_201_CREATED)
         character = CharacterSheet.objects.get(pk=imported.data["imported_ids"][0])
         self.assertEqual(character.user, self.user)
-        self.assertEqual(character.name, "Imported Investigator")
+        self.assertEqual(character.system_data.name, "Imported Investigator")

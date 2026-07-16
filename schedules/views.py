@@ -19,7 +19,8 @@ from rest_framework.views import APIView
 
 from accounts.models import (
     CharacterSheet,
-    CharacterSkill,
+    CharacterSkill6th,
+    CharacterSkill7th,
     CustomUser,
     Group,
     GroupLink,
@@ -144,7 +145,7 @@ def _tableno_character_from_url(character_sheet_url, user):
 
 def _tableno_character_name_from_url(character_sheet_url, user):
     character_sheet = _tableno_character_from_url(character_sheet_url, user)
-    return character_sheet.name if character_sheet else ""
+    return character_sheet.system_data.name if character_sheet else ""
 
 
 def _gm_role_session_ids_for(user):
@@ -642,8 +643,9 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
 
             # キャラクターのセッション数増加
             if participant.character_sheet:
-                participant.character_sheet.session_count += 1
-                participant.character_sheet.save()
+                detail = participant.character_sheet.system_data
+                detail.session_count += 1
+                detail.save(update_fields=["session_count"])
 
     @action(detail=True, methods=["post"])
     def join(self, request, pk=None):
@@ -706,13 +708,13 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
 
         character_name = request.data.get("character_name", "").strip()
         if character_sheet:
-            character_name = character_sheet.name
+            character_name = character_sheet.system_data.name
         character_sheet_url = request.data.get("character_sheet_url", "")
         if not character_sheet:
             character_sheet_from_url = _tableno_character_from_url(character_sheet_url, request.user)
             if character_sheet_from_url and character_sheet_from_url.user_id == request.user.id:
                 character_sheet = character_sheet_from_url
-                character_name = character_sheet.name
+                character_name = character_sheet.system_data.name
         if character_sheet:
             character_sheet_url = build_internal_character_url(request, character_sheet)
 
@@ -732,7 +734,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             if player_slot:
                 participant.player_slot = player_slot
             if "character_name" in request.data or character_sheet:
-                participant.character_name = character_sheet.name if character_sheet else request.data.get("character_name", "")
+                participant.character_name = character_sheet.system_data.name if character_sheet else request.data.get("character_name", "")
             if "character_sheet_url" in request.data or character_sheet:
                 participant.character_sheet_url = character_sheet_url
             if "character_sheet_id" in request.data or "character_sheet" in request.data:
@@ -1726,12 +1728,12 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
                         {"error": "Character sheet not found or not owned by participant"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                data["character_name"] = character_sheet.name
+                data["character_name"] = character_sheet.system_data.name
 
         if "character_sheet_url" in data:
             character_sheet_from_url = _tableno_character_from_url(data.get("character_sheet_url"), request.user)
             if character_sheet_from_url:
-                data["character_name"] = character_sheet_from_url.name
+                data["character_name"] = character_sheet_from_url.system_data.name
                 if instance.user_id and character_sheet_from_url.user_id == instance.user_id:
                     if data.get("character_sheet") in [None, "", "null", "None"]:
                         data["character_sheet"] = character_sheet_from_url.id
@@ -2814,7 +2816,8 @@ class SessionDetailView(APIView):
             .select_related("user", "character_sheet", "participant_identity")
             .prefetch_related(
                 "participant_roles",
-                Prefetch("character_sheet__skills", queryset=CharacterSkill.objects.order_by("id")),
+                Prefetch("character_sheet__sixth_edition_data__skills", queryset=CharacterSkill6th.objects.order_by("id")),
+                Prefetch("character_sheet__seventh_edition_data__skills", queryset=CharacterSkill7th.objects.order_by("id")),
             )
         )
         guest_count = participants.filter(user__isnull=True).count()

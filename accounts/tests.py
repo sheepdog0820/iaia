@@ -11,10 +11,17 @@ from django.utils import timezone
 
 from schedules.models import SessionParticipant, TRPGSession
 
-from .character_models import CharacterImage, CharacterSheet
+from .character_models import CharacterSheet, CharacterSheet6th
 from .models import CustomUser, Group, GroupMembership
 
 User = get_user_model()
+
+
+def create_6th_character(user, **values):
+    access_scope = values.pop("access_scope", "group")
+    character = CharacterSheet.objects.create(user=user, edition="6th", access_scope=access_scope)
+    CharacterSheet6th.objects.create(character_sheet=character, **values)
+    return character
 
 
 class BasicAccountsTestCase(TestCase):
@@ -181,9 +188,8 @@ class BasicAccountsTestCase(TestCase):
         GroupMembership.objects.create(user=gm, group=group, role="admin")
         GroupMembership.objects.create(user=player, group=group, role="member")
 
-        character = CharacterSheet.objects.create(
-            user=player,
-            edition="6th",
+        character = create_6th_character(
+            player,
             name="Test PC",
             age=20,
             str_value=10,
@@ -271,9 +277,8 @@ class BasicAccountsTestCase(TestCase):
         GroupMembership.objects.create(user=owner, group=group, role="admin")
         GroupMembership.objects.create(user=group_user, group=group, role="member")
 
-        character = CharacterSheet.objects.create(
-            user=owner,
-            edition="6th",
+        character = create_6th_character(
+            owner,
             name="Scoped PC",
             age=20,
             str_value=10,
@@ -328,9 +333,8 @@ class BasicAccountsTestCase(TestCase):
             password="pass1234",
             nickname="Scope Update Owner",
         )
-        character = CharacterSheet.objects.create(
-            user=owner,
-            edition="6th",
+        character = create_6th_character(
+            owner,
             name="Scope Update PC",
             age=20,
             str_value=10,
@@ -378,9 +382,8 @@ class BasicAccountsTestCase(TestCase):
             password="pass1234",
             nickname="Direct Link Owner",
         )
-        character = CharacterSheet.objects.create(
-            user=owner,
-            edition="6th",
+        character = create_6th_character(
+            owner,
             name="Direct Link PC",
             player_name="Direct Link PL",
             occupation="Investigator",
@@ -408,8 +411,7 @@ class BasicAccountsTestCase(TestCase):
             b"\x00\x00\x00\x00,\x00\x00\x00\x00\x01"
             b"\x00\x01\x00\x00\x02\x02D\x01\x00;"
         )
-        CharacterImage.objects.create(
-            character_sheet=character,
+        character.system_data.images.create(
             image=SimpleUploadedFile(
                 "sensitive-original-name.gif",
                 image_bytes,

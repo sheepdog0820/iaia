@@ -11,8 +11,9 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .character_models import CharacterEquipment, CharacterSheet6th
+from .character_models import CharacterEquipment6th as CharacterEquipment, CharacterSheet6th
 from .models import CharacterSheet
+from .test_character_factories import create_6th_character
 
 User = get_user_model()
 
@@ -22,7 +23,7 @@ class InventoryModelTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
+        _, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -40,7 +41,7 @@ class InventoryModelTestCase(TestCase):
     def test_inventory_model_creation(self):
         """所持品モデルの作成テスト"""
         # 6版データに財務情報を追加して動作確認
-        character_6th = CharacterSheet6th.objects.create(character_sheet=self.character)
+        character_6th = self.character
 
         character_6th.cash = Decimal("1000.00")
         character_6th.assets = Decimal("5000.00")
@@ -61,7 +62,7 @@ class FinancialDataTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
+        _, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -75,7 +76,7 @@ class FinancialDataTestCase(TestCase):
             int_value=50,
             edu_value=60,
         )
-        self.character_6th = CharacterSheet6th.objects.create(character_sheet=self.character)
+        self.character_6th = self.character
 
     def test_financial_data_storage(self):
         """財務データの保存テスト"""
@@ -120,7 +121,7 @@ class ItemManagementTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
+        _, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -213,7 +214,7 @@ class InventoryAPITestCase(APITestCase):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
         self.client.force_authenticate(user=self.user)
 
-        self.character = CharacterSheet.objects.create(
+        self.registry, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -227,7 +228,7 @@ class InventoryAPITestCase(APITestCase):
             int_value=50,
             edu_value=60,
         )
-        self.character_6th = CharacterSheet6th.objects.create(character_sheet=self.character)
+        self.character_6th = self.character
 
     def test_get_financial_summary_api(self):
         """財務サマリー取得APIテスト"""
@@ -337,7 +338,7 @@ class InventoryIntegrationTestCase(TestCase):
 
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
+        _, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
             edition="6th",
@@ -352,7 +353,7 @@ class InventoryIntegrationTestCase(TestCase):
             int_value=16,
             edu_value=18,
         )
-        self.character_6th = CharacterSheet6th.objects.create(character_sheet=self.character)
+        self.character_6th = self.character
 
     def test_complete_inventory_setup(self):
         """完全なインベントリセットアップのテスト"""

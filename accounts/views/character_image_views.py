@@ -22,7 +22,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.background_removal import remove_background
-from accounts.models import CharacterImage, CharacterSheet
+from accounts.models import CharacterSheet
 from accounts.serializers import CharacterImageSerializer
 from accounts.views.mixins import CharacterSheetAccessMixin
 
@@ -138,15 +138,16 @@ def _zip_entry_prefix(index, character_image):
 
 
 def _collect_zip_entries(character_sheet):
-    images = list(character_sheet.images.order_by(*ZIP_IMAGE_ORDERING))
+    detail = character_sheet.system_data
+    images = list(detail.images.order_by(*ZIP_IMAGE_ORDERING))
     if images:
         return [
             (_zip_entry_prefix(index, character_image), character_image.image)
             for index, character_image in enumerate(images, start=1)
         ]
 
-    if character_sheet.character_image:
-        return [("01_main_", character_sheet.character_image)]
+    if detail.character_image:
+        return [("01_main_", detail.character_image)]
 
     return []
 
@@ -236,7 +237,7 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """キャラクターに紐づく画像のクエリセット（所有者のみ）"""
         character = self._get_character_sheet(require_owner=self._requires_owner())
-        return CharacterImage.objects.filter(character_sheet=character)
+        return character.system_data.images.all()
 
     def get_serializer_context(self):
         """シリアライザーのコンテキストにキャラクターシートを追加"""
@@ -254,7 +255,7 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
         image = serializer.save()
 
         # 最初の画像は自動でメインに設定
-        if character.images.count() == 1:
+        if character.system_data.images.count() == 1:
             image.is_main = True
             image.save()
 
@@ -312,13 +313,13 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
                 if image_id is None or new_order is None:
                     continue
                 try:
-                    image = CharacterImage.objects.get(pk=image_id, character_sheet=character)
+                    image = character.system_data.images.get(pk=image_id)
                     image.order = new_order
                     image.save()
-                except CharacterImage.DoesNotExist:
+                except character.system_data.images.model.DoesNotExist:
                     logger.warning(f"画像が見つかりません: image_id={image_id}")
 
-        images = character.images.all()
+        images = character.system_data.images.all()
         serializer = self.get_serializer(images, many=True)
         return Response({"count": images.count(), "results": serializer.data})
 
@@ -327,10 +328,10 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
         """メイン画像の設定"""
         character = self._get_character_sheet(require_owner=True)
 
-        image = get_object_or_404(CharacterImage, pk=pk, character_sheet=character)
+        image = get_object_or_404(character.system_data.images.model, pk=pk, character_sheet=character.system_data)
 
         with transaction.atomic():
-            CharacterImage.objects.filter(character_sheet=character, is_main=True).update(is_main=False)
+            character.system_data.images.filter(is_main=True).update(is_main=False)
             image.is_main = True
             image.save()
 

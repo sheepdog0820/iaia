@@ -705,7 +705,7 @@ class CharacterSheet6thForm(forms.ModelForm):
     sanity_current = forms.IntegerField(required=False)
 
     class Meta:
-        model = CharacterSheet
+        model = CharacterSheet6th
         fields = [
             "name",
             "name_kana",
@@ -898,6 +898,20 @@ class CharacterSheet6thForm(forms.ModelForm):
         return cleaned_data
 
     def save(self, commit=True):
+        # This ModelForm edits the 6th-edition detail.  Create the registry
+        # separately; it must not receive any character attributes.
+        detail = super().save(commit=False)
+        creating = not detail.pk
+        if creating:
+            if not self.user:
+                raise ValueError("A user is required to create a character sheet")
+            detail.character_sheet = CharacterSheet.objects.create(user=self.user, edition="6th")
+        if commit:
+            detail.save()
+            self._save_skill_data(detail.character_sheet)
+            self._save_character_images(detail.character_sheet)
+        return detail.character_sheet
+
         instance = super().save(commit=False)
         instance.edition = "6th"  # 強制的に6版に設定
         if self.user:
@@ -959,10 +973,10 @@ class CharacterSheet6thForm(forms.ModelForm):
 
     def _save_skill_data(self, character_sheet):
         """技能データの保存処理"""
-        from .character_models import CharacterSkill
+        detail = character_sheet.system_data
 
         # 既存の技能データを削除
-        CharacterSkill.objects.filter(character_sheet=character_sheet).delete()
+        detail.skills.all().delete()
 
         # skill_データを探してCharacterSkillを作成
         skill_names = set()
@@ -988,8 +1002,8 @@ class CharacterSheet6thForm(forms.ModelForm):
 
             # 何かしらのポイントが設定されている場合のみ保存
             if base_value > 0 or occupation_points > 0 or interest_points > 0 or bonus_points > 0:
-                CharacterSkill.objects.create(
-                    character_sheet=character_sheet,
+                detail.skills.model.objects.create(
+                    character_sheet=detail,
                     skill_name=skill_name,
                     base_value=base_value,
                     occupation_points=occupation_points,
@@ -999,7 +1013,7 @@ class CharacterSheet6thForm(forms.ModelForm):
 
     def _save_character_images(self, character_sheet):
         """複数画像の保存処理"""
-        from .character_models import CharacterImage
+        detail = character_sheet.system_data
 
         # フォームから複数画像を取得
         images = collect_character_image_uploads(self.files)
@@ -1011,7 +1025,7 @@ class CharacterSheet6thForm(forms.ModelForm):
             raise forms.ValidationError(character_image_limit_error_message(image_limit))
 
         # 既存の画像がない場合のみ保存（重複エラーを防ぐ）
-        existing_images = CharacterImage.objects.filter(character_sheet=character_sheet)
+        existing_images = detail.images.all()
         if existing_images.exists():
             logger.warning("Images already exist for character_sheet %s. Skipping image save.", character_sheet.id)
             return
@@ -1019,8 +1033,8 @@ class CharacterSheet6thForm(forms.ModelForm):
         # 複数画像を保存
         for index, image_file in enumerate(images):
             try:
-                CharacterImage.objects.create(
-                    character_sheet=character_sheet,
+                detail.images.model.objects.create(
+                    character_sheet=detail,
                     image=image_file,
                     is_main=(index == 0),  # 最初の画像をメインに設定
                     order=index,

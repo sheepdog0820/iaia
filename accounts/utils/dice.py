@@ -103,6 +103,7 @@ def validate_custom_formula(formula: str) -> bool:
 
 
 def calculate_custom_formula(character, formula: str) -> int:
+    character = getattr(character, "system_data", character)
     """
     カスタム式を計算
 
@@ -163,6 +164,7 @@ def calculate_custom_formula(character, formula: str) -> int:
 
 
 def calculate_occupation_skill_points(character, formula_type: str, custom_formula: str = None) -> int:
+    character = getattr(character, "system_data", character)
     """
     職業技能ポイントを計算
 

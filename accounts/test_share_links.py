@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.character_models import CharacterSheet, CharacterSkill
+from accounts.character_models import CharacterSheet, CharacterSheet6th
 from accounts.models import CustomUser, Group, GroupMembership, ShareLink
 from scenarios.models import Scenario, ScenarioHandout
 from schedules.models import HandoutInfo, ParticipantIdentity, SessionParticipant, TRPGSession
@@ -64,9 +64,12 @@ class ShareLinkApiTests(APITestCase):
             "access_scope": "link",
         }
         values.update(overrides)
-        character = CharacterSheet.objects.create(**values)
-        CharacterSkill.objects.create(
-            character_sheet=character,
+        user = values.pop("user")
+        edition = values.pop("edition")
+        access_scope = values.pop("access_scope")
+        character = CharacterSheet.objects.create(user=user, edition=edition, access_scope=access_scope)
+        CharacterSheet6th.objects.create(character_sheet=character, **values)
+        character.system_data.skills.create(
             skill_name="Library Use",
             category="知識系",
             base_value=25,

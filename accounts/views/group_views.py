@@ -5,6 +5,7 @@ Group management views
 from datetime import timedelta
 
 from django.db import transaction
+from django.db.models import Q
 from django.urls import reverse
 from django.views import View
 
@@ -367,7 +368,10 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
         results = []
         for membership in memberships:
             member = membership.user
-            character_queryset = CharacterSheet.objects.filter(user=member, is_active=True).order_by("-updated_at")
+            character_queryset = CharacterSheet.objects.filter(user=member).filter(
+                Q(edition="6th", sixth_edition_data__is_active=True)
+                | Q(edition="7th", seventh_edition_data__is_active=True)
+            ).select_related("sixth_edition_data", "seventh_edition_data").order_by("-updated_at")
 
             if member.id != request.user.id:
                 character_queryset = character_queryset.filter(access_scope="public")
@@ -375,10 +379,10 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
             characters = [
                 {
                     "id": sheet.id,
-                    "name": sheet.name,
+                    "name": sheet.system_data.name,
                     "edition": sheet.edition,
                     "access_scope": sheet.access_scope,
-                    "is_active": sheet.is_active,
+                    "is_active": sheet.system_data.is_active,
                 }
                 for sheet in character_queryset
             ]

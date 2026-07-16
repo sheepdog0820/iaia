@@ -12,7 +12,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.character_models import CharacterSheet, CharacterSkill
+from accounts.character_models import CharacterSheet, CharacterSheet6th, CharacterSkill6th
 from accounts.models import CustomUser, Group
 from schedules.models import HandoutInfo, SessionParticipant, SessionParticipantRole, TRPGSession
 
@@ -91,11 +91,11 @@ class CharacterSessionHOIntegrationTestCase(APITestCase):
                 ("目星", 25 + i * 5),
                 ("聞き耳", 20 + i * 5),
                 ("図書館", 25 + i * 3),
-                ("回避", int(character.dex_value * 2)),
+                ("回避", int(character.system_data.dex_value * 2)),
             ]
 
             for skill_name, value in basic_skills:
-                CharacterSkill.objects.create(character_sheet=character, skill_name=skill_name, current_value=value)
+                CharacterSkill6th.objects.create(character_sheet=character.system_data, skill_name=skill_name, base_value=value)
 
         # ===== STEP 2: GMがセッションを作成 =====
         self.client.force_authenticate(user=self.gm)
@@ -200,7 +200,7 @@ class CharacterSessionHOIntegrationTestCase(APITestCase):
         # 4人の参加者が正しく登録されているか確認
         participants = response.data["participants_detail"]
         self.assertEqual(len(participants), 5)
-        self.assertEqual(len([p for p in participants if "gm" in p.get("roles", [])]), 1)
+        self.assertEqual(len([p for p in participants if "owner" in p.get("roles", [])]), 1)
 
         # プレイヤーの情報を確認
         player_participants = [p for p in participants if "player" in p.get("roles", [])]
@@ -211,8 +211,8 @@ class CharacterSessionHOIntegrationTestCase(APITestCase):
             self.assertIsNotNone(participant["character_sheet"])
             self.assertEqual(participant["character_sheet"], characters[i].id)
             self.assertIsNotNone(participant["character_sheet_detail"])
-            self.assertEqual(participant["character_sheet_detail"]["name"], characters[i].name)
-            self.assertEqual(participant["character_sheet_detail"]["occupation"], characters[i].occupation)
+            self.assertEqual(participant["character_sheet_detail"]["name"], characters[i].system_data.name)
+            self.assertEqual(participant["character_sheet_detail"]["occupation"], characters[i].system_data.occupation)
 
         # ===== STEP 7: 統計情報の確認 =====
         # GMの視点から全体を確認
@@ -231,7 +231,7 @@ class CharacterSessionHOIntegrationTestCase(APITestCase):
             self.assertEqual(handout.assigned_player_slot, i + 1)
             participant = handout.participant
             self.assertEqual(participant.player_slot, i + 1)
-            self.assertEqual(participant.character_sheet.occupation, occupations[i])
+            self.assertEqual(participant.character_sheet.system_data.occupation, occupations[i])
 
     def test_player_cannot_see_other_handouts(self):
         """プレイヤーは他のプレイヤーのHOを見ることができない"""
@@ -245,12 +245,12 @@ class CharacterSessionHOIntegrationTestCase(APITestCase):
 
         # 2人のプレイヤーを割り当て
         for i in range(2):
-            character = CharacterSheet.objects.create(
-                user=self.players[i],
+            character = CharacterSheet.objects.create(user=self.players[i], edition="6th")
+            CharacterSheet6th.objects.create(
+                character_sheet=character,
                 name=f"キャラ{i+1}",
                 age=25,
                 occupation="探偵",
-                edition="6th",
                 str_value=10,
                 con_value=10,
                 pow_value=10,

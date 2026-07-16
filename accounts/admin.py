@@ -11,7 +11,14 @@ from django.utils.html import format_html, format_html_join
 
 from accounts.billing import create_premium_audit_log, premium_access_code_metadata
 
-from .character_models import CharacterEquipment, CharacterSheet, CharacterSheet6th, CharacterSkill
+from .character_models import (
+    CharacterEquipment6th,
+    CharacterEquipment7th,
+    CharacterSheet,
+    CharacterSheet6th,
+    CharacterSkill6th,
+    CharacterSkill7th,
+)
 from .models import (
     CustomUser,
     Friend,
@@ -952,19 +959,6 @@ class GroupInviteLinkAdmin(admin.ModelAdmin):
     readonly_fields = ("token_digest", "use_count", "created_at")
 
 
-class CharacterSkillInline(admin.TabularInline):
-    model = CharacterSkill
-    extra = 0
-    fields = ("skill_name", "base_value", "occupation_points", "interest_points", "current_value")
-    readonly_fields = ("current_value",)
-
-
-class CharacterEquipmentInline(admin.TabularInline):
-    model = CharacterEquipment
-    extra = 0
-    fields = ("item_type", "name", "quantity", "description")
-
-
 class CharacterSheet6thInline(admin.StackedInline):
     model = CharacterSheet6th
     fields = ("mental_disorder", ("idea_roll", "luck_roll", "know_roll"), "damage_bonus")
@@ -973,58 +967,32 @@ class CharacterSheet6thInline(admin.StackedInline):
 
 @admin.register(CharacterSheet)
 class CharacterSheetAdmin(admin.ModelAdmin):
-    list_display = ("name", "edition", "user", "version", "is_active", "updated_at")
-    list_filter = ("edition", "is_active", "created_at", "updated_at")
-    search_fields = ("name", "user__username", "user__nickname", "occupation")
-    readonly_fields = (
-        "created_at",
-        "updated_at",
-        "hit_points_max",
-        "magic_points_max",
-        "sanity_starting",
-        "sanity_max",
-    )
+    list_display = ("character_name", "edition", "user", "detail_version", "detail_is_active", "updated_at")
+    list_filter = ("edition", "created_at", "updated_at")
+    search_fields = ("sixth_edition_data__name", "seventh_edition_data__name", "user__username", "user__nickname")
+    readonly_fields = ("created_at", "updated_at")
 
+    # Character-specific fields belong to the edition detail model.  The
+    # registry admin exposes only ownership and sharing settings.
     fieldsets = (
-        (
-            "基本情報",
-            {
-                "fields": (
-                    ("user", "edition", "version"),
-                    ("name", "player_name"),
-                    ("age", "gender"),
-                    ("occupation", "birthplace", "residence"),
-                )
-            },
-        ),
-        (
-            "能力値",
-            {
-                "fields": (
-                    ("str_value", "con_value", "pow_value", "dex_value"),
-                    ("app_value", "siz_value", "int_value", "edu_value"),
-                )
-            },
-        ),
-        (
-            "副次ステータス",
-            {
-                "fields": (
-                    ("hit_points_max", "hit_points_current"),
-                    ("magic_points_max", "magic_points_current"),
-                    ("sanity_starting", "sanity_max", "sanity_current"),
-                )
-            },
-        ),
-        ("バージョン管理", {"fields": ("parent_sheet", "is_active"), "classes": ("collapse",)}),
-        ("その他", {"fields": ("notes", "created_at", "updated_at"), "classes": ("collapse",)}),
+        ("Registry", {"fields": (("user", "edition"), "access_scope", "share_token", "allowed_users", "created_at", "updated_at")}),
     )
 
-    inlines = [CharacterSkillInline, CharacterEquipmentInline]
+    @admin.display(description="キャラクター名")
+    def character_name(self, obj):
+        return obj.system_data.name
+
+    @admin.display(description="版内バージョン")
+    def detail_version(self, obj):
+        return obj.system_data.version
+
+    @admin.display(boolean=True, description="有効")
+    def detail_is_active(self, obj):
+        return obj.system_data.is_active
 
     def get_inlines(self, request, obj):
         """版に応じてインラインを変更"""
-        inlines = [CharacterSkillInline, CharacterEquipmentInline]
+        inlines = []
 
         if obj and obj.edition == "6th":
             inlines.append(CharacterSheet6thInline)
@@ -1032,7 +1000,7 @@ class CharacterSheetAdmin(admin.ModelAdmin):
         return inlines
 
 
-@admin.register(CharacterSkill)
+@admin.register(CharacterSkill6th, CharacterSkill7th)
 class CharacterSkillAdmin(admin.ModelAdmin):
     list_display = (
         "character_sheet",
@@ -1042,13 +1010,13 @@ class CharacterSkillAdmin(admin.ModelAdmin):
         "occupation_points",
         "interest_points",
     )
-    list_filter = ("character_sheet__edition", "skill_name")
-    search_fields = ("character_sheet__name", "skill_name", "character_sheet__user__username")
+    list_filter = ("character_sheet__character_sheet__edition", "skill_name")
+    search_fields = ("character_sheet__name", "skill_name", "character_sheet__character_sheet__user__username")
     readonly_fields = ("current_value",)
 
 
-@admin.register(CharacterEquipment)
+@admin.register(CharacterEquipment6th, CharacterEquipment7th)
 class CharacterEquipmentAdmin(admin.ModelAdmin):
     list_display = ("character_sheet", "name", "item_type", "quantity")
-    list_filter = ("item_type", "character_sheet__edition")
-    search_fields = ("character_sheet__name", "name", "character_sheet__user__username")
+    list_filter = ("item_type", "character_sheet__character_sheet__edition")
+    search_fields = ("character_sheet__name", "name", "character_sheet__character_sheet__user__username")

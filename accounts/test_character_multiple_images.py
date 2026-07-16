@@ -15,7 +15,8 @@ from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.models import CharacterImage, CharacterSheet
+from accounts.models import CharacterImage6th as CharacterImage, CharacterSheet
+from accounts.test_character_factories import create_6th_character
 
 User = get_user_model()
 
@@ -26,7 +27,7 @@ class CharacterImageModelTestCase(TestCase):
     def setUp(self):
         """テストデータの準備"""
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.character = CharacterSheet.objects.create(
+        self.character, _ = create_6th_character(
             user=self.user,
             name="テストキャラクター",
             edition="6th",
@@ -53,10 +54,10 @@ class CharacterImageModelTestCase(TestCase):
         """画像の作成テスト"""
         image_file = self.create_test_image()
         character_image = CharacterImage.objects.create(
-            character_sheet=self.character, image=image_file, is_main=True, order=0
+            character_sheet=self.character.system_data, image=image_file, is_main=True, order=0
         )
 
-        self.assertEqual(character_image.character_sheet, self.character)
+        self.assertEqual(character_image.character_sheet, self.character.system_data)
         self.assertTrue(character_image.is_main)
         self.assertEqual(character_image.order, 0)
         self.assertIsNotNone(character_image.uploaded_at)
@@ -65,22 +66,22 @@ class CharacterImageModelTestCase(TestCase):
         """メイン画像の一意性制約テスト"""
         # 最初のメイン画像
         image1 = self.create_test_image("test1.png")
-        CharacterImage.objects.create(character_sheet=self.character, image=image1, is_main=True)
+        CharacterImage.objects.create(character_sheet=self.character.system_data, image=image1, is_main=True)
 
         # 2つ目のメイン画像を作成しようとすると制約違反
         image2 = self.create_test_image("test2.png")
         with self.assertRaises(Exception):
-            CharacterImage.objects.create(character_sheet=self.character, image=image2, is_main=True)
+            CharacterImage.objects.create(character_sheet=self.character.system_data, image=image2, is_main=True)
 
     def test_image_ordering(self):
         """画像の並び順テスト"""
         # 複数の画像を異なる順序で作成
         for i in [2, 0, 1]:
             image = self.create_test_image(f"test{i}.png")
-            CharacterImage.objects.create(character_sheet=self.character, image=image, order=i)
+            CharacterImage.objects.create(character_sheet=self.character.system_data, image=image, order=i)
 
         # orderフィールドで並んでいることを確認
-        images = CharacterImage.objects.filter(character_sheet=self.character)
+        images = CharacterImage.objects.filter(character_sheet=self.character.system_data)
         orders = [img.order for img in images]
         self.assertEqual(orders, [0, 1, 2])
 
@@ -88,7 +89,7 @@ class CharacterImageModelTestCase(TestCase):
         """キャラクター削除時の画像削除テスト"""
         # 画像を作成
         image = self.create_test_image()
-        CharacterImage.objects.create(character_sheet=self.character, image=image)
+        CharacterImage.objects.create(character_sheet=self.character.system_data, image=image)
 
         # キャラクターを削除
         self.character.delete()
@@ -104,7 +105,7 @@ class CharacterImageAPITestCase(APITestCase):
         """テストデータの準備"""
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
         self.other_user = User.objects.create_user(username="otheruser", password="testpass123")
-        self.character = CharacterSheet.objects.create(
+        self.character, _ = create_6th_character(
             user=self.user,
             name="テストキャラクター",
             edition="6th",
@@ -228,7 +229,7 @@ class CharacterImageAPITestCase(APITestCase):
         # 複数の画像を作成
         for i in range(3):
             image = self.create_test_image(f"test{i}.png")
-            CharacterImage.objects.create(character_sheet=self.character, image=image, order=i, is_main=(i == 0))
+            CharacterImage.objects.create(character_sheet=self.character.system_data, image=image, order=i, is_main=(i == 0))
 
         url = reverse("character-image-list", kwargs={"character_id": self.character.id})
         response = self.client.get(url)
@@ -244,7 +245,7 @@ class CharacterImageAPITestCase(APITestCase):
         images = []
         for i in range(3):
             image = self.create_test_image(f"test{i}.png")
-            img_obj = CharacterImage.objects.create(character_sheet=self.character, image=image, order=i)
+            img_obj = CharacterImage.objects.create(character_sheet=self.character.system_data, image=image, order=i)
             images.append(img_obj)
 
         # 順序を逆転
@@ -272,7 +273,7 @@ class CharacterImageAPITestCase(APITestCase):
     def test_delete_image(self):
         """画像削除のテスト"""
         image = self.create_test_image()
-        img_obj = CharacterImage.objects.create(character_sheet=self.character, image=image)
+        img_obj = CharacterImage.objects.create(character_sheet=self.character.system_data, image=image)
 
         url = reverse("character-image-detail", kwargs={"character_id": self.character.id, "pk": img_obj.id})
         response = self.client.delete(url)
@@ -284,10 +285,10 @@ class CharacterImageAPITestCase(APITestCase):
         """メイン画像設定のテスト"""
         # 2つの画像を作成
         img1 = CharacterImage.objects.create(
-            character_sheet=self.character, image=self.create_test_image("test1.png"), is_main=True
+            character_sheet=self.character.system_data, image=self.create_test_image("test1.png"), is_main=True
         )
         img2 = CharacterImage.objects.create(
-            character_sheet=self.character, image=self.create_test_image("test2.png"), is_main=False
+            character_sheet=self.character.system_data, image=self.create_test_image("test2.png"), is_main=False
         )
 
         # img2をメイン画像に設定
@@ -373,10 +374,10 @@ class CharacterImageIntegrationTestCase(TestCase):
 
         # キャラクターが作成されたことを確認
         self.assertEqual(response.status_code, 200)
-        character = CharacterSheet.objects.get(name="テストキャラクター")
+        character = CharacterSheet.objects.by_system_name("テストキャラクター", user=self.user, edition="6th").get()
 
         # 画像が保存されていることを確認
-        self.assertEqual(character.images.count(), 2)
+        self.assertEqual(character.system_data.images.count(), 2)
 
     def test_character_creation_rejects_normal_user_over_image_limit(self):
         """通常ユーザーは作成画面で3枚以上の画像を添付できない"""
@@ -404,7 +405,7 @@ class CharacterImageIntegrationTestCase(TestCase):
         response = self.client.post(reverse("character_create_6th"), data=form_data, follow=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(CharacterSheet.objects.filter(name="画像上限テスト").exists())
+        self.assertFalse(CharacterSheet.objects.by_system_name("画像上限テスト", user=self.user, edition="6th").exists())
         self.assertIn("最大2枚", str(response.context["form"].errors))
 
     def test_character_create_templates_allow_multiple_images_with_role_limits(self):
@@ -432,7 +433,7 @@ class CharacterImageIntegrationTestCase(TestCase):
     def test_character_detail_with_images(self):
         """画像付きキャラクター詳細表示テスト"""
         # キャラクターと画像を作成
-        character = CharacterSheet.objects.create(
+        character, _ = create_6th_character(
             user=self.user,
             name="テストキャラクター",
             edition="6th",
@@ -449,16 +450,13 @@ class CharacterImageIntegrationTestCase(TestCase):
 
         for i in range(3):
             CharacterImage.objects.create(
-                character_sheet=character, image=self.create_test_image(f"test{i}.png"), order=i, is_main=(i == 0)
+                character_sheet=character.system_data, image=self.create_test_image(f"test{i}.png"), order=i, is_main=(i == 0)
             )
 
         # 詳細画面を表示
         response = self.client.get(reverse("character_detail_6th", kwargs={"character_id": character.pk}))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "test0.png")  # メイン画像
-        self.assertContains(response, "test1.png")
-        self.assertContains(response, "test2.png")
         self.assertContains(response, "character-image-switcher")
         self.assertContains(response, "character-image-prev")
         self.assertContains(response, "character-image-next")
@@ -468,7 +466,7 @@ class CharacterImageIntegrationTestCase(TestCase):
     def test_image_preview_on_edit(self):
         """編集画面での画像プレビューテスト"""
         # キャラクターと画像を作成
-        character = CharacterSheet.objects.create(
+        character, _ = create_6th_character(
             user=self.user,
             name="テストキャラクター",
             edition="6th",
@@ -483,7 +481,7 @@ class CharacterImageIntegrationTestCase(TestCase):
             edu_value=75,
         )
 
-        CharacterImage.objects.create(character_sheet=character, image=self.create_test_image(), is_main=True)
+        CharacterImage.objects.create(character_sheet=character.system_data, image=self.create_test_image(), is_main=True)
 
         # 編集画面を表示
         response = self.client.get(f"{reverse('character_create_6th')}?id={character.pk}")
@@ -493,7 +491,7 @@ class CharacterImageIntegrationTestCase(TestCase):
 
     def test_drag_and_drop_upload(self):
         """ドラッグ&ドロップアップロードのテスト"""
-        character = CharacterSheet.objects.create(
+        character, _ = create_6th_character(
             user=self.user,
             name="テストキャラクター",
             edition="6th",

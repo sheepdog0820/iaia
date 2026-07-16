@@ -9,6 +9,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.character_models import CharacterSheet
+from accounts.test_character_factories import create_6th_character
 
 User = get_user_model()
 
@@ -68,8 +69,8 @@ class CharacterImageUploadTestCase(APITestCase):
 
         # DBに保存されているか確認
         character = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertTrue(character.character_image)
-        self.assertTrue(character.character_image.name.endswith(".jpg"))
+        self.assertTrue(character.system_data.character_image)
+        self.assertTrue(character.system_data.character_image.name.endswith(".jpg"))
 
     def test_character_creation_without_image_success(self):
         """正常系: 画像なしキャラクター作成成功"""
@@ -94,7 +95,7 @@ class CharacterImageUploadTestCase(APITestCase):
 
         # DBに保存されているか確認
         character = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertFalse(character.character_image)
+        self.assertFalse(character.system_data.character_image)
 
     def test_image_file_validation_invalid_format(self):
         """バリデーション: 不正な画像フォーマット"""
@@ -185,7 +186,7 @@ class CharacterImageUploadTestCase(APITestCase):
     def test_update_character_image(self):
         """正常系: 既存キャラクターの画像更新"""
         # まずキャラクターを作成
-        character = CharacterSheet.objects.create(
+        character, _ = create_6th_character(
             user=self.user,
             edition="6th",
             name="画像更新テスト",
@@ -211,14 +212,14 @@ class CharacterImageUploadTestCase(APITestCase):
 
         # DBが更新されているか確認
         character.refresh_from_db()
-        self.assertTrue(character.character_image)
-        self.assertTrue(character.character_image.name.endswith(".jpg"))
+        self.assertTrue(character.system_data.character_image)
+        self.assertTrue(character.system_data.character_image.name.endswith(".jpg"))
 
     def test_delete_character_image(self):
         """正常系: キャラクター画像の削除"""
         # 画像付きキャラクターを作成
         test_image = self.create_test_image("to_delete.jpg")
-        character = CharacterSheet.objects.create(
+        character, _ = create_6th_character(
             user=self.user,
             edition="6th",
             name="画像削除テスト",
@@ -243,13 +244,13 @@ class CharacterImageUploadTestCase(APITestCase):
 
         # DBから画像が削除されているか確認
         character.refresh_from_db()
-        self.assertFalse(character.character_image)
+        self.assertFalse(character.system_data.character_image)
 
     def test_character_image_permissions(self):
         """認可: 他人のキャラクター画像を変更できない"""
         # 他のユーザーのキャラクター
         other_user = User.objects.create_user("other", "pass")
-        character = CharacterSheet.objects.create(
+        character, _ = create_6th_character(
             user=other_user,
             edition="6th",
             name="他人のキャラクター",
@@ -276,7 +277,7 @@ class CharacterImageUploadTestCase(APITestCase):
         """正常系: キャラクター一覧に画像URLが含まれる"""
         # 画像付きキャラクターを作成
         test_image = self.create_test_image("list_test.jpg")
-        CharacterSheet.objects.create(
+        create_6th_character(
             user=self.user,
             edition="6th",
             name="一覧表示テスト",
@@ -335,7 +336,7 @@ class CharacterImageUploadTestCase(APITestCase):
 
         # 保存されたファイルパスを確認
         character = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertTrue(character.character_image.name.startswith("character_sheets/"))
+        self.assertTrue(character.system_data.character_image.name.startswith("character_sheets/"))
 
         # ファイルが実際に存在するか確認
-        self.assertTrue(os.path.exists(character.character_image.path))
+        self.assertTrue(os.path.exists(character.system_data.character_image.path))

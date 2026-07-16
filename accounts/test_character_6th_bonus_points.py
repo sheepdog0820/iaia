@@ -5,7 +5,8 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from .character_models import CharacterSheet, CharacterSkill
+from .character_models import CharacterSheet, CharacterSkill6th as CharacterSkill
+from .test_character_factories import create_6th_character
 
 User = get_user_model()
 
@@ -16,7 +17,7 @@ class BonusPointsTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123")
 
-        self.character = CharacterSheet.objects.create(
+        self.character, _ = create_6th_character(
             user=self.user,
             name="Test Character",
             edition="6th",
@@ -34,7 +35,7 @@ class BonusPointsTestCase(TestCase):
     def test_bonus_points_field_exists(self):
         """ボーナスポイントフィールドが存在することをテスト"""
         skill = CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="目星",
             base_value=25,
             occupation_points=40,
@@ -47,7 +48,7 @@ class BonusPointsTestCase(TestCase):
     def test_skill_total_calculation_with_bonus(self):
         """ボーナスポイントを含めた技能値合計の計算テスト"""
         skill = CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="目星",
             base_value=25,
             occupation_points=40,
@@ -61,7 +62,7 @@ class BonusPointsTestCase(TestCase):
     def test_skill_with_notes_field(self):
         """備考フィールドのテスト"""
         skill = CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="目星",
             base_value=25,
             occupation_points=40,
@@ -75,7 +76,7 @@ class BonusPointsTestCase(TestCase):
     def test_skill_category_field(self):
         """技能カテゴリフィールドのテスト"""
         skill = CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="目星",
             category="探索系",
             base_value=25,
@@ -89,7 +90,7 @@ class BonusPointsTestCase(TestCase):
     def test_custom_skill_creation(self):
         """カスタム技能の作成テスト"""
         skill = CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="芸術（イラスト）",
             category="特殊・その他",
             base_value=5,
@@ -106,7 +107,7 @@ class BonusPointsTestCase(TestCase):
     def test_skill_point_breakdown(self):
         """技能ポイントの内訳が正しく保持されることをテスト"""
         skill = CharacterSkill.objects.create(
-            character_sheet=self.character,
+            character_sheet=self.character.system_data,
             skill_name="説得",
             base_value=15,
             occupation_points=35,
@@ -128,7 +129,7 @@ class BonusPointsTestCase(TestCase):
 
         for category in valid_categories:
             skill = CharacterSkill.objects.create(
-                character_sheet=self.character, skill_name=f"テスト技能_{category}", category=category, base_value=10
+                character_sheet=self.character.system_data, skill_name=f"テスト技能_{category}", category=category, base_value=10
             )
             self.assertEqual(skill.category, category)
 
@@ -139,7 +140,7 @@ class SkillManagementTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="testpass123")
 
-        self.character = CharacterSheet.objects.create(
+        self.character, _ = create_6th_character(
             user=self.user,
             name="Test Character",
             edition="6th",
@@ -167,17 +168,17 @@ class SkillManagementTestCase(TestCase):
 
         for skill_name, category in skills_data:
             CharacterSkill.objects.create(
-                character_sheet=self.character, skill_name=skill_name, category=category, base_value=25
+                character_sheet=self.character.system_data, skill_name=skill_name, category=category, base_value=25
             )
 
         # カテゴリ別取得をテスト
-        exploration_skills = self.character.skills.filter(category="探索系")
+        exploration_skills = self.character.system_data.skills.filter(category="探索系")
         self.assertEqual(exploration_skills.count(), 2)
 
-        social_skills = self.character.skills.filter(category="対人系")
+        social_skills = self.character.system_data.skills.filter(category="対人系")
         self.assertEqual(social_skills.count(), 2)
 
-        combat_skills = self.character.skills.filter(category="戦闘系")
+        combat_skills = self.character.system_data.skills.filter(category="戦闘系")
         self.assertEqual(combat_skills.count(), 1)
 
     def test_skill_point_tracking(self):
@@ -194,7 +195,7 @@ class SkillManagementTestCase(TestCase):
 
         for skill_name, occ_points, int_points in skills_data:
             CharacterSkill.objects.create(
-                character_sheet=self.character,
+                character_sheet=self.character.system_data,
                 skill_name=skill_name,
                 occupation_points=occ_points,
                 interest_points=int_points,
@@ -203,8 +204,8 @@ class SkillManagementTestCase(TestCase):
             total_interest_used += int_points
 
         # 使用済みポイントの集計
-        actual_occ_used = sum(skill.occupation_points for skill in self.character.skills.all())
-        actual_int_used = sum(skill.interest_points for skill in self.character.skills.all())
+        actual_occ_used = sum(skill.occupation_points for skill in self.character.system_data.skills.all())
+        actual_int_used = sum(skill.interest_points for skill in self.character.system_data.skills.all())
 
         self.assertEqual(actual_occ_used, total_occupation_used)
         self.assertEqual(actual_int_used, total_interest_used)
@@ -212,8 +213,8 @@ class SkillManagementTestCase(TestCase):
     def test_duplicate_skill_prevention(self):
         """重複技能の防止テスト"""
         # 同じ技能名は同一キャラクターで重複できない
-        CharacterSkill.objects.create(character_sheet=self.character, skill_name="目星", base_value=25)
+        CharacterSkill.objects.create(character_sheet=self.character.system_data, skill_name="目星", base_value=25)
 
         # 同じ技能名での作成を試行
         with self.assertRaises(Exception):
-            CharacterSkill.objects.create(character_sheet=self.character, skill_name="目星", base_value=30)
+            CharacterSkill.objects.create(character_sheet=self.character.system_data, skill_name="目星", base_value=30)

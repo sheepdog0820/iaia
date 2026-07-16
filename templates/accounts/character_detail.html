@@ -1,19 +1,19 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ character.name }} - キャラクターシート詳細 - タブレノ{% endblock %}
+{% block title %}{{ character_system_data.name }} - キャラクターシート詳細 - タブレノ{% endblock %}
 
 {% block extra_head %}
 {% if is_public_view %}
 <meta property="og:type" content="article">
-<meta property="og:title" content="{{ character.name }} - Character Sheet">
-<meta property="og:description" content="{{ character.name }}{% if character.occupation %} / {{ character.occupation }}{% endif %}{% if character.player_name %} / PL: {{ character.player_name }}{% endif %}">
+<meta property="og:title" content="{{ character_system_data.name }} - Character Sheet">
+<meta property="og:description" content="{{ character_system_data.name }}{% if character_system_data.occupation %} / {{ character_system_data.occupation }}{% endif %}{% if character_system_data.player_name %} / PL: {{ character_system_data.player_name }}{% endif %}">
 <meta property="og:url" content="{{ request.build_absolute_uri }}">
 <meta name="twitter:card" content="summary">
 {% if character_og_image_url %}
 <meta property="og:image" content="{{ character_og_image_url }}">
 <meta name="twitter:image" content="{{ character_og_image_url }}">
-<meta property="og:image:alt" content="{{ character.name }}">
+<meta property="og:image:alt" content="{{ character_system_data.name }}">
 {% endif %}
 {% endif %}
 {% endblock %}

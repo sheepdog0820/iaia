@@ -15,11 +15,11 @@ from rest_framework.test import APITestCase
 
 from .character_models import (
     CharacterBackground,
-    CharacterEquipment,
-    CharacterImage,
     CharacterSheet,
     CharacterSheet6th,
-    CharacterSkill,
+    CharacterSheet7th,
+    CharacterSkill6th,
+    CharacterSkill7th,
 )
 
 User = get_user_model()
@@ -106,6 +106,23 @@ class CharacterSheetAPITest(APITestCase):
         )
         return SimpleUploadedFile(filename, gif_bytes, content_type="image/gif")
 
+    def create_character(self, data=None, **kwargs):
+        """Create a registry and its authoritative edition detail for tests."""
+        values = dict(data or kwargs)
+        values.pop("user", None)
+        edition = values.pop("edition")
+        values.pop("seventh_edition_data", None)
+        registry = CharacterSheet.objects.create(user=self.user, edition=edition)
+        detail_model = CharacterSheet6th if edition == "6th" else CharacterSheet7th
+        detail = detail_model(character_sheet=registry, **values)
+        stats = detail.calculate_derived_stats()
+        detail.hit_points_max = detail.hit_points_current = stats["hit_points_max"]
+        detail.magic_points_max = detail.magic_points_current = stats["magic_points_max"]
+        detail.sanity_starting = detail.sanity_current = stats["sanity_starting"]
+        detail.sanity_max = stats["sanity_max"]
+        detail.save()
+        return registry
+
     def test_create_character_rejects_invalid_skills_data_without_partial_character(self):
         data = dict(self.character_data_6th)
         data["name"] = "Invalid Skills JSON PC"
@@ -115,7 +132,7 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("skills_data", str(response.data))
-        self.assertFalse(CharacterSheet.objects.filter(name="Invalid Skills JSON PC").exists())
+        self.assertFalse(CharacterSheet.objects.by_system_name("Invalid Skills JSON PC").exists())
 
     def test_create_character_rejects_invalid_skill_without_partial_character(self):
         data = dict(self.character_data_6th)
@@ -137,16 +154,17 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("skills_data", str(response.data))
-        self.assertFalse(CharacterSheet.objects.filter(name="Invalid Skill PC").exists())
-        self.assertFalse(CharacterSkill.objects.filter(skill_name="Invalid Skill").exists())
+        self.assertFalse(CharacterSheet.objects.by_system_name("Invalid Skill PC", user=self.user).exists())
+        self.assertFalse(CharacterSkill6th.objects.filter(skill_name="Invalid Skill").exists())
+        self.assertFalse(CharacterSkill7th.objects.filter(skill_name="Invalid Skill").exists())
 
     def test_create_version_copies_full_skill_data(self):
         data = dict(self.character_data_6th)
         data["name"] = "Version Source PC"
-        character = CharacterSheet.objects.create(user=self.user, **data)
-        category = CharacterSkill.CATEGORY_CHOICES[0][0]
-        CharacterSkill.objects.create(
-            character_sheet=character,
+        character = self.create_character(data)
+        category = "探索系"
+        character.system_data.skills.model.objects.create(
+            character_sheet=character.system_data,
             skill_name="Custom Version Skill",
             category=category,
             base_value=10,
@@ -165,7 +183,7 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         new_sheet = CharacterSheet.objects.get(id=response.data["id"])
-        copied_skill = new_sheet.skills.get(skill_name="Custom Version Skill")
+        copied_skill = new_sheet.system_data.skills.get(skill_name="Custom Version Skill")
         self.assertEqual(copied_skill.category, category)
         self.assertEqual(copied_skill.bonus_points, 7)
         self.assertEqual(copied_skill.other_points, 2)
@@ -174,24 +192,26 @@ class CharacterSheetAPITest(APITestCase):
     def test_create_version_copies_security_and_related_data(self):
         data = dict(self.character_data_6th)
         data["name"] = "Complete Version Source"
-        character = CharacterSheet.objects.create(user=self.user, **data)
+        character = self.create_character(data)
         allowed_user = User.objects.create_user(username="allowed", password="testpass123")
         character.access_scope = "link"
-        character.secret_ho_info = "secret handout"
-        character.recommended_skills = ["Spot Hidden"]
-        character.occupation_skills = ["Library Use"]
+        detail = character.system_data
+        detail.secret_ho_info = "secret handout"
+        detail.recommended_skills = ["Spot Hidden"]
+        detail.occupation_skills = ["Library Use"]
+        detail.save()
         character.save()
         character.allowed_users.add(allowed_user)
         CharacterBackground.objects.create(character_sheet=character, personal_history="A long history")
         gif = b"GIF87a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;"
-        CharacterImage.objects.create(
-            character_sheet=character,
+        character.system_data.images.model.objects.create(
+            character_sheet=character.system_data,
             image=SimpleUploadedFile("main.gif", gif, content_type="image/gif"),
             is_main=True,
             order=0,
         )
-        CharacterImage.objects.create(
-            character_sheet=character,
+        character.system_data.images.model.objects.create(
+            character_sheet=character.system_data,
             image=SimpleUploadedFile("sub.gif", gif, content_type="image/gif"),
             order=1,
         )
@@ -205,22 +225,22 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         new_sheet = CharacterSheet.objects.get(id=response.data["id"])
         self.assertEqual(new_sheet.user, self.user)
-        self.assertEqual(new_sheet.version, 2)
-        self.assertEqual(new_sheet.parent_sheet, character)
+        self.assertEqual(new_sheet.system_data.version, 2)
+        self.assertEqual(new_sheet.system_data.parent_data.character_sheet, character)
         self.assertEqual(new_sheet.access_scope, "link")
-        self.assertEqual(new_sheet.secret_ho_info, "secret handout")
-        self.assertEqual(new_sheet.recommended_skills, ["Spot Hidden"])
-        self.assertEqual(new_sheet.occupation_skills, ["Library Use"])
+        self.assertEqual(new_sheet.system_data.secret_ho_info, "secret handout")
+        self.assertEqual(new_sheet.system_data.recommended_skills, ["Spot Hidden"])
+        self.assertEqual(new_sheet.system_data.occupation_skills, ["Library Use"])
         self.assertEqual(list(new_sheet.allowed_users.all()), [allowed_user])
         self.assertNotEqual(new_sheet.share_token, character.share_token)
         self.assertEqual(new_sheet.background_info.personal_history, "A long history")
         self.assertEqual(
-            list(new_sheet.images.values_list("order", "is_main")),
+            list(new_sheet.system_data.images.values_list("order", "is_main")),
             [(0, True), (1, False)],
         )
 
     def test_create_version_rejects_invalid_version_input(self):
-        character = CharacterSheet.objects.create(user=self.user, **self.character_data_6th)
+        character = self.create_character(self.character_data_6th)
 
         response = self.client.post(
             f"/api/accounts/character-sheets/{character.id}/create_version/",
@@ -229,16 +249,20 @@ class CharacterSheetAPITest(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(CharacterSheet.objects.filter(parent_sheet=character).exists())
+        self.assertFalse(CharacterSheet.objects.filter(sixth_edition_data__parent_data__character_sheet=character).exists())
 
     def test_create_version_rolls_back_when_skill_copy_fails(self):
         data = dict(self.character_data_6th)
         data["name"] = "Rollback Source PC"
-        character = CharacterSheet.objects.create(user=self.user, **data)
-        CharacterSkill.objects.create(character_sheet=character, skill_name="Rollback Skill", base_value=10)
+        character = self.create_character(data)
+        character.system_data.skills.model.objects.create(
+            character_sheet=character.system_data,
+            skill_name="Rollback Skill",
+            base_value=10,
+        )
 
         with patch(
-            "accounts.services.character_version_service.CharacterSkill.objects.create",
+            "accounts.character_models.CharacterSkill6th.objects.create",
             side_effect=RuntimeError("copy failed"),
         ):
             with self.assertRaises(RuntimeError):
@@ -248,7 +272,7 @@ class CharacterSheetAPITest(APITestCase):
                     format="json",
                 )
 
-        self.assertFalse(CharacterSheet.objects.filter(parent_sheet=character).exists())
+        self.assertFalse(CharacterSheet.objects.filter(sixth_edition_data__parent_data__character_sheet=character).exists())
 
     def test_create_6th_edition_character(self):
         """6版キャラクターシート作成テスト"""
@@ -268,8 +292,8 @@ class CharacterSheetAPITest(APITestCase):
         # データベースでも確認
         character = CharacterSheet.objects.get(id=response.data["id"])
         self.assertEqual(character.edition, "6th")
-        self.assertEqual(character.hit_points_max, 14)  # ceil((CON14 + SIZ13) / 2) = 14
-        self.assertEqual(character.magic_points_max, 15)  # POW15
+        self.assertEqual(character.system_data.hit_points_max, 14)  # ceil((CON14 + SIZ13) / 2) = 14
+        self.assertEqual(character.system_data.magic_points_max, 15)  # POW15
 
         return response.data["id"]
 
@@ -286,7 +310,7 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         character = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertTrue(character.images.exists())
+        self.assertTrue(character.system_data.images.exists())
 
     def test_create_6th_edition_character_with_non_default_occupation_point_method(self):
         """6版作成APIは選択された職業技能ポイント方式で技能超過を判定する"""
@@ -317,9 +341,9 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         character = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertEqual(character.occupation_point_method, "edu10dex10")
-        self.assertEqual(character.calculate_occupation_points(), 280)
-        self.assertEqual(character.calculate_used_occupation_points(), 280)
+        self.assertEqual(character.system_data.occupation_point_method, "edu10dex10")
+        self.assertEqual(character.system_data.calculate_occupation_points(), 280)
+        self.assertEqual(character.system_data.calculate_used_occupation_points(), 280)
 
     def test_create_6th_edition_rejects_normal_user_over_image_limit(self):
         """通常ユーザーは作成APIで3枚以上の画像を添付できない"""
@@ -335,7 +359,7 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("最大2枚", str(response.data))
-        self.assertFalse(CharacterSheet.objects.filter(name="通常ユーザー画像上限").exists())
+        self.assertFalse(CharacterSheet.objects.by_system_name("通常ユーザー画像上限", user=self.user).exists())
 
     def test_create_7th_edition_allows_ten_images_for_premium_user(self):
         """プレミアムユーザーは作成APIで10枚まで画像を添付できる"""
@@ -353,7 +377,7 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         character = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertEqual(character.images.count(), 10)
+        self.assertEqual(character.system_data.images.count(), 10)
 
     def test_create_6th_edition_character_with_equipment(self):
         """6版作成APIで武器・防具・アイテムを同時登録できる"""
@@ -397,15 +421,16 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         character_id = response.data["id"]
+        equipment = CharacterSheet.objects.get(pk=character_id).system_data.equipment
 
-        self.assertEqual(CharacterEquipment.objects.filter(character_sheet_id=character_id).count(), 3)
-        pistol = CharacterEquipment.objects.get(character_sheet_id=character_id, name="Pistol")
+        self.assertEqual(equipment.count(), 3)
+        pistol = equipment.get(name="Pistol")
         self.assertEqual(pistol.item_type, "weapon")
         self.assertAlmostEqual(pistol.weight, 0.5, places=3)
-        vest = CharacterEquipment.objects.get(character_sheet_id=character_id, name="Kevlar Vest")
+        vest = equipment.get(name="Kevlar Vest")
         self.assertEqual(vest.item_type, "armor")
         self.assertAlmostEqual(vest.weight, 3.0, places=3)
-        flashlight = CharacterEquipment.objects.get(character_sheet_id=character_id, name="Flashlight")
+        flashlight = equipment.get(name="Flashlight")
         self.assertEqual(flashlight.item_type, "item")
         self.assertAlmostEqual(flashlight.weight, 0.2, places=3)
 
@@ -425,19 +450,20 @@ class CharacterSheetAPITest(APITestCase):
 
         character = CharacterSheet.objects.get(id=response.data["id"])
         self.assertEqual(character.edition, "7th")
-        self.assertEqual(character.hit_points_max, (character.con_value + character.siz_value) // 10)
-        self.assertEqual(character.magic_points_max, character.pow_value // 5)
-        self.assertEqual(character.sanity_starting, character.pow_value)
-        self.assertEqual(character.calculate_occupation_points(), character.edu_value * 4)
-        self.assertEqual(character.calculate_hobby_points(), character.int_value * 2)
-        self.assertEqual(character.calculate_damage_bonus_7th(), "+0")
-        self.assertEqual(character.calculate_build_7th(), 0)
-        self.assertEqual(character.calculate_move_rate_7th(), 9)
+        detail = character.system_data
+        self.assertEqual(detail.hit_points_max, (detail.con_value + detail.siz_value) // 10)
+        self.assertEqual(detail.magic_points_max, detail.pow_value // 5)
+        self.assertEqual(detail.sanity_starting, detail.pow_value)
+        self.assertEqual(character.system_data.calculate_occupation_points(), character.system_data.edu_value * 4)
+        self.assertEqual(detail.calculate_hobby_points(), detail.int_value * 2)
+        self.assertEqual(detail.calculate_damage_bonus_7th(), "+0")
+        self.assertEqual(detail.calculate_build_7th(), 0)
+        self.assertEqual(detail.calculate_move_rate_7th(), 9)
         self.assertFalse(CharacterSheet6th.objects.filter(character_sheet=character).exists())
 
     def test_7th_edition_boundary_derived_stats_are_official_percentile_values(self):
         """7版派生値はパーセンテージ能力値をそのまま扱う"""
-        character = CharacterSheet.objects.create(
+        character = self.create_character(
             user=self.user,
             edition="7th",
             name="7th Boundary",
@@ -452,15 +478,16 @@ class CharacterSheetAPITest(APITestCase):
             edu_value=80,
         )
 
-        self.assertEqual(character.hit_points_max, 12)
-        self.assertEqual(character.magic_points_max, 11)
-        self.assertEqual(character.sanity_starting, 55)
-        self.assertEqual(character.sanity_max, 99)
-        self.assertEqual(character.calculate_damage_bonus_7th(), "+0")
-        self.assertEqual(character.calculate_build_7th(), 0)
-        self.assertEqual(character.calculate_move_rate_7th(), 7)
-        self.assertEqual(character.get_7th_skill_base_value("回避"), 35)
-        self.assertEqual(character.get_7th_skill_base_value("母国語"), 80)
+        detail = character.system_data
+        self.assertEqual(detail.hit_points_max, 12)
+        self.assertEqual(detail.magic_points_max, 11)
+        self.assertEqual(detail.sanity_starting, 55)
+        self.assertEqual(detail.sanity_max, 99)
+        self.assertEqual(detail.calculate_damage_bonus_7th(), "+0")
+        self.assertEqual(detail.calculate_build_7th(), 0)
+        self.assertEqual(detail.calculate_move_rate_7th(), 7)
+        self.assertEqual(CharacterSheet.get_7th_skill_base_value(detail, "回避"), 35)
+        self.assertEqual(CharacterSheet.get_7th_skill_base_value(detail, "母国語"), 80)
 
     def test_create_7th_edition_character_with_skills_uses_7th_point_rules(self):
         """7版APIは技能を保存し、職業/趣味ポイントを7版基準で計算できる"""
@@ -492,11 +519,11 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         character = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertEqual(character.skills.count(), 2)
-        self.assertEqual(character.calculate_occupation_points(), 340)
-        self.assertEqual(character.calculate_hobby_points(), 180)
-        self.assertEqual(character.calculate_used_occupation_points(), 20)
-        self.assertEqual(character.calculate_used_hobby_points(), 3)
+        self.assertEqual(character.system_data.skills.count(), 2)
+        self.assertEqual(character.system_data.calculate_occupation_points(), 340)
+        self.assertEqual(character.system_data.calculate_hobby_points(), 180)
+        self.assertEqual(character.system_data.calculate_used_occupation_points(), 20)
+        self.assertEqual(character.system_data.calculate_used_hobby_points(), 3)
 
     def test_create_7th_edition_character_with_non_default_occupation_point_method(self):
         """7版作成APIはEDU×4以外の職業技能ポイント方式で保存できる"""
@@ -528,9 +555,9 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         character = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertEqual(character.occupation_point_method, "edu2dex2")
-        self.assertEqual(character.calculate_occupation_points(), 280)
-        self.assertEqual(character.calculate_used_occupation_points(), 280)
+        self.assertEqual(character.system_data.occupation_point_method, "edu2dex2")
+        self.assertEqual(character.system_data.calculate_occupation_points(), 280)
+        self.assertEqual(character.system_data.calculate_used_occupation_points(), 280)
         self.assertEqual(response.data["character_7th"]["occupation_points"], 280)
 
     def test_update_7th_edition_character_with_non_default_occupation_point_method_allows_skill_sync(self):
@@ -566,8 +593,8 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(skill_response.status_code, status.HTTP_201_CREATED)
         character = CharacterSheet.objects.get(id=character_id)
-        self.assertEqual(character.occupation_point_method, "edu2dex2")
-        self.assertEqual(character.calculate_used_occupation_points(), 280)
+        self.assertEqual(character.system_data.occupation_point_method, "edu2dex2")
+        self.assertEqual(character.system_data.calculate_used_occupation_points(), 280)
 
     def test_create_7th_edition_character_with_equipment(self):
         """7版作成APIで武器・防具・アイテムを同時登録できる"""
@@ -611,15 +638,16 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         character_id = response.data["id"]
+        equipment = CharacterSheet.objects.get(pk=character_id).system_data.equipment
 
-        self.assertEqual(CharacterEquipment.objects.filter(character_sheet_id=character_id).count(), 3)
-        pistol = CharacterEquipment.objects.get(character_sheet_id=character_id, name="Pistol")
+        self.assertEqual(equipment.count(), 3)
+        pistol = equipment.get(name="Pistol")
         self.assertEqual(pistol.item_type, "weapon")
         self.assertAlmostEqual(pistol.weight, 0.5, places=3)
-        vest = CharacterEquipment.objects.get(character_sheet_id=character_id, name="Kevlar Vest")
+        vest = equipment.get(name="Kevlar Vest")
         self.assertEqual(vest.item_type, "armor")
         self.assertAlmostEqual(vest.weight, 3.0, places=3)
-        flashlight = CharacterEquipment.objects.get(character_sheet_id=character_id, name="Flashlight")
+        flashlight = equipment.get(name="Flashlight")
         self.assertEqual(flashlight.item_type, "item")
         self.assertAlmostEqual(flashlight.weight, 0.2, places=3)
 
@@ -675,7 +703,7 @@ class CharacterSheetAPITest(APITestCase):
 
     def test_patch_recalculates_6th_derived_stats_when_abilities_change(self):
         """6版は能力値更新時に最大値と6版固有ロールを再計算する"""
-        character = CharacterSheet.objects.create(
+        character = self.create_character(
             user=self.user,
             edition="6th",
             name="再計算6版",
@@ -689,7 +717,6 @@ class CharacterSheetAPITest(APITestCase):
             int_value=10,
             edu_value=10,
         )
-        CharacterSheet6th.objects.create(character_sheet=character)
 
         response = self.client.patch(
             f"/api/accounts/character-sheets/{character.id}/",
@@ -706,12 +733,12 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         character.refresh_from_db()
         sixth = character.sixth_edition_data
-        self.assertEqual(character.hit_points_max, 17)
-        self.assertEqual(character.hit_points_current, 17)
-        self.assertEqual(character.magic_points_max, 12)
-        self.assertEqual(character.magic_points_current, 12)
-        self.assertEqual(character.sanity_starting, 60)
-        self.assertEqual(character.sanity_current, 60)
+        self.assertEqual(character.system_data.hit_points_max, 17)
+        self.assertEqual(character.system_data.hit_points_current, 17)
+        self.assertEqual(character.system_data.magic_points_max, 12)
+        self.assertEqual(character.system_data.magic_points_current, 12)
+        self.assertEqual(character.system_data.sanity_starting, 60)
+        self.assertEqual(character.system_data.sanity_current, 60)
         self.assertEqual(sixth.idea_roll, 70)
         self.assertEqual(sixth.luck_roll, 60)
         self.assertEqual(sixth.know_roll, 65)
@@ -719,7 +746,7 @@ class CharacterSheetAPITest(APITestCase):
 
     def test_patch_preserves_manual_current_values_during_recalculation(self):
         """現在HP/MP/SANが手入力済みなら最大値再計算時も保持する"""
-        character = CharacterSheet.objects.create(
+        character = self.create_character(
             user=self.user,
             edition="6th",
             name="手入力保持6版",
@@ -733,11 +760,11 @@ class CharacterSheetAPITest(APITestCase):
             int_value=10,
             edu_value=10,
         )
-        CharacterSheet6th.objects.create(character_sheet=character)
-        character.hit_points_current = 7
-        character.magic_points_current = 3
-        character.sanity_current = 22
-        character.save(update_fields=["hit_points_current", "magic_points_current", "sanity_current"])
+        detail = character.system_data
+        detail.hit_points_current = 7
+        detail.magic_points_current = 3
+        detail.sanity_current = 22
+        detail.save(update_fields=["hit_points_current", "magic_points_current", "sanity_current"])
 
         response = self.client.patch(
             f"/api/accounts/character-sheets/{character.id}/",
@@ -751,16 +778,16 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         character.refresh_from_db()
-        self.assertEqual(character.hit_points_max, 17)
-        self.assertEqual(character.hit_points_current, 7)
-        self.assertEqual(character.magic_points_max, 12)
-        self.assertEqual(character.magic_points_current, 3)
-        self.assertEqual(character.sanity_starting, 60)
-        self.assertEqual(character.sanity_current, 22)
+        self.assertEqual(character.system_data.hit_points_max, 17)
+        self.assertEqual(character.system_data.hit_points_current, 7)
+        self.assertEqual(character.system_data.magic_points_max, 12)
+        self.assertEqual(character.system_data.magic_points_current, 3)
+        self.assertEqual(character.system_data.sanity_starting, 60)
+        self.assertEqual(character.system_data.sanity_current, 22)
 
     def test_patch_recalculates_7th_derived_stats_when_abilities_change(self):
         """7版は能力値更新時に7版式の最大HP/MP/SANへ再計算する"""
-        character = CharacterSheet.objects.create(
+        character = self.create_character(
             user=self.user,
             edition="7th",
             name="再計算7版",
@@ -790,14 +817,14 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         character.refresh_from_db()
-        self.assertEqual(character.hit_points_max, 14)
-        self.assertEqual(character.hit_points_current, 14)
-        self.assertEqual(character.magic_points_max, 14)
-        self.assertEqual(character.magic_points_current, 14)
-        self.assertEqual(character.sanity_starting, 70)
-        self.assertEqual(character.sanity_current, 70)
-        self.assertEqual(character.calculate_build_7th(), 1)
-        self.assertEqual(character.calculate_move_rate_7th(), 8)
+        self.assertEqual(character.system_data.hit_points_max, 14)
+        self.assertEqual(character.system_data.hit_points_current, 14)
+        self.assertEqual(character.system_data.magic_points_max, 14)
+        self.assertEqual(character.system_data.magic_points_current, 14)
+        self.assertEqual(character.system_data.sanity_starting, 70)
+        self.assertEqual(character.system_data.sanity_current, 70)
+        self.assertEqual(character.system_data.calculate_build_7th(), 1)
+        self.assertEqual(character.system_data.calculate_move_rate_7th(), 8)
 
     def test_delete_character_sheet(self):
         """キャラクターシート削除テスト"""
@@ -829,7 +856,8 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["version"], 2)
-        self.assertEqual(response.data["parent_sheet"], original_id)
+        version = CharacterSheet.objects.get(id=response.data["id"])
+        self.assertEqual(version.system_data.parent_data.character_sheet_id, original_id)
         self.assertEqual(response.data["hit_points_current"], 8)
 
     def test_create_character_version_copies_equipment_weight(self):
@@ -867,7 +895,7 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
         original_id = create_response.data["id"]
 
-        original_equipment = list(CharacterEquipment.objects.filter(character_sheet_id=original_id))
+        original_equipment = list(CharacterSheet.objects.get(pk=original_id).system_data.equipment.all())
         self.assertEqual(len(original_equipment), 3)
 
         response = self.client.post(
@@ -878,7 +906,7 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         new_id = response.data["id"]
 
-        new_equipment = CharacterEquipment.objects.filter(character_sheet_id=new_id)
+        new_equipment = CharacterSheet.objects.get(pk=new_id).system_data.equipment
         self.assertEqual(new_equipment.count(), 3)
 
         for item in original_equipment:

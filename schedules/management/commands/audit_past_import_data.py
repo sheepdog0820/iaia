@@ -82,7 +82,8 @@ class Command(BaseCommand):
                 issues.append(
                     "character sheet linkable: "
                     f"session_id={participant.session_id} title={participant.session.title} "
-                    f"user={participant.user.username} character_id={candidates[0].id} character={candidates[0].name}"
+                    f"user={participant.user.username} character_id={candidates[0].id} "
+                    f"character={candidates[0].system_data.name}"
                 )
             elif len(candidates) > 1:
                 ids = ",".join(str(candidate.id) for candidate in candidates)
@@ -146,9 +147,15 @@ class Command(BaseCommand):
         if not participant.user_id:
             return []
 
-        base_query = CharacterSheet.objects.filter(user=participant.user, is_active=True)
+        base_query = CharacterSheet.objects.filter(user=participant.user).filter(
+            Q(edition="6th", sixth_edition_data__is_active=True)
+            | Q(edition="7th", seventh_edition_data__is_active=True)
+        )
         if participant.character_name:
-            by_name = list(base_query.filter(name=participant.character_name).order_by("id"))
+            by_name = list(base_query.filter(
+                Q(edition="6th", sixth_edition_data__name=participant.character_name)
+                | Q(edition="7th", seventh_edition_data__name=participant.character_name)
+            ).order_by("id"))
             if len(by_name) == 1:
                 return by_name
             if len(by_name) > 1:
@@ -159,5 +166,10 @@ class Command(BaseCommand):
             return []
 
         return list(
-            base_query.filter(Q(source_scenario=scenario) | Q(source_scenario_title=scenario.title)).order_by("id")
+            base_query.filter(
+                Q(edition="6th", sixth_edition_data__source_scenario=scenario)
+                | Q(edition="6th", sixth_edition_data__source_scenario_title=scenario.title)
+                | Q(edition="7th", seventh_edition_data__source_scenario=scenario)
+                | Q(edition="7th", seventh_edition_data__source_scenario_title=scenario.title)
+            ).order_by("id")
         )

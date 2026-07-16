@@ -83,7 +83,10 @@ class CharacterStatistics:
         """基本的なキャラクター統計を計算"""
         stats = {
             "total_characters": characters_queryset.count(),
-            "active_characters": characters_queryset.filter(is_active=True).count(),
+            "active_characters": characters_queryset.filter(
+                Q(edition="6th", sixth_edition_data__is_active=True)
+                | Q(edition="7th", seventh_edition_data__is_active=True)
+            ).count(),
             "sixth_edition_count": characters_queryset.filter(edition="6th").count(),
         }
 
