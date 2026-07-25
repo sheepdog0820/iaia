@@ -74,6 +74,13 @@ from schedules.integration_views import (
     GoogleSheetsExportView,
 )
 from schedules.job_views import AsyncJobDetailView, AsyncJobListView, AsyncJobRetryView
+from schedules.recruitment_views import (
+    SessionRecruitmentJoinAPIView,
+    SessionRecruitmentJoinView,
+    SessionRecruitmentLandingView,
+    SessionRecruitmentLinkListCreateView,
+    SessionRecruitmentLinkRevokeView,
+)
 from tableno.health_views import health_live_view, health_ready_view
 from tableno.legal_views import (
     commercial_disclosure_view,
@@ -216,6 +223,21 @@ urlpatterns = [
         name="guest-invitation-create",
     ),
     path(
+        "api/sessions/<int:session_id>/recruitment-links/",
+        SessionRecruitmentLinkListCreateView.as_view(),
+        name="session-recruitment-link-list-create",
+    ),
+    path(
+        "api/sessions/<int:session_id>/recruitment-links/<int:link_id>/",
+        SessionRecruitmentLinkRevokeView.as_view(),
+        name="session-recruitment-link-revoke",
+    ),
+    path(
+        "api/session-recruitment/<str:token>/join/",
+        SessionRecruitmentJoinAPIView.as_view(),
+        name="session-recruitment-api-join",
+    ),
+    path(
         "api/sessions/<int:session_id>/guest-invitations/<int:invitation_id>/",
         GuestInvitationRevokeView.as_view(),
         name="guest-invitation-revoke",
@@ -239,6 +261,16 @@ urlpatterns = [
         "guest-invitations/<str:token>/",
         GuestInvitationLandingView.as_view(),
         name="guest-invitation-landing",
+    ),
+    path(
+        "session-recruitment/<str:token>/",
+        SessionRecruitmentLandingView.as_view(),
+        name="session-recruitment-landing",
+    ),
+    path(
+        "session-recruitment/<str:token>/join/",
+        SessionRecruitmentJoinView.as_view(),
+        name="session-recruitment-join",
     ),
     path(
         "api/participants/<int:participant_id>/claim/",

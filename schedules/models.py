@@ -7,6 +7,7 @@ from datetime import time as time_cls
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -223,6 +224,61 @@ class GuestInvitation(models.Model):
     @property
     def is_active(self):
         return self.revoked_at is None and self.expires_at > timezone.now()
+
+
+class SessionRecruitmentLink(models.Model):
+    session = models.ForeignKey(
+        "TRPGSession",
+        on_delete=models.CASCADE,
+        related_name="recruitment_links",
+    )
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name="created_session_recruitment_links",
+    )
+    token_digest = models.CharField(max_length=64, unique=True, db_index=True)
+    expires_at = models.DateTimeField(db_index=True)
+    max_uses = models.PositiveIntegerField(
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(1000)],
+    )
+    use_count = models.PositiveIntegerField(default=0)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(max_uses__gte=1) & models.Q(max_uses__lte=1000),
+                name="recruitment_link_max_uses_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(use_count__lte=models.F("max_uses")),
+                name="recruitment_link_use_count_lte_max",
+            ),
+        ]
+
+    @staticmethod
+    def digest(token):
+        return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+    @classmethod
+    def issue(cls, *, session, created_by, expires_at, max_uses=1):
+        token = secrets.token_urlsafe(32)
+        recruitment_link = cls.objects.create(
+            session=session,
+            created_by=created_by,
+            token_digest=cls.digest(token),
+            expires_at=expires_at,
+            max_uses=max_uses,
+        )
+        return recruitment_link, token
+
+    @property
+    def is_active(self):
+        return self.revoked_at is None and self.expires_at > timezone.now() and self.use_count < self.max_uses
 
 
 class GuestClaimAudit(models.Model):
@@ -752,6 +808,33 @@ class SessionParticipantRole(models.Model):
 
     def __str__(self):
         return f"{self.participant.display_name} as {self.role}"
+
+
+class SessionRecruitmentLinkUse(models.Model):
+    recruitment_link = models.ForeignKey(
+        SessionRecruitmentLink,
+        on_delete=models.PROTECT,
+        related_name="uses",
+    )
+    participant = models.ForeignKey(
+        SessionParticipant,
+        on_delete=models.PROTECT,
+        related_name="recruitment_link_uses",
+    )
+    joined_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.PROTECT,
+        related_name="session_recruitment_link_uses",
+    )
+    joined_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["recruitment_link", "joined_by"],
+                name="unique_recruitment_link_joined_by",
+            ),
+        ]
 
 
 class SessionInvitation(models.Model):

@@ -5,6 +5,8 @@ from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
+from .auth_redirects import consume_auth_next
+
 User = get_user_model()
 
 
@@ -28,6 +30,9 @@ class CustomAccountAdapter(DefaultAccountAdapter):
             False: 通常のメール/パスワードサインアップは常に拒否
         """
         return False
+
+    def get_login_redirect_url(self, request):
+        return consume_auth_next(request) or super().get_login_redirect_url(request)
 
 
 class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):

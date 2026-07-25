@@ -65,6 +65,13 @@
                         <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#inviteMembersModal">
                             <i class="fas fa-user-plus"></i> 招待
                         </button>
+                        <button class="btn btn-outline-success"
+                                type="button"
+                                id="openRecruitmentLinksButton"
+                                data-bs-toggle="modal"
+                                data-bs-target="#recruitmentLinksModal">
+                            <i class="fas fa-bullhorn"></i> 募集URL
+                        </button>
                     {% endif %}
                     {% if can_manage_permissions and not is_public_view %}
                         <button class="btn btn-outline-warning"
@@ -1214,6 +1221,78 @@
 </div>
 {% endif %}
 
+{% if can_invite and not is_public_view %}
+<div class="modal fade" id="recruitmentLinksModal" tabindex="-1" aria-labelledby="recruitmentLinksModalLabel">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="recruitmentLinksModalLabel">
+                    <i class="fas fa-bullhorn"></i> セッション募集URL
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small">
+                    URLを開いてログインしたユーザーをPLとして登録します。グループへの加入やGM権限の付与は行いません。
+                </p>
+                <form id="issueRecruitmentLinkForm" class="row g-3 align-items-end">
+                    <div class="col-sm-6">
+                        <label for="recruitmentExpiresInHours" class="form-label">有効期限（時間）</label>
+                        <input class="form-control"
+                               id="recruitmentExpiresInHours"
+                               type="number"
+                               min="1"
+                               max="720"
+                               value="168"
+                               required>
+                    </div>
+                    <div class="col-sm-6">
+                        <label for="recruitmentMaxUses" class="form-label">利用上限</label>
+                        <input class="form-control"
+                               id="recruitmentMaxUses"
+                               type="number"
+                               min="1"
+                               max="1000"
+                               value="1"
+                               required>
+                    </div>
+                    <div class="col-12">
+                        <button class="btn btn-success" id="issueRecruitmentLinkButton" type="submit">
+                            <i class="fas fa-plus"></i> 募集URLを発行
+                        </button>
+                    </div>
+                </form>
+
+                <div class="alert alert-success mt-3 d-none" id="issuedRecruitmentLinkResult">
+                    <label for="issuedRecruitmentLinkUrl" class="form-label fw-semibold">発行した募集URL</label>
+                    <div class="input-group">
+                        <input class="form-control" id="issuedRecruitmentLinkUrl" type="text" readonly>
+                        <button class="btn btn-outline-success" id="copyIssuedRecruitmentLinkButton" type="button">
+                            <i class="fas fa-copy"></i> コピー
+                        </button>
+                    </div>
+                    <div class="form-text">このURLは再表示できません。共有前にコピーしてください。</div>
+                </div>
+
+                <hr>
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                    <h6 class="mb-0">発行履歴</h6>
+                    <button class="btn btn-sm btn-outline-secondary" id="reloadRecruitmentLinksButton" type="button">
+                        <i class="fas fa-rotate"></i> 更新
+                    </button>
+                </div>
+                <div id="recruitmentLinksList">
+                    <span class="text-muted small">読み込み中...</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% if can_manage_permissions and not is_public_view %}
 <div class="modal fade" id="sessionPermissionsModal" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -2043,6 +2122,124 @@ function normalizeRoleArray(roles, fallback = ['player']) {
     const normalized = [...new Set(values.map(value => String(value).trim()).filter(Boolean))];
     return normalized.length ? normalized : [...fallback];
 }
+
+function formatRecruitmentLinkDate(value) {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return new Intl.DateTimeFormat('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(date);
+}
+
+function renderRecruitmentLinks(links) {
+    const container = document.getElementById('recruitmentLinksList');
+    if (!container) return;
+    if (!links.length) {
+        container.innerHTML = '<div class="text-muted small">募集URLはまだ発行されていません。</div>';
+        return;
+    }
+    container.innerHTML = links.map(link => {
+        const remainingUses = Math.max(0, Number(link.max_uses) - Number(link.use_count));
+        const statusBadge = link.is_active
+            ? '<span class="badge bg-success">有効</span>'
+            : '<span class="badge bg-secondary">終了</span>';
+        const revokedLabel = link.revoked_at
+            ? `<div class="small text-muted">失効: ${escapeHtml(formatRecruitmentLinkDate(link.revoked_at))}</div>`
+            : '';
+        const revokeButton = link.is_active
+            ? `<button class="btn btn-sm btn-outline-danger"
+                       type="button"
+                       onclick="revokeRecruitmentLink(${Number(link.id)})">
+                   <i class="fas fa-ban"></i> 失効
+               </button>`
+            : '';
+        return `
+            <div class="border rounded p-3 mb-2">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            ${statusBadge}
+                            <span class="fw-semibold">残り ${remainingUses} / ${Number(link.max_uses)} 回</span>
+                        </div>
+                        <div class="small">期限: ${escapeHtml(formatRecruitmentLinkDate(link.expires_at))}</div>
+                        <div class="small text-muted">利用済み: ${Number(link.use_count)} 回</div>
+                        ${revokedLabel}
+                    </div>
+                    ${revokeButton}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function loadRecruitmentLinks() {
+    const container = document.getElementById('recruitmentLinksList');
+    if (!container) return;
+    container.innerHTML = '<span class="text-muted small">読み込み中...</span>';
+    try {
+        const response = await axios.get(`/api/sessions/${SESSION_ID}/recruitment-links/`);
+        renderRecruitmentLinks(response.data || []);
+    } catch (error) {
+        container.innerHTML = '<div class="text-danger small">募集URLの読み込みに失敗しました。</div>';
+        sessionNotifyError(getSessionErrorMessage(error, '募集URLの読み込みに失敗しました。'));
+    }
+}
+
+async function issueRecruitmentLink(event) {
+    event.preventDefault();
+    const submitButton = document.getElementById('issueRecruitmentLinkButton');
+    const result = document.getElementById('issuedRecruitmentLinkResult');
+    const urlInput = document.getElementById('issuedRecruitmentLinkUrl');
+    if (submitButton) submitButton.disabled = true;
+    if (result) result.classList.add('d-none');
+    try {
+        const response = await axios.post(`/api/sessions/${SESSION_ID}/recruitment-links/`, {
+            expires_in_hours: Number(document.getElementById('recruitmentExpiresInHours')?.value),
+            max_uses: Number(document.getElementById('recruitmentMaxUses')?.value),
+        });
+        if (urlInput) urlInput.value = response.data.recruitment_url || '';
+        if (result) result.classList.remove('d-none');
+        sessionNotifySuccess('募集URLを発行しました');
+        await loadRecruitmentLinks();
+    } catch (error) {
+        sessionNotifyError(getSessionErrorMessage(error, '募集URLの発行に失敗しました。'));
+    } finally {
+        if (submitButton) submitButton.disabled = false;
+    }
+}
+
+async function copyIssuedRecruitmentLink() {
+    const url = document.getElementById('issuedRecruitmentLinkUrl')?.value || '';
+    if (!url) return;
+    try {
+        await copyTextToClipboard(url);
+        sessionNotifySuccess('募集URLをコピーしました');
+    } catch (error) {
+        sessionNotifyError('募集URLをコピーできませんでした。');
+    }
+}
+
+async function revokeRecruitmentLink(linkId) {
+    const confirmed = await sessionConfirm(
+        'この募集URLを失効します。すでに参加したユーザーは削除されません。',
+        { title: '募集URLの失効', confirmText: '失効する', confirmClass: 'btn-danger' },
+    );
+    if (!confirmed) return;
+    try {
+        await axios.delete(`/api/sessions/${SESSION_ID}/recruitment-links/${linkId}/`);
+        sessionNotifySuccess('募集URLを失効しました');
+        await loadRecruitmentLinks();
+    } catch (error) {
+        sessionNotifyError(getSessionErrorMessage(error, '募集URLの失効に失敗しました。'));
+    }
+}
+
+window.revokeRecruitmentLink = revokeRecruitmentLink;
 
 function participantRolesPayload(roles) {
     return { roles: normalizeRoleArray(roles) };
@@ -4799,6 +4996,20 @@ document.addEventListener('DOMContentLoaded', () => {
             renderInviteMembersList(inviteSearchEl.value);
         });
     }
+
+    const recruitmentLinksModal = document.getElementById('recruitmentLinksModal');
+    if (recruitmentLinksModal) {
+        recruitmentLinksModal.addEventListener('shown.bs.modal', loadRecruitmentLinks);
+    }
+    document.getElementById('issueRecruitmentLinkForm')?.addEventListener('submit', issueRecruitmentLink);
+    document.getElementById('copyIssuedRecruitmentLinkButton')?.addEventListener(
+        'click',
+        copyIssuedRecruitmentLink,
+    );
+    document.getElementById('reloadRecruitmentLinksButton')?.addEventListener(
+        'click',
+        loadRecruitmentLinks,
+    );
 
     const guestCharacterSheetUrlEl = document.getElementById('guest_character_sheet_url');
     if (guestCharacterSheetUrlEl) {

@@ -4,6 +4,7 @@
 {% block title %}サインアップ - Gate of Yog-Sothoth{% endblock %}
 
 {% block content %}
+{% firstof request.POST.next request.GET.next as auth_next %}
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
@@ -46,6 +47,9 @@
 
                     <form method="post" id="email-signup-form">
                         {% csrf_token %}
+                        {% if auth_next %}
+                        <input type="hidden" name="next" value="{{ auth_next }}">
+                        {% endif %}
 
                         <div class="row g-3">
                             <div class="col-12">
@@ -116,17 +120,17 @@
                     <div class="d-grid gap-3">
                         {% for provider in socialaccount_providers %}
                             {% if provider.id == 'google' and google_configured %}
-                                <a href="{% provider_login_url provider.id %}" class="btn btn-danger btn-lg social-btn">
+                                <a href="{% provider_login_url provider.id next=auth_next %}" class="btn btn-danger btn-lg social-btn">
                                     <i class="fab fa-google fa-lg me-2"></i> 
                                     <span>Googleで登録</span>
                                 </a>
                             {% elif provider.id == 'discord' and discord_configured %}
-                                <a href="{% provider_login_url provider.id %}" class="btn btn-discord btn-lg social-btn">
+                                <a href="{% provider_login_url provider.id next=auth_next %}" class="btn btn-discord btn-lg social-btn">
                                     <i class="fab fa-discord fa-lg me-2"></i>
                                     <span>Discordで登録</span>
                                 </a>
                             {% elif provider.id == 'twitter_oauth2' and twitter_configured %}
-                                <a href="{% provider_login_url provider.id %}" class="btn btn-info btn-lg social-btn">
+                                <a href="{% provider_login_url provider.id next=auth_next %}" class="btn btn-info btn-lg social-btn">
                                     <i class="fab fa-twitter fa-lg me-2"></i>
                                     <span>X (Twitter)で登録</span>
                                 </a>

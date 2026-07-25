@@ -10,6 +10,12 @@ from django.views import View
 
 from schedules.duration import effective_duration_expression
 
+from ..auth_redirects import (
+    AUTH_NEXT_SESSION_KEY,
+    consume_auth_next,
+    remember_auth_next,
+    safe_local_redirect,
+)
 from .base_views import BaseViewSet
 from .common_imports import *
 from .mixins import ErrorHandlerMixin, UserOwnershipMixin
@@ -211,7 +217,22 @@ def _ensure_social_apps():
 # Django Web Views
 
 
-class CustomLoginView(FormView):
+class SafeNextFormViewMixin:
+    def get_success_url(self):
+        next_url = safe_local_redirect(
+            self.request,
+            self.request.POST.get("next") or self.request.GET.get("next"),
+        )
+        if next_url:
+            self.request.session.pop(AUTH_NEXT_SESSION_KEY, None)
+            return next_url
+        remembered_next = consume_auth_next(self.request)
+        if remembered_next:
+            return remembered_next
+        return super().get_success_url()
+
+
+class CustomLoginView(SafeNextFormViewMixin, FormView):
     """Custom login view"""
 
     template_name = "account/login.html"
@@ -234,7 +255,7 @@ class CustomLoginView(FormView):
         return super().form_valid(form)
 
 
-class CustomSignUpView(FormView):
+class CustomSignUpView(SafeNextFormViewMixin, FormView):
     """Custom signup view"""
 
     template_name = "account/signup.html"
@@ -244,6 +265,7 @@ class CustomSignUpView(FormView):
     def form_valid(self, form):
         user = form.save()
         email_verification_mandatory = getattr(settings, "ACCOUNT_EMAIL_VERIFICATION", "none") == "mandatory"
+        next_url = self.request.POST.get("next") or self.request.GET.get("next")
 
         # Ensure allauth EmailAddress is in sync for email login & email management.
         try:
@@ -258,6 +280,7 @@ class CustomSignUpView(FormView):
                 },
             )
             if getattr(settings, "ACCOUNT_EMAIL_VERIFICATION", "none") == "mandatory":
+                remember_auth_next(self.request, next_url)
                 email_address.send_confirmation(self.request, signup=True)
                 messages.info(
                     self.request,

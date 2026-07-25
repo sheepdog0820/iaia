@@ -547,10 +547,10 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         self.assertIn("const scenarioShareControlsHtml = canManage ?", template)
 
     def test_ccfolia_default_skills_are_split_by_edition(self):
-        template = self.read_text("templates/schedules/session_detail.html")
+        script = self.read_text("static/js/ccfolia_character_copy.js")
 
-        sixth_names = self.extract_js_skill_names(template, "const CCFOLIA_COC6_DEFAULT_SKILLS")
-        seventh_names = self.extract_js_skill_names(template, "const CCFOLIA_COC7_DEFAULT_SKILLS")
+        sixth_names = self.extract_js_skill_names(script, "const COC6_DEFAULT_SKILLS")
+        seventh_names = self.extract_js_skill_names(script, "const COC7_DEFAULT_SKILLS")
 
         for skill_label in self.SEVENTH_ONLY_SKILL_LABELS:
             self.assertNotIn(skill_label, sixth_names)
@@ -561,15 +561,15 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         self.assertEqual(60, len(sixth_names))
         self.assertEqual(48, len(seventh_names))
         self.assertIn(
-            "const defaultSkills = edition === '7th' ? CCFOLIA_COC7_DEFAULT_SKILLS : CCFOLIA_COC6_DEFAULT_SKILLS;",
-            template,
+            "const defaultSkills = edition === '7th' ? COC7_DEFAULT_SKILLS : COC6_DEFAULT_SKILLS;",
+            script,
         )
 
     def test_ccfolia_skill_output_preserves_skill_tab_order(self):
-        template = self.read_text("templates/schedules/session_detail.html")
+        script = self.read_text("static/js/ccfolia_character_copy.js")
 
-        sixth_names = self.extract_ordered_js_skill_names(template, "const CCFOLIA_COC6_DEFAULT_SKILLS")
-        seventh_names = self.extract_ordered_js_skill_names(template, "const CCFOLIA_COC7_DEFAULT_SKILLS")
+        sixth_names = self.extract_ordered_js_skill_names(script, "const COC6_DEFAULT_SKILLS")
+        seventh_names = self.extract_ordered_js_skill_names(script, "const COC7_DEFAULT_SKILLS")
 
         expected_combat_order = [
             "回避",
@@ -602,9 +602,9 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         self.assertLess(seventh_names.index("変装"), seventh_names.index("言いくるめ"))
         self.assertLess(seventh_names.index("母国語"), seventh_names.index("医学"))
 
-        self.assertIn("const skillValues = new Map();", template)
-        self.assertIn("const customSkills = new Map();", template)
-        self.assertNotIn(".sort((a, b) => a.skill_name.localeCompare", template)
+        self.assertIn("const skillValues = new Map();", script)
+        self.assertIn("const customSkills = new Map();", script)
+        self.assertNotIn(".sort((a, b) => a.skill_name.localeCompare", script)
 
     def test_character_view_skill_lists_are_split_by_edition(self):
         for relative_path in ["accounts/views/character_views.py"]:

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}セッション募集 - Tableno{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-body p-4 p-md-5">
+                    {% if invalid %}
+                        <h1 class="h4">募集URLが見つかりません</h1>
+                        <p class="text-muted mb-0">URLが正しいか、募集元の管理者へ確認してください。</p>
+                    {% elif inactive %}
+                        <h1 class="h4">この募集URLは利用できません</h1>
+                        <div class="alert alert-warning mb-0">
+                            このURLは期限切れ、失効済み、または利用上限に達しています。
+                        </div>
+                    {% elif already_joined %}
+                        <h1 class="h4">すでに参加しています</h1>
+                        <p class="mb-4">{{ session.title }} には参加登録済みです。</p>
+                        <a class="btn btn-primary" href="{{ session_detail_url }}">
+                            <i class="fas fa-arrow-right"></i> セッション詳細へ
+                        </a>
+                    {% elif joined %}
+                        <h1 class="h4">参加登録が完了しました</h1>
+                        <p class="mb-4">{{ session.title }} にPLとして参加しました。</p>
+                        <a class="btn btn-primary" href="{{ session_detail_url }}">
+                            <i class="fas fa-arrow-right"></i> セッション詳細へ
+                        </a>
+                    {% else %}
+                        <h1 class="h4 mb-3">{{ session.title }} の参加募集</h1>
+                        <dl class="row mb-4">
+                            <dt class="col-sm-4">GM</dt>
+                            <dd class="col-sm-8">
+                                {% if session.gm %}
+                                    {{ session.gm.nickname|default:session.gm.username }}
+                                {% else %}
+                                    未設定
+                                {% endif %}
+                            </dd>
+                            <dt class="col-sm-4">開催日時</dt>
+                            <dd class="col-sm-8">
+                                {% if session.date %}
+                                    {{ session.date|date:"Y年n月j日 H:i" }}
+                                {% else %}
+                                    日程未定
+                                {% endif %}
+                            </dd>
+                            <dt class="col-sm-4">募集期限</dt>
+                            <dd class="col-sm-8">{{ recruitment_link.expires_at|date:"Y年n月j日 H:i" }}</dd>
+                        </dl>
+
+                        {% if user.is_authenticated %}
+                            <div class="alert alert-info">PLとして参加登録しています…</div>
+                            <form id="recruitment-join-form"
+                                  method="post"
+                                  action="{% url 'session-recruitment-join' token=token %}">
+                                {% csrf_token %}
+                                <button class="btn btn-primary" type="submit">参加する</button>
+                            </form>
+                        {% else %}
+                            <p class="text-muted">
+                                参加するにはログイン、または会員登録が必要です。認証後、この募集画面へ戻ります。
+                            </p>
+                            <div class="d-grid d-sm-flex gap-2">
+                                <a class="btn btn-primary" href="{{ login_url }}">
+                                    <i class="fas fa-sign-in-alt"></i> ログイン
+                                </a>
+                                <a class="btn btn-outline-primary" href="{{ signup_url }}">
+                                    <i class="fas fa-user-plus"></i> 会員登録
+                                </a>
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if auto_join %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('recruitment-join-form')?.requestSubmit();
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -5,6 +5,7 @@
 {% block title %}ログイン - Gate of Yog-Sothoth{% endblock %}
 
 {% block content %}
+{% firstof request.POST.next request.GET.next as auth_next %}
 <div class="auth-page">
     <div class="auth-card card">
         <div class="card-body">
@@ -37,21 +38,21 @@
 
                 <div class="d-grid gap-2">
                     {% if google_configured %}
-                        <a href="{% provider_login_url 'google' %}" class="btn auth-provider-btn btn-google social-btn">
+                        <a href="{% provider_login_url 'google' next=auth_next %}" class="btn auth-provider-btn btn-google social-btn">
                             <i class="fab fa-google"></i>
                             <span>Google</span>
                         </a>
                     {% endif %}
 
                     {% if discord_configured %}
-                        <a href="{% provider_login_url 'discord' %}" class="btn auth-provider-btn btn-discord social-btn">
+                        <a href="{% provider_login_url 'discord' next=auth_next %}" class="btn auth-provider-btn btn-discord social-btn">
                             <i class="fab fa-discord"></i>
                             <span>Discord</span>
                         </a>
                     {% endif %}
 
                     {% if twitter_configured %}
-                        <a href="{% provider_login_url 'twitter_oauth2' %}" class="btn auth-provider-btn btn-x social-btn">
+                        <a href="{% provider_login_url 'twitter_oauth2' next=auth_next %}" class="btn auth-provider-btn btn-x social-btn">
                             <i class="fab fa-twitter"></i>
                             <span>X (Twitter)</span>
                         </a>
@@ -91,6 +92,9 @@
                 <div class="collapse show" id="emailLoginCollapse" data-has-errors="{% if form.errors %}1{% else %}0{% endif %}">
                     <form method="post" id="email-login-form" class="auth-form">
                         {% csrf_token %}
+                        {% if auth_next %}
+                        <input type="hidden" name="next" value="{{ auth_next }}">
+                        {% endif %}
 
                         <div class="mb-2">
                             <label for="{{ form.username.id_for_label }}" class="form-label small mb-1">
@@ -143,7 +147,7 @@
                 </div>
 
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2">
-                    <a href="{% url 'account_signup' %}" class="small text-decoration-none">
+                    <a href="{% url 'account_signup' %}{% if auth_next %}?next={{ auth_next|urlencode }}{% endif %}" class="small text-decoration-none">
                         <i class="fas fa-user-plus"></i> アカウント作成
                     </a>
                     {% if debug %}
