@@ -10,7 +10,7 @@
 
 - AWS Terraform/Runbook、OpenAPI、Celery/AsyncJob
 - 条件付きHO公開、Discord Webhook、ICS購読
-- Google Calendar片方向同期、Google Sheets固定列入出力
+- Google Calendar片方向同期、Google Sheets固定列出力
 - 相互承認型グループ連携と明示共有
 - グループ招待URL（期限/失効/使用回数制限、ログイン後参加）
 - ゲスト招待URL、参加表明、claim、監査ログ
@@ -760,7 +760,6 @@ tableno/
 - `DELETE /api/groups/<id>/links/<link_id>/` - グループ連携解除
 - `GET/PUT /api/groups/<id>/discord-settings/` - Discord通知設定
 - `POST /api/sessions/<id>/google-calendar/sync/` - Google Calendar片方向同期
-- `POST /api/character-sheets/google-sheets/import/` - Google Sheets固定列取込
 - `POST /api/character-sheets/google-sheets/export/` - Google Sheets固定列出力
 - `POST /api/sessions/<id>/guest-invitations/` - ゲスト招待発行
 - `POST /api/guest-invitations/<token>/respond/` - ゲスト参加表明
@@ -1064,7 +1063,7 @@ Beta/public rollout gate: Google Calendar/Sheets, advanced Discord notification 
 - **カレンダー同期（Google Calendar）**【✅ 片方向同期を実装済み】
   - OAuth連携
   - イベント作成/更新の同期処理
-- **外部シート連携API**【✅ Google Sheets固定列入出力を実装済み】
+- **外部シート連携API**【✅ Google Sheets固定列出力を実装済み】
   - 外部サービス/スプレッドシート連携
 
 ### 7.6 セッション準備・事後処理

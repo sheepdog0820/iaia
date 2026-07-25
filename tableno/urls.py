@@ -72,7 +72,6 @@ from schedules.integration_views import (
     GoogleCalendarSyncView,
     GoogleIntegrationView,
     GoogleSheetsExportView,
-    GoogleSheetsImportView,
 )
 from schedules.job_views import AsyncJobDetailView, AsyncJobListView, AsyncJobRetryView
 from tableno.health_views import health_live_view, health_ready_view
@@ -205,11 +204,6 @@ urlpatterns = [
         "api/sessions/<int:session_id>/google-calendar/sync/",
         GoogleCalendarSyncView.as_view(),
         name="google-calendar-sync",
-    ),
-    path(
-        "api/character-sheets/google-sheets/import/",
-        GoogleSheetsImportView.as_view(),
-        name="google-sheets-import",
     ),
     path(
         "api/character-sheets/google-sheets/export/",

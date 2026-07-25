@@ -10,6 +10,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from accounts.character_models import CharacterSheet7th
 from accounts.models import CharacterSheet, Group
 from schedules.google_tokens import get_google_access_token
 from schedules import session_permissions
@@ -180,7 +181,9 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertContains(response, "ICS購読URLを再発行")
         self.assertContains(response, "通知対象イベント")
         self.assertContains(response, "連携ジョブ状況")
-        self.assertContains(response, "Google Sheets キャラクターシート入出力")
+        self.assertContains(response, "Google Sheets キャラクターシート出力")
+        self.assertNotContains(response, "取込プレビュー")
+        self.assertNotContains(response, 'id="import-google-sheets"')
         self.assertContains(response, "直前の招待を失効")
         self.assertContains(response, "const websocketEnabled = false")
 
@@ -237,87 +240,42 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertEqual(social_token.token, "new-access-token")
         self.assertEqual(social_token.token_secret, "new-refresh-token")
 
-    def test_sheets_preview_and_import_use_fixed_columns(self):
+    def test_sheets_import_endpoint_is_not_available(self):
         self.connect_google()
-        row = {
-            "name": "Imported Investigator",
-            "edition": "6th",
-            "age": 30,
-            "occupation": "Detective",
-            "STR": 12,
-            "CON": 11,
-            "POW": 13,
-            "DEX": 14,
-            "APP": 10,
-            "SIZ": 12,
-            "INT": 15,
-            "EDU": 16,
-            "SAN": 65,
-        }
-        preview = self.client.post(
+        response = self.client.post(
             "/api/character-sheets/google-sheets/import/",
-            {"rows": [row], "preview": True},
+            {"rows": []},
             format="json",
         )
-        self.assertEqual(preview.status_code, status.HTTP_200_OK)
-        self.assertEqual(preview.data["rows"][0]["errors"], {})
-        self.assertIn("STR", preview.data["columns"])
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-        imported = self.client.post(
-            "/api/character-sheets/google-sheets/import/",
-            {"rows": [row], "preview": False, "conflict_action": "create"},
-            format="json",
-        )
-        self.assertEqual(imported.status_code, status.HTTP_201_CREATED)
-        character = CharacterSheet.objects.get(pk=imported.data["imported_ids"][0])
-        self.assertEqual(character.user, self.user)
-        self.assertEqual(character.system_data.name, "Imported Investigator")
-
-    def test_sheets_round_trip_preserves_7th_luck(self):
+    def test_sheets_export_includes_7th_luck_and_current_statuses(self):
         self.connect_google()
-        row = {
-            "name": "Imported Seventh Investigator",
-            "edition": "7th",
-            "age": 30,
-            "occupation": "Detective",
-            "STR": 60,
-            "CON": 55,
-            "POW": 65,
-            "DEX": 70,
-            "APP": 50,
-            "SIZ": 60,
-            "INT": 75,
-            "EDU": 80,
-            "HP": 9,
-            "MP": 8,
-            "SAN": 51,
-            "LUCK": 47,
-        }
-
-        imported = self.client.post(
-            "/api/character-sheets/google-sheets/import/",
-            {"rows": [row], "preview": False, "conflict_action": "create"},
-            format="json",
+        character = CharacterSheet.objects.create(user=self.user, edition="7th")
+        CharacterSheet7th.objects.create(
+            character_sheet=character,
+            name="Exported Seventh Investigator",
+            age=30,
+            occupation="Detective",
+            str_value=60,
+            con_value=55,
+            pow_value=65,
+            dex_value=70,
+            app_value=50,
+            siz_value=60,
+            int_value=75,
+            edu_value=80,
+            hit_points_current=9,
+            hit_points_max=11,
+            magic_points_current=8,
+            magic_points_max=13,
+            sanity_starting=65,
+            sanity_current=51,
+            sanity_max=99,
+            luck_starting=47,
+            luck_current=47,
+            luck_max=47,
         )
-
-        self.assertEqual(imported.status_code, status.HTTP_201_CREATED)
-        character = CharacterSheet.objects.get(pk=imported.data["imported_ids"][0])
-        detail = character.system_data
-        self.assertEqual((detail.luck_starting, detail.luck_current, detail.luck_max), (47, 47, 47))
-
-        legacy_update_row = dict(row)
-        legacy_update_row["id"] = character.pk
-        legacy_update_row["name"] = "Updated Seventh Investigator"
-        legacy_update_row.pop("LUCK")
-        updated = self.client.post(
-            "/api/character-sheets/google-sheets/import/",
-            {"rows": [legacy_update_row], "preview": False, "conflict_action": "update"},
-            format="json",
-        )
-
-        self.assertEqual(updated.status_code, status.HTTP_201_CREATED)
-        detail.refresh_from_db()
-        self.assertEqual((detail.luck_starting, detail.luck_current, detail.luck_max), (47, 47, 47))
 
         exported = self.client.post(
             "/api/character-sheets/google-sheets/export/",
@@ -326,5 +284,5 @@ class GoogleIntegrationTestCase(APITestCase):
         )
 
         self.assertEqual(exported.status_code, status.HTTP_200_OK)
-        self.assertEqual(exported.data["columns"][-1], "LUCK")
-        self.assertEqual(exported.data["rows"][0][-1], 47)
+        self.assertEqual(exported.data["columns"][-4:], ["HP", "MP", "SAN", "LUCK"])
+        self.assertEqual(exported.data["rows"][0][-4:], [9, 8, 51, 47])

@@ -11,7 +11,7 @@
 - ノート、ログ、画像、YouTube、報酬、分析
 - Discord OAuthとグループ単位Discord Webhook
 - iCalファイル出力とハッシュ化トークン付きICS購読フィード
-- Google Calendar片方向同期、Google Sheets固定列入出力
+- Google Calendar片方向同期、Google Sheets固定列出力
 - 相互承認型グループ連携と、セッション・日程投票・関連シナリオ・テンプレートの明示共有
 - OpenAPI/Swagger、Celery、AsyncJob、定期タスク
 - Django Channelsによるユーザー単位通知とポーリングフォールバック

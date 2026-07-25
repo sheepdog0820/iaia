@@ -96,27 +96,6 @@ test.describe('integration settings', () => {
         json: { subscription_url: 'http://localhost:8000/calendar/subscribe/test.ics' },
       });
     });
-    await page.route('**/api/character-sheets/google-sheets/import/', async route => {
-      const body = route.request().postDataJSON();
-      requests.push({
-        method: route.request().method(),
-        path: new URL(route.request().url()).pathname,
-        body,
-      });
-      if (body.preview) {
-        await route.fulfill({
-          json: {
-            rows: [{
-              row: 2,
-              data: { name: '<Investigator>', edition: '6th' },
-              errors: {},
-            }],
-          },
-        });
-        return;
-      }
-      await route.fulfill({ status: 201, json: { imported_ids: [99] } });
-    });
     await page.route('**/api/character-sheets/google-sheets/export/', async route => {
       requests.push({
         method: route.request().method(),
@@ -173,11 +152,8 @@ test.describe('integration settings', () => {
     );
 
     await page.fill('#sheets-spreadsheet-id', 'sheet-1');
-    await page.click('#preview-google-sheets');
-    await expect(page.locator('#sheets-preview-body')).toContainText('<Investigator>');
-    await expect(page.locator('#import-google-sheets')).toBeEnabled();
-    await page.click('#import-google-sheets');
-    await expect(page.locator('#integration-message')).toContainText('1件を取り込みました');
+    await expect(page.locator('#preview-google-sheets')).toHaveCount(0);
+    await expect(page.locator('#import-google-sheets')).toHaveCount(0);
 
     await page.click('#export-google-sheets');
     await expect(page.locator('#integration-message')).toContainText('job-1');

@@ -9,7 +9,7 @@
 - AWS Terraform、CloudWatch Alarm、メディア/DB移行・復旧Runbook
 - OpenAPI/Swagger、Celery、AsyncJob、beat
 - 条件付きHO公開、Discord Webhook、ICS購読
-- Google Calendar片方向同期、Google Sheets固定列入出力
+- Google Calendar片方向同期、Google Sheets固定列出力
 - 相互承認型グループ連携と明示共有
 - グループ招待URL（期限/失効/使用回数制限、ログイン後参加）
 - ゲスト招待URL、参加表明、claim、監査ログ
@@ -616,7 +616,7 @@
 ### 8.1 部分実装
 
 - **ゲスト参加**: GM登録、期限付き招待URL、参加表明、claim、監査ログを実装済み。横断募集ページは将来候補
-- **外部連携**: Discord OAuth/Webhook、iCal出力、購読ICS、Google Calendar片方向同期、Google Sheets固定列入出力を実装済み。Beta/public exposure is governed by `docs/release/PUBLIC_RELEASE_TASKS.md`; Google Calendar/Sheets, advanced Discord notification operations, and WebSocket notification exposure require real external-service verification before broad rollout.
+- **外部連携**: Discord OAuth/Webhook、iCal出力、購読ICS、Google Calendar片方向同期、Google Sheets固定列出力を実装済み。Beta/public exposure is governed by `docs/release/PUBLIC_RELEASE_TASKS.md`; Google Calendar/Sheets, advanced Discord notification operations, and WebSocket notification exposure require real external-service verification before broad rollout.
 - **Celery基盤**: worker/beat、業務タスク、AsyncJob進捗・結果管理を実装済み
 - **AWS運用**: ECS設定、Terraform、CloudWatch Alarm、メディア/DB移行、バックアップ復旧Runbookを実装済み。実AWS適用は別運用工程
 

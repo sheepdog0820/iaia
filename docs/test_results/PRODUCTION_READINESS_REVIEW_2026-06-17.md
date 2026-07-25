@@ -59,7 +59,7 @@
 
 - 実AWS本番環境への `terraform plan/apply`、Secrets登録、DNS、ACM、監視、バックアップ、ロールバック手順の承認が未完了です。
 - リポジトリ本体のS3 backendを使う `terraform plan` はAWS資格情報が必要なため、このローカル環境では未完了です。backendを外した一時コピーでのoffline planは成功しています。
-- 実Google資格情報を使った refresh token 失効、Google Calendar API障害、Google Sheets大規模入出力の失敗復旧検証が未完了です。
+- 実Google資格情報を使った refresh token 失効、Google Calendar API障害、Google Sheets大規模出力の失敗復旧検証が未完了です。
 - 実Discord webhook資格情報を使った通知失敗、再送、broker不可時の運用検証が未完了です。
 - 主要画面の実機レスポンシブ確認は別途必要です。今回の確認はDjangoテストとPlaywright対象更新が中心です。
 - 本番相当データ量での一覧画面・連携画面の速度確認は未完了です。

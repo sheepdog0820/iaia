@@ -130,7 +130,6 @@
 
 - Google Calendar OAuth連携
 - Google Calendar同期
-- Google Sheetsインポート
 - Google Sheetsエクスポート
 - Discord通知送信基盤
 - Discord通知配信モデル
@@ -178,7 +177,7 @@
 ### P1: リリース前に強く推奨
 
 - Google Calendar同期の実アカウント・実カレンダーでの失敗復旧検証
-- Google Sheetsインポート/エクスポートの実シートでの失敗復旧検証
+- Google Sheetsエクスポートの実シートでの失敗復旧検証
 - Discord通知の失敗状態をユーザーまたは管理者が確認できる画面/API
 - Discord通知の再送または運用復旧手順
 - OpenAPIスキーマ警告の棚卸しと、公開APIに影響する警告の解消

@@ -14,7 +14,6 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.character_models import CharacterSheet6th, CharacterSheet7th
 from accounts.models import CharacterSheet, GroupMembership
 
 from .google_tokens import get_google_access_token
@@ -270,117 +269,6 @@ class GoogleCalendarSyncView(APIView):
             },
             status=status.HTTP_202_ACCEPTED,
         )
-
-
-def _read_sheet_rows(user, spreadsheet_id, range_name):
-    token = get_google_access_token(user)
-    response = requests.get(
-        f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}/values/{range_name}",
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=15,
-    )
-    response.raise_for_status()
-    values = response.json().get("values", [])
-    if not values:
-        return []
-    headers = values[0]
-    return [dict(zip(headers, row)) for row in values[1:]]
-
-
-def _validate_character_row(row):
-    errors = {}
-    for key in ["name", "edition", "age", "STR", "CON", "POW", "DEX", "APP", "SIZ", "INT", "EDU"]:
-        if row.get(key) in (None, ""):
-            errors[key] = "required"
-    if row.get("edition") not in {"6th", "7th"}:
-        errors["edition"] = "must be 6th or 7th"
-    for key in ["age", "STR", "CON", "POW", "DEX", "APP", "SIZ", "INT", "EDU"]:
-        try:
-            int(row.get(key))
-        except (TypeError, ValueError):
-            errors[key] = "must be an integer"
-    if row.get("LUCK") not in (None, ""):
-        try:
-            int(row["LUCK"])
-        except (TypeError, ValueError):
-            errors["LUCK"] = "must be an integer"
-    return errors
-
-
-class GoogleSheetsImportView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        integration = GoogleIntegration.objects.filter(user=request.user, sheets_enabled=True).first()
-        if not integration or not integration.has_scope(GoogleIntegration.REQUIRED_SHEETS_SCOPE):
-            return Response(
-                {"detail": "Google Sheets is not connected."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        rows = request.data.get("rows")
-        if rows is None:
-            try:
-                rows = _read_sheet_rows(
-                    request.user,
-                    request.data["spreadsheet_id"],
-                    request.data.get("range", "Characters!A:Q"),
-                )
-            except (KeyError, ValueError, requests.RequestException) as exc:
-                return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        results = [
-            {"row": index + 2, "data": row, "errors": _validate_character_row(row)} for index, row in enumerate(rows)
-        ]
-        if request.data.get("preview", True):
-            return Response({"columns": SHEET_COLUMNS, "rows": results})
-        if any(item["errors"] for item in results):
-            return Response({"rows": results}, status=status.HTTP_400_BAD_REQUEST)
-        conflict_action = request.data.get("conflict_action", "create")
-        imported = []
-        for item in results:
-            row = item["data"]
-            instance = None
-            if conflict_action == "update" and row.get("id"):
-                instance = CharacterSheet.objects.filter(pk=row["id"], user=request.user).first()
-            edition = row["edition"]
-            values = {
-                "name": row["name"],
-                "age": int(row["age"]),
-                "occupation": row.get("occupation", ""),
-                "str_value": int(row["STR"]),
-                "con_value": int(row["CON"]),
-                "pow_value": int(row["POW"]),
-                "dex_value": int(row["DEX"]),
-                "app_value": int(row["APP"]),
-                "siz_value": int(row["SIZ"]),
-                "int_value": int(row["INT"]),
-                "edu_value": int(row["EDU"]),
-                "hit_points_max": 1,
-                "hit_points_current": 1,
-                "magic_points_max": 1,
-                "magic_points_current": 1,
-                "sanity_starting": int(row.get("SAN") or row["POW"]),
-                "sanity_max": 99,
-                "sanity_current": int(row.get("SAN") or row["POW"]),
-            }
-            if edition == "7th" and (row.get("LUCK") not in (None, "") or instance is None):
-                luck = int(row.get("LUCK") or row["POW"])
-                values.update(luck_starting=luck, luck_current=luck, luck_max=luck)
-            if instance:
-                if instance.edition != edition:
-                    return Response(
-                        {"detail": "既存キャラクターの版は変更できません。"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                detail = instance.system_data
-                for field, value in values.items():
-                    setattr(detail, field, value)
-                detail.save()
-            else:
-                instance = CharacterSheet.objects.create(user=request.user, edition=edition)
-                detail_model = CharacterSheet6th if edition == "6th" else CharacterSheet7th
-                detail_model.objects.create(character_sheet=instance, **values)
-            imported.append(instance.pk)
-        return Response({"imported_ids": imported}, status=status.HTTP_201_CREATED)
 
 
 class GoogleSheetsExportView(APIView):

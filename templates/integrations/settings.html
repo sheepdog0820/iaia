@@ -57,7 +57,7 @@
                     </div>
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="google-sheets-enabled">
-                        <label class="form-check-label" for="google-sheets-enabled">Google Sheets入出力</label>
+                        <label class="form-check-label" for="google-sheets-enabled">Google Sheets出力</label>
                     </div>
                     <button class="btn btn-outline-primary" id="save-google-settings">Google設定を保存</button>
                     <a class="btn btn-link" id="google-reconnect-link" href="/accounts/google/login/?process=connect&amp;scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.events%2Chttps%3A%2F%2Fwww.googleapis.com%2Fauth%2Fspreadsheets">Googleを再連携</a>
@@ -183,37 +183,20 @@
 
         <div class="col-12">
             <div class="card">
-                <div class="card-header">Google Sheets キャラクターシート入出力</div>
+                <div class="card-header">Google Sheets キャラクターシート出力</div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-md-5">
+                        <div class="col-md-6">
                             <label class="form-label" for="sheets-spreadsheet-id">Spreadsheet ID</label>
                             <input class="form-control" id="sheets-spreadsheet-id">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label" for="sheets-range">Range</label>
                             <input class="form-control" id="sheets-range" value="Characters!A:P">
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label" for="sheets-conflict-action">重複時</label>
-                            <select class="form-select" id="sheets-conflict-action">
-                                <option value="create">新規作成</option>
-                                <option value="update">ID一致を更新</option>
-                            </select>
-                        </div>
                     </div>
                     <div class="d-flex flex-wrap gap-2 mt-3">
-                        <button class="btn btn-outline-primary" id="preview-google-sheets">取込プレビュー</button>
-                        <button class="btn btn-primary" id="import-google-sheets" disabled>検証済み行を取込</button>
                         <button class="btn btn-outline-primary" id="export-google-sheets">Google Sheetsへ出力</button>
-                    </div>
-                    <div class="table-responsive mt-3 d-none" id="sheets-preview-container">
-                        <table class="table table-sm align-middle">
-                            <thead>
-                                <tr><th>行</th><th>名前</th><th>版</th><th>検証結果</th></tr>
-                            </thead>
-                            <tbody id="sheets-preview-body"></tbody>
-                        </table>
                     </div>
                 </div>
             </div>
@@ -251,7 +234,6 @@ document.addEventListener('DOMContentLoaded', function() {
     ];
     const sessionSelect = document.getElementById('integration-session');
     let lastGuestInvitation = null;
-    let sheetsPreviewRows = null;
 
     function showMessage(text, type = 'success') {
         message.textContent = text;
@@ -570,47 +552,6 @@ document.addEventListener('DOMContentLoaded', function() {
             release_conditions: conditions,
         });
         showMessage('ハンドアウト公開条件を保存しました。');
-    });
-
-    async function previewSheets() {
-        const response = await axios.post('/api/character-sheets/google-sheets/import/', {
-            spreadsheet_id: document.getElementById('sheets-spreadsheet-id').value.trim(),
-            range: document.getElementById('sheets-range').value.trim(),
-            preview: true,
-        });
-        sheetsPreviewRows = response.data.rows || [];
-        const previewBody = document.getElementById('sheets-preview-body');
-        previewBody.innerHTML = sheetsPreviewRows.map(item => {
-            const errorEntries = Object.entries(item.errors || {});
-            const result = errorEntries.length
-                ? errorEntries.map(([field, error]) => `${escapeHtml(field)}: ${escapeHtml(error)}`).join('<br>')
-                : '<span class="text-success">OK</span>';
-            return `<tr>
-                <td>${item.row}</td>
-                <td>${escapeHtml(item.data?.name)}</td>
-                <td>${escapeHtml(item.data?.edition)}</td>
-                <td>${result}</td>
-            </tr>`;
-        }).join('');
-        document.getElementById('sheets-preview-container').classList.remove('d-none');
-        document.getElementById('import-google-sheets').disabled =
-            !sheetsPreviewRows.length || sheetsPreviewRows.some(item => Object.keys(item.errors || {}).length);
-        return sheetsPreviewRows;
-    }
-
-    document.getElementById('preview-google-sheets').addEventListener('click', async function() {
-        await previewSheets();
-        showMessage('Google Sheetsの取込内容を検証しました。');
-    });
-
-    document.getElementById('import-google-sheets').addEventListener('click', async function() {
-        if (!sheetsPreviewRows) return;
-        const response = await axios.post('/api/character-sheets/google-sheets/import/', {
-            rows: sheetsPreviewRows.map(item => item.data),
-            preview: false,
-            conflict_action: document.getElementById('sheets-conflict-action').value,
-        });
-        showMessage(`${response.data.imported_ids.length}件を取り込みました。`);
     });
 
     document.getElementById('export-google-sheets').addEventListener('click', async function() {

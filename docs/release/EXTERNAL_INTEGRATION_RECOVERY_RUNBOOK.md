@@ -24,10 +24,10 @@
 - 復旧: 障害が解消した後、`POST /api/jobs/<uuid>/retry/` または画面の再試行を実行する。
 - 記録: 元ジョブID、retryジョブID、対象セッション、最終状態。
 
-## Google Sheets大規模入出力
+## Google Sheets大規模出力
 
-- 症状: import/export の進捗停止、サイズ起因のAPIエラー、broker不可。
-- 復旧: 入力範囲や対象キャラクター数を分割し、再実行する。exportは保存済みpayloadから再試行する。
+- 症状: export の進捗停止、サイズ起因のAPIエラー、broker不可。
+- 復旧: 対象キャラクター数を分割し、再実行する。exportは保存済みpayloadから再試行する。
 - 記録: spreadsheet_idは秘匿し、対象件数、ジョブID、失敗理由、再試行結果を残す。
 
 ## Discord webhook失敗
@@ -48,6 +48,6 @@
 | --- | --- | --- | --- |
 | Google refresh token失効 | 未実施 | 未確認 |  |
 | Google Calendar API障害 | 未実施 | 未確認 |  |
-| Google Sheets大規模入出力 | 未実施 | 未確認 |  |
+| Google Sheets大規模出力 | 未実施 | 未確認 |  |
 | Discord webhook失敗 | 未実施 | 未確認 |  |
 | broker不可 | 未実施 | 未確認 |  |
