@@ -272,3 +272,59 @@ class GoogleIntegrationTestCase(APITestCase):
         character = CharacterSheet.objects.get(pk=imported.data["imported_ids"][0])
         self.assertEqual(character.user, self.user)
         self.assertEqual(character.system_data.name, "Imported Investigator")
+
+    def test_sheets_round_trip_preserves_7th_luck(self):
+        self.connect_google()
+        row = {
+            "name": "Imported Seventh Investigator",
+            "edition": "7th",
+            "age": 30,
+            "occupation": "Detective",
+            "STR": 60,
+            "CON": 55,
+            "POW": 65,
+            "DEX": 70,
+            "APP": 50,
+            "SIZ": 60,
+            "INT": 75,
+            "EDU": 80,
+            "HP": 9,
+            "MP": 8,
+            "SAN": 51,
+            "LUCK": 47,
+        }
+
+        imported = self.client.post(
+            "/api/character-sheets/google-sheets/import/",
+            {"rows": [row], "preview": False, "conflict_action": "create"},
+            format="json",
+        )
+
+        self.assertEqual(imported.status_code, status.HTTP_201_CREATED)
+        character = CharacterSheet.objects.get(pk=imported.data["imported_ids"][0])
+        detail = character.system_data
+        self.assertEqual((detail.luck_starting, detail.luck_current, detail.luck_max), (47, 47, 47))
+
+        legacy_update_row = dict(row)
+        legacy_update_row["id"] = character.pk
+        legacy_update_row["name"] = "Updated Seventh Investigator"
+        legacy_update_row.pop("LUCK")
+        updated = self.client.post(
+            "/api/character-sheets/google-sheets/import/",
+            {"rows": [legacy_update_row], "preview": False, "conflict_action": "update"},
+            format="json",
+        )
+
+        self.assertEqual(updated.status_code, status.HTTP_201_CREATED)
+        detail.refresh_from_db()
+        self.assertEqual((detail.luck_starting, detail.luck_current, detail.luck_max), (47, 47, 47))
+
+        exported = self.client.post(
+            "/api/character-sheets/google-sheets/export/",
+            {"character_ids": [character.pk]},
+            format="json",
+        )
+
+        self.assertEqual(exported.status_code, status.HTTP_200_OK)
+        self.assertEqual(exported.data["columns"][-1], "LUCK")
+        self.assertEqual(exported.data["rows"][0][-1], 47)

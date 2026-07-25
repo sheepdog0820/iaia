@@ -760,7 +760,16 @@ class CharacterSheetSystemData(models.Model):
             skills = {
                 "医師": ["医学", "応急手当", "科学", "心理学", "信用", "説得", "ほかの言語", "図書館"],
                 "教授": ["図書館", "母国語", "ほかの言語", "科学", "心理学", "歴史", "人類学", "説得"],
-                "警察官": ["射撃（拳銃）", "近接戦闘（格闘）", "心理学", "聞き耳", "目星", "運転（自動車）", "法律", "威圧"],
+                "警察官": [
+                    "射撃（拳銃）",
+                    "近接戦闘（格闘）",
+                    "心理学",
+                    "聞き耳",
+                    "目星",
+                    "運転（自動車）",
+                    "法律",
+                    "威圧",
+                ],
                 "探偵": ["目星", "聞き耳", "隠密", "手さばき", "心理学", "図書館", "法律", "説得"],
                 "記者": ["目星", "聞き耳", "図書館", "心理学", "説得", "信用", "コンピューター", "運転（自動車）"],
                 "考古学者": ["考古学", "歴史", "図書館", "目星", "ほかの言語", "登攀", "科学", "ナビゲート"],
@@ -822,20 +831,30 @@ class CharacterSheetSystemData(models.Model):
 
     def calculate_damage_bonus_7th(self):
         total = (self.str_value or 0) + (self.siz_value or 0)
-        if total <= 64: return "-2"
-        if total <= 84: return "-1"
-        if total <= 124: return "+0"
-        if total <= 164: return "+1D4"
-        if total <= 204: return "+1D6"
+        if total <= 64:
+            return "-2"
+        if total <= 84:
+            return "-1"
+        if total <= 124:
+            return "+0"
+        if total <= 164:
+            return "+1D4"
+        if total <= 204:
+            return "+1D6"
         return "+2D6"
 
     def calculate_build_7th(self):
         total = (self.str_value or 0) + (self.siz_value or 0)
-        if total <= 64: return -2
-        if total <= 84: return -1
-        if total <= 124: return 0
-        if total <= 164: return 1
-        if total <= 204: return 2
+        if total <= 64:
+            return -2
+        if total <= 84:
+            return -1
+        if total <= 124:
+            return 0
+        if total <= 164:
+            return 1
+        if total <= 204:
+            return 2
         return 3
 
     def calculate_move_rate_7th(self):
@@ -926,7 +945,6 @@ class CharacterSheet6th(CharacterSheetSystemData):
 
         super().save(*args, **kwargs)
 
-
     def calculate_damage_bonus_6th(self):
         """6版ダメージボーナス計算"""
         total = (self.str_value or 0) + (self.siz_value or 0)
@@ -959,8 +977,13 @@ class CharacterSheet6th(CharacterSheetSystemData):
 class CharacterSheet7th(CharacterSheetSystemData):
     """クトゥルフ神話TRPG 7版の専用データテーブル。"""
 
-    character_sheet = models.OneToOneField(CharacterSheet, on_delete=models.CASCADE, related_name="seventh_edition_data")
+    character_sheet = models.OneToOneField(
+        CharacterSheet, on_delete=models.CASCADE, related_name="seventh_edition_data"
+    )
     parent_data = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="versions")
+    luck_starting = models.IntegerField(default=0)
+    luck_current = models.IntegerField(default=0)
+    luck_max = models.IntegerField(default=0)
 
     class Meta:
         verbose_name = "7版キャラクターシートデータ"
@@ -2190,7 +2213,9 @@ class CharacterSkillSystemData(models.Model):
                 occupation=models.Sum("occupation_points"),
                 interest=models.Sum("interest_points"),
             )
-            if (used_points["occupation"] or 0) + self.occupation_points > self.character_sheet.calculate_occupation_points():
+            if (
+                used_points["occupation"] or 0
+            ) + self.occupation_points > self.character_sheet.calculate_occupation_points():
                 errors["occupation_points"] = "職業技能ポイントの合計が上限を超えています。"
             if (used_points["interest"] or 0) + self.interest_points > self.character_sheet.calculate_hobby_points():
                 errors["interest_points"] = "趣味技能ポイントの合計が上限を超えています。"
@@ -2207,7 +2232,8 @@ class CharacterSkillSystemData(models.Model):
             if skip_point_validation:
                 delattr(self, "_skip_point_validation")
         self.current_value = sum(
-            getattr(self, field) for field in ("base_value", "occupation_points", "interest_points", "bonus_points", "other_points")
+            getattr(self, field)
+            for field in ("base_value", "occupation_points", "interest_points", "bonus_points", "other_points")
         )
         result = super().save(*args, **kwargs)
         if self.skill_name == "\u30af\u30c8\u30a5\u30eb\u30d5\u795e\u8a71" and self.character_sheet_id:
@@ -2233,7 +2259,16 @@ class CharacterSkillSystemData(models.Model):
             occupation_skills = {
                 "医師": ["医学", "応急手当", "科学", "心理学", "信用", "説得", "ほかの言語", "図書館"],
                 "教授": ["図書館", "母国語", "ほかの言語", "科学", "心理学", "歴史", "人類学", "説得"],
-                "警察官": ["射撃（拳銃）", "近接戦闘（格闘）", "心理学", "聞き耳", "目星", "運転（自動車）", "法律", "威圧"],
+                "警察官": [
+                    "射撃（拳銃）",
+                    "近接戦闘（格闘）",
+                    "心理学",
+                    "聞き耳",
+                    "目星",
+                    "運転（自動車）",
+                    "法律",
+                    "威圧",
+                ],
                 "探偵": ["目星", "聞き耳", "隠密", "手さばき", "心理学", "図書館", "法律", "説得"],
                 "記者": ["目星", "聞き耳", "図書館", "心理学", "説得", "信用", "コンピューター", "運転（自動車）"],
                 "考古学者": ["考古学", "歴史", "図書館", "目星", "ほかの言語", "登攀", "科学", "ナビゲート"],
@@ -2355,7 +2390,11 @@ class CharacterImage6th(CharacterImageSystemData):
 
     class Meta:
         ordering = ["order", "uploaded_at"]
-        constraints = [models.UniqueConstraint(fields=["character_sheet"], condition=models.Q(is_main=True), name="unique_main_6th_image")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["character_sheet"], condition=models.Q(is_main=True), name="unique_main_6th_image"
+            )
+        ]
 
 
 class CharacterImage7th(CharacterImageSystemData):
@@ -2363,7 +2402,11 @@ class CharacterImage7th(CharacterImageSystemData):
 
     class Meta:
         ordering = ["order", "uploaded_at"]
-        constraints = [models.UniqueConstraint(fields=["character_sheet"], condition=models.Q(is_main=True), name="unique_main_7th_image")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["character_sheet"], condition=models.Q(is_main=True), name="unique_main_7th_image"
+            )
+        ]
 
 
 def sync_edition_related_data(instance):
@@ -2642,9 +2685,12 @@ class CharacterExportManager:
         commands.append(f"1d100<={{SAN}} 【正気度ロール】")
 
         # 基本判定
-        commands.append(f"CCB<={character.int_value * 5} 【アイデア】")
-        commands.append(f"CCB<={character.pow_value * 5} 【幸運】")
-        commands.append(f"CCB<={character.edu_value * 5} 【知識】")
+        if registry.edition == "7th":
+            commands.append("CC<={幸運}　【幸運】")
+        else:
+            commands.append(f"CCB<={character.int_value * 5} 【アイデア】")
+            commands.append(f"CCB<={character.pow_value * 5} 【幸運】")
+            commands.append(f"CCB<={character.edu_value * 5} 【知識】")
 
         # 技能ロール
         for skill in character.skills.all():
@@ -2692,6 +2738,17 @@ class CharacterExportManager:
                     {"label": "HP", "value": character.hit_points_current, "max": character.hit_points_max},
                     {"label": "MP", "value": character.magic_points_current, "max": character.magic_points_max},
                     {"label": "SAN", "value": character.sanity_current, "max": character.sanity_max},
+                    *(
+                        [
+                            {
+                                "label": "幸運",
+                                "value": character.luck_current,
+                                "max": character.luck_max,
+                            }
+                        ]
+                        if registry.edition == "7th"
+                        else []
+                    ),
                 ],
                 "params": [
                     {"label": "STR", "value": str(character.str_value)},

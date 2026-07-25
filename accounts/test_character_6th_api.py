@@ -93,16 +93,18 @@ class Character6thAPITestCase(APITestCase):
                 "initiative": 60,
                 "externalUrl": "https://iachara.com/view/13055362",
                 "iconUrl": "https://image.iaproject.app/example",
-                "commands": commands
-                if commands is not None
-                else "\n".join(
-                    [
-                        "1d100<={SAN} 【正気度ロール】",
-                        "CCB<=75 【目星】",
-                        "CCB<=70 【母国語】",
-                        "CCB<=0 【クトゥルフ神話】",
-                        "CCB<={STR}*5 【STR × 5】",
-                    ]
+                "commands": (
+                    commands
+                    if commands is not None
+                    else "\n".join(
+                        [
+                            "1d100<={SAN} 【正気度ロール】",
+                            "CCB<=75 【目星】",
+                            "CCB<=70 【母国語】",
+                            "CCB<=0 【クトゥルフ神話】",
+                            "CCB<={STR}*5 【STR × 5】",
+                        ]
+                    )
                 ),
                 "status": [
                     {"label": "HP", "value": 10, "max": 10},
@@ -394,6 +396,7 @@ class Character6thAPITestCase(APITestCase):
                     {"label": "HP", "value": 11, "max": 11},
                     {"label": "MP", "value": 11, "max": 11},
                     {"label": "SAN", "value": 55, "max": 55},
+                    {"label": "幸運", "value": 47, "max": 65},
                 ],
                 "params": [
                     {"label": "STR", "value": "50"},
@@ -425,6 +428,9 @@ class Character6thAPITestCase(APITestCase):
         self.assertEqual(imported.system_data.sanity_current, 55)
         self.assertEqual(imported.system_data.sanity_starting, 55)
         self.assertEqual(imported.system_data.sanity_max, 99)
+        self.assertEqual(imported.system_data.luck_starting, 65)
+        self.assertEqual(imported.system_data.luck_current, 47)
+        self.assertEqual(imported.system_data.luck_max, 65)
         self.assertFalse(CharacterSheet6th.objects.filter(character_sheet=imported).exists())
         self.assertTrue(imported.system_data.skills.filter(skill_name="Spot Hidden").exists())
         self.assertTrue(imported.system_data.skills.filter(skill_name="Library Use").exists())

@@ -68,6 +68,7 @@ class CharacterSkillUpdateValidationTest(APITestCase):
                 "siz_value": 50,
                 "int_value": 50,
                 "edu_value": 50,
+                "luck": 75,
                 "occupation_point_method": "edu2dex2",
                 "skills": [
                     {

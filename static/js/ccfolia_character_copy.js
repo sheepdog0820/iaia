@@ -249,18 +249,24 @@
         const abilities = Object.fromEntries(
             abilityLabels.map(([label, key]) => [label, toNumber(character[key])])
         );
+        const isSeventhEdition = character.edition === '7th';
         const sixth = character.sixth_edition_data || character.character_6th || {};
+        const seventh = character.character_7th || {};
+        const luckCurrent = toNumber(seventh.current_luck);
+        const luckMax = toNumber(seventh.max_luck, luckCurrent);
         const skillCommands = collectSkills(character, abilities)
             .map(skill => `CCB<=${toNumber(skill.current_value)} 【${skill.skill_name}】`);
         const abilityCommands = abilityLabels.map(([label]) => (
             `CCB<=${abilities[label] * 5} 【${label}】`
         ));
-        const derivedCommands = [
-            getSixthValue(sixth, 'luck_roll', abilities.POW * 5) ? `CCB<=${getSixthValue(sixth, 'luck_roll', abilities.POW * 5)} 【幸運】` : '',
-            getSixthValue(sixth, 'idea_roll', abilities.INT * 5) ? `CCB<=${getSixthValue(sixth, 'idea_roll', abilities.INT * 5)} 【アイデア】` : '',
-            getSixthValue(sixth, 'know_roll', abilities.EDU * 5) ? `CCB<=${getSixthValue(sixth, 'know_roll', abilities.EDU * 5)} 【知識】` : '',
-            character.sanity_current ? `CCB<=${toNumber(character.sanity_current)} 【SANチェック】` : '',
-        ].filter(Boolean);
+        const derivedCommands = isSeventhEdition
+            ? [`CC<={幸運}　【幸運】`]
+            : [
+                getSixthValue(sixth, 'luck_roll', abilities.POW * 5) ? `CCB<=${getSixthValue(sixth, 'luck_roll', abilities.POW * 5)} 【幸運】` : '',
+                getSixthValue(sixth, 'idea_roll', abilities.INT * 5) ? `CCB<=${getSixthValue(sixth, 'idea_roll', abilities.INT * 5)} 【アイデア】` : '',
+                getSixthValue(sixth, 'know_roll', abilities.EDU * 5) ? `CCB<=${getSixthValue(sixth, 'know_roll', abilities.EDU * 5)} 【知識】` : '',
+                character.sanity_current ? `CCB<=${toNumber(character.sanity_current)} 【SANチェック】` : '',
+            ].filter(Boolean);
         const params = [
             ...abilityLabels.map(([label]) => ({ label, value: String(abilities[label]) })),
             { label: '職業', value: character.occupation || '-' },
@@ -290,6 +296,7 @@
                         value: toNumber(character.sanity_current ?? character.san_current),
                         max: toNumber(character.sanity_max ?? character.san_current),
                     },
+                    ...(isSeventhEdition ? [{ label: '幸運', value: luckCurrent, max: luckMax }] : []),
                 ],
                 params,
                 commands: [...derivedCommands, ...abilityCommands, ...skillCommands].join('\n'),

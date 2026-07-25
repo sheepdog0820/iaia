@@ -166,12 +166,16 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
 
     def get_queryset(self):
         """Get user's character sheets only"""
-        queryset = CharacterSheet.objects.select_related(
-            "sixth_edition_data", "seventh_edition_data", "user"
-        ).prefetch_related(
-            "sixth_edition_data__skills", "sixth_edition_data__equipment",
-            "seventh_edition_data__skills", "seventh_edition_data__equipment",
-        ).order_by("-updated_at")
+        queryset = (
+            CharacterSheet.objects.select_related("sixth_edition_data", "seventh_edition_data", "user")
+            .prefetch_related(
+                "sixth_edition_data__skills",
+                "sixth_edition_data__equipment",
+                "seventh_edition_data__skills",
+                "seventh_edition_data__equipment",
+            )
+            .order_by("-updated_at")
+        )
 
         if self.action in ["list", "active", "by_edition"]:
             return queryset.filter(user=self.request.user)
@@ -243,7 +247,9 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
 
         all_versions = [
             candidate.character_sheet
-            for candidate in detail.__class__.objects.select_related("character_sheet", "parent_data").order_by("version")
+            for candidate in detail.__class__.objects.select_related("character_sheet", "parent_data").order_by(
+                "version"
+            )
             if belongs_to_root(candidate)
         ]
 
@@ -366,11 +372,16 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         mp_max = status_values.get("MP", {}).get("max")
         san_value = status_values.get("SAN", {}).get("value")
         san_start = status_values.get("SAN", {}).get("max")
+        luck_value = status_values.get("LUCK", {}).get("value")
+        luck_max = status_values.get("LUCK", {}).get("max")
 
         if edition == "7th":
             computed_hp_max = (abilities["CON"] + abilities["SIZ"]) // 10
             computed_mp_max = abilities["POW"] // 5
             computed_san_start = abilities["POW"]
+            imported_luck_current = int(luck_value) if luck_value is not None else abilities["POW"]
+            imported_luck_max = int(luck_max) if luck_max is not None else imported_luck_current
+            imported_luck_starting = imported_luck_max
         else:
             computed_hp_max = math.ceil((abilities["CON"] + abilities["SIZ"]) / 2)
             computed_mp_max = abilities["POW"]
@@ -387,7 +398,9 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         sanity_max = max(0, 99 - mythos)
 
         detail_model = CharacterSheet6th if edition == "6th" else CharacterSheet7th
-        existing_details = [sheet.system_data for sheet in CharacterSheet.objects.by_system_name(name, user=user, edition=edition)]
+        existing_details = [
+            sheet.system_data for sheet in CharacterSheet.objects.by_system_name(name, user=user, edition=edition)
+        ]
         version = max((detail.version for detail in existing_details), default=0) + 1
         parent_data = min(existing_details, key=lambda detail: detail.version) if existing_details else None
 
@@ -421,6 +434,15 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 notes=notes,
                 version=version,
                 parent_data=parent_data,
+                **(
+                    {
+                        "luck_starting": imported_luck_starting,
+                        "luck_current": imported_luck_current,
+                        "luck_max": imported_luck_max,
+                    }
+                    if edition == "7th"
+                    else {}
+                ),
             )
 
             for skill_name, total_value in skill_totals.items():
@@ -605,14 +627,21 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         if not isinstance(status_list, list):
             raise DRFValidationError({"ccfolia": "data.status must be an array"})
 
-        allowed = {"HP", "MP", "SAN"}
+        label_aliases = {
+            "HP": "HP",
+            "MP": "MP",
+            "SAN": "SAN",
+            "LUCK": "LUCK",
+            "幸運": "LUCK",
+        }
         result = {}
 
         for item in status_list:
             if not isinstance(item, dict):
                 continue
             label = (item.get("label") or "").strip().upper()
-            if label not in allowed:
+            normalized_label = label_aliases.get(label)
+            if normalized_label is None:
                 continue
             raw_value = item.get("value")
             raw_max = item.get("max")
@@ -622,14 +651,14 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 try:
                     entry["value"] = int(raw_value)
                 except (TypeError, ValueError):
-                    raise DRFValidationError({"ccfolia": f"Invalid status value for {label}"}) from None
+                    raise DRFValidationError({"ccfolia": f"Invalid status value for {normalized_label}"}) from None
             if raw_max is not None:
                 try:
                     entry["max"] = int(raw_max)
                 except (TypeError, ValueError):
-                    raise DRFValidationError({"ccfolia": f"Invalid status max for {label}"}) from None
+                    raise DRFValidationError({"ccfolia": f"Invalid status max for {normalized_label}"}) from None
 
-            result[label] = entry
+            result[normalized_label] = entry
 
         return result
 
@@ -707,9 +736,7 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
 
         # Get or create skill
         detail = sheet.system_data
-        skill, created = detail.skills.get_or_create(
-            skill_name=skill_name, defaults={"base_value": 0}
-        )
+        skill, created = detail.skills.get_or_create(skill_name=skill_name, defaults={"base_value": 0})
 
         # Update points
         skill.occupation_points = occupation_points
@@ -838,7 +865,11 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         ]
 
         return Response(
-            {"session_count": sheet.system_data.session_count, "growth_records": growth_records, "version_history": versions}
+            {
+                "session_count": sheet.system_data.session_count,
+                "growth_records": growth_records,
+                "version_history": versions,
+            }
         )
 
     @action(detail=True, methods=["post"])
@@ -918,8 +949,9 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
     def _parse_occupation_point_method(request_data, edition):
         """リクエストの職業技能ポイント方式を版別に検証する"""
         occupation_point_method = (request_data.get("occupation_point_method") or "").strip()
-        if occupation_point_method and occupation_point_method not in CharacterSheet.valid_occupation_point_methods_for_edition(
-            edition
+        if (
+            occupation_point_method
+            and occupation_point_method not in CharacterSheet.valid_occupation_point_methods_for_edition(edition)
         ):
             raise ValueError("occupation_point_method is not valid for this edition")
         return occupation_point_method
@@ -1251,6 +1283,13 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
+        try:
+            luck = parse_int(request.data.get("luck"), "luck", min_value=15, max_value=90)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        if luck % 5:
+            return Response({"error": "luck must be a multiple of 5"}, status=status.HTTP_400_BAD_REQUEST)
+
         scenario_id_raw = request.data.get("scenario_id")
         scenario_title = (request.data.get("scenario_title") or "").strip()
         scenario_game_system = (request.data.get("game_system") or "").strip()
@@ -1296,6 +1335,9 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 "siz_value": parsed_abilities["siz_value"],
                 "int_value": parsed_abilities["int_value"],
                 "edu_value": parsed_abilities["edu_value"],
+                "luck_starting": luck,
+                "luck_current": luck,
+                "luck_max": luck,
                 "notes": request.data.get("notes", ""),
                 "is_active": True,
             }
@@ -2372,8 +2414,10 @@ class CharacterListView(TemplateView):
             CharacterSheet.objects.filter(user=user)
             .select_related("sixth_edition_data", "seventh_edition_data", "user")
             .prefetch_related(
-                "sixth_edition_data__skills", "sixth_edition_data__equipment",
-                "seventh_edition_data__skills", "seventh_edition_data__equipment",
+                "sixth_edition_data__skills",
+                "sixth_edition_data__equipment",
+                "seventh_edition_data__skills",
+                "seventh_edition_data__equipment",
             )
             .order_by("-updated_at")
         )
@@ -2395,10 +2439,14 @@ class CharacterListView(TemplateView):
 
         # Edition-based statistics (user's characters only)
         sixth_count = CharacterSheet.objects.filter(user=user, edition="6th").count()
-        active_count = CharacterSheet.objects.filter(user=user).filter(
-            Q(edition="6th", sixth_edition_data__is_active=True)
-            | Q(edition="7th", seventh_edition_data__is_active=True)
-        ).count()
+        active_count = (
+            CharacterSheet.objects.filter(user=user)
+            .filter(
+                Q(edition="6th", sixth_edition_data__is_active=True)
+                | Q(edition="7th", seventh_edition_data__is_active=True)
+            )
+            .count()
+        )
         total_count = CharacterSheet.objects.filter(user=user).count()
 
         context.update(
@@ -2448,8 +2496,10 @@ class CharacterDetailView(TemplateView):
             character = (
                 CharacterSheet.objects.select_related("sixth_edition_data", "seventh_edition_data", "user")
                 .prefetch_related(
-                    "sixth_edition_data__skills", "sixth_edition_data__equipment",
-                    "seventh_edition_data__skills", "seventh_edition_data__equipment",
+                    "sixth_edition_data__skills",
+                    "sixth_edition_data__equipment",
+                    "seventh_edition_data__skills",
+                    "seventh_edition_data__equipment",
                 )
                 .get(id=character_id)
             )
@@ -2511,7 +2561,9 @@ class Character6thCreateView(FormView):
 
             # 画像処理はフォームのsaveメソッドで既に実行されているため、ここでは何もしない
 
-            messages.success(self.request, f"クトゥルフ神話TRPG 6版探索者「{character_sheet.system_data.name}」が作成されました！")
+            messages.success(
+                self.request, f"クトゥルフ神話TRPG 6版探索者「{character_sheet.system_data.name}」が作成されました！"
+            )
 
             # 作成したキャラクターの詳細画面にリダイレクト
             return redirect("character_detail_6th", character_id=character_sheet.id)

@@ -83,9 +83,9 @@ class CharacterSheetAPITest(APITestCase):
             "hit_points_current": 12,
             "magic_points_current": 14,
             "sanity_current": 70,
+            "luck": 75,
             "notes": "7版テストキャラクター",
             "seventh_edition_data": {
-                "luck_points": 75,
                 "personal_description": "好奇心旺盛な大学生",
                 "ideology_beliefs": "真実を追求する",
                 "significant_people": "指導教授",
@@ -249,7 +249,9 @@ class CharacterSheetAPITest(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(CharacterSheet.objects.filter(sixth_edition_data__parent_data__character_sheet=character).exists())
+        self.assertFalse(
+            CharacterSheet.objects.filter(sixth_edition_data__parent_data__character_sheet=character).exists()
+        )
 
     def test_create_version_rolls_back_when_skill_copy_fails(self):
         data = dict(self.character_data_6th)
@@ -272,7 +274,9 @@ class CharacterSheetAPITest(APITestCase):
                     format="json",
                 )
 
-        self.assertFalse(CharacterSheet.objects.filter(sixth_edition_data__parent_data__character_sheet=character).exists())
+        self.assertFalse(
+            CharacterSheet.objects.filter(sixth_edition_data__parent_data__character_sheet=character).exists()
+        )
 
     def test_create_6th_edition_character(self):
         """6版キャラクターシート作成テスト"""
@@ -446,6 +450,9 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(response.data["character_7th"]["build"], 0)
         self.assertEqual(response.data["character_7th"]["move_rate"], 9)
         self.assertEqual(response.data["character_7th"]["dodge"], 42)
+        self.assertEqual(response.data["character_7th"]["starting_luck"], 75)
+        self.assertEqual(response.data["character_7th"]["current_luck"], 75)
+        self.assertEqual(response.data["character_7th"]["max_luck"], 75)
         self.assertIsNone(response.data["character_6th"])
 
         character = CharacterSheet.objects.get(id=response.data["id"])
@@ -454,12 +461,36 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(detail.hit_points_max, (detail.con_value + detail.siz_value) // 10)
         self.assertEqual(detail.magic_points_max, detail.pow_value // 5)
         self.assertEqual(detail.sanity_starting, detail.pow_value)
+        self.assertEqual(detail.luck_starting, 75)
+        self.assertEqual(detail.luck_current, 75)
+        self.assertEqual(detail.luck_max, 75)
         self.assertEqual(character.system_data.calculate_occupation_points(), character.system_data.edu_value * 4)
         self.assertEqual(detail.calculate_hobby_points(), detail.int_value * 2)
         self.assertEqual(detail.calculate_damage_bonus_7th(), "+0")
         self.assertEqual(detail.calculate_build_7th(), 0)
         self.assertEqual(detail.calculate_move_rate_7th(), 9)
         self.assertFalse(CharacterSheet6th.objects.filter(character_sheet=character).exists())
+
+    def test_generic_create_api_requires_and_saves_7th_edition_luck(self):
+        """汎用作成APIでも7版の幸運を専用APIと同じ条件で保存する"""
+        data = dict(self.character_data_7th)
+        data.pop("seventh_edition_data")
+
+        response = self.client.post("/api/accounts/character-sheets/", data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        detail = CharacterSheet.objects.get(pk=response.data["id"]).system_data
+        self.assertEqual(detail.luck_starting, 75)
+        self.assertEqual(detail.luck_current, 75)
+        self.assertEqual(detail.luck_max, 75)
+
+        data["name"] = "幸運未指定の汎用API探索者"
+        data.pop("luck")
+        invalid_response = self.client.post("/api/accounts/character-sheets/", data, format="json")
+
+        self.assertEqual(invalid_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("luck", invalid_response.data)
+        self.assertFalse(CharacterSheet.objects.by_system_name(data["name"], user=self.user).exists())
 
     def test_7th_edition_boundary_derived_stats_are_official_percentile_values(self):
         """7版派生値はパーセンテージ能力値をそのまま扱う"""
@@ -488,6 +519,60 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(detail.calculate_move_rate_7th(), 7)
         self.assertEqual(CharacterSheet.get_7th_skill_base_value(detail, "回避"), 35)
         self.assertEqual(CharacterSheet.get_7th_skill_base_value(detail, "母国語"), 80)
+
+    def test_create_7th_edition_rejects_luck_that_is_not_a_multiple_of_five(self):
+        data = dict(self.character_data_7th)
+        data["luck"] = 16
+
+        response = self.client.post(
+            "/api/accounts/character-sheets/create_7th_edition/",
+            data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["error"], "luck must be a multiple of 5")
+
+    def test_create_7th_edition_rejects_missing_invalid_and_out_of_range_luck(self):
+        cases = (
+            ("missing", None, "luck is required"),
+            ("non-integer", "invalid", "luck must be an integer"),
+            ("below-minimum", 14, "luck must be between 15 and 90"),
+            ("above-maximum", 91, "luck must be between 15 and 90"),
+        )
+
+        for label, luck, expected_error in cases:
+            with self.subTest(case=label):
+                data = dict(self.character_data_7th)
+                if luck is None:
+                    data.pop("luck")
+                else:
+                    data["luck"] = luck
+
+                response = self.client.post(
+                    "/api/accounts/character-sheets/create_7th_edition/",
+                    data,
+                    format="json",
+                )
+
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(response.data["error"], expected_error)
+
+    def test_create_7th_edition_accepts_luck_boundaries(self):
+        for luck in (15, 90):
+            with self.subTest(luck=luck):
+                data = dict(self.character_data_7th)
+                data["name"] = f"幸運境界値{luck}"
+                data["luck"] = luck
+
+                response = self.client.post(
+                    "/api/accounts/character-sheets/create_7th_edition/",
+                    data,
+                    format="json",
+                )
+
+                self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+                self.assertEqual(response.data["character_7th"]["current_luck"], luck)
 
     def test_create_7th_edition_character_with_skills_uses_7th_point_rules(self):
         """7版APIは技能を保存し、職業/趣味ポイントを7版基準で計算できる"""

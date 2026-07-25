@@ -834,7 +834,11 @@ function updateGlobalDiceFormula() {
         const mp = Math.floor(pow / 5);  // MP = POW / 5
         const san = pow;  // SAN = POW
         const idea = int;  // アイデア = INT
-        const luck = pow;  // 幸運 = POW
+        const luckEl = document.getElementById('luck');
+        const existingLuck = parseInt(luckEl?.value, 10);
+        const luck = existingLuck >= 15 && existingLuck <= 90
+            ? existingLuck
+            : (Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1) * 5;
         const know = edu;  // 知識 = EDU
         const sanMax = 99;  // 99 - クトゥルフ神話技能（初期値0）
         
@@ -842,7 +846,7 @@ function updateGlobalDiceFormula() {
         if (document.getElementById('mp')) document.getElementById('mp').value = mp;
         if (document.getElementById('san')) document.getElementById('san').value = san;
         if (document.getElementById('idea')) document.getElementById('idea').value = idea;
-        if (document.getElementById('luck')) document.getElementById('luck').value = luck;
+        if (luckEl) luckEl.value = luck;
         if (document.getElementById('know')) document.getElementById('know').value = know;
         
         // Set current values as starting defaults
@@ -2994,6 +2998,7 @@ function initOccupationTemplates() {
         setValueById('siz', sheet.siz_value);
         setValueById('int', sheet.int_value);
         setValueById('edu', sheet.edu_value);
+        setValueById('luck', sheet.character_7th?.current_luck);
         const occupationMethodSelect = document.getElementById('occupationMethod');
         if (occupationMethodSelect && sheet.occupation_point_method) {
             occupationMethodSelect.value = sheet.occupation_point_method;
@@ -3135,7 +3140,8 @@ function initOccupationTemplates() {
             app_value: parseInt(data.app_value, 10),
             siz_value: parseInt(data.siz_value, 10),
             int_value: parseInt(data.int_value, 10),
-            edu_value: parseInt(data.edu_value, 10)
+            edu_value: parseInt(data.edu_value, 10),
+            luck: parseInt(data.luck, 10)
         };
         const backgroundData = {
             traits_mannerisms: data.traits_mannerisms || '',

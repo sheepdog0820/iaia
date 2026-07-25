@@ -135,8 +135,14 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         script = self.read_text("static/accounts/js/character7th.js")
 
         self.assertIn("const idea = int;", script)
-        self.assertIn("const luck = pow;", script)
+        self.assertIn("const luckEl = document.getElementById('luck');", script)
+        self.assertIn("const existingLuck = parseInt(luckEl?.value, 10);", script)
+        self.assertIn("const luck = existingLuck >= 15 && existingLuck <= 90", script)
+        self.assertIn(") * 5;", script)
+        self.assertNotIn("const luck = pow;", script)
         self.assertIn("const know = edu;", script)
+        self.assertIn('title="3D6×5" aria-label="幸運計算式"', template)
+        self.assertNotIn('title="POW" aria-label="幸運計算式"', template)
         self.assertNotIn('title="INT×5"', template)
         self.assertNotIn('title="POW×5"', template)
         self.assertNotIn('title="EDU×5"', template)
@@ -173,7 +179,7 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
                 self.assertIn('id="footerSaveCharacter"', template)
                 self.assertIn('<i class="fas fa-save"></i> 保存', template)
                 self.assertIn('id="character-save-loading"', template)
-                self.assertIn('保存中です。しばらくお待ちください。', template)
+                self.assertIn("保存中です。しばらくお待ちください。", template)
 
         for relative_path in [
             "static/accounts/js/character6th.js",
@@ -223,8 +229,8 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         self.assertIn("--skill-input-bg: #0f172a;", stylesheet)
         self.assertIn("--skill-input-label-bg: #172554;", stylesheet)
         self.assertIn("--skill-input-border: #60a5fa;", stylesheet)
-        self.assertIn("input[type=\"number\"]:focus", stylesheet)
-        self.assertIn("input[type=\"number\"]::selection", stylesheet)
+        self.assertIn('input[type="number"]:focus', stylesheet)
+        self.assertIn('input[type="number"]::selection', stylesheet)
         self.assertIn("padding: 13px 0.35rem 0;", stylesheet)
         self.assertIn("line-height: 21px;", stylesheet)
         self.assertIn(".character-create-page .character-footer", stylesheet)

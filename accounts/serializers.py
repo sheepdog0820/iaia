@@ -533,19 +533,46 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             return data
 
         field_names = (
-            "name", "name_kana", "player_name", "status", "age", "gender", "occupation",
-            "occupation_point_method", "birthplace", "residence", "recommended_skills",
-            "occupation_skills", "str_value", "con_value", "pow_value", "dex_value",
-            "app_value", "siz_value", "int_value", "edu_value", "hit_points_max",
-            "hit_points_current", "magic_points_max", "magic_points_current", "sanity_starting",
-            "sanity_max", "sanity_current", "notes", "secret_ho_info",
+            "name",
+            "name_kana",
+            "player_name",
+            "status",
+            "age",
+            "gender",
+            "occupation",
+            "occupation_point_method",
+            "birthplace",
+            "residence",
+            "recommended_skills",
+            "occupation_skills",
+            "str_value",
+            "con_value",
+            "pow_value",
+            "dex_value",
+            "app_value",
+            "siz_value",
+            "int_value",
+            "edu_value",
+            "hit_points_max",
+            "hit_points_current",
+            "magic_points_max",
+            "magic_points_current",
+            "sanity_starting",
+            "sanity_max",
+            "sanity_current",
+            "notes",
+            "secret_ho_info",
         )
         for field_name in field_names:
             data[field_name] = getattr(system_data, field_name)
 
         for field_name in (
-            "version", "version_note", "session_count", "is_active",
-            "ccfolia_sync_enabled", "ccfolia_character_id",
+            "version",
+            "version_note",
+            "session_count",
+            "is_active",
+            "ccfolia_sync_enabled",
+            "ccfolia_character_id",
         ):
             data[field_name] = getattr(system_data, field_name)
         data["character_image"] = system_data.character_image.url if system_data.character_image else None
@@ -590,8 +617,9 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             "build": obj.system_data.calculate_build_7th(),
             "move_rate": obj.system_data.calculate_move_rate_7th(),
             "dodge": detail.get_7th_skill_base_value("回避"),
-            "max_luck": obj.system_data.pow_value,
-            "current_luck": obj.system_data.pow_value,
+            "starting_luck": detail.luck_starting,
+            "max_luck": detail.luck_max,
+            "current_luck": detail.luck_current,
             "occupation_points": obj.system_data.calculate_occupation_points(),
             "interest_points": obj.system_data.calculate_hobby_points(),
             "personal_description": "",
@@ -666,6 +694,7 @@ class CharacterSheetSerializer(serializers.ModelSerializer):
             for v in all_versions
         ]
 
+
 class CharacterSheetCreateSerializer(serializers.ModelSerializer):
     """キャラクターシート作成専用シリアライザー"""
 
@@ -690,6 +719,7 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
     hit_points_current = serializers.IntegerField(required=False)
     magic_points_current = serializers.IntegerField(required=False)
     sanity_current = serializers.IntegerField(required=False)
+    luck = serializers.IntegerField(required=False, write_only=True)
 
     # 画像フィールド
     character_image = serializers.ImageField(required=False, validators=[validate_character_image])
@@ -751,6 +781,7 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
             "hit_points_current",
             "magic_points_current",
             "sanity_current",
+            "luck",
             "notes",
             "secret_ho_info",
             "access_scope",
@@ -786,10 +817,20 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({field: "能力値は1から999の間で設定してください。"})
 
         occupation_point_method = data.get("occupation_point_method")
-        if occupation_point_method and occupation_point_method not in CharacterSheet.valid_occupation_point_methods_for_edition(
-            edition
+        if (
+            occupation_point_method
+            and occupation_point_method not in CharacterSheet.valid_occupation_point_methods_for_edition(edition)
         ):
             raise serializers.ValidationError({"occupation_point_method": "この版では利用できない計算方式です。"})
+
+        if edition == "7th":
+            if "luck" not in data:
+                raise serializers.ValidationError({"luck": "このフィールドは必須です。"})
+            luck = data["luck"]
+            if luck < 15 or luck > 90:
+                raise serializers.ValidationError({"luck": "幸運は15から90の間で指定してください。"})
+            if luck % 5:
+                raise serializers.ValidationError({"luck": "幸運は5の倍数で指定してください。"})
 
         return data
 
@@ -797,6 +838,7 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
         """キャラクターシート作成（関連データも含む）"""
         # 関連データを分離
         sixth_data = validated_data.pop("sixth_edition_data", None)
+        luck = validated_data.pop("luck", None)
         skills_data = validated_data.pop("skills", [])
         equipment_data = validated_data.pop("equipment", [])
         allowed_users = validated_data.pop("allowed_users", [])
@@ -879,12 +921,12 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
                 character_sheet.allowed_users.set(allowed_users)
 
             detail_field_names = {field.name for field in detail_model._meta.fields}
-            detail_data = {
-                key: value for key, value in validated_data.items() if key in detail_field_names
-            }
+            detail_data = {key: value for key, value in validated_data.items() if key in detail_field_names}
             detail_data.update(character_sheet=character_sheet, parent_data=parent_data, version=detail_version)
             if character_sheet.edition == "6th":
                 detail_data.update(sixth_data or {})
+            else:
+                detail_data.update(luck_starting=luck, luck_current=luck, luck_max=luck)
             detail = detail_model.objects.create(**detail_data)
 
             # スキルデータ作成
@@ -1012,9 +1054,11 @@ class CharacterSheetListSerializer(serializers.ModelSerializer):
         root = system_data
         while root.parent_data_id:
             root = root.parent_data
-        latest = system_data.__class__.objects.filter(
-            models.Q(pk=root.pk) | models.Q(parent_data=root)
-        ).order_by("-version").first()
+        latest = (
+            system_data.__class__.objects.filter(models.Q(pk=root.pk) | models.Q(parent_data=root))
+            .order_by("-version")
+            .first()
+        )
         return latest.version if latest else root.version
 
     def to_representation(self, instance):
@@ -1138,7 +1182,9 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
     def validate_name(self, value):
         """名前の重複チェック（同一ユーザー内）"""
         if self.instance and self.instance.system_data.name != value:
-            existing = CharacterSheet.objects.by_system_name(value, user=self.instance.user).exclude(id=self.instance.id)
+            existing = CharacterSheet.objects.by_system_name(value, user=self.instance.user).exclude(
+                id=self.instance.id
+            )
 
             if existing.exists():
                 raise serializers.ValidationError("同じ名前のキャラクターが既に存在します。")
@@ -1148,8 +1194,9 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
         """版に合わない職業技能ポイント方式を拒否する"""
         occupation_point_method = data.get("occupation_point_method")
         edition = self.instance.edition if self.instance else data.get("edition")
-        if occupation_point_method and occupation_point_method not in CharacterSheet.valid_occupation_point_methods_for_edition(
-            edition
+        if (
+            occupation_point_method
+            and occupation_point_method not in CharacterSheet.valid_occupation_point_methods_for_edition(edition)
         ):
             raise serializers.ValidationError({"occupation_point_method": "この版では利用できない計算方式です。"})
         return data
@@ -1167,24 +1214,27 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
                 detail.character_image.delete(save=False)
             validated_data["character_image"] = None
         detail_fields = {
-            field.name for field in detail._meta.fields
-            if field.name not in {"id", "character_sheet", "parent_data"}
+            field.name for field in detail._meta.fields if field.name not in {"id", "character_sheet", "parent_data"}
         }
         old_stats = detail.calculate_derived_stats()
-        old_current = {field: getattr(detail, field) for field in (
-            "hit_points_current", "magic_points_current", "sanity_current"
-        )}
+        old_current = {
+            field: getattr(detail, field) for field in ("hit_points_current", "magic_points_current", "sanity_current")
+        }
         ability_names = {
-            "str_value", "con_value", "pow_value", "dex_value", "app_value",
-            "siz_value", "int_value", "edu_value", "age",
+            "str_value",
+            "con_value",
+            "pow_value",
+            "dex_value",
+            "app_value",
+            "siz_value",
+            "int_value",
+            "edu_value",
+            "age",
         }
         recalculate = any(
-            field in ability_names and getattr(detail, field) != value
-            for field, value in validated_data.items()
+            field in ability_names and getattr(detail, field) != value for field, value in validated_data.items()
         )
-        supplied_current = set(validated_data) & {
-            "hit_points_current", "magic_points_current", "sanity_current"
-        }
+        supplied_current = set(validated_data) & {"hit_points_current", "magic_points_current", "sanity_current"}
         for field, value in validated_data.items():
             if field in detail_fields:
                 setattr(detail, field, value)
@@ -1467,9 +1517,7 @@ class CharacterImageSerializer(serializers.ModelSerializer):
 
         # 順序番号の自動設定
         if "order" not in validated_data:
-            max_order = detail.images.aggregate(
-                max_order=models.Max("order")
-            )["max_order"]
+            max_order = detail.images.aggregate(max_order=models.Max("order"))["max_order"]
             validated_data["order"] = (max_order or -1) + 1
 
         return detail.images.model.objects.create(**validated_data)

@@ -46,6 +46,7 @@ SHEET_COLUMNS = [
     "HP",
     "MP",
     "SAN",
+    "LUCK",
 ]
 
 
@@ -298,6 +299,11 @@ def _validate_character_row(row):
             int(row.get(key))
         except (TypeError, ValueError):
             errors[key] = "must be an integer"
+    if row.get("LUCK") not in (None, ""):
+        try:
+            int(row["LUCK"])
+        except (TypeError, ValueError):
+            errors["LUCK"] = "must be an integer"
     return errors
 
 
@@ -317,7 +323,7 @@ class GoogleSheetsImportView(APIView):
                 rows = _read_sheet_rows(
                     request.user,
                     request.data["spreadsheet_id"],
-                    request.data.get("range", "Characters!A:P"),
+                    request.data.get("range", "Characters!A:Q"),
                 )
             except (KeyError, ValueError, requests.RequestException) as exc:
                 return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -356,6 +362,9 @@ class GoogleSheetsImportView(APIView):
                 "sanity_max": 99,
                 "sanity_current": int(row.get("SAN") or row["POW"]),
             }
+            if edition == "7th" and (row.get("LUCK") not in (None, "") or instance is None):
+                luck = int(row.get("LUCK") or row["POW"])
+                values.update(luck_starting=luck, luck_current=luck, luck_max=luck)
             if instance:
                 if instance.edition != edition:
                     return Response(
@@ -408,6 +417,7 @@ class GoogleSheetsExportView(APIView):
                     detail.hit_points_current,
                     detail.magic_points_current,
                     detail.sanity_current,
+                    detail.luck_current if character.edition == "7th" else "",
                 ]
             )
         spreadsheet_id = request.data.get("spreadsheet_id")

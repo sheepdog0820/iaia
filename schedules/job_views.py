@@ -28,6 +28,7 @@ SHEET_COLUMNS = [
     "HP",
     "MP",
     "SAN",
+    "LUCK",
 ]
 
 
@@ -98,6 +99,7 @@ def _sheet_export_values(user, payload):
                 detail.hit_points_current,
                 detail.magic_points_current,
                 detail.sanity_current,
+                detail.luck_current if character.edition == "7th" else "",
             ]
         )
     return [SHEET_COLUMNS] + rows
