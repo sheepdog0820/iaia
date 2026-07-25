@@ -91,10 +91,10 @@ GitHub Actions (`.github/workflows/django-ci.yml`) は `main` とPull Requestで
 - production settings の `python manage.py check --deploy`
 - `python manage.py billing_release_gate`
 
-2026-07-02時点のローカル確認では、上記相当のチェックとシステムテストが通過しています。
+2026-07-25時点のローカル確認では、6版・7版分離構成を対象にシステムテストが通過しています。
 
-- `python -m pytest --collect-only -q`: `1479 tests collected`
-- `python -m pytest tests/system -q -rs`: `16 passed, 1 skipped`
+- `python -m pytest --collect-only -q`: `1402 tests collected`
+- `python -m pytest tests/system -q -rs`: `11 passed, 1 skipped`
 
 ## Development Commands
 

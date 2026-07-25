@@ -4,6 +4,7 @@ target-version = ["py311"]
 exclude = '''
 /(
     \.git
+  | \.git_backup
   | \.pytest_cache
   | \.venv
   | \.codex
@@ -27,6 +28,7 @@ line_length = 120
 py_version = 311
 skip = [
   ".git",
+  ".git_backup",
   ".pytest_cache",
   ".codex",
   ".claude",
@@ -45,5 +47,5 @@ skip = [
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "tableno.settings"
 python_files = ["test_*.py", "*_test.py", "tests.py"]
-testpaths = ["accounts", "api", "scenarios", "schedules", "tableno", "tests"]
+testpaths = ["accounts", "api", "scenarios", "schedules", "support", "tableno", "tests"]
 addopts = "--reuse-db"

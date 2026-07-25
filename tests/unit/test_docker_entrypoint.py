@@ -161,15 +161,18 @@ class DockerEntrypointTests(SimpleTestCase):
         steps = workflow["jobs"]["test"]["steps"]
         step_names = [step.get("name") or step.get("uses") for step in steps]
 
-        self.assertEqual(step_names[:7], [
-            "actions/checkout@v4",
-            "actions/setup-python@v5",
-            "Install dependencies",
-            "Django check",
-            "Migration file check",
-            "Migration apply/check",
-            "Run pytest",
-        ])
+        self.assertEqual(
+            step_names[:7],
+            [
+                "actions/checkout@v4",
+                "actions/setup-python@v5",
+                "Install dependencies",
+                "Django check",
+                "Migration file check",
+                "Migration apply/check",
+                "Run pytest",
+            ],
+        )
         self.assertIn("coverage-xml", str(steps))
         self.assertIn("Billing release gate", step_names)
         self.assertEqual(
@@ -181,6 +184,16 @@ class DockerEntrypointTests(SimpleTestCase):
         requirements_test = (self.ROOT / "requirements-test.txt").read_text(encoding="utf-8")
 
         self.assertIn("PyYAML>=6.0.0", requirements_test)
+
+    def test_ci_and_pytest_discovery_include_support_app(self):
+        workflow = self.load_ci_workflow()
+        steps = workflow["jobs"]["test"]["steps"]
+        pytest_command = next(step["run"] for step in steps if step.get("name") == "Run pytest")
+        pyproject = (self.ROOT / "pyproject.toml").read_text(encoding="utf-8")
+
+        self.assertIn("schedules support tableno", pytest_command)
+        self.assertIn("--cov=support", pytest_command)
+        self.assertIn('"support"', pyproject)
 
     def test_ci_runs_compose_config_check(self):
         workflow = (self.ROOT / ".github" / "workflows" / "django-ci.yml").read_text(encoding="utf-8")
