@@ -176,6 +176,18 @@ variable "beat_memory" {
   default = 512
 }
 
+variable "background_removal_cpu" {
+  description = "CPU units for the on-demand rembg Fargate task."
+  type        = number
+  default     = 1024
+}
+
+variable "background_removal_memory" {
+  description = "Memory in MiB for the on-demand rembg Fargate task."
+  type        = number
+  default     = 2048
+}
+
 variable "site_id" {
   type    = number
   default = 1

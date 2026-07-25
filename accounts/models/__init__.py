@@ -8,6 +8,8 @@ This package contains all models for the accounts app, organized by functionalit
 - character_models: Character sheet related models (imported from parent)
 """
 
+from ..background_removal_models import BackgroundRemovalJob
+
 # Import base models
 from .base_models import TimestampedModel
 from .billing_models import (
@@ -74,6 +76,7 @@ __all__ = [
     "GroupLink",
     "GroupLinkShare",
     "ShareLink",
+    "BackgroundRemovalJob",
     "CharacterSheet",
     "CharacterSheet6th",
     "CharacterSheet7th",

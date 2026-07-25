@@ -20,6 +20,7 @@ from .character_models import (
     CharacterSkill7th,
 )
 from .models import (
+    BackgroundRemovalJob,
     CustomUser,
     Friend,
     Group,
@@ -32,6 +33,28 @@ from .models import (
     PremiumSubscription,
     StripeWebhookEvent,
 )
+
+
+@admin.register(BackgroundRemovalJob)
+class BackgroundRemovalJobAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "status", "original_filename", "task_arn", "created_at", "updated_at")
+    list_filter = ("status", "created_at")
+    search_fields = ("id", "user__username", "original_filename", "task_arn")
+    readonly_fields = (
+        "id",
+        "user",
+        "status",
+        "source_image",
+        "result_image",
+        "original_filename",
+        "task_arn",
+        "error_message",
+        "created_at",
+        "updated_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
 
 
 class PremiumSubscriptionInline(admin.StackedInline):
@@ -975,7 +998,19 @@ class CharacterSheetAdmin(admin.ModelAdmin):
     # Character-specific fields belong to the edition detail model.  The
     # registry admin exposes only ownership and sharing settings.
     fieldsets = (
-        ("Registry", {"fields": (("user", "edition"), "access_scope", "share_token", "allowed_users", "created_at", "updated_at")}),
+        (
+            "Registry",
+            {
+                "fields": (
+                    ("user", "edition"),
+                    "access_scope",
+                    "share_token",
+                    "allowed_users",
+                    "created_at",
+                    "updated_at",
+                )
+            },
+        ),
     )
 
     @admin.display(description="キャラクター名")

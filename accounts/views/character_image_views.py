@@ -10,9 +10,13 @@ import re
 import warnings
 import zipfile
 
+from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.http import Http404, HttpResponse
+from django.http.response import content_disposition_header
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from PIL import Image, UnidentifiedImageError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -21,8 +25,12 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.background_removal import remove_background
-from accounts.models import CharacterSheet
+from accounts.background_removal_tasks import (
+    clear_background_removal_source,
+    fail_stale_background_removal_job,
+    start_background_removal_task,
+)
+from accounts.models import BackgroundRemovalJob, CharacterSheet
 from accounts.serializers import CharacterImageSerializer
 from accounts.views.mixins import CharacterSheetAccessMixin
 
@@ -58,7 +66,7 @@ def _validate_background_removal_image(image_bytes, *, allowed_formats):
 
 
 class CharacterImageBackgroundRemovalView(APIView):
-    """Remove a portrait background for premium users and return a PNG."""
+    """Queue portrait background removal for premium users."""
 
     permission_classes = [IsAuthenticated]
 
@@ -80,23 +88,78 @@ class CharacterImageBackgroundRemovalView(APIView):
         if validation_error:
             return Response({"error": validation_error}, status=status.HTTP_400_BAD_REQUEST)
 
+        original_filename = _safe_original_filename(image)[:255]
+        with transaction.atomic():
+            get_user_model().objects.select_for_update().only("pk").get(pk=request.user.pk)
+            active_jobs = list(
+                BackgroundRemovalJob.objects.select_for_update().filter(
+                    user=request.user,
+                    status__in=(BackgroundRemovalJob.Status.PENDING, BackgroundRemovalJob.Status.RUNNING),
+                )
+            )
+            active_jobs = [job for job in active_jobs if not fail_stale_background_removal_job(job)]
+            if active_jobs:
+                return Response(
+                    {"error": "Another background removal job is already running."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            job = BackgroundRemovalJob.objects.create(
+                user=request.user,
+                original_filename=original_filename,
+                source_image=ContentFile(source, name=original_filename),
+            )
         try:
-            transparent_png = remove_background(source)
+            start_background_removal_task(job)
         except Exception:
-            logger.exception("Character image background removal failed")
-            return Response({"error": "Background removal could not be completed."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            logger.exception("Character image background removal task could not start")
+            job.status = BackgroundRemovalJob.Status.FAILED
+            job.error_message = "Background removal could not be started."
+            update_fields = ["status", "error_message", "updated_at"]
+            if clear_background_removal_source(job):
+                update_fields.append("source_image")
+            job.save(update_fields=update_fields)
+            return Response({"error": job.error_message}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response(
+            {
+                "job_id": str(job.pk),
+                "status": job.status,
+                "status_url": reverse("character-image-background-removal-status", args=[job.pk]),
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
 
-        if not isinstance(transparent_png, bytes) or _validate_background_removal_image(
-            transparent_png,
-            allowed_formats={"PNG"},
-        ):
-            logger.error("Character image background removal returned an invalid PNG")
-            return Response({"error": "Background removal could not be completed."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-        filename_root = os.path.splitext(_safe_original_filename(image))[0] or "character"
-        response = HttpResponse(transparent_png, content_type="image/png")
-        response["Content-Disposition"] = f'attachment; filename="{filename_root}-transparent.png"'
-        return response
+class CharacterImageBackgroundRemovalStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, job_id):
+        with transaction.atomic():
+            job = get_object_or_404(
+                BackgroundRemovalJob.objects.select_for_update(),
+                pk=job_id,
+                user=request.user,
+            )
+            fail_stale_background_removal_job(job)
+        if job.status == BackgroundRemovalJob.Status.COMPLETED:
+            if not job.result_image:
+                return Response(
+                    {"error": "Background removal result is unavailable."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+            with job.result_image.open("rb") as result_file:
+                response = HttpResponse(result_file.read(), content_type="image/png")
+            filename_root = os.path.splitext(_safe_original_filename(job.original_filename))[0] or "character"
+            response["Content-Disposition"] = content_disposition_header(
+                "attachment",
+                filename=f"{filename_root}-transparent.png",
+            )
+            return response
+        if job.status == BackgroundRemovalJob.Status.FAILED:
+            return Response(
+                {"error": job.error_message or "Background removal could not be completed."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response({"job_id": str(job.pk), "status": job.status}, status=status.HTTP_202_ACCEPTED)
 
 
 def can_read_character_images(character_sheet, user):
@@ -109,7 +172,8 @@ def can_read_character_images(character_sheet, user):
 
 
 def _safe_original_filename(field_file):
-    basename = os.path.basename(getattr(field_file, "name", "") or "")
+    raw_name = field_file if isinstance(field_file, str) else getattr(field_file, "name", "")
+    basename = os.path.basename(raw_name or "")
     basename = re.sub(r"^\d+_[0-9a-f]{8}_", "", basename)
     basename = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', "_", basename).strip(" ._")
     return basename or "image"

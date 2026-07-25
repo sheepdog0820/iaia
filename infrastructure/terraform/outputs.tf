@@ -21,3 +21,7 @@ output "redis_endpoint" {
 output "alarm_topic_arn" {
   value = aws_sns_topic.alarms.arn
 }
+
+output "background_removal_task_definition_arn" {
+  value = aws_ecs_task_definition.background_removal.arn
+}

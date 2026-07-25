@@ -2843,7 +2843,23 @@ function initOccupationTemplates() {
                     const error = await response.json().catch(() => ({}));
                     throw new Error(error.detail || error.error || 'Background removal failed.');
                 }
-                const transparentFile = new File([await response.blob()], `${file.name.replace(/\.[^.]+$/, '')}-transparent.png`, { type: 'image/png' });
+                const job = await response.json();
+                if (!job.status_url) throw new Error('Background removal job could not be started.');
+                let result;
+                for (let attempt = 0; attempt < 150; attempt += 1) {
+                    result = await fetch(job.status_url);
+                    if (result.status === 202) {
+                        await new Promise(resolve => window.setTimeout(resolve, 2000));
+                        continue;
+                    }
+                    if (!result.ok) {
+                        const error = await result.json().catch(() => ({}));
+                        throw new Error(error.detail || error.error || 'Background removal failed.');
+                    }
+                    break;
+                }
+                if (!result || result.status === 202 || !result.ok) throw new Error('Background removal timed out.');
+                const transparentFile = new File([await result.blob()], `${file.name.replace(/\.[^.]+$/, '')}-transparent.png`, { type: 'image/png' });
                 addImageFiles([transparentFile]);
             } catch (error) {
                 notifyUser(error.message || 'Background removal failed.');

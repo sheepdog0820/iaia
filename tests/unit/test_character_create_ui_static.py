@@ -147,6 +147,19 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         self.assertNotIn('title="POW×5"', template)
         self.assertNotIn('title="EDU×5"', template)
 
+    def test_background_removal_uses_an_async_job_in_both_create_screens(self):
+        for relative_path in [
+            "static/accounts/js/character6th.js",
+            "static/accounts/js/character7th.js",
+        ]:
+            with self.subTest(relative_path=relative_path):
+                script = self.read_text(relative_path)
+                self.assertIn("const job = await response.json();", script)
+                self.assertIn("fetch(job.status_url", script)
+                self.assertIn("result.status === 202", script)
+                self.assertIn("!result || result.status === 202 || !result.ok", script)
+                self.assertIn("Background removal timed out.", script)
+
     def test_6th_create_labels_use_custom_and_status_roll_copy(self):
         template = self.read_text("templates/accounts/character_6th_create.html")
 

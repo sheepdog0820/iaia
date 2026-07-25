@@ -63,6 +63,41 @@ locals {
     local.app_redis_environment,
     [for key, value in var.extra_environment : { name = key, value = value }],
   )
+  background_removal_subnets = var.enable_nat_gateway ? aws_subnet.private[*].id : aws_subnet.public[*].id
+  background_removal_launcher_environment = [
+    {
+      name  = "BACKGROUND_REMOVAL_ECS_CLUSTER"
+      value = aws_ecs_cluster.app.name
+    },
+    {
+      name  = "BACKGROUND_REMOVAL_TASK_DEFINITION"
+      value = aws_ecs_task_definition.background_removal.arn
+    },
+    {
+      name  = "BACKGROUND_REMOVAL_CONTAINER_NAME"
+      value = "background-removal"
+    },
+    {
+      name  = "BACKGROUND_REMOVAL_SUBNETS"
+      value = join(",", local.background_removal_subnets)
+    },
+    {
+      name  = "BACKGROUND_REMOVAL_SECURITY_GROUPS"
+      value = aws_security_group.ecs.id
+    },
+    {
+      name  = "BACKGROUND_REMOVAL_ASSIGN_PUBLIC_IP"
+      value = tostring(!var.enable_nat_gateway)
+    },
+    {
+      name  = "BACKGROUND_REMOVAL_JOB_TIMEOUT_SECONDS"
+      value = "900"
+    },
+  ]
+  web_container_environment = concat(
+    local.app_container_environment,
+    local.background_removal_launcher_environment,
+  )
   maintenance_response_html = <<-HTML
     <!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>メンテナンス中 | タブレノ</title><style>body{margin:0;background:#f4f1ea;color:#28323c;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:grid;min-height:100vh;place-items:center}.card{box-sizing:border-box;width:min(92%,560px);padding:40px 28px;border-radius:20px;background:#fff;box-shadow:0 14px 40px #24303b1f;text-align:center}.mark{display:inline-grid;width:64px;height:64px;border-radius:50%;background:#e7f0ee;color:#28665d;place-items:center;font-size:30px;font-weight:700}h1{margin:20px 0 12px;font-size:26px}p{margin:8px 0;line-height:1.7}.time{margin-top:20px;padding:12px;border-radius:12px;background:#f4f7f6;font-weight:700}</style></head><body><main class="card"><div class="mark">i</div><h1>ただいまメンテナンス中です</h1><p>タブレノをご利用いただきありがとうございます。</p><p>毎日 02:00〜08:05 は開発環境のメンテナンス時間です。</p><div class="time">08:05頃に再開予定です</div></main></body></html>
   HTML
@@ -534,6 +569,26 @@ resource "aws_iam_role_policy" "ecs_assets" {
   })
 }
 
+resource "aws_iam_role" "background_removal_task" {
+  name = "${local.name}-background-removal-task"
+  assume_role_policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [{ Effect = "Allow", Principal = { Service = "ecs-tasks.amazonaws.com" }, Action = "sts:AssumeRole" }]
+  })
+}
+
+resource "aws_iam_role_policy" "background_removal_assets" {
+  role = aws_iam_role.background_removal_task.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]
+      Resource = [aws_s3_bucket.assets.arn, "${aws_s3_bucket.assets.arn}/*"]
+    }]
+  })
+}
+
 resource "aws_ecs_cluster" "app" {
   name = local.name
 }
@@ -551,7 +606,7 @@ resource "aws_ecs_task_definition" "app" {
     image        = var.container_image
     essential    = true
     portMappings = [{ containerPort = 8000, hostPort = 8000, protocol = "tcp" }]
-    environment  = local.app_container_environment
+    environment  = local.web_container_environment
     secrets      = local.app_container_secrets
     logConfiguration = {
       logDriver = "awslogs"
@@ -569,6 +624,61 @@ resource "aws_ecs_task_definition" "app" {
       startPeriod = 60
     }
   }])
+}
+
+resource "aws_ecs_task_definition" "background_removal" {
+  family                   = "${local.name}-background-removal"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.background_removal_cpu
+  memory                   = var.background_removal_memory
+  execution_role_arn       = aws_iam_role.ecs_execution.arn
+  task_role_arn            = aws_iam_role.background_removal_task.arn
+  container_definitions = jsonencode([{
+    name        = "background-removal"
+    image       = var.container_image
+    essential   = true
+    command     = ["python", "manage.py", "process_background_removal_job"]
+    environment = local.app_container_environment
+    secrets     = local.app_container_secrets
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = aws_cloudwatch_log_group.app.name
+        awslogs-region        = var.aws_region
+        awslogs-stream-prefix = "background-removal"
+      }
+    }
+  }])
+}
+
+resource "aws_iam_role_policy" "background_removal_launcher" {
+  name = "${local.name}-background-removal-launcher"
+  role = aws_iam_role.ecs_task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ecs:RunTask"]
+        Resource = aws_ecs_task_definition.background_removal.arn
+      },
+      {
+        Effect = "Allow"
+        Action = ["iam:PassRole"]
+        Resource = [
+          aws_iam_role.ecs_execution.arn,
+          aws_iam_role.background_removal_task.arn,
+        ]
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = "ecs-tasks.amazonaws.com"
+          }
+        }
+      },
+    ]
+  })
 }
 
 resource "aws_ecs_task_definition" "worker" {
