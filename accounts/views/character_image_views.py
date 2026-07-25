@@ -262,9 +262,11 @@ def build_character_images_zip_response(character_sheet):
         raise Http404("Character images not found")
 
     payload = output.getvalue()
-    filename = f"character_{character_sheet.id}_images.zip"
+    filename_root = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', "_", character_sheet.system_data.name or "character")
+    filename_root = filename_root.strip(" ._") or "character"
+    filename = f"{filename_root}.zip"
     response = HttpResponse(payload, content_type=ZIP_CONTENT_TYPE)
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["Content-Disposition"] = content_disposition_header("attachment", filename=filename)
     response["Content-Length"] = str(len(payload))
     return response
 

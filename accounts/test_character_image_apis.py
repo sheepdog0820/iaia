@@ -1,6 +1,7 @@
 ﻿import io
 import tempfile
 import zipfile
+from urllib.parse import quote
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -9,10 +10,10 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.models import CharacterSheet
 from accounts.character_models import CharacterImage6th as CharacterImage
-from accounts.test_character_integration import CharacterIntegrationTestCase
+from accounts.models import CharacterSheet
 from accounts.test_character_factories import create_6th_character
+from accounts.test_character_integration import CharacterIntegrationTestCase
 
 User = get_user_model()
 
@@ -161,6 +162,7 @@ class CharacterImageDownloadZipTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response["Content-Type"], "application/zip")
         self.assertIn("attachment", response["Content-Disposition"])
+        self.assertIn('filename="ZIP Investigator.zip"', response["Content-Disposition"])
 
         with self.archive(response) as archive:
             self.assertEqual(archive.namelist(), ["01_main_main.png", "02_second.png"])
@@ -178,6 +180,39 @@ class CharacterImageDownloadZipTest(APITestCase):
         with self.archive(response) as archive:
             self.assertEqual(archive.namelist(), ["01_main_legacy.png"])
             self.assertEqual(archive.read("01_main_legacy.png"), b"legacy-image")
+
+    def test_zip_filename_sanitizes_characters_unsafe_for_downloads(self):
+        self.detail.name = 'A/B:*?"<>|\r\n'
+        self.detail.save(update_fields=["name"])
+        CharacterImage.objects.create(
+            character_sheet=self.detail,
+            image=self.uploaded_file("portrait.png", b"portrait-image"),
+            is_main=True,
+        )
+
+        self.client.force_authenticate(self.user)
+        response = self.client.get(reverse("character-image-download", kwargs={"character_id": self.sheet.id}))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('filename="A_B.zip"', response["Content-Disposition"])
+        self.assertNotIn("\r", response["Content-Disposition"])
+        self.assertNotIn("\n", response["Content-Disposition"])
+
+    def test_zip_filename_supports_non_ascii_character_names(self):
+        self.detail.name = "深淵の探索者"
+        self.detail.save(update_fields=["name"])
+        CharacterImage.objects.create(
+            character_sheet=self.detail,
+            image=self.uploaded_file("portrait.png", b"portrait-image"),
+            is_main=True,
+        )
+
+        self.client.force_authenticate(self.user)
+        response = self.client.get(reverse("character-image-download", kwargs={"character_id": self.sheet.id}))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("filename*=utf-8''", response["Content-Disposition"])
+        self.assertIn(quote("深淵の探索者.zip"), response["Content-Disposition"])
 
     def test_download_returns_404_when_no_images_are_available(self):
         self.client.force_authenticate(self.user)
