@@ -6,6 +6,7 @@
 import json
 import uuid
 
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
@@ -841,7 +842,13 @@ class CharacterSheetSystemData(models.Model):
             return "+1D4"
         if total <= 204:
             return "+1D6"
-        return "+2D6"
+        if total <= 284:
+            return "+2D6"
+        if total <= 364:
+            return "+3D6"
+        if total <= 444:
+            return "+4D6"
+        return "+5D6"
 
     def calculate_build_7th(self):
         total = (self.str_value or 0) + (self.siz_value or 0)
@@ -855,7 +862,13 @@ class CharacterSheetSystemData(models.Model):
             return 1
         if total <= 204:
             return 2
-        return 3
+        if total <= 284:
+            return 3
+        if total <= 364:
+            return 4
+        if total <= 444:
+            return 5
+        return 6
 
     def calculate_move_rate_7th(self):
         strength, size, dexterity = self.str_value or 0, self.siz_value or 0, self.dex_value or 0
@@ -2300,7 +2313,20 @@ class CharacterSkillSystemData(models.Model):
         return len(recommended_skills)
 
 
-class CharacterSkill6th(CharacterSkillSystemData):
+class EditionRelatedDataMixin:
+    """Reject assigning related rows to system data from another edition."""
+
+    expected_character_sheet_model = None
+
+    def save(self, *args, **kwargs):
+        assigned_sheet = self._state.fields_cache.get("character_sheet")
+        if assigned_sheet is not None and not isinstance(assigned_sheet, self.expected_character_sheet_model):
+            raise ValidationError({"character_sheet": "Related data must use the matching edition system-data model."})
+        return super().save(*args, **kwargs)
+
+
+class CharacterSkill6th(EditionRelatedDataMixin, CharacterSkillSystemData):
+    expected_character_sheet_model = CharacterSheet6th
     character_sheet = models.ForeignKey(CharacterSheet6th, on_delete=models.CASCADE, related_name="skills")
 
     class Meta:
@@ -2308,7 +2334,8 @@ class CharacterSkill6th(CharacterSkillSystemData):
         ordering = ["skill_name"]
 
 
-class CharacterSkill7th(CharacterSkillSystemData):
+class CharacterSkill7th(EditionRelatedDataMixin, CharacterSkillSystemData):
+    expected_character_sheet_model = CharacterSheet7th
     character_sheet = models.ForeignKey(CharacterSheet7th, on_delete=models.CASCADE, related_name="skills")
 
     class Meta:
@@ -2358,14 +2385,16 @@ class CharacterEquipmentSystemData(models.Model):
             raise ValidationError(errors)
 
 
-class CharacterEquipment6th(CharacterEquipmentSystemData):
+class CharacterEquipment6th(EditionRelatedDataMixin, CharacterEquipmentSystemData):
+    expected_character_sheet_model = CharacterSheet6th
     character_sheet = models.ForeignKey(CharacterSheet6th, on_delete=models.CASCADE, related_name="equipment")
 
     class Meta:
         ordering = ["item_type", "name"]
 
 
-class CharacterEquipment7th(CharacterEquipmentSystemData):
+class CharacterEquipment7th(EditionRelatedDataMixin, CharacterEquipmentSystemData):
+    expected_character_sheet_model = CharacterSheet7th
     character_sheet = models.ForeignKey(CharacterSheet7th, on_delete=models.CASCADE, related_name="equipment")
 
     class Meta:
@@ -2385,7 +2414,8 @@ class CharacterImageSystemData(models.Model):
         abstract = True
 
 
-class CharacterImage6th(CharacterImageSystemData):
+class CharacterImage6th(EditionRelatedDataMixin, CharacterImageSystemData):
+    expected_character_sheet_model = CharacterSheet6th
     character_sheet = models.ForeignKey(CharacterSheet6th, on_delete=models.CASCADE, related_name="images")
 
     class Meta:
@@ -2397,7 +2427,8 @@ class CharacterImage6th(CharacterImageSystemData):
         ]
 
 
-class CharacterImage7th(CharacterImageSystemData):
+class CharacterImage7th(EditionRelatedDataMixin, CharacterImageSystemData):
+    expected_character_sheet_model = CharacterSheet7th
     character_sheet = models.ForeignKey(CharacterSheet7th, on_delete=models.CASCADE, related_name="images")
 
     class Meta:
@@ -2693,6 +2724,7 @@ class CharacterExportManager:
             commands.append(f"CCB<={character.edu_value * 5} 【知識】")
 
         # 技能ロール
+        skill_command_prefix = "CC" if registry.edition == "7th" else "CCB"
         for skill in character.skills.all():
             total_value = (
                 skill.base_value
@@ -2701,7 +2733,7 @@ class CharacterExportManager:
                 + skill.bonus_points
                 + skill.other_points
             )
-            commands.append(f"CCB<={total_value} 【{skill.skill_name}】")
+            commands.append(f"{skill_command_prefix}<={total_value} 【{skill.skill_name}】")
             skills.append({"name": skill.skill_name, "value": total_value})
 
         # ダメージ判定
@@ -2720,10 +2752,13 @@ class CharacterExportManager:
             ("INT", character.int_value),
             ("EDU", character.edu_value),
         ]:
-            commands.append(f"CCB<={{{ability}}}*5 【{ability} × 5】")
+            if registry.edition == "7th":
+                commands.append(f"CC<={{{ability}}}　【{ability}】")
+            else:
+                commands.append(f"CCB<={{{ability}}}*5　【{ability} × 5】")
 
         # CCFOLIA標準形式
-        memo = f"読み仮名: {character.name_kana}" if character.name_kana else ""
+        memo = character.name_kana or ""
 
         ccfolia_data = {
             "kind": "character",

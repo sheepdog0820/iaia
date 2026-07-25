@@ -631,6 +631,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const info = [
             { label: '状態', value: getStatusText(character.status) },
             { label: 'プレイヤー', value: character.player_name || '未設定' },
+            ...(character.name_kana ? [{ label: '読み仮名', value: character.name_kana }] : []),
             { label: '年齢', value: character.age ? `${character.age}歳` : '未設定' },
             { label: '性別', value: character.gender || '未設定' },
             { label: '職業', value: character.occupation || '未設定' },

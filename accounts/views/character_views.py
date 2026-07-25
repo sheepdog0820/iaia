@@ -1313,6 +1313,33 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
             )
 
         try:
+            skills_data = parse_json_list(request.data.get("skills", []), "skills")
+            equipment_data = parse_json_list(request.data.get("equipment", []), "equipment")
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        stored_image_fields = []
+
+        def cleanup_stored_images():
+            deleted_files = set()
+            for image_field in stored_image_fields:
+                name = getattr(image_field, "name", "")
+                if not name or not getattr(image_field, "_committed", False):
+                    continue
+                file_key = (id(image_field.storage), name)
+                if file_key in deleted_files:
+                    continue
+                try:
+                    image_field.storage.delete(name)
+                    deleted_files.add(file_key)
+                except Exception:
+                    logger.exception(
+                        "Failed to clean up image after 7th edition character rollback: user_id=%s, file=%s",
+                        request.user.id,
+                        name,
+                    )
+
+        try:
             character_data = {
                 "user": request.user,
                 "edition": "7th",
@@ -1356,92 +1383,100 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
 
             character_data.pop("user")
             character_data.pop("edition")
-            character_sheet = CharacterSheet.objects.create(user=request.user, edition="7th")
-            detail = CharacterSheet7th(character_sheet=character_sheet, **character_data)
-            stats = detail.calculate_derived_stats()
-            detail.hit_points_max = detail.hit_points_current = stats["hit_points_max"]
-            detail.magic_points_max = detail.magic_points_current = stats["magic_points_max"]
-            detail.sanity_starting = detail.sanity_current = stats["sanity_starting"]
-            detail.sanity_max = stats["sanity_max"]
-            detail.save()
+            with transaction.atomic():
+                character_sheet = CharacterSheet.objects.create(user=request.user, edition="7th")
+                detail = CharacterSheet7th(character_sheet=character_sheet, **character_data)
+                stats = detail.calculate_derived_stats()
+                detail.hit_points_max = detail.hit_points_current = stats["hit_points_max"]
+                detail.magic_points_max = detail.magic_points_current = stats["magic_points_max"]
+                detail.sanity_starting = detail.sanity_current = stats["sanity_starting"]
+                detail.sanity_max = stats["sanity_max"]
+                if detail.character_image:
+                    stored_image_fields.append(detail.character_image)
+                detail.save()
 
-            try:
-                skills_data = parse_json_list(request.data.get("skills", []), "skills")
-            except ValueError as exc:
-                return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+                for skill_data in skills_data:
+                    if not isinstance(skill_data, dict) or "skill_name" not in skill_data:
+                        continue
 
-            for skill_data in skills_data:
-                if not isinstance(skill_data, dict) or "skill_name" not in skill_data:
-                    continue
+                    base_value = parse_int(
+                        skill_data.get("base_value", 0), "base_value", min_value=0, max_value=999, default=0
+                    )
+                    occupation_points = parse_int(
+                        skill_data.get("occupation_points", 0),
+                        "occupation_points",
+                        min_value=0,
+                        max_value=999,
+                        default=0,
+                    )
+                    interest_points = parse_int(
+                        skill_data.get("interest_points", 0),
+                        "interest_points",
+                        min_value=0,
+                        max_value=999,
+                        default=0,
+                    )
+                    other_points = parse_int(
+                        skill_data.get("other_points", 0), "other_points", min_value=0, max_value=999, default=0
+                    )
+                    current_value = parse_int(
+                        skill_data.get(
+                            "current_value", base_value + occupation_points + interest_points + other_points
+                        ),
+                        "current_value",
+                        min_value=0,
+                        max_value=999,
+                        default=base_value + occupation_points + interest_points + other_points,
+                    )
 
-                base_value = parse_int(
-                    skill_data.get("base_value", 0), "base_value", min_value=0, max_value=999, default=0
-                )
-                occupation_points = parse_int(
-                    skill_data.get("occupation_points", 0), "occupation_points", min_value=0, max_value=999, default=0
-                )
-                interest_points = parse_int(
-                    skill_data.get("interest_points", 0), "interest_points", min_value=0, max_value=999, default=0
-                )
-                other_points = parse_int(
-                    skill_data.get("other_points", 0), "other_points", min_value=0, max_value=999, default=0
-                )
-                current_value = parse_int(
-                    skill_data.get("current_value", base_value + occupation_points + interest_points + other_points),
-                    "current_value",
-                    min_value=0,
-                    max_value=999,
-                    default=base_value + occupation_points + interest_points + other_points,
-                )
+                    detail.skills.model.objects.create(
+                        character_sheet=detail,
+                        skill_name=skill_data["skill_name"],
+                        base_value=base_value,
+                        occupation_points=occupation_points,
+                        interest_points=interest_points,
+                        other_points=other_points,
+                        current_value=current_value,
+                    )
 
-                detail.skills.model.objects.create(
-                    character_sheet=detail,
-                    skill_name=skill_data["skill_name"],
-                    base_value=base_value,
-                    occupation_points=occupation_points,
-                    interest_points=interest_points,
-                    other_points=other_points,
-                    current_value=current_value,
-                )
+                for equipment in equipment_data:
+                    if not isinstance(equipment, dict) or "name" not in equipment:
+                        continue
+                    detail.equipment.model.objects.create(
+                        character_sheet=detail,
+                        item_type=equipment.get("item_type", "item"),
+                        name=equipment["name"],
+                        skill_name=equipment.get("skill_name", ""),
+                        damage=equipment.get("damage", ""),
+                        base_range=equipment.get("base_range", ""),
+                        attacks_per_round=equipment.get("attacks_per_round"),
+                        ammo=equipment.get("ammo"),
+                        malfunction_number=equipment.get("malfunction_number"),
+                        armor_points=equipment.get("armor_points"),
+                        description=equipment.get("description", ""),
+                        quantity=equipment.get("quantity", 1),
+                        weight=equipment.get("weight"),
+                    )
 
-            try:
-                equipment_data = parse_json_list(request.data.get("equipment", []), "equipment")
-            except ValueError as exc:
-                return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+                for index, image_file in enumerate(image_files):
+                    image = detail.images.model(
+                        character_sheet=detail, image=image_file, is_main=(index == 0), order=index
+                    )
+                    stored_image_fields.append(image.image)
+                    image.save()
 
-            for equipment in equipment_data:
-                if not isinstance(equipment, dict) or "name" not in equipment:
-                    continue
-                detail.equipment.model.objects.create(
-                    character_sheet=detail,
-                    item_type=equipment.get("item_type", "item"),
-                    name=equipment["name"],
-                    skill_name=equipment.get("skill_name", ""),
-                    damage=equipment.get("damage", ""),
-                    base_range=equipment.get("base_range", ""),
-                    attacks_per_round=equipment.get("attacks_per_round"),
-                    ammo=equipment.get("ammo"),
-                    malfunction_number=equipment.get("malfunction_number"),
-                    armor_points=equipment.get("armor_points"),
-                    description=equipment.get("description", ""),
-                    quantity=equipment.get("quantity", 1),
-                    weight=equipment.get("weight"),
-                )
-
-            for index, image_file in enumerate(image_files):
-                detail.images.model.objects.create(
-                    character_sheet=detail, image=image_file, is_main=(index == 0), order=index
-                )
-
-            response_serializer = CharacterSheetSerializer(character_sheet)
+                response_serializer = CharacterSheetSerializer(character_sheet)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
         except DjangoValidationError as exc:
+            cleanup_stored_images()
             error_data = exc.message_dict if hasattr(exc, "message_dict") else {"error": exc.messages}
             return Response(error_data, status=status.HTTP_400_BAD_REQUEST)
         except ValueError as exc:
+            cleanup_stored_images()
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception:
+            cleanup_stored_images()
             logger.exception("Unexpected error while creating 7th edition character: user_id=%s", request.user.id)
             return Response(
                 {"error": "キャラクターシートの保存中にシステムエラーが発生しました。時間をおいて再度お試しください。"},

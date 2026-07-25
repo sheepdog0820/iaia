@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import connection
 from django.test import TestCase
 
@@ -74,8 +75,13 @@ class CharacterSystemDataModelsTests(TestCase):
         self.assertEqual(
             registry_field_names,
             {
-                "id", "user", "edition", "access_scope", "share_token",
-                "created_at", "updated_at",
+                "id",
+                "user",
+                "edition",
+                "access_scope",
+                "share_token",
+                "created_at",
+                "updated_at",
             },
         )
         self.assertEqual({field.name for field in CharacterSheet._meta.many_to_many}, {"allowed_users"})
@@ -87,9 +93,12 @@ class CharacterSystemDataModelsTests(TestCase):
         )
         self.assertTrue(
             {
-                "accounts_characterskill6th", "accounts_characterskill7th",
-                "accounts_characterequipment6th", "accounts_characterequipment7th",
-                "accounts_characterimage6th", "accounts_characterimage7th",
+                "accounts_characterskill6th",
+                "accounts_characterskill7th",
+                "accounts_characterequipment6th",
+                "accounts_characterequipment7th",
+                "accounts_characterimage6th",
+                "accounts_characterimage7th",
             }.issubset(table_names)
         )
 
@@ -106,6 +115,15 @@ class CharacterSystemDataModelsTests(TestCase):
 
         self.assertFalse(CharacterSkill6th.objects.filter(pk=skill.pk).exists())
         self.assertFalse(CharacterEquipment6th.objects.filter(pk=equipment.pk).exists())
+
+    def test_related_model_save_rejects_cached_system_data_from_another_edition(self):
+        registry = self.create_registry_character("7th")
+        seventh = self.create_system_data(registry, **self.system_data_defaults("7th investigator"))
+        sixth_skill = CharacterSkill6th(skill_name="Library Use", base_value=25)
+        sixth_skill._state.fields_cache["character_sheet"] = seventh
+
+        with self.assertRaises(ValidationError):
+            sixth_skill.save()
 
     def test_version_lineage_and_values_are_stored_in_edition_data(self):
         registry = self.create_registry_character("6th")

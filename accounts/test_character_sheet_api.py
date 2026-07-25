@@ -5,16 +5,19 @@
 """
 
 import json
+import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .character_models import (
     CharacterBackground,
+    CharacterImage7th,
     CharacterSheet,
     CharacterSheet6th,
     CharacterSheet7th,
@@ -492,6 +495,77 @@ class CharacterSheetAPITest(APITestCase):
         self.assertIn("luck", invalid_response.data)
         self.assertFalse(CharacterSheet.objects.by_system_name(data["name"], user=self.user).exists())
 
+    def test_create_7th_edition_rolls_back_when_related_data_is_invalid(self):
+        """技能や装備が不正な場合は7版データを途中保存しない"""
+        cases = (
+            ("invalid-skills-json", "skills", "[{invalid"),
+            (
+                "invalid-skill-number",
+                "skills",
+                [{"skill_name": "目星", "base_value": "not-an-integer"}],
+            ),
+            ("invalid-equipment-json", "equipment", "[{invalid"),
+        )
+
+        for label, field, value in cases:
+            with self.subTest(case=label):
+                data = dict(self.character_data_7th)
+                data["name"] = f"ロールバック確認-{label}"
+                data[field] = value
+
+                response = self.client.post(
+                    "/api/accounts/character-sheets/create_7th_edition/",
+                    data,
+                    format="json",
+                )
+
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertFalse(CharacterSheet.objects.by_system_name(data["name"], user=self.user).exists())
+
+    def test_create_7th_edition_removes_primary_image_when_related_data_rolls_back(self):
+        """関連データの失敗時は先に保存された主画像も削除する"""
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            data = dict(self.character_data_7th)
+            data.pop("seventh_edition_data")
+            data["name"] = "主画像ロールバック確認"
+            data["skills"] = json.dumps([{"skill_name": "目星", "base_value": "not-an-integer"}])
+            data["character_image"] = self.create_test_gif("rollback-primary.gif")
+
+            response = self.client.post(
+                "/api/accounts/character-sheets/create_7th_edition/",
+                data,
+                format="multipart",
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertFalse(CharacterSheet.objects.by_system_name(data["name"], user=self.user).exists())
+            self.assertEqual([path for path in Path(media_root).rglob("*") if path.is_file()], [])
+
+    def test_create_7th_edition_removes_additional_image_when_image_save_rolls_back(self):
+        """画像レコード保存後の失敗でもストレージ上の追加画像を削除する"""
+        original_save = CharacterImage7th.save
+
+        def save_then_fail(image, *args, **kwargs):
+            original_save(image, *args, **kwargs)
+            raise RuntimeError("image processing failed")
+
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            data = dict(self.character_data_7th)
+            data.pop("seventh_edition_data")
+            data["name"] = "追加画像ロールバック確認"
+            data["character_images"] = self.create_test_gif("rollback-additional.gif")
+
+            with patch.object(CharacterImage7th, "save", save_then_fail):
+                response = self.client.post(
+                    "/api/accounts/character-sheets/create_7th_edition/",
+                    data,
+                    format="multipart",
+                )
+
+            self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+            self.assertFalse(CharacterSheet.objects.by_system_name(data["name"], user=self.user).exists())
+            self.assertEqual([path for path in Path(media_root).rglob("*") if path.is_file()], [])
+
     def test_7th_edition_boundary_derived_stats_are_official_percentile_values(self):
         """7版派生値はパーセンテージ能力値をそのまま扱う"""
         character = self.create_character(
@@ -519,6 +593,24 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(detail.calculate_move_rate_7th(), 7)
         self.assertEqual(CharacterSheet.get_7th_skill_base_value(detail, "回避"), 35)
         self.assertEqual(CharacterSheet.get_7th_skill_base_value(detail, "母国語"), 80)
+
+    def test_7th_edition_damage_bonus_and_build_follow_high_value_table(self):
+        """7版のSTR+SIZが205以上でも仕様表どおり段階的に増加する"""
+        cases = (
+            (205, "+2D6", 3),
+            (284, "+2D6", 3),
+            (285, "+3D6", 4),
+            (364, "+3D6", 4),
+            (365, "+4D6", 5),
+            (444, "+4D6", 5),
+            (445, "+5D6", 6),
+        )
+
+        for total, expected_damage_bonus, expected_build in cases:
+            with self.subTest(total=total):
+                detail = CharacterSheet7th(str_value=total - 100, siz_value=100)
+                self.assertEqual(detail.calculate_damage_bonus_7th(), expected_damage_bonus)
+                self.assertEqual(detail.calculate_build_7th(), expected_build)
 
     def test_create_7th_edition_rejects_luck_that_is_not_a_multiple_of_five(self):
         data = dict(self.character_data_7th)

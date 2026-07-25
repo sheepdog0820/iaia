@@ -254,18 +254,25 @@
         const seventh = character.character_7th || {};
         const luckCurrent = toNumber(seventh.current_luck);
         const luckMax = toNumber(seventh.max_luck, luckCurrent);
+        const skillCommandPrefix = isSeventhEdition ? 'CC' : 'CCB';
         const skillCommands = collectSkills(character, abilities)
-            .map(skill => `CCB<=${toNumber(skill.current_value)} 【${skill.skill_name}】`);
+            .map(skill => `${skillCommandPrefix}<=${toNumber(skill.current_value)} 【${skill.skill_name}】`);
+        const abilityCommandPrefix = isSeventhEdition ? 'CC' : 'CCB';
         const abilityCommands = abilityLabels.map(([label]) => (
-            `CCB<=${abilities[label] * 5} 【${label}】`
+            isSeventhEdition
+                ? `${abilityCommandPrefix}<={${label}}　【${label}】`
+                : `${abilityCommandPrefix}<={${label}}*5　【${label} × 5】`
         ));
         const derivedCommands = isSeventhEdition
-            ? [`CC<={幸運}　【幸運】`]
+            ? [
+                `CC<={幸運}　【幸運】`,
+                `CC<={SAN}　【SANチェック】`,
+            ]
             : [
                 getSixthValue(sixth, 'luck_roll', abilities.POW * 5) ? `CCB<=${getSixthValue(sixth, 'luck_roll', abilities.POW * 5)} 【幸運】` : '',
                 getSixthValue(sixth, 'idea_roll', abilities.INT * 5) ? `CCB<=${getSixthValue(sixth, 'idea_roll', abilities.INT * 5)} 【アイデア】` : '',
                 getSixthValue(sixth, 'know_roll', abilities.EDU * 5) ? `CCB<=${getSixthValue(sixth, 'know_roll', abilities.EDU * 5)} 【知識】` : '',
-                character.sanity_current ? `CCB<=${toNumber(character.sanity_current)} 【SANチェック】` : '',
+                `CCB<={SAN}　【SANチェック】`,
             ].filter(Boolean);
         const params = [
             ...abilityLabels.map(([label]) => ({ label, value: String(abilities[label]) })),
@@ -277,7 +284,7 @@
             kind: 'character',
             data: {
                 name: character.name || '無名の探索者',
-                memo: character.name_kana ? `読み仮名: ${character.name_kana}` : '',
+                memo: character.name_kana || '',
                 initiative: abilities.DEX || 0,
                 externalUrl: toAbsoluteUrl(detailUrl),
                 status: [
