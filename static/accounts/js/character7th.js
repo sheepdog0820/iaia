@@ -4,10 +4,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const editCharacterId = urlParams.get('id');
     const isEditMode = !!editCharacterId;
+    let isBackgroundRemovalInProgress = false;
+    let saveAfterBackgroundRemoval = false;
 
     const notifyUser = (message) => {
         const text = String(message || '');
-        const danger = /Error|Invalid|Network|Failed|失敗|見つかりません|未対応|5MB|JPG|PNG|GIF/.test(text);
+        const danger = /Error|Invalid|Network|Failed|失敗|できません|見つかりません|未対応|5MB|JPG|PNG|GIF/.test(text);
         if (window.ARKHAM?.showAlert) {
             window.ARKHAM.showAlert(text, danger ? 'danger' : 'success');
             return;
@@ -46,6 +48,38 @@ document.addEventListener('DOMContentLoaded', function() {
         if (window.ARKHAM?.confirm) return window.ARKHAM.confirm(message, options);
         return Promise.resolve(false);
     };
+
+    function getBackgroundRemovalSaveModal() {
+        const modalElement = document.getElementById('backgroundRemovalSaveModal');
+        if (!modalElement || !window.bootstrap?.Modal) return null;
+        return bootstrap.Modal.getOrCreateInstance(modalElement, {
+            backdrop: 'static',
+            keyboard: false,
+        });
+    }
+
+    function showBackgroundRemovalSaveDialog() {
+        const title = document.getElementById('backgroundRemovalSaveModalLabel');
+        const status = document.getElementById('backgroundRemovalSaveStatus');
+        if (title) title.textContent = '背景透過処理中';
+        if (status) {
+            status.textContent = '透過処理の完了後、画像を立ち絵として反映してキャラクターを保存します。';
+        }
+        getBackgroundRemovalSaveModal()?.show();
+    }
+
+    function updateBackgroundRemovalSaveDialogForSaving() {
+        const title = document.getElementById('backgroundRemovalSaveModalLabel');
+        const status = document.getElementById('backgroundRemovalSaveStatus');
+        if (title) title.textContent = 'キャラクターを保存中';
+        if (status) status.textContent = '透過画像を立ち絵として反映し、キャラクターを保存しています。';
+    }
+
+    function hideBackgroundRemovalSaveDialog() {
+        const modalElement = document.getElementById('backgroundRemovalSaveModal');
+        if (!modalElement || !window.bootstrap?.Modal) return;
+        bootstrap.Modal.getInstance(modalElement)?.hide();
+    }
 
     const clampSkillNumber = (value) => {
         const parsed = parseInt(value, 10);
@@ -2579,6 +2613,7 @@ function initOccupationTemplates() {
         const allowedImagePattern = /^image\/(jpeg|jpg|png|gif)$/;
         let selectedFiles = [];
         let previewUrls = [];
+        const previewUrlByFile = new Map();
         let existingImages = [];
         let existingImageIndex = 0;
 
@@ -2590,8 +2625,28 @@ function initOccupationTemplates() {
             .replace(/'/g, '&#039;');
 
         function revokePreviewUrls() {
-            previewUrls.forEach(url => URL.revokeObjectURL(url));
+            previewUrlByFile.forEach(url => URL.revokeObjectURL(url));
+            previewUrlByFile.clear();
             previewUrls = [];
+        }
+
+        function syncPreviewUrls() {
+            const activeFiles = new Set(selectedFiles);
+            previewUrlByFile.forEach((url, file) => {
+                if (!activeFiles.has(file)) {
+                    URL.revokeObjectURL(url);
+                    previewUrlByFile.delete(file);
+                }
+            });
+
+            previewUrls = selectedFiles.map(file => {
+                let url = previewUrlByFile.get(file);
+                if (!url) {
+                    url = URL.createObjectURL(file);
+                    previewUrlByFile.set(file, url);
+                }
+                return url;
+            });
         }
 
         function syncImageInputFiles() {
@@ -2739,7 +2794,7 @@ function initOccupationTemplates() {
         }
 
         function renderImagePreview() {
-            revokePreviewUrls();
+            syncPreviewUrls();
 
             if (selectedFiles.length === 0) {
                 if (selectedView) selectedView.style.display = 'none';
@@ -2762,7 +2817,6 @@ function initOccupationTemplates() {
                 return;
             }
 
-            previewUrls = selectedFiles.map(file => URL.createObjectURL(file));
             if (previewImg) previewImg.src = previewUrls[0];
             if (previewCount) previewCount.textContent = `選択中 ${selectedFiles.length} / ${maxImages}枚`;
             if (imagePreview) imagePreview.style.display = 'block';
@@ -2781,7 +2835,7 @@ function initOccupationTemplates() {
 
         function addImageFiles(fileList) {
             const incomingFiles = Array.from(fileList || []);
-            if (incomingFiles.length === 0) return;
+            if (incomingFiles.length === 0) return false;
 
             const selectedKeys = new Set(selectedFiles.map(fileKey));
             const filesToAdd = incomingFiles.filter(file => !selectedKeys.has(fileKey(file)));
@@ -2789,7 +2843,7 @@ function initOccupationTemplates() {
             if (!validateFiles(nextFiles)) {
                 syncImageInputFiles();
                 renderImagePreview();
-                return;
+                return false;
             }
 
             selectedFiles = nextFiles;
@@ -2798,9 +2852,10 @@ function initOccupationTemplates() {
                 selectedFiles = [];
                 imageInput.value = '';
                 renderImagePreview();
-                return;
+                return false;
             }
             renderImagePreview();
+            return true;
         }
 
         async function loadExistingCharacterImages() {
@@ -2831,6 +2886,8 @@ function initOccupationTemplates() {
                 e.target.value = '';
                 return;
             }
+            isBackgroundRemovalInProgress = true;
+            let removalSucceeded = false;
             backgroundRemovalBtn.disabled = true;
             backgroundRemovalBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> 背景を透過中...';
             try {
@@ -2860,13 +2917,22 @@ function initOccupationTemplates() {
                 }
                 if (!result || result.status === 202 || !result.ok) throw new Error('Background removal timed out.');
                 const transparentFile = new File([await result.blob()], `${file.name.replace(/\.[^.]+$/, '')}-transparent.png`, { type: 'image/png' });
-                addImageFiles([transparentFile]);
+                removalSucceeded = addImageFiles([transparentFile]);
             } catch (error) {
                 notifyUser(error.message || 'Background removal failed.');
             } finally {
+                isBackgroundRemovalInProgress = false;
                 backgroundRemovalBtn.disabled = false;
                 backgroundRemovalBtn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> 透過選択';
                 e.target.value = '';
+                if (saveAfterBackgroundRemoval && removalSucceeded) {
+                    saveAfterBackgroundRemoval = false;
+                    updateBackgroundRemovalSaveDialogForSaving();
+                    characterForm?.requestSubmit();
+                } else if (saveAfterBackgroundRemoval) {
+                    saveAfterBackgroundRemoval = false;
+                    hideBackgroundRemovalSaveDialog();
+                }
             }
         });
 
@@ -2913,6 +2979,7 @@ function initOccupationTemplates() {
         });
 
         void loadExistingCharacterImages();
+        window.addEventListener('beforeunload', revokePreviewUrls, { once: true });
     }
     
     // 初期化
@@ -3508,6 +3575,7 @@ function initOccupationTemplates() {
                 ? '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> 保存中...'
                 : `<i class="fas fa-save"></i> ${isEditMode ? '探索者を更新' : '保存'}`;
         }
+        if (!isSaving) hideBackgroundRemovalSaveDialog();
     }
 
     // Form submit handling
@@ -3515,6 +3583,11 @@ function initOccupationTemplates() {
     if (characterForm) {
         characterForm.addEventListener('submit', async function(e) {
             e.preventDefault();
+            if (isBackgroundRemovalInProgress) {
+                saveAfterBackgroundRemoval = true;
+                showBackgroundRemovalSaveDialog();
+                return;
+            }
             if (isCharacterSaving) return;
 
             let collected;
@@ -3638,6 +3711,10 @@ function initOccupationTemplates() {
 
     async function handleCreateVersion() {
         if (!isEditMode || !characterForm) return;
+        if (isBackgroundRemovalInProgress) {
+            notifyUser('背景透過処理中は新バージョンを作成できません。完了後にもう一度お試しください。');
+            return;
+        }
         if (!(await confirmUser('現在の内容を新しいバージョンとして作成します。\nよろしいですか？'))) return;
 
         let collected;

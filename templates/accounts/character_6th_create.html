@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
 {% block title %}クトゥルフ神話TRPG 6版探索者作成 - タブレノ{% endblock %}
@@ -1012,6 +1012,28 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 背景透過完了後の保存待機モーダル -->
+<div class="modal fade"
+     id="backgroundRemovalSaveModal"
+     tabindex="-1"
+     aria-labelledby="backgroundRemovalSaveModalLabel"
+     aria-hidden="true"
+     data-bs-backdrop="static"
+     data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body p-4 text-center">
+                <div class="spinner-border text-primary mb-3" role="status" aria-label="処理中"></div>
+                <h5 class="mb-3" id="backgroundRemovalSaveModalLabel">背景透過処理中</h5>
+                <p class="mb-2" id="backgroundRemovalSaveStatus">
+                    透過処理の完了後、画像を立ち絵として反映してキャラクターを保存します。
+                </p>
+                <p class="small text-muted mb-0">処理が完了するまで、この画面を閉じずにお待ちください。</p>
             </div>
         </div>
     </div>

@@ -160,6 +160,70 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
                 self.assertIn("!result || result.status === 202 || !result.ok", script)
                 self.assertIn("Background removal timed out.", script)
 
+    def test_image_preview_keeps_blob_urls_until_the_file_is_removed(self):
+        for relative_path in [
+            "static/accounts/js/character6th.js",
+            "static/accounts/js/character7th.js",
+        ]:
+            with self.subTest(relative_path=relative_path):
+                script = self.read_text(relative_path)
+                render_block = self.extract_function_block(
+                    script,
+                    "function renderImagePreview()",
+                    "function resetImagePreview()",
+                )
+
+                self.assertIn("const previewUrlByFile = new Map();", script)
+                self.assertIn("function syncPreviewUrls()", script)
+                self.assertIn("previewUrlByFile.get(file)", script)
+                self.assertIn("previewUrlByFile.set(file, url)", script)
+                self.assertIn("if (!activeFiles.has(file))", script)
+                self.assertIn("syncPreviewUrls();", render_block)
+                self.assertNotIn("revokePreviewUrls();", render_block)
+
+    def test_background_removal_queues_character_save_until_completion(self):
+        for relative_path in [
+            "static/accounts/js/character6th.js",
+            "static/accounts/js/character7th.js",
+        ]:
+            with self.subTest(relative_path=relative_path):
+                script = self.read_text(relative_path)
+
+                self.assertIn("let isBackgroundRemovalInProgress = false;", script)
+                self.assertIn("let saveAfterBackgroundRemoval = false;", script)
+                self.assertIn("function showBackgroundRemovalSaveDialog()", script)
+                self.assertIn("function updateBackgroundRemovalSaveDialogForSaving()", script)
+                self.assertIn("function hideBackgroundRemovalSaveDialog()", script)
+                self.assertIn("if (isBackgroundRemovalInProgress)", script)
+                self.assertIn("saveAfterBackgroundRemoval = true;", script)
+                self.assertIn("showBackgroundRemovalSaveDialog();", script)
+                self.assertIn("if (saveAfterBackgroundRemoval && removalSucceeded)", script)
+                self.assertIn("removalSucceeded = addImageFiles([transparentFile]);", script)
+                self.assertIn("characterForm?.requestSubmit();", script)
+                self.assertIn("} else if (saveAfterBackgroundRemoval)", script)
+                self.assertIn("hideBackgroundRemovalSaveDialog();", script)
+                self.assertIn("footerSaveBtn.disabled = isSaving;", script)
+                self.assertNotIn(
+                    "footerSaveBtn.disabled = isSaving || isBackgroundRemovalInProgress;",
+                    script,
+                )
+
+        for relative_path in [
+            "templates/accounts/character_6th_create.html",
+            "templates/accounts/character_7th_create.html",
+        ]:
+            with self.subTest(relative_path=relative_path):
+                template = self.read_text(relative_path)
+
+                self.assertIn('id="backgroundRemovalSaveModal"', template)
+                self.assertIn('data-bs-backdrop="static"', template)
+                self.assertIn('data-bs-keyboard="false"', template)
+                self.assertIn("背景透過処理中", template)
+                self.assertIn(
+                    "透過処理の完了後、画像を立ち絵として反映してキャラクターを保存します。",
+                    template,
+                )
+
     def test_6th_create_labels_use_custom_and_status_roll_copy(self):
         template = self.read_text("templates/accounts/character_6th_create.html")
 
