@@ -3628,10 +3628,13 @@ function initOccupationTemplates() {
                 const submitFormData = new FormData();
 
                 Object.keys(apiDataForCreate).forEach(key => {
+                    const value = apiDataForCreate[key];
+                    if (value === null || value === undefined) return;
+
                     if (key === 'skills' || key === 'equipment' || key === 'recommended_skills' || key === 'occupation_skills') {
-                        submitFormData.append(key, JSON.stringify(apiDataForCreate[key]));
+                        submitFormData.append(key, JSON.stringify(value));
                     } else {
-                        submitFormData.append(key, apiDataForCreate[key]);
+                        submitFormData.append(key, value);
                     }
                 });
 

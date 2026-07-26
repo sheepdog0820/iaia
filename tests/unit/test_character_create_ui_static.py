@@ -203,6 +203,8 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
                 self.assertIn("} else if (saveAfterBackgroundRemoval)", script)
                 self.assertIn("hideBackgroundRemovalSaveDialog();", script)
                 self.assertIn("footerSaveBtn.disabled = isSaving;", script)
+                self.assertIn("if (value === null || value === undefined) return;", script)
+                self.assertIn("submitFormData.append(key, value);", script)
                 self.assertNotIn(
                     "footerSaveBtn.disabled = isSaving || isBackgroundRemovalInProgress;",
                     script,
