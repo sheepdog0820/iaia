@@ -360,7 +360,7 @@ LINE_MAX_ATTACHMENT_BYTES = int(os.environ.get("LINE_MAX_ATTACHMENT_BYTES", str(
 LINE_TICKET_FOLLOWUP_HOURS = int(os.environ.get("LINE_TICKET_FOLLOWUP_HOURS", "24"))
 LINE_WEBHOOK_USE_CELERY = _get_bool("LINE_WEBHOOK_USE_CELERY", default=False)
 
-LOGIN_REDIRECT_URL = "/accounts/dashboard/"
+LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
 
 # Social account providers configuration

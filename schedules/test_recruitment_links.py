@@ -343,7 +343,7 @@ class SessionRecruitmentLinkTestCase(APITestCase):
             },
         )
 
-        self.assertRedirects(response, reverse("dashboard"), fetch_redirect_response=False)
+        self.assertRedirects(response, reverse("home"), fetch_redirect_response=False)
 
     def test_recruitment_management_ui_is_visible_only_to_participant_managers(self):
         self.client.force_authenticate(self.manager)

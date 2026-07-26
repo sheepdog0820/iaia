@@ -1,6 +1,8 @@
 from allauth.account.models import EmailAddress
+from allauth.socialaccount.models import SocialApp
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.sites.models import Site
 from django.core import mail
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -39,6 +41,43 @@ class AuthenticationTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "ログイン")
 
+    def test_authenticated_user_is_redirected_from_login_page_to_home(self):
+        """ログイン済みユーザーはログイン画面ではなくトップへ戻る"""
+        self.client.force_login(self.user)
+
+        response = self.client.get("/accounts/login/")
+
+        self.assertRedirects(response, reverse("home"))
+
+    def test_login_page_posts_social_login_directly(self):
+        """ソーシャルログインは確認画面を挟まないPOSTフォームで開始する"""
+        site = Site.objects.get_current()
+        providers = (
+            ("google", "Google", "/accounts/google/login/"),
+            ("discord", "Discord", "/accounts/discord/login/"),
+            ("twitter_oauth2", "X", "/accounts/twitter_oauth2/login/"),
+        )
+        for provider_id, name, _ in providers:
+            app = SocialApp.objects.create(
+                provider=provider_id,
+                name=name,
+                client_id=f"{provider_id}-client-id",
+                secret=f"{provider_id}-client-secret",
+            )
+            app.sites.add(site)
+
+        response = self.client.get("/accounts/login/")
+
+        self.assertEqual(response.status_code, 200)
+        for _, _, login_path in providers:
+            with self.subTest(login_path=login_path):
+                self.assertContains(
+                    response,
+                    f'<form method="post" action="{login_path}"',
+                    html=False,
+                )
+                self.assertNotContains(response, f'<a href="{login_path}"')
+
     def test_password_reset_page_accessible(self):
         url = reverse("account_reset_password")
 
@@ -57,7 +96,11 @@ class AuthenticationTestCase(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/accounts/dashboard/", response["Location"])
+        self.assertEqual(response["Location"], reverse("home"))
+
+    def test_social_login_default_redirect_is_home(self):
+        """全ソーシャルログイン共通の既定遷移先はトップページ"""
+        self.assertEqual(settings.LOGIN_REDIRECT_URL, reverse("home"))
 
     @override_settings(
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
@@ -163,7 +206,7 @@ class AuthenticationTestCase(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/accounts/dashboard/", response["Location"])
+        self.assertEqual(response["Location"], reverse("home"))
 
     @override_settings(
         ACCOUNT_EMAIL_VERIFICATION="mandatory",

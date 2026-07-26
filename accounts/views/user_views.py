@@ -237,7 +237,12 @@ class CustomLoginView(SafeNextFormViewMixin, FormView):
 
     template_name = "account/login.html"
     form_class = CustomLoginForm
-    success_url = reverse_lazy("dashboard")
+    success_url = reverse_lazy("home")
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return redirect("home")
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         """Add social login configuration flags to context"""
