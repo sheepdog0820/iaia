@@ -3,7 +3,6 @@
 完全なユーザーフローを検証
 """
 
-from schedules import session_permissions
 from datetime import datetime, timedelta
 
 from django.contrib.auth import get_user_model
@@ -15,6 +14,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import CharacterSheet, Group, GroupMembership
 from scenarios.models import Scenario
+from schedules import session_permissions
 from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
 
 User = get_user_model()
@@ -213,17 +213,29 @@ class CharacterToSessionIntegrationTestCase(TestCase):
         # === Step 5: プレイヤーがセッションに参加登録 ===
         # プレイヤー1が参加
         participant1 = session_permissions.create_participant(
-            session=session, user=self.player1, role="player", character_name=char1.system_data.name, character_sheet=char1
+            session=session,
+            user=self.player1,
+            role="player",
+            character_name=char1.system_data.name,
+            character_sheet=char1,
         )
 
         # プレイヤー2が参加
         participant2 = session_permissions.create_participant(
-            session=session, user=self.player2, role="player", character_name=char2.system_data.name, character_sheet=char2
+            session=session,
+            user=self.player2,
+            role="player",
+            character_name=char2.system_data.name,
+            character_sheet=char2,
         )
 
         # プレイヤー3が参加（負傷状態で）
         participant3 = session_permissions.create_participant(
-            session=session, user=self.player3, role="player", character_name=char3.system_data.name, character_sheet=char3
+            session=session,
+            user=self.player3,
+            role="player",
+            character_name=char3.system_data.name,
+            character_sheet=char3,
         )
 
         # 参加状況の確認
@@ -366,7 +378,11 @@ class CharacterToSessionIntegrationTestCase(TestCase):
 
         # 発狂キャラクターでも参加可能
         participant = session_permissions.create_participant(
-            session=session, user=self.player2, role="player", character_name=character.system_data.name, character_sheet=character
+            session=session,
+            user=self.player2,
+            role="player",
+            character_name=character.system_data.name,
+            character_sheet=character,
         )
         self.assertEqual(participant.character_sheet.system_data.sanity_current, 0)
         self.assertEqual(participant.character_sheet.system_data.status, "insane")

@@ -15,9 +15,7 @@ class EditionImageApiTests(TestCase):
         self.sheet, self.detail = create_6th_character(user=self.user, name="Image detail")
 
     def test_set_main_and_delete_use_the_edition_image_table(self):
-        first = CharacterImage6th.objects.create(
-            character_sheet=self.detail, image="first.jpg", is_main=True, order=0
-        )
+        first = CharacterImage6th.objects.create(character_sheet=self.detail, image="first.jpg", is_main=True, order=0)
         second = CharacterImage6th.objects.create(
             character_sheet=self.detail, image="second.jpg", is_main=False, order=1
         )
@@ -31,9 +29,7 @@ class EditionImageApiTests(TestCase):
         self.assertFalse(first.is_main)
         self.assertTrue(second.is_main)
 
-        delete_url = reverse(
-            "character-images-detail", kwargs={"character_sheet_id": self.sheet.id, "pk": second.id}
-        )
+        delete_url = reverse("character-images-detail", kwargs={"character_sheet_id": self.sheet.id, "pk": second.id})
         self.assertEqual(self.client.delete(delete_url).status_code, 204)
         first.refresh_from_db()
         self.assertTrue(first.is_main)

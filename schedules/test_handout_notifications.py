@@ -6,7 +6,6 @@ TDD原則に従って、ハンドアウト配布通知機能のテストを作�
 対象プレイヤーに自動で通知が送信されます。
 """
 
-from schedules import session_permissions
 import unittest
 
 from django.core.exceptions import ValidationError
@@ -14,6 +13,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from accounts.models import CustomUser, Group
+from schedules import session_permissions
 from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
 from schedules.notifications import HandoutNotificationService
 
@@ -130,7 +130,9 @@ class HandoutNotificationServiceTest(TestCase):
             group=self.group,
         )
 
-        self.participant1 = session_permissions.create_participant(session=self.session, user=self.player1, role="player")
+        self.participant1 = session_permissions.create_participant(
+            session=self.session, user=self.player1, role="player"
+        )
 
     def test_notification_service_exists(self):
         """通知サービスクラスの存在テスト"""

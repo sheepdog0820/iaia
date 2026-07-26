@@ -2,7 +2,6 @@
 キャラクター作成、セッション作成、HOごとのキャラクター設定の統合テスト
 """
 
-from schedules import session_permissions
 import json
 from datetime import datetime, timedelta
 
@@ -14,6 +13,7 @@ from rest_framework.test import APITestCase
 
 from accounts.character_models import CharacterSheet, CharacterSheet6th, CharacterSkill6th
 from accounts.models import CustomUser, Group
+from schedules import session_permissions
 from schedules.models import HandoutInfo, SessionParticipant, SessionParticipantRole, TRPGSession
 
 
@@ -95,7 +95,9 @@ class CharacterSessionHOIntegrationTestCase(APITestCase):
             ]
 
             for skill_name, value in basic_skills:
-                CharacterSkill6th.objects.create(character_sheet=character.system_data, skill_name=skill_name, base_value=value)
+                CharacterSkill6th.objects.create(
+                    character_sheet=character.system_data, skill_name=skill_name, base_value=value
+                )
 
         # ===== STEP 2: GMがセッションを作成 =====
         self.client.force_authenticate(user=self.gm)

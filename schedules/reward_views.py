@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.character_models import GrowthRecord
+
 from . import session_permissions
 from .models import SessionParticipant, SessionParticipantRole, SessionReward, TRPGSession
 from .serializers import SessionRewardSerializer
@@ -41,11 +42,14 @@ class SessionRewardViewSet(viewsets.ModelViewSet):
             return queryset.filter(participant__session=session, participant__user=user)
 
         manager_session_ids = TRPGSession.objects.filter(
-            Q(gm=user) | Q(sessionparticipant__user=user, sessionparticipant__participant_roles__role=SessionParticipantRole.Role.GM)
+            Q(gm=user)
+            | Q(
+                sessionparticipant__user=user,
+                sessionparticipant__participant_roles__role=SessionParticipantRole.Role.GM,
+            )
         ).values_list("id", flat=True)
         return queryset.filter(
-            Q(participant__session_id__in=manager_session_ids)
-            | Q(participant__user=user)
+            Q(participant__session_id__in=manager_session_ids) | Q(participant__user=user)
         ).distinct()
 
     def create(self, request, *args, **kwargs):

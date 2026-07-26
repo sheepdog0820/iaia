@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Count, Q
@@ -152,10 +152,12 @@ class Command(BaseCommand):
             | Q(edition="7th", seventh_edition_data__is_active=True)
         )
         if participant.character_name:
-            by_name = list(base_query.filter(
-                Q(edition="6th", sixth_edition_data__name=participant.character_name)
-                | Q(edition="7th", seventh_edition_data__name=participant.character_name)
-            ).order_by("id"))
+            by_name = list(
+                base_query.filter(
+                    Q(edition="6th", sixth_edition_data__name=participant.character_name)
+                    | Q(edition="7th", seventh_edition_data__name=participant.character_name)
+                ).order_by("id")
+            )
             if len(by_name) == 1:
                 return by_name
             if len(by_name) > 1:

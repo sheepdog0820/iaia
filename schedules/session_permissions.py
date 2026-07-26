@@ -6,7 +6,6 @@ from accounts.models import GroupMembership
 
 from .models import SessionParticipant, SessionParticipantRole, TRPGSession
 
-
 MANAGEMENT_ROLES = (
     SessionParticipantRole.Role.OWNER.value,
     SessionParticipantRole.Role.MANAGER.value,

@@ -46,9 +46,7 @@ class CharacterVersionService:
             # The registry receives only registry-owned values.  Character
             # values are copied into the edition record below.
             registry_field_names = {field.name for field in CharacterSheet._meta.fields}
-            registry_data = {
-                key: value for key, value in detail_data.items() if key in registry_field_names
-            }
+            registry_data = {key: value for key, value in detail_data.items() if key in registry_field_names}
             registry_data.update(
                 user=source_character.user,
                 edition=source_character.edition,
@@ -98,11 +96,7 @@ class CharacterVersionService:
     @staticmethod
     def _system_data(data):
         excluded = {"id", "character_sheet", "parent_data"}
-        return {
-            field.name: getattr(data, field.name)
-            for field in data._meta.fields
-            if field.name not in excluded
-        }
+        return {field.name: getattr(data, field.name) for field in data._meta.fields if field.name not in excluded}
 
     @staticmethod
     def _parent_data_for(character):
@@ -123,8 +117,7 @@ class CharacterVersionService:
             data = {
                 field.name: getattr(obj, field.name)
                 for field in obj._meta.fields
-                if field.name not in {"id", "character_sheet"}
-                and not field.name.startswith("legacy_")
+                if field.name not in {"id", "character_sheet"} and not field.name.startswith("legacy_")
             }
             model.objects.create(character_sheet=target, **data)
 

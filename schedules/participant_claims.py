@@ -61,7 +61,11 @@ def create_participant_claim_request(
 ) -> tuple[ParticipantClaimRequest, bool]:
     if participant.user_id:
         raise ClaimRequestError("Participant is already linked to a user.", 409)
-    if SessionParticipant.objects.filter(session=participant.session, user=requested_by).exclude(pk=participant.pk).exists():
+    if (
+        SessionParticipant.objects.filter(session=participant.session, user=requested_by)
+        .exclude(pk=participant.pk)
+        .exists()
+    ):
         raise ClaimRequestError("User already participates in this session.", 409)
 
     existing = ParticipantClaimRequest.objects.filter(
@@ -125,14 +129,10 @@ def _claim_target_participants(claim: ParticipantClaimRequest):
     participants = []
     if claim.participant_id:
         participants.append(claim.participant)
-    identity = claim.participant_identity or (
-        claim.participant.participant_identity if claim.participant_id else None
-    )
+    identity = claim.participant_identity or (claim.participant.participant_identity if claim.participant_id else None)
     if identity:
         linked_participants = list(
-            identity.session_participations.select_related("session")
-            .select_for_update()
-            .filter(user__isnull=True)
+            identity.session_participations.select_related("session").select_for_update().filter(user__isnull=True)
         )
         by_id = {participant.pk: participant for participant in participants}
         for participant in linked_participants:

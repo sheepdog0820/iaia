@@ -19,6 +19,7 @@ def build_internal_character_url(request, character_sheet):
     path = reverse("character_detail", kwargs={"character_id": character_sheet.id})
     return request.build_absolute_uri(path) if request else path
 
+
 from .models import (  # 高度なスケジューリング機能（ISSUE-017）
     DatePoll,
     DatePollComment,
@@ -196,9 +197,7 @@ class SessionParticipantSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"character_sheet": "Guest participant cannot have character_sheet"})
 
         if character_sheet:
-            attrs["character_sheet_url"] = build_internal_character_url(
-                self.context.get("request"), character_sheet
-            )
+            attrs["character_sheet_url"] = build_internal_character_url(self.context.get("request"), character_sheet)
 
         if "guest_name" in attrs:
             attrs["guest_name"] = normalized_guest_name
@@ -811,9 +810,7 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
 
         # GMを除く参加者
         players = [
-            p
-            for p in participants
-            if not p.participant_roles.filter(role=SessionParticipantRole.Role.GM).exists()
+            p for p in participants if not p.participant_roles.filter(role=SessionParticipantRole.Role.GM).exists()
         ]
 
         if len(players) == 0:

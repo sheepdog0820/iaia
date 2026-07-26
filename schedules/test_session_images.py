@@ -2,7 +2,6 @@
 セッション画像機能のテスト
 """
 
-from schedules import session_permissions
 import io
 from datetime import timedelta
 
@@ -15,6 +14,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import CustomUser, Group
+from schedules import session_permissions
 from schedules.models import SessionImage, SessionParticipant, TRPGSession
 
 

@@ -1,4 +1,3 @@
-from schedules import session_permissions
 import json
 from datetime import timedelta
 
@@ -9,6 +8,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from schedules import session_permissions
 from schedules.models import SessionParticipant, TRPGSession
 
 from .character_models import CharacterSheet, CharacterSheet6th

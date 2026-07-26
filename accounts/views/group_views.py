@@ -270,15 +270,12 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
         except ClaimRequestError as exc:
             return Response({"detail": exc.message}, status=exc.status_code)
 
-        claim = (
-            ParticipantClaimRequest.objects.select_related(
-                "requested_by",
-                "reviewed_by",
-                "participant_identity",
-                "participant_identity__group",
-            )
-            .get(pk=claim.pk)
-        )
+        claim = ParticipantClaimRequest.objects.select_related(
+            "requested_by",
+            "reviewed_by",
+            "participant_identity",
+            "participant_identity__group",
+        ).get(pk=claim.pk)
         return Response(
             serialize_claim_request(claim),
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
@@ -368,10 +365,15 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
         results = []
         for membership in memberships:
             member = membership.user
-            character_queryset = CharacterSheet.objects.filter(user=member).filter(
-                Q(edition="6th", sixth_edition_data__is_active=True)
-                | Q(edition="7th", seventh_edition_data__is_active=True)
-            ).select_related("sixth_edition_data", "seventh_edition_data").order_by("-updated_at")
+            character_queryset = (
+                CharacterSheet.objects.filter(user=member)
+                .filter(
+                    Q(edition="6th", sixth_edition_data__is_active=True)
+                    | Q(edition="7th", seventh_edition_data__is_active=True)
+                )
+                .select_related("sixth_edition_data", "seventh_edition_data")
+                .order_by("-updated_at")
+            )
 
             if member.id != request.user.id:
                 character_queryset = character_queryset.filter(access_scope="public")
@@ -405,11 +407,7 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
         from schedules.models import TRPGSession
 
         group = self.get_object()
-        sessions = (
-            TRPGSession.objects.filter(group=group)
-            .select_related("gm", "created_by")
-            .order_by("-date", "-id")
-        )
+        sessions = TRPGSession.objects.filter(group=group).select_related("gm", "created_by").order_by("-date", "-id")
         session_count = sessions.count()
         is_member = GroupMembership.objects.filter(group=group, user=request.user).exists()
 

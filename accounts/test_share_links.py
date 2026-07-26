@@ -1,4 +1,3 @@
-from schedules import session_permissions
 from datetime import timedelta
 
 from django.urls import reverse
@@ -9,6 +8,7 @@ from rest_framework.test import APITestCase
 from accounts.character_models import CharacterSheet, CharacterSheet6th
 from accounts.models import CustomUser, Group, GroupMembership, ShareLink
 from scenarios.models import Scenario, ScenarioHandout
+from schedules import session_permissions
 from schedules.models import HandoutInfo, ParticipantIdentity, SessionParticipant, TRPGSession
 
 

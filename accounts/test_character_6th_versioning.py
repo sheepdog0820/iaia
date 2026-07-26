@@ -6,7 +6,8 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from .character_models import CharacterSheet, CharacterSheet6th, CharacterSkill6th as CharacterSkill
+from .character_models import CharacterSheet, CharacterSheet6th
+from .character_models import CharacterSkill6th as CharacterSkill
 
 User = get_user_model()
 

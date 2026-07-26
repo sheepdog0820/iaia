@@ -12,7 +12,6 @@ from accounts.models import Group, GroupMembership
 from schedules import session_permissions
 from schedules.models import SessionParticipant, SessionParticipantRole, TRPGSession
 
-
 User = get_user_model()
 
 
@@ -99,7 +98,9 @@ class UnifiedSessionRoleServiceTestCase(TestCase):
 class UnifiedSessionRoleApiTestCase(APITestCase):
     def setUp(self):
         self.owner = User.objects.create_user(username="api-role-owner", email="owner@example.com", password="pass")
-        self.manager = User.objects.create_user(username="api-role-manager", email="manager@example.com", password="pass")
+        self.manager = User.objects.create_user(
+            username="api-role-manager", email="manager@example.com", password="pass"
+        )
         self.gm = User.objects.create_user(username="api-role-gm", email="gm@example.com", password="pass")
         self.player = User.objects.create_user(username="api-role-player", email="player@example.com", password="pass")
         self.group_member = User.objects.create_user(

@@ -2,7 +2,6 @@
 統計データエクスポート機能のテストケース
 """
 
-from schedules import session_permissions
 import csv
 import json
 from contextlib import redirect_stdout
@@ -17,6 +16,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from scenarios.models import PlayHistory, Scenario
+from schedules import session_permissions
 from schedules.models import SessionParticipant, TRPGSession
 
 from .models import Group, GroupMembership

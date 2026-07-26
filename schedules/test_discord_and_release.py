@@ -1,4 +1,3 @@
-from schedules import session_permissions
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
@@ -8,6 +7,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import DiscordDelivery, Group, GroupDiscordSettings, GroupMembership
+from schedules import session_permissions
 from schedules.handout_release import evaluate_release_conditions
 from schedules.models import HandoutInfo, HandoutView, SessionParticipant, TRPGSession
 from schedules.serializers import HandoutInfoSerializer

@@ -30,6 +30,7 @@ from accounts.models import (
 from accounts.views.mixins import CharacterSheetAccessMixin
 from schedules.duration import effective_duration_expression
 
+from . import session_permissions
 from .models import (  # 高度なスケジューリング機能（ISSUE-017）
     DatePoll,
     DatePollComment,
@@ -72,7 +73,6 @@ from .serializers import (
     build_internal_character_url,
 )
 from .services import YouTubeService
-from . import session_permissions
 from .template_services import bind_slot_handouts_to_participant, clone_scenario_handouts_to_session
 
 
@@ -734,7 +734,9 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             if player_slot:
                 participant.player_slot = player_slot
             if "character_name" in request.data or character_sheet:
-                participant.character_name = character_sheet.system_data.name if character_sheet else request.data.get("character_name", "")
+                participant.character_name = (
+                    character_sheet.system_data.name if character_sheet else request.data.get("character_name", "")
+                )
             if "character_sheet_url" in request.data or character_sheet:
                 participant.character_sheet_url = character_sheet_url
             if "character_sheet_id" in request.data or "character_sheet" in request.data:
@@ -929,7 +931,12 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
 
                 raw_slot = item.get("player_slot")
                 player_slot = None
-                if SessionParticipantRole.Role.PLAYER.value in desired_roles and raw_slot not in [None, "", "null", "None"]:
+                if SessionParticipantRole.Role.PLAYER.value in desired_roles and raw_slot not in [
+                    None,
+                    "",
+                    "null",
+                    "None",
+                ]:
                     try:
                         player_slot = int(raw_slot)
                     except (TypeError, ValueError):
@@ -971,7 +978,9 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                     session=session,
                     user=target_user,
                     defaults={
-                        "player_slot": player_slot if SessionParticipantRole.Role.PLAYER.value in desired_roles else None,
+                        "player_slot": (
+                            player_slot if SessionParticipantRole.Role.PLAYER.value in desired_roles else None
+                        ),
                         "character_sheet": character_sheet,
                     },
                 )
@@ -1178,10 +1187,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         gm_role_session_id_set = set(gm_role_session_ids)
 
         sessions = (
-            TRPGSession.objects.filter(
-                Q(created_by=user)
-                | Q(id__in=participant_session_ids)
-            )
+            TRPGSession.objects.filter(Q(created_by=user) | Q(id__in=participant_session_ids))
             .select_related("gm", "group", "scenario")
             .prefetch_related("sessionparticipant_set__user")
             .distinct()
@@ -1456,7 +1462,9 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # セッションIDでフィルタリング可能
         session_id = self.request.query_params.get("session_id")
-        queryset = SessionParticipant.objects.select_related("session", "user", "character_sheet", "participant_identity")
+        queryset = SessionParticipant.objects.select_related(
+            "session", "user", "character_sheet", "participant_identity"
+        )
 
         if session_id:
             queryset = queryset.filter(session_id=session_id)
@@ -1514,7 +1522,12 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
 
             raw_slot = request.data.get("player_slot")
             slot_value = None
-            if SessionParticipantRole.Role.PLAYER.value in participant_roles and raw_slot not in [None, "", "null", "None"]:
+            if SessionParticipantRole.Role.PLAYER.value in participant_roles and raw_slot not in [
+                None,
+                "",
+                "null",
+                "None",
+            ]:
                 try:
                     slot_value = int(raw_slot)
                 except (TypeError, ValueError):
@@ -1810,7 +1823,11 @@ class HandoutInfoViewSet(viewsets.ModelViewSet):
             player_slot=OuterRef("assigned_player_slot"),
         )
         secret_session_ids = TRPGSession.objects.filter(
-            Q(gm=user) | Q(sessionparticipant__user=user, sessionparticipant__participant_roles__role=SessionParticipantRole.Role.GM)
+            Q(gm=user)
+            | Q(
+                sessionparticipant__user=user,
+                sessionparticipant__participant_roles__role=SessionParticipantRole.Role.GM,
+            )
         ).values_list("id", flat=True)
 
         return (
@@ -2390,10 +2407,7 @@ class CreateSessionView(APIView):
         if serializer.is_valid():
             # GMとして自動設定
             self_as_gm = str(
-                request.data.get("as_gm")
-                or request.data.get("self_as_gm")
-                or request.data.get("is_gm")
-                or ""
+                request.data.get("as_gm") or request.data.get("self_as_gm") or request.data.get("is_gm") or ""
             ).lower() in {"1", "true", "yes", "on"}
             session = serializer.save(
                 created_by=request.user,
@@ -2816,8 +2830,12 @@ class SessionDetailView(APIView):
             .select_related("user", "character_sheet", "participant_identity")
             .prefetch_related(
                 "participant_roles",
-                Prefetch("character_sheet__sixth_edition_data__skills", queryset=CharacterSkill6th.objects.order_by("id")),
-                Prefetch("character_sheet__seventh_edition_data__skills", queryset=CharacterSkill7th.objects.order_by("id")),
+                Prefetch(
+                    "character_sheet__sixth_edition_data__skills", queryset=CharacterSkill6th.objects.order_by("id")
+                ),
+                Prefetch(
+                    "character_sheet__seventh_edition_data__skills", queryset=CharacterSkill7th.objects.order_by("id")
+                ),
             )
         )
         guest_count = participants.filter(user__isnull=True).count()
@@ -3039,7 +3057,10 @@ class PublicSessionDetailView(APIView):
         player_participants = [
             participant
             for participant in participants
-            if participant.is_player_role and not participant.is_gm_role and not participant.is_owner_role and not participant.is_manager_role
+            if participant.is_player_role
+            and not participant.is_gm_role
+            and not participant.is_owner_role
+            and not participant.is_manager_role
         ]
         guest_count = participants.filter(user__isnull=True).count()
 
@@ -3300,7 +3321,10 @@ class SessionYouTubeLinkViewSet(viewsets.ModelViewSet):
         if session_id:
             # セッションへのアクセス権限確認
             session = get_object_or_404(TRPGSession, id=session_id)
-            if session_permissions.can_edit_session_basic(user, session) or session.participants.filter(id=user.id).exists():
+            if (
+                session_permissions.can_edit_session_basic(user, session)
+                or session.participants.filter(id=user.id).exists()
+            ):
                 return SessionYouTubeLink.objects.filter(session_id=session_id)
             else:
                 return SessionYouTubeLink.objects.none()

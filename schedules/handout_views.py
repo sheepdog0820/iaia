@@ -111,13 +111,14 @@ class HandoutManagementViewSet(viewsets.ModelViewSet):
         user = self.request.user
         # GMとしてのセッションのハンドアウト、または自分宛のハンドアウト
         secret_session_ids = TRPGSession.objects.filter(
-            Q(gm=user) | Q(sessionparticipant__user=user, sessionparticipant__participant_roles__role=SessionParticipantRole.Role.GM)
+            Q(gm=user)
+            | Q(
+                sessionparticipant__user=user,
+                sessionparticipant__participant_roles__role=SessionParticipantRole.Role.GM,
+            )
         ).values_list("id", flat=True)
         return (
-            HandoutInfo.objects.filter(
-                Q(session_id__in=secret_session_ids)
-                | Q(participant__user=user)
-            )
+            HandoutInfo.objects.filter(Q(session_id__in=secret_session_ids) | Q(participant__user=user))
             .distinct()
             .select_related("session", "participant__user")
         )

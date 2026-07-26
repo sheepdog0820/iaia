@@ -2,7 +2,6 @@
 
 from django.db import migrations
 
-
 LEGACY_CHARACTER_FIELDS = [
     "age",
     "app_value",
@@ -58,7 +57,8 @@ class Migration(migrations.Migration):
                     [
                         "DROP INDEX IF EXISTS accounts_charactersheet_parent_sheet_id_33a094b8",
                         "DROP INDEX IF EXISTS accounts_charactersheet_source_scenario_id_907c2455",
-                    ] + [
+                    ]
+                    + [
                         "ALTER TABLE accounts_charactersheet DROP COLUMN "
                         + {"parent_sheet": "parent_sheet_id", "source_scenario": "source_scenario_id"}.get(field, field)
                         for field in LEGACY_CHARACTER_FIELDS

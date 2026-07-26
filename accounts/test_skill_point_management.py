@@ -9,7 +9,8 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .character_models import CharacterSheet6th, CharacterSkill6th as CharacterSkill
+from .character_models import CharacterSheet6th
+from .character_models import CharacterSkill6th as CharacterSkill
 from .models import CharacterSheet
 from .test_character_factories import create_6th_character
 
@@ -183,7 +184,9 @@ class SkillPointManagementAPITestCase(APITestCase):
 
     def test_get_skill_points_summary(self):
         """技能ポイントサマリー取得APIテスト"""
-        response = self.client.get(f"/accounts/character-sheets/{self.character.character_sheet_id}/skill-points-summary/")
+        response = self.client.get(
+            f"/accounts/character-sheets/{self.character.character_sheet_id}/skill-points-summary/"
+        )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["total_occupation_points"], 1200)
@@ -201,7 +204,9 @@ class SkillPointManagementAPITestCase(APITestCase):
         allocation_data = {"skill_id": skill.id, "occupation_points": 40, "interest_points": 15}
 
         response = self.client.post(
-            f"/accounts/character-sheets/{self.character.character_sheet_id}/allocate-skill-points/", allocation_data, format="json"
+            f"/accounts/character-sheets/{self.character.character_sheet_id}/allocate-skill-points/",
+            allocation_data,
+            format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -246,7 +251,9 @@ class SkillPointManagementAPITestCase(APITestCase):
         allocation_data = {"skill_id": skill.id, "occupation_points": 1250}  # 総ポイント1200を超える
 
         response = self.client.post(
-            f"/accounts/character-sheets/{self.character.character_sheet_id}/allocate-skill-points/", allocation_data, format="json"
+            f"/accounts/character-sheets/{self.character.character_sheet_id}/allocate-skill-points/",
+            allocation_data,
+            format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -259,7 +266,9 @@ class SkillPointManagementAPITestCase(APITestCase):
             character_sheet=self.character, skill_name="図書館", base_value=25, occupation_points=40, interest_points=15
         )
 
-        response = self.client.post(f"/accounts/character-sheets/{self.character.character_sheet_id}/reset-skill-points/")
+        response = self.client.post(
+            f"/accounts/character-sheets/{self.character.character_sheet_id}/reset-skill-points/"
+        )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 

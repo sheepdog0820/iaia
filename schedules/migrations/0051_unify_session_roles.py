@@ -1,6 +1,5 @@
 from django.db import migrations, models
 
-
 ROLE_PRIORITY = {
     "owner": 4,
     "manager": 3,

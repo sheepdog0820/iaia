@@ -164,9 +164,7 @@ class Command(BaseCommand):
         target_sessions.delete()
 
         # 探索者（ユーザー単位で削除するのは危険なので、名前プレフィックスで対象のみ）
-        flow_characters = CharacterSheet.objects.filter(
-            sixth_edition_data__name__startswith="【FLOWTEST】"
-        )
+        flow_characters = CharacterSheet.objects.filter(sixth_edition_data__name__startswith="【FLOWTEST】")
         flow_characters.delete()
 
         # シナリオ/グループ

@@ -14,7 +14,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .character_models import CharacterSheet, CharacterSheet6th, CharacterSkill6th as CharacterSkill
+from .character_models import CharacterSheet, CharacterSheet6th
+from .character_models import CharacterSkill6th as CharacterSkill
 from .test_character_factories import create_6th_character
 
 User = get_user_model()

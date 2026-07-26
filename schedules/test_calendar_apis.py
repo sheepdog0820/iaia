@@ -2,7 +2,6 @@
 カレンダー統合API単体テスト（ISSUE-008）
 """
 
-from schedules import session_permissions
 import json
 from datetime import datetime, timedelta
 
@@ -13,6 +12,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import CustomUser, Group
+from schedules import session_permissions
 from schedules.models import SessionParticipant, TRPGSession
 
 
@@ -316,14 +316,8 @@ class SessionAggregationViewTestCase(APITestCase):
         response = self.client.get(reverse("session_aggregation"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        gm_session_ids = {
-            item["session_id"]
-            for item in response.data["aggregations"]["by_role"]["as_gm"]
-        }
-        player_session_ids = {
-            item["session_id"]
-            for item in response.data["aggregations"]["by_role"]["as_player"]
-        }
+        gm_session_ids = {item["session_id"] for item in response.data["aggregations"]["by_role"]["as_gm"]}
+        player_session_ids = {item["session_id"] for item in response.data["aggregations"]["by_role"]["as_player"]}
         self.assertIn(role_session.id, gm_session_ids)
         self.assertNotIn(role_session.id, player_session_ids)
 

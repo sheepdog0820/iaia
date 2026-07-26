@@ -3,7 +3,6 @@
 キャラクターシートとセッション機能の連携を検証
 """
 
-from schedules import session_permissions
 import json
 from datetime import datetime, timedelta
 
@@ -16,6 +15,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import CharacterSheet, CharacterSheet6th, Group, GroupMembership
 from scenarios.models import PlayHistory, Scenario
+from schedules import session_permissions
 from schedules.models import HandoutInfo, SessionParticipant, SessionParticipantRole, TRPGSession
 
 User = get_user_model()
@@ -142,7 +142,11 @@ class SessionCharacterIntegrationTestCase(TestCase):
 
         self.client.force_authenticate(user=self.player1)
 
-        participant_data = {"session": session_id, "character_name": self.char1.system_data.name, "comment": "参加希望です"}
+        participant_data = {
+            "session": session_id,
+            "character_name": self.char1.system_data.name,
+            "comment": "参加希望です",
+        }
 
         response = self.client.post("/api/schedules/participants/", participant_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -151,7 +155,11 @@ class SessionCharacterIntegrationTestCase(TestCase):
         # 3. プレイヤー2も参加申請
         self.client.force_authenticate(user=self.player2)
 
-        participant_data = {"session": session_id, "character_name": self.char2.system_data.name, "comment": "医師として参加します"}
+        participant_data = {
+            "session": session_id,
+            "character_name": self.char2.system_data.name,
+            "comment": "医師として参加します",
+        }
 
         response = self.client.post("/api/schedules/participants/", participant_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -375,7 +383,10 @@ class RealtimeStatusUpdateTestCase(TestCase):
         )
 
         self.participant = session_permissions.create_participant(
-            session=self.session, user=self.player, character_name=self.character.system_data.name, character_sheet=self.character
+            session=self.session,
+            user=self.player,
+            character_name=self.character.system_data.name,
+            character_sheet=self.character,
         )
 
 
@@ -712,7 +723,9 @@ class CrossUserCollaborationTestCase(TestCase):
                 sanity_current=80,
             )
 
-            participant = session_permissions.create_participant(session=session, user=player, character_name=char.system_data.name)
+            participant = session_permissions.create_participant(
+                session=session, user=player, character_name=char.system_data.name
+            )
             participants.append(participant)
 
         # GMが秘密情報を配布
@@ -807,7 +820,9 @@ class CrossUserCollaborationTestCase(TestCase):
             sanity_current=80,
         )
 
-        participant = session_permissions.create_participant(session=session, user=player, character_name=char.system_data.name)
+        participant = session_permissions.create_participant(
+            session=session, user=player, character_name=char.system_data.name
+        )
 
         # サブGMがセッション情報を確認できることを確認
         # visibility='public'なのでアクセス可能なはず
@@ -929,7 +944,9 @@ class SessionCharacterSyncTestCase(TestCase):
                 sanity_current=50 + i * 5,
             )
 
-            participant = session_permissions.create_participant(session=session, user=player, character_name=char.system_data.name)
+            participant = session_permissions.create_participant(
+                session=session, user=player, character_name=char.system_data.name
+            )
             participants.append(participant)
 
         # グループにメンバーを追加

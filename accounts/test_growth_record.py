@@ -134,7 +134,11 @@ class SkillGrowthRecordModelTestCase(TestCase):
 
         # 技能を作成
         self.skill = CharacterSkill.objects.create(
-            character_sheet=self.character.system_data, skill_name="目星", base_value=25, occupation_points=40, current_value=65
+            character_sheet=self.character.system_data,
+            skill_name="目星",
+            base_value=25,
+            occupation_points=40,
+            current_value=65,
         )
 
     def test_skill_growth_record_creation(self):
@@ -283,7 +287,11 @@ class GrowthRecordAPITestCase(APITestCase):
 
         # 技能を作成
         skill = CharacterSkill.objects.create(
-            character_sheet=self.character.system_data, skill_name="目星", base_value=25, occupation_points=40, current_value=65
+            character_sheet=self.character.system_data,
+            skill_name="目星",
+            base_value=25,
+            occupation_points=40,
+            current_value=65,
         )
 
         skill_growth_data = {
@@ -362,7 +370,11 @@ class GrowthRecordIntegrationTestCase(TestCase):
         """完全なセッション成長ワークフローのテスト"""
         # 1. セッション前の技能値を記録
         initial_skill = CharacterSkill.objects.create(
-            character_sheet=self.character.system_data, skill_name="目星", base_value=25, occupation_points=40, current_value=65
+            character_sheet=self.character.system_data,
+            skill_name="目星",
+            base_value=25,
+            occupation_points=40,
+            current_value=65,
         )
 
         # 2. セッション記録を作成

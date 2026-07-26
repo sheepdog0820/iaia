@@ -5,7 +5,8 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from .character_models import CharacterSheet, CharacterSkill6th as CharacterSkill
+from .character_models import CharacterSheet
+from .character_models import CharacterSkill6th as CharacterSkill
 from .test_character_factories import create_6th_character
 
 User = get_user_model()
@@ -129,7 +130,10 @@ class BonusPointsTestCase(TestCase):
 
         for category in valid_categories:
             skill = CharacterSkill.objects.create(
-                character_sheet=self.character.system_data, skill_name=f"テスト技能_{category}", category=category, base_value=10
+                character_sheet=self.character.system_data,
+                skill_name=f"テスト技能_{category}",
+                category=category,
+                base_value=10,
             )
             self.assertEqual(skill.category, category)
 

@@ -1,4 +1,3 @@
-from schedules import session_permissions
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -7,6 +6,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIRequestFactory, APITestCase
 
+from schedules import session_permissions
 from schedules.models import HandoutAttachment, HandoutInfo, HandoutNotification, SessionParticipant, TRPGSession
 from schedules.notification_serializers import HandoutNotificationSerializer as LegacyHandoutNotificationSerializer
 from schedules.serializers import HandoutNotificationSerializer

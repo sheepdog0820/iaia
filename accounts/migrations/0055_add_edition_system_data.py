@@ -4,15 +4,40 @@ import django.core.validators
 import django.db.models.deletion
 from django.db import migrations, models
 
-
 SYSTEM_DATA_FIELDS = (
-    "name_kana", "name", "player_name", "status", "age", "gender", "occupation",
-    "birthplace", "residence", "recommended_skills", "occupation_skills",
-    "source_scenario_id", "source_scenario_title", "source_scenario_game_system",
-    "str_value", "con_value", "pow_value", "dex_value", "app_value", "siz_value",
-    "int_value", "edu_value", "occupation_multiplier", "occupation_point_method",
-    "hit_points_max", "hit_points_current", "magic_points_max", "magic_points_current",
-    "sanity_starting", "sanity_max", "sanity_current", "notes", "secret_ho_info",
+    "name_kana",
+    "name",
+    "player_name",
+    "status",
+    "age",
+    "gender",
+    "occupation",
+    "birthplace",
+    "residence",
+    "recommended_skills",
+    "occupation_skills",
+    "source_scenario_id",
+    "source_scenario_title",
+    "source_scenario_game_system",
+    "str_value",
+    "con_value",
+    "pow_value",
+    "dex_value",
+    "app_value",
+    "siz_value",
+    "int_value",
+    "edu_value",
+    "occupation_multiplier",
+    "occupation_point_method",
+    "hit_points_max",
+    "hit_points_current",
+    "magic_points_max",
+    "magic_points_current",
+    "sanity_starting",
+    "sanity_max",
+    "sanity_current",
+    "notes",
+    "secret_ho_info",
 )
 
 

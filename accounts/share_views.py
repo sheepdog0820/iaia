@@ -453,8 +453,12 @@ class SharedSessionDetailView(APIView):
 def _shared_character_or_404(token, request):
     share_link = _active_share_or_none(token, ShareLink.ResourceType.CHARACTER, request)
     queryset = CharacterSheet.objects.prefetch_related(
-        "sixth_edition_data__skills", "sixth_edition_data__equipment", "sixth_edition_data__images",
-        "seventh_edition_data__skills", "seventh_edition_data__equipment", "seventh_edition_data__images",
+        "sixth_edition_data__skills",
+        "sixth_edition_data__equipment",
+        "sixth_edition_data__images",
+        "seventh_edition_data__skills",
+        "seventh_edition_data__equipment",
+        "seventh_edition_data__images",
     )
     if share_link:
         return get_object_or_404(
@@ -475,8 +479,10 @@ class SharedCharacterDetailView(APIView):
     def get(self, request, token):
         share_link = _active_share_or_none(token, ShareLink.ResourceType.CHARACTER, request)
         queryset = CharacterSheet.objects.prefetch_related(
-            "sixth_edition_data__skills", "sixth_edition_data__equipment",
-            "seventh_edition_data__skills", "seventh_edition_data__equipment",
+            "sixth_edition_data__skills",
+            "sixth_edition_data__equipment",
+            "seventh_edition_data__skills",
+            "seventh_edition_data__equipment",
         )
         if share_link:
             character = get_object_or_404(
@@ -585,10 +591,16 @@ class FixedSharedCharacterView(APIView):
     def get(self, request, share_token):
         character = get_object_or_404(
             CharacterSheet.objects.select_related(
-                "sixth_edition_data", "seventh_edition_data", "user",
+                "sixth_edition_data",
+                "seventh_edition_data",
+                "user",
             ).prefetch_related(
-                "sixth_edition_data__skills", "sixth_edition_data__equipment", "sixth_edition_data__images",
-                "seventh_edition_data__skills", "seventh_edition_data__equipment", "seventh_edition_data__images",
+                "sixth_edition_data__skills",
+                "sixth_edition_data__equipment",
+                "sixth_edition_data__images",
+                "seventh_edition_data__skills",
+                "seventh_edition_data__equipment",
+                "seventh_edition_data__images",
             ),
             share_token=share_token,
             access_scope__in=("link", "public"),

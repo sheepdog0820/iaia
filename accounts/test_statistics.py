@@ -1,4 +1,3 @@
-from schedules import session_permissions
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -8,6 +7,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from scenarios.models import PlayHistory, Scenario
+from schedules import session_permissions
 from schedules.models import SessionParticipant, TRPGSession
 
 from .models import CustomUser, Group, GroupMembership

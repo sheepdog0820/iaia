@@ -2,7 +2,6 @@
 セッション通知機能単体テスト（ISSUE-013）
 """
 
-from schedules import session_permissions
 import json
 from datetime import datetime, timedelta
 
@@ -13,6 +12,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import CustomUser, Group
+from schedules import session_permissions
 from schedules.models import HandoutNotification, SessionParticipant, TRPGSession, UserNotificationPreferences
 from schedules.notifications import SessionNotificationService
 

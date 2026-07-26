@@ -21,7 +21,6 @@ from schedules.models import (
     TRPGSession,
 )
 
-
 User = get_user_model()
 
 
@@ -443,11 +442,9 @@ class SessionRoleDataMigrationTestCase(TransactionTestCase):
     migrate_to = "0051_unify_session_roles"
 
     def _targets_for(self, schedules_migration):
-        return [
-            target
-            for target in self.executor.loader.graph.leaf_nodes()
-            if target[0] != "schedules"
-        ] + [("schedules", schedules_migration)]
+        return [target for target in self.executor.loader.graph.leaf_nodes() if target[0] != "schedules"] + [
+            ("schedules", schedules_migration)
+        ]
 
     def setUp(self):
         super().setUp()

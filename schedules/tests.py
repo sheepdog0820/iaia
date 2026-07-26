@@ -1,4 +1,3 @@
-from schedules import session_permissions
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -6,6 +5,7 @@ from django.test import Client, TestCase
 from django.utils import timezone
 
 from accounts.models import Group
+from schedules import session_permissions
 
 from .models import HandoutInfo, SessionParticipant, TRPGSession
 

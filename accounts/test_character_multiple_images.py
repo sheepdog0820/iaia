@@ -15,7 +15,8 @@ from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.models import CharacterImage6th as CharacterImage, CharacterSheet
+from accounts.models import CharacterImage6th as CharacterImage
+from accounts.models import CharacterSheet
 from accounts.test_character_factories import create_6th_character
 
 User = get_user_model()
@@ -229,7 +230,9 @@ class CharacterImageAPITestCase(APITestCase):
         # 複数の画像を作成
         for i in range(3):
             image = self.create_test_image(f"test{i}.png")
-            CharacterImage.objects.create(character_sheet=self.character.system_data, image=image, order=i, is_main=(i == 0))
+            CharacterImage.objects.create(
+                character_sheet=self.character.system_data, image=image, order=i, is_main=(i == 0)
+            )
 
         url = reverse("character-image-list", kwargs={"character_id": self.character.id})
         response = self.client.get(url)
@@ -405,7 +408,9 @@ class CharacterImageIntegrationTestCase(TestCase):
         response = self.client.post(reverse("character_create_6th"), data=form_data, follow=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(CharacterSheet.objects.by_system_name("画像上限テスト", user=self.user, edition="6th").exists())
+        self.assertFalse(
+            CharacterSheet.objects.by_system_name("画像上限テスト", user=self.user, edition="6th").exists()
+        )
         self.assertIn("最大2枚", str(response.context["form"].errors))
 
     def test_character_create_templates_allow_multiple_images_with_role_limits(self):
@@ -450,7 +455,10 @@ class CharacterImageIntegrationTestCase(TestCase):
 
         for i in range(3):
             CharacterImage.objects.create(
-                character_sheet=character.system_data, image=self.create_test_image(f"test{i}.png"), order=i, is_main=(i == 0)
+                character_sheet=character.system_data,
+                image=self.create_test_image(f"test{i}.png"),
+                order=i,
+                is_main=(i == 0),
             )
 
         # 詳細画面を表示
@@ -481,7 +489,9 @@ class CharacterImageIntegrationTestCase(TestCase):
             edu_value=75,
         )
 
-        CharacterImage.objects.create(character_sheet=character.system_data, image=self.create_test_image(), is_main=True)
+        CharacterImage.objects.create(
+            character_sheet=character.system_data, image=self.create_test_image(), is_main=True
+        )
 
         # 編集画面を表示
         response = self.client.get(f"{reverse('character_create_6th')}?id={character.pk}")

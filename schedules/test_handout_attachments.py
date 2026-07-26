@@ -5,7 +5,6 @@ TDD原則に従って、ハンドアウト添付ファイル機能のテスト�
 この機能により、GMはハンドアウトに画像、PDF、音声、動画ファイルを添付できます。
 """
 
-from schedules import session_permissions
 import io
 import os
 import tempfile
@@ -18,6 +17,7 @@ from django.utils import timezone
 from PIL import Image
 
 from accounts.models import CustomUser, Group
+from schedules import session_permissions
 from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
 
 
@@ -165,7 +165,9 @@ class HandoutAttachmentServiceTest(TestCase):
             group=self.group,
         )
 
-        self.participant1 = session_permissions.create_participant(session=self.session, user=self.player1, role="player")
+        self.participant1 = session_permissions.create_participant(
+            session=self.session, user=self.player1, role="player"
+        )
 
         self.handout = HandoutInfo.objects.create(
             session=self.session,

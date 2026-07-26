@@ -7,7 +7,8 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .character_models import CharacterSheet, CharacterSkill6th as CharacterSkill
+from .character_models import CharacterSheet
+from .character_models import CharacterSkill6th as CharacterSkill
 from .test_character_factories import create_6th_character
 
 User = get_user_model()
@@ -71,7 +72,9 @@ class CustomSkillAdditionModelTestCase(TestCase):
         """カスタム技能名のバリデーションテスト"""
         # 技能名が空文字の場合は作成できない
         with self.assertRaises(Exception):
-            CharacterSkill.objects.create(character_sheet=self.character.system_data, skill_name="", base_value=10)  # 空文字
+            CharacterSkill.objects.create(
+                character_sheet=self.character.system_data, skill_name="", base_value=10
+            )  # 空文字
 
     def test_custom_skill_duplicate_names_allowed(self):
         """同じキャラクターでも異なる専門分野なら重複技能名を許可"""
@@ -331,7 +334,9 @@ class CustomSkillValidationTestCase(TestCase):
         # 長すぎる技能名
         long_skill_name = "非常に長い技能名" * 10  # 50文字程度
 
-        skill = CharacterSkill.objects.create(character_sheet=self.character.system_data, skill_name=long_skill_name, base_value=5)
+        skill = CharacterSkill.objects.create(
+            character_sheet=self.character.system_data, skill_name=long_skill_name, base_value=5
+        )
 
         # とりあえず作成は成功する（後でバリデーション追加予定）
         self.assertEqual(skill.skill_name, long_skill_name)
@@ -355,7 +360,9 @@ class CustomSkillValidationTestCase(TestCase):
         ]
 
         for skill_name in specialization_patterns:
-            skill = CharacterSkill.objects.create(character_sheet=self.character.system_data, skill_name=skill_name, base_value=5)
+            skill = CharacterSkill.objects.create(
+                character_sheet=self.character.system_data, skill_name=skill_name, base_value=5
+            )
 
             # 専門分野が（）で囲まれていることを確認
             self.assertTrue("（" in skill_name and "）" in skill_name)

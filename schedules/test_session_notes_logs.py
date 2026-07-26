@@ -1,4 +1,3 @@
-from schedules import session_permissions
 from datetime import timedelta
 
 from django.test import TestCase
@@ -7,6 +6,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import CustomUser, Group
+from schedules import session_permissions
 from schedules.models import SessionParticipant, TRPGSession
 
 

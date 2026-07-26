@@ -11,7 +11,8 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .character_models import CharacterEquipment6th as CharacterEquipment, CharacterSheet6th
+from .character_models import CharacterEquipment6th as CharacterEquipment
+from .character_models import CharacterSheet6th
 from .models import CharacterSheet
 from .test_character_factories import create_6th_character
 

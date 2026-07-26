@@ -1,4 +1,3 @@
-from schedules import session_permissions
 import uuid
 from datetime import timedelta
 
@@ -13,6 +12,7 @@ from accounts.character_models import CharacterSheet7th
 from accounts.models import CharacterSheet
 from accounts.models import Group as CustomGroup
 from scenarios.models import Scenario, ScenarioHandout, ScenarioHandoutRecommendedSkill
+from schedules import session_permissions
 
 from .models import HandoutInfo, SessionInvitation, SessionParticipant, SessionParticipantRole, TRPGSession
 
@@ -968,8 +968,12 @@ class ScheduleAPITestCase(APITestCase):
         self.assertTrue(SessionParticipant.objects.filter(id=participant.id).exists())
 
     def test_session_detail_does_not_show_remove_button_for_main_gm(self):
-        main_gm_participant = session_permissions.create_participant(session=self.session, user=self.user1, role="player")
-        removable_participant = session_permissions.create_participant(session=self.session, user=self.user2, role="player")
+        main_gm_participant = session_permissions.create_participant(
+            session=self.session, user=self.user1, role="player"
+        )
+        removable_participant = session_permissions.create_participant(
+            session=self.session, user=self.user2, role="player"
+        )
 
         self.client.force_authenticate(user=self.user1)
         response = self.client.get(

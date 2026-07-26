@@ -9,7 +9,8 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .character_models import CharacterEquipment6th as CharacterEquipment, CharacterSheet6th
+from .character_models import CharacterEquipment6th as CharacterEquipment
+from .character_models import CharacterSheet6th
 from .models import CharacterSheet
 from .test_character_factories import create_6th_character
 
@@ -121,7 +122,10 @@ class WeaponManagementTestCase(TestCase):
         # 攻撃回数の範囲チェック
         with self.assertRaises(ValidationError):
             weapon = CharacterEquipment(
-                character_sheet=self.character.system_data, item_type="weapon", name="テスト武器", attacks_per_round=-1  # 負の値
+                character_sheet=self.character.system_data,
+                item_type="weapon",
+                name="テスト武器",
+                attacks_per_round=-1,  # 負の値
             )
             weapon.full_clean()
 
@@ -210,7 +214,10 @@ class ArmorManagementTestCase(TestCase):
         # 防護点の範囲チェック
         with self.assertRaises(ValidationError):
             armor = CharacterEquipment(
-                character_sheet=self.character.system_data, item_type="armor", name="テスト防具", armor_points=-1  # 負の値
+                character_sheet=self.character.system_data,
+                item_type="armor",
+                name="テスト防具",
+                armor_points=-1,  # 負の値
             )
             armor.full_clean()
 
@@ -223,7 +230,9 @@ class ArmorManagementTestCase(TestCase):
         ]
 
         for armor_info in armor_data:
-            CharacterEquipment.objects.create(character_sheet=self.character.system_data, item_type="armor", **armor_info)
+            CharacterEquipment.objects.create(
+                character_sheet=self.character.system_data, item_type="armor", **armor_info
+            )
 
         armors = CharacterEquipment.objects.filter(character_sheet=self.character.system_data, item_type="armor")
         self.assertEqual(armors.count(), 3)
@@ -345,7 +354,11 @@ class CombatDataAPITestCase(APITestCase):
     def test_update_weapon_api(self):
         """武器更新APIテスト"""
         weapon = CharacterEquipment.objects.create(
-            character_sheet=self.character.system_data, item_type="weapon", name=".38口径リボルバー", damage="1D10", ammo=6
+            character_sheet=self.character.system_data,
+            item_type="weapon",
+            name=".38口径リボルバー",
+            damage="1D10",
+            ammo=6,
         )
 
         update_data = {"ammo": 5}  # 弾数を更新

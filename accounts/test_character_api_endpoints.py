@@ -76,7 +76,9 @@ class CharacterAPIEndpointsTest(TestCase):
 
     def test_allocate_skill_points_endpoint(self):
         """Test allocate-skill-points endpoint"""
-        skill = CharacterSkill6th.objects.create(character_sheet=self.character.system_data, skill_name="医学", base_value=5)
+        skill = CharacterSkill6th.objects.create(
+            character_sheet=self.character.system_data, skill_name="医学", base_value=5
+        )
         response = self.client.post(
             f"/api/accounts/character-sheets/{self.character.id}/allocate_skill_points/",
             {"skill_id": skill.id, "occupation_points": 50, "interest_points": 10},
@@ -91,10 +93,14 @@ class CharacterAPIEndpointsTest(TestCase):
 
     def test_skill_update_logs_character_and_skill_ids_when_save_fails(self):
         """Unexpected skill save failures must retain enough context for CloudWatch diagnosis."""
-        skill = CharacterSkill6th.objects.create(character_sheet=self.character.system_data, skill_name="運転（自動車）", base_value=20)
+        skill = CharacterSkill6th.objects.create(
+            character_sheet=self.character.system_data, skill_name="運転（自動車）", base_value=20
+        )
         self.client.raise_request_exception = False
 
-        with patch("accounts.views.character_views.CharacterSkillSerializer.save", side_effect=RuntimeError("save failed")):
+        with patch(
+            "accounts.views.character_views.CharacterSkillSerializer.save", side_effect=RuntimeError("save failed")
+        ):
             with self.assertLogs("accounts.views.character_views", level="ERROR") as logs:
                 response = self.client.patch(
                     f"/accounts/character-sheets/{self.character.id}/skills/{skill.id}/",
@@ -114,8 +120,12 @@ class CharacterAPIEndpointsTest(TestCase):
 
     def test_batch_allocate_skill_points_endpoint(self):
         """Test batch-allocate-skill-points endpoint"""
-        skill_a = CharacterSkill6th.objects.create(character_sheet=self.character.system_data, skill_name="Pistol", base_value=20)
-        skill_b = CharacterSkill6th.objects.create(character_sheet=self.character.system_data, skill_name="Dodge", base_value=20)
+        skill_a = CharacterSkill6th.objects.create(
+            character_sheet=self.character.system_data, skill_name="Pistol", base_value=20
+        )
+        skill_b = CharacterSkill6th.objects.create(
+            character_sheet=self.character.system_data, skill_name="Dodge", base_value=20
+        )
 
         response = self.client.post(
             f"/api/accounts/character-sheets/{self.character.id}/batch_allocate_skill_points/",

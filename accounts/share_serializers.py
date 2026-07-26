@@ -2,7 +2,13 @@ from django.db.models import Q
 from rest_framework import serializers
 
 from accounts.character_image_utils import get_character_preview_image_url
-from accounts.character_models import CharacterEquipment6th, CharacterSheet, CharacterSheet6th, CharacterSheet7th, CharacterSkill6th
+from accounts.character_models import (
+    CharacterEquipment6th,
+    CharacterSheet,
+    CharacterSheet6th,
+    CharacterSheet7th,
+    CharacterSkill6th,
+)
 from accounts.models import ShareLink
 from accounts.skill_edition import incompatible_basic_skill_names
 from scenarios.models import Scenario, ScenarioHandout
@@ -193,11 +199,30 @@ class SharedCharacterSheetSerializer(serializers.ModelSerializer):
             return data
 
         fields = (
-            "name", "player_name", "status", "age", "gender", "occupation", "birthplace",
-            "residence", "recommended_skills", "str_value", "con_value", "pow_value", "dex_value",
-            "app_value", "siz_value", "int_value", "edu_value", "hit_points_max",
-            "hit_points_current", "magic_points_max", "magic_points_current", "sanity_starting",
-            "sanity_max", "sanity_current",
+            "name",
+            "player_name",
+            "status",
+            "age",
+            "gender",
+            "occupation",
+            "birthplace",
+            "residence",
+            "recommended_skills",
+            "str_value",
+            "con_value",
+            "pow_value",
+            "dex_value",
+            "app_value",
+            "siz_value",
+            "int_value",
+            "edu_value",
+            "hit_points_max",
+            "hit_points_current",
+            "magic_points_max",
+            "magic_points_current",
+            "sanity_starting",
+            "sanity_max",
+            "sanity_current",
         )
         for field in fields:
             data[field] = getattr(system_data, field)

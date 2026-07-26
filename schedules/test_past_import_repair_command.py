@@ -1,4 +1,3 @@
-from schedules import session_permissions
 from io import StringIO
 
 from django.core.management import call_command
@@ -8,6 +7,7 @@ from django.utils import timezone
 from accounts.character_models import CharacterSheet, CharacterSheet6th
 from accounts.models import Group
 from scenarios.models import Scenario
+from schedules import session_permissions
 from schedules.models import SessionParticipant, TRPGSession
 
 

@@ -2,7 +2,6 @@
 セッション複数日程 (SessionOccurrence) のAPI/同期テスト
 """
 
-from schedules import session_permissions
 from datetime import timedelta
 
 from django.utils import timezone
@@ -10,6 +9,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import CustomUser, Group
+from schedules import session_permissions
 from schedules.models import SessionOccurrence, SessionParticipant, TRPGSession
 
 

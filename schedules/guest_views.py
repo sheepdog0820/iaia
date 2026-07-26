@@ -11,7 +11,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import session_permissions
-from .models import GuestClaimAudit, GuestInvitation, ParticipantClaimRequest, SessionParticipant, SessionParticipantRole, TRPGSession
+from .models import (
+    GuestClaimAudit,
+    GuestInvitation,
+    ParticipantClaimRequest,
+    SessionParticipant,
+    SessionParticipantRole,
+    TRPGSession,
+)
 from .participant_claims import (
     ClaimRequestError,
     approve_claim_request,

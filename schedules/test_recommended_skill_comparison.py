@@ -3,8 +3,8 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import CharacterSheet
-from accounts.test_character_factories import create_character_with_system_data
 from accounts.models import Group as CustomGroup
+from accounts.test_character_factories import create_character_with_system_data
 from scenarios.models import Scenario
 
 from . import session_permissions

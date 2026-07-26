@@ -3,7 +3,6 @@
 作成、参照、編集、バージョン管理の一連の流れをテスト
 """
 
-from schedules import session_permissions
 import io
 import json
 import math
@@ -17,6 +16,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import CharacterSheet, CharacterSheet6th, CharacterSheet7th
+from schedules import session_permissions
 
 User = get_user_model()
 

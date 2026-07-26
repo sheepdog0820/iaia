@@ -2,7 +2,6 @@
 セッションYouTubeリンク機能のテスト
 """
 
-from schedules import session_permissions
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
@@ -14,6 +13,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import CustomUser, Group
+from schedules import session_permissions
 from schedules.models import SessionParticipant, TRPGSession
 
 

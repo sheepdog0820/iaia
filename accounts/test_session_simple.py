@@ -3,7 +3,6 @@
 基本的なセッションとキャラクターの連携を確認
 """
 
-from schedules import session_permissions
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -13,6 +12,7 @@ from django.utils import timezone
 from accounts.character_models import CharacterSheet6th
 from accounts.models import CharacterSheet, Group, GroupMembership
 from scenarios.models import Scenario
+from schedules import session_permissions
 from schedules.models import SessionParticipant, TRPGSession
 
 User = get_user_model()
@@ -163,9 +163,13 @@ class SimpleSessionCharacterTest(TestCase):
         )
 
         # 両方のキャラクターが参加
-        session_permissions.create_participant(session=session, user=self.player, character_name=self.character.system_data.name)
+        session_permissions.create_participant(
+            session=session, user=self.player, character_name=self.character.system_data.name
+        )
 
-        session_permissions.create_participant(session=session, user=player2, character_name=character2.system_data.name)
+        session_permissions.create_participant(
+            session=session, user=player2, character_name=character2.system_data.name
+        )
 
         # 参加者数確認
         participants = SessionParticipant.objects.filter(session=session)

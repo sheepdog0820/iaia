@@ -84,7 +84,9 @@ class ImportTRPGScheduleCommandTests(TestCase):
 
         participants = SessionParticipant.objects.order_by("guest_name", "user__username")
         self.assertEqual(participants.count(), 3)
-        self.assertTrue(participants.filter(user=self.gm, participant_roles__role=SessionParticipantRole.Role.GM).exists())
+        self.assertTrue(
+            participants.filter(user=self.gm, participant_roles__role=SessionParticipantRole.Role.GM).exists()
+        )
         self.assertTrue(
             participants.filter(user=self.player, participant_roles__role=SessionParticipantRole.Role.PLAYER).exists()
         )

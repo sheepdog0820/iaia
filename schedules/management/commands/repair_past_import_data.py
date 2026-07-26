@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
@@ -146,7 +146,9 @@ class Command(BaseCommand):
                         self.stdout.write(f"gm participant create: session=#{session.id} gm={session.gm.username}")
                         if not options["dry_run"]:
                             session_permissions.assign_session_gm(session, session.gm, granted_by=owner)
-                    elif SessionParticipantRole.Role.GM.value not in session_permissions.get_participant_role_values(participant):
+                    elif SessionParticipantRole.Role.GM.value not in session_permissions.get_participant_role_values(
+                        participant
+                    ):
                         stats["gm_participants_updated"] += 1
                         self.stdout.write(f"gm participant role update: session=#{session.id} gm={session.gm.username}")
                         if not options["dry_run"]:
@@ -234,10 +236,12 @@ class Command(BaseCommand):
             | Q(edition="7th", seventh_edition_data__is_active=True)
         )
         if participant.character_name:
-            by_name = list(base_query.filter(
-                Q(edition="6th", sixth_edition_data__name=participant.character_name)
-                | Q(edition="7th", seventh_edition_data__name=participant.character_name)
-            ).order_by("id"))
+            by_name = list(
+                base_query.filter(
+                    Q(edition="6th", sixth_edition_data__name=participant.character_name)
+                    | Q(edition="7th", seventh_edition_data__name=participant.character_name)
+                ).order_by("id")
+            )
             if len(by_name) == 1:
                 return by_name
             if len(by_name) > 1:

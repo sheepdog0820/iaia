@@ -2,7 +2,6 @@
 ハンドアウト管理機能の詳細テストケース
 """
 
-from schedules import session_permissions
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -12,6 +11,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import Group
+from schedules import session_permissions
 
 from . import session_permissions
 from .models import HandoutInfo, SessionParticipant, TRPGSession

@@ -14,7 +14,14 @@ from django.utils import timezone
 from accounts.character_models import CharacterSheet, CharacterSheet6th
 from accounts.models import Group
 from schedules import session_permissions
-from schedules.models import HandoutInfo, SessionImage, SessionParticipant, SessionParticipantRole, SessionYouTubeLink, TRPGSession
+from schedules.models import (
+    HandoutInfo,
+    SessionImage,
+    SessionParticipant,
+    SessionParticipantRole,
+    SessionYouTubeLink,
+    TRPGSession,
+)
 
 User = get_user_model()
 

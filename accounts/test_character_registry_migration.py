@@ -157,7 +157,8 @@ class CharacterRegistryMinimizationMigrationTests(TransactionTestCase):
             {"id", "user", "edition", "access_scope", "share_token", "created_at", "updated_at"},
         )
         column_names = {
-            column.name for column in self.connection.introspection.get_table_description(
+            column.name
+            for column in self.connection.introspection.get_table_description(
                 self.connection.cursor(), NewSheet._meta.db_table
             )
         }
@@ -175,8 +176,11 @@ class CharacterRegistryMinimizationMigrationTests(TransactionTestCase):
         )
         self.assertTrue(
             {
-                "accounts_characterskill6th", "accounts_characterskill7th",
-                "accounts_characterequipment6th", "accounts_characterequipment7th",
-                "accounts_characterimage6th", "accounts_characterimage7th",
+                "accounts_characterskill6th",
+                "accounts_characterskill7th",
+                "accounts_characterequipment6th",
+                "accounts_characterequipment7th",
+                "accounts_characterimage6th",
+                "accounts_characterimage7th",
             }.issubset(table_names)
         )

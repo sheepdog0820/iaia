@@ -18,12 +18,29 @@ def copy_related_data_to_edition_tables(apps, schema_editor):
     CharacterImage7th = apps.get_model("accounts", "CharacterImage7th")
 
     skill_fields = (
-        "skill_name", "category", "base_value", "occupation_points", "interest_points",
-        "bonus_points", "other_points", "current_value", "notes",
+        "skill_name",
+        "category",
+        "base_value",
+        "occupation_points",
+        "interest_points",
+        "bonus_points",
+        "other_points",
+        "current_value",
+        "notes",
     )
     equipment_fields = (
-        "item_type", "name", "skill_name", "damage", "base_range", "attacks_per_round",
-        "ammo", "malfunction_number", "armor_points", "description", "quantity", "weight",
+        "item_type",
+        "name",
+        "skill_name",
+        "damage",
+        "base_range",
+        "attacks_per_round",
+        "ammo",
+        "malfunction_number",
+        "armor_points",
+        "description",
+        "quantity",
+        "weight",
     )
 
     for skill in CharacterSkill.objects.select_related("character_sheet").iterator():

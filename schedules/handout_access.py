@@ -1,5 +1,5 @@
-from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
 from schedules import session_permissions
+from schedules.models import HandoutInfo, SessionParticipant, TRPGSession
 
 
 def can_view_handout(handout: HandoutInfo, user) -> bool:
