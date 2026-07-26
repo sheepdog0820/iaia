@@ -1,4 +1,4 @@
 interface:
   display_name: "IAIA Test Review Commit"
-  short_description: "IAIA changes test review commit flow"
-  default_prompt: "Use $iaia-test-review-commit to test the IAIA changes, review the diff, and commit the intended files."
+  short_description: "IAIA test, text integrity, UI copy, and commit checks"
+  default_prompt: "Use $iaia-test-review-commit to test and review IAIA changes, verify text integrity and Japanese UI copy, and commit only intended files."
