@@ -2656,6 +2656,25 @@ class CharacterExportManager:
     """キャラクター エクスポート管理ユーティリティ"""
 
     @staticmethod
+    def _normalize_ccfolia_skill_name(edition, skill_name):
+        if edition == "6th" and skill_name in {"こぶし（パンチ）", "こぶし(パンチ)"}:
+            return "こぶし"
+        if edition == "7th" and skill_name in {
+            "近接戦闘",
+            "近接戦闘（格闘）",
+            "格闘技",
+            "こぶし",
+            "こぶし（パンチ）",
+            "こぶし(パンチ)",
+            "キック",
+            "頭突き",
+            "組み付き",
+            "マーシャルアーツ",
+        }:
+            return "近接戦闘"
+        return skill_name
+
+    @staticmethod
     def export_version_data(character):
         registry = character
         character = registry.system_data
@@ -2725,6 +2744,7 @@ class CharacterExportManager:
 
         # 技能ロール
         skill_command_prefix = "CC" if registry.edition == "7th" else "CCB"
+        skill_values = {}
         for skill in character.skills.all():
             total_value = (
                 skill.base_value
@@ -2733,13 +2753,23 @@ class CharacterExportManager:
                 + skill.bonus_points
                 + skill.other_points
             )
-            commands.append(f"{skill_command_prefix}<={total_value} 【{skill.skill_name}】")
-            skills.append({"name": skill.skill_name, "value": total_value})
+            skill_name = CharacterExportManager._normalize_ccfolia_skill_name(registry.edition, skill.skill_name)
+            skill_values[skill_name] = max(skill_values.get(skill_name, 0), total_value)
+        for skill_name, total_value in skill_values.items():
+            commands.append(f"{skill_command_prefix}<={total_value} 【{skill_name}】")
+            skills.append({"name": skill_name, "value": total_value})
 
         # ダメージ判定
-        commands.append("1d3+0 【ダメージ判定】")
-        commands.append("1d4+0 【ダメージ判定】")
-        commands.append("1d6+0 【ダメージ判定】")
+        if registry.edition == "6th":
+            commands.extend(
+                [
+                    "1D3+{DB} 【こぶしダメージ】",
+                    "1D6+{DB} 【キックダメージ】",
+                    "1D4+{DB} 【頭突きダメージ】",
+                ]
+            )
+        else:
+            commands.append("1D3+{DB} 【近接戦闘ダメージ】")
 
         # 能力値ロール
         for ability, value in [
@@ -2760,6 +2790,22 @@ class CharacterExportManager:
         # CCFOLIA標準形式
         memo = character.name_kana or ""
 
+        params = [
+            {"label": "STR", "value": str(character.str_value)},
+            {"label": "CON", "value": str(character.con_value)},
+            {"label": "POW", "value": str(character.pow_value)},
+            {"label": "DEX", "value": str(character.dex_value)},
+            {"label": "APP", "value": str(character.app_value)},
+            {"label": "SIZ", "value": str(character.siz_value)},
+            {"label": "INT", "value": str(character.int_value)},
+            {"label": "EDU", "value": str(character.edu_value)},
+        ]
+        damage_bonus = character.damage_bonus if registry.edition == "6th" else character.calculate_damage_bonus_7th()
+        damage_bonus_value = str(damage_bonus)
+        if registry.edition == "6th":
+            damage_bonus_value = damage_bonus_value.removeprefix("+")
+        params.append({"label": "DB", "value": damage_bonus_value})
+
         ccfolia_data = {
             "kind": "character",
             "data": {
@@ -2772,7 +2818,7 @@ class CharacterExportManager:
                 "status": [
                     {"label": "HP", "value": character.hit_points_current, "max": character.hit_points_max},
                     {"label": "MP", "value": character.magic_points_current, "max": character.magic_points_max},
-                    {"label": "SAN", "value": character.sanity_current, "max": character.sanity_max},
+                    {"label": "SAN", "value": character.sanity_current, "max": character.sanity_current},
                     *(
                         [
                             {
@@ -2785,16 +2831,7 @@ class CharacterExportManager:
                         else []
                     ),
                 ],
-                "params": [
-                    {"label": "STR", "value": str(character.str_value)},
-                    {"label": "CON", "value": str(character.con_value)},
-                    {"label": "POW", "value": str(character.pow_value)},
-                    {"label": "DEX", "value": str(character.dex_value)},
-                    {"label": "APP", "value": str(character.app_value)},
-                    {"label": "SIZ", "value": str(character.siz_value)},
-                    {"label": "INT", "value": str(character.int_value)},
-                    {"label": "EDU", "value": str(character.edu_value)},
-                ],
+                "params": params,
             },
         }
 
