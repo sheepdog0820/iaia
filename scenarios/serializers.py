@@ -5,6 +5,7 @@ from rest_framework import serializers
 from accounts.serializers import UserSerializer, validate_character_image
 from schedules.duration import effective_duration_expression
 
+from .image_limits import get_scenario_image_max_bytes
 from .models import (
     PlayHistory,
     Scenario,
@@ -48,7 +49,12 @@ class ScenarioImageSerializer(serializers.ModelSerializer):
         return None
 
     def validate_image(self, value):
-        return validate_character_image(value)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        return validate_character_image(
+            value,
+            max_size=get_scenario_image_max_bytes(user),
+        )
 
 
 class ScenarioRecommendedSkillSerializer(serializers.ModelSerializer):

@@ -2790,7 +2790,7 @@ class SessionDetailView(APIView):
     def get(self, request, pk):
         # セッション詳細取得
         try:
-            session = TRPGSession.objects.select_related("scenario").get(pk=pk)
+            session = TRPGSession.objects.select_related("scenario").prefetch_related("scenario__images").get(pk=pk)
         except TRPGSession.DoesNotExist:
             if "application/json" in request.headers.get("Accept", ""):
                 return Response({"error": "Session not found"}, status=404)
@@ -3037,7 +3037,7 @@ class PublicSessionDetailView(APIView):
 
     def get(self, request, share_token):
         session = get_object_or_404(
-            TRPGSession.objects.select_related("scenario", "gm", "group"),
+            TRPGSession.objects.select_related("scenario", "gm", "group").prefetch_related("scenario__images"),
             share_token=share_token,
             visibility="public",
         )

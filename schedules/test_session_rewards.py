@@ -289,14 +289,14 @@ class SessionRewardsUITestCase(TestCase):
         )
         session_permissions.create_participant(session=self.session, user=self.player, role="player")
 
-    def test_session_detail_reward_ui_visibility(self):
-        # 参加者には表示される
+    def test_session_detail_does_not_render_reward_ui(self):
         self.client.login(username="player1", password="pass1234")
         response = self.client.get(f"/api/schedules/sessions/{self.session.id}/detail/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'id="sessionRewardsCard"')
+        self.assertNotContains(response, 'id="sessionRewardsCard"')
+        self.assertNotContains(response, "経験値配布")
+        self.assertNotContains(response, "setupSessionRewardsUi")
 
-        # グループメンバー（非参加者）には表示されない
         self.client.logout()
         self.client.login(username="viewer", password="pass1234")
         response = self.client.get(f"/api/schedules/sessions/{self.session.id}/detail/")

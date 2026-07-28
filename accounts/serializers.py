@@ -42,15 +42,17 @@ class CharacterVersionCreateSerializer(serializers.Serializer):
     notes = serializers.CharField(required=False, allow_blank=True)
 
 
-def validate_character_image(image):
+def validate_character_image(image, *, max_size=5 * 1024 * 1024):
     """キャラクター画像のバリデーション"""
     if not image:
         return image
 
-    # ファイルサイズチェック（5MB以下）
-    max_size = 5 * 1024 * 1024  # 5MB
+    # ユーザー区分に応じたファイルサイズ上限を確認
+    max_size_label = (
+        f"{max_size // (1024 * 1024)}MB" if max_size % (1024 * 1024) == 0 else f"{max_size / (1024 * 1024):.1f}MB"
+    )
     if image.size > max_size:
-        raise ValidationError("画像ファイルのサイズは5MB以下にしてください。")
+        raise ValidationError(f"画像ファイルのサイズは{max_size_label}以下にしてください。")
 
     # ファイル形式チェック
     allowed_formats = ["JPEG", "PNG", "GIF"]
@@ -63,7 +65,7 @@ def validate_character_image(image):
 
             estimated_size = img.width * img.height * len(img.getbands())
             if estimated_size > max_size * 5:
-                raise ValidationError("画像ファイルのサイズは5MB以下にしてください。")
+                raise ValidationError(f"画像ファイルのサイズは{max_size_label}以下にしてください。")
 
             # 画像サイズチェック（最大3000x4000px）
             max_width, max_height = 3000, 4000

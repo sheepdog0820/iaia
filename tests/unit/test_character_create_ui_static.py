@@ -612,6 +612,58 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         self.assertIn("${imageUploadControlsHtml}", template)
         self.assertIn("const scenarioShareControlsHtml = canManage ?", template)
 
+    def test_scenario_archive_compresses_oversized_images_before_upload(self):
+        template = self.read_text("templates/scenarios/archive.html")
+
+        self.assertIn("const SCENARIO_IMAGE_MAX_BYTES = Number('{{ scenario_image_max_bytes", template)
+        self.assertIn(
+            "const SCENARIO_IMAGE_MAX_FILES_PER_UPLOAD = Number('{{ scenario_image_max_files_per_upload", template
+        )
+        self.assertIn("async function prepareScenarioImageForUpload(file)", template)
+        self.assertIn("await prepareScenarioImageForUpload(file)", template)
+        self.assertIn("formData.append('images', uploadFile, uploadFile.name);", template)
+        self.assertIn("scenarioImageLimitLabel()", template)
+
+    def test_character_image_editor_appends_and_can_delete_existing_images(self):
+        for path in [
+            "static/accounts/js/character6th.js",
+            "static/accounts/js/character7th.js",
+        ]:
+            with self.subTest(path=path):
+                script = self.read_text(path)
+                self.assertIn("async function appendCharacterImages(characterId, imageFiles)", script)
+                self.assertIn("data-delete-existing-image-id", script)
+                self.assertIn("既存の立ち絵を削除", script)
+                self.assertNotIn("async function replaceCharacterImages(characterId, imageFiles)", script)
+                self.assertNotIn("Delete existing images first", script)
+
+    def test_character_image_editor_shows_background_removal_processing_card(self):
+        for path in [
+            "static/accounts/js/character6th.js",
+            "static/accounts/js/character7th.js",
+        ]:
+            with self.subTest(path=path):
+                script = self.read_text(path)
+                self.assertIn("character-image-processing-card", script)
+                self.assertIn("背景透過処理中", script)
+                self.assertIn("setBackgroundRemovalProcessingFile(file)", script)
+
+    def test_session_detail_has_scenario_image_gallery(self):
+        template = self.read_text("templates/schedules/session_detail.html")
+
+        self.assertIn("session-scenario-image-grid", template)
+        self.assertIn('class="session-scenario-section"', template)
+        self.assertIn("シナリオ画像", template)
+        self.assertIn("session.scenario.images.all", template)
+
+    def test_session_detail_does_not_include_experience_distribution_ui(self):
+        template = self.read_text("templates/schedules/session_detail.html")
+
+        self.assertNotIn('id="sessionRewardsCard"', template)
+        self.assertNotIn("経験値配布", template)
+        self.assertNotIn("setupSessionRewardsUi", template)
+        self.assertNotIn("loadSessionRewards", template)
+
     def test_ccfolia_default_skills_are_split_by_edition(self):
         script = self.read_text("static/js/ccfolia_character_copy.js")
 

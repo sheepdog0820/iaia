@@ -1353,6 +1353,105 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    const SCENARIO_IMAGE_MAX_BYTES = Number('{{ scenario_image_max_bytes|default:"5242880" }}');
+    const SCENARIO_IMAGE_MAX_FILES_PER_UPLOAD = Number('{{ scenario_image_max_files_per_upload|default:"10" }}');
+    const SCENARIO_IMAGE_MAX_WIDTH = 3000;
+    const SCENARIO_IMAGE_MAX_HEIGHT = 4000;
+    const SCENARIO_IMAGE_MAX_DECODED_BYTES = SCENARIO_IMAGE_MAX_BYTES * 5;
+
+    function scenarioImageLimitLabel() {
+        const megabytes = SCENARIO_IMAGE_MAX_BYTES / (1024 * 1024);
+        return Number.isInteger(megabytes) ? `${megabytes}MB` : `${megabytes.toFixed(1)}MB`;
+    }
+
+    function scenarioImageCanvasToBlob(canvas, type, quality) {
+        return new Promise((resolve, reject) => {
+            canvas.toBlob(blob => {
+                if (blob) {
+                    resolve(blob);
+                    return;
+                }
+                reject(new Error('画像の変換に失敗しました'));
+            }, type, quality);
+        });
+    }
+
+    function scenarioImageOutputName(filename, type) {
+        const baseName = (filename || 'scenario-image').replace(/\.[^.]+$/, '');
+        return `${baseName}.${type === 'image/png' ? 'png' : 'jpg'}`;
+    }
+
+    async function prepareScenarioImageForUpload(file) {
+        if (file.type === 'image/gif') {
+            if (file.size > SCENARIO_IMAGE_MAX_BYTES) {
+                throw new Error(`${scenarioImageLimitLabel()}を超えるGIF画像は自動縮小できません。${scenarioImageLimitLabel()}以下の画像を選択してください。`);
+            }
+            return file;
+        }
+
+        let bitmap;
+        try {
+            bitmap = await createImageBitmap(file);
+        } catch (error) {
+            if (file.size > SCENARIO_IMAGE_MAX_BYTES) {
+                throw new Error('画像を読み込めないため自動縮小できませんでした。JPGまたはPNG形式で保存し直してください。');
+            }
+            return file;
+        }
+
+        try {
+            const decodedBytes = bitmap.width * bitmap.height * 4;
+            const initialScale = Math.min(
+                1,
+                SCENARIO_IMAGE_MAX_WIDTH / bitmap.width,
+                SCENARIO_IMAGE_MAX_HEIGHT / bitmap.height,
+                Math.sqrt(SCENARIO_IMAGE_MAX_DECODED_BYTES / decodedBytes)
+            );
+            const supportedType = file.type === 'image/jpeg' || file.type === 'image/png';
+            if (file.size <= SCENARIO_IMAGE_MAX_BYTES && initialScale >= 1 && supportedType) {
+                return file;
+            }
+
+            const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+            let scale = initialScale;
+            let quality = 0.9;
+
+            for (let attempt = 0; attempt < 10; attempt += 1) {
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.floor(bitmap.width * scale));
+                canvas.height = Math.max(1, Math.floor(bitmap.height * scale));
+                const context = canvas.getContext('2d');
+                if (!context) {
+                    throw new Error('画像処理を開始できませんでした');
+                }
+                if (outputType === 'image/jpeg') {
+                    context.fillStyle = '#ffffff';
+                    context.fillRect(0, 0, canvas.width, canvas.height);
+                }
+                context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+                const blob = await scenarioImageCanvasToBlob(canvas, outputType, quality);
+                if (blob.size <= SCENARIO_IMAGE_MAX_BYTES) {
+                    return new File(
+                        [blob],
+                        scenarioImageOutputName(file.name, outputType),
+                        { type: outputType, lastModified: file.lastModified }
+                    );
+                }
+
+                if (outputType === 'image/jpeg' && quality > 0.55) {
+                    quality -= 0.1;
+                } else {
+                    scale *= 0.82;
+                }
+            }
+        } finally {
+            bitmap.close?.();
+        }
+
+        throw new Error(`画像を${scenarioImageLimitLabel()}以下に縮小できませんでした。別の画像を選択してください。`);
+    }
+
     window.uploadScenarioImages = async function(scenarioId) {
         const inputEl = document.getElementById('scenarioImagesInput');
         const uploadBtn = document.getElementById('uploadScenarioImagesBtn');
@@ -1363,25 +1462,26 @@ document.addEventListener('DOMContentLoaded', function() {
             notifyError('アップロードする画像を選択してください');
             return;
         }
-        if (files.length > 10) {
-            notifyError('一度にアップロードできるのは最大10枚です');
+        if (files.length > SCENARIO_IMAGE_MAX_FILES_PER_UPLOAD) {
+            notifyError(`一度にアップロードできるのは最大${SCENARIO_IMAGE_MAX_FILES_PER_UPLOAD}枚です`);
             return;
-        }
-
-        const formData = new FormData();
-        formData.append('scenario_id', String(scenarioId));
-        for (const file of files) {
-            if (!file?.type?.startsWith('image/')) {
-                notifyError(`画像以外のファイルが含まれています: ${file?.name || 'unknown'}`);
-                return;
-            }
-            formData.append('images', file);
         }
 
         const originalHtml = uploadBtn.innerHTML;
         uploadBtn.disabled = true;
-        uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>アップロード中...';
+        uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>画像を処理中...';
         try {
+            const formData = new FormData();
+            formData.append('scenario_id', String(scenarioId));
+            for (const file of files) {
+                if (!file?.type?.startsWith('image/')) {
+                    throw new Error(`画像以外のファイルが含まれています: ${file?.name || '不明なファイル'}`);
+                }
+                const uploadFile = await prepareScenarioImageForUpload(file);
+                formData.append('images', uploadFile, uploadFile.name);
+            }
+
+            uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>アップロード中...';
             await axios.post('/api/scenarios/scenario-images/bulk_upload/', formData);
             notifySuccess('画像をアップロードしました');
             inputEl.value = '';
@@ -1467,7 +1567,7 @@ document.addEventListener('DOMContentLoaded', function() {
                              onclick="uploadScenarioImages(${scenario.id})">
                         <i class="fas fa-upload"></i> アップロード
                     </button>
-                    <small class="text-muted">最大10枚/1回</small>
+                    <small class="text-muted">最大${SCENARIO_IMAGE_MAX_FILES_PER_UPLOAD}枚/1回。${scenarioImageLimitLabel()}を超える画像は自動で縮小します</small>
                 </div>
             ` : '';
             const scenarioShareControlsHtml = canManage ? `

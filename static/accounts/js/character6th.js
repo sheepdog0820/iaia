@@ -2545,6 +2545,8 @@ function initOccupationTemplates() {
         const previewUrlByFile = new Map();
         let existingImages = [];
         let existingImageIndex = 0;
+        let backgroundRemovalProcessingFile = null;
+        let backgroundRemovalProcessingUrl = '';
 
         const escapeHtml = (value) => String(value ?? '')
             .replace(/&/g, '&amp;')
@@ -2578,6 +2580,15 @@ function initOccupationTemplates() {
             });
         }
 
+        function setBackgroundRemovalProcessingFile(file) {
+            if (backgroundRemovalProcessingUrl) {
+                URL.revokeObjectURL(backgroundRemovalProcessingUrl);
+            }
+            backgroundRemovalProcessingFile = file || null;
+            backgroundRemovalProcessingUrl = file ? URL.createObjectURL(file) : '';
+            renderImagePreview();
+        }
+
         function syncImageInputFiles() {
             if (typeof DataTransfer === 'undefined') {
                 return selectedFiles.length === 0;
@@ -2593,7 +2604,7 @@ function initOccupationTemplates() {
         }
 
         function validateFiles(files) {
-            if (files.length > maxImages) {
+            if (existingImages.length + files.length > maxImages) {
                 notifyUser(`キャラクター画像は最大${maxImages}枚まで選択できます。`);
                 return false;
             }
@@ -2637,31 +2648,38 @@ function initOccupationTemplates() {
         }
 
         function renderExistingImages() {
-            if (!existingView || selectedFiles.length > 0 || existingImages.length === 0) return;
+            if (!existingView || existingImages.length === 0) return;
 
             const mainImage = existingImages[existingImageIndex] || existingImages[0];
-            const thumbnailHtml = existingImages.length > 1
-                ? `<div class="row g-2 mt-2">
+            const thumbnailHtml = `<div class="row g-2 mt-2">
                     ${existingImages.map((image, index) => {
                         const isSelected = index === existingImageIndex;
                         const borderClass = isSelected ? 'active border-primary border-3' : 'border-secondary';
                         const url = image.thumbnail_url || image.image_url;
                         return `
-                            <div class="col-4 col-sm-3">
-                                <button type="button"
-                                        class="btn p-0 w-100 rounded border character-edit-thumbnail-button ${borderClass}"
-                                        data-image-index="${index}"
-                                        aria-label="画像${index + 1}を表示"
-                                        aria-pressed="${isSelected ? 'true' : 'false'}">
-                                    <img src="${escapeHtml(url)}"
-                                         class="img-fluid rounded character-edit-thumbnail-image"
-                                         alt="キャラクター画像 ${index + 1}">
-                                </button>
+                            <div class="col-6 col-sm-4">
+                                <div class="character-existing-image-card">
+                                    <button type="button"
+                                            class="btn p-0 w-100 rounded border character-edit-thumbnail-button ${borderClass}"
+                                            data-image-index="${index}"
+                                            aria-label="画像${index + 1}を表示"
+                                            aria-pressed="${isSelected ? 'true' : 'false'}">
+                                        <img src="${escapeHtml(url)}"
+                                             class="img-fluid rounded character-edit-thumbnail-image"
+                                             alt="キャラクター画像 ${index + 1}">
+                                    </button>
+                                    ${image.is_main ? '<span class="badge bg-primary character-existing-image-main-badge">メイン</span>' : ''}
+                                    <button type="button"
+                                            class="btn btn-sm btn-danger character-existing-image-delete"
+                                            data-delete-existing-image-id="${image.id}"
+                                            aria-label="既存の立ち絵を削除">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
                             </div>
                         `;
                     }).join('')}
-                </div>`
-                : '';
+                </div>`;
 
             existingView.innerHTML = `
                 <div class="mb-2">
@@ -2696,11 +2714,33 @@ function initOccupationTemplates() {
                     if (!Number.isNaN(index)) setExistingImage(index);
                 });
             });
+            existingView.querySelectorAll('[data-delete-existing-image-id]').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const imageId = Number(button.dataset.deleteExistingImageId);
+                    if (!Number.isNaN(imageId)) {
+                        await deleteExistingCharacterImage(imageId, button);
+                    }
+                });
+            });
         }
 
         function renderSelectedFileList(container) {
             if (!container) return;
-            container.innerHTML = selectedFiles.map((file, index) => `
+            const processingHtml = backgroundRemovalProcessingFile ? `
+                <div class="col-6 col-sm-4">
+                    <div class="character-image-preview-card character-image-processing-card" aria-live="polite">
+                        <img src="${backgroundRemovalProcessingUrl}"
+                             class="img-fluid rounded character-image-preview-thumb"
+                             alt="${escapeHtml(backgroundRemovalProcessingFile.name)}">
+                        <div class="character-image-processing-overlay">
+                            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                            <span>背景透過処理中</span>
+                        </div>
+                        <div class="small text-truncate mt-1" title="${escapeHtml(backgroundRemovalProcessingFile.name)}">${escapeHtml(backgroundRemovalProcessingFile.name)}</div>
+                    </div>
+                </div>
+            ` : '';
+            container.innerHTML = processingHtml + selectedFiles.map((file, index) => `
                 <div class="col-6 col-sm-4">
                     <div class="character-image-preview-card">
                         <img src="${previewUrls[index]}" class="img-fluid rounded character-image-preview-thumb" alt="${escapeHtml(file.name)}">
@@ -2725,7 +2765,7 @@ function initOccupationTemplates() {
         function renderImagePreview() {
             syncPreviewUrls();
 
-            if (selectedFiles.length === 0) {
+            if (selectedFiles.length === 0 && !backgroundRemovalProcessingFile) {
                 if (selectedView) selectedView.style.display = 'none';
                 if (selectedList) selectedList.innerHTML = '';
                 if (modalList) modalList.innerHTML = '';
@@ -2746,13 +2786,41 @@ function initOccupationTemplates() {
                 return;
             }
 
-            if (previewImg) previewImg.src = previewUrls[0];
-            if (previewCount) previewCount.textContent = `選択中 ${selectedFiles.length} / ${maxImages}枚`;
+            if (previewImg) previewImg.src = previewUrls[0] || backgroundRemovalProcessingUrl;
+            if (previewCount) {
+                previewCount.textContent = backgroundRemovalProcessingFile
+                    ? `背景透過処理中 / 登録後 ${existingImages.length + selectedFiles.length + 1} / ${maxImages}枚`
+                    : `追加予定 ${selectedFiles.length}枚 / 登録後 ${existingImages.length + selectedFiles.length} / ${maxImages}枚`;
+            }
             if (imagePreview) imagePreview.style.display = 'block';
-            if (existingView) existingView.style.display = 'none';
+            if (existingView) {
+                existingView.style.display = existingImages.length > 0 ? 'block' : 'none';
+                if (existingImages.length > 0) renderExistingImages();
+            }
             if (selectedView) selectedView.style.display = 'block';
             renderSelectedFileList(selectedList);
             renderSelectedFileList(modalList);
+        }
+
+        async function deleteExistingCharacterImage(imageId, button) {
+            if (!(await confirmUser('既存の立ち絵を削除しますか？'))) return;
+            if (button) button.disabled = true;
+            try {
+                await fetchJson(`/api/accounts/character-sheets/${editCharacterId}/images/${imageId}/`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRFToken': csrfToken },
+                });
+                existingImages = existingImages.filter(image => Number(image.id) !== imageId);
+                existingImageIndex = Math.max(0, Math.min(existingImageIndex, existingImages.length - 1));
+                if (existingImages.length > 0 && !existingImages.some(image => image.is_main)) {
+                    existingImages[0].is_main = true;
+                }
+                notifyUser('立ち絵を削除しました。');
+                renderImagePreview();
+            } catch (error) {
+                if (button) button.disabled = false;
+                notifyUser(error.error || error.detail || '立ち絵の削除に失敗しました。');
+            }
         }
 
         function resetImagePreview() {
@@ -2811,11 +2879,12 @@ function initOccupationTemplates() {
         backgroundRemovalInput?.addEventListener('change', async function(e) {
             const file = e.target.files?.[0];
             if (!file) return;
-            if (!validateFiles([file])) {
+            if (!validateFiles(selectedFiles.concat([file]))) {
                 e.target.value = '';
                 return;
             }
             isBackgroundRemovalInProgress = true;
+            setBackgroundRemovalProcessingFile(file);
             let removalSucceeded = false;
             backgroundRemovalBtn.disabled = true;
             backgroundRemovalBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> 背景を透過中...';
@@ -2851,6 +2920,7 @@ function initOccupationTemplates() {
                 notifyUser(error.message || 'Background removal failed.');
             } finally {
                 isBackgroundRemovalInProgress = false;
+                setBackgroundRemovalProcessingFile(null);
                 backgroundRemovalBtn.disabled = false;
                 backgroundRemovalBtn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> 透過選択';
                 e.target.value = '';
@@ -3414,30 +3484,19 @@ function initOccupationTemplates() {
         }
     }
 
-    async function replaceCharacterImages(characterId, imageFiles) {
+    async function appendCharacterImages(characterId, imageFiles) {
         if (!Array.isArray(imageFiles) || imageFiles.length === 0) return;
 
-        // Delete existing images first to avoid "main image" uniqueness conflicts
-        try {
-            const existing = await fetchJson(`/accounts/character-sheets/${characterId}/images/`);
-            const existingResults = Array.isArray(existing) ? existing : (existing?.results || []);
-            for (const img of existingResults) {
-                if (!img?.id) continue;
-                await fetchJson(`/accounts/character-sheets/${characterId}/images/${img.id}/`, {
-                    method: 'DELETE',
-                    headers: { 'X-CSRFToken': csrfToken },
-                });
-            }
-        } catch (_) {
-            // If listing/deleting fails, continue to try uploading new images
-        }
+        const existing = await fetchJson(`/accounts/character-sheets/${characterId}/images/`);
+        const existingResults = Array.isArray(existing) ? existing : (existing?.results || []);
+        const existingCount = existingResults.length;
 
         for (let index = 0; index < imageFiles.length; index++) {
             const file = imageFiles[index];
             const upload = new FormData();
             upload.append('image', file);
-            upload.append('is_main', index === 0 ? 'true' : 'false');
-            upload.append('order', String(index));
+            upload.append('is_main', existingCount === 0 && index === 0 ? 'true' : 'false');
+            upload.append('order', String(existingCount + index));
 
             await fetchJson(`/accounts/character-sheets/${characterId}/images/`, {
                 method: 'POST',
@@ -3487,7 +3546,7 @@ function initOccupationTemplates() {
         await updateFinancialData(characterId, data);
         await syncSkills(characterId, apiData.skills || []);
         await syncEquipment(characterId, apiData.equipment);
-        await replaceCharacterImages(characterId, imageFiles);
+        await appendCharacterImages(characterId, imageFiles);
     }
     
     let isCharacterSaving = false;

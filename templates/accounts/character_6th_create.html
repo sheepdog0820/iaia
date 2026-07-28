@@ -155,7 +155,7 @@
                                             </span>
                                             <input type="file" id="background-removal-image" accept="image/jpeg,image/jpg,image/png,image/gif" class="d-none">
                                         </div>
-                                        <small class="text-muted d-block mt-2">対応形式: JPG, PNG, GIF (1枚最大5MB / 現在の添付上限: 最大{% if user.is_premium %}10{% else %}2{% endif %}枚)</small>
+                                        <small class="text-muted d-block mt-2">対応形式: JPG, PNG, GIF (1枚最大5MB / 現在の添付上限: 最大{% if user.is_premium %}10{% else %}2{% endif %}枚)。アップロードするたびに立ち絵が追加され、登録済み画像はカードから削除できます。</small>
                                     </div>
                                     <div class="col-lg-7">
                                         <div id="image-preview" class="character-image-preview" style="display: none;" aria-live="polite">
@@ -1083,9 +1083,9 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'accounts/css/character6th.css' %}?v=20260714-dark-mode-9">
+<link rel="stylesheet" href="{% static 'accounts/css/character6th.css' %}?v=20260714-dark-mode-9-image-gallery-1">
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'accounts/js/character6th.js' %}"></script>
+<script src="{% static 'accounts/js/character6th.js' %}?v=20260728-image-gallery-1"></script>
 {% endblock %}

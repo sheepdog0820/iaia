@@ -14,6 +14,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import CustomUser, Group
+from scenarios.models import Scenario, ScenarioImage
 from schedules import session_permissions
 from schedules.models import SessionImage, SessionParticipant, TRPGSession
 
@@ -407,6 +408,37 @@ class SessionImageTestCase(APITestCase):
         for i, image_data in enumerate(response.data["images_detail"]):
             self.assertEqual(image_data["title"], f"セッション画像{i+1}")
             self.assertIsNotNone(image_data["image_url"])
+
+    def test_html_detail_displays_images_from_linked_scenario(self):
+        scenario = Scenario.objects.create(
+            title="画像付きセッション用シナリオ",
+            author="テスト作者",
+            summary="テスト用あらすじ",
+            game_system="coc",
+            difficulty="intermediate",
+            estimated_duration="medium",
+            created_by=self.gm,
+        )
+        scenario_image = ScenarioImage.objects.create(
+            scenario=scenario,
+            image=self.create_test_image("scenario-trailer.png"),
+            title="トレーラー",
+            uploaded_by=self.gm,
+        )
+        self.session.scenario = scenario
+        self.session.save(update_fields=["scenario"])
+        self.client.force_authenticate(user=self.gm)
+
+        response = self.client.get(
+            reverse("session_detail", kwargs={"pk": self.session.id}),
+            HTTP_ACCEPT="text/html",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, "シナリオ画像")
+        self.assertContains(response, 'class="session-scenario-section"')
+        self.assertContains(response, scenario_image.image.url)
+        self.assertContains(response, "トレーラー")
 
 
 if __name__ == "__main__":
