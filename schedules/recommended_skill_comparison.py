@@ -8,19 +8,23 @@ GENERAL_SKILL_ALIASES = {
     "他国語": "他の言語",
     "ほかの言語": "他の言語",
     "威嚇": "威圧",
+    "こぶし（パンチ）": "こぶし",
+    "こぶし(パンチ)": "こぶし",
 }
 
 SEVENTH_EDITION_SKILL_ALIASES = {
     "隠れる": "隠密",
     "忍び歩き": "隠密",
     "隠す": "手さばき",
-    "近接戦闘": "近接戦闘（格闘）",
-    "格闘技": "近接戦闘（格闘）",
-    "キック": "近接戦闘（格闘）",
-    "組み付き": "近接戦闘（格闘）",
-    "こぶし（パンチ）": "近接戦闘（格闘）",
-    "頭突き": "近接戦闘（格闘）",
-    "マーシャルアーツ": "近接戦闘（格闘）",
+    "近接戦闘（格闘）": "近接戦闘",
+    "近接戦闘(格闘)": "近接戦闘",
+    "格闘技": "近接戦闘",
+    "キック": "近接戦闘",
+    "組み付き": "近接戦闘",
+    "こぶし": "近接戦闘",
+    "こぶし（パンチ）": "近接戦闘",
+    "頭突き": "近接戦闘",
+    "マーシャルアーツ": "近接戦闘",
     "拳銃": "射撃（拳銃）",
     "ショットガン": "射撃（ライフル／ショットガン）",
     "ライフル": "射撃（ライフル／ショットガン）",
@@ -42,7 +46,7 @@ SEVENTH_EDITION_SKILL_ALIASES = {
 COC6_INITIAL_SKILL_VALUES = {
     "キック": 25,
     "組み付き": 25,
-    "こぶし（パンチ）": 50,
+    "こぶし": 50,
     "頭突き": 10,
     "投擲": 25,
     "マーシャルアーツ": 1,
@@ -101,7 +105,7 @@ COC6_INITIAL_SKILL_VALUES = {
 }
 
 COC7_INITIAL_SKILL_VALUES = {
-    "近接戦闘（格闘）": 25,
+    "近接戦闘": 25,
     "投擲": 20,
     "射撃（拳銃）": 20,
     "射撃（ライフル／ショットガン）": 25,
@@ -147,6 +151,40 @@ COC7_INITIAL_SKILL_VALUES = {
     "自然": 10,
     "法律": 5,
     "歴史": 5,
+}
+
+COMBAT_SKILL_GROUP_NAME = "戦闘技能"
+FIREARMS_SKILL_GROUP_NAME = "重火器"
+RECOMMENDED_SKILL_GROUPS_BY_EDITION = {
+    "6th": {
+        COMBAT_SKILL_GROUP_NAME: (
+            "回避",
+            "キック",
+            "組み付き",
+            "こぶし",
+            "頭突き",
+            "投擲",
+            "マーシャルアーツ",
+        ),
+        FIREARMS_SKILL_GROUP_NAME: (
+            "拳銃",
+            "サブマシンガン",
+            "ショットガン",
+            "マシンガン",
+            "ライフル",
+        ),
+    },
+    "7th": {
+        COMBAT_SKILL_GROUP_NAME: (
+            "回避",
+            "近接戦闘",
+            "投擲",
+        ),
+        FIREARMS_SKILL_GROUP_NAME: (
+            "射撃（拳銃）",
+            "射撃（ライフル／ショットガン）",
+        ),
+    },
 }
 
 
@@ -217,17 +255,27 @@ def _scenario_skill_rows(scenario):
             display_name = _clean_display_name(token)
             if not display_name:
                 continue
-            key = _match_key(_canonical_skill_name(display_name, edition))
-            if key in seen:
-                continue
-            seen.add(key)
-            rows.append(
-                {
-                    "name": display_name,
-                    "level": level,
-                    "level_label": "推奨" if level == "recommended" else "準推奨",
-                }
+            skill_groups = RECOMMENDED_SKILL_GROUPS_BY_EDITION[edition]
+            expanded_names = next(
+                (
+                    names
+                    for group_name, names in skill_groups.items()
+                    if _match_key(display_name) == _match_key(group_name)
+                ),
+                (display_name,),
             )
+            for expanded_name in expanded_names:
+                key = _match_key(_canonical_skill_name(expanded_name, edition))
+                if key in seen:
+                    continue
+                seen.add(key)
+                rows.append(
+                    {
+                        "name": expanded_name,
+                        "level": level,
+                        "level_label": "推奨" if level == "recommended" else "準推奨",
+                    }
+                )
     return rows
 
 

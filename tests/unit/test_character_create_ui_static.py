@@ -13,7 +13,7 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         "サバイバル",
         "魅惑",
         "威圧",
-        "近接戦闘（格闘）",
+        "近接戦闘",
         "射撃（拳銃）",
         "芸術／製作",
         "科学",
@@ -26,6 +26,7 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         "忍び歩き",
         "キック",
         "組み付き",
+        "こぶし",
         "こぶし（パンチ）",
         "頭突き",
         "マーシャルアーツ",
@@ -320,7 +321,7 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         ]:
             with self.subTest(template=relative_path):
                 template = self.read_text(relative_path)
-                self.assertIn("?v=20260714-dark-mode-9", template)
+                self.assertIn("?v=20260729-smartphone-skills-1", template)
                 self.assertIn(
                     'class="badge footer-skill-badge me-1" id="occupationUsedFooter"',
                     template,
@@ -344,23 +345,103 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
 
     def test_character_detail_actions_use_compact_mobile_layout(self):
         template = self.read_text("templates/accounts/character_detail.html")
-        stylesheet = self.read_text("static/css/arkham_modern.css")
+        stylesheet = self.read_text("static/css/screen-actions.css")
 
-        self.assertIn('<i class="fas fa-arrow-left"></i> 戻る', template)
+        self.assertIn("キャラクター一覧へ", template)
         self.assertIn('<i class="fas fa-code-branch"></i> 再作成', template)
         self.assertIn("ccfoliaExportLink.setAttribute('aria-label', '出力')", template)
-        self.assertIn("#characterContent .character-actions", template)
-        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", template)
-        self.assertIn(".character-detail .character-actions", stylesheet)
-        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", stylesheet)
+        self.assertIn("data-screen-actions", template)
+        self.assertIn("data-screen-action-sheet", template)
+        self.assertIn(".screen-action-primary", stylesheet)
+        self.assertIn("env(safe-area-inset-bottom)", stylesheet)
 
     def test_session_detail_actions_use_compact_mobile_layout(self):
         template = self.read_text("templates/schedules/session_detail.html")
+        stylesheet = self.read_text("static/css/screen-actions.css")
 
-        self.assertIn(".session-detail-actions", template)
-        self.assertIn("display: grid !important;", template)
-        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", template)
-        self.assertIn("white-space: nowrap;", template)
+        self.assertIn("セッション一覧へ", template)
+        self.assertIn("data-screen-actions", template)
+        self.assertIn("data-screen-action-sheet", template)
+        self.assertIn(".screen-action-local", stylesheet)
+        self.assertIn("min-height: 44px", stylesheet)
+
+    def test_skill_value_inputs_are_touch_friendly_on_smartphones(self):
+        stylesheet = self.read_text("static/accounts/css/character6th.css")
+
+        for relative_path in [
+            "static/accounts/js/character6th.js",
+            "static/accounts/js/character7th.js",
+        ]:
+            with self.subTest(relative_path=relative_path):
+                script = self.read_text(relative_path)
+                self.assertIn(
+                    'class="skill-item-wrapper col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2',
+                    script,
+                )
+                self.assertIn('data-skill-kind="初期値"', script)
+                self.assertIn('data-skill-kind="職業"', script)
+                self.assertIn('data-skill-kind="趣味"', script)
+                self.assertIn('data-skill-kind="その他"', script)
+                self.assertIn('inputmode="numeric"', script)
+
+        self.assertIn(".skills-tab .skill-item-wrapper", stylesheet)
+        self.assertIn("touch-action: manipulation", stylesheet)
+        self.assertIn("min-height: 48px", stylesheet)
+        self.assertIn("font-size: 1rem", stylesheet)
+
+    def test_sixth_edition_skill_displays_use_canonical_fist_name(self):
+        display_sources = [
+            "static/accounts/js/character6th.js",
+            "static/js/handout_skill_picker.js",
+            "templates/scenarios/archive.html",
+        ]
+
+        for relative_path in display_sources:
+            with self.subTest(relative_path=relative_path):
+                source = self.read_text(relative_path)
+                self.assertIn("こぶし", source)
+                self.assertNotIn("こぶし（パンチ）", source)
+
+        view_source = self.read_text("accounts/views/character_views.py")
+        basic_skill_names = self.extract_bracket_block(view_source, "COC6_BASIC_SKILL_NAMES")
+        self.assertIn('"こぶし"', basic_skill_names)
+        self.assertNotIn("こぶし（パンチ）", basic_skill_names)
+
+    def test_seventh_edition_skill_displays_use_canonical_melee_name(self):
+        script = self.read_text("static/accounts/js/character7th.js")
+        skill_definitions = script[script.index("const SKILLS_7TH") : script.index("const SKILL_CATEGORY_KEYS")]
+        self.assertIn('name: "近接戦闘"', skill_definitions)
+        self.assertNotIn("近接戦闘（格闘）", skill_definitions)
+        self.assertIn("例: 射撃（拳銃） / 近接戦闘", script)
+
+        view_source = self.read_text("accounts/views/character_views.py")
+        basic_skill_names = self.extract_bracket_block(view_source, "COC7_BASIC_SKILL_NAMES")
+        self.assertIn('"近接戦闘"', basic_skill_names)
+        self.assertNotIn("近接戦闘（格闘）", basic_skill_names)
+
+    def test_scenario_combat_and_firearms_groups_are_explained_and_expanded(self):
+        scenario_template = self.read_text("templates/scenarios/archive.html")
+
+        self.assertIn("const COMBAT_SKILL_GROUP = '戦闘技能';", scenario_template)
+        self.assertIn("const FIREARMS_SKILL_GROUP = '重火器';", scenario_template)
+        self.assertIn("COC7TH_SKILLS", scenario_template)
+        self.assertIn("getScenarioSkillNames", scenario_template)
+        self.assertIn("「戦闘技能」は近接・回避・投擲系", scenario_template)
+        self.assertIn("「重火器」は拳銃・ライフルなどの射撃系", scenario_template)
+        self.assertIn("const editionPath = scenario.game_system === 'coc7' ? '7th' : '6th';", scenario_template)
+        self.assertIn("/accounts/character/create/${editionPath}/?", scenario_template)
+        self.assertIn("addScenarioModalEl?.addEventListener('show.bs.modal'", scenario_template)
+
+        for relative_path in [
+            "static/accounts/js/character6th.js",
+            "static/accounts/js/character7th.js",
+        ]:
+            with self.subTest(relative_path=relative_path):
+                script = self.read_text(relative_path)
+                self.assertIn("const COMBAT_SKILL_GROUP = '戦闘技能';", script)
+                self.assertIn("const FIREARMS_SKILL_GROUP = '重火器';", script)
+                self.assertIn("FIREARMS_SKILL_KEYS", script)
+                self.assertIn("RECOMMENDED_SKILL_GROUP_KEYS", script)
 
     def test_character_create_templates_have_bulk_image_modal_and_edit_preview_slots(self):
         for relative_path in [
@@ -693,7 +774,7 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
             "回避",
             "キック",
             "組み付き",
-            "こぶし（パンチ）",
+            "こぶし",
             "頭突き",
             "投擲",
             "マーシャルアーツ",
@@ -705,7 +786,7 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         ]
         expected_7th_combat_order = [
             "回避",
-            "近接戦闘（格闘）",
+            "近接戦闘",
             "投擲",
             "射撃（拳銃）",
             "射撃（ライフル／ショットガン）",

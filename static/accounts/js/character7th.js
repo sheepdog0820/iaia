@@ -300,7 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const weaponFields = `
             <div class="col-12 col-md-6">
                 <label class="form-label small mb-1" for="${uid}-skill_name">技能</label>
-                <input type="text" class="form-control form-control-sm" id="${uid}-skill_name" data-field="skill_name" placeholder="例: 射撃（拳銃） / 近接戦闘（格闘）">
+                <input type="text" class="form-control form-control-sm" id="${uid}-skill_name" data-field="skill_name" placeholder="例: 射撃（拳銃） / 近接戦闘">
             </div>
             <div class="col-6 col-md-3">
                 <label class="form-label small mb-1" for="${uid}-damage">ダメージ</label>
@@ -508,7 +508,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const SKILLS_7TH = {
         combat: {
             dodge: { base: "DEX/2", name: "回避" },
-            melee_brawl: { base: 25, name: "近接戦闘（格闘）" },
+            melee_brawl: { base: 25, name: "近接戦闘" },
             throw: { base: 20, name: "投擲" },
             firearms_handgun: { base: 20, name: "射撃（拳銃）" },
             firearms_rifle_shotgun: { base: 25, name: "射撃（ライフル／ショットガン）" }
@@ -573,6 +573,19 @@ document.addEventListener('DOMContentLoaded', function() {
         social: new Set(Object.keys(SKILLS_7TH.social)),
         knowledge: new Set(Object.keys(SKILLS_7TH.knowledge))
     };
+    const COMBAT_SKILL_GROUP = '戦闘技能';
+    const FIREARMS_SKILL_GROUP = '重火器';
+    const FIREARMS_SKILL_KEYS = new Set([
+        'firearms_handgun',
+        'firearms_rifle_shotgun'
+    ]);
+    const COMBAT_RECOMMENDED_SKILL_KEYS = new Set(
+        [...SKILL_CATEGORY_KEYS.combat].filter(key => !FIREARMS_SKILL_KEYS.has(key))
+    );
+    const RECOMMENDED_SKILL_GROUP_KEYS = new Map([
+        [COMBAT_SKILL_GROUP, COMBAT_RECOMMENDED_SKILL_KEYS],
+        [FIREARMS_SKILL_GROUP, FIREARMS_SKILL_KEYS]
+    ]);
     
     // Combined skills map (backward compatibility)
     const ALL_SKILLS_7TH = {
@@ -592,9 +605,12 @@ document.addEventListener('DOMContentLoaded', function() {
         ['忍び歩き', 'stealth'],
         ['隠す', 'sleight_of_hand'],
         ['近接戦闘', 'melee_brawl'],
+        ['近接戦闘（格闘）', 'melee_brawl'],
+        ['近接戦闘(格闘)', 'melee_brawl'],
         ['格闘技', 'melee_brawl'],
         ['キック', 'melee_brawl'],
         ['組み付き', 'melee_brawl'],
+        ['こぶし', 'melee_brawl'],
         ['こぶし（パンチ）', 'melee_brawl'],
         ['頭突き', 'melee_brawl'],
         ['マーシャルアーツ', 'melee_brawl'],
@@ -1051,7 +1067,7 @@ function updateGlobalDiceFormula() {
             : '';
 
         return `
-            <div class="col-6 col-sm-6 col-md-4 col-lg-3 col-xl-2${customClass}">
+            <div class="skill-item-wrapper col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2${customClass}">
                 <div class="skill-item border rounded p-1">
                     <div class="d-flex justify-content-between align-items-center skill-item-header">
                         <div class="d-flex align-items-center gap-1 skill-item-title">
@@ -1067,8 +1083,8 @@ function updateGlobalDiceFormula() {
                     
                     <div class="row g-1 mt-1">
                         <div class="col-6 col-lg-3">
-                            <div class="input-group input-group-sm skill-input-group skill-input-group-base" data-skill-kind="初" title="初期値">
-                                <input type="number" class="form-control form-control-sm text-center skill-base"
+                            <div class="input-group input-group-sm skill-input-group skill-input-group-base" data-skill-kind="初期値" title="初期値">
+                                <input type="number" inputmode="numeric" class="form-control form-control-sm text-center skill-base"
                                        id="base_${key}" value="${baseValue}" min="0" max="999"
                                        data-skill="${key}" data-default="${skill?.base ?? 0}"
                                        aria-label="${skillName} 初期値"
@@ -1078,22 +1094,22 @@ function updateGlobalDiceFormula() {
                             </div>
                         </div>
                         <div class="col-6 col-lg-3">
-                            <div class="input-group input-group-sm skill-input-group skill-input-group-occ" data-skill-kind="職" title="職業">
-                                <input type="number" class="form-control form-control-sm occupation-skill text-center"
+                            <div class="input-group input-group-sm skill-input-group skill-input-group-occ" data-skill-kind="職業" title="職業">
+                                <input type="number" inputmode="numeric" class="form-control form-control-sm occupation-skill text-center"
                                        id="occ_${key}" min="0" max="999" value=""
                                        data-skill="${key}" aria-label="${skillName} 職業" title="職業技能">
                             </div>
                         </div>
                         <div class="col-6 col-lg-3">
-                            <div class="input-group input-group-sm skill-input-group skill-input-group-int" data-skill-kind="趣" title="趣味">
-                                <input type="number" class="form-control form-control-sm interest-skill text-center"
+                            <div class="input-group input-group-sm skill-input-group skill-input-group-int" data-skill-kind="趣味" title="趣味">
+                                <input type="number" inputmode="numeric" class="form-control form-control-sm interest-skill text-center"
                                        id="int_${key}" min="0" max="999" value=""
                                        data-skill="${key}" aria-label="${skillName} 趣味" title="趣味技能">
                             </div>
                         </div>
                         <div class="col-6 col-lg-3">
-                            <div class="input-group input-group-sm skill-input-group skill-input-group-other" data-skill-kind="他" title="その他">
-                                <input type="number" class="form-control form-control-sm other-skill text-center"
+                            <div class="input-group input-group-sm skill-input-group skill-input-group-other" data-skill-kind="その他" title="その他">
+                                <input type="number" inputmode="numeric" class="form-control form-control-sm other-skill text-center"
                                        id="other_${key}" min="0" max="999" value=""
                                        data-skill="${key}" aria-label="${skillName} その他" title="その他">
                             </div>
@@ -1546,6 +1562,11 @@ function updateGlobalDiceFormula() {
         const resolved = [];
         const unknown = [];
         (values || []).forEach(value => {
+            const groupKeys = RECOMMENDED_SKILL_GROUP_KEYS.get((value || '').trim());
+            if (groupKeys) {
+                resolved.push(...groupKeys);
+                return;
+            }
             const key = resolveSkillKey(value);
             if (key) {
                 resolved.push(key);
@@ -1560,6 +1581,11 @@ function updateGlobalDiceFormula() {
         const datalist = document.getElementById('recommendedSkillOptions');
         if (!datalist) return;
         datalist.innerHTML = '';
+        RECOMMENDED_SKILL_GROUP_KEYS.forEach((_, groupName) => {
+            const groupOption = document.createElement('option');
+            groupOption.value = groupName;
+            datalist.appendChild(groupOption);
+        });
         Object.values(ALL_SKILLS_7TH).forEach(skill => {
             if (!skill?.name) return;
             const option = document.createElement('option');

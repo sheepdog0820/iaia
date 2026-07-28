@@ -1504,3 +1504,88 @@ hr {
     background-color: #2563eb !important;
     color: #ffffff !important;
 }
+
+/* Smartphone skill allocation: prioritize readable labels and large tap targets. */
+@media (max-width: 575.98px) {
+    .skills-tab .skill-item-wrapper {
+        width: 100%;
+        max-width: 100%;
+        flex: 0 0 100%;
+    }
+
+    .skills-tab #skillTabContent .row {
+        --bs-gutter-x: 0.5rem;
+        --bs-gutter-y: 0.75rem;
+    }
+
+    .skills-tab .skill-item {
+        padding: 0.625rem !important;
+        border-radius: 0.625rem !important;
+    }
+
+    .skills-tab .skill-item-header {
+        min-height: 32px;
+        gap: 0.5rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .skills-tab .skill-name {
+        max-width: none;
+        overflow: visible;
+        font-size: 0.95rem;
+        line-height: 1.25;
+        text-overflow: clip;
+        white-space: normal;
+    }
+
+    .skills-tab .skill-item .row.g-1 {
+        --bs-gutter-x: 0.5rem;
+        --bs-gutter-y: 0.5rem;
+    }
+
+    .skills-tab .skill-item .row.g-1 > [class^="col-"] {
+        min-width: 0;
+    }
+
+    .skills-tab .skill-item .form-control-sm {
+        height: 48px;
+        min-height: 48px;
+        padding: 1.25rem 0.625rem 0.2rem;
+        font-size: 1rem;
+        line-height: 1.25;
+        touch-action: manipulation;
+    }
+
+    .skills-tab .skill-input-group::before {
+        top: 1px;
+        height: 18px;
+        font-size: 0.68rem;
+        line-height: 18px;
+    }
+
+    .skills-tab .skill-input-group .form-control {
+        min-width: 0 !important;
+        flex: 1 1 auto;
+    }
+
+    .skills-tab .skill-mobile-category .form-select {
+        min-height: 48px;
+        font-size: 1rem;
+        touch-action: manipulation;
+    }
+
+    .skills-tab .custom-skill-remove {
+        min-width: 44px;
+        min-height: 44px;
+        touch-action: manipulation;
+    }
+
+    .skills-tab .skill-total {
+        display: inline-flex;
+        min-width: 3rem;
+        min-height: 28px;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+    }
+}

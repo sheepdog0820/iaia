@@ -16,10 +16,11 @@
 <meta property="og:image:alt" content="{{ character_system_data.name }}">
 {% endif %}
 {% endif %}
+<link rel="stylesheet" href="{% static 'css/screen-actions.css' %}?v=20260728-8">
 {% endblock %}
 
 {% block content %}
-<div class="container character-detail" id="characterDetailContainer" data-character-id="{{ character.id }}" data-public-view="{% if is_public_view %}true{% else %}false{% endif %}" data-shared-api-url="{{ character_shared_api_url|default:'' }}" data-character-images-api-url="{{ character_images_api_url|default:'' }}" data-character-images-zip-url="{{ character_images_zip_url|default:'' }}" data-character-ccfolia-json-url="{{ character_ccfolia_json_url|default:'' }}" data-character-reference-url="{{ character_reference_url|default:'' }}">
+<div class="container character-detail" id="characterDetailContainer" data-screen-actions-page data-character-id="{{ character.id }}" data-public-view="{% if is_public_view %}true{% else %}false{% endif %}" data-shared-api-url="{{ character_shared_api_url|default:'' }}" data-character-images-api-url="{{ character_images_api_url|default:'' }}" data-character-images-zip-url="{{ character_images_zip_url|default:'' }}" data-character-ccfolia-json-url="{{ character_ccfolia_json_url|default:'' }}" data-character-reference-url="{{ character_reference_url|default:'' }}">
     {{ character_image_file_names|json_script:"character-image-file-names" }}
     <!-- ローディング -->
     <div class="text-center" id="loading">
@@ -36,32 +37,57 @@
         <!-- ヘッダー -->
         <div class="row mb-4">
             <div class="col-12">
-                <div class="character-header d-flex justify-content-between align-items-center">
-                    <h2 id="characterName">
+                <div class="character-header screen-action-layout">
+                    <h2 id="characterName" class="screen-action-title">
                         <i class="fas fa-user-ninja text-primary"></i>
                         <span class="character-name"></span>
                     </h2>
-                    <nav class="character-actions" aria-label="キャラクター操作">
-                        <div class="action-group action-group--left">
+                    <nav class="screen-action-bar" aria-label="キャラクター操作" data-screen-actions>
                         {% if can_edit_character %}
-                        <a href="/accounts/character/list/" class="btn btn-outline-secondary action-button action-button--move">
-                            <i class="fas fa-arrow-left"></i> 戻る
-                        </a>
-                        {% endif %}
-                        <button type="button" id="ccfoliaExportLink" class="btn btn-outline-success action-button action-button--output" disabled>
-                            <i class="fas fa-clipboard"></i> ココフォリア用コピー
-                        </button>
-                        </div>
-                        {% if can_edit_character %}
-                        <div class="action-group action-group--right">
-                        <button type="button" id="createVersionAndEditButton" class="btn action-button action-button--recreate d-none">
-                            <i class="fas fa-code-branch"></i> 再作成
-                        </button>
-                        <a href="#" id="editButton" class="btn btn-outline-primary action-button action-button--edit">
-                            <i class="fas fa-edit"></i> 編集
-                        </a>
+                        <div class="screen-action-back">
+                            <a href="/accounts/character/list/" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left"></i>
+                                <span class="screen-action-back-label">キャラクター一覧へ</span>
+                            </a>
                         </div>
                         {% endif %}
+                        <div class="screen-action-local" data-screen-action-sheet>
+                            <div class="screen-action-sheet-header">
+                                <span>この画面の操作</span>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary screen-action-sheet-close"
+                                        data-screen-actions-close
+                                        aria-label="操作メニューを閉じる">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <button type="button" id="ccfoliaExportLink" class="btn btn-outline-secondary" disabled>
+                                <i class="fas fa-clipboard"></i> ココフォリア用コピー
+                            </button>
+                            {% if can_edit_character %}
+                            <button type="button" id="createVersionAndEditButton" class="btn btn-outline-primary d-none">
+                                <i class="fas fa-code-branch"></i> 再作成
+                            </button>
+                            {% endif %}
+                        </div>
+                        <button type="button"
+                                class="btn btn-outline-secondary screen-action-more"
+                                data-screen-actions-toggle
+                                aria-expanded="false"
+                                aria-label="その他の操作">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        {% if can_edit_character %}
+                        <div class="screen-action-primary">
+                            <a href="#" id="editButton" class="btn btn-primary">
+                                <i class="fas fa-edit"></i> 編集
+                            </a>
+                        </div>
+                        {% endif %}
+                        <button type="button"
+                                class="screen-action-backdrop"
+                                data-screen-actions-close
+                                aria-label="操作メニューを閉じる"></button>
                     </nav>
                 </div>
             </div>
@@ -365,7 +391,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/ccfolia_character_copy.js' %}"></script>
+<script src="{% static 'js/screen-actions.js' %}?v=20260728-4"></script>
+<script src="{% static 'js/ccfolia_character_copy.js' %}?v=20260729-melee-name-1"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const containerEl = document.getElementById('characterDetailContainer');
@@ -2052,91 +2079,6 @@ document.addEventListener('DOMContentLoaded', function() {
 #growthRecordModal .form-label {
     font-size: 0.875rem;
     font-weight: 500;
-}
-
-#characterContent .character-actions {
-    display: flex;
-    flex: 1 1 auto;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    margin-left: 1.5rem;
-}
-
-#characterContent .action-group {
-    display: flex;
-    gap: 0.5rem;
-}
-
-#characterContent .action-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    white-space: nowrap;
-}
-
-#characterContent .action-button--recreate {
-    border-color: #6f42c1;
-    color: #6f42c1;
-}
-
-#characterContent .action-button--recreate:hover,
-#characterContent .action-button--recreate:focus {
-    background-color: #6f42c1;
-    color: #fff;
-}
-
-@media (max-width: 768px) {
-    #characterContent .character-actions {
-        width: 100%;
-        margin-left: 0;
-    }
-}
-
-@media (max-width: 575.98px) {
-    #characterContent .character-header {
-        align-items: stretch !important;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
-    #characterContent .character-actions {
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        width: 100%;
-        gap: 0.5rem;
-        margin-left: 0;
-    }
-
-    #characterContent .action-group {
-        display: contents;
-    }
-
-    #characterContent .action-button {
-        width: 100%;
-        min-width: 0;
-        padding: 0.4rem 0.35rem;
-        font-size: 0.78rem;
-    }
-
-    #characterContent .action-group--left .action-button {
-        grid-column: 1;
-    }
-
-    #characterContent .action-group--right .action-button {
-        grid-column: 2;
-    }
-
-    #characterContent .action-button--move,
-    #characterContent .action-button--recreate {
-        grid-row: 1;
-    }
-
-    #characterContent .action-button--output,
-    #characterContent .action-button--edit {
-        grid-row: 2;
-    }
 }
 </style>
 {% endblock %}

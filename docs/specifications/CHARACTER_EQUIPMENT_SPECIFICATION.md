@@ -30,7 +30,7 @@
 #### 武器専用フィールド
 | フィールド | 型 | 説明 | 例 |
 |-----------|-----|------|-----|
-| `skill_name` | string | 使用技能 | 拳銃、こぶし（パンチ） |
+| `skill_name` | string | 使用技能 | 拳銃、こぶし |
 | `damage` | string | ダメージ | 1D10、1D3+DB |
 | `base_range` | string | 射程 | タッチ、10m、30m |
 | `attacks_per_round` | int | 攻撃回数/ラウンド | 1、2、3 |
