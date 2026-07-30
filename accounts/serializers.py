@@ -322,8 +322,8 @@ class CharacterSkillSerializer(serializers.ModelSerializer):
 class CharacterEquipmentSerializer(serializers.ModelSerializer):
     """キャラクター装備シリアライザー"""
 
-    equipment_type = serializers.CharField(write_only=True, required=False)
-    armor_value = serializers.IntegerField(write_only=True, required=False)
+    equipment_type = serializers.CharField(source="item_type", read_only=True)
+    armor_value = serializers.IntegerField(source="armor_points", read_only=True)
 
     def to_internal_value(self, data):
         payload = data.copy()
@@ -1255,7 +1255,12 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
                 "sanity_current": new_stats["sanity_starting"],
             }
             for field in replacement:
-                if field not in supplied_current and old_current[field] == automatic[field]:
+                client_echoed_automatic_value = (
+                    field in supplied_current and validated_data.get(field) == automatic[field]
+                )
+                if old_current[field] == automatic[field] and (
+                    field not in supplied_current or client_echoed_automatic_value
+                ):
                     setattr(detail, field, replacement[field])
         with transaction.atomic():
             detail.save()

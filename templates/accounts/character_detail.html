@@ -1135,9 +1135,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 装備表示
     function displayEquipment(equipment) {
-        const weapons = equipment.filter(item => item.equipment_type === 'weapon');
-        const armor = equipment.filter(item => item.equipment_type === 'armor');
-        const items = equipment.filter(item => item.equipment_type === 'item');
+        const equipmentType = item => item.item_type || item.equipment_type;
+        const weapons = equipment.filter(item => equipmentType(item) === 'weapon');
+        const armor = equipment.filter(item => equipmentType(item) === 'armor');
+        const items = equipment.filter(item => equipmentType(item) === 'item');
         
         displayEquipmentCategory('weaponsContainer', weapons, 'weapon');
         displayEquipmentCategory('armorContainer', armor, 'armor');
@@ -1165,14 +1166,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 html += `
                     <div class="small">
                         <div><strong>ダメージ:</strong> ${item.damage || '-'}</div>
-                        <div><strong>射程:</strong> ${item.range || '-'}</div>
+                        <div><strong>射程:</strong> ${item.base_range || item.range || '-'}</div>
                         ${item.ammo ? `<div><strong>装弾数:</strong> ${item.ammo}</div>` : ''}
                     </div>
                 `;
             } else if (type === 'armor') {
                 html += `
                     <div class="small">
-                        ${item.protection ? `<div><strong>防護点:</strong> ${item.protection}</div>` : ''}
+                        ${(item.armor_points ?? item.armor_value ?? item.protection) != null
+                            ? `<div><strong>防護点:</strong> ${item.armor_points ?? item.armor_value ?? item.protection}</div>`
+                            : ''}
                     </div>
                 `;
             }

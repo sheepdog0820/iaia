@@ -108,6 +108,13 @@ class FixedShareUrlTests(APITestCase):
 
     def test_character_fixed_share_url_is_stable_and_uses_no_id_path(self):
         character = self.create_character()
+        character.system_data.equipment.create(
+            item_type="weapon",
+            name=".38口径リボルバー",
+            damage="1D10",
+            base_range="15m",
+            ammo=6,
+        )
         self.assertIsNotNone(character.share_token)
 
         self.client.force_authenticate(self.owner)
@@ -155,6 +162,13 @@ class FixedShareUrlTests(APITestCase):
         self.assertNotContains(anonymous_response, 'download="character-')
         self.assertNotContains(anonymous_response, 'id="editButton"')
         self.assertNotContains(anonymous_response, "private notes must not render")
+
+        shared_detail_response = self.client.get(f"/share/characters/{character.share_token}/")
+        self.assertEqual(shared_detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(shared_detail_response.data["equipment"]), 1)
+        self.assertEqual(shared_detail_response.data["equipment"][0]["item_type"], "weapon")
+        self.assertEqual(shared_detail_response.data["equipment"][0]["equipment_type"], "weapon")
+        self.assertEqual(shared_detail_response.data["equipment"][0]["name"], ".38口径リボルバー")
 
         ccfolia_response = self.client.get(f"/share/characters/{character.share_token}/ccfolia.json")
         self.assertEqual(ccfolia_response.status_code, status.HTTP_200_OK)

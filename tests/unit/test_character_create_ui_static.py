@@ -419,6 +419,14 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         self.assertIn('"近接戦闘"', basic_skill_names)
         self.assertNotIn("近接戦闘（格闘）", basic_skill_names)
 
+    def test_seventh_edition_current_stats_follow_previous_derived_values(self):
+        script = self.read_text("static/accounts/js/character7th.js")
+
+        self.assertIn("const previousDerivedValue = id =>", script)
+        self.assertIn("followsPreviousDerivedValue(currentHpEl, previousHp)", script)
+        self.assertIn("followsPreviousDerivedValue(currentMpEl, previousMp)", script)
+        self.assertIn("followsPreviousDerivedValue(currentSanEl, previousSan)", script)
+
     def test_scenario_combat_and_firearms_groups_are_explained_and_expanded(self):
         scenario_template = self.read_text("templates/scenarios/archive.html")
 

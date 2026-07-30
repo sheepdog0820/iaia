@@ -891,6 +891,14 @@ function updateGlobalDiceFormula() {
             : (Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1) * 5;
         const know = edu;  // 知識 = EDU
         const sanMax = 99;  // 99 - クトゥルフ神話技能（初期値0）
+
+        const previousDerivedValue = id => {
+            const value = parseInt(document.getElementById(id)?.value, 10);
+            return Number.isNaN(value) ? null : value;
+        };
+        const previousHp = previousDerivedValue('hp');
+        const previousMp = previousDerivedValue('mp');
+        const previousSan = previousDerivedValue('san');
         
         if (document.getElementById('hp')) document.getElementById('hp').value = hp;
         if (document.getElementById('mp')) document.getElementById('mp').value = mp;
@@ -903,9 +911,19 @@ function updateGlobalDiceFormula() {
         const currentHpEl = document.getElementById('current_hp');
         const currentMpEl = document.getElementById('current_mp');
         const currentSanEl = document.getElementById('current_san');
-        if (currentHpEl && (setCurrentDefaults || currentHpEl.value === '')) currentHpEl.value = hp;
-        if (currentMpEl && (setCurrentDefaults || currentMpEl.value === '')) currentMpEl.value = mp;
-        if (currentSanEl && (setCurrentDefaults || currentSanEl.value === '')) currentSanEl.value = san;
+        const followsPreviousDerivedValue = (element, previousValue) => (
+            element?.value === ''
+            || (previousValue !== null && parseInt(element?.value, 10) === previousValue)
+        );
+        if (currentHpEl && (setCurrentDefaults || followsPreviousDerivedValue(currentHpEl, previousHp))) {
+            currentHpEl.value = hp;
+        }
+        if (currentMpEl && (setCurrentDefaults || followsPreviousDerivedValue(currentMpEl, previousMp))) {
+            currentMpEl.value = mp;
+        }
+        if (currentSanEl && (setCurrentDefaults || followsPreviousDerivedValue(currentSanEl, previousSan))) {
+            currentSanEl.value = san;
+        }
         
         if (document.getElementById('sanity_max')) document.getElementById('sanity_max').value = sanMax;
         
@@ -3187,6 +3205,9 @@ function initOccupationTemplates() {
         setValueById('current_hp', sheet.hit_points_current);
         setValueById('current_mp', sheet.magic_points_current);
         setValueById('current_san', sheet.sanity_current);
+        setValueById('hp', sheet.hit_points_max);
+        setValueById('mp', sheet.magic_points_max);
+        setValueById('san', sheet.sanity_starting);
 
         calculateDerivedStats({ setCurrentDefaults: false });
 
