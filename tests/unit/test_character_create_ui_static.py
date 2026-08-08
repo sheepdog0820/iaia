@@ -507,7 +507,7 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
             "イデオロギー／信念",
             "重要な人々",
             "意味のある場所",
-            "秘蔵の品",
+            "所持品メモ",
             "負傷、傷跡",
             "恐怖症、マニア",
             "魔道書、呪文、アーティファクト",
@@ -527,7 +527,6 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
             "ideals",
             "bonds",
             "meaningful_locations",
-            "items",
             "scars_injuries",
             "flaws",
             "arcane_tomes_spells_artifacts",
@@ -548,6 +547,10 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
 
                 names = re.findall(r'<textarea[^>]+name="([^"]+)"', background_block)
                 self.assertEqual(expected_names, names)
+
+                self.assertEqual(1, template.count('id="items"'))
+                self.assertEqual(1, template.count('name="items"'))
+                self.assertNotIn("秘蔵の品", template)
 
     def test_character_detail_background_section_label_is_current(self):
         template = self.read_text("templates/accounts/character_detail.html")
@@ -589,11 +592,21 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
                 script = self.read_text(relative_path)
                 load_ids = re.findall(r"setValueById\('([^']+)', backgroundInfo\.[^)]+\);", script)
                 payload_match = re.search(r"const backgroundData = \{(?P<body>.*?)\n        \};", script, re.S)
+
+                self.assertIn(
+                    "treasured_possessions: document.getElementById('items')?.value || ''",
+                    script,
+                )
                 self.assertIsNotNone(payload_match)
                 payload_keys = re.findall(r"^            ([a-z_]+):", payload_match.group("body"), re.M)
 
                 self.assertEqual(expected_load_ids, load_ids)
                 self.assertEqual(expected_payload_keys, payload_keys)
+
+    def test_character_detail_labels_treasured_possessions_as_inventory_notes(self):
+        template = self.read_text("templates/accounts/character_detail.html")
+
+        self.assertIn("{ label: '所持品メモ', value: background.treasured_possessions }", template)
 
     def test_character_detail_long_memo_uses_full_width_scrollable_block(self):
         template = self.read_text("templates/accounts/character_detail.html")

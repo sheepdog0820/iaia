@@ -352,7 +352,6 @@ class CompleteWorkflowIntegrationTestCase(TransactionTestCase):
             "author": "Larry DiTillio & Lynn Willis",
             "game_system": "coc",
             "difficulty": "expert",
-            "estimated_duration": "campaign",
             "summary": "A globe-spanning campaign of cosmic horror and investigation",
             "player_count": 3,
             "estimated_time": 2400,  # 40 hours total

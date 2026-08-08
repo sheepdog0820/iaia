@@ -48,7 +48,7 @@ class ScenarioImageTestCase(APITestCase):
             summary="Test Summary",
             game_system="coc",
             difficulty="intermediate",
-            estimated_duration="medium",
+            estimated_time=270,
             created_by=self.creator,
         )
         self.group = Group.objects.create(name="Scenario Image Group", created_by=self.creator)

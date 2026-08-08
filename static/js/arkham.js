@@ -57,6 +57,26 @@ const ARKHAM = {
         if (mins === 0) return `${hours}時間`;
         return `${hours}時間${mins}分`;
     },
+
+    formatDurationHours: function(minutes, emptyLabel = '未設定') {
+        const numericMinutes = Number(minutes);
+        if (!Number.isFinite(numericMinutes) || numericMinutes <= 0) return emptyLabel;
+        const hours = Math.round((numericMinutes / 60) * 100) / 100;
+        return `${hours}時間`;
+    },
+
+    minutesToHours: function(minutes) {
+        const numericMinutes = Number(minutes);
+        if (!Number.isFinite(numericMinutes) || numericMinutes <= 0) return '';
+        return Math.round((numericMinutes / 60) * 100) / 100;
+    },
+
+    hoursToMinutes: function(hours) {
+        if (hours === '' || hours == null) return null;
+        const numericHours = Number(hours);
+        if (!Number.isFinite(numericHours) || numericHours < 0) return null;
+        return Math.round(numericHours * 60);
+    },
     
     // エラーハンドリング
     handleError: function(error) {

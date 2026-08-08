@@ -413,7 +413,6 @@ class SharedScenarioSerializer(serializers.ModelSerializer):
             "author",
             "game_system",
             "difficulty",
-            "estimated_duration",
             "summary",
             "public_info",
             "investigator_requirements",

@@ -19,7 +19,7 @@ class CleanupMissingUploadImagesCommandTests(TestCase):
             summary="テスト",
             game_system="coc",
             difficulty="intermediate",
-            estimated_duration="medium",
+            estimated_time=270,
             created_by=self.user,
         )
         self.image = ScenarioImage.objects.create(

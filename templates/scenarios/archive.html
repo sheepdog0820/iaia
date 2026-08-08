@@ -42,17 +42,6 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">プレイ時間</label>
-                        <select class="form-select" id="durationFilter">
-                            <option value="">すべて</option>
-                            <option value="short">短編（〜3時間）</option>
-                            <option value="medium">中編（3〜6時間）</option>
-                            <option value="long">長編（6時間〜）</option>
-                            <option value="campaign">キャンペーン</option>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
                         <label class="form-label">プレイ状況</label>
                         <select class="form-select" id="playedFilter">
                             <option value="">すべて</option>
@@ -148,15 +137,6 @@
                             </select>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label for="scenarioDuration" class="form-label">想定プレイ時間</label>
-                            <select class="form-select" id="scenarioDuration">
-                                <option value="short">短編（〜3時間）</option>
-                                <option value="medium">中編（3〜6時間）</option>
-                                <option value="long">長編（6時間〜）</option>
-                                <option value="campaign">キャンペーン</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-3">
                             <label for="scenarioPlayers" class="form-label">推奨人数</label>
                             <input type="text" class="form-control" id="scenarioPlayers" placeholder="例: 3-4人">
                         </div>
@@ -172,8 +152,8 @@
                             <input type="number" min="1" class="form-control" id="scenarioMaxPlayers" placeholder="例: 4">
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label for="scenarioEstimatedTime" class="form-label">所要時間（分）</label>
-                            <input type="number" min="1" class="form-control" id="scenarioEstimatedTime" placeholder="例: 240">
+                            <label for="scenarioEstimatedTime" class="form-label">所要時間（時間）</label>
+                            <input type="number" min="0.5" step="0.5" class="form-control" id="scenarioEstimatedTime" placeholder="例: 4">
                         </div>
                     </div>
 
@@ -1152,7 +1132,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const difficultyKey = normalizeDifficultyKey(scenario?.difficulty);
                 const safeSystemLabel = escapeHtml(getSystemLabel(scenario?.game_system));
                 const safeDifficultyLabel = escapeHtml(getDifficultyLabel(difficultyKey));
-                const safeDuration = escapeHtml(getDurationLabel(scenario?.estimated_duration));
+                const safeDuration = escapeHtml(formatEstimatedTime(scenario?.estimated_time));
                 const safePlayers = escapeHtml(scenario?.recommended_players || '指定なし');
                 const playCount = Number(scenario?.play_count) || 0;
                 const manageActions = canManageScenario(scenario)
@@ -1195,7 +1175,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!showTestData && isDevelopmentScenario(scenario)) return false;
             if (currentFilters.system && scenario.game_system !== currentFilters.system) return false;
             if (currentFilters.difficulty && scenario.difficulty !== currentFilters.difficulty) return false;
-            if (currentFilters.duration && scenario.estimated_duration !== currentFilters.duration) return false;
             if (currentFilters.played === 'played' && scenario.play_count === 0) return false;
             if (currentFilters.played === 'not_played' && scenario.play_count > 0) return false;
             return true;
@@ -1227,15 +1206,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return labels[difficulty] || difficulty;
     }
 
-    // プレイ時間ラベル取得
-    function getDurationLabel(duration) {
-        const labels = {
-            short: '短編',
-            medium: '中編',
-            long: '長編',
-            campaign: 'キャンペーン'
-        };
-        return labels[duration] || duration;
+    function formatEstimatedTime(estimatedTime) {
+        return ARKHAM.formatDurationHours(estimatedTime);
     }
 
     function fillScenarioForm(scenario) {
@@ -1246,11 +1218,10 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('scenarioSystem').value = scenario.game_system === 'coc7' ? 'coc7' : 'coc6';
         document.getElementById('scenarioAuthor').value = scenario.author || '';
         document.getElementById('scenarioDifficulty').value = scenario.difficulty || 'beginner';
-        document.getElementById('scenarioDuration').value = scenario.estimated_duration || 'short';
         document.getElementById('scenarioPlayers').value = scenario.recommended_players || '';
         setScenarioFieldValue('scenarioMinPlayers', scenario.min_players);
         setScenarioFieldValue('scenarioMaxPlayers', scenario.max_players);
-        setScenarioFieldValue('scenarioEstimatedTime', scenario.estimated_time);
+        setScenarioFieldValue('scenarioEstimatedTime', ARKHAM.minutesToHours(scenario.estimated_time));
         setScenarioFieldValue('scenarioSettingEra', scenario.setting_era);
         setScenarioFieldValue('scenarioSettingLocation', scenario.setting_location);
         setScenarioFieldValue('scenarioStyle', scenario.scenario_style);
@@ -1754,7 +1725,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const safeSystemLabel = escapeHtml(getSystemLabel(scenario?.game_system));
             const safeDifficultyLabel = escapeHtml(getDifficultyLabel(difficultyKey));
             const safeRecommendedPlayers = escapeHtml(scenario?.recommended_players || '指定なし');
-            const safeDurationLabel = escapeHtml(getDurationLabel(scenario?.estimated_duration));
+            const safeDurationLabel = escapeHtml(formatEstimatedTime(scenario?.estimated_time));
             const safeSummary = escapeHtml(scenario?.summary || 'なし');
 
             const normalizedUrl = normalizeExternalUrl(scenario?.url);
@@ -1876,7 +1847,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <td id="scenarioRecommendedSkillsValue"></td>
                             </tr>
                             <tr>
-                                <th>想定時間</th>
+                                <th>所要時間</th>
                                 <td>${safeDurationLabel}</td>
                             </tr>
                         </table>
@@ -2212,11 +2183,10 @@ document.addEventListener('DOMContentLoaded', function() {
             game_system: document.getElementById('scenarioSystem').value,
             author: document.getElementById('scenarioAuthor').value,
             difficulty: document.getElementById('scenarioDifficulty').value,
-            estimated_duration: document.getElementById('scenarioDuration').value,
             recommended_players: document.getElementById('scenarioPlayers').value,
             min_players: getOptionalIntegerValue('scenarioMinPlayers'),
             max_players: getOptionalIntegerValue('scenarioMaxPlayers'),
-            estimated_time: getOptionalIntegerValue('scenarioEstimatedTime'),
+            estimated_time: ARKHAM.hoursToMinutes(document.getElementById('scenarioEstimatedTime').value),
             setting_era: document.getElementById('scenarioSettingEra').value,
             setting_location: document.getElementById('scenarioSettingLocation').value,
             scenario_style: document.getElementById('scenarioStyle').value,
@@ -2288,7 +2258,6 @@ document.addEventListener('DOMContentLoaded', function() {
         currentFilters = {
             system: document.getElementById('systemFilter').value,
             difficulty: document.getElementById('difficultyFilter').value,
-            duration: document.getElementById('durationFilter').value,
             played: document.getElementById('playedFilter').value
         };
         renderScenarios();

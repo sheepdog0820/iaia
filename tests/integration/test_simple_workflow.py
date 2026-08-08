@@ -115,7 +115,7 @@ def test_basic_workflow():
         "description": "ワークフロー用テストシナリオ",
         "system": "cthulhu",
         "difficulty": "medium",
-        "estimated_duration": 240,
+        "estimated_time": 240,
     }
     response = client.post("/api/scenarios/scenarios/", scenario_data)
     if response.status_code == 201:

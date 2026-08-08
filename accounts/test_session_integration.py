@@ -58,7 +58,7 @@ class SessionCharacterIntegrationTestCase(TestCase):
             game_system="coc",  # クトゥルフ神話TRPG
             summary="古い洋館での探索シナリオ",
             recommended_players="3-4人",
-            estimated_duration="medium",  # 3-4時間
+            estimated_time=270,  # 3-4時間
             difficulty="beginner",
             created_by=self.gm_user,
         )

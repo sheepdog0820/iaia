@@ -368,7 +368,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="card-body text-center">
                         <div class="stat-number">${stats.avg_session_hours}h</div>
                         <div class="stat-label">平均セッション時間</div>
-                        <div class="stat-subtitle">${stats.total_minutes}分合計</div>
+                        <div class="stat-subtitle">${ARKHAM.formatDurationHours(stats.total_minutes)}合計</div>
                     </div>
                 </div>
             </div>

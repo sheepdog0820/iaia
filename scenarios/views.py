@@ -59,11 +59,6 @@ class ScenarioViewSet(viewsets.ModelViewSet):
         if difficulty:
             queryset = queryset.filter(difficulty=difficulty)
 
-        # 推定時間フィルター
-        estimated_duration = self.request.query_params.get("estimated_duration")
-        if estimated_duration:
-            queryset = queryset.filter(estimated_duration=estimated_duration)
-
         return queryset.order_by("title")
 
     def perform_create(self, serializer):

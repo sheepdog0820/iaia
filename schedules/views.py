@@ -28,7 +28,7 @@ from accounts.models import (
     GroupMembership,
 )
 from accounts.views.mixins import CharacterSheetAccessMixin
-from schedules.duration import effective_duration_expression
+from schedules.duration import effective_duration_expression, format_duration_hours
 
 from . import session_permissions
 from .models import (  # 高度なスケジューリング機能（ISSUE-017）
@@ -2481,15 +2481,7 @@ class UpcomingSessionsView(APIView):
 
         # 今日から7日以内のセッション
         def format_duration(minutes):
-            if not minutes:
-                return None
-            hours = minutes // 60
-            mins = minutes % 60
-            if hours > 0 and mins > 0:
-                return f"{hours}時間{mins}分"
-            if hours > 0:
-                return f"{hours}時間"
-            return f"{mins}分"
+            return format_duration_hours(minutes, empty_label=None)
 
         def format_date_display(dt):
             if not dt:

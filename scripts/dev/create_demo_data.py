@@ -77,7 +77,6 @@ def create_demo_data():
             "player_count": 3,
             "estimated_time": 240,
             "difficulty": "intermediate",
-            "estimated_duration": "medium",
             "game_system": "coc",
         },
         {
@@ -89,7 +88,6 @@ def create_demo_data():
             "player_count": 2,
             "estimated_time": 180,
             "difficulty": "beginner",
-            "estimated_duration": "short",
             "game_system": "coc",
         },
         {
@@ -101,7 +99,6 @@ def create_demo_data():
             "player_count": 4,
             "estimated_time": 360,
             "difficulty": "advanced",
-            "estimated_duration": "long",
             "game_system": "coc",
         },
     ]

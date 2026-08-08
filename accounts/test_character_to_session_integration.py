@@ -66,7 +66,7 @@ class CharacterToSessionIntegrationTestCase(TestCase):
             game_system="coc",
             summary="廃屋に潜む恐怖を探る探索シナリオ",
             recommended_players="3-4人",
-            estimated_duration="medium",
+            estimated_time=270,
             difficulty="beginner",
             created_by=self.gm_user,
         )

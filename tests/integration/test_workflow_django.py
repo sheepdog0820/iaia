@@ -120,7 +120,7 @@ class WorkflowIntegrationTestCase(TestCase):
             "description": "H.P.ラヴクラフトの代表作",
             "system": "cthulhu",
             "difficulty": "hard",
-            "estimated_duration": 360,
+            "estimated_time": 360,
             "min_players": 3,
             "max_players": 6,
         }
@@ -319,7 +319,7 @@ class WorkflowIntegrationTestCase(TestCase):
             "title": "統計用シナリオ",
             "system": "cthulhu",
             "difficulty": "medium",
-            "estimated_duration": 240,
+            "estimated_time": 240,
         }
         response = self.client.post("/api/scenarios/scenarios/", scenario_data)
         if response.status_code != 201:

@@ -155,7 +155,6 @@ class SessionScenarioIntegrationTestCase(APITestCase):
             author="H.P. Lovecraft",
             game_system="coc",
             difficulty="intermediate",
-            estimated_duration="medium",
             summary="A classic investigation into supernatural occurrences",
             created_by=self.gm_user,
             player_count=4,
@@ -393,7 +392,6 @@ class EndToEndBusinessFlowTestCase(TransactionTestCase):
             "author": "Sandy Petersen",
             "game_system": "coc",
             "difficulty": "advanced",
-            "estimated_duration": "campaign",
             "summary": "A multi-session campaign exploring cosmic horror",
             "player_count": 3,
             "estimated_time": 720,  # 12 hours total

@@ -416,7 +416,7 @@ class SessionImageTestCase(APITestCase):
             summary="テスト用あらすじ",
             game_system="coc",
             difficulty="intermediate",
-            estimated_duration="medium",
+            estimated_time=270,
             created_by=self.gm,
         )
         scenario_image = ScenarioImage.objects.create(

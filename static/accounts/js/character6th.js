@@ -3280,7 +3280,7 @@ function initOccupationTemplates() {
             beliefs_ideology: data.ideals || '',
             significant_people: data.bonds || '',
             meaningful_locations: data.meaningful_locations || '',
-            treasured_possessions: data.items || '',
+            treasured_possessions: document.getElementById('items')?.value || '',
             scars_injuries: data.scars_injuries || '',
             phobias_manias: data.flaws || '',
             arcane_tomes_spells_artifacts: data.arcane_tomes_spells_artifacts || '',

@@ -12,6 +12,7 @@ from accounts.models import CustomUser, Group
 from accounts.serializers import PublicUserSerializer, validate_character_image
 from scenarios.access import can_view_scenario
 from scenarios.models import Scenario
+from schedules.duration import format_duration_hours
 from schedules.handout_access import can_view_handout
 
 
@@ -828,16 +829,7 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
     @extend_schema_field(OpenApiTypes.STR)
     def get_duration_display(self, obj):
         duration_minutes = obj.effective_duration_minutes
-        if duration_minutes:
-            hours = duration_minutes // 60
-            minutes = duration_minutes % 60
-            if hours > 0 and minutes > 0:
-                return f"{hours}時間{minutes}分"
-            elif hours > 0:
-                return f"{hours}時間"
-            else:
-                return f"{minutes}分"
-        return None
+        return format_duration_hours(duration_minutes, empty_label=None)
 
 
 # ===== ハンドアウト通知関連シリアライザー =====
