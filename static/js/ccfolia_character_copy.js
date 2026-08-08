@@ -49,6 +49,12 @@
         return Number.isFinite(num) ? num : fallback;
     }
 
+    function toNullableNumber(value) {
+        if (value === null || value === undefined || value === '') return null;
+        const num = Number(value);
+        return Number.isFinite(num) ? num : null;
+    }
+
     const COC6_DEFAULT_SKILLS = [
         { name: '回避', base: 'DEX*2' },
         { name: 'キック', base: 25 },
@@ -206,6 +212,11 @@
         return toNumber(base);
     }
 
+    function normalizeSkillName(edition, skillName) {
+        const aliases = edition === '7th' ? COC7_SKILL_NAME_ALIASES : COC6_SKILL_NAME_ALIASES;
+        return aliases.get(skillName) || skillName;
+    }
+
     function collectSkills(character, abilities) {
         const edition = character?.edition || '6th';
         const defaultSkills = edition === '7th' ? COC7_DEFAULT_SKILLS : COC6_DEFAULT_SKILLS;
@@ -219,13 +230,12 @@
         (Array.isArray(character.skills) ? character.skills : []).forEach(skill => {
             if (!skill?.skill_name || !Number.isFinite(Number(skill.current_value))) return;
             const skillName = String(skill.skill_name);
-            const skillNameAliases = edition === '7th' ? COC7_SKILL_NAME_ALIASES : COC6_SKILL_NAME_ALIASES;
-            const normalizedSkillName = skillNameAliases.get(skillName) || skillName;
+            const normalizedSkillName = normalizeSkillName(edition, skillName);
             const skillValue = toNumber(skill.current_value);
             if (skillValues.has(normalizedSkillName)) {
                 skillValues.set(normalizedSkillName, Math.max(skillValues.get(normalizedSkillName), skillValue));
             } else {
-                customSkills.set(skillName, skillValue);
+                customSkills.set(normalizedSkillName, skillValue);
             }
         });
 
@@ -236,6 +246,25 @@
             })),
             ...Array.from(customSkills, ([skill_name, current_value]) => ({ skill_name, current_value })),
         ];
+    }
+
+    function collectEquipment(character) {
+        return (Array.isArray(character?.equipment) ? character.equipment : [])
+            .filter(item => item?.name)
+            .map(item => ({
+                item_type: item.item_type || item.equipment_type || 'item',
+                name: String(item.name),
+                skill_name: item.skill_name || '',
+                damage: item.damage || '',
+                base_range: item.base_range || '',
+                attacks_per_round: toNullableNumber(item.attacks_per_round),
+                ammo: toNullableNumber(item.ammo),
+                malfunction_number: toNullableNumber(item.malfunction_number),
+                armor_points: toNullableNumber(item.armor_points ?? item.armor_value),
+                description: item.description || '',
+                quantity: toNullableNumber(item.quantity) ?? 1,
+                weight: toNullableNumber(item.weight),
+            }));
     }
 
     function getSixthValue(sixth, key, fallback) {
@@ -264,8 +293,24 @@
         const luckMax = toNumber(seventh.max_luck, luckCurrent);
         const sanityCurrent = toNumber(character.sanity_current ?? character.san_current);
         const skillCommandPrefix = isSeventhEdition ? 'CC' : 'CCB';
-        const skillCommands = collectSkills(character, abilities)
+        const collectedSkills = collectSkills(character, abilities);
+        const skillCommands = collectedSkills
             .map(skill => `${skillCommandPrefix}<=${toNumber(skill.current_value)} 【${skill.skill_name}】`);
+        const skillValues = new Map(
+            collectedSkills.map(skill => [skill.skill_name, toNumber(skill.current_value)])
+        );
+        const equipment = collectEquipment(character);
+        const weaponCommands = equipment
+            .filter(item => item.item_type === 'weapon')
+            .flatMap(item => {
+                const commands = [];
+                const normalizedSkillName = normalizeSkillName(character.edition || '6th', item.skill_name);
+                if (skillValues.has(normalizedSkillName)) {
+                    commands.push(`${skillCommandPrefix}<=${skillValues.get(normalizedSkillName)} 【${item.name}】`);
+                }
+                if (item.damage) commands.push(`${item.damage} 【${item.name}ダメージ】`);
+                return commands;
+            });
         const abilityCommandPrefix = isSeventhEdition ? 'CC' : 'CCB';
         const abilityCommands = abilityLabels.map(([label]) => (
             isSeventhEdition
@@ -328,8 +373,15 @@
                     ...(isSeventhEdition ? [{ label: '幸運', value: luckCurrent, max: luckMax }] : []),
                 ],
                 params,
-                commands: [...derivedCommands, ...abilityCommands, ...skillCommands, ...damageCommands].join('\n'),
+                commands: [
+                    ...derivedCommands,
+                    ...abilityCommands,
+                    ...skillCommands,
+                    ...weaponCommands,
+                    ...damageCommands,
+                ].join('\n'),
             },
+            equipment,
         };
     }
 

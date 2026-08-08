@@ -3215,16 +3215,6 @@ function initOccupationTemplates() {
         renderEquipmentUi(Array.isArray(sheet.equipment) ? sheet.equipment : []);
         equipmentUiState.loadedForEdit = true;
 
-        // Financial data
-        try {
-            const fin = await fetchJson(`/accounts/character-sheets/${characterId}/financial_summary/`);
-            setValueById('money', fin.cash);
-            setValueById('assets', fin.assets);
-            setValueById('income', fin.annual_income);
-        } catch (_) {
-            // optional
-        }
-
         // Skills
         const nameToKey = new Map(
             Object.entries(ALL_SKILLS_7TH)
@@ -3373,13 +3363,6 @@ function initOccupationTemplates() {
         if (data.hit_points_current !== '' && data.hit_points_current != null) apiData.hit_points_current = parseInt(data.hit_points_current, 10) || 0;
         if (data.magic_points_current !== '' && data.magic_points_current != null) apiData.magic_points_current = parseInt(data.magic_points_current, 10) || 0;
         if (data.sanity_current !== '' && data.sanity_current != null) apiData.sanity_current = parseInt(data.sanity_current, 10) || 0;
-        if (data.armor !== '' && data.armor != null) apiData.armor = parseInt(data.armor, 10) || 0;
-
-        // 財産情報（保存時は update_financial_data を使用）
-        if (data.money !== '' && data.money != null) apiData.money = parseInt(data.money, 10) || 0;
-        if (data.assets !== '' && data.assets != null) apiData.assets = parseInt(data.assets, 10) || 0;
-        if (data.income !== '' && data.income != null) apiData.income = parseInt(data.income, 10) || 0;
-
         // 技能データの収集
         const skills = [];
         skillCards.forEach(({ key: skillKey, card }) => {
@@ -3438,23 +3421,6 @@ function initOccupationTemplates() {
                 'X-CSRFToken': csrfToken,
             },
             body: JSON.stringify(backgroundData),
-        });
-    }
-
-    async function updateFinancialData(characterId, data) {
-        const payload = {};
-        if (data.money !== '' && data.money != null) payload.cash = parseInt(data.money, 10) || 0;
-        if (data.assets !== '' && data.assets != null) payload.assets = parseInt(data.assets, 10) || 0;
-        if (data.income !== '' && data.income != null) payload.annual_income = parseInt(data.income, 10) || 0;
-        if (Object.keys(payload).length === 0) return;
-
-        await fetchJson(`/accounts/character-sheets/${characterId}/update_financial_data/`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken,
-            },
-            body: JSON.stringify(payload),
         });
     }
 
@@ -3632,6 +3598,7 @@ function initOccupationTemplates() {
             occupation_point_method: apiData.occupation_point_method,
             birthplace: apiData.birthplace,
             residence: apiData.residence,
+            secret_ho_info: apiData.secret_ho_info,
             recommended_skills: apiData.recommended_skills || [],
             occupation_skills: apiData.occupation_skills || [],
             str_value: apiData.str_value,
@@ -3659,7 +3626,6 @@ function initOccupationTemplates() {
         });
 
         await updateBackgroundData(characterId, backgroundData);
-        await updateFinancialData(characterId, data);
         await syncSkills(characterId, apiData.skills || []);
         await syncEquipment(characterId, apiData.equipment);
         await appendCharacterImages(characterId, imageFiles);

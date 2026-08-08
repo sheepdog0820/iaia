@@ -797,14 +797,9 @@
                                 <input type="number" class="form-control" id="current_san" name="sanity_current"
                                        min="0" max="9999">
                             </div>
-                            <div class="col-6 col-md-3 mb-3">
-                                <label for="armor" class="form-label">装甲値</label>
-                                <input type="number" class="form-control" id="armor" name="armor" 
-                                       min="0" max="50" value="0">
-                            </div>
                         </div>
                          <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i> 武器・防具・所持品はこの画面で登録できます（作成後も編集可能です）。
+                            <i class="fas fa-info-circle"></i> 武器・防具・所持品はこの画面で登録できます。装甲値は防具の「装甲ポイント」で設定してください（作成後も編集可能です）。
                          </div>
                      </div>
                  </div>
@@ -884,31 +879,14 @@
                     </div>
                 </div>
 
-                <!-- インベントリ・財産 -->
+                <!-- インベントリ -->
                 <div class="card mb-4">
                     <div class="card-header bg-success text-white">
                         <h5 class="mb-0">
-                            <i class="fas fa-coins"></i> インベントリ・財産
+                            <i class="fas fa-suitcase"></i> インベントリ
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label for="money" class="form-label">所持金</label>
-                                <input type="number" class="form-control" id="money" name="money" 
-                                       min="0" placeholder="0">
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="assets" class="form-label">総資産</label>
-                                <input type="number" class="form-control" id="assets" name="assets" 
-                                       min="0" placeholder="0">
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="income" class="form-label">年収</label>
-                                <input type="number" class="form-control" id="income" name="income" 
-                                       min="0" placeholder="0">
-                            </div>
-                        </div>
                         <div class="row">
                             <div class="col-12">
                                 <label for="items" class="form-label">所持品メモ</label>

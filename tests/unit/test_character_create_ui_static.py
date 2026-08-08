@@ -246,6 +246,42 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
                 self.assertIn('name="secret_ho_info"', template)
                 self.assertIn("秘匿HO情報", template)
 
+    def test_edit_payload_persists_secret_ho_info(self):
+        for relative_path in [
+            "static/accounts/js/character6th.js",
+            "static/accounts/js/character7th.js",
+        ]:
+            with self.subTest(relative_path=relative_path):
+                script = self.read_text(relative_path)
+
+                self.assertIn("secret_ho_info: apiData.secret_ho_info,", script)
+
+    def test_sixth_creation_persists_financial_inputs(self):
+        script = self.read_text("static/accounts/js/character6th.js")
+
+        self.assertGreaterEqual(script.count("await updateFinancialData(result.id, data);"), 2)
+
+    def test_forms_do_not_offer_an_unpersisted_scalar_armor_field(self):
+        for relative_path in [
+            "templates/accounts/character_6th_create.html",
+            "templates/accounts/character_7th_create.html",
+        ]:
+            with self.subTest(relative_path=relative_path):
+                template = self.read_text(relative_path)
+
+                self.assertNotIn('name="armor"', template)
+                self.assertNotIn('id="armor"', template)
+                self.assertIn('id="addArmorEquipment"', template)
+                self.assertIn("防具（装甲ポイント）を登録します。", template)
+
+    def test_seventh_form_does_not_offer_unsupported_financial_inputs(self):
+        template = self.read_text("templates/accounts/character_7th_create.html")
+
+        for field_name in ["money", "assets", "income"]:
+            self.assertNotIn(f'name="{field_name}"', template)
+        self.assertIn("インベントリ", template)
+        self.assertNotIn("インベントリ・財産", template)
+
     def test_character_create_uses_single_footer_save_button_and_loading_indicator(self):
         for relative_path in [
             "templates/accounts/character_6th_create.html",

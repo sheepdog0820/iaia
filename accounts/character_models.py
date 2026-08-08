@@ -2660,6 +2660,26 @@ class CharacterExportManager:
     """キャラクター エクスポート管理ユーティリティ"""
 
     @staticmethod
+    def _export_equipment(character):
+        return [
+            {
+                "item_type": item.item_type,
+                "name": item.name,
+                "skill_name": item.skill_name,
+                "damage": item.damage,
+                "base_range": item.base_range,
+                "attacks_per_round": item.attacks_per_round,
+                "ammo": item.ammo,
+                "malfunction_number": item.malfunction_number,
+                "armor_points": item.armor_points,
+                "description": item.description,
+                "quantity": item.quantity,
+                "weight": item.weight,
+            }
+            for item in character.equipment.all()
+        ]
+
+    @staticmethod
     def _normalize_ccfolia_skill_name(edition, skill_name):
         if edition == "6th" and skill_name in {"こぶし（パンチ）", "こぶし(パンチ)"}:
             return "こぶし"
@@ -2706,6 +2726,7 @@ class CharacterExportManager:
                 }
                 for skill in character.skills.all()
             ],
+            "equipment": CharacterExportManager._export_equipment(character),
             "version_info": {
                 "version": character.version,
                 "note": character.version_note,
@@ -2763,6 +2784,19 @@ class CharacterExportManager:
         for skill_name, total_value in skill_values.items():
             commands.append(f"{skill_command_prefix}<={total_value} 【{skill_name}】")
             skills.append({"name": skill_name, "value": total_value})
+
+        equipment = CharacterExportManager._export_equipment(character)
+        for item in equipment:
+            if item["item_type"] != "weapon" or not item["name"]:
+                continue
+            normalized_skill_name = CharacterExportManager._normalize_ccfolia_skill_name(
+                registry.edition,
+                item["skill_name"],
+            )
+            if normalized_skill_name in skill_values:
+                commands.append(f"{skill_command_prefix}<={skill_values[normalized_skill_name]} 【{item['name']}】")
+            if item["damage"]:
+                commands.append(f"{item['damage']} 【{item['name']}ダメージ】")
 
         # ダメージ判定
         if registry.edition == "6th":
@@ -2854,6 +2888,7 @@ class CharacterExportManager:
                     {"label": "EDU", "value": character.edu_value},
                 ],
                 "skills": skills,
+                "equipment": equipment,
             }
         )
 

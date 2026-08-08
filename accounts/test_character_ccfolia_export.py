@@ -9,6 +9,151 @@ from accounts.models import CharacterSheet, CharacterSheet6th, CharacterSheet7th
 
 
 class CharacterCcfolliaExportTests(TestCase):
+    def test_server_exports_all_equipment_fields_and_weapon_commands(self):
+        user = CustomUser.objects.create_user(username="ccfolia-equipment", password="testpass123")
+        character = CharacterSheet.objects.create(user=user, edition="6th")
+        detail = CharacterSheet6th.objects.create(
+            character_sheet=character,
+            name="装備探索者",
+            str_value=12,
+            con_value=10,
+            pow_value=10,
+            dex_value=10,
+            app_value=10,
+            siz_value=13,
+            int_value=10,
+            edu_value=10,
+            hit_points_max=10,
+            hit_points_current=10,
+            magic_points_max=10,
+            magic_points_current=10,
+            sanity_starting=60,
+            sanity_max=99,
+            sanity_current=60,
+        )
+        detail.skills.create(skill_name="ライフル", base_value=25, occupation_points=45)
+        detail.equipment.create(
+            item_type="weapon",
+            name="試作ライフル",
+            skill_name="ライフル",
+            damage="2D6+1",
+            base_range="100m",
+            attacks_per_round=1,
+            ammo=5,
+            malfunction_number=98,
+            description="試作品",
+            quantity=1,
+            weight=3.5,
+        )
+        detail.equipment.create(
+            item_type="armor",
+            name="防弾ベスト",
+            armor_points=3,
+            description="胴体用",
+            quantity=1,
+            weight=2.0,
+        )
+        detail.equipment.create(
+            item_type="item",
+            name="予備弾倉",
+            description="ライフル用",
+            quantity=2,
+            weight=0.5,
+        )
+
+        exported = character.export_ccfolia_format()
+        equipment_by_name = {item["name"]: item for item in exported["equipment"]}
+
+        self.assertEqual(
+            equipment_by_name["試作ライフル"],
+            {
+                "item_type": "weapon",
+                "name": "試作ライフル",
+                "skill_name": "ライフル",
+                "damage": "2D6+1",
+                "base_range": "100m",
+                "attacks_per_round": 1,
+                "ammo": 5,
+                "malfunction_number": 98,
+                "armor_points": None,
+                "description": "試作品",
+                "quantity": 1,
+                "weight": 3.5,
+            },
+        )
+        self.assertEqual(equipment_by_name["防弾ベスト"]["armor_points"], 3)
+        self.assertEqual(equipment_by_name["予備弾倉"]["quantity"], 2)
+        commands = exported["data"]["commands"].splitlines()
+        self.assertIn("CCB<=70 【試作ライフル】", commands)
+        self.assertIn("2D6+1 【試作ライフルダメージ】", commands)
+
+        version_data = CharacterExportManager.export_version_data(character)
+        self.assertEqual(version_data["equipment"], exported["equipment"])
+
+    def test_browser_export_includes_equipment_and_seventh_weapon_commands(self):
+        root = Path(__file__).resolve().parents[1]
+        script_path = root / "static" / "js" / "ccfolia_character_copy.js"
+        runner = """
+global.window = {
+    location: { origin: 'https://example.test' },
+    isSecureContext: true,
+};
+global.navigator = {};
+global.document = {};
+require(process.argv[1]);
+const exported = window.CCFOLIACharacterCopy.buildCharacterClipboard({
+    name: '装備探索者',
+    edition: '7th',
+    str_value: 60,
+    con_value: 60,
+    pow_value: 60,
+    dex_value: 60,
+    app_value: 50,
+    siz_value: 60,
+    int_value: 70,
+    edu_value: 70,
+    hit_points_current: 12,
+    hit_points_max: 12,
+    magic_points_current: 12,
+    magic_points_max: 12,
+    sanity_current: 60,
+    sanity_max: 99,
+    skills: [{ skill_name: '射撃（拳銃）', current_value: 65 }],
+    equipment: [
+        {
+            item_type: 'weapon',
+            name: 'カスタム拳銃',
+            skill_name: '射撃（拳銃）',
+            damage: '1D10',
+            base_range: '15m',
+            attacks_per_round: 1,
+            ammo: 6,
+            malfunction_number: 100,
+            armor_points: null,
+            description: '調整済み',
+            quantity: 1,
+            weight: 1.2,
+        },
+    ],
+}, '/characters/7/');
+process.stdout.write(JSON.stringify(exported));
+"""
+
+        completed = subprocess.run(
+            ["node", "-e", runner, script_path.as_posix()],
+            check=True,
+            capture_output=True,
+            encoding="utf-8",
+            text=True,
+        )
+        exported = json.loads(completed.stdout)
+
+        self.assertEqual(exported["equipment"][0]["name"], "カスタム拳銃")
+        self.assertEqual(exported["equipment"][0]["ammo"], 6)
+        commands = exported["data"]["commands"].splitlines()
+        self.assertIn("CC<=65 【カスタム拳銃】", commands)
+        self.assertIn("1D10 【カスタム拳銃ダメージ】", commands)
+
     def test_create_screens_and_payloads_include_name_kana(self):
         root = Path(__file__).resolve().parents[1]
         for edition in ("6th", "7th"):
