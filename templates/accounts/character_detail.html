@@ -213,6 +213,9 @@
                                 <div id="armorContainer"></div>
                             </div>
                             <div class="tab-pane fade" id="items">
+                                <div id="inventoryNotesContainer" class="inventory-notes mb-3">
+                                    <!-- 所持品メモが表示されます -->
+                                </div>
                                 <div id="itemsContainer"></div>
                             </div>
                         </div>
@@ -536,6 +539,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // 背景情報
         displayBackgroundInfo(character);
+
+        // 所持品メモ
+        displayInventoryNotes(character.background_info);
         
         // 装備
         displayEquipment(character.equipment);
@@ -1112,7 +1118,6 @@ document.addEventListener('DOMContentLoaded', function() {
             { label: 'イデオロギー／信念', value: background.beliefs_ideology },
             { label: '重要な人々', value: background.significant_people },
             { label: '意味のある場所', value: background.meaningful_locations },
-            { label: '所持品メモ', value: background.treasured_possessions },
             { label: '負傷、傷跡', value: background.scars_injuries },
             { label: '恐怖症、マニア', value: background.phobias_manias },
             { label: '魔道書、呪文、アーティファクト', value: background.arcane_tomes_spells_artifacts },
@@ -1131,6 +1136,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
         }).join('');
+    }
+
+    function displayInventoryNotes(backgroundInfo) {
+        const container = document.getElementById('inventoryNotesContainer');
+        if (!container) return;
+
+        const background = backgroundInfo || {};
+        const value = String(background.treasured_possessions || '').trim();
+        const body = value
+            ? escapeHtml(value).replace(/\n/g, '<br>')
+            : '<span class="text-muted">未設定</span>';
+
+        container.innerHTML = `
+            <div class="inventory-notes-label">所持品メモ</div>
+            <div class="inventory-notes-body">${body}</div>
+        `;
     }
     
     // 装備表示
@@ -1946,6 +1967,29 @@ document.addEventListener('DOMContentLoaded', function() {
     font-size: 0.95rem;
     line-height: 1.5;
     overflow-wrap: anywhere;
+}
+
+.inventory-notes {
+    border: 1px solid #dce4ef;
+    border-radius: 8px;
+    background: #fff;
+    padding: 0.9rem 1rem;
+}
+
+.inventory-notes-label {
+    color: #526476;
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+}
+
+.inventory-notes-body {
+    max-height: 28rem;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+    color: #243b53;
+    font-size: 0.95rem;
+    line-height: 1.6;
 }
 
 @media (max-width: 575.98px) {

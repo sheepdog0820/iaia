@@ -35,6 +35,12 @@ class FriendAPITestCase(APITestCase):
             nickname="Friend Target",
             trpg_history="friend private history",
         )
+        self.new_friend = User.objects.create_user(
+            username="new_friend_target",
+            email="new_friend_target@example.com",
+            password="pass123",
+            nickname="New Friend Target",
+        )
         Friend.objects.create(user=self.user, friend=self.friend)
         self.client.force_authenticate(user=self.user)
 
@@ -48,6 +54,16 @@ class FriendAPITestCase(APITestCase):
         self.assertNotIn("trpg_history", friend_detail)
         self.assertNotIn("first_name", friend_detail)
         self.assertNotIn("last_name", friend_detail)
+
+    def test_add_friend_endpoint_accepts_post(self):
+        response = self.client.post(
+            "/api/accounts/friends/add/",
+            {"username": self.new_friend.username},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(Friend.objects.filter(user=self.user, friend=self.new_friend).exists())
 
 
 class GroupSearchAPITestCase(APITestCase):

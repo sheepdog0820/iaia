@@ -639,10 +639,13 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
                 self.assertEqual(expected_load_ids, load_ids)
                 self.assertEqual(expected_payload_keys, payload_keys)
 
-    def test_character_detail_labels_treasured_possessions_as_inventory_notes(self):
+    def test_character_detail_places_inventory_notes_in_equipment_section(self):
         template = self.read_text("templates/accounts/character_detail.html")
 
-        self.assertIn("{ label: '所持品メモ', value: background.treasured_possessions }", template)
+        self.assertNotIn("{ label: '所持品メモ', value: background.treasured_possessions }", template)
+        self.assertIn('id="inventoryNotesContainer"', template)
+        self.assertIn("displayInventoryNotes(character.background_info);", template)
+        self.assertIn("background.treasured_possessions", template)
 
     def test_character_detail_long_memo_uses_full_width_scrollable_block(self):
         template = self.read_text("templates/accounts/character_detail.html")

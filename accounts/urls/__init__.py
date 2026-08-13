@@ -120,6 +120,7 @@ urlpatterns = [
         views.GroupInviteLinkRevokeView.as_view(),
         name="group_invite_link_revoke",
     ),
+    path("friends/add/", views.AddFriendView.as_view(), name="friend_add"),
     path("", include(router.urls)),
     # Profile URLs
     path("users/<int:user_id>/profile/", UserProfileView.as_view(), name="user_profile"),
