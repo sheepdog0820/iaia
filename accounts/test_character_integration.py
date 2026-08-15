@@ -397,7 +397,7 @@ class CharacterIntegrationTestCase(TestCase):
         self.assertEqual(mp_status["max"], 15)  # POW
 
         san_status = next(s for s in ccfolia_data["data"]["status"] if s["label"] == "SAN")
-        self.assertEqual(san_status["max"], 99)  # 99 - クトゥルフ神話技能（初期値0）
+        self.assertEqual(san_status["max"], 75)  # CCFOLIA上では現在SANを上限として出力
 
         print("OK CCFOLIAデータ形式: 正常")
 

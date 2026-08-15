@@ -196,11 +196,15 @@ class Character6thAPITestCase(APITestCase):
         # パラメータ配列（CCFOLIA形式）
         params = data["params"]
         self.assertIsInstance(params, list)
-        self.assertEqual(len(params), 8)
+        self.assertEqual(len(params), 9)
 
         # STRパラメータの確認
         str_param = next(p for p in params if p["label"] == "STR")
         self.assertEqual(str_param["value"], "60")
+
+        # ダメージボーナスもCCFOLIA変数として出力する
+        db_param = next(p for p in params if p["label"] == "DB")
+        self.assertEqual(db_param["value"], "5D6")
 
         # コマンド文字列の確認
         commands = data["commands"]
