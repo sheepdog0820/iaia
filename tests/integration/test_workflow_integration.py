@@ -590,17 +590,17 @@ class CalendarFilterIntegrationTest(APITestCase):
 
         # 各セッションタイプが正しく分類されているか確認
         for event in events:
-            if event["id"] == gm_session_id:
+            if event["session_id"] == gm_session_id:
                 self.assertTrue(event.get("is_gm", False), "GMセッションがis_gm=Trueでない")
                 self.assertEqual(event["type"], "gm", "GMセッションのtypeが'gm'でない")
                 print(f"   [OK] GMセッション分類確認: {event['title']}")
 
-            elif event["id"] == participant_session_id:
+            elif event["session_id"] == participant_session_id:
                 self.assertTrue(event.get("is_participant", False), "参加セッションがis_participant=Trueでない")
                 self.assertEqual(event["type"], "participant", "参加セッションのtypeが'participant'でない")
                 print(f"   [OK] 参加セッション分類確認: {event['title']}")
 
-            elif event["id"] == public_session_id:
+            elif event["session_id"] == public_session_id:
                 self.assertTrue(event.get("is_public_only", False), "公開セッションがis_public_only=Trueでない")
                 self.assertEqual(event["type"], "public", "公開セッションのtypeが'public'でない")
                 print(f"   [OK] 公開セッション分類確認: {event['title']}")
