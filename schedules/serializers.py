@@ -542,6 +542,17 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         attrs.pop("min_players", None)
         attrs.pop("max_players", None)
 
+        group = attrs.get("group", self.instance.group if self.instance is not None else None)
+        visibility = attrs.get(
+            "visibility",
+            self.instance.visibility if self.instance is not None else None,
+        )
+        if self.instance is None and visibility is None:
+            visibility = "group" if group is not None else "private"
+            attrs["visibility"] = visibility
+        if group is None and visibility == "group":
+            raise serializers.ValidationError({"visibility": "グループなしでは「グループ内のみ」を選択できません。"})
+
         if session_date and "date" not in attrs:
             if not start_time:
                 start_time = time_cls(0, 0)

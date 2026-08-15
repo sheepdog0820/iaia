@@ -138,10 +138,11 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="sessionGroup" class="form-label">グループ</label>
-                        <select class="form-select" id="sessionGroup" required>
-                            <option value="">グループを選択...</option>
+                        <label for="sessionGroup" class="form-label">グループ（任意）</label>
+                        <select class="form-select" id="sessionGroup">
+                            <option value="">グループなし（個別セッション）</option>
                         </select>
+                        <div class="form-text">グループなしの場合は、フレンドを個別に招待できます。</div>
                     </div>
 
                     <div class="mb-3">
@@ -186,17 +187,18 @@
                     <div class="mb-3">
                         <label for="sessionVisibility" class="form-label">公開設定</label>
                         <select class="form-select" id="sessionVisibility">
-                            <option value="group">グループ内のみ</option>
+                            <option value="group" id="sessionGroupVisibilityOption" disabled>グループ内のみ</option>
                             <option value="public">全体に公開</option>
-                            <option value="private">プライベート</option>
+                            <option value="private" selected>プライベート</option>
                         </select>
+                        <div class="form-text" id="sessionVisibilityHelp">グループなしでは「グループ内のみ」を選択できません。既定ではプライベートです。</div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">招待メンバー（任意）</label>
-                        <div class="form-text mb-2">グループメンバーをセッションに招待できます</div>
+                        <div class="form-text mb-2" id="sessionInviteHelp">フレンドを個別に招待できます</div>
                         <div id="sessionInviteMembers" class="border rounded p-2" style="min-height: 80px;">
-                            <span class="text-muted small">グループを選択してください</span>
+                            <span class="text-muted small">フレンドを読み込み中...</span>
                         </div>
                     </div>
                 </form>
@@ -414,6 +416,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let scenarioChoices = [];
     let groupMembers = [];
     let selectedInvitees = new Set();
+    let inviteCandidateRequestId = 0;
+    let visibilityExplicitlySelected = false;
+    let previousCreateGroupId = '';
     const scenarioLinkKeys = {
         id: 'session_scenario_id',
         title: 'session_scenario_title',
@@ -732,7 +737,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (select.value !== requestedGroup) {
             select.value = requestedGroup;
         }
-        loadGroupMembers(requestedGroup);
+        syncSessionGroupVisibility();
         return true;
     }
 
@@ -1050,56 +1055,123 @@ document.addEventListener('DOMContentLoaded', function() {
             userGroups = (response.data || []).filter(g => g.is_member);
             
             const select = document.getElementById('sessionGroup');
-            select.innerHTML = '<option value="">グループを選択...</option>' +
-                userGroups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+            select.replaceChildren(new Option('グループなし（個別セッション）', ''));
+            userGroups.forEach(group => {
+                select.appendChild(new Option(group.name, group.id));
+            });
 
-            selectRequestedCreateGroup();
+            if (!selectRequestedCreateGroup()) {
+                syncSessionGroupVisibility();
+            }
 
         } catch (error) {
             console.error('Error loading groups:', error);
+            syncSessionGroupVisibility();
         }
     }
 
-    async function loadGroupMembers(groupId) {
+    function setInviteCandidateMessage(message) {
         const container = document.getElementById('sessionInviteMembers');
         if (!container) return;
+        const statusMessage = document.createElement('span');
+        statusMessage.className = 'text-muted small';
+        statusMessage.textContent = message;
+        container.replaceChildren(statusMessage);
+    }
 
-        if (!groupId) {
-            selectedInvitees.clear();
-            container.innerHTML = '<span class="text-muted small">グループを選択してください</span>';
+    function renderInviteCandidates(candidates, emptyMessage) {
+        const container = document.getElementById('sessionInviteMembers');
+        if (!container) return;
+        container.replaceChildren();
+
+        if (candidates.length === 0) {
+            setInviteCandidateMessage(emptyMessage);
             return;
         }
 
-        try {
-            const response = await axios.get(`/api/accounts/groups/${groupId}/members/`);
-            groupMembers = response.data || [];
-            selectedInvitees.clear();
+        candidates.forEach(candidate => {
+            const label = document.createElement('label');
+            label.className = 'd-flex align-items-center gap-2 mb-1';
 
-            const membersHtml = groupMembers
-                .filter(member => member.user !== window.CURRENT_USER.id)
-                .map(member => `
-                    <label class="d-flex align-items-center gap-2 mb-1">
-                        <input type="checkbox" class="form-check-input invite-member-checkbox" value="${member.user}">
-                        <span>${member.user_detail.nickname || member.user_detail.username}</span>
-                    </label>
-                `).join('');
-
-            container.innerHTML = membersHtml || '<span class="text-muted small">招待可能なメンバーがいません</span>';
-
-            container.querySelectorAll('.invite-member-checkbox').forEach(checkbox => {
-                checkbox.addEventListener('change', (event) => {
-                    const userId = parseInt(event.target.value, 10);
-                    if (event.target.checked) {
-                        selectedInvitees.add(userId);
-                    } else {
-                        selectedInvitees.delete(userId);
-                    }
-                });
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'form-check-input invite-member-checkbox';
+            checkbox.value = String(candidate.userId);
+            checkbox.addEventListener('change', event => {
+                const userId = parseInt(event.target.value, 10);
+                if (event.target.checked) {
+                    selectedInvitees.add(userId);
+                } else {
+                    selectedInvitees.delete(userId);
+                }
             });
+
+            const name = document.createElement('span');
+            const displayName = candidate.detail.nickname || candidate.detail.username || '名前未設定';
+            name.textContent = displayName;
+
+            label.append(checkbox, name);
+            container.appendChild(label);
+        });
+    }
+
+    async function loadInviteCandidates(groupId) {
+        const requestId = ++inviteCandidateRequestId;
+        selectedInvitees.clear();
+        setInviteCandidateMessage(groupId ? 'グループメンバーを読み込み中...' : 'フレンドを読み込み中...');
+
+        try {
+            const response = await axios.get(
+                groupId ? `/api/accounts/groups/${groupId}/members/` : '/api/accounts/friends/'
+            );
+            if (requestId !== inviteCandidateRequestId) return;
+
+            const responseItems = response.data?.results || response.data || [];
+            if (groupId) {
+                groupMembers = responseItems;
+                renderInviteCandidates(
+                    groupMembers
+                        .filter(member => Number(member.user) !== Number(window.CURRENT_USER.id))
+                        .map(member => ({ userId: member.user, detail: member.user_detail || {} })),
+                    '招待可能なメンバーがいません'
+                );
+            } else {
+                renderInviteCandidates(
+                    responseItems.map(friend => ({ userId: friend.friend, detail: friend.friend_detail || {} })),
+                    '招待できるフレンドがいません'
+                );
+            }
         } catch (error) {
-            console.error('Error loading group members:', error);
-            container.innerHTML = '<span class="text-muted small">メンバーの取得に失敗しました</span>';
+            if (requestId !== inviteCandidateRequestId) return;
+            console.error('Error loading invite candidates:', error);
+            setInviteCandidateMessage(groupId ? 'メンバーの取得に失敗しました' : 'フレンドの取得に失敗しました');
         }
+    }
+
+    function syncSessionGroupVisibility() {
+        const groupId = document.getElementById('sessionGroup')?.value || '';
+        const visibility = document.getElementById('sessionVisibility');
+        const groupOption = document.getElementById('sessionGroupVisibilityOption');
+        const visibilityHelp = document.getElementById('sessionVisibilityHelp');
+        const inviteHelp = document.getElementById('sessionInviteHelp');
+        const hasGroup = Boolean(groupId);
+        const groupWasJustSelected = !previousCreateGroupId && hasGroup;
+
+        if (groupOption) groupOption.disabled = !hasGroup;
+        if (groupWasJustSelected && !visibilityExplicitlySelected && visibility) visibility.value = 'group';
+        if (!hasGroup && visibility?.value === 'group') visibility.value = 'private';
+        if (visibilityHelp) {
+            visibilityHelp.textContent = hasGroup
+                ? 'グループ内のみ・全体公開・プライベートから選択できます。'
+                : 'グループなしでは「グループ内のみ」を選択できません。既定ではプライベートです。';
+        }
+        if (inviteHelp) {
+            inviteHelp.textContent = hasGroup
+                ? 'グループメンバーをセッションに招待できます'
+                : 'フレンドを個別に招待できます';
+        }
+        previousCreateGroupId = groupId;
+        void loadInviteCandidates(groupId);
     }
 
     // 新規セッション保存
@@ -1162,7 +1234,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (groupSelect) {
             groupSelect.disabled = isExisting;
-            groupSelect.required = !isExisting;
+            groupSelect.required = false;
             toggleFieldVisibility(groupSelect, isExisting);
         }
 
@@ -1202,10 +1274,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isExisting) {
             void loadEditableSessions();
         } else {
-            const selectedGroupId = document.getElementById('sessionGroup')?.value;
-            if (selectedGroupId) {
-                void loadGroupMembers(selectedGroupId);
-            }
+            syncSessionGroupVisibility();
         }
     }
 
@@ -1251,12 +1320,13 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        const selectedGroupId = document.getElementById('sessionGroup').value;
         const data = {
             title: document.getElementById('sessionTitle').value,
             date: document.getElementById('sessionDate').value || null,
             duration_minutes: ARKHAM.hoursToMinutes(document.getElementById('sessionDuration').value),
             location: document.getElementById('sessionLocation').value,
-            group: document.getElementById('sessionGroup').value,
+            group: selectedGroupId || null,
             description: document.getElementById('sessionDescription').value,
             youtube_url: document.getElementById('sessionYoutube').value,
             visibility: document.getElementById('sessionVisibility').value,
@@ -1284,7 +1354,9 @@ document.addEventListener('DOMContentLoaded', function() {
             loadScenarioLink();
             loadScenarioChoices();
             selectedInvitees.clear();
-            document.getElementById('sessionInviteMembers').innerHTML = '<span class="text-muted small">グループを選択してください</span>';
+            visibilityExplicitlySelected = false;
+            previousCreateGroupId = '';
+            syncSessionGroupVisibility();
             calendar.refetchEvents();
             loadUpcomingSessions();
         } catch (error) {
@@ -1353,8 +1425,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    document.getElementById('sessionGroup').addEventListener('change', (event) => {
-        loadGroupMembers(event.target.value);
+    document.getElementById('sessionGroup').addEventListener('change', () => {
+        syncSessionGroupVisibility();
+    });
+
+    document.getElementById('sessionVisibility').addEventListener('change', () => {
+        visibilityExplicitlySelected = true;
     });
 
 });
