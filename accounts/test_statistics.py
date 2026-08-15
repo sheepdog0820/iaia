@@ -40,7 +40,7 @@ class StatisticsViewsTestCase(APITestCase):
             game_system="coc",
             created_by=self.user1,
             difficulty="intermediate",
-            estimated_duration="medium",
+            estimated_time=270,
         )
 
         # セッション作成（今年のデータ）

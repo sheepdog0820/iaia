@@ -141,7 +141,7 @@ class UINavigationTestCase(TestCase):
 
         # ログイン処理
         response = self.client.post("/login/", {"username": "testuser", "password": "testpass123"})
-        self.assertRedirects(response, "/accounts/dashboard/")
+        self.assertRedirects(response, "/")
 
         # ログアウト処理
         response = self.client.get(reverse("account_logout"))

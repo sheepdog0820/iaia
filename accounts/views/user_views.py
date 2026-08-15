@@ -6,6 +6,7 @@ from allauth.socialaccount.models import SocialApp
 from django.conf import settings
 from django.contrib.auth import logout as auth_logout
 from django.contrib.sites.models import Site
+from django.db import transaction
 from django.views import View
 
 from schedules.duration import effective_duration_expression
@@ -15,6 +16,15 @@ from ..auth_redirects import (
     consume_auth_next,
     remember_auth_next,
     safe_local_redirect,
+)
+from ..friend_requests import (
+    FriendRequestError,
+    accept_friend_request,
+    cancel_friend_request,
+    create_friend_request,
+    decline_friend_request,
+    friend_candidates,
+    publicly_searchable_users,
 )
 from .base_views import BaseViewSet
 from .common_imports import *
@@ -55,6 +65,7 @@ class FriendViewSet(viewsets.ModelViewSet):
 
     queryset = Friend.objects.none()
     permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "delete", "head", "options"]
 
     def get_serializer_class(self):
         if self.action == "list" or self.action == "retrieve":
@@ -64,19 +75,91 @@ class FriendViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Friend.objects.filter(user=self.request.user).select_related("friend")
 
-    def perform_create(self, serializer):
-        friend = serializer.save(user=self.request.user)
-        # フレンドリクエスト通知を送信（ISSUE-013）
+    def destroy(self, request, *args, **kwargs):
+        friend = self.get_object()
+        with transaction.atomic():
+            Friend.objects.filter(
+                Q(user=request.user, friend=friend.friend) | Q(user=friend.friend, friend=request.user)
+            ).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _friend_request_error_response(error):
+    payload = {"detail": error.message}
+    if error.retry_after:
+        payload["retry_after"] = error.retry_after
+    return Response(payload, status=error.status_code)
+
+
+class FriendCandidateView(APIView):
+    """Search explicitly public users who can receive a friend request."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        candidates = friend_candidates(request.user, request.query_params.get("q", ""))
+        return Response({"results": PublicUserSerializer(candidates, many=True).data})
+
+
+class FriendRequestViewSet(viewsets.ReadOnlyModelViewSet):
+    """List and respond to consent-based friend requests."""
+
+    queryset = FriendRequest.objects.none()
+    serializer_class = FriendRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = FriendRequest.objects.filter(
+            Q(sender=self.request.user) | Q(recipient=self.request.user)
+        ).select_related("sender", "recipient")
+        direction = self.request.query_params.get("direction")
+        if direction == "incoming":
+            queryset = queryset.filter(recipient=self.request.user)
+        elif direction == "outgoing":
+            queryset = queryset.filter(sender=self.request.user)
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        input_serializer = FriendRequestCreateSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        recipient = publicly_searchable_users().filter(id=input_serializer.validated_data["recipient_id"]).first()
+        if recipient is None:
+            return Response(
+                {"detail": "ユーザーが見つかりません。"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         try:
-            from schedules.notifications import FriendNotificationService
+            friend_request, created = create_friend_request(request.user, recipient)
+        except FriendRequestError as error:
+            return _friend_request_error_response(error)
+        return Response(
+            self.get_serializer(friend_request).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 
-            notification_service = FriendNotificationService()
-            notification_service.send_friend_request_notification(sender=self.request.user, recipient=friend.friend)
-        except Exception as e:
-            # 通知送信に失敗してもフレンド追加自体は成功させる
-            import logging
+    @action(detail=True, methods=["post"])
+    def accept(self, request, pk=None):
+        try:
+            friend_request = accept_friend_request(pk, request.user)
+        except FriendRequestError as error:
+            return _friend_request_error_response(error)
+        return Response(self.get_serializer(friend_request).data)
 
-            logging.getLogger(__name__).warning(f"フレンドリクエスト通知送信に失敗: {e}")
+    @action(detail=True, methods=["post"])
+    def decline(self, request, pk=None):
+        try:
+            friend_request = decline_friend_request(pk, request.user)
+        except FriendRequestError as error:
+            return _friend_request_error_response(error)
+        return Response(self.get_serializer(friend_request).data)
+
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        try:
+            friend_request = cancel_friend_request(pk, request.user)
+        except FriendRequestError as error:
+            return _friend_request_error_response(error)
+        return Response(self.get_serializer(friend_request).data)
 
 
 class ProfileView(APIView):
@@ -97,37 +180,25 @@ class ProfileView(APIView):
 
 
 class AddFriendView(APIView):
-    """Add friend API view"""
+    """Backward-compatible friend request endpoint."""
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        friend = publicly_searchable_users().filter(username=request.data.get("username", "")).first()
+        if friend is None:
+            return Response(
+                {"detail": "ユーザーが見つかりません。"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         try:
-            friend_username = request.data.get("username")
-            friend = User.objects.get(username=friend_username)
-
-            # Check if already friends
-            if Friend.objects.filter(user=request.user, friend=friend).exists():
-                return Response({"error": "Already friends"}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Create friendship
-            Friend.objects.create(user=request.user, friend=friend)
-
-            # フレンドリクエスト通知を送信（ISSUE-013）
-            try:
-                from schedules.notifications import FriendNotificationService
-
-                notification_service = FriendNotificationService()
-                notification_service.send_friend_request_notification(sender=request.user, recipient=friend)
-            except Exception as e:
-                import logging
-
-                logging.getLogger(__name__).warning(f"フレンドリクエスト通知送信に失敗: {e}")
-
-            return Response({"success": True}, status=status.HTTP_201_CREATED)
-
-        except User.DoesNotExist:
-            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+            friend_request, created = create_friend_request(request.user, friend)
+        except FriendRequestError as error:
+            return _friend_request_error_response(error)
+        return Response(
+            FriendRequestSerializer(friend_request).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
 
 
 def _is_placeholder(value, placeholders):
@@ -237,7 +308,12 @@ class CustomLoginView(SafeNextFormViewMixin, FormView):
 
     template_name = "account/login.html"
     form_class = CustomLoginForm
-    success_url = reverse_lazy("dashboard")
+    success_url = reverse_lazy("home")
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return redirect("home")
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         """Add social login configuration flags to context"""

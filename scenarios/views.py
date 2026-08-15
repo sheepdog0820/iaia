@@ -17,6 +17,10 @@ from accounts.share_serializers import SharedScenarioSerializer
 from schedules.duration import effective_duration_expression
 
 from .access import visible_scenarios
+from .image_limits import (
+    get_scenario_image_max_bytes,
+    get_scenario_image_max_files_per_upload,
+)
 from .models import PlayHistory, Scenario, ScenarioImage, ScenarioNote
 from .serializers import PlayHistorySerializer, ScenarioImageSerializer, ScenarioNoteSerializer, ScenarioSerializer
 
@@ -54,11 +58,6 @@ class ScenarioViewSet(viewsets.ModelViewSet):
         difficulty = self.request.query_params.get("difficulty")
         if difficulty:
             queryset = queryset.filter(difficulty=difficulty)
-
-        # 推定時間フィルター
-        estimated_duration = self.request.query_params.get("estimated_duration")
-        if estimated_duration:
-            queryset = queryset.filter(estimated_duration=estimated_duration)
 
         return queryset.order_by("title")
 
@@ -186,9 +185,21 @@ class ScenarioImageViewSet(viewsets.ModelViewSet):
         except Http404:
             return Response({"error": "Scenario not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        max_files = get_scenario_image_max_files_per_upload(request.user)
+        if not images:
+            return Response(
+                {"error": "画像ファイルを選択してください。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(images) > max_files:
+            return Response(
+                {"error": f"一度にアップロードできる画像は最大{max_files}枚です。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         created_images = []
         with transaction.atomic():
-            for image_file in images[:10]:  # 最大10枚まで
+            for image_file in images:
                 serializer = ScenarioImageSerializer(
                     data={
                         "image": image_file,
@@ -462,6 +473,12 @@ class ScenarioArchivePageView(PremiumOnlyTemplateView):
     """シナリオAPI結果確認（アーカイブ画面）"""
 
     template_name = "scenarios/archive.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["scenario_image_max_bytes"] = get_scenario_image_max_bytes(self.request.user)
+        context["scenario_image_max_files_per_upload"] = get_scenario_image_max_files_per_upload(self.request.user)
+        return context
 
 
 def scenario_public_view(request, scenario_id):

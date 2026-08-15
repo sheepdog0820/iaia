@@ -8,10 +8,11 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from accounts.models import CustomUser, Group
+from accounts.models import CustomUser, FriendRequest, Group
 from accounts.serializers import PublicUserSerializer, validate_character_image
 from scenarios.access import can_view_scenario
 from scenarios.models import Scenario
+from schedules.duration import format_duration_hours
 from schedules.handout_access import can_view_handout
 
 
@@ -541,6 +542,17 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         attrs.pop("min_players", None)
         attrs.pop("max_players", None)
 
+        group = attrs.get("group", self.instance.group if self.instance is not None else None)
+        visibility = attrs.get(
+            "visibility",
+            self.instance.visibility if self.instance is not None else None,
+        )
+        if self.instance is None and visibility is None:
+            visibility = "group" if group is not None else "private"
+            attrs["visibility"] = visibility
+        if group is None and visibility == "group":
+            raise serializers.ValidationError({"visibility": "グループなしでは「グループ内のみ」を選択できません。"})
+
         if session_date and "date" not in attrs:
             if not start_time:
                 start_time = time_cls(0, 0)
@@ -828,16 +840,7 @@ class UpcomingSessionSerializer(serializers.ModelSerializer):
     @extend_schema_field(OpenApiTypes.STR)
     def get_duration_display(self, obj):
         duration_minutes = obj.effective_duration_minutes
-        if duration_minutes:
-            hours = duration_minutes // 60
-            minutes = duration_minutes % 60
-            if hours > 0 and minutes > 0:
-                return f"{hours}時間{minutes}分"
-            elif hours > 0:
-                return f"{hours}時間"
-            else:
-                return f"{minutes}分"
-        return None
+        return format_duration_hours(duration_minutes, empty_label=None)
 
 
 # ===== ハンドアウト通知関連シリアライザー =====
@@ -869,6 +872,7 @@ class HandoutNotificationSerializer(serializers.ModelSerializer):
     sender = UserBasicSerializer(read_only=True)
     notification_type_display = serializers.CharField(source="get_notification_type_display", read_only=True)
     handout_info = serializers.SerializerMethodField()
+    friend_request = serializers.SerializerMethodField()
     time_since_created = serializers.SerializerMethodField()
 
     class Meta:
@@ -886,6 +890,7 @@ class HandoutNotificationSerializer(serializers.ModelSerializer):
             "created_at",
             "read_at",
             "handout_info",
+            "friend_request",
             "time_since_created",
         ]
         read_only_fields = [
@@ -918,6 +923,28 @@ class HandoutNotificationSerializer(serializers.ModelSerializer):
             return None
 
         return HandoutBasicSerializer(handout).data
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_friend_request(self, obj):
+        if obj.notification_type != "friend_request" or not obj.metadata:
+            return None
+        friend_request_id = obj.metadata.get("friend_request_id")
+        if not friend_request_id:
+            return None
+        try:
+            friend_request = FriendRequest.objects.select_related("sender", "recipient").get(
+                id=friend_request_id,
+                recipient=obj.recipient,
+            )
+        except FriendRequest.DoesNotExist:
+            return None
+        return {
+            "id": friend_request.id,
+            "status": friend_request.status,
+            "status_display": friend_request.get_status_display(),
+            "sender": PublicUserSerializer(friend_request.sender).data,
+            "recipient": PublicUserSerializer(friend_request.recipient).data,
+        }
 
     @extend_schema_field(OpenApiTypes.STR)
     def get_time_since_created(self, obj):

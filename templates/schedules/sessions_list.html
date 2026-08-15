@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static duration_tags %}
 
 {% block title %}R'lyeh Log - セッション一覧{% endblock %}
 
@@ -88,7 +88,7 @@
                                         </td>
                                         <td>
                                             {% if session.effective_duration_minutes %}
-                                                <i class="fas fa-stopwatch"></i> {{ session.effective_duration_minutes }}分
+                                                <i class="fas fa-stopwatch"></i> {{ session.effective_duration_minutes|duration_hours }}
                                             {% else %}
                                                 <span class="text-muted">-</span>
                                             {% endif %}
@@ -168,7 +168,7 @@
                                         <dt><i class="fas fa-clock"></i> 時間</dt>
                                         <dd>
                                             {% if session.effective_duration_minutes %}
-                                                {{ session.effective_duration_minutes }}分
+                                                {{ session.effective_duration_minutes|duration_hours }}
                                             {% else %}
                                                 <span class="text-muted">-</span>
                                             {% endif %}

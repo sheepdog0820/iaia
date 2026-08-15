@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static duration_tags %}
 
 {% block title %}{{ session.title }} - セッション詳細{% endblock %}
 
@@ -14,33 +14,31 @@
 {% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container" data-screen-actions-page>
     <!-- ヘッダー部分 -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="session-detail-header d-flex justify-content-between align-items-start align-items-lg-center flex-column flex-lg-row gap-3">
-                <div class="session-detail-heading">
-                    <nav aria-label="breadcrumb">
-                        <ol class="breadcrumb">
-                            <li class="breadcrumb-item">
-                                <a href="/">
-                                    <i class="fas fa-home"></i> ホーム
-                                </a>
-                            </li>
-                            <li class="breadcrumb-item">
-                                <a href="/api/schedules/sessions/view/">
-                                    <i class="fas fa-scroll"></i> セッション一覧
-                                </a>
-                            </li>
-                            <li class="breadcrumb-item active">
-                                <i class="fas fa-eye"></i> {{ session.title }}
-                            </li>
-                        </ol>
-                    </nav>
-                </div>
-                <div class="session-detail-actions d-flex flex-wrap gap-2 justify-content-start justify-content-lg-end">
+            <div class="session-detail-header screen-action-layout">
+                <h1 class="screen-action-title h5">{{ session.title }}</h1>
+                <nav class="screen-action-bar" aria-label="セッション操作" data-screen-actions>
+                    <div class="screen-action-back">
+                        <a href="/api/schedules/sessions/view/" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i>
+                            <span class="screen-action-back-label">セッション一覧へ</span>
+                        </a>
+                    </div>
+                    <div class="screen-action-local" data-screen-action-sheet>
+                        <div class="screen-action-sheet-header">
+                            <span>この画面の操作</span>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-secondary screen-action-sheet-close"
+                                    data-screen-actions-close
+                                    aria-label="操作メニューを閉じる">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
                     {% if public_session_url or can_edit %}
-                    <button class="btn btn-outline-secondary"
+                    <button class="btn btn-outline-secondary" data-screen-action-item
                             type="button"
                             id="copyPublicSessionLinkBtn"
                             data-share-url="{{ public_session_url|default:'' }}"
@@ -49,8 +47,8 @@
                     </button>
                     {% endif %}
                     {% if session.scenario %}
-                        {% if is_participant or can_join or is_gm %}
-                            <button class="btn btn-outline-success"
+                        {% if can_join or is_gm %}
+                            <button class="btn btn-outline-primary" data-screen-action-item
                                     id="createCharacterFromScenario"
                                     data-scenario-id="{{ session.scenario.id }}"
                                     data-scenario-title="{{ session.scenario.title }}"
@@ -62,10 +60,10 @@
                         {% endif %}
                     {% endif %}
                     {% if can_invite and not is_public_view %}
-                        <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#inviteMembersModal">
+                        <button class="btn btn-outline-primary" data-screen-action-item data-bs-toggle="modal" data-bs-target="#inviteMembersModal">
                             <i class="fas fa-user-plus"></i> 招待
                         </button>
-                        <button class="btn btn-outline-success"
+                        <button class="btn btn-outline-primary" data-screen-action-item
                                 type="button"
                                 id="openRecruitmentLinksButton"
                                 data-bs-toggle="modal"
@@ -74,24 +72,47 @@
                         </button>
                     {% endif %}
                     {% if can_manage_permissions and not is_public_view %}
-                        <button class="btn btn-outline-warning"
+                        <button class="btn btn-outline-primary" data-screen-action-item
                                 data-bs-toggle="modal"
                                 data-bs-target="#sessionPermissionsModal"
                                 onclick="loadRoleManagement()">
                             <i class="fas fa-user-shield"></i> 権限管理
                         </button>
                     {% endif %}
-                    {% if can_edit %}
-                        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editSessionModal">
-                            <i class="fas fa-edit"></i> セッション編集
-                        </button>
-                    {% endif %}
+                    </div>
+                    <button type="button"
+                            class="btn btn-outline-secondary screen-action-more"
+                            data-screen-actions-toggle
+                            aria-expanded="false"
+                            aria-label="その他の操作">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <div class="screen-action-primary">
                     {% if can_join %}
                         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#joinSessionModal">
                             <i class="fas fa-user-plus"></i> 参加申請
                         </button>
+                    {% elif can_edit %}
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editSessionModal">
+                            <i class="fas fa-edit"></i> セッション編集
+                        </button>
+                    {% elif session.scenario and is_participant %}
+                        <button class="btn btn-primary"
+                                id="createCharacterFromScenario"
+                                data-scenario-id="{{ session.scenario.id }}"
+                                data-scenario-title="{{ session.scenario.title }}"
+                                data-scenario-system="{{ session.scenario.game_system }}"
+                                data-coc-edition="{{ session.coc_edition }}"
+                                data-session-id="{{ session.id }}">
+                            <i class="fas fa-user-plus"></i> 探索者作成
+                        </button>
                     {% endif %}
-                </div>
+                    </div>
+                    <button type="button"
+                            class="screen-action-backdrop"
+                            data-screen-actions-close
+                            aria-label="操作メニューを閉じる"></button>
+                </nav>
             </div>
         </div>
     </div>
@@ -203,14 +224,7 @@
 
                             <h6><i class="fas fa-clock"></i> セッション時間</h6>
                             <p class="mb-3">
-                                {% if session.effective_duration_minutes %}
-                                    {{ session.effective_duration_minutes }}分
-                                    {% if session.effective_duration_minutes >= 60 %}
-                                        (約{% widthratio session.effective_duration_minutes 60 1 %}時間)
-                                    {% endif %}
-                                {% else %}
-                                    未設定
-                                {% endif %}
+                                {{ session.effective_duration_minutes|duration_hours }}
                             </p>
                         </div>
                         <div class="col-md-6">
@@ -283,38 +297,78 @@
                                 {% endif %}
                             </p>
 
-                            {% if session.scenario %}
-                            <h6><i class="fas fa-book"></i> シナリオ</h6>
-                            <p class="mb-2">
-                                <span class="fw-semibold">{{ session.scenario.title }}</span>
-                                <span class="badge bg-secondary ms-2">{{ session.scenario.get_game_system_display }}</span>
-                                {% if session.scenario.game_system == 'coc6' or session.scenario.game_system == 'coc7' %}
-                                    <span class="badge bg-dark ms-1">
-                                        {% if session.coc_edition == '7th' %}CoC7{% else %}CoC6{% endif %}
-                                    </span>
-                                {% endif %}
-                            </p>
-                            <div class="border rounded p-2 mb-2" style="background-color: var(--secondary-bg);">
-                                <div class="small text-muted mb-1"><i class="fas fa-align-left"></i> あらすじ</div>
-                                {% if session.scenario.summary %}
-                                    <div>{{ session.scenario.summary|linebreaks }}</div>
-                                {% else %}
-                                    <div class="text-muted small">未設定</div>
-                                {% endif %}
-                            </div>
-                            <div class="small">
-                                <div class="fw-semibold"><i class="fas fa-star"></i> 推奨技能</div>
-                                <div class="text-muted">
-                                    {% if session.scenario.recommended_skills %}
-                                        {{ session.scenario.recommended_skills|linebreaksbr }}
-                                    {% else %}
-                                        未設定
-                                    {% endif %}
+                        </div>
+                    </div>
+
+                    {% if session.scenario %}
+                    <section class="session-scenario-section">
+                        <hr class="mt-2">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                            <h6 class="mb-0"><i class="fas fa-book"></i> シナリオ</h6>
+                            <span class="fw-semibold">{{ session.scenario.title }}</span>
+                            <span class="badge bg-secondary">{{ session.scenario.get_game_system_display }}</span>
+                            {% if session.scenario.game_system == 'coc6' or session.scenario.game_system == 'coc7' %}
+                                <span class="badge bg-dark">
+                                    {% if session.coc_edition == '7th' %}CoC7{% else %}CoC6{% endif %}
+                                </span>
+                            {% endif %}
+                        </div>
+                        {% with scenario_images=session.scenario.images.all %}
+                            {% if scenario_images %}
+                            <div class="mb-3">
+                                <div class="small fw-semibold mb-2">
+                                    <i class="fas fa-images"></i> シナリオ画像
+                                </div>
+                                <div class="row g-2 session-scenario-image-grid">
+                                    {% for scenario_image in scenario_images %}
+                                    <div class="col-6 col-md-4 col-xl-3">
+                                        <div class="session-scenario-image-card h-100">
+                                            <a href="{{ scenario_image.image.url }}"
+                                               target="_blank"
+                                               rel="noopener noreferrer"
+                                               class="d-block">
+                                                <img src="{{ scenario_image.image.url }}"
+                                                     alt="{{ scenario_image.title|default:session.scenario.title }}"
+                                                     class="session-scenario-image-thumb rounded"
+                                                     loading="lazy">
+                                            </a>
+                                            <div class="small text-muted text-truncate mt-1"
+                                                 title="{{ scenario_image.title|default:'シナリオ画像' }}">
+                                                {{ scenario_image.title|default:"シナリオ画像" }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
                                 </div>
                             </div>
                             {% endif %}
+                        {% endwith %}
+                        <div class="row g-2">
+                            <div class="col-md-8">
+                                <div class="border rounded p-2 h-100" style="background-color: var(--secondary-bg);">
+                                    <div class="small text-muted mb-1"><i class="fas fa-align-left"></i> あらすじ</div>
+                                    {% if session.scenario.summary %}
+                                        <div>{{ session.scenario.summary|linebreaks }}</div>
+                                    {% else %}
+                                        <div class="text-muted small">未設定</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-2 h-100" style="background-color: var(--secondary-bg);">
+                                    <div class="small fw-semibold"><i class="fas fa-star"></i> 推奨技能</div>
+                                    <div class="small text-muted mt-1">
+                                        {% if session.scenario.recommended_skills %}
+                                            {{ session.scenario.recommended_skills|linebreaksbr }}
+                                        {% else %}
+                                            未設定
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    </section>
+                    {% endif %}
 
                     {% if session.youtube_url %}
                     <hr>
@@ -500,70 +554,6 @@
                 </div>
             </div>
 
-            <!-- 経験値配布（ISSUE-041） -->
-            {% if is_gm or is_participant %}
-            <div class="card mb-4" id="sessionRewardsCard">
-                <div class="card-header bg-secondary text-white">
-                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                        <h5 class="mb-0">
-                            <i class="fas fa-gift"></i> 経験値配布
-                        </h5>
-                        <div class="d-flex align-items-center gap-2 small">
-                            <span class="badge bg-dark" id="sessionRewardsCountBadge">Rewards: -</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div id="sessionRewardsMessages"></div>
-
-                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                        <div class="small text-muted" id="sessionRewardsSummary"></div>
-                        <div class="ms-auto d-flex gap-2">
-                            <button type="button" class="btn btn-outline-secondary btn-sm" id="reloadSessionRewardsBtn">
-                                <i class="fas fa-sync"></i> 再読み込み
-                            </button>
-                            {% if can_invite %}
-                                <button type="button" class="btn btn-primary btn-sm" id="saveAllSessionRewardsBtn">
-                                    <i class="fas fa-save"></i> 一括保存
-                                </button>
-                                <button type="button" class="btn btn-success btn-sm" id="applyAllSessionRewardsBtn">
-                                    <i class="fas fa-check"></i> 一括反映
-                                </button>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    {% if can_invite %}
-                        <div class="alert alert-info py-2 small mb-2">
-                            入力後に「一括保存」で記録、必要なら「一括反映」で成長記録へ反映できます（キャラクター設定が必要）。
-                        </div>
-                    {% endif %}
-
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle">
-                            <thead>
-                                <tr>
-                                    <th style="min-width: 160px;">参加者</th>
-                                    <th style="width: 120px;">XP</th>
-                                    <th style="min-width: 200px;">特別報酬</th>
-                                    <th style="min-width: 240px;">備考</th>
-                                    <th style="width: 120px;">反映</th>
-                                </tr>
-                            </thead>
-                            <tbody id="sessionRewardsTableBody">
-                                <tr>
-                                    <td colspan="5" class="text-center py-3">
-                                        <div class="spinner-border text-primary" role="status">
-                                            <span class="visually-hidden">Loading...</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
             {% endif %}
 
             <!-- 参加者一覧 -->
@@ -1485,17 +1475,25 @@
 {% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/screen-actions.css' %}?v=20260728-8">
 <style>
-.session-detail-heading {
-    min-width: 0;
+.session-scenario-image-card {
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.5rem;
+    padding: 0.4rem;
+    background: var(--bs-body-bg, #fff);
 }
 
-.session-detail-heading .breadcrumb {
-    margin-bottom: 0;
+.session-scenario-image-thumb {
+    display: block;
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    background: var(--bs-tertiary-bg, #f8f9fa);
 }
 
-.session-detail-actions .btn {
-    white-space: nowrap;
+.session-scenario-image-card a:hover .session-scenario-image-thumb {
+    filter: brightness(0.95);
 }
 
 .session-main-column {
@@ -1513,27 +1511,6 @@
 
 #youtubeLinksCard {
     order: 4;
-}
-
-#sessionRewardsCard {
-    order: 5;
-}
-
-@media (max-width: 576px) {
-    .session-detail-actions {
-        width: 100%;
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.4rem !important;
-    }
-
-    .session-detail-actions .btn {
-        min-width: 0;
-        justify-content: center;
-        padding: 0.4rem 0.35rem;
-        font-size: 0.78rem;
-        white-space: nowrap;
-    }
 }
 
 @media (max-width: 767.98px) {
@@ -1954,95 +1931,13 @@ a:hover {
     text-decoration: underline !important;
 }
 
-@media (max-width: 575.98px) {
-    #sessionRewardsCard .card-body {
-        overflow: hidden;
-    }
-
-    #sessionRewardsCard .table-responsive {
-        overflow: visible;
-    }
-
-    #sessionRewardsCard table,
-    #sessionRewardsCard thead,
-    #sessionRewardsCard tbody,
-    #sessionRewardsCard tr,
-    #sessionRewardsCard th,
-    #sessionRewardsCard td {
-        display: block;
-        width: 100% !important;
-    }
-
-    #sessionRewardsCard thead {
-        display: none;
-    }
-
-    #sessionRewardsCard tbody tr {
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        background: var(--secondary-bg);
-        margin-bottom: 0.85rem;
-        padding: 0.85rem;
-    }
-
-    #sessionRewardsCard tbody td {
-        border: 0;
-        padding: 0.45rem 0;
-    }
-
-    #sessionRewardsCard tbody td:not(:first-child) {
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    #sessionRewardsCard tbody tr[data-participant-id] td {
-        display: grid;
-        grid-template-columns: 5.5rem minmax(0, 1fr);
-        gap: 0.65rem;
-        align-items: start;
-    }
-
-    #sessionRewardsCard tbody tr[data-participant-id] td::before {
-        color: var(--text-secondary);
-        font-size: 0.82rem;
-        font-weight: 600;
-    }
-
-    #sessionRewardsCard tbody tr[data-participant-id] td:nth-child(1)::before {
-        content: "参加者";
-    }
-
-    #sessionRewardsCard tbody tr[data-participant-id] td:nth-child(2)::before {
-        content: "XP";
-    }
-
-    #sessionRewardsCard tbody tr[data-participant-id] td:nth-child(3)::before {
-        content: "特別報酬";
-    }
-
-    #sessionRewardsCard tbody tr[data-participant-id] td:nth-child(4)::before {
-        content: "備考";
-    }
-
-    #sessionRewardsCard tbody tr[data-participant-id] td:nth-child(5)::before {
-        content: "反映";
-    }
-
-    #sessionRewardsCard .reward-special,
-    #sessionRewardsCard .reward-notes {
-        min-height: 4.5rem;
-    }
-
-    #sessionRewardsCard .btn-sm {
-        min-height: 34px;
-    }
-}
-
 </style>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/handout_skill_picker.js' %}"></script>
-<script src="{% static 'js/ccfolia_character_copy.js' %}"></script>
+<script src="{% static 'js/screen-actions.js' %}?v=20260728-4"></script>
+<script src="{% static 'js/handout_skill_picker.js' %}?v=20260729-fist-name-1"></script>
+<script src="{% static 'js/ccfolia_character_copy.js' %}?v=20260729-melee-name-1"></script>
 <script>
 let characterSheets = [];
 const characterSheetMap = new Map();
@@ -2054,7 +1949,6 @@ const GROUP_ID = {% if session.group_id %}{{ session.group_id }}{% else %}null{%
 const IS_GM = {% if can_edit %}true{% else %}false{% endif %};
 const CAN_INVITE = {% if can_invite %}true{% else %}false{% endif %};
 const CAN_MANAGE_PERMISSIONS = {% if can_manage_permissions %}true{% else %}false{% endif %};
-const CAN_MANAGE_REWARDS = CAN_INVITE;
 const IS_PARTICIPANT = {% if is_participant %}true{% else %}false{% endif %};
 const IS_PUBLIC_VIEW = {% if is_public_view %}true{% else %}false{% endif %};
 const PUBLIC_SESSION_URL = "{{ public_session_url|default:''|escapejs }}";
@@ -2627,9 +2521,6 @@ window.confirmDatePollOption = async function(pollId, optionId) {
     }
 };
 
-let sessionRewards = [];
-const sessionRewardMap = new Map();
-
 function toAbsoluteUrl(url) {
     if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
@@ -3122,8 +3013,8 @@ async function updateSession() {
     const data = {
         title: document.getElementById('editSessionTitle').value,
         date: document.getElementById('editSessionDate').value || null,
-        duration_minutes: document.getElementById('editSessionDuration').value,
-        actual_duration_minutes: document.getElementById('editSessionActualDuration').value || null,
+        duration_minutes: ARKHAM.hoursToMinutes(document.getElementById('editSessionDuration').value),
+        actual_duration_minutes: ARKHAM.hoursToMinutes(document.getElementById('editSessionActualDuration').value),
         location: document.getElementById('editSessionLocation').value,
         visibility: document.getElementById('editSessionVisibility').value,
         coc_edition: document.getElementById('editSessionCocEdition').value,
@@ -3908,343 +3799,6 @@ async function deleteYouTubeLink(linkId) {
     }
 }
 
-function nl2br(value) {
-    return escapeHtml(value).replace(/\r?\n/g, '<br>');
-}
-
-function showSessionRewardsMessage(message, type = 'info') {
-    const container = document.getElementById('sessionRewardsMessages');
-    if (!container) return;
-    const safe = escapeHtml(message);
-    container.innerHTML = `
-        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-            ${safe}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    `;
-}
-
-// 経験値配布（ISSUE-041）
-function updateSessionRewardsCountBadge() {
-    const badge = document.getElementById('sessionRewardsCountBadge');
-    if (badge) badge.textContent = `Rewards: ${sessionRewards.length}`;
-}
-
-function updateSessionRewardsSummary(participants) {
-    const summaryEl = document.getElementById('sessionRewardsSummary');
-    if (!summaryEl) return;
-
-    const appliedCount = sessionRewards.filter(r => !!r.applied_growth_record).length;
-    const participantCount = participants?.length || 0;
-
-    const parts = [];
-    parts.push(`参加者: ${participantCount}`);
-    parts.push(`記録: ${sessionRewards.length}`);
-    parts.push(`反映済み: ${appliedCount}`);
-    summaryEl.textContent = parts.join(' / ');
-}
-
-function getRewardPayloadFromRow(row) {
-    const participantId = Number(row?.dataset?.participantId);
-    if (!participantId) return null;
-
-    const xpEl = row.querySelector('input.reward-xp');
-    const specialEl = row.querySelector('textarea.reward-special');
-    const notesEl = row.querySelector('textarea.reward-notes');
-
-    const xpRaw = (xpEl?.value || '').trim();
-    const experiencePoints = Math.max(0, Number.parseInt(xpRaw || '0', 10) || 0);
-
-    return {
-        participant: participantId,
-        experience_points: experiencePoints,
-        special_rewards: (specialEl?.value || '').trim(),
-        notes: (notesEl?.value || '').trim(),
-    };
-}
-
-async function saveSessionRewardRow(row) {
-    const payload = getRewardPayloadFromRow(row);
-    if (!payload) throw new Error('Invalid reward row');
-
-    const rewardId = (row.dataset.rewardId || '').trim();
-    if (rewardId) {
-        const response = await axios.patch(`/api/schedules/rewards/${encodeURIComponent(rewardId)}/`, payload);
-        row.dataset.rewardId = String(response.data?.id || rewardId);
-        return response.data;
-    }
-
-    const response = await axios.post(`/api/schedules/sessions/${SESSION_ID}/rewards/`, payload);
-    row.dataset.rewardId = String(response.data?.id || '');
-    return response.data;
-}
-
-function renderSessionRewards(participants) {
-    const tbody = document.getElementById('sessionRewardsTableBody');
-    if (!tbody) return;
-
-    const canManage = !!CAN_MANAGE_REWARDS;
-    const currentUserId = window.CURRENT_USER?.id;
-
-    let visibleParticipants = participants || [];
-    if (!canManage) {
-        const mine = visibleParticipants.find(p => Number(p.user) === Number(currentUserId));
-        visibleParticipants = mine ? [mine] : [];
-    }
-
-    if (!visibleParticipants.length) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="5" class="text-muted text-center py-3">表示できる参加者がいません</td>
-            </tr>
-        `;
-        return;
-    }
-
-    if (!canManage) {
-        const mine = visibleParticipants[0];
-        const reward = mine ? sessionRewardMap.get(String(mine.id)) : null;
-        if (!reward) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="5" class="text-muted text-center py-3">まだ配布情報がありません</td>
-                </tr>
-            `;
-            return;
-        }
-    }
-
-    const rowsHtml = visibleParticipants.map(participant => {
-        const reward = sessionRewardMap.get(String(participant.id)) || null;
-        const rewardId = reward?.id ? String(reward.id) : '';
-        const xp = reward?.experience_points ?? 0;
-        const specialRewards = reward?.special_rewards ?? '';
-        const notes = reward?.notes ?? '';
-        const applied = !!reward?.applied_growth_record;
-        const hasCharacter = !!participant.character_sheet;
-        const applyDisabled = !canManage || !hasCharacter || !rewardId;
-
-        const participantCell = `
-            <div class="fw-semibold">${escapeHtml(participant.display_name || '')}</div>
-            <div class="small text-muted">
-                ${participant.character_sheet_detail?.name ? `キャラ: ${escapeHtml(participant.character_sheet_detail.name)}` : (hasCharacter ? 'キャラ設定済み' : 'キャラ未設定')}
-            </div>
-        `;
-
-        const xpCell = canManage
-            ? `<input type="number" class="form-control form-control-sm reward-xp" min="0" step="1" value="${escapeHtml(String(xp))}">`
-            : `<div>${escapeHtml(String(xp))}</div>`;
-
-        const specialCell = canManage
-            ? `<textarea class="form-control form-control-sm reward-special" rows="1" placeholder="例: SAN+1 / アイテム">${escapeHtml(String(specialRewards))}</textarea>`
-            : `<div class="small">${nl2br(String(specialRewards)) || '<span class="text-muted">-</span>'}</div>`;
-
-        const notesCell = canManage
-            ? `<textarea class="form-control form-control-sm reward-notes" rows="1" placeholder="備考">${escapeHtml(String(notes))}</textarea>`
-            : `<div class="small">${nl2br(String(notes)) || '<span class="text-muted">-</span>'}</div>`;
-
-        const appliedBadge = applied
-            ? `<span class="badge bg-success">反映済</span>`
-            : `<span class="badge bg-secondary">未反映</span>`;
-
-        const applyBtn = canManage
-            ? `
-                <button type="button"
-                        class="btn btn-sm btn-outline-success ms-2"
-                        ${applyDisabled ? 'disabled' : ''}
-                        title="${hasCharacter ? '' : 'キャラクターが設定されていません'}"
-                        onclick="applySessionRewardForParticipant(${participant.id})">
-                    ${applied ? '再反映' : '反映'}
-                </button>
-            `
-            : '';
-
-        return `
-            <tr data-participant-id="${participant.id}"
-                data-reward-id="${rewardId}"
-                data-character-sheet-id="${participant.character_sheet || ''}">
-                <td>${participantCell}</td>
-                <td>${xpCell}</td>
-                <td>${specialCell}</td>
-                <td>${notesCell}</td>
-                <td class="text-nowrap">${appliedBadge}${applyBtn}</td>
-            </tr>
-        `;
-    }).join('');
-
-    tbody.innerHTML = rowsHtml;
-}
-
-async function loadSessionRewards() {
-    const tbody = document.getElementById('sessionRewardsTableBody');
-    if (!tbody) return;
-
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="5" class="text-center py-3">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-            </td>
-        </tr>
-    `;
-
-    try {
-        const [participantsResp, rewardsResp] = await Promise.all([
-            axios.get('/api/schedules/participants/', { params: { session_id: SESSION_ID } }),
-            axios.get(`/api/schedules/sessions/${SESSION_ID}/rewards/`),
-        ]);
-
-        const participants = (participantsResp.data || [])
-            .filter(p => !(p.roles || []).includes('gm'))
-            .sort((a, b) => ((a.player_slot || 999) - (b.player_slot || 999)) || (a.id - b.id));
-
-        sessionRewards = rewardsResp.data || [];
-        sessionRewardMap.clear();
-        for (const reward of sessionRewards) {
-            if (reward?.participant !== undefined && reward?.participant !== null) {
-                sessionRewardMap.set(String(reward.participant), reward);
-            }
-        }
-        updateSessionRewardsCountBadge();
-        updateSessionRewardsSummary(participants);
-        renderSessionRewards(participants);
-    } catch (error) {
-        sessionRewards = [];
-        sessionRewardMap.clear();
-        updateSessionRewardsCountBadge();
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="5" class="text-muted text-center py-3">経験値配布の読み込みに失敗しました</td>
-            </tr>
-        `;
-        showSessionRewardsMessage(error.response?.data?.detail || error.response?.data?.error || error.message || '経験値配布の読み込みに失敗しました', 'danger');
-    }
-}
-
-async function saveAllSessionRewards(options = {}) {
-    if (!CAN_MANAGE_REWARDS) return { ok: false, errors: [{ message: 'Permission denied' }] };
-
-    const reloadAfter = options.reloadAfter !== undefined ? !!options.reloadAfter : true;
-    const showMessage = options.showMessage !== undefined ? !!options.showMessage : true;
-
-    const btn = document.getElementById('saveAllSessionRewardsBtn');
-    const rows = Array.from(document.querySelectorAll('#sessionRewardsTableBody tr[data-participant-id]'));
-    const errors = [];
-    let successCount = 0;
-
-    try {
-        if (btn) btn.disabled = true;
-        for (const row of rows) {
-            try {
-                await saveSessionRewardRow(row);
-                successCount += 1;
-            } catch (error) {
-                const participantId = row.dataset.participantId;
-                const message = error.response?.data?.error || error.response?.data?.detail || error.message || '保存に失敗しました';
-                errors.push({ participantId, message });
-            }
-        }
-
-        if (showMessage) {
-            if (errors.length) {
-                const summary = `一部保存に失敗しました: ${successCount}/${rows.length}`;
-                showSessionRewardsMessage(summary, 'warning');
-            } else {
-                showSessionRewardsMessage(`保存しました: ${successCount}/${rows.length}`, 'success');
-            }
-        }
-    } finally {
-        if (btn) btn.disabled = false;
-        if (reloadAfter) await loadSessionRewards();
-    }
-
-    return { ok: errors.length === 0, successCount, errors };
-}
-
-window.applySessionRewardForParticipant = async function(participantId) {
-    if (!CAN_MANAGE_REWARDS) return;
-
-    const row = document.querySelector(`#sessionRewardsTableBody tr[data-participant-id="${participantId}"]`);
-    if (!row) return;
-
-    const characterSheetId = (row.dataset.characterSheetId || '').trim();
-    if (!characterSheetId) {
-        showSessionRewardsMessage('キャラクターが設定されていません（参加者一覧からキャラクター設定してください）', 'warning');
-        return;
-    }
-
-    try {
-        await saveSessionRewardRow(row);
-        const rewardId = (row.dataset.rewardId || '').trim();
-        if (!rewardId) throw new Error('reward_id is missing');
-
-        await axios.post(`/api/schedules/rewards/${encodeURIComponent(rewardId)}/apply/`);
-        showSessionRewardsMessage('成長記録へ反映しました', 'success');
-        await loadSessionRewards();
-    } catch (error) {
-        const message = error.response?.data?.error || error.response?.data?.detail || error.message || '反映に失敗しました';
-        showSessionRewardsMessage(`反映に失敗しました: ${message}`, 'danger');
-    }
-};
-
-async function applyAllSessionRewards() {
-    if (!CAN_MANAGE_REWARDS) return;
-    const confirmed = await sessionConfirm('成長記録へ一括反映しますか？（キャラクター設定が必要）', {
-        title: '成長記録へ一括反映',
-        confirmText: '反映する',
-        cancelText: 'キャンセル'
-    });
-    if (!confirmed) return;
-
-    const saveResult = await saveAllSessionRewards({ reloadAfter: false, showMessage: false });
-    if (!saveResult.ok) {
-        showSessionRewardsMessage('保存に失敗したため中断しました。先に保存エラーを解消してください。', 'warning');
-        return;
-    }
-
-    const rows = Array.from(document.querySelectorAll('#sessionRewardsTableBody tr[data-participant-id]'));
-    const errors = [];
-    let successCount = 0;
-
-    for (const row of rows) {
-        const rewardId = (row.dataset.rewardId || '').trim();
-        if (!rewardId) continue;
-        const characterSheetId = (row.dataset.characterSheetId || '').trim();
-        if (!characterSheetId) {
-            errors.push({ participantId: row.dataset.participantId, message: 'キャラクター未設定' });
-            continue;
-        }
-
-        try {
-            await axios.post(`/api/schedules/rewards/${encodeURIComponent(rewardId)}/apply/`);
-            successCount += 1;
-        } catch (error) {
-            const message = error.response?.data?.error || error.response?.data?.detail || error.message || '反映に失敗しました';
-            errors.push({ participantId: row.dataset.participantId, message });
-        }
-    }
-
-    if (errors.length) {
-        showSessionRewardsMessage(`一部反映に失敗しました: ${successCount}/${rows.length}`, 'warning');
-    } else {
-        showSessionRewardsMessage(`反映しました: ${successCount}/${rows.length}`, 'success');
-    }
-
-    await loadSessionRewards();
-}
-
-function setupSessionRewardsUi() {
-    const reloadBtn = document.getElementById('reloadSessionRewardsBtn');
-    if (reloadBtn) reloadBtn.addEventListener('click', loadSessionRewards);
-
-    const saveAllBtn = document.getElementById('saveAllSessionRewardsBtn');
-    if (saveAllBtn) saveAllBtn.addEventListener('click', () => saveAllSessionRewards());
-
-    const applyAllBtn = document.getElementById('applyAllSessionRewardsBtn');
-    if (applyAllBtn) applyAllBtn.addEventListener('click', applyAllSessionRewards);
-}
-
 // セッション参加
 async function joinSession() {
     const characterSheetId = document.getElementById('character_sheet_id').value;
@@ -4952,12 +4506,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const sessionImagesGrid = document.getElementById('sessionImagesGrid');
     if (sessionImagesGrid) {
         initializeSessionImageReorder();
-    }
-
-    const rewardsCard = document.getElementById('sessionRewardsCard');
-    if (rewardsCard) {
-        setupSessionRewardsUi();
-        loadSessionRewards();
     }
 
     loadCharacterSheets();

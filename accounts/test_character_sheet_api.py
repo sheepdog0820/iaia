@@ -962,6 +962,45 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(character.system_data.sanity_starting, 60)
         self.assertEqual(character.system_data.sanity_current, 22)
 
+    def test_patch_recalculates_auto_current_values_when_client_echoes_old_values(self):
+        """編集画面が旧自動値を送信してもHP/MP/SANは新しい能力値へ追従する"""
+        character = self.create_character(
+            user=self.user,
+            edition="6th",
+            name="旧自動値送信6版",
+            age=28,
+            str_value=10,
+            con_value=10,
+            pow_value=10,
+            dex_value=10,
+            app_value=10,
+            siz_value=10,
+            int_value=10,
+            edu_value=10,
+        )
+
+        response = self.client.patch(
+            f"/api/accounts/character-sheets/{character.id}/",
+            {
+                "con_value": 18,
+                "pow_value": 12,
+                "siz_value": 16,
+                "hit_points_current": 10,
+                "magic_points_current": 10,
+                "sanity_current": 50,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        character.refresh_from_db()
+        self.assertEqual(character.system_data.hit_points_max, 17)
+        self.assertEqual(character.system_data.hit_points_current, 17)
+        self.assertEqual(character.system_data.magic_points_max, 12)
+        self.assertEqual(character.system_data.magic_points_current, 12)
+        self.assertEqual(character.system_data.sanity_starting, 60)
+        self.assertEqual(character.system_data.sanity_current, 60)
+
     def test_patch_recalculates_7th_derived_stats_when_abilities_change(self):
         """7版は能力値更新時に7版式の最大HP/MP/SANへ再計算する"""
         character = self.create_character(
@@ -1002,6 +1041,45 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(character.system_data.sanity_current, 70)
         self.assertEqual(character.system_data.calculate_build_7th(), 1)
         self.assertEqual(character.system_data.calculate_move_rate_7th(), 8)
+
+    def test_patch_recalculates_7th_auto_current_values_when_client_echoes_old_values(self):
+        """7版編集画面が旧自動値を送信してもHP/MP/SANは新しい能力値へ追従する"""
+        character = self.create_character(
+            user=self.user,
+            edition="7th",
+            name="旧自動値送信7版",
+            age=28,
+            str_value=50,
+            con_value=50,
+            pow_value=50,
+            dex_value=50,
+            app_value=50,
+            siz_value=50,
+            int_value=50,
+            edu_value=50,
+        )
+
+        response = self.client.patch(
+            f"/api/accounts/character-sheets/{character.id}/",
+            {
+                "con_value": 80,
+                "pow_value": 70,
+                "siz_value": 60,
+                "hit_points_current": 10,
+                "magic_points_current": 10,
+                "sanity_current": 50,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        character.refresh_from_db()
+        self.assertEqual(character.system_data.hit_points_max, 14)
+        self.assertEqual(character.system_data.hit_points_current, 14)
+        self.assertEqual(character.system_data.magic_points_max, 14)
+        self.assertEqual(character.system_data.magic_points_current, 14)
+        self.assertEqual(character.system_data.sanity_starting, 70)
+        self.assertEqual(character.system_data.sanity_current, 70)
 
     def test_delete_character_sheet(self):
         """キャラクターシート削除テスト"""

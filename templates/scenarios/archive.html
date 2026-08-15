@@ -4,7 +4,7 @@
 {% block title %}Mythos Archive - シナリオアーカイブ{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container" data-screen-actions-page>
     <div class="row">
         <div class="col-12">
             <h1 class="mb-4 eldritch-font text-center">
@@ -38,17 +38,6 @@
                             <option value="intermediate">中級者向け</option>
                             <option value="advanced">上級者向け</option>
                             <option value="expert">エキスパート</option>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">プレイ時間</label>
-                        <select class="form-select" id="durationFilter">
-                            <option value="">すべて</option>
-                            <option value="short">短編（〜3時間）</option>
-                            <option value="medium">中編（3〜6時間）</option>
-                            <option value="long">長編（6時間〜）</option>
-                            <option value="campaign">キャンペーン</option>
                         </select>
                     </div>
                     
@@ -148,15 +137,6 @@
                             </select>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label for="scenarioDuration" class="form-label">想定プレイ時間</label>
-                            <select class="form-select" id="scenarioDuration">
-                                <option value="short">短編（〜3時間）</option>
-                                <option value="medium">中編（3〜6時間）</option>
-                                <option value="long">長編（6時間〜）</option>
-                                <option value="campaign">キャンペーン</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-3">
                             <label for="scenarioPlayers" class="form-label">推奨人数</label>
                             <input type="text" class="form-control" id="scenarioPlayers" placeholder="例: 3-4人">
                         </div>
@@ -172,8 +152,8 @@
                             <input type="number" min="1" class="form-control" id="scenarioMaxPlayers" placeholder="例: 4">
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label for="scenarioEstimatedTime" class="form-label">所要時間（分）</label>
-                            <input type="number" min="1" class="form-control" id="scenarioEstimatedTime" placeholder="例: 240">
+                            <label for="scenarioEstimatedTime" class="form-label">所要時間（時間）</label>
+                            <input type="number" min="0.5" step="0.5" class="form-control" id="scenarioEstimatedTime" placeholder="例: 4">
                         </div>
                     </div>
 
@@ -234,9 +214,9 @@
 
                     <div class="mb-3">
                         <label for="scenarioRecommendedSkills" class="form-label">推奨技能</label>
-                        <input type="text" class="form-control" id="scenarioRecommendedSkills" placeholder="例: 目星, 聞き耳" list="scenarioSkillOptions">
+                        <input type="text" class="form-control" id="scenarioRecommendedSkills" placeholder="例: 目星, 戦闘技能, 重火器" list="scenarioSkillOptions">
                         <datalist id="scenarioSkillOptions"></datalist>
-                        <small class="text-muted">カンマ区切りで入力してください</small>
+                        <small class="text-muted d-block mt-1">カンマ区切りで入力します。「戦闘技能」は近接・回避・投擲系、「重火器」は拳銃・ライフルなどの射撃系をまとめて推奨技能として扱います。</small>
                         <small class="text-warning d-block mt-1 d-none" id="scenarioRecommendedSkillsWarning"></small>
                     </div>
 
@@ -275,7 +255,7 @@
 
 <!-- シナリオ詳細モーダル -->
 <div class="modal fade" id="scenarioDetailModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="scenarioDetailTitle"></h5>
@@ -294,6 +274,7 @@
 {% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/screen-actions.css' %}?v=20260728-8">
 <style>
 .scenario-card {
     height: 100%;
@@ -328,6 +309,115 @@
 .scenario-direct-link-control .form-control[readonly] {
     background-color: var(--secondary-bg);
     color: var(--text-primary);
+}
+
+.scenario-detail-local-actions,
+.scenario-detail-primary-actions,
+.scenario-detail-danger-actions {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.scenario-detail-danger-actions {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.scenario-detail-mobile-primary-actions {
+    display: none;
+}
+
+@media (max-width: 767.98px) {
+    #scenarioDetailModal .modal-header {
+        gap: 0.5rem;
+        padding: 0.75rem;
+    }
+
+    #scenarioDetailModal .modal-title {
+        min-width: 0;
+        font-size: 1rem;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+    }
+
+    #scenarioDetailModal .btn-close {
+        width: 44px;
+        height: 44px;
+        flex: 0 0 44px;
+        padding: 0;
+        background-position: center;
+    }
+
+    #scenarioDetailModal .modal-body {
+        padding: 0.75rem 0.75rem calc(76px + env(safe-area-inset-bottom));
+    }
+
+    #scenarioDetailModal .scenario-direct-link-control .input-group {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+
+    #scenarioDetailModal .scenario-direct-link-control .form-control {
+        width: 100%;
+        min-height: 44px;
+        grid-column: 1 / -1;
+        border-radius: var(--bs-border-radius, 0.375rem);
+    }
+
+    #scenarioDetailModal .scenario-direct-link-control .btn {
+        width: 100%;
+        min-height: 44px;
+        border-radius: var(--bs-border-radius, 0.375rem);
+    }
+
+    #scenarioDetailModal #scenarioImagesInput {
+        width: 100%;
+        max-width: none !important;
+        min-height: 44px;
+    }
+
+    #scenarioDetailModal #uploadScenarioImagesBtn,
+    #scenarioDetailModal .scenario-image-item .btn,
+    #scenarioDetailModal .scenario-image-drag-handle,
+    #scenarioDetailModal .recommended-skills-edit .btn,
+    #scenarioDetailModal .recommended-skills-edit .form-control {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    #scenarioDetailModal .scenario-image-drag-handle {
+        width: 44px;
+        height: 44px;
+    }
+
+    #scenarioDetailModal .scenario-image-thumb {
+        height: clamp(96px, 30vw, 140px);
+    }
+
+    .scenario-detail-mobile-primary-actions {
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 1060;
+        display: block;
+        padding: 0.65rem 0.75rem max(0.65rem, env(safe-area-inset-bottom));
+        border-top: 1px solid var(--bs-border-color, #dee2e6);
+        background: var(--secondary-bg, var(--bs-body-bg, #fff));
+        box-shadow: 0 -0.25rem 1rem rgba(0, 0, 0, 0.18);
+    }
+
+    .scenario-detail-mobile-primary-actions .btn {
+        width: 100%;
+        min-height: 48px;
+        font-weight: 600;
+    }
+
+    .scenario-detail-primary-actions {
+        display: none;
+    }
 }
 
 .scenario-list-item {
@@ -422,6 +512,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/screen-actions.js' %}?v=20260728-4"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     let viewMode = 'grid';
@@ -603,7 +694,7 @@ document.addEventListener('DOMContentLoaded', function() {
         martial_arts: 'マーシャルアーツ',
         throw: '投擲',
         first_aid: '応急手当',
-        fist_punch: 'こぶし（パンチ）',
+        fist_punch: 'こぶし',
         head_butt: '頭突き',
         kick: 'キック',
         grapple: '組み付き',
@@ -683,6 +774,58 @@ document.addEventListener('DOMContentLoaded', function() {
         occult_folklore: '民俗学',
         gaming: 'ギャンブル'
     };
+    const COC7TH_SKILLS = {
+        dodge: '回避',
+        melee_brawl: '近接戦闘',
+        throw: '投擲',
+        firearms_handgun: '射撃（拳銃）',
+        firearms_rifle_shotgun: '射撃（ライフル／ショットガン）',
+        first_aid: '応急手当',
+        locksmith: '鍵開け',
+        appraise: '鑑定',
+        stealth: '隠密',
+        listen: '聞き耳',
+        psychoanalysis: '精神分析',
+        track: '追跡',
+        climb: '登攀',
+        library_use: '図書館',
+        spot_hidden: '目星',
+        sleight_of_hand: '手さばき',
+        drive_auto: '運転（自動車）',
+        mechanical_repair: '機械修理',
+        operate_heavy_machine: '重機械操作',
+        ride: '乗馬',
+        swim: '水泳',
+        art_craft: '芸術／製作',
+        pilot: '操縦',
+        jump: '跳躍',
+        electrical_repair: '電気修理',
+        electronics: '電子工学',
+        navigate: 'ナビゲート',
+        survival: 'サバイバル',
+        disguise: '変装',
+        fast_talk: '言いくるめ',
+        charm: '魅惑',
+        credit_rating: '信用',
+        persuade: '説得',
+        intimidate: '威圧',
+        language_other: 'ほかの言語',
+        language_own: '母国語',
+        medicine: '医学',
+        occult: 'オカルト',
+        science: '科学',
+        cthulhu_mythos: 'クトゥルフ神話',
+        accounting: '経理',
+        archaeology: '考古学',
+        computer_use: 'コンピューター',
+        psychology: '心理学',
+        anthropology: '人類学',
+        natural_world: '自然',
+        law: '法律',
+        history: '歴史'
+    };
+    const COMBAT_SKILL_GROUP = '戦闘技能';
+    const FIREARMS_SKILL_GROUP = '重火器';
     const COC6TH_SKILL_NAMES = Object.values(COC6TH_SKILLS);
     const COC6TH_SKILL_KEYS = Object.keys(COC6TH_SKILLS);
     const COC6TH_SKILL_KEY_SET = new Set(COC6TH_SKILL_KEYS.map(key => key.toLowerCase()));
@@ -690,6 +833,37 @@ document.addEventListener('DOMContentLoaded', function() {
     const COC6TH_SKILL_SIMPLIFIED = new Map();
     const COC6TH_SKILL_ALIASES = {
         '他の言語': '他国語'
+    };
+    const COC7TH_SKILL_NAMES = Object.values(COC7TH_SKILLS);
+    const COC7TH_SKILL_KEY_SET = new Set(Object.keys(COC7TH_SKILLS).map(key => key.toLowerCase()));
+    const COC7TH_SKILL_NAME_SET = new Set(COC7TH_SKILL_NAMES);
+    const COC7TH_SKILL_SIMPLIFIED = new Map();
+    const COC7TH_SKILL_ALIASES = {
+        '隠れる': '隠密',
+        '忍び歩き': '隠密',
+        '隠す': '手さばき',
+        '近接戦闘（格闘）': '近接戦闘',
+        '近接戦闘(格闘)': '近接戦闘',
+        '格闘技': '近接戦闘',
+        'キック': '近接戦闘',
+        '組み付き': '近接戦闘',
+        'こぶし': '近接戦闘',
+        '頭突き': '近接戦闘',
+        'マーシャルアーツ': '近接戦闘',
+        '拳銃': '射撃（拳銃）',
+        'ショットガン': '射撃（ライフル／ショットガン）',
+        'ライフル': '射撃（ライフル／ショットガン）',
+        '運転': '運転（自動車）',
+        '芸術': '芸術／製作',
+        '製作': '芸術／製作',
+        '他の言語': 'ほかの言語',
+        '化学': '科学',
+        '生物学': '科学',
+        '地質学': '科学',
+        '天文学': '科学',
+        '物理学': '科学',
+        '薬学': '科学',
+        '博物学': '自然'
     };
 
     function simplifySkillToken(value) {
@@ -707,6 +881,18 @@ document.addEventListener('DOMContentLoaded', function() {
             COC6TH_SKILL_SIMPLIFIED.set(simplified, name);
         }
     });
+    COC7TH_SKILL_NAMES.forEach(name => {
+        const simplified = simplifySkillToken(name);
+        if (simplified && simplified !== name && !COC7TH_SKILL_SIMPLIFIED.has(simplified)) {
+            COC7TH_SKILL_SIMPLIFIED.set(simplified, name);
+        }
+    });
+
+    function getScenarioSkillNames(system) {
+        return (system || '').toLowerCase() === 'coc7'
+            ? COC7TH_SKILL_NAMES
+            : COC6TH_SKILL_NAMES;
+    }
 
     function parseSkillList(raw) {
         if (!raw) return [];
@@ -723,17 +909,24 @@ document.addEventListener('DOMContentLoaded', function() {
         return trimmed.split(/[\n,、，]+/).map(item => item.trim()).filter(Boolean);
     }
 
-    function resolveCocSkillName(value) {
+    function resolveCocSkillName(value, system) {
         const cleaned = (value || '').replace(/\u3000/g, ' ').trim();
         if (!cleaned) return null;
-        if (COC6TH_SKILL_NAME_SET.has(cleaned)) return cleaned;
+        if ([COMBAT_SKILL_GROUP, FIREARMS_SKILL_GROUP].includes(cleaned)) return cleaned;
+        const isSeventh = (system || '').toLowerCase() === 'coc7';
+        const skills = isSeventh ? COC7TH_SKILLS : COC6TH_SKILLS;
+        const nameSet = isSeventh ? COC7TH_SKILL_NAME_SET : COC6TH_SKILL_NAME_SET;
+        const keySet = isSeventh ? COC7TH_SKILL_KEY_SET : COC6TH_SKILL_KEY_SET;
+        const aliases = isSeventh ? COC7TH_SKILL_ALIASES : COC6TH_SKILL_ALIASES;
+        const simplifiedNames = isSeventh ? COC7TH_SKILL_SIMPLIFIED : COC6TH_SKILL_SIMPLIFIED;
+        if (nameSet.has(cleaned)) return cleaned;
         const lower = cleaned.toLowerCase();
-        if (COC6TH_SKILL_KEY_SET.has(lower)) return COC6TH_SKILLS[lower];
-        const alias = COC6TH_SKILL_ALIASES[cleaned];
-        if (alias && COC6TH_SKILL_NAME_SET.has(alias)) return alias;
+        if (keySet.has(lower)) return skills[lower];
+        const alias = aliases[cleaned];
+        if (alias && nameSet.has(alias)) return alias;
         const simplified = simplifySkillToken(cleaned);
-        if (COC6TH_SKILL_NAME_SET.has(simplified)) return simplified;
-        const simplifiedAlias = COC6TH_SKILL_SIMPLIFIED.get(simplified);
+        if (nameSet.has(simplified)) return simplified;
+        const simplifiedAlias = simplifiedNames.get(simplified);
         if (simplifiedAlias) return simplifiedAlias;
         return null;
     }
@@ -751,7 +944,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!cleaned) return;
             let canonical = cleaned;
             if (isCoc) {
-                const resolved = resolveCocSkillName(cleaned);
+                const resolved = resolveCocSkillName(cleaned, systemKey);
                 if (resolved) {
                     canonical = resolved;
                 } else {
@@ -811,25 +1004,29 @@ document.addEventListener('DOMContentLoaded', function() {
         updateScenarioSkillFeedback(input, warningEl, getSystem());
     }
 
-    function initScenarioSkillInputs() {
+    function updateScenarioSkillOptions(system) {
         const datalist = document.getElementById('scenarioSkillOptions');
-        if (datalist) {
-            datalist.innerHTML = '';
-            COC6TH_SKILL_NAMES.forEach(name => {
-                const option = document.createElement('option');
-                option.value = name;
-                datalist.appendChild(option);
-            });
-        }
+        if (!datalist) return;
+        datalist.innerHTML = '';
+        [COMBAT_SKILL_GROUP, FIREARMS_SKILL_GROUP, ...getScenarioSkillNames(system)].forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            datalist.appendChild(option);
+        });
+    }
+
+    function initScenarioSkillInputs() {
         const skillsInput = document.getElementById('scenarioRecommendedSkills');
         const warningEl = document.getElementById('scenarioRecommendedSkillsWarning');
         const semiSkillsInput = document.getElementById('scenarioSemiRecommendedSkills');
         const semiWarningEl = document.getElementById('scenarioSemiRecommendedSkillsWarning');
         const systemSelect = document.getElementById('scenarioSystem');
         const getSystem = () => systemSelect?.value || '';
+        updateScenarioSkillOptions(getSystem());
         attachScenarioSkillInput(skillsInput, warningEl, getSystem);
         attachScenarioSkillInput(semiSkillsInput, semiWarningEl, getSystem);
         systemSelect?.addEventListener('change', () => {
+            updateScenarioSkillOptions(getSystem());
             updateScenarioSkillFeedback(skillsInput, warningEl, getSystem());
             updateScenarioSkillFeedback(semiSkillsInput, semiWarningEl, getSystem());
         });
@@ -935,7 +1132,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const difficultyKey = normalizeDifficultyKey(scenario?.difficulty);
                 const safeSystemLabel = escapeHtml(getSystemLabel(scenario?.game_system));
                 const safeDifficultyLabel = escapeHtml(getDifficultyLabel(difficultyKey));
-                const safeDuration = escapeHtml(getDurationLabel(scenario?.estimated_duration));
+                const safeDuration = escapeHtml(formatEstimatedTime(scenario?.estimated_time));
                 const safePlayers = escapeHtml(scenario?.recommended_players || '指定なし');
                 const playCount = Number(scenario?.play_count) || 0;
                 const manageActions = canManageScenario(scenario)
@@ -978,7 +1175,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!showTestData && isDevelopmentScenario(scenario)) return false;
             if (currentFilters.system && scenario.game_system !== currentFilters.system) return false;
             if (currentFilters.difficulty && scenario.difficulty !== currentFilters.difficulty) return false;
-            if (currentFilters.duration && scenario.estimated_duration !== currentFilters.duration) return false;
             if (currentFilters.played === 'played' && scenario.play_count === 0) return false;
             if (currentFilters.played === 'not_played' && scenario.play_count > 0) return false;
             return true;
@@ -1010,15 +1206,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return labels[difficulty] || difficulty;
     }
 
-    // プレイ時間ラベル取得
-    function getDurationLabel(duration) {
-        const labels = {
-            short: '短編',
-            medium: '中編',
-            long: '長編',
-            campaign: 'キャンペーン'
-        };
-        return labels[duration] || duration;
+    function formatEstimatedTime(estimatedTime) {
+        return ARKHAM.formatDurationHours(estimatedTime);
     }
 
     function fillScenarioForm(scenario) {
@@ -1029,11 +1218,10 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('scenarioSystem').value = scenario.game_system === 'coc7' ? 'coc7' : 'coc6';
         document.getElementById('scenarioAuthor').value = scenario.author || '';
         document.getElementById('scenarioDifficulty').value = scenario.difficulty || 'beginner';
-        document.getElementById('scenarioDuration').value = scenario.estimated_duration || 'short';
         document.getElementById('scenarioPlayers').value = scenario.recommended_players || '';
         setScenarioFieldValue('scenarioMinPlayers', scenario.min_players);
         setScenarioFieldValue('scenarioMaxPlayers', scenario.max_players);
-        setScenarioFieldValue('scenarioEstimatedTime', scenario.estimated_time);
+        setScenarioFieldValue('scenarioEstimatedTime', ARKHAM.minutesToHours(scenario.estimated_time));
         setScenarioFieldValue('scenarioSettingEra', scenario.setting_era);
         setScenarioFieldValue('scenarioSettingLocation', scenario.setting_location);
         setScenarioFieldValue('scenarioStyle', scenario.scenario_style);
@@ -1049,6 +1237,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('scenarioSemiRecommendedSkills').value = semiRecommendedSkillsValue;
         document.getElementById('scenarioSummary').value = scenario.summary || '';
         document.getElementById('scenarioUrl').value = scenario.url || '';
+        updateScenarioSkillOptions(document.getElementById('scenarioSystem')?.value || '');
         updateScenarioSkillFeedback(
             document.getElementById('scenarioRecommendedSkills'),
             document.getElementById('scenarioRecommendedSkillsWarning'),
@@ -1087,6 +1276,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('scenarioRecommendedSkills')?.classList.remove('is-invalid');
             document.getElementById('scenarioSemiRecommendedSkills')?.classList.remove('is-invalid');
             document.getElementById('scenarioSystem').value = 'coc6';
+            updateScenarioSkillOptions('coc6');
             fillScenarioHandoutFields([]);
         }
     }
@@ -1353,6 +1543,105 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    const SCENARIO_IMAGE_MAX_BYTES = Number('{{ scenario_image_max_bytes|default:"5242880" }}');
+    const SCENARIO_IMAGE_MAX_FILES_PER_UPLOAD = Number('{{ scenario_image_max_files_per_upload|default:"10" }}');
+    const SCENARIO_IMAGE_MAX_WIDTH = 3000;
+    const SCENARIO_IMAGE_MAX_HEIGHT = 4000;
+    const SCENARIO_IMAGE_MAX_DECODED_BYTES = SCENARIO_IMAGE_MAX_BYTES * 5;
+
+    function scenarioImageLimitLabel() {
+        const megabytes = SCENARIO_IMAGE_MAX_BYTES / (1024 * 1024);
+        return Number.isInteger(megabytes) ? `${megabytes}MB` : `${megabytes.toFixed(1)}MB`;
+    }
+
+    function scenarioImageCanvasToBlob(canvas, type, quality) {
+        return new Promise((resolve, reject) => {
+            canvas.toBlob(blob => {
+                if (blob) {
+                    resolve(blob);
+                    return;
+                }
+                reject(new Error('画像の変換に失敗しました'));
+            }, type, quality);
+        });
+    }
+
+    function scenarioImageOutputName(filename, type) {
+        const baseName = (filename || 'scenario-image').replace(/\.[^.]+$/, '');
+        return `${baseName}.${type === 'image/png' ? 'png' : 'jpg'}`;
+    }
+
+    async function prepareScenarioImageForUpload(file) {
+        if (file.type === 'image/gif') {
+            if (file.size > SCENARIO_IMAGE_MAX_BYTES) {
+                throw new Error(`${scenarioImageLimitLabel()}を超えるGIF画像は自動縮小できません。${scenarioImageLimitLabel()}以下の画像を選択してください。`);
+            }
+            return file;
+        }
+
+        let bitmap;
+        try {
+            bitmap = await createImageBitmap(file);
+        } catch (error) {
+            if (file.size > SCENARIO_IMAGE_MAX_BYTES) {
+                throw new Error('画像を読み込めないため自動縮小できませんでした。JPGまたはPNG形式で保存し直してください。');
+            }
+            return file;
+        }
+
+        try {
+            const decodedBytes = bitmap.width * bitmap.height * 4;
+            const initialScale = Math.min(
+                1,
+                SCENARIO_IMAGE_MAX_WIDTH / bitmap.width,
+                SCENARIO_IMAGE_MAX_HEIGHT / bitmap.height,
+                Math.sqrt(SCENARIO_IMAGE_MAX_DECODED_BYTES / decodedBytes)
+            );
+            const supportedType = file.type === 'image/jpeg' || file.type === 'image/png';
+            if (file.size <= SCENARIO_IMAGE_MAX_BYTES && initialScale >= 1 && supportedType) {
+                return file;
+            }
+
+            const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+            let scale = initialScale;
+            let quality = 0.9;
+
+            for (let attempt = 0; attempt < 10; attempt += 1) {
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.floor(bitmap.width * scale));
+                canvas.height = Math.max(1, Math.floor(bitmap.height * scale));
+                const context = canvas.getContext('2d');
+                if (!context) {
+                    throw new Error('画像処理を開始できませんでした');
+                }
+                if (outputType === 'image/jpeg') {
+                    context.fillStyle = '#ffffff';
+                    context.fillRect(0, 0, canvas.width, canvas.height);
+                }
+                context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+                const blob = await scenarioImageCanvasToBlob(canvas, outputType, quality);
+                if (blob.size <= SCENARIO_IMAGE_MAX_BYTES) {
+                    return new File(
+                        [blob],
+                        scenarioImageOutputName(file.name, outputType),
+                        { type: outputType, lastModified: file.lastModified }
+                    );
+                }
+
+                if (outputType === 'image/jpeg' && quality > 0.55) {
+                    quality -= 0.1;
+                } else {
+                    scale *= 0.82;
+                }
+            }
+        } finally {
+            bitmap.close?.();
+        }
+
+        throw new Error(`画像を${scenarioImageLimitLabel()}以下に縮小できませんでした。別の画像を選択してください。`);
+    }
+
     window.uploadScenarioImages = async function(scenarioId) {
         const inputEl = document.getElementById('scenarioImagesInput');
         const uploadBtn = document.getElementById('uploadScenarioImagesBtn');
@@ -1363,25 +1652,26 @@ document.addEventListener('DOMContentLoaded', function() {
             notifyError('アップロードする画像を選択してください');
             return;
         }
-        if (files.length > 10) {
-            notifyError('一度にアップロードできるのは最大10枚です');
+        if (files.length > SCENARIO_IMAGE_MAX_FILES_PER_UPLOAD) {
+            notifyError(`一度にアップロードできるのは最大${SCENARIO_IMAGE_MAX_FILES_PER_UPLOAD}枚です`);
             return;
-        }
-
-        const formData = new FormData();
-        formData.append('scenario_id', String(scenarioId));
-        for (const file of files) {
-            if (!file?.type?.startsWith('image/')) {
-                notifyError(`画像以外のファイルが含まれています: ${file?.name || 'unknown'}`);
-                return;
-            }
-            formData.append('images', file);
         }
 
         const originalHtml = uploadBtn.innerHTML;
         uploadBtn.disabled = true;
-        uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>アップロード中...';
+        uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>画像を処理中...';
         try {
+            const formData = new FormData();
+            formData.append('scenario_id', String(scenarioId));
+            for (const file of files) {
+                if (!file?.type?.startsWith('image/')) {
+                    throw new Error(`画像以外のファイルが含まれています: ${file?.name || '不明なファイル'}`);
+                }
+                const uploadFile = await prepareScenarioImageForUpload(file);
+                formData.append('images', uploadFile, uploadFile.name);
+            }
+
+            uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>アップロード中...';
             await axios.post('/api/scenarios/scenario-images/bulk_upload/', formData);
             notifySuccess('画像をアップロードしました');
             inputEl.value = '';
@@ -1435,21 +1725,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const safeSystemLabel = escapeHtml(getSystemLabel(scenario?.game_system));
             const safeDifficultyLabel = escapeHtml(getDifficultyLabel(difficultyKey));
             const safeRecommendedPlayers = escapeHtml(scenario?.recommended_players || '指定なし');
-            const safeDurationLabel = escapeHtml(getDurationLabel(scenario?.estimated_duration));
+            const safeDurationLabel = escapeHtml(formatEstimatedTime(scenario?.estimated_time));
             const safeSummary = escapeHtml(scenario?.summary || 'なし');
 
             const normalizedUrl = normalizeExternalUrl(scenario?.url);
             const safeUrl = normalizedUrl ? escapeHtml(normalizedUrl) : '';
             const recommendedSkillEditHtml = canManage ? `
-                <div class="mt-3">
+                <div class="mt-3 recommended-skills-edit">
                     <label class="form-label small text-muted">推奨技能を編集</label>
                     <div class="input-group input-group-sm">
-                        <input type="text" class="form-control" id="scenarioRecommendedSkillsEdit" placeholder="例: 目星, 図書館" list="scenarioSkillOptions">
+                        <input type="text" class="form-control" id="scenarioRecommendedSkillsEdit" placeholder="例: 目星, 戦闘技能, 重火器" list="scenarioSkillOptions">
                         <button class="btn btn-outline-primary" type="button" onclick="saveScenarioRecommendedSkills(${scenario.id})">
                             <i class="fas fa-save"></i> 保存
                         </button>
                     </div>
-                    <div class="form-text">カンマ区切りで入力できます。</div>
+                    <div class="form-text">「戦闘技能」は近接・回避・投擲系、「重火器」は拳銃・ライフルなどの射撃系をまとめて推奨技能として扱います。</div>
                     <small class="text-warning d-block mt-1 d-none" id="scenarioRecommendedSkillsEditWarning"></small>
                 </div>
             ` : '';
@@ -1467,7 +1757,7 @@ document.addEventListener('DOMContentLoaded', function() {
                              onclick="uploadScenarioImages(${scenario.id})">
                         <i class="fas fa-upload"></i> アップロード
                     </button>
-                    <small class="text-muted">最大10枚/1回</small>
+                    <small class="text-muted">最大${SCENARIO_IMAGE_MAX_FILES_PER_UPLOAD}枚/1回。${scenarioImageLimitLabel()}を超える画像は自動で縮小します</small>
                 </div>
             ` : '';
             const scenarioShareControlsHtml = canManage ? `
@@ -1479,14 +1769,14 @@ document.addEventListener('DOMContentLoaded', function() {
                                id="scenarioShareUrlValue"
                                readonly
                                placeholder="コピーまたは表示時に発行されます">
-                        <button class="btn btn-outline-info"
+                        <button class="btn btn-outline-secondary"
                                 type="button"
                                 title="直接リンクをコピー"
                                 aria-label="直接リンクをコピー"
                                 onclick="copyScenarioPublicUrl(${scenario.id})">
                             <i class="fas fa-link"></i> コピー
                         </button>
-                        <button class="btn btn-outline-success"
+                        <button class="btn btn-outline-secondary"
                                 type="button"
                                 title="直接リンクを開く"
                                 aria-label="直接リンクを開く"
@@ -1557,7 +1847,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <td id="scenarioRecommendedSkillsValue"></td>
                             </tr>
                             <tr>
-                                <th>想定時間</th>
+                                <th>所要時間</th>
                                 <td>${safeDurationLabel}</td>
                             </tr>
                         </table>
@@ -1584,24 +1874,37 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${playHistoryHtml}
                         ${notesHtml}
                         
-                        <div class="mt-4">
-                            <button class="btn btn-primary btn-sm w-100" onclick="createSessionFromScenario(${scenario.id})">
-                                <i class="fas fa-calendar-plus"></i> このシナリオでセッションを計画
-                            </button>
-                            <button class="btn btn-outline-primary btn-sm w-100 mt-2" onclick="applyScenarioRecommendedSkills()">
-                                <i class="fas fa-star"></i> 推奨技能で探索者作成
-                            </button>
-                            ${scenarioShareControlsHtml}
-                            ${canManage ? `
-                                <button class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="openScenarioEditModal(${scenario.id})">
+                        <div class="mt-4 scenario-detail-actions">
+                            <div class="scenario-detail-primary-actions">
+                                <button class="btn btn-primary btn-sm" onclick="createSessionFromScenario(${scenario.id})">
+                                    <i class="fas fa-calendar-plus"></i> このシナリオでセッションを計画
+                                </button>
+                            </div>
+                            <div class="scenario-detail-local-actions mt-2">
+                                <button class="btn btn-outline-primary btn-sm" onclick="applyScenarioRecommendedSkills()">
+                                    <i class="fas fa-star"></i> 推奨技能で探索者作成
+                                </button>
+                                ${scenarioShareControlsHtml}
+                                ${canManage ? `
+                                <button class="btn btn-outline-primary btn-sm" onclick="openScenarioEditModal(${scenario.id})">
                                     <i class="fas fa-edit"></i> シナリオを編集
                                 </button>
-                                <button class="btn btn-outline-danger btn-sm w-100 mt-2" onclick="deleteScenario(${scenario.id})">
+                                ` : ''}
+                            </div>
+                            ${canManage ? `
+                            <div class="scenario-detail-danger-actions">
+                                <button class="btn btn-outline-danger btn-sm" onclick="deleteScenario(${scenario.id})">
                                     <i class="fas fa-trash"></i> シナリオを削除
                                 </button>
+                            </div>
                             ` : ''}
                         </div>
                     </div>
+                </div>
+                <div class="scenario-detail-mobile-primary-actions">
+                    <button class="btn btn-primary" onclick="createSessionFromScenario(${scenario.id})">
+                        <i class="fas fa-calendar-plus"></i> このシナリオでセッションを計画
+                    </button>
                 </div>
             `;
             
@@ -1613,6 +1916,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const recommendedInput = document.getElementById('scenarioRecommendedSkillsEdit');
             const recommendedWarning = document.getElementById('scenarioRecommendedSkillsEditWarning');
             if (recommendedInput) {
+                updateScenarioSkillOptions(scenario.game_system);
                 recommendedInput.value = recommendedValue;
                 attachScenarioSkillInput(recommendedInput, recommendedWarning, () => scenario.game_system);
             }
@@ -1843,7 +2147,8 @@ document.addEventListener('DOMContentLoaded', function() {
             scenario_id: scenario.id ? String(scenario.id) : '',
             game_system: scenario.game_system || ''
         });
-        window.location.href = `/accounts/character/create/6th/?${params.toString()}`;
+        const editionPath = scenario.game_system === 'coc7' ? '7th' : '6th';
+        window.location.href = `/accounts/character/create/${editionPath}/?${params.toString()}`;
     };
 
     // 新規/編集シナリオ保存
@@ -1878,11 +2183,10 @@ document.addEventListener('DOMContentLoaded', function() {
             game_system: document.getElementById('scenarioSystem').value,
             author: document.getElementById('scenarioAuthor').value,
             difficulty: document.getElementById('scenarioDifficulty').value,
-            estimated_duration: document.getElementById('scenarioDuration').value,
             recommended_players: document.getElementById('scenarioPlayers').value,
             min_players: getOptionalIntegerValue('scenarioMinPlayers'),
             max_players: getOptionalIntegerValue('scenarioMaxPlayers'),
-            estimated_time: getOptionalIntegerValue('scenarioEstimatedTime'),
+            estimated_time: ARKHAM.hoursToMinutes(document.getElementById('scenarioEstimatedTime').value),
             setting_era: document.getElementById('scenarioSettingEra').value,
             setting_location: document.getElementById('scenarioSettingLocation').value,
             scenario_style: document.getElementById('scenarioStyle').value,
@@ -1926,6 +2230,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    addScenarioModalEl?.addEventListener('show.bs.modal', () => {
+        updateScenarioSkillOptions(document.getElementById('scenarioSystem')?.value || 'coc6');
+    });
+
     addScenarioModalEl?.addEventListener('hidden.bs.modal', () => {
         setScenarioFormMode(false);
     });
@@ -1950,7 +2258,6 @@ document.addEventListener('DOMContentLoaded', function() {
         currentFilters = {
             system: document.getElementById('systemFilter').value,
             difficulty: document.getElementById('difficultyFilter').value,
-            duration: document.getElementById('durationFilter').value,
             played: document.getElementById('playedFilter').value
         };
         renderScenarios();

@@ -62,7 +62,7 @@ class TextQualityTestCase(SimpleTestCase):
 
     CHECKED_FILES = [
         Path("templates/integrations/settings.html"),
-        Path("accounts/test_character_6th_comprehensive.py"),
+        Path("accounts/test_character_6th.py"),
         Path("docs/release/PUBLIC_RELEASE_TASKS.md"),
     ]
     RUNTIME_CONSOLE_LOG_FILES = [

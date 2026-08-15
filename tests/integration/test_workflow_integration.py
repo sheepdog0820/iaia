@@ -158,7 +158,7 @@ class PlayerWorkflowIntegrationTest(APITestCase):
             "description": "H.P.ラヴクラフト原作の古典的シナリオ",
             "system": "cthulhu",
             "difficulty": "medium",
-            "estimated_duration": 240,
+            "estimated_time": 240,
             "min_players": 3,
             "max_players": 6,
             "tags": "クトゥルフ,ホラー,古典",
@@ -301,7 +301,7 @@ class GMWorkflowIntegrationTest(APITestCase):
             "description": "H.P.ラヴクラフトの傑作シナリオ",
             "system": "cthulhu",
             "difficulty": "hard",
-            "estimated_duration": 360,
+            "estimated_time": 360,
             "min_players": 2,
             "max_players": 4,
             "tags": "クトゥルフ,ホラー,海岸",
@@ -590,17 +590,17 @@ class CalendarFilterIntegrationTest(APITestCase):
 
         # 各セッションタイプが正しく分類されているか確認
         for event in events:
-            if event["id"] == gm_session_id:
+            if event["session_id"] == gm_session_id:
                 self.assertTrue(event.get("is_gm", False), "GMセッションがis_gm=Trueでない")
                 self.assertEqual(event["type"], "gm", "GMセッションのtypeが'gm'でない")
                 print(f"   [OK] GMセッション分類確認: {event['title']}")
 
-            elif event["id"] == participant_session_id:
+            elif event["session_id"] == participant_session_id:
                 self.assertTrue(event.get("is_participant", False), "参加セッションがis_participant=Trueでない")
                 self.assertEqual(event["type"], "participant", "参加セッションのtypeが'participant'でない")
                 print(f"   [OK] 参加セッション分類確認: {event['title']}")
 
-            elif event["id"] == public_session_id:
+            elif event["session_id"] == public_session_id:
                 self.assertTrue(event.get("is_public_only", False), "公開セッションがis_public_only=Trueでない")
                 self.assertEqual(event["type"], "public", "公開セッションのtypeが'public'でない")
                 print(f"   [OK] 公開セッション分類確認: {event['title']}")
@@ -647,14 +647,14 @@ class ExportStatisticsIntegrationTest(APITestCase):
                 "description": "H.P.ラヴクラフト原作",
                 "system": "cthulhu",
                 "difficulty": "medium",
-                "estimated_duration": 240,
+                "estimated_time": 240,
             },
             {
                 "title": "インスマウスの影",
                 "description": "海岸の怪異",
                 "system": "cthulhu",
                 "difficulty": "hard",
-                "estimated_duration": 360,
+                "estimated_time": 360,
             },
         ]
 

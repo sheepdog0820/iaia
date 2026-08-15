@@ -360,7 +360,7 @@ LINE_MAX_ATTACHMENT_BYTES = int(os.environ.get("LINE_MAX_ATTACHMENT_BYTES", str(
 LINE_TICKET_FOLLOWUP_HOURS = int(os.environ.get("LINE_TICKET_FOLLOWUP_HOURS", "24"))
 LINE_WEBHOOK_USE_CELERY = _get_bool("LINE_WEBHOOK_USE_CELERY", default=False)
 
-LOGIN_REDIRECT_URL = "/accounts/dashboard/"
+LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
 
 # Social account providers configuration
@@ -621,3 +621,10 @@ BACKGROUND_REMOVAL_SUBNETS = _split_env_list(os.environ.get("BACKGROUND_REMOVAL_
 BACKGROUND_REMOVAL_SECURITY_GROUPS = _split_env_list(os.environ.get("BACKGROUND_REMOVAL_SECURITY_GROUPS", ""))
 BACKGROUND_REMOVAL_ASSIGN_PUBLIC_IP = _get_bool("BACKGROUND_REMOVAL_ASSIGN_PUBLIC_IP", default=False)
 BACKGROUND_REMOVAL_JOB_TIMEOUT_SECONDS = int(os.environ.get("BACKGROUND_REMOVAL_JOB_TIMEOUT_SECONDS", "900"))
+
+# Scenario image limits are intentionally separate so premium limits can be
+# relaxed independently without changing the normal-user policy.
+SCENARIO_IMAGE_NORMAL_MAX_BYTES = int(os.environ.get("SCENARIO_IMAGE_NORMAL_MAX_BYTES", str(5 * 1024 * 1024)))
+SCENARIO_IMAGE_PREMIUM_MAX_BYTES = int(os.environ.get("SCENARIO_IMAGE_PREMIUM_MAX_BYTES", str(5 * 1024 * 1024)))
+SCENARIO_IMAGE_NORMAL_MAX_FILES_PER_UPLOAD = int(os.environ.get("SCENARIO_IMAGE_NORMAL_MAX_FILES_PER_UPLOAD", "10"))
+SCENARIO_IMAGE_PREMIUM_MAX_FILES_PER_UPLOAD = int(os.environ.get("SCENARIO_IMAGE_PREMIUM_MAX_FILES_PER_UPLOAD", "10"))

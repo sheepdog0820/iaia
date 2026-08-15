@@ -153,7 +153,7 @@ def create_fixtures(session: requests.Session, base_url: str, timeout: float) ->
             "summary": "Image upload load probe fixture.",
             "game_system": "coc",
             "difficulty": "beginner",
-            "estimated_duration": "short",
+            "estimated_time": 180,
         },
         timeout,
     )

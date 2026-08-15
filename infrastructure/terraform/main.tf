@@ -369,7 +369,8 @@ resource "aws_cloudfront_origin_access_control" "assets" {
 }
 
 resource "aws_cloudfront_distribution" "assets" {
-  enabled = true
+  enabled     = true
+  price_class = var.cloudfront_price_class
   origin {
     domain_name              = aws_s3_bucket.assets.bucket_regional_domain_name
     origin_id                = "assets"
@@ -983,6 +984,7 @@ resource "aws_budgets_budget" "monthly" {
   dynamic "notification" {
     for_each = var.alarm_email == "" ? {} : {
       actual_80    = { type = "ACTUAL", threshold = 80 }
+      actual_90    = { type = "ACTUAL", threshold = 90 }
       actual_100   = { type = "ACTUAL", threshold = 100 }
       forecast_100 = { type = "FORECASTED", threshold = 100 }
     }

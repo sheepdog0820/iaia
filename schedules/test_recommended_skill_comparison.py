@@ -81,6 +81,53 @@ class RecommendedSkillComparisonServiceTests(TestCase):
             ],
         )
 
+    def test_expands_combat_and_firearms_skill_groups_for_each_edition(self):
+        self.scenario.recommended_skills = "戦闘技能, 重火器, 目星"
+        self.scenario.semi_recommended_skills = "拳銃"
+        self.scenario.save()
+        _, sixth_participant = self.create_character()
+
+        sixth_comparison = self.comparison_for(sixth_participant)
+
+        self.assertEqual(
+            [(row["name"], row["level"]) for row in sixth_comparison["rows"]],
+            [
+                ("回避", "recommended"),
+                ("キック", "recommended"),
+                ("組み付き", "recommended"),
+                ("こぶし", "recommended"),
+                ("頭突き", "recommended"),
+                ("投擲", "recommended"),
+                ("マーシャルアーツ", "recommended"),
+                ("拳銃", "recommended"),
+                ("サブマシンガン", "recommended"),
+                ("ショットガン", "recommended"),
+                ("マシンガン", "recommended"),
+                ("ライフル", "recommended"),
+                ("目星", "recommended"),
+            ],
+        )
+
+        self.session.sessionparticipant_set.all().delete()
+        self.scenario.game_system = "coc7"
+        self.scenario.recommended_skills = "戦闘技能, 重火器"
+        self.scenario.semi_recommended_skills = "近接戦闘, 射撃（拳銃）"
+        self.scenario.save()
+        _, seventh_participant = self.create_character(edition="7th")
+
+        seventh_comparison = self.comparison_for(seventh_participant)
+
+        self.assertEqual(
+            [(row["name"], row["level"]) for row in seventh_comparison["rows"]],
+            [
+                ("回避", "recommended"),
+                ("近接戦闘", "recommended"),
+                ("投擲", "recommended"),
+                ("射撃（拳銃）", "recommended"),
+                ("射撃（ライフル／ショットガン）", "recommended"),
+            ],
+        )
+
     def test_uses_saved_current_value_and_sixth_edition_initial_value(self):
         self.scenario.recommended_skills = "目星, 母国語, 回避, こぶし（パンチ）"
         self.scenario.save()

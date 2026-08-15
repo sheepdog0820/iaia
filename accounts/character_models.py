@@ -335,10 +335,12 @@ class CharacterSheet(models.Model):
             "ライフル": 25,
             "投擲": 20,
             "近接戦闘（格闘）": 25,
+            "近接戦闘(格闘)": 25,
             "近接戦闘": 25,
             "格闘技": 25,
             "キック": 25,
             "組み付き": 25,
+            "こぶし": 25,
             "こぶし（パンチ）": 25,
             "頭突き": 25,
             "マーシャルアーツ": 25,
@@ -473,7 +475,9 @@ class CharacterSheet(models.Model):
         if self.edition == "7th":
             categories_7th = {
                 "回避": "戦闘系",
+                "近接戦闘": "戦闘系",
                 "近接戦闘（格闘）": "戦闘系",
+                "近接戦闘(格闘)": "戦闘系",
                 "投擲": "戦闘系",
                 "射撃（拳銃）": "戦闘系",
                 "射撃（ライフル／ショットガン）": "戦闘系",
@@ -763,7 +767,7 @@ class CharacterSheetSystemData(models.Model):
                 "教授": ["図書館", "母国語", "ほかの言語", "科学", "心理学", "歴史", "人類学", "説得"],
                 "警察官": [
                     "射撃（拳銃）",
-                    "近接戦闘（格闘）",
+                    "近接戦闘",
                     "心理学",
                     "聞き耳",
                     "目星",
@@ -2274,7 +2278,7 @@ class CharacterSkillSystemData(models.Model):
                 "教授": ["図書館", "母国語", "ほかの言語", "科学", "心理学", "歴史", "人類学", "説得"],
                 "警察官": [
                     "射撃（拳銃）",
-                    "近接戦闘（格闘）",
+                    "近接戦闘",
                     "心理学",
                     "聞き耳",
                     "目星",
@@ -2656,6 +2660,46 @@ class CharacterExportManager:
     """キャラクター エクスポート管理ユーティリティ"""
 
     @staticmethod
+    def _export_equipment(character):
+        return [
+            {
+                "item_type": item.item_type,
+                "name": item.name,
+                "skill_name": item.skill_name,
+                "damage": item.damage,
+                "base_range": item.base_range,
+                "attacks_per_round": item.attacks_per_round,
+                "ammo": item.ammo,
+                "malfunction_number": item.malfunction_number,
+                "armor_points": item.armor_points,
+                "description": item.description,
+                "quantity": item.quantity,
+                "weight": item.weight,
+            }
+            for item in character.equipment.all()
+        ]
+
+    @staticmethod
+    def _normalize_ccfolia_skill_name(edition, skill_name):
+        if edition == "6th" and skill_name in {"こぶし（パンチ）", "こぶし(パンチ)"}:
+            return "こぶし"
+        if edition == "7th" and skill_name in {
+            "近接戦闘",
+            "近接戦闘（格闘）",
+            "近接戦闘(格闘)",
+            "格闘技",
+            "こぶし",
+            "こぶし（パンチ）",
+            "こぶし(パンチ)",
+            "キック",
+            "頭突き",
+            "組み付き",
+            "マーシャルアーツ",
+        }:
+            return "近接戦闘"
+        return skill_name
+
+    @staticmethod
     def export_version_data(character):
         registry = character
         character = registry.system_data
@@ -2682,6 +2726,7 @@ class CharacterExportManager:
                 }
                 for skill in character.skills.all()
             ],
+            "equipment": CharacterExportManager._export_equipment(character),
             "version_info": {
                 "version": character.version,
                 "note": character.version_note,
@@ -2725,6 +2770,7 @@ class CharacterExportManager:
 
         # 技能ロール
         skill_command_prefix = "CC" if registry.edition == "7th" else "CCB"
+        skill_values = {}
         for skill in character.skills.all():
             total_value = (
                 skill.base_value
@@ -2733,13 +2779,36 @@ class CharacterExportManager:
                 + skill.bonus_points
                 + skill.other_points
             )
-            commands.append(f"{skill_command_prefix}<={total_value} 【{skill.skill_name}】")
-            skills.append({"name": skill.skill_name, "value": total_value})
+            skill_name = CharacterExportManager._normalize_ccfolia_skill_name(registry.edition, skill.skill_name)
+            skill_values[skill_name] = max(skill_values.get(skill_name, 0), total_value)
+        for skill_name, total_value in skill_values.items():
+            commands.append(f"{skill_command_prefix}<={total_value} 【{skill_name}】")
+            skills.append({"name": skill_name, "value": total_value})
+
+        equipment = CharacterExportManager._export_equipment(character)
+        for item in equipment:
+            if item["item_type"] != "weapon" or not item["name"]:
+                continue
+            normalized_skill_name = CharacterExportManager._normalize_ccfolia_skill_name(
+                registry.edition,
+                item["skill_name"],
+            )
+            if normalized_skill_name in skill_values:
+                commands.append(f"{skill_command_prefix}<={skill_values[normalized_skill_name]} 【{item['name']}】")
+            if item["damage"]:
+                commands.append(f"{item['damage']} 【{item['name']}ダメージ】")
 
         # ダメージ判定
-        commands.append("1d3+0 【ダメージ判定】")
-        commands.append("1d4+0 【ダメージ判定】")
-        commands.append("1d6+0 【ダメージ判定】")
+        if registry.edition == "6th":
+            commands.extend(
+                [
+                    "1D3+{DB} 【こぶしダメージ】",
+                    "1D6+{DB} 【キックダメージ】",
+                    "1D4+{DB} 【頭突きダメージ】",
+                ]
+            )
+        else:
+            commands.append("1D3+{DB} 【近接戦闘ダメージ】")
 
         # 能力値ロール
         for ability, value in [
@@ -2760,6 +2829,22 @@ class CharacterExportManager:
         # CCFOLIA標準形式
         memo = character.name_kana or ""
 
+        params = [
+            {"label": "STR", "value": str(character.str_value)},
+            {"label": "CON", "value": str(character.con_value)},
+            {"label": "POW", "value": str(character.pow_value)},
+            {"label": "DEX", "value": str(character.dex_value)},
+            {"label": "APP", "value": str(character.app_value)},
+            {"label": "SIZ", "value": str(character.siz_value)},
+            {"label": "INT", "value": str(character.int_value)},
+            {"label": "EDU", "value": str(character.edu_value)},
+        ]
+        damage_bonus = character.damage_bonus if registry.edition == "6th" else character.calculate_damage_bonus_7th()
+        damage_bonus_value = str(damage_bonus)
+        if registry.edition == "6th":
+            damage_bonus_value = damage_bonus_value.removeprefix("+")
+        params.append({"label": "DB", "value": damage_bonus_value})
+
         ccfolia_data = {
             "kind": "character",
             "data": {
@@ -2772,7 +2857,7 @@ class CharacterExportManager:
                 "status": [
                     {"label": "HP", "value": character.hit_points_current, "max": character.hit_points_max},
                     {"label": "MP", "value": character.magic_points_current, "max": character.magic_points_max},
-                    {"label": "SAN", "value": character.sanity_current, "max": character.sanity_max},
+                    {"label": "SAN", "value": character.sanity_current, "max": character.sanity_current},
                     *(
                         [
                             {
@@ -2785,16 +2870,7 @@ class CharacterExportManager:
                         else []
                     ),
                 ],
-                "params": [
-                    {"label": "STR", "value": str(character.str_value)},
-                    {"label": "CON", "value": str(character.con_value)},
-                    {"label": "POW", "value": str(character.pow_value)},
-                    {"label": "DEX", "value": str(character.dex_value)},
-                    {"label": "APP", "value": str(character.app_value)},
-                    {"label": "SIZ", "value": str(character.siz_value)},
-                    {"label": "INT", "value": str(character.int_value)},
-                    {"label": "EDU", "value": str(character.edu_value)},
-                ],
+                "params": params,
             },
         }
 
@@ -2812,6 +2888,7 @@ class CharacterExportManager:
                     {"label": "EDU", "value": character.edu_value},
                 ],
                 "skills": skills,
+                "equipment": equipment,
             }
         )
 

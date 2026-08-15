@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.character_models import CharacterSheet, CharacterSheet6th
-from accounts.models import Friend, Group, GroupInvitation, GroupMembership
+from accounts.models import Friend, FriendRequest, Group, GroupInvitation, GroupMembership
 from schedules.models import (
     HandoutNotification,
     ParticipantClaimRequest,
@@ -35,6 +35,13 @@ class FriendAPITestCase(APITestCase):
             nickname="Friend Target",
             trpg_history="friend private history",
         )
+        self.new_friend = User.objects.create_user(
+            username="new_friend_target",
+            email="new_friend_target@example.com",
+            password="pass123",
+            nickname="New Friend Target",
+            trpg_introduction_sheet={"visibility": "public"},
+        )
         Friend.objects.create(user=self.user, friend=self.friend)
         self.client.force_authenticate(user=self.user)
 
@@ -48,6 +55,17 @@ class FriendAPITestCase(APITestCase):
         self.assertNotIn("trpg_history", friend_detail)
         self.assertNotIn("first_name", friend_detail)
         self.assertNotIn("last_name", friend_detail)
+
+    def test_add_friend_endpoint_accepts_post(self):
+        response = self.client.post(
+            "/api/accounts/friends/add/",
+            {"username": self.new_friend.username},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(FriendRequest.objects.filter(sender=self.user, recipient=self.new_friend).exists())
+        self.assertFalse(Friend.objects.filter(user=self.user, friend=self.new_friend).exists())
 
 
 class GroupSearchAPITestCase(APITestCase):

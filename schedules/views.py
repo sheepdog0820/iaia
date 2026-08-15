@@ -28,7 +28,7 @@ from accounts.models import (
     GroupMembership,
 )
 from accounts.views.mixins import CharacterSheetAccessMixin
-from schedules.duration import effective_duration_expression
+from schedules.duration import effective_duration_expression, format_duration_hours
 
 from . import session_permissions
 from .models import (  # 高度なスケジューリング機能（ISSUE-017）
@@ -151,12 +151,14 @@ def _tableno_character_name_from_url(character_sheet_url, user):
 def _gm_role_session_ids_for(user):
     if not user or not getattr(user, "is_authenticated", False):
         return set()
-    return set(
+    role_session_ids = set(
         SessionParticipantRole.objects.filter(
             participant__user=user,
             role=SessionParticipantRole.Role.GM,
         ).values_list("participant__session_id", flat=True)
     )
+    legacy_gm_session_ids = set(TRPGSession.objects.filter(gm=user).values_list("id", flat=True))
+    return role_session_ids | legacy_gm_session_ids
 
 
 def _is_session_gm_for_user(session, user, gm_role_session_ids=None):
@@ -241,14 +243,13 @@ def _participant_role_values(participant):
 
 def _participant_primary_role(participant):
     roles = _participant_role_values(participant)
-    if SessionParticipantRole.Role.OWNER.value in roles:
-        return SessionParticipantRole.Role.OWNER.value
-    if SessionParticipantRole.Role.MANAGER.value in roles:
-        return SessionParticipantRole.Role.MANAGER.value
-    if SessionParticipantRole.Role.GM.value in roles:
+    gm_roles = {
+        SessionParticipantRole.Role.OWNER.value,
+        SessionParticipantRole.Role.MANAGER.value,
+        SessionParticipantRole.Role.GM.value,
+    }
+    if roles & gm_roles:
         return SessionParticipantRole.Role.GM.value
-    if SessionParticipantRole.Role.PLAYER.value in roles:
-        return SessionParticipantRole.Role.PLAYER.value
     return SessionParticipantRole.Role.PLAYER.value
 
 
@@ -899,14 +900,14 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                 gm_user, error_response = get_assignable_user(gm_user_id)
                 if error_response:
                     return error_response
-                session.gm = gm_user
-                session.save(update_fields=["gm", "updated_at"])
-                participant, _ = SessionParticipant.objects.update_or_create(
-                    session=session,
-                    user=gm_user,
-                    defaults={"player_slot": None},
+                participant = session_permissions.assign_session_gm(
+                    session,
+                    gm_user,
+                    granted_by=request.user,
                 )
-                _sync_participant_roles(participant, [SessionParticipantRole.Role.GM], granted_by=request.user)
+                if participant.player_slot is not None:
+                    participant.player_slot = None
+                    participant.save(update_fields=["player_slot"])
                 updated_participants.append(participant)
 
             for item in participant_items:
@@ -928,6 +929,9 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                     )
                 except ValueError as exc:
                     return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+                if target_user.id == session.created_by_id:
+                    desired_roles = {SessionParticipantRole.Role.OWNER.value}
 
                 raw_slot = item.get("player_slot")
                 player_slot = None
@@ -984,7 +988,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                         "character_sheet": character_sheet,
                     },
                 )
-                if gm_user_id and target_user.id == int(gm_user_id):
+                if gm_user_id and target_user.id != session.created_by_id and target_user.id == int(gm_user_id):
                     desired_roles = {SessionParticipantRole.Role.GM.value}
                 _sync_participant_roles(participant, desired_roles, granted_by=request.user)
                 bind_slot_handouts_to_participant(participant)
@@ -2481,15 +2485,7 @@ class UpcomingSessionsView(APIView):
 
         # 今日から7日以内のセッション
         def format_duration(minutes):
-            if not minutes:
-                return None
-            hours = minutes // 60
-            mins = minutes % 60
-            if hours > 0 and mins > 0:
-                return f"{hours}時間{mins}分"
-            if hours > 0:
-                return f"{hours}時間"
-            return f"{mins}分"
+            return format_duration_hours(minutes, empty_label=None)
 
         def format_date_display(dt):
             if not dt:
@@ -2790,7 +2786,7 @@ class SessionDetailView(APIView):
     def get(self, request, pk):
         # セッション詳細取得
         try:
-            session = TRPGSession.objects.select_related("scenario").get(pk=pk)
+            session = TRPGSession.objects.select_related("scenario").prefetch_related("scenario__images").get(pk=pk)
         except TRPGSession.DoesNotExist:
             if "application/json" in request.headers.get("Accept", ""):
                 return Response({"error": "Session not found"}, status=404)
@@ -3037,7 +3033,7 @@ class PublicSessionDetailView(APIView):
 
     def get(self, request, share_token):
         session = get_object_or_404(
-            TRPGSession.objects.select_related("scenario", "gm", "group"),
+            TRPGSession.objects.select_related("scenario", "gm", "group").prefetch_related("scenario__images"),
             share_token=share_token,
             visibility="public",
         )

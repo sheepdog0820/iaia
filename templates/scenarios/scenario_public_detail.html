@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static duration_tags %}
 
 {% block title %}{{ scenario.title }} - Scenario{% endblock %}
 {% block extra_head %}
@@ -78,6 +78,7 @@
                         {% if scenario.setting_era %}<dt class="col-sm-3">時代</dt><dd class="col-sm-9">{{ scenario.setting_era }}</dd>{% endif %}
                         {% if scenario.setting_location %}<dt class="col-sm-3">舞台・地域</dt><dd class="col-sm-9">{{ scenario.setting_location }}</dd>{% endif %}
                         {% if scenario.scenario_style %}<dt class="col-sm-3">形式</dt><dd class="col-sm-9">{{ scenario.scenario_style }}</dd>{% endif %}
+                        {% if scenario.estimated_time %}<dt class="col-sm-3">所要時間</dt><dd class="col-sm-9">{{ scenario.estimated_time|duration_hours }}</dd>{% endif %}
                         {% if scenario.recommended_skills %}<dt class="col-sm-3">推奨技能</dt><dd class="col-sm-9">{{ scenario.recommended_skills }}</dd>{% endif %}
                         {% if scenario.content_warnings %}<dt class="col-sm-3">注意事項</dt><dd class="col-sm-9">{{ scenario.content_warnings|linebreaksbr }}</dd>{% endif %}
                     </dl>

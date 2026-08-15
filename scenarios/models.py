@@ -33,20 +33,12 @@ class Scenario(models.Model):
         ("expert", "エキスパート"),
     ]
 
-    DURATION_CHOICES = [
-        ("short", "短編（〜3時間）"),
-        ("medium", "中編（3〜6時間）"),
-        ("long", "長編（6時間〜）"),
-        ("campaign", "キャンペーン"),
-    ]
-
     title = models.CharField(max_length=200)
     author = models.CharField(max_length=100, blank=True)
     visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default="public")
     share_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
     game_system = models.CharField(max_length=10, choices=GAME_SYSTEM_CHOICES, default="coc6")
     difficulty = models.CharField(max_length=20, choices=DIFFICULTY_CHOICES, default="intermediate")
-    estimated_duration = models.CharField(max_length=20, choices=DURATION_CHOICES, default="medium")
     summary = models.TextField(blank=True)
     public_info = models.TextField(blank=True, default="", help_text="PL向け公開情報")
     gm_notes = models.TextField(blank=True, default="", help_text="GM向け非公開メモ")

@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load static %}
+{% load static duration_tags %}
 
 {% block title %}日程募集・投票 - {{ session.title }}{% endblock %}
 
@@ -209,7 +209,7 @@
                     {% if session.duration_minutes %}
                         <div class="mb-2">
                             <div class="small text-muted"><i class="fas fa-clock"></i> セッション時間</div>
-                            <div>{{ session.duration_minutes }}分</div>
+                            <div>{{ session.duration_minutes|duration_hours }}</div>
                         </div>
                     {% endif %}
 

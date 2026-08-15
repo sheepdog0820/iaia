@@ -4,19 +4,46 @@
 {% block title %}クトゥルフ神話TRPG 6版探索者作成 - タブレノ{% endblock %}
 
 {% block content %}
-<div class="container character-creator">
+<div class="container character-creator" data-screen-actions-page>
     <!-- ヘッダー -->
-    <div class="row mb-2 align-items-center character-creator-header">
-        <div class="col-12 text-lg-end">
-            <div class="character-creator-actions d-inline-flex align-items-center gap-2">
+    <div class="screen-action-layout character-creator-header">
+        <h1 class="screen-action-title h5">6版探索者作成</h1>
+        <nav class="screen-action-bar" aria-label="探索者作成操作" data-screen-actions>
+            <div class="screen-action-back">
+                <a href="/accounts/character/list/" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-arrow-left"></i>
+                    <span class="screen-action-back-label">キャンセル</span>
+                </a>
+            </div>
+            <div class="screen-action-local" data-screen-action-sheet>
+                <div class="screen-action-sheet-header">
+                    <span>この画面の操作</span>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary screen-action-sheet-close"
+                            data-screen-actions-close
+                            aria-label="操作メニューを閉じる">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <button type="button" class="btn btn-outline-danger btn-sm" id="footerResetSkills">
+                    <i class="fas fa-undo"></i> 技能リセット
+                </button>
                 <button type="button" class="btn btn-outline-primary btn-sm" id="createVersionButton" style="display: none;">
                     <i class="fas fa-code-branch"></i> 新バージョン
                 </button>
-                <a href="/accounts/character/list/" class="btn btn-outline-secondary btn-sm">
-                    <i class="fas fa-times"></i> キャンセル
-                </a>
             </div>
-        </div>
+            <button type="button"
+                    class="btn btn-outline-secondary screen-action-more"
+                    data-screen-actions-toggle
+                    aria-expanded="false"
+                    aria-label="その他の操作">
+                <i class="fas fa-ellipsis-v"></i>
+            </button>
+            <button type="button"
+                    class="screen-action-backdrop"
+                    data-screen-actions-close
+                    aria-label="操作メニューを閉じる"></button>
+        </nav>
     </div>
 
     <!-- フォーム -->
@@ -155,7 +182,7 @@
                                             </span>
                                             <input type="file" id="background-removal-image" accept="image/jpeg,image/jpg,image/png,image/gif" class="d-none">
                                         </div>
-                                        <small class="text-muted d-block mt-2">対応形式: JPG, PNG, GIF (1枚最大5MB / 現在の添付上限: 最大{% if user.is_premium %}10{% else %}2{% endif %}枚)</small>
+                                        <small class="text-muted d-block mt-2">対応形式: JPG, PNG, GIF (1枚最大5MB / 現在の添付上限: 最大{% if user.is_premium %}10{% else %}2{% endif %}枚)。アップロードするたびに立ち絵が追加され、登録済み画像はカードから削除できます。</small>
                                     </div>
                                     <div class="col-lg-7">
                                         <div id="image-preview" class="character-image-preview" style="display: none;" aria-live="polite">
@@ -752,14 +779,9 @@
                                  <input type="number" class="form-control" id="current_san" name="sanity_current"
                                         min="0" max="9999">
                              </div>
-                             <div class="col-6 col-md-3 mb-3">
-                                 <label for="armor" class="form-label">装甲値</label>
-                                 <input type="number" class="form-control" id="armor" name="armor" 
-                                        min="0" max="50" value="0">
-                             </div>
                          </div>
                          <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i> 武器・防具・所持品はこの画面で登録できます（作成後も編集可能です）。
+                            <i class="fas fa-info-circle"></i> 武器・防具・所持品はこの画面で登録できます。装甲値は防具の「装甲ポイント」で設定してください（作成後も編集可能です）。
                          </div>
                      </div>
                  </div>
@@ -907,11 +929,6 @@
                                           placeholder="故郷、職場、思い出の場所など..."></textarea>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label for="items" class="form-label">秘蔵の品</label>
-                                <textarea class="form-control" id="items" name="items" rows="2"
-                                          placeholder="大切な品物、記念品、手放せないものなど..."></textarea>
-                            </div>
-                            <div class="col-md-6 mb-3">
                                 <label for="scars_injuries" class="form-label">負傷、傷跡</label>
                                 <textarea class="form-control" id="scars_injuries" name="scars_injuries" rows="2"
                                           placeholder="身体的な傷、古傷、後遺症など..."></textarea>
@@ -1040,7 +1057,7 @@
 </div>
 
 <!-- 固定フッター -->
-<div class="character-footer fixed-bottom bg-dark text-light py-2" id="characterFooter">
+<div class="character-footer screen-form-primary fixed-bottom bg-dark text-light py-2" id="characterFooter">
     <div class="container">
         <div class="footer-bar d-flex flex-wrap flex-md-nowrap align-items-center justify-content-between gap-2">
             <div class="footer-points d-flex flex-wrap align-items-center gap-3">
@@ -1059,14 +1076,8 @@
             </div>
 
             <div class="footer-actions d-flex flex-wrap align-items-center justify-content-end gap-2">
-                <button type="button" class="btn btn-outline-danger btn-sm" id="footerResetSkills">
-                    <i class="fas fa-undo"></i> 技能リセット
-                </button>
-                <button type="button" class="btn btn-outline-primary btn-sm" id="footerCreateVersion" style="display: none;">
-                    <i class="fas fa-code-branch"></i> 新バージョン
-                </button>
-                <button type="button" class="btn btn-success btn-sm" id="footerSaveCharacter">
-                    <i class="fas fa-save"></i> 保存
+                <button type="button" class="btn btn-primary btn-sm" id="footerSaveCharacter">
+                    <i class="fas fa-save"></i> 保存して詳細へ
                 </button>
             </div>
         </div>
@@ -1083,9 +1094,11 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'accounts/css/character6th.css' %}?v=20260714-dark-mode-9">
+<link rel="stylesheet" href="{% static 'accounts/css/character6th.css' %}?v=20260729-smartphone-skills-1">
+<link rel="stylesheet" href="{% static 'css/screen-actions.css' %}?v=20260728-8">
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'accounts/js/character6th.js' %}"></script>
+<script src="{% static 'js/screen-actions.js' %}?v=20260728-4"></script>
+<script src="{% static 'accounts/js/character6th.js' %}?v=20260729-fist-name-1"></script>
 {% endblock %}

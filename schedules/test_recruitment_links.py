@@ -343,7 +343,7 @@ class SessionRecruitmentLinkTestCase(APITestCase):
             },
         )
 
-        self.assertRedirects(response, reverse("dashboard"), fetch_redirect_response=False)
+        self.assertRedirects(response, reverse("home"), fetch_redirect_response=False)
 
     def test_recruitment_management_ui_is_visible_only_to_participant_managers(self):
         self.client.force_authenticate(self.manager)
@@ -365,7 +365,7 @@ class SessionRecruitmentLinkTestCase(APITestCase):
         self.assertNotContains(player_response, 'id="recruitmentLinksModal"')
 
 
-class RecruitmentAndCharacterActionTemplateTestCase(SimpleTestCase):
+class RecruitmentTemplateTestCase(SimpleTestCase):
     def test_auth_templates_and_allauth_adapter_preserve_safe_next(self):
         login_template = Path("templates/account/login.html").read_text(encoding="utf-8")
         signup_template = Path("templates/account/signup.html").read_text(encoding="utf-8")
@@ -392,19 +392,3 @@ class RecruitmentAndCharacterActionTemplateTestCase(SimpleTestCase):
         self.assertIn('id="issueRecruitmentLinkForm"', template)
         self.assertIn("recruitment-links/", template)
         self.assertIn("{% if can_invite and not is_public_view %}", template)
-
-    def test_character_actions_use_semantic_groups_and_mobile_grid_positions(self):
-        template = Path("templates/accounts/character_detail.html").read_text(encoding="utf-8")
-
-        self.assertIn('<nav class="character-actions"', template)
-        self.assertIn('aria-label="キャラクター操作"', template)
-        self.assertIn("action-group--left", template)
-        self.assertIn("action-group--right", template)
-        self.assertIn("action-button--move", template)
-        self.assertIn("action-button--output", template)
-        self.assertIn("action-button--recreate", template)
-        self.assertIn("action-button--edit", template)
-        self.assertIn("#characterContent .action-button--move,", template)
-        self.assertIn("#characterContent .action-button--recreate {", template)
-        self.assertIn("#characterContent .action-button--output,", template)
-        self.assertIn("#characterContent .action-button--edit {", template)

@@ -414,7 +414,7 @@ class ScenarioAPITestCase(APITestCase):
             "author": "Test Author",
             "game_system": "coc",
             "difficulty": "beginner",
-            "estimated_duration": "short",
+            "estimated_time": 180,
             "summary": "",
             "recommended_players": "",
             "recommended_skills": "   ",
@@ -440,7 +440,7 @@ class ScenarioAPITestCase(APITestCase):
             "author": "Test Author",
             "game_system": "coc",
             "difficulty": "beginner",
-            "estimated_duration": "short",
+            "estimated_time": 180,
             "summary": "",
             "public_info": "PLに公開する導入。",
             "gm_notes": "GMだけが見る真相メモ。",
@@ -525,7 +525,7 @@ class ScenarioAPITestCase(APITestCase):
                 "title": "Invalid System Scenario",
                 "game_system": "dnd",
                 "difficulty": "beginner",
-                "estimated_duration": "short",
+                "estimated_time": 180,
             },
         )
 
@@ -539,7 +539,7 @@ class ScenarioAPITestCase(APITestCase):
             "author": "Test Author",
             "game_system": "coc",
             "difficulty": "beginner",
-            "estimated_duration": "short",
+            "estimated_time": 180,
             "recommended_skill_items": [
                 {
                     "name": "Spot Hidden",
@@ -613,7 +613,7 @@ class ScenarioAPITestCase(APITestCase):
             "description": "New Description",
             "player_count_min": 2,
             "player_count_max": 6,
-            "estimated_duration": 240,
+            "estimated_time": 240,
             "difficulty": "hard",
         }
 

@@ -54,7 +54,7 @@
         if (session.duration_display) return escapeHtml(session.duration_display);
         const minutes = Number(session.effective_duration_minutes ?? session.duration_minutes ?? 0);
         if (Number.isFinite(minutes) && minutes > 0) {
-            return `${minutes}分`;
+            return window.ARKHAM?.formatDurationHours(minutes, '') || '';
         }
         return '';
     }

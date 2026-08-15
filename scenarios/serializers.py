@@ -5,6 +5,7 @@ from rest_framework import serializers
 from accounts.serializers import UserSerializer, validate_character_image
 from schedules.duration import effective_duration_expression
 
+from .image_limits import get_scenario_image_max_bytes
 from .models import (
     PlayHistory,
     Scenario,
@@ -48,7 +49,12 @@ class ScenarioImageSerializer(serializers.ModelSerializer):
         return None
 
     def validate_image(self, value):
-        return validate_character_image(value)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        return validate_character_image(
+            value,
+            max_size=get_scenario_image_max_bytes(user),
+        )
 
 
 class ScenarioRecommendedSkillSerializer(serializers.ModelSerializer):
@@ -118,7 +124,6 @@ class ScenarioSerializer(serializers.ModelSerializer):
     handout_templates = ScenarioHandoutSerializer(many=True, required=False)
     system = serializers.CharField(write_only=True, required=False)
     difficulty = serializers.CharField(required=False)
-    estimated_duration = serializers.CharField(required=False)
 
     class Meta:
         model = Scenario
@@ -130,7 +135,6 @@ class ScenarioSerializer(serializers.ModelSerializer):
             "game_system",
             "system",
             "difficulty",
-            "estimated_duration",
             "summary",
             "public_info",
             "gm_notes",
@@ -249,25 +253,6 @@ class ScenarioSerializer(serializers.ModelSerializer):
             if mapped not in dict(Scenario.DIFFICULTY_CHOICES):
                 raise serializers.ValidationError({"difficulty": "Invalid difficulty value."})
             attrs["difficulty"] = mapped
-
-        if "estimated_duration" in attrs:
-            duration_value = attrs["estimated_duration"]
-            try:
-                minutes = int(duration_value)
-            except (TypeError, ValueError):
-                minutes = None
-
-            if minutes is not None:
-                if minutes <= 180:
-                    attrs["estimated_duration"] = "short"
-                elif minutes <= 360:
-                    attrs["estimated_duration"] = "medium"
-                elif minutes <= 720:
-                    attrs["estimated_duration"] = "long"
-                else:
-                    attrs["estimated_duration"] = "campaign"
-            elif str(duration_value).strip().lower() not in dict(Scenario.DURATION_CHOICES):
-                raise serializers.ValidationError({"estimated_duration": "Invalid estimated_duration value."})
 
         return attrs
 

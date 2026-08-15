@@ -488,8 +488,8 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('editSessionId').value = session.id;
             document.getElementById('editSessionTitle').value = session.title;
             document.getElementById('editSessionDate').value = session.date ? session.date.slice(0, 16) : '';
-            document.getElementById('editSessionDuration').value = session.duration_minutes;
-            document.getElementById('editSessionActualDuration').value = session.actual_duration_minutes || '';
+            document.getElementById('editSessionDuration').value = ARKHAM.minutesToHours(session.duration_minutes);
+            document.getElementById('editSessionActualDuration').value = ARKHAM.minutesToHours(session.actual_duration_minutes);
             document.getElementById('editSessionStatus').value = session.status;
             document.getElementById('editSessionLocation').value = session.location || '';
             document.getElementById('editSessionGroupLabel').value = session.group_name || '';
@@ -514,8 +514,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const data = {
             title: document.getElementById('editSessionTitle').value,
             date: document.getElementById('editSessionDate').value || null,
-            duration_minutes: document.getElementById('editSessionDuration').value,
-            actual_duration_minutes: document.getElementById('editSessionActualDuration').value || null,
+            duration_minutes: ARKHAM.hoursToMinutes(document.getElementById('editSessionDuration').value),
+            actual_duration_minutes: ARKHAM.hoursToMinutes(document.getElementById('editSessionActualDuration').value),
             status: document.getElementById('editSessionStatus').value,
             location: document.getElementById('editSessionLocation').value,
             visibility: document.getElementById('editSessionVisibility').value,

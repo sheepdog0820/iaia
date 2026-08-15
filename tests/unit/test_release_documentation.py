@@ -284,6 +284,14 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
                 for line in [*common_required_lines, public_site_url]:
                     self.assertIn(line, content)
 
+    def test_aws_pre_task_definition_keeps_smtp_credentials_injected(self):
+        tfvars = (self.ROOT / "infrastructure" / "terraform" / "environments" / "aws-pre.tfvars.example").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('"EMAIL_HOST_USER"', tfvars)
+        self.assertIn('"EMAIL_HOST_PASSWORD"', tfvars)
+
     def test_development_env_example_documents_local_billing_settings(self):
         env_example = (self.ROOT / ".env.development.example").read_text(encoding="utf-8")
         required_lines = [

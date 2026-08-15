@@ -220,7 +220,7 @@ class Command(BaseCommand):
                 author=author,
                 game_system="coc",
                 difficulty="beginner",
-                estimated_duration="short",
+                estimated_time=180,
                 summary=summary,
                 recommended_players=recommended_players,
                 recommended_skills=recommended_skills,

@@ -76,11 +76,15 @@ class SharedCharacterSkillSerializer(serializers.ModelSerializer):
 
 
 class SharedCharacterEquipmentSerializer(serializers.ModelSerializer):
+    equipment_type = serializers.CharField(source="item_type", read_only=True)
+    armor_value = serializers.IntegerField(source="armor_points", read_only=True)
+
     class Meta:
         model = CharacterEquipment6th
         fields = [
             "id",
             "item_type",
+            "equipment_type",
             "name",
             "skill_name",
             "damage",
@@ -89,6 +93,7 @@ class SharedCharacterEquipmentSerializer(serializers.ModelSerializer):
             "ammo",
             "malfunction_number",
             "armor_points",
+            "armor_value",
             "description",
             "quantity",
             "weight",
@@ -408,7 +413,6 @@ class SharedScenarioSerializer(serializers.ModelSerializer):
             "author",
             "game_system",
             "difficulty",
-            "estimated_duration",
             "summary",
             "public_info",
             "investigator_requirements",

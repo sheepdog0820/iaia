@@ -455,7 +455,7 @@ class Command(BaseCommand):
                 "created_by": created_by,
                 "game_system": "coc",
                 "difficulty": "intermediate",
-                "estimated_duration": "medium",
+                "estimated_time": 270,
             },
         )
         return scenario

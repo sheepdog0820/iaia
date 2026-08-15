@@ -25,7 +25,7 @@ from .character_models import (
     GrowthRecord,
     SkillGrowthRecord,
 )
-from .models import CustomUser, Friend, Group, GroupInvitation, GroupMembership
+from .models import CustomUser, Friend, FriendRequest, Group, GroupInvitation, GroupMembership
 
 
 class CharacterVersionCreateSerializer(serializers.Serializer):
@@ -42,15 +42,17 @@ class CharacterVersionCreateSerializer(serializers.Serializer):
     notes = serializers.CharField(required=False, allow_blank=True)
 
 
-def validate_character_image(image):
+def validate_character_image(image, *, max_size=5 * 1024 * 1024):
     """キャラクター画像のバリデーション"""
     if not image:
         return image
 
-    # ファイルサイズチェック（5MB以下）
-    max_size = 5 * 1024 * 1024  # 5MB
+    # ユーザー区分に応じたファイルサイズ上限を確認
+    max_size_label = (
+        f"{max_size // (1024 * 1024)}MB" if max_size % (1024 * 1024) == 0 else f"{max_size / (1024 * 1024):.1f}MB"
+    )
     if image.size > max_size:
-        raise ValidationError("画像ファイルのサイズは5MB以下にしてください。")
+        raise ValidationError(f"画像ファイルのサイズは{max_size_label}以下にしてください。")
 
     # ファイル形式チェック
     allowed_formats = ["JPEG", "PNG", "GIF"]
@@ -63,7 +65,7 @@ def validate_character_image(image):
 
             estimated_size = img.width * img.height * len(img.getbands())
             if estimated_size > max_size * 5:
-                raise ValidationError("画像ファイルのサイズは5MB以下にしてください。")
+                raise ValidationError(f"画像ファイルのサイズは{max_size_label}以下にしてください。")
 
             # 画像サイズチェック（最大3000x4000px）
             max_width, max_height = 3000, 4000
@@ -297,6 +299,47 @@ class FriendDetailSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
 
+class FriendRequestCreateSerializer(serializers.Serializer):
+    recipient_id = serializers.IntegerField(min_value=1)
+
+
+class FriendRequestSerializer(serializers.ModelSerializer):
+    sender_detail = PublicUserSerializer(source="sender", read_only=True)
+    recipient_detail = PublicUserSerializer(source="recipient", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    retry_after = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FriendRequest
+        fields = [
+            "id",
+            "sender",
+            "sender_detail",
+            "recipient",
+            "recipient_detail",
+            "status",
+            "status_display",
+            "created_at",
+            "updated_at",
+            "responded_at",
+            "retry_after",
+        ]
+        read_only_fields = fields
+
+    @extend_schema_field(OpenApiTypes.DATETIME)
+    def get_retry_after(self, obj):
+        if obj.status not in {FriendRequest.Status.DECLINED, FriendRequest.Status.CANCELLED}:
+            return None
+        if not obj.responded_at:
+            return None
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        retry_after = obj.responded_at + timedelta(hours=24)
+        return retry_after if retry_after > timezone.now() else None
+
+
 # キャラクターシート関連のシリアライザー
 
 
@@ -320,8 +363,8 @@ class CharacterSkillSerializer(serializers.ModelSerializer):
 class CharacterEquipmentSerializer(serializers.ModelSerializer):
     """キャラクター装備シリアライザー"""
 
-    equipment_type = serializers.CharField(write_only=True, required=False)
-    armor_value = serializers.IntegerField(write_only=True, required=False)
+    equipment_type = serializers.CharField(source="item_type", read_only=True)
+    armor_value = serializers.IntegerField(source="armor_points", read_only=True)
 
     def to_internal_value(self, data):
         payload = data.copy()
@@ -1253,7 +1296,12 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
                 "sanity_current": new_stats["sanity_starting"],
             }
             for field in replacement:
-                if field not in supplied_current and old_current[field] == automatic[field]:
+                client_echoed_automatic_value = (
+                    field in supplied_current and validated_data.get(field) == automatic[field]
+                )
+                if old_current[field] == automatic[field] and (
+                    field not in supplied_current or client_echoed_automatic_value
+                ):
                     setattr(detail, field, replacement[field])
         with transaction.atomic():
             detail.save()

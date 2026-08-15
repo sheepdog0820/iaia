@@ -181,7 +181,7 @@ class Command(BaseCommand):
                 "author": "ADVTEST",
                 "game_system": "coc",
                 "difficulty": "beginner",
-                "estimated_duration": "short",
+                "estimated_time": 180,
                 "summary": "ISSUE-017(高度なスケジューリング)の手動テスト用シナリオ。",
                 "recommended_players": "3人",
                 "recommended_skills": "目星, 聞き耳, 図書館",

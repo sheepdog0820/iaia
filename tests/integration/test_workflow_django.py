@@ -120,7 +120,7 @@ class WorkflowIntegrationTestCase(TestCase):
             "description": "H.P.ラヴクラフトの代表作",
             "system": "cthulhu",
             "difficulty": "hard",
-            "estimated_duration": 360,
+            "estimated_time": 360,
             "min_players": 3,
             "max_players": 6,
         }
@@ -273,18 +273,18 @@ class WorkflowIntegrationTestCase(TestCase):
             print(f"   [CAL] {event['title']}: type={event_type}, GM={is_gm}, participant={is_participant}")
 
         # GMセッションが正しく識別されているか確認
-        gm_session_event = next((e for e in events if e["id"] == gm_session_id), None)
-        if gm_session_event:
-            self.assertTrue(gm_session_event.get("is_gm", False))
-            self.assertEqual(gm_session_event.get("type"), "gm")
-            print("   [OK] GMセッション分類正常")
+        gm_session_event = next((e for e in events if e["session_id"] == gm_session_id), None)
+        self.assertIsNotNone(gm_session_event)
+        self.assertTrue(gm_session_event.get("is_gm", False))
+        self.assertEqual(gm_session_event.get("type"), "gm")
+        print("   [OK] GMセッション分類正常")
 
         # 参加セッションが正しく識別されているか確認
-        participant_session_event = next((e for e in events if e["id"] == participant_session_id), None)
-        if participant_session_event:
-            self.assertTrue(participant_session_event.get("is_participant", False))
-            self.assertEqual(participant_session_event.get("type"), "participant")
-            print("   [OK] 参加セッション分類正常")
+        participant_session_event = next((e for e in events if e["session_id"] == participant_session_id), None)
+        self.assertIsNotNone(participant_session_event)
+        self.assertTrue(participant_session_event.get("is_participant", False))
+        self.assertEqual(participant_session_event.get("type"), "participant")
+        print("   [OK] 参加セッション分類正常")
 
         print("\\n[CAL] カレンダーフィルター機能テスト完了!")
 
@@ -319,7 +319,7 @@ class WorkflowIntegrationTestCase(TestCase):
             "title": "統計用シナリオ",
             "system": "cthulhu",
             "difficulty": "medium",
-            "estimated_duration": 240,
+            "estimated_time": 240,
         }
         response = self.client.post("/api/scenarios/scenarios/", scenario_data)
         if response.status_code != 201:

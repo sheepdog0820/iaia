@@ -41,7 +41,7 @@ from ..character_models import (
 from ..forms import CharacterSheet6thForm, CustomLoginForm, CustomSignUpForm, ProfileEditForm
 
 # Local imports - models
-from ..models import CustomUser, Friend, Group, GroupInvitation, GroupInviteLink, GroupMembership
+from ..models import CustomUser, Friend, FriendRequest, Group, GroupInvitation, GroupInviteLink, GroupMembership
 
 # Local imports - serializers
 from ..serializers import (
@@ -53,10 +53,13 @@ from ..serializers import (
     CharacterSheetUpdateSerializer,
     CharacterSkillSerializer,
     FriendDetailSerializer,
+    FriendRequestCreateSerializer,
+    FriendRequestSerializer,
     FriendSerializer,
     GroupInvitationSerializer,
     GroupMembershipSerializer,
     GroupSerializer,
+    PublicUserSerializer,
     UserSerializer,
 )
 from ..utils.statistics import (

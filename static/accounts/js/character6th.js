@@ -300,7 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const weaponFields = `
             <div class="col-12 col-md-6">
                 <label class="form-label small mb-1" for="${uid}-skill_name">技能</label>
-                <input type="text" class="form-control form-control-sm" id="${uid}-skill_name" data-field="skill_name" placeholder="例: 拳銃 / こぶし（パンチ）">
+                <input type="text" class="form-control form-control-sm" id="${uid}-skill_name" data-field="skill_name" placeholder="例: 拳銃 / こぶし">
             </div>
             <div class="col-6 col-md-3">
                 <label class="form-label small mb-1" for="${uid}-damage">ダメージ</label>
@@ -510,7 +510,7 @@ document.addEventListener('DOMContentLoaded', function() {
             dodge: { base: "DEX*2", name: "回避" },
             kick: { base: 25, name: "キック" },
             grapple: { base: 25, name: "組み付き" },
-            fist_punch: { base: 50, name: "こぶし（パンチ）" },
+            fist_punch: { base: 50, name: "こぶし" },
             head_butt: { base: 10, name: "頭突き" },
             throw: { base: 25, name: "投擲" },
             martial_arts: { base: 1, name: "マーシャルアーツ" },
@@ -585,6 +585,22 @@ document.addEventListener('DOMContentLoaded', function() {
         social: new Set(Object.keys(SKILLS_6TH.social)),
         knowledge: new Set(Object.keys(SKILLS_6TH.knowledge))
     };
+    const COMBAT_SKILL_GROUP = '戦闘技能';
+    const FIREARMS_SKILL_GROUP = '重火器';
+    const FIREARMS_SKILL_KEYS = new Set([
+        'handgun',
+        'submachine_gun',
+        'shotgun',
+        'machine_gun',
+        'rifle'
+    ]);
+    const COMBAT_RECOMMENDED_SKILL_KEYS = new Set(
+        [...SKILL_CATEGORY_KEYS.combat].filter(key => !FIREARMS_SKILL_KEYS.has(key))
+    );
+    const RECOMMENDED_SKILL_GROUP_KEYS = new Map([
+        [COMBAT_SKILL_GROUP, COMBAT_RECOMMENDED_SKILL_KEYS],
+        [FIREARMS_SKILL_GROUP, FIREARMS_SKILL_KEYS]
+    ]);
     
     // Combined skills map (backward compatibility)
     const ALL_SKILLS_6TH = {
@@ -848,6 +864,14 @@ function updateGlobalDiceFormula() {
         const hp = Math.ceil((con + siz) / 2);
         const mp = pow;  // MP = POW
         const san = pow * 5;  // SAN = POW *5
+
+        const previousDerivedValue = id => {
+            const value = parseInt(document.getElementById(id)?.value, 10);
+            return Number.isNaN(value) ? null : value;
+        };
+        const previousHp = previousDerivedValue('hp');
+        const previousMp = previousDerivedValue('mp');
+        const previousSan = previousDerivedValue('san');
         
         if (document.getElementById('hp')) document.getElementById('hp').value = hp;
         if (document.getElementById('mp')) document.getElementById('mp').value = mp;
@@ -857,9 +881,19 @@ function updateGlobalDiceFormula() {
         const currentHpEl = document.getElementById('current_hp');
         const currentMpEl = document.getElementById('current_mp');
         const currentSanEl = document.getElementById('current_san');
-        if (currentHpEl && (setCurrentDefaults || currentHpEl.value === '')) currentHpEl.value = hp;
-        if (currentMpEl && (setCurrentDefaults || currentMpEl.value === '')) currentMpEl.value = mp;
-        if (currentSanEl && (setCurrentDefaults || currentSanEl.value === '')) currentSanEl.value = san;
+        const followsPreviousDerivedValue = (element, previousValue) => (
+            element?.value === ''
+            || (previousValue !== null && parseInt(element?.value, 10) === previousValue)
+        );
+        if (currentHpEl && (setCurrentDefaults || followsPreviousDerivedValue(currentHpEl, previousHp))) {
+            currentHpEl.value = hp;
+        }
+        if (currentMpEl && (setCurrentDefaults || followsPreviousDerivedValue(currentMpEl, previousMp))) {
+            currentMpEl.value = mp;
+        }
+        if (currentSanEl && (setCurrentDefaults || followsPreviousDerivedValue(currentSanEl, previousSan))) {
+            currentSanEl.value = san;
+        }
         
         if (document.getElementById('sanity_max')) document.getElementById('sanity_max').value = san;
         
@@ -995,7 +1029,7 @@ function updateGlobalDiceFormula() {
             : '';
 
         return `
-            <div class="col-6 col-sm-6 col-md-4 col-lg-3 col-xl-2${customClass}">
+            <div class="skill-item-wrapper col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2${customClass}">
                 <div class="skill-item border rounded p-1">
                     <div class="d-flex justify-content-between align-items-center skill-item-header">
                         <div class="d-flex align-items-center gap-1 skill-item-title">
@@ -1011,8 +1045,8 @@ function updateGlobalDiceFormula() {
                     
                     <div class="row g-1 mt-1">
                         <div class="col-6 col-lg-3">
-                            <div class="input-group input-group-sm skill-input-group skill-input-group-base" data-skill-kind="初" title="初期値">
-                                <input type="number" class="form-control form-control-sm text-center skill-base"
+                            <div class="input-group input-group-sm skill-input-group skill-input-group-base" data-skill-kind="初期値" title="初期値">
+                                <input type="number" inputmode="numeric" class="form-control form-control-sm text-center skill-base"
                                        id="base_${key}" value="${baseValue}" min="0" max="999"
                                        data-skill="${key}" data-default="${skill?.base ?? 0}"
                                        aria-label="${skillName} 初期値"
@@ -1022,22 +1056,22 @@ function updateGlobalDiceFormula() {
                             </div>
                         </div>
                         <div class="col-6 col-lg-3">
-                            <div class="input-group input-group-sm skill-input-group skill-input-group-occ" data-skill-kind="職" title="職業">
-                                <input type="number" class="form-control form-control-sm occupation-skill text-center"
+                            <div class="input-group input-group-sm skill-input-group skill-input-group-occ" data-skill-kind="職業" title="職業">
+                                <input type="number" inputmode="numeric" class="form-control form-control-sm occupation-skill text-center"
                                        id="occ_${key}" min="0" max="999" value=""
                                        data-skill="${key}" aria-label="${skillName} 職業" title="職業技能">
                             </div>
                         </div>
                         <div class="col-6 col-lg-3">
-                            <div class="input-group input-group-sm skill-input-group skill-input-group-int" data-skill-kind="趣" title="趣味">
-                                <input type="number" class="form-control form-control-sm interest-skill text-center"
+                            <div class="input-group input-group-sm skill-input-group skill-input-group-int" data-skill-kind="趣味" title="趣味">
+                                <input type="number" inputmode="numeric" class="form-control form-control-sm interest-skill text-center"
                                        id="int_${key}" min="0" max="999" value=""
                                        data-skill="${key}" aria-label="${skillName} 趣味" title="趣味技能">
                             </div>
                         </div>
                         <div class="col-6 col-lg-3">
-                            <div class="input-group input-group-sm skill-input-group skill-input-group-other" data-skill-kind="他" title="その他">
-                                <input type="number" class="form-control form-control-sm other-skill text-center"
+                            <div class="input-group input-group-sm skill-input-group skill-input-group-other" data-skill-kind="その他" title="その他">
+                                <input type="number" inputmode="numeric" class="form-control form-control-sm other-skill text-center"
                                        id="other_${key}" min="0" max="999" value=""
                                        data-skill="${key}" aria-label="${skillName} その他" title="その他">
                             </div>
@@ -1489,6 +1523,11 @@ function updateGlobalDiceFormula() {
         const resolved = [];
         const unknown = [];
         (values || []).forEach(value => {
+            const groupKeys = RECOMMENDED_SKILL_GROUP_KEYS.get((value || '').trim());
+            if (groupKeys) {
+                resolved.push(...groupKeys);
+                return;
+            }
             const key = resolveSkillKey(value);
             if (key) {
                 resolved.push(key);
@@ -1503,6 +1542,11 @@ function updateGlobalDiceFormula() {
         const datalist = document.getElementById('recommendedSkillOptions');
         if (!datalist) return;
         datalist.innerHTML = '';
+        RECOMMENDED_SKILL_GROUP_KEYS.forEach((_, groupName) => {
+            const groupOption = document.createElement('option');
+            groupOption.value = groupName;
+            datalist.appendChild(groupOption);
+        });
         Object.values(ALL_SKILLS_6TH).forEach(skill => {
             if (!skill?.name) return;
             const option = document.createElement('option');
@@ -2545,6 +2589,8 @@ function initOccupationTemplates() {
         const previewUrlByFile = new Map();
         let existingImages = [];
         let existingImageIndex = 0;
+        let backgroundRemovalProcessingFile = null;
+        let backgroundRemovalProcessingUrl = '';
 
         const escapeHtml = (value) => String(value ?? '')
             .replace(/&/g, '&amp;')
@@ -2578,6 +2624,15 @@ function initOccupationTemplates() {
             });
         }
 
+        function setBackgroundRemovalProcessingFile(file) {
+            if (backgroundRemovalProcessingUrl) {
+                URL.revokeObjectURL(backgroundRemovalProcessingUrl);
+            }
+            backgroundRemovalProcessingFile = file || null;
+            backgroundRemovalProcessingUrl = file ? URL.createObjectURL(file) : '';
+            renderImagePreview();
+        }
+
         function syncImageInputFiles() {
             if (typeof DataTransfer === 'undefined') {
                 return selectedFiles.length === 0;
@@ -2593,7 +2648,7 @@ function initOccupationTemplates() {
         }
 
         function validateFiles(files) {
-            if (files.length > maxImages) {
+            if (existingImages.length + files.length > maxImages) {
                 notifyUser(`キャラクター画像は最大${maxImages}枚まで選択できます。`);
                 return false;
             }
@@ -2637,31 +2692,38 @@ function initOccupationTemplates() {
         }
 
         function renderExistingImages() {
-            if (!existingView || selectedFiles.length > 0 || existingImages.length === 0) return;
+            if (!existingView || existingImages.length === 0) return;
 
             const mainImage = existingImages[existingImageIndex] || existingImages[0];
-            const thumbnailHtml = existingImages.length > 1
-                ? `<div class="row g-2 mt-2">
+            const thumbnailHtml = `<div class="row g-2 mt-2">
                     ${existingImages.map((image, index) => {
                         const isSelected = index === existingImageIndex;
                         const borderClass = isSelected ? 'active border-primary border-3' : 'border-secondary';
                         const url = image.thumbnail_url || image.image_url;
                         return `
-                            <div class="col-4 col-sm-3">
-                                <button type="button"
-                                        class="btn p-0 w-100 rounded border character-edit-thumbnail-button ${borderClass}"
-                                        data-image-index="${index}"
-                                        aria-label="画像${index + 1}を表示"
-                                        aria-pressed="${isSelected ? 'true' : 'false'}">
-                                    <img src="${escapeHtml(url)}"
-                                         class="img-fluid rounded character-edit-thumbnail-image"
-                                         alt="キャラクター画像 ${index + 1}">
-                                </button>
+                            <div class="col-6 col-sm-4">
+                                <div class="character-existing-image-card">
+                                    <button type="button"
+                                            class="btn p-0 w-100 rounded border character-edit-thumbnail-button ${borderClass}"
+                                            data-image-index="${index}"
+                                            aria-label="画像${index + 1}を表示"
+                                            aria-pressed="${isSelected ? 'true' : 'false'}">
+                                        <img src="${escapeHtml(url)}"
+                                             class="img-fluid rounded character-edit-thumbnail-image"
+                                             alt="キャラクター画像 ${index + 1}">
+                                    </button>
+                                    ${image.is_main ? '<span class="badge bg-primary character-existing-image-main-badge">メイン</span>' : ''}
+                                    <button type="button"
+                                            class="btn btn-sm btn-danger character-existing-image-delete"
+                                            data-delete-existing-image-id="${image.id}"
+                                            aria-label="既存の立ち絵を削除">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
                             </div>
                         `;
                     }).join('')}
-                </div>`
-                : '';
+                </div>`;
 
             existingView.innerHTML = `
                 <div class="mb-2">
@@ -2696,11 +2758,33 @@ function initOccupationTemplates() {
                     if (!Number.isNaN(index)) setExistingImage(index);
                 });
             });
+            existingView.querySelectorAll('[data-delete-existing-image-id]').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const imageId = Number(button.dataset.deleteExistingImageId);
+                    if (!Number.isNaN(imageId)) {
+                        await deleteExistingCharacterImage(imageId, button);
+                    }
+                });
+            });
         }
 
         function renderSelectedFileList(container) {
             if (!container) return;
-            container.innerHTML = selectedFiles.map((file, index) => `
+            const processingHtml = backgroundRemovalProcessingFile ? `
+                <div class="col-6 col-sm-4">
+                    <div class="character-image-preview-card character-image-processing-card" aria-live="polite">
+                        <img src="${backgroundRemovalProcessingUrl}"
+                             class="img-fluid rounded character-image-preview-thumb"
+                             alt="${escapeHtml(backgroundRemovalProcessingFile.name)}">
+                        <div class="character-image-processing-overlay">
+                            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                            <span>背景透過処理中</span>
+                        </div>
+                        <div class="small text-truncate mt-1" title="${escapeHtml(backgroundRemovalProcessingFile.name)}">${escapeHtml(backgroundRemovalProcessingFile.name)}</div>
+                    </div>
+                </div>
+            ` : '';
+            container.innerHTML = processingHtml + selectedFiles.map((file, index) => `
                 <div class="col-6 col-sm-4">
                     <div class="character-image-preview-card">
                         <img src="${previewUrls[index]}" class="img-fluid rounded character-image-preview-thumb" alt="${escapeHtml(file.name)}">
@@ -2725,7 +2809,7 @@ function initOccupationTemplates() {
         function renderImagePreview() {
             syncPreviewUrls();
 
-            if (selectedFiles.length === 0) {
+            if (selectedFiles.length === 0 && !backgroundRemovalProcessingFile) {
                 if (selectedView) selectedView.style.display = 'none';
                 if (selectedList) selectedList.innerHTML = '';
                 if (modalList) modalList.innerHTML = '';
@@ -2746,13 +2830,41 @@ function initOccupationTemplates() {
                 return;
             }
 
-            if (previewImg) previewImg.src = previewUrls[0];
-            if (previewCount) previewCount.textContent = `選択中 ${selectedFiles.length} / ${maxImages}枚`;
+            if (previewImg) previewImg.src = previewUrls[0] || backgroundRemovalProcessingUrl;
+            if (previewCount) {
+                previewCount.textContent = backgroundRemovalProcessingFile
+                    ? `背景透過処理中 / 登録後 ${existingImages.length + selectedFiles.length + 1} / ${maxImages}枚`
+                    : `追加予定 ${selectedFiles.length}枚 / 登録後 ${existingImages.length + selectedFiles.length} / ${maxImages}枚`;
+            }
             if (imagePreview) imagePreview.style.display = 'block';
-            if (existingView) existingView.style.display = 'none';
+            if (existingView) {
+                existingView.style.display = existingImages.length > 0 ? 'block' : 'none';
+                if (existingImages.length > 0) renderExistingImages();
+            }
             if (selectedView) selectedView.style.display = 'block';
             renderSelectedFileList(selectedList);
             renderSelectedFileList(modalList);
+        }
+
+        async function deleteExistingCharacterImage(imageId, button) {
+            if (!(await confirmUser('既存の立ち絵を削除しますか？'))) return;
+            if (button) button.disabled = true;
+            try {
+                await fetchJson(`/api/accounts/character-sheets/${editCharacterId}/images/${imageId}/`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRFToken': csrfToken },
+                });
+                existingImages = existingImages.filter(image => Number(image.id) !== imageId);
+                existingImageIndex = Math.max(0, Math.min(existingImageIndex, existingImages.length - 1));
+                if (existingImages.length > 0 && !existingImages.some(image => image.is_main)) {
+                    existingImages[0].is_main = true;
+                }
+                notifyUser('立ち絵を削除しました。');
+                renderImagePreview();
+            } catch (error) {
+                if (button) button.disabled = false;
+                notifyUser(error.error || error.detail || '立ち絵の削除に失敗しました。');
+            }
         }
 
         function resetImagePreview() {
@@ -2811,11 +2923,12 @@ function initOccupationTemplates() {
         backgroundRemovalInput?.addEventListener('change', async function(e) {
             const file = e.target.files?.[0];
             if (!file) return;
-            if (!validateFiles([file])) {
+            if (!validateFiles(selectedFiles.concat([file]))) {
                 e.target.value = '';
                 return;
             }
             isBackgroundRemovalInProgress = true;
+            setBackgroundRemovalProcessingFile(file);
             let removalSucceeded = false;
             backgroundRemovalBtn.disabled = true;
             backgroundRemovalBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> 背景を透過中...';
@@ -2851,6 +2964,7 @@ function initOccupationTemplates() {
                 notifyUser(error.message || 'Background removal failed.');
             } finally {
                 isBackgroundRemovalInProgress = false;
+                setBackgroundRemovalProcessingFile(null);
                 backgroundRemovalBtn.disabled = false;
                 backgroundRemovalBtn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> 透過選択';
                 e.target.value = '';
@@ -3020,6 +3134,9 @@ function initOccupationTemplates() {
         setValueById('current_hp', sheet.hit_points_current);
         setValueById('current_mp', sheet.magic_points_current);
         setValueById('current_san', sheet.sanity_current);
+        setValueById('hp', sheet.hit_points_max);
+        setValueById('mp', sheet.magic_points_max);
+        setValueById('san', sheet.sanity_starting);
 
         calculateDerivedStats({ setCurrentDefaults: false });
 
@@ -3163,7 +3280,7 @@ function initOccupationTemplates() {
             beliefs_ideology: data.ideals || '',
             significant_people: data.bonds || '',
             meaningful_locations: data.meaningful_locations || '',
-            treasured_possessions: data.items || '',
+            treasured_possessions: document.getElementById('items')?.value || '',
             scars_injuries: data.scars_injuries || '',
             phobias_manias: data.flaws || '',
             arcane_tomes_spells_artifacts: data.arcane_tomes_spells_artifacts || '',
@@ -3187,8 +3304,6 @@ function initOccupationTemplates() {
         if (data.hit_points_current !== '' && data.hit_points_current != null) apiData.hit_points_current = parseInt(data.hit_points_current, 10) || 0;
         if (data.magic_points_current !== '' && data.magic_points_current != null) apiData.magic_points_current = parseInt(data.magic_points_current, 10) || 0;
         if (data.sanity_current !== '' && data.sanity_current != null) apiData.sanity_current = parseInt(data.sanity_current, 10) || 0;
-        if (data.armor !== '' && data.armor != null) apiData.armor = parseInt(data.armor, 10) || 0;
-
         // 財産情報（保存時は update_financial_data を使用）
         if (data.money !== '' && data.money != null) apiData.money = parseInt(data.money, 10) || 0;
         if (data.assets !== '' && data.assets != null) apiData.assets = parseInt(data.assets, 10) || 0;
@@ -3414,30 +3529,19 @@ function initOccupationTemplates() {
         }
     }
 
-    async function replaceCharacterImages(characterId, imageFiles) {
+    async function appendCharacterImages(characterId, imageFiles) {
         if (!Array.isArray(imageFiles) || imageFiles.length === 0) return;
 
-        // Delete existing images first to avoid "main image" uniqueness conflicts
-        try {
-            const existing = await fetchJson(`/accounts/character-sheets/${characterId}/images/`);
-            const existingResults = Array.isArray(existing) ? existing : (existing?.results || []);
-            for (const img of existingResults) {
-                if (!img?.id) continue;
-                await fetchJson(`/accounts/character-sheets/${characterId}/images/${img.id}/`, {
-                    method: 'DELETE',
-                    headers: { 'X-CSRFToken': csrfToken },
-                });
-            }
-        } catch (_) {
-            // If listing/deleting fails, continue to try uploading new images
-        }
+        const existing = await fetchJson(`/accounts/character-sheets/${characterId}/images/`);
+        const existingResults = Array.isArray(existing) ? existing : (existing?.results || []);
+        const existingCount = existingResults.length;
 
         for (let index = 0; index < imageFiles.length; index++) {
             const file = imageFiles[index];
             const upload = new FormData();
             upload.append('image', file);
-            upload.append('is_main', index === 0 ? 'true' : 'false');
-            upload.append('order', String(index));
+            upload.append('is_main', existingCount === 0 && index === 0 ? 'true' : 'false');
+            upload.append('order', String(existingCount + index));
 
             await fetchJson(`/accounts/character-sheets/${characterId}/images/`, {
                 method: 'POST',
@@ -3457,6 +3561,7 @@ function initOccupationTemplates() {
             occupation_point_method: apiData.occupation_point_method,
             birthplace: apiData.birthplace,
             residence: apiData.residence,
+            secret_ho_info: apiData.secret_ho_info,
             recommended_skills: apiData.recommended_skills || [],
             occupation_skills: apiData.occupation_skills || [],
             str_value: apiData.str_value,
@@ -3487,7 +3592,7 @@ function initOccupationTemplates() {
         await updateFinancialData(characterId, data);
         await syncSkills(characterId, apiData.skills || []);
         await syncEquipment(characterId, apiData.equipment);
-        await replaceCharacterImages(characterId, imageFiles);
+        await appendCharacterImages(characterId, imageFiles);
     }
     
     let isCharacterSaving = false;
@@ -3590,6 +3695,7 @@ function initOccupationTemplates() {
                         // Success: API returns CharacterSheet object
                         if (result.id) {
                             await updateBackgroundData(result.id, backgroundData);
+                            await updateFinancialData(result.id, data);
                             notifyUser('Character sheet created successfully.');
                             window.location.href = '/accounts/character/list/';
                         } else {
@@ -3622,6 +3728,7 @@ function initOccupationTemplates() {
                         // Success: API returns CharacterSheet object
                         if (result.id) {
                             await updateBackgroundData(result.id, backgroundData);
+                            await updateFinancialData(result.id, data);
                             notifyUser('Character sheet created successfully.');
                             window.location.href = '/accounts/character/list/';
                         } else {

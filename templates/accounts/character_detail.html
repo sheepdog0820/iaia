@@ -16,10 +16,11 @@
 <meta property="og:image:alt" content="{{ character_system_data.name }}">
 {% endif %}
 {% endif %}
+<link rel="stylesheet" href="{% static 'css/screen-actions.css' %}?v=20260728-8">
 {% endblock %}
 
 {% block content %}
-<div class="container character-detail" id="characterDetailContainer" data-character-id="{{ character.id }}" data-public-view="{% if is_public_view %}true{% else %}false{% endif %}" data-shared-api-url="{{ character_shared_api_url|default:'' }}" data-character-images-api-url="{{ character_images_api_url|default:'' }}" data-character-images-zip-url="{{ character_images_zip_url|default:'' }}" data-character-ccfolia-json-url="{{ character_ccfolia_json_url|default:'' }}" data-character-reference-url="{{ character_reference_url|default:'' }}">
+<div class="container character-detail" id="characterDetailContainer" data-screen-actions-page data-character-id="{{ character.id }}" data-public-view="{% if is_public_view %}true{% else %}false{% endif %}" data-shared-api-url="{{ character_shared_api_url|default:'' }}" data-character-images-api-url="{{ character_images_api_url|default:'' }}" data-character-images-zip-url="{{ character_images_zip_url|default:'' }}" data-character-ccfolia-json-url="{{ character_ccfolia_json_url|default:'' }}" data-character-reference-url="{{ character_reference_url|default:'' }}">
     {{ character_image_file_names|json_script:"character-image-file-names" }}
     <!-- ローディング -->
     <div class="text-center" id="loading">
@@ -36,32 +37,57 @@
         <!-- ヘッダー -->
         <div class="row mb-4">
             <div class="col-12">
-                <div class="character-header d-flex justify-content-between align-items-center">
-                    <h2 id="characterName">
+                <div class="character-header screen-action-layout">
+                    <h2 id="characterName" class="screen-action-title">
                         <i class="fas fa-user-ninja text-primary"></i>
                         <span class="character-name"></span>
                     </h2>
-                    <nav class="character-actions" aria-label="キャラクター操作">
-                        <div class="action-group action-group--left">
+                    <nav class="screen-action-bar" aria-label="キャラクター操作" data-screen-actions>
                         {% if can_edit_character %}
-                        <a href="/accounts/character/list/" class="btn btn-outline-secondary action-button action-button--move">
-                            <i class="fas fa-arrow-left"></i> 戻る
-                        </a>
-                        {% endif %}
-                        <button type="button" id="ccfoliaExportLink" class="btn btn-outline-success action-button action-button--output" disabled>
-                            <i class="fas fa-clipboard"></i> ココフォリア用コピー
-                        </button>
-                        </div>
-                        {% if can_edit_character %}
-                        <div class="action-group action-group--right">
-                        <button type="button" id="createVersionAndEditButton" class="btn action-button action-button--recreate d-none">
-                            <i class="fas fa-code-branch"></i> 再作成
-                        </button>
-                        <a href="#" id="editButton" class="btn btn-outline-primary action-button action-button--edit">
-                            <i class="fas fa-edit"></i> 編集
-                        </a>
+                        <div class="screen-action-back">
+                            <a href="/accounts/character/list/" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left"></i>
+                                <span class="screen-action-back-label">キャラクター一覧へ</span>
+                            </a>
                         </div>
                         {% endif %}
+                        <div class="screen-action-local" data-screen-action-sheet>
+                            <div class="screen-action-sheet-header">
+                                <span>この画面の操作</span>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary screen-action-sheet-close"
+                                        data-screen-actions-close
+                                        aria-label="操作メニューを閉じる">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <button type="button" id="ccfoliaExportLink" class="btn btn-outline-secondary" disabled>
+                                <i class="fas fa-clipboard"></i> ココフォリア用コピー
+                            </button>
+                            {% if can_edit_character %}
+                            <button type="button" id="createVersionAndEditButton" class="btn btn-outline-primary d-none">
+                                <i class="fas fa-code-branch"></i> 再作成
+                            </button>
+                            {% endif %}
+                        </div>
+                        <button type="button"
+                                class="btn btn-outline-secondary screen-action-more"
+                                data-screen-actions-toggle
+                                aria-expanded="false"
+                                aria-label="その他の操作">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        {% if can_edit_character %}
+                        <div class="screen-action-primary">
+                            <a href="#" id="editButton" class="btn btn-primary">
+                                <i class="fas fa-edit"></i> 編集
+                            </a>
+                        </div>
+                        {% endif %}
+                        <button type="button"
+                                class="screen-action-backdrop"
+                                data-screen-actions-close
+                                aria-label="操作メニューを閉じる"></button>
                     </nav>
                 </div>
             </div>
@@ -187,6 +213,9 @@
                                 <div id="armorContainer"></div>
                             </div>
                             <div class="tab-pane fade" id="items">
+                                <div id="inventoryNotesContainer" class="inventory-notes mb-3">
+                                    <!-- 所持品メモが表示されます -->
+                                </div>
                                 <div id="itemsContainer"></div>
                             </div>
                         </div>
@@ -365,7 +394,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/ccfolia_character_copy.js' %}"></script>
+<script src="{% static 'js/screen-actions.js' %}?v=20260728-4"></script>
+<script src="{% static 'js/ccfolia_character_copy.js' %}?v=20260729-melee-name-1"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const containerEl = document.getElementById('characterDetailContainer');
@@ -509,6 +539,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // 背景情報
         displayBackgroundInfo(character);
+
+        // 所持品メモ
+        displayInventoryNotes(character.background_info);
         
         // 装備
         displayEquipment(character.equipment);
@@ -1085,7 +1118,6 @@ document.addEventListener('DOMContentLoaded', function() {
             { label: 'イデオロギー／信念', value: background.beliefs_ideology },
             { label: '重要な人々', value: background.significant_people },
             { label: '意味のある場所', value: background.meaningful_locations },
-            { label: '秘蔵の品', value: background.treasured_possessions },
             { label: '負傷、傷跡', value: background.scars_injuries },
             { label: '恐怖症、マニア', value: background.phobias_manias },
             { label: '魔道書、呪文、アーティファクト', value: background.arcane_tomes_spells_artifacts },
@@ -1105,12 +1137,29 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         }).join('');
     }
+
+    function displayInventoryNotes(backgroundInfo) {
+        const container = document.getElementById('inventoryNotesContainer');
+        if (!container) return;
+
+        const background = backgroundInfo || {};
+        const value = String(background.treasured_possessions || '').trim();
+        const body = value
+            ? escapeHtml(value).replace(/\n/g, '<br>')
+            : '<span class="text-muted">未設定</span>';
+
+        container.innerHTML = `
+            <div class="inventory-notes-label">所持品メモ</div>
+            <div class="inventory-notes-body">${body}</div>
+        `;
+    }
     
     // 装備表示
     function displayEquipment(equipment) {
-        const weapons = equipment.filter(item => item.equipment_type === 'weapon');
-        const armor = equipment.filter(item => item.equipment_type === 'armor');
-        const items = equipment.filter(item => item.equipment_type === 'item');
+        const equipmentType = item => item.item_type || item.equipment_type;
+        const weapons = equipment.filter(item => equipmentType(item) === 'weapon');
+        const armor = equipment.filter(item => equipmentType(item) === 'armor');
+        const items = equipment.filter(item => equipmentType(item) === 'item');
         
         displayEquipmentCategory('weaponsContainer', weapons, 'weapon');
         displayEquipmentCategory('armorContainer', armor, 'armor');
@@ -1138,14 +1187,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 html += `
                     <div class="small">
                         <div><strong>ダメージ:</strong> ${item.damage || '-'}</div>
-                        <div><strong>射程:</strong> ${item.range || '-'}</div>
+                        <div><strong>射程:</strong> ${item.base_range || item.range || '-'}</div>
                         ${item.ammo ? `<div><strong>装弾数:</strong> ${item.ammo}</div>` : ''}
                     </div>
                 `;
             } else if (type === 'armor') {
                 html += `
                     <div class="small">
-                        ${item.protection ? `<div><strong>防護点:</strong> ${item.protection}</div>` : ''}
+                        ${(item.armor_points ?? item.armor_value ?? item.protection) != null
+                            ? `<div><strong>防護点:</strong> ${item.armor_points ?? item.armor_value ?? item.protection}</div>`
+                            : ''}
                     </div>
                 `;
             }
@@ -1918,6 +1969,29 @@ document.addEventListener('DOMContentLoaded', function() {
     overflow-wrap: anywhere;
 }
 
+.inventory-notes {
+    border: 1px solid #dce4ef;
+    border-radius: 8px;
+    background: #fff;
+    padding: 0.9rem 1rem;
+}
+
+.inventory-notes-label {
+    color: #526476;
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+}
+
+.inventory-notes-body {
+    max-height: 28rem;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+    color: #243b53;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
 @media (max-width: 575.98px) {
     .basic-info-long-body {
         max-height: 22rem;
@@ -2052,91 +2126,6 @@ document.addEventListener('DOMContentLoaded', function() {
 #growthRecordModal .form-label {
     font-size: 0.875rem;
     font-weight: 500;
-}
-
-#characterContent .character-actions {
-    display: flex;
-    flex: 1 1 auto;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    margin-left: 1.5rem;
-}
-
-#characterContent .action-group {
-    display: flex;
-    gap: 0.5rem;
-}
-
-#characterContent .action-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    white-space: nowrap;
-}
-
-#characterContent .action-button--recreate {
-    border-color: #6f42c1;
-    color: #6f42c1;
-}
-
-#characterContent .action-button--recreate:hover,
-#characterContent .action-button--recreate:focus {
-    background-color: #6f42c1;
-    color: #fff;
-}
-
-@media (max-width: 768px) {
-    #characterContent .character-actions {
-        width: 100%;
-        margin-left: 0;
-    }
-}
-
-@media (max-width: 575.98px) {
-    #characterContent .character-header {
-        align-items: stretch !important;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
-    #characterContent .character-actions {
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        width: 100%;
-        gap: 0.5rem;
-        margin-left: 0;
-    }
-
-    #characterContent .action-group {
-        display: contents;
-    }
-
-    #characterContent .action-button {
-        width: 100%;
-        min-width: 0;
-        padding: 0.4rem 0.35rem;
-        font-size: 0.78rem;
-    }
-
-    #characterContent .action-group--left .action-button {
-        grid-column: 1;
-    }
-
-    #characterContent .action-group--right .action-button {
-        grid-column: 2;
-    }
-
-    #characterContent .action-button--move,
-    #characterContent .action-button--recreate {
-        grid-row: 1;
-    }
-
-    #characterContent .action-button--output,
-    #characterContent .action-button--edit {
-        grid-row: 2;
-    }
 }
 </style>
 {% endblock %}

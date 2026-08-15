@@ -49,11 +49,17 @@
         return Number.isFinite(num) ? num : fallback;
     }
 
+    function toNullableNumber(value) {
+        if (value === null || value === undefined || value === '') return null;
+        const num = Number(value);
+        return Number.isFinite(num) ? num : null;
+    }
+
     const COC6_DEFAULT_SKILLS = [
         { name: '回避', base: 'DEX*2' },
         { name: 'キック', base: 25 },
         { name: '組み付き', base: 25 },
-        { name: 'こぶし（パンチ）', base: 50 },
+        { name: 'こぶし', base: 50 },
         { name: '頭突き', base: 10 },
         { name: '投擲', base: 25 },
         { name: 'マーシャルアーツ', base: 1 },
@@ -114,7 +120,7 @@
 
     const COC7_DEFAULT_SKILLS = [
         { name: '回避', base: 'DEX/2' },
-        { name: '近接戦闘（格闘）', base: 25 },
+        { name: '近接戦闘', base: 25 },
         { name: '投擲', base: 20 },
         { name: '射撃（拳銃）', base: 20 },
         { name: '射撃（ライフル／ショットガン）', base: 25 },
@@ -163,17 +169,25 @@
         { name: '歴史', base: 5 },
     ];
 
+    const COC6_SKILL_NAME_ALIASES = new Map([
+        ['こぶし（パンチ）', 'こぶし'],
+        ['こぶし(パンチ)', 'こぶし'],
+    ]);
+
     const COC7_SKILL_NAME_ALIASES = new Map([
         ['隠れる', '隠密'],
         ['忍び歩き', '隠密'],
         ['隠す', '手さばき'],
-        ['近接戦闘', '近接戦闘（格闘）'],
-        ['格闘技', '近接戦闘（格闘）'],
-        ['キック', '近接戦闘（格闘）'],
-        ['組み付き', '近接戦闘（格闘）'],
-        ['こぶし（パンチ）', '近接戦闘（格闘）'],
-        ['頭突き', '近接戦闘（格闘）'],
-        ['マーシャルアーツ', '近接戦闘（格闘）'],
+        ['近接戦闘（格闘）', '近接戦闘'],
+        ['近接戦闘(格闘)', '近接戦闘'],
+        ['格闘技', '近接戦闘'],
+        ['こぶし', '近接戦闘'],
+        ['こぶし（パンチ）', '近接戦闘'],
+        ['こぶし(パンチ)', '近接戦闘'],
+        ['キック', '近接戦闘'],
+        ['頭突き', '近接戦闘'],
+        ['組み付き', '近接戦闘'],
+        ['マーシャルアーツ', '近接戦闘'],
         ['拳銃', '射撃（拳銃）'],
         ['ショットガン', '射撃（ライフル／ショットガン）'],
         ['ライフル', '射撃（ライフル／ショットガン）'],
@@ -198,6 +212,11 @@
         return toNumber(base);
     }
 
+    function normalizeSkillName(edition, skillName) {
+        const aliases = edition === '7th' ? COC7_SKILL_NAME_ALIASES : COC6_SKILL_NAME_ALIASES;
+        return aliases.get(skillName) || skillName;
+    }
+
     function collectSkills(character, abilities) {
         const edition = character?.edition || '6th';
         const defaultSkills = edition === '7th' ? COC7_DEFAULT_SKILLS : COC6_DEFAULT_SKILLS;
@@ -211,13 +230,12 @@
         (Array.isArray(character.skills) ? character.skills : []).forEach(skill => {
             if (!skill?.skill_name || !Number.isFinite(Number(skill.current_value))) return;
             const skillName = String(skill.skill_name);
-            const normalizedSkillName = edition === '7th' ? (COC7_SKILL_NAME_ALIASES.get(skillName) || skillName) : skillName;
+            const normalizedSkillName = normalizeSkillName(edition, skillName);
             const skillValue = toNumber(skill.current_value);
             if (skillValues.has(normalizedSkillName)) {
-                const value = normalizedSkillName === skillName ? skillValue : Math.max(skillValues.get(normalizedSkillName), skillValue);
-                skillValues.set(normalizedSkillName, value);
+                skillValues.set(normalizedSkillName, Math.max(skillValues.get(normalizedSkillName), skillValue));
             } else {
-                customSkills.set(skillName, skillValue);
+                customSkills.set(normalizedSkillName, skillValue);
             }
         });
 
@@ -228,6 +246,25 @@
             })),
             ...Array.from(customSkills, ([skill_name, current_value]) => ({ skill_name, current_value })),
         ];
+    }
+
+    function collectEquipment(character) {
+        return (Array.isArray(character?.equipment) ? character.equipment : [])
+            .filter(item => item?.name)
+            .map(item => ({
+                item_type: item.item_type || item.equipment_type || 'item',
+                name: String(item.name),
+                skill_name: item.skill_name || '',
+                damage: item.damage || '',
+                base_range: item.base_range || '',
+                attacks_per_round: toNullableNumber(item.attacks_per_round),
+                ammo: toNullableNumber(item.ammo),
+                malfunction_number: toNullableNumber(item.malfunction_number),
+                armor_points: toNullableNumber(item.armor_points ?? item.armor_value),
+                description: item.description || '',
+                quantity: toNullableNumber(item.quantity) ?? 1,
+                weight: toNullableNumber(item.weight),
+            }));
     }
 
     function getSixthValue(sixth, key, fallback) {
@@ -254,9 +291,26 @@
         const seventh = character.character_7th || {};
         const luckCurrent = toNumber(seventh.current_luck);
         const luckMax = toNumber(seventh.max_luck, luckCurrent);
+        const sanityCurrent = toNumber(character.sanity_current ?? character.san_current);
         const skillCommandPrefix = isSeventhEdition ? 'CC' : 'CCB';
-        const skillCommands = collectSkills(character, abilities)
+        const collectedSkills = collectSkills(character, abilities);
+        const skillCommands = collectedSkills
             .map(skill => `${skillCommandPrefix}<=${toNumber(skill.current_value)} 【${skill.skill_name}】`);
+        const skillValues = new Map(
+            collectedSkills.map(skill => [skill.skill_name, toNumber(skill.current_value)])
+        );
+        const equipment = collectEquipment(character);
+        const weaponCommands = equipment
+            .filter(item => item.item_type === 'weapon')
+            .flatMap(item => {
+                const commands = [];
+                const normalizedSkillName = normalizeSkillName(character.edition || '6th', item.skill_name);
+                if (skillValues.has(normalizedSkillName)) {
+                    commands.push(`${skillCommandPrefix}<=${skillValues.get(normalizedSkillName)} 【${item.name}】`);
+                }
+                if (item.damage) commands.push(`${item.damage} 【${item.name}ダメージ】`);
+                return commands;
+            });
         const abilityCommandPrefix = isSeventhEdition ? 'CC' : 'CCB';
         const abilityCommands = abilityLabels.map(([label]) => (
             isSeventhEdition
@@ -274,11 +328,24 @@
                 getSixthValue(sixth, 'know_roll', abilities.EDU * 5) ? `CCB<=${getSixthValue(sixth, 'know_roll', abilities.EDU * 5)} 【知識】` : '',
                 `CCB<={SAN}　【SANチェック】`,
             ].filter(Boolean);
+        const damageBonus = isSeventhEdition ? seventh.damage_bonus : sixth.damage_bonus;
+        const damageBonusParam = !isSeventhEdition && damageBonus
+            ? String(damageBonus).replace(/^\+/, '')
+            : damageBonus;
+        const damageCommands = damageBonus
+            ? isSeventhEdition
+                ? ['1D3+{DB} 【近接戦闘ダメージ】']
+                : [
+                '1D3+{DB} 【こぶしダメージ】',
+                '1D6+{DB} 【キックダメージ】',
+                '1D4+{DB} 【頭突きダメージ】',
+                ]
+            : [];
         const params = [
             ...abilityLabels.map(([label]) => ({ label, value: String(abilities[label]) })),
             { label: '職業', value: character.occupation || '-' },
             { label: '年齢', value: character.age ? String(character.age) : '-' },
-            sixth.damage_bonus ? { label: 'DB', value: String(sixth.damage_bonus) } : null,
+            damageBonusParam ? { label: 'DB', value: String(damageBonusParam) } : null,
         ].filter(Boolean);
         return {
             kind: 'character',
@@ -300,14 +367,21 @@
                     },
                     {
                         label: 'SAN',
-                        value: toNumber(character.sanity_current ?? character.san_current),
-                        max: toNumber(character.sanity_max ?? character.san_current),
+                        value: sanityCurrent,
+                        max: sanityCurrent,
                     },
                     ...(isSeventhEdition ? [{ label: '幸運', value: luckCurrent, max: luckMax }] : []),
                 ],
                 params,
-                commands: [...derivedCommands, ...abilityCommands, ...skillCommands].join('\n'),
+                commands: [
+                    ...derivedCommands,
+                    ...abilityCommands,
+                    ...skillCommands,
+                    ...weaponCommands,
+                    ...damageCommands,
+                ].join('\n'),
             },
+            equipment,
         };
     }
 

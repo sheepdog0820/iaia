@@ -38,24 +38,33 @@
 
                 <div class="d-grid gap-2">
                     {% if google_configured %}
-                        <a href="{% provider_login_url 'google' next=auth_next %}" class="btn auth-provider-btn btn-google social-btn">
-                            <i class="fab fa-google"></i>
-                            <span>Google</span>
-                        </a>
+                        <form method="post" action="{% provider_login_url 'google' next=auth_next %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn auth-provider-btn btn-google social-btn w-100">
+                                <i class="fab fa-google"></i>
+                                <span>Google</span>
+                            </button>
+                        </form>
                     {% endif %}
 
                     {% if discord_configured %}
-                        <a href="{% provider_login_url 'discord' next=auth_next %}" class="btn auth-provider-btn btn-discord social-btn">
-                            <i class="fab fa-discord"></i>
-                            <span>Discord</span>
-                        </a>
+                        <form method="post" action="{% provider_login_url 'discord' next=auth_next %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn auth-provider-btn btn-discord social-btn w-100">
+                                <i class="fab fa-discord"></i>
+                                <span>Discord</span>
+                            </button>
+                        </form>
                     {% endif %}
 
                     {% if twitter_configured %}
-                        <a href="{% provider_login_url 'twitter_oauth2' next=auth_next %}" class="btn auth-provider-btn btn-x social-btn">
-                            <i class="fab fa-twitter"></i>
-                            <span>X (Twitter)</span>
-                        </a>
+                        <form method="post" action="{% provider_login_url 'twitter_oauth2' next=auth_next %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn auth-provider-btn btn-x social-btn w-100">
+                                <i class="fab fa-twitter"></i>
+                                <span>X (Twitter)</span>
+                            </button>
+                        </form>
                     {% endif %}
 
                     {% if not social_login_available %}

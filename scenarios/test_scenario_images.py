@@ -5,12 +5,17 @@
 import io
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.urls import reverse
 from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import CustomUser, Group, GroupMembership
+from scenarios.image_limits import (
+    get_scenario_image_max_bytes,
+    get_scenario_image_max_files_per_upload,
+)
 from scenarios.models import Scenario, ScenarioImage
 
 
@@ -43,7 +48,7 @@ class ScenarioImageTestCase(APITestCase):
             summary="Test Summary",
             game_system="coc",
             difficulty="intermediate",
-            estimated_duration="medium",
+            estimated_time=270,
             created_by=self.creator,
         )
         self.group = Group.objects.create(name="Scenario Image Group", created_by=self.creator)
@@ -139,6 +144,102 @@ class ScenarioImageTestCase(APITestCase):
 
         for i, image_data in enumerate(response.data):
             self.assertEqual(image_data["order"], i + 1)
+
+    def test_bulk_upload_requires_an_image(self):
+        self.client.force_authenticate(user=self.creator)
+
+        response = self.client.post(
+            reverse("scenario-image-bulk-upload"),
+            {"scenario_id": self.scenario.id},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["error"], "画像ファイルを選択してください。")
+
+    @override_settings(
+        SCENARIO_IMAGE_NORMAL_MAX_BYTES=1024 * 1024,
+        SCENARIO_IMAGE_PREMIUM_MAX_BYTES=2 * 1024 * 1024,
+        SCENARIO_IMAGE_NORMAL_MAX_FILES_PER_UPLOAD=1,
+        SCENARIO_IMAGE_PREMIUM_MAX_FILES_PER_UPLOAD=2,
+    )
+    def test_image_limits_are_configurable_by_membership(self):
+        self.assertEqual(get_scenario_image_max_bytes(self.creator), 1024 * 1024)
+        self.assertEqual(get_scenario_image_max_files_per_upload(self.creator), 1)
+
+        self.creator.is_premium = True
+        self.creator.save(update_fields=["is_premium"])
+
+        self.assertEqual(get_scenario_image_max_bytes(self.creator), 2 * 1024 * 1024)
+        self.assertEqual(get_scenario_image_max_files_per_upload(self.creator), 2)
+
+    @override_settings(
+        SCENARIO_IMAGE_NORMAL_MAX_FILES_PER_UPLOAD=1,
+        SCENARIO_IMAGE_PREMIUM_MAX_FILES_PER_UPLOAD=2,
+    )
+    def test_bulk_upload_uses_membership_specific_file_limit(self):
+        self.client.force_authenticate(user=self.creator)
+        payload = {
+            "scenario_id": self.scenario.id,
+            "images": [
+                self.create_test_image("first.png"),
+                self.create_test_image("second.png"),
+            ],
+        }
+
+        response = self.client.post(
+            reverse("scenario-image-bulk-upload"),
+            payload,
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(ScenarioImage.objects.count(), 0)
+
+        self.creator.is_premium = True
+        self.creator.save(update_fields=["is_premium"])
+        response = self.client.post(
+            reverse("scenario-image-bulk-upload"),
+            {
+                "scenario_id": self.scenario.id,
+                "images": [
+                    self.create_test_image("premium-first.png"),
+                    self.create_test_image("premium-second.png"),
+                ],
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(response.data), 2)
+
+    @override_settings(
+        SCENARIO_IMAGE_NORMAL_MAX_BYTES=1024 * 1024,
+        SCENARIO_IMAGE_PREMIUM_MAX_BYTES=2 * 1024 * 1024,
+    )
+    def test_upload_uses_membership_specific_byte_limit(self):
+        self.client.force_authenticate(user=self.creator)
+        response = self.client.post(
+            reverse("scenario-image-list"),
+            {
+                "scenario": self.scenario.id,
+                "image": self.create_padded_image("normal-too-large.png", 1536 * 1024),
+                "title": "一般上限超過",
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.creator.is_premium = True
+        self.creator.save(update_fields=["is_premium"])
+        response = self.client.post(
+            reverse("scenario-image-list"),
+            {
+                "scenario": self.scenario.id,
+                "image": self.create_padded_image("premium-allowed.png", 1536 * 1024),
+                "title": "プレミアム上限内",
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_upload_accepts_supported_image_formats_and_size_boundary(self):
         """jpg/png/gif と5MB境界の画像を受け付ける"""

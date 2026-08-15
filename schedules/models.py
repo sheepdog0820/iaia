@@ -11,7 +11,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
-from accounts.models import CustomUser, Group, GroupMembership
+from accounts.models import CustomUser, Group
 
 
 class AsyncJob(models.Model):
@@ -519,18 +519,8 @@ class TRPGSession(models.Model):
         if not creating and date_will_update:
             old_date = TRPGSession.objects.filter(pk=self.pk).values_list("date", flat=True).first()
 
-        auto_group_created = False
-        if not self.group_id and self.gm_id and self.visibility == "group":
-            group_name = f"{self.gm.nickname or self.gm.username} Default Group"
-            group, _ = Group.objects.get_or_create(
-                name=group_name, created_by=self.gm, defaults={"visibility": "private"}
-            )
-            GroupMembership.objects.get_or_create(user=self.gm, group=group, defaults={"role": "admin"})
-            self.group = group
-            auto_group_created = True
-
-        if auto_group_created and self.visibility == "group":
-            self.visibility = "public"
+        if creating and not self.group_id and self.visibility == "group":
+            self.visibility = "private"
 
         super().save(*args, **kwargs)
 
