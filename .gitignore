@@ -212,3 +212,11 @@ node_modules/
 *.tfstate.*
 *.tfplan
 tfplan*
+
+# Generated documentation artifacts
+/docs/infrastructure/Tableno_*.pptx
+/docs/infrastructure/Tableno_*.pptx.inspect.ndjson
+/docs/infrastructure/Tableno_*.zip
+/docs/infrastructure/Tableno_*_QR.png
+/docs/infrastructure/Tableno_*/
+/docs/reports/screenshots/aws-pre-feature-intro-*/
