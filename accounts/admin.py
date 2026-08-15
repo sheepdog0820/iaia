@@ -23,6 +23,7 @@ from .models import (
     BackgroundRemovalJob,
     CustomUser,
     Friend,
+    FriendRequest,
     Group,
     GroupInvitation,
     GroupInviteLink,
@@ -522,6 +523,14 @@ class FriendAdmin(admin.ModelAdmin):
     list_display = ("user", "friend", "created_at")
     list_filter = ("created_at",)
     search_fields = ("user__username", "friend__username", "user__nickname", "friend__nickname")
+
+
+@admin.register(FriendRequest)
+class FriendRequestAdmin(admin.ModelAdmin):
+    list_display = ("sender", "recipient", "status", "created_at", "responded_at")
+    list_filter = ("status", "created_at")
+    search_fields = ("sender__username", "recipient__username", "sender__nickname", "recipient__nickname")
+    readonly_fields = ("pair_key", "created_at", "updated_at", "responded_at")
 
 
 @admin.register(PremiumSubscription)

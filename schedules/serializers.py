@@ -8,7 +8,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from accounts.models import CustomUser, Group
+from accounts.models import CustomUser, FriendRequest, Group
 from accounts.serializers import PublicUserSerializer, validate_character_image
 from scenarios.access import can_view_scenario
 from scenarios.models import Scenario
@@ -872,6 +872,7 @@ class HandoutNotificationSerializer(serializers.ModelSerializer):
     sender = UserBasicSerializer(read_only=True)
     notification_type_display = serializers.CharField(source="get_notification_type_display", read_only=True)
     handout_info = serializers.SerializerMethodField()
+    friend_request = serializers.SerializerMethodField()
     time_since_created = serializers.SerializerMethodField()
 
     class Meta:
@@ -889,6 +890,7 @@ class HandoutNotificationSerializer(serializers.ModelSerializer):
             "created_at",
             "read_at",
             "handout_info",
+            "friend_request",
             "time_since_created",
         ]
         read_only_fields = [
@@ -921,6 +923,28 @@ class HandoutNotificationSerializer(serializers.ModelSerializer):
             return None
 
         return HandoutBasicSerializer(handout).data
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_friend_request(self, obj):
+        if obj.notification_type != "friend_request" or not obj.metadata:
+            return None
+        friend_request_id = obj.metadata.get("friend_request_id")
+        if not friend_request_id:
+            return None
+        try:
+            friend_request = FriendRequest.objects.select_related("sender", "recipient").get(
+                id=friend_request_id,
+                recipient=obj.recipient,
+            )
+        except FriendRequest.DoesNotExist:
+            return None
+        return {
+            "id": friend_request.id,
+            "status": friend_request.status,
+            "status_display": friend_request.get_status_display(),
+            "sender": PublicUserSerializer(friend_request.sender).data,
+            "recipient": PublicUserSerializer(friend_request.recipient).data,
+        }
 
     @extend_schema_field(OpenApiTypes.STR)
     def get_time_since_created(self, obj):

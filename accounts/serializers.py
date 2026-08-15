@@ -25,7 +25,7 @@ from .character_models import (
     GrowthRecord,
     SkillGrowthRecord,
 )
-from .models import CustomUser, Friend, Group, GroupInvitation, GroupMembership
+from .models import CustomUser, Friend, FriendRequest, Group, GroupInvitation, GroupMembership
 
 
 class CharacterVersionCreateSerializer(serializers.Serializer):
@@ -297,6 +297,47 @@ class FriendDetailSerializer(serializers.ModelSerializer):
         model = Friend
         fields = ["id", "friend", "friend_detail", "created_at"]
         read_only_fields = ["id", "created_at"]
+
+
+class FriendRequestCreateSerializer(serializers.Serializer):
+    recipient_id = serializers.IntegerField(min_value=1)
+
+
+class FriendRequestSerializer(serializers.ModelSerializer):
+    sender_detail = PublicUserSerializer(source="sender", read_only=True)
+    recipient_detail = PublicUserSerializer(source="recipient", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    retry_after = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FriendRequest
+        fields = [
+            "id",
+            "sender",
+            "sender_detail",
+            "recipient",
+            "recipient_detail",
+            "status",
+            "status_display",
+            "created_at",
+            "updated_at",
+            "responded_at",
+            "retry_after",
+        ]
+        read_only_fields = fields
+
+    @extend_schema_field(OpenApiTypes.DATETIME)
+    def get_retry_after(self, obj):
+        if obj.status not in {FriendRequest.Status.DECLINED, FriendRequest.Status.CANCELLED}:
+            return None
+        if not obj.responded_at:
+            return None
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        retry_after = obj.responded_at + timedelta(hours=24)
+        return retry_after if retry_after > timezone.now() else None
 
 
 # キャラクターシート関連のシリアライザー

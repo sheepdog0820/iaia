@@ -19,6 +19,7 @@ router = DefaultRouter()
 router.register(r"users", views.UserViewSet, basename="user")
 router.register(r"groups", views.GroupViewSet, basename="group")
 router.register(r"friends", views.FriendViewSet, basename="friend")
+router.register(r"friend-requests", views.FriendRequestViewSet, basename="friend-request")
 router.register(r"invitations", views.GroupInvitationViewSet, basename="invitation")
 router.register(r"character-sheets", views.CharacterSheetViewSet, basename="character-sheet")
 router.register(r"dice-roll-settings", views.DiceRollSettingViewSet, basename="dice-roll-setting")
@@ -121,6 +122,7 @@ urlpatterns = [
         name="group_invite_link_revoke",
     ),
     path("friends/add/", views.AddFriendView.as_view(), name="friend_add"),
+    path("friend-candidates/", views.FriendCandidateView.as_view(), name="friend_candidates"),
     path("", include(router.urls)),
     # Profile URLs
     path("users/<int:user_id>/profile/", UserProfileView.as_view(), name="user_profile"),

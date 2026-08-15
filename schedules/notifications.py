@@ -631,7 +631,7 @@ class GroupNotificationService(HandoutNotificationService):
 class FriendNotificationService(HandoutNotificationService):
     """フレンドリクエスト通知サービスクラス（ISSUE-013）"""
 
-    def send_friend_request_notification(self, sender, recipient):
+    def send_friend_request_notification(self, sender, recipient, friend_request=None):
         """
         フレンドリクエスト送信通知
 
@@ -663,6 +663,7 @@ class FriendNotificationService(HandoutNotificationService):
                 metadata={
                     "sender_id": sender.id,
                     "sender_name": sender.nickname or sender.username,
+                    "friend_request_id": friend_request.id if friend_request else None,
                 },
             )
 
@@ -677,7 +678,7 @@ class FriendNotificationService(HandoutNotificationService):
             logger.error(f"フレンドリクエスト通知送信エラー: {e}")
             return False
 
-    def send_friend_request_accepted_notification(self, accepter, original_sender):
+    def send_friend_request_accepted_notification(self, accepter, original_sender, friend_request=None):
         """
         フレンドリクエスト承認通知
 
@@ -709,6 +710,7 @@ class FriendNotificationService(HandoutNotificationService):
                 metadata={
                     "accepter_id": accepter.id,
                     "accepter_name": accepter.nickname or accepter.username,
+                    "friend_request_id": friend_request.id if friend_request else None,
                 },
             )
 

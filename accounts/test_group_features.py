@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.character_models import CharacterSheet, CharacterSheet6th
-from accounts.models import Friend, Group, GroupInvitation, GroupMembership
+from accounts.models import Friend, FriendRequest, Group, GroupInvitation, GroupMembership
 from schedules.models import (
     HandoutNotification,
     ParticipantClaimRequest,
@@ -40,6 +40,7 @@ class FriendAPITestCase(APITestCase):
             email="new_friend_target@example.com",
             password="pass123",
             nickname="New Friend Target",
+            trpg_introduction_sheet={"visibility": "public"},
         )
         Friend.objects.create(user=self.user, friend=self.friend)
         self.client.force_authenticate(user=self.user)
@@ -63,7 +64,8 @@ class FriendAPITestCase(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertTrue(Friend.objects.filter(user=self.user, friend=self.new_friend).exists())
+        self.assertTrue(FriendRequest.objects.filter(sender=self.user, recipient=self.new_friend).exists())
+        self.assertFalse(Friend.objects.filter(user=self.user, friend=self.new_friend).exists())
 
 
 class GroupSearchAPITestCase(APITestCase):

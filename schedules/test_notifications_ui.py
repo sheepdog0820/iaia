@@ -23,3 +23,7 @@ class NotificationsUIViewTest(TestCase):
         response = self.client.get(reverse("notifications_view"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "notifications-list-container")
+        self.assertContains(response, "friend-accept")
+        self.assertContains(response, "friend-decline")
+        self.assertContains(response, "data-notification-unread")
+        self.assertContains(response, "!unreadOnly && wasUnread && unreadCountKnown !== null")

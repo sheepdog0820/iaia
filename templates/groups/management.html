@@ -48,14 +48,26 @@
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <input type="text" class="form-control" id="friendUsername" placeholder="ユーザー名で検索">
+                        <label for="friendSearchInput" class="form-label">公開ユーザーを検索</label>
+                        <input type="search" class="form-control" id="friendSearchInput"
+                               placeholder="ユーザー名またはニックネームを2文字以上入力"
+                               autocomplete="off">
+                        <div class="form-text">プロフィールを「全体公開」にしているユーザーだけが表示されます。</div>
                     </div>
-                    <button class="btn btn-success w-100" id="addFriendBtn">
-                        <i class="fas fa-user-plus"></i> フレンド追加
-                    </button>
-                    
+                    <div id="friendSearchResults" class="friend-list mb-3" aria-live="polite"></div>
+
                     <hr class="my-3">
-                    
+
+                    <h6 class="mb-2">受信したリクエスト</h6>
+                    <div id="incomingFriendRequests" class="friend-list mb-3">
+                        <p class="text-muted text-center mb-0">読み込み中...</p>
+                    </div>
+
+                    <h6 class="mb-2">送信したリクエスト</h6>
+                    <div id="outgoingFriendRequests" class="friend-list mb-3">
+                        <p class="text-muted text-center mb-0">読み込み中...</p>
+                    </div>
+
                     <h6 class="mb-2">フレンドリスト</h6>
                     <div id="friendsList" class="friend-list">
                         <div class="text-center py-3">
@@ -370,6 +382,22 @@
     transform: translateX(5px);
 }
 
+.friend-entry {
+    padding: 8px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.friend-entry:last-child {
+    margin-bottom: 0;
+}
+
+.friend-entry-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 .invite-list {
     max-height: 300px;
     overflow-y: auto;
@@ -465,6 +493,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let allGroups = [];
     let displayGroups = [];
     let friends = [];
+    let incomingFriendRequests = [];
+    let outgoingFriendRequests = [];
+    let friendSearchTimer = null;
     let currentGroupId = null;
     let currentGroupDetail = null;
     let currentTemporaryMembers = [];
@@ -1004,11 +1035,88 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadFriends() {
         try {
             const response = await axios.get('/api/accounts/friends/');
-            friends = response.data;
+            friends = Array.isArray(response.data) ? response.data : [];
             renderFriends();
         } catch (error) {
             console.error('Error loading friends:', error);
+            document.getElementById('friendsList').innerHTML =
+                '<p class="text-danger text-center">フレンドの読み込みに失敗しました</p>';
         }
+    }
+
+    async function loadFriendRequests() {
+        const incomingContainer = document.getElementById('incomingFriendRequests');
+        const outgoingContainer = document.getElementById('outgoingFriendRequests');
+        try {
+            const [incomingResponse, outgoingResponse] = await Promise.all([
+                axios.get('/api/accounts/friend-requests/?direction=incoming'),
+                axios.get('/api/accounts/friend-requests/?direction=outgoing')
+            ]);
+            incomingFriendRequests = (incomingResponse.data || []).filter(request => request.status === 'pending');
+            outgoingFriendRequests = (outgoingResponse.data || [])
+                .filter(request => request.status !== 'accepted')
+                .slice(0, 10);
+            renderFriendRequests();
+        } catch (error) {
+            console.error('Error loading friend requests:', error);
+            incomingContainer.innerHTML = '<p class="text-danger text-center mb-0">受信した申請の読み込みに失敗しました</p>';
+            outgoingContainer.innerHTML = '<p class="text-danger text-center mb-0">送信した申請の読み込みに失敗しました</p>';
+        }
+    }
+
+    function friendDisplayName(user) {
+        return escapeHtml(user?.nickname || user?.username || '名前未設定');
+    }
+
+    function renderFriendRequests() {
+        const incomingContainer = document.getElementById('incomingFriendRequests');
+        const outgoingContainer = document.getElementById('outgoingFriendRequests');
+
+        incomingContainer.innerHTML = incomingFriendRequests.length === 0
+            ? '<p class="text-muted text-center mb-0">受信中のリクエストはありません</p>'
+            : incomingFriendRequests.map(request => `
+                <div class="friend-entry">
+                    <div class="friend-entry-name mb-2">
+                        <i class="fas fa-user-circle me-1"></i>${friendDisplayName(request.sender_detail)}
+                        <div class="small text-muted">@${escapeHtml(request.sender_detail?.username || '')}</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-success btn-sm" data-friend-request-action="accept" data-request-id="${request.id}">
+                            <i class="fas fa-check"></i> 承認
+                        </button>
+                        <button type="button" class="btn btn-outline-danger btn-sm" data-friend-request-action="decline" data-request-id="${request.id}">
+                            <i class="fas fa-times"></i> 拒否
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+        outgoingContainer.innerHTML = outgoingFriendRequests.length === 0
+            ? '<p class="text-muted text-center mb-0">送信中のリクエストはありません</p>'
+            : outgoingFriendRequests.map(request => {
+                const isPending = request.status === 'pending';
+                const statusClass = request.status === 'declined' ? 'danger' : 'secondary';
+                const retryText = request.retry_after
+                    ? `<div class="small text-muted mt-1">再申請可能: ${escapeHtml(formatDateTime(request.retry_after))}</div>`
+                    : '';
+                return `
+                    <div class="friend-entry">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div class="friend-entry-name">
+                                <i class="fas fa-user-circle me-1"></i>${friendDisplayName(request.recipient_detail)}
+                                <div class="small text-muted">@${escapeHtml(request.recipient_detail?.username || '')}</div>
+                            </div>
+                            <span class="badge bg-${isPending ? 'warning text-dark' : statusClass}">${escapeHtml(request.status_display)}</span>
+                        </div>
+                        ${retryText}
+                        ${isPending ? `
+                            <button type="button" class="btn btn-outline-danger btn-sm mt-2" data-friend-request-action="cancel" data-request-id="${request.id}">
+                                <i class="fas fa-ban"></i> 取り消す
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
     }
 
     // フレンド表示
@@ -1021,10 +1129,51 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         container.innerHTML = friends.map(friend => `
-            <div class="friend-item">
-                <i class="fas fa-user-circle"></i> ${friend.friend_detail.nickname}
+            <div class="friend-entry d-flex justify-content-between align-items-center gap-2">
+                <div class="friend-entry-name">
+                    <i class="fas fa-user-circle me-1"></i>${friendDisplayName(friend.friend_detail)}
+                    <div class="small text-muted">@${escapeHtml(friend.friend_detail?.username || '')}</div>
+                </div>
+                <button type="button" class="btn btn-outline-danger btn-sm" data-friend-remove-id="${friend.id}">
+                    <i class="fas fa-user-minus"></i> 解除
+                </button>
             </div>
         `).join('');
+    }
+
+    function renderFriendCandidates(candidates) {
+        const container = document.getElementById('friendSearchResults');
+        if (!Array.isArray(candidates) || candidates.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center mb-0">該当する公開ユーザーはいません</p>';
+            return;
+        }
+        container.innerHTML = candidates.map(candidate => `
+            <div class="friend-entry d-flex justify-content-between align-items-center gap-2">
+                <div class="friend-entry-name">
+                    <i class="fas fa-user-circle me-1"></i>${friendDisplayName(candidate)}
+                    <div class="small text-muted">@${escapeHtml(candidate.username || '')}</div>
+                </div>
+                <button type="button" class="btn btn-success btn-sm" data-friend-candidate-id="${candidate.id}">
+                    <i class="fas fa-user-plus"></i> リクエストを送る
+                </button>
+            </div>
+        `).join('');
+    }
+
+    async function searchFriendCandidates(query) {
+        const container = document.getElementById('friendSearchResults');
+        if (query.length < 2) {
+            container.innerHTML = '';
+            return;
+        }
+        container.innerHTML = '<p class="text-muted text-center mb-0">検索中...</p>';
+        try {
+            const response = await axios.get('/api/accounts/friend-candidates/', { params: { q: query } });
+            renderFriendCandidates(response.data?.results || []);
+        } catch (error) {
+            console.error('Error searching friend candidates:', error);
+            container.innerHTML = '<p class="text-danger text-center mb-0">ユーザー検索に失敗しました</p>';
+        }
     }
 
     // グループ詳細表示
@@ -1401,7 +1550,7 @@ document.addEventListener('DOMContentLoaded', function() {
             container.innerHTML = invitableFriends.map(friend => `
                 <div class="invite-item" data-friend-id="${friend.friend}">
                     <div>
-                        <i class="fas fa-user-circle"></i> ${friend.friend_detail.nickname}
+                        <i class="fas fa-user-circle"></i> ${friendDisplayName(friend.friend_detail)}
                     </div>
                     <input type="checkbox" class="form-check-input">
                 </div>
@@ -1563,21 +1712,76 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // フレンド追加
-    document.getElementById('addFriendBtn').addEventListener('click', async function() {
-        const username = document.getElementById('friendUsername').value.trim();
-        if (!username) {
-            ARKHAM.showError('ユーザー名を入力してください');
+    const friendSearchInput = document.getElementById('friendSearchInput');
+    friendSearchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        window.clearTimeout(friendSearchTimer);
+        friendSearchTimer = window.setTimeout(() => searchFriendCandidates(query), 300);
+    });
+
+    document.addEventListener('click', async function(event) {
+        const candidateButton = event.target.closest('button[data-friend-candidate-id]');
+        if (candidateButton) {
+            const recipientId = Number(candidateButton.dataset.friendCandidateId);
+            if (!recipientId) return;
+            candidateButton.disabled = true;
+            try {
+                const response = await axios.post('/api/accounts/friend-requests/', { recipient_id: recipientId });
+                const autoAccepted = response.data?.status === 'accepted';
+                ARKHAM.showSuccess(autoAccepted ? 'フレンドになりました' : 'フレンドリクエストを送信しました');
+                friendSearchInput.value = '';
+                document.getElementById('friendSearchResults').innerHTML = '';
+                await Promise.all([loadFriendRequests(), loadFriends()]);
+            } catch (error) {
+                console.error('Error sending friend request:', error);
+                candidateButton.disabled = false;
+                ARKHAM.handleError(error);
+            }
             return;
         }
 
+        const requestButton = event.target.closest('button[data-friend-request-action]');
+        if (requestButton) {
+            const requestId = Number(requestButton.dataset.requestId);
+            const requestAction = requestButton.dataset.friendRequestAction;
+            if (!requestId || !['accept', 'decline', 'cancel'].includes(requestAction)) return;
+            requestButton.disabled = true;
+            try {
+                await axios.post(`/api/accounts/friend-requests/${requestId}/${requestAction}/`);
+                const successMessages = {
+                    accept: 'フレンドリクエストを承認しました',
+                    decline: 'フレンドリクエストを拒否しました',
+                    cancel: 'フレンドリクエストを取り消しました'
+                };
+                ARKHAM.showSuccess(successMessages[requestAction]);
+                await Promise.all([loadFriendRequests(), loadFriends()]);
+            } catch (error) {
+                console.error('Error updating friend request:', error);
+                requestButton.disabled = false;
+                ARKHAM.handleError(error);
+            }
+            return;
+        }
+
+        const removeButton = event.target.closest('button[data-friend-remove-id]');
+        if (!removeButton) return;
+        const friendId = Number(removeButton.dataset.friendRemoveId);
+        if (!friendId) return;
+        const confirmed = await confirmAction('このフレンドを解除しますか？', {
+            title: 'フレンド解除',
+            confirmText: '解除する',
+            cancelText: 'キャンセル',
+            variant: 'danger'
+        });
+        if (!confirmed) return;
+        removeButton.disabled = true;
         try {
-            const response = await axios.post('/api/accounts/friends/add/', { username: username });
-            ARKHAM.showSuccess(`${username}さんをフレンドに追加しました！`);
-            document.getElementById('friendUsername').value = '';
-            loadFriends();
+            await axios.delete(`/api/accounts/friends/${friendId}/`);
+            ARKHAM.showSuccess('フレンドを解除しました');
+            await loadFriends();
         } catch (error) {
-            console.error('Error adding friend:', error);
+            console.error('Error removing friend:', error);
+            removeButton.disabled = false;
             ARKHAM.handleError(error);
         }
     });
@@ -1793,6 +1997,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初期化
     loadGroups();
     loadFriends();
+    loadFriendRequests();
     loadInvitations();
 });
 </script>

@@ -301,6 +301,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderNotificationItem(notification) {
         const isRead = !!notification.is_read;
+        const friendRequest = notification.friend_request || null;
+        const canRespondToFriendRequest = friendRequest?.status === 'pending';
         const typeLabel = escapeHtml(notification.notification_type_display || notification.notification_type || '');
         const createdLabel = escapeHtml(notification.time_since_created || '');
         const senderLabel = getSenderLabel(notification);
@@ -316,6 +318,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     <a class="btn btn-sm btn-outline-secondary" href="${sessionUrl}">
                         <i class="fas fa-eye"></i> 詳細
                     </a>
+                ` : ''}
+                ${canRespondToFriendRequest ? `
+                    <button class="btn btn-sm btn-success" data-action="friend-accept"
+                            data-request-id="${friendRequest.id}" data-notification-unread="${isRead ? 'false' : 'true'}">
+                        <i class="fas fa-check"></i> 承認
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" data-action="friend-decline"
+                            data-request-id="${friendRequest.id}" data-notification-unread="${isRead ? 'false' : 'true'}">
+                        <i class="fas fa-times"></i> 拒否
+                    </button>
+                ` : ''}
+                ${friendRequest && !canRespondToFriendRequest ? `
+                    <span class="badge bg-secondary align-self-center">
+                        ${escapeHtml(friendRequest.status_display || friendRequest.status || '処理済み')}
+                    </span>
                 ` : ''}
                 ${!isRead ? `
                     <button class="btn btn-sm btn-outline-primary" data-action="mark-read" data-id="${notification.id}">
@@ -475,8 +492,44 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    async function respondToFriendRequest(requestId, action, button, wasUnread) {
+        button.disabled = true;
+        try {
+            await axios.post(`/api/accounts/friend-requests/${requestId}/${action}/`);
+            if (!unreadOnly && wasUnread && unreadCountKnown !== null) {
+                updateUnreadBadges(Math.max(0, unreadCountKnown - 1));
+            }
+            if (window.ARKHAM?.showSuccess) {
+                window.ARKHAM.showSuccess(
+                    action === 'accept'
+                        ? 'フレンドリクエストを承認しました'
+                        : 'フレンドリクエストを拒否しました'
+                );
+            }
+            await loadNotifications(currentPage);
+        } catch (error) {
+            console.error('Error responding to friend request:', error);
+            button.disabled = false;
+            if (window.ARKHAM?.handleError) {
+                window.ARKHAM.handleError(error);
+            } else if (window.ARKHAM?.showError) {
+                window.ARKHAM.showError('フレンドリクエストの処理に失敗しました');
+            }
+        }
+    }
+
     function bindListEvents() {
         listContainer.addEventListener('click', function(event) {
+            const friendButton = event.target.closest('button[data-action^="friend-"]');
+            if (friendButton) {
+                event.preventDefault();
+                const requestId = friendButton.getAttribute('data-request-id');
+                const action = friendButton.getAttribute('data-action') === 'friend-accept' ? 'accept' : 'decline';
+                const wasUnread = friendButton.getAttribute('data-notification-unread') === 'true';
+                if (requestId) respondToFriendRequest(requestId, action, friendButton, wasUnread);
+                return;
+            }
+
             const btn = event.target.closest('button[data-action="mark-read"]');
             if (!btn) return;
             event.preventDefault();

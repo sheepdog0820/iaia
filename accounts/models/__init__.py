@@ -34,7 +34,7 @@ from .group_models import (
 from .share_models import ShareLink
 
 # Import user models
-from .user_models import CustomUser, Friend
+from .user_models import CustomUser, Friend, FriendRequest
 
 # Import character models from parent module (to avoid circular imports)
 try:
@@ -62,6 +62,7 @@ __all__ = [
     "TimestampedModel",
     "CustomUser",
     "Friend",
+    "FriendRequest",
     "PremiumSubscription",
     "StripeWebhookEvent",
     "PremiumAccessCode",
