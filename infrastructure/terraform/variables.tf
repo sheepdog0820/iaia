@@ -231,6 +231,17 @@ variable "enable_cloudfront_logging" {
   default = true
 }
 
+variable "cloudfront_price_class" {
+  description = "CloudFront edge-location price class. PriceClass_200 includes Japan and other Asian locations while excluding the most expensive regions."
+  type        = string
+  default     = "PriceClass_200"
+
+  validation {
+    condition     = contains(["PriceClass_100", "PriceClass_200", "PriceClass_All"], var.cloudfront_price_class)
+    error_message = "cloudfront_price_class must be PriceClass_100, PriceClass_200, or PriceClass_All."
+  }
+}
+
 variable "enable_s3_access_logging" {
   type    = bool
   default = true

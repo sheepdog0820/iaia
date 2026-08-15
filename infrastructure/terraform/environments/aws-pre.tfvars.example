@@ -14,6 +14,7 @@ db_backup_retention_period = 7
 db_backup_window           = "16:00-16:30"
 enable_deletion_protection = true
 monthly_budget_usd         = 100
+cloudfront_price_class     = "PriceClass_200"
 
 extra_secret_names = [
   "GOOGLE_OAUTH_CLIENT_ID",
