@@ -57,6 +57,19 @@ class ScreenActionUiStaticTests(SimpleTestCase):
         self.assertIn("data-screen-actions-toggle", template)
         self.assertIn("セッション一覧へ", template)
 
+    def test_session_edit_form_exposes_title_input_on_detail_and_list_screens(self):
+        form_fields = self.read_text("templates/schedules/_session_edit_form_fields.html")
+        detail_template = self.read_text("templates/schedules/session_detail.html")
+        list_template = self.read_text("templates/schedules/sessions.html")
+
+        title_control = form_fields.split("セッションタイトル", 1)[1].split("<input", 1)[1].split(">", 1)[0]
+        self.assertIn('type="text"', title_control)
+        self.assertNotIn('type="hidden"', title_control)
+        self.assertIn("_session_edit_form_fields.html", detail_template)
+        self.assertIn("_session_edit_form_fields.html", list_template)
+        self.assertIn("document.getElementById('editSessionTitle').value", detail_template)
+        self.assertIn("document.getElementById('editSessionTitle').value", list_template)
+
     def test_scenario_detail_separates_primary_local_and_danger_actions(self):
         template = self.read_text("templates/scenarios/archive.html")
 
