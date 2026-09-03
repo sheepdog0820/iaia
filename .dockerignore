@@ -95,6 +95,8 @@ npm-debug.log
 .claude-trace/
 
 # Local/generated artifacts
+.codex_work/
 debug_images/
+outputs/
 tests/results/
 codex-build-output/

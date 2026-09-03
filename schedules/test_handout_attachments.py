@@ -8,7 +8,6 @@ TDD原則に従って、ハンドアウト添付ファイル機能のテスト�
 import io
 import os
 import tempfile
-import unittest
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -405,13 +404,3 @@ class HandoutAttachmentAPITest(TestCase):
         response = client.get(f"/api/schedules/handouts/{self.handout.id}/attachments/")
         # 権限がない場合は403または404が返される
         self.assertIn(response.status_code, [403, 404])
-
-
-@unittest.skip("Integration test - will be implemented after basic functionality")
-class HandoutAttachmentIntegrationTest(TestCase):
-    """ハンドアウト添付ファイル機能の統合テスト"""
-
-    def test_end_to_end_attachment_flow(self):
-        """エンドツーエンドの添付ファイルフロー"""
-        # この統合テストは基本機能実装後に実装する
-        pass

@@ -30,7 +30,7 @@ test.describe('auth release flows', () => {
     await page.fill('#id_username', email);
     await page.fill('#id_password', password);
     await Promise.all([
-      page.waitForURL(/\/accounts\/dashboard\//),
+      page.waitForURL(url => url.pathname === '/'),
       page.click('#email-login-form button[type="submit"]'),
     ]);
 

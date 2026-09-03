@@ -5,11 +5,14 @@
 
 import io
 import logging
+import math
 import os
 import re
 import warnings
 import zipfile
+from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.db import transaction
@@ -17,6 +20,7 @@ from django.http import Http404, HttpResponse
 from django.http.response import content_disposition_header
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
+from django.utils import timezone
 from PIL import Image, UnidentifiedImageError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -91,6 +95,31 @@ class CharacterImageBackgroundRemovalView(APIView):
         original_filename = _safe_original_filename(image)[:255]
         with transaction.atomic():
             get_user_model().objects.select_for_update().only("pk").get(pk=request.user.pk)
+            now = timezone.now()
+            local_now = timezone.localtime(now)
+            usage_started_at = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+            usage_resets_at = usage_started_at + timedelta(days=1)
+            daily_limit = max(int(getattr(settings, "BACKGROUND_REMOVAL_DAILY_LIMIT", 10)), 1)
+            used_count = BackgroundRemovalJob.objects.filter(
+                user=request.user,
+                created_at__gte=usage_started_at,
+                created_at__lt=usage_resets_at,
+            ).count()
+            if used_count >= daily_limit:
+                retry_after = max(math.ceil((usage_resets_at - local_now).total_seconds()), 1)
+                return Response(
+                    {
+                        "error": (
+                            f"本日の背景透過処理回数の上限（{daily_limit}回）に達しました。"
+                            "翌日0時以降に再度お試しください。"
+                        ),
+                        "daily_limit": daily_limit,
+                        "used_count": used_count,
+                        "reset_at": usage_resets_at.isoformat(),
+                    },
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                    headers={"Retry-After": str(retry_after)},
+                )
             active_jobs = list(
                 BackgroundRemovalJob.objects.select_for_update().filter(
                     user=request.user,

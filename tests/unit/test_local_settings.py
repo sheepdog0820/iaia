@@ -10,6 +10,62 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class LocalSettingsTests(TestCase):
+    DATABASE_ENV_KEYS = (
+        "DB_ENGINE",
+        "DB_NAME",
+        "DB_USER",
+        "DB_PASSWORD",
+        "DB_HOST",
+        "DB_PORT",
+    )
+
+    def test_local_settings_honor_explicit_postgresql_configuration(self):
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as handle:
+            handle.write("SECRET_KEY=test-local-secret\n")
+            handle.write("DB_ENGINE=postgres\n")
+            handle.write("DB_NAME=tableno_compose\n")
+            handle.write("DB_USER=tableno_user\n")
+            handle.write("DB_PASSWORD=tableno_password\n")
+            handle.write("DB_HOST=db\n")
+            handle.write("DB_PORT=5432\n")
+            env_file = handle.name
+
+        try:
+            env = os.environ.copy()
+            for key in self.DATABASE_ENV_KEYS:
+                env.pop(key, None)
+            env.update(
+                {
+                    "APP_ENV": "local",
+                    "ENV_FILE": env_file,
+                    "DJANGO_SETTINGS_MODULE": "tableno.settings",
+                }
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    "import json; from django.conf import settings; "
+                    'print(json.dumps(settings.DATABASES["default"], default=str))',
+                ],
+                cwd=REPO_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        finally:
+            Path(env_file).unlink(missing_ok=True)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        database = json.loads(result.stdout.strip())
+        self.assertEqual(database["ENGINE"], "django.db.backends.postgresql")
+        self.assertEqual(database["NAME"], "tableno_compose")
+        self.assertEqual(database["USER"], "tableno_user")
+        self.assertEqual(database["PASSWORD"], "tableno_password")
+        self.assertEqual(database["HOST"], "db")
+        self.assertEqual(database["PORT"], "5432")
+
     def test_local_settings_load_monthly_and_yearly_stripe_price_ids_from_env_file(self):
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as handle:
             handle.write("SECRET_KEY=test-local-secret\n")

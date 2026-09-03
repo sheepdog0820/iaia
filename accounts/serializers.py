@@ -1468,12 +1468,11 @@ class CharacterImageSerializer(serializers.ModelSerializer):
 
     image = serializers.ImageField(error_messages={"invalid_image": "画像ファイルをアップロードしてください。"})
     image_url = serializers.SerializerMethodField()
-    thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = CharacterImage6th
-        fields = ["id", "image", "image_url", "thumbnail_url", "is_main", "order", "uploaded_at"]
-        read_only_fields = ["id", "uploaded_at", "image_url", "thumbnail_url"]
+        fields = ["id", "image", "image_url", "is_main", "order", "uploaded_at"]
+        read_only_fields = ["id", "uploaded_at", "image_url"]
 
     @extend_schema_field(OpenApiTypes.URI)
     def get_image_url(self, obj):
@@ -1484,12 +1483,6 @@ class CharacterImageSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.image.url)
             return obj.image.url
         return None
-
-    @extend_schema_field(OpenApiTypes.URI)
-    def get_thumbnail_url(self, obj):
-        """サムネイルURLを返す（現時点では元画像と同じ）"""
-        # TODO: 実際のサムネイル生成機能を実装
-        return self.get_image_url(obj)
 
     def validate_image(self, value):
         """画像ファイルのバリデーション"""

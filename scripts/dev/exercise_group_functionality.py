@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 """
-グループ管理機能のテストスクリプト
+グループ管理機能の手動診断スクリプト
 """
 
+# isort: skip_file -- accounts models must be imported after django.setup().
+
 import os
-import sys
 
 import django
-from django.conf import settings
-from django.core.management import execute_from_command_line
-from django.test.utils import get_runner
 
 # Django設定
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tableno.settings")
@@ -114,7 +112,7 @@ def create_test_data():
     print(f"  🤝 フレンド関係数: {Friend.objects.count()}")
 
 
-def test_group_apis():
+def check_group_apis():
     """グループAPIの基本テスト"""
     import json
 
@@ -169,7 +167,7 @@ def test_group_apis():
     print("  🎯 基本APIテスト完了!")
 
 
-def test_group_creation():
+def check_group_creation():
     """グループ作成テスト"""
     import json
 
@@ -219,10 +217,10 @@ def main():
     create_test_data()
 
     # API機能テスト
-    test_group_apis()
+    check_group_apis()
 
     # グループ作成テスト
-    test_group_creation()
+    check_group_creation()
 
     print("\n" + "=" * 50)
     print("🎉 グループ機能テスト完了!")

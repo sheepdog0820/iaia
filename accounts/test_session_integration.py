@@ -298,41 +298,12 @@ class MultiCharacterSessionTestCase(TransactionTestCase):
                 self.assertIn("san_current", char_data)
                 self.assertIn("occupation", char_data)
 
-    def test_participant_limit_enforcement(self):
-        """参加人数制限のテスト"""
-        # TRPGSessionにmax_participantsフィールドがない場合はスキップ
-        if not hasattr(self.session, "max_participants"):
-            self.skipTest("TRPGSession does not have max_participants field")
-
-        # 制限人数を3人に設定
-        self.session.max_participants = 3
-        self.session.save()
-
-        # 3人まで参加承認
-        for i in range(3):
-            self.client.force_authenticate(user=self.players[i])
-            response = self.client.post(
-                "/api/schedules/participants/", {"session": self.session.id, "character_sheet": self.characters[i].id}
-            )
-            participant_id = response.data["id"]
-
-            # SessionParticipantにstatusフィールドがないので、承認処理はスキップ
-            pass
-
-        # 4人目の参加申請
+        # 参加済みの4人目が重複申請しても、参加者レコードは増えない
         self.client.force_authenticate(user=self.players[3])
         response = self.client.post(
             "/api/schedules/participants/", {"session": self.session.id, "character_sheet": self.characters[3].id}
         )
-
-        # 申請は成功するが、承認時にエラーになるはず
-        participant_id = response.data["id"]
-
-        # SessionParticipantにstatusフィールドがないので、承認処理はスキップ
-        # 人数制限は参加申請時にチェックされる可能性がある
-
-        # 人数制限チェック
-        # 現在はセッションに人数制限がないので4人全員参加可能
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         participant_count = SessionParticipant.objects.filter(session=self.session).count()
         self.assertEqual(participant_count, 4)
 

@@ -4,7 +4,6 @@
 """
 
 import json
-import unittest
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -93,7 +92,6 @@ class ExportFunctionTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("application/json", response["Content-Type"])
 
-    @unittest.skip("CSV export functionality needs debugging - URL routing issue")
     def test_export_csv_format(self):
         """CSVフォーマットエクスポートテスト"""
         self.client.force_authenticate(user=self.user)

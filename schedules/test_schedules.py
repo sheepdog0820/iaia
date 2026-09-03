@@ -542,6 +542,7 @@ class ScheduleAPITestCase(APITestCase):
                 "group": self.group.id,
                 "duration_minutes": 240,
                 "scenario": self.scenario.id,
+                "as_gm": True,
             },
         )
 
@@ -619,6 +620,7 @@ class ScheduleAPITestCase(APITestCase):
                 "group": self.group.id,
                 "duration_minutes": 240,
                 "scenario": self.scenario.id,
+                "as_gm": True,
             },
         )
 
@@ -685,6 +687,7 @@ class ScheduleAPITestCase(APITestCase):
             "group": self.group.id,
             "duration_minutes": 180,
             "scenario": self.scenario.id,
+            "as_gm": True,
         }
 
         response = self.client.post("/api/schedules/sessions/", session_data)

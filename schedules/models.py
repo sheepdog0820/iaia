@@ -787,8 +787,8 @@ class SessionParticipantRole(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["participant"],
-                name="uniq_participant_single_role",
+                fields=["participant", "role"],
+                name="uniq_participant_role",
             ),
         ]
         indexes = [
@@ -1116,10 +1116,6 @@ class SessionImage(models.Model):
             )["max_order"]
             self.order = (max_order or 0) + 1
         super().save(*args, **kwargs)
-
-    def get_thumbnail_url(self):
-        """サムネイルURL取得（将来的な実装用）"""
-        return self.image.url if self.image else None
 
     def delete(self, *args, **kwargs):
         """削除時に画像ファイルも削除"""

@@ -25,6 +25,7 @@ test.describe('youtube links', () => {
         visibility: 'public',
         group: group.id,
         description: 'Created by Playwright YouTube reorder test.',
+        as_gm: true,
       });
       const session = sessionResponse.data;
 
@@ -100,4 +101,3 @@ test.describe('youtube links', () => {
     expect(orderAfterReload).toEqual(orderAfter);
   });
 });
-

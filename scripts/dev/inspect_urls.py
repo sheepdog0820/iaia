@@ -4,7 +4,6 @@ URL パターンの詳細デバッグ
 """
 
 import os
-import sys
 
 import django
 
@@ -13,7 +12,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tableno.settings")
 django.setup()
 
 
-def test_url_resolution():
+def inspect_url_resolution():
     """URL解決テスト"""
     from django.urls import resolve, reverse
     from django.urls.exceptions import Resolver404
@@ -61,7 +60,7 @@ def check_accounts_urls():
         print(f"   {i+1}. {pattern}")
 
 
-def test_simple_view():
+def inspect_simple_view():
     """シンプルなビューでテスト"""
     print("\n🧪 シンプルビューテスト...")
 
@@ -93,9 +92,9 @@ def main():
     print("🔧 URL デバッグツール")
     print("=" * 60)
 
-    test_url_resolution()
+    inspect_url_resolution()
     check_accounts_urls()
-    test_simple_view()
+    inspect_simple_view()
 
     print("\n" + "=" * 60)
 

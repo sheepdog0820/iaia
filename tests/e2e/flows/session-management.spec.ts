@@ -146,9 +146,10 @@ test.describe('sessions', () => {
     await expect(upcomingCard).toContainText('グループ:');
 
     await page.goto('/api/schedules/sessions/view/?limit=100&period=future');
-    const listLink = page.locator(`a[href="/api/schedules/sessions/${session.id}/detail/"]`).first();
+    const listCard = page.locator('.session-summary-card').filter({ hasText: sessionTitle }).first();
+    await expect(listCard).toBeVisible();
+    const listLink = listCard.locator(`a[href="/api/schedules/sessions/${session.id}/detail/"]`);
     await expect(listLink).toBeVisible();
-    await expect(listLink).toContainText(sessionTitle);
     await expect(page.locator('body')).toContainText('Discord');
   });
 });

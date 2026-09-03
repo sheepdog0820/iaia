@@ -395,8 +395,11 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
 
         self.assertIn("manage.py test --noinput", release_tasks)
         self.assertIn("billing_release_gate", release_tasks)
-        self.assertIn("1120件 OK", release_tasks)
-        self.assertIn("skipped=3", release_tasks)
+        self.assertIn("pytest -q", release_tasks)
+        self.assertIn("1518件成功", release_tasks)
+        self.assertIn("失敗・スキップ0件", release_tasks)
+        self.assertIn("subtests 179件成功", release_tasks)
+        self.assertIn("Chromium / Firefox / WebKitの78ケース", release_tasks)
         self.assertIn("tests.unit.test_production_settings", release_tasks)
         self.assertIn("manage.py check --deploy", release_tasks)
         self.assertIn("Python 3.11.1", release_tasks)
@@ -407,7 +410,8 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
         self.assertIn("/health/live/", release_tasks)
         self.assertIn("/health/ready/", release_tasks)
         self.assertIn("/accounts/login/", release_tasks)
-        self.assertIn("timeout 扱い", release_tasks)
+        self.assertNotIn("timeout 扱い", release_tasks)
+        self.assertNotIn("1120件 OK", release_tasks)
         self.assertNotIn("1092件", release_tasks)
         self.assertNotIn("1099件", release_tasks)
 

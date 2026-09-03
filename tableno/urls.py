@@ -55,6 +55,7 @@ from accounts.views.billing_views import (
     StripeWebhookView,
 )
 from scenarios.views import scenario_public_view
+from schedules.google_sheets import SHEETS_DEFAULT_DISPLAY_RANGE
 from schedules.guest_views import (
     GuestInvitationCreateView,
     GuestInvitationLandingView,
@@ -300,7 +301,12 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path(
         "integrations/",
-        login_required(TemplateView.as_view(template_name="integrations/settings.html")),
+        login_required(
+            TemplateView.as_view(
+                template_name="integrations/settings.html",
+                extra_context={"sheets_default_range": SHEETS_DEFAULT_DISPLAY_RANGE},
+            )
+        ),
         name="integration-settings",
     ),
     path(

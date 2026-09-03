@@ -141,7 +141,7 @@ class CharacterImageAPITestCase(APITestCase):
         self.assertEqual(CharacterImage.objects.count(), 1)
         self.assertTrue(response.data["is_main"])
         self.assertIn("image_url", response.data)
-        self.assertIn("thumbnail_url", response.data)
+        self.assertNotIn("thumbnail_url", response.data)
 
     def test_upload_multiple_images(self):
         """通常ユーザーは2枚まで複数画像をアップロードできる"""

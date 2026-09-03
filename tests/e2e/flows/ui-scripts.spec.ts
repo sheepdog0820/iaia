@@ -13,6 +13,7 @@ function trackJsErrors(page: Page): JsErrorTracker {
     /downloadable font/i,
     /fonts\.gstatic\.com/i,
     /fonts\.googleapis\.com/i,
+    /i\.ytimg\.com/i,
   ];
 
   page.on('pageerror', error => {
@@ -154,19 +155,21 @@ test.describe('ui script health', () => {
     await expect(page.locator('#newSessionModal')).toHaveClass(/show/);
     await closeBootstrapModal(page, 'newSessionModal');
     await waitForSpinnerToDisappear(page, '#upcomingSessions');
+    await page.waitForLoadState('networkidle');
     tracker.assertNoErrors('calendar');
 
     await page.goto('/api/schedules/sessions/view/');
     await expect(page.locator('h1')).toContainText("R'lyeh Log");
     await waitForSpinnerToDisappear(page, '#statsContainer');
-    await waitForSpinnerToDisappear(page, '#sessionsList');
+    await waitForSpinnerToDisappear(page, '#mySessionsList');
     tracker.assertNoErrors('sessions');
 
     const sessionId = await fetchFirstId(page, '/api/schedules/sessions/');
     if (sessionId) {
       await page.goto(`/api/schedules/sessions/${sessionId}/detail/`);
-      await expect(page.locator('.breadcrumb')).toBeVisible();
-      await expect(page.locator('.card-header h3')).toBeVisible();
+      await expect(page.locator('nav[aria-label="セッション操作"]')).toBeVisible();
+      await expect(page.locator('#sessionOverviewCard .card-header h3')).toBeVisible();
+      await page.waitForLoadState('networkidle');
       tracker.assertNoErrors('session detail');
     }
 

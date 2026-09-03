@@ -1,9 +1,11 @@
 import io
 import tempfile
 from datetime import timedelta
+from io import StringIO
 from unittest.mock import Mock, patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -92,6 +94,56 @@ class CharacterBackgroundRemovalTests(TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertEqual(BackgroundRemovalJob.objects.filter(user=self.user).count(), 1)
         start_task.assert_not_called()
+
+    @override_settings(BACKGROUND_REMOVAL_DAILY_LIMIT=10)
+    @patch("accounts.views.character_image_views.start_background_removal_task", autospec=True)
+    def test_daily_background_removal_limit_is_enforced_per_user(self, start_task):
+        self.user.is_premium = True
+        self.user.save(update_fields=["is_premium"])
+        for index in range(10):
+            BackgroundRemovalJob.objects.create(
+                user=self.user,
+                status=(BackgroundRemovalJob.Status.FAILED if index == 0 else BackgroundRemovalJob.Status.COMPLETED),
+                original_filename=f"portrait-{index}.jpg",
+            )
+        other_user = CustomUser.objects.create_user(username="other-premium-user")
+        BackgroundRemovalJob.objects.create(user=other_user, status=BackgroundRemovalJob.Status.COMPLETED)
+
+        response = self.client.post(
+            reverse("character-image-remove-background"),
+            {"image": self.image_upload("over-limit.jpg")},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.data["daily_limit"], 10)
+        self.assertEqual(response.data["used_count"], 10)
+        self.assertIn("本日の背景透過処理回数の上限（10回）に達しました", response.data["error"])
+        self.assertTrue(response.data["reset_at"].endswith("+09:00"))
+        self.assertGreater(int(response["Retry-After"]), 0)
+        self.assertEqual(BackgroundRemovalJob.objects.filter(user=self.user).count(), 10)
+        start_task.assert_not_called()
+
+    @override_settings(BACKGROUND_REMOVAL_DAILY_LIMIT=1)
+    @patch("accounts.views.character_image_views.start_background_removal_task", autospec=True)
+    def test_previous_day_background_removal_does_not_count_toward_daily_limit(self, start_task):
+        self.user.is_premium = True
+        self.user.save(update_fields=["is_premium"])
+        previous = BackgroundRemovalJob.objects.create(
+            user=self.user,
+            status=BackgroundRemovalJob.Status.FAILED,
+        )
+        BackgroundRemovalJob.objects.filter(pk=previous.pk).update(created_at=timezone.now() - timedelta(days=1))
+
+        response = self.client.post(
+            reverse("character-image-remove-background"),
+            {"image": self.image_upload("today.jpg")},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(BackgroundRemovalJob.objects.filter(user=self.user).count(), 2)
+        start_task.assert_called_once()
 
     @override_settings(BACKGROUND_REMOVAL_JOB_TIMEOUT_SECONDS=60)
     @patch("accounts.views.character_image_views.start_background_removal_task", autospec=True)
@@ -286,6 +338,139 @@ class CharacterBackgroundRemovalTests(TestCase):
 
         job.refresh_from_db()
         self.assertEqual(job.task_arn, "")
+
+    @override_settings(
+        BACKGROUND_REMOVAL_RESULT_RETENTION_HOURS=24,
+        BACKGROUND_REMOVAL_JOB_RETENTION_DAYS=7,
+    )
+    def test_cleanup_removes_expired_result_but_keeps_recent_job_record(self):
+        from accounts.background_removal_tasks import cleanup_background_removal_jobs
+
+        now = timezone.now()
+        job = BackgroundRemovalJob.objects.create(
+            user=self.user,
+            status=BackgroundRemovalJob.Status.COMPLETED,
+        )
+        job.result_image.save(
+            "expired-result.png",
+            SimpleUploadedFile("expired-result.png", self.transparent_png()),
+        )
+        result_name = job.result_image.name
+        BackgroundRemovalJob.objects.filter(pk=job.pk).update(updated_at=now - timedelta(hours=25))
+        job.refresh_from_db()
+        completed_at = job.updated_at
+
+        summary = cleanup_background_removal_jobs(now=now)
+
+        job.refresh_from_db()
+        self.assertFalse(job.result_image)
+        self.assertEqual(job.updated_at, completed_at)
+        self.assertFalse(job.result_image.storage.exists(result_name))
+        self.assertEqual(summary["deleted_result_images"], 1)
+        self.assertEqual(summary["deleted_jobs"], 0)
+
+    @override_settings(
+        BACKGROUND_REMOVAL_JOB_TIMEOUT_SECONDS=60,
+        BACKGROUND_REMOVAL_RESULT_RETENTION_HOURS=24,
+        BACKGROUND_REMOVAL_JOB_RETENTION_DAYS=7,
+    )
+    def test_cleanup_fails_stale_active_job_before_applying_retention(self):
+        from accounts.background_removal_tasks import cleanup_background_removal_jobs
+
+        now = timezone.now()
+        job = BackgroundRemovalJob.objects.create(
+            user=self.user,
+            status=BackgroundRemovalJob.Status.RUNNING,
+            source_image=self.image_upload("stale-source.jpg"),
+        )
+        BackgroundRemovalJob.objects.filter(pk=job.pk).update(updated_at=now - timedelta(minutes=2))
+
+        summary = cleanup_background_removal_jobs(now=now)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, BackgroundRemovalJob.Status.FAILED)
+        self.assertFalse(job.source_image)
+        self.assertEqual(summary["timed_out_jobs"], 1)
+        self.assertEqual(summary["deleted_jobs"], 0)
+
+    @override_settings(
+        BACKGROUND_REMOVAL_RESULT_RETENTION_HOURS=24,
+        BACKGROUND_REMOVAL_JOB_RETENTION_DAYS=7,
+    )
+    def test_cleanup_deletes_expired_terminal_job_and_all_files(self):
+        from accounts.background_removal_tasks import cleanup_background_removal_jobs
+
+        now = timezone.now()
+        job = BackgroundRemovalJob.objects.create(
+            user=self.user,
+            status=BackgroundRemovalJob.Status.FAILED,
+            source_image=self.image_upload("expired-source.jpg"),
+        )
+        job.result_image.save(
+            "expired-job-result.png",
+            SimpleUploadedFile("expired-job-result.png", self.transparent_png()),
+        )
+        source_name = job.source_image.name
+        result_name = job.result_image.name
+        storage = job.result_image.storage
+        BackgroundRemovalJob.objects.filter(pk=job.pk).update(updated_at=now - timedelta(days=8))
+
+        summary = cleanup_background_removal_jobs(now=now)
+
+        self.assertFalse(BackgroundRemovalJob.objects.filter(pk=job.pk).exists())
+        self.assertFalse(storage.exists(source_name))
+        self.assertFalse(storage.exists(result_name))
+        self.assertEqual(summary["deleted_jobs"], 1)
+
+    @override_settings(
+        BACKGROUND_REMOVAL_RESULT_RETENTION_HOURS=24,
+        BACKGROUND_REMOVAL_JOB_RETENTION_DAYS=7,
+    )
+    def test_cleanup_keeps_job_when_storage_deletion_fails(self):
+        from accounts.background_removal_tasks import cleanup_background_removal_jobs
+
+        now = timezone.now()
+        job = BackgroundRemovalJob.objects.create(
+            user=self.user,
+            status=BackgroundRemovalJob.Status.COMPLETED,
+        )
+        job.result_image.save(
+            "undeletable-result.png",
+            SimpleUploadedFile("undeletable-result.png", self.transparent_png()),
+        )
+        BackgroundRemovalJob.objects.filter(pk=job.pk).update(updated_at=now - timedelta(days=8))
+
+        with patch.object(job.result_image.storage, "delete", side_effect=OSError("storage unavailable")):
+            summary = cleanup_background_removal_jobs(now=now)
+
+        job.refresh_from_db()
+        self.assertTrue(job.result_image)
+        self.assertEqual(summary["failed_jobs"], 1)
+        self.assertEqual(summary["deleted_jobs"], 0)
+
+    @override_settings(
+        BACKGROUND_REMOVAL_RESULT_RETENTION_HOURS=24,
+        BACKGROUND_REMOVAL_JOB_RETENTION_DAYS=7,
+    )
+    def test_cleanup_management_command_supports_dry_run(self):
+        job = BackgroundRemovalJob.objects.create(
+            user=self.user,
+            status=BackgroundRemovalJob.Status.COMPLETED,
+        )
+        BackgroundRemovalJob.objects.filter(pk=job.pk).update(updated_at=timezone.now() - timedelta(days=8))
+        stdout = StringIO()
+
+        call_command("cleanup_background_removal_jobs", "--dry-run", stdout=stdout)
+
+        self.assertTrue(BackgroundRemovalJob.objects.filter(pk=job.pk).exists())
+        self.assertIn("削除対象ジョブ: 1件", stdout.getvalue())
+
+    def test_background_removal_cleanup_is_registered_with_celery_beat(self):
+        from django.conf import settings
+
+        entry = settings.CELERY_BEAT_SCHEDULE["cleanup-background-removal-jobs"]
+        self.assertEqual(entry["task"], "accounts.tasks.cleanup_background_removal_jobs")
+        self.assertEqual(entry["schedule"], 3600.0)
 
     def test_character_name_kana_is_serialized(self):
         character = CharacterSheet.objects.create(user=self.user, edition="6th")

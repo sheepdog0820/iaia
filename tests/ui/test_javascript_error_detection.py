@@ -256,7 +256,7 @@ if SELENIUM_AVAILABLE:
 
             # Try to submit (will be blocked by validation)
             submit_btn = WebDriverWait(self.selenium, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[type="submit"]'))
+                EC.element_to_be_clickable((By.ID, "footerSaveCharacter"))
             )
             self.selenium.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_btn)
             self.selenium.execute_script("arguments[0].click();", submit_btn)

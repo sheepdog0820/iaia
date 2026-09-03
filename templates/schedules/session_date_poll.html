@@ -237,7 +237,7 @@
 <script>
 const SESSION_ID = {{ session.id }};
 const GROUP_ID = {{ session.group.id }};
-const IS_GM = {% if is_gm %}true{% else %}false{% endif %};
+const CAN_MANAGE_DATE_POLL = {% if can_edit %}true{% else %}false{% endif %};
 const IS_PUBLIC_VIEW = false;
 const SESSION_DATE_IS_SET = {% if session.date %}true{% else %}false{% endif %};
 let ACTIVE_DATE_POLL_ID = null;
@@ -429,8 +429,8 @@ function renderDatePollCreateForm() {
         `;
     }
 
-    if (!IS_GM) {
-        return '<span class="text-muted small">GMが日程募集を開始するまでお待ちください。</span>';
+    if (!CAN_MANAGE_DATE_POLL) {
+        return '<span class="text-muted small">セッション管理者が日程募集を開始するまでお待ちください。</span>';
     }
 
     return `
@@ -494,7 +494,7 @@ async function loadDatePollSection() {
 
         if (!poll) {
             container.innerHTML = renderDatePollCreateForm();
-            if (IS_GM && !SESSION_DATE_IS_SET) addDatePollCreateOptionRow();
+            if (CAN_MANAGE_DATE_POLL && !SESSION_DATE_IS_SET) addDatePollCreateOptionRow();
             ACTIVE_DATE_POLL_ID = null;
             await loadDatePollComments(null);
             return;
@@ -600,7 +600,7 @@ async function loadDatePollSection() {
                                 ${voteButton('maybe', '△', 'warning')}
                                 ${voteButton('unavailable', '✕', 'danger')}
                             </div>
-                            ${IS_GM && !poll.is_closed ? `
+                            ${CAN_MANAGE_DATE_POLL && !poll.is_closed ? `
                                 <button type="button" class="btn btn-sm btn-primary" onclick="confirmDatePollOption(${poll.id}, ${option.id})">
                                     <i class="fas fa-check"></i> 確定
                                 </button>
@@ -680,7 +680,7 @@ async function loadDatePollSection() {
 }
 
 window.createDatePollForSession = async function() {
-    if (!IS_GM || SESSION_DATE_IS_SET) return;
+    if (!CAN_MANAGE_DATE_POLL || SESSION_DATE_IS_SET) return;
     const title = document.getElementById('datePollCreateTitle')?.value?.trim() || '日程募集';
     const description = document.getElementById('datePollCreateDescription')?.value || '';
     const optionRows = Array.from(document.querySelectorAll('#datePollCreateOptions .date-poll-option-row'));
@@ -743,7 +743,7 @@ window.voteDatePollOption = async function(pollId, optionId, status) {
 };
 
 window.confirmDatePollOption = async function(pollId, optionId) {
-    if (!IS_GM) return;
+    if (!CAN_MANAGE_DATE_POLL) return;
     const confirmed = await datePollConfirm('この候補日で確定しますか？', {
         title: '候補日を確定',
         confirmText: '確定する',

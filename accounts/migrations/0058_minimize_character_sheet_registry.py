@@ -47,23 +47,59 @@ LEGACY_CHARACTER_FIELDS = [
 ]
 
 
+def _existing_columns(connection, table_name):
+    with connection.cursor() as cursor:
+        return {column.name for column in connection.introspection.get_table_description(cursor, table_name)}
+
+
+def _remove_sqlite_fields(model, schema_editor, fields):
+    """Drop the legacy SQLite columns without repeatedly rebuilding the table."""
+    connection = schema_editor.connection
+    table_name = model._meta.db_table
+    quote_name = schema_editor.quote_name
+    target_columns = {field.column for field in fields}
+
+    with connection.cursor() as cursor:
+        constraints = connection.introspection.get_constraints(cursor, table_name)
+    for name, constraint in constraints.items():
+        columns = set(constraint.get("columns") or ())
+        if constraint.get("index") and columns & target_columns and not name.startswith("sqlite_autoindex"):
+            schema_editor.execute(f"DROP INDEX {quote_name(name)}")
+
+    existing_columns = _existing_columns(connection, table_name)
+    for field in fields:
+        if field.column not in existing_columns:
+            continue
+        schema_editor.execute(f"ALTER TABLE {quote_name(table_name)} DROP COLUMN {quote_name(field.column)}")
+        existing_columns.remove(field.column)
+
+
+def remove_legacy_character_fields(apps, schema_editor):
+    """Remove legacy registry fields using operations supported by each backend."""
+    model = apps.get_model("accounts", "CharacterSheet")
+    fields = [model._meta.get_field(field_name) for field_name in LEGACY_CHARACTER_FIELDS]
+
+    if schema_editor.connection.vendor == "sqlite":
+        _remove_sqlite_fields(model, schema_editor, fields)
+        return
+
+    existing_columns = _existing_columns(schema_editor.connection, model._meta.db_table)
+    for field in fields:
+        if field.column not in existing_columns:
+            continue
+        schema_editor.remove_field(model, field)
+        existing_columns.remove(field.column)
+
+
 class Migration(migrations.Migration):
     dependencies = [("accounts", "0057_move_registry_metadata_to_system_data")]
 
     operations = [
         migrations.SeparateDatabaseAndState(
             database_operations=[
-                migrations.RunSQL(
-                    [
-                        "DROP INDEX IF EXISTS accounts_charactersheet_parent_sheet_id_33a094b8",
-                        "DROP INDEX IF EXISTS accounts_charactersheet_source_scenario_id_907c2455",
-                    ]
-                    + [
-                        "ALTER TABLE accounts_charactersheet DROP COLUMN "
-                        + {"parent_sheet": "parent_sheet_id", "source_scenario": "source_scenario_id"}.get(field, field)
-                        for field in LEGACY_CHARACTER_FIELDS
-                    ],
-                    reverse_sql=migrations.RunSQL.noop,
+                migrations.RunPython(
+                    remove_legacy_character_fields,
+                    reverse_code=migrations.RunPython.noop,
                 ),
             ],
             state_operations=[

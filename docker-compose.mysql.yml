@@ -38,8 +38,10 @@ services:
     env_file:
       - ${ENV_FILE:-.env.production}
     environment:
-      APP_ENV: ${APP_ENV:-aws-prod}
+      APP_ENV: ${MYSQL_APP_ENV:-aws-prod}
       DB_ENGINE: mysql
+      DB_PORT: "3306"
+      ENV_FILE: /dev/null
     depends_on:
       db:
         condition: service_healthy
@@ -55,8 +57,10 @@ services:
     env_file:
       - ${ENV_FILE:-.env.production}
     environment:
-      APP_ENV: ${APP_ENV:-aws-prod}
+      APP_ENV: ${MYSQL_APP_ENV:-aws-prod}
       DB_ENGINE: mysql
+      DB_PORT: "3306"
+      ENV_FILE: /dev/null
     depends_on:
       db:
         condition: service_healthy
@@ -72,8 +76,10 @@ services:
     env_file:
       - ${ENV_FILE:-.env.production}
     environment:
-      APP_ENV: ${APP_ENV:-aws-prod}
+      APP_ENV: ${MYSQL_APP_ENV:-aws-prod}
       DB_ENGINE: mysql
+      DB_PORT: "3306"
+      ENV_FILE: /dev/null
     depends_on:
       db:
         condition: service_healthy

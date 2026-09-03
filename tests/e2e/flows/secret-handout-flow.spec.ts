@@ -45,6 +45,7 @@ test.describe('handout flow', () => {
         group: group.id,
         visibility: 'group',
         date: '2030-01-01T19:00:00Z',
+        as_gm: true,
       });
       return { group, session: sessionResp.data };
     }, { groupName, sessionTitle });
@@ -82,9 +83,9 @@ test.describe('handout flow', () => {
       await page.click('button[data-bs-target="#createHandoutModal"]');
       await expect(page.locator('#createHandoutModal')).toHaveClass(/show/);
 
-      const participantId = await page.locator('#handout_participant option').nth(1).getAttribute('value');
+      const participantId = await page.locator('#handout_participant option').last().getAttribute('value');
       expect(participantId).toBeTruthy();
-      await page.selectOption('#handout_participant', participantId!);
+      await page.selectOption('#handout_participant', String(participantId));
 
       const handoutTitle = `E2E Secret Handout ${timestamp}`;
       await page.fill('#handout_title', handoutTitle);
@@ -107,7 +108,7 @@ test.describe('handout flow', () => {
       await expect(handoutBox.locator('i.fa-eye-slash')).toBeVisible();
 
       await player1Page.reload({ waitUntil: 'domcontentloaded' });
-      await expect(player1Page.locator(`text=${handoutTitle}`)).toBeVisible({ timeout: 15000 });
+      await expect(player1Page.getByText(handoutTitle).first()).toBeVisible({ timeout: 15000 });
 
       await devLogin(player2Page, 'investigator2', '/accounts/groups/view/?show_test_data=1');
       await joinPublicGroup(player2Page, groupName, group.id);

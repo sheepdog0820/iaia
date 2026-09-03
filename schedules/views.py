@@ -243,14 +243,11 @@ def _participant_role_values(participant):
 
 def _participant_primary_role(participant):
     roles = _participant_role_values(participant)
-    gm_roles = {
-        SessionParticipantRole.Role.OWNER.value,
-        SessionParticipantRole.Role.MANAGER.value,
-        SessionParticipantRole.Role.GM.value,
-    }
-    if roles & gm_roles:
+    if SessionParticipantRole.Role.GM.value in roles:
         return SessionParticipantRole.Role.GM.value
-    return SessionParticipantRole.Role.PLAYER.value
+    if SessionParticipantRole.Role.PLAYER.value in roles:
+        return SessionParticipantRole.Role.PLAYER.value
+    return None
 
 
 def _roles_from_request_data(data, *, default_roles=None):
@@ -315,6 +312,32 @@ def _attach_participant_role_flags(participants):
 
 def _sync_participant_roles(participant, roles, *, granted_by=None):
     return session_permissions.set_participant_roles(participant, roles, granted_by=granted_by)
+
+
+def _sync_legacy_gm_for_roles(participant, roles):
+    session = participant.session
+    roles = set(roles)
+    if participant.user_id and SessionParticipantRole.Role.GM.value in roles:
+        if session.gm_id != participant.user_id:
+            session.gm = participant.user
+            session.save(update_fields=["gm", "updated_at"])
+        return
+
+    if session.gm_id != participant.user_id:
+        return
+
+    replacement = (
+        SessionParticipant.objects.filter(
+            session=session,
+            user__isnull=False,
+            participant_roles__role=SessionParticipantRole.Role.GM,
+        )
+        .exclude(pk=participant.pk)
+        .select_related("user")
+        .first()
+    )
+    session.gm = replacement.user if replacement else None
+    session.save(update_fields=["gm", "updated_at"])
 
 
 def _handout_player_slot_options(handouts, *, include_titles=True):
@@ -483,7 +506,7 @@ class SessionsListView(APIView):
             "has_previous": offset > 0,
         }
 
-        return render(request, "schedules/sessions_list.html", context)
+        return render(request, "schedules/sessions.html", context)
 
 
 class TRPGSessionViewSet(viewsets.ModelViewSet):
@@ -625,6 +648,9 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         for participant in participants:
             if participant.user_id is None:
                 continue
+            participant_role = _participant_primary_role(participant)
+            if participant_role is None:
+                continue
             played_at = session.date
             if not played_at:
                 occurrence = session.occurrences.order_by("start_at", "id").first()
@@ -634,7 +660,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             PlayHistory.objects.get_or_create(
                 user=participant.user,
                 session=session,
-                role=_participant_primary_role(participant),
+                role=participant_role,
                 defaults={
                     "scenario": scenario,
                     "played_date": played_at,
@@ -804,21 +830,18 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         except (SessionParticipant.DoesNotExist, TypeError, ValueError):
             return Response({"error": "Participant not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        if participant.user_id == session.created_by_id:
-            return Response({"error": "The session creator role cannot be changed"}, status=status.HTTP_400_BAD_REQUEST)
-
+        is_creator = participant.user_id == session.created_by_id
         try:
             desired_roles = session_permissions.normalize_assignable_participant_roles(
-                _roles_from_request_data(request.data)
+                _roles_from_request_data(request.data),
+                allow_empty=is_creator,
             )
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
             _sync_participant_roles(participant, desired_roles, granted_by=request.user)
-            if SessionParticipantRole.Role.GM.value in desired_roles and participant.user_id:
-                session.gm = participant.user
-                session.save(update_fields=["gm", "updated_at"])
+            _sync_legacy_gm_for_roles(participant, desired_roles)
 
         return Response(_session_permission_scope_payload(session))
 
@@ -930,9 +953,6 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                 except ValueError as exc:
                     return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-                if target_user.id == session.created_by_id:
-                    desired_roles = {SessionParticipantRole.Role.OWNER.value}
-
                 raw_slot = item.get("player_slot")
                 player_slot = None
                 if SessionParticipantRole.Role.PLAYER.value in desired_roles and raw_slot not in [
@@ -988,9 +1008,10 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
                         "character_sheet": character_sheet,
                     },
                 )
-                if gm_user_id and target_user.id != session.created_by_id and target_user.id == int(gm_user_id):
-                    desired_roles = {SessionParticipantRole.Role.GM.value}
+                if gm_user_id and target_user.id == int(gm_user_id):
+                    desired_roles.add(SessionParticipantRole.Role.GM.value)
                 _sync_participant_roles(participant, desired_roles, granted_by=request.user)
+                _sync_legacy_gm_for_roles(participant, desired_roles)
                 bind_slot_handouts_to_participant(participant)
                 updated_participants.append(participant)
 
@@ -1668,12 +1689,11 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
             return Response(
                 {"error": "Only a session manager can change participant role"}, status=status.HTTP_403_FORBIDDEN
             )
-        if role_change_requested and instance.user_id == instance.session.created_by_id:
-            return Response({"error": "The session creator role cannot be changed"}, status=status.HTTP_400_BAD_REQUEST)
         if role_change_requested:
             try:
                 self._participant_roles_for_save = session_permissions.normalize_assignable_participant_roles(
-                    _roles_from_request_data(request_payload)
+                    _roles_from_request_data(request_payload),
+                    allow_empty=instance.user_id == instance.session.created_by_id,
                 )
             except ValueError as exc:
                 return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -1765,18 +1785,14 @@ class SessionParticipantViewSet(viewsets.ModelViewSet):
         participant = serializer.save()
         roles = getattr(self, "_participant_roles_for_save", [SessionParticipantRole.Role.PLAYER])
         _sync_participant_roles(participant, roles, granted_by=self.request.user)
-        if SessionParticipantRole.Role.GM.value in roles and participant.user_id:
-            participant.session.gm = participant.user
-            participant.session.save(update_fields=["gm", "updated_at"])
+        _sync_legacy_gm_for_roles(participant, roles)
         bind_slot_handouts_to_participant(participant)
 
     def perform_update(self, serializer):
         participant = serializer.save()
         if hasattr(self, "_participant_roles_for_save"):
             _sync_participant_roles(participant, self._participant_roles_for_save, granted_by=self.request.user)
-            if SessionParticipantRole.Role.GM.value in self._participant_roles_for_save and participant.user_id:
-                participant.session.gm = participant.user
-                participant.session.save(update_fields=["gm", "updated_at"])
+            _sync_legacy_gm_for_roles(participant, self._participant_roles_for_save)
         bind_slot_handouts_to_participant(participant)
 
     def destroy(self, request, *args, **kwargs):
@@ -2873,7 +2889,15 @@ class SessionDetailView(APIView):
         is_gm = session_permissions.is_session_gm(user, session)
         is_co_gm = is_gm
         is_session_manager = session_permissions.can_edit_session_basic(user, session)
-        is_participant = participants.filter(user=user).exists()
+        user_participant = participants.filter(user=user).first()
+        user_roles = _participant_role_values(user_participant) if user_participant else set()
+        is_participant = bool(
+            user_roles
+            & {
+                SessionParticipantRole.Role.GM.value,
+                SessionParticipantRole.Role.PLAYER.value,
+            }
+        )
         can_edit = is_session_manager
         can_invite = session_permissions.can_manage_participants(user, session)
         can_join = (
@@ -2893,14 +2917,7 @@ class SessionDetailView(APIView):
             for participant in participants
             if participant.is_gm_role or (participant.user_id and participant.user_id == session.gm_id)
         ]
-        player_participants = [
-            participant
-            for participant in participants
-            if participant.is_player_role
-            and not participant.is_gm_role
-            and not participant.is_owner_role
-            and not participant.is_manager_role
-        ]
+        player_participants = [participant for participant in participants if participant.is_player_role]
         recommended_skill_comparison = None
         if session.scenario and (is_gm or is_participant):
             recommended_skill_comparison = build_recommended_skill_comparison(
@@ -3000,7 +3017,7 @@ class SessionDatePollView(APIView):
                 return Response({"error": "Permission denied"}, status=403)
             raise PermissionDenied("このセッションにアクセスする権限がありません")
 
-        is_gm = session_permissions.can_edit_session_basic(user, session)
+        is_gm = session_permissions.is_session_gm(user, session)
         is_participant = session.participants.filter(id=user.id).exists()
         can_edit = session_permissions.can_edit_session_basic(user, session)
 
@@ -3050,14 +3067,7 @@ class PublicSessionDetailView(APIView):
             for participant in participants
             if participant.is_gm_role or (participant.user_id and participant.user_id == session.gm_id)
         ]
-        player_participants = [
-            participant
-            for participant in participants
-            if participant.is_player_role
-            and not participant.is_gm_role
-            and not participant.is_owner_role
-            and not participant.is_manager_role
-        ]
+        player_participants = [participant for participant in participants if participant.is_player_role]
         guest_count = participants.filter(user__isnull=True).count()
 
         occurrences = session.occurrences.prefetch_related("participants").order_by("start_at", "id")

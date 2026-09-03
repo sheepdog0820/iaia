@@ -15,6 +15,8 @@ from scenarios.models import Scenario
 from schedules.duration import format_duration_hours
 from schedules.handout_access import can_view_handout
 
+from . import session_permissions
+
 
 def build_internal_character_url(request, character_sheet):
     path = reverse("character_detail", kwargs={"character_id": character_sheet.id})
@@ -575,12 +577,22 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
             if user and scenario is not None and not can_view_scenario(user, scenario):
                 raise serializers.ValidationError({"scenario": "参照できないシナリオは設定できません"})
 
-        if self.instance is not None and "scenario" in attrs:
-            current_scenario_id = self.instance.scenario_id
+        if "scenario" in attrs:
             next_scenario = attrs.get("scenario")
             next_scenario_id = next_scenario.id if next_scenario else None
-            if current_scenario_id != next_scenario_id:
-                if not getattr(user, "has_premium_access", False):
+            if self.instance is None:
+                raw_as_gm = request.data.get("as_gm", request.data.get("is_gm", False)) if request else False
+                self_as_gm = str(raw_as_gm).lower() in {"1", "true", "yes", "on"}
+                if next_scenario_id is not None and not self_as_gm:
+                    raise serializers.ValidationError(
+                        {"scenario": "関連シナリオを設定するには、自分をKP/GMに設定してください"}
+                    )
+            else:
+                current_scenario_id = self.instance.scenario_id
+                scenario_changed = current_scenario_id != next_scenario_id
+                if scenario_changed and not session_permissions.can_manage_secret_content(user, self.instance):
+                    raise serializers.ValidationError({"scenario": "関連シナリオを変更できるのはKP/GMのみです"})
+                if scenario_changed and not getattr(user, "has_premium_access", False):
                     raise serializers.ValidationError(
                         {"scenario": "シナリオ情報を変更するにはプレミアム権限が必要です"}
                     )
@@ -1368,8 +1380,8 @@ class DatePollCreateSerializer(serializers.ModelSerializer):
         if session:
             if group and session.group_id != group.id:
                 raise serializers.ValidationError({"session": "セッションと日程調整のグループが一致しません"})
-            if user and user.is_authenticated and session.gm_id != user.id:
-                raise serializers.ValidationError({"session": "セッションのGMのみが日程調整を作成できます"})
+            if user and user.is_authenticated and not session_permissions.can_edit_session_basic(user, session):
+                raise serializers.ValidationError({"session": "セッション管理者のみが日程調整を作成できます"})
             if session.date is not None:
                 raise serializers.ValidationError({"session": "日程が確定済みのセッションには日程調整を作成できません"})
             if DatePoll.objects.filter(session=session, is_closed=False).exists():

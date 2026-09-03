@@ -2,6 +2,8 @@
 
 TablenoのDocker起動手順です。Pythonランタイムは `Dockerfile` とCIに合わせて Python 3.11+ に統一しています。
 
+アプリイメージは既定でUID/GID `10001`の非rootユーザー`tableno`として動作します。LinuxやNASで`staticfiles`、`media`、`logs`をbind mountする場合は、ホスト側ディレクトリを同じUID/GIDから書き込み可能にしてください。環境に合わせる場合は`APP_UID`と`APP_GID`をビルド引数で指定します。
+
 ## 前提
 
 - Docker / Docker Compose
@@ -15,6 +17,10 @@ cp .env.compose.example .env.compose
 cp .env.docker.example .env.docker
 # 必要に応じて .env.compose の ENV_FILE を .env.development などへ変更します
 docker compose --env-file .env.compose up --build
+```
+
+```bash
+docker compose build --build-arg APP_UID=10001 --build-arg APP_GID=10001
 ```
 
 起動後に必要な管理コマンドを実行します。
@@ -31,14 +37,14 @@ docker compose --env-file .env.compose exec web python manage.py create_sample_d
 
 ```bash
 # Staging
-APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml run --rm web python manage.py migrate --noinput
-APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml run --rm web python manage.py collectstatic --noinput
-APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
+MYSQL_APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml run --rm web python manage.py migrate --noinput
+MYSQL_APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml run --rm web python manage.py collectstatic --noinput
+MYSQL_APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
 
 # Production
-APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml run --rm web python manage.py migrate --noinput
-APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml run --rm web python manage.py collectstatic --noinput
-APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
+MYSQL_APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml run --rm web python manage.py migrate --noinput
+MYSQL_APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml run --rm web python manage.py collectstatic --noinput
+MYSQL_APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
 ```
 
 ## よく使うコマンド
@@ -63,5 +69,5 @@ ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml exec web pyt
 - Composeの `.env.compose` とDjangoが読む `ENV_FILE` は用途が異なります。
 - 開発用Composeは `.env.compose` から `ENV_FILE` を渡し、Django側のサンプルenvとして `.env.docker.example` を使います。
 - Composeの `env_file` 側で `SECRET_KEY` などに `$` を含める場合、Composeの変数展開対象になるファイルでは `$$` にエスケープしてください。
-- `APP_ENV=aws-pre` / `APP_ENV=aws-prod` は `tableno.settings_production` を使います。
+- `MYSQL_APP_ENV=aws-pre` / `MYSQL_APP_ENV=aws-prod` はコンテナ内の`APP_ENV`へ渡され、`tableno.settings_production`を使います。
 - 本番/ステージング相当では、Web/Celeryコンテナ起動時に自動で `migrate` や `collectstatic` を実行しない前提です。

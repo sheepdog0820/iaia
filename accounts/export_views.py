@@ -6,7 +6,7 @@ from schedules.duration import effective_duration_expression
 import csv
 import json
 import logging
-from io import BytesIO, StringIO
+from io import StringIO
 
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
@@ -33,18 +33,6 @@ class PassthroughCSVRenderer(BaseRenderer):
         return data
 
 
-class PassthroughPDFRenderer(BaseRenderer):
-    media_type = "application/pdf"
-    format = "pdf"
-
-    def render(self, data, accepted_media_type=None, renderer_context=None):
-        return data
-
-
-def build_placeholder_pdf():
-    return b"%PDF-1.4\n% Placeholder PDF\n%%EOF\n"
-
-
 class ExportStatisticsView(APIView):
     """統計データエクスポートビュー"""
 
@@ -53,12 +41,11 @@ class ExportStatisticsView(APIView):
         JSONRenderer,
         BrowsableAPIRenderer,
         PassthroughCSVRenderer,
-        PassthroughPDFRenderer,
     ]
 
     def get(self, request):
         """エクスポート形式とデータタイプに基づいてデータをエクスポート"""
-        export_format = request.query_params.get("format", "csv")  # csv, json, pdf
+        export_format = request.query_params.get("format", "csv")  # csv, json
         data_type = request.query_params.get("type", "tindalos")  # tindalos, ranking, groups
         year = request.query_params.get("year", timezone.now().year)
 
@@ -83,10 +70,8 @@ class ExportStatisticsView(APIView):
             return self._export_tindalos_csv(data, year)
         elif export_format == "json":
             return self._export_tindalos_json(data, year)
-        elif export_format == "pdf":
-            return self._export_tindalos_pdf(data, year)
         else:
-            return JsonResponse({"error": "Invalid format"}, status=400)
+            return JsonResponse({"error": "未対応の形式です。対応形式: JSON, CSV"}, status=400)
 
     def _export_tindalos_csv(self, data, year):
         """Tindalos MetricsをCSV形式でエクスポート"""
@@ -182,86 +167,6 @@ class ExportStatisticsView(APIView):
         )
         return response
 
-    def _export_tindalos_pdf(self, data, year):
-        """Tindalos MetricsをPDF形式でエクスポート（簡易版）"""
-        try:
-            from reportlab.lib.pagesizes import A4
-            from reportlab.pdfbase import pdfmetrics
-            from reportlab.pdfbase.ttfonts import TTFont
-            from reportlab.pdfgen import canvas
-        except ImportError:
-            response = HttpResponse(build_placeholder_pdf(), content_type="application/pdf")
-            response["Content-Disposition"] = (
-                f'attachment; filename="tindalos_metrics_{year}_{timezone.now().strftime("%Y%m%d")}.pdf"'
-            )
-            return response
-
-        buffer = BytesIO()
-        p = canvas.Canvas(buffer, pagesize=A4)
-        width, height = A4
-
-        # タイトル
-        p.setFont("Helvetica-Bold", 16)
-        p.drawString(50, height - 50, f"タブレノ - Tindalos Metrics {year}")
-
-        # ユーザー情報
-        p.setFont("Helvetica", 12)
-        p.drawString(50, height - 80, f"User: {data['user']['nickname']}")
-        p.drawString(50, height - 100, f"Export Date: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-        # 年間統計
-        y_position = height - 140
-        p.setFont("Helvetica-Bold", 14)
-        p.drawString(50, y_position, "Annual Statistics")
-
-        y_position -= 30
-        p.setFont("Helvetica", 10)
-        yearly_stats = data["yearly_stats"]
-
-        stats_to_show = [
-            ("Total Sessions", yearly_stats.get("total_sessions", 0)),
-            ("Total Hours", yearly_stats.get("total_hours", 0)),
-            ("GM Sessions", yearly_stats.get("gm_sessions", 0)),
-            ("PL Sessions", yearly_stats.get("pl_sessions", 0)),
-            ("Completion Rate", f"{yearly_stats.get('completion_rate', 0)}%"),
-            ("Active Groups", yearly_stats.get("active_groups", 0)),
-        ]
-
-        for label, value in stats_to_show:
-            p.drawString(50, y_position, f"{label}: {value}")
-            y_position -= 20
-
-        # 月別統計（グラフの代わりに数値表示）
-        y_position -= 30
-        p.setFont("Helvetica-Bold", 14)
-        p.drawString(50, y_position, "Monthly Statistics")
-
-        y_position -= 20
-        p.setFont("Helvetica", 8)
-        p.drawString(50, y_position, "Month   Sessions   Hours")
-        y_position -= 15
-
-        for month_data in data["monthly_stats"]:
-            month_text = (
-                f"{month_data['month']:2d}      {month_data['session_count']:8d}   {month_data['total_hours']:6.1f}"
-            )
-            p.drawString(50, y_position, month_text)
-            y_position -= 12
-
-            # ページが足りなくなったら新しいページ
-            if y_position < 100:
-                p.showPage()
-                y_position = height - 50
-
-        p.save()
-        buffer.seek(0)
-
-        response = HttpResponse(buffer.read(), content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f'attachment; filename="tindalos_metrics_{year}_{timezone.now().strftime("%Y%m%d")}.pdf"'
-        )
-        return response
-
     def _export_ranking(self, request, export_format, year):
         """ランキングデータのエクスポート"""
         ranking_view = UserRankingView()
@@ -274,7 +179,7 @@ class ExportStatisticsView(APIView):
         elif export_format == "json":
             return self._export_ranking_json(data, year)
         else:
-            return JsonResponse({"error": "PDF not supported for ranking"}, status=400)
+            return JsonResponse({"error": "未対応の形式です。対応形式: JSON, CSV"}, status=400)
 
     def _export_ranking_csv(self, data, year):
         """ランキングをCSV形式でエクスポート"""
@@ -337,7 +242,7 @@ class ExportStatisticsView(APIView):
         elif export_format == "json":
             return self._export_groups_json(data, year)
         else:
-            return JsonResponse({"error": "PDF not supported for groups"}, status=400)
+            return JsonResponse({"error": "未対応の形式です。対応形式: JSON, CSV"}, status=400)
 
     def _export_groups_csv(self, data, year):
         """グループ統計をCSV形式でエクスポート"""
@@ -404,13 +309,6 @@ class ExportAvailableFormatsView(APIView):
 
     def get(self, request):
         """利用可能なエクスポート形式とデータタイプを返す"""
-        try:
-            from reportlab.pdfgen import canvas
-
-            pdf_available = True
-        except ImportError:
-            pdf_available = False
-
         return Response(
             {
                 "formats": {
@@ -419,12 +317,6 @@ class ExportAvailableFormatsView(APIView):
                         "name": "JSON",
                         "description": "JSON形式（プログラムでの処理に適しています）",
                         "available": True,
-                    },
-                    "pdf": {
-                        "name": "PDF",
-                        "description": "PDF形式（印刷や共有に適しています）",
-                        "available": pdf_available,
-                        "note": "ReportLabライブラリが必要です" if not pdf_available else None,
                     },
                 },
                 "data_types": {
@@ -445,7 +337,6 @@ class StatisticsExportView(APIView):
         JSONRenderer,
         BrowsableAPIRenderer,
         PassthroughCSVRenderer,
-        PassthroughPDFRenderer,
     ]
 
     def get(self, request):
@@ -454,7 +345,7 @@ class StatisticsExportView(APIView):
         /api/accounts/export/statistics/
 
         パラメータ:
-        - format: json, csv, pdf (デフォルト: json)
+        - format: json, csv (デフォルト: json)
         - start_date: YYYY-MM-DD (開始日)
         - end_date: YYYY-MM-DD (終了日)
         """
@@ -463,8 +354,8 @@ class StatisticsExportView(APIView):
         end_date = request.query_params.get("end_date")
 
         # フォーマットの検証
-        if export_format not in ["json", "csv", "pdf"]:
-            return Response({"error": "Invalid format. Supported formats: json, csv, pdf"}, status=400)
+        if export_format not in ["json", "csv"]:
+            return Response({"error": "未対応の形式です。対応形式: JSON, CSV"}, status=400)
 
         # 統計データの収集
         try:
@@ -481,8 +372,6 @@ class StatisticsExportView(APIView):
                 return self._export_json(statistics_data)
             elif export_format == "csv":
                 return self._export_csv(statistics_data)
-            elif export_format == "pdf":
-                return self._export_pdf(statistics_data)
         except Exception:
             logger.exception("Error exporting statistics data")
             return Response({"error": "Error exporting data"}, status=500)
@@ -778,89 +667,6 @@ class StatisticsExportView(APIView):
             logger.exception("CSV statistics export failed")
             raise
 
-    def _export_pdf(self, data):
-        """PDF形式でエクスポート"""
-        try:
-            from reportlab.lib.pagesizes import A4
-            from reportlab.lib.units import mm
-            from reportlab.pdfgen import canvas
-        except ImportError:
-            response = HttpResponse(build_placeholder_pdf(), content_type="application/pdf")
-            response["Content-Disposition"] = (
-                f'attachment; filename="statistics_export_{timezone.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
-            )
-            return response
-
-        buffer = BytesIO()
-        p = canvas.Canvas(buffer, pagesize=A4)
-        width, height = A4
-
-        # タイトル
-        p.setFont("Helvetica-Bold", 16)
-        p.drawString(50, height - 50, "タブレノ - Statistics Export")
-
-        # ユーザー情報
-        p.setFont("Helvetica", 12)
-        user_stats = data["user_statistics"]
-        p.drawString(50, height - 80, f"User: {user_stats['nickname']}")
-        p.drawString(50, height - 100, f"Export Date: {data['export_metadata']['export_date'][:10]}")
-
-        # 統計サマリー
-        y_pos = height - 140
-        p.setFont("Helvetica-Bold", 14)
-        p.drawString(50, y_pos, "Statistics Summary")
-
-        y_pos -= 30
-        p.setFont("Helvetica", 10)
-        summary_items = [
-            f"Total Sessions: {user_stats['total_sessions']}",
-            f"Total Play Time: {user_stats['total_play_time']} hours",
-            f"Scenarios Played: {user_stats['scenarios_played']}",
-            f"GM Sessions: {user_stats['gm_sessions']}",
-            f"Player Sessions: {user_stats['player_sessions']}",
-        ]
-
-        for item in summary_items:
-            p.drawString(50, y_pos, item)
-            y_pos -= 20
-
-        # プレイ履歴（最新10件）
-        y_pos -= 30
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(50, y_pos, "Recent Play History (Last 10 sessions)")
-
-        y_pos -= 20
-        p.setFont("Helvetica", 8)
-        p.drawString(50, y_pos, "Date       | Scenario                      | Role   | Hours")
-        y_pos -= 15
-
-        for history in data["play_history"][:10]:
-            date_str = history["played_date"][:10]
-            scenario = (
-                history["scenario_title"][:25] + "..."
-                if len(history["scenario_title"]) > 25
-                else history["scenario_title"]
-            )
-            role = history["role"]
-            hours = round(history["duration_minutes"] / 60, 1)
-
-            line = f"{date_str} | {scenario:<28} | {role:<6} | {hours}"
-            p.drawString(50, y_pos, line)
-            y_pos -= 12
-
-            if y_pos < 100:
-                p.showPage()
-                y_pos = height - 50
-
-        p.save()
-        buffer.seek(0)
-
-        response = HttpResponse(buffer.read(), content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f'attachment; filename="statistics_export_{timezone.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
-        )
-        return response
-
 
 class ExportFormatsView(APIView):
     """エクスポート形式一覧ビュー（新仕様）"""
@@ -869,13 +675,6 @@ class ExportFormatsView(APIView):
 
     def get(self, request):
         """利用可能なエクスポート形式一覧を返す"""
-        try:
-            from reportlab.pdfgen import canvas
-
-            pdf_available = True
-        except ImportError:
-            pdf_available = False
-
         formats = [
             {
                 "format": "json",
@@ -891,21 +690,13 @@ class ExportFormatsView(APIView):
                 "mime_type": "text/csv",
                 "available": True,
             },
-            {
-                "format": "pdf",
-                "name": "pdf",
-                "description": "PDF形式 - 印刷や共有に適しています",
-                "mime_type": "application/pdf",
-                "available": pdf_available,
-                "note": "ReportLabライブラリが必要です" if not pdf_available else None,
-            },
         ]
 
         response_payload = {
             "formats": formats,
             "default_format": "json",
             "supported_parameters": {
-                "format": ["json", "csv", "pdf"],
+                "format": ["json", "csv"],
                 "start_date": "YYYY-MM-DD format",
                 "end_date": "YYYY-MM-DD format",
             },

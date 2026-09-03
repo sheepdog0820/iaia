@@ -24,13 +24,11 @@ tests/
 - test_character_skill_calculation.py
 - test_character_validation.py
 - test_ability_limits_removed.py
-- test_form_submit.py
-- test_group_functionality.py
-- test_groups_debug.py
 - test_export_manual.py
 - test_api_debug.py
-- test_url_debug.py
 - test_js_errors.py
+
+旧フォーム送信・グループ・URLデバッグコードは自動テストではないため、`scripts/dev/`の手動診断スクリプトへ移動しました。正式な回帰テストは`accounts/`、`tests/unit/`、`tests/integration/`へ独立したfixtureとassertionを使って配置します。
 
 ### 統合テスト (tests/integration/)
 - test_integration.py

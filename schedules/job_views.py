@@ -8,28 +8,9 @@ from rest_framework.views import APIView
 
 from accounts.models import CharacterSheet
 
+from .google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_START_RANGE
 from .models import AsyncJob, GoogleCalendarSync
 from .tasks import queue_google_calendar_sync, queue_google_sheet_export
-
-SHEET_COLUMNS = [
-    "id",
-    "name",
-    "edition",
-    "age",
-    "occupation",
-    "STR",
-    "CON",
-    "POW",
-    "DEX",
-    "APP",
-    "SIZ",
-    "INT",
-    "EDU",
-    "HP",
-    "MP",
-    "SAN",
-    "LUCK",
-]
 
 
 class AsyncJobSerializer(serializers.ModelSerializer):
@@ -169,7 +150,7 @@ class AsyncJobRetryView(APIView):
                 {"detail": "The original Google Sheets export is missing spreadsheet_id."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        range_name = job.payload.get("range", "Characters!A1")
+        range_name = job.payload.get("range", SHEETS_DEFAULT_START_RANGE)
         retry_job = AsyncJob.objects.create(
             owner=request.user,
             job_type=job.job_type,

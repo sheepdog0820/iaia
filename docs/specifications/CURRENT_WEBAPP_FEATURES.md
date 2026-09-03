@@ -1,4 +1,4 @@
-# タブレノ（Tableno）現状のWEBアプリ機能一覧（2026-06-12 時点）
+# タブレノ（Tableno）現状のWEBアプリ機能一覧（2026-08-23 時点）
 
 この文書は、リポジトリ内の `urls.py` / モデル / テンプレート / 既存ドキュメントをもとに「現時点で利用できる機能」を整理したものです。
 
@@ -295,7 +295,9 @@
 - **内容**
   - セッション作成（タイトル、日時、予定時間、場所、説明、公開設定、関連シナリオ、YouTube配信URL）
   - セッション編集（同上）
-  - GM作成時、参加者としてGMを自動追加
+  - 作成者には管理用の `owner` ロールを自動付与し、GM参加は作成時に選択
+  - 作成者、GM、PLを独立して管理し、作成者はGM、PL、GM+PL、作成者のみのいずれも選択可能
+  - `owner` だけでは秘匿HO、GMメモ、GM向けシナリオ情報を閲覧・操作できない
   - カレンダー入力内容からテンプレートを即時登録
   - 現在の入力をテンプレート詳細編集画面へ引き継ぎ
 - **画面**
@@ -313,6 +315,7 @@
 - **内容**
   - 参加（join）
   - 退出（leave）
+  - 1人にGMとPLを同時付与できる複数ロール管理
   - プレイヤー枠（1〜4）と重複チェック
   - キャラクターシートの紐付け（参加者 → キャラ）
   - 協力GM（co-GM）追加
@@ -568,16 +571,15 @@
   - `/api/accounts/statistics/tindalos/detailed/`
 - **状態**: **完成**
 
-### 6.2 統計エクスポート（CSV/JSON/PDF）
+### 6.2 統計エクスポート（CSV/JSON）
 
 - **内容**
   - 統計をCSV/JSONでダウンロード
-  - PDFは `reportlab` が無い場合はプレースホルダPDFを返す挙動
 - **API（代表）**
-  - `/api/accounts/export/?type=tindalos&format=csv|json|pdf`
+  - `/api/accounts/export/?type=tindalos&format=csv|json`
   - `/api/accounts/export/?type=ranking&format=csv|json`
   - `/api/accounts/export/?type=groups&format=csv|json`
-- **状態**: **一部完成**（PDFは依存ライブラリ有無で品質が変動）
+- **状態**: **完成**
 
 ---
 
@@ -615,18 +617,15 @@
 
 ### 8.1 部分実装
 
-- **ゲスト参加**: GM登録、期限付き招待URL、参加表明、claim、監査ログを実装済み。横断募集ページは将来候補
+- **ゲスト参加**: GM登録、期限付き招待URL、参加表明、claim、監査ログを実装済み
 - **外部連携**: Discord OAuth/Webhook、iCal出力、購読ICS、Google Calendar片方向同期、Google Sheets固定列出力を実装済み。Beta/public exposure is governed by `docs/release/PUBLIC_RELEASE_TASKS.md`; Google Calendar/Sheets, advanced Discord notification operations, and WebSocket notification exposure require real external-service verification before broad rollout.
 - **Celery基盤**: worker/beat、業務タスク、AsyncJob進捗・結果管理を実装済み
 - **AWS運用**: ECS設定、Terraform、CloudWatch Alarm、メディア/DB移行、バックアップ復旧Runbookを実装済み。実AWS適用は別運用工程
 
 ### 8.2 正式な未実装課題
 
-- Google Calendar双方向同期と競合解決
-- 横断的な公開募集ページ
 - ネイティブモバイルアプリ
 - AI分析・推奨
-- モバイルアプリ、AI分析・推奨
 
 優先順位と受け入れ条件は `docs/archive/issues.md` を正本とします。
 

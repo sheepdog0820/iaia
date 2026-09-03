@@ -4,7 +4,7 @@
 
 ## 1. システム概要
 
-### 2026-06-12 Web機能完成追補
+### 2026-08-23 Web機能・権限モデル更新
 
 以下は現行実装です。下位節に残る過去の「未実装」表現より本節を優先します。
 
@@ -15,6 +15,8 @@
 - グループ招待URL（期限/失効/使用回数制限、ログイン後参加）
 - ゲスト招待URL、参加表明、claim、監査ログ
 - Django Channels通知とポーリングフォールバック
+- セッション作成者の `owner` と卓内の `gm` / `player` を独立して管理する複数ロール
+- 統計エクスポートはCSV/JSONのみ。PDF生成とキャラクター画像のサムネイル生成は提供しない
 
 正式な未実装範囲は `docs/archive/issues.md` と `docs/specifications/session/SESSION_UNIMPLEMENTED_FEATURES_SPEC.md` を正本とします。
 Web機能の受け入れから検証、課題クローズまでの手順は `docs/guidelines/WEB_FEATURE_COMPLETION_WORKFLOW.md` を正本とします。
@@ -245,7 +247,8 @@ tableno/
 - status: ステータス（planned/ongoing/completed/cancelled）
 - visibility: 可視性（private/group/link/public）
 - coc_edition: CoC版（6th/7th）
-- gm: GM（FK）
+- gm: 表示互換用の主GM（FK、nullable。権限判定は参加者の `gm` ロールを使用）
+- created_by: 作成者（FK、nullable）
 - group: グループ（FK）
 - scenario: シナリオ（FK、nullable）
 - series: 定期セッションシリーズ（FK、nullable）
@@ -257,10 +260,18 @@ tableno/
 **SessionParticipant（セッション参加者）**
 
 - session: セッション（FK）
-- user: ユーザー（FK）
-- role: 役割（gm/player）
+- user: ユーザー（FK、nullable）
+- participant_identity / guest_name: 仮参加者の識別情報
 - player_slot: プレイヤー枠（1-4）
 - character_sheet: キャラクターシート（FK、nullable）
+
+**SessionParticipantRole（セッション参加者ロール）**
+
+- participant: セッション参加者（FK）
+- role: `owner` / `manager` / `gm` / `player`
+- 同一参加者へ複数ロールを付与でき、参加者とロールの組み合わせは一意
+- 作成者には `owner` を必ず保持し、GM/PL兼任の有無とは独立して管理
+- 秘匿HO、GMメモ、GM向けシナリオ情報は `gm` ロールだけに許可
 
 **SessionInvitation（セッション招待）**
 
@@ -547,6 +558,9 @@ tableno/
 - シナリオ連携（任意）
   - シナリオからセッション作成時にscenario_idを保持
   - セッション詳細で元シナリオ情報を表示
+- 作成者には `owner` を自動付与し、作成時の `as_gm` 選択時だけ `gm` も付与
+- 作成者は `owner` のみ、`owner + gm`、`owner + player`、`owner + gm + player` の各状態を選択可能
+- 作成者・運用管理者・グループ管理者は基本情報、参加者、共有リンクを管理できるが、秘匿情報は `gm` のみに許可
 - **セッション画像機能**【✅ 実装済み】
   - 複数画像のアップロード（単体/一括）
   - 画像の表示順序管理
@@ -569,7 +583,8 @@ tableno/
 
 #### 3.3.2 参加者管理
 
-- GM/プレイヤー役割管理
+- 作成者・運用管理者・GM・PLの複数ロール管理
+- 同一参加者のGM/PL兼任
 - プレイヤー枠（1-4）と重複チェック
 - キャラクターシート直接紐付け
 - 協力GM（Co-GM）追加機能
@@ -974,7 +989,6 @@ tableno/
 - **エクスポート形式**
   - CSV形式（Excel互換）
   - JSON形式（プログラム処理用）
-  - PDF形式（レポート用、ReportLab使用）
 - **エクスポート対象**
   - Tindalos Metrics（個人統計）
   - ユーザーランキング

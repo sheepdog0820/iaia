@@ -4,7 +4,6 @@
 """
 
 import os
-import sys
 
 import django
 from django.contrib.auth import get_user_model
@@ -15,7 +14,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tableno.settings")
 django.setup()
 
 
-def test_groups_page_access():
+def inspect_groups_page_access():
     """グループページアクセステスト"""
     print("🔍 グループ管理ページアクセステスト開始...")
 
@@ -119,7 +118,7 @@ def main():
 
     check_url_patterns()
     check_template_exists()
-    test_groups_page_access()
+    inspect_groups_page_access()
 
     print("\n" + "=" * 60)
     print("🔧 デバッグ完了!")

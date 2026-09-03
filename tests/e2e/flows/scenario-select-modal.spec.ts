@@ -43,6 +43,7 @@ test.describe('character create scenario select modal', () => {
         duration_minutes: 60,
         group: groupId,
         scenario: scenarioId,
+        as_gm: true,
       });
     }, { scenarioId: scenario.id, groupId: group.id, sessionDate });
 

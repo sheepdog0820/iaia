@@ -77,15 +77,18 @@ class UnifiedSessionRoleServiceTestCase(TestCase):
         self.assertFalse(session_permissions.can_view_secret_content(self.manager, self.session))
         self.assertTrue(session_permissions.can_view_secret_content(self.gm, self.session))
 
-    def test_participant_role_is_single_and_observer_is_rejected(self):
+    def test_participant_roles_allow_gm_and_player_but_reject_observer(self):
         participant = session_permissions.create_participant(
             session=self.session,
             user=self.player,
             role=SessionParticipantRole.Role.PLAYER,
         )
 
-        session_permissions.set_participant_roles(participant, [SessionParticipantRole.Role.GM])
-        self.assertEqual(session_permissions.get_participant_role_values(participant), {"gm"})
+        session_permissions.set_participant_roles(
+            participant,
+            [SessionParticipantRole.Role.GM, SessionParticipantRole.Role.PLAYER],
+        )
+        self.assertEqual(session_permissions.get_participant_role_values(participant), {"gm", "player"})
 
         session_permissions.set_participant_roles(participant, [SessionParticipantRole.Role.PLAYER])
         self.assertEqual(session_permissions.get_participant_role_values(participant), {"player"})
@@ -149,7 +152,7 @@ class UnifiedSessionRoleApiTestCase(APITestCase):
         self.assertNotIn(self.manager.id, user_ids)
         self.assertNotIn(self.group_member.id, user_ids)
 
-    def test_permissions_api_switches_only_gm_and_player_roles(self):
+    def test_permissions_api_assigns_gm_and_player_roles_independently(self):
         response = self.client.patch(
             reverse("session-permissions", kwargs={"pk": self.session.id}),
             {"participant_id": self.player_participant.id, "roles": ["gm"]},
@@ -159,6 +162,17 @@ class UnifiedSessionRoleApiTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.player_participant.refresh_from_db()
         self.assertEqual(session_permissions.get_participant_role_values(self.player_participant), {"gm"})
+
+        both_response = self.client.patch(
+            reverse("session-permissions", kwargs={"pk": self.session.id}),
+            {"participant_id": self.player_participant.id, "roles": ["gm", "player"]},
+            format="json",
+        )
+        self.assertEqual(both_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            session_permissions.get_participant_role_values(self.player_participant),
+            {"gm", "player"},
+        )
 
         response = self.client.patch(
             reverse("session-permissions", kwargs={"pk": self.session.id}),

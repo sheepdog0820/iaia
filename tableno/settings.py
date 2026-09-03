@@ -198,20 +198,49 @@ WSGI_APPLICATION = "tableno.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-        "OPTIONS": {
-            # NOTE: Disable sqlite statement cache to avoid rare KeyError crashes under
-            # multi-threaded test servers (e.g. LiveServer/Selenium).
-            "cached_statements": 0,
-            "timeout": 20,
-        },
+DB_ENGINE = os.environ.get("DB_ENGINE", "sqlite").strip().lower()
+if DB_ENGINE in ("sqlite", "sqlite3"):
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+            "OPTIONS": {
+                # NOTE: Disable sqlite statement cache to avoid rare KeyError crashes under
+                # multi-threaded test servers (e.g. LiveServer/Selenium).
+                "cached_statements": 0,
+                "timeout": 20,
+            },
+        }
     }
-}
+elif DB_ENGINE in ("postgres", "postgresql"):
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("DB_NAME", "tableno"),
+            "USER": os.environ.get("DB_USER", "tableno"),
+            "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+            "HOST": os.environ.get("DB_HOST", "localhost"),
+            "PORT": os.environ.get("DB_PORT", "5432"),
+        }
+    }
+elif DB_ENGINE in ("mysql", "mariadb"):
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": os.environ.get("DB_NAME", "tableno"),
+            "USER": os.environ.get("DB_USER", "tableno"),
+            "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+            "HOST": os.environ.get("DB_HOST", "localhost"),
+            "PORT": os.environ.get("DB_PORT", "3306"),
+            "OPTIONS": {"charset": "utf8mb4"},
+        }
+    }
+else:
+    raise RuntimeError(f"Unsupported DB_ENGINE: {DB_ENGINE}")
 
-if "test" in sys.argv or "PYTEST_CURRENT_TEST" in os.environ or "pytest" in Path(sys.argv[0]).name.lower():
+if DB_ENGINE in ("sqlite", "sqlite3") and (
+    "test" in sys.argv or "PYTEST_CURRENT_TEST" in os.environ or "pytest" in Path(sys.argv[0]).name.lower()
+):
     DATABASES["default"].setdefault("TEST", {})
     DATABASES["default"]["TEST"]["NAME"] = BASE_DIR / "test_db.sqlite3"
 
@@ -459,6 +488,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "schedules.tasks.expire_premium_access",
         "schedule": 3600.0,
     },
+    "cleanup-background-removal-jobs": {
+        "task": "accounts.tasks.cleanup_background_removal_jobs",
+        "schedule": 3600.0,
+    },
     "sync-japanese-holidays-monthly": {
         "task": "schedules.tasks.sync_japanese_holidays",
         "schedule": crontab(minute=20, hour=3, day_of_month="1"),
@@ -621,6 +654,9 @@ BACKGROUND_REMOVAL_SUBNETS = _split_env_list(os.environ.get("BACKGROUND_REMOVAL_
 BACKGROUND_REMOVAL_SECURITY_GROUPS = _split_env_list(os.environ.get("BACKGROUND_REMOVAL_SECURITY_GROUPS", ""))
 BACKGROUND_REMOVAL_ASSIGN_PUBLIC_IP = _get_bool("BACKGROUND_REMOVAL_ASSIGN_PUBLIC_IP", default=False)
 BACKGROUND_REMOVAL_JOB_TIMEOUT_SECONDS = int(os.environ.get("BACKGROUND_REMOVAL_JOB_TIMEOUT_SECONDS", "900"))
+BACKGROUND_REMOVAL_DAILY_LIMIT = int(os.environ.get("BACKGROUND_REMOVAL_DAILY_LIMIT", "10"))
+BACKGROUND_REMOVAL_RESULT_RETENTION_HOURS = int(os.environ.get("BACKGROUND_REMOVAL_RESULT_RETENTION_HOURS", "24"))
+BACKGROUND_REMOVAL_JOB_RETENTION_DAYS = int(os.environ.get("BACKGROUND_REMOVAL_JOB_RETENTION_DAYS", "7"))
 
 # Scenario image limits are intentionally separate so premium limits can be
 # relaxed independently without changing the normal-user policy.

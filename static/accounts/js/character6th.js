@@ -2699,7 +2699,7 @@ function initOccupationTemplates() {
                     ${existingImages.map((image, index) => {
                         const isSelected = index === existingImageIndex;
                         const borderClass = isSelected ? 'active border-primary border-3' : 'border-secondary';
-                        const url = image.thumbnail_url || image.image_url;
+                        const url = image.image_url;
                         return `
                             <div class="col-6 col-sm-4">
                                 <div class="character-existing-image-card">

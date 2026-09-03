@@ -11,6 +11,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import Group, GroupMembership
+from scenarios.models import Scenario
 from schedules import session_permissions
 from schedules.models import (
     HandoutInfo,
@@ -88,15 +89,18 @@ class SessionRoleServiceTestCase(TestCase):
         self.assertTrue(session_permissions.can_manage_permissions(self.group_admin, self.session))
         self.assertFalse(session_permissions.can_view_secret_content(self.group_admin, self.session))
 
-    def test_participant_role_is_single_and_observer_is_rejected(self):
+    def test_participant_roles_allow_gm_and_player_but_reject_observer(self):
         participant = session_permissions.create_participant(
             session=self.session,
             user=self.player,
             role=SessionParticipantRole.Role.PLAYER,
         )
 
-        session_permissions.set_participant_roles(participant, [SessionParticipantRole.Role.GM])
-        self.assertEqual(session_permissions.get_participant_role_values(participant), {"gm"})
+        session_permissions.set_participant_roles(
+            participant,
+            [SessionParticipantRole.Role.GM, SessionParticipantRole.Role.PLAYER],
+        )
+        self.assertEqual(session_permissions.get_participant_role_values(participant), {"gm", "player"})
 
         session_permissions.set_participant_roles(participant, [SessionParticipantRole.Role.PLAYER])
         participant.refresh_from_db()
@@ -105,11 +109,6 @@ class SessionRoleServiceTestCase(TestCase):
 
         with self.assertRaises(ValueError):
             session_permissions.set_participant_roles(participant, ["observer"])
-        with self.assertRaises(ValueError):
-            session_permissions.set_participant_roles(
-                participant,
-                [SessionParticipantRole.Role.GM, SessionParticipantRole.Role.PLAYER],
-            )
 
     def test_create_session_with_permissions_creates_owner_participant_and_removes_permission_model(self):
         personal = session_permissions.create_session_with_permissions(
@@ -137,7 +136,7 @@ class SessionRoleServiceTestCase(TestCase):
 
         participant = SessionParticipant.objects.get(session=session, user=self.owner)
         self.assertEqual(session.gm_id, self.owner.id)
-        self.assertEqual(session_permissions.get_participant_role_values(participant), {"owner"})
+        self.assertEqual(session_permissions.get_participant_role_values(participant), {"gm", "owner"})
         self.assertTrue(session_permissions.is_session_gm(self.owner, session))
         self.assertTrue(session_permissions.can_view_secret_content(self.owner, session))
 
@@ -185,7 +184,41 @@ class SessionRoleApiTestCase(APITestCase):
         )
         self.client.force_authenticate(user=self.owner)
 
-    def test_session_creator_is_owner_and_cannot_be_changed_from_permissions_api(self):
+    def test_owner_without_gm_role_cannot_create_or_change_scenario_link(self):
+        self.owner.is_premium = True
+        self.owner.save(update_fields=["is_premium"])
+        scenario = Scenario.objects.create(
+            title="GM Only Scenario",
+            game_system="coc6",
+            created_by=self.owner,
+        )
+
+        create_response = self.client.post(
+            "/api/schedules/sessions/",
+            {
+                "title": "Owner Only Session",
+                "date": (timezone.now() + timedelta(days=3)).isoformat(),
+                "group": self.group.id,
+                "visibility": "group",
+                "scenario": scenario.id,
+                "as_gm": False,
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("scenario", create_response.data)
+
+        update_response = self.client.patch(
+            f"/api/schedules/sessions/{self.session.id}/",
+            {"scenario": scenario.id},
+            format="json",
+        )
+        self.assertEqual(update_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("scenario", update_response.data)
+        self.session.refresh_from_db()
+        self.assertIsNone(self.session.scenario_id)
+
+    def test_session_creator_keeps_owner_while_participation_roles_change(self):
         response = self.client.get(reverse("session-permissions", kwargs={"pk": self.session.id}))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -197,7 +230,33 @@ class SessionRoleApiTestCase(APITestCase):
             {"participant_id": owner_row["participant_id"], "roles": ["player"]},
             format="json",
         )
-        self.assertEqual(patch_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
+        owner_participant = SessionParticipant.objects.get(session=self.session, user=self.owner)
+        self.assertEqual(
+            session_permissions.get_participant_role_values(owner_participant),
+            {"owner", "player"},
+        )
+
+        both_response = self.client.patch(
+            reverse("session-permissions", kwargs={"pk": self.session.id}),
+            {"participant_id": owner_row["participant_id"], "roles": ["gm", "player"]},
+            format="json",
+        )
+        self.assertEqual(both_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            session_permissions.get_participant_role_values(owner_participant),
+            {"owner", "gm", "player"},
+        )
+        self.assertTrue(session_permissions.can_view_secret_content(self.owner, self.session))
+
+        owner_only_response = self.client.patch(
+            reverse("session-permissions", kwargs={"pk": self.session.id}),
+            {"participant_id": owner_row["participant_id"], "roles": []},
+            format="json",
+        )
+        self.assertEqual(owner_only_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(session_permissions.get_participant_role_values(owner_participant), {"owner"})
+        self.assertFalse(session_permissions.can_view_secret_content(self.owner, self.session))
 
     def test_permissions_scope_lists_participants_only_and_hides_internal_manager(self):
         session_permissions.create_participant(
@@ -218,7 +277,7 @@ class SessionRoleApiTestCase(APITestCase):
         self.assertNotIn(self.manager.id, user_ids)
         self.assertNotIn(self.group_member.id, user_ids)
 
-    def test_permissions_api_switches_player_between_gm_and_pl_only(self):
+    def test_permissions_api_assigns_gm_and_pl_independently(self):
         response = self.client.patch(
             reverse("session-permissions", kwargs={"pk": self.session.id}),
             {"participant_id": self.player_participant.id, "roles": ["gm"]},
@@ -231,6 +290,17 @@ class SessionRoleApiTestCase(APITestCase):
         self.assertEqual(session_permissions.get_participant_role_values(self.player_participant), {"gm"})
         self.assertEqual(self.session.gm_id, self.player.id)
 
+        both_response = self.client.patch(
+            reverse("session-permissions", kwargs={"pk": self.session.id}),
+            {"participant_id": self.player_participant.id, "roles": ["gm", "player"]},
+            format="json",
+        )
+        self.assertEqual(both_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            session_permissions.get_participant_role_values(self.player_participant),
+            {"gm", "player"},
+        )
+
         response = self.client.patch(
             reverse("session-permissions", kwargs={"pk": self.session.id}),
             {"participant_id": self.player_participant.id, "roles": ["manager"]},
@@ -238,7 +308,7 @@ class SessionRoleApiTestCase(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_participant_create_update_accepts_one_visible_role(self):
+    def test_participant_create_update_accepts_visible_role_combinations(self):
         response = self.client.post(
             reverse("participant-list"),
             {
@@ -266,7 +336,8 @@ class SessionRoleApiTestCase(APITestCase):
             {"roles": ["gm", "player"]},
             format="json",
         )
-        self.assertEqual(multi_role_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(multi_role_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(session_permissions.get_participant_role_values(participant), {"gm", "player"})
 
     def test_invite_accepts_gm_or_player_and_rejects_observer_and_manager(self):
         observer_response = self.client.post(
@@ -365,7 +436,7 @@ class SessionRoleApiTestCase(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertContains(response, 'id="sessionPermissionsModal"')
-        self.assertContains(response, "permission-panel-participant-role-select")
+        self.assertContains(response, "permission-panel-participant-role-checkbox")
         self.assertContains(response, "NPC設定")
         self.assertNotContains(response, "担当PC/NPC設定")
         self.assertNotContains(response, "担当PC/NPC:")
@@ -378,7 +449,6 @@ class SessionRoleApiTestCase(APITestCase):
         self.assertNotContains(response, "group admin")
         self.assertNotContains(response, "guest participant")
         self.assertNotContains(response, "session-permission-checkbox")
-        self.assertNotContains(response, "participant-role-checkbox")
         self.assertNotContains(response, 'value="observer"')
         self.assertNotContains(response, 'id="guest_role_observer"')
         self.assertNotContains(response, 'id="link_player_slot"')
@@ -455,7 +525,8 @@ class SessionRoleDataMigrationTestCase(TransactionTestCase):
 
     def tearDown(self):
         self.executor.loader.build_graph()
-        self.executor.migrate(self._targets_for(self.migrate_to))
+        # 後続テストへ過去のスキーマを漏らさないよう、全アプリを最新へ戻す。
+        self.executor.migrate(self.executor.loader.graph.leaf_nodes())
         super().tearDown()
 
     def test_legacy_permissions_and_observer_roles_are_unified(self):

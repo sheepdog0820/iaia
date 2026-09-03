@@ -6,8 +6,6 @@ TDD原則に従って、ハンドアウト配布通知機能のテストを作�
 対象プレイヤーに自動で通知が送信されます。
 """
 
-import unittest
-
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
@@ -299,13 +297,3 @@ class HandoutNotificationAPITest(TestCase):
         self.assertIn("data", updated)
         self.assertIn("friend_notifications_enabled", updated["data"])
         self.assertFalse(updated["data"]["friend_notifications_enabled"])
-
-
-@unittest.skip("Integration test - will be implemented after basic functionality")
-class HandoutNotificationIntegrationTest(TestCase):
-    """ハンドアウト通知機能の統合テスト"""
-
-    def test_end_to_end_handout_notification_flow(self):
-        """エンドツーエンドのハンドアウト通知フロー"""
-        # この統合テストは基本機能実装後に実装する
-        pass

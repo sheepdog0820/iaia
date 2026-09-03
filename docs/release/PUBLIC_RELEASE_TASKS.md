@@ -1,6 +1,6 @@
 # 公開前・運用開始後タスク整理
 
-最終更新: 2026-06-23
+最終更新: 2026-08-23
 
 ## 公開前に潰すべき課題
 
@@ -75,8 +75,8 @@ python tests/performance/image_upload_load.py \
 
 ## β公開前の重点確認
 
-- Playwright E2E: 新規登録、メールログイン、OAuth設定状態表示、セッション作成/編集/削除、HO作成/配布/閲覧制御、キャラシ作成/編集、CCFOLIA JSON出力を自動確認済み。
-- 権限: 他人のキャラシ、HO、GMメモが見えないことを対象テストで確認済み。
+- Playwright E2E: Chromium / Firefox / WebKit の78ケースで、新規登録、メールログイン、OAuth設定状態表示、セッション作成/編集/削除、HO作成/配布/閲覧制御、キャラシ作成/編集、CCFOLIA JSON出力を自動確認済み。
+- 権限: 作成者の `owner` と卓内の `gm` / `player` を分離し、GM/PL兼任を許可。`owner` だけでは秘匿HO、GMメモ、GM向けシナリオ情報を扱えないことを対象テストで確認済み。
 - モバイルUI: PlaywrightでiPhone/Android相当のセッション一覧とキャラシ編集を自動確認済み。実機確認は公開前に実施。
 - エラーページ: 404、403、500のテンプレートを整備済み。表示と導線は公開前に手動確認。
 - 外部依存: OAuth実認可、Stg/Prodでの画像負荷、実機モバイル確認はローカルだけでは完了不可。
@@ -91,7 +91,7 @@ python tests/performance/image_upload_load.py \
 | --- | --- | --- |
 | ログイン | 必須 | 通常ログイン、ログアウト、パスワードリセットメール送信、mandatory email verification、未確認メールへのリセットメール抑止、退会導線と有効なStripe購読中の削除ブロックを `accounts.test_authentication`、Google/Discord OAuth verified email重複時の既存ユーザー再利用を `accounts.test_api_auth_google` / `accounts.test_api_auth_discord`、X API認証を `accounts.test_api_auth_twitter` で確認 |
 | グループ | 必須 | グループ外ユーザーが非公開グループ/グループ卓を見られないこと |
-| セッション管理 | 必須 | 作成、編集、削除、参加者管理、カレンダー表示を確認 |
+| セッション管理 | 必須 | 作成、編集、削除、参加者管理、カレンダー表示、作成者とGM/PLの独立した複数ロールを確認 |
 | Character sheets | Required | CoC 6版/7版のみ。private/group/link/public/allowed users の直URLアクセスを確認。`link` は公開ID URLでは404、ShareLinkでのみ閲覧可能。fixed character sharing tests と `accounts.tests.BasicAccountsTestCase.test_access_scope_private_update_closes_fixed_share_view` で確認 |
 | 秘匿HO | 必須 | GMは全件、割当PLは自分のHOのみ、公開HOは参加者全員、添付も同じ権限で確認 |
 | 画像アップロード | 必須 | キャラシ/セッション/シナリオ画像の保存、表示、キャラシ画像の通常2枚/プレミアム10枚制限、上限超過時の明確なエラー |
@@ -125,7 +125,7 @@ python tests/performance/image_upload_load.py \
 | Guest invitation management | 対応済み | `schedules.test_group_links_and_guests` で group admin create/revoke、outsider 403、期限切れ/失効済み招待URLが410かつセッション詳細を返さないこと、参加枠claimは `claim_token` 必須であることを `schedules.test_group_links_and_guests.GuestInvitationClaimTestCase.test_guest_claim_requires_invitation_token` で確認 |
 | Stripe課金事故防止 | ローカル対応済み | `accounts.test_billing`。`STRIPE_CHECKOUT_ENABLED` は通常settings/production/.env examplesとも既定Falseで、ヘルパー/管理コマンドの設定欠落時フォールバックもFalse。明示True時のみCheckoutを出す。Checkout/Customer PortalのStripe一時障害時は汎用503で例外詳細を返さない。外部Stripe test-mode event ID確認はISSUE-077として未完。有効なStripe購読中のアカウント削除は課金管理ページへ誘導してブロック |
 | Docker実ビルド | 要再確認 | `docker compose --env-file .env.compose.example config --quiet` と `docker compose --env-file .env.compose.example -f docker-compose.mysql.yml config --quiet` は成功。過去に `docker compose build --no-cache` 成功、build context約117KB。entrypoint修正後の実ビルドはDocker daemon未起動で未完 |
-| 全体テスト完走 | ローカル確認済み | Python 3.11で `manage.py test --noinput` は 1120件 OK、skipped=3 まで到達。長時間実行の終了処理中にコマンドラッパーは timeout 扱い。無指定実行はプロジェクト既定ラベルに限定し、venv/site-packagesを拾わない |
+| 全体テスト完走 | ローカル確認済み | ローカルvenv（Python 3.10.6）で `pytest -q` は1518件成功、失敗・スキップ0件、subtests 179件成功。PlaywrightはChromium / Firefox / WebKitの78ケースを確認。CIはPython 3.11で `manage.py test --noinput` と3ブラウザE2Eを実行 |
 
 ## β公開 Go/No-Go
 
@@ -137,7 +137,7 @@ python tests/performance/image_upload_load.py \
 | production deploy check | production settingsで `check --deploy` 成功 | ローカル確認済み。`tests.unit.test_production_settings` で CI 相当 env の `manage.py check --deploy` を自動確認 |
 | 秘匿HO漏れなし | 直URL/API/添付で割当外ユーザーが見られない | 対象テスト済み |
 | 非公開キャラシ漏れなし | API detail/public URL/画面URLでprivateが見えない | 対象テスト済み |
-| グループ外卓漏れなし | group/private卓を外部ユーザーが見られない | `manage.py test --noinput` は 1120件 OK、skipped=3 まで到達して再確認済み |
+| グループ外卓漏れなし | group/private卓を外部ユーザーが見られない | `pytest -q` の全1518件と権限対象テストで再確認済み |
 | Stripe状態ずれなし | Checkout/Webhook/返金/異議/手動/プロモコードが監査ログ付きで確認済み | ローカルテスト済み。外部Stripe確認は未完 |
 | エラー監視 | Sentry/CloudWatch等の通知先が設定済み | `SENTRY_DSN` 対応、CloudWatch/SNS Runbook と Terraform はあり。実SNS購読/通知試験は未完 |
 | DBバックアップ | バックアップ/復旧手順が実環境で確認済み | `docs/infrastructure/backup.md`, `docs/runbooks/AWS_DATABASE_MIGRATION.md`, RDS backup retention設定あり。実RDS復旧リハーサルは未完 |

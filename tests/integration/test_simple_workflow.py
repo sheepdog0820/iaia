@@ -4,6 +4,9 @@
 タブレノ TRPGスケジュール管理システム
 """
 
+# 手動実行用の診断スクリプト。pytestの自動テストとしては収集しない。
+__test__ = False
+
 import os
 import sys
 from datetime import timedelta

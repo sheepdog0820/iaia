@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import Group as CustomGroup
+from schedules import session_permissions
 
 from .models import (
     DatePoll,
@@ -508,6 +509,38 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         response2 = self.client.post("/api/schedules/date-polls/", {**payload, "title": "Poll 2"}, format="json")
         self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("session", response2.data)
+
+    def test_session_creator_can_create_date_poll_without_being_gm(self):
+        undated_session = session_permissions.create_session_with_permissions(
+            created_by=self.member,
+            title="Creator Managed Session",
+            date=None,
+            group=self.group,
+            visibility="group",
+            status="planned",
+        )
+        option_dt = (timezone.now() + timedelta(days=10)).replace(microsecond=0)
+        payload = {
+            "title": "Creator Poll",
+            "description": "",
+            "group": self.group.id,
+            "session": undated_session.id,
+            "create_session_on_confirm": False,
+            "options": [{"datetime": option_dt.isoformat(), "note": "A"}],
+        }
+
+        self.client.force_authenticate(user=self.member)
+        page_response = self.client.get(
+            f"/api/schedules/sessions/{undated_session.id}/date-poll/",
+            HTTP_ACCEPT="application/json",
+        )
+        self.assertEqual(page_response.status_code, status.HTTP_200_OK)
+        self.assertFalse(page_response.data["is_gm"])
+        self.assertTrue(page_response.data["can_edit"])
+
+        response = self.client.post("/api/schedules/date-polls/", payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["created_by"], self.member.id)
 
     def test_session_date_poll_view_renders_for_group_member(self):
         undated_session = TRPGSession.objects.create(

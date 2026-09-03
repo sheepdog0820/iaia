@@ -20,14 +20,12 @@
 ## 部分実装
 
 - 7版キャラクターシート: 正式サポート化済み。残作業は運用中の回帰テスト拡充と細部UI改善
-- Google連携: 片方向同期のみ。Google側編集の取込と競合解決は対象外
-- ゲスト募集: 招待URLとclaimは実装済み。横断的な公開募集ページは未実装
+- Google連携: Google Calendarへの片方向同期とGoogle Sheets固定列出力を実装済み
+- ゲスト募集: 招待URL、参加表明、claimを実装済み
 - AWS: リポジトリ内のIaCとRunbookは完成。実AWS適用とGo/No-Goは別運用工程
 
 ## 正式な未実装
 
-- セッション開始時HP/MP/SANスナップショット、変動履歴、終了時差分
-- Google OAuth refresh tokenの運用強化、双方向Calendar同期
 - 大規模外部連携の進捗UIと手動再送
 - ネイティブモバイルアプリ
 - AI分析・推奨

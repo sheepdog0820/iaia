@@ -204,6 +204,8 @@ test.describe('integration settings', () => {
     const participantId = guestResponse.participant_id;
     await expect(page.locator('#guest-response-message')).toContainText('参加を登録しました');
 
+    await devLogin(page, 'investigator1');
+    await page.waitForFunction(() => (window as any).axios?.post);
     const claimResult = await page.evaluate(async ({ id, claimToken }) => {
       const claimResponse = await (window as any).axios.post(
         `/api/participants/${id}/claim/`,

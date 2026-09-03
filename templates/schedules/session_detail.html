@@ -4030,27 +4030,32 @@ async function assignMainGm(userId) {
     }
 }
 
-function renderParticipantRoleControls(participantId, roles) {
+function renderParticipantRoleControls(participantId, roles, isCreator = false) {
     if (!participantId) {
         return '<span class="text-muted small">未参加</span>';
     }
     const currentRoles = new Set(roles || []);
-    if (currentRoles.has('owner')) {
-        return '<span class="badge bg-primary">作成者</span>';
-    }
-    const currentRole = currentRoles.has('gm') ? 'gm' : 'player';
-    const options = Object.entries(PARTICIPANT_ROLE_LABELS).map(([value, label]) => (
-        `<option value="${escapeHtml(value)}" ${value === currentRole ? 'selected' : ''}>${escapeHtml(label)}</option>`
+    const checkboxes = Object.entries(PARTICIPANT_ROLE_LABELS).map(([value, label]) => (
+        `<label class="form-check form-check-inline mb-1">
+            <input class="form-check-input permission-panel-participant-role-checkbox"
+                   type="checkbox"
+                   value="${escapeHtml(value)}"
+                   ${currentRoles.has(value) ? 'checked' : ''}>
+            <span class="form-check-label">${escapeHtml(label)}</span>
+        </label>`
     )).join('');
     return `
-        <select class="form-select form-select-sm permission-panel-participant-role-select"
-                data-participant-id="${escapeHtml(participantId)}">
-            ${options}
-        </select>
-        <button type="button" class="btn btn-sm btn-outline-primary mt-1"
-                onclick="savePermissionPanelParticipantRoles(${Number(participantId)})">
-            保存
-        </button>
+        <div data-participant-role-controls="${escapeHtml(participantId)}"
+             data-is-creator="${isCreator ? 'true' : 'false'}">
+            ${isCreator ? '<span class="badge bg-primary me-2">作成者</span>' : ''}
+            ${checkboxes}
+            <div>
+                <button type="button" class="btn btn-sm btn-outline-primary mt-1"
+                        onclick="savePermissionPanelParticipantRoles(${Number(participantId)})">
+                    保存
+                </button>
+            </div>
+        </div>
     `;
 }
 
@@ -4072,7 +4077,7 @@ function renderRoleManagement(data) {
                     <div class="fw-semibold">${escapeHtml(user.display_name || user.username || '')}${badges}</div>
                     <div class="text-muted small">@${escapeHtml(user.username || '')}</div>
                 </td>
-                <td>${renderParticipantRoleControls(user.participant_id, user.participant_roles)}</td>
+                <td>${renderParticipantRoleControls(user.participant_id, user.participant_roles, Boolean(user.is_created_by))}</td>
             </tr>
         `;
     }).join('');
@@ -4122,15 +4127,20 @@ async function loadRoleManagement() {
 }
 
 async function savePermissionPanelParticipantRoles(participantId) {
-    const role = document.querySelector(`.permission-panel-participant-role-select[data-participant-id="${participantId}"]`)?.value;
-    if (!role) {
-        sessionNotifyError('参加者ロールを選択してください');
+    const controls = document.querySelector(`[data-participant-role-controls="${participantId}"]`);
+    if (!controls) return;
+    const roles = Array.from(
+        controls.querySelectorAll('.permission-panel-participant-role-checkbox:checked')
+    ).map(input => input.value);
+    const isCreator = controls.dataset.isCreator === 'true';
+    if (roles.length === 0 && !isCreator) {
+        sessionNotifyError('GMまたはPLを1つ以上選択してください');
         return;
     }
     try {
         const response = await axios.patch(`/api/schedules/sessions/${SESSION_ID}/permissions/`, {
             participant_id: participantId,
-            roles: [role]
+            roles
         });
         renderRoleManagement(response.data || {});
         sessionNotifySuccess('参加者ロールを更新しました');

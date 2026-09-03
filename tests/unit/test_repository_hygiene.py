@@ -69,6 +69,7 @@ class RepositoryHygieneTests(SimpleTestCase):
         dockerignore = (self.ROOT / ".dockerignore").read_text(encoding="utf-8")
 
         required_gitignore_entries = [
+            ".codex_work/",
             ".env*",
             "!.env*.example",
             "venv*/",
@@ -77,10 +78,12 @@ class RepositoryHygieneTests(SimpleTestCase):
             "staticfiles/",
             "media/",
             "logs/",
+            "outputs/",
             "test-results/",
             "playwright-report/",
         ]
         required_dockerignore_entries = [
+            ".codex_work/",
             ".env",
             ".env.*",
             "!.env.example",
@@ -90,6 +93,7 @@ class RepositoryHygieneTests(SimpleTestCase):
             "cookies.txt",
             "/staticfiles/",
             "/media/",
+            "outputs/",
             "test-results/",
             "playwright-report/",
         ]
@@ -116,3 +120,22 @@ class RepositoryHygieneTests(SimpleTestCase):
                     check=False,
                 )
                 self.assertEqual(result.returncode, 1)
+
+    def test_manual_diagnostics_are_kept_out_of_unit_test_discovery(self):
+        removed_test_paths = [
+            "tests/unit/test_form_submit.py",
+            "tests/unit/test_group_functionality.py",
+            "tests/unit/test_groups_debug.py",
+            "tests/unit/test_url_debug.py",
+        ]
+        diagnostic_paths = [
+            "scripts/dev/check_character_form_submission.py",
+            "scripts/dev/exercise_group_functionality.py",
+            "scripts/dev/inspect_groups.py",
+            "scripts/dev/inspect_urls.py",
+        ]
+
+        for path in removed_test_paths:
+            self.assertFalse((self.ROOT / path).exists())
+        for path in diagnostic_paths:
+            self.assertTrue((self.ROOT / path).exists())

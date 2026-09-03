@@ -159,7 +159,9 @@ Thumbs.db
 *.backup
 *.tmp
 tmp/
+.codex_work/
 codex-build-output/
+outputs/
 
 # SSL certificates
 ssl/

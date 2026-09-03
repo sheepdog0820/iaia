@@ -32,15 +32,10 @@ def _user_participant(user, session: TRPGSession) -> SessionParticipant | None:
     return SessionParticipant.objects.filter(session=session, user=user).first()
 
 
-def _single_role_for_participant(participant: SessionParticipant) -> str | None:
-    if not participant.pk:
-        return None
-    return participant.participant_roles.values_list("role", flat=True).first()
-
-
 def get_participant_role_values(participant: SessionParticipant) -> set[str]:
-    role = _single_role_for_participant(participant)
-    return {role} if role else set()
+    if not participant.pk:
+        return set()
+    return set(participant.participant_roles.values_list("role", flat=True))
 
 
 def normalize_participant_roles(roles) -> set[str]:
@@ -49,13 +44,13 @@ def normalize_participant_roles(roles) -> set[str]:
     invalid_roles = set(normalized_roles) - valid_roles
     if invalid_roles:
         raise ValueError(f"Unknown participant roles: {', '.join(sorted(invalid_roles))}")
-    if len(set(normalized_roles)) > 1:
-        raise ValueError("Session participants accept exactly one role.")
-    return set(normalized_roles) or {SessionParticipantRole.Role.PLAYER.value}
+    return set(normalized_roles)
 
 
-def normalize_assignable_participant_roles(roles) -> set[str]:
+def normalize_assignable_participant_roles(roles, *, allow_empty: bool = False) -> set[str]:
     normalized = normalize_participant_roles(roles)
+    if not normalized and not allow_empty:
+        raise ValueError("GMまたはPLを1つ以上指定してください。")
     invalid_roles = normalized - set(VISIBLE_ASSIGNABLE_ROLES)
     if invalid_roles:
         raise ValueError("Only GM or PL roles can be assigned from this screen.")
@@ -63,7 +58,16 @@ def normalize_assignable_participant_roles(roles) -> set[str]:
 
 
 def get_primary_participant_role(participant: SessionParticipant) -> str:
-    return _single_role_for_participant(participant) or SessionParticipantRole.Role.PLAYER.value
+    roles = get_participant_role_values(participant)
+    for role in (
+        SessionParticipantRole.Role.OWNER.value,
+        SessionParticipantRole.Role.MANAGER.value,
+        SessionParticipantRole.Role.GM.value,
+        SessionParticipantRole.Role.PLAYER.value,
+    ):
+        if role in roles:
+            return role
+    return SessionParticipantRole.Role.PLAYER.value
 
 
 def has_participant_role(user, session: TRPGSession, role: str) -> bool:
@@ -91,9 +95,9 @@ def assign_participant_role(
 ) -> SessionParticipantRole:
     role = _role_value(role)
     normalized_role = next(iter(normalize_participant_roles([role])))
-    participant_role, _ = SessionParticipantRole.objects.update_or_create(
+    participant_role, _ = SessionParticipantRole.objects.get_or_create(
         participant=participant,
-        defaults={"role": normalized_role},
+        role=normalized_role,
     )
     return participant_role
 
@@ -105,7 +109,11 @@ def set_participant_roles(
     granted_by=None,
 ) -> set[str]:
     normalized_roles = normalize_participant_roles(roles)
-    assign_participant_role(participant, next(iter(normalized_roles)), granted_by=granted_by)
+    if participant.user_id and participant.session.created_by_id == participant.user_id:
+        normalized_roles.add(SessionParticipantRole.Role.OWNER.value)
+    participant.participant_roles.exclude(role__in=normalized_roles).delete()
+    for role in normalized_roles:
+        assign_participant_role(participant, role, granted_by=granted_by)
     return normalized_roles
 
 
@@ -180,8 +188,7 @@ def assign_session_gm(
     )
     if session.created_by_id == user.id:
         assign_participant_role(participant, SessionParticipantRole.Role.OWNER, granted_by=granted_by)
-    else:
-        assign_participant_role(participant, SessionParticipantRole.Role.GM, granted_by=granted_by)
+    assign_participant_role(participant, SessionParticipantRole.Role.GM, granted_by=granted_by)
 
     if sync_legacy_gm and session.gm_id != user.id:
         session.gm = user

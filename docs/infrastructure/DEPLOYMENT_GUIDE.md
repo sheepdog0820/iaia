@@ -154,10 +154,10 @@ ENABLE_FILE_LOGGING=False
 
 ```bash
 # プレ環境
-APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d --build
+MYSQL_APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d --build
 
 # 本番相当
-APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d --build
+MYSQL_APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d --build
 ```
 
 Composeでは`APP_ENV`をコンテナへ渡し、`DJANGO_SETTINGS_MODULE`は固定しません。

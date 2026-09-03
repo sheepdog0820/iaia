@@ -11,7 +11,7 @@ Tableno is a Django-based TRPG schedule, scenario, and character management appl
 ```bash
 python3.11 -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements-dev.txt
+pip install -r requirements-dev.lock.txt
 cp .env.example .env.development
 APP_ENV=local ENV_FILE=.env.development python manage.py migrate
 APP_ENV=local ENV_FILE=.env.development python scripts/dev/create_admin.py
@@ -91,10 +91,10 @@ GitHub Actions (`.github/workflows/django-ci.yml`) は `main` とPull Requestで
 - production settings の `python manage.py check --deploy`
 - `python manage.py billing_release_gate`
 
-2026-07-25時点のローカル確認では、6版・7版分離構成を対象にシステムテストが通過しています。
+2026-08-26時点のローカル確認では、6版・7版分離構成を対象にシステムテストが通過しています。
 
-- `python -m pytest --collect-only -q`: `1402 tests collected`
-- `python -m pytest tests/system -q -rs`: `11 passed, 1 skipped`
+- `python -m pytest --collect-only -q`: `1537 tests collected`
+- `python -m pytest tests/system -q -rs`: `12 passed`
 
 ## Development Commands
 
@@ -107,6 +107,14 @@ python -m pytest tests/system -q -rs
 python -m flake8 .
 python -m black --check .
 python -m isort --check-only .
+```
+
+依存関係の宣言は`requirements.txt`、`requirements-dev.txt`、`requirements-test.txt`で管理し、実際のインストールには固定済みファイルを使います。依存関係を更新した場合はPython 3.11環境で次を実行し、3つのロックファイルを更新してください。
+
+```bash
+python -m piptools compile --generate-hashes --allow-unsafe --strip-extras --newline=lf --output-file requirements.lock.txt requirements.txt
+python -m piptools compile --generate-hashes --allow-unsafe --strip-extras --newline=lf --output-file requirements-dev.lock.txt requirements-dev.txt
+python -m piptools compile --generate-hashes --allow-unsafe --strip-extras --newline=lf --output-file requirements-test.lock.txt requirements-test.txt
 ```
 
 E2Eを実行する場合はNode.js 18+とPlaywright依存を準備してください。
@@ -129,22 +137,24 @@ docker compose --env-file .env.compose up --build
 
 `.env.compose` はComposeの変数展開用、`.env.docker.example` はDjangoアプリenvのサンプルです。Composeの `env_file` 側で `SECRET_KEY` などに `$` を含める場合は、Composeに展開されないよう `$$` にエスケープしてください。
 
+アプリコンテナは既定でUID/GID `10001`の非rootユーザー`tableno`として動作します。LinuxやNASでホストディレクトリをbind mountする場合は、`staticfiles`、`media`、`logs`へこのユーザーが書き込めるよう所有権または権限を設定してください。必要ならビルド引数`APP_UID`、`APP_GID`でホスト側に合わせられます。
+
 ステージング/本番相当のMySQL構成は `docker-compose.mysql.yml` を使います。詳細は `docs/setup/DOCKER_SETUP.md` を参照してください。
 
 ## Deployment
 
-ステージングは `APP_ENV=aws-pre`、本番は `APP_ENV=aws-prod` を使います。反映時はアプリ起動前に、対象環境でマイグレーションと静的ファイル収集を明示的に実行します。
+ステージングは `MYSQL_APP_ENV=aws-pre`、本番は `MYSQL_APP_ENV=aws-prod` を使います。Compose補間用の`MYSQL_APP_ENV`は、コンテナ内では`APP_ENV`として渡されます。反映時はアプリ起動前に、対象環境でマイグレーションと静的ファイル収集を明示的に実行します。
 
 ```bash
 # Staging
-APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml run --rm web python manage.py migrate --noinput
-APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml run --rm web python manage.py collectstatic --noinput
-APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
+MYSQL_APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml run --rm web python manage.py migrate --noinput
+MYSQL_APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml run --rm web python manage.py collectstatic --noinput
+MYSQL_APP_ENV=aws-pre ENV_FILE=.env.staging docker compose -f docker-compose.mysql.yml up -d
 
 # Production
-APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml run --rm web python manage.py migrate --noinput
-APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml run --rm web python manage.py collectstatic --noinput
-APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
+MYSQL_APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml run --rm web python manage.py migrate --noinput
+MYSQL_APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml run --rm web python manage.py collectstatic --noinput
+MYSQL_APP_ENV=aws-prod ENV_FILE=.env.production docker compose -f docker-compose.mysql.yml up -d
 ```
 
 AWS環境への反映や検証は `docs/runbooks/`、`docs/infrastructure/`、`infrastructure/terraform/` の内容に従います。

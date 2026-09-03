@@ -73,8 +73,12 @@ class DockerEntrypointTests(SimpleTestCase):
 
         self.assertIn("- ${ENV_FILE:-.env.development}", compose)
         self.assertIn("- ${ENV_FILE:-.env.production}", mysql_compose)
-        self.assertIn("APP_ENV: ${APP_ENV:-aws-prod}", mysql_compose)
+        self.assertIn("APP_ENV: ${MYSQL_APP_ENV:-aws-prod}", mysql_compose)
+        self.assertNotIn("APP_ENV: ${APP_ENV:-aws-prod}", mysql_compose)
+        self.assertIn("ENV_FILE: /dev/null", compose)
+        self.assertEqual(mysql_compose.count("ENV_FILE: /dev/null"), 3)
         self.assertIn("DB_ENGINE: mysql", mysql_compose)
+        self.assertEqual(mysql_compose.count('DB_PORT: "3306"'), 3)
         self.assertNotIn("SECRET_KEY:", compose)
         self.assertNotIn("STRIPE_SECRET_KEY:", compose)
         self.assertNotIn("SECRET_KEY:", mysql_compose)
@@ -211,6 +215,36 @@ class DockerEntrypointTests(SimpleTestCase):
         self.assertIn("DJANGO_SETTINGS_MODULE: tableno.settings_production", workflow)
         self.assertIn("python manage.py check --deploy", workflow)
 
+    def test_ci_example_env_is_scoped_to_compose_validation(self):
+        workflow = self.load_ci_workflow()
+
+        self.assertNotIn("ENV_FILE", workflow["jobs"]["test"].get("env", {}))
+        self.assertNotIn("ENV_FILE", workflow["jobs"]["playwright"].get("env", {}))
+        compose_step = next(
+            step for step in workflow["jobs"]["test"]["steps"] if step.get("name") == "Docker Compose config check"
+        )
+        self.assertEqual(compose_step["env"]["ENV_FILE"], ".env.example")
+
+    def test_docker_image_runs_as_configurable_non_root_user(self):
+        dockerfile = (self.ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+        self.assertIn("ARG APP_UID=10001", dockerfile)
+        self.assertIn("ARG APP_GID=10001", dockerfile)
+        self.assertIn("USER tableno", dockerfile)
+        self.assertIn("/app/staticfiles", dockerfile)
+        self.assertIn("/app/media", dockerfile)
+        self.assertIn("/var/log/tableno", dockerfile)
+        self.assertIn("chown tableno:tableno /app", dockerfile)
+        self.assertNotIn("USER root", dockerfile)
+
+    def test_ci_and_docker_install_locked_dependencies(self):
+        dockerfile = (self.ROOT / "Dockerfile").read_text(encoding="utf-8")
+        workflow = (self.ROOT / ".github" / "workflows" / "django-ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn("requirements.lock.txt", dockerfile)
+        self.assertIn("requirements-test.lock.txt", workflow)
+        self.assertNotIn("pip install -r requirements-test.txt", workflow)
+
     def test_ci_runs_billing_release_gate(self):
         workflow = (self.ROOT / ".github" / "workflows" / "django-ci.yml").read_text(encoding="utf-8")
 
@@ -220,6 +254,14 @@ class DockerEntrypointTests(SimpleTestCase):
         self.assertLess(
             workflow.index("Run pytest"),
             workflow.index("Billing release gate"),
+        )
+
+    def test_production_database_job_disables_ssl_redirect_for_http_test_client(self):
+        workflow = self.load_ci_workflow()
+
+        self.assertEqual(
+            workflow["jobs"]["production-database"]["env"]["SECURE_SSL_REDIRECT"],
+            "False",
         )
 
     def test_python_version_is_consistent_for_release_paths(self):

@@ -89,8 +89,8 @@ class UINavigationTestCase(TestCase):
         response = self.client.get("/api/schedules/sessions/view/", HTTP_ACCEPT="text/html")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "R'lyeh Log")
-        detail_url = reverse("session_detail", kwargs={"pk": self.session.id})
-        self.assertContains(response, detail_url)
+        self.assertContains(response, 'id="sessionsList"')
+        self.assertContains(response, 'href="/api/schedules/sessions/${session.id}/detail/"')
 
     def test_session_detail_navigation(self):
         """セッション詳細ページのナビゲーションテスト"""
@@ -236,12 +236,13 @@ class UINavigationTestCase(TestCase):
         self.assertIn("color: var(--button-outline-secondary-text);", stylesheet)
 
     def test_breadcrumb_navigation(self):
-        """パンくずナビゲーションのテスト"""
+        """セッション詳細の戻るナビゲーションのテスト"""
         self.client.login(username="testuser", password="testpass123")
         response = self.client.get(f"/api/schedules/sessions/{self.session.id}/detail/")
         self.assertEqual(response.status_code, 200)
-        # アイコンが含まれているか確認
-        self.assertContains(response, "fas fa-home")
+        self.assertContains(response, 'aria-label="セッション操作"')
+        self.assertContains(response, 'href="/api/schedules/sessions/view/"')
+        self.assertContains(response, "fas fa-arrow-left")
 
     def test_error_page_navigation(self):
         """エラーページのナビゲーションテスト"""

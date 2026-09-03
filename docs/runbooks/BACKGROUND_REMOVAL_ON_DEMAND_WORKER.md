@@ -22,6 +22,16 @@ Terraform injects these values into the web task automatically:
 - `BACKGROUND_REMOVAL_SECURITY_GROUPS`
 - `BACKGROUND_REMOVAL_ASSIGN_PUBLIC_IP`
 - `BACKGROUND_REMOVAL_JOB_TIMEOUT_SECONDS`
+- `BACKGROUND_REMOVAL_DAILY_LIMIT`（既定: 1ユーザー1日10回、JST午前0時リセット）
+- `BACKGROUND_REMOVAL_RESULT_RETENTION_HOURS`（既定: 24時間）
+- `BACKGROUND_REMOVAL_JOB_RETENTION_DAYS`（既定: 7日）
+
+完了画像と完了・失敗ジョブはCelery beatの`cleanup-background-removal-jobs`で1時間ごとに整理されます。この処理は、設定時間を超えたpending/runningジョブを先にfailedへ移してソース画像を削除します。手動確認では次の管理コマンドを使用します。
+
+```bash
+python manage.py cleanup_background_removal_jobs --dry-run
+python manage.py cleanup_background_removal_jobs
+```
 
 Private subnets and no public IP are used when the NAT gateway is enabled. In
 the low-cost public-subnet configuration, Terraform enables the task public IP

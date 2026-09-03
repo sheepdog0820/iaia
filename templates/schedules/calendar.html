@@ -162,7 +162,7 @@
                         </div>
                         <input type="hidden" id="sessionScenarioId">
                         <input type="hidden" id="sessionScenarioTitle">
-                        <div class="form-text">シナリオアーカイブからの連携、または一覧から選択できます。</div>
+                        <div class="form-text" id="sessionScenarioPermissionHelp">シナリオアーカイブからの連携、または一覧から選択できます。</div>
                     </div>
 
                     <div class="mb-3">
@@ -809,6 +809,28 @@ document.addEventListener('DOMContentLoaded', function() {
         if (clearBtn) clearBtn.disabled = false;
     }
 
+    function syncScenarioControlsWithGmRole({ clearScenario = false } = {}) {
+        const selfAsGm = document.getElementById('sessionSelfAsGm')?.checked || false;
+        const select = document.getElementById('sessionScenarioSelect');
+        const clearBtn = document.getElementById('clearSessionScenario');
+        const help = document.getElementById('sessionScenarioPermissionHelp');
+        if (!selfAsGm && clearScenario) {
+            safeRemoveStorage(scenarioLinkKeys.id);
+            safeRemoveStorage(scenarioLinkKeys.title);
+            safeRemoveStorage(scenarioLinkKeys.system);
+            applyScenarioToSessionForm(null);
+        }
+        if (select) select.disabled = !selfAsGm;
+        if (clearBtn) {
+            clearBtn.disabled = !selfAsGm || !document.getElementById('sessionScenarioId')?.value;
+        }
+        if (help) {
+            help.textContent = selfAsGm
+                ? 'シナリオアーカイブからの連携、または一覧から選択できます。'
+                : '関連シナリオはKP/GMだけが設定できます。';
+        }
+    }
+
     async function loadScenarioLink() {
         const payload = getScenarioLinkPayload();
         if (!payload.id) {
@@ -1380,6 +1402,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const newSessionModalEl = document.getElementById('newSessionModal');
     newSessionModalEl?.addEventListener('show.bs.modal', () => {
         setCreateMode('new');
+        syncScenarioControlsWithGmRole();
         loadScenarioLink();
         loadScenarioChoices();
         groupsLoadedPromise.then(selectRequestedCreateGroup);
@@ -1390,6 +1413,10 @@ document.addEventListener('DOMContentLoaded', function() {
         safeRemoveStorage(scenarioLinkKeys.title);
         safeRemoveStorage(scenarioLinkKeys.system);
         applyScenarioToSessionForm(null);
+    });
+
+    document.getElementById('sessionSelfAsGm')?.addEventListener('change', () => {
+        syncScenarioControlsWithGmRole({ clearScenario: true });
     });
 
     document.getElementById('sessionScenarioSelect')?.addEventListener('change', async (event) => {

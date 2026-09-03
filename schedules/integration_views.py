@@ -16,38 +16,18 @@ from rest_framework.views import APIView
 
 from accounts.models import CharacterSheet, GroupMembership
 
+from .google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_START_RANGE
 from .google_tokens import get_google_access_token
 from .models import (
     AsyncJob,
     CalendarSubscription,
     GoogleCalendarSync,
     GoogleIntegration,
-    SessionParticipantRole,
     SessionOccurrence,
+    SessionParticipantRole,
     TRPGSession,
 )
 from .tasks import queue_google_calendar_sync, queue_google_sheet_export
-
-SHEET_COLUMNS = [
-    "id",
-    "name",
-    "edition",
-    "age",
-    "occupation",
-    "STR",
-    "CON",
-    "POW",
-    "DEX",
-    "APP",
-    "SIZ",
-    "INT",
-    "EDU",
-    "HP",
-    "MP",
-    "SAN",
-    "LUCK",
-]
-
 
 GOOGLE_INTEGRATION_SCOPES = [
     GoogleIntegration.REQUIRED_CALENDAR_SCOPE,
@@ -316,7 +296,7 @@ class GoogleSheetsExportView(APIView):
             job_type="google_sheets_export",
             payload={
                 "spreadsheet_id": spreadsheet_id,
-                "range": request.data.get("range", "Characters!A1"),
+                "range": request.data.get("range", SHEETS_DEFAULT_START_RANGE),
                 "character_ids": request.data.get("character_ids", []),
             },
             expires_at=timezone.now() + timedelta(days=7),
@@ -326,7 +306,7 @@ class GoogleSheetsExportView(APIView):
             str(job.pk),
             request.user.pk,
             spreadsheet_id,
-            request.data.get("range", "Characters!A1"),
+            request.data.get("range", SHEETS_DEFAULT_START_RANGE),
             values,
         )
         if not queued:

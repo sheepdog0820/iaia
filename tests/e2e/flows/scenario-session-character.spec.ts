@@ -73,6 +73,7 @@ test.describe('scenario-session flow', () => {
     await page.selectOption('#sessionGroup', String(group.id));
     await page.selectOption('#sessionCocEdition', '7th');
     await page.fill('#sessionDescription', 'Scenario linked session.');
+    await page.check('#sessionSelfAsGm');
 
     page.once('dialog', async dialog => {
       await dialog.accept();
@@ -108,6 +109,8 @@ test.describe('scenario-session flow', () => {
       );
     });
 
+    await page.click('[data-screen-actions-toggle]');
+    await expect(page.locator('#createCharacterFromScenario')).toBeVisible();
     await Promise.all([
       page.waitForURL('**/accounts/character/create/7th/**'),
       page.click('#createCharacterFromScenario')
@@ -194,6 +197,7 @@ test.describe('scenario-session flow', () => {
     await page.selectOption('#sessionGroup', String(group.id));
     await page.selectOption('#sessionCocEdition', '6th');
     await page.fill('#sessionDescription', 'Scenario linked session.');
+    await page.check('#sessionSelfAsGm');
 
     page.once('dialog', async dialog => {
       await dialog.accept();
@@ -229,6 +233,8 @@ test.describe('scenario-session flow', () => {
       );
     });
 
+    await page.click('[data-screen-actions-toggle]');
+    await expect(page.locator('#createCharacterFromScenario')).toBeVisible();
     await Promise.all([
       page.waitForURL('**/accounts/character/create/6th/**'),
       page.click('#createCharacterFromScenario')

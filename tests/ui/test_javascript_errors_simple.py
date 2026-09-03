@@ -96,8 +96,8 @@ class SimpleJavaScriptErrorTest(TestCase):
         for js_path in js_paths:
             content = js_path.read_text(encoding="utf-8")
             for input_class in input_classes:
-                blank_pattern = rf'<input type="number" class="[^"]*{input_class}[^"]*"[^>]*value=""'
-                zero_pattern = rf'<input type="number" class="[^"]*{input_class}[^"]*"[^>]*value="0"'
+                blank_pattern = rf'<input(?=[^>]*class="[^"]*{input_class}[^"]*")(?=[^>]*value="")[^>]*>'
+                zero_pattern = rf'<input(?=[^>]*class="[^"]*{input_class}[^"]*")(?=[^>]*value="0")[^>]*>'
                 self.assertRegex(content, blank_pattern, str(js_path))
                 self.assertIsNone(re.search(zero_pattern, content), str(js_path))
 

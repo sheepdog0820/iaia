@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-キャラクター作成フォーム送信テスト
+キャラクター作成フォーム送信の手動診断
 """
 
 import os
 
 import django
-import requests
 from django.contrib.auth import get_user_model
 from django.test import Client
 
@@ -17,7 +16,7 @@ django.setup()
 User = get_user_model()
 
 
-def test_character_form_submission():
+def check_character_form_submission():
     """キャラクター作成フォームの送信テスト"""
     print("=== キャラクター作成フォーム送信テスト ===")
 
@@ -120,4 +119,4 @@ def test_character_form_submission():
 
 
 if __name__ == "__main__":
-    test_character_form_submission()
+    check_character_form_submission()

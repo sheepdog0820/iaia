@@ -13,17 +13,16 @@
 - `test_ability_limits_removed.py` - 能力値制限除去
 
 ### フォーム・UI関連
-- `test_form_submit.py` - フォーム送信
 - `test_js_errors.py` - JavaScriptエラー検出
 
 ### グループ機能
-- `test_group_functionality.py` - グループ機能
-- `test_groups_debug.py` - グループ機能デバッグ
+- グループ機能の回帰テストは`accounts/`と`tests/integration/`に配置
 
 ### API・エクスポート
 - `test_api_debug.py` - APIデバッグ
-- `test_url_debug.py` - URLデバッグ
 - `test_export_manual.py` - エクスポート機能
+
+手動診断コードはpytestの収集対象にせず、`scripts/dev/`に配置します。
 
 ## 実行方法
 ```bash

@@ -242,16 +242,14 @@ class ExportFunctionalityTestCase(APITestCase):
             self.assertIn("user_ranking", filename)
             self.assertIn(".json", filename)
 
-    def test_pdf_export_fallback(self):
-        """PDF エクスポートのフォールバック テスト"""
+    def test_pdf_export_is_not_supported(self):
+        """PDFエクスポートを提供しない"""
         self.client.force_authenticate(user=self.user)
-        response = self.client.get("/api/accounts/export/?type=tindalos&format=pdf")
+        legacy_response = self.client.get("/api/accounts/export/?type=tindalos&format=pdf")
+        statistics_response = self.client.get("/api/accounts/export/statistics/", {"format": "pdf"})
 
-        # PDFが利用できない場合はCSVにフォールバックするか、
-        # 利用できる場合はPDFレスポンスが返される
-        if response.status_code == status.HTTP_200_OK:
-            content_type = response["content-type"]
-            self.assertIn(content_type, ["application/pdf", "text/csv; charset=utf-8"])
+        self.assertEqual(legacy_response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(statistics_response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_export_with_no_data(self):
         """データが存在しない場合のエクスポートテスト"""
@@ -310,7 +308,7 @@ class ExportFunctionalityTestCase(APITestCase):
 
         self.client.force_authenticate(user=self.user)
 
-        for format_type in ["json", "csv", "pdf"]:
+        for format_type in ["json", "csv"]:
             with self.subTest(format_type=format_type):
                 response = self.client.get("/api/accounts/export/statistics/", {"format": format_type})
                 self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -439,11 +437,11 @@ class ExportFunctionalityTestCase(APITestCase):
             formats = data["formats"]
             self.assertIsInstance(formats, list)
 
-            # 期待される形式: JSON, CSV, PDF
+            # 対応形式: JSON, CSV
             format_names = [f["name"] for f in formats if isinstance(f, dict)]
             self.assertIn("json", format_names)
             self.assertIn("csv", format_names)
-            self.assertIn("pdf", format_names)
+            self.assertNotIn("pdf", format_names)
 
             # 各形式の詳細情報確認
             for format_info in formats:
@@ -519,7 +517,7 @@ class ExportIntegrationTestCase(APITestCase):
                     available_formats = [k for k, v in formats.items() if v.get("available", False)]
 
             # 2. 各フォーマットでエクスポートを実行
-            for format_type in ["json", "csv", "pdf"]:
+            for format_type in ["json", "csv"]:
                 if format_type in available_formats:
                     export_response = self.client.get("/api/accounts/export/statistics/", {"format": format_type})
 
@@ -531,8 +529,6 @@ class ExportIntegrationTestCase(APITestCase):
                         self.assertIn("application/json", export_response["Content-Type"])
                     elif format_type == "csv":
                         self.assertEqual(export_response["Content-Type"], "text/csv")
-                    elif format_type == "pdf":
-                        self.assertEqual(export_response["Content-Type"], "application/pdf")
 
     def test_export_performance_with_large_dataset(self):
         """大量データに対するエクスポート性能テスト"""

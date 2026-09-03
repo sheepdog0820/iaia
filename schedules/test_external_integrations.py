@@ -12,8 +12,9 @@ from rest_framework.test import APITestCase
 
 from accounts.character_models import CharacterSheet7th
 from accounts.models import CharacterSheet, Group
-from schedules.google_tokens import get_google_access_token
 from schedules import session_permissions
+from schedules.google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_DISPLAY_RANGE
+from schedules.google_tokens import get_google_access_token
 from schedules.models import AsyncJob, CalendarSubscription, GoogleCalendarSync, GoogleIntegration, TRPGSession
 from schedules.tasks import sync_google_calendar
 
@@ -186,6 +187,16 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertNotContains(response, 'id="import-google-sheets"')
         self.assertContains(response, "直前の招待を失効")
         self.assertContains(response, "const websocketEnabled = false")
+
+    def test_sheets_default_range_matches_export_columns(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get("/integrations/")
+
+        self.assertEqual(len(SHEET_COLUMNS), 17)
+        self.assertEqual(SHEET_COLUMNS[-1], "LUCK")
+        self.assertEqual(SHEETS_DEFAULT_DISPLAY_RANGE, "Characters!A:Q")
+        self.assertContains(response, 'id="sheets-range" value="Characters!A:Q"')
 
     def test_calendar_sync_endpoint_creates_job(self):
         self.connect_google()
