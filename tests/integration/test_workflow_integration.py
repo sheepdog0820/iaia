@@ -211,29 +211,29 @@ class PlayerWorkflowIntegrationTest(APITestCase):
 
         # 参加者取得
         response = self.client.get(f"/api/schedules/sessions/{session_id}/")
+        self.assertEqual(response.status_code, 200)
         participants = response.data.get("participants_detail", [])
         player_participant = next((p for p in participants if p["user"] == self.player.id), None)
 
-        if player_participant:
-            handout_data = {
-                "session": session_id,
-                "participant": player_participant["id"],
-                "title": "導入ハンドアウト",
-                "content": "あなたは怪しい事件の調査を依頼された探偵です...",
-                "is_secret": True,
-            }
-            response = self.client.post("/api/schedules/handouts/", handout_data)
-            self.assertEqual(response.status_code, 201)
-            print(f"   [OK] ハンドアウト作成: {response.data['title']}")
+        self.assertIsNotNone(player_participant, "参加済みプレイヤーがセッション詳細に存在すること")
+        handout_data = {
+            "session": session_id,
+            "participant": player_participant["id"],
+            "title": "導入ハンドアウト",
+            "content": "あなたは怪しい事件の調査を依頼された探偵です...",
+            "is_secret": True,
+        }
+        response = self.client.post("/api/schedules/handouts/", handout_data)
+        self.assertEqual(response.status_code, 201)
+        print(f"   [OK] ハンドアウト作成: {response.data['title']}")
 
-            # ハンドアウト取得（プレイヤーの操作）
-            self.client.force_authenticate(user=self.player)
-            response = self.client.get("/api/schedules/handouts/")
-            self.assertEqual(response.status_code, 200)
-            print(f"   [OK] ハンドアウト取得: {len(response.data)}件")
+        # ハンドアウト取得（プレイヤーの操作）
+        self.client.force_authenticate(user=self.player)
+        response = self.client.get("/api/schedules/handouts/")
+        self.assertEqual(response.status_code, 200)
+        print(f"   [OK] ハンドアウト取得: {len(response.data)}件")
 
         print("\\n[DONE] プレイヤー動線統合テスト完了!")
-        return True
 
 
 class GMWorkflowIntegrationTest(APITestCase):
@@ -365,7 +365,10 @@ class GMWorkflowIntegrationTest(APITestCase):
 
         # 参加者情報取得
         response = self.client.get(f"/api/schedules/sessions/{session_id}/")
+        self.assertEqual(response.status_code, 200)
         participants = response.data.get("participants_detail", [])
+
+        self.assertTrue({self.player1.id, self.player2.id}.issubset({p["user"] for p in participants}))
 
         # 各プレイヤーにハンドアウト作成
         for i, participant in enumerate(participants):
@@ -451,7 +454,6 @@ class GMWorkflowIntegrationTest(APITestCase):
         print(f"   [OK] GM統計: GM={stats.get('gm_session_count', 0)}回, PL={stats.get('player_session_count', 0)}回")
 
         print("\\n[DONE] GM動線統合テスト完了!")
-        return True
 
 
 class CalendarFilterIntegrationTest(APITestCase):
@@ -606,7 +608,6 @@ class CalendarFilterIntegrationTest(APITestCase):
                 print(f"   [OK] 公開セッション分類確認: {event['title']}")
 
         print("\\n[DONE] カレンダーフィルター統合テスト完了!")
-        return True
 
 
 class ExportStatisticsIntegrationTest(APITestCase):
@@ -751,8 +752,6 @@ class ExportStatisticsIntegrationTest(APITestCase):
                 notes = history_data.get("notes", "メモなし")
                 print(f"   [NOTE] 履歴: {role} - {notes}")
 
-        return True
-
     def test_export_functionality(self):
         """エクスポート機能の動作テスト"""
         print("\\n[EXPORT] エクスポート機能統合テスト開始")
@@ -773,15 +772,9 @@ class ExportStatisticsIntegrationTest(APITestCase):
         # 2. CSV エクスポート（統計データ）
         print("\\n2) CSVエクスポート")
         response = self.client.get("/api/accounts/export/statistics/?format=csv")
-        # CSV エクスポートは現在404エラーの既知の問題があるため、
-        # ステータスコードのチェックを調整
-        if response.status_code == 200:
-            self.assertEqual(response["Content-Type"], "text/csv")
-            print(f"   [OK] CSVエクスポート成功")
-        elif response.status_code == 404:
-            print(f"   [WARN] CSVエクスポート: 既知の404エラー（ルーティング問題）")
-        else:
-            print(f"   [FAIL] CSVエクスポート: 予期しないエラー {response.status_code}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"].split(";")[0], "text/csv")
+        self.assertTrue(response.content)
 
         # 3. エクスポート形式一覧取得
         print("\\n3) エクスポート形式一覧")
@@ -795,8 +788,6 @@ class ExportStatisticsIntegrationTest(APITestCase):
         else:
             print(f"   [OK] エクスポート形式取得成功")
 
-        return True
-
     def test_complete_export_statistics_workflow(self):
         """エクスポート・統計機能の完全な動線テスト"""
         print("\\n[FLOW] エクスポート・統計完全動線テスト開始")
@@ -808,11 +799,13 @@ class ExportStatisticsIntegrationTest(APITestCase):
 
         # セッション一覧確認
         response = self.client.get("/api/schedules/sessions/")
+        self.assertEqual(response.status_code, 200)
         sessions = response.data
         print(f"   [OK] セッション数: {len(sessions)}")
 
         # プレイ履歴確認
         response = self.client.get("/api/scenarios/history/")
+        self.assertEqual(response.status_code, 200)
         histories = response.data
         print(f"   [OK] プレイ履歴数: {len(histories)}")
 
@@ -821,6 +814,7 @@ class ExportStatisticsIntegrationTest(APITestCase):
 
         # 年間統計
         response = self.client.get("/api/accounts/statistics/simple/")
+        self.assertEqual(response.status_code, 200)
         stats = response.data
 
         gm_count = stats.get("gm_session_count", 0)
@@ -836,31 +830,30 @@ class ExportStatisticsIntegrationTest(APITestCase):
 
         # JSON形式でのフルエクスポート
         response = self.client.get("/api/accounts/export/formats/?format=json")
-        if response.status_code == 200:
-            export_data = response.json()
+        self.assertEqual(response.status_code, 200)
+        export_data = response.json()
 
-            # エクスポートデータの整合性確認
-            self.assertEqual(export_data["user_info"]["id"], self.user.id)
-            print(f"   [OK] フルデータエクスポート成功")
-            print(f"   [STATS] エクスポート統計: {export_data.get('statistics', {})}")
+        # エクスポートデータの整合性確認
+        self.assertEqual(export_data["user_info"]["id"], self.user.id)
+        print(f"   [OK] フルデータエクスポート成功")
+        print(f"   [STATS] エクスポート統計: {export_data.get('statistics', {})}")
 
-            # エクスポートサイズ確認
-            import json
+        # エクスポートサイズ確認
+        import json
 
-            export_size = len(json.dumps(export_data))
-            print(f"   [STATS] エクスポートサイズ: {export_size:,} bytes")
+        export_size = len(json.dumps(export_data))
+        print(f"   [STATS] エクスポートサイズ: {export_size:,} bytes")
 
         # 4. 統計の可視化準備データ
         print("\\n4) 統計可視化データ")
 
         # 月間統計取得
         response = self.client.get("/api/schedules/sessions/statistics/?year=2025")
-        if response.status_code == 200:
-            monthly_stats = response.data
-            print(f"   [STATS] 2025年統計: {monthly_stats}")
+        self.assertEqual(response.status_code, 200)
+        monthly_stats = response.data
+        print(f"   [STATS] 2025年統計: {monthly_stats}")
 
         print("\\n[DONE] エクスポート・統計完全動線テスト完了!")
-        return True
 
 
 def run_workflow_tests():
