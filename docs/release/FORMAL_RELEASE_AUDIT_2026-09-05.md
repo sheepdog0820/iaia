@@ -138,3 +138,9 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 稼働コミットから候補 `f0f443f0` への比較で、新規 `schedules.0055`、既存 `accounts.0058` の実装変更、static/templates等を確認。今回の分岐元mainとの比較だけでは共有環境の配備影響を見落とすため、稼働版を基点とした移行・復旧確認が必要。
 - ECS Execとdeployment circuit breaker/自動rollbackは無効。現時点で実DBの適用履歴や復元を検証したとは扱わない。共有DBへの接続・変更、Secretsの値取得、サービス更新は未実施。
 - [aws-pre配備準備計画](AWS_PRE_FORMAL_RELEASE_VALIDATION_PLAN.md)を作成。イメージdigest、実DB履歴、バックアップ/復元、追加費用とテスト宛先が揃うまで配備承認案は未完成と明示した。
+
+## 継続監査: 参加者ロールの移行・逆移行（2026-09-05）
+
+- `MigrationExecutor` で実際の `schedules.0054` と `0055` を往復するテストを追加。単一ロールのデータ保持、複数ロール許可、同一ロール重複拒否、複数ロール存在時の逆移行失敗とデータ/適用履歴保持を確認する。
+- 専用SQLiteで2件・subtests 2件成功（17.74秒）、専用PostgreSQL 16で2件・subtests 2件成功（21.57秒）。`tmp/formal-release-role-migration-sqlite-20260905.xml`、`tmp/formal-release-role-migration-postgres-20260905.xml`。共有データは使用していない。
+- PostgreSQL用CIの対象にも追加した。リモートCIの成功証拠は引き続き未取得。実データの移行時間、ロック競合、バックアップ復元の証拠ではない。
