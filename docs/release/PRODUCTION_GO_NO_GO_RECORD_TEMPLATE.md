@@ -1,6 +1,6 @@
 # 本番 Go/No-Go 記録テンプレート
 
-最終更新: 2026-06-18
+最終更新: 2026-09-05
 
 このテンプレートは実AWS環境への apply 判断を残すための記録用です。Secrets、実Client Secret、実パスワードは記載しません。
 
@@ -45,7 +45,7 @@
 | OAuth callback | Google / Discord / X の本番callback URLがProvider側に登録済み | 未確認 |
 | 法務ページ | `/terms/`, `/privacy/`, `/contact/`, `/commercial-disclosure/` が本番実値で表示される | 未確認 |
 | 問い合わせ配送 | `/contact/` から実運用先へ通知またはメール配送される | 未確認 |
-| Stripe Checkout公開ゲート | `STRIPE_CHECKOUT_ENABLED=False`、または実Stripe test-mode event IDsを含む検証記録で `billing_release_gate` が成功 | 未確認 |
+| Stripe Checkout公開ゲート | 有料正式公開ではCheckout有効と実Stripe test-mode event IDsを含む検証記録を必須とし、`billing_release_gate --require-paid-checkout --verification-record docs/runbooks/billing-verification-YYYYMMDD.md` が成功 | 未確認 |
 | 課金検証記録 | `docs/runbooks/billing-verification-YYYYMMDD.md` にPrice IDs、Webhook event IDs、管理画面確認を記録 | 未確認 |
 | SNS通知 | CloudWatch Alarmから実SNS購読者へ通知される | 未確認 |
 | RDS復旧 | 本番相当スナップショットから復旧手順、RPO/RTO、復旧試験日を記録 | 未確認 |
@@ -74,3 +74,5 @@
 - 結論: 未記録
 - 条件:
 - 次アクション:
+
+有料正式公開ではCheckout無効を合格の代替条件にしない。ゲートは記録の形式検査であり、実イベントの真偽・料金の承認・本番設定の整合性を単独で証明しない。検証記録をStripeとアプリの実状態に照合し、人間の公開判断と併せて記録する。

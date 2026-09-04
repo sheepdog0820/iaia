@@ -2459,6 +2459,18 @@ class PremiumAccessCodeCommandTestCase(TestCase):
 
         self.assertIn("--verification-record", str(context.exception))
 
+    @override_settings(STRIPE_CHECKOUT_ENABLED=False)
+    def test_billing_release_gate_requires_paid_checkout_for_formal_release(self):
+        stdout = StringIO()
+        with self.assertRaisesMessage(CommandError, "paid Checkout is required"):
+            call_command("billing_release_gate", "--require-paid-checkout", stdout=stdout)
+        self.assertNotIn("billing_release_gate=ok", stdout.getvalue())
+
+    @override_settings(STRIPE_CHECKOUT_ENABLED=True)
+    def test_formal_billing_release_gate_still_requires_external_evidence(self):
+        with self.assertRaisesMessage(CommandError, "--verification-record"):
+            call_command("billing_release_gate", "--require-paid-checkout", stdout=StringIO())
+
     @override_settings(STRIPE_CHECKOUT_ENABLED=True)
     def test_billing_release_gate_rejects_incomplete_local_verification_record(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -2493,6 +2505,7 @@ remote check not run or produced no output
 
             call_command(
                 "billing_release_gate",
+                "--require-paid-checkout",
                 "--verification-record",
                 str(record_path),
                 stdout=stdout,

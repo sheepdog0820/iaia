@@ -30,6 +30,11 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
+            "--require-paid-checkout",
+            action="store_true",
+            help="Require enabled and verified paid Checkout for a formal paid release.",
+        )
+        parser.add_argument(
             "--verification-record",
             default="",
             help="Final aws-pre billing verification record path.",
@@ -40,6 +45,8 @@ class Command(BaseCommand):
         self.stdout.write(f"stripe_checkout_enabled={str(checkout_enabled).lower()}")
 
         if not checkout_enabled:
+            if options["require_paid_checkout"]:
+                raise CommandError("paid Checkout is required for this release, but STRIPE_CHECKOUT_ENABLED is false")
             self.stdout.write(self.style.SUCCESS("billing_release_gate=ok checkout-disabled"))
             return
 
