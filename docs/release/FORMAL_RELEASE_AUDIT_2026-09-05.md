@@ -144,3 +144,18 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - `MigrationExecutor` で実際の `schedules.0054` と `0055` を往復するテストを追加。単一ロールのデータ保持、複数ロール許可、同一ロール重複拒否、複数ロール存在時の逆移行失敗とデータ/適用履歴保持を確認する。
 - 専用SQLiteで2件・subtests 2件成功（17.74秒）、専用PostgreSQL 16で2件・subtests 2件成功（21.57秒）。`tmp/formal-release-role-migration-sqlite-20260905.xml`、`tmp/formal-release-role-migration-postgres-20260905.xml`。共有データは使用していない。
 - PostgreSQL用CIの対象にも追加した。リモートCIの成功証拠は引き続き未取得。実データの移行時間、ロック競合、バックアップ復元の証拠ではない。
+
+## 継続監査: セッション一覧の基礎性能（2026-09-05）
+
+- コミット `495ef037` の `/api/schedules/sessions/?period=all` を、通常ユーザー（グループメンバーかつ対象セッションのGM）で測定した。専用SQLite、Django 5.2.15、DEBUG=False、APIClientの認証注入、同時実行1、各規模3回。空でない戻り件数が保存件数に一致することを検証した。セッションはbulk_create、参加者・HO・画像なしの最小構成であり、本番データ量の代表値とは断定しない。
+- SQLは `connection.execute_wrapper` で数えた。最初の測定では既定の未来フィルターで0件となり無効、次の測定ではSQLログ上限9,000件に達して件数が不正確だったため、条件・計数方式を修正して再測定した。以下は修正後の結果のみ。
+
+| 保存/応答セッション数 | 1要求あたりSQL数 | 応答中央値 | 応答本文サイズ |
+| --- | --- | --- | --- |
+| 10 | 141 | 0.0868秒 | 8,992 bytes |
+| 100 | 1,401 | 0.8049秒 | 90,083 bytes |
+| 1,000 | 14,001 | 8.1570秒 | 902,784 bytes |
+
+- 証跡: `tmp/formal-release-session-list-profile-20260905.json`、測定用コード `tmp/formal_release_list_profile.py`。時刻にはAPIClient処理・JSON解析を含み、ネットワーク/ブラウザ描画/ログインハッシュは含まない。共有DBと外部サービスを使用していない。
+- 関連データのセッション単位の取得でSQLが増えている。`TRPGSessionViewSet.get_queryset` はscenario以外を一括取得せず、serializerは参加者・HO・画像・動画・件数等を参照する。未修正の性能課題として扱う。改善ではAPI項目を削る、権限フィルターを省く、返却件数を黙って減らす方法を採用しない。一括取得とキャッシュ利用を検証し、内容/秘匿保護の回帰テストと同条件の再測定を行う。
+- 登録人数・同時利用人数の合意、PostgreSQL/本番相当構成、同時10人等の負荷試験は未実施。この基礎測定を公開性能の合格証拠としない。
