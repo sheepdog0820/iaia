@@ -174,7 +174,7 @@ class SessionParticipantSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.ListField(child=serializers.CharField()))
     def get_roles(self, obj):
-        return list(obj.participant_roles.values_list("role", flat=True))
+        return [role.role for role in obj.participant_roles.all()]
 
     def validate(self, attrs):
         user = attrs.get("user")
@@ -417,7 +417,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
     scenario_detail = serializers.SerializerMethodField()
     participants = serializers.SerializerMethodField()
     participants_detail = SessionParticipantSerializer(source="sessionparticipant_set", many=True, read_only=True)
-    handouts_detail = HandoutInfoSerializer(source="handouts", many=True, read_only=True)
+    handouts_detail = serializers.SerializerMethodField()
     images_detail = SessionImageSerializer(source="images", many=True, read_only=True)
     youtube_links_detail = SessionYouTubeLinkSerializer(source="youtube_links", many=True, read_only=True)
     participant_count = serializers.SerializerMethodField()
@@ -469,27 +469,30 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "gm", "created_by", "created_at", "updated_at"]
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
+    @extend_schema_field(HandoutInfoSerializer(many=True))
+    def get_handouts_detail(self, instance):
         request = self.context.get("request")
         user = getattr(request, "user", None)
+        cache = getattr(instance, "_prefetched_objects_cache", {})
+        handouts = cache.get("handouts")
+        if handouts is None:
+            handouts = instance.handouts.select_related("participant", "participant__user")
         visible_handouts = [
             handout
-            for handout in instance.handouts.select_related(
-                "participant",
-                "participant__user",
-            )
-            if can_view_handout(handout, user)
+            for handout in handouts
+            if can_view_handout(handout, user, participants=cache.get("sessionparticipant_set"))
         ]
-        data["handouts_detail"] = HandoutInfoSerializer(
+        return HandoutInfoSerializer(
             visible_handouts,
             many=True,
             context=self.context,
         ).data
-        return data
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_participant_count(self, obj):
+        participants = getattr(obj, "_prefetched_objects_cache", {}).get("sessionparticipant_set")
+        if participants is not None:
+            return sum(1 for participant in participants if participant.user_id is not None)
         return obj.participants.count()
 
     @extend_schema_field(OpenApiTypes.INT)
@@ -520,7 +523,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
                     "description": skill.description,
                     "order": skill.order,
                 }
-                for skill in obj.scenario.recommended_skill_items.order_by("order", "id")
+                for skill in obj.scenario.recommended_skill_items.all()
             ],
         }
 

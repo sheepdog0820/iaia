@@ -1388,6 +1388,9 @@ class SessionYouTubeLink(models.Model):
     @classmethod
     def get_session_total_duration(cls, session):
         """セッションの動画合計時間を取得"""
+        links = getattr(session, "_prefetched_objects_cache", {}).get("youtube_links")
+        if links is not None:
+            return sum(link.duration_seconds or 0 for link in links)
         from django.db.models import Sum
 
         result = cls.objects.filter(session=session).aggregate(total=Sum("duration_seconds"))

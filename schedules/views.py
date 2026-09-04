@@ -519,6 +519,22 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         # ユーザーが参加しているグループのセッション、または公開セッション
         sessions = _visible_sessions_for(user).select_related("scenario")
         if getattr(self, "action", None) == "list":
+            participants = SessionParticipant.objects.select_related(
+                "user",
+                "participant_identity",
+                "character_sheet__sixth_edition_data",
+                "character_sheet__seventh_edition_data",
+            ).prefetch_related("participant_roles")
+            sessions = sessions.select_related("gm", "created_by", "group").prefetch_related(
+                Prefetch("sessionparticipant_set", queryset=participants),
+                Prefetch(
+                    "handouts",
+                    queryset=HandoutInfo.objects.prefetch_related(Prefetch("participant", queryset=participants)),
+                ),
+                Prefetch("images", queryset=SessionImage.objects.select_related("uploaded_by")),
+                Prefetch("youtube_links", queryset=SessionYouTubeLink.objects.select_related("added_by")),
+                "scenario__recommended_skill_items",
+            )
             period = self.request.query_params.get("period", "future")
             sessions = _filter_sessions_by_period(sessions, period)
             return _order_sessions_by_period(sessions, period)
