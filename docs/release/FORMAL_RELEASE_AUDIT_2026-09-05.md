@@ -124,3 +124,10 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - Python 3.11.16、Django 5.2.17、Stripe 15.5.1。`python -m pip check` は依存不整合なし。イメージ内に `.codex*` と `tmp/` がないことを確認し、専用E2E設定/DBの混入も除外した。
 - エントリーポイントをPythonへ上書きし、仮のSECRET_KEY・APP_ENV=local・ENV_FILE空・DB_ENGINE=sqliteで `manage.py test accounts.test_billing tests.unit.test_custom_formula_safety tests.unit.test_external_http_resilience accounts.test_character_6th_custom_formula --noinput --verbosity 1` を実行。**203件成功（40.228秒）、終了コード0**。実行コンテナ内だけのSQLiteを使用し、テストDBと `--rm` コンテナは終了時に削除された。
 - この203件には課金公開ゲート・DB例外再試行・通信失敗・算術構文の修正が含まれる。失敗系テストの500/503ログは期待する障害注入であり、テスト結果はOK。固定依存関係での全体CI・PostgreSQL・ブラウザE2E・実Stripeを完了した証拠ではない。
+
+## 継続監査: LINE HTTP転送（2026-09-05）
+
+- LINEの返信・push・画像取得がHTTP転送を追従するケースをメモリ内のHTTPSハンドラーで再現。修正前は15ケース中11ケースで転送拒否の期待に失敗した。実ネットワーク・実トークン・実宛先は使用していない。
+- 認証付きリクエスト専用のリダイレクト拒否ハンドラーを追加し、301/302/303/307/308を追従せずHTTPエラーとして既存の失敗処理へ渡す。正規APIの直接応答、認証ヘッダー、タイムアウト、添付取得を維持する。実LINEが転送を返すかは未確認であり、転送発生時は黙って追従せず運用側で確認する。
+- サポート受付・再試行と新規HTTPテストは **12件、subtests 18件成功（27.83秒）**。`tmp/formal-release-line-20260905.xml`。新規2関数の行カバレッジは100%。`tmp/formal-release-line-coverage-20260905.json`。対象ファイルのBandit HIGH/MEDIUMは0件。
+- 開発用リセットコマンドのSQL指摘も確認。識別子はSQLite自身の外部キーメタデータ由来で、行IDはパラメーター化され、コマンド入口はDEBUGを確認している。外部APIからの直接入力経路はこのコード内にはない。コマンドは破壊的なため実行せず、DEBUGだけに依存する環境制限と識別子処理の改善検討は残す。

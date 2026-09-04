@@ -15,6 +15,17 @@ from support.models import LineWebhookEvent, SupportMessage, SupportTicket
 logger = logging.getLogger(__name__)
 
 
+class _RejectLineRedirects(request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # LINE credentials must never be forwarded to a redirect destination.
+        return None
+
+
+def _open_line_request(req):
+    opener = request.build_opener(_RejectLineRedirects())
+    return opener.open(req, timeout=settings.LINE_API_TIMEOUT_SECONDS)
+
+
 def _line_request(url, payload):
     token = settings.LINE_CHANNEL_ACCESS_TOKEN
     if not token:
@@ -29,7 +40,7 @@ def _line_request(url, payload):
         },
         method="POST",
     )
-    with request.urlopen(req, timeout=settings.LINE_API_TIMEOUT_SECONDS) as response:
+    with _open_line_request(req) as response:
         if response.status >= 300:
             raise RuntimeError(f"LINE API returned HTTP {response.status}")
 
@@ -69,7 +80,7 @@ def fetch_line_content(message_id):
         method="GET",
     )
     max_bytes = settings.LINE_MAX_ATTACHMENT_BYTES
-    with request.urlopen(req, timeout=settings.LINE_API_TIMEOUT_SECONDS) as response:
+    with _open_line_request(req) as response:
         declared_size = int(response.headers.get("Content-Length") or 0)
         if declared_size > max_bytes:
             raise ValueError("LINE attachment exceeds the configured size limit")
