@@ -117,3 +117,10 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 登録テスト以外は主に開発ログインとadminを使用する。全機能の通常ユーザー権限・課金契約のE2Eを証明するものではない。外部連携設定テストはGoogle/Discord/Sheets/ICSのAPI応答を模擬しており、実サービスの認可・通知成功とは区別する。
 - Firefox / WebKitの同じ26件ずつ、計52件も成功（約3.5分）。`tmp/tmp/formal-release-e2e-crossbrowser-20260905.json`。Chromiumと合わせて78件成功、skip/flaky/unexpectedはいずれも0。Windows上のPlaywrightブラウザであり、macOS/iOSのSafari実機とは区別する。
 - 検証後、スキルが記録した専用8019番ポートのサーバーを停止。テスト用DB・設定・ログ・失敗時の画像/traceはローカルの証跡として保持し、リポジトリには追加しない。
+
+## 継続監査: 固定依存関係のコンテナ検証（2026-09-05）
+
+- コミット `c6d280d8` を現行Dockerfileと `requirements.lock.txt` でビルド。イメージは `sha256:eaf05e815671db51d613bef0c7b7d37b1fe193bfc38bff442ea6b4377132cf49`、ローカルタグは `tableno-formal-release:c6d280d8`。レジストリには送信していない。
+- Python 3.11.16、Django 5.2.17、Stripe 15.5.1。`python -m pip check` は依存不整合なし。イメージ内に `.codex*` と `tmp/` がないことを確認し、専用E2E設定/DBの混入も除外した。
+- エントリーポイントをPythonへ上書きし、仮のSECRET_KEY・APP_ENV=local・ENV_FILE空・DB_ENGINE=sqliteで `manage.py test accounts.test_billing tests.unit.test_custom_formula_safety tests.unit.test_external_http_resilience accounts.test_character_6th_custom_formula --noinput --verbosity 1` を実行。**203件成功（40.228秒）、終了コード0**。実行コンテナ内だけのSQLiteを使用し、テストDBと `--rm` コンテナは終了時に削除された。
+- この203件には課金公開ゲート・DB例外再試行・通信失敗・算術構文の修正が含まれる。失敗系テストの500/503ログは期待する障害注入であり、テスト結果はOK。固定依存関係での全体CI・PostgreSQL・ブラウザE2E・実Stripeを完了した証拠ではない。
