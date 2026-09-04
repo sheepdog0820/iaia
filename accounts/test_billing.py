@@ -827,6 +827,49 @@ class StripeWebhookTestCase(TestCase):
         self.assertEqual(webhook_event.error_message, "")
         self.assertEqual(handle_checkout_completed_mock.call_count, 2)
 
+    @patch("accounts.views.billing_views.handle_checkout_completed")
+    @patch("accounts.views.billing_views.get_stripe")
+    def test_webhook_processing_integrity_error_is_retryable(self, get_stripe, handle_checkout_completed_mock):
+        event = {
+            "id": "evt_checkout_integrity_retry",
+            "type": "checkout.session.completed",
+            "data": {"object": {"customer": "cus_test", "subscription": "sub_test"}},
+        }
+        get_stripe.return_value.Webhook.construct_event.return_value = event
+
+        def fail_database_write(*args, **kwargs):
+            # Trigger a real database constraint failure inside the processing transaction.
+            StripeWebhookEvent.objects.create(event_id=event["id"], event_type=event["type"])
+
+        handle_checkout_completed_mock.side_effect = fail_database_write
+        first_response = self.client.post(
+            reverse("billing-webhook"),
+            data=b"{}",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="valid",
+        )
+
+        self.assertEqual(first_response.status_code, 500)
+        self.assertEqual(first_response.json(), {"received": False, "error": "Webhook processing failed"})
+        webhook_event = StripeWebhookEvent.objects.get(event_id=event["id"])
+        self.assertEqual(webhook_event.processing_status, StripeWebhookEvent.STATUS_FAILED)
+        self.assertTrue(webhook_event.error_message)
+
+        handle_checkout_completed_mock.side_effect = None
+        second_response = self.client.post(
+            reverse("billing-webhook"),
+            data=b"{}",
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE="valid",
+        )
+
+        self.assertEqual(second_response.status_code, 200)
+        webhook_event.refresh_from_db()
+        self.assertEqual(webhook_event.processing_status, StripeWebhookEvent.STATUS_SUCCEEDED)
+        self.assertEqual(webhook_event.error_message, "")
+        self.assertEqual(handle_checkout_completed_mock.call_count, 2)
+        self.assertEqual(StripeWebhookEvent.objects.filter(event_id=event["id"]).count(), 1)
+
     @patch("accounts.views.billing_views.sync_subscription_object")
     @patch("accounts.views.billing_views.get_stripe")
     def test_webhook_routes_subscription_created(self, get_stripe, sync_subscription_object_mock):

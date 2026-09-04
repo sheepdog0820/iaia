@@ -229,8 +229,6 @@ class StripeWebhookView(APIView):
                         "processed_at",
                     ]
                 )
-        except IntegrityError:
-            return Response({"received": True, "duplicate": True})
         except Exception as exc:
             StripeWebhookEvent.objects.filter(event_id=event_id).update(
                 event_type=event_type,
