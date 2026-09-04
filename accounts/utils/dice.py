@@ -2,6 +2,8 @@
 クトゥルフ神話TRPG 6版 ユーティリティ関数
 """
 
+import ast
+import operator
 import random
 import re
 from typing import Dict, List, Optional, Union
@@ -25,142 +27,77 @@ def parse_custom_formula(formula: str) -> List[str]:
     return tokens
 
 
-def validate_custom_formula(formula: str) -> bool:
-    """
-    カスタム式のバリデーション
+_FORMULA_ABILITIES = {"STR", "CON", "POW", "DEX", "APP", "SIZ", "INT", "EDU"}
+_FORMULA_OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.UAdd: operator.pos,
+    ast.USub: operator.neg,
+}
 
-    Args:
-        formula: 検証する計算式
 
-    Returns:
-        有効な式の場合True
-    """
-    # 許可される能力値
-    valid_abilities = ["STR", "CON", "POW", "DEX", "APP", "SIZ", "INT", "EDU"]
-
-    # 許可される演算子
-    valid_operators = ["×", "÷", "+", "-", "(", ")"]
-
-    # 危険な文字列のチェック
-    dangerous_patterns = [
-        "eval",
-        "exec",
-        "__",
-        "import",
-        "DROP",
-        "DELETE",
-        "UPDATE",
-        "INSERT",
-        ";",
-        "--",
-        "/*",
-        "*/",
-        "script",
-    ]
-
-    # 無効な演算子（*を使用してはいけない）
-    if "*" in formula or "/" in formula and "÷" not in formula:
-        return False
-
-    formula_upper = formula.upper()
-    for pattern in dangerous_patterns:
-        if pattern.upper() in formula_upper:
-            return False
-
-    # パースしてトークンを検証
+def _custom_formula_tree(formula: str) -> ast.Expression:
+    """式全体を検証し、許可した算術構文だけを返す。"""
+    if not isinstance(formula, str):
+        raise ValueError("無効な計算式です")
+    if len(formula) > 200:
+        raise ValueError("計算式が長すぎます")
+    if not re.fullmatch(r"[A-Z0-9\s()+×÷-]+", formula):
+        raise ValueError("無効な計算式です")
+    # 既存仕様では演算子の連続を許可しない。括弧内の符号は使用可能。
+    if re.search(r"[+×÷-]\s*[+×÷-]", formula):
+        raise ValueError("無効な計算式です")
+    normalized = re.sub(r"\s+", " ", formula).strip().replace("×", "*").replace("÷", "/")
     try:
-        tokens = parse_custom_formula(formula)
+        tree = ast.parse(normalized, mode="eval")
+    except SyntaxError as exc:
+        raise ValueError("無効な計算式です") from exc
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name):
+            if node.id not in _FORMULA_ABILITIES:
+                raise ValueError("無効な計算式です")
+        elif isinstance(node, ast.Constant):
+            if type(node.value) is not int:
+                raise ValueError("無効な計算式です")
+        elif type(node) not in (ast.Expression, ast.BinOp, ast.UnaryOp, ast.Load, *_FORMULA_OPERATORS):
+            raise ValueError("無効な計算式です")
+    return tree
 
-        for token in tokens:
-            # 数値、能力値、演算子のいずれかであること
-            if token.isdigit():
-                continue
-            elif token in valid_abilities:
-                continue
-            elif token in valid_operators:
-                continue
-            else:
-                return False
 
-        # 空の式は無効
-        if not tokens:
-            return False
-
-        # 演算子の連続チェック
-        prev_operator = False
-        for token in tokens:
-            if token in ["+", "-", "×", "÷"]:
-                if prev_operator:
-                    return False
-                prev_operator = True
-            else:
-                prev_operator = False
-
-        return True
-
-    except Exception:
+def validate_custom_formula(formula: str) -> bool:
+    """許可された能力値・整数・四則演算・括弧からなる式か検証する。"""
+    try:
+        _custom_formula_tree(formula)
+    except ValueError:
         return False
+    return True
+
+
+def _calculate_formula_node(node, ability_values):
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.Name):
+        return ability_values[node.id]
+    if isinstance(node, ast.UnaryOp):
+        return _FORMULA_OPERATORS[type(node.op)](_calculate_formula_node(node.operand, ability_values))
+    return _FORMULA_OPERATORS[type(node.op)](
+        _calculate_formula_node(node.left, ability_values),
+        _calculate_formula_node(node.right, ability_values),
+    )
 
 
 def calculate_custom_formula(character, formula: str) -> int:
+    """検証済みの算術構文を計算し、整数への切り捨てと最小値0を適用する。"""
+    tree = _custom_formula_tree(formula)
     character = getattr(character, "system_data", character)
-    """
-    カスタム式を計算
-
-    Args:
-        character: CharacterSheetオブジェクト
-        formula: 計算式
-
-    Returns:
-        計算結果（最小値0）
-
-    Raises:
-        ValueError: 無効な式やゼロ除算の場合
-    """
-    if not validate_custom_formula(formula):
-        raise ValueError("無効な計算式です")
-
-    # 長すぎる式のチェック
-    if len(formula) > 200:
-        raise ValueError("計算式が長すぎます")
-
-    # 6版の値に変換（現在のモデルは7版仕様なので5で割る）
-    ability_values = {
-        "STR": character.str_value // 5,
-        "CON": character.con_value // 5,
-        "POW": character.pow_value // 5,
-        "DEX": character.dex_value // 5,
-        "APP": character.app_value // 5,
-        "SIZ": character.siz_value // 5,
-        "INT": character.int_value // 5,
-        "EDU": character.edu_value // 5,
-    }
-
-    # 式の評価用に変換
-    eval_formula = formula
-
-    # 能力値を実際の値に置き換え
-    for ability, value in ability_values.items():
-        eval_formula = eval_formula.replace(ability, str(value))
-
-    # 演算子を Python の演算子に変換
-    eval_formula = eval_formula.replace("×", "*")
-    eval_formula = eval_formula.replace("÷", "/")
-
+    # 既存の6版能力値変換を維持する。
+    ability_values = {ability: getattr(character, f"{ability.lower()}_value") // 5 for ability in _FORMULA_ABILITIES}
     try:
-        # 安全な評価のために許可された要素のみ使用
-        result = eval(eval_formula, {"__builtins__": {}}, {})
-
-        # 整数に変換（切り捨て）
-        result = int(result)
-
-        # 最小値は0
-        return max(0, result)
-
-    except ZeroDivisionError:
-        raise ValueError("ゼロ除算エラー")
-    except Exception as e:
-        raise ValueError(f"計算エラー: {str(e)}")
+        return max(0, int(_calculate_formula_node(tree.body, ability_values)))
+    except ZeroDivisionError as exc:
+        raise ValueError("ゼロ除算エラー") from exc
 
 
 def calculate_occupation_skill_points(character, formula_type: str, custom_formula: str = None) -> int:
