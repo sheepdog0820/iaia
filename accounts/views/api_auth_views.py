@@ -80,7 +80,9 @@ def google_auth(request):
             logger.info("アクセストークンで認証を試行")
             # Google APIでユーザー情報を取得
             response = requests.get(
-                "https://www.googleapis.com/oauth2/v2/userinfo", headers={"Authorization": f"Bearer {access_token}"}
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10,
             )
 
             if response.status_code != 200:
@@ -187,6 +189,12 @@ def google_auth(request):
 
         return Response(response_data, status=status.HTTP_200_OK)
 
+    except requests.RequestException as e:
+        logger.warning("Google OAuth通信エラー (%s)", type(e).__name__)
+        return Response(
+            {"error": "Googleとの通信に失敗しました。時間をおいて再度お試しください。"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
     except Exception as e:
         logger.error(f"Google OAuth認証エラー: {e}")
         return Response(

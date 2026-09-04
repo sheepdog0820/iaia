@@ -58,3 +58,20 @@ Webhook処理トランザクション内の `IntegrityError` をすべて重複�
 JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に保存する。未確認・失敗結果も削除して合格扱いにしない。継続監査ではその時点の対象コミットと結果を追記する。
 
 今回のアプリ修正の復旧はWebhook例外処理の差分を戻すコードのリバートで可能。ただし元の不具合が再発するため、本番適用前の候補修正として扱う。
+
+## 継続監査: 外部通信と本番DB（2026-09-05）
+
+- Google userinfoとYouTube取得のタイムアウト未指定を修正した。接続・読み取りの無応答を10秒で打ち切る指定であり、応答全体の所要時間の上限を保証するものではない（[Requests仕様](https://requests.readthedocs.io/en/latest/user/quickstart/#timeouts)）。
+- Google userinfoの通信エラーは日本語のHTTP 503を返し、例外本文を応答・当該ログに含めない。YouTubeの例外ログにもAPIキーを含み得るURL・トレースバックを記録せず、例外種類を記録する。
+- 新規4テストは変更前に失敗を再現。修正後、Google/X/Discord認証・YouTubeリンク・新規通信テストは **53件成功、subtests 30件成功**。`tmp/formal-release-http-20260905.xml`。
+- 変更3 PythonファイルのBlack/isort/Flake8は成功。新規表示文言は日本語。DBスキーマ、料金、外部設定は変更していない。
+- 変更した通信2ファイルのBandit再検査はHIGH/MEDIUM 0件、LOW B105 1件（変数名への指摘）が残る。全アプリの安全性を示す結果ではない。
+- `pip-audit -r requirements.lock.txt --disable-pip --no-deps` は111依存を検査し、既知脆弱性0件・スキップ0件。`tmp/formal-release-dependencies-20260905.json`。
+- Docker Desktopを起動し、`desktop-linux` コンテキストのDocker 25.0.3へ接続できた。通常/MySQLのCompose設定チェックはともに成功。
+- 専用PostgreSQL 16コンテナを127.0.0.1の検証用ポートだけに公開し、CIのproduction設定で `accounts/test_billing.py`、`accounts/test_share_links.py`、`accounts/test_character_6th_versioning.py` を実行。**208件成功、110.44秒**。`tmp/formal-release-postgres-20260905.xml`。本番データは使用していない。
+- PostgreSQLのCI対象に課金テストを追加した。ただし、同時実行の競合を網羅した証明や実Stripeの検証とは区別する。
+- SSHでリモートmainの基点SHA一致を確認した。GitHubのcommit status APIも空であり、CI成功証拠は引き続き未取得。
+- AWS profile `tableno-pre` のSTS照会は成功し、期待する開発アカウントと一致した。リソース・Secrets・DBは変更していない。
+- 開発ECSサービスはACTIVE、タスク定義リビジョン40、desired/runningとも0。`https://stg.tableno.jp/health/ready/` は503。意図的な停止の可能性があり、起動・デプロイは未実施。
+- 検証専用PostgreSQLコンテナはテスト後に停止し、作成時の `--rm` により削除した。Docker Desktopは起動状態を維持している。
+- CIと同じアプリ・単体・結合テスト範囲の全体実行は進行中。完走結果は別途追記する。E2E・実Stripe・本番反映は未実施。

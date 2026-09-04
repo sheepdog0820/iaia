@@ -32,7 +32,7 @@ class YouTubeService:
         params = {"key": api_key, "part": "snippet,contentDetails", "id": video_id}
 
         try:
-            response = requests.get(url, params=params)
+            response = requests.get(url, params=params, timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 if data.get("items"):
@@ -53,8 +53,9 @@ class YouTubeService:
                         "thumbnail_url": thumbnail_url,
                         "duration": YouTubeService.parse_duration(item["contentDetails"]["duration"]),
                     }
-        except Exception:
-            logger.warning("YouTube API error while fetching video information", exc_info=True)
+        except Exception as exc:
+            # Request exception text can contain the API key from the query string.
+            logger.warning("YouTube API error while fetching video information (%s)", type(exc).__name__)
 
         return None
 

@@ -203,7 +203,7 @@ jobs:
           cache: pip
       - run: python -m pip install --upgrade pip && pip install -r requirements-test.lock.txt
       - run: python manage.py check && python manage.py makemigrations --check --dry-run && python manage.py migrate --noinput && python manage.py migrate --check
-      - run: python -m pytest accounts/test_character_6th_versioning.py accounts/test_share_links.py -q
+      - run: python -m pytest accounts/test_character_6th_versioning.py accounts/test_share_links.py accounts/test_billing.py -q
 
   playwright:
     runs-on: ubuntu-latest
