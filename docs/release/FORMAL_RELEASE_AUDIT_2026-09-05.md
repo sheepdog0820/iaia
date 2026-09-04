@@ -108,3 +108,12 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - CSVはHTTP 200、CSV Content-Type、空でない本文を必須とした。プレイヤー・GMの参加者一覧を確認してからHO配布を検証し、JSONエクスポート・統計の失敗を条件分岐でスキップしないよう修正した。6テストの不要な戻り値も削除した。
 - 同じHTTP 500の注入で、修正後は `500 != 200` のアサーション失敗を確認。`tmp/formal-release-workflow-injected-failure-20260905.xml` はこの意図的な失敗検出の証拠であり、現行アプリの障害記録ではない。
 - 置換なしの一時SQLiteによる統合テストは **6件成功（26.52秒）**。`tmp/formal-release-workflow-20260905.xml`。残る警告9件はDjango廃止予定API。ブラウザE2Eや実外部サービスの検証は含まない。他の古いテストの条件付き検証や戻り値の監査は未完了。
+
+## 継続監査: ブラウザ操作（2026-09-05）
+
+- コミット `8b2a9420` をローカルの専用SQLite・media・メモリ内メール/キャッシュで起動。専用設定は `tmp/formal_release_e2e_settings.py`、DBは `tmp/formal-release-e2e-20260905/db.sqlite3`。8019番ポートだけを使い、通常の `db.sqlite3` と共有環境を変更しない。テスト専用の高速ハッシュ設定を使用しており、性能・本番設定の証拠ではない。
+- 初回は開発ログインが前提とするユーザー不足を確認し、後続の失敗を繰り返さず停止。専用DBに `admin`、`investigator1`、`investigator2` を追加後、Playwright 1.53.1 / Chromiumで **26件成功（51.0秒）**。`tmp/tmp/formal-release-e2e-seeded-20260905.json`。初回の失敗証跡は別の出力先に維持。
+- 登録・メール資格情報ログイン、日程調整、秘匿HO、シナリオ・セッション・6版/7版キャラクターの導線、CCFOLIA JSON出力、ゲスト所有権引継ぎ、主要画面JavaScript、法務リンク、390/412px幅のセッション・キャラクター画面を確認した。スマートフォン実機や実CCFOLIAへの取り込みは未確認。
+- 登録テスト以外は主に開発ログインとadminを使用する。全機能の通常ユーザー権限・課金契約のE2Eを証明するものではない。外部連携設定テストはGoogle/Discord/Sheets/ICSのAPI応答を模擬しており、実サービスの認可・通知成功とは区別する。
+- Firefox / WebKitの同じ26件ずつ、計52件も成功（約3.5分）。`tmp/tmp/formal-release-e2e-crossbrowser-20260905.json`。Chromiumと合わせて78件成功、skip/flaky/unexpectedはいずれも0。Windows上のPlaywrightブラウザであり、macOS/iOSのSafari実機とは区別する。
+- 検証後、スキルが記録した専用8019番ポートのサーバーを停止。テスト用DB・設定・ログ・失敗時の画像/traceはローカルの証跡として保持し、リポジトリには追加しない。
