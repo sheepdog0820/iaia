@@ -95,6 +95,10 @@ npm-debug.log
 .claude-trace/
 
 # Local/generated artifacts
+/.codex*/
+/ngrok.exe
+/skills/
+/coverage.xml
 .codex_work/
 debug_images/
 outputs/

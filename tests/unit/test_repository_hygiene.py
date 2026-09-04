@@ -84,6 +84,10 @@ class RepositoryHygieneTests(SimpleTestCase):
         ]
         required_dockerignore_entries = [
             ".codex_work/",
+            "/.codex*/",
+            "/ngrok.exe",
+            "/skills/",
+            "/coverage.xml",
             ".env",
             ".env.*",
             "!.env.example",
