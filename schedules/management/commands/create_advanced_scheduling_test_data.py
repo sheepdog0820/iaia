@@ -29,6 +29,7 @@ from schedules.models import (
     SessionSeries,
     TRPGSession,
 )
+from tableno.development_commands import local_development_only
 
 try:
     from rest_framework.authtoken.models import Token
@@ -60,6 +61,7 @@ class Command(BaseCommand):
             help="作成するグループ名",
         )
 
+    @local_development_only
     @transaction.atomic
     def handle(self, *args, **options):
         group_name = options.get("group_name")

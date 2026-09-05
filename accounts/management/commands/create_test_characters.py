@@ -13,6 +13,7 @@ from django.db import transaction
 from PIL import Image, ImageDraw, ImageFont
 
 from accounts.models import CharacterSheet, CharacterSheet6th
+from tableno.development_commands import local_development_only
 
 User = get_user_model()
 
@@ -116,6 +117,7 @@ class Command(BaseCommand):
 
         return images
 
+    @local_development_only
     def handle(self, *args, **options):
         username = options["username"]
         count = options["count"]

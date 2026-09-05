@@ -19,6 +19,7 @@ from accounts.models import Group
 from scenarios.models import Scenario
 from schedules import session_permissions
 from schedules.models import HandoutInfo, SessionParticipant, SessionParticipantRole, TRPGSession
+from tableno.development_commands import local_development_only
 
 User = get_user_model()
 
@@ -33,6 +34,7 @@ class Command(BaseCommand):
             help="同名のフローテストデータを削除して作り直します",
         )
 
+    @local_development_only
     @transaction.atomic
     def handle(self, *args, **options):
         prefix = "flow_"

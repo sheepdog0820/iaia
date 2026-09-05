@@ -269,3 +269,12 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 固定依存の `b8fad941` 配備用イメージに変更コマンドとテストだけを読み取り専用で適用し、2テスト・13 subtests成功（0.013秒）。共有/本番/不明環境、DEBUG=False、--clear有無の拒否と、ローカル3別名での従来処理呼び出しを確認した。DB処理はモックで、今回の変更でサンプルデータ自体を作成・削除していない。証跡 `tmp/sample-data-guard-red.log` / `tmp/sample-data-guard-green.log`。
 - ローカルで同じ2テストを再確認し、追加ガードの実行対象2行（if/raise）を両方実行した。モジュール全体のカバレッジ100%ではない。証跡 `tmp/sample-data-guard-coverage.json`。Black/isort/flake8と差分・日本語文言レビューを確認した。
 - `create_test_data`、`create_session_test_data`、`create_flow_test_data` 等は別の管理コマンドであり、今回のガードで一括保護されたとは扱わない。LOW指摘の残りとこれらの運用制限は引き続き確認対象。今回のコマンド修正は未配備で、既存アカウントの有無やパスワード変更も実施していない。
+
+## 継続監査: 一括テストデータコマンドの環境境界（2026-09-05）
+
+- `44bb888c` のclean状態から、残る一括作成コマンドとリセット処理を確認。create_test_data、create_test_characters、create_session_test_data、create_flow_test_data、create_advanced_scheduling_test_dataは環境判定がなく、reset_dev_session_dataはDEBUG判定より先にtransaction.atomicへ入っていた。
+- 7コマンド×8環境条件のテストを先に追加。既に保護したcreate_sample_dataの8条件以外、48条件で期待する拒否にならず、SimpleTestCaseがDBアクセスを検出して失敗した。実データ操作はしていない。`tmp/development-command-boundaries-red.log`。
+- `tableno/development_commands.py` に共通デコレータを設け、7コマンドに適用した。条件は前回のsampleと同じで、transaction.atomicを使うコマンドではその外側に置き、接続開始前に判定する。既存のデータ生成・削除本体は変更せず、拒否メッセージは日本語。共有環境を許可する例外フラグは追加していない。
+- 固定依存イメージb8fad941へ変更Pythonと既存sampleテストを読み取り専用マウントして、3テスト・69 subtests成功（0.055秒）。内訳は全7コマンドの拒否56条件と既存sampleの13条件。後者はローカル3別名で従来の処理群が呼ばれることも確認する。6つの追加コマンドの全データ生成機能を実行したという意味ではない。`tmp/development-command-boundaries-green.log`。
+- ローカルのカバレッジ付き再確認でも3件成功（0.136秒）、共通デコレータは10/10実行対象行。証跡 `tmp/development-command-boundaries-coverage.json`。変更PythonのBlack/isort/flake8と差分レビューを確認した。新規デコレータの行カバレッジであり、各コマンド本体や全分岐100%ではない。
+- [テストデータ管理ガイド](../testing/TEST_DATA_MANAGEMENT.md)に対象7コマンドと適用条件を明記した。宣言された環境設定が実DB接続先と一致することは運用時に別途確認する。ensure_dev_login_userの既存の明示オプションは今回変更していない。共有DB/アカウント/画像・実環境設定への変更は実施せず、対策は未配備。

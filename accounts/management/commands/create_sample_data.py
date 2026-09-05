@@ -1,15 +1,15 @@
 import random
 from datetime import datetime, timedelta
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from accounts.models import CustomUser, Friend, Group, GroupMembership
 from scenarios.models import PlayHistory, Scenario, ScenarioNote
 from schedules import session_permissions
 from schedules.models import HandoutInfo, SessionParticipant, SessionParticipantRole, TRPGSession
+from tableno.development_commands import local_development_only
 
 User = get_user_model()
 
@@ -24,13 +24,8 @@ class Command(BaseCommand):
             help="Clear existing data before creating sample data",
         )
 
+    @local_development_only
     def handle(self, *args, **options):
-        if (
-            not settings.DEBUG
-            or settings.APP_ENV not in {"local", "dev", "development"}
-            or settings.ENVIRONMENT not in {"local", "development"}
-        ):
-            raise CommandError("サンプルデータの作成・削除はDEBUG=Trueのローカル開発環境でのみ実行できます。")
         if options["clear"]:
             self.stdout.write(self.style.WARNING("Clearing existing data..."))
             self.clear_data()

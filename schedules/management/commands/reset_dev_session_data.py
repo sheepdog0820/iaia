@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Iterable
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import BaseCommand, CommandError, call_command
 from django.db import connection, transaction
@@ -23,6 +22,7 @@ from django.utils import timezone
 from accounts.models import Group, GroupMembership
 from schedules import session_permissions
 from schedules.models import SessionOccurrence, SessionParticipantRole, TRPGSession
+from tableno.development_commands import local_development_only
 
 User = get_user_model()
 
@@ -61,11 +61,9 @@ class Command(BaseCommand):
             help="flow_* の導線テストデータ作成(create_flow_test_data)をスキップします",
         )
 
+    @local_development_only
     @transaction.atomic
     def handle(self, *args, **options):
-        if not settings.DEBUG:
-            raise CommandError("This command is only available in development (DEBUG=True).")
-
         if not _table_exists(SessionOccurrence):
             raise CommandError(
                 "SessionOccurrence テーブルが見つかりません。先に `python manage.py migrate` を実行してください。"

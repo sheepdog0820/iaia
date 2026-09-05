@@ -22,6 +22,7 @@ from schedules.models import (
     SessionYouTubeLink,
     TRPGSession,
 )
+from tableno.development_commands import local_development_only
 
 User = get_user_model()
 
@@ -29,6 +30,7 @@ User = get_user_model()
 class Command(BaseCommand):
     help = "セッションとキャラクターのテストデータを作成"
 
+    @local_development_only
     def handle(self, *args, **options):
         self.stdout.write("テストデータの作成を開始します...")
 

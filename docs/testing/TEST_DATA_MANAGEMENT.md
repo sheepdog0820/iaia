@@ -3,6 +3,22 @@
 ## 概要
 このドキュメントは、タブレノプロジェクトのテストデータ作成・管理方法を記載しています。
 
+## 実行環境の制限
+
+一括作成・リセット用の次の7コマンドは、`DEBUG=True`、`APP_ENV=local/dev/development`、`ENVIRONMENT=local/development` がすべて揃う場合だけ実行できます。aws-pre/aws-prodや不明な環境では、確認プロンプト・DBトランザクション・削除/作成の前に拒否します。`--clear`、`--reset`、`--force` でこの制限を解除することはできません。
+
+- `create_sample_data`
+- `create_test_data`
+- `create_test_characters`
+- `create_session_test_data`
+- `create_flow_test_data`
+- `create_advanced_scheduling_test_data`
+- `reset_dev_session_data`
+
+設定名の確認は実際のDB接続先の判別を代替しません。実行前に専用ローカルDB・画像領域への接続を確認してください。共有DBへ接続したまま環境名をlocalへ変えて実行する運用は対象外です。共有環境への試験データ投入は、この一括コマンドの制限を解除するのではなく、対象・変更内容・削除手順を具体化した別の承認済み手順で行います。
+
+単一の開発ログイン利用者を明示的に用意する `ensure_dev_login_user` は、この7コマンドには含めていません。既存の `--allow-non-debug` オプションや実行権限の扱いは別に確認してください。
+
 ## 現在のテストデータ作成コマンド
 
 ### 1. 基本的なテストデータ作成

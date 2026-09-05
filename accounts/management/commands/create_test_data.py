@@ -9,6 +9,7 @@ from accounts.models import CustomUser, Friend, Group, GroupInvitation, GroupMem
 from scenarios.models import PlayHistory, Scenario, ScenarioNote
 from schedules import session_permissions
 from schedules.models import HandoutInfo, SessionParticipant, SessionParticipantRole, TRPGSession
+from tableno.development_commands import local_development_only
 
 
 class Command(BaseCommand):
@@ -19,6 +20,7 @@ class Command(BaseCommand):
         parser.add_argument("--sessions", type=int, default=50, help="作成するセッション数（デフォルト: 50）")
         parser.add_argument("--scenarios", type=int, default=20, help="作成するシナリオ数（デフォルト: 20）")
 
+    @local_development_only
     def handle(self, *args, **options):
         with transaction.atomic():
             self.stdout.write(self.style.SUCCESS("🦑 タブレノテストデータ作成開始..."))
