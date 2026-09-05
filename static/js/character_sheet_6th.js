@@ -401,7 +401,7 @@ function viewImage(imageId) {
 function updateImageCount() {
     const countDisplay = document.getElementById('image-count-display');
     if (countDisplay) {
-        countDisplay.innerHTML = `<small>${uploadedImages.length} / 10 枚</small>`;
+        countDisplay.innerHTML = `<small>${uploadedImages.length} / 5 枚</small>`;
     }
 }
 
