@@ -97,6 +97,13 @@ test.describe('date poll flow', () => {
 
       await playerPage.goto(`/api/schedules/sessions/${session.id}/date-poll/`);
       await expect(playerPage.locator('#datePollContainer')).toBeVisible();
+      await playerPage.fill('#datePollChatInput', '参加予定を確認しました。');
+      const [commentResponse] = await Promise.all([
+        playerPage.waitForResponse(response => new URL(response.url()).pathname === `/api/schedules/date-polls/${pollId}/comments/` && response.request().method() === 'POST'),
+        playerPage.click('#datePollChatSendBtn'),
+      ]);
+      expect(commentResponse.status()).toBe(201);
+      await expect(playerPage.locator('#datePollChatLog')).toContainText('参加予定を確認しました。');
 
       const voteButtonSelector = `button[onclick="voteDatePollOption(${pollId}, ${optionId}, 'available')"]`;
       await expect(playerPage.locator(voteButtonSelector)).toBeVisible({ timeout: 15000 });
@@ -110,6 +117,14 @@ test.describe('date poll flow', () => {
       ]);
 
       await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.fill('#datePollChatInput', '回答ありがとうございます。');
+      const [replyResponse] = await Promise.all([
+        page.waitForResponse(response => new URL(response.url()).pathname === `/api/schedules/date-polls/${pollId}/comments/` && response.request().method() === 'POST'),
+        page.click('#datePollChatSendBtn'),
+      ]);
+      expect(replyResponse.status()).toBe(201);
+      await playerPage.reload();
+      await expect(playerPage.locator('#datePollChatLog')).toContainText('回答ありがとうございます。');
 
       const confirmButtonSelector = `button[onclick="confirmDatePollOption(${pollId}, ${optionId})"]`;
       await expect(page.locator(confirmButtonSelector)).toBeVisible({ timeout: 15000 });
@@ -148,16 +163,17 @@ test.describe('date poll flow', () => {
       expect(new Date(updatedSession.date).getTime()).toBe(new Date(polls[0].selected_date).getTime());
       await expect(page.locator('#datePollContainer')).toContainText('19:00');
       await expect(page.getByText('日時の入力・表示: 日本時間（Asia/Tokyo）')).toBeVisible();
+      await expect(page.locator('#datePollChatLog')).toContainText('参加予定を確認しました。');
       for (const colorScheme of ['light', 'dark'] as const) {
         await page.emulateMedia({ colorScheme });
-        const ratios = await page.locator('#datePollContainer tbody .text-muted').evaluateAll(elements => {
+        const ratios = await page.locator('#datePollContainer tbody .text-muted, #datePollChatLog .text-muted, #datePollChatLog .date-poll-chat-meta').evaluateAll(elements => {
           const rgb = (value: string) => (value.match(/[\d.]+/g) || []).map(Number);
           const luminance = (color: number[]) => color.slice(0, 3).map(value => {
             const normalized = value / 255;
             return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
           }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
           return elements.map(element => {
-            const cell = element.closest('td')!;
+            const cell = (element.closest('td') || element.closest('.date-poll-chat-wrap'))!;
             const style = getComputedStyle(cell);
             let background = rgb(style.backgroundColor);
             const shadow = style.boxShadow.match(/rgba?\([^)]+\)/)?.[0];
@@ -166,12 +182,14 @@ test.describe('date poll flow', () => {
               const alpha = overlay[3] ?? 1;
               background = background.map((value, index) => value * (1 - alpha) + overlay[index] * alpha);
             }
-            const foregroundL = luminance(rgb(getComputedStyle(element).color));
+            const foreground = rgb(getComputedStyle(element).color);
+            const alpha = foreground[3] ?? 1;
+            const foregroundL = luminance(background.map((value, index) => value * (1 - alpha) + foreground[index] * alpha));
             const backgroundL = luminance(background);
             return (Math.max(foregroundL, backgroundL) + 0.05) / (Math.min(foregroundL, backgroundL) + 0.05);
           });
         });
-        expect(ratios.length).toBeGreaterThanOrEqual(2);
+        expect(ratios.length).toBeGreaterThanOrEqual(4);
         for (const ratio of ratios) expect(ratio).toBeGreaterThanOrEqual(4.5);
         await page.screenshot({ path: test.info().outputPath(`poll-${colorScheme}.png`), fullPage: true, animations: 'disabled' });
       }
