@@ -13,6 +13,7 @@ from accounts.models import DiscordDelivery, GroupDiscordSettings
 from .google_tokens import get_google_access_token
 from .handout_release import evaluate_release_conditions, publish_handout
 from .holiday_sync import sync_japanese_holidays as run_japanese_holiday_sync
+from .integration_access import visible_user_sessions
 from .models import AsyncJob, GoogleCalendarSync, GoogleIntegration, HandoutInfo
 
 logger = logging.getLogger(__name__)
@@ -226,6 +227,19 @@ def _calendar_event_payload(session):
 def sync_google_calendar(self, sync_id, job_id):
     sync = GoogleCalendarSync.objects.select_related("session", "user").get(pk=sync_id)
     job = AsyncJob.objects.get(pk=job_id)
+    integration = GoogleIntegration.objects.filter(user=sync.user, calendar_enabled=True).first()
+    if (
+        not sync.user.is_active
+        or not integration
+        or not integration.has_scope(GoogleIntegration.REQUIRED_CALENDAR_SCOPE)
+        or not visible_user_sessions(sync.user).filter(pk=sync.session_id).exists()
+    ):
+        error = "Google Calendar連携が無効、またはセッションを同期する権限がありません。"
+        sync.status = GoogleCalendarSync.Status.FAILED
+        sync.last_error = error
+        sync.save(update_fields=["status", "last_error", "updated_at"])
+        job.mark_failed(error)
+        return "not-authorized"
     job.mark_running(10)
     try:
         access_token = get_google_access_token(sync.user)
@@ -318,6 +332,10 @@ def export_google_sheet(
     values,
 ):
     job = AsyncJob.objects.get(pk=job_id, owner_id=user_id)
+    integration = GoogleIntegration.objects.filter(user=job.owner, sheets_enabled=True).first()
+    if not job.owner.is_active or not integration or not integration.has_scope(GoogleIntegration.REQUIRED_SHEETS_SCOPE):
+        job.mark_failed("Google Sheets連携が無効、または出力する権限がありません。")
+        return "not-authorized"
     job.mark_running(10)
     try:
         access_token = get_google_access_token(job.owner)

@@ -14,10 +14,11 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import CharacterSheet, GroupMembership
+from accounts.models import CharacterSheet
 
 from .google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_START_RANGE
 from .google_tokens import get_google_access_token
+from .integration_access import visible_user_sessions as _visible_user_sessions
 from .models import (
     AsyncJob,
     CalendarSubscription,
@@ -25,7 +26,6 @@ from .models import (
     GoogleIntegration,
     SessionOccurrence,
     SessionParticipantRole,
-    TRPGSession,
 )
 from .tasks import queue_google_calendar_sync, queue_google_sheet_export
 
@@ -37,16 +37,6 @@ GOOGLE_INTEGRATION_SCOPES = [
 
 def _escape_ical(value):
     return str(value or "").replace("\\", "\\\\").replace("\n", "\\n").replace(",", "\\,").replace(";", "\\;")
-
-
-def _visible_user_sessions(user):
-    admin_group_ids = GroupMembership.objects.filter(user=user, role="admin").values_list("group_id", flat=True)
-    return TRPGSession.objects.filter(
-        Q(created_by=user)
-        | Q(group__created_by=user)
-        | Q(group_id__in=admin_group_ids)
-        | Q(sessionparticipant__user=user)
-    ).distinct()
 
 
 def _gm_role_session_ids_for(user):
