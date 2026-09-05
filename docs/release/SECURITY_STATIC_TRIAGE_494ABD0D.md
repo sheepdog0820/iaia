@@ -93,3 +93,85 @@
 - 固定ソースの検証用イメージで同じ6アプリを再解析。解析エラー0、HIGH/MEDIUM 0、LOW556、終了コード1。Windows/Linuxのパス区切りを正規化し、596bcd4cとファイル/指摘ID/本文の多重集合を比較して追加・削除0件。証跡tmp/bandit-7cdd7cf8-apps.json、同-run.log。静的解析はテンプレートやJavaScriptのXSS検証を代替しない。
 - accounts/test_group_features.pyのB106 25件について、各指摘行をAST上の呼出・クラス・メソッドへ対応させた。全てrest_framework.test.APITestCase派生クラスのsetUp内で、User.objects.create_userへ渡す文字列の固定パスワード。28/34/41、74/79、135/142/147、259/262、302/305、355/358、382/385/388、468/474/480、573/579/585、776/781行を確認した。
 - UserはDjangoのget_user_modelであり、これらは隔離テストDBに作成されるアカウントの準備値。本番資格情報の埋め込みとしては扱わない。実DB接続や固定値の実ユーザーへの転用を認める判定ではない。既存65件と重複せず、テスト478件中90件を用途判定済み、残る388件は未判定。開発コマンド71件・その他7件の従前の扱いと実サービス検証の残条件は維持する。
+## 63bd2436時点のテスト準備用パスワード229件の用途確認
+
+7cdd7cf8のBandit JSONにあるB106を、63bd2436と同一の対象テストソースでAST照合した。既に分類した課金・グループ・CCFOLIA出力の3ファイルを除外し、次の条件を全て満たす229件・68ファイルを追加分類した。対象ファイルは7cdd7cf8以降に変更されていない。
+
+- Django TestCaseまたはDRF APITestCaseを直接継承するクラスのsetUp/setUpTestData内であることをimport先まで照合した。
+- get_user_modelのimportとモデル変数への代入、またはCustomUserのimportを辿り、そのモデルのobjects.create_userへのpassword引数が文字列リテラルであることを確認した。
+- Banditの指摘行が当該呼び出しの範囲内にあり、ファイル・行の重複がないことを確認した。条件外の呼び出しは未判定のまま残した。
+
+これらは隔離されたテストDBのアカウント準備値であり、本番資格情報の埋め込みとしては扱わない。実DBを使ったテスト実行や固定値の本番転用を認める判定ではない。モデルはCustomUser(AbstractUser)で、ここでは実サービスへのログイン・認証の安全性までは証明しない。
+
+証跡はtmp/classify-test-passwords.pyとtmp/classified-test-passwords.json。再確認用のファイル・行を下表に残す。既存90件と重複せず、テスト478件中319件を用途判定済み、159件は未判定。Banditの検出総数556・終了コード1を変更せず、抑制も追加していない。開発コマンド71件・その他7件の従前の扱い、実ストレージ/CDN・実外部連携等の未達条件は維持する。
+
+| ファイル | B106の行番号 | 件数 |
+| --- | --- | --- |
+| accounts/test_authentication.py | 27, 356, 359, 381 | 4 |
+| accounts/test_background_info.py | 24, 104, 250 | 3 |
+| accounts/test_character_6th.py | 28, 206, 287, 347, 392, 405 | 6 |
+| accounts/test_character_6th_api.py | 42, 530, 573, 624 | 4 |
+| accounts/test_character_6th_bonus_points.py | 19, 145 | 2 |
+| accounts/test_character_6th_custom_formula.py | 20, 131 | 2 |
+| accounts/test_character_6th_dice_roll_settings.py | 24, 304 | 2 |
+| accounts/test_character_6th_versioning.py | 40, 184, 246 | 3 |
+| accounts/test_character_api_endpoints.py | 30 | 1 |
+| accounts/test_character_background_removal.py | 36 | 1 |
+| accounts/test_character_create_player_name.py | 12 | 1 |
+| accounts/test_character_current_status.py | 21 | 1 |
+| accounts/test_character_edition_image_api.py | 12 | 1 |
+| accounts/test_character_image_apis.py | 25, 108, 113, 281 | 4 |
+| accounts/test_character_image_upload.py | 22 | 1 |
+| accounts/test_character_integration.py | 43, 444, 445, 576 | 4 |
+| accounts/test_character_multiple_images.py | 30, 107, 108, 336 | 4 |
+| accounts/test_character_save.py | 28 | 1 |
+| accounts/test_character_sheet_api.py | 38 | 1 |
+| accounts/test_character_sheets_integration.py | 47, 48, 232, 233, 386, 387, 483, 486 | 8 |
+| accounts/test_character_skill_update_validation.py | 11 | 1 |
+| accounts/test_character_system_data_models.py | 22 | 1 |
+| accounts/test_character_to_session_integration.py | 33, 38, 42, 46 | 4 |
+| accounts/test_combat_data.py | 24, 74, 182, 249, 392 | 5 |
+| accounts/test_custom_skill_addition.py | 21, 126, 257, 315 | 4 |
+| accounts/test_dynamic_dice_roll.py | 28, 346, 392 | 3 |
+| accounts/test_export.py | 34, 467, 472 | 3 |
+| accounts/test_fixed_share_urls.py | 19, 24 | 2 |
+| accounts/test_friend_requests.py | 21, 120, 123, 127 | 4 |
+| accounts/test_group_invite_links.py | 18, 24, 30 | 3 |
+| accounts/test_growth_record.py | 32, 113, 217, 351 | 4 |
+| accounts/test_inventory_management.py | 26, 65, 124, 215, 343 | 5 |
+| accounts/test_login_lookup_failures.py | 13 | 1 |
+| accounts/test_session_integration.py | 43, 48, 52 | 3 |
+| accounts/test_session_simple.py | 27, 29 | 2 |
+| accounts/test_share_links.py | 20, 26 | 2 |
+| accounts/test_skill_point_management.py | 24, 95, 167, 286 | 4 |
+| accounts/test_statistics.py | 25, 28 | 2 |
+| accounts/test_tindalos_detailed_api.py | 26, 253, 449 | 3 |
+| accounts/tests.py | 31, 498 | 2 |
+| scenarios/test_scenario_images.py | 29, 35, 41 | 3 |
+| scenarios/test_scenarios.py | 19, 136, 139, 142 | 4 |
+| scenarios/tests.py | 14 | 1 |
+| schedules/test_advanced_scheduling.py | 31, 106, 112, 118 | 4 |
+| schedules/test_analytics_dashboard.py | 21, 27, 33 | 3 |
+| schedules/test_async_jobs.py | 19, 24 | 2 |
+| schedules/test_calendar_apis.py | 26, 28, 179, 209, 331 | 5 |
+| schedules/test_character_session_ho_integration.py | 27, 36 | 2 |
+| schedules/test_external_integrations.py | 111 | 1 |
+| schedules/test_groupless_session_creation.py | 16, 22 | 2 |
+| schedules/test_handout_management.py | 29, 32, 35, 38 | 4 |
+| schedules/test_handout_permissions.py | 22, 27, 32 | 3 |
+| schedules/test_handouts.py | 26, 30, 34, 292, 296 | 5 |
+| schedules/test_japanese_holidays.py | 90 | 1 |
+| schedules/test_occurrences.py | 21, 27 | 2 |
+| schedules/test_player_slots_handouts.py | 27, 35 | 2 |
+| schedules/test_recommended_skill_comparison.py | 19, 20, 301, 302, 303 | 5 |
+| schedules/test_schedules.py | 32, 35, 100, 103, 1376, 1379 | 6 |
+| schedules/test_session_images.py | 29, 33, 37, 41 | 4 |
+| schedules/test_session_integration.py | 34, 42, 458, 575 | 4 |
+| schedules/test_session_notes_logs.py | 18, 61, 67 | 3 |
+| schedules/test_session_notifications.py | 27, 30, 33, 168, 169, 171, 257, 258 | 8 |
+| schedules/test_session_permissions.py | 30, 31, 32, 33, 37, 42, 146, 147, 151, 156, 161 | 11 |
+| schedules/test_session_rewards.py | 19, 25, 31, 37, 43, 260, 266, 272 | 8 |
+| schedules/test_session_role_integration.py | 20, 21, 22, 23, 103, 105, 107, 108, 112 | 9 |
+| schedules/test_session_visibility.py | 20, 25, 30 | 3 |
+| schedules/test_youtube_links.py | 27, 31, 184, 188, 192, 196, 600, 745, 749, 753 | 10 |
+| schedules/tests.py | 19, 22 | 2 |
