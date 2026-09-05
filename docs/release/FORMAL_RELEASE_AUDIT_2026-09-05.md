@@ -550,3 +550,9 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - メイン指定を優先し、表示順・uploaded_at・主キーで選ぶ単一クエリへ変更。広い例外の無視を廃止した。リクエストがないシリアライズや画像なしの場合は元の表現を維持する。
 - 隔離SQLiteで関連41件・2 subtests成功（49.88秒、tmp/list-image-green.log）。メイン未指定時の表示順・同順ならアップロード日時、指定時の優先を6版/7版で確認。14警告はDjangoと既存テスト戻り値の非推奨。Black/isort/flake8・差分を確認。実ストレージの可用性やブラウザ描画の検証ではない。
 - DBスキーマ・実利用者・共有環境・権限・費用変更なし。復旧はアプリ変更のrevertで可能だが代替画像が返らない動作が戻る。既存移行の削除失敗の扱い、最終候補全体/CI/実課金・外部連携検証は未完了。正式公開No-Goを維持する。
+
+## 継続検証: d572a618の全体実行開始
+
+- d572a618841389151b5391d6a54568d79ae1b156と差分なしから開始。稼働中のDocker検証コンテナがないことを確認し、git archiveから固定ソースのテストイメージを構築した。tableno-formal-release-test:d572a618-browser、ID sha256:aa0e8edcab3cd56a7ddbf897febac39502682dd9998202b51047b1aa5f48e0ac、revisionラベルは上記完全SHA。配備用イメージではない。
+- SQLite全体handle90338、PostgreSQL全体handle35984を開始。accounts/api/scenarios/schedules/support/tableno/tests/unit/tests/integrationとアプリ単位カバレッジを対象とし、出力先はtmp/formal-release-d572a618-full-output。PostgreSQL16は専用tmpfs DBとinternalネットワーク。SQLiteは開始後にbridgeを切断した。架空の検証設定であり、共有DB・実連携・外部通知は使用していない。途中出力の進捗を確認したが、完了結果は未取得。停止や失敗と推定して同じ実行を再開始しない。
+- Blackは409ファイル変更不要、flake8は指摘なし。isortは既存test_character_image_apis.pyのローカル改行混在で失敗し、LFへ正規化後に全アプリのチェック成功。空白差分を除くソース変更はなし。全体テストはgit archiveの固定候補を維持しており、成功判定は終了結果取得後に行う。正式公開No-Goを維持する。
