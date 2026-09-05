@@ -1288,7 +1288,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return `
                     <div class="member-item">
                         <div>
-                            <i class="fas fa-user-circle"></i> ${displayName}
+                            <i class="fas fa-user-circle"></i> ${escapeHtml(displayName)}
                             ${member.role === 'admin' ? '<span class="badge bg-primary ms-2 role-badge">管理者</span>' : ''}
                         </div>
                         <div class="d-flex align-items-center gap-2">
@@ -1319,7 +1319,7 @@ document.addEventListener('DOMContentLoaded', function() {
             bodyEl.innerHTML = `
                 <div class="row">
                     <div class="col-md-8">
-                        <p>${group.description || '説明なし'}</p>
+                        <p>${escapeHtml(group.description || '説明なし')}</p>
                         
                         <div class="stats-grid">
                             <div class="stat-item">
@@ -1359,7 +1359,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </p>
                                 <p class="mb-0">
                                     <small class="text-muted">作成者</small><br>
-                                    ${group.created_by_name}
+                                    ${escapeHtml(group.created_by_name)}
                                 </p>
                             </div>
                         </div>

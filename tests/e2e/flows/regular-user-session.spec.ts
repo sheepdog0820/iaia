@@ -1,19 +1,49 @@
 import { expect, Page, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 
-async function signUp(page: Page, suffix: string): Promise<void> {
+async function signUp(page: Page, suffix: string, nickname?: string): Promise<void> {
   await page.goto('/signup/');
   await page.fill('#id_username', `release_${suffix}`);
   await page.fill('#id_email', `release_${suffix}@example.com`);
   const password = `Vault-${randomUUID()}!`;
   await page.fill('#id_password1', password);
   await page.fill('#id_password2', password);
-  await page.fill('#id_nickname', `通常利用者 ${suffix}`);
+  await page.fill('#id_nickname', nickname ?? `通常利用者 ${suffix}`);
   await Promise.all([
     page.waitForURL(/\/accounts\/dashboard\//),
     page.click('#signup-btn'),
   ]);
 }
+
+test('group details display stored markup as text for another registered user', async ({ page, browser }) => {
+  const suffix = `${Date.now()}_${test.info().project.name}`;
+  const markup = '<img src=x onerror="window.__groupXss=1">';
+  await signUp(page, `markup_${suffix}`, markup);
+  const groupName = `表示確認 ${suffix}`;
+  await page.evaluate(async ({ name, description }) => {
+    await (window as any).axios.post('/api/accounts/groups/', { name, description, visibility: 'public' });
+  }, { name: groupName, description: markup });
+  const viewerContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
+  try {
+    const viewer = await viewerContext.newPage();
+    await signUp(viewer, `viewer_${suffix}`);
+    await viewer.goto('/accounts/groups/view/?show_test_data=1');
+    await viewer.click('label[for="publicGroupsView"]');
+    await viewer.fill('#groupSearchInput', groupName);
+    const card = viewer.locator('.group-card', { hasText: groupName });
+    await expect(card).toContainText(markup);
+    await card.click();
+    const modal = viewer.locator('#groupDetailModal');
+    await expect(modal).toBeVisible();
+    await expect(modal.locator('.member-item')).toContainText(markup);
+    await expect(modal.locator('#groupDetailBody > .row > .col-md-8 > p')).toHaveText(markup);
+    await expect(modal.locator('.col-md-4 .card-body')).toContainText(markup);
+    await expect(modal.locator('img')).toHaveCount(0);
+    expect(await viewer.evaluate(() => (window as any).__groupXss)).toBeUndefined();
+  } finally {
+    await viewerContext.close();
+  }
+});
 
 test('owner grants and revokes group administration for a registered member', async ({ page, browser }) => {
   const suffix = `${Date.now()}_${test.info().project.name}`;
