@@ -378,3 +378,11 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - ネットワークなしの別コンテナで `manage.py check`、`makemigrations --check --dry-run`、専用SQLiteへの `migrate --noinput` と `migrate --check`、`pip check` が成功した。`checks.json` と各検査ログ。移行差分はなく、実データや共有DBへは適用していない。
 - `manage.py spectacular --validate --file /proof/schema.yml` が終了コード0。生成されたTRPGSession/PatchedTRPGSessionのparticipants_detailはreadOnly=true、type=array、itemsがSessionParticipantへの参照であることを確認した。APIでの並び順変更に伴い、要素の型を失っていない。`schema.yml` / `schema.log`。
 - 同コンテナの `pytest tests/system -q -rs` は12件成功（31.48秒、警告11件、終了コード0）。`system.log` / `system-junit.xml`。SQLite/PostgreSQLのUnit / Integration全体は別実行で継続中。以上をリモートCI、本番設定、実サービスの成功として扱わない。
+
+## 継続監査: 9b1c9043の静的セキュリティ検査・非公開画像（2026-09-05）
+
+- 同じ固定イメージをネットワークなしで起動し、Banditをaccounts/schedules/scenarios/support/tableno/apiへ実行した。HIGH 0件、MEDIUM 0件、LOW 532件、解析エラー0件、終了コード1。`tmp/formal-release-9b1c9043-output/bandit.json`。LOW指摘の安全性判定が済んだという意味ではない。
+- 専用SQLiteと一時MEDIA_ROOTに8×8の試験PNGを作成し、非公開Scenario/Sessionへ1枚ずつ登録した。所有者、無関係な通常ユーザー、未ログインのDjango Clientで親APIと画像URLをGETした。所有者は両方200。無関係なユーザーは親404、未ログインは親401だったが、画像は両者とも200で保存した全バイトと一致した。画像レスポンスのCache-Controlは未設定だった。
+- 証跡は同ディレクトリの `probe-private-images.py`、`private-image-probe.json`、`private-image-probe.log`。APP_ENV=local、DEBUG=True、ALLOWED_HOSTSにtestserverのみ追加、外部ネットワークなし、実サービス認証情報なし。初回はtestserver未許可の400となりアクセス制御の検証にならなかったため、試験ホスト設定を修正して上記の成功/拒否を確認した。試験用DB/画像は終了時に破棄した。実利用者の画像やAWSオブジェクト内容は取得していない。
+- 原因として `tableno/media_views.py` はhandouts/だけを認可処理へ分岐させ、その他はDEBUG時に通常の静的配信へ渡している。ScenarioImage/SessionImageのserializerとHTMLにもstorageのimage.urlを直接返す箇所がある。ローカル経由だけを保護しても、本番のS3/CloudFront直URLに対する迂回防止の証明にはならない。
+- 対策は未実装。公開シナリオの公開ページ、セッション閲覧者、非公開化や所属解除の反映を維持しつつ、画像取得時の認可、serializer/HTMLの配信URL、旧URLとストレージ/CDN側を一体で確認する必要がある。既存のcan_view_scenarioは所有者/共通グループを扱い、公開ページのvisibility=publicとは別の経路であるため、単に同関数だけを全画像へ適用して公開機能を壊さない。AWSの画像露出は今回未検証であり、ローカル再現と区別する。Q04は未達、正式公開はNo-Goを維持する。
