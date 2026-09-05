@@ -5,6 +5,8 @@
 django-debug-toolbar>=4.2.0
 django-extensions>=3.2.0
 ipython>=8.0.0
+# Include IPython's POSIX dependency when compiling shared locks on Windows.
+pexpect>=4.9.0
 
 # Code quality
 black>=23.0.0

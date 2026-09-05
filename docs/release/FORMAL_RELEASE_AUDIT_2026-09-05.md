@@ -203,3 +203,15 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 専用SQLiteで新規テストと既存外部連携テストの15件成功（37.27秒、警告9件）。日本語・絵文字のUTF-8復号、折り返し解除後の値一致、VEVENT/VTODO各1件の維持、区切り文字のエスケープ、private/no-store、既存の購読トークン更新時の旧URL失効を確認した。証跡: `tmp/formal-release-ics-encoding-20260905.xml`、`tmp/formal-release-ics-coverage.json`。
 - エスケープ関数の3実行対象行と折り返し関数の14実行対象行はすべて実行された。行カバレッジであり、RFC全体への適合や各カレンダーアプリの受け入れを証明するものではない。実購読先での確認は残る。
 - 変更PythonのBlack/isort、flake8実行不能エラー検査、差分レビューを確認。新しいユーザー表示文言はなく、レビューで追加の修正事項は見つからなかった。
+
+## 継続監査: 固定依存関係のLinux全体検証（2026-09-05）
+
+- `e7734d51` の追跡ファイルを隔離して検証用コンテナを作成したところ、`requirements-test.lock.txt` のハッシュ検証付きインストールが失敗した。Windowsで生成したロックにはIPythonのPOSIX依存 `pexpect` と、その依存 `ptyprocess` がなかった。ハッシュ検証を外して回避することはしなかった。
+- `requirements-dev.txt` にWindowsでの再生成でもPOSIX依存を含めるための `pexpect>=4.9.0` を明記し、既存バージョンを維持したままpip-compileでdev/test両ロックを再生成した。追加は `pexpect==4.9.0` と `ptyprocess==0.7.0` のハッシュ付きエントリーだけで、3ファイル18行。`requirements.lock.txt` は変更していない。[pexpectの配布情報](https://pypi.org/pypi/pexpect/4.9.0/json)、[ptyprocessの配布情報](https://pypi.org/pypi/ptyprocess/0.7.0/json)
+- 修正後、Linuxで `pip install --require-hashes -r requirements-test.lock.txt` と `pip check` が成功した。Windowsでも `requirements-dev.lock.txt` の `--dry-run --require-hashes` が成功し、実環境のパッケージ変更は行っていない。ログ: `tmp/formal-release-test-runtime-build.log`、`tmp/formal-release-windows-dev-lock.log`、予行レポート `tmp/formal-release-windows-dev-lock-report.json`。
+- 検証ソースは `e7734d51` に今回のrequirements 3ファイルを適用したもの。`git archive` の追跡ファイルから作り、検証用Git indexを再構築してリポジトリ衛生テストも実行した。通常の作業DB・未追跡設定ファイルを使用していない。検証用Dockerfileは `tmp/formal-release-test-runtime/` に置いた。イメージ `sha256:c1585cf1aaac7786fb005b5f4fd25e0aebe7240ff40a7797909498c9481ae85a`、Python 3.11.16/Django 5.2.17/Stripe 15.5.1。
+- `accounts api scenarios schedules support tableno tests/unit tests/integration` をCIと同じcoverage対象・70%ゲートで実行。外部通信なしの専用コンテナ内SQLiteで1,510件成功、4件失敗、3件セットアップエラー、subtests 257件成功（1,142.40秒、警告159件）。カバレッジは85.42%で70%ゲートを満たしたが、コマンドの終了コードは1であり、全体実行成功とは扱わない。JUnitの1,774件にはsubtestsを含む。
+- 4件の失敗はCCFOLIAブラウザ出力テストの `FileNotFoundError: node`、3件のエラーはSeleniumのChrome Driver不足だった。アプリコードの失敗と区別して、検証環境を補完した。
+- Node.js 20.20.2を追加したイメージ `sha256:5cfd026b464bb16a5dd09f0dfcd0223867a2bc99714b1688784c87a26580c2dc` で該当ファイル16件・subtests 10件成功（27.97秒、外部通信なし）。Chromium/ChromeDriver 152.0.7977.75を追加したイメージ `sha256:e85308d15236d0b2f33c19923a0f3e3ed8466ca20746338b95647f338873c8fa` では該当ブラウザ3件成功（85.64秒）。後者は画面の公開CDN資産を読み込むため通常のコンテナネットワークを使用し、DB・ユーザーは専用fixtureのみ。両方とも元の全体実行と重複する対象があるため、単純加算しない。
+- 証跡ディレクトリは `tmp/formal-release-full-e773-output/`。全体は `run.log`、`junit.xml`、`coverage.xml`、`coverage.json`、再確認は `node-export-recheck.xml`、`browser-recheck.xml`。全体のflake8・Black・isortはすべて終了コード0（`static-checks.json`と各ログ）。Django check、makemigrations --check --dry-run、新規SQLiteへのmigrate、migrate --checkも成功（`migrations.log`）。終了したコンテナは `--rm` で除去された。
+- Stripe接続を再確認したが `oauth_token_invalid_grant` のまま。対象ブランチのPR検索結果も0件。最新候補のリモートCI・PostgreSQL全体検証・本番相当実サービス検証は引き続き未完了。
