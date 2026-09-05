@@ -454,3 +454,9 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 6608de6dの全体実行が両DBで終了した。SQLiteは1,565 passed / 3 skipped / 359 subtests、86.54%、1,172.44秒。PostgreSQLは1,568 passed / skipなし / 359 subtests、86.75%、1,199.86秒。JUnitは双方1,927件、failures/errorsとも0。tmp/formal-release-6608de6d-full-output/ のログ・JUnit・coverageを確認した。この後のGoogle認証変更は含まれない。
 - Google APIの固定ID保持と優先照合、第三者メールの追加確認、認証後の明示的連携、原子的な作成と競合再試行、対象クライアントとuserinfoの照合を実装。ブラウザの一律確認済み指定と連携ボタンも修正した。詳細・検証限界・復旧の注意は [Google修正記録](GOOGLE_IDENTITY_REMEDIATION.md) に記録した。
 - 認証関連の最終実行はSQLite83件成功+1skip、PostgreSQL84件成功、双方28 subtests。Googleの新規resolverは76/76実行行をカバー。実OAuthや実通知は行わず、共有環境・実データ・Secrets・費用への変更なし。I01/Q04と正式公開No-Goは継続する。
+
+## 継続監査: ブラウザ登録途中の競合による部分保存
+
+- 前回はGoogle固定ID修正・pushと実行結果があり、進捗あり。現在のca90f687と差分なしを確認して追加監査を開始した。
+- ブラウザ登録でSocialAccount保存失敗後に利用者だけ残ることを隔離テストで再現。アダプターの登録保存を原子的にし、IntegrityError時は全体を取り消して再ログインを案内する修正を実施した。
+- PostgreSQLの実2接続による同時初回登録・再試行を含む認証関連86件と28 subtestsが成功。範囲と証跡は[Google修正記録](GOOGLE_IDENTITY_REMEDIATION.md)を参照。実サービスの検証と全体候補の確認は未完了、正式公開No-Goを維持する。

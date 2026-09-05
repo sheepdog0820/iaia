@@ -41,3 +41,13 @@ allauthの実処理を通した6件で、第三者メール登録の確認待ち
 証跡: tmp/google-identity-red.log、tmp/google-identity-sqlite.log、tmp/google-identity-postgres.log、tmp/google-identity-coverage-False.json、tmp/google-identity-coverage-True.json。途中のブラウザ試験2失敗はfixtureにproviderがなかったためで、実providerのsociallogin生成経路を使って修正し、最終実行で成功した。
 
 残る公開条件: 実Googleアカウントによる3方式と確認メール到達・再試行の検証、ブラウザ新規登録の同時実行を含む追加監査、最終候補の全体テスト/CI/配備用イメージ検証。今回の修正だけでI01/Q04を完了扱いにしない。DBスキーマ変更なし。実環境・OAuth設定・権限・費用の変更なし。復旧は当該アプリ変更のrevertで可能だが、旧版の認証不備を再導入するため公開版への復帰判断には用いない。
+
+## ブラウザ登録の競合対策
+
+ca90f687後の追加確認で、SocialAccount保存にIntegrityErrorが発生すると利用者だけが残ることを再現した（tmp/google-browser-transaction-red.log、1 failed / 83 passed / 1 skipped）。allauthの利用者・連携・メール・プロフィール保存をtransaction.atomicで囲み、競合時は全体を取り消して日本語の再試行案内とともにログイン画面へ戻すよう修正した。通常の登録成功経路は維持する。
+
+PostgreSQL 16の独立した2接続で、同じGoogle UIDの新規登録を同時に保存させた。成功側だけがログインし、競合側は再試行案内となり、利用者・連携・メールは各1件、再試行はその既存利用者にログインした。メールの異なる2つのprovider応答と保存直前の同期によって競合を確実に起こしており、実Googleへの同時リクエストではない。
+
+認証関連はSQLite84件成功・当時含めたAPIのPostgreSQL専用試験1件skip、PostgreSQLはブラウザ競合試験も含め86件成功、双方28 subtests。証跡はtmp/google-browser-transaction-sqlite.log / tmp/google-browser-transaction-postgres.log。今回の変更にDBスキーマ・実データ・OAuth設定・費用への変更はない。実OAuth・メール到達と最終候補の全体検証は引き続き未完了。
+
+最終の日本語案内表示確認を加えたブラウザ関連8件もPostgreSQLで成功（78件deselected、9.09秒）。tmp/google-browser-final-postgres.log。実ページのテンプレート描画に含まれる案内を検証しており、目視の画面確認ではない。

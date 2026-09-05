@@ -1,12 +1,14 @@
 """Exercise allauth's real signup/connect flow with isolated provider claims."""
 
 import json
+from unittest.mock import patch
 
 from allauth.account.models import EmailAddress
 from allauth.socialaccount.adapter import get_adapter
 from allauth.socialaccount.helpers import complete_social_login
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 from django.test import TestCase, override_settings
 from django.urls import path
 
@@ -33,6 +35,18 @@ urlpatterns = [path("isolated-google-callback/", isolated_google_callback), *app
 class GoogleBrowserIdentityTests(TestCase):
     def callback(self, **claims):
         return self.client.post("/isolated-google-callback/", claims, content_type="application/json")
+
+    def test_failed_social_account_save_leaves_no_partial_user(self):
+        self.client.raise_request_exception = False
+        with patch.object(SocialAccount, "save", side_effect=IntegrityError("isolated collision")):
+            response = self.callback(sub="failed-id", email="failed@gmail.com", email_verified=True)
+        self.assertFalse(get_user_model().objects.exists())
+        self.assertFalse(SocialAccount.objects.exists())
+        self.assertFalse(EmailAddress.objects.exists())
+        self.assertNotIn("_auth_user_id", self.client.session)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, "/accounts/login/")
+        self.assertContains(self.client.get(response.url), "登録処理が競合しました。もう一度ログインをお試しください。")
 
     def test_third_party_signup_requires_email_verification(self):
         response = self.callback(sub="new-id", email="new@example.test", email_verified=True)

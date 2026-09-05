@@ -1,9 +1,13 @@
 import logging
 
 from allauth.account.adapter import DefaultAccountAdapter
+from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
+from django.shortcuts import redirect
 
 from .auth_redirects import consume_auth_next
 from .google_identity import google_email_is_authoritative
@@ -56,6 +60,14 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         return True
 
     def save_user(self, request, sociallogin, form=None):
+        try:
+            with transaction.atomic():
+                return self._save_social_user(request, sociallogin, form)
+        except IntegrityError:
+            messages.warning(request, "登録処理が競合しました。もう一度ログインをお試しください。")
+            raise ImmediateHttpResponse(redirect("account_login")) from None
+
+    def _save_social_user(self, request, sociallogin, form=None):
         """
         ソーシャルログイン時のユーザー保存処理
         """
