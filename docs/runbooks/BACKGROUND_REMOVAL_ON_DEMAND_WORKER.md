@@ -40,6 +40,18 @@ same application environment and secrets as the other application tasks, but
 uses a dedicated task role limited to the media bucket. It exits after exactly
 one job.
 
+## 推論モデル（2026-09-06更新）
+
+`accounts/background_removal.py` は `u2net` と `CPUExecutionProvider` を明示する。
+rembgの既定モデルに依存しない。固定依存rembg 2.0.81の既定はBRIA RMBG-2.0であり、
+[提供元のモデルカード](https://huggingface.co/briaai/RMBG-2.0)は商用利用に別契約が必要と説明している。
+このタスクでは契約・購入をしていない。
+
+U²-Netの[公式リポジトリ](https://github.com/xuebinqin/U-2-Net)と
+[Apache-2.0ライセンス](https://github.com/xuebinqin/U-2-Net/blob/master/LICENSE)を参照する。
+モデルは起動時にrembgの取得処理でダウンロードするため、実環境での取得経路・初回時間・
+代表的な立ち絵での品質検証を公開前に行う。実行に失敗しても別の既定モデルに切り替えない。
+
 ## Verification
 
 ```powershell
