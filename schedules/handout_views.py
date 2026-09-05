@@ -258,8 +258,8 @@ class HandoutTemplateView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        """利用可能なハンドアウトテンプレート一覧"""
+    def _get_templates(self):
+        """一覧と作成で共通のハンドアウト本文を取得する。"""
         templates = [
             {
                 "id": "basic_intro",
@@ -321,7 +321,11 @@ class HandoutTemplateView(APIView):
             },
         ]
 
-        return Response({"templates": templates})
+        return templates
+
+    def get(self, request):
+        """利用可能なハンドアウトテンプレート一覧"""
+        return Response({"templates": self._get_templates()})
 
     def post(self, request):
         """テンプレートからハンドアウトを生成"""
@@ -342,14 +346,15 @@ class HandoutTemplateView(APIView):
         if not session_permissions.can_manage_secret_content(request.user, session):
             return Response({"error": "GM権限が必要です"}, status=status.HTTP_403_FORBIDDEN)
 
-        # テンプレート取得（実際の実装では上記のテンプレートを使用）
-        templates = {
-            "basic_intro": "基本ハンドアウトテンプレート...",
-            "investigation": "調査ハンドアウトテンプレート...",
-            "relationship": "関係性ハンドアウトテンプレート...",
-        }
+        if not isinstance(customizations, dict):
+            return Response(
+                {"error": "カスタマイズは項目名と値の形式で指定してください。"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
-        template_content = templates.get(template_id, "")
+        template = next((item for item in self._get_templates() if item["id"] == template_id), None)
+        if template is None:
+            return Response({"error": "指定されたテンプレートは存在しません。"}, status=status.HTTP_400_BAD_REQUEST)
+        template_content = template["template"]
 
         # カスタマイズの適用
         for key, value in customizations.items():

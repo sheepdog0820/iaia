@@ -276,6 +276,43 @@ class HandoutManagementDetailTestCase(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_template_creation_preserves_the_listed_content(self):
+        self.client.force_authenticate(user=self.gm_user)
+        listed = self.client.get("/api/schedules/handout-templates/")
+        self.assertEqual(listed.status_code, status.HTTP_200_OK)
+        for template in listed.json()["templates"]:
+            with self.subTest(template=template["id"]):
+                response = self.client.post(
+                    "/api/schedules/handout-templates/",
+                    {
+                        "template_id": template["id"],
+                        "session_id": self.session.id,
+                        "participant_id": self.participant1.id,
+                    },
+                    format="json",
+                )
+                self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+                saved = HandoutInfo.objects.get(pk=response.json()["id"])
+                self.assertEqual(saved.content, template["template"])
+                self.assertTrue(saved.is_secret)
+
+    def test_template_creation_rejects_unknown_template_and_invalid_customizations(self):
+        self.client.force_authenticate(user=self.gm_user)
+        for template_id, customizations in [("unknown", {}), ("basic_intro", []), ("basic_intro", None)]:
+            with self.subTest(template=template_id, customizations=customizations):
+                response = self.client.post(
+                    "/api/schedules/handout-templates/",
+                    {
+                        "template_id": template_id,
+                        "session_id": self.session.id,
+                        "participant_id": self.participant1.id,
+                        "customizations": customizations,
+                    },
+                    format="json",
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertFalse(HandoutInfo.objects.exists())
+
     def test_handout_creation_from_template_permission_denied(self):
         """非GM権限でのテンプレートからハンドアウト作成テスト"""
         self.client.force_authenticate(user=self.player1)
