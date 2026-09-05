@@ -583,3 +583,9 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 8f85561755e67bc65ffef2fe9df0ef1c53f77156と差分なし、稼働中検証コンテナなしを確認。git archiveからテストイメージtableno-formal-release-test:8f855617-browserを構築した。ID sha256:8bb48a0f80079169dffc9441d73baee131f56dbbe92f61aed5f699ede6edad69、revisionラベルは対象完全SHA。
 - SQLite handle18576、PostgreSQL handle60772で全体実行を開始。対象はaccounts/api/scenarios/schedules/support/tableno/tests/unit/tests/integration、アプリ単位カバレッジとJUnitを出力。SQLiteは開始時からnetwork none、PostgreSQL16は専用tmpfs DBとinternalネットワーク。共有DB・実連携・実通知は使用しない。
 - 証跡先はtmp/formal-release-8f855617-full-output、実行スクリプトtmp/run-full-8f855617.ps1。両コンテナの稼働を確認したが終了結果は未取得。前回d572a618の両DB1失敗は履歴として維持し、今回の開始や該当E2E単独成功を全体合格と扱わない。正式公開No-Goを維持する。
+
+## 継続検証: Bootstrap同梱の配備用イメージ
+
+- 8f85561755e67bc65ffef2fe9df0ef1c53f77156のgit archiveから通常Dockerfileで配備用イメージを再構築。tableno-formal-release:8f855617、ID sha256:b9e97b30ba4ef2aa875e5f77339d8cad81d7c6fcb1fa1d5879b767fe1d3f87bc、実行ユーザーtableno。
+- network none、以前の架空設定、S3無効でcollectstatic成功（183件）。配置済みBootstrap CSS/JSのSHA-256が配布物と一致し、Django staticが/static/vendor/bootstrap/5.3.0/以下の対応URLを生成することを確認。check --deploy指摘0。実CloudFront/S3配信やTLS確認は含まない。
+- 証跡: tmp/formal-release-8f855617-production-build.log、tmp/candidate-8f855617-static-check.log。検証コンテナは終了時に削除。ECRへ送信せず、共有環境・実データ・権限・費用変更なし。全体テストは既存handle18576/60772の同じ実行を継続中。正式公開No-Goを維持する。
