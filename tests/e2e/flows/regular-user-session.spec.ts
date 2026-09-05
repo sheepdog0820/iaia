@@ -74,7 +74,17 @@ test('anonymous guest joins and a normally registered user claims the participan
       return (await (window as any).axios.post(url, {}).catch((error: any) => error.response)).status;
     }, claimUrl);
     expect(missing).toBe(403);
+    await guest.getByRole('button', { name: '参加枠を引き継ぐ', exact: true }).click();
+    await expect(guest.locator('#guest-claim-message')).toContainText('参加者IDと引き継ぎコードを入力してください。');
     await guest.getByLabel('引き継ぐゲスト参加者ID', { exact: true }).fill(String(participant.participant_id));
+    await guest.getByLabel('引き継ぎコード', { exact: true }).fill('invalid-guest-code');
+    const [invalid] = await Promise.all([
+      guest.waitForResponse(response => new URL(response.url()).pathname === claimUrl && response.request().method() === 'POST'),
+      guest.getByRole('button', { name: '参加枠を引き継ぐ', exact: true }).click(),
+    ]);
+    expect(invalid.status()).toBe(403);
+    await expect(guest.locator('#guest-claim-message')).toContainText('引き継ぎコードまたは操作権限を確認してください。');
+    await expect(guest.getByRole('button', { name: '参加枠を引き継ぐ', exact: true })).toBeEnabled();
     await guest.getByLabel('引き継ぎコード', { exact: true }).fill(participant.claim_token);
     const [claimed] = await Promise.all([
       guest.waitForResponse(response => new URL(response.url()).pathname === claimUrl && response.request().method() === 'POST'),
@@ -85,10 +95,13 @@ test('anonymous guest joins and a normally registered user claims the participan
     expect(claim.participant_id).toBe(participant.participant_id);
     expect(claim.character_name).toBe('引き継ぐ探索者');
     await expect(guest.locator('#integration-message')).toContainText('ゲスト参加枠を引き継ぎました。');
-    const duplicate = await guest.evaluate(async ({ url, token }) => {
-      return (await (window as any).axios.post(url, { claim_token: token }).catch((error: any) => error.response)).status;
-    }, { url: claimUrl, token: participant.claim_token });
-    expect(duplicate).toBe(409);
+    await expect(guest.locator('#guest-claim-message')).toContainText('ゲスト参加枠を引き継ぎました。');
+    const [duplicate] = await Promise.all([
+      guest.waitForResponse(response => new URL(response.url()).pathname === claimUrl && response.request().method() === 'POST'),
+      guest.getByRole('button', { name: '参加枠を引き継ぐ', exact: true }).click(),
+    ]);
+    expect(duplicate.status()).toBe(409);
+    await expect(guest.locator('#guest-claim-message')).toContainText('すでに引き継がれているか、このセッションに参加済みです。');
     const savedSession = await guest.request.get(sessionUrl);
     expect(savedSession.status()).toBe(200);
     expect((await savedSession.json()).title).toBe(setup.session.title);
