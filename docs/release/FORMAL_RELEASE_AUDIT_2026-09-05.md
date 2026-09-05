@@ -685,3 +685,12 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 同じデータ入りDBに通常entrypointで起動。RUN_MIGRATIONS=true、RUN_COLLECTSTATIC=true、COLLECTSTATIC_ALLOW_FAILURE=false。静的183件収集・Daphne起動成功。readiness HTTP200、database/cache ok。使い捨てユーザーのTokenを隔離DB内で生成して一覧APIを実HTTPで取得し、200・4件・両版・最新版2・メモ/秘匿HO非表示・未適用移行0を確認。
 - SECURE_SSL_REDIRECT=trueを維持し、内部HTTPにX-Forwarded-Proto:httpsを付けたプロキシ模擬の確認。実TLS、信頼できるプロキシ設定、S3/CloudFront、実ユーザー/OAuth、外部配送、実環境ロールバックは未検証で、これらの合格とは扱わない。
 - 証跡tmp/production-registry-upgrade-f692b994.log、tmp/production-upgrade-runtime-f692b994.log、tmp/production-upgrade-startup-f692b994.log。検証用アプリ/DB/Redis/internalネットワークを削除済み。トークンは出力しておらず、DB削除で破棄された。共有環境・実データ・権限・費用の変更なし。正式公開No-Goを維持する。
+
+## 移行前PostgreSQLバックアップの別DB復元
+
+- f692b994の通常配備用イメージ、専用PG16/tmpfs/internalネットワークで旧accounts0054構造と6版/7版計4件を作成。空DB・接続先ガードを維持したseedはtmp/rollback-f692b994/seed.py。移行前に全publicテーブルの行ハッシュ・列定義・制約・インデックスを取得し、pg_dump -Fcで保存。その後、同じDBへ現候補の全マイグレーションを適用して成功した。
+- 別の空DB isolated_registry_restoredを作成してpg_restore --exit-on-errorで復元。39テーブル・78行の全行ハッシュ、列名/型/null可否/default、制約定義、インデックス定義が移行前と完全一致。移行履歴テーブルも比較対象に含む。一方向マイグレーションの逆実行はしていない。
+- fingerprint.pyのinformation_schema.sequencesはidentity sequenceを列挙しないため、出力のsequences:0を採番状態の完全一致と解釈しない。別途、復元DBでpg_get_serial_sequence/nextvalを実行し、キャラクター4件の次値5、ユーザー1件の次値2を確認した。他のidentity sequenceの完全比較は未実施。
+- 証跡tmp/rollback-f692b994のseed.log、before-summary.log、upgrade.log、restore.log、restored-summary.log、comparison.log、identity-next-values.log。比較元と先はisolated_registry_upgrade.jsonとisolated_registry_restored.json。DB内の実値はハッシュ化し、報告へ秘匿メモやトークンを出していない。
+- ダンプは専用コンテナの/tmpのみで使用し、終了後にDBコンテナ・ネットワークを削除した。これは小規模な模擬データのDB復元証拠であり、稼働中環境の全データ/画像復元、旧アプリ起動、負荷中の書込み整合性、実RDS/S3、RPO/RTOの合格ではない。共有環境・実データ・権限・費用への変更なし。正式公開No-Goを維持する。
+- f692b994の全体テストは既存handle26676/51390の実行中を再確認し、再起動していない。
