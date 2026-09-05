@@ -1012,3 +1012,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 両実行セッションの終了コード0を確認。SQLite1662成功/10skip、472 subtests、159 warnings、coverage86.92%、1383.18秒。PostgreSQL1672成功/skipなし、472 subtests、159 warnings、coverage87.49%、1414.78秒。両JUnitは2144件・failure/error各0。
 - SQLiteでskipされた10件をクラス名/テスト名でPG側と照合し、全て成功していることを確認。証跡tmp/formal-release-7cdd7cf8-full-output。全体テスト終了後に専用PGコンテナとinternalネットワークを削除した。
 - 固定ソース7cdd7cf8の結果であり、49537e05のグループ応答キャッシュ対策と今回のパンくず配色修正は含まない。これらの関連Django/E2E結果は別証拠として扱う。固定ソースのブラウザ30件は29成功/1失敗だった事実も維持し、リモートCI・最新候補全体・実サービス・正式公開の完了とはしない。
+
+## 63bd2436の固定ソースでブラウザ30件が成功
+
+- 63bd2436febf27ed5af6f85254e082d5454da611をgit archiveし、対応OSの既存依存環境へ全ソースを展開。tableno-e2e:63bd2436-bookworm、ID sha256:32787e7c8408edc0697efc40ffcf9002aab6323dd2005276e159aa70a8ffe2a3。845ファイルをアーカイブとバイト照合して差分0を確認した。
+- アプリ/テストの差し替えなし、network none/使い捨てSQLite、1 worker/retryなしで30件成功（3.6分）。通常登録、グループ参加・権限追加/解除、通知既読・招待承認、保存文字列の安全な表示、非参加者の閲覧拒否、日程調整とコメント、明暗配色、CDN停止時の初期化/クエリ値をChromium/Firefox/WebKitで検証した。前回失敗したFirefoxの管理者表示も通過した。
+- 証跡tmp/browser-fixed-63bd2436.log/同名-output、ビルドtmp/formal-release-63bd2436-e2e-build.log。終了後コンテナは破棄。7cdd7cf8の29成功/1失敗を上書きせず、新しい固定候補の結果として記録した。全E2Eファイル、最新候補の両DB全体/リモートCI、実サービス検証を終えた意味ではない。
+- 配備準備資料の冒頭を更新し、候補63bd2436・本番用イメージ/全体テスト7cdd7cf8を区別した。記録済み稼働ソース8cf3c7f7から候補まで224ファイル差分、7cdd7cf8以降のaccounts/schedules migration差分なし。AWSの稼働版はこの更新時に再照会しておらず、配備前に確認が必要。文書のみの変更で実環境/実データ/権限/費用変更なし。
