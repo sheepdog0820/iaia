@@ -8,7 +8,7 @@
 <meta property="og:description" content="{{ scenario.title }}{% if scenario.author %} / {{ scenario.author }}{% endif %}{% if scenario.recommended_players %} / {{ scenario.recommended_players }}{% endif %}">
 <meta property="og:url" content="{{ request.build_absolute_uri }}">
 <meta name="twitter:card" content="summary">
-{% with main_image=images.first %}{% if main_image and main_image.image %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ main_image.image.url }}">{% endif %}{% endwith %}
+{% with main_image=images.first %}{% if main_image and main_image.image %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ main_image.content_url }}">{% endif %}{% endwith %}
 {% endblock %}
 
 {% block content %}
@@ -43,7 +43,7 @@
             <div class="row g-3 mb-4">
                 {% for image in images %}
                 <div class="col-md-4">
-                    <img src="{{ image.image.url }}" class="img-fluid rounded border" alt="{{ image.title|default:scenario.title }}">
+                    <img src="{{ image.content_url }}" class="img-fluid rounded border" alt="{{ image.title|default:scenario.title }}">
                     {% if image.title %}<div class="small text-muted mt-1">{{ image.title }}</div>{% endif %}
                 </div>
                 {% endfor %}

@@ -4,6 +4,7 @@ from django.conf import settings
 from django.http import Http404
 from django.views.static import serve
 
+from scenarios.image_views import ScenarioImageContentView
 from schedules.attachment_views import HandoutAttachmentDownloadView
 from schedules.image_views import SessionImageContentView
 
@@ -16,6 +17,8 @@ def serve_media(request, path):
         return HandoutAttachmentDownloadView.as_view()(request, path=normalized[len("handouts/") :])
     if normalized.startswith("session_images/"):
         return SessionImageContentView.as_view()(request, path=normalized[len("session_images/") :])
+    if normalized.startswith("scenario_images/"):
+        return ScenarioImageContentView.as_view()(request, path=normalized[len("scenario_images/") :])
     if not settings.DEBUG:
         raise Http404
     return serve(request, normalized, document_root=settings.MEDIA_ROOT)

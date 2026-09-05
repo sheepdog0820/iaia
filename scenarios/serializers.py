@@ -17,10 +17,21 @@ from .models import (
 )
 
 
+class ScenarioImageField(serializers.ImageField):
+    def to_representation(self, value):
+        url = value.instance.content_url
+        request = self.context.get("request")
+        return request.build_absolute_uri(url) if url and request else url
+
+
 class ScenarioImageSerializer(serializers.ModelSerializer):
     """シナリオ画像シリアライザー"""
 
     uploaded_by_detail = UserSerializer(source="uploaded_by", read_only=True)
+    image = ScenarioImageField(
+        max_length=ScenarioImage._meta.get_field("image").max_length,
+        help_text=ScenarioImage._meta.get_field("image").help_text,
+    )
     image_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -44,8 +55,8 @@ class ScenarioImageSerializer(serializers.ModelSerializer):
         if obj.image:
             request = self.context.get("request")
             if request:
-                return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
+                return request.build_absolute_uri(obj.content_url)
+            return obj.content_url
         return None
 
     def validate_image(self, value):

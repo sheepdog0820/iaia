@@ -126,7 +126,7 @@ class SessionImageDownloadTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/octet-stream")
         self.assertEqual(response["Content-Disposition"], "attachment")
-        response.close()
+        self.assertEqual(b"".join(response.streaming_content), b"<script>test</script>")
 
     def test_serializer_with_request_uses_absolute_protected_url(self):
         from rest_framework.test import APIRequestFactory

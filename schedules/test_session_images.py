@@ -437,7 +437,10 @@ class SessionImageTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertContains(response, "シナリオ画像")
         self.assertContains(response, 'class="session-scenario-section"')
-        self.assertContains(response, scenario_image.image.url)
+        self.assertContains(
+            response,
+            reverse("scenario_image_session_content", kwargs={"pk": scenario_image.pk, "session_pk": self.session.pk}),
+        )
         self.assertContains(response, "トレーラー")
 
 

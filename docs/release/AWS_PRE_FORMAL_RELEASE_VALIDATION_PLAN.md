@@ -2,6 +2,8 @@
 
 2026-09-05、コード候補 `b8fad941`。実行承認前の準備資料。実環境は読み取りのみ。ローカルで配備用イメージ作成と専用PostgreSQL検証を行ったが、ECR送信・ECS配備・共有DB変更・通知は実行していない。
 
+後続の参加承認・報酬反映・ID・配列順序・画像配信修正により、この冒頭の候補は最新ではない。9b1c9043のSQLite/PostgreSQL全体成功は監査記録に保存しているが、後続の画像修正を含む最終配備digestは未作成。以下の過去候補の検証結果をそのまま最新の配備承認材料に使わない。
+
 ## 確認できた現状
 
 - AWS profile `tableno-pre`、region `ap-northeast-1`、cluster/service `tableno-aws-pre`。
@@ -89,3 +91,14 @@ Terraformの変更対象は `aws_s3_bucket_policy.assets`。対象CloudFrontサ�
 テスト用ソースの上書きマウントなしで、専用PostgreSQL 16に対して添付・HO権限・PL枠・課金・署名イベント統合の227件成功（55.953秒）。pip checkとmakemigrations --check --dry-runも成功した。さらに通常entrypointで専用DBへのmigrateを実行し、Daphne起動後に `/health/ready` のdatabase/cacheともok、HTTP 200を確認した。APP_ENV=local、locmem cache、外部通信不可のinternal networkであり、公開用Secrets/S3/Redisを使用するaws-pre設定の起動確認ではない。
 
 証跡は `tmp/formal-release-b8fad941-build.log`、`tmp/formal-release-b8fad941-postgres.log`、`tmp/formal-release-b8fad941-runtime.log`、`tmp/formal-release-b8fad941-ready.json`、`tmp/formal-release-b8fad941-image.json`。検証用app/DBコンテナとnetworkは終了・削除済み。ECR送信、AWSタスク定義登録、配備、実ポリシー変更は未実施。
+
+## セッション・シナリオ画像への保護範囲拡張（未適用）
+
+ローカルでsession_images/とscenario_images/の未認可取得を再現し、両画像のアプリ認可付き配信を実装した。画像はS3オブジェクトを移動せずアプリ経由で読むため、既存のCloudFront/S3 URLの拒否も必須となる。現時点のTerraformと応急バケットポリシー案はhandouts/だけを対象としており、そのまま適用して画像保護完了とはしない。
+
+- 最終の拒否案には、実際のstorage locationを確認したうえでhandouts/、session_images/、scenario_images/を含める。公開シナリオ画像も認可付きAPIでvisibilityを都度確認するため、非公開化後に残る直URLを許可しない。正当な匿名閲覧は公開シナリオの新APIで維持する。
+- アプリ候補と配信拒否の順序を一体で提示する。旧アプリは画像の直URLを返すため、拒否だけを先に適用すると画像表示が停止する。旧アプリへ戻す場合も、保護対象の公開GetObjectを復活させて復旧扱いにしない。
+- 専用試験画像を用いて、公開シナリオの匿名表示、所有者/共有グループ、セッション経由の閲覧、無関係ユーザーの拒否、非公開化/脱退/参加解除後の失効、新APIと旧CDN・S3 URLを照合する。セッション経由URLはその画像とセッションのシナリオが一致することも確認する。
+- 既存キャッシュの失効対象・費用・完了確認、アプリ配信の負荷とタイムアウトを計画に含める。実利用者の画像を無断で取得せず、専用試験データの作成・通知抑止・削除を承認案に含める。
+
+この追記は実行要件の更新であり、AWS設定変更、キャッシュ失効、配備、実データ作成を実施した記録ではない。拡張したポリシーの具体的な差分・静的検査・最新の稼働状態照合はまだ必要である。

@@ -321,13 +321,14 @@
                                 </div>
                                 <div class="row g-2 session-scenario-image-grid">
                                     {% for scenario_image in scenario_images %}
+                                    {% url 'scenario_image_session_content' pk=scenario_image.pk session_pk=session.pk as scenario_image_url %}
                                     <div class="col-6 col-md-4 col-xl-3">
                                         <div class="session-scenario-image-card h-100">
-                                            <a href="{{ scenario_image.image.url }}"
+                                            <a href="{{ scenario_image_url }}"
                                                target="_blank"
                                                rel="noopener noreferrer"
                                                class="d-block">
-                                                <img src="{{ scenario_image.image.url }}"
+                                                <img src="{{ scenario_image_url }}"
                                                      alt="{{ scenario_image.title|default:session.scenario.title }}"
                                                      class="session-scenario-image-thumb rounded"
                                                      loading="lazy">
