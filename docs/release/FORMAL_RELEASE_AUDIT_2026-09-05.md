@@ -744,3 +744,9 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - コメント順序テスト、既存キャラクターデータの移行テスト、f692b994 SQLite全体でskipされた行ロック関連7件の成功をJUnitで照合。ログ・JUnit・coverageはtmp/formal-release-919dc0de-full-output。
 - SQLite全体はf692b994の1639成功/7skipを維持し、919dc0deのテスト変更は両DBで関連20件成功。SQLite全体を919dc0deで実行したとは扱わない。アプリコードはf692b994と同一で、以降はテスト・文書変更。以前のPostgreSQL失敗記録は保持する。
 - 全体テスト終了後に専用DBコンテナとinternalネットワークを削除。リモートCI・実環境・課金と外部連携の実証は未完了で正式公開No-Goを維持。
+
+## 旧テンプレート画像の残存確認とTerraform案の補完
+
+- クリーンな42219b05から、旧移行0041の広い削除例外と保存prefixを調査。AWS開発用S3を読み取り集計し、media/session_template_images/に119件・21264バイトの残存を確認。内容・所有者・削除失敗との因果関係は未確認で、実ファイル本文のダウンロードや削除は行っていない。
+- 最新の実バケットポリシーは対象CloudFrontからのAllowのみ。既存の未適用Terraform拒否案に旧テンプレートprefixの直下/任意location配下2パターンを追加。既存6パターンと合わせ8パターン。Terraform fmt -check / validate成功、具体JSON案のAWS Access Analyzer findings=[]。
+- 詳細はSECURITY_STATIC_TRIAGE_494ABD0D.mdとAWS_PRE_FORMAL_RELEASE_VALIDATION_PLAN.md。変更は配信拒否の準備案のみ。アプリコード・DB・AWS設定・Secrets・継続費用は変更なし。アプリ全体テストの追加実行は不要と判断。実保護とデータ保持/削除の判断は残り、正式公開No-Goを維持する。

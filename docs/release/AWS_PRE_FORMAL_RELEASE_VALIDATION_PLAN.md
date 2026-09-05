@@ -153,3 +153,11 @@ Terraformの変更対象は `aws_s3_bucket_policy.assets`。対象CloudFrontサ�
 - 実Dockerfileと固定依存でビルドし、隔離したPostgreSQL/Redisで通常entrypoint、migrate/collectstatic、非root、DEBUG無効、ready 200を確認。check --deployと移行差分チェックも成功。
 - S3・Stripe・OAuth・TLS/ALB・実データはこの起動試験の対象外。使用した架空の設定は配備に流用しない。全体テストとリモートCIはまだ完了していない。
 - 反映前には全体結果、現在稼働版、対象差分、イメージ識別、ストレージ保護との順序、復旧手順、承認範囲を再確認する。詳細証跡は[監査記録](FORMAL_RELEASE_AUDIT_2026-09-05.md)を参照。
+
+## 旧テンプレート画像を含めた配信拒否案の更新
+
+2026-09-05の読み取り確認で、対象バケットのmedia/session_template_images/に119オブジェクト（計21264バイト）が残存。内容・所有者・削除失敗との関係は未確認。既存の6パターン案にsession_template_images/*と*/session_template_images/*を加えた8パターンを最新案とする。Terraformのaws_s3_bucket_policy.assetsへ同じ2パターンを追加した。
+
+tmp/private-template-containment-42219b05/proposed-policy.jsonは再取得した現行Allowを保持する具体案。Terraform fmt -check / validate成功、AWS Access AnalyzerのS3 bucket RESOURCE_POLICY検査findings=[]。過去の6パターン案の検証記録は履歴として保持し、今回の案へそのまま適用したとは扱わない。
+
+本変更は未適用。実施前に現行ポリシーとの再照合、専用試験オブジェクトと配信拒否の検証方法、キャッシュ失効範囲・費用、正規画像の利用と切り戻し手順を含めて承認を得る。旧モデルの復元や旧画像へのアクセス機能の再導入は行わない。残存画像の所有・保存義務・削除対象は別途確認し、削除承認なしに一括削除しない。

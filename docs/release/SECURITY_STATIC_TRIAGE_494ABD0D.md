@@ -73,3 +73,11 @@
 - 6アプリをBandit1.9.4で再解析し、解析エラー0、HIGH/MEDIUM 0、LOW556、終了コード1。77b10dedのファイル/指摘ID/指摘本文の多重集合との差分は0。accounts0055のSET CONSTRAINTSと専用PostgreSQLスキーマを使う移行テストに指摘なし。
 - テストスキーマ名は固定prefixとuuid.uuid4().hexのみで構成し、外部入力からSQLを作成する経路ではないこともソース確認した。静的ツールの未検出を全SQL経路の安全性の証明にはしない。
 - 証跡tmp/bandit-f692b994-apps.json、tmp/bandit-f692b994-run.log。テスト側65件の用途判定と残り413件、その他の既存指摘・実サービスの未確認事項を維持する。抑制の追加やコード変更は行っていない。
+
+## 旧テンプレート画像の残存と配信拒否案の補完
+
+- 2026-09-05、schedules0030のupload_toがsession_template_images/<id>/<filename>であり、0041がstorage.exists/deleteの全例外を無視して画像モデルを削除することを確認。削除対象のDB記録が失われるため、マイグレーション成功だけではファイル削除を証明できない。適用済み0041は変更しない。
+- 稼働タスク定義tableno-aws-pre:40でS3有効と対象バケットを照合。S3 ListObjectsV2の読み取り集計で、media/session_template_images/に119件・21264バイト、直下session_template_images/には0件。ファイル名・本文・所有者は取得結果として表示していない。残存の理由、実ユーザーデータか試験データか、過去の削除失敗との因果関係は未確認。
+- 現行バケットポリシーは対象CloudFrontからbucket/*へのAllowのみ。未適用のTerraform拒否案も旧prefixを含んでいなかったため、session_template_images/*と*/session_template_images/*を追加した。既存Allow、ECS権限、オブジェクトは変更していない。データの削除方針が決まるまで配信経路の保護対象に含める案である。
+- terraform fmt -check / validateが成功。現行Allowを保持した具体ポリシー案8パターンに対するAWS Access AnalyzerのRESOURCE_POLICY / AWS::S3::Bucket検査はfindings=[]。これは適用・実配信拒否・データ削除の証拠ではない。
+- tmp/private-template-containment-42219b05のbefore-policy.json/proposed-policy.jsonがローカル証跡。実設定への適用と削除は未実施。0041の静的指摘は対応方針と残存確認まで進んだが、実保護・保存/削除判断は未完了。Q04は引き続き未達。
