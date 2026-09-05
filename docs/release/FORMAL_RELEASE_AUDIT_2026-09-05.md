@@ -171,3 +171,16 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 合意した利用規模でのPostgreSQL/同時負荷試験、ネットワークとブラウザを含む評価は引き続き未実施。正式公開の性能合格判定には不足する。
 - `schedules` 全体、新規一覧回帰テスト、`test_workflow_integration.py` を専用SQLiteで実行し、398件・subtests 55件成功（563.12秒、警告9件）。証跡は `tmp/formal-release-session-query-regressions-20260905.xml`。対象は `88926aec` に今回のコード差分を適用した状態。リモートCIや最新コード全体のE2E成功を意味しない。
 - 変更PythonのBlack/isort確認、flake8の実行不能エラー検査、差分レビュー、対象7ファイルのUTF-8/LF/差分チェックが成功。変更に新しいユーザー表示文言はない。レビューで追加の修正事項は見つからなかった。
+
+## 継続監査: 実SDKを通した課金権限の統合検証（2026-09-05）
+
+- `e118f665` を起点に、通常ユーザー（staff/superuserともFalse）の署名付きローカルWebhookを、実Stripe SDKの署名検証・Webhookビュー・DB更新・画面/API権限まで通すテストを追加した。Stripeから取得したイベントではなく、試験用secretで作ったfixtureである。APIClientはDjangoセッション認証を使用し、ユーザーの `is_premium` を試験側で直接変更しない。
+- 最初の実行は月額/年額の両方で失敗。SDK 15.2.1の `Event` はdictではなく、署名検証後の `event.get("id")` で例外となった。既存テストの辞書モックでは発見できなかった。署名検証が成功したイベントを、必要な場合に公開メソッド `to_dict()` で再帰変換するよう修正した。署名不一致の拒否は維持する。[SDKの公式パッケージ資料](https://pypi.org/project/stripe/15.6.1/)
+- さらに現行APIのfixtureへ合わせると、`current_period_end` が保存されず8 subtestsが失敗した。Basil以降の明細内の期間終了日時を、従来のPrice抽出と同じ先頭明細から取得するよう修正。旧形式のトップレベル値も引き続き扱う。現在のCheckoutは単一プランであり、混在周期・複数有料商品の統合判定は今回の検証対象ではない。[Stripe公式変更履歴](https://docs.stripe.com/changelog/basil/2025-03-31/deprecate-subscription-current-period-start-and-end)
+- Stripe DocsスキルのCLIを試したが、CLI側のdocs pluginが利用不可と返したため公式Web資料へフォールバックした。CLI plugin追加、Stripe設定変更、実課金、外部通知は実施していない。
+- 新規2テストは月額+6版、年額+7版で、無料時拒否、不正署名拒否、activeでの権限付与、CCFOLIAインポート成功、重複イベントの監査ログ重複抑止、期間末解約予約中の利用継続、past_dueで失効、activeで回復、canceledで失効、失効時の新規インポート拒否と既存キャラクター閲覧・保持を確認する。有料化しても他人のprivateシナリオは404のままであることも確認した。invoice、返金、異議、退会の全経路や実Checkout成功の証拠ではない。
+- 専用SQLite、Django 5.2.15/Stripe 15.2.1で `accounts/test_billing.py` と新規統合テストの190件・subtests 8件成功（69.75秒、警告9件）。追加実行対象7行は行カバレッジ100%（billing 5、billing_views 2）。モジュール全体/分岐100%ではない。証跡: `tmp/formal-release-paid-feature-lifecycle-20260905.xml`、`tmp/formal-release-paid-lifecycle-coverage.json`。
+- 固定依存の既存イメージ `sha256:eaf05e815671db51d613bef0c7b7d37b1fe193bfc38bff442ea6b4377132cf49`（Django 5.2.17/Stripe 15.5.1）に、今回のbilling.py・billing_views.py・新規テストを読み取り専用でマウントし、`--network none` の専用コンテナ内SQLiteで同じ190件成功（33.552秒）。コンテナは `--rm` で終了。これは当該ソースと固定依存関係の互換性確認であり、最新コード全体のビルド/配備証明ではない。
+- 新規統合テストをPostgreSQL用CIにも追加した。リモートCI結果、実WebhookのAPIバージョン設定と実配送、実Priceとの一致は引き続き未確認。
+- 有料境界の照合で、アーカイブ画面のみ有料制限があり、シナリオAPI自体はログイン・可視性・所有権を使用することを確認した。シナリオ画像の既定上限は無料/有料とも5 MiB・1回10枚。販売条件の確定前にこの差を整理する。今回、未合意のAPI制限追加や無料機能の削除は行っていない。
+- 変更PythonのBlack/isort・flake8実行不能エラー検査、YAML構文、差分レビューを確認。既存billing.pyのBOMを取り除き、対象6ファイルのUTF-8/LFチェックに成功した。新しいユーザー表示文言はなく、レビューで追加の修正事項は見つからなかった。

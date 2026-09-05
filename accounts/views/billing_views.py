@@ -159,6 +159,9 @@ class StripeWebhookView(APIView):
                 sig_header=signature,
                 secret=settings.STRIPE_WEBHOOK_SECRET,
             )
+            # Stripe SDK 15 resources are no longer dict subclasses.
+            if not isinstance(event, dict):
+                event = event.to_dict()
         except Exception:
             return Response({"error": "Invalid Stripe webhook"}, status=status.HTTP_400_BAD_REQUEST)
 

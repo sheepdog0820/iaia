@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+from datetime import datetime
 from datetime import timezone as dt_timezone
 
 from django.conf import settings
@@ -162,6 +162,12 @@ def sync_subscription_object(subscription, event_id=""):
     subscription_id = stripe_object_get(subscription, "id", "") or ""
     status = stripe_object_get(subscription, "status", "") or ""
     current_period_end = stripe_object_get(subscription, "current_period_end")
+    if current_period_end is None:
+        # Basil and later store periods on items. Use the same item as the price.
+        items = stripe_object_get(subscription, "items", {}) or {}
+        item_data = stripe_object_get(items, "data", []) or []
+        if item_data:
+            current_period_end = stripe_object_get(item_data[0], "current_period_end")
     cancel_at_period_end = bool(stripe_object_get(subscription, "cancel_at_period_end", False))
     stripe_price_id, billing_interval = extract_subscription_price(subscription)
 
