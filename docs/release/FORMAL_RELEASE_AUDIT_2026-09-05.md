@@ -386,3 +386,19 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 証跡は同ディレクトリの `probe-private-images.py`、`private-image-probe.json`、`private-image-probe.log`。APP_ENV=local、DEBUG=True、ALLOWED_HOSTSにtestserverのみ追加、外部ネットワークなし、実サービス認証情報なし。初回はtestserver未許可の400となりアクセス制御の検証にならなかったため、試験ホスト設定を修正して上記の成功/拒否を確認した。試験用DB/画像は終了時に破棄した。実利用者の画像やAWSオブジェクト内容は取得していない。
 - 原因として `tableno/media_views.py` はhandouts/だけを認可処理へ分岐させ、その他はDEBUG時に通常の静的配信へ渡している。ScenarioImage/SessionImageのserializerとHTMLにもstorageのimage.urlを直接返す箇所がある。ローカル経由だけを保護しても、本番のS3/CloudFront直URLに対する迂回防止の証明にはならない。
 - 対策は未実装。公開シナリオの公開ページ、セッション閲覧者、非公開化や所属解除の反映を維持しつつ、画像取得時の認可、serializer/HTMLの配信URL、旧URLとストレージ/CDN側を一体で確認する必要がある。既存のcan_view_scenarioは所有者/共通グループを扱い、公開ページのvisibility=publicとは別の経路であるため、単に同関数だけを全画像へ適用して公開機能を壊さない。AWSの画像露出は今回未検証であり、ローカル再現と区別する。Q04は未達、正式公開はNo-Goを維持する。
+
+## 継続監査: 9b1c9043のSQLite/PostgreSQL全体検証（2026-09-05）
+
+- 固定テストイメージの9b1c9043で、accounts/api/scenarios/schedules/support/tableno/tests/unit/tests/integrationを同じpytest・カバレッジ設定で実行した。SQLiteは1,538件成功、3件skip、343 subtests成功、1,205.68秒、86.35%、終了コード0。PostgreSQL 16.15は1,541件成功、skipなし、343 subtests成功、1,232.37秒、86.57%、終了コード0。
+- JUnitも両DBでfailures=0/errors=0。tests=1,884はsubtestsとskipを含む。SQLiteのskipは参加承認の2件と報酬反映の1件で、has_select_for_updateが必要な実DB並行試験である。同じ3件はPostgreSQLで実行・成功しており、除外して失敗を消したものではない。警告は双方159件。
+- `tmp/formal-release-9b1c9043-output/{sqlite,postgres}-run.log`、同じ接頭辞のjunit.xml/coverage.xml/coverage.jsonを確認した。両実行の終了を確認後、専用PostgreSQLコンテナとネットワークを停止・削除した。実RDSや共有DBの変更なし。
+- 以前のPostgreSQL全体で発生したロック・ID・参加者順序の不一致は、この単一ソースの全体検証でも解消した。一方、この結果は後続の画像配信修正、配備用イメージ、本番設定全体、リモートCI、実サービス検証を含まない。正式公開の残条件は維持する。
+
+## 継続監査: セッション画像の認可付き配信（2026-09-05）
+
+- セッション画像に `GET /api/schedules/session-images/{id}/content/` を追加した。取得の都度、セッション詳細と同じcan_view_session_basicで閲覧権限を確認する。非公開データの拒否・存在しない画像・保存ファイル欠損は404。公開セッションは同関数の既存仕様に従って匿名でも取得でき、非公開化で同じURLが拒否される。
+- serializerのimage/image_urlとセッション詳細HTMLをcontent_urlへ変更し、serializerはstorage.urlを呼ばない。アップロードはImageFieldの検証、モデルにあるファイル名長と説明を維持した。旧MEDIA_URL配下のsession_images/も、正規化後に同じ認可へ分岐する。DEBUG=Falseでもアプリ経由は保護付き配信が可能。S3/CloudFrontへの直アクセスはこの処理を通らないため、別途封鎖が必要である。
+- レスポンスはno-store、Vary: Cookie/Authorization、nosniffを持つ。PNG/JPEG/GIF/WebP以外の保存データはoctet-stream添付として扱い、HTML等を画像配信経路で実行させない。既存の画像バイトは変更していない。OpenAPIには各画像MIMEとバイナリ応答を追加し、spectacular --validateは成功。`tmp/session-image-schema.log` と `tmp/formal-release-9b1c9043-output/session-image-schema.yml` の新規パスを確認した。
+- 回帰テストを先に追加し、旧実装では新URLの不存在、旧URLの未認可配信、serializerのstorage.url呼び出しで失敗した。`tmp/session-image-red.log`。Cookie/Token認証、非公開・公開、参加解除・グループ脱退、DEBUG両設定、正規化経路、ファイル欠損、不明形式、API/HTMLのURLを試験した。HTML試験は最初に役割のない参加レコードを作っていたため画像欄が表示されず失敗し、通常のcreate_participantでPLを作成するよう試験データを修正した。
+- 最終SQLiteは新規14件と既存画像13件の計27件・9 subtests成功（51.43秒、警告9件）。`tmp/session-image-final.log`、同出力ディレクトリのsession-image-final.xml/coverage.json。画像取得view、専用serializerフィールド、content_urlの実行対象行に未実行行なし。PostgreSQL 16.15では、新規13件・既存画像・ハンドアウト添付・セッション可視性を合わせ51件・9 subtests成功（63.25秒、警告9件）。`tmp/session-image-postgres.log`、session-image-postgres.xml/coverage.json。PostgreSQL実行後の変更はOpenAPIへの掲載を伴うGenericAPIView化とファイル名長検証の明示で、最終SQLiteに含めて確認した。
+- 固定9b1c9043イメージに変更ファイルを読み取り専用適用し、専用DB/試験画像だけを使用した。専用PostgreSQLは外部公開ポートなし、検証後に停止・ネットワーク削除済み。Black/isort/flake8と差分を確認した。画像URLだけのHTML変更で、表示文言・レイアウトは変更していない。シナリオ画像、S3/CloudFrontの直配信、実環境の配備は未完了であり、正式公開No-Goを維持する。

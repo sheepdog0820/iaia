@@ -4,6 +4,7 @@ from django.views.generic import RedirectView, TemplateView
 from rest_framework.routers import DefaultRouter
 
 from . import analytics_views, attachment_views, handout_views, notification_views, reward_views, views
+from .image_views import SessionImageContentView
 
 router = DefaultRouter()
 router.register(r"sessions", views.TRPGSessionViewSet, basename="session")
@@ -27,6 +28,7 @@ router.register(r"availability", views.SessionAvailabilityViewSet, basename="ava
 router.register(r"date-polls", views.DatePollViewSet, basename="date-poll")
 
 urlpatterns = [
+    path("session-images/<int:pk>/content/", SessionImageContentView.as_view(), name="session_image_content"),
     # API URLs
     path("sessions/view/", views.SessionsListView.as_view(), name="sessions_api_view"),
     path("sessions/next-context/", views.NextSessionContextView.as_view(), name="next_session_context"),

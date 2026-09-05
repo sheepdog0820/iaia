@@ -433,8 +433,8 @@
                                             <i class="fas fa-grip-vertical"></i>
                                         </span>
                                     {% endif %}
-                                    <a href="{{ image.image.url }}" target="_blank" rel="noopener noreferrer" class="d-block" draggable="false">
-                                        <img src="{{ image.image.url }}"
+                                    <a href="{{ image.content_url }}" target="_blank" rel="noopener noreferrer" class="d-block" draggable="false">
+                                        <img src="{{ image.content_url }}"
                                              alt="{{ image.title|default:'セッション画像' }}"
                                              class="img-fluid rounded session-image-thumb"
                                              loading="lazy"

@@ -9,6 +9,7 @@ from datetime import timedelta
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import CustomUser, Group
@@ -1098,6 +1099,10 @@ class SessionImage(models.Model):
     )
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def content_url(self):
+        return reverse("session_image_content", kwargs={"pk": self.pk}) if self.image else None
 
     class Meta:
         ordering = ["order", "created_at"]

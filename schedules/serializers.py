@@ -54,10 +54,21 @@ class NullableIntegerField(serializers.IntegerField):
         return super().to_internal_value(data)
 
 
+class SessionImageField(serializers.ImageField):
+    def to_representation(self, value):
+        url = value.instance.content_url
+        request = self.context.get("request")
+        return request.build_absolute_uri(url) if url and request else url
+
+
 class SessionImageSerializer(serializers.ModelSerializer):
     """セッション画像シリアライザー"""
 
     uploaded_by_detail = PublicUserSerializer(source="uploaded_by", read_only=True)
+    image = SessionImageField(
+        max_length=SessionImage._meta.get_field("image").max_length,
+        help_text=SessionImage._meta.get_field("image").help_text,
+    )
     image_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -81,8 +92,8 @@ class SessionImageSerializer(serializers.ModelSerializer):
         if obj.image:
             request = self.context.get("request")
             if request:
-                return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
+                return request.build_absolute_uri(obj.content_url)
+            return obj.content_url
         return None
 
     def validate_image(self, value):
