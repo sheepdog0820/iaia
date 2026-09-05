@@ -2334,60 +2334,54 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
 
     @action(detail=False, methods=["patch"])
     def bulk_update(self, request, character_sheet_id=None):
-        """Bulk update/create skills"""
-        skills_data = request.data.get("skills", [])
-        if not skills_data:
-            return Response({"error": "skills data is required"}, status=status.HTTP_400_BAD_REQUEST)
+        """Save every requested skill or roll the entire batch back."""
+        skills_data = request.data.get("skills") if isinstance(request.data, Mapping) else None
+        if not isinstance(skills_data, list) or not skills_data:
+            return Response({"error": "保存する技能を一覧で指定してください。"}, status=status.HTTP_400_BAD_REQUEST)
 
         character_sheet_id = self.kwargs.get("character_sheet_id") or self.kwargs.get("character_sheet_pk")
         if not character_sheet_id:
-            return Response({"error": "character_sheet_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "キャラクターを指定してください。"}, status=status.HTTP_400_BAD_REQUEST)
 
+        item_index = 0
         try:
-            character_sheet = CharacterSheet.objects.get(id=character_sheet_id, user=self.request.user)
-        except CharacterSheet.DoesNotExist:
-            return Response({"error": "Character sheet not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        detail = character_sheet.system_data
-        skill_model = detail.skills.model
-
-        updated_skills = []
-        created_skills = []
-
-        for skill_data in skills_data:
-            skill_id = skill_data.get("id")
-
-            if skill_id:
-                # Update existing skill
-                try:
-                    skill = skill_model.objects.get(id=skill_id, character_sheet=detail)
-
-                    # Process updatable fields only
-                    updatable_fields = [
-                        "base_value",
-                        "occupation_points",
-                        "interest_points",
-                        "bonus_points",
-                        "other_points",
-                    ]
-
-                    for field in updatable_fields:
-                        if field in skill_data:
-                            setattr(skill, field, skill_data[field])
-
-                    skill.save()
-                    updated_skills.append(skill)
-
-                except skill_model.DoesNotExist:
-                    continue
-            else:
-                # Create new custom skill
-                skill_name = skill_data.get("skill_name")
-                if skill_name and skill_name.strip():
-                    try:
+            with transaction.atomic():
+                character_sheet = CharacterSheet.objects.select_for_update().get(
+                    id=character_sheet_id, user=request.user
+                )
+                detail = character_sheet.system_data
+                skill_model = detail.skills.model
+                updated_skills = []
+                created_skills = []
+                for item_index, skill_data in enumerate(skills_data, start=1):
+                    if not isinstance(skill_data, Mapping):
+                        raise ValueError("Invalid skill object")
+                    skill_id = skill_data.get("id")
+                    if skill_id is not None:
+                        if isinstance(skill_id, bool) or not str(skill_id).isdigit() or int(skill_id) < 1:
+                            raise ValueError("Invalid skill id")
+                        try:
+                            skill = skill_model.objects.get(id=skill_id, character_sheet=detail)
+                        except skill_model.DoesNotExist:
+                            raise ValueError("Unknown skill") from None
+                        for field in (
+                            "base_value",
+                            "occupation_points",
+                            "interest_points",
+                            "bonus_points",
+                            "other_points",
+                        ):
+                            if field in skill_data:
+                                setattr(skill, field, skill_data[field])
+                        skill.save()
+                        updated_skills.append(skill)
+                    else:
+                        skill_name = skill_data.get("skill_name")
+                        if not isinstance(skill_name, str) or not skill_name.strip():
+                            raise ValueError("Missing skill name")
                         skill = skill_model.create_custom_skill(
                             character_sheet=detail,
-                            skill_name=skill_name,
+                            skill_name=skill_name.strip(),
                             category=skill_data.get("category", "特殊・その他"),
                             base_value=skill_data.get("base_value", 5),
                             occupation_points=skill_data.get("occupation_points", 0),
@@ -2397,12 +2391,26 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
                             notes=skill_data.get("notes", ""),
                         )
                         created_skills.append(skill)
-                    except Exception:
-                        continue
-
-        all_skills = updated_skills + created_skills
-        serializer = CharacterSkillSerializer(all_skills, many=True)
-        return Response(serializer.data)
+                return Response(CharacterSkillSerializer(updated_skills + created_skills, many=True).data)
+        except CharacterSheet.DoesNotExist:
+            return Response({"error": "キャラクターが見つかりません。"}, status=status.HTTP_404_NOT_FOUND)
+        except (DjangoValidationError, ValueError, TypeError, OverflowError):
+            return Response(
+                {"error": "技能データを確認してください。変更は保存されていません。", "item": item_index},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except (IntegrityError, OperationalError) as exc:
+            logger.warning("Bulk skill persistence failed (%s)", type(exc).__name__)
+            return Response(
+                {"error": "技能を保存できませんでした。時間をおいて再度お試しください。"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except Exception as exc:
+            logger.error("Bulk skill update failed (%s)", type(exc).__name__)
+            return Response(
+                {"error": "技能を保存できませんでした。変更は保存されていません。"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class CharacterEquipmentViewSet(CharacterNestedResourceMixin, viewsets.ModelViewSet):
