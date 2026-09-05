@@ -710,3 +710,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - テストの「投稿順とホスト時計の時刻順が常に一致する」という暗黙の前提を除き、POSTでの作成確認後に使い捨てテストDB内のcreated_atを明示した。通常時刻順、IDと逆になる時刻順、同時刻のID順、limit=1の最新選択を検証する。アプリ処理は変更せず、単に期待順を実装の返却結果へ合わせる変更ではない。既存の投稿・入力拒否・非参加者拒否のassertも維持。
 - 変更ファイルだけをf692b994固定テストイメージへマウントして日程調整関連を実行。PostgreSQL20件成功（24.72秒）、SQLite20件成功（39.78秒）、各既存警告9件。証跡tmp/date-poll-order-postgres.log、tmp/date-poll-order-sqlite.log。全体結果はtmp/formal-release-f692b994-full-output。過去のPG全体失敗を上書きせず、テスト修正後の全体再実行/CIとは区別する。
 - Black/isort/flake8、ソース差分、既存日本語の保持を確認し追加指摘なし。UI表示・アプリコード・DBスキーマ変更なし。全体用の専用PG/tmpfsとネットワークは削除済み。共有環境・実データ・権限・費用変更なし。正式公開No-Goを維持する。
+
+## 切り戻し検証用の実稼働イメージを固定
+
+- 旧8cf3c7f7のDockerfileはrequirements.txtの範囲指定から依存を解決するため、現在の再ビルドを当時の稼働イメージと同一とみなせない。既存tableno-preプロファイルを用いてECS/ECRを読み取り確認した。最初のプロファイル未指定呼出はNoCredentialsで終了し、構成済みプロファイルを確認して読み取りを実施した。
+- ECS tableno-aws-preはtask definition40、desired1/running1/pending0。RUNNINGタスクのwebコンテナはaws-pre-8cf3c7f7、imageDigest sha256:551535a7219a599891d592346480803966abfb54f856656201ca08eec1d42b66。ECR describe-imagesの同タグdigestと一致し、登録日は2026-08-15T10:00:05.723+09:00。
+- 既存資格情報でECR認証後、タグではなく上記digest指定でローカルへpull。ローカルイメージID sha256:58a0a768937f40c7e5c03852cd16e8437a6f7e5cff5bc13195efde80dd9eb578、RepoDigests一致。取得ログtmp/rollback-running-image-pull.log。ECR資格情報はpassword-stdinで渡し、値を出力していない。
+- network noneの一時コンテナで配布メタデータのみ確認。Django5.2.17、DRF3.18.0、allauth65.19.1、psycopg3.3.4、Stripe15.5.0。Config.Userは空で旧Dockerfileのデフォルト実行設定。アプリを共有DBへ接続していない。
+- 今回は切り戻し検証対象の取得・同一性確認まで。旧アプリに適合する移行前DB/画像の用意、現候補への更新、復元後の旧アプリ起動と主要フローの一致は次の作業。AWSのサービス/タスク/DB/IAM/Secrets設定・実データ・継続費用は変更していない。公開No-Goを維持する。
