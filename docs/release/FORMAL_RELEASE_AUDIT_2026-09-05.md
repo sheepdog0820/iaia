@@ -694,3 +694,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 証跡tmp/rollback-f692b994のseed.log、before-summary.log、upgrade.log、restore.log、restored-summary.log、comparison.log、identity-next-values.log。比較元と先はisolated_registry_upgrade.jsonとisolated_registry_restored.json。DB内の実値はハッシュ化し、報告へ秘匿メモやトークンを出していない。
 - ダンプは専用コンテナの/tmpのみで使用し、終了後にDBコンテナ・ネットワークを削除した。これは小規模な模擬データのDB復元証拠であり、稼働中環境の全データ/画像復元、旧アプリ起動、負荷中の書込み整合性、実RDS/S3、RPO/RTOの合格ではない。共有環境・実データ・権限・費用への変更なし。正式公開No-Goを維持する。
 - f692b994の全体テストは既存handle26676/51390の実行中を再確認し、再起動していない。
+
+## 移行前バックアップのidentity採番を含む再比較
+
+- 以前の画像込み復元試験（tmp/restore-drill-20260905/probe.py）はpg_sequencesで87採番状態を比較していたことをソース確認。information_schema.sequencesによる見落としは直近の小規模移行復元スクリプトに限定される。
+- 比較処理をpg_sequencesによる列挙へ修正し、元の証跡を上書きせずtmp/rollback-f692b994-v2で独立再実行。f692b994の通常配備イメージ、PG16/tmpfs/internalネットワークで旧accounts0054構造と6版/7版計4件を作成、移行前fingerprintとpg_dumpを取得、現候補まで全移行、その後別DBへpg_restore --exit-on-errorで復元。
+- 全39テーブル・78行のハッシュ、列定義・制約・インデックスに加え、全39 sequenceのlast_value/is_calledが移行前と完全一致。列挙件数39をassertし、空の採番一覧同士の一致ではないことを確認した。今回の比較前にはnextvalで状態を進めていない。
+- 初回のseed起動は/proofに配置したスクリプトのPython import経路不足でDB操作前に失敗。PYTHONPATH=/appを明示して空DBガードを維持したまま再実行した。seed.logに初回失敗、seed-retry.logに修正後実行を保存。
+- 証跡tmp/rollback-f692b994-v2のbefore-summary.log、upgrade.log、restore.log、restored-summary.log、comparison.logと比較JSON。専用コンテナ/ダンプ/ネットワークは終了後削除済み。旧アプリ起動、画像、実RDS/S3、RPO/RTO、実ユーザーデータはこの試験の対象外。共有環境・実データ・権限・費用への変更なし。正式公開No-Goを維持する。
