@@ -563,3 +563,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - d572a618841389151b5391d6a54568d79ae1b156のgit archiveから通常Dockerfile/requirements.lock.txtでビルド成功。tableno-formal-release:d572a618、ID sha256:d47649829157729c72170347ab21348edc06567abf10e0d797d50132516024da。revisionラベルは対象完全SHA、実行ユーザーtableno。テスト依存入りイメージとは別。
 - network noneでpip check成功。以前作成した架空設定tmp/candidate-58a27172.envを用い、network noneでmanage.py check --deployは指摘0。実料金・OAuth・Stripe設定やTLS/ALBの検証ではなく、DBへの疎通・通常起動・移行はこの実行では確認していない。ECRへpushせず、共有環境・実データ・権限・費用変更なし。
 - 証跡: tmp/formal-release-d572a618-production-build.log、tmp/candidate-d572a618-deploy-check.log。全体テストの完了結果、候補の通常起動/移行、リモートCIと実サービス検証は引き続き未完了。正式公開No-Goを維持する。
+
+## 継続検証: d572a618の通常起動と移行
+
+- 固定配備用イメージtableno-formal-release:d572a618を、専用internalネットワーク、tmpfs PostgreSQL16、Redis7で起動した。共有環境・実データなし、ホスト公開ポートなし。以前の架空設定を使用し、DB/Redis接続先を今回の専用コンテナへ明示的に置換した。
+- 通常entrypointでRUN_MIGRATIONS/RUN_COLLECTSTATIC=true、収集失敗許容false。全移行が完了し、179 static filesを収集、Daphne起動を確認。makemigrations --check --dry-runは変更なし、migrate --check成功。
+- コンテナ内部の/health/ready/が200、database/cacheともok。DENY/nosniff/HSTSを確認。X-Forwarded-Proto=httpsを付けた内部HTTP検証であり、実TLS/ALB/OAuth/Stripe/S3の証明ではない。空の検証DBからの移行であり、実利用者データを含むアップグレード・ロールバックの代用ではない。
+- 証跡: tmp/candidate-d572a618-startup.log、tmp/candidate-d572a618-migration-diff.log、tmp/candidate-d572a618-ready.log。アプリ/DB/Redisコンテナと専用ネットワークは終了・削除済み。別のSQLite/PostgreSQL全体テストは同じhandle90338/35984で継続中。正式公開No-Goを維持する。
