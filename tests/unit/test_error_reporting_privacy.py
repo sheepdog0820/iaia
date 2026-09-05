@@ -1,11 +1,15 @@
 import logging
 import sys
+from io import StringIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
 from django.core import mail
 from django.test import RequestFactory, SimpleTestCase, override_settings
 
 from tableno.error_reporting import SafeAdminEmailHandler as AdminEmailHandler
+from tableno.error_reporting import SafeRequestFormatter
 
 
 @override_settings(
@@ -14,6 +18,44 @@ from tableno.error_reporting import SafeAdminEmailHandler as AdminEmailHandler
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
 )
 class ErrorReportingPrivacyTests(SimpleTestCase):
+    def test_request_log_omits_payload_and_cached_traceback(self):
+        record = self.make_record()
+        record.exc_text = "fixture-cached-traceback-secret"
+        record.stack_info = "fixture-stack-secret"
+        original = record.__dict__.copy()
+        output = SafeRequestFormatter("%(levelname)s %(message)s").format(record)
+        self.assertNotIn("fixture-", output)
+        self.assertIn("ValueError", output)
+        self.assertIn("group-invite-link-landing", output)
+        self.assertIn("make_record", output)
+        self.assertEqual(record.__dict__, original)
+
+    def test_ordinary_log_retains_diagnostic_message(self):
+        record = logging.LogRecord("tableno", logging.INFO, __file__, 1, "Job finished: %s", (42,), None)
+        output = SafeRequestFormatter("%(levelname)s %(message)s").format(record)
+        self.assertEqual(output, "INFO Job finished: 42")
+
+    def test_stream_and_file_handlers_both_omit_request_payload(self):
+        record = self.make_record()
+        original = record.__dict__.copy()
+        stream = StringIO()
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "errors.log"
+            handlers = [logging.StreamHandler(stream), logging.FileHandler(path, encoding="utf-8")]
+            try:
+                for handler in handlers:
+                    handler.setFormatter(SafeRequestFormatter("{levelname} {message}", style="{"))
+                    handler.handle(record)
+                    handler.flush()
+                for output in (stream.getvalue(), path.read_text(encoding="utf-8")):
+                    self.assertNotIn("fixture-", output)
+                    self.assertIn("ValueError", output)
+                    self.assertIn("status=500", output)
+            finally:
+                for handler in handlers:
+                    handler.close()
+        self.assertEqual(record.__dict__, original)
+
     def make_record(self, with_exception=True):
         request = RequestFactory().post(
             "/group-invitations/fixture-path-secret/?next=fixture-query-secret",

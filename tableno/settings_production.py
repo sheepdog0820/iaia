@@ -388,10 +388,12 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "verbose": {
+            "()": "tableno.error_reporting.SafeRequestFormatter",
             "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
             "style": "{",
         },
         "simple": {
+            "()": "tableno.error_reporting.SafeRequestFormatter",
             "format": "{levelname} {message}",
             "style": "{",
         },
@@ -406,7 +408,7 @@ LOGGING = {
         "django": {
             "handlers": django_handlers,
             "level": "INFO",
-            "propagate": True,
+            "propagate": False,
         },
         "django.request": {
             "handlers": request_handlers,

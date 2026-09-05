@@ -87,6 +87,18 @@ print(json.dumps(settings.LOGGING['handlers']['mail_admins']))
         self.assertIn("require_debug_false", payload["filters"])
         self.assertEqual(payload["level"], "ERROR")
 
+    def test_console_and_file_logs_use_private_request_formatters(self):
+        payload = self.run_settings_probe(expression="""
+import json
+import logging.config
+from tableno import settings_production as settings
+logging.config.dictConfig(settings.LOGGING)
+assert not logging.getLogger('django').propagate
+print(json.dumps(settings.LOGGING['formatters']))
+""")
+        for name in ("simple", "verbose"):
+            self.assertEqual(payload[name]["()"], "tableno.error_reporting.SafeRequestFormatter")
+
     def test_proxy_and_mysql_tls_settings(self):
         payload = self.run_settings_probe(
             {

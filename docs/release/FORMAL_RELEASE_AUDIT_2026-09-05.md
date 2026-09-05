@@ -803,3 +803,12 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 既存のERROR閾値とrequire_debug_falseを維持。ADMINS空の場合の送信なし、例外なし/リクエストなしの通知、HTML指定時にも機密値不在、本番設定のclass接続を検証。トラブル調査に必要な発生箇所は残す一方、入力値・例外メッセージによるメール上の詳細調査はできなくなる。必要な再現は専用データで行う。
 - 固定Linuxイメージに対象module/settings/testsを読取マウントし、network none、locmem backendで23件成功（12.27秒、4 warnings）。新handler全実行行のcoverage成功。Black/isort/flake8・差分・UTF-8/LF確認成功。証跡tmp/error-report-final.log、tmp/error-report-coverage.json。新UI文言なし。
 - 変更は未配備で実SMTP配送は未検証。Djangoのconsole/file例外出力や他の明示的メール送信、外部監視、保存済みメールは対象外。実データ・DBスキーマ・Secrets・配送先・AWS設定・継続費用は変更していない。最新全体CI・実サービス検証は残り、正式公開No-Goを維持する。
+
+## Djangoリクエスト例外の標準出力・ファイル保護
+
+- 32ee5f6eを起点とする修正。標準Formatterが架空トークン付きパスと保存済みexc_text/stack_infoを出力する回帰テストを追加し、修正前の失敗を確認（tmp/request-log-red.log）。
+- メール用の診断情報生成をerror_summaryへ共通化し、SafeRequestFormatterを追加。request属性付き記録、django.request、django.security系では自由文・args・例外本文・保存済みtraceback・stack_infoを出力せず、時刻/ルート/型/スタック位置を残す。通常の業務ログは従来の本文を維持。LogRecordをコピーしてから加工・formatするため元記録とrequestは不変。
+- 本番simple/verboseへ接続し、保護しないroot formatterへの重複伝播を避けるためdjangoロガーのpropagateをfalseに変更。既に定義されたconsole/file/mail出力先を維持する。本番設定を実際にdictConfigで読み込めることと伝播停止をテストした。
+- 固定Linux環境で標準出力StreamHandler・一時ファイルFileHandlerの両方へ同じ例外記録を出力し、fixture機密値不在、例外型/status保持、元recordの不変を確認。既存メール・本番設定を含め最終27件成功（12.34秒、4 warnings）。先行coverage実行は27件成功（12.53秒）でerror_reporting全実行行を通過。後続変更は設定の伝播停止とその検証で、module自体は同一。
+- 証跡tmp/request-log-final-propagation.log、tmp/request-log-final.log、tmp/request-log-coverage.json。Black/isort/flake8・UTF-8/LF・差分検査成功。新UI文言なし。メモリ内メールと一時ファイルのみ使用し、実通知・実DB・Secrets・AWS・費用を変更していない。
+- 未配備。request属性のない別名loggerによる任意の本文出力、独自handler/rootへの別経路、開発設定のログ、外部監視・既存記録は保護を確認した範囲に含めない。最新全体CI・実環境検証と正式公開No-Goは継続。
