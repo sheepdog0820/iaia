@@ -1026,3 +1026,9 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 専用internalネットワーク・空PG16/tmpfs・Redis7で架空のaws-prod設定を使い、通常entrypointのマイグレーション、静的199件収集/571件後処理、Daphne起動に成功。pip check/check --deploy指摘なし。readiness・登録画面・static5件・vendor8件のHTTP200とCSS/JSのgzip内容一致を確認した。
 - グループAPIの未認証応答も実HTTPで401、Cache-Controlにprivate/no-store/no-cacheが付くことを確認。認証後の全操作やキャッシュ破棄の実証ではなく、今回の本番設定経路での確認として扱う。
 - tmp/static-runtime-63bd2436-http.log、同-server.log、同-deploy-check.log、同-group-cache.logが証跡。プローブは既存のtmp/probe-static-runtime-02f8c91f.pyを今回イメージへ適用。検証用app/db/cacheとネットワークは削除済み。ECR送信、実環境/実データ/権限/費用変更なし。全体CI、既存データ復元、実TLS/S3/課金/外部連携の残条件は維持する。
+
+## 63bd2436へ両DB全体検証の対象を統一
+
+- ブラウザ30件と本番起動を確認した63bd2436febf27ed5af6f85254e082d5454da611のアーカイブから全体検証用イメージを作成。tableno-formal-release-test:63bd2436-browser、ID sha256:1e077f0b406eba917aa364e5841899dc562e8492180c49bf6d27c829aeb51ce7。現在のブランチとの差は文書のみ。pip check成功。
+- tmp/run-full-63bd2436.ps1でSQLiteとPostgreSQLを開始。CIと同じpytest対象・coverage70%ゲート、network noneまたは専用internalネットワーク/PG16/tmpfsを使用する。tableno-full-sqlite-63bd2436とtableno-full-postgres-63bd2436のPythonプロセス稼働を確認。この記録時点の全体合否は未確定。
+- 出力先tmp/formal-release-63bd2436-full-output。専用DB tableno-pgfull-db-63bd2436、ネットワークtableno-pgfull-63bd2436は両実行の終了確認・結果照合後に削除する。7cdd7cf8の成功結果と混同せず、新しい候補の結果を確定する。リモートCI、実環境、実課金/連携の検証は別途必要。
