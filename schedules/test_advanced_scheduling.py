@@ -438,6 +438,14 @@ class AdvancedSchedulingAPITestCase(APITestCase):
 
         self.assertEqual(DatePollComment.objects.filter(poll=poll).count(), 2)
 
+        # Listing follows stored timestamps, not assumptions about wall-clock
+        # monotonicity between HTTP requests on the test host.
+        first_time = option_dt - timedelta(days=7)
+        first_id = post_response.data["id"]
+        second_id = post_response2.data["id"]
+        DatePollComment.objects.filter(pk=first_id).update(created_at=first_time)
+        DatePollComment.objects.filter(pk=second_id).update(created_at=first_time + timedelta(seconds=1))
+
         self.client.force_authenticate(user=self.member)
         list_response = self.client.get(
             f"/api/schedules/date-polls/{poll.id}/comments/",
@@ -446,6 +454,19 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         self.assertEqual(len(list_response.data), 2)
         self.assertEqual(list_response.data[0].get("content"), "この日なら参加できます！")
         self.assertEqual(list_response.data[1].get("content"), "了解です。候補を増やします。")
+
+        DatePollComment.objects.filter(pk=first_id).update(created_at=first_time + timedelta(seconds=2))
+        reversed_response = self.client.get(f"/api/schedules/date-polls/{poll.id}/comments/")
+        self.assertEqual(reversed_response.status_code, status.HTTP_200_OK)
+        self.assertEqual([row["id"] for row in reversed_response.data], [second_id, first_id])
+
+        DatePollComment.objects.filter(poll=poll).update(created_at=first_time)
+        tied_response = self.client.get(f"/api/schedules/date-polls/{poll.id}/comments/")
+        self.assertEqual(tied_response.status_code, status.HTTP_200_OK)
+        self.assertEqual([row["id"] for row in tied_response.data], sorted([first_id, second_id]))
+        limited_response = self.client.get(f"/api/schedules/date-polls/{poll.id}/comments/?limit=1")
+        self.assertEqual(limited_response.status_code, status.HTTP_200_OK)
+        self.assertEqual([row["id"] for row in limited_response.data], [max(first_id, second_id)])
 
         self.client.force_authenticate(user=self.outsider)
         outsider_response = self.client.get(

@@ -702,3 +702,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 全39テーブル・78行のハッシュ、列定義・制約・インデックスに加え、全39 sequenceのlast_value/is_calledが移行前と完全一致。列挙件数39をassertし、空の採番一覧同士の一致ではないことを確認した。今回の比較前にはnextvalで状態を進めていない。
 - 初回のseed起動は/proofに配置したスクリプトのPython import経路不足でDB操作前に失敗。PYTHONPATH=/appを明示して空DBガードを維持したまま再実行した。seed.logに初回失敗、seed-retry.logに修正後実行を保存。
 - 証跡tmp/rollback-f692b994-v2のbefore-summary.log、upgrade.log、restore.log、restored-summary.log、comparison.logと比較JSON。専用コンテナ/ダンプ/ネットワークは終了後削除済み。旧アプリ起動、画像、実RDS/S3、RPO/RTO、実ユーザーデータはこの試験の対象外。共有環境・実データ・権限・費用への変更なし。正式公開No-Goを維持する。
+
+## f692b994全体結果とコメント順序テストの明確化
+
+- 既存handle26676/51390は終了。SQLiteは終了コード0、1639成功・7skip・440 subtests、86.97%、1268.42秒。PostgreSQLは終了コード1、1645成功・1失敗・440 subtests、87.41%、1297.10秒。JUnitは双方2086件で、SQLite failures/errors 0、PostgreSQL failures1/errors0。SQLiteの行ロック7skipはPGで全て成功、今回拡張したデータ入りPGレジストリ移行テストも成功を個別照合。
+- 失敗はschedules/test_advanced_scheduling.pyのtest_date_poll_comments_create_and_list。投稿した2コメントの取得順が期待と逆だった。一覧処理は既にcreated_at/idで降順取得後に反転する時刻順で、同時刻のID順も指定されている。失敗時の保存時刻はJUnitに記録されておらず、ホスト時計の変化など特定原因を断定しない。
+- テストの「投稿順とホスト時計の時刻順が常に一致する」という暗黙の前提を除き、POSTでの作成確認後に使い捨てテストDB内のcreated_atを明示した。通常時刻順、IDと逆になる時刻順、同時刻のID順、limit=1の最新選択を検証する。アプリ処理は変更せず、単に期待順を実装の返却結果へ合わせる変更ではない。既存の投稿・入力拒否・非参加者拒否のassertも維持。
+- 変更ファイルだけをf692b994固定テストイメージへマウントして日程調整関連を実行。PostgreSQL20件成功（24.72秒）、SQLite20件成功（39.78秒）、各既存警告9件。証跡tmp/date-poll-order-postgres.log、tmp/date-poll-order-sqlite.log。全体結果はtmp/formal-release-f692b994-full-output。過去のPG全体失敗を上書きせず、テスト修正後の全体再実行/CIとは区別する。
+- Black/isort/flake8、ソース差分、既存日本語の保持を確認し追加指摘なし。UI表示・アプリコード・DBスキーマ変更なし。全体用の専用PG/tmpfsとネットワークは削除済み。共有環境・実データ・権限・費用変更なし。正式公開No-Goを維持する。
