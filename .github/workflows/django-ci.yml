@@ -210,6 +210,8 @@ jobs:
     env:
       SECRET_KEY: test-secret-key-for-ci-with-enough-length-and-variety-12345
       APP_ENV: local
+      ENV_FILE: ""
+      DB_ENGINE: sqlite
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -221,6 +223,26 @@ jobs:
           node-version: "20"
           cache: npm
       - run: python -m pip install --upgrade pip && pip install -r requirements-test.lock.txt && npm ci
+      - name: Prepare isolated browser test users
+        run: |
+          python manage.py migrate --noinput
+          python manage.py shell <<'PY'
+          from django.contrib.auth import get_user_model
+          from django.db import transaction
+
+          User = get_user_model()
+          with transaction.atomic():
+              assert not User.objects.exists(), "Browser test setup requires an empty user table"
+              for username in ("admin", "investigator1", "investigator2"):
+                  User.objects.create_user(
+                      username=username,
+                      email=f"{username}@example.test",
+                      nickname=username,
+                      is_staff=username == "admin",
+                      is_superuser=username == "admin",
+                      is_premium=username == "admin",
+                  )
+          PY
       - run: npx playwright install --with-deps chromium firefox webkit && npm run test:e2e
       - if: failure()
         uses: actions/upload-artifact@v4

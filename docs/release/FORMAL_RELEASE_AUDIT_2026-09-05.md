@@ -1080,3 +1080,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 開始済みのSQLite/PostgreSQL全体テストが双方終了コード0で完了した。SQLite1665成功・10skip・86.94%（1338.51秒）、PostgreSQL1675成功・skipなし・87.51%（1371.05秒）。双方478 subtests・159 warnings、JUnit2153件、failure/error 0。SQLiteのskip10件をclass/nameでPG成功ケースへ照合した。
 - 証跡tmp/formal-release-704c6f06-full-outputの両run.log、JUnit、coverage。テストイメージIDは開始記録のsha256:8f3aaa2c143ea05d4f63de5baa2dd11e8dad851e6350629bdacf4aab5ba97dc3。全処理の終了を確認後、専用PG/tmpfsとinternalネットワークを破棄した。
 - 同じ固定候補の3ブラウザ33件と通常本番イメージ起動/HTTP配信も成功済み。704c6f06から本記録直前のHEADまで、アプリ・テスト・テンプレート・静的資産・Dockerfile/固定依存の差分なしを確認した。リモートCI、全E2Eファイル、実認証/決済/配送、実ストレージ/CDN、実復旧/性能の未達条件を解消した意味ではない。正式公開No-Goを維持する。
+## 既存Playwrightテストのユーザー準備不足を是正
+
+- 固定候補704c6f06の未実行13ファイル75件を、network none/使い捨てSQLite/retryなしで実行したところ、開発用ログインを使うケースが失敗した。コンテナ内DBを確認し、前提のadmin/investigator1/investigator2が存在しないことを確認。同じ失敗の継続を避けて停止した（終了137、tmp/browser-remaining-704c6f06.log）。75件の完了結果としては扱わない。
+- .github/workflows/django-ci.ymlのPlaywrightジョブにも準備手順がなかったため、ENV_FILEを空、DB_ENGINEをsqliteへ固定し、migrate後に空ユーザーテーブルを確認して専用3ユーザーを作成する手順を追加した。adminだけstaff/superuser/premiumを持つテスト用アカウントで、全員パスワードなし。既存ユーザーがある場合は停止し、既存データを消す処理はない。
+- YAMLを解析して追加runブロックをそのまま抽出し、固定704c6f06のイメージの空DBで実行した。3ユーザーの存在とhas_usable_password=Falseを確認。アプリとテストの差し替えなしで75件を再実行し、証跡はtmp/browser-remaining-seeded-704c6f06.log/同名-outputへ分離した。コード変更はCI準備のみであり、本番認証へ開発ログインを許可する変更ではない。
+- ユーザー準備後の再実行は73成功・2失敗（4.5分、retryなし、終了1）。失敗はChromium/WebKitのui-scripts「core screens load without JS errors」で、network none環境からのAxios CDN読込失敗、ChromiumではGoogle Fonts読込失敗も記録された。開発用ログインが原因の失敗は解消したが、全75件の合格とは扱わない。残る2件は外部資産とテストの検証範囲を切り分ける。
+- 別の使い捨てDBで同じ準備処理を2度実行し、2度目が空テーブル条件で拒否され、パスワードなしの3ユーザーが保持されることを確認した（tmp/browser-seed-repeat-check.log）。YAML構文・差分・文字整合性も確認。実ユーザー/共有DB/本番設定/費用への変更なし。リモートCIは未実行であり、復旧はCI準備ステップとジョブ環境設定の差分を戻す操作。
