@@ -728,3 +728,12 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 復元後fingerprintは元の91テーブル・614行・87採番状態・画像1件・列/制約/インデックスと完全一致。旧アプリが復元DBで起動・参照できることを確認した。DB移行の逆実行、稼働AWSの切り戻し、本番データのコピーはしていない。
 - 証跡はtmp/image-rollback-919dc0deのseed.py/check-http.py/fingerprint.py、各*-startup.log、before/upgraded/restored-http.log、before/restored-snapshot.log、upgraded-migration.log、restore.log、comparison.logと比較JSON。専用アプリ/DB/Redis/internalネットワーク・コンテナ内ダンプとtokens.jsonは削除済み。PNGとハッシュ記録は架空データの証跡としてローカルに保持。
 - 本検証は少量の模擬データを用いたローカルの更新・復元・旧API確認。TLSは内部HTTPの転送ヘッダー模擬、S3/CloudFront・実ユーザー・同時書込み・実RDS復元・合意RPO/RTO・旧版の全画面は未検証。バックアップ時点以降の書込みを保持する復旧方法の証明でもない。共有環境・実データ・権限・継続費用への変更なし。正式公開No-Goを維持する。
+
+## AWS開発環境のバックアップ・監視設定の読み取り確認
+
+- 2026-09-05、AWS CLIのtableno-preプロファイル、ap-northeast-1でRDS/CloudWatch/Logs/SNSのdescribe/listのみ実行。設定変更・試験通知は実行していない。
+- RDS tableno-aws-preはavailable、PostgreSQL、バックアップ保持7日、暗号化と削除保護が有効、Multi-AZは無効。取得時のLatestRestorableTimeは2026-09-05T09:23:56Z。実際の復元成功や合意RPO/RTOの達成は未検証。
+- メトリクスアラームはALBターゲット5xx、ECS CPU、ECS memoryの3件、取得時すべてOK・actionsEnabled=true。同じSNSトピックへの通知設定がある。email購読1件のSubscriptionArnはPendingConfirmationではなく確定ARN。宛先は記録・表示しない。実配送・担当者の受信や対応は未検証。
+- ALB 5xxは300秒Sum・閾値5・評価2回、CPU/memoryは300秒Average・閾値80・評価3回。欠測時は3件ともnotBreaching。リージョン内の取得結果にRDS専用メトリクスアラームはなく、対象prefixのCompositeAlarmもない。DB障害・無応答・ジョブ停止を網羅するとは判断しない。
+- /ecs/tableno-aws-preのログ保持は3日。Terraformではaws-prod向けRDS保持14日・ログ保持90日・アラーム欠測missingを定義しているが、本番への適用を確認したものではない。
+- 公開前には環境別の監視対象と通知担当、保存期間、復元目標を確定し、専用宛先への通知と実RDS/S3復元を承認済み範囲で検証する。O01/O02は未完了、正式公開No-Goを維持する。
