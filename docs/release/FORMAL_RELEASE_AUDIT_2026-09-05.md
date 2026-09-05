@@ -222,3 +222,13 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - シナリオアーカイブ画面は有料限定だが、作成・編集APIはログイン・可視性・所有権を確認し、有料判定を行わない。セッション作成時の関連付けにも有料判定がない。正式公開時の有料範囲についてユーザーに質問し、回答待ちとして記録した。
 - 有料失効後に画像が無料上限を超えている場合、既存画像の更新もserializerの枚数制限で拒否し得る。既存データ保持と追加・編集制限を販売条件として確定する必要がある。背景透過の失敗ジョブも日次枠に含まれること、保持期間は既定設定であり削除運用の証明ではないことも明記した。
 - 今回は文書のみの変更。新しいAPI制限、料金変更、データ削除、外部操作は行っていない。新規の動的テストは実行せず、全APIの検証完了とは扱わない。公開判定B01に未決事項への参照を追加した。
+
+## 継続監査: DB・メディアの隔離復元試験（2026-09-05）
+
+- `792270bd` の作業ツリーがcleanであることを確認し、既存の[復旧手順](../infrastructure/backup.md)を点検した。DBと画像を別時点で取得する場合の整合性確認、復元先の分離、復元後の配送再開条件が不足していたため追記した。pg_restoreは空の専用DBに単一トランザクションで復元し、失敗時に部分復元のまま進まない手順へ変更した。S3例は世代別の取得先と専用復元先を使い、syncだけではVersionIdによる過去時点復元にならないことを明記した。
+- 実環境のバックアップには接続せず、Dockerの専用internal network、公開ポートなし、tmpfs上のPostgreSQLで試験した。PostgreSQL 16.15、イメージ `sha256:80f4c7a5e91618546dce5b4fe60cf03b14c0f9efa7e40157278d122772ced8d2`。アプリは固定依存の検証イメージ `sha256:c1585cf1aaac7786fb005b5f4fd25e0aebe7240ff40a7797909498c9481ae85a` を使用した。`e7734d51` から `792270bd` までの差分がdev/test依存ロックと文書だけで、アプリ・migrationに差がないことを確認した。
+- 空DB `drill_source` に全migrationを適用し、通常GM/PL各1人、privateグループとセッション、PL役割、秘匿HO、日本語・絵文字のタイトル、PNG添付1件を作成した。連携資格情報は投入せず、worker/beatを起動せず、メールはlocmem・メディアは試験専用ローカル領域を使用した。試験データ作成後は元DB/画像への書き込みを行っていない。
+- `pg_dump --format=custom --no-owner --no-acl` とtarで取得し、別の空DB `drill_restored` に `pg_restore --exit-on-error --single-transaction --no-owner --no-acl` で復元した。全91テーブルの行数・行JSONのSHA-256（合計607行、migration/auth等の初期データを含む）、87個のsequenceの値とis_calledが一致した。権限付与ACL/DBロールの復元検証ではない。
+- DBだけ復元した段階では `media manifest differs` で検証が終了コード1となることを確認した。その後、tarを専用復元先へ展開すると画像の相対パス・SHA-256が一致し、DB参照先での存在確認・画像デコードも成功した。秘匿フラグ、HO対象PL、セッションGMの関連が復元され、新規ユーザーの採番も既存最大IDを超えた。HTTP経由の閲覧権限や全添付種別の試験ではない。
+- 復元先で `migrate --check` とDjango `check` が成功した。DB復元コマンド0.422秒、画像展開0.172秒、内容照合1.953秒。この最小fixtureの操作時間は障害検知・環境準備・切替を含まず、本番RTOを示さない。実RDS snapshot/PITR、実S3 VersionId、暗号鍵・最小DB権限、公開規模の復元、課金/配送の再照合、合意RPO/RTOは未確認。
+- 証跡は `tmp/restore-drill-20260905/` の `run.py`、`probe.py`、`drill_settings.py`、`results.json`、`expected.json` と各操作ログ。試験dumpのSHA-256は `a9ba7b71729dea2e73b7ad8547f4c586dc6bb38f90ab1b656280d8c65204c38e`、メディアtarは `9a1c7ac73eef21c83bec3aac50b1d8d6eec242b7e082253c5cf83d4576f9292b`。これらは専用の合成データで、リポジトリには追加しない。試験コンテナ停止・専用network削除が成功し、同名コンテナが残っていないことを確認した。
