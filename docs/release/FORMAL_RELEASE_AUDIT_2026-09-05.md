@@ -999,3 +999,16 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - GroupViewSetのdispatchへnever_cacheを適用。ユーザー別の参加状態・役割を含む一覧/詳細/メンバー応答、更新、認証拒否をprivate/no-store/no-cacheとする。DB更新・認可判定は変更せず、過去に保存された応答の削除を保証するものでもない。
 - 新規回帰テストは修正前にキャッシュ指定欠落で5 assertion失敗、修正後に関連12件と合わせ14件成功（17.336秒）。固定ブラウザイメージに変更したビューだけをマウントした管理者追加/解除の3件も成功（1.5分）。tmp/group-cache-red.log/green.log、tmp/browser-group-cache-green.log/同名-outputが証跡。Black/isort/flake8、差分チェックも成功。
 - 両ブラウザ実行と関連Django検証は終了後コンテナ破棄。7cdd7cf8の両DB全体テストは別途継続中で、この追加修正を含まない。実環境/実データ/権限/費用変更なし。固定候補30件の失敗を修正後3件の成功で上書きせず、新しい候補の検証を継続する。
+
+## パンくずの明暗テーマでの視認性を修正
+
+- 49537e05後、日程調整画面のパンくずの現在地とリンクをコントラスト検証へ追加。初回Chromiumは4.3017で失敗（tmp/browser-breadcrumb-red.log）。共通CSSのパンくずリンクをテーマの主文字色、現在地と区切りを補足文字色に合わせた。日程調整のnavのラベルを日本語にし、現在地にaria-current=pageを付与した。
+- 配色修正後の初回はbodyの0.3秒transition途中の背景を測り3件失敗した（tmp/browser-breadcrumb-green.log）。測定前にテスト内でtransition/animationを無効化し、切替完了後の配色を測るよう訂正。アプリのアニメーション設定は変更しない。
+- 最終は通常GM/PLの日程作成・回答・確定・コメント相互表示と、明暗両テーマのパンくず/投票行/コメント補足文字の4.5以上をChromium/Firefox/WebKitで確認し3件成功（1.2分）。tmp/browser-breadcrumb-final.log/同名-outputが証跡。Chromium暗色画像でも現在地とリンクが読み取れることを目視した。共通CSSを使用する全画面や全背景、全状態の合格を示すものではない。
+- 7cdd7cf8固定イメージへ最新対象ファイルを読み取り専用マウントしたnetwork none/使い捨てDBの検証。終了後コンテナ破棄。DB/実データ/権限/費用変更なし、実環境未反映。
+
+## 7cdd7cf8の両DB全体検証が完了
+
+- 両実行セッションの終了コード0を確認。SQLite1662成功/10skip、472 subtests、159 warnings、coverage86.92%、1383.18秒。PostgreSQL1672成功/skipなし、472 subtests、159 warnings、coverage87.49%、1414.78秒。両JUnitは2144件・failure/error各0。
+- SQLiteでskipされた10件をクラス名/テスト名でPG側と照合し、全て成功していることを確認。証跡tmp/formal-release-7cdd7cf8-full-output。全体テスト終了後に専用PGコンテナとinternalネットワークを削除した。
+- 固定ソース7cdd7cf8の結果であり、49537e05のグループ応答キャッシュ対策と今回のパンくず配色修正は含まない。これらの関連Django/E2E結果は別証拠として扱う。固定ソースのブラウザ30件は29成功/1失敗だった事実も維持し、リモートCI・最新候補全体・実サービス・正式公開の完了とはしない。

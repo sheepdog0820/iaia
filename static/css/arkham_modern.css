@@ -543,6 +543,15 @@ body {
 }
 
 /* テキストカラー調整 */
+.breadcrumb {
+    --bs-breadcrumb-item-active-color: var(--text-secondary);
+    --bs-breadcrumb-divider-color: var(--text-secondary);
+}
+
+.breadcrumb a {
+    color: var(--text-primary);
+}
+
 .text-muted {
     color: var(--text-muted) !important;
 }

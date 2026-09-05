@@ -164,16 +164,17 @@ test.describe('date poll flow', () => {
       await expect(page.locator('#datePollContainer')).toContainText('19:00');
       await expect(page.getByText('日時の入力・表示: 日本時間（Asia/Tokyo）')).toBeVisible();
       await expect(page.locator('#datePollChatLog')).toContainText('参加予定を確認しました。');
+      await page.addStyleTag({ content: '* { transition: none !important; animation: none !important; }' });
       for (const colorScheme of ['light', 'dark'] as const) {
         await page.emulateMedia({ colorScheme });
-        const ratios = await page.locator('#datePollContainer tbody .text-muted, #datePollChatLog .text-muted, #datePollChatLog .date-poll-chat-meta').evaluateAll(elements => {
+        const ratios = await page.locator('#datePollContainer tbody .text-muted, #datePollChatLog .text-muted, #datePollChatLog .date-poll-chat-meta, .breadcrumb a, .breadcrumb-item.active').evaluateAll(elements => {
           const rgb = (value: string) => (value.match(/[\d.]+/g) || []).map(Number);
           const luminance = (color: number[]) => color.slice(0, 3).map(value => {
             const normalized = value / 255;
             return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
           }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
           return elements.map(element => {
-            const cell = (element.closest('td') || element.closest('.date-poll-chat-wrap'))!;
+            const cell = element.closest('td') || element.closest('.date-poll-chat-wrap') || document.body;
             const style = getComputedStyle(cell);
             let background = rgb(style.backgroundColor);
             const shadow = style.boxShadow.match(/rgba?\([^)]+\)/)?.[0];
@@ -189,7 +190,7 @@ test.describe('date poll flow', () => {
             return (Math.max(foregroundL, backgroundL) + 0.05) / (Math.min(foregroundL, backgroundL) + 0.05);
           });
         });
-        expect(ratios.length).toBeGreaterThanOrEqual(4);
+        expect(ratios.length).toBeGreaterThanOrEqual(8);
         for (const ratio of ratios) expect(ratio).toBeGreaterThanOrEqual(4.5);
         await page.screenshot({ path: test.info().outputPath(`poll-${colorScheme}.png`), fullPage: true, animations: 'disabled' });
       }
