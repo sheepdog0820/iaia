@@ -556,3 +556,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - d572a618841389151b5391d6a54568d79ae1b156と差分なしから開始。稼働中のDocker検証コンテナがないことを確認し、git archiveから固定ソースのテストイメージを構築した。tableno-formal-release-test:d572a618-browser、ID sha256:aa0e8edcab3cd56a7ddbf897febac39502682dd9998202b51047b1aa5f48e0ac、revisionラベルは上記完全SHA。配備用イメージではない。
 - SQLite全体handle90338、PostgreSQL全体handle35984を開始。accounts/api/scenarios/schedules/support/tableno/tests/unit/tests/integrationとアプリ単位カバレッジを対象とし、出力先はtmp/formal-release-d572a618-full-output。PostgreSQL16は専用tmpfs DBとinternalネットワーク。SQLiteは開始後にbridgeを切断した。架空の検証設定であり、共有DB・実連携・外部通知は使用していない。途中出力の進捗を確認したが、完了結果は未取得。停止や失敗と推定して同じ実行を再開始しない。
 - Blackは409ファイル変更不要、flake8は指摘なし。isortは既存test_character_image_apis.pyのローカル改行混在で失敗し、LFへ正規化後に全アプリのチェック成功。空白差分を除くソース変更はなし。全体テストはgit archiveの固定候補を維持しており、成功判定は終了結果取得後に行う。正式公開No-Goを維持する。
+
+## 継続検証: d572a618配備用イメージの構築
+
+- 既存の全体テスト用コンテナ2個が稼働し、途中進捗が増えていることを確認。同じhandle90338/35984を継続し、再開始していない。
+- d572a618841389151b5391d6a54568d79ae1b156のgit archiveから通常Dockerfile/requirements.lock.txtでビルド成功。tableno-formal-release:d572a618、ID sha256:d47649829157729c72170347ab21348edc06567abf10e0d797d50132516024da。revisionラベルは対象完全SHA、実行ユーザーtableno。テスト依存入りイメージとは別。
+- network noneでpip check成功。以前作成した架空設定tmp/candidate-58a27172.envを用い、network noneでmanage.py check --deployは指摘0。実料金・OAuth・Stripe設定やTLS/ALBの検証ではなく、DBへの疎通・通常起動・移行はこの実行では確認していない。ECRへpushせず、共有環境・実データ・権限・費用変更なし。
+- 証跡: tmp/formal-release-d572a618-production-build.log、tmp/candidate-d572a618-deploy-check.log。全体テストの完了結果、候補の通常起動/移行、リモートCIと実サービス検証は引き続き未完了。正式公開No-Goを維持する。
