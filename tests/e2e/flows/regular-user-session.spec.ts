@@ -15,6 +15,85 @@ async function signUp(page: Page, suffix: string): Promise<void> {
   ]);
 }
 
+test('owner grants and revokes group administration for a registered member', async ({ page, browser }) => {
+  const suffix = `${Date.now()}_${test.info().project.name}`;
+  await signUp(page, `roles_${suffix}`);
+  const groupName = `権限確認 ${suffix}`;
+  const group = await page.evaluate(async name => {
+    const response = await (window as any).axios.post('/api/accounts/groups/', { name, visibility: 'public' });
+    return response.data;
+  }, groupName);
+  const memberContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
+  try {
+    const member = await memberContext.newPage();
+    await signUp(member, `member_${suffix}`);
+    await member.goto('/accounts/groups/view/?show_test_data=1');
+    await member.click('label[for="publicGroupsView"]');
+    await member.fill('#groupSearchInput', groupName);
+    const memberCard = member.locator('.group-card', { hasText: groupName });
+    const [joined] = await Promise.all([
+      member.waitForResponse(response => new URL(response.url()).pathname === `/api/accounts/groups/${group.id}/join/` && response.request().method() === 'POST'),
+      memberCard.locator('button.btn-success').click(),
+    ]);
+    expect(joined.status()).toBe(201);
+    await expect(memberCard.locator('.badge.bg-info')).toBeVisible();
+    await memberCard.click();
+    const memberModal = member.locator('#groupDetailModal');
+    await expect(memberModal).toContainText(groupName);
+    await expect(memberModal.getByRole('button', { name: 'グループを編集' })).toHaveCount(0);
+
+    await page.goto('/accounts/groups/view/?show_test_data=1');
+    await page.locator('.group-card', { hasText: groupName }).click();
+    const ownerModal = page.locator('#groupDetailModal');
+    const memberRow = ownerModal.locator('.member-item', { hasText: `通常利用者 member_${suffix}` });
+    const changeRole = async (label: string) => {
+      await memberRow.getByRole('button', { name: label, exact: true }).click();
+      const [changed] = await Promise.all([
+        page.waitForResponse(response => new URL(response.url()).pathname === `/api/accounts/groups/${group.id}/set_member_role/` && response.request().method() === 'POST'),
+        page.getByRole('button', { name: '変更する', exact: true }).click(),
+      ]);
+      expect(changed.status()).toBe(200);
+    };
+    await changeRole('管理者にする');
+    await expect(memberRow.locator('.role-badge')).toHaveText('管理者');
+    await member.reload();
+    await member.locator('.group-card', { hasText: groupName }).click();
+    await expect(memberModal.getByRole('button', { name: 'グループを編集' })).toBeVisible();
+    const protectedActions = await member.evaluate(async ({ id, creator }) => {
+      const client = (window as any).axios;
+      const statusOf = async (operation: Promise<any>) => {
+        try { return (await operation).status; } catch (error: any) { return error.response.status; }
+      };
+      return [
+        await statusOf(client.patch(`/api/accounts/groups/${id}/`, { description: '追加された管理者による更新' })),
+        await statusOf(client.post(`/api/accounts/groups/${id}/set_member_role/`, { user_id: creator, role: 'member' })),
+        await statusOf(client.delete(`/api/accounts/groups/${id}/remove_member/`, { data: { user_id: creator } })),
+      ];
+    }, { id: group.id, creator: group.created_by });
+    expect(protectedActions).toEqual([200, 400, 400]);
+
+    await changeRole('管理者解除');
+    await expect(memberRow.locator('.role-badge')).toHaveCount(0);
+    // The already-open administrator page must lose API authority immediately.
+    const revoked = await member.evaluate(async id => {
+      try {
+        return (await (window as any).axios.patch(`/api/accounts/groups/${id}/`, { description: '拒否される変更' })).status;
+      } catch (error: any) { return error.response.status; }
+    }, group.id);
+    expect(revoked).toBe(403);
+    const saved = await (await page.request.get(`/api/accounts/groups/${group.id}/`)).json();
+    expect(saved.description).toBe('追加された管理者による更新');
+    expect(saved.created_by).toBe(group.created_by);
+    await member.reload();
+    await member.locator('.group-card', { hasText: groupName }).click();
+    await expect(memberModal).toContainText('追加された管理者による更新');
+    await expect(memberModal.getByRole('button', { name: 'グループを編集' })).toHaveCount(0);
+    await member.screenshot({ path: test.info().outputPath('member-after-admin-revocation.png'), fullPage: true, animations: 'disabled' });
+  } finally {
+    await memberContext.close();
+  }
+});
+
 test('friend search preserves the query when the HTTP client CDN is unavailable', async ({ page }) => {
   await page.route('https://cdn.jsdelivr.net/npm/axios/**', route => route.abort());
   await signUp(page, `search_${Date.now()}_${test.info().project.name}`);
