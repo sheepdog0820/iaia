@@ -29,6 +29,7 @@ from accounts.models import (
 )
 from accounts.views.mixins import CharacterSheetAccessMixin
 from schedules.duration import effective_duration_expression, format_duration_hours
+from tableno.media_deletion import delete_media_instance
 
 from . import session_permissions
 from .models import (  # 高度なスケジューリング機能（ISSUE-017）
@@ -3191,7 +3192,7 @@ class SessionImageViewSet(viewsets.ModelViewSet):
 
             raise PermissionDenied("Only GM or uploader can delete images")
 
-        instance.delete()
+        delete_media_instance(instance)
 
     @action(detail=False, methods=["post"])
     def bulk_upload(self, request):

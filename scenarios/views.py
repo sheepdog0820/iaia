@@ -15,6 +15,7 @@ from rest_framework.views import APIView
 
 from accounts.share_serializers import SharedScenarioSerializer
 from schedules.duration import effective_duration_expression
+from tableno.media_deletion import delete_media_instance
 
 from .access import visible_scenarios
 from .image_limits import (
@@ -166,7 +167,7 @@ class ScenarioImageViewSet(viewsets.ModelViewSet):
 
             raise PermissionDenied("Only scenario creator or uploader can delete images")
 
-        instance.delete()
+        delete_media_instance(instance)
 
     @action(detail=False, methods=["post"])
     def bulk_upload(self, request):

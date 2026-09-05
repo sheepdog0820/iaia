@@ -297,3 +297,12 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - カバレッジ取得用の固定依存テストイメージでも新規3件成功（0.162秒）。追加した503例外定義・try/catch/ログとmodelの削除行はすべて実行された。モジュール全体/全分岐100%ではない。`tmp/handout-deletion-coverage.json` / `.log`。変更PythonのBlack/isort/flake8、差分、日本語API文言を確認した。
 - 再度Banditを同じアプリ範囲へ実行し、HIGH 0・MEDIUM 0・LOW 534、解析エラー0。全重要度での終了コードは1のまま。`tmp/formal-release-bandit-deletion-fix.json` / `.log`。
 - 今回は添付単体削除の失敗/再試行を修正した。QuerySetによる一括削除・親からのカスケード・storage削除成功後のDB障害の整合性・S3旧バージョンの保持/消去まで解決したわけではない。ScenarioImage/SessionImageの類似例外抑制、既存migrationのメディア処理、ログイン/画像serializerのフォールバック、技能一括更新の部分失敗は引き続き確認対象。実環境のデータ削除や配備は行っていない。
+
+## 継続監査: シナリオ・セッション画像削除の再試行（2026-09-05）
+
+- `5ba57724` のclean状態から、ScenarioImageとSessionImageの単体DELETEを確認。新規テストでstorage.deleteを失敗させると、両方で503を期待したところ204になり、前回の秘匿添付と同じ失敗の握りつぶしを再現した。`tmp/image-deletion-retry-red.log`。
+- 両モデルはstorageの削除が成功してからDB行を削除するよう変更し、各APIは既存の権限確認後に共通の `delete_media_instance` を使う。前回の秘匿添付もこの共通処理へ移し、503と日本語の再試行案内を揃えた。ログにはモデル名・ID・例外型だけを記録し、バックエンド本文をAPIへ返さない。画像の公開範囲や削除権限は変更していない。
+- 固定依存の配備用イメージb8fad941へ変更ソースとテストを読み取り専用で適用し、画像削除再試行、秘匿添付再試行、既存のシナリオ/セッション画像・添付テスト計50件成功（39.274秒）。新規画像テストは2種それぞれで失敗時のDB参照/ファイル保持、復旧後の削除成功、無関係ユーザーの拒否、既にファイルがない場合のDB削除を確認した。専用SQLite/TemporaryDirectory、外部通信なしであり、実S3は使用していない。`tmp/image-deletion-retry-green.log`。
+- カバレッジ取得用の固定依存イメージで新規画像3件と秘匿添付3件も成功（0.701秒）。共通処理は14/14実行対象行。モデル全体や全分岐100%ではない。`tmp/image-deletion-coverage.json` / `.log`。変更PythonのBlack/isort/flake8と差分レビューを確認した。
+- シナリオ/セッション画面はaxios.delete成功後だけ削除成功表示・再読み込みへ進み、catch側はAPIのdetailを表示することをソースで確認した。新しい日本語503メッセージを既存画面へ渡せる構造であり、今回はブラウザ描画による検証や画面変更は行っていない。
+- 親削除時のカスケード、QuerySet一括削除、過去migrationのメディア削除、storageとDBをまたぐ原子性、S3旧バージョンの保持方針は引き続き別の確認事項。実環境への配備・データ変更は行っていない。

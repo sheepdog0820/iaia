@@ -252,11 +252,7 @@ class ScenarioImage(models.Model):
     def delete(self, *args, **kwargs):
         """削除時に画像ファイルも削除"""
         if self.image:
-            try:
-                if self.image.storage.exists(self.image.name):
-                    self.image.delete(save=False)
-            except Exception:
-                pass
+            self.image.delete(save=False)
         super().delete(*args, **kwargs)
 
 
