@@ -812,3 +812,12 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 固定Linux環境で標準出力StreamHandler・一時ファイルFileHandlerの両方へ同じ例外記録を出力し、fixture機密値不在、例外型/status保持、元recordの不変を確認。既存メール・本番設定を含め最終27件成功（12.34秒、4 warnings）。先行coverage実行は27件成功（12.53秒）でerror_reporting全実行行を通過。後続変更は設定の伝播停止とその検証で、module自体は同一。
 - 証跡tmp/request-log-final-propagation.log、tmp/request-log-final.log、tmp/request-log-coverage.json。Black/isort/flake8・UTF-8/LF・差分検査成功。新UI文言なし。メモリ内メールと一時ファイルのみ使用し、実通知・実DB・Secrets・AWS・費用を変更していない。
 - 未配備。request属性のない別名loggerによる任意の本文出力、独自handler/rootへの別経路、開発設定のログ、外部監視・既存記録は保護を確認した範囲に含めない。最新全体CI・実環境検証と正式公開No-Goは継続。
+
+## 596bcd4cの配備イメージ・通常起動と全体検証開始
+
+- クリーンな596bcd4c427067628d0fd95dbec3103b4bac723eをgit archiveで固定し、通常Dockerfile/requirements.lockから配備用イメージを作成。tag tableno-formal-release:596bcd4c、ID sha256:a1fac9668908c72bb07dddc990b5d9732c0147b2ce1d080a1c71172ca20c0ce4、実行ユーザーtableno、revisionラベル一致。ECR未送信。
+- network noneと既存の架空設定でpip check、collectstatic183件、同梱Bootstrapの元/収集先SHA一致、check --deploy fail-level WARNING指摘0を確認。settings_production/DEBUG false/secure cookies/SSL redirect true。tmp/candidate-596bcd4c-production-check.log。
+- 専用PG16/tmpfs・Redis7・internalネットワークで通常entrypointを起動。空の専用DBへ全移行、静的収集、新Daphne CLIでアプリ本体起動成功。内部HTTPへHTTPS転送ヘッダーを付けreadiness200/database・cache ok。架空の未登録招待/ICS URLは404、実アクセスログはトークン/クエリなし。tmp/candidate-596bcd4c-runtime.log。実TLS、認証済み主要フロー、既存データ移行/復元、実S3/課金/配送の証拠ではない。起動検証用アプリ/DB/cache/networkは削除済み。
+- 同じarchiveから検証用イメージtableno-formal-release-test:596bcd4c-browser、ID sha256:49c2d729352994ea15487a85088a155aca3d9a6544241e91b51b3bdb35e691bbを作成。919dc0de以降のrequirements.lock/test依存差分なし。旧ブラウザ付き固定runtimeへarchiveを展開し、ソース全体を置き換えた。
+- accounts/api/scenarios/schedules/support/tableno/tests/unit/tests/integrationをSQLiteと専用PostgreSQL16で全体実行開始。5アプリcoverageと70%閾値、JUnitを記録。ログはtmp/formal-release-596bcd4c-full-output、runnerはtmp/run-full-596bcd4c.ps1。両プロセス・コンテナの稼働とログ進行を確認したが、終了結果はまだない。起動確認用とは別の全体テストDB/networkを維持しており、終了後に片付ける。
+- 最新候補資料を更新。記録済み8cf3c7f7から200ファイル差分、f692b994以降のmigrationファイル差分なし。未検証の全体/CI・共有環境・外部連携を成功に置き換えず正式公開No-Goを維持。AWS設定・実データ・Secrets・継続費用への変更なし。

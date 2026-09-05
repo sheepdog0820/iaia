@@ -2,18 +2,18 @@
 
 ## 現在の候補と承認前の残作業（2026-09-05更新）
 
-候補ソースは `f692b994eb66d01b9c617577c3b7b6453664db95`。d572a618以降にBootstrap同梱・一覧取得改善・データ入りPostgreSQLの0055移行修正が入っている。以下の過去候補の節は履歴として保持する。この資料は配備承認ではない。
+候補ソースは `596bcd4c427067628d0fd95dbec3103b4bac723e`。f692b994以降に招待参加の競合・応答ヘッダー、Daphneの起動とアクセスログ、Django例外メール/ログの機密情報保護を修正した。以下の過去候補の節は履歴として保持する。この資料は配備承認ではない。
 
 | 項目 | 最新の証拠と限界 |
 | --- | --- |
-| 配備用イメージ | `tableno-formal-release:f692b994`、ローカルID `sha256:1dd64113d7d6cec628aeda3220210e90c95e38c04bb275240012ad05daaada29`。通常Dockerfile/固定依存から作成。ECRへ未送信でmanifest digestは未取得 |
-| 隔離起動 | f692b994の通常イメージでpip check・静的183件収集・Bootstrapハッシュ一致・check --deploy指摘0。専用PG16の旧構造に6版/7版計4件を作り、全移行・値/親子関係一致・通常起動・readiness200（DB/cache ok）・認証済み一覧4件を確認。HTTPS転送ヘッダーは内部模擬で、実TLS/Stripe/OAuth/S3や実環境ロールバックは未検証 |
-| 全体検証 | 77b10dedは両DB成功。後続移行修正を含むf692b994の別テスト用イメージでSQLite/PostgreSQL実行中。終了結果とリモートCIは未取得 |
-| 稼働版との比較 | 記録済み稼働ソース `8cf3c7f7` から候補まで188ファイル差分。現在のAWS稼働版は配備直前に再確認する。mainとの比較だけで配備範囲を決めない |
+| 配備用イメージ | `tableno-formal-release:596bcd4c`、ローカルID `sha256:a1fac9668908c72bb07dddc990b5d9732c0147b2ce1d080a1c71172ca20c0ce4`。通常Dockerfile/固定依存から作成。ECRへ未送信でmanifest digestは未取得 |
+| 隔離起動 | 596bcd4cでpip check・静的183件・Bootstrapハッシュ一致・check --deploy指摘0。専用の空PG16/Redis7、通常entrypointで全移行・新Daphne起動・readiness200（DB/cache ok）。存在しない招待/購読URLの404とアクセスログ伏せ字を確認。既存データ復元の最新再実証、実TLS/Stripe/OAuth/S3は未確認 |
+| 全体検証 | 919dc0deのPG全体は成功。後続変更を含む596bcd4cの固定ソースイメージでSQLite/PostgreSQL全体を実行中。終了結果・リモートCIは未取得 |
+| 稼働版との比較 | 記録済み稼働ソース `8cf3c7f7` から596bcd4cまで200ファイル差分。f692b994以降の追加migrationファイル差分なし。現在のAWS稼働版は配備直前に再確認する。mainとの比較だけで配備範囲を決めない |
 | DB差分 | 既存 `accounts/0055`・`accounts/0058` の変更、新規 `schedules/0055` の追加。0055修正はデータ移行後のFK検査をDDL前に完了させるもので、適用済み0055を再実行しない。適用済み0058は再実行されないため共有DBの移行履歴と実スキーマ確認が必要。ロール複数化後の旧制約復元はデータ次第で失敗し得る |
 | 未確定事項 | ECR digest、直前の稼働タスク/復旧先、共有DB状態、実データを含む復元・更新・ロールバック、専用テスト利用者/宛先、料金と有料範囲、実連携設定、追加費用。承認対象を具体化してから配備する |
 
-関連証跡は監査記録のd572a618の全体実行開始・配備用ビルド・通常起動の各節、および `tmp/formal-release-d572a618-full-output` に保存。秘匿画像のCloudFront迂回防止も別途承認・適用・実証が必要で、アプリ起動成功だけでは正式公開できない。
+最新証跡は監査記録の596bcd4c節、`tmp/formal-release-596bcd4c-full-output`、`tmp/candidate-596bcd4c-production-check.log`、`tmp/candidate-596bcd4c-runtime.log`。秘匿画像のCloudFront迂回防止も別途承認・適用・実証が必要で、アプリ起動成功だけでは正式公開できない。
 
 ## 過去候補の準備記録
 
