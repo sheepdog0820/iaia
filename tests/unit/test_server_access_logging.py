@@ -3,11 +3,53 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from daphne.access import AccessLogGenerator
+from django.urls import reverse
 
 from tableno.server import PrivateAccessServer, private_action_logger
 
 
 class ServerAccessLoggingTests(TestCase):
+    def test_registered_bearer_url_routes_do_not_disclose_their_tokens(self):
+        token = "fixture-bearer-token"
+        cases = [
+            (name, {"token": token}, token)
+            for name in (
+                "shared-session-detail",
+                "shared-character-detail",
+                "shared-scenario-detail",
+                "shared-stats-detail",
+                "shared-character-ccfolia-json",
+                "shared-character-images-list",
+                "shared-character-images-zip",
+                "shared-character-preview-image",
+                "calendar-subscription",
+                "guest-invitation-respond",
+                "guest-invitation-landing",
+                "session-recruitment-api-join",
+                "session-recruitment-landing",
+                "session-recruitment-join",
+            )
+        ]
+        fixed = "12345678-1234-5678-1234-567812345678"
+        cases += [
+            (name, {"share_token": fixed}, fixed)
+            for name in ("fixed-shared-session-view", "fixed-shared-character-view", "fixed-shared-scenario-view")
+        ]
+        cases += [
+            ("account_confirm_email", {"key": token}, token),
+            ("account_reset_password_from_key", {"uidb36": "abc", "key": token}, token),
+        ]
+        for name, kwargs, secret in cases:
+            with self.subTest(route=name):
+                path = reverse(name, kwargs=kwargs)
+                stream = StringIO()
+                details = {"client": "127.0.0.1", "method": "GET", "path": path, "status": 200, "size": 42}
+                private_action_logger(AccessLogGenerator(stream))("http", "complete", details)
+                self.assertNotIn(secret, stream.getvalue())
+                self.assertIn("[redacted]", stream.getvalue())
+                self.assertIn("200 42", stream.getvalue())
+                self.assertEqual(details["path"], path)
+
     def test_invitation_paths_and_query_values_are_not_written(self):
         for path in (
             "/group-invitations/fixture-token/",

@@ -787,3 +787,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - probeへ架空トークン付きURLを送り、HTTP200と元パスのbody一致、実Daphneログの[redacted]、クエリ値の不在とステータス保持を確認。最終コードで再起動して再確認し、専用コンテナを削除。アプリ本体の全起動・WebSocket通信・最新全体CIの検証ではない。単一coverage計測で100%を達成したとは扱わない。
 - 証跡tmp/server-access-red.log、server-access-green.log（旧コマンドを要求する既存テスト1失敗）、server-access-final.log、server-access-coverage.json、server-access-runtime-final.log。ローカルWindowsのDaphne importは既存Twisted循環importで失敗したため合格扱いせず、固定Linux依存関係で検証。Black/isort/flake8、sh -n、差分・UTF-8/LF確認成功。新UI文言なし。
 - Djangoの例外メール/例外ログ、クエリ以外の他種類のURLトークン、明示コマンドで直接起動するDaphne、外部監視や既存ログの保護は残る。新しい起動処理は未配備で、AWS設定・Secrets・実データ・継続費用への変更はない。正式公開No-Goを維持する。
+
+## 共有・購読・アカウント確認URLのアクセスログ保護
+
+- 04d817e1のクリーンな作業ツリーから、tableno.urlsとallauth account URLsを照合。前回のDaphneログ対策はグループ招待のみだったため、共有URL、ICS購読、ゲスト招待、募集リンク、メール確認、パスワード再設定を追加対象とした。
+- 回帰テストはDjango reverseで19種類の実登録ルートを生成し、AccessLogGeneratorの出力で架空トークン不在とステータス保持、入力detailsが元パスのままであることを確認。修正前は19 subtestsすべてトークン残存で失敗（tmp/shared-token-log-red.log）。固定共有UUID、画像一覧/ZIP/preview/CCFOLIA出力等も含む。
+- TOKEN_PATHSへ対象prefixを追加。URL自体・認証/認可・受信パスは変更しない。修正後は起動関連と合わせ29件・23 subtests成功（1.20秒、4 warnings）。Black/isort/flake8・差分・UTF-8/LF確認成功。新規UI文言なし。
+- 配備用f692b994イメージへ最終server/entrypointと架空ASGI probeを読取マウントし、network none、公開ポート・DB更新なしで通常起動。ICS、キャラクター共有ZIP、パスワード再設定の3 URLにHTTP要求を送り、元パスのbody一致と実Daphneログの伏せ字を確認。専用コンテナ削除済み。証跡tmp/shared-token-log-green.log、tmp/shared-token-log-runtime.log。
+- この3要求は実Daphneの記録検証であり、アプリ本体の閲覧/再設定フローやメール配送の成功ではない。未配備。Djangoの例外メール・例外ログ、外部監視、既存ログ、今回列挙した以外の新規URL形式は未確認。正式公開No-Goを維持する。
