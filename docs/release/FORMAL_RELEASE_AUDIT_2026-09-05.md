@@ -645,3 +645,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 全体テストの既存handle79521/97010は双方実行中と確認。再起動せず継続。並行してBandit1.9.4で6アプリを再解析し、解析エラー0、HIGH/MEDIUM 0、LOW556、終了コード1。
 - 前回d572a618のファイル/指摘ID/本文の多重集合と一致。テスト478、開発コマンド71、その他7。CCFOLIA出力テストのNode起動に関する9件を読み、固定リポジトリ資産・固定テスト入力・引数配列・shell未使用を確認した。PATH信頼とタイムアウトの制約を含め静的分類資料に記録。
 - 証跡tmp/bandit-77b10ded-apps.jsonとtmp/bandit-77b10ded-run.log。コード変更なし。文書の差分・指摘場所・件数を照合。全体テスト終了結果、残る個別指摘、実サービス検証は未完了。正式公開No-Goを維持する。
+
+## 既存データ入りPostgreSQL移行で新規阻害要因を再現
+
+- 現行accounts/test_character_registry_migration.pyは独立SQLite DatabaseWrapperを明示しており、PostgreSQL全体テスト内でもSQLiteでの移行試験になる。この限界を確認し、専用PostgreSQL16/tmpfs/internalネットワークで追加検証した。
+- 77b10dedの固定テストイメージでaccounts0054まで移行した旧構造に6版/7版の根と子、計4キャラクター、日本語メモ・秘匿情報・HP/SAN・版番号を作成し、現候補のleaf migrationsへ移行するスクリプトを実行。接続先名とDB名を固定し、空DB以外では開始しないガード付き。最初は検証データの必須能力値不足で失敗したため、使い捨てDBを作り直して必須値を補った。
+- 再実行はaccounts0055の終了時のインデックス作成でOperationalError: cannot CREATE INDEX accounts_charactersheet6th because it has pending trigger events。django_migrationsのaccounts最新行は0054のままで、0055は適用完了していない。現候補へのデータ入りPostgreSQL移行は不合格であり、空DB移行成功や全体テストでは代替できない。
+- accounts0055はCreateModelとRunPythonによる既存データコピーを同じ移行内で行う。Django公式文書にもPostgreSQLでスキーマ変更とRunPythonを同じ移行に混在させる際のpending trigger eventsへの注意がある: https://docs.djangoproject.com/en/5.2/ref/migration-operations/#runpython 。是正方法と既に適用済みの環境への影響は次の作業で検討し、無条件の逆移行・再実行やatomic無効化で回避しない。
+- 証跡: tmp/prove-postgres-registry-upgrade.py、tmp/postgres-registry-upgrade-77b10ded.log（初回fixture不備）、tmp/postgres-registry-upgrade-77b10ded-retry.log（移行不備）。検証用DB/ネットワークは削除済み。共有環境・実データは未操作。修正・移行後のデータ一致・復旧検証は未完了で、正式公開No-Goを維持する。
