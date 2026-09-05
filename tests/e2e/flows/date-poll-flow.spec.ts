@@ -16,6 +16,7 @@ async function signUp(page: import('@playwright/test').Page, suffix: string) {
 }
 
 test.describe('date poll flow', () => {
+  test.use({ timezoneId: 'UTC' });
   test('GM creates poll, player votes, GM confirms', async ({ page, browser }) => {
     const suffix = `${Date.now()}_${test.info().project.name}`;
     await signUp(page, suffix);
@@ -42,7 +43,7 @@ test.describe('date poll flow', () => {
       return { group, session: sessionResp.data };
     }, { groupName, sessionTitle });
 
-    const playerContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
+    const playerContext = await browser.newContext({ baseURL: new URL(page.url()).origin, timezoneId: 'UTC' });
     const playerPage = await playerContext.newPage();
 
     try {
@@ -145,6 +146,8 @@ test.describe('date poll flow', () => {
       expect(polls[0]?.is_closed).toBe(true);
       expect(polls[0]?.selected_date).toBeTruthy();
       expect(new Date(updatedSession.date).getTime()).toBe(new Date(polls[0].selected_date).getTime());
+      await expect(page.locator('#datePollContainer')).toContainText('19:00');
+      await expect(page.getByText('日時の入力・表示: 日本時間（Asia/Tokyo）')).toBeVisible();
       await page.screenshot({ path: test.info().outputPath('gm-confirmed-date.png'), fullPage: true });
     } finally {
       await playerContext.close();

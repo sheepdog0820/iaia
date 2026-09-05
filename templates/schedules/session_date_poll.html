@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load static duration_tags %}
+{% load static duration_tags tz %}
 
 {% block title %}日程募集・投票 - {{ session.title }}{% endblock %}
 
@@ -74,6 +74,7 @@
 {% endblock %}
 
 {% block content %}
+{% get_current_timezone as poll_time_zone %}
 <div class="container">
     <div class="row mb-4">
         <div class="col-12">
@@ -120,6 +121,7 @@
                     </h3>
                 </div>
                 <div class="card-body">
+                    <p class="text-muted small">日時の入力・表示: {% if poll_time_zone == 'Asia/Tokyo' %}日本時間（Asia/Tokyo）{% else %}{{ poll_time_zone }}{% endif %}</p>
                     <div id="datePollContainer">
                         <span class="text-muted small">読み込み中...</span>
                     </div>
@@ -234,7 +236,9 @@
 {% endblock %}
 
 {% block extra_js %}
+{% get_current_timezone as poll_time_zone %}
 <script>
+const POLL_TIME_ZONE = '{{ poll_time_zone|escapejs }}';
 const SESSION_ID = {{ session.id }};
 const GROUP_ID = {{ session.group.id }};
 const CAN_MANAGE_DATE_POLL = {% if can_edit %}true{% else %}false{% endif %};
@@ -284,7 +288,7 @@ function formatPollDateTime(value) {
     if (!value) return '';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return String(value);
-    return date.toLocaleString('ja-JP');
+    return date.toLocaleString('ja-JP', { timeZone: POLL_TIME_ZONE });
 }
 
 function getMyPollVote(option) {
@@ -297,7 +301,7 @@ function formatChatTimestamp(value) {
     if (!value) return '';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return String(value);
-    return date.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleString('ja-JP', { timeZone: POLL_TIME_ZONE, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 function renderChatPlaceholder(message) {

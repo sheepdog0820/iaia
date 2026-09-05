@@ -900,3 +900,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 外部ネットワークなしのtableno-e2e:596bcd4c-bookwormに、c0694eeeのbase/calendar/vendorと変更したテストを読み取り専用マウント。専用SQLiteでChromium/Firefox/WebKitの3件成功（1.1分、retryなし）。実メールや本番の登録/OAuthを検証したものではない。終了後コンテナは破棄。
 - tmp/browser-date-poll-regular.log、同名-outputのJSON/スクリーンショットに記録。Chromiumの確定画面を目視すると、候補/確定日時が2030/1/1 10:00、右側のセッション概要が2030/1/1 19:00で表示されていた。formatPollDateTimeがブラウザの時間帯を使う一方、概要はサーバー側の表示である。統一または明示が必要で、この画面の受け入れ完了とはしない。暗い投票行の未投票/詳細テキストも低コントラストで、別修正対象とする。
 - このコミットはテスト・文書のみ。DB/実データ/権限/費用に変更なし。14aea099の両DB全体テストは引き続き実行中で、今回のE2E検証とは分けて扱う。
+
+## 日程調整画面の表示時間帯を統一
+
+- cb99085e後の修正。通常GM/PLのE2Eを明示的にUTCブラウザで動かし、19:00に入力・保存した候補が画面では10:00と表示される失敗を確認（tmp/browser-poll-timezone-red.log）。ローカル/本番TIME_ZONEはAsia/Tokyoで、候補入力と概要のサーバー表示に対しJavaScriptの既定時間帯が異なっていた。
+- Djangoのget_current_timezoneを候補/締切/確定日時とコメント時刻のJavaScript表示へ渡し、サーバーの時間帯で表示するよう修正。入力・表示の時間帯を日本時間（Asia/Tokyo）として画面に明記する。TIME_ZONE設定そのものや保存値は変更しない。
+- UTC設定のChromium/Firefox/WebKitで、通常登録・候補作成・回答・確定・保存一致・画面19:00・時間帯説明の3件成功（1.2分）。Chromiumスクリーンショットでも候補/確定/右側概要が全て19:00と表示されることを確認した。関連Django24件成功。証跡: tmp/browser-poll-timezone-green.logと同名-output、tmp/poll-timezone-django.log。
+- 検証環境は従前のbookwormイメージに最新テンプレートとテストをマウントし、外部ネットワークなし・使い捨てSQLite。DB/権限/課金/外部サービスへの変更なし。投票行の低コントラストは別修正として残す。14aea099の全体テストはこの変更を含まない。
