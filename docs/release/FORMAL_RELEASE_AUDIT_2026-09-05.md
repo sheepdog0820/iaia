@@ -718,3 +718,13 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 既存資格情報でECR認証後、タグではなく上記digest指定でローカルへpull。ローカルイメージID sha256:58a0a768937f40c7e5c03852cd16e8437a6f7e5cff5bc13195efde80dd9eb578、RepoDigests一致。取得ログtmp/rollback-running-image-pull.log。ECR資格情報はpassword-stdinで渡し、値を出力していない。
 - network noneの一時コンテナで配布メタデータのみ確認。Django5.2.17、DRF3.18.0、allauth65.19.1、psycopg3.3.4、Stripe15.5.0。Config.Userは空で旧Dockerfileのデフォルト実行設定。アプリを共有DBへ接続していない。
 - 今回は切り戻し検証対象の取得・同一性確認まで。旧アプリに適合する移行前DB/画像の用意、現候補への更新、復元後の旧アプリ起動と主要フローの一致は次の作業。AWSのサービス/タスク/DB/IAM/Secrets設定・実データ・継続費用は変更していない。公開No-Goを維持する。
+
+## 実旧イメージから現候補へ更新し、復元した旧アプリを確認
+
+- 取得済み実稼働イメージdigest sha256:551535a7219a599891d592346480803966abfb54f856656201ca08eec1d42b66を、専用PG16/tmpfs・Redis7・internalネットワークで通常起動。架空設定、ENV_FILE空、S3無効、ホストポート非公開。共有AWSへの接続はない。旧イメージで全移行・静的179件収集・Daphne起動後に空ユーザーDBガード付きseedを実行した。
+- GM/PL2人、非公開グループ、セッション1件、参加者role1件、秘匿HO1件、6版/7版各1キャラクター、PNG1件を作成。各ユーザーの使い捨てTokenでヘルスと一覧をHTTP取得。GMはキャラクター2件・セッション1件、PLはキャラクター0件・セッション1件、HP8/SAN47・版の一致と一覧にsecret_ho_infoが含まれないことを確認。秘匿HO本文のAPI表示範囲や全UI操作を検証した主張ではない。
+- 全91テーブル・614行、全87 sequenceのlast_value/is_called、列定義・制約・インデックス、画像1件のSHA-256を記録。pg_dump -Fcと画像ファイルのコピーを保存し、旧アプリを停止。f692b994の通常配備イメージへ切り替え、通常entrypointで移行・静的183件収集・起動成功。schedules0055適用を確認し、同じHTTP参照結果が成立した。
+- 現候補アプリを停止し、別の空DBへpg_restore --exit-on-error、画像バックアップも別フォルダへ復元。旧digestのアプリを復元DB/画像で起動した。RUN_MIGRATIONS=false、静的179件再収集、Redisは未使用のDB1を使いキャッシュで復元不備を隠さない。旧アプリのヘルス200/DB・cache okとGM/PL参照結果が移行前・更新後と一致した。
+- 復元後fingerprintは元の91テーブル・614行・87採番状態・画像1件・列/制約/インデックスと完全一致。旧アプリが復元DBで起動・参照できることを確認した。DB移行の逆実行、稼働AWSの切り戻し、本番データのコピーはしていない。
+- 証跡はtmp/image-rollback-919dc0deのseed.py/check-http.py/fingerprint.py、各*-startup.log、before/upgraded/restored-http.log、before/restored-snapshot.log、upgraded-migration.log、restore.log、comparison.logと比較JSON。専用アプリ/DB/Redis/internalネットワーク・コンテナ内ダンプとtokens.jsonは削除済み。PNGとハッシュ記録は架空データの証跡としてローカルに保持。
+- 本検証は少量の模擬データを用いたローカルの更新・復元・旧API確認。TLSは内部HTTPの転送ヘッダー模擬、S3/CloudFront・実ユーザー・同時書込み・実RDS復元・合意RPO/RTO・旧版の全画面は未検証。バックアップ時点以降の書込みを保持する復旧方法の証明でもない。共有環境・実データ・権限・継続費用への変更なし。正式公開No-Goを維持する。
