@@ -243,3 +243,10 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 修正ファイルを固定依存イメージへ読み取り専用でマウントし、新規6件と既存の添付・HO権限・PL枠を合わせて37件成功（23.994秒）。専用SQLite、外部通信なし。証跡 `tmp/handout-download-access-green.log`。途中の試験コードはストリーミングレスポンスを二重にcloseしてDBを閉じたため修正し、Djangoテストクライアントの自動closeを利用した。製品コードでDB接続エラーを無視していない。
 - ローカル修正の成功は、実CloudFrontキャッシュの失効、S3実権限、大容量/同時ダウンロード、全添付種別の閲覧UI、他のCDN/サーバー直配信経路を証明しない。この対策の実環境検証が終わるまでF05/Q04は公開阻害事項として残す。
 - 新規6件をカバレッジ取得付きで再確認し成功（0.716秒）。新しいダウンロードビューの実行対象行はすべて実行され、`tableno/media_views.py` は12/12行。既存の一覧/削除を含むattachment_views全体は45/69行であり、モジュール全体/分岐100%ではない。証跡 `tmp/handout-download-coverage.json` / `tmp/handout-download-coverage.log`。変更PythonのBlack/isort/flake8確認が成功し、新しいUI文言はない。差分レビューで追加の修正事項は見つからなかった。
+
+## 継続監査: 開発環境の添付配信設定と停止案（2026-09-05）
+
+- `69d4468a` のclean状態から、AWSアカウント・稼働ECS・S3ポリシー・Public Access Block・CloudFront behavior/署名設定・Task Roleを読み取り確認した。CloudFrontへの全GetObject許可と署名者/鍵グループ無効を確認し、設定上の懸念を実環境の構成でも確認できた。実ファイルのHTTP取得や漏えい発生の調査は行っていない。
+- 添付プレフィックスの一覧は件数だけを出力し486オブジェクト、切り詰めなしだった。ユーザー数、秘匿HO数、実データ/試験データの区分は不明。現行CloudFrontのTTLはすべて0であり、以前の一般的なinvalidation手順をこの環境へ無条件に実施せず、応急措置をポリシー変更だけに絞った。
+- 実ポリシーからDenyのみを追加したレビュー可能なJSONを作り、AWS Access Analyzerのポリシー検証で指摘0件。変更対象・JSONハッシュ・既存添付停止の影響・適用直前の再照合を[配備準備計画](AWS_PRE_FORMAL_RELEASE_VALIDATION_PLAN.md)へ記録した。`tmp/prepare-handout-containment.py` は読み取りとローカルファイル作成だけを行う。
+- 権限変更の承認境界に基づき、応急措置を先行適用するかアプリと同時反映するかをユーザーに確認中。回答を待たずにポリシーを変えたり、実データを変更したりしていない。今回の進捗は実環境設定の証拠取得と検証済み変更案の準備であり、対策完了ではない。

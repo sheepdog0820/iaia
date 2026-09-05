@@ -71,3 +71,13 @@ Terraformの変更対象は `aws_s3_bucket_policy.assets`。対象CloudFrontサ�
 5. 問題時も公開GetObjectへ戻すことで復旧扱いにしない。添付の一時停止と認可を維持する前進修正を優先し、旧アプリへの切戻し時の添付利用制限を明示する。
 
 この構成は未適用であり、実環境の漏えい発生を確認したという意味でもない。実ファイルの無断取得による検証や、ポリシー変更・invalidationは行っていない。
+
+### 現行設定の読み取りと応急措置案（2026-09-05）
+
+- AWSアカウントは `083773015316`、ECSはdesired/running=1/1、タスク定義40、イメージ `aws-pre-8cf3c7f7` のまま。修正アプリ候補は `69d4468a`。稼働版との差分に0055等の移行が残るので、この候補の即時配備を承認済みとは扱わない。
+- バケット `tableno-aws-pre-assets-083773015316` の現行ポリシーはCloudFront `E3RQ829D1NVY28` に全キーのGetObjectを許可する1文のみ。Public Access Blockは4項目すべてTrueだが、そのCloudFront許可を取り消すものではない。`media/handouts/` のオブジェクト数は486、応答のIsTruncated=False。件数だけを確認し、オブジェクトの内容や利用者との対応は取得していない。
+- CloudFrontは有効、origin pathなし、S3 OACあり。署名者/鍵グループ、Functions/Lambda、追加behavior、cache policy、response headers policyはいずれも未設定。現行のMin/Default/Max TTLはすべて0。この現行設定ではCDNキャッシュ期限を待つことが主な反映待ちではないが、過去設定やブラウザ側の保存内容がない証拠ではない。invalidationをこの応急措置の自動実行対象には含めない。
+- Task Roleの実inline policyで対象バケット/配下へのGetObject・PutObject・DeleteObject・ListBucketを確認した。提案DenyはCloudFrontサービスと当該distributionに限定するため、これらECSロールの許可を対象にしない。実S3/KMS読取の動作確認はアプリ配備後に別途実施する。
+- 現行ポリシーにDeny文だけを追加したJSONを `tmp/handout-containment-20260905/proposed-policy.json` に用意した。元文が維持されていることを機械的に確認し、AWS Access AnalyzerのRESOURCE_POLICY/AWS::S3::Bucket検証はfindings=[]だった。これはポリシーを適用した証拠でも、実際の配送拒否を確認した証拠でもない。
+- 元ポリシー保存ファイルのSHA-256: `96aad423a8a79088b9bb351fbbbfdc652785b36f916cd2ff7f616914ae132f05`。提案ファイル: `1a0bc2485f6c3d461ebc77e25e0b48f5efaa831980f6a157aed60562d29c9514`。承認後も適用直前に実ポリシーを読み直し、保存時から変更があれば差分を再評価する。古いコピーで第三者の変更を上書きしない。
+- ユーザーには、応急措置としてこのDenyだけ先行適用するか、認可付きアプリと同時反映するかを質問済みで、回答待ち。前者は既存の添付ダウンロードを一時停止させる。ファイル削除、新規AWSリソース、アプリ配備、キャッシュ失効は今回の応急措置案に含めない。許可へ戻して情報保護を解除する操作も自動で行わない。
