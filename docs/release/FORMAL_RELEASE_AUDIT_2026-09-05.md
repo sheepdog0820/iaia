@@ -278,3 +278,11 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 固定依存イメージb8fad941へ変更Pythonと既存sampleテストを読み取り専用マウントして、3テスト・69 subtests成功（0.055秒）。内訳は全7コマンドの拒否56条件と既存sampleの13条件。後者はローカル3別名で従来の処理群が呼ばれることも確認する。6つの追加コマンドの全データ生成機能を実行したという意味ではない。`tmp/development-command-boundaries-green.log`。
 - ローカルのカバレッジ付き再確認でも3件成功（0.136秒）、共通デコレータは10/10実行対象行。証跡 `tmp/development-command-boundaries-coverage.json`。変更PythonのBlack/isort/flake8と差分レビューを確認した。新規デコレータの行カバレッジであり、各コマンド本体や全分岐100%ではない。
 - [テストデータ管理ガイド](../testing/TEST_DATA_MANAGEMENT.md)に対象7コマンドと適用条件を明記した。宣言された環境設定が実DB接続先と一致することは運用時に別途確認する。ensure_dev_login_userの既存の明示オプションは今回変更していない。共有DB/アカウント/画像・実環境設定への変更は実施せず、対策は未配備。
+
+## 継続監査: SQLite外部キー診断の動的SQL（2026-09-05）
+
+- `1b80f66e` のclean状態からB608の対象を動的に確認した。リセット本体を実行せず、独立したインメモリSQLite接続に試験用の親/子テーブルを作って診断メソッドだけを呼び出した。引用符を含むテーブル名では追加PRAGMAの構文エラー、WITHOUT ROWIDテーブルでは追加SELECTの `no such column: rowid` を再現。3件中2件がエラーになった。`tmp/dev-foreign-key-diagnostics-red.log`。
+- SQLiteのforeign_key_checkは違反ごとにテーブル・rowid・参照先・制約番号を返し、WITHOUT ROWIDではrowidがNULLになる。[SQLite公式仕様](https://www.sqlite.org/pragma.html#pragma_foreign_key_check)に合わせ、返された4項目を直接表示してCommandErrorを出すよう変更した。識別子を補間する追加SQLと行内容の再取得を削除し、先頭50件の表示制限と整合性エラーでの停止を維持した。エラー文言は日本語にした。
+- 固定依存イメージb8fad941へ変更コマンド・共通ガード・新規テストを読み取り専用で適用し、3件成功（0.002秒）。正常な参照では無出力、引用符付き識別子とWITHOUT ROWIDではSQLエラーではなくCommandErrorと違反情報が出ること、試験行が削除されないことを確認した。`tmp/dev-foreign-key-diagnostics-green.log`。
+- ローカルでは環境境界テストを含む6件も成功（0.090秒）。追加したfor/出力/raiseの3実行対象行をすべて実行した。`tmp/dev-foreign-key-diagnostics-coverage.json`。非SQLiteの診断やコマンド全体のカバレッジ100%ではない。通常の作業DB・共有DB・実データは使っていない。
+- 変更後にBandit 1.9.4をaccounts/schedules/scenarios/support/tableno/apiへ再実行し、HIGH 0・MEDIUM 0・LOW 536、解析エラー0。指摘抑制設定は追加していない。全重要度での終了コードはLOWが残るため1で、全セキュリティ検査合格とは扱わない。証跡 `tmp/formal-release-bandit-fk-fix.json` / `.log`。コード品質と日本語文言・差分レビューを確認し、秘匿添付の実環境対策を含む公開条件は引き続き未完了。

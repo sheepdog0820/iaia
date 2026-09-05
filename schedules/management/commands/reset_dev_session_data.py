@@ -128,27 +128,11 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.ERROR("外部キー整合性エラーが検出されました (PRAGMA foreign_key_check):"))
         # PRAGMA foreign_key_check returns: (table, rowid, parent, fkid)
-        with connection.cursor() as cursor:
-            fk_list_cache: dict[str, list[tuple]] = {}
-
-            for table, rowid, parent, fk_id in rows[:50]:
-                if table not in fk_list_cache:
-                    cursor.execute(f'PRAGMA foreign_key_list("{table}")')
-                    fk_list_cache[table] = cursor.fetchall()
-
-                fk_defs = [d for d in fk_list_cache[table] if d[0] == fk_id]
-                from_cols = [d[3] for d in fk_defs] or ["<unknown>"]
-
-                if from_cols and from_cols[0] != "<unknown>":
-                    cols_sql = ", ".join([f'"{col}"' for col in from_cols])
-                    cursor.execute(f'SELECT {cols_sql} FROM "{table}" WHERE rowid = %s', [rowid])
-                    values = cursor.fetchone()
-                    self.stdout.write(
-                        f"- {table} rowid={rowid} -> {parent} fk_id={fk_id} {list(zip(from_cols, values or []))}"
-                    )
-                else:
-                    self.stdout.write(f"- {table} rowid={rowid} -> {parent} fk_id={fk_id}")
-        raise CommandError("Foreign key constraint failed (see output above).")
+        # rowid is None for WITHOUT ROWID tables. Report the metadata directly;
+        # interpolating identifiers or selecting rowid can break this diagnostic.
+        for table, rowid, parent, fk_id in rows[:50]:
+            self.stdout.write(f"- {table} rowid={rowid} -> {parent} fk_id={fk_id}")
+        raise CommandError("外部キーの整合性エラーがあります。上記のテーブル・行・制約番号を確認してください。")
 
     def _ensure_admin(self) -> None:
         generated_password = os.environ.get("DJANGO_SUPERUSER_PASSWORD") or secrets.token_urlsafe(18)
