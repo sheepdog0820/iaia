@@ -1,0 +1,33 @@
+# アプリ静的セキュリティ検査の分類
+
+2026-09-05、対象コミット494abd0d。Banditをaccounts/api/scenarios/schedules/support/tablenoに再帰適用した。リポジトリ全体や実環境の検査ではない。
+
+検査エラー0、HIGH 0、MEDIUM 0、LOW 557、終了コード1。指摘が残るため終了コードを成功へ変換しない。証跡はtmp/bandit-494abd0d-apps.jsonと同.log。
+
+## 分類
+
+| 対象 | 件数 | 判定と限界 |
+| --- | ---: | --- |
+| testで始まるモジュール・tests配下 | 475 | テスト用パスであり、本番リクエスト処理の指摘ではない。各指摘の個別安全性を一律に承認したものではない |
+| データ作成用management command | 71 | 6ファイルすべてhandleにlocal_development_onlyを付けていることをASTとコードで確認。DEBUG/APP_ENV/ENVIRONMENTを検査し、共有環境ではDB操作前に拒否する。既知のテスト用パスワードや非暗号乱数を本番アカウントへ使用してよいという意味ではない |
+| その他のコード・既存移行処理 | 11 | 下表で用途と残作業を個別に確認 |
+
+## 実行コード側の11件
+
+| ファイル・行 | 指摘 | 判定 |
+| --- | --- | --- |
+| accounts/character_models.py:1938 | B311 | TRPGダイスの乱数。認証トークン・パスワード生成に使用する箇所ではなく、この指摘は公開阻害にしない |
+| accounts/utils/dice.py:297 | B311 | 能力値のダイス。上記と同じ判定 |
+| accounts/views/api_auth_views.py:140 | B105 | Google token_uriという設定キーと公開エンドポイントのURL。ハードコードされた秘密情報ではない |
+| schedules/google_tokens.py:10 | B105 | 公開GoogleトークンエンドポイントのURL。秘密情報ではない |
+| schedules/views.py:3111 | B105 | can_manage_secret_content=Falseという権限フラグ。パスワードではない |
+| tableno/settings.py:319 | B105 | reset_passwordフォームのクラスパス。パスワードではない |
+| accounts/forms.py:80 | B110 | allauthメール照合例外を無視して別の照合へ移る。認証時の例外範囲と障害の識別を追加確認する |
+| accounts/serializers.py:1129 | B110 | キャラクター画像の代替表示で例外を無視する。既存表示へのフォールバック範囲と障害検知を追加確認する |
+| accounts/serializers.py:1524 | B110 | 容量推定後のseek(0)失敗を無視する。読み取り位置・検証後の保存への影響を追加確認する |
+| accounts/views/character_views.py:2400 | B112 | 技能一括作成で例外を無視して次の入力へ進む。部分失敗の応答と保存結果の整合性を追加確認する |
+| schedules/migrations/0041_remove_sessiontemplate_group_and_more.py:17 | B110 | 旧テンプレート画像の削除失敗を無視する既存移行。適用済み移行を独断で書き換えず、未削除ファイルの確認・対処方針が必要 |
+
+6件は用途から分類できたが、例外処理5件とテスト側の個別判定は残る。実サービスの認可、ストレージ/CDN迂回防止、過去ログ、データ保持・削除の検証はこの検査では証明できない。Q04と正式公開判定は未達を維持する。検査・分類に伴うコード変更や実データ操作は行っていない。
+
+開発コマンドの境界テストも再実行し、1件・56 subtests成功（0.27秒）。SimpleTestCaseでDBアクセスを禁止した状態で、共有環境の設定ではコマンドが拒否されることを確認した。対象コマンド・ガード・テストは固定イメージ58a27172と494abd0dで差分なし。証跡はtmp/command-boundaries-static-triage.log。

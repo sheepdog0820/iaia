@@ -507,3 +507,9 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 各APIの外部通信が完了した後のDB処理をtransaction.atomicにまとめた。一般エラー・停止済み利用者の拒否・保存競合で処理が例外終了した場合はDB変更を取り消す。IntegrityErrorには機密情報を含まない日本語の再ログイン案内と503を返す。正常応答のtoken/user/created/linkedは維持する。
 - SQLiteの認証関連22件・15 subtests成功（20.85秒）。PostgreSQL 16ではAPIClientと独立した2接続による同時X登録・同時Discord登録を追加し24件・15 subtests成功（39.49秒）。競合側503・成功側200となり、利用者/連携/トークン各1件、再試行では同じ利用者とトークンが返ることを確認した。Discordの確認済みメールは1件、メールを提供しないXは0件という既存動作を確認。
 - 証跡: tmp/oauth-atomicity-green.log、tmp/oauth-atomicity-postgres.log、tmp/oauth-atomicity-postgres-coverage.json。Google等の実サービス通信は行っていない。DBスキーマ・実利用者・共有環境・権限・費用への変更なし。Black/isort/flake8と差分・日本語エラーを確認した。復旧はアプリ変更のrevertで可能だが、部分保存の問題を再導入する。候補全体・実認可・取消/失効の検証は未完了で、正式公開判定は未達を維持する。
+
+## 継続監査: 外部接続と静的指摘の分類
+
+- 494abd0dと差分なしを確認。Stripeアカウント一覧を再取得したがUNAUTHORIZED/oauth_token_invalid_grantで再認証が必要だった。GitHub CLIは未ログイン。実課金・認可・公開操作は行っていない。未回答の料金・有料範囲を承認と扱っていない。
+- 現在の6アプリにBanditを再適用。エラー0、HIGH/MEDIUM 0、LOW557、終了コード1。テスト475件、ローカル開発用コマンド71件、その他11件に分類し、[詳細と残作業](SECURITY_STATIC_TRIAGE_494ABD0D.md)を作成した。実行コード側の定数名等4件とゲーム乱数2件は用途から分類、例外処理5件は追加監査が必要。
+- 開発コマンド7個×共有/不正設定8種類の境界テスト56 subtests成功。DB操作前に拒否することをSimpleTestCaseで確認した。過去の指摘件数とは走査範囲/対象コミットが異なるため、単純な増減を安全性の指標にしない。全体テストは既存handleを追跡中で、Q04と正式公開No-Goを維持する。
