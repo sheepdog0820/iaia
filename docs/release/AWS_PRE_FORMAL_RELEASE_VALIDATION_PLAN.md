@@ -1,6 +1,6 @@
 # 正式公開に向けたaws-pre検証・配備準備
 
-2026-09-05、コード候補 `f0f443f0`。実行承認前の準備資料。以下の調査では読み取りだけを行い、ECS起動・配備・DB変更・通知は実行していない。
+2026-09-05、コード候補 `b8fad941`。実行承認前の準備資料。実環境は読み取りのみ。ローカルで配備用イメージ作成と専用PostgreSQL検証を行ったが、ECR送信・ECS配備・共有DB変更・通知は実行していない。
 
 ## 確認できた現状
 
@@ -13,7 +13,7 @@
 
 ## 稼働版と候補の差分
 
-比較はローカルmainとの比較だけでなく **`8cf3c7f7..f0f443f0`** を用いる。差分は104ファイルで、依存ロック、Dockerfile、背景除去、画面、静的ファイル、設定、DB移行等を含む。このタスクが追加した課金/通信修正だけの配備ではない。
+比較はローカルmainとの比較だけでなく **`8cf3c7f7..b8fad941`** を用いる。差分は121ファイルで、依存ロック、Dockerfile、背景除去、画面、静的ファイル、設定、DB移行、秘匿添付配信等を含む。このタスクが追加した課金/通信修正だけの配備ではない。
 
 | 対象 | 差分 | 配備への影響 |
 | --- | --- | --- |
@@ -26,7 +26,7 @@
 ## 配備前に揃える証拠
 
 1. 直前に稼働タスク定義・イメージdigest・desiredCountを再取得する。変更があれば本計画を更新する。
-2. `f0f443f0` の固定依存関係で新規LINE修正まで含む関連検証を実施し、配備イメージdigestを記録する。過去の203テストは `c6d280d8` の結果である。
+2. `b8fad941` の新規イメージで、PostgreSQLの添付権限/課金関連227件と通常起動・ヘルス200を確認済み（後述）。最新候補の全体CI・全機能の検証は未完了。ECR送信後にmanifest digestを取得する。過去の203テストは `c6d280d8` の結果であり混同しない。
 3. 共有DBの読み取りで適用済みマイグレーション、旧/新ロール制約、既存重複ロールの件数を確認する。資格情報を文書に含めない。直接接続が不可なら、実行方法と追加費用を具体化してから検証タスクの承認を求める。
 4. DB・添付のバックアップと復元先を確定し、復元手順を検証する。バックアップの存在だけで復元成功としない。
 5. 起動時のmigrate/collectstatic/開発ユーザー作成、worker/beat、背景除去清掃の実効設定を確認する。Secretsに含まれる値は必要な真偽や設定有無だけを報告する。
@@ -34,7 +34,7 @@
 
 ## 承認時に提示する具体的な変更
 
-- ECRの新規タグ `aws-pre-f0f443f0` とdigest、同候補のテスト結果。
+- ECRの新規タグ案 `aws-pre-b8fad941` とmanifest digest、同候補のテスト結果。ローカルイメージIDをECRのmanifest digestとして転記しない。
 - ECSの新リビジョン。webのイメージ以外を維持する案を基本にし、追加変更が必要なら個別に列挙する。現在のdesired=1を増やす包括承認として扱わない。
 - DB移行の適用対象、実行前バックアップ、制約確認結果、移行時間、障害時の復元方法。
 - collectstaticの書き込み先とCloudFront invalidation範囲。旧静的ファイルとの整合性を戻せるようにする。
@@ -81,3 +81,11 @@ Terraformの変更対象は `aws_s3_bucket_policy.assets`。対象CloudFrontサ�
 - 現行ポリシーにDeny文だけを追加したJSONを `tmp/handout-containment-20260905/proposed-policy.json` に用意した。元文が維持されていることを機械的に確認し、AWS Access AnalyzerのRESOURCE_POLICY/AWS::S3::Bucket検証はfindings=[]だった。これはポリシーを適用した証拠でも、実際の配送拒否を確認した証拠でもない。
 - 元ポリシー保存ファイルのSHA-256: `96aad423a8a79088b9bb351fbbbfdc652785b36f916cd2ff7f616914ae132f05`。提案ファイル: `1a0bc2485f6c3d461ebc77e25e0b48f5efaa831980f6a157aed60562d29c9514`。承認後も適用直前に実ポリシーを読み直し、保存時から変更があれば差分を再評価する。古いコピーで第三者の変更を上書きしない。
 - ユーザーには、応急措置としてこのDenyだけ先行適用するか、認可付きアプリと同時反映するかを質問済みで、回答待ち。前者は既存の添付ダウンロードを一時停止させる。ファイル削除、新規AWSリソース、アプリ配備、キャッシュ失効は今回の応急措置案に含めない。許可へ戻して情報保護を解除する操作も自動で行わない。
+
+## 最新候補のローカル配備用イメージ
+
+`b8fad941` のgit archiveから、リポジトリのDockerfileとrequirements.lock.txtを使ってビルドした。ローカルタグは `tableno-formal-release:b8fad941`、イメージIDは `sha256:45e2df5a6ada21fbe0209ca4943005b4ad969f08f58619ac21b0511194f39b27`。Python 3.11.16、Django 5.2.17、Stripe 15.5.1、実行ユーザーtableno。ベースOSとpip自体まで固定された再現可能ビルドを証明するものではない。
+
+テスト用ソースの上書きマウントなしで、専用PostgreSQL 16に対して添付・HO権限・PL枠・課金・署名イベント統合の227件成功（55.953秒）。pip checkとmakemigrations --check --dry-runも成功した。さらに通常entrypointで専用DBへのmigrateを実行し、Daphne起動後に `/health/ready` のdatabase/cacheともok、HTTP 200を確認した。APP_ENV=local、locmem cache、外部通信不可のinternal networkであり、公開用Secrets/S3/Redisを使用するaws-pre設定の起動確認ではない。
+
+証跡は `tmp/formal-release-b8fad941-build.log`、`tmp/formal-release-b8fad941-postgres.log`、`tmp/formal-release-b8fad941-runtime.log`、`tmp/formal-release-b8fad941-ready.json`、`tmp/formal-release-b8fad941-image.json`。検証用app/DBコンテナとnetworkは終了・削除済み。ECR送信、AWSタスク定義登録、配備、実ポリシー変更は未実施。

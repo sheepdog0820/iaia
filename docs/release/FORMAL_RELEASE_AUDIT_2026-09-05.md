@@ -250,3 +250,11 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 添付プレフィックスの一覧は件数だけを出力し486オブジェクト、切り詰めなしだった。ユーザー数、秘匿HO数、実データ/試験データの区分は不明。現行CloudFrontのTTLはすべて0であり、以前の一般的なinvalidation手順をこの環境へ無条件に実施せず、応急措置をポリシー変更だけに絞った。
 - 実ポリシーからDenyのみを追加したレビュー可能なJSONを作り、AWS Access Analyzerのポリシー検証で指摘0件。変更対象・JSONハッシュ・既存添付停止の影響・適用直前の再照合を[配備準備計画](AWS_PRE_FORMAL_RELEASE_VALIDATION_PLAN.md)へ記録した。`tmp/prepare-handout-containment.py` は読み取りとローカルファイル作成だけを行う。
 - 権限変更の承認境界に基づき、応急措置を先行適用するかアプリと同時反映するかをユーザーに確認中。回答を待たずにポリシーを変えたり、実データを変更したりしていない。今回の進捗は実環境設定の証拠取得と検証済み変更案の準備であり、対策完了ではない。
+
+## 継続監査: 最新候補イメージのPostgreSQL検証（2026-09-05）
+
+- `b8fad941` のclean状態を確認し、git archiveを専用ディレクトリへ展開してDockerfileからビルドした。ローカルイメージID `sha256:45e2df5a6ada21fbe0209ca4943005b4ad969f08f58619ac21b0511194f39b27`。実行ユーザーtableno、Python 3.11.16/Django 5.2.17/Stripe 15.5.1。pip check成功、makemigrations --check --dry-runは変更なし。ホスト作業ツリーのソースをイメージへ上書きしていない。
+- Docker internal network、公開ポートなし、tmpfsのPostgreSQL 16を用意し、イメージ内の添付ダウンロード・既存添付・HO権限・PL枠・billing・paid_feature_lifecycleを実行して227件成功（55.953秒）。課金イベントは引き続き試験用署名fixtureであり、実Stripeサービスには接続していない。
+- 同じイメージを通常entrypointで起動し、専用の空DBに全migrationを適用した。最初のヘルス確認は起動途中で接続失敗だったが、同じコンテナのDaphne起動後にHTTP 200、database/cacheともokとなった。コンテナを作り直して失敗を隠していない。APP_ENV=local、外部サービスなしの確認で、aws-preの実Secrets・S3・Redis・公開ルーティングの検証ではない。
+- 証跡は `tmp/formal-release-b8fad941-` で始まるbuild/postgres/runtimeログ、ready.json、image.json。app/PGコンテナ停止、専用network削除、同名の稼働コンテナがないことを確認した。ローカルイメージIDと未取得のECR manifest digestを区別し、配備準備資料の候補と差分を `8cf3c7f7..b8fad941`（121ファイル）へ更新した。
+- 今回は候補イメージの作成と対象を絞ったPostgreSQL検証が進捗。全体CI、全機能/外部サービス検証、配備承認、秘匿添付ポリシーの応急措置への回答は引き続き未完了。
