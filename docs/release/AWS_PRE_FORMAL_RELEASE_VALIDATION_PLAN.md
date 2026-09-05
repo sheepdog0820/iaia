@@ -2,20 +2,20 @@
 
 ## 現在の候補と承認前の残作業（2026-09-05更新）
 
-候補ソースは `63bd2436febf27ed5af6f85254e082d5454da611`。静的ファイル同梱・本番設定に加え、Axios代替処理、日程投票の時間帯/配色/キャッシュ、グループと招待の文字表示、グループ権限応答のキャッシュを修正した。以下の過去候補の節は履歴として保持する。この資料は配備承認ではない。
+候補ソースは `704c6f062ef73f64ee3b5eae43799264fb4dcbf9`。静的ファイル同梱・本番設定に加え、Axios代替処理、日程投票の時間帯/配色/キャッシュ、グループと招待の文字表示、グループ権限応答のキャッシュ、ゲスト参加の失効再確認・引き継ぎ案内/エラー表示を修正した。以下の過去候補の節は履歴として保持する。この資料は配備承認ではない。
 
-本番用イメージ・ブラウザ・両DB全体検証の対象は `63bd2436`。同じ固定ソースで通常起動、3ブラウザ30件（3.6分、retryなし）、両DB全体が成功した。後続 `55b7d16c` のゲスト招待失効修正は両DBの関連テストで確認したが、この候補のイメージには未収録。配備前に後続修正を含む候補を固定し、リモートCI等を確認する必要がある。
+本番用イメージ・ブラウザ検証の対象は `704c6f06`。同じ固定ソースで通常起動と3ブラウザ33件（4.5分、retryなし）が成功した。同候補の両DB全体テストは実行中で、完了済みの全体結果は `63bd2436`。リモートCIと実環境検証は未完了。
 
 | 項目 | 最新の証拠と限界 |
 | --- | --- |
-| 配備用イメージ | `tableno-formal-release:63bd2436`、ローカルID `sha256:68b4915a4678bd08743a4357aa1dac91fd26d3561ceb5803f9fbb9b6f9c64f13`。通常Dockerfile/固定依存から作成。ECRへ未送信でmanifest digestは未取得 |
-| 隔離起動 | 63bd2436でpip check成功。専用の空PG16/Redis7、通常entrypointで移行・静的199件収集/571件後処理・Daphne起動・readiness/登録画面200。登録画面のstatic5件とvendor8件のハッシュ付き配信、CSS/JSのgzip内容一致を確認。check --deploy指摘0、未認証グループAPIは401とprivate/no-store/no-cacheを確認。S3なし構成であり、既存データ復元の最新再実証、実TLS/Stripe/OAuth/S3は未確認 |
+| 配備用イメージ | `tableno-formal-release:704c6f06`、ローカルID `sha256:a10e440ae242b2e67dfab13dc590e2d9e707cef91579459992501be523de7e9a`。通常Dockerfile/固定依存から作成。ECRへ未送信でmanifest digestは未取得 |
+| 隔離起動 | 704c6f06でpip check成功。専用の空PG16/Redis7、通常entrypointで移行・静的199件収集/571件後処理・Daphne起動・readiness/登録画面200。登録画面のstatic5件とvendor8件のハッシュ付き配信、CSS/JSのgzip内容一致を確認。check --deploy指摘0。S3なし構成であり、既存データ復元の最新再実証、実TLS/Stripe/OAuth/S3は未確認 |
 | 全体検証 | 63bd2436のSQLite1664成功/10skip・86.93%、PostgreSQL1674成功/skipなし・87.50%、双方476 subtests・159 warnings、終了コード0。JUnit2150件、failure/error 0。SQLite skip10件はPGで成功。後続55b7d16cは別途両DBで関連11件・2 subtests成功。後続修正を含む固定候補全体・リモートCIは未完了 |
-| 稼働版との比較 | 記録済み稼働ソース `8cf3c7f7` から63bd2436まで224ファイル差分。7cdd7cf8以降のaccounts/schedules migrationファイル差分なし。現在のAWS稼働版は配備直前に再確認する。mainとの比較だけで配備範囲を決めない |
+| 稼働版との比較 | 記録済み稼働ソース `8cf3c7f7` から704c6f06まで227ファイル差分。63bd2436以降のaccounts/schedules migrationファイル差分なし。現在のAWS稼働版は配備直前に再確認する。mainとの比較だけで配備範囲を決めない |
 | DB差分 | 既存 `accounts/0055`・`accounts/0058` の変更、新規 `schedules/0055` の追加。0055修正はデータ移行後のFK検査をDDL前に完了させるもので、適用済み0055を再実行しない。適用済み0058は再実行されないため共有DBの移行履歴と実スキーマ確認が必要。ロール複数化後の旧制約復元はデータ次第で失敗し得る |
 | 未確定事項 | ECR digest、直前の稼働タスク/復旧先、共有DB状態、実データを含む復元・更新・ロールバック、専用テスト利用者/宛先、料金と有料範囲、実連携設定、追加費用。承認対象を具体化してから配備する |
 
-最新起動証跡は監査記録の63bd2436節、`tmp/static-runtime-63bd2436-http.log`、`tmp/static-runtime-63bd2436-server.log`、`tmp/static-runtime-63bd2436-deploy-check.log`、`tmp/static-runtime-63bd2436-group-cache.log`。全体テストは`tmp/formal-release-63bd2436-full-output`。後続55b7d16cを含む全体成功とは扱わない。秘匿画像のCloudFront迂回防止も別途承認・適用・実証が必要で、アプリ起動成功だけでは正式公開できない。
+最新起動証跡は監査記録の704c6f06節、`tmp/static-runtime-704c6f06-http.log`、`tmp/static-runtime-704c6f06-server.log`、`tmp/static-runtime-704c6f06-deploy-check.log`。完了済み全体テストは`tmp/formal-release-63bd2436-full-output`、実行中は`tmp/formal-release-704c6f06-full-output`。実行中の結果を成功とは扱わない。秘匿画像のCloudFront迂回防止も別途承認・適用・実証が必要で、アプリ起動成功だけでは正式公開できない。
 
 ## 過去候補の準備記録
 

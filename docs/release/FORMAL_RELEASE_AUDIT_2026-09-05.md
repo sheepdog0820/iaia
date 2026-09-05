@@ -1069,3 +1069,9 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - アプリ/テストの差し替えなし、network none/使い捨てSQLite、1 worker/retryなしで33件成功（4.5分）。Chromium/Firefox/WebKitで日程投票・HTTP代替処理・通常登録利用者のセッション/グループ/通知/招待/ゲスト引き継ぎを確認。直近のゲスト失効再確認・日本語案内・入力不足/誤コードの案内と再試行を含む。証跡tmp/browser-fixed-704c6f06.log/同名-output、ビルドtmp/formal-release-704c6f06-e2e-build.log。終了後コンテナは破棄。
 - 同じソースの全体テスト用イメージtableno-formal-release-test:704c6f06-browser（ID sha256:8f3aaa2c143ea05d4f63de5baa2dd11e8dad851e6350629bdacf4aab5ba97dc3）を作成し、pip check成功。SQLiteはnetwork none、PG16は専用internalネットワーク/tmpfs・架空テストDB、公開ポートなしで両DB全体テストを開始した。実行中の証跡はtmp/formal-release-704c6f06-full-output。完了済みの全体結果は63bd2436のままである。
 - 全E2Eファイル、最新候補の全体テスト完了、本番用イメージ、リモートCI、実サービスの合格とは扱わない。実環境/実データ/権限/費用変更なし。正式公開No-Goを維持する。
+## 固定候補704c6f06の本番用イメージ起動確認
+
+- 704c6f062ef73f64ee3b5eae43799264fb4dcbf9のアーカイブから実Dockerfile/requirements.lock.txtでビルド。tableno-formal-release:704c6f06、ID sha256:a10e440ae242b2e67dfab13dc590e2d9e707cef91579459992501be523de7e9a、USER tableno、revisionは固定SHA。証跡tmp/formal-release-704c6f06-production-build.log。
+- 専用internalネットワーク・空PG16/tmpfs・Redis7、架空のaws-prod設定とS3非利用構成で通常entrypointを実行。移行成功、静的199件収集/571件後処理、Daphne起動に成功。pip check/check --deploy指摘なし。
+- コンテナ内からHost=tableno.jpとX-Forwarded-Proto=httpsを付けてHTTP検証。readiness/登録画面200、登録画面static5件が200/gzip、vendor8件のハッシュ付きURLが200・ファイル内容一致、CSS/JSはgzip展開後の内容一致。tmp/static-runtime-704c6f06-http.log、同-server.log、同-deploy-check.logに記録した。
+- 検証後に専用app/PG/Redisコンテナとネットワークを破棄。ECRへの送信や配備は行っていない。実TLS、S3/CDN、既存実データの移行/復元、実連携を確認した結果ではない。同候補の両DB全体テストは別の専用環境で継続中。正式公開No-Goを維持する。
