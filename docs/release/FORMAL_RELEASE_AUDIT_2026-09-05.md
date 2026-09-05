@@ -737,3 +737,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - ALB 5xxは300秒Sum・閾値5・評価2回、CPU/memoryは300秒Average・閾値80・評価3回。欠測時は3件ともnotBreaching。リージョン内の取得結果にRDS専用メトリクスアラームはなく、対象prefixのCompositeAlarmもない。DB障害・無応答・ジョブ停止を網羅するとは判断しない。
 - /ecs/tableno-aws-preのログ保持は3日。Terraformではaws-prod向けRDS保持14日・ログ保持90日・アラーム欠測missingを定義しているが、本番への適用を確認したものではない。
 - 公開前には環境別の監視対象と通知担当、保存期間、復元目標を確定し、専用宛先への通知と実RDS/S3復元を承認済み範囲で検証する。O01/O02は未完了、正式公開No-Goを維持する。
+
+## コメント順序テスト修正後のPostgreSQL全体検証
+
+- ソース919dc0de6c3424b4d8aa4862c814aa4bcb46dcbcの隔離PostgreSQL16全体テストが終了コード0。1646 passed、440 subtests passed、159 warnings、1181.75秒、カバレッジ87.42%。JUnitは2086件・failure/error/skipped各0。
+- コメント順序テスト、既存キャラクターデータの移行テスト、f692b994 SQLite全体でskipされた行ロック関連7件の成功をJUnitで照合。ログ・JUnit・coverageはtmp/formal-release-919dc0de-full-output。
+- SQLite全体はf692b994の1639成功/7skipを維持し、919dc0deのテスト変更は両DBで関連20件成功。SQLite全体を919dc0deで実行したとは扱わない。アプリコードはf692b994と同一で、以降はテスト・文書変更。以前のPostgreSQL失敗記録は保持する。
+- 全体テスト終了後に専用DBコンテナとinternalネットワークを削除。リモートCI・実環境・課金と外部連携の実証は未完了で正式公開No-Goを維持。
