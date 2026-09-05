@@ -828,3 +828,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 6アプリのBanditは解析エラー0、HIGH/MEDIUM 0、LOW556、終了コード1。f692b994のfilename/ID/本文の多重集合との差分なし。新しい起動/通知/ログ保護を含むが、未知の問題不存在を証明しない。詳細はSECURITY_STATIC_TRIAGE_494ABD0D.md。
 - Stripeの利用可能アカウント取得は再びUNAUTHORIZED/oauth_token_invalid_grant。GitHubの対象head PR検索は0件。最新候補・過去結果・未完了事項を明記したDraft PR作成を試みたが403 Resource not accessible by integration。PR未作成、リモートCI未開始。外部認証・権限は変更していない。
 - ユーザーにStripe再認証とGitHubの対象リポジトリPR作成接続の確認を依頼。返答待ち。FORMAL_RELEASE_DRAFT_PR.mdを最新の起動/ログ修正と596bcd4cの検証状態へ更新。未回答を権限変更の承認と扱わない。正式公開No-Goを維持。
+
+## 596bcd4cのHTTP例外・エラーファイル・メールを組み合わせた検証
+
+- 最新配備用イメージtableno-formal-release:596bcd4cを通常entrypointで起動し、本番設定のDEBUG false、SSL redirect true、ファイルログ有効で検証。network none・公開ポートなし・DB移行/静的更新なし。実DB・SMTPへ接続せず、ADMINSとメールbackendはprobe内で架空宛先/locmemへ上書き。
+- tmp/error_runtime_probe.pyの専用URLconfを読み込み、共有URL形式へ架空のtoken/query/body/Authorization/Cookieを付けてPOST。probeはURLtoken・body・Authorization値を含むValueErrorを発生させる。CSRF免除はこの一時probeだけで、製品のビュー/URLconfは変更していない。
+- 実Djangoの例外処理によるHTTP500、応答本文にfixture値なし、メモリ内メールが1件だけ生成され機密値なし、errors.logに機密値なしを確認。メール/エラーログにはValueError、固定route名、error_runtime_probe.pyの発生位置を保持。実Daphneの標準出力/標準エラーにもfixture値はなく、POST /share/sessions/[redacted]/とステータスは保持。
+- 証跡tmp/error-runtime-596bcd4c.log、tmp/error-runtime-596bcd4c-errors.log、実行したprobe。専用コンテナ削除済み。これは本番設定でのHTTP例外から各出力までの隔離検証であり、実SMTP到達、実ユーザーデータ、外部監視、すべての例外型の網羅ではない。
+- 同時実行中の596bcd4c SQLite/PostgreSQL全体は両方ともログ進行・稼働を確認したが、終了前。コード変更はなく検証記録のみ。公開判断はNo-Goを維持する。
