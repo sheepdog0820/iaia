@@ -7,7 +7,7 @@
 | 項目 | 最新の証拠と限界 |
 | --- | --- |
 | 配備用イメージ | `tableno-formal-release:f692b994`、ローカルID `sha256:1dd64113d7d6cec628aeda3220210e90c95e38c04bb275240012ad05daaada29`。通常Dockerfile/固定依存から作成。ECRへ未送信でmanifest digestは未取得 |
-| 隔離起動 | f692b994の通常イメージでpip check・静的183件収集・Bootstrapハッシュ一致・HTTPS転送有効のcheck --deploy指摘0。DB/HTTP起動の前回結果はb6e58ebd。移行修正は別テストイメージでデータ入りPG16を確認。現イメージでのDB/HTTP起動と実TLS/Stripe/OAuth/S3は未検証 |
+| 隔離起動 | f692b994の通常イメージでpip check・静的183件収集・Bootstrapハッシュ一致・check --deploy指摘0。専用PG16の旧構造に6版/7版計4件を作り、全移行・値/親子関係一致・通常起動・readiness200（DB/cache ok）・認証済み一覧4件を確認。HTTPS転送ヘッダーは内部模擬で、実TLS/Stripe/OAuth/S3や実環境ロールバックは未検証 |
 | 全体検証 | 77b10dedは両DB成功。後続移行修正を含むf692b994の別テスト用イメージでSQLite/PostgreSQL実行中。終了結果とリモートCIは未取得 |
 | 稼働版との比較 | 記録済み稼働ソース `8cf3c7f7` から候補まで188ファイル差分。現在のAWS稼働版は配備直前に再確認する。mainとの比較だけで配備範囲を決めない |
 | DB差分 | 既存 `accounts/0055`・`accounts/0058` の変更、新規 `schedules/0055` の追加。0055修正はデータ移行後のFK検査をDDL前に完了させるもので、適用済み0055を再実行しない。適用済み0058は再実行されないため共有DBの移行履歴と実スキーマ確認が必要。ロール複数化後の旧制約復元はデータ次第で失敗し得る |

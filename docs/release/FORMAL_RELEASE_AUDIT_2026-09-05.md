@@ -677,3 +677,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - network none、既存の架空設定で、USE_S3_STORAGE=false・SECURE_SSL_REDIRECT=trueを明示。settings_production、DEBUG=false、session/CSRF secure cookie有効をassert。pip check成功、collectstatic183件、Bootstrap CSS/JSの収集先とソースのSHA-256一致、check --deploy（fail_level=WARNING）指摘0で完了。
 - 証跡: tmp/formal-release-f692b994-production-build.log、tmp/check-f692b994-production.py、tmp/candidate-f692b994-production-check.log。コンテナは終了時削除。静的設定・ローカル収集を確認したもので、実TLS・S3/CloudFront・外部連携・実データ更新・バックアップ復旧の証明ではない。
 - 全体テストは既存SQLite handle26676、PostgreSQL handle51390の双方が実行中。結果未取得。配備準備資料をf692b994とaccounts0055の追加差分へ更新。共有環境・実データ・権限・費用変更なし。正式公開No-Goを維持する。
+
+## 配備用f692b994でデータ入り移行から通常起動まで確認
+
+- 通常Dockerfileで構築済みのtableno-formal-release:f692b994（sha256:1dd64113d7d6cec628aeda3220210e90c95e38c04bb275240012ad05daaada29）を使用。専用PostgreSQL16/tmpfsとRedis7、internalネットワークを新規作成し、ホストポートを公開せず、既存の架空本番設定とS3無効化で実行。
+- tmp/prove-postgres-registry-upgrade.pyを使用し、空DBガード確認後に旧accounts0054構造と6版/7版の根・子計4件を作成。全leaf migrationsまで成功。日本語メモ・秘匿情報・HP/SAN・版番号・所有者・親子関係一致、旧列不在、未適用移行0を確認。テストイメージへの修正ファイルマウントではなく、配備用イメージ内のソースで実行した。
+- 同じデータ入りDBに通常entrypointで起動。RUN_MIGRATIONS=true、RUN_COLLECTSTATIC=true、COLLECTSTATIC_ALLOW_FAILURE=false。静的183件収集・Daphne起動成功。readiness HTTP200、database/cache ok。使い捨てユーザーのTokenを隔離DB内で生成して一覧APIを実HTTPで取得し、200・4件・両版・最新版2・メモ/秘匿HO非表示・未適用移行0を確認。
+- SECURE_SSL_REDIRECT=trueを維持し、内部HTTPにX-Forwarded-Proto:httpsを付けたプロキシ模擬の確認。実TLS、信頼できるプロキシ設定、S3/CloudFront、実ユーザー/OAuth、外部配送、実環境ロールバックは未検証で、これらの合格とは扱わない。
+- 証跡tmp/production-registry-upgrade-f692b994.log、tmp/production-upgrade-runtime-f692b994.log、tmp/production-upgrade-startup-f692b994.log。検証用アプリ/DB/Redis/internalネットワークを削除済み。トークンは出力しておらず、DB削除で破棄された。共有環境・実データ・権限・費用の変更なし。正式公開No-Goを維持する。
