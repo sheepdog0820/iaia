@@ -478,6 +478,17 @@ document.addEventListener('DOMContentLoaded', function() {
         return window.TablenoSessionCards.escapeHtml(str);
     }
 
+    function renderCharacterSheetLink(value) {
+        if (!value) return '';
+        try {
+            const url = new URL(value, window.location.origin);
+            if (!['http:', 'https:'].includes(url.protocol)) return '';
+            return `<br><a href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer" class="character-sheet-link"><i class="fas fa-file-alt"></i> キャラクターシート</a>`;
+        } catch {
+            return '';
+        }
+    }
+
     // セッション編集
     window.editSession = async function(sessionId) {
         currentSessionId = sessionId;
@@ -551,10 +562,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="participant-item">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <strong>${p.user_detail.nickname}</strong>
+                                <strong>${escapeHtml(p.display_name || p.user_detail?.nickname || p.user_detail?.username || 'ゲスト')}</strong>
                                 ${(p.roles || []).includes('gm') ? '<span class="badge bg-primary ms-2">GM</span>' : ''}
-                                ${p.character_name ? `<br><small class="text-muted">キャラクター: ${p.character_name}</small>` : ''}
-                                ${p.character_sheet_url ? `<br><a href="${p.character_sheet_url}" target="_blank" class="character-sheet-link"><i class="fas fa-file-alt"></i> キャラクターシート</a>` : ''}
+                                ${p.character_name ? `<br><small class="text-muted">キャラクター: ${escapeHtml(p.character_name)}</small>` : ''}
+                                ${renderCharacterSheetLink(p.character_sheet_url)}
                             </div>
                             <div>
                                 ${!(p.roles || []).includes('gm') ? `
