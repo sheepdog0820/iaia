@@ -219,7 +219,8 @@ class DockerEntrypointTests(SimpleTestCase):
         workflow = self.load_ci_workflow()
 
         self.assertNotIn("ENV_FILE", workflow["jobs"]["test"].get("env", {}))
-        self.assertNotIn("ENV_FILE", workflow["jobs"]["playwright"].get("env", {}))
+        self.assertEqual(workflow["jobs"]["playwright"]["env"]["ENV_FILE"], "")
+        self.assertEqual(workflow["jobs"]["playwright"]["env"]["DB_ENGINE"], "sqlite")
         compose_step = next(
             step for step in workflow["jobs"]["test"]["steps"] if step.get("name") == "Docker Compose config check"
         )
