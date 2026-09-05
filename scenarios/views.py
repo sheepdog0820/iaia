@@ -2,7 +2,8 @@ from datetime import datetime
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, IntegerField, OuterRef, Q, Subquery, Sum
+from django.db.models.functions import Coalesce
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.views.generic import TemplateView
@@ -37,6 +38,22 @@ class ScenarioViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = visible_scenarios(Scenario.objects.all(), self.request.user)
+        if self.action == "list":
+            histories = PlayHistory.objects.filter(scenario_id=OuterRef("pk")).order_by().values("scenario_id")
+            totals = histories.annotate(
+                count=Count("pk"),
+                minutes=Sum(
+                    effective_duration_expression("session__"), filter=Q(session__duration_minutes__isnull=False)
+                ),
+            )
+            queryset = (
+                queryset.select_related("created_by")
+                .prefetch_related("recommended_skill_items", "handout_templates__recommended_skill_items")
+                .annotate(
+                    list_play_count=Coalesce(Subquery(totals.values("count")), 0, output_field=IntegerField()),
+                    list_play_minutes=Coalesce(Subquery(totals.values("minutes")), 0, output_field=IntegerField()),
+                )
+            )
 
         # 検索フィルター
         search = self.request.query_params.get("search")

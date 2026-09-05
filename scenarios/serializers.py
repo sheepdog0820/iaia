@@ -200,10 +200,14 @@ class ScenarioSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_play_count(self, obj):
+        if hasattr(obj, "list_play_count"):
+            return obj.list_play_count
         return obj.play_histories.count()
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_total_play_time(self, obj):
+        if hasattr(obj, "list_play_minutes"):
+            return obj.list_play_minutes
         from django.db.models import Sum
 
         total_minutes = (
