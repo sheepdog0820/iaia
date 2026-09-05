@@ -1,9 +1,9 @@
 from io import StringIO
-from unittest import TestCase
 from unittest.mock import patch
 
 from django.core.management import CommandError
 from django.db.utils import ConnectionHandler
+from django.test import TestCase
 
 from schedules.management.commands import reset_dev_session_data
 

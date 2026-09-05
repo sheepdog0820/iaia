@@ -306,3 +306,13 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - カバレッジ取得用の固定依存イメージで新規画像3件と秘匿添付3件も成功（0.701秒）。共通処理は14/14実行対象行。モデル全体や全分岐100%ではない。`tmp/image-deletion-coverage.json` / `.log`。変更PythonのBlack/isort/flake8と差分レビューを確認した。
 - シナリオ/セッション画面はaxios.delete成功後だけ削除成功表示・再読み込みへ進み、catch側はAPIのdetailを表示することをソースで確認した。新しい日本語503メッセージを既存画面へ渡せる構造であり、今回はブラウザ描画による検証や画面変更は行っていない。
 - 親削除時のカスケード、QuerySet一括削除、過去migrationのメディア削除、storageとDBをまたぐ原子性、S3旧バージョンの保持方針は引き続き別の確認事項。実環境への配備・データ変更は行っていない。
+
+## 継続監査: de049c7bの全体検証環境と静的検査（2026-09-05）
+
+- `de049c7bfe58155869d2ad527269998c219604f9` のgit archiveからテスト用ソースを展開し、固定依存とNode/Chromium/ChromeDriverを備えた隔離イメージを作成した。タグは `tableno-formal-release-test:de049c7b-browser`、ローカルイメージIDは `sha256:dacc4de696bab40796db34c98fc1ce9aa57023fe9b832791298feaba108873e4`。本番配備用イメージやECRのmanifest digestとは別である。
+- 同イメージの `accounts api scenarios schedules support tableno tests` に対するflake8、Black --check、isort --check-onlyはすべて終了コード0。自動整形は行っていない。証跡は `tmp/formal-release-de049-full-output/quality.json` と各検査ログ。
+- 同イメージで `python -m bandit -r accounts schedules scenarios support tableno api -f json` をネットワークなしで実行し、HIGH 0・MEDIUM 0・LOW 532、解析エラー0。LOWが残るため終了コードは1。抑制を追加せず、セキュリティ検査全体の合格とは扱わない。証跡は `tmp/formal-release-de049-full-output/bandit.json`。
+- SQLite全体テストはCIのUnit / Integrationと同じ対象（`accounts api scenarios schedules support tableno tests/unit tests/integration`）で、1,532件成功・3件失敗・341 subtests成功、1,101.26秒、終了コード1。カバレッジは86.37%で70%閾値を超えたが、全体テスト成功ではない。証跡は同ディレクトリの `run.log`、`junit.xml`、`coverage.xml`、`coverage.json`。ブラウザ資材のCDN取得を許す隔離コンテナで実行し、実サービスの資格情報や共有DBは使用していない。
+- 失敗3件は `DevelopmentForeignKeyDiagnosticsTest` がunittest.TestCaseを継承し、pytest-djangoが独立SQLite接続も拒否するため、診断処理に到達する前にRuntimeErrorとなったもの。テストをDjango TestCaseへ変更し、専用のインメモリSQLiteで実際の制約違反を再現する内容と判定は維持した。同イメージへこのテストファイルだけを読み取り専用で適用したpytest再検証は、環境制限を含む6件・69 subtests成功（16.36秒）。`fk-runner-pytest.log`。この部分再実行を元の全体実行成功に読み替えない。
+- 同じde049c7bイメージでCIの別枠 `pytest tests/system -q -rs` もネットワークなしで実行し、12件成功（24.16秒、警告11件、終了コード0）。`system.log` / `system-junit.xml`。コマンド名がsystemでも実Stripe/OAuth/外部配送・ブラウザでの利用者操作を実証するものではない。
+- 修正後のDjango標準ランナーも同じ隔離イメージとテストファイル適用で関連6件成功（0.046秒）。`fk-runner-django.log`。変更PythonのBlack/isort/flake8は成功し、ユーザー向け文言の変更はない。修正を含む単一全体実行・リモートCI・PostgreSQL全体検証はまだ未取得。
