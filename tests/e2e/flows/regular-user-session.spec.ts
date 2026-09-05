@@ -160,6 +160,7 @@ test('group invitation displays stored markup safely and can be accepted', async
     ]);
     expect(accepted.status()).toBe(200);
     await expect(item).toContainText('承認済み');
+    await recipient.fill('#groupSearchInput', markup);
     await expect(recipient.locator('.group-card', { hasText: markup })).toBeVisible();
     const saved = await (await recipient.request.get(`/api/accounts/groups/${group.id}/`)).json();
     expect(saved.is_member).toBe(true);
@@ -227,6 +228,7 @@ test('owner grants and revokes group administration for a registered member', as
     await expect(memberModal.getByRole('button', { name: 'グループを編集' })).toHaveCount(0);
 
     await page.goto('/accounts/groups/view/?show_test_data=1');
+    await page.fill('#groupSearchInput', groupName);
     await page.locator('.group-card', { hasText: groupName }).click();
     const ownerModal = page.locator('#groupDetailModal');
     const memberRow = ownerModal.locator('.member-item', { hasText: `通常利用者 member_${suffix}` });
@@ -241,6 +243,7 @@ test('owner grants and revokes group administration for a registered member', as
     await changeRole('管理者にする');
     await expect(memberRow.locator('.role-badge')).toHaveText('管理者');
     await member.reload();
+    await member.fill('#groupSearchInput', groupName);
     await member.locator('.group-card', { hasText: groupName }).click();
     await expect(memberModal.getByRole('button', { name: 'グループを編集' })).toBeVisible();
     const protectedActions = await member.evaluate(async ({ id, creator }) => {
@@ -269,6 +272,7 @@ test('owner grants and revokes group administration for a registered member', as
     expect(saved.description).toBe('追加された管理者による更新');
     expect(saved.created_by).toBe(group.created_by);
     await member.reload();
+    await member.fill('#groupSearchInput', groupName);
     await member.locator('.group-card', { hasText: groupName }).click();
     await expect(memberModal).toContainText('追加された管理者による更新');
     await expect(memberModal.getByRole('button', { name: 'グループを編集' })).toHaveCount(0);
@@ -341,6 +345,8 @@ test('registered owner creates a private group and completes a session; outsider
   ]);
   expect(groupResponse.status()).toBe(201);
   const group = await groupResponse.json();
+  await expect(page.locator('#createGroupModal')).toBeHidden();
+  await page.fill('#groupSearchInput', groupName);
   await expect(page.locator('.group-card', { hasText: groupName })).toBeVisible();
 
   await page.goto('/api/schedules/calendar/view/');
