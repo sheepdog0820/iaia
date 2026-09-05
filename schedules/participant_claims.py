@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from accounts.models import GroupMembership
@@ -125,50 +126,38 @@ def can_review_group_claim(user, group) -> bool:
     return GroupMembership.objects.filter(group=group, user=user, role="admin").exists()
 
 
-def _claim_target_participants(claim: ParticipantClaimRequest):
-    participants = []
-    if claim.participant_id:
-        participants.append(claim.participant)
-    identity = claim.participant_identity or (claim.participant.participant_identity if claim.participant_id else None)
+def _lock_claim_targets(claim: ParticipantClaimRequest):
+    identity_id = claim.participant_identity_id
+    if not identity_id and claim.participant_id:
+        identity_id = claim.participant.participant_identity_id
+    identity = ParticipantIdentity.objects.select_for_update().get(pk=identity_id) if identity_id else None
+    targets = Q(pk=claim.participant_id)
     if identity:
-        linked_participants = list(
-            identity.session_participations.select_related("session").select_for_update().filter(user__isnull=True)
-        )
-        by_id = {participant.pk: participant for participant in participants}
-        for participant in linked_participants:
-            by_id.setdefault(participant.pk, participant)
-        participants = list(by_id.values())
-    return participants
+        targets |= Q(participant_identity_id=identity.pk)
+    participants = list(SessionParticipant.objects.select_for_update().filter(targets).order_by("pk"))
+    return identity, participants
 
 
 def approve_claim_request(claim_id: int, *, reviewed_by) -> ParticipantClaimRequest:
     with transaction.atomic():
-        claim = (
-            ParticipantClaimRequest.objects.select_for_update()
-            .select_related(
-                "requested_by",
-                "reviewed_by",
-                "participant",
-                "participant__session",
-                "participant__session__group",
-                "participant__participant_identity",
-                "participant_identity",
-                "participant_identity__group",
-            )
-            .get(pk=claim_id)
-        )
+        claim = ParticipantClaimRequest.objects.select_related("participant").get(pk=claim_id)
+        # Competing claims lock their common target before locking individual requests.
+        # Each lock query selects one table, avoiding nullable outer joins on PostgreSQL.
+        identity, participants = _lock_claim_targets(claim)
+        claim = ParticipantClaimRequest.objects.select_for_update().get(pk=claim_id)
         if claim.status != ParticipantClaimRequest.Status.PENDING:
             raise ClaimRequestError("Claim request is already reviewed.", 409)
         if claim.requested_by_id == reviewed_by.id:
             raise ClaimRequestError("Requester cannot approve their own claim request.", 403)
 
-        identity = claim.participant_identity or (
-            claim.participant.participant_identity if claim.participant_id else None
-        )
         if identity and identity.user_id and identity.user_id != claim.requested_by_id:
             raise ClaimRequestError("Temporary member is already linked to another user.", 409)
 
-        participants = _claim_target_participants(claim)
+        participants = [
+            participant
+            for participant in participants
+            if participant.pk == claim.participant_id or participant.user_id is None
+        ]
         for participant in participants:
             if participant.user_id and participant.user_id != claim.requested_by_id:
                 raise ClaimRequestError("Participant is already linked to another user.", 409)
@@ -231,20 +220,7 @@ def reject_claim_request(
     review_comment: str = "",
 ) -> ParticipantClaimRequest:
     with transaction.atomic():
-        claim = (
-            ParticipantClaimRequest.objects.select_for_update()
-            .select_related(
-                "requested_by",
-                "reviewed_by",
-                "participant",
-                "participant__session",
-                "participant__session__group",
-                "participant__participant_identity",
-                "participant_identity",
-                "participant_identity__group",
-            )
-            .get(pk=claim_id)
-        )
+        claim = ParticipantClaimRequest.objects.select_for_update().get(pk=claim_id)
         if claim.status != ParticipantClaimRequest.Status.PENDING:
             raise ClaimRequestError("Claim request is already reviewed.", 409)
         if claim.requested_by_id == reviewed_by.id:

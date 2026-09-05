@@ -347,3 +347,11 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 0ea0e747の固定依存イメージへ変更view/新規テストを読み取り専用で適用し、専用PostgreSQL 16の既存報酬テストと新規並行テスト4件成功（9.16秒）。証跡保存の実行も4件成功（9.89秒）。2件の同時反映は両方200、成長記録1件、経験点7を確認した。`tmp/reward-concurrency-green.log`、`tmp/reward-fix-postgres-proof.log`、`tmp/formal-release-0ea0e747-full-output/reward-fix-junit.xml`。
 - 同ディレクトリの `reward-fix-coverage.json` で、applyの実行対象行に未実行行なし。reward_views全体は99/112行=88.39%で、全モジュール100%という主張ではない。SQLiteの既存報酬テスト3件も成功（23.57秒）。`tmp/reward-fix-sqlite.log`。Black/isort/flake8、差分と日本語の試験表示を確認し、アプリのユーザー向け文言は変更していない。
 - 専用PostgreSQLコンテナとネットワークを停止・削除した。実RDS、共有DB、外部サービスの変更なし。参加承認/却下のロック、キャラクターID関連、一覧serializer比較の不一致は別の未完了作業であり、PostgreSQL全体成功の証拠はまだない。
+
+## 継続監査: PostgreSQLの参加者紐付け承認・却下（2026-09-05）
+
+- 全体実行で失敗した承認処理に加え、nullableな対象を持つ却下処理、同じ一時参加者情報へのグループ/セッション経由の同時申請、共通情報を持たない単独ゲストへの同時申請をテストした。修正前は新規3件ともFOR UPDATEのnullable外部結合で失敗。`tmp/claim-concurrency-red.log`。
+- 承認では共通のParticipantIdentity（ある場合）、対象SessionParticipant（主キー順）、申請の順で個別に行ロックを取得する。ロック後に申請の最新状態を確認する。競合申請が自分の申請行を先にロックして互いを拒否更新しようとする順序を避け、紐付けと競合申請の却下を同一トランザクションで維持した。却下処理は更新対象の申請行だけをロックし、nullableな関連の結合を外した。
+- 0ea0e747固定依存イメージへ変更serviceと新規テストを読み取り専用で適用し、専用PostgreSQL 16で新規3件・既存のグループ/セッション権限テストを合わせ19件成功（30.49秒）。2接続からの競合承認はそれぞれ成功1件・409が1件、申請はapproved/rejected各1件となり、対象参加者とグループ所属は承認されたユーザー1人へ一致した。自己却下403・再却下409とコメント保存も確認。`tmp/claim-concurrency-green.log`、`tmp/formal-release-0ea0e747-full-output/claim-fix-junit.xml`。
+- 同ディレクトリの `claim-fix-coverage.json` で、新規ロック取得・対象抽出の実行対象行はすべて実行。モジュール全体は97/117行=82.91%で、全分岐100%ではない。SQLiteは同時行ロックの証明に使わず、却下と既存権限の17件を実行して成功（45.76秒）。`tmp/claim-fix-sqlite.log`。
+- Black/isort/flake8、UTF-8/LF、差分と試験用日本語表示を確認。アプリのユーザー向け文言は変更していない。専用DBコンテナとネットワークを削除し、実環境の変更なし。キャラクターID不一致・所持品API404・一覧比較の不一致と、修正後のPostgreSQL全体確認は引き続き未完了。
