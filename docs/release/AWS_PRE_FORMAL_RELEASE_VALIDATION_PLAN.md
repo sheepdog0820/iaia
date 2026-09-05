@@ -128,3 +128,11 @@ Terraformの変更対象は `aws_s3_bucket_policy.assets`。対象CloudFrontサ�
 - 証跡は `tmp/formal-release-6608de6d-build.log`、同接頭辞のimage.json/ready.json/startup.log、`tmp/candidate-6608de6d-deploy-check.log` / migration-diff.log。終了後に専用app/DB/Redisコンテナ・ネットワークを停止・削除した。
 
 この候補には画像配信と権限画面の修正が含まれる。一方、同じSHAの全体CI、S3ストレージの読取/迂回防止、AWS実効設定、復旧手順、実課金・外部連携の検証は未完了。ローカル起動成功をそのまま公開承認に置き換えない。実配備前にはECR送信後のmanifest digestと最終候補を照合する。
+# 候補更新: 58a27172の隔離起動確認
+
+2026-09-05。以下は反映許可ではなく、候補に関する追加証拠。
+
+- アプリ候補: 58a2717282bc9e5a21894097ad883dde89bf1e49。配備用イメージID: sha256:8993fb43f519f89f7d9aad564480eeb6ea3a31d32383cc65e34396d9011861aa（ローカルのみ、ECR digest未取得）。
+- 実Dockerfileと固定依存でビルドし、隔離したPostgreSQL/Redisで通常entrypoint、migrate/collectstatic、非root、DEBUG無効、ready 200を確認。check --deployと移行差分チェックも成功。
+- S3・Stripe・OAuth・TLS/ALB・実データはこの起動試験の対象外。使用した架空の設定は配備に流用しない。全体テストとリモートCIはまだ完了していない。
+- 反映前には全体結果、現在稼働版、対象差分、イメージ識別、ストレージ保護との順序、復旧手順、承認範囲を再確認する。詳細証跡は[監査記録](FORMAL_RELEASE_AUDIT_2026-09-05.md)を参照。

@@ -491,3 +491,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 
 
 全体実行で失敗したGoogle通信耐性テストを更新した。テスト専用クライアントIDを設定し、実際のtokeninfo→userinfoの2段階を模擬して各呼出の10秒timeoutを確認する。両段階それぞれのTimeoutで503と機密情報を含まない日本語応答・ログを検証する。YouTube既存2件も含む4件・2 subtests成功、0.70秒（tmp/google-http-resilience-final.log）。認証の設定チェックを緩めてテストを通したものではなく、設定済み環境の通信障害を検証する前提と範囲を修正した。修正後の候補全体テストは未実施であり、b56a3198の2失敗を後から全体成功に書き換えない。
+
+## 継続検証: 58a27172の配備用イメージと通常起動
+
+- 58a2717282bc9e5a21894097ad883dde89bf1e49のgit archiveを使用し、リポジトリのDockerfile/requirements.lock.txtでビルド成功。イメージtableno-formal-release:58a27172、ID sha256:8993fb43f519f89f7d9aad564480eeb6ea3a31d32383cc65e34396d9011861aa。revisionラベルは上記SHA。テスト依存を追加した全体テスト用イメージとは別物であり、ECRへpushしていない。
+- 実データ・外部通信から隔離したinternal Dockerネットワーク、専用PostgreSQL 16/Redis 7、ホスト公開ポートなしで実行した。通常entrypointのRUN_MIGRATIONS/RUN_COLLECTSTATICを有効にし、migrate完了、179 static files収集、Daphne起動を確認。非root UID 10001、DEBUG=False、django.db.backends.postgresql。作成したアプリ/DB/Redisコンテナとネットワークは検証終了後に削除した。全体テストの別コンテナは稼働継続。
+- pip check成功、check --deployは指摘0、makemigrations --check --dry-runは変更なし、migrate --check成功。コンテナ内curlで/health/ready/が200、database/cacheともok。X-Frame-Options DENY、nosniff、HSTSも確認。リバースプロキシのHTTPSヘッダーを模擬したHTTP通信であり、実TLS/ALBの実証ではない。
+- 設定はテストコード内の架空の事業者表示等を元に新規生成した。APP_ENV=aws-pre/ENVIRONMENT=staging、S3無効、決済無効、実OAuth/実Stripe鍵なし。実利用者向け料金・規約の承認や、実サービスの稼働を示さない。tmp/candidate-58a27172.envはこの隔離実行専用で、配備へ流用しない。
+- 証跡: tmp/formal-release-58a27172-production-build.log、tmp/candidate-58a27172-startup.log、tmp/candidate-58a27172-deploy-check.log、tmp/candidate-58a27172-migration-diff.log、tmp/candidate-58a27172-ready.log。候補全体のBlack/isort/flake8は別途成功。SQLite/PostgreSQL全体実行handle 4850/92058は稼働中で、完了結果は未取得。正式公開判定は未達を維持する。
