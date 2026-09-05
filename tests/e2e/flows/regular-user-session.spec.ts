@@ -15,6 +15,21 @@ async function signUp(page: Page, suffix: string): Promise<void> {
   ]);
 }
 
+test('icons load when the icon CDN is unavailable', async ({ page }) => {
+  await page.route('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/**', route => route.abort());
+  await page.goto('/signup/');
+  const fonts = await page.evaluate(async () => {
+    const loaded = await Promise.all([
+      document.fonts.load('900 16px "Font Awesome 6 Free"'),
+      document.fonts.load('400 16px "Font Awesome 6 Free"'),
+      document.fonts.load('400 16px "Font Awesome 6 Brands"'),
+    ]);
+    return loaded.map(faces => faces.length);
+  });
+  expect(fonts).toEqual([1, 1, 1]);
+  await expect(page.locator('.fas').first()).toHaveCSS('font-family', '"Font Awesome 6 Free"');
+});
+
 test('calendar and session form initialize when the calendar CDN is unavailable', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));

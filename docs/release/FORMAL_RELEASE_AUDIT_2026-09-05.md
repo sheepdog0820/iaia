@@ -854,3 +854,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - node --check、git diff --check、collectstatic（186ファイル）成功。Chromiumの完了画面画像で完了・グループ内・2時間を確認。外部Font Awesome遮断時にアイコン専用ボタンが空白になる既存の問題も目視で検出し、別修正の対象として残す。
 - カレンダー画面のスクリーンショット記録を追加後、該当3ブラウザケースを再実行して3件成功（38.8秒）。tmp/browser-fullcalendar-visual-outputに記録し、Chromium画像で月表示と作成導線を目視確認した。
 - 証跡: tmp/browser-596bcd4c-bookworm-red.logと同名-output配下のtrace（6失敗）、tmp/browser-fullcalendar-green.logと同名-output配下のJSON/画面（6成功）、tmp/fullcalendar-collectstatic.log。修正後全体テスト・本番イメージ再構築・実環境/CDN配信は未実施。直前596bcd4cの両DB全体成功を、この修正を含む全体成功とは扱わない。
+
+## アイコン用CDN停止時の空白ボタンを修正
+
+- cebfe9f3後の修正。CDNを遮断してFont Awesomeのsolid/regular/brandsフォントがロードされる回帰テストを追加。修正前は3ブラウザともロード件数が[0,0,0]で失敗し、先の空白ボタンの原因を確認した。
+- 現行6.0.0のnpm配布CSSと参照する8フォント（WOFF2/TTF）、LICENSE.txtを未改変で同梱。配布アーカイブをnpmメタデータのSHA-512/SHA-1と照合し、各ファイルのSHA-256と取得元をstatic/vendor/fontawesome/6.0.0/README.mdに記録。base.htmlの参照をDjango staticへ変更。利用者向け文言、バージョン、DB、権限、課金の変更はない。
+- tableno-e2e:596bcd4c-bookwormに最新のbase/calendarテンプレート・vendor・テストを読み取り専用マウントし、network none/使い捨てSQLiteで実行。Chromium/Firefox/WebKitの計9件成功（1.4分、retryなし）。フォント3種の実ロード、CDN遮断下のカレンダー、通常登録から非公開セッション作成・完了保存・非参加者拒否まで確認。Chromium完了画面で戻る/その他/日程編集のアイコンと本文表示を目視確認した。コンテナは終了後に破棄。
+- Font Awesomeだけを対象にManifestStaticFilesStorageでcollectstaticし、CSSの参照先8件がハッシュ付きファイルへ解決されることを確認。全staticを同方式で処理する試験は、既存Bootstrapのbootstrap.bundle.min.js.map欠落で失敗した。S3ManifestStaticStorageを使う本番構成に関係するため、別修正が必要。今回のフォント限定成功を全体の配信準備完了とは扱わない。
+- 証跡: tmp/browser-icons-red.log（3失敗）、tmp/browser-icons-green.logと同名-output（9成功・画面）、tmp/icons-manifest-static.log（全static失敗）、tmp/icons-manifest-isolated.log（フォント限定成功）。本番イメージ再構築・実S3/CDN・リモートCI・有料プラン/外部連携実証は未完了で、正式公開No-Goを維持する。
