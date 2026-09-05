@@ -809,6 +809,8 @@ class GroupInviteLinkJoinView(APIView):
 
         with transaction.atomic():
             locked = GroupInviteLink.objects.select_for_update().select_related("group").get(pk=invite_link.pk)
+            if GroupMembership.objects.filter(group=locked.group, user=request.user).exists():
+                return Response(_serialize_group_invite_link(request, locked), status=status.HTTP_200_OK)
             if not locked.is_active:
                 return Response(
                     {"detail": "招待URLは期限切れ、失効済み、または使用上限に達しています"}, status=status.HTTP_410_GONE

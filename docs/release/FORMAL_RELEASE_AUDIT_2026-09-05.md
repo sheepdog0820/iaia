@@ -758,3 +758,14 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - GetBucketReplicationはReplicationConfigurationNotFoundError。同リージョンのAWS Backup ListProtectedResourcesで当該バケットARNに一致する結果は0件。別リージョン・別アカウント・手動コピー・外部方式のバックアップ不存在を証明するものではない。現時点で独立した画像バックアップとその復元実績は確認できていない。
 - 現ライフサイクルの旧版削除は非現行日数と新しい非現行版数の両条件を超えたときの対象であり、30日後に必ず全旧版が消える設定ではない。永久削除された旧版はバージョニングだけでは戻せない。[AWS Lifecycle公式資料](https://docs.aws.amazon.com/AmazonS3/latest/userguide/intro-lifecycle-rules.html)
 - backup.mdに、書き込み停止とDB参照の完全キー、VersionId固定取得、manifestとSHA-256照合、専用復元先への配置、削除済み版での停止、元オブジェクト非破壊の手順を追加。一括取得の実装や実S3復元の成功とは扱わない。実データ取得・復元先作成・ポリシー/保持期間変更・費用増加は未実施。O02と正式公開No-Goを維持。
+
+## グループ招待URLの同時参加を冪等にする修正
+
+- 77c50e50を起点に、同一利用者の同時POSTが両方ともロック前に未参加を観測するケースを専用PostgreSQL16で再現。使用上限1では201/410、上限2では201/500（重複会員制約）となる。既存の順次参加テストでは検出できなかった。
+- GroupInviteLinkJoinViewで既存の招待行ロック取得後に参加済み状態を再確認。先行要求が登録済みなら200を返し、招待の使用回数を追加消費しない。未参加者の有効期限・失効・使用上限検査と通常登録は維持する。招待の所持だけで新たな管理者権限を与える変更ではない。
+- 新しいTransactionTestCaseは実DB接続2本のAPIClientを使い、事前の会員exists結果をBarrierで揃える。ロックそのものは模擬しない。同一利用者/残り1回、同一利用者/余裕あり、別利用者/残り1回の3ケース。修正前2失敗/1成功、修正後は同一利用者が200/201・会員1件・use_count=1、別利用者が201/410・会員1件・use_count=1。
+- PostgreSQLで招待リンク・グループ機能・競合の計54件成功（60.53秒、9 warnings）。最終整形後の競合3件も成功（3.00秒）。coverage JSONで追加実行行812/813の両方を通過。ファイル全体100%や全体テスト成功の主張ではない。
+- 証跡はtmp/invite-concurrency-red-valid.log、tmp/invite-concurrency-green.log、tmp/invite-concurrency-coverage.log/json。初回のテスト起動パス誤りと期限未指定のfixture失敗は有効なRED証拠に含めず、修正したfixtureで再現したログを採用する。
+- アプリイメージ919dc0deのコードに対象viewと新テストだけを読取マウントして検証。共有DB・実招待・通知・AWS権限は変更していない。招待失効と参加の同時操作、他の参加経路との競合、ブラウザ上の再送、所有権引継ぎの公開要件は別途未完了。正式公開No-Goを維持。
+
+- SQLiteの関連51件成功・行ロックを必要とする新規3件skip（75.49秒、9 warnings）。tmp/invite-concurrency-sqlite.log。Black/isort/flake8、UTF-8/LFと差分を確認。新たなUI文言はなく、DBスキーマ・課金・費用への変更なし。検証終了後、専用DBとinternalネットワークを削除。
