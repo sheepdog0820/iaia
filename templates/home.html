@@ -207,6 +207,12 @@ function isDevelopmentRecordName(value) {
     return /^(E2E|Guest E2E)\b/i.test(value || '');
 }
 
+function escapeHomeText(value) {
+    const element = document.createElement('span');
+    element.textContent = String(value ?? '');
+    return element.innerHTML;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     loadUpcomingSessions();
     loadPlayStatistics();
@@ -300,8 +306,8 @@ function loadUserGroups() {
                     <div class="col-md-6 col-lg-4 mb-3">
                         <div class="card">
                             <div class="card-body">
-                                <h6 class="card-title">${group.name}</h6>
-                                <p class="card-text text-muted small">${group.description || 'グループの説明なし'}</p>
+                                <h6 class="card-title">${escapeHomeText(group.name)}</h6>
+                                <p class="card-text text-muted small">${escapeHomeText(group.description || 'グループの説明なし')}</p>
                                 <small class="text-muted">メンバー: ${memberCount}人</small>
                             </div>
                         </div>
@@ -355,7 +361,7 @@ function loadRecentActivity() {
                     <div class="mb-2 p-2 border-bottom border-secondary">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <strong class="text-info">${title}</strong>
+                                <strong class="text-info">${escapeHomeText(title)}</strong>
                                 <span class="badge bg-${role === 'gm' ? 'warning' : 'primary'} ms-2">${role === 'gm' ? 'GM' : 'PL'}</span>
                             </div>
                             <small class="text-muted">${date}</small>
