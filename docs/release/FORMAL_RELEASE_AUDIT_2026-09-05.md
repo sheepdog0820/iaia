@@ -468,3 +468,12 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - X/Discord APIも外部エラー応答の本文と内部例外本文をログに出し、500応答のdetailに例外本文を含めていた。両providerのトークン交換・利用者取得・内部例外の6 subtestsで再現（tmp/provider-error-logging-red.log）。HTTPステータス/例外型に記録を限定し、利用者には既存の日本語errorのみを返すよう修正した。
 - b56a3198の固定テストイメージへ変更ファイルを読み取り専用で載せた隔離SQLiteで、認証ログ・ブラウザGoogle・Google/X/Discord API・連携判定の46件、24 subtests成功、9件の既存警告。tmp/provider-error-logging-green.log / tmp/auth-error-logging-coverage.json。新しいon_authentication_errorの実行行はすべてカバーした。DB変更を含まないためこの変更のPostgreSQL再実行は行っていない。
 - 実OAuth、実ログの内容調査、過去ログの削除、実ユーザー/共有環境への変更は行っていない。過去の実ログに認証情報が記録されていたかは未確認。今回の対象はアプリの認証エラー処理であり、基盤のアクセスログやサービス全体の秘匿情報監査の完了を示すものではない。Q04は引き続き未達。
+
+## 継続監査: X・Discord APIの停止済み利用者の拒否
+
+- 2fca981dと差分なしを確認して開始。全体テストの既存handle 46678/10387を再確認し、稼働継続を確認した。今回の修正はb56a3198の全体実行には含まれない。
+- X/Discord APIは既存SocialAccountの利用者がis_active=Falseでもトークンを発行/返却していた。Discordは確認済みメール照合で見つかった停止済み利用者へも新規連携を作成した。認証済み利用者の連携経路にも同じチェックがなかった。
+- 隔離fixtureの初回実行ではXのredirect_uri指定不足で400となったため、設定を補ったうえで旧版イメージへ再実行した。最終の再現では、両providerの既存ID・認証済み連携・既存トークンとDiscordメール照合の7ケースがすべて期待403に対して200となった（tmp/oauth-inactive-confirmed-red.log）。実OAuth・実利用者への試験ではない。
+- 各経路で既存利用者を選択した直後、連携情報更新・メール確認・トークン発行より前にis_activeを確認する共通処理を追加。停止済みなら日本語のPermissionDeniedをDRFへ渡して403にする。一般エラーとして500に変換しない。
+- 新規トークンなし、既存トークンを応答に含めない、既存連携のextra_dataを変更しない、メール確認/新規連携を作成しないことを検証。Google/X/Discordの既存APIテストを含むSQLite30件と12 subtests成功（38.98秒、既存警告9件）。新規拒否処理の実行行に未カバーなし。tmp/oauth-inactive-final.log / tmp/oauth-inactive-coverage.json。
+- Black/isort/flake8、差分、UTF-8/LF、日本語エラーを確認。DBスキーマ、共有/本番データ、外部設定・権限・費用に変更なし。既存トークンの削除は行わず、停止状態では取得を拒否する。復旧はこのコード変更のrevertが可能だが、旧版の拒否漏れを再導入する。I02/I03と正式公開判定は実サービス検証が未完了のため未達を維持する。

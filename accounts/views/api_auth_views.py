@@ -16,6 +16,7 @@ from google_auth_oauthlib.flow import Flow
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
@@ -24,6 +25,11 @@ from ..serializers import UserSerializer
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
+
+
+def _require_active_oauth_user(user):
+    if not user.is_active:
+        raise PermissionDenied("このアカウントではログインできません。")
 
 
 @api_view(["POST"])
@@ -332,6 +338,7 @@ def twitter_auth(request):
                 )
 
             user = request.user
+            _require_active_oauth_user(user)
             linked = True
 
             if social_account:
@@ -342,6 +349,7 @@ def twitter_auth(request):
         else:
             if social_account:
                 user = social_account.user
+                _require_active_oauth_user(user)
                 social_account.extra_data = user_data
                 social_account.save(update_fields=["extra_data"])
             else:
@@ -365,6 +373,8 @@ def twitter_auth(request):
             {"token": token.key, "user": UserSerializer(user).data, "created": created, "linked": linked},
             status=status.HTTP_200_OK,
         )
+    except PermissionDenied:
+        raise
     except Exception as e:
         logger.error("X OAuth認証エラー (%s)", type(e).__name__)
         return Response(
@@ -469,6 +479,7 @@ def discord_auth(request):
                 )
 
             user = request.user
+            _require_active_oauth_user(user)
             linked = True
 
             if social_account:
@@ -479,6 +490,7 @@ def discord_auth(request):
         else:
             if social_account:
                 user = social_account.user
+                _require_active_oauth_user(user)
                 social_account.extra_data = user_data
                 social_account.save(update_fields=["extra_data"])
             else:
@@ -487,6 +499,7 @@ def discord_auth(request):
                     user = User.objects.filter(email=email).first()
 
                 if user:
+                    _require_active_oauth_user(user)
                     SocialAccount.objects.create(user=user, provider="discord", uid=discord_id, extra_data=user_data)
                 else:
                     base_username = username
@@ -523,6 +536,8 @@ def discord_auth(request):
             status=status.HTTP_200_OK,
         )
 
+    except PermissionDenied:
+        raise
     except Exception as e:
         logger.error("Discord OAuth認証エラー (%s)", type(e).__name__)
         return Response(
