@@ -893,3 +893,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 代替処理でURL/URLSearchParamsを使い、既存クエリを保ったままparamsを追加するよう修正。null/undefinedは省略、数値/真偽値・配列・Date・URLSearchParamsの複数値を扱う。Axiosの全API互換を新たに保証するものではなく、ネストしたオブジェクトや独自paramsSerializer等は対象外。
 - 外部ネットワークなし・固定bookworm検証イメージへ最新base/calendar/vendor/テストをマウント。Chromium/Firefox/WebKitで検索の実送信・登録・カレンダー・セッション作成/完了/非参加者拒否など12件成功（1.7分）。さらにブラウザで送信したURLを試験専用routeから返す検証で、既存クエリ、日本語/記号、0/false、省略値、配列/Date、URLSearchParams複数値の6件成功（45.9秒）。試験専用routeはアプリへ追加していない。
 - node --checkでbase.htmlの実インラインスクリプト構文を確認。証跡: tmp/browser-query-red.log（3失敗、q欠落）、tmp/browser-query-green.logと同名-output（12成功）、tmp/browser-query-values.logと同名-output（6成功）。この修正のDB/権限/費用への変更はない。修正後本番イメージ・実CDN/外部連携・最新全体/CIは未完了。正式公開No-Goを維持する。
+
+## 通常登録したGM/PLによる日程候補・回答・確定
+
+- c0694eee後、date-poll-flow.spec.tsのadmin/開発ログインを通常の新規登録へ置き換えた。別ブラウザコンテキストで通常PLを登録し、公開グループへの参加、GMの候補作成、PLの「参加可能」回答、GMの確定操作、API上のセッション日時と確定日時の一致を確認する。グループ/セッションの事前作成は通常GMの認証でAPIを使用する。
+- 外部ネットワークなしのtableno-e2e:596bcd4c-bookwormに、c0694eeeのbase/calendar/vendorと変更したテストを読み取り専用マウント。専用SQLiteでChromium/Firefox/WebKitの3件成功（1.1分、retryなし）。実メールや本番の登録/OAuthを検証したものではない。終了後コンテナは破棄。
+- tmp/browser-date-poll-regular.log、同名-outputのJSON/スクリーンショットに記録。Chromiumの確定画面を目視すると、候補/確定日時が2030/1/1 10:00、右側のセッション概要が2030/1/1 19:00で表示されていた。formatPollDateTimeがブラウザの時間帯を使う一方、概要はサーバー側の表示である。統一または明示が必要で、この画面の受け入れ完了とはしない。暗い投票行の未投票/詳細テキストも低コントラストで、別修正対象とする。
+- このコミットはテスト・文書のみ。DB/実データ/権限/費用に変更なし。14aea099の両DB全体テストは引き続き実行中で、今回のE2E検証とは分けて扱う。

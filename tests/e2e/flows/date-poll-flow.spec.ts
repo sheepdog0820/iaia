@@ -1,9 +1,24 @@
 import { test, expect } from '@playwright/test';
-import { devLogin } from './helpers';
+import { randomUUID } from 'node:crypto';
+
+async function signUp(page: import('@playwright/test').Page, suffix: string) {
+  await page.goto('/signup/');
+  await page.fill('#id_username', `poll_${suffix}`);
+  await page.fill('#id_email', `poll_${suffix}@example.com`);
+  const password = `Vault-${randomUUID()}!`;
+  await page.fill('#id_password1', password);
+  await page.fill('#id_password2', password);
+  await page.fill('#id_nickname', `日程調整 ${suffix}`);
+  await Promise.all([
+    page.waitForURL(/\/accounts\/dashboard\//),
+    page.click('#signup-btn'),
+  ]);
+}
 
 test.describe('date poll flow', () => {
   test('GM creates poll, player votes, GM confirms', async ({ page, browser }) => {
-    await devLogin(page, 'admin');
+    const suffix = `${Date.now()}_${test.info().project.name}`;
+    await signUp(page, suffix);
     await page.waitForFunction(() => (window as any).axios?.post);
 
     const timestamp = Date.now();
@@ -27,11 +42,12 @@ test.describe('date poll flow', () => {
       return { group, session: sessionResp.data };
     }, { groupName, sessionTitle });
 
-    const playerContext = await browser.newContext();
+    const playerContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
     const playerPage = await playerContext.newPage();
 
     try {
-      await devLogin(playerPage, 'investigator1', '/accounts/groups/view/?show_test_data=1');
+      await signUp(playerPage, `${suffix}_pl`);
+      await playerPage.goto('/accounts/groups/view/?show_test_data=1');
 
       await playerPage.click('label[for="publicGroupsView"]');
       await playerPage.fill('#groupSearchInput', groupName);
@@ -128,6 +144,8 @@ test.describe('date poll flow', () => {
       expect(Array.isArray(polls)).toBeTruthy();
       expect(polls[0]?.is_closed).toBe(true);
       expect(polls[0]?.selected_date).toBeTruthy();
+      expect(new Date(updatedSession.date).getTime()).toBe(new Date(polls[0].selected_date).getTime());
+      await page.screenshot({ path: test.info().outputPath('gm-confirmed-date.png'), fullPage: true });
     } finally {
       await playerContext.close();
     }
