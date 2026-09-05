@@ -488,3 +488,6 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 追加で専用PostgreSQL 16のDiscord API・停止済み利用者14件と11 subtestsも成功（19.93秒、警告9件、tmp/discord-email-safety-postgres.log）。この専用DB/ネットワークは終了・削除した。
 
 b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成功・2失敗、双方384 subtests成功で終了した。両失敗はGoogleUserInfoResilienceTestsで、必須クライアント設定なしのため通信試験に入らず503となる。テスト前提と、新しく追加したtokeninfo→userinfoの両通信を検証するfixtureの更新が必要。全体成功や最終候補合格とは扱わない。
+
+
+全体実行で失敗したGoogle通信耐性テストを更新した。テスト専用クライアントIDを設定し、実際のtokeninfo→userinfoの2段階を模擬して各呼出の10秒timeoutを確認する。両段階それぞれのTimeoutで503と機密情報を含まない日本語応答・ログを検証する。YouTube既存2件も含む4件・2 subtests成功、0.70秒（tmp/google-http-resilience-final.log）。認証の設定チェックを緩めてテストを通したものではなく、設定済み環境の通信障害を検証する前提と範囲を修正した。修正後の候補全体テストは未実施であり、b56a3198の2失敗を後から全体成功に書き換えない。
