@@ -1521,8 +1521,10 @@ class CharacterImageSerializer(serializers.ModelSerializer):
             finally:
                 try:
                     image_file.seek(0)
-                except Exception:
-                    pass
+                except (OSError, ValueError):
+                    raise serializers.ValidationError(
+                        "画像を読み直せませんでした。画像を選び直して再度お試しください。"
+                    ) from None
             return max(size, estimated)
 
         total_size = 0
