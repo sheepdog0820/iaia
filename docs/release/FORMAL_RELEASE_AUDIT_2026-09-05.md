@@ -442,3 +442,9 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 既存socialloginは早期returnとし、新規Googleはemail_verified（なければverified_email）、DiscordはverifiedがbooleanのTrueの場合だけ自動連携するよう変更した。確認済みの正常系、該当利用者なし、未対応providerも確認した。新規5件と既存Google/Discord API・認証テストを合わせ50件・15 subtests成功（39.72秒、警告9件）。`tmp/social-link-green.log`。connectはモックで呼出条件を検証しており、実OAuthの成功や実際のアカウント連携全体を証明するものではない。
 - [allauthの設定説明](https://docs.allauth.org/en/latest/socialaccount/configuration.html)は、信頼するproviderの確認済みメールによる認証/自動連携を扱う。ローカルのGoogle provider実装もemail_verified/verified_emailを抽出している。一方、[Googleの説明](https://developers.google.com/identity/sign-in/android/backend-auth?hl=en)では、Gmail以外かつhdなしの場合はemail_verified=Trueでも現在の第三者メール所有権を保証できないとしている。今回の確認フラグ修正だけではこの条件を解消しない。ブラウザ/API両経路のメール自動連携に追加の所有権確認をどう適用するか、既存provider UIDとの紐付け維持も含めて次の監査・修正対象とする。
 - Black/isort/flake8と差分を確認した。アプリの既存画面文言は変更していない。実認可・外部通知・共有データ変更なし。公開条件I01/I03/Q04は未達として維持する。
+
+## 継続監査: Google APIの固定ID無視とメールによる誤認証（2026-09-05）
+
+- google_authのIDトークン・認証コード・userinfo処理を読んだところ、Googleのsub/idをユーザー選択へ渡さず、email一致だけでローカル利用者とDRFトークンを返していた。既存SocialAccountのGoogle UIDも照合しない。
+- 専用SQLite、外部通信なし、Google検証関数だけを模擬した2試験で再現した。未連携の別Google ID/第三者メールの一致は期待する拒否ではなく200。同じGoogle UIDのメール変更ケースは元利用者ID=1でなく別利用者ID=2を返した。`tmp/test_google_identity_probe.py` / `tmp/google-identity-probe.log`。2件失敗、18.27秒。実トークンや実利用者への試験ではない。
+- [修正条件](GOOGLE_IDENTITY_REMEDIATION.md)に、固定ID優先、第三者メールの追加確認と利用者導線、3 API方式とブラウザの一貫性、競合・無効利用者・機密保護の条件をまとめた。今回のターンではこの問題の実装修正はまだない。確認フラグ修正や全体テストの成功で解消扱いにせず、I01/Q04を公開阻害事項として維持する。
