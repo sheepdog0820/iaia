@@ -433,3 +433,12 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 画像保護・403画面を含む6608de6dのgit archiveから配備用Dockerfileでビルドした。ローカルイメージIDはsha256:6a7ec1bd4450cf9bd736d49a86ef4905aecee2b7a74c4252c344196ad376e77d、revisionラベルは6608de6d6e6d0dd3dbf854bd27a3dc07047a3d02。ECR未送信、RepoDigestsは空。詳細・証跡の場所は配備準備資料の同候補節に記録した。
 - 外部通信・公開ポートなしの専用PostgreSQL/Redisと、aws-pre/stagingの本番系設定で通常entrypointを起動。migrate、179ファイルのcollectstatic、Daphne起動、UID 10001を確認した。pip check、check --deploy、migration差分/未適用確認はすべて成功。HTTPSプロキシヘッダーを模擬したreadyは200、DB/cacheともok。
 - S3は無効、課金は無効、Stripeキー・事業者表示は隔離試験専用の値。実TLS、実AWS Secrets、実S3、販売条件、課金・外部連携の正常性は証明していない。専用コンテナとネットワークは検証後に削除した。同SHAの全体CIや実配備検証等は残るため、正式公開No-Goを維持する。
+
+## 継続監査: 最終候補の全体再検証開始・ソーシャル連携の確認フラグ（2026-09-05）
+
+- 6608de6dのgit archiveで固定依存のブラウザ付きテストイメージを作成し、SQLite/PostgreSQLの全体pytestを開始した。出力は `tmp/formal-release-6608de6d-full-output/`、実行handle・専用コンテナ名はexecution-context.json。実行中のhandleを確認しており、完了結果はまだない。このファイルだけを生存証拠にはしない。今回の後続アダプター修正は6608de6dの全体実行に含まれない。
+- Stripe接続を再確認したが、UNAUTHORIZED / oauth_token_invalid_grantで再認証要求が続いている。アカウント一覧も取得できず、実Stripeイベントや課金操作は行っていない。
+- `CustomSocialAccountAdapter.pre_social_login` はGoogleなら確認フラグに関係なく同じemailの既存利用者へconnectしていた。またDiscordの文字列falseを真扱いし、既存socialloginにも再連携を実行できた。先に新規テストで、Googleの未確認/欠落/非boolean、Discordの非boolean、既存連携のケースが旧実装で失敗することを確認した。`tmp/social-link-red.log`。
+- 既存socialloginは早期returnとし、新規Googleはemail_verified（なければverified_email）、DiscordはverifiedがbooleanのTrueの場合だけ自動連携するよう変更した。確認済みの正常系、該当利用者なし、未対応providerも確認した。新規5件と既存Google/Discord API・認証テストを合わせ50件・15 subtests成功（39.72秒、警告9件）。`tmp/social-link-green.log`。connectはモックで呼出条件を検証しており、実OAuthの成功や実際のアカウント連携全体を証明するものではない。
+- [allauthの設定説明](https://docs.allauth.org/en/latest/socialaccount/configuration.html)は、信頼するproviderの確認済みメールによる認証/自動連携を扱う。ローカルのGoogle provider実装もemail_verified/verified_emailを抽出している。一方、[Googleの説明](https://developers.google.com/identity/sign-in/android/backend-auth?hl=en)では、Gmail以外かつhdなしの場合はemail_verified=Trueでも現在の第三者メール所有権を保証できないとしている。今回の確認フラグ修正だけではこの条件を解消しない。ブラウザ/API両経路のメール自動連携に追加の所有権確認をどう適用するか、既存provider UIDとの紐付け維持も含めて次の監査・修正対象とする。
+- Black/isort/flake8と差分を確認した。アプリの既存画面文言は変更していない。実認可・外部通知・共有データ変更なし。公開条件I01/I03/Q04は未達として維持する。

@@ -103,11 +103,18 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         ソーシャルログイン前の処理
         既存のユーザーとの紐付けなどを行う
         """
-        # メールアドレスが一致する既存ユーザーがいる場合は連携
+        if sociallogin.is_existing:
+            return
+
+        # 確認済みメールが一致する場合だけ既存ユーザーへ連携する。
         if sociallogin.account.provider in ("google", "discord"):
-            email = sociallogin.account.extra_data.get("email")
-            verified = sociallogin.account.extra_data.get("verified", False)
-            if email and (sociallogin.account.provider == "google" or verified):
+            extra_data = sociallogin.account.extra_data
+            email = extra_data.get("email")
+            if sociallogin.account.provider == "google":
+                verified = extra_data.get("email_verified", extra_data.get("verified_email", False))
+            else:
+                verified = extra_data.get("verified", False)
+            if email and verified is True:
                 try:
                     existing_user = User.objects.get(email=email)
                     sociallogin.connect(request, existing_user)
