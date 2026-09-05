@@ -539,7 +539,7 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
             # 作成者が退出するとグループが管理不能になりやすいので禁止
             if request.user == group.created_by:
                 return Response(
-                    {"error": "グループ作成者は退出できません（削除するか、別の管理者へ移譲してください）"},
+                    {"error": "グループ作成者は退出できません。"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
