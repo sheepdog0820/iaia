@@ -179,13 +179,25 @@
                     const method = (config.method || 'get').toUpperCase();
                     const headers = Object.assign({}, this.defaults.headers.common, config.headers || {});
                     const options = { method, headers, credentials: this.defaults.withCredentials ? 'include' : 'same-origin' };
+                    const url = new URL(config.url, config.baseURL || this.defaults.baseURL);
+                    const params = config.params instanceof URLSearchParams
+                        ? config.params.entries() : Object.entries(config.params || {});
+                    for (const [key, value] of params) {
+                        const values = Array.isArray(value) ? value : [value];
+                        for (const item of values) {
+                            if (item !== null && item !== undefined) {
+                                url.searchParams.append(Array.isArray(value) ? `${key}[]` : key,
+                                    item instanceof Date ? item.toISOString() : String(item));
+                            }
+                        }
+                    }
                     if (config.data !== undefined && method !== 'GET') {
                         options.body = config.data instanceof FormData ? config.data : JSON.stringify(config.data);
                         if (!(config.data instanceof FormData) && !headers['Content-Type']) {
                             headers['Content-Type'] = 'application/json';
                         }
                     }
-                    return fetch(config.url, options)
+                    return fetch(url.href, options)
                         .then(async response => {
                             const contentType = response.headers.get('content-type') || '';
                             const data = contentType.includes('application/json') ? await response.json() : await response.text();

@@ -15,6 +15,18 @@ async function signUp(page: Page, suffix: string): Promise<void> {
   ]);
 }
 
+test('friend search preserves the query when the HTTP client CDN is unavailable', async ({ page }) => {
+  await page.route('https://cdn.jsdelivr.net/npm/axios/**', route => route.abort());
+  await signUp(page, `search_${Date.now()}_${test.info().project.name}`);
+  await page.goto('/accounts/groups/view/');
+  const query = '検索 +&?';
+  const [request] = await Promise.all([
+    page.waitForRequest(request => new URL(request.url()).pathname === '/api/accounts/friend-candidates/'),
+    page.fill('#friendSearchInput', query),
+  ]);
+  expect(new URL(request.url()).searchParams.get('q')).toBe(query);
+});
+
 test('icons load when the icon CDN is unavailable', async ({ page }) => {
   await page.route('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/**', route => route.abort());
   await page.goto('/signup/');

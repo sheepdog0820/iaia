@@ -4,6 +4,8 @@
 
 候補ソースは `02f8c91f9487d92a55e9b9534f5bcd75f7919711`。596bcd4c以降にFullCalendar/Font Awesomeの同梱、Bootstrap source map、S3非利用時の本番静的ファイル設定を修正した。以下の過去候補の節は履歴として保持する。この資料は配備承認ではない。
 
+後続でAxios代替処理のparams欠落を修正したため、下記イメージはブランチ最新コードではない。修正後の3ブラウザ18件は成功したが、配備前に新しい固定ソースのイメージ作成・検証が必要。14aea099の両DB全体テストは実行中で、この後続修正を含まない。
+
 | 項目 | 最新の証拠と限界 |
 | --- | --- |
 | 配備用イメージ | `tableno-formal-release:02f8c91f`、ローカルID `sha256:b110f93ec7b670fac7f02bcce5a9ecd2cd3480751b4d139773d6907b6c067750`。固定ソースを通常Dockerfile/固定依存から作成。ECRへ未送信でmanifest digestは未取得 |

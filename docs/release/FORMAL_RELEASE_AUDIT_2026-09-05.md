@@ -885,3 +885,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - pip check成功。初回check --deployは短い架空SECRET_KEYのsecurity.W009で失敗。その検証コマンドだけ64文字の検証用鍵へ差し替えて再実行し、--fail-level WARNINGで指摘0を確認した。稼働プロセスの鍵や実サービスの秘密情報は変更していない。
 - 証跡: tmp/formal-release-02f8c91f-production-build.log、tmp/static-runtime-02f8c91f-server.log、tmp/static-runtime-02f8c91f-http.log、tmp/static-runtime-02f8c91f-deploy-check.log。終了後、専用アプリ/DB/Redisコンテナとinternalネットワークを削除した。
 - 候補資料を更新。8cf3c7f7から217ファイル差分、596bcd4cからmigration差分なし。最新全体テスト、実S3/CDN、既存実データ復元、実課金/外部連携、リモートCI、料金等の判断は未完了で正式公開No-Goを維持する。
+
+## Axios代替処理で検索条件が失われる問題を修正
+
+- 14aea099でSQLite/PG全体テストを開始。固定ソースをtestイメージへ展開し、依存lockに596bcd4c以降の差分がないことを確認。イメージtableno-formal-release-test:14aea099-browserはsha256:65d48bc8e75965c1446c5fcb053ffd7867de9bacc4a4dfbb188a57d0737d1b47。専用internalネットワーク/PG tmpfsとnetwork noneのSQLiteを使い、tmp/formal-release-14aea099-full-outputへ記録中。この節の修正はその全体テストに含まれない。
+- 並行してbase.htmlのAxios CDN代替実装を確認し、config.paramsをfetchのURLへ付加していないことを発見。フレンド検索から「検索 +&?」を入力する回帰テストを追加し、3ブラウザで送信URLのqがnullになる失敗を再現した。カレンダーの開始/終了、日程調整のsession_id等も同じparams形式を使用している。
+- 代替処理でURL/URLSearchParamsを使い、既存クエリを保ったままparamsを追加するよう修正。null/undefinedは省略、数値/真偽値・配列・Date・URLSearchParamsの複数値を扱う。Axiosの全API互換を新たに保証するものではなく、ネストしたオブジェクトや独自paramsSerializer等は対象外。
+- 外部ネットワークなし・固定bookworm検証イメージへ最新base/calendar/vendor/テストをマウント。Chromium/Firefox/WebKitで検索の実送信・登録・カレンダー・セッション作成/完了/非参加者拒否など12件成功（1.7分）。さらにブラウザで送信したURLを試験専用routeから返す検証で、既存クエリ、日本語/記号、0/false、省略値、配列/Date、URLSearchParams複数値の6件成功（45.9秒）。試験専用routeはアプリへ追加していない。
+- node --checkでbase.htmlの実インラインスクリプト構文を確認。証跡: tmp/browser-query-red.log（3失敗、q欠落）、tmp/browser-query-green.logと同名-output（12成功）、tmp/browser-query-values.logと同名-output（6成功）。この修正のDB/権限/費用への変更はない。修正後本番イメージ・実CDN/外部連携・最新全体/CIは未完了。正式公開No-Goを維持する。
