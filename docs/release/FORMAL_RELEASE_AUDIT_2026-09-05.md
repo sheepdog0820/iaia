@@ -577,3 +577,9 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 共通base.htmlはBootstrapを外部CDNに依存し、隔離ネットワークではタブ操作が成立していなかった。従来と同じBootstrap5.3.0のCSS/JSをnpm配布物から改変せず同梱し、Django static経由の参照へ変更。MITライセンスと取得元・SHA-256をstatic/vendor/bootstrap/5.3.0/README.mdに記録。版更新や全依存の安全性評価はこの変更では行っていない。
 - network noneの固定テストイメージへ修正したbase.htmlとvendorだけをマウントし、失敗した実Chrome E2Eが1件成功（32.99秒、9警告、tmp/bootstrap-offline-green.log）。node --checkと差分・文字コード・変更した参照を確認。Font Awesome/Axios等の外部参照は残るため、サイト全体のオフライン対応とは言わない。
 - DBスキーマ・実データ・共有環境・権限・費用の変更なし。反映時はcollectstaticが必要。復旧はテンプレート変更のrevertで可能だがCDN依存が戻る。修正後の候補全体/CI/実サービス検証は未完了で、正式公開No-Goを維持する。
+
+## 継続検証: Bootstrap同梱後の8f855617全体実行
+
+- 8f85561755e67bc65ffef2fe9df0ef1c53f77156と差分なし、稼働中検証コンテナなしを確認。git archiveからテストイメージtableno-formal-release-test:8f855617-browserを構築した。ID sha256:8bb48a0f80079169dffc9441d73baee131f56dbbe92f61aed5f699ede6edad69、revisionラベルは対象完全SHA。
+- SQLite handle18576、PostgreSQL handle60772で全体実行を開始。対象はaccounts/api/scenarios/schedules/support/tableno/tests/unit/tests/integration、アプリ単位カバレッジとJUnitを出力。SQLiteは開始時からnetwork none、PostgreSQL16は専用tmpfs DBとinternalネットワーク。共有DB・実連携・実通知は使用しない。
+- 証跡先はtmp/formal-release-8f855617-full-output、実行スクリプトtmp/run-full-8f855617.ps1。両コンテナの稼働を確認したが終了結果は未取得。前回d572a618の両DB1失敗は履歴として維持し、今回の開始や該当E2E単独成功を全体合格と扱わない。正式公開No-Goを維持する。
