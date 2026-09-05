@@ -230,3 +230,19 @@ Bandit1.9.4でaccounts/api/scenarios/schedules/support/tablenoを再帰解析し
 | schedules/test_handouts.py | 317, 330, 349, 358 | 4 |
 | schedules/test_session_notes_logs.py | 87 | 1 |
 | schedules/test_session_rewards.py | 293, 301 | 2 |
+## 残るB106とGoogleトークン更新試験の固定値
+
+09d15575の残るB106 13件とB105 3件をソースで確認し、以下の用途へ分類した。
+
+| 対象・行 | 件数 | 用途と確認根拠 |
+| --- | --- | --- |
+| schedules/test_past_import_repair_command.py:22,28 | 2 | TestCaseのsetUp内でget_user_modelをimportし、隔離DB用のowner/playerを作成する固定パスワード。前回の機械照合が対象外にしたメソッド内import |
+| schedules/test_websocket_notifications.py:20,25 | 2 | TransactionTestCaseのsetUpで通知送受信対象を作る固定パスワード。通信はChannels WebsocketCommunicatorとアプリのASGI経路を使う試験 |
+| accounts/test_api_auth_google.py:28 | 1 | DummyFlow.fetch_tokenがSimpleNamespaceへ設定する模擬IDトークン。Flow.from_client_configとIDトークン検証をpatchした認証コード試験で使用 |
+| accounts/test_api_auth_discord.py:25、accounts/test_api_auth_google.py:31、accounts/test_api_auth_twitter.py:24 | 3 | override_settingsの固定client secret。認証交換/検証はrequests・Flow・id_tokenのpatchで模擬したAPI試験 |
+| accounts/test_auth_error_logging.py:61、accounts/test_oauth_inactive_users.py:13 | 2 | override_settingsの固定認証設定。requestsのpost/getをpatchし、例外文の漏えい拒否・停止済みユーザー拒否を検証 |
+| schedules/test_external_integrations.py:136,231 | 2 | 隔離SocialTokenの模擬access token/空refresh tokenと、更新試験用override_settings。Credentialsをpatchした更新結果をDBへ保存する試験 |
+| support/tests.py:17 | 1 | LINE署名試験用の固定設定。HMACはテスト内で作成、LINE返信等はpatch、メールはlocmemを指定。実LINEの秘密情報を読み取る試験ではない |
+| schedules/test_external_integrations.py:238,242,243（B105） | 3 | 同じ更新試験の旧refresh tokenと、mock Credentialsが返す新access/refresh token。更新呼び出しと保存値を照合 |
+
+合計16件はテスト固定値のため、本番資格情報の埋め込みとしては扱わない。実キーの有効性を外部サービスへ問い合わせた判定でも、本番への転用を認める判定でもない。先行390件と重複せず、テスト478件中406件を用途判定済み、残る72件（B105）は未判定。テスト側B106の未判定は0となったが、総LOW556・終了コード1は変わらない。抑制・アプリ変更は行っていない。対象の一覧はtmp/remaining-security-inventory.jsonから照合した。実OAuth・LINE・Google連携の公開条件は未達のまま維持する。
