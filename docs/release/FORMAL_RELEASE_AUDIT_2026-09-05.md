@@ -1100,3 +1100,9 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 同じソースでCIのBandit対象4ディレクトリを解析すると、解析エラー0、HIGH/MEDIUM 0、LOW555、終了1（Bandit 1.9.4、tmp/release-ci-02ba1b2f-bandit.json/.log）。既存の6アプリ解析LOW556とは範囲が異なり、指摘1件の解消を意味しない。
 - lint-securityジョブはBanditとpip_auditを同一run内の`&&`でつないでいたため、この状態では依存関係監査が省略される。独立ステップへ分け、依存関係監査はジョブがキャンセルされていない場合に実行する条件を付けた。重要度の閾値・指摘抑制・continue-on-errorは追加せず、どちらの検査も失敗を保持する。
 - YAML解析でコマンド、ステップ順、条件、失敗保持を確認し、差分と文字整合性を検査。今回は構成検証とローカル静的チェックであり、GitHub Actionsでの条件評価と依存関係監査の実行成功は未確認。実環境・DB・権限・費用への変更なし。復旧はこのCIステップ分離を戻す。正式公開No-Goを維持する。
+
+## テスト用イメージにインストールされた依存関係の監査
+
+- b8031c07時点で、固定704c6f06のテスト用イメージtableno-formal-release-test:704c6f06-browser（ID sha256:8f3aaa2c143ea05d4f63de5baa2dd11e8dad851e6350629bdacf4aab5ba97dc3）を使い捨てコンテナで起動し、`python -m pip_audit --format json --output /proof/dependency-audit-704c6f06.json`を実行した。外部脆弱性情報への照会を許可し、アプリ・DB・外部ユーザー宛ての操作は行っていない。
+- pip-audit 2.10.1でインストール済み207パッケージを検査し、既知脆弱性0、スキップ0、終了0。証跡tmp/dependency-audit-704c6f06.json/.log。704c6f06からb8031c07までrequirements.lock.txtとrequirements-test.lock.txtの差分はない。終了後コンテナは破棄された。
+- 過去の本番依存ロック111件に対する監査とは範囲が異なる。今回の結果は検査時点の既知情報に基づくPython依存監査であり、OS/JavaScript依存、未知の脆弱性、Bandit指摘、実サービス全体の安全性やリモートCI成功を保証しない。正式公開No-Goを維持する。
