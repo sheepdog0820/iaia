@@ -907,3 +907,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - Djangoのget_current_timezoneを候補/締切/確定日時とコメント時刻のJavaScript表示へ渡し、サーバーの時間帯で表示するよう修正。入力・表示の時間帯を日本時間（Asia/Tokyo）として画面に明記する。TIME_ZONE設定そのものや保存値は変更しない。
 - UTC設定のChromium/Firefox/WebKitで、通常登録・候補作成・回答・確定・保存一致・画面19:00・時間帯説明の3件成功（1.2分）。Chromiumスクリーンショットでも候補/確定/右側概要が全て19:00と表示されることを確認した。関連Django24件成功。証跡: tmp/browser-poll-timezone-green.logと同名-output、tmp/poll-timezone-django.log。
 - 検証環境は従前のbookwormイメージに最新テンプレートとテストをマウントし、外部ネットワークなし・使い捨てSQLite。DB/権限/課金/外部サービスへの変更なし。投票行の低コントラストは別修正として残す。14aea099の全体テストはこの変更を含まない。
+
+## 日程投票APIの古い応答再利用を防止
+
+- 投票行の配色検証中、Firefoxで確定POSTがis_closed=trueを返した後、一覧GETが古いis_closed=falseを返してE2Eが失敗（他2ブラウザは成功）。traceではGETにCache-Controlがなく、確定前の本文・Dateヘッダーをその後も返していた。Dateが実行順と逆転している記録もある。古い応答再利用と整合するが、ホスト時計が逆転した原因までは確定していない。
+- DatePollViewSet全体にnever_cacheを適用し、一覧・詳細・更新・認証拒否の応答にprivate/no-store/no-cacheを付与。投票内容・権限判定・DB更新処理は変更しない。ブラウザ等による保存・再利用を防ぎ、投票状況の更新を反映させる。
+- 回帰テスト追加後、修正前はキャッシュ指定欠落で4 assertion失敗。修正後は新規2件と関連20件の計22件成功。最新の配色修正と合わせたChromium/Firefox/WebKitの通常GM/PL日程調整3件も成功（1.1分）。明暗配色の変更ファイルは別コミットに分ける。
+- 証跡: tmp/browser-poll-contrast-green.log/同名-outputのFirefox trace（配色検証時の1失敗・2成功）、tmp/date-poll-cache-red.log、tmp/date-poll-cache-green.log、tmp/browser-poll-cache-contrast-green.log/同名-output（3成功）。外部ネットワークなし・使い捨てDBの検証。実環境反映、DB/実データ/費用/権限の変更なし。過去に保存された応答の削除や、他APIのキャッシュを保証する変更ではない。

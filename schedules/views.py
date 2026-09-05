@@ -9,6 +9,8 @@ from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -3646,6 +3648,7 @@ class SessionAvailabilityViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED)
 
 
+@method_decorator(never_cache, name="dispatch")
 class DatePollViewSet(viewsets.ModelViewSet):
     queryset = DatePoll.objects.none()
     """日程調整ViewSet（ISSUE-017）"""
