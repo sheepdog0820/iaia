@@ -4,18 +4,18 @@
 
 候補ソースは `63bd2436febf27ed5af6f85254e082d5454da611`。静的ファイル同梱・本番設定に加え、Axios代替処理、日程投票の時間帯/配色/キャッシュ、グループと招待の文字表示、グループ権限応答のキャッシュを修正した。以下の過去候補の節は履歴として保持する。この資料は配備承認ではない。
 
-最新の本番用イメージと両DB全体成功の対象は `7cdd7cf8`。その後のグループ応答キャッシュ対策とパンくず修正は関連検証済みだが、下記イメージには含まない。63bd2436の固定ソースで3ブラウザ30件が成功した（3.6分、retryなし）。配備前には同候補の本番用イメージ作成・検証が必要。
+最新の本番用イメージとブラウザ検証の対象は `63bd2436`。同じ固定ソースで通常起動と3ブラウザ30件が成功した（3.6分、retryなし）。両DB全体成功の対象は一つ前の `7cdd7cf8` であり、後続のグループ応答キャッシュ対策とパンくず修正を含む全体検証・リモートCIは未完了。
 
 | 項目 | 最新の証拠と限界 |
 | --- | --- |
-| 配備用イメージ | `tableno-formal-release:7cdd7cf8`、ローカルID `sha256:e8fb191c6c5bce6c08fc01549eba6d244e5f14afb79c3afb9ec10ef23131b403`。通常Dockerfile/固定依存から作成。候補63bd2436とは異なる。ECRへ未送信でmanifest digestは未取得 |
-| 隔離起動 | 7cdd7cf8でpip check成功。専用の空PG16/Redis7、通常entrypointで移行・静的収集・Daphne起動・readiness/登録画面200。登録画面のstatic5件とvendor8件のハッシュ付き配信、CSS/JSのgzip内容一致を確認。起動時から十分な長さの検証用鍵でcheck --deploy指摘0。S3なし構成であり、既存データ復元の最新再実証、実TLS/Stripe/OAuth/S3は未確認 |
+| 配備用イメージ | `tableno-formal-release:63bd2436`、ローカルID `sha256:68b4915a4678bd08743a4357aa1dac91fd26d3561ceb5803f9fbb9b6f9c64f13`。通常Dockerfile/固定依存から作成。ECRへ未送信でmanifest digestは未取得 |
+| 隔離起動 | 63bd2436でpip check成功。専用の空PG16/Redis7、通常entrypointで移行・静的199件収集/571件後処理・Daphne起動・readiness/登録画面200。登録画面のstatic5件とvendor8件のハッシュ付き配信、CSS/JSのgzip内容一致を確認。check --deploy指摘0、未認証グループAPIは401とprivate/no-store/no-cacheを確認。S3なし構成であり、既存データ復元の最新再実証、実TLS/Stripe/OAuth/S3は未確認 |
 | 全体検証 | 7cdd7cf8のSQLite1662成功/10skip・86.92%、PostgreSQL1672成功/skipなし・87.49%、双方472 subtests、終了コード0。SQLite skip10件はPGで成功。同ソースのブラウザ30件は29成功/1失敗で、後続修正を行った。最新候補の全体・リモートCIは未完了 |
 | 稼働版との比較 | 記録済み稼働ソース `8cf3c7f7` から63bd2436まで224ファイル差分。7cdd7cf8以降のaccounts/schedules migrationファイル差分なし。現在のAWS稼働版は配備直前に再確認する。mainとの比較だけで配備範囲を決めない |
 | DB差分 | 既存 `accounts/0055`・`accounts/0058` の変更、新規 `schedules/0055` の追加。0055修正はデータ移行後のFK検査をDDL前に完了させるもので、適用済み0055を再実行しない。適用済み0058は再実行されないため共有DBの移行履歴と実スキーマ確認が必要。ロール複数化後の旧制約復元はデータ次第で失敗し得る |
 | 未確定事項 | ECR digest、直前の稼働タスク/復旧先、共有DB状態、実データを含む復元・更新・ロールバック、専用テスト利用者/宛先、料金と有料範囲、実連携設定、追加費用。承認対象を具体化してから配備する |
 
-最新起動証跡は監査記録の7cdd7cf8節、`tmp/static-runtime-7cdd7cf8-http.log`、`tmp/static-runtime-7cdd7cf8-server.log`、`tmp/static-runtime-7cdd7cf8-deploy-check.log`。全体テストは`tmp/formal-release-7cdd7cf8-full-output`であり、最新候補63bd2436の全体成功とは扱わない。秘匿画像のCloudFront迂回防止も別途承認・適用・実証が必要で、アプリ起動成功だけでは正式公開できない。
+最新起動証跡は監査記録の63bd2436節、`tmp/static-runtime-63bd2436-http.log`、`tmp/static-runtime-63bd2436-server.log`、`tmp/static-runtime-63bd2436-deploy-check.log`、`tmp/static-runtime-63bd2436-group-cache.log`。全体テストは`tmp/formal-release-7cdd7cf8-full-output`であり、最新候補63bd2436の全体成功とは扱わない。秘匿画像のCloudFront迂回防止も別途承認・適用・実証が必要で、アプリ起動成功だけでは正式公開できない。
 
 ## 過去候補の準備記録
 

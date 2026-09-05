@@ -1019,3 +1019,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - アプリ/テストの差し替えなし、network none/使い捨てSQLite、1 worker/retryなしで30件成功（3.6分）。通常登録、グループ参加・権限追加/解除、通知既読・招待承認、保存文字列の安全な表示、非参加者の閲覧拒否、日程調整とコメント、明暗配色、CDN停止時の初期化/クエリ値をChromium/Firefox/WebKitで検証した。前回失敗したFirefoxの管理者表示も通過した。
 - 証跡tmp/browser-fixed-63bd2436.log/同名-output、ビルドtmp/formal-release-63bd2436-e2e-build.log。終了後コンテナは破棄。7cdd7cf8の29成功/1失敗を上書きせず、新しい固定候補の結果として記録した。全E2Eファイル、最新候補の両DB全体/リモートCI、実サービス検証を終えた意味ではない。
 - 配備準備資料の冒頭を更新し、候補63bd2436・本番用イメージ/全体テスト7cdd7cf8を区別した。記録済み稼働ソース8cf3c7f7から候補まで224ファイル差分、7cdd7cf8以降のaccounts/schedules migration差分なし。AWSの稼働版はこの更新時に再照会しておらず、配備前に確認が必要。文書のみの変更で実環境/実データ/権限/費用変更なし。
+
+## ブラウザ合格候補63bd2436の本番用イメージ確認
+
+- 同じ63bd2436febf27ed5af6f85254e082d5454da611のアーカイブを実Dockerfileでビルド。tableno-formal-release:63bd2436、ID sha256:68b4915a4678bd08743a4357aa1dac91fd26d3561ceb5803f9fbb9b6f9c64f13、USER tableno、revisionは固定SHA。tmp/formal-release-63bd2436-production-build.logに記録。現在のブランチとの差は文書のみ。
+- 専用internalネットワーク・空PG16/tmpfs・Redis7で架空のaws-prod設定を使い、通常entrypointのマイグレーション、静的199件収集/571件後処理、Daphne起動に成功。pip check/check --deploy指摘なし。readiness・登録画面・static5件・vendor8件のHTTP200とCSS/JSのgzip内容一致を確認した。
+- グループAPIの未認証応答も実HTTPで401、Cache-Controlにprivate/no-store/no-cacheが付くことを確認。認証後の全操作やキャッシュ破棄の実証ではなく、今回の本番設定経路での確認として扱う。
+- tmp/static-runtime-63bd2436-http.log、同-server.log、同-deploy-check.log、同-group-cache.logが証跡。プローブは既存のtmp/probe-static-runtime-02f8c91f.pyを今回イメージへ適用。検証用app/db/cacheとネットワークは削除済み。ECR送信、実環境/実データ/権限/費用変更なし。全体CI、既存データ復元、実TLS/S3/課金/外部連携の残条件は維持する。
