@@ -278,7 +278,8 @@ function loadActivityFeed() {
     // 最近のプレイ履歴を読み込み
     axios.get('/api/scenarios/history/?limit=8')
         .then(response => {
-            const activities = response.data.results || [];
+            const activityData = response.data.results || response.data;
+            const activities = Array.isArray(activityData) ? activityData : [];
             const container = document.getElementById('activity-feed');
             
             if (activities.length === 0) {
@@ -308,12 +309,12 @@ function loadActivityFeed() {
                         <div class="activity-content flex-grow-1">
                             <div class="d-flex justify-content-between align-items-start">
                                 <div>
-                                    <strong class="text-info">${activity.scenario_detail.title}</strong>
+                                    <strong class="text-info">${escapeActivityText(activity.scenario_detail.title)}</strong>
                                     <span class="badge bg-${roleClass} ms-2">${activity.role === 'gm' ? 'GM' : 'PL'}</span>
                                 </div>
                                 <small class="text-muted">${date}</small>
                             </div>
-                            ${activity.notes ? `<p class="mb-0 small text-muted mt-1">${activity.notes}</p>` : ''}
+                            ${activity.notes ? `<p class="mb-0 small text-muted mt-1">${escapeActivityText(activity.notes)}</p>` : ''}
                         </div>
                     </div>
                 `;
@@ -330,6 +331,12 @@ function loadActivityFeed() {
                 </div>
             `;
         });
+}
+
+function escapeActivityText(value) {
+    const element = document.createElement('span');
+    element.textContent = String(value ?? '');
+    return element.innerHTML;
 }
 </script>
 {% endblock %}
