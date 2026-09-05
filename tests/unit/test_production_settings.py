@@ -149,6 +149,58 @@ print(json.dumps(settings.LOGGING['formatters']))
             },
         )
 
+    def test_non_s3_storage_uses_compressed_manifest_backend(self):
+        payload = self.run_settings_probe(expression="""
+import os
+os.environ['DJANGO_SETTINGS_MODULE'] = 'tableno.settings_production'
+import json
+from django.core.files.storage import default_storage
+from django.contrib.staticfiles.storage import staticfiles_storage
+print(json.dumps({
+    'static_backend': staticfiles_storage.__class__.__module__ + '.' + staticfiles_storage.__class__.__name__,
+    'media_backend': default_storage.__class__.__module__ + '.' + default_storage.__class__.__name__,
+}))
+""")
+        self.assertEqual(payload["static_backend"], "whitenoise.storage.CompressedManifestStaticFilesStorage")
+        self.assertEqual(payload["media_backend"], "django.core.files.storage.filesystem.FileSystemStorage")
+
+    def test_non_s3_collectstatic_serves_compressed_hashed_asset(self):
+        payload = self.run_settings_probe(expression="""
+import os
+os.environ['DJANGO_SETTINGS_MODULE'] = 'tableno.settings_production'
+import gzip
+import io
+import json
+import tempfile
+import django
+django.setup()
+from django.conf import settings
+from django.core.management import call_command
+from django.contrib.staticfiles.storage import staticfiles_storage
+from django.test import RequestFactory, override_settings
+from whitenoise import WhiteNoise
+with tempfile.TemporaryDirectory() as target:
+    with override_settings(STATIC_ROOT=target):
+        call_command('collectstatic', interactive=False, verbosity=0, stdout=io.StringIO())
+        name = staticfiles_storage.stored_name('vendor/bootstrap/5.3.0/bootstrap.min.css')
+        with staticfiles_storage.open(name, 'rb') as source:
+            expected = source.read()
+        app = WhiteNoise(None, root=target, prefix='static/')
+        response = {}
+        def start_response(status, headers):
+            response['status'] = status
+            response['headers'] = dict(headers)
+        environ = RequestFactory().get('/static/' + name, HTTP_ACCEPT_ENCODING='gzip').environ
+        body = b''.join(app(environ, start_response))
+        response['matches'] = gzip.decompress(body) == expected
+        response['hashed'] = name != 'vendor/bootstrap/5.3.0/bootstrap.min.css'
+        print(json.dumps(response))
+""")
+        self.assertEqual(payload["status"], "200 OK")
+        self.assertEqual(payload["headers"]["Content-Encoding"], "gzip")
+        self.assertTrue(payload["matches"])
+        self.assertTrue(payload["hashed"])
+
     def test_s3_storage_settings(self):
         payload = self.run_settings_probe(
             {

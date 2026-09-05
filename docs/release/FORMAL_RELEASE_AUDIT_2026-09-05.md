@@ -869,3 +869,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 現行Bootstrap 5.3.0の公式配布からbootstrap.bundle.min.js.map/bootstrap.min.css.mapを未改変で追加。npmメタデータのSHA-512/SHA-1一致を確認し、ファイルのSHA-256を既存READMEへ追記。公開ライブラリのsource mapであり、アプリのソースや秘密情報の追加ではない。既存JS/CSS・画面・DB・権限・費用設定は変更しない。
 - 回帰テストはローカルWindowsで成功（1.321秒）、固定bookworm/Python 3.11/Django lockのDockerでも成功（0.590秒）。全staticの生成完了と、Bootstrap JS/CSS・FullCalendar・Font Awesomeがmanifestに登録され、対応するファイルが存在することを検証。Dockerはnetwork none、vendorとテストだけを読み取り専用マウントし終了後に破棄。Black/isort/flake8確認済み。
 - 証跡: tmp/static-manifest-green.log、tmp/static-manifest-linux-green.log。既存の全static生成失敗は解消したが、実S3ManifestStaticStorageでのアップロード・CloudFront経由の配信・本番イメージ再構築を完了した証拠ではない。正式公開No-Goを維持する。
+
+## S3非利用時の本番静的ファイル保存設定を修正
+
+- 6fd777f5後の設定確認で、USE_S3_STORAGE=False時に旧STATICFILES_STORAGEだけを指定していたため、Django 5.2では通常のStaticFilesStorageが選ばれることを実インスタンスの回帰テストで確認。意図したWhiteNoiseの圧縮・manifest保存が有効でなかった（tmp/non-s3-storage-red.log）。
+- 現行のSTORAGESにdefault=FileSystemStorage、staticfiles=CompressedManifestStaticFilesStorageを明示。S3利用時のSTORAGES・メディア保存先・DB・料金・権限は変更しない。S3非利用の次回反映では、起動前にcollectstaticでmanifestを生成する必要がある。旧設定の無効化に依存して配信準備を省略していた運用は使えない。
+- 設定プローブ21件がWindowsで成功。その後、本番設定で全staticを一時ディレクトリへ生成し、ハッシュ付きBootstrap CSSをWhiteNoiseへGETして200/gzip応答、解凍内容一致を検証するケースを追加。Linux固定イメージでこのケースを含む設定プローブ全22件成功。S3設定の既存ケースも成功した。外部ネットワークなし、DB接続なしの検証で、実SMTP/Stripe/AWSへの操作はない。
+- 証跡: tmp/non-s3-production-settings-green.log（Windows21件）、tmp/non-s3-static-http-green.log（Linux生成/配信1件）、tmp/non-s3-production-settings-linux.log（Linux22件）。Black/isort/flake8確認済み。実S3/CDN、本番コンテナのHTTP経路、全体テスト・リモートCIは別途検証が必要で、正式公開No-Goを維持する。
