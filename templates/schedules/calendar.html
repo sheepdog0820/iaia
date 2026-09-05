@@ -1058,7 +1058,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 container.innerHTML = response.data.map(session => `
                     <div class="upcoming-session-item" onclick="window.location.href=\`/api/schedules/sessions/${session.id}/detail/\`">
-                        <h6 class="mb-1">${session.title}</h6>
+                        <h6 class="mb-1">${escapeHtml(session.title)}</h6>
                         <small class="text-muted">
                             <i class="fas fa-calendar"></i> ${new Date(session.date).toLocaleDateString('ja-JP')}
                         </small>
@@ -1219,7 +1219,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             select.innerHTML = '<option value=\"\">選択してください</option>' + editableSessions
-                .map(session => `<option value=\"${session.id}\">${session.title}</option>`)
+                .map(session => `<option value=\"${session.id}\">${escapeHtml(session.title)}</option>`)
                 .join('');
         } catch (error) {
             console.error('Error loading editable sessions:', error);
