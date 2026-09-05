@@ -570,3 +570,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 通常entrypointでRUN_MIGRATIONS/RUN_COLLECTSTATIC=true、収集失敗許容false。全移行が完了し、179 static filesを収集、Daphne起動を確認。makemigrations --check --dry-runは変更なし、migrate --check成功。
 - コンテナ内部の/health/ready/が200、database/cacheともok。DENY/nosniff/HSTSを確認。X-Forwarded-Proto=httpsを付けた内部HTTP検証であり、実TLS/ALB/OAuth/Stripe/S3の証明ではない。空の検証DBからの移行であり、実利用者データを含むアップグレード・ロールバックの代用ではない。
 - 証跡: tmp/candidate-d572a618-startup.log、tmp/candidate-d572a618-migration-diff.log、tmp/candidate-d572a618-ready.log。アプリ/DB/Redisコンテナと専用ネットワークは終了・削除済み。別のSQLite/PostgreSQL全体テストは同じhandle90338/35984で継続中。正式公開No-Goを維持する。
+
+## 全体検証終了とBootstrapのCDN依存是正
+
+- d572a618全体実行handle90338/35984は双方終了コード1。SQLiteは1失敗・1630成功・7skip・437 subtests、86.93%、1233.81秒。PostgreSQLは1失敗・1637成功・skipなし・437 subtests、87.38%、1261.28秒。両方ともtests/integration/test_custom_skill_e2e_final.pyの技能追加ボタン待機が失敗。全体成功とは扱わない。専用PostgreSQL/ネットワークは削除済み。
+- 共通base.htmlはBootstrapを外部CDNに依存し、隔離ネットワークではタブ操作が成立していなかった。従来と同じBootstrap5.3.0のCSS/JSをnpm配布物から改変せず同梱し、Django static経由の参照へ変更。MITライセンスと取得元・SHA-256をstatic/vendor/bootstrap/5.3.0/README.mdに記録。版更新や全依存の安全性評価はこの変更では行っていない。
+- network noneの固定テストイメージへ修正したbase.htmlとvendorだけをマウントし、失敗した実Chrome E2Eが1件成功（32.99秒、9警告、tmp/bootstrap-offline-green.log）。node --checkと差分・文字コード・変更した参照を確認。Font Awesome/Axios等の外部参照は残るため、サイト全体のオフライン対応とは言わない。
+- DBスキーマ・実データ・共有環境・権限・費用の変更なし。反映時はcollectstaticが必要。復旧はテンプレート変更のrevertで可能だがCDN依存が戻る。修正後の候補全体/CI/実サービス検証は未完了で、正式公開No-Goを維持する。
