@@ -2836,9 +2836,7 @@ class SessionDetailView(APIView):
             if "application/json" in request.headers.get("Accept", ""):
                 return Response({"error": "Permission denied"}, status=403)
             else:
-                from django.core.exceptions import PermissionDenied
-
-                raise PermissionDenied("このセッションにアクセスする権限がありません")
+                return render(request, "403.html", status=403)
 
         # HTMLまたはJSONレスポンス
         if "application/json" in request.headers.get("Accept", ""):
@@ -3032,7 +3030,7 @@ class SessionDatePollView(APIView):
         if not has_access:
             if "application/json" in request.headers.get("Accept", ""):
                 return Response({"error": "Permission denied"}, status=403)
-            raise PermissionDenied("このセッションにアクセスする権限がありません")
+            return render(request, "403.html", status=403)
 
         is_gm = session_permissions.is_session_gm(user, session)
         is_participant = session.participants.filter(id=user.id).exists()

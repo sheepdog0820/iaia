@@ -419,3 +419,11 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - `infrastructure/terraform/main.tf` のassets bucket policyにsession_images/とscenario_images/の直下・任意location下を追加した。既存handouts/と合わせ6 resourceパターンを対象CloudFront principal/SourceArnのGetObjectに限定して拒否する。アプリのtask role、静的ファイルのAllow、DBやECS構成は変更していない。
 - 再取得したポリシーからAllowを保持する具体案を `tmp/private-media-containment-34846799/proposed-policy.json` へ作成した。before-policy.jsonのSHA256は04b660fe783b9966262cfba2a9373cf6c3dd2ede5f2b349d3f0d7b2d589453ab、案は2ba55b16611afe7654da2f831dd65bde1eaaeb9247d8863a4bcc1ab63bb53db0。AWS Access AnalyzerのS3 resource policy検査はfindings=[]。Terraform 1.15.6のfmt -check / validateも終了コード0。validation-summary.jsonに観測・検査結果を記録した。
 - plan/apply、バケットポリシー変更、invalidation、配備、試験画像の作成は未実施。静的検査は実際の拒否やキャッシュ失効の証拠ではない。旧アプリが直URLを返すため、拒否先行時の表示停止を含む適用順序と切り戻し制限を配備準備資料へ追記した。最新候補digest・実効storage location・実行直前の状態・試験データ・費用を揃えて承認を得る必要がある。正式公開No-Goを維持する。
+
+## 継続監査: セッションの権限拒否画面（2026-09-05）
+
+- セッション詳細・日程調整のHTML権限拒否は、APIView内でPermissionDeniedを送出するとDRFの開発者向け画面になっていた。先に両画面のテンプレート、日本語案内、非公開の題名/説明が出ないこと、JSON応答の契約を回帰テストにし、旧実装ではHTMLの2 subtestsが失敗した。`tmp/permission-page-red.log`。
+- HTMLの拒否は共通403.htmlをstatus=403でrenderするよう変更した。既存のJSON 403 / {error: Permission denied}と閲覧許可条件は変更していない。回帰テストと既存のセッション可視性は10件・4 subtests成功（25.68秒、警告9件）。`tmp/permission-page-green.log`。
+- 固定9b1c9043の専用コンテナへ変更viewを読み取り専用適用し、ブラウザから通常の登録・非公開グループ作成・セッション作成・完了への更新を実行した。独立した通常ユーザーはグループ/セッションAPIが404、詳細/日程調整HTMLが403となり、アプリの案内とホームへの導線を表示し、非公開題名を表示しない。API作成や強制認証で画面操作を置き換えていない。
+- 初回の3ブラウザ成功後、WebKitの390px画像で共通403画面の戻るボタンだけが右へずれていることを確認し、ms-2をms-sm-2へ変更した。テンプレート差し替えだけでは古い表示が保持されたため専用サーバーを再起動し、ボタンの左右位置/幅の差が1px未満であることもE2Eで確認した。最終Chromium/Firefox/WebKitは3件成功（40.6秒、終了コード0）。`tmp/permission-page-browser.log`、`tmp/formal-release-permission-page.json` と同名resultsディレクトリのPC/モバイル画像。実機の検証ではない。
+- ローカル専用DBに各ブラウザの試験利用者が計18人、staff/superuserはともに0人であることを確認した。コンソールメール設定を使用し、実通知・共有DB変更なし。専用コンテナは終了後に停止・削除した。Black/isort/flake8、日本語画面の実表示、差分を確認した。有料契約・外部連携・配信設定の実環境検証等は別の未完了条件として維持する。

@@ -90,8 +90,22 @@ test('registered owner creates a private group and completes a session; outsider
     const deniedPage = await outsider.goto(`/api/schedules/sessions/${session.id}/detail/`);
     expect(deniedPage?.status()).toBe(403);
     await expect(outsider.locator('body')).not.toContainText(title);
-    await expect(outsider.locator('body')).toContainText('このセッションにアクセスする権限がありません');
+    await expect(outsider.getByRole('heading', { name: 'アクセス権限がありません' })).toBeVisible();
+    await expect(outsider.getByRole('link', { name: 'ホームへ' })).toBeVisible();
+    await expect(outsider.locator('body')).not.toContainText('Django REST framework');
     await outsider.screenshot({ path: test.info().outputPath('outsider-denied.png'), fullPage: true });
+    await outsider.setViewportSize({ width: 390, height: 844 });
+    const deniedPoll = await outsider.goto(`/api/schedules/sessions/${session.id}/date-poll/`);
+    expect(deniedPoll?.status()).toBe(403);
+    await expect(outsider.getByRole('heading', { name: 'アクセス権限がありません' })).toBeVisible();
+    await expect(outsider.locator('body')).not.toContainText(title);
+    const homeBox = await outsider.getByRole('link', { name: 'ホームへ' }).boundingBox();
+    const backBox = await outsider.getByRole('link', { name: '前のページへ戻る' }).boundingBox();
+    expect(homeBox).not.toBeNull();
+    expect(backBox).not.toBeNull();
+    expect(Math.abs(homeBox!.x - backBox!.x)).toBeLessThan(1);
+    expect(Math.abs(homeBox!.width - backBox!.width)).toBeLessThan(1);
+    await outsider.screenshot({ path: test.info().outputPath('outsider-poll-denied-mobile.png'), fullPage: true });
   } finally {
     await outsiderContext.close();
   }
