@@ -2691,7 +2691,7 @@ function renderOccurrenceParticipants(selectedIds) {
         return `
             <label class="d-flex align-items-center gap-2 mb-1">
                 <input type="checkbox" class="form-check-input" value="${userId}" ${checked}>
-                <span>${name}</span>
+                <span>${escapeHtml(name)}</span>
             </label>
         `;
     }).join('');
@@ -2858,7 +2858,7 @@ function populateCharacterSelect(selectId) {
     const selected = selectEl.dataset.selected || '';
     selectEl.innerHTML = '<option value="">選択しない</option>' +
         characterSheets.map(sheet => (
-            `<option value="${sheet.id}">${sheet.name}</option>`
+            `<option value="${sheet.id}">${escapeHtml(sheet.name)}</option>`
         )).join('');
 
     if (selected) {
