@@ -412,3 +412,10 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - PostgreSQL初回は66件成功・3件失敗。直前の不明形式テストがresponse.close()を直接呼び、Djangoのrequest_finished経由でTestCaseのDB接続を閉じていた。Django test.clientのclosing_iterator_wrapperはclose_old_connectionsを切り離して終了するため、両画像テストをstreaming_contentの全バイト検証へ変更した。取得の判定は弱めず、後続テストの接続終了も解消した。初回失敗は `tmp/scenario-image-postgres-before-stream-fix.log` と同名XMLで保持した。
 - OpenAPIは通常・セッション経由の両パス、整数ID、画像のバイナリ応答を生成し、spectacular --validateが成功。`tmp/scenario-image-schema.log` / `tmp/formal-release-9b1c9043-output/scenario-image-schema.yml`。Black/isort/flake8、差分、HTMLの既存日本語文言を確認した。表示URLの変更で、画面配置の変更はない。
 - 専用PostgreSQL・ネットワークは試験終了後に停止・削除した。実データ・AWS変更なし。既存のTerraformと応急ポリシーはhandouts/だけを対象にするため、両画像の保存先を含めて拡張・検証する必要がある。配備準備資料に、古い候補を最終digest扱いしないことと、画像を含む配信保護の実行要件を追記した。実環境の迂回防止は未適用であり、Q04/正式公開No-Goは維持する。
+
+## 継続監査: 画像を含むCloudFront経由の配信拒否案（2026-09-05）
+
+- AWS profile tableno-preでバケットポリシー、Public Access Block、CloudFront distribution設定を再読した。ポリシーは対象CloudFrontから全keyへのAllowだけで、保護用Denyはまだない。Public Access Blockは4項目true、distributionはS3 OACを使用し、追加behavior・署名制限・エッジ関数なし、TTLはmin/default/maxとも0。オブジェクト内容・Secretsは取得していない。
+- `infrastructure/terraform/main.tf` のassets bucket policyにsession_images/とscenario_images/の直下・任意location下を追加した。既存handouts/と合わせ6 resourceパターンを対象CloudFront principal/SourceArnのGetObjectに限定して拒否する。アプリのtask role、静的ファイルのAllow、DBやECS構成は変更していない。
+- 再取得したポリシーからAllowを保持する具体案を `tmp/private-media-containment-34846799/proposed-policy.json` へ作成した。before-policy.jsonのSHA256は04b660fe783b9966262cfba2a9373cf6c3dd2ede5f2b349d3f0d7b2d589453ab、案は2ba55b16611afe7654da2f831dd65bde1eaaeb9247d8863a4bcc1ab63bb53db0。AWS Access AnalyzerのS3 resource policy検査はfindings=[]。Terraform 1.15.6のfmt -check / validateも終了コード0。validation-summary.jsonに観測・検査結果を記録した。
+- plan/apply、バケットポリシー変更、invalidation、配備、試験画像の作成は未実施。静的検査は実際の拒否やキャッシュ失効の証拠ではない。旧アプリが直URLを返すため、拒否先行時の表示停止を含む適用順序と切り戻し制限を配備準備資料へ追記した。最新候補digest・実効storage location・実行直前の状態・試験データ・費用を揃えて承認を得る必要がある。正式公開No-Goを維持する。

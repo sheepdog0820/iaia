@@ -403,13 +403,17 @@ resource "aws_s3_bucket_policy" "assets" {
       Resource  = "${aws_s3_bucket.assets.arn}/*"
       Condition = { StringEquals = { "AWS:SourceArn" = aws_cloudfront_distribution.assets.arn } }
       }, {
-      Sid       = "DenyPublicHandoutDownloads"
+      Sid       = "DenyPublicPrivateMediaDownloads"
       Effect    = "Deny"
       Principal = { Service = "cloudfront.amazonaws.com" }
       Action    = "s3:GetObject"
       Resource = [
         "${aws_s3_bucket.assets.arn}/handouts/*",
         "${aws_s3_bucket.assets.arn}/*/handouts/*",
+        "${aws_s3_bucket.assets.arn}/session_images/*",
+        "${aws_s3_bucket.assets.arn}/*/session_images/*",
+        "${aws_s3_bucket.assets.arn}/scenario_images/*",
+        "${aws_s3_bucket.assets.arn}/*/scenario_images/*",
       ]
       Condition = { StringEquals = { "AWS:SourceArn" = aws_cloudfront_distribution.assets.arn } }
     }]

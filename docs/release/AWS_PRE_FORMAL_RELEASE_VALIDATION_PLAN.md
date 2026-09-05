@@ -94,11 +94,24 @@ Terraformの変更対象は `aws_s3_bucket_policy.assets`。対象CloudFrontサ�
 
 ## セッション・シナリオ画像への保護範囲拡張（未適用）
 
-ローカルでsession_images/とscenario_images/の未認可取得を再現し、両画像のアプリ認可付き配信を実装した。画像はS3オブジェクトを移動せずアプリ経由で読むため、既存のCloudFront/S3 URLの拒否も必須となる。現時点のTerraformと応急バケットポリシー案はhandouts/だけを対象としており、そのまま適用して画像保護完了とはしない。
+ローカルでsession_images/とscenario_images/の未認可取得を再現し、両画像のアプリ認可付き配信を実装した。画像はS3オブジェクトを移動せずアプリ経由で読むため、既存のCloudFront/S3 URLの拒否も必須となる。Terraformはhandouts/に両画像のprefixを追加し、拡張した具体的なポリシー案も静的検査した（下記）。以前のhandouts/だけの応急案では画像保護は完了しない。
 
 - 最終の拒否案には、実際のstorage locationを確認したうえでhandouts/、session_images/、scenario_images/を含める。公開シナリオ画像も認可付きAPIでvisibilityを都度確認するため、非公開化後に残る直URLを許可しない。正当な匿名閲覧は公開シナリオの新APIで維持する。
 - アプリ候補と配信拒否の順序を一体で提示する。旧アプリは画像の直URLを返すため、拒否だけを先に適用すると画像表示が停止する。旧アプリへ戻す場合も、保護対象の公開GetObjectを復活させて復旧扱いにしない。
 - 専用試験画像を用いて、公開シナリオの匿名表示、所有者/共有グループ、セッション経由の閲覧、無関係ユーザーの拒否、非公開化/脱退/参加解除後の失効、新APIと旧CDN・S3 URLを照合する。セッション経由URLはその画像とセッションのシナリオが一致することも確認する。
 - 既存キャッシュの失効対象・費用・完了確認、アプリ配信の負荷とタイムアウトを計画に含める。実利用者の画像を無断で取得せず、専用試験データの作成・通知抑止・削除を承認案に含める。
 
-この追記は実行要件の更新であり、AWS設定変更、キャッシュ失効、配備、実データ作成を実施した記録ではない。拡張したポリシーの具体的な差分・静的検査・最新の稼働状態照合はまだ必要である。
+この追記は実行要件の更新であり、AWS設定変更、キャッシュ失効、配備、実データ作成を実施した記録ではない。適用直前の稼働状態照合・最新候補digestの検証・実行承認はまだ必要である。
+
+### 拡張ポリシーの具体案と静的検査
+
+2026-09-05にバケットポリシーとCloudFront設定を再取得した。ポリシーは対象distributionからbucket/*へのAllowだけで、拒否は未適用。S3 Public Access Blockは4項目true。distributionのETagはETVPDKIKX0DER、S3 OAC付き、OriginPathは空、追加behaviorなし、TrustedSigners/KeyGroups/Functions/Lambda関連付けなし、既定behaviorのTTLはmin/default/maxとも0だった。これだけで既存コピーの消去や実オブジェクトの露出有無を証明しない。
+
+`tmp/private-media-containment-34846799/proposed-policy.json` は再取得したAllowを保持して、対象CloudFront principalかつSourceArn一致の場合のGetObject拒否を1 statement追加したもの。対象resourceはhandouts/、session_images/、scenario_images/の直下と各 `*/prefix/*` の計6パターン。ECS task roleのAllowや他の静的ファイルのAllowをこの案では変更しない。
+
+- 現行ポリシー保存ファイルSHA256: `04b660fe783b9966262cfba2a9373cf6c3dd2ede5f2b349d3f0d7b2d589453ab`
+- 拡張案SHA256: `2ba55b16611afe7654da2f831dd65bde1eaaeb9247d8863a4bcc1ab63bb53db0`
+- AWS Access AnalyzerのRESOURCE_POLICY / AWS::S3::Bucket検査: findings=[]。
+- Terraform 1.15.6のfmt -check / validate: 両方終了コード0。変更対象はassets bucket policyのSidと拒否resource追加だけ。
+
+これらは静的検査であり、Terraform plan/applyやIAM評価・実配信の成功証拠ではない。実ファイルの取得・ポリシー適用・invalidationは行っていない。適用時は保存した現行ポリシーとの再照合、旧アプリでの表示停止の扱い、アプリ配備と切り戻しの順序、試験画像・宛先・費用を具体化して承認を得る。
