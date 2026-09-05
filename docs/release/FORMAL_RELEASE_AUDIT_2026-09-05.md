@@ -1044,3 +1044,9 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - SQLite1664成功・10skip・カバレッジ86.93%（1242.91秒）、PostgreSQL1674成功・skipなし・87.50%（1268.89秒）。双方476 subtests・159 warnings、JUnit2150件、failure/error 0。SQLite skip10件はclass/nameでPGの成功ケースへ照合した。証跡tmp/formal-release-63bd2436-full-outputの両run.log/JUnit/coverage。
 - 後続55b7d16cのゲスト招待修正は本全体結果に含まれない。同修正は専用テストDB名guest_release_testを使った隔離PostgreSQLでも関連11件・2 subtests成功、9 warnings（33.67秒、tmp/guest-invalidation-postgres.log）。テスト用フックによる確認後の失効再現で、実並列処理の網羅試験ではない。
 - 全プロセスの終了を確認後、専用PGコンテナとinternalネットワークを破棄した。共有環境・実データへの変更なし。リモートCI、実サービス、後続修正を含む固定候補全体の検証は未完了のため正式公開No-Goを維持する。
+## 通常登録と未ログインを使ったゲスト参加のブラウザ検証
+
+- tests/e2e/flows/regular-user-session.spec.tsに、開発用ログインを使わないゲスト招待ケースを追加。通常登録GMの非公開グループ/セッションと招待は認証済みAPIで準備し、別の未ログインブラウザで招待画面から表示名・枠1・探索者名を入力して201を確認した。
+- 未ログインでのclaim拒否、使用済み招待URLの410・フォームとセッション名の非表示を確認。そのブラウザで通常登録した利用者はclaim前にセッションAPIが404、トークンなしは403、正しいトークンでは200、再claimは409となった。参加者IDと探索者名が保持され、別のセッション取得要求で200・タイトル一致となることも確認した。
+- 55b7d16cのguest_viewsと追加E2Eを63bd2436のブラウザ用イメージへ読み取り専用マウント。network none、使い捨てSQLite、Chromium/Firefox/WebKit、retryなしで3件成功（45.5秒）。証跡tmp/browser-guest-normal-final.log/同名-output。初回3件成功後に保存後の権限確認を追加した最終結果である。終了後コンテナは破棄。
+- 招待発行とclaimはAPIを利用するため、それらの画面導線や案内の使いやすさまで合格した証拠ではない。グループ所有権の移譲とも異なる。実配送・本番データ・全E2E・後続固定候補全体の合格は未確認。アプリコード変更なし、実データ/設定/費用への変更なし。差分・日本語の試験入力と検証範囲をレビューした。
