@@ -769,3 +769,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - アプリイメージ919dc0deのコードに対象viewと新テストだけを読取マウントして検証。共有DB・実招待・通知・AWS権限は変更していない。招待失効と参加の同時操作、他の参加経路との競合、ブラウザ上の再送、所有権引継ぎの公開要件は別途未完了。正式公開No-Goを維持。
 
 - SQLiteの関連51件成功・行ロックを必要とする新規3件skip（75.49秒、9 warnings）。tmp/invite-concurrency-sqlite.log。Black/isort/flake8、UTF-8/LFと差分を確認。新たなUI文言はなく、DBスキーマ・課金・費用への変更なし。検証終了後、専用DBとinternalネットワークを削除。
+
+## 招待トークンを含む応答のキャッシュ・参照元保護
+
+- e2952520のクリーンな作業ツリーで、グループ招待のトークン発行・ランディング・参加・失効応答に明示的な保存禁止がないことを確認。回帰テスト2件はno-store欠落で失敗（tmp/invite-headers-red.log、20.08秒）。
+- 招待4ビューに共通dispatchを追加し、Django add_never_cache_headersによるprivate/no-store等とReferrer-Policy: no-referrerを設定。発行/一覧、ランディング、参加、失効が対象。URL・画面・権限・失効判定は変更せず、APIの認証エラー等にも処理後にヘッダーを付ける。
+- 隔離SQLite・外部ネットワークなしで既存招待テストと新規ヘッダーテスト計12件・2 subtests成功（45.36秒、9 warnings）。成功、失効204、失効後410、未ログイン拒否、不明なランディング404のヘッダーを確認。coverage JSONで追加dispatch本体4行すべて通過。Black/isort/flake8とUTF-8/LF・差分確認成功。新しいUI文言なし。
+- 証跡tmp/invite-headers-green.log、tmp/invite-headers-coverage.json。既存919dc0deテストイメージへe2952520以降の対象view/テストを読取マウント。DB操作を変更していないため、この変更ではPostgreSQLや全体スイートを再実行していない。以前のPostgreSQL競合成功をこの最新変更込みの成功とは扱わない。
+- 応答ヘッダーはアクセスログのパス・login/signupのnextパラメータ、ブラウザ履歴、既存キャッシュ、外部監視へ記録済みのトークンを消さない。ミドルウェア等でビューに到達せず生成された応答や未処理例外の500も、このdispatchの保護を確認した範囲に含めない。実ブラウザ/CDN/ログ設定・記録の調査は残り、正式公開No-Goを維持する。共有DB・Secrets・AWS・費用に変更なし。

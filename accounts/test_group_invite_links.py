@@ -40,6 +40,41 @@ class GroupInviteLinkAPITestCase(APITestCase):
         body.update(payload)
         return self.client.post(f"/api/accounts/groups/{self.group.id}/invite-links/", body, format="json")
 
+    def assert_private_invitation_response(self, response):
+        self.assertIn("no-store", response.get("Cache-Control", ""))
+        self.assertIn("private", response.get("Cache-Control", ""))
+        self.assertEqual(response.get("Referrer-Policy"), "no-referrer")
+
+    def test_token_responses_prevent_storage_and_referrer_disclosure(self):
+        issued = self.issue_link()
+        self.assertEqual(issued.status_code, status.HTTP_201_CREATED)
+        self.assert_private_invitation_response(issued)
+        token = issued.data["token"]
+        self.client.force_authenticate(user=None)
+        landing = self.client.get(f"/group-invitations/{token}/")
+        self.assertEqual(landing.status_code, status.HTTP_200_OK)
+        self.assert_private_invitation_response(landing)
+        self.client.force_authenticate(user=self.invitee)
+        joined = self.client.post(f"/api/group-invitations/{token}/join/")
+        self.assertEqual(joined.status_code, status.HTTP_201_CREATED)
+        self.assert_private_invitation_response(joined)
+
+    def test_invitation_errors_and_revocation_prevent_storage(self):
+        issued = self.issue_link()
+        revoked = self.client.delete(f"/api/accounts/groups/{self.group.id}/invite-links/{issued.data['id']}/")
+        self.assertEqual(revoked.status_code, status.HTTP_204_NO_CONTENT)
+        self.assert_private_invitation_response(revoked)
+        self.client.force_authenticate(user=self.invitee)
+        expired = self.client.post(f"/api/group-invitations/{issued.data['token']}/join/")
+        self.assertEqual(expired.status_code, status.HTTP_410_GONE)
+        self.assert_private_invitation_response(expired)
+        self.client.force_authenticate(user=None)
+        for path in ("/group-invitations/unknown-token/", "/api/group-invitations/unknown-token/join/"):
+            with self.subTest(path=path):
+                response = self.client.get(path) if path.startswith("/group-") else self.client.post(path)
+                self.assertIn(response.status_code, (401, 403, 404))
+                self.assert_private_invitation_response(response)
+
     def test_admin_can_issue_invite_link_for_private_group(self):
         response = self.issue_link()
 

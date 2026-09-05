@@ -7,6 +7,7 @@ from datetime import timedelta
 from django.db import transaction
 from django.db.models import Q
 from django.urls import reverse
+from django.utils.cache import add_never_cache_headers
 from django.views import View
 
 from schedules.models import ParticipantClaimRequest, ParticipantIdentity
@@ -700,7 +701,15 @@ class GroupInvitationViewSet(viewsets.ModelViewSet):
         return Response({"success": True}, status=status.HTTP_200_OK)
 
 
-class GroupInviteLinkCreateView(APIView):
+class _InvitationResponsePrivacyMixin:
+    def dispatch(self, request, *args, **kwargs):
+        response = super().dispatch(request, *args, **kwargs)
+        add_never_cache_headers(response)
+        response["Referrer-Policy"] = "no-referrer"
+        return response
+
+
+class GroupInviteLinkCreateView(_InvitationResponsePrivacyMixin, APIView):
     """Create and list token-based group invitation links."""
 
     permission_classes = [IsAuthenticated]
@@ -740,7 +749,7 @@ class GroupInviteLinkCreateView(APIView):
         return Response(_serialize_group_invite_link(request, invite_link, token=token), status=status.HTTP_201_CREATED)
 
 
-class GroupInviteLinkRevokeView(APIView):
+class GroupInviteLinkRevokeView(_InvitationResponsePrivacyMixin, APIView):
     """Revoke a token-based group invitation link."""
 
     permission_classes = [IsAuthenticated]
@@ -759,7 +768,7 @@ class GroupInviteLinkRevokeView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class GroupInviteLinkLandingView(View):
+class GroupInviteLinkLandingView(_InvitationResponsePrivacyMixin, View):
     """Public landing page for a group invitation link."""
 
     def get(self, request, token):
@@ -792,7 +801,7 @@ class GroupInviteLinkLandingView(View):
         )
 
 
-class GroupInviteLinkJoinView(APIView):
+class GroupInviteLinkJoinView(_InvitationResponsePrivacyMixin, APIView):
     """Join a group through an active invitation link after login."""
 
     permission_classes = [IsAuthenticated]
