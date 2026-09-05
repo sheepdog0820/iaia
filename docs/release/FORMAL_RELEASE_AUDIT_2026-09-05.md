@@ -975,3 +975,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 通常ユーザー2人の招待で作られた通知について、本文の招待者名・グループ名・メッセージがタグを含む文字のまま表示され、画像要素なし・実行フラグ未定義を確認。画面で既読にし、PATCH200と詳細APIのis_read=trueを確認した。その後の招待一覧での安全な表示と承認/メンバー登録も成功。
 - Chromium/Firefox/WebKitの3件成功（51.8秒）。証跡はtmp/browser-invite-notification.log/同名-output。network none/使い捨てSQLiteの固定bookwormイメージに最新の対象テンプレート・テスト・vendorをマウント。通知テンプレートと関連サービス/ビューは596bcd4cから差分なし。終了後コンテナは破棄。
 - テストと文書のみの変更。アプリ内通知の受け入れ証拠であり、メール/Discord等の実配送、全通知種別、通知の全認可境界、実環境での結果とは区別する。実データ/権限/費用変更や本番反映はない。
+
+## 7cdd7cf8の固定ソースで両DB全体検証を開始
+
+- git archiveで7cdd7cf819ba19221cf0473fa9758d3cd43f2cbdを固定し、既存の検証用依存環境に展開したイメージtableno-formal-release-test:7cdd7cf8-browserを作成。IDはsha256:c41e3c62c2563330a5c98381cf8b58520f213d7f3a1f4ac80e5471ae5af72f1e。親環境596bcd4cからrequirements.lock.txt/requirements-test.lock.txt/package-lock.jsonの差分なし。pip checkとmakemigrations --check --dry-runは成功した。
+- SQLiteはnetwork none、PostgreSQLは専用internalネットワークとtmpfsのPG16を使用。両方でCIと同じpytest対象・coverage70%ゲートを実行開始し、各コンテナのPythonプロセス稼働を確認した。この記録時点は実行中で、成功件数/coverage/全体合否は未確定。
+- 実行手順はtmp/run-full-7cdd7cf8.ps1、出力先tmp/formal-release-7cdd7cf8-full-output、ビルド記録tmp/formal-release-7cdd7cf8-test-build.log。コンテナはtableno-full-sqlite-7cdd7cf8とtableno-full-postgres-7cdd7cf8、専用DBはtableno-pgfull-db-7cdd7cf8、ネットワークはtableno-pgfull-7cdd7cf8。各実行の終了を確認して結果を記録し、その後に専用DB/ネットワークを削除する。
+- 14aea099全体結果を最新候補の合格に流用しない。今回の固定ソースには後続のAxios・日程調整・グループ/招待表示修正を含むが、pytestはブラウザE2Eを実行しない。E2E証跡は各個別記録を参照。リモートCI、本番用イメージ再構築、実環境・実連携の検証とは区別する。
