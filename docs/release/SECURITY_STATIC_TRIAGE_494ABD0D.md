@@ -261,6 +261,27 @@ Bandit1.9.4でaccounts/api/scenarios/schedules/support/tablenoを再帰解析し
 | scenarios/test_scenarios.py:675 | 1 | TestCaseのself.password。隔離アカウントの作成とテストクライアントのログインに利用 |
 | schedules/test_recruitment_links.py:27 | 1 | APITestCaseのpasswordクラス属性。隔離アカウント作成とローカル認証試験の入力に利用 |
 
-先行406件との重複なし。テスト478件中427件を用途判定済み、53件は未判定。認証情報以外の試験データと、隔離アカウント用の固定値を分類したもので、秘匿情報の実配信経路全体の安全性を証明しない。アプリ/警告抑制の変更なし。
+先行406件との重複なし。テスト478件中427件を用途判定済み、51件は未判定（初回記載の53件は引き算の誤りを訂正）。認証情報以外の試験データと、隔離アカウント用の固定値を分類したもので、秘匿情報の実配信経路全体の安全性を証明しない。アプリ/警告抑制の変更なし。
 
 確認中にPythonの標準出力経由の日本語抜粋が文字化けしたため、元ソースと保存済みJSONを照合した。09d15575の該当抜粋には正しい日本語が保存され、置換文字は0だった。PYTHONUTF8=1でBandit1.9.4を再実行したc3996913の結果も解析エラー0、HIGH/MEDIUM 0、LOW556、終了コード1、09d15575との指摘追加/削除0。証跡tmp/bandit-c3996913-utf8-apps.json、同-run.log。表示時の問題をソース破損や解析結果の修正として扱わない。
+## テスト側の残る51件の用途判定
+
+以下のB105を指摘行の値と使用先で確認した。前節の427件に加えて51件、合計478件となる。前回の残件数53は集計上の誤りであり、新たな2件を見つけて解消したものではない。
+
+| ファイル・行 | 件数 | 用途と確認根拠 |
+| --- | --- | --- |
+| accounts/test_api_auth_discord.py:41,56,70,95,105,139,182,216 | 8 | テストクライアントへの模擬access tokenとDummyResponse。requests.get/postをpatchした認証試験 |
+| accounts/test_api_auth_google.py:53,60,77,87,107,138,159,173,197,210 | 10 | 模擬ID/access token、ログに残らないことを調べる固定値。requests/IDトークン検証をpatch。設定不足は外部検証前に拒否 |
+| accounts/test_api_auth_twitter.py:47,57,72,95 | 4 | patchしたrequests.postが返すDummyResponse内の模擬access token |
+| accounts/test_auth_error_logging.py:18,94 | 2 | RequestFactoryの架空callback入力と模擬応答。ログ非出力の検証用で、実リクエストから採取した値ではない |
+| accounts/test_authentication.py:23,95,168,184,204,310,332,346 | 8 | 隔離アカウント作成・ログイン・退会入力の固定パスワード。Django Clientからローカルのビューへ送信 |
+| accounts/test_google_identity.py:19,116,135,147,165,172,185,201 | 8 | patchしたIDトークン検証へ渡す模擬値。API側の本人照合・競合・停止済み利用者等の試験 |
+| accounts/test_google_identity_browser.py:33、accounts/test_google_identity_concurrency.py:61 | 2 | テスト用provider設定の固定secret。ROOT_URLCONFの専用callbackが架空claimsからallauth処理へ渡し、メールはlocmem。実Googleとのトークン交換ではない |
+| accounts/test_login_lookup_failures.py:17,33 | 2 | 隔離アカウントのフォーム/ログイン入力。DB照合をOperationalErrorへ差し替え、拒否を検証 |
+| accounts/test_oauth_atomicity.py:22,30,95,104 | 4 | 模擬OAuth応答とAPI入力。並列試験もrequests.post/getをpatchした状態で実行 |
+| accounts/test_oauth_inactive_users.py:21,29 | 2 | 停止済み利用者の認証拒否を調べる模擬応答とAPI入力。requests.post/getをpatch |
+| schedules/test_group_links_and_guests.py:240 | 1 | ゲスト参加者のclaimを拒否するための意図的なwrong-token入力 |
+
+対象一覧はtmp/final-test-findings.json、値の根拠はc3996913のUTF-8 Bandit JSONと対象ソース。上記はテスト固定値と模擬応答であり、本番資格情報の埋め込みとしては扱わない。元の警告を削除・抑制せず、Bandit終了コード1を維持する。全テストが実環境に接続しても安全という承認ではない。
+
+テスト側478件は全件用途判定済み。全LOW556の残る内訳は既述の開発コマンド71件・その他7件。既存移行の旧ファイル削除失敗、実ストレージ/CDNの迂回防止、実ログ、実サービス認証/配送等の公開条件は未解決であり、Q04/正式公開No-Goを維持する。
