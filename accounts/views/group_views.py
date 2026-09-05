@@ -8,7 +8,9 @@ from django.db import transaction
 from django.db.models import Q
 from django.urls import reverse
 from django.utils.cache import add_never_cache_headers
+from django.utils.decorators import method_decorator
 from django.views import View
+from django.views.decorators.cache import never_cache
 
 from schedules.models import ParticipantClaimRequest, ParticipantIdentity
 from schedules.notifications import GroupNotificationService
@@ -76,6 +78,7 @@ def _serialize_group_session(session):
     }
 
 
+@method_decorator(never_cache, name="dispatch")
 class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewsets.ModelViewSet):
     """Group management ViewSet with permission checks"""
 

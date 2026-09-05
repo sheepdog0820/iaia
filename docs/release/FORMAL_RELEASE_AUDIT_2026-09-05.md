@@ -990,3 +990,12 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - コンテナ内部の実HTTPでreadiness200、登録画面200、画面が参照するローカル静的ファイル5件200/gzipを確認。manifestのBootstrap CSS/JS・FullCalendar・FontAwesome CSSと4種woff2も200で実ファイルと本文が一致し、CSS/JSのgzipを確認。前回と同じtmp/probe-static-runtime-02f8c91f.pyを今回のイメージに対して実行した。
 - 証跡はtmp/static-runtime-7cdd7cf8-http.log、同-server.log、同-deploy-check.log。起動確認用app/db/cacheコンテナとネットワークは削除済み。全体テスト用のSQLite/PG実行は別の稼働プロセスであり、この時点では未完了。
 - ローカルの新規DB・S3なし構成での確認で、実TLS/S3/CDN、既存本番データ移行、実課金/OAuth、実環境デプロイは未検証。この起動成功だけでリリース可能とは判断しない。AWS/実データ/権限/課金への変更はない。
+
+## 固定ソースのブラウザ統合検証とグループ応答キャッシュの修正
+
+- 7cdd7cf8の全ソースを対応OSのブラウザ用イメージへ展開。tableno-e2e:7cdd7cf8-bookworm、ID sha256:1416ca8a0aca631282fd122b26f63ca2b1bbb8de994270022c9e8d2cdd6e87df。アーカイブ844ファイルと展開後のバイト一致を確認した。依存関係は既存bookworm環境で、package-lock等は596bcd4cから差分なし。
+- アプリ/テストの差し替えなしで通常ユーザー・日程調整・HTTP代替クライアントを3ブラウザ30件実行。29成功、Firefoxの管理者追加後の編集ボタン表示1件失敗（4.4分）。tmp/browser-fixed-7cdd7cf8.log/同名-outputが証跡。全件成功とは扱わない。暗色の日程調整画像でパンくず現在地の低コントラストも確認し、別修正対象とする。
+- Firefox traceでは管理者追加POST200後、参加者側の詳細GETがmember_role=memberを返し編集ボタンが出ない。追加前後の応答にCache-Controlがなく、同じDateの古い本文が再利用されていることと整合する。Dateと実行順の逆転もあるため、時計の逆転理由やキャッシュの全内部挙動までは断定しない。
+- GroupViewSetのdispatchへnever_cacheを適用。ユーザー別の参加状態・役割を含む一覧/詳細/メンバー応答、更新、認証拒否をprivate/no-store/no-cacheとする。DB更新・認可判定は変更せず、過去に保存された応答の削除を保証するものでもない。
+- 新規回帰テストは修正前にキャッシュ指定欠落で5 assertion失敗、修正後に関連12件と合わせ14件成功（17.336秒）。固定ブラウザイメージに変更したビューだけをマウントした管理者追加/解除の3件も成功（1.5分）。tmp/group-cache-red.log/green.log、tmp/browser-group-cache-green.log/同名-outputが証跡。Black/isort/flake8、差分チェックも成功。
+- 両ブラウザ実行と関連Django検証は終了後コンテナ破棄。7cdd7cf8の両DB全体テストは別途継続中で、この追加修正を含まない。実環境/実データ/権限/費用変更なし。固定候補30件の失敗を修正後3件の成功で上書きせず、新しい候補の検証を継続する。
