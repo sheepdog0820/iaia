@@ -821,3 +821,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 同じarchiveから検証用イメージtableno-formal-release-test:596bcd4c-browser、ID sha256:49c2d729352994ea15487a85088a155aca3d9a6544241e91b51b3bdb35e691bbを作成。919dc0de以降のrequirements.lock/test依存差分なし。旧ブラウザ付き固定runtimeへarchiveを展開し、ソース全体を置き換えた。
 - accounts/api/scenarios/schedules/support/tableno/tests/unit/tests/integrationをSQLiteと専用PostgreSQL16で全体実行開始。5アプリcoverageと70%閾値、JUnitを記録。ログはtmp/formal-release-596bcd4c-full-output、runnerはtmp/run-full-596bcd4c.ps1。両プロセス・コンテナの稼働とログ進行を確認したが、終了結果はまだない。起動確認用とは別の全体テストDB/networkを維持しており、終了後に片付ける。
 - 最新候補資料を更新。記録済み8cf3c7f7から200ファイル差分、f692b994以降のmigrationファイル差分なし。未検証の全体/CI・共有環境・外部連携を成功に置き換えず正式公開No-Goを維持。AWS設定・実データ・Secrets・継続費用への変更なし。
+
+## 596bcd4cの静的再検査と接続再確認
+
+- SQLite/PostgreSQL全体の両セッションとコンテナ稼働、ログ進行を確認。終了前であり全体合格とはしない。
+- 6アプリのBanditは解析エラー0、HIGH/MEDIUM 0、LOW556、終了コード1。f692b994のfilename/ID/本文の多重集合との差分なし。新しい起動/通知/ログ保護を含むが、未知の問題不存在を証明しない。詳細はSECURITY_STATIC_TRIAGE_494ABD0D.md。
+- Stripeの利用可能アカウント取得は再びUNAUTHORIZED/oauth_token_invalid_grant。GitHubの対象head PR検索は0件。最新候補・過去結果・未完了事項を明記したDraft PR作成を試みたが403 Resource not accessible by integration。PR未作成、リモートCI未開始。外部認証・権限は変更していない。
+- ユーザーにStripe再認証とGitHubの対象リポジトリPR作成接続の確認を依頼。返答待ち。FORMAL_RELEASE_DRAFT_PR.mdを最新の起動/ログ修正と596bcd4cの検証状態へ更新。未回答を権限変更の承認と扱わない。正式公開No-Goを維持。

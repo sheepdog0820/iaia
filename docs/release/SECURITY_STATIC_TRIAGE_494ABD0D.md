@@ -81,3 +81,9 @@
 - 現行バケットポリシーは対象CloudFrontからbucket/*へのAllowのみ。未適用のTerraform拒否案も旧prefixを含んでいなかったため、session_template_images/*と*/session_template_images/*を追加した。既存Allow、ECS権限、オブジェクトは変更していない。データの削除方針が決まるまで配信経路の保護対象に含める案である。
 - terraform fmt -check / validateが成功。現行Allowを保持した具体ポリシー案8パターンに対するAWS Access AnalyzerのRESOURCE_POLICY / AWS::S3::Bucket検査はfindings=[]。これは適用・実配信拒否・データ削除の証拠ではない。
 - tmp/private-template-containment-42219b05のbefore-policy.json/proposed-policy.jsonがローカル証跡。実設定への適用と削除は未実施。0041の静的指摘は対応方針と残存確認まで進んだが、実保護・保存/削除判断は未完了。Q04は引き続き未達。
+
+## 596bcd4cの起動・ログ保護追加後の再解析
+
+- 6アプリを同じBandit対象範囲で再解析。解析エラー0、HIGH/MEDIUM 0、LOW556、終了コード1。f692b994とfilename/指摘ID/本文の多重集合を比較して追加・削除0件。
+- 新しいtableno.server/error_reporting、招待応答・競合修正にBanditの新規指摘はない。検出なしを全ログ経路の安全性や実サービス検証の代替にはしない。既存LOWの用途判定65件・未判定413件等の扱いを維持する。
+- 証跡tmp/bandit-596bcd4c-apps.json、tmp/bandit-596bcd4c-run.log。新しい抑制は追加していない。正式公開No-Goを維持。
