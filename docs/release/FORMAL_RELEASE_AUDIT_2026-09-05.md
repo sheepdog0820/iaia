@@ -499,3 +499,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - pip check成功、check --deployは指摘0、makemigrations --check --dry-runは変更なし、migrate --check成功。コンテナ内curlで/health/ready/が200、database/cacheともok。X-Frame-Options DENY、nosniff、HSTSも確認。リバースプロキシのHTTPSヘッダーを模擬したHTTP通信であり、実TLS/ALBの実証ではない。
 - 設定はテストコード内の架空の事業者表示等を元に新規生成した。APP_ENV=aws-pre/ENVIRONMENT=staging、S3無効、決済無効、実OAuth/実Stripe鍵なし。実利用者向け料金・規約の承認や、実サービスの稼働を示さない。tmp/candidate-58a27172.envはこの隔離実行専用で、配備へ流用しない。
 - 証跡: tmp/formal-release-58a27172-production-build.log、tmp/candidate-58a27172-startup.log、tmp/candidate-58a27172-deploy-check.log、tmp/candidate-58a27172-migration-diff.log、tmp/candidate-58a27172-ready.log。候補全体のBlack/isort/flake8は別途成功。SQLite/PostgreSQL全体実行handle 4850/92058は稼働中で、完了結果は未取得。正式公開判定は未達を維持する。
+
+## 継続監査: X・Discord APIの登録保存と競合
+
+- 7bd33193と差分なしを確認し、58a27172の既存全体実行handle 4850/92058を確認した。稼働中の同じ実行を継続し、今回の変更はその対象に含めていない。
+- X/Discord APIのトークン保存にIntegrityErrorを模擬すると、利用者・連携・メール確認や既存プロフィールの変更が途中まで残ることを検証した。旧実装で4 subtests失敗（tmp/oauth-atomicity-red.log）。
+- 各APIの外部通信が完了した後のDB処理をtransaction.atomicにまとめた。一般エラー・停止済み利用者の拒否・保存競合で処理が例外終了した場合はDB変更を取り消す。IntegrityErrorには機密情報を含まない日本語の再ログイン案内と503を返す。正常応答のtoken/user/created/linkedは維持する。
+- SQLiteの認証関連22件・15 subtests成功（20.85秒）。PostgreSQL 16ではAPIClientと独立した2接続による同時X登録・同時Discord登録を追加し24件・15 subtests成功（39.49秒）。競合側503・成功側200となり、利用者/連携/トークン各1件、再試行では同じ利用者とトークンが返ることを確認した。Discordの確認済みメールは1件、メールを提供しないXは0件という既存動作を確認。
+- 証跡: tmp/oauth-atomicity-green.log、tmp/oauth-atomicity-postgres.log、tmp/oauth-atomicity-postgres-coverage.json。Google等の実サービス通信は行っていない。DBスキーマ・実利用者・共有環境・権限・費用への変更なし。Black/isort/flake8と差分・日本語エラーを確認した。復旧はアプリ変更のrevertで可能だが、部分保存の問題を再導入する。候補全体・実認可・取消/失効の検証は未完了で、正式公開判定は未達を維持する。

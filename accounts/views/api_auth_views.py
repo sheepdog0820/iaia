@@ -10,6 +10,7 @@ from allauth.account.models import EmailAddress
 from allauth.socialaccount.models import SocialAccount
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from google_auth_oauthlib.flow import Flow
@@ -326,55 +327,65 @@ def twitter_auth(request):
         if not twitter_id:
             return Response({"error": "XのユーザーIDが取得できませんでした。"}, status=status.HTTP_400_BAD_REQUEST)
 
-        social_account = SocialAccount.objects.filter(provider="twitter_oauth2", uid=twitter_id).first()
+        with transaction.atomic():
+            social_account = SocialAccount.objects.filter(provider="twitter_oauth2", uid=twitter_id).first()
 
-        created = False
-        linked = False
+            created = False
+            linked = False
 
-        if request.user.is_authenticated:
-            if social_account and social_account.user != request.user:
-                return Response(
-                    {"error": "このXアカウントは別のユーザーに連携済みです。"}, status=status.HTTP_409_CONFLICT
-                )
+            if request.user.is_authenticated:
+                if social_account and social_account.user != request.user:
+                    return Response(
+                        {"error": "このXアカウントは別のユーザーに連携済みです。"}, status=status.HTTP_409_CONFLICT
+                    )
 
-            user = request.user
-            _require_active_oauth_user(user)
-            linked = True
-
-            if social_account:
-                social_account.extra_data = user_data
-                social_account.save(update_fields=["extra_data"])
-            else:
-                SocialAccount.objects.create(user=user, provider="twitter_oauth2", uid=twitter_id, extra_data=user_data)
-        else:
-            if social_account:
-                user = social_account.user
+                user = request.user
                 _require_active_oauth_user(user)
-                social_account.extra_data = user_data
-                social_account.save(update_fields=["extra_data"])
+                linked = True
+
+                if social_account:
+                    social_account.extra_data = user_data
+                    social_account.save(update_fields=["extra_data"])
+                else:
+                    SocialAccount.objects.create(
+                        user=user, provider="twitter_oauth2", uid=twitter_id, extra_data=user_data
+                    )
             else:
-                base_username = twitter_username or f"x_{twitter_id}"
-                username = _build_unique_username(base_username)
-                user = User.objects.create_user(
-                    username=username,
-                    email="",
-                )
-                user.set_unusable_password()
-                if twitter_name and not user.nickname:
-                    user.nickname = twitter_name
-                user.save()
-                created = True
+                if social_account:
+                    user = social_account.user
+                    _require_active_oauth_user(user)
+                    social_account.extra_data = user_data
+                    social_account.save(update_fields=["extra_data"])
+                else:
+                    base_username = twitter_username or f"x_{twitter_id}"
+                    username = _build_unique_username(base_username)
+                    user = User.objects.create_user(
+                        username=username,
+                        email="",
+                    )
+                    user.set_unusable_password()
+                    if twitter_name and not user.nickname:
+                        user.nickname = twitter_name
+                    user.save()
+                    created = True
 
-                SocialAccount.objects.create(user=user, provider="twitter_oauth2", uid=twitter_id, extra_data=user_data)
+                    SocialAccount.objects.create(
+                        user=user, provider="twitter_oauth2", uid=twitter_id, extra_data=user_data
+                    )
 
-        token, _ = Token.objects.get_or_create(user=user)
+            token, _ = Token.objects.get_or_create(user=user)
 
-        return Response(
-            {"token": token.key, "user": UserSerializer(user).data, "created": created, "linked": linked},
-            status=status.HTTP_200_OK,
-        )
+            return Response(
+                {"token": token.key, "user": UserSerializer(user).data, "created": created, "linked": linked},
+                status=status.HTTP_200_OK,
+            )
     except PermissionDenied:
         raise
+    except IntegrityError:
+        return Response(
+            {"error": "認証処理が競合しました。もう一度ログインをお試しください。"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
     except Exception as e:
         logger.error("X OAuth認証エラー (%s)", type(e).__name__)
         return Response(
@@ -467,77 +478,88 @@ def discord_auth(request):
         username = user_data.get("username") or f"discord_{discord_id}"
         display_name = user_data.get("global_name") or username
 
-        social_account = SocialAccount.objects.filter(provider="discord", uid=discord_id).first()
+        with transaction.atomic():
+            social_account = SocialAccount.objects.filter(provider="discord", uid=discord_id).first()
 
-        created = False
-        linked = False
+            created = False
+            linked = False
 
-        if request.user.is_authenticated:
-            if social_account and social_account.user != request.user:
-                return Response(
-                    {"error": "このDiscordアカウントは別のユーザーに連携済みです。"}, status=status.HTTP_409_CONFLICT
-                )
-
-            user = request.user
-            _require_active_oauth_user(user)
-            linked = True
-
-            if social_account:
-                social_account.extra_data = user_data
-                social_account.save(update_fields=["extra_data"])
-            else:
-                SocialAccount.objects.create(user=user, provider="discord", uid=discord_id, extra_data=user_data)
-        else:
-            if social_account:
-                user = social_account.user
-                _require_active_oauth_user(user)
-                social_account.extra_data = user_data
-                social_account.save(update_fields=["extra_data"])
-            else:
-                user = None
-                if email and email_verified:
-                    user = User.objects.filter(email=email).first()
-
-                if user:
-                    _require_active_oauth_user(user)
-                    SocialAccount.objects.create(user=user, provider="discord", uid=discord_id, extra_data=user_data)
-                else:
-                    base_username = username
-                    unique_username = _build_unique_username(base_username)
-                    user = User.objects.create_user(
-                        username=unique_username,
-                        email=email_verified and email or "",
+            if request.user.is_authenticated:
+                if social_account and social_account.user != request.user:
+                    return Response(
+                        {"error": "このDiscordアカウントは別のユーザーに連携済みです。"},
+                        status=status.HTTP_409_CONFLICT,
                     )
-                    user.set_unusable_password()
-                    if display_name and not user.nickname:
-                        user.nickname = display_name
-                    user.save()
-                    created = True
 
+                user = request.user
+                _require_active_oauth_user(user)
+                linked = True
+
+                if social_account:
+                    social_account.extra_data = user_data
+                    social_account.save(update_fields=["extra_data"])
+                else:
                     SocialAccount.objects.create(user=user, provider="discord", uid=discord_id, extra_data=user_data)
+            else:
+                if social_account:
+                    user = social_account.user
+                    _require_active_oauth_user(user)
+                    social_account.extra_data = user_data
+                    social_account.save(update_fields=["extra_data"])
+                else:
+                    user = None
+                    if email and email_verified:
+                        user = User.objects.filter(email=email).first()
 
-        updates = {}
-        if not user.nickname and display_name:
-            updates["nickname"] = display_name
-        if email and email_verified and not user.email:
-            updates["email"] = email
-        if updates:
-            for field, value in updates.items():
-                setattr(user, field, value)
-            user.save(update_fields=list(updates.keys()))
+                    if user:
+                        _require_active_oauth_user(user)
+                        SocialAccount.objects.create(
+                            user=user, provider="discord", uid=discord_id, extra_data=user_data
+                        )
+                    else:
+                        base_username = username
+                        unique_username = _build_unique_username(base_username)
+                        user = User.objects.create_user(
+                            username=unique_username,
+                            email=email_verified and email or "",
+                        )
+                        user.set_unusable_password()
+                        if display_name and not user.nickname:
+                            user.nickname = display_name
+                        user.save()
+                        created = True
 
-        if email and email_verified and email.casefold() == user.email.casefold():
-            _mark_email_verified(user, user.email)
+                        SocialAccount.objects.create(
+                            user=user, provider="discord", uid=discord_id, extra_data=user_data
+                        )
 
-        token, _ = Token.objects.get_or_create(user=user)
+            updates = {}
+            if not user.nickname and display_name:
+                updates["nickname"] = display_name
+            if email and email_verified and not user.email:
+                updates["email"] = email
+            if updates:
+                for field, value in updates.items():
+                    setattr(user, field, value)
+                user.save(update_fields=list(updates.keys()))
 
-        return Response(
-            {"token": token.key, "user": UserSerializer(user).data, "created": created, "linked": linked},
-            status=status.HTTP_200_OK,
-        )
+            if email and email_verified and email.casefold() == user.email.casefold():
+                _mark_email_verified(user, user.email)
+
+            token, _ = Token.objects.get_or_create(user=user)
+
+            return Response(
+                {"token": token.key, "user": UserSerializer(user).data, "created": created, "linked": linked},
+                status=status.HTTP_200_OK,
+            )
 
     except PermissionDenied:
         raise
+    except IntegrityError:
+        return Response(
+            {"error": "認証処理が競合しました。もう一度ログインをお試しください。"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
     except Exception as e:
         logger.error("Discord OAuth認証エラー (%s)", type(e).__name__)
         return Response(
