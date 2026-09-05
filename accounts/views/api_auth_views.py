@@ -463,7 +463,7 @@ def discord_auth(request):
             )
 
         email = user_data.get("email") or ""
-        email_verified = bool(user_data.get("verified", False))
+        email_verified = user_data.get("verified") is True
         username = user_data.get("username") or f"discord_{discord_id}"
         display_name = user_data.get("global_name") or username
 
@@ -526,8 +526,8 @@ def discord_auth(request):
                 setattr(user, field, value)
             user.save(update_fields=list(updates.keys()))
 
-        if email and email_verified:
-            _mark_email_verified(user, email)
+        if email and email_verified and email.casefold() == user.email.casefold():
+            _mark_email_verified(user, user.email)
 
         token, _ = Token.objects.get_or_create(user=user)
 

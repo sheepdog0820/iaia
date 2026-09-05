@@ -477,3 +477,14 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 各経路で既存利用者を選択した直後、連携情報更新・メール確認・トークン発行より前にis_activeを確認する共通処理を追加。停止済みなら日本語のPermissionDeniedをDRFへ渡して403にする。一般エラーとして500に変換しない。
 - 新規トークンなし、既存トークンを応答に含めない、既存連携のextra_dataを変更しない、メール確認/新規連携を作成しないことを検証。Google/X/Discordの既存APIテストを含むSQLite30件と12 subtests成功（38.98秒、既存警告9件）。新規拒否処理の実行行に未カバーなし。tmp/oauth-inactive-final.log / tmp/oauth-inactive-coverage.json。
 - Black/isort/flake8、差分、UTF-8/LF、日本語エラーを確認。DBスキーマ、共有/本番データ、外部設定・権限・費用に変更なし。既存トークンの削除は行わず、停止状態では取得を拒否する。復旧はこのコード変更のrevertが可能だが、旧版の拒否漏れを再導入する。I02/I03と正式公開判定は実サービス検証が未完了のため未達を維持する。
+
+## 継続監査: Discordメール確認フラグと変更後のメール
+
+- 793c3063と差分なしから開始。Discord APIのbool(verified)は文字列false/trueや数値1も確認済みと扱っていた。また既存Discord UIDの現在メールがローカル登録メールと異なる場合も新しいメールをprimary=Trueで追加し、既存primaryとの制約違反で500となった。隔離再現は4失敗（1テスト+3 subtests）、tmp/discord-email-safety-red.log。
+- 判定をverified is Trueに限定した。既存UIDのメールがローカル利用者と異なる場合はメール確認状態を変更せず、同じ利用者で認証を続ける。同じメールの大小文字だけが変わった場合も重複追加で失敗することを追加再現（tmp/discord-email-case-red.log）し、比較はcasefold、保存時の照合にはローカルの表記を使うよう修正した。
+- SQLiteでGoogle/X/Discord APIと停止済み利用者の回帰テスト33件・17 subtests成功（37.34秒、既存警告9件）。tmp/discord-email-safety-final.log / tmp/discord-email-safety-coverage.json。未確認Discord IDの新規登録時にローカルメールを空として扱う既存動作は維持し、他人の既存メールへ連携・確認・トークン発行を行わないことを検証した。
+- 実provider応答・実利用者・共有DB・OAuth設定への操作は行っていない。DBスキーマ/費用への変更なし。コードrevertは可能だが、メール誤照合とログイン失敗を再導入するため公開判断を伴う。実Discord認可・取消・失効は未確認で、I02/Q04は未達を維持する。
+
+追加で専用PostgreSQL 16のDiscord API・停止済み利用者14件と11 subtestsも成功（19.93秒、警告9件、tmp/discord-email-safety-postgres.log）。この専用DB/ネットワークは終了・削除した。
+
+b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成功・2失敗、双方384 subtests成功で終了した。両失敗はGoogleUserInfoResilienceTestsで、必須クライアント設定なしのため通信試験に入らず503となる。テスト前提と、新しく追加したtokeninfo→userinfoの両通信を検証するfixtureの更新が必要。全体成功や最終候補合格とは扱わない。

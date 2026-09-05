@@ -4,6 +4,7 @@ from allauth.account.models import EmailAddress
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import get_user_model
 from django.test import override_settings
+from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 User = get_user_model()
@@ -27,6 +28,53 @@ class DummyResponse:
 class DiscordAuthApiTests(APITestCase):
     def setUp(self):
         self.url = "/api/auth/discord/"
+
+    @patch("accounts.views.api_auth_views.requests.get")
+    def test_only_boolean_true_can_match_an_existing_email(self, mock_get):
+        owner = User.objects.create_user(username="mailbox-owner", email="owner@example.test")
+        for index, value in enumerate((False, None, "false", "true", 1)):
+            with self.subTest(value=value):
+                mock_get.return_value = DummyResponse(
+                    200,
+                    {"id": f"unverified-{index}", "username": f"new-{index}", "email": owner.email, "verified": value},
+                )
+                response = self.client.post(self.url, {"access_token": "fixture"}, format="json")
+                self.assertEqual(response.status_code, 200)
+                self.assertNotEqual(response.data["user"]["id"], owner.pk)
+                self.assertFalse(Token.objects.filter(user=owner).exists())
+                self.assertFalse(SocialAccount.objects.filter(user=owner).exists())
+                self.assertFalse(EmailAddress.objects.filter(user=owner, verified=True).exists())
+
+    @patch("accounts.views.api_auth_views.requests.get")
+    def test_existing_identity_email_case_change_does_not_duplicate_mailbox(self, mock_get):
+        owner = User.objects.create_user(username="case-owner", email="case@example.test")
+        EmailAddress.objects.create(user=owner, email=owner.email, verified=True, primary=True)
+        SocialAccount.objects.create(user=owner, provider="discord", uid="case-id")
+        mock_get.return_value = DummyResponse(
+            200, {"id": "case-id", "username": "case-owner", "email": owner.email.upper(), "verified": True}
+        )
+        response = self.client.post(self.url, {"access_token": "fixture"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["user"]["id"], owner.pk)
+        self.assertEqual(EmailAddress.objects.filter(user=owner).count(), 1)
+
+    @patch("accounts.views.api_auth_views.requests.get")
+    def test_existing_identity_email_change_preserves_local_mailbox(self, mock_get):
+        owner = User.objects.create_user(username="original", email="original@example.test")
+        other = User.objects.create_user(username="other", email="other@example.test")
+        EmailAddress.objects.create(user=owner, email=owner.email, verified=True, primary=True)
+        SocialAccount.objects.create(user=owner, provider="discord", uid="stable-id")
+        mock_get.return_value = DummyResponse(
+            200, {"id": "stable-id", "username": "original", "email": other.email, "verified": True}
+        )
+        response = self.client.post(self.url, {"access_token": "fixture"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["user"]["id"], owner.pk)
+        owner.refresh_from_db()
+        self.assertEqual(owner.email, "original@example.test")
+        self.assertEqual(list(EmailAddress.objects.filter(user=owner).values_list("email", flat=True)), [owner.email])
+        self.assertFalse(Token.objects.filter(user=other).exists())
+        self.assertFalse(EmailAddress.objects.filter(user=other).exists())
 
     def test_requires_code_or_token(self):
         response = self.client.post(self.url, {}, format="json")
