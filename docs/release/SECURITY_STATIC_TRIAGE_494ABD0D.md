@@ -180,3 +180,38 @@
 Bandit1.9.4でaccounts/api/scenarios/schedules/support/tablenoを再帰解析した。解析エラー0、HIGH/MEDIUM 0、LOW556、終了コード1。ファイルパスの区切りと先頭の./を正規化し、ファイル・指摘ID・本文の多重集合を7cdd7cf8と比較して追加0・削除0だった。新しいグループAPIキャッシュ禁止処理を含むソースの結果であり、過去の検出件数を流用したものではない。
 
 証跡はtmp/bandit-0cd9fe45-apps.jsonとtmp/bandit-0cd9fe45-run.log。テスト側319件の用途判定・未判定159件を維持する。指摘の差分なしは、全経路の安全性や実サービスでの保護を証明しない。コードと警告抑制の変更は行っていない。
+## 09d15575での再解析と追加56件のテスト用パスワード分類
+
+- Bandit1.9.4で6アプリを再帰解析し、解析エラー0、HIGH/MEDIUM 0、LOW556、終了コード1。0cd9fe45とのファイル・指摘ID・本文の多重集合比較では追加0・削除0。区切り文字と先頭./を正規化して比較した。証跡tmp/bandit-09d15575-apps.json、同-run.log。
+- 前回未分類のB106から、テストメソッド内43件・setUp/setUpTestData内13件、計56件・26ファイルを追加分類した。Django TestCase/DRF APITestCaseの直接継承をimport先まで確認し、get_user_modelのモジュール/メソッド直下の代入またはCustomUserのimportを辿った。対象呼び出しはモデルのobjects.create_userで、password引数が固定文字列であること、Bandit指摘行が呼び出し範囲内であることをAST照合した。
+- 既存分類319件とのファイル/行の重複を除外し、テスト478件中375件を用途判定済み、103件は未判定。対象は隔離テストDBのアカウント準備値であり、本番資格情報の埋め込みとしては扱わない。実DBへの転用を認めるものではなく、実認証/外部連携の合格証拠でもない。警告抑制やアプリコードの変更なし。
+- 再現用スクリプトtmp/classify-extra-test-passwords.py、結果tmp/classified-extra-test-passwords.json。対象行は下表。開発コマンド71件・その他7件の従前の扱いと、実ストレージ/CDN等の未達条件は維持する。
+
+| ファイル | B106の行番号 | 件数 |
+| --- | --- | --- |
+| accounts/test_api_auth_discord.py | 136, 179 | 2 |
+| accounts/test_api_auth_google.py | 124 | 1 |
+| accounts/test_character_6th.py | 153 | 1 |
+| accounts/test_character_6th_api.py | 516 | 1 |
+| accounts/test_character_6th_dice_roll_settings.py | 287 | 1 |
+| accounts/test_character_background_removal.py | 226 | 1 |
+| accounts/test_character_ccfolia_export.py | 13, 392, 422, 448, 505, 540 | 6 |
+| accounts/test_character_factories_test.py | 9 | 1 |
+| accounts/test_character_integration.py | 897 | 1 |
+| accounts/test_character_sheet_api.py | 199 | 1 |
+| accounts/test_custom_skill_addition.py | 179 | 1 |
+| accounts/test_dynamic_dice_roll.py | 271 | 1 |
+| accounts/test_export.py | 258 | 1 |
+| accounts/test_group_invite_links.py | 153 | 1 |
+| accounts/test_session_simple.py | 130 | 1 |
+| accounts/test_statistics.py | 363 | 1 |
+| accounts/tests.py | 107, 113, 119, 142, 171, 177, 183, 255, 261, 267, 273, 333, 382 | 13 |
+| schedules/test_analytics_dashboard.py | 111 | 1 |
+| schedules/test_discord_and_release.py | 23, 28, 278, 283 | 4 |
+| schedules/test_external_integrations.py | 28, 33 | 2 |
+| schedules/test_group_links_and_guests.py | 20, 25, 30, 111, 116, 121, 126 | 7 |
+| schedules/test_groupless_session_creation.py | 131 | 1 |
+| schedules/test_handouts.py | 354 | 1 |
+| schedules/test_occurrences.py | 141 | 1 |
+| schedules/test_schedules.py | 728, 945, 1350 | 3 |
+| schedules/test_session_integration.py | 667 | 1 |
