@@ -72,7 +72,7 @@ fi
 
 echo "Starting ASGI server..."
 # APP_ENV is resolved to the settings module by tableno.runtime_env.
-exec daphne \
+exec python -m tableno.server \
   --bind 0.0.0.0 \
   --port 8000 \
   --application-close-timeout ${DAPHNE_APPLICATION_CLOSE_TIMEOUT:-10} \

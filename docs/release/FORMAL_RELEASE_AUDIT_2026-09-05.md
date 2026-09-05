@@ -777,3 +777,13 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 隔離SQLite・外部ネットワークなしで既存招待テストと新規ヘッダーテスト計12件・2 subtests成功（45.36秒、9 warnings）。成功、失効204、失効後410、未ログイン拒否、不明なランディング404のヘッダーを確認。coverage JSONで追加dispatch本体4行すべて通過。Black/isort/flake8とUTF-8/LF・差分確認成功。新しいUI文言なし。
 - 証跡tmp/invite-headers-green.log、tmp/invite-headers-coverage.json。既存919dc0deテストイメージへe2952520以降の対象view/テストを読取マウント。DB操作を変更していないため、この変更ではPostgreSQLや全体スイートを再実行していない。以前のPostgreSQL競合成功をこの最新変更込みの成功とは扱わない。
 - 応答ヘッダーはアクセスログのパス・login/signupのnextパラメータ、ブラウザ履歴、既存キャッシュ、外部監視へ記録済みのトークンを消さない。ミドルウェア等でビューに到達せず生成された応答や未処理例外の500も、このdispatchの保護を確認した範囲に含めない。実ブラウザ/CDN/ログ設定・記録の調査は残り、正式公開No-Goを維持する。共有DB・Secrets・AWS・費用に変更なし。
+
+## Daphneアクセスログの招待トークン・クエリ除去
+
+- 29de99d9のクリーンな作業ツリーから調査。標準docker/entrypoint.shはDaphneの通常CLIを起動し、その既定verbosityのAccessLogGeneratorがpathをストリームへ書く。応答のno-store/no-referrerだけではこのアクセス記録を抑制しない。
+- AWS読み取りでは、対象ALBのaccess/connection/health_check logs.s3.enabledはfalse。CloudFront E3RQ829D1NVY28のDistributionConfig.Logging.Enabledはfalse、既定behaviorのRealtimeLogConfigArnはnull。CloudFrontの別方式のログ配送、WAF、外部監視、過去ログの不存在までは確認していない。実利用者のログ本文は取得していない。
+- tableno.serverでDaphne CLIのserver_classを差し替え、action_loggerへ渡すdetailsのコピーだけを加工。招待ランディング/参加パスのトークンを[redacted]へ置換し、全アクセスパスのクエリ/fragmentと改行等の非表示文字を除去。メソッド・ステータス・サイズ・通常パスを維持。元details、ASGI scope、実リクエストのrouting/auth入力は変更しない。docker/entrypoint.shの標準コマンドをpython -m tableno.serverへ変更し、明示された別コマンドのexecは維持。
+- 固定Linuxテストイメージでアクセス記録とentrypoint関連28件・4 subtests成功（1.15秒、4 warnings）。新moduleのunit coverageは95.65%、未通過は__main__からCLIを起動する36行だけ。実配備用f692b994イメージへ最終module/entrypointと架空ASGI probeを読取マウントして通常起動し、そのCLI経路を別途実行確認。公開ポートなし・network none・DB/静的更新なし。
+- probeへ架空トークン付きURLを送り、HTTP200と元パスのbody一致、実Daphneログの[redacted]、クエリ値の不在とステータス保持を確認。最終コードで再起動して再確認し、専用コンテナを削除。アプリ本体の全起動・WebSocket通信・最新全体CIの検証ではない。単一coverage計測で100%を達成したとは扱わない。
+- 証跡tmp/server-access-red.log、server-access-green.log（旧コマンドを要求する既存テスト1失敗）、server-access-final.log、server-access-coverage.json、server-access-runtime-final.log。ローカルWindowsのDaphne importは既存Twisted循環importで失敗したため合格扱いせず、固定Linux依存関係で検証。Black/isort/flake8、sh -n、差分・UTF-8/LF確認成功。新UI文言なし。
+- Djangoの例外メール/例外ログ、クエリ以外の他種類のURLトークン、明示コマンドで直接起動するDaphne、外部監視や既存ログの保護は残る。新しい起動処理は未配備で、AWS設定・Secrets・実データ・継続費用への変更はない。正式公開No-Goを維持する。

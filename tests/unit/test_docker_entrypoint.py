@@ -7,12 +7,12 @@ from django.test import SimpleTestCase
 class DockerEntrypointTests(SimpleTestCase):
     ROOT = Path(__file__).resolve().parents[2]
 
-    def test_default_server_command_executes_daphne(self):
+    def test_default_server_command_executes_private_daphne_entrypoint(self):
         lines = (self.ROOT / "docker" / "entrypoint.sh").read_text(encoding="utf-8").splitlines()
 
-        daphne_lines = [line for line in lines if "exec daphne" in line]
+        daphne_lines = [line for line in lines if "exec python -m tableno.server" in line]
 
-        self.assertEqual(daphne_lines, ["exec daphne \\"])
+        self.assertEqual(daphne_lines, ["exec python -m tableno.server \\"])
         self.assertIn("  --bind 0.0.0.0 \\", lines)
         self.assertIn("  --port 8000 \\", lines)
         self.assertIn('  "${DJANGO_ASGI_MODULE:-tableno.asgi}:application"', lines)
