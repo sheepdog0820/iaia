@@ -2,7 +2,7 @@
 
 2026-09-05、コード候補 `b8fad941`。実行承認前の準備資料。実環境は読み取りのみ。ローカルで配備用イメージ作成と専用PostgreSQL検証を行ったが、ECR送信・ECS配備・共有DB変更・通知は実行していない。
 
-後続の参加承認・報酬反映・ID・配列順序・画像配信修正により、この冒頭の候補は最新ではない。9b1c9043のSQLite/PostgreSQL全体成功は監査記録に保存しているが、後続の画像修正を含む最終配備digestは未作成。以下の過去候補の検証結果をそのまま最新の配備承認材料に使わない。
+後続の参加承認・報酬反映・ID・配列順序・画像配信修正により、この冒頭の候補は最新ではない。9b1c9043のSQLite/PostgreSQL全体成功は監査記録に保存している。後続の画像・権限画面修正を含む6608de6dの配備用イメージをローカルで作成・起動検証した（後述）が、ECR manifest digestは未取得。以下の過去候補の検証結果をそのまま最新の配備承認材料に使わない。
 
 ## 確認できた現状
 
@@ -115,3 +115,16 @@ Terraformの変更対象は `aws_s3_bucket_policy.assets`。対象CloudFrontサ�
 - Terraform 1.15.6のfmt -check / validate: 両方終了コード0。変更対象はassets bucket policyのSidと拒否resource追加だけ。
 
 これらは静的検査であり、Terraform plan/applyやIAM評価・実配信の成功証拠ではない。実ファイルの取得・ポリシー適用・invalidationは行っていない。適用時は保存した現行ポリシーとの再照合、旧アプリでの表示停止の扱い、アプリ配備と切り戻しの順序、試験画像・宛先・費用を具体化して承認を得る。
+
+## 6608de6dの配備用イメージと隔離起動検証
+
+2026-09-05、`6608de6d6e6d0dd3dbf854bd27a3dc07047a3d02` のgit archiveから、リポジトリのDockerfileとrequirements.lock.txtを使ってビルドした。ローカルタグは `tableno-formal-release:6608de6d`、イメージIDは `sha256:6a7ec1bd4450cf9bd736d49a86ef4905aecee2b7a74c4252c344196ad376e77d`。revisionラベルは上記の完全SHA、実行ユーザーはtableno/UID 10001。RepoDigestsは空で、ECRのmanifest digestではない。
+
+外向き通信と公開ポートのない専用DockerネットワークでPostgreSQL 16とRedis 7を起動し、APP_ENV=aws-pre、ENVIRONMENT=stagingで通常entrypointを実行した。settings_productionのDEBUG=False、Redis利用、HTTPS向け設定を使い、S3は無効・ローカル保存。課金は無効で、Stripeキー・料金/事業者表示は隔離検証専用の値を設定した。実際のSecretsや販売条件を確認した結果ではない。
+
+- entrypointのmigrateが完了し、collectstaticは179ファイルを収集した後、通常のDaphneが起動した。
+- `pip check` はNo broken requirements found、`manage.py check --deploy` は指摘0件、`makemigrations --check --dry-run` は差分なし、`migrate --check` は成功。
+- コンテナ内のHTTPリクエストにX-Forwarded-Proto: httpsを付け、readyが200、database/cacheともokを返した。これはプロキシ経由の判定を模擬したもので、実TLSやALBの検証ではない。HSTS、nosniff、X-Frame-Options: DENYも応答に確認した。
+- 証跡は `tmp/formal-release-6608de6d-build.log`、同接頭辞のimage.json/ready.json/startup.log、`tmp/candidate-6608de6d-deploy-check.log` / migration-diff.log。終了後に専用app/DB/Redisコンテナ・ネットワークを停止・削除した。
+
+この候補には画像配信と権限画面の修正が含まれる。一方、同じSHAの全体CI、S3ストレージの読取/迂回防止、AWS実効設定、復旧手順、実課金・外部連携の検証は未完了。ローカル起動成功をそのまま公開承認に置き換えない。実配備前にはECR送信後のmanifest digestと最終候補を照合する。

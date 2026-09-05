@@ -427,3 +427,9 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 固定9b1c9043の専用コンテナへ変更viewを読み取り専用適用し、ブラウザから通常の登録・非公開グループ作成・セッション作成・完了への更新を実行した。独立した通常ユーザーはグループ/セッションAPIが404、詳細/日程調整HTMLが403となり、アプリの案内とホームへの導線を表示し、非公開題名を表示しない。API作成や強制認証で画面操作を置き換えていない。
 - 初回の3ブラウザ成功後、WebKitの390px画像で共通403画面の戻るボタンだけが右へずれていることを確認し、ms-2をms-sm-2へ変更した。テンプレート差し替えだけでは古い表示が保持されたため専用サーバーを再起動し、ボタンの左右位置/幅の差が1px未満であることもE2Eで確認した。最終Chromium/Firefox/WebKitは3件成功（40.6秒、終了コード0）。`tmp/permission-page-browser.log`、`tmp/formal-release-permission-page.json` と同名resultsディレクトリのPC/モバイル画像。実機の検証ではない。
 - ローカル専用DBに各ブラウザの試験利用者が計18人、staff/superuserはともに0人であることを確認した。コンソールメール設定を使用し、実通知・共有DB変更なし。専用コンテナは終了後に停止・削除した。Black/isort/flake8、日本語画面の実表示、差分を確認した。有料契約・外部連携・配信設定の実環境検証等は別の未完了条件として維持する。
+
+## 継続監査: 6608de6dの配備イメージ固定と起動（2026-09-05）
+
+- 画像保護・403画面を含む6608de6dのgit archiveから配備用Dockerfileでビルドした。ローカルイメージIDはsha256:6a7ec1bd4450cf9bd736d49a86ef4905aecee2b7a74c4252c344196ad376e77d、revisionラベルは6608de6d6e6d0dd3dbf854bd27a3dc07047a3d02。ECR未送信、RepoDigestsは空。詳細・証跡の場所は配備準備資料の同候補節に記録した。
+- 外部通信・公開ポートなしの専用PostgreSQL/Redisと、aws-pre/stagingの本番系設定で通常entrypointを起動。migrate、179ファイルのcollectstatic、Daphne起動、UID 10001を確認した。pip check、check --deploy、migration差分/未適用確認はすべて成功。HTTPSプロキシヘッダーを模擬したreadyは200、DB/cacheともok。
+- S3は無効、課金は無効、Stripeキー・事業者表示は隔離試験専用の値。実TLS、実AWS Secrets、実S3、販売条件、課金・外部連携の正常性は証明していない。専用コンテナとネットワークは検証後に削除した。同SHAの全体CIや実配備検証等は残るため、正式公開No-Goを維持する。
