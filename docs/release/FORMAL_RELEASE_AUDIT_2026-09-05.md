@@ -862,3 +862,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - tableno-e2e:596bcd4c-bookwormに最新のbase/calendarテンプレート・vendor・テストを読み取り専用マウントし、network none/使い捨てSQLiteで実行。Chromium/Firefox/WebKitの計9件成功（1.4分、retryなし）。フォント3種の実ロード、CDN遮断下のカレンダー、通常登録から非公開セッション作成・完了保存・非参加者拒否まで確認。Chromium完了画面で戻る/その他/日程編集のアイコンと本文表示を目視確認した。コンテナは終了後に破棄。
 - Font Awesomeだけを対象にManifestStaticFilesStorageでcollectstaticし、CSSの参照先8件がハッシュ付きファイルへ解決されることを確認。全staticを同方式で処理する試験は、既存Bootstrapのbootstrap.bundle.min.js.map欠落で失敗した。S3ManifestStaticStorageを使う本番構成に関係するため、別修正が必要。今回のフォント限定成功を全体の配信準備完了とは扱わない。
 - 証跡: tmp/browser-icons-red.log（3失敗）、tmp/browser-icons-green.logと同名-output（9成功・画面）、tmp/icons-manifest-static.log（全static失敗）、tmp/icons-manifest-isolated.log（フォント限定成功）。本番イメージ再構築・実S3/CDN・リモートCI・有料プラン/外部連携実証は未完了で、正式公開No-Goを維持する。
+
+## Bootstrapのsource map欠落によるcollectstatic失敗を修正
+
+- e2173950後の修正。全staticを一時ディレクトリへManifestStaticFilesStorageでcollectstaticするSimpleTestCaseを追加。実DB・S3を使用せず、変更前にbootstrap.bundle.min.js.map欠落で失敗することを確認した（tmp/static-manifest-red.log）。
+- 現行Bootstrap 5.3.0の公式配布からbootstrap.bundle.min.js.map/bootstrap.min.css.mapを未改変で追加。npmメタデータのSHA-512/SHA-1一致を確認し、ファイルのSHA-256を既存READMEへ追記。公開ライブラリのsource mapであり、アプリのソースや秘密情報の追加ではない。既存JS/CSS・画面・DB・権限・費用設定は変更しない。
+- 回帰テストはローカルWindowsで成功（1.321秒）、固定bookworm/Python 3.11/Django lockのDockerでも成功（0.590秒）。全staticの生成完了と、Bootstrap JS/CSS・FullCalendar・Font Awesomeがmanifestに登録され、対応するファイルが存在することを検証。Dockerはnetwork none、vendorとテストだけを読み取り専用マウントし終了後に破棄。Black/isort/flake8確認済み。
+- 証跡: tmp/static-manifest-green.log、tmp/static-manifest-linux-green.log。既存の全static生成失敗は解消したが、実S3ManifestStaticStorageでのアップロード・CloudFront経由の配信・本番イメージ再構築を完了した証拠ではない。正式公開No-Goを維持する。
