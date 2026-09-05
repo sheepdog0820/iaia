@@ -621,3 +621,13 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - SQLite関連17件・2 subtests成功（23.70秒、9警告）。ページ外の最新版を明示確認するよう受け入れテストを補強し、最終テスト単独1件も成功（18.56秒）。証跡: tmp/character-version-list-red.log、tmp/character-version-list-green.log、tmp/character-version-list-pagination.log。
 - PostgreSQL16では画像選択・画像API・複数画像・6版バージョン管理・シナリオ全体を含め119件・14 subtests成功（112.83秒、既存警告14件、tmp/list-query-postgres-final.log）。この実行はページ確認の補強前に開始した。8f855617の隔離イメージに最新の変更ファイルをマウント。専用tmpfs DBとinternalネットワークは検証後削除済み。
 - Black/isort/flake8と差分を確認、ソースレビューの追加指摘なし。UI文言・DBスキーマ・実データ・共有環境・権限・費用変更なし。復旧は本修正のrevert。応答時間の同条件再測定と修正後候補全体のテスト/CIは未完了で、正式公開No-Goを維持する。
+
+## b6e58ebd一覧性能の再測定
+
+- 対象b6e58ebd2af17469a1b2d2fc0de1e9b355fa1129のgit archiveから通常Dockerfileで配備用イメージを構築。tableno-formal-release:b6e58ebd、sha256:8cd6229e7779e5abd5d2383379eae685909481f1a48ca27046e0b1b2de72408e、実行ユーザーtableno。collectstatic183件成功。ECR送信なし。
+- 前回同様、1 CPU/1 GiBのアプリ、PostgreSQL16（1 CPU/512 MiB、tmpfs）、Redis7（128 MiB）、internalネットワーク、ホスト公開ポートなし。利用者10人、キャラクター1000件、セッション100件、シナリオ100件。同じseedと架空設定を使用し、名前に旧SHAが残るDB/アプリ名はseedの接続先ガードと比較条件を維持するため再利用した。実行イメージは上記の最新候補。
+- 最初のseedはマイグレーション完了前に実行してデッドロックで失敗した（seed.log）。トランザクションがロールバックされ、初期化とASGI起動の完了後に空DBガードを満たして再実行成功（seed-retry.log）。API返却件数はキャラクター100件、シナリオ30件、セッション全期間20件で前回と一致。
+- DB問い合わせはキャラクター206→10、シナリオ152→4、セッション7→7。同形SQLの最大反復は全て1回。APIClientによる別計測でありHTTP負荷測定とは区別する。
+- ウォームアップ各10要求後、各一覧30要求を同時要求1、10の順で実行。ウォームアップ30件と測定180件は全てHTTP200。同時要求1のp95はキャラクター147.94ms、シナリオ48.05ms、セッション186.51ms。同時要求10のp95は1587.77ms、907.53ms、804.03ms。前回はそれぞれ4245.09ms、3184.02ms、678.48ms。セッションのp95は増えており、全画面一律の改善とはしない。
+- 各条件1回、ローカル共有ホスト上、10利用者での限定測定で統計的有意差や本番性能の保証ではない。TLS/外部連携/アップロード負荷/実AWS/合意済み性能閾値は未検証。隔離HTTPのためSECURE_SSL_REDIRECT=falseを明示した環境でcheck --deployは想定したW008を1件報告。配備設定の合格証拠として使わない。
+- 証跡はtmp/performance-b6e58ebdのfixture-counts.log、query-counts.log、warmup.json、concurrency-1.json、concurrency-10.json、deploy-check.log。ビルドはtmp/formal-release-b6e58ebd-production-build.log。専用アプリ/DB/Redis/ネットワークと使い捨てトークンファイルは削除済み。共有環境・実データ・権限・費用変更なし。正式公開No-Goを維持する。
