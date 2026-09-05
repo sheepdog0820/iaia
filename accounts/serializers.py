@@ -1108,27 +1108,14 @@ class CharacterSheetListSerializer(serializers.ModelSerializer):
         """シリアライズ時にメイン画像を追加"""
         data = self._apply_system_data(super().to_representation(instance), instance)
 
-        # 新しい画像システムのメイン画像を取得
-        try:
-            system_data = self._system_data(instance)
-            images = system_data.images if system_data is not None else None
-            if images is None:
-                return data
-            main_image = images.filter(is_main=True).first()
-            if main_image:
-                request = self.context.get("request")
-                if request:
-                    data["character_image"] = request.build_absolute_uri(main_image.image.url)
-            elif images.exists():
-                # メイン画像が設定されていない場合は最初の画像を使用
-                first_image = images.order_by("order", "created_at").first()
-                if first_image:
-                    request = self.context.get("request")
-                    if request:
-                        data["character_image"] = request.build_absolute_uri(first_image.image.url)
-        except Exception as e:
-            # エラーが発生した場合は元のcharacter_imageフィールドを使用
-            pass
+        system_data = self._system_data(instance)
+        request = self.context.get("request")
+        if system_data is None or request is None:
+            return data
+        # メイン画像を優先し、未指定なら表示順・アップロード日時で選ぶ。
+        selected_image = system_data.images.order_by("-is_main", "order", "uploaded_at", "pk").first()
+        if selected_image and selected_image.image:
+            data["character_image"] = request.build_absolute_uri(selected_image.image.url)
 
         return data
 
