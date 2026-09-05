@@ -163,21 +163,21 @@ class ScenarioImageTestCase(APITestCase):
         SCENARIO_IMAGE_NORMAL_MAX_FILES_PER_UPLOAD=1,
         SCENARIO_IMAGE_PREMIUM_MAX_FILES_PER_UPLOAD=2,
     )
-    def test_image_limits_are_configurable_by_membership(self):
+    def test_image_limits_are_shared_across_memberships(self):
         self.assertEqual(get_scenario_image_max_bytes(self.creator), 1024 * 1024)
         self.assertEqual(get_scenario_image_max_files_per_upload(self.creator), 1)
 
         self.creator.is_premium = True
         self.creator.save(update_fields=["is_premium"])
 
-        self.assertEqual(get_scenario_image_max_bytes(self.creator), 2 * 1024 * 1024)
-        self.assertEqual(get_scenario_image_max_files_per_upload(self.creator), 2)
+        self.assertEqual(get_scenario_image_max_bytes(self.creator), 1024 * 1024)
+        self.assertEqual(get_scenario_image_max_files_per_upload(self.creator), 1)
 
     @override_settings(
         SCENARIO_IMAGE_NORMAL_MAX_FILES_PER_UPLOAD=1,
         SCENARIO_IMAGE_PREMIUM_MAX_FILES_PER_UPLOAD=2,
     )
-    def test_bulk_upload_uses_membership_specific_file_limit(self):
+    def test_bulk_upload_uses_shared_file_limit(self):
         self.client.force_authenticate(user=self.creator)
         payload = {
             "scenario_id": self.scenario.id,
@@ -208,14 +208,14 @@ class ScenarioImageTestCase(APITestCase):
             },
             format="multipart",
         )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(ScenarioImage.objects.count(), 0)
 
     @override_settings(
         SCENARIO_IMAGE_NORMAL_MAX_BYTES=1024 * 1024,
         SCENARIO_IMAGE_PREMIUM_MAX_BYTES=2 * 1024 * 1024,
     )
-    def test_upload_uses_membership_specific_byte_limit(self):
+    def test_upload_uses_shared_byte_limit(self):
         self.client.force_authenticate(user=self.creator)
         response = self.client.post(
             reverse("scenario-image-list"),
@@ -234,12 +234,13 @@ class ScenarioImageTestCase(APITestCase):
             reverse("scenario-image-list"),
             {
                 "scenario": self.scenario.id,
-                "image": self.create_padded_image("premium-allowed.png", 1536 * 1024),
-                "title": "プレミアム上限内",
+                "image": self.create_padded_image("premium-too-large.png", 1536 * 1024),
+                "title": "共通上限超過",
             },
             format="multipart",
         )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(ScenarioImage.objects.count(), 0)
 
     def test_upload_accepts_supported_image_formats_and_size_boundary(self):
         """jpg/png/gif と5MB境界の画像を受け付ける"""

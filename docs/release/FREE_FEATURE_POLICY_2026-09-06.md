@@ -27,3 +27,9 @@ DB移行・実データ削除・秘密情報・費用変更なし。本番未反
 Chromium/Firefox/WebKitで各1件、計3件成功（51.9秒、retryなし、network none、隔離SQLite）。通常登録からシナリオ画面の入口、CCFOLIAインポート画面、登録後の詳細画面/APIの名前一致、6版/7版作成画面の5枚表示を確認した。390px幅の詳細画面も確認。証跡: tmp/free-kp-browser-policy.log、同名フォルダー内のfree-import-mobile.png。
 
 初回はボタン名の完全一致、次は画面遷移によるChromiumのレスポンス本文取得失敗、続いて版別詳細URLの指定不足で検証が停止した。テストを画面内の対象ボタンと遷移後の版別URL・独立API照合に修正した。アプリ側の例外を無視したりリトライで成功扱いにしたものではない。過去ログはtmp/free-kp-browser.log、同-final.log、同-verified.logに保持。
+
+## シナリオ画像の環境設定によるプラン差の解消
+
+230987e1後の監査で、シナリオ画像に有料ユーザー専用の容量・一括枚数設定を選ぶ分岐が残っていた。既定値は両プランとも同じだったが、設定次第で背景透過以外の有料差が生じるため、この分岐を削除した。既存のSCENARIO_IMAGE_NORMAL_MAX_BYTESとSCENARIO_IMAGE_NORMAL_MAX_FILES_PER_UPLOADを全ユーザー共通で使用し、PREMIUM側の値は上限判定に使わない。環境変数自体の変更は行っていない。
+
+シナリオ画像の既定値は1枚5 MiB・1回10枚で、キャラクター画像の合計5枚とは別の制限。保存済みシナリオ画像の削除やDB移行はない。プラン差のある設定を与えた3ケースが変更前に失敗し、修正後は所有権・形式・容量境界を含む関連14件・3 subtestsが成功（9 warnings、33.14秒）。証跡: tmp/scenario-common-limit-red.log、同-green.log。Black・isort・Flake8、差分・文字整合性を確認した。本番設定と実ストレージは未変更・未検証。
