@@ -101,18 +101,9 @@ class SessionRewardViewSet(viewsets.ModelViewSet):
             return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
 
         with transaction.atomic():
-            reward = (
-                SessionReward.objects.select_for_update()
-                .select_related(
-                    "participant",
-                    "participant__session",
-                    "participant__session__scenario",
-                    "participant__session__gm",
-                    "participant__character_sheet",
-                    "applied_growth_record",
-                )
-                .get(pk=base_reward.pk)
-            )
+            reward = SessionReward.objects.select_for_update().get(pk=base_reward.pk)
+            # Lock mutable rows separately; nullable joins cannot be locked on PostgreSQL.
+            reward.participant = SessionParticipant.objects.select_for_update().get(pk=reward.participant_id)
             session = reward.participant.session
 
             character_sheet = reward.participant.character_sheet
@@ -128,7 +119,11 @@ class SessionRewardViewSet(viewsets.ModelViewSet):
             if session.gm_id:
                 gm_name = session.gm.nickname or session.gm.username
 
-            growth_record = reward.applied_growth_record
+            growth_record = (
+                GrowthRecord.objects.select_for_update().get(pk=reward.applied_growth_record_id)
+                if reward.applied_growth_record_id
+                else None
+            )
             if growth_record:
                 growth_record.session_date = session_date
                 growth_record.scenario_name = scenario_name

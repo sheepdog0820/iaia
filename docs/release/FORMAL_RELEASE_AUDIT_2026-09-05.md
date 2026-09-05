@@ -324,3 +324,26 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 最終版をChromium・Firefox・WebKitで実行して3件成功（45.9秒、終了コード0）。証跡 `tmp/formal-release-regular-user-final.log`、`tmp/formal-release-regular-user.json` と `tmp/formal-release-regular-user-results/` の画面画像。最初は試験パスワードのユーザー名類似性で登録拒否、次に詳細画面403を404とした試験期待値の誤り、WebKitでモーダル直後の入力が空になる試験操作を確認し、パスワードを独立生成、画面の既存403契約に合わせ、入力欄をクリックして入力値も検証するよう直した。アプリの権限や入力検証を緩和していない。
 - 専用DBの試験アカウント15件（再試行を含む）はstaff 0・superuser 0、完了セッション7件。`tmp/formal-release-regular-user-fixtures.json`。終了後に今回の専用サーバーコンテナを停止・自動削除し、その中のDB/メディアも破棄した。通常の作業DBや共有環境は変更していない。
 - 画面画像では完了・グループ内・2時間を確認した。一方、拒否画面はDRFの開発者向けAPI表示であり、セッション詳細のハンドアウト見出し/操作が狭い幅で不自然に折り返される点も残る。公開用UIとしての改善対象で、全画面の視覚品質合格とは扱わない。グループ招待・所有権引継ぎ・PL参加・実プレイ履歴・実メール・有料契約の操作を今回すべて検証したわけではない。
+
+## 継続監査: 0ea0e747のSQLite全体実行成功（2026-09-05）
+
+- `0ea0e747` のgit archiveからテストイメージを再構築。タグ `tableno-formal-release-test:0ea0e747-browser`、ローカルID `sha256:63f29e25b27b8241f8bf7ca50cc8cb7506130b7379ab2d8c16be038cdd38d6db`。前回失敗したSQLite診断テストのDjango TestCase修正を含む。
+- CIのUnit / Integrationと同じ対象 `accounts api scenarios schedules support tableno tests/unit tests/integration` に対する単一pytest実行が、1,535件・341 subtests成功、失敗/エラー/skip 0、1,237.92秒、終了コード0で完了した。JUnitのtests=1,876はsubtestsを含む件数。警告159件あり。全体カバレッジは30,805/35,627行=86.47%で、設定された70%閾値を満たした。新規コード全分岐100%や全製品機能の網羅を意味しない。
+- 証跡は `tmp/formal-release-0ea0e747-full-output/run.log`、`junit.xml`、`coverage.xml`、`coverage.json`、`build.log`。`tableno.settings`、ローカル専用SQLite、固定依存・Node・Chromium/ChromeDriverを使用した。system/E2E別枠、リモートCI、実外部サービス、本番設定での動作はこの全体実行に含まない。
+- 後続fcce666cは通常ユーザーE2Eと文書の追加であり、今回のアプリ/単体・統合対象のソース変更はない。SQLite成功だけで本番DB検証やQ03を合格にしない。
+
+## 継続監査: PostgreSQL全体実行で判明した失敗（2026-09-05）
+
+- 同じ0ea0e747イメージ・同じUnit / Integration範囲で、PostgreSQL 16.15の全体pytestを実行した。`tableno.settings` のDB_ENGINEをpostgresに変更し、外部公開ポートなしの専用DBコンテナ・専用ネットワーク・tmpfsデータ領域を使用。本番設定全体や実RDSの検証ではない。
+- 結果は通常テスト1,526件成功・9件失敗、subtests 338件成功・3件失敗、1,287.14秒、終了コード1。pytest表示の `12 failed` は失敗subtestsを含む。警告159件、カバレッジ86.02%。証跡は `tmp/formal-release-0ea0e747-full-output/postgres-run.log`、`postgres-junit.xml`、`postgres-coverage.xml`、`postgres-coverage.json`。失敗本文を `postgres-failures.json` に抽出した。
+- 参加者の紐付け承認（グループ経由/セッション経由の2件）とセッション報酬反映（1件）は、NULLを許す関連の外部結合にFOR UPDATEが適用され、PostgreSQLのNotSupportedErrorになる。`schedules/participant_claims.py` の承認処理と `schedules/reward_views.py` の反映処理で再現した。同形の却下処理も確認対象。ロックを単に取り除かず、同時操作時の整合性を維持して修正する必要がある。
+- 他の失敗は技能保存失敗ログのキャラクターID不一致（1件）、所持品/財産APIの期待200/201に対する404（5件）、一覧と詳細serializerの参加者並びを含む比較不一致（owner/manager/gmの3 subtests）。IDの採番や並び順への依存と実装不備を切り分ける。秘匿HOのtitle集合の判定自体は通過しており、この比較失敗だけで漏えい発生とは扱わない。
+- PostgreSQL全体の失敗は未解消。SQLite全体成功や、過去のPostgreSQL関連テスト成功を代替証拠にせず、原因別の修正・回帰テストと修正後の全体確認を続ける。
+
+## 継続監査: PostgreSQLの報酬反映ロック修正（2026-09-05）
+
+- 報酬反映はnullableな関連を含むselect_relatedにFOR UPDATEを付けていた。PostgreSQL全体での既存テスト失敗に加え、独立した2接続から同じ報酬へ同時POSTするTransactionTestCaseを追加し、修正前に同じNotSupportedErrorを再現した。`tmp/reward-concurrency-red.log`。SQLiteの行ロック無効状態を並行性の証明に使わず、このケースはhas_select_for_updateを持つDBに限定した。
+- `SessionRewardViewSet.apply` は報酬行、参加者行、更新する既存成長記録を個別にselect_for_updateで取得する。nullableな関連への結合ロックを除き、報酬の反映判定から記録更新までのtransaction.atomicと、同一報酬への反映の直列化を維持した。
+- 0ea0e747の固定依存イメージへ変更view/新規テストを読み取り専用で適用し、専用PostgreSQL 16の既存報酬テストと新規並行テスト4件成功（9.16秒）。証跡保存の実行も4件成功（9.89秒）。2件の同時反映は両方200、成長記録1件、経験点7を確認した。`tmp/reward-concurrency-green.log`、`tmp/reward-fix-postgres-proof.log`、`tmp/formal-release-0ea0e747-full-output/reward-fix-junit.xml`。
+- 同ディレクトリの `reward-fix-coverage.json` で、applyの実行対象行に未実行行なし。reward_views全体は99/112行=88.39%で、全モジュール100%という主張ではない。SQLiteの既存報酬テスト3件も成功（23.57秒）。`tmp/reward-fix-sqlite.log`。Black/isort/flake8、差分と日本語の試験表示を確認し、アプリのユーザー向け文言は変更していない。
+- 専用PostgreSQLコンテナとネットワークを停止・削除した。実RDS、共有DB、外部サービスの変更なし。参加承認/却下のロック、キャラクターID関連、一覧serializer比較の不一致は別の未完了作業であり、PostgreSQL全体成功の証拠はまだない。
