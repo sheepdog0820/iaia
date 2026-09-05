@@ -81,6 +81,33 @@ aws s3 sync "s3://$MEDIA_BACKUP_BUCKET/tableno/media/$BACKUP_ID/" "s3://$RESTORE
   --only-show-errors
 ```
 
+### S3のVersionIdを固定する取得・復元手順
+
+以下は承認後に実行する手順であり、実S3での復元実績ではない。DBと画像の同時点を確保するため、最初の取得では全書き込み経路を停止し、DBバックアップと画像manifestが揃うまで再開しない。稼働中の一覧取得を後から日時で並べ替えても、DBとの一貫したスナップショットにはならない。
+
+1. DBバックアップが参照する各画像・添付について、storage locationを含む完全なS3キーを取得する。公開URLからキーを推測しない。DB参照のない旧画像は別一覧とし、自動復元や削除の対象へ混ぜない。
+2. 各キーの`head-object`でVersionIdとContentLengthを取得し、DBバックアップIDと対応付ける。403/404、削除マーカー、VersionId欠落・`null`は未解決として停止し、別世代へ自動的に差し替えない。既に消失した版はバージョニングから復元できるとは限らない。
+3. 取得したVersionIdを指定した`get-object`で専用の保護された取得先へ保存する。ダウンロード後のVersionId・サイズを照合し、内容のSHA-256を計算してmanifestへ記録する。ETagをSHA-256や常にMD5の値として扱わない。ローカル保存名は連番等を使い、S3キーを直接ローカルのパスに連結しない。
+4. manifestにはDBバックアップID、取得開始/終了UTC、bucket、key、VersionId、サイズ、SHA-256、取得先の識別子を含める。各DB参照にちょうど1つの取得成功が対応し、失敗・欠落が0件であることを照合する。manifest自体にもアクセス制御とハッシュを付け、会話や公開リポジトリへ実キー名や内容を貼らない。
+5. 復元時はmanifestで指定した取得済み内容、または存在を再確認した同じVersionIdを使用する。旧版が消えていた場合に最新オブジェクトへフォールバックしない。専用の空の復元先に配置し、元バケットの現行版や削除マーカーを削除して戻す方法は使わない。
+6. 復元先から再取得した内容のサイズ・SHA-256とDB参照を照合する。コピー先のVersionIdは元と同じ値である必要はない。元とコピー先の対応を記録し、GM/PLの閲覧範囲、画像のデコード、過去の削除・権限失効を確認してから公開先の切替を判断する。
+
+1件のCLI形式例（Bash。各変数は承認済みの対象を指定し、出力先は既存ファイルと重ならない専用パスにする）:
+
+```bash
+aws s3api head-object --bucket "$MEDIA_BUCKET" --key "$MEDIA_KEY" \
+  --profile "$AWS_PROFILE" --region "$AWS_REGION" \
+  --query '{VersionId:VersionId,ContentLength:ContentLength}' --output json
+
+aws s3api get-object --bucket "$MEDIA_BUCKET" --key "$MEDIA_KEY" \
+  --version-id "$MEDIA_VERSION_ID" --profile "$AWS_PROFILE" --region "$AWS_REGION" \
+  "$BACKUP_OBJECT_FILE"
+
+sha256sum "$BACKUP_OBJECT_FILE"
+```
+
+これは一括取得・manifest生成の実装ではない。各コマンドの終了コードと照合を省略して処理を続行しない。バージョン指定の取得には`s3:GetObjectVersion`が必要であり、必要な権限がなければ対象を絞った変更案を別途承認する。[HeadObject](https://docs.aws.amazon.com/cli/latest/reference/s3api/head-object.html)、[GetObject](https://docs.aws.amazon.com/cli/latest/reference/s3api/get-object.html)、[過去版の復元](https://docs.aws.amazon.com/AmazonS3/latest/userguide/RestoringPreviousVersions.html)
+
 ### ローカルMEDIA_ROOTを使う場合
 
 ```bash

@@ -750,3 +750,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - クリーンな42219b05から、旧移行0041の広い削除例外と保存prefixを調査。AWS開発用S3を読み取り集計し、media/session_template_images/に119件・21264バイトの残存を確認。内容・所有者・削除失敗との因果関係は未確認で、実ファイル本文のダウンロードや削除は行っていない。
 - 最新の実バケットポリシーは対象CloudFrontからのAllowのみ。既存の未適用Terraform拒否案に旧テンプレートprefixの直下/任意location配下2パターンを追加。既存6パターンと合わせ8パターン。Terraform fmt -check / validate成功、具体JSON案のAWS Access Analyzer findings=[]。
 - 詳細はSECURITY_STATIC_TRIAGE_494ABD0D.mdとAWS_PRE_FORMAL_RELEASE_VALIDATION_PLAN.md。変更は配信拒否の準備案のみ。アプリコード・DB・AWS設定・Secrets・継続費用は変更なし。アプリ全体テストの追加実行は不要と判断。実保護とデータ保持/削除の判断は残り、正式公開No-Goを維持する。
+
+## S3画像バックアップ設定と世代の読み取り確認
+
+- 2026-09-05、3ce88bdeのクリーンな作業ツリーから、tableno-pre/ap-northeast-1の対象S3バケットを読み取り確認。VersioningはEnabled、デフォルト暗号化はAES256。ライフサイクルは全prefixにNoncurrentDays=30/NewerNoncurrentVersions=3、期限切れ削除マーカー除去、未完了multipartの7日後中断。Terraform定義とも一致。
+- media/のListObjectVersionsをページ制限なしのAWS CLI JSON出力で集計。オブジェクト版2678件（最新の実体2647件）、全版合計301031157バイト、削除マーカー31件（最新27件）。全版のサイズであり現在使用量や請求額ではない。ファイル名・本文は表示せず、復元用manifestとして取得したものでもない。リスト取得中の並行書き込みまで固定したスナップショットではない。
+- GetBucketReplicationはReplicationConfigurationNotFoundError。同リージョンのAWS Backup ListProtectedResourcesで当該バケットARNに一致する結果は0件。別リージョン・別アカウント・手動コピー・外部方式のバックアップ不存在を証明するものではない。現時点で独立した画像バックアップとその復元実績は確認できていない。
+- 現ライフサイクルの旧版削除は非現行日数と新しい非現行版数の両条件を超えたときの対象であり、30日後に必ず全旧版が消える設定ではない。永久削除された旧版はバージョニングだけでは戻せない。[AWS Lifecycle公式資料](https://docs.aws.amazon.com/AmazonS3/latest/userguide/intro-lifecycle-rules.html)
+- backup.mdに、書き込み停止とDB参照の完全キー、VersionId固定取得、manifestとSHA-256照合、専用復元先への配置、削除済み版での停止、元オブジェクト非破壊の手順を追加。一括取得の実装や実S3復元の成功とは扱わない。実データ取得・復元先作成・ポリシー/保持期間変更・費用増加は未実施。O02と正式公開No-Goを維持。
