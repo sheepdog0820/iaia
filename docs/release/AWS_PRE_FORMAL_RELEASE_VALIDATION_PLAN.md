@@ -8,7 +8,7 @@
 | --- | --- |
 | 配備用イメージ | `tableno-formal-release:596bcd4c`、ローカルID `sha256:a1fac9668908c72bb07dddc990b5d9732c0147b2ce1d080a1c71172ca20c0ce4`。通常Dockerfile/固定依存から作成。ECRへ未送信でmanifest digestは未取得 |
 | 隔離起動 | 596bcd4cでpip check・静的183件・Bootstrapハッシュ一致・check --deploy指摘0。専用の空PG16/Redis7、通常entrypointで全移行・新Daphne起動・readiness200（DB/cache ok）。存在しない招待/購読URLの404とアクセスログ伏せ字を確認。既存データ復元の最新再実証、実TLS/Stripe/OAuth/S3は未確認 |
-| 全体検証 | 919dc0deのPG全体は成功。後続変更を含む596bcd4cの固定ソースイメージでSQLite/PostgreSQL全体を実行中。終了結果・リモートCIは未取得 |
+| 全体検証 | 596bcd4cのSQLite1657成功/10skip・86.90%、PostgreSQL1667成功/skipなし・87.48%、双方465 subtests、終了コード0。SQLite skip10件はPGで成功。リモートCIは未実施 |
 | 稼働版との比較 | 記録済み稼働ソース `8cf3c7f7` から596bcd4cまで200ファイル差分。f692b994以降の追加migrationファイル差分なし。現在のAWS稼働版は配備直前に再確認する。mainとの比較だけで配備範囲を決めない |
 | DB差分 | 既存 `accounts/0055`・`accounts/0058` の変更、新規 `schedules/0055` の追加。0055修正はデータ移行後のFK検査をDDL前に完了させるもので、適用済み0055を再実行しない。適用済み0058は再実行されないため共有DBの移行履歴と実スキーマ確認が必要。ロール複数化後の旧制約復元はデータ次第で失敗し得る |
 | 未確定事項 | ECR digest、直前の稼働タスク/復旧先、共有DB状態、実データを含む復元・更新・ロールバック、専用テスト利用者/宛先、料金と有料範囲、実連携設定、追加費用。承認対象を具体化してから配備する |

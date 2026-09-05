@@ -17,12 +17,12 @@ Base: main / Head: codex/delegated-workflow-rules / Draft: true
 検証:
 - 移行修正を含むf692b994のSQLite全体は1639成功/7skip。PostgreSQLではコメント順序テスト1件が失敗したため、919dc0deでテスト時刻を明示し順序・同時刻・limitを検証。修正後PostgreSQL全体は1646成功/skipなし、440 subtests、カバレッジ87.42%。SQLiteは修正後の関連20件成功、全体再実行なし。この919dc0de時点のアプリコードはf692b994と共通。後続変更は含まない。リモートCI未実施。
 - 最新ソース596bcd4cの配備用イメージでpip check、静的183件、Bootstrapハッシュ一致、check --deploy指摘0。専用の空PG16/Redis7で全移行・新Daphne CLIによる通常起動・readiness200とログ伏せ字を確認。既存データ復元・実TLS・外部サービスはこの検証の対象外。
-- 596bcd4cのSQLite/PostgreSQL全体は実行中。直近の招待競合・ログ関連修正は関連テストで検証済み。過去の全体成功を最新コード全体の成功とは扱わない。
+- 596bcd4cの全体はSQLite1657成功/10skip（86.90%）、PostgreSQL1667成功/skipなし（87.48%）、双方465 subtests成功、終了コード0。SQLite skip10件はPGで成功。招待競合・ログ関連修正を含む。リモートCIは未実施。
 - f692b994のBanditは解析エラー0、HIGH/MEDIUM 0、LOW556。テスト内Node実行9件と課金テストの固定値56件の用途・制約を確認。残る静的指摘・実配送経路の確認は未完了。
 - 一覧改善はPostgreSQLで関連119件・14 subtests成功。キャラクターの画像取得・最新版集計、シナリオの関連取得を一括化。同時要求10のローカルp95はキャラクター4.25→1.59秒、シナリオ3.18→0.91秒、セッション0.68→0.80秒。測定180要求は全て200。合意済み性能基準や実AWSの合格ではない。
 - 詳細: docs/release/FORMAL_RELEASE_AUDIT_2026-09-05.md、FORMAL_RELEASE_ACCEPTANCE_MATRIX.md。
 
 公開前の残作業:
-料金・有料範囲の判断、実Stripe/OAuth/外部配送、候補全体の終了結果とリモートCI、実環境のストレージ/CDN対策、性能・復旧/ロールバックの実証。実料金・規約や公開時期は未確定です。本PRの作成はmainマージ、本番反映、共有DB・実データ・権限・費用変更の承認を意味しません。
+料金・有料範囲の判断、実Stripe/OAuth/外部配送、リモートCI、実環境のストレージ/CDN対策、性能・復旧/ロールバックの実証。実料金・規約や公開時期は未確定です。本PRの作成はmainマージ、本番反映、共有DB・実データ・権限・費用変更の承認を意味しません。
 
 作成状況: 2026-09-05に対象ブランチのPR検索は0件。作成APIは403 Resource not accessible by integrationで拒否。PRは未作成。GitHub CLIも未ログイン。StripeはUNAUTHORIZED/oauth_token_invalid_grantで再認証が必要。

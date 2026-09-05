@@ -836,3 +836,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 実Djangoの例外処理によるHTTP500、応答本文にfixture値なし、メモリ内メールが1件だけ生成され機密値なし、errors.logに機密値なしを確認。メール/エラーログにはValueError、固定route名、error_runtime_probe.pyの発生位置を保持。実Daphneの標準出力/標準エラーにもfixture値はなく、POST /share/sessions/[redacted]/とステータスは保持。
 - 証跡tmp/error-runtime-596bcd4c.log、tmp/error-runtime-596bcd4c-errors.log、実行したprobe。専用コンテナ削除済み。これは本番設定でのHTTP例外から各出力までの隔離検証であり、実SMTP到達、実ユーザーデータ、外部監視、すべての例外型の網羅ではない。
 - 同時実行中の596bcd4c SQLite/PostgreSQL全体は両方ともログ進行・稼働を確認したが、終了前。コード変更はなく検証記録のみ。公開判断はNo-Goを維持する。
+
+## 596bcd4cの両DB全体検証終了
+
+- 固定ソース596bcd4c427067628d0fd95dbec3103b4bac723eのSQLite/PostgreSQL全体が終了コード0で完了。途中の観測待ちでは停止・再実行せず、同じセッションの終了を確認した。
+- SQLite: 1657 passed、10 skipped、465 subtests passed、159 warnings、1255.18秒、coverage86.90%。PostgreSQL: 1667 passed、skipなし、465 subtests passed、159 warnings、1290.58秒、coverage87.48%。JUnit双方2132件、failure/error各0。ログ/JUnit/coverageはtmp/formal-release-596bcd4c-full-output。
+- SQLiteでskipした10件を名前でPG JUnitと照合し全て成功。既存のGoogle/OAuth/ゲストclaim/報酬7件に、新しい招待同時参加3件を加えた行ロック検証。コメント順序と既存キャラクターデータ移行テストの成功も照合した。error_reporting全実行行を両DBで通過。serverのCLI起動行は全体coverage外であり、既述の通常起動/HTTP検証で別途確認している。
+- 全体テスト終了後に専用PGコンテナ/internalネットワークを削除。SQLite/PGテストコンテナは--rmで終了済み。最新候補資料・受け入れ表・Draft PR文案へ結果を反映。596bcd4c以降の変更は検証文書のみで、異なるSHAのコード全体成功と混同しない。
+- 認証・課金・主要機能のローカル全体検証は進んだが、リモートCI、料金/有料範囲の判断、実Stripe/OAuth/配送、承認を要するストレージ/CDN・共有環境、実復元/RPO/RTO・合意性能の検証は未完了。正式公開No-Goを維持する。
