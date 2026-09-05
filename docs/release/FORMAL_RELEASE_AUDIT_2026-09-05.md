@@ -921,3 +921,9 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 通常GM/PLの確定フローに、明暗両テーマで投票行の補足文字（未投票・投票詳細）の実computed styleとセル背景/stripedのshadow色から比率を算出する検証を追加。3ブラウザで各4.5以上を確認。スクリーンショットはテーマ切替の途中を撮らないようanimations=disabledで取得し、Chromiumの明暗画像を目視確認した。
 - APIキャッシュ修正後のtmp/browser-poll-cache-contrast-green.logと同名-outputで3件成功（1.1分）。候補作成・PL回答・GM確定・保存値/表示時刻一致も同時に確認。投票行以外の配色、無効ボタン、全画面/全状態のアクセシビリティ合格を示すものではない。暗色時のコメント空表示など、画面全体の追加点検は残る。
 - この修正はテンプレート・E2E・文書のみ。DB/権限/費用に変更なし。実環境反映なし。
+
+## 14aea099のSQLite/PostgreSQL全体検証終了
+
+- 両方の実行セッションが終了コード0で完了したことを確認。SQLite1660成功/10skip、469 subtests、159 warnings、coverage86.90%、1322.40秒。PostgreSQL1670成功/skipなし、469 subtests、159 warnings、coverage87.48%、1365.60秒。両JUnitは2139件・failure/error各0。SQLiteのskip10件をクラス名/テスト名でPG結果と照合し、全て成功していることを確認した。
+- 証跡はtmp/formal-release-14aea099-full-outputのログ/JUnit/coverage。全体テストは固定ソース14aea099であり、c0694eee以降のAxios代替処理、日程投票の表示・キャッシュ修正を含まない。これらの後続修正は別の関連テスト/E2E証拠であり、最新ブランチ全体の成功と混同しない。
+- 両テストコンテナの終了後、専用PGコンテナとinternalネットワークを削除。受け入れ表と候補資料へ結果を反映。リモートCI、実課金/外部連携、共有環境・実復元、事業判断は未完了で正式公開No-Goを維持する。
