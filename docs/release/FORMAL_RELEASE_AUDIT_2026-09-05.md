@@ -982,3 +982,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - SQLiteはnetwork none、PostgreSQLは専用internalネットワークとtmpfsのPG16を使用。両方でCIと同じpytest対象・coverage70%ゲートを実行開始し、各コンテナのPythonプロセス稼働を確認した。この記録時点は実行中で、成功件数/coverage/全体合否は未確定。
 - 実行手順はtmp/run-full-7cdd7cf8.ps1、出力先tmp/formal-release-7cdd7cf8-full-output、ビルド記録tmp/formal-release-7cdd7cf8-test-build.log。コンテナはtableno-full-sqlite-7cdd7cf8とtableno-full-postgres-7cdd7cf8、専用DBはtableno-pgfull-db-7cdd7cf8、ネットワークはtableno-pgfull-7cdd7cf8。各実行の終了を確認して結果を記録し、その後に専用DB/ネットワークを削除する。
 - 14aea099全体結果を最新候補の合格に流用しない。今回の固定ソースには後続のAxios・日程調整・グループ/招待表示修正を含むが、pytestはブラウザE2Eを実行しない。E2E証跡は各個別記録を参照。リモートCI、本番用イメージ再構築、実環境・実連携の検証とは区別する。
+
+## 7cdd7cf8本番用イメージの起動と静的配信を実証
+
+- 同じ固定ソース7cdd7cf819ba19221cf0473fa9758d3cd43f2cbdを実Dockerfileでビルド。tableno-formal-release:7cdd7cf8のIDはsha256:e8fb191c6c5bce6c08fc01549eba6d244e5f14afb79c3afb9ec10ef23131b403、USERはtableno、revisionラベルは固定SHA。ビルド成功を確認した（tmp/formal-release-7cdd7cf8-production-build.log）。ECR等へのpushはしていない。
+- 専用internalネットワーク、空のPG16/tmpfs、Redis7、架空の本番設定で通常entrypointを起動。APP_ENV=aws-prod、USE_S3_STORAGE=false。マイグレーション・collectstatic・Daphne起動に成功し、pip checkとcheck --deployも成功。後者は架空の十分な長さのSECRET_KEYを起動時から使用した。
+- コンテナ内部の実HTTPでreadiness200、登録画面200、画面が参照するローカル静的ファイル5件200/gzipを確認。manifestのBootstrap CSS/JS・FullCalendar・FontAwesome CSSと4種woff2も200で実ファイルと本文が一致し、CSS/JSのgzipを確認。前回と同じtmp/probe-static-runtime-02f8c91f.pyを今回のイメージに対して実行した。
+- 証跡はtmp/static-runtime-7cdd7cf8-http.log、同-server.log、同-deploy-check.log。起動確認用app/db/cacheコンテナとネットワークは削除済み。全体テスト用のSQLite/PG実行は別の稼働プロセスであり、この時点では未完了。
+- ローカルの新規DB・S3なし構成での確認で、実TLS/S3/CDN、既存本番データ移行、実課金/OAuth、実環境デプロイは未検証。この起動成功だけでリリース可能とは判断しない。AWS/実データ/権限/課金への変更はない。
