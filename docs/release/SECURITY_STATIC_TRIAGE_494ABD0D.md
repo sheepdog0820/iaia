@@ -215,3 +215,18 @@ Bandit1.9.4でaccounts/api/scenarios/schedules/support/tablenoを再帰解析し
 | schedules/test_occurrences.py | 141 | 1 |
 | schedules/test_schedules.py | 728, 945, 1350 | 3 |
 | schedules/test_session_integration.py | 667 | 1 |
+## Djangoテストクライアントの固定ログイン値15件
+
+09d15575のB106のうち、7ファイル15件を追加分類した。全てTestCase/APITestCase内のself.client.loginへの固定password引数。クラスのimport/継承とself.clientの代入先をASTで照合し、明示代入がある場合もdjango.test.ClientまたはDRF APIClientであることを確認した。Djangoのローカル認証処理を使うテスト入力であり、実サービスの認証情報埋め込みとしては扱わない。
+
+既存375件との重複なし。テスト478件中390件を用途判定済み、88件は未判定。解析の総検出数・終了コードは変わらず、抑制やコード変更も行っていない。テストクライアントの確認は、実DB接続や本番での固定値利用を認める判定ではない。証跡tmp/classify-test-client-logins.pyとtmp/classified-test-client-logins-table.md。実外部認証/配送等の未達条件は維持する。
+
+| ファイル | B106の行番号 | 件数 |
+| --- | --- | --- |
+| accounts/test_character_current_status.py | 22 | 1 |
+| accounts/test_character_integration.py | 52, 582 | 2 |
+| accounts/test_character_multiple_images.py | 337 | 1 |
+| accounts/test_character_to_session_integration.py | 78, 118, 155, 329 | 4 |
+| schedules/test_handouts.py | 317, 330, 349, 358 | 4 |
+| schedules/test_session_notes_logs.py | 87 | 1 |
+| schedules/test_session_rewards.py | 293, 301 | 2 |
