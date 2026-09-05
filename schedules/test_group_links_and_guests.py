@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -162,6 +163,35 @@ class GuestInvitationClaimTestCase(APITestCase):
         self.assertEqual(responded.status_code, status.HTTP_201_CREATED)
         self.assertEqual(responded.data["claim_token"], token)
         return invitation, SessionParticipant.objects.get(pk=responded.data["participant_id"]), token
+
+    def test_guest_response_rechecks_invalidation_before_creating_participant(self):
+        for field in ("revoked_at", "expires_at"):
+            with self.subTest(field=field):
+                invitation, token = GuestInvitation.issue(
+                    session=self.session,
+                    created_by=self.gm,
+                    expires_at=timezone.now() + timedelta(hours=1),
+                )
+                manager = GuestInvitation.objects
+                original_lock = manager.select_for_update
+
+                def invalidate_before_lock(*args, **kwargs):
+                    manager.filter(pk=invitation.pk).update(**{field: timezone.now() - timedelta(seconds=1)})
+                    return original_lock(*args, **kwargs)
+
+                before = SessionParticipant.objects.filter(session=self.session).count()
+                with patch.object(manager, "select_for_update", side_effect=invalidate_before_lock):
+                    response = self.client.post(
+                        f"/api/guest-invitations/{token}/respond/",
+                        {"guest_name": "失効確認"},
+                        format="json",
+                    )
+                self.assertEqual(response.status_code, status.HTTP_410_GONE)
+                self.assertEqual(response.data["detail"], "この招待は期限切れ、または失効済みです。")
+                invitation.refresh_from_db()
+                self.assertIsNone(invitation.participant_id)
+                self.assertIsNone(invitation.responded_at)
+                self.assertEqual(SessionParticipant.objects.filter(session=self.session).count(), before)
 
     def test_claim_preserves_slot_character_and_handout_assignment(self):
         invitation, participant, token = self.issue_and_respond()

@@ -1032,3 +1032,9 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - ブラウザ30件と本番起動を確認した63bd2436febf27ed5af6f85254e082d5454da611のアーカイブから全体検証用イメージを作成。tableno-formal-release-test:63bd2436-browser、ID sha256:1e077f0b406eba917aa364e5841899dc562e8492180c49bf6d27c829aeb51ce7。現在のブランチとの差は文書のみ。pip check成功。
 - tmp/run-full-63bd2436.ps1でSQLiteとPostgreSQLを開始。CIと同じpytest対象・coverage70%ゲート、network noneまたは専用internalネットワーク/PG16/tmpfsを使用する。tableno-full-sqlite-63bd2436とtableno-full-postgres-63bd2436のPythonプロセス稼働を確認。この記録時点の全体合否は未確定。
 - 出力先tmp/formal-release-63bd2436-full-output。専用DB tableno-pgfull-db-63bd2436、ネットワークtableno-pgfull-63bd2436は両実行の終了確認・結果照合後に削除する。7cdd7cf8の成功結果と混同せず、新しい候補の結果を確定する。リモートCI、実環境、実課金/連携の検証は別途必要。
+## ゲスト招待の確認後失効を保存前に再確認
+
+- ゲスト参加APIは最初に招待の有効性を確認する一方、select_for_updateで取得した保存対象では使用済み状態だけを確認していた。最初の確認と行ロックの間に失効・期限切れとなる入力を再現し、両ケースで410を期待したところ201となり参加者が作られた（tmp/guest-invalidation-red-final.log）。
+- schedules/guest_views.pyで、ロック取得後にis_activeを再確認し、失効・期限切れなら日本語の案内と410を返す。参加者・responded_atを保存しないことを検証した。既存の招待発行・参加・claim・秘匿情報保持・失効等を含む関連11件、2 subtests成功、9 warnings（35.25秒、tmp/guest-invalidation-green-final.log）。
+- 検証は63bd2436のテスト用イメージへ対象ビューとテストのみを読み取り専用マウントし、network noneの使い捨てSQLiteで実施。失効タイミングは実DB更新を行うテスト用フックで再現しており、実際の並列PostgreSQLトランザクションの網羅検証ではない。先行の試行ログも残すが、最終REDは枠競合の影響を除き両ケース201を確認したもの。
+- Black/isort/flake8と差分確認を通過。DBスキーマ・実データ・設定・費用への変更なし。復旧はこのコミットのコード差分を戻す操作になるが、旧コードでは本欠陥が再発する。実行中の固定63bd2436全体テストと同候補のブラウザ/本番イメージ結果には、この後続修正は含まれない。正式公開No-Goは維持する。

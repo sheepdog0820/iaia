@@ -153,6 +153,11 @@ class GuestInvitationRespondView(APIView):
         try:
             with transaction.atomic():
                 locked = GuestInvitation.objects.select_for_update().get(pk=invitation.pk)
+                if not locked.is_active:
+                    return Response(
+                        {"detail": "この招待は期限切れ、または失効済みです。"},
+                        status=status.HTTP_410_GONE,
+                    )
                 if locked.participant_id:
                     return Response(
                         {"detail": "Invitation has already been used."},
