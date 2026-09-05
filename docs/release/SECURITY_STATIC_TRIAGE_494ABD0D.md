@@ -246,3 +246,21 @@ Bandit1.9.4でaccounts/api/scenarios/schedules/support/tablenoを再帰解析し
 | schedules/test_external_integrations.py:238,242,243（B105） | 3 | 同じ更新試験の旧refresh tokenと、mock Credentialsが返す新access/refresh token。更新呼び出しと保存値を照合 |
 
 合計16件はテスト固定値のため、本番資格情報の埋め込みとしては扱わない。実キーの有効性を外部サービスへ問い合わせた判定でも、本番への転用を認める判定でもない。先行390件と重複せず、テスト478件中406件を用途判定済み、残る72件（B105）は未判定。テスト側B106の未判定は0となったが、総LOW556・終了コード1は変わらない。抑制・アプリ変更は行っていない。対象の一覧はtmp/remaining-security-inventory.jsonから照合した。実OAuth・LINE・Google連携の公開条件は未達のまま維持する。
+## 秘匿HO・公開フラグとテストパスワード21件
+
+残るB105から21件を追加分類した。secretという名前を含むフィールドを、認証情報とは区別して元のUTF-8ソースで確認した。
+
+| ファイル・行 | 件数 | 用途 |
+| --- | --- | --- |
+| accounts/test_background_info.py:148,221、accounts/test_character_sheet_api.py:202 | 3 | secret_ho_infoの架空の秘匿HO本文。所有者の保存/取得、共有先への非表示、版作成時の複製を検証する文字列で、パスワードやAPIキーではない |
+| scenarios/test_scenarios.py:466,474,563,580 | 4 | シナリオハンドアウトのis_secret真偽値 |
+| schedules/test_character_session_ho_integration.py:159 | 1 | ハンドアウト作成入力のis_secret真偽値 |
+| schedules/test_handout_management.py:86,92,254,300,312 | 5 | ハンドアウト作成・複製・更新入力のis_secret真偽値 |
+| schedules/test_handouts.py:127,151,157,225,271 | 5 | GMハンドアウト作成・一括作成・テンプレート・権限拒否入力のis_secret真偽値 |
+| schedules/test_player_slots_handouts.py:152 | 1 | 枠付きハンドアウト入力のis_secret真偽値 |
+| scenarios/test_scenarios.py:675 | 1 | TestCaseのself.password。隔離アカウントの作成とテストクライアントのログインに利用 |
+| schedules/test_recruitment_links.py:27 | 1 | APITestCaseのpasswordクラス属性。隔離アカウント作成とローカル認証試験の入力に利用 |
+
+先行406件との重複なし。テスト478件中427件を用途判定済み、53件は未判定。認証情報以外の試験データと、隔離アカウント用の固定値を分類したもので、秘匿情報の実配信経路全体の安全性を証明しない。アプリ/警告抑制の変更なし。
+
+確認中にPythonの標準出力経由の日本語抜粋が文字化けしたため、元ソースと保存済みJSONを照合した。09d15575の該当抜粋には正しい日本語が保存され、置換文字は0だった。PYTHONUTF8=1でBandit1.9.4を再実行したc3996913の結果も解析エラー0、HIGH/MEDIUM 0、LOW556、終了コード1、09d15575との指摘追加/削除0。証跡tmp/bandit-c3996913-utf8-apps.json、同-run.log。表示時の問題をソース破損や解析結果の修正として扱わない。
