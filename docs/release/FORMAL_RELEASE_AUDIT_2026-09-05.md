@@ -631,3 +631,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - ウォームアップ各10要求後、各一覧30要求を同時要求1、10の順で実行。ウォームアップ30件と測定180件は全てHTTP200。同時要求1のp95はキャラクター147.94ms、シナリオ48.05ms、セッション186.51ms。同時要求10のp95は1587.77ms、907.53ms、804.03ms。前回はそれぞれ4245.09ms、3184.02ms、678.48ms。セッションのp95は増えており、全画面一律の改善とはしない。
 - 各条件1回、ローカル共有ホスト上、10利用者での限定測定で統計的有意差や本番性能の保証ではない。TLS/外部連携/アップロード負荷/実AWS/合意済み性能閾値は未検証。隔離HTTPのためSECURE_SSL_REDIRECT=falseを明示した環境でcheck --deployは想定したW008を1件報告。配備設定の合格証拠として使わない。
 - 証跡はtmp/performance-b6e58ebdのfixture-counts.log、query-counts.log、warmup.json、concurrency-1.json、concurrency-10.json、deploy-check.log。ビルドはtmp/formal-release-b6e58ebd-production-build.log。専用アプリ/DB/Redis/ネットワークと使い捨てトークンファイルは削除済み。共有環境・実データ・権限・費用変更なし。正式公開No-Goを維持する。
+
+## 77b10ded候補全体の検証開始
+
+- 作業ツリーがクリーンで実行中の検証コンテナがないことを確認し、77b10ded69f467dea8f7a924dfc3f65faaa0da44のgit archiveからテストイメージを作成。tableno-formal-release-test:77b10ded-browser、sha256:b2a5063de868e7b2b21144b0e58e80b0040e77c82b91a48c2d9825df35f9e4d7。revisionラベル一致。
+- SQLite handle79521とPostgreSQL handle97010でaccounts/api/scenarios/schedules/support/tableno/tests/unit/tests/integrationを実行中。SQLiteはnetwork none、PostgreSQL16は専用tmpfs DBとinternalネットワーク。前回8f855617からのアプリ差分は一覧取得・最新版集計と性能ツール等で、12ファイル差分。終了結果・カバレッジ・JUnitはまだ未取得。
+- 実行スクリプトtmp/run-full-77b10ded.ps1、出力tmp/formal-release-77b10ded-full-output、ビルドログtmp/formal-release-77b10ded-test-build.log。コンテナとログ進捗を確認した。終了前に同じ実行を再起動せず、既存handleを継続して確認する。
+- 配備準備資料とDraft PR文案を現候補に更新。記録済みAWS稼働ソース8cf3c7f7から188ファイル差分で、移行変更は従来どおりaccounts0058とschedules0055。現在のAWS状態を再取得した結果ではない。PR作成・CI・共有環境反映は未実施。
+- 文書の差分・対象SHA・イメージIDを照合。共有環境・実データ・権限・費用の変更なし。正式公開No-Goを維持し、今回の全体実行開始を成功扱いしない。

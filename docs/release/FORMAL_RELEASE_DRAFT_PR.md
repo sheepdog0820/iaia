@@ -9,13 +9,14 @@ Base: main / Head: codex/delegated-workflow-rules / Draft: true
 - Googleの安定した外部IDによる照合とメール確認を徹底。X/Discordを含む登録保存を原子的にし、停止済み利用者、競合、障害時の機密ログを対策。
 - 秘匿HO・セッション/シナリオ画像の取得時認可と旧URLの保護、削除障害時の参照保持。CloudFront迂回防止のTerraform案は未適用。
 - 技能一括保存の部分成功を廃止し、ポイント再配分を可能にする。画像検証後の読み直し失敗と一覧の代替画像選択を修正。
+- Bootstrap 5.3.0を同梱し、外部CDNが不通でも基本タブ操作を成立させる。他の外部参照は残る。
 - 外部出力時の権限再確認、HTTP timeout、ICSの日本語折り返し、一覧取得の効率化、開発コマンドの環境制限を整備。
 
 検証:
-- d572a618の固定ソースでSQLite/PostgreSQL全体テストを実行中。終了結果は未取得。
-- 同SHAの通常Dockerfile/固定依存による配備用イメージを構築。隔離PostgreSQL16/Redis7で全移行、静的収集、通常起動、ヘルス200、pip check、check --deploy成功。
-- 最新Banditは解析エラー0、HIGH/MEDIUM 0、LOW556。個別分類と残作業を文書化。
-- 過去58a27172の全体成功は後続修正の合格証拠に流用しない。各修正は関連回帰テストを実施。
+- 77b10dedの固定ソースでSQLite/PostgreSQL全体テストを実行中。終了結果は未取得。直前の8f855617ではSQLite1631成功/7skip、PostgreSQL1638成功/skipなし、双方437 subtestsで終了したが、後続の一覧改善の全体合格証拠には流用しない。
+- b6e58ebdの配備用イメージ（77b10dedとは文書のみ差分）で隔離PostgreSQL16/Redis7、全移行・静的183件収集・通常起動・一覧HTTP200を確認。隔離HTTP用設定でcheck --deployはW008を1件報告。実TLSや配備設定の合格証拠とはしない。
+- d572a618のBanditは解析エラー0、HIGH/MEDIUM 0、LOW556。個別分類と残作業を文書化。後続変更の再解析は未実施。
+- 一覧改善はPostgreSQLで関連119件・14 subtests成功。キャラクターの画像取得・最新版集計、シナリオの関連取得を一括化。同時要求10のローカルp95はキャラクター4.25→1.59秒、シナリオ3.18→0.91秒、セッション0.68→0.80秒。測定180要求は全て200。合意済み性能基準や実AWSの合格ではない。
 - 詳細: docs/release/FORMAL_RELEASE_AUDIT_2026-09-05.md、FORMAL_RELEASE_ACCEPTANCE_MATRIX.md。
 
 公開前の残作業:
