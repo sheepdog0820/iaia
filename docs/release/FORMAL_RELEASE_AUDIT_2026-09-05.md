@@ -370,3 +370,11 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - serializerで参加者を主キー順に並べ、両フィールドから同じ処理を使う。prefetch済みデータを再利用し、取得済みキャッシュを変更しない。participants側のキャラクター詳細展開とparticipants_detail側の元の形式を維持し、後者のOpenAPI定義も元の参加者serializerの配列として明示した。
 - 0ea0e747固定依存イメージへ変更serializer/テストを読み取り専用適用し、一覧・詳細の一致、owner/manager/gm別の秘匿HO、ユーザー/ゲスト/キャラクター付き参加者、件数増加に対するクエリ数の検証を実行。PostgreSQLは4件・10 subtests成功（31.08秒）、SQLiteも4件・10 subtests成功（17.72秒）。`tmp/participant-order-postgres.log` / `tmp/participant-order-sqlite.log`、`tmp/formal-release-0ea0e747-full-output/participant-order-junit.xml` / `participant-order-coverage.json`。
 - Black/isort/flake8、差分を確認し、専用DBコンテナとネットワークを削除した。前回PostgreSQL全体の失敗は原因別の関連テストで修正確認できたが、修正群をまとめた全体成功はまだ証明していない。実環境の変更なし。
+
+## 継続監査: 9b1c9043の静的検査・移行・API定義（2026-09-05）
+
+- 修正群を含む `9b1c9043` のgit archiveから固定依存テストイメージを作成した。タグ `tableno-formal-release-test:9b1c9043-browser`、ローカルID `sha256:6789e8d1a91d8de85a7d131e98237902f40ea518c1847a9368e42555efca86be`。配備用イメージ/ECR digestとは別である。
+- 同イメージで、CIと同じリポジトリ全体の `flake8 .`、`black --check .`、`isort --check-only .` がすべて終了コード0。設定された除外・対象ルールを使用し、自動整形なし。`tmp/formal-release-9b1c9043-output/quality.json` と各検査ログ。
+- ネットワークなしの別コンテナで `manage.py check`、`makemigrations --check --dry-run`、専用SQLiteへの `migrate --noinput` と `migrate --check`、`pip check` が成功した。`checks.json` と各検査ログ。移行差分はなく、実データや共有DBへは適用していない。
+- `manage.py spectacular --validate --file /proof/schema.yml` が終了コード0。生成されたTRPGSession/PatchedTRPGSessionのparticipants_detailはreadOnly=true、type=array、itemsがSessionParticipantへの参照であることを確認した。APIでの並び順変更に伴い、要素の型を失っていない。`schema.yml` / `schema.log`。
+- 同コンテナの `pytest tests/system -q -rs` は12件成功（31.48秒、警告11件、終了コード0）。`system.log` / `system-junit.xml`。SQLite/PostgreSQLのUnit / Integration全体は別実行で継続中。以上をリモートCI、本番設定、実サービスの成功として扱わない。
