@@ -61,15 +61,15 @@
                         {% get_providers as socialaccount_providers %}
                         {% for provider in socialaccount_providers %}
                             {% if provider.id == 'google' %}
-                                <a href="{% provider_login_url provider.id next=request.path %}" class="btn btn-outline-danger">
+                                <a href="{% provider_login_url provider.id process="connect" next=request.path %}" class="btn btn-outline-danger">
                                     <i class="fab fa-google"></i> Googleアカウントを連携
                                 </a>
                             {% elif provider.id == 'discord' %}
-                                <a href="{% provider_login_url provider.id next=request.path %}" class="btn btn-outline-primary">
+                                <a href="{% provider_login_url provider.id process="connect" next=request.path %}" class="btn btn-outline-primary">
                                     <i class="fab fa-discord"></i> Discordアカウントを連携
                                 </a>
                             {% elif provider.id == 'twitter_oauth2' %}
-                                <a href="{% provider_login_url provider.id next=request.path %}" class="btn btn-outline-info">
+                                <a href="{% provider_login_url provider.id process="connect" next=request.path %}" class="btn btn-outline-info">
                                     <i class="fab fa-twitter"></i> Xアカウントを連携
                                 </a>
                             {% endif %}

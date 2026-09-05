@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import requests
 from allauth.account.models import EmailAddress
 from django.contrib.auth import get_user_model
 from django.test import override_settings
@@ -23,7 +24,7 @@ class DummyFlow:
         self.redirect_uri = None
         self.credentials = None
 
-    def fetch_token(self, code):
+    def fetch_token(self, code, timeout):
         self.credentials = SimpleNamespace(id_token="dummy-id-token")
 
 
@@ -37,10 +38,64 @@ class GoogleAuthApiTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("error", response.json())
 
+    @patch("accounts.views.api_auth_views.requests.get")
+    def test_access_token_requires_matching_client_and_subject(self, mock_get):
+        info = {"audience": "test-client", "issued_to": "test-client", "user_id": "uid", "expires_in": 3600}
+        profile = {"id": "uid", "email": "owner@gmail.com", "verified_email": True}
+        for changes in (
+            {"audience": "other-client"},
+            {"issued_to": "other-client"},
+            {"expires_in": 0},
+            {"user_id": "other-id"},
+        ):
+            with self.subTest(changes=changes):
+                mock_get.side_effect = [DummyResponse(200, {**info, **changes}), DummyResponse(200, profile)]
+                response = self.client.post(self.url, {"access_token": "fixture"}, format="json")
+                self.assertEqual(response.status_code, 400)
+                self.assertFalse(User.objects.exists())
+
+    @override_settings(GOOGLE_OAUTH_CLIENT_ID="")
+    @patch("accounts.views.api_auth_views.id_token.verify_oauth2_token")
+    def test_missing_client_configuration_does_not_disable_audience_validation(self, verify):
+        response = self.client.post(self.url, {"id_token": "fixture"}, format="json")
+        self.assertEqual(response.status_code, 503)
+        verify.assert_not_called()
+
+    @patch("accounts.views.api_auth_views.Flow.from_client_config")
+    @patch("accounts.views.api_auth_views.id_token.verify_oauth2_token")
+    def test_code_flow_rejects_wrong_issuer(self, verify, flow):
+        flow.return_value = DummyFlow()
+        verify.return_value = {"iss": "other-issuer", "sub": "uid", "email": "owner@gmail.com", "email_verified": True}
+        response = self.client.post(self.url, {"code": "fixture"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(User.objects.exists())
+
+    @patch("accounts.views.api_auth_views.requests.get")
+    def test_access_profile_failure_is_rejected(self, mock_get):
+        info = {"audience": "test-client", "issued_to": "test-client", "user_id": "uid", "expires_in": 3600}
+        mock_get.side_effect = [DummyResponse(200, info), DummyResponse(401)]
+        response = self.client.post(self.url, {"access_token": "fixture"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(User.objects.exists())
+
+    @patch("accounts.views.api_auth_views.requests.get")
+    def test_google_failures_do_not_expose_tokens_or_exception_details(self, mock_get):
+        for exception, expected in ((requests.Timeout("secret-token"), 503), (RuntimeError("secret-token"), 500)):
+            with self.subTest(exception=type(exception).__name__):
+                mock_get.side_effect = exception
+                with self.assertLogs("accounts.views.api_auth_views", level="WARNING") as logs:
+                    response = self.client.post(self.url, {"access_token": "secret-token"}, format="json")
+                self.assertEqual(response.status_code, expected)
+                self.assertNotIn("secret-token", str(response.data))
+                self.assertNotIn("secret-token", str(logs.output))
+                self.assertFalse(User.objects.exists())
+
     @patch("accounts.views.api_auth_views.id_token.verify_oauth2_token")
     def test_google_auth_id_token_creates_user(self, mock_verify):
         mock_verify.return_value = {
             "iss": "accounts.google.com",
+            "sub": "google-fixture-uid",
+            "hd": "example.com",
             "email": "idtoken.user@example.com",
             "given_name": "IdToken",
             "family_name": "User",
@@ -71,6 +126,8 @@ class GoogleAuthApiTests(APITestCase):
         )
         mock_verify.return_value = {
             "iss": "accounts.google.com",
+            "sub": "google-fixture-uid",
+            "hd": "example.com",
             "email": "same.google@example.com",
             "given_name": "Existing",
             "family_name": "Google",
@@ -107,6 +164,8 @@ class GoogleAuthApiTests(APITestCase):
     def test_google_auth_id_token_unverified_email(self, mock_verify):
         mock_verify.return_value = {
             "iss": "accounts.google.com",
+            "sub": "google-fixture-uid",
+            "hd": "example.com",
             "email": "unverified@example.com",
             "email_verified": False,
         }
@@ -126,6 +185,12 @@ class GoogleAuthApiTests(APITestCase):
                 "name": "Access User",
                 "picture": "http://example.com/pic.jpg",
                 "verified_email": True,
+                "id": "google-access-uid",
+                "user_id": "google-access-uid",
+                "audience": "test-client",
+                "issued_to": "test-client",
+                "expires_in": 3600,
+                "hd": "example.com",
             },
         )
 
@@ -152,6 +217,8 @@ class GoogleAuthApiTests(APITestCase):
         mock_flow.return_value = DummyFlow()
         mock_verify.return_value = {
             "iss": "accounts.google.com",
+            "sub": "google-fixture-uid",
+            "hd": "example.com",
             "email": "code.user@example.com",
             "given_name": "Code",
             "family_name": "User",

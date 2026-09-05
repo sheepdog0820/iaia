@@ -405,7 +405,6 @@ SOCIALACCOUNT_PROVIDERS = {
             "prompt": "consent select_account",
         },
         "OAUTH_PKCE_ENABLED": True,
-        "VERIFIED_EMAIL": True,
         "VERSION": "v2",
     },
     "discord": {

@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 
 from .auth_redirects import consume_auth_next
+from .google_identity import google_email_is_authoritative
 
 User = get_user_model()
 
@@ -40,6 +41,13 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
     カスタムソーシャルアカウントアダプター
     ソーシャルログイン時の処理をカスタマイズ
     """
+
+    def can_authenticate_by_email(self, login, email):
+        if login.account.provider == "google" and (
+            not google_email_is_authoritative(login.account.extra_data) or login.state.get("process") == "connect"
+        ):
+            return False
+        return super().can_authenticate_by_email(login, email)
 
     def is_open_for_signup(self, request, sociallogin):
         """
@@ -103,7 +111,12 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         ソーシャルログイン前の処理
         既存のユーザーとの紐付けなどを行う
         """
-        if sociallogin.is_existing:
+        if sociallogin.account.provider == "google" and not google_email_is_authoritative(
+            sociallogin.account.extra_data
+        ):
+            for address in getattr(sociallogin, "email_addresses", []):
+                address.verified = False
+        if sociallogin.is_existing or getattr(sociallogin, "state", {}).get("process") == "connect":
             return
 
         # 確認済みメールが一致する場合だけ既存ユーザーへ連携する。
@@ -111,7 +124,7 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
             extra_data = sociallogin.account.extra_data
             email = extra_data.get("email")
             if sociallogin.account.provider == "google":
-                verified = extra_data.get("email_verified", extra_data.get("verified_email", False))
+                verified = google_email_is_authoritative(extra_data)
             else:
                 verified = extra_data.get("verified", False)
             if email and verified is True:

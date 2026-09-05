@@ -30,7 +30,7 @@ class SocialLinkSafetyTests(TestCase):
     def test_verified_google_and_discord_can_link(self):
         for provider, claim in (("google", "email_verified"), ("google", "verified_email"), ("discord", "verified")):
             with self.subTest(provider=provider, claim=claim):
-                login = self.login(provider, {"email": self.owner.email, claim: True})
+                login = self.login(provider, {"email": self.owner.email, claim: True, "hd": "example.test"})
                 self.adapter.pre_social_login(self.request, login)
                 login.connect.assert_called_once_with(self.request, self.owner)
 
@@ -45,6 +45,20 @@ class SocialLinkSafetyTests(TestCase):
                 login = self.login(provider, {"email": self.owner.email, "verified": value})
                 self.adapter.pre_social_login(self.request, login)
                 login.connect.assert_not_called()
+
+    def test_third_party_google_requires_mailbox_confirmation(self):
+        login = self.login("google", {"email": self.owner.email, "email_verified": True})
+        address = SimpleNamespace(verified=True)
+        login.email_addresses = [address]
+        self.adapter.pre_social_login(self.request, login)
+        login.connect.assert_not_called()
+        self.assertFalse(address.verified)
+
+    def test_explicit_connect_does_not_select_owner_by_email(self):
+        login = self.login("google", {"email": self.owner.email, "email_verified": True, "hd": "example.test"})
+        login.state = {"process": "connect"}
+        self.adapter.pre_social_login(self.request, login)
+        login.connect.assert_not_called()
 
     def test_missing_email_or_local_user_does_not_link(self):
         for data in ({"email_verified": True}, {"email": "absent@example.test", "email_verified": True}):

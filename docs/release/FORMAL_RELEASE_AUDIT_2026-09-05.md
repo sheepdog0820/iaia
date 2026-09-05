@@ -448,3 +448,9 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - google_authのIDトークン・認証コード・userinfo処理を読んだところ、Googleのsub/idをユーザー選択へ渡さず、email一致だけでローカル利用者とDRFトークンを返していた。既存SocialAccountのGoogle UIDも照合しない。
 - 専用SQLite、外部通信なし、Google検証関数だけを模擬した2試験で再現した。未連携の別Google ID/第三者メールの一致は期待する拒否ではなく200。同じGoogle UIDのメール変更ケースは元利用者ID=1でなく別利用者ID=2を返した。`tmp/test_google_identity_probe.py` / `tmp/google-identity-probe.log`。2件失敗、18.27秒。実トークンや実利用者への試験ではない。
 - [修正条件](GOOGLE_IDENTITY_REMEDIATION.md)に、固定ID優先、第三者メールの追加確認と利用者導線、3 API方式とブラウザの一貫性、競合・無効利用者・機密保護の条件をまとめた。今回のターンではこの問題の実装修正はまだない。確認フラグ修正や全体テストの成功で解消扱いにせず、I01/Q04を公開阻害事項として維持する。
+
+## 継続監査: 6608de6d全体結果とGoogle固定ID修正
+
+- 6608de6dの全体実行が両DBで終了した。SQLiteは1,565 passed / 3 skipped / 359 subtests、86.54%、1,172.44秒。PostgreSQLは1,568 passed / skipなし / 359 subtests、86.75%、1,199.86秒。JUnitは双方1,927件、failures/errorsとも0。tmp/formal-release-6608de6d-full-output/ のログ・JUnit・coverageを確認した。この後のGoogle認証変更は含まれない。
+- Google APIの固定ID保持と優先照合、第三者メールの追加確認、認証後の明示的連携、原子的な作成と競合再試行、対象クライアントとuserinfoの照合を実装。ブラウザの一律確認済み指定と連携ボタンも修正した。詳細・検証限界・復旧の注意は [Google修正記録](GOOGLE_IDENTITY_REMEDIATION.md) に記録した。
+- 認証関連の最終実行はSQLite83件成功+1skip、PostgreSQL84件成功、双方28 subtests。Googleの新規resolverは76/76実行行をカバー。実OAuthや実通知は行わず、共有環境・実データ・Secrets・費用への変更なし。I01/Q04と正式公開No-Goは継続する。

@@ -19,6 +19,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from ..google_identity import GoogleIdentityError, complete_google_login
 from ..serializers import UserSerializer
 
 User = get_user_model()
@@ -47,6 +48,8 @@ def google_auth(request):
         )
 
     try:
+        if not settings.GOOGLE_OAUTH_CLIENT_ID:
+            return Response({"error": "Google認証の設定を確認中です。"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         user_info = None
 
         # 1. IDトークンの処理（推奨）
@@ -63,6 +66,8 @@ def google_auth(request):
                     raise ValueError("Wrong issuer.")
 
                 user_info = {
+                    "sub": idinfo.get("sub"),
+                    "hd": idinfo.get("hd"),
                     "email": idinfo.get("email"),
                     "given_name": idinfo.get("given_name", ""),
                     "family_name": idinfo.get("family_name", ""),
@@ -72,12 +77,25 @@ def google_auth(request):
                 }
 
             except ValueError as e:
-                logger.error(f"IDトークン検証エラー: {e}")
+                logger.warning("IDトークン検証エラー (%s)", type(e).__name__)
                 return Response({"error": "IDトークンの検証に失敗しました"}, status=status.HTTP_400_BAD_REQUEST)
 
         # 2. アクセストークンの処理
         elif access_token:
             logger.info("アクセストークンで認証を試行")
+            token_response = requests.get(
+                "https://www.googleapis.com/oauth2/v2/tokeninfo",
+                params={"access_token": access_token},
+                timeout=10,
+            )
+            token_info = token_response.json() if token_response.status_code == 200 else {}
+            if (
+                not settings.GOOGLE_OAUTH_CLIENT_ID
+                or token_info.get("audience") != settings.GOOGLE_OAUTH_CLIENT_ID
+                or token_info.get("issued_to") != settings.GOOGLE_OAUTH_CLIENT_ID
+                or int(token_info.get("expires_in", 0)) <= 0
+            ):
+                return Response({"error": "アクセストークンが無効です"}, status=status.HTTP_400_BAD_REQUEST)
             # Google APIでユーザー情報を取得
             response = requests.get(
                 "https://www.googleapis.com/oauth2/v2/userinfo",
@@ -89,7 +107,11 @@ def google_auth(request):
                 return Response({"error": "アクセストークンが無効です"}, status=status.HTTP_400_BAD_REQUEST)
 
             data = response.json()
+            if not data.get("id") or data.get("id") != token_info.get("user_id"):
+                return Response({"error": "Googleアカウントの確認に失敗しました"}, status=status.HTTP_400_BAD_REQUEST)
             user_info = {
+                "sub": data.get("id"),
+                "hd": data.get("hd"),
                 "email": data.get("email"),
                 "given_name": data.get("given_name", ""),
                 "family_name": data.get("family_name", ""),
@@ -120,15 +142,19 @@ def google_auth(request):
 
             try:
                 # 認証コードをトークンに交換
-                flow.fetch_token(code=code)
+                flow.fetch_token(code=code, timeout=10)
                 credentials = flow.credentials
 
                 # IDトークンから情報を取得
                 idinfo = id_token.verify_oauth2_token(
                     credentials.id_token, google_requests.Request(), settings.GOOGLE_OAUTH_CLIENT_ID
                 )
+                if idinfo.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
+                    raise ValueError("Wrong issuer.")
 
                 user_info = {
+                    "sub": idinfo.get("sub"),
+                    "hd": idinfo.get("hd"),
                     "email": idinfo.get("email"),
                     "given_name": idinfo.get("given_name", ""),
                     "family_name": idinfo.get("family_name", ""),
@@ -138,57 +164,20 @@ def google_auth(request):
                 }
 
             except Exception as e:
-                logger.error(f"認証コード交換エラー: {e}")
+                logger.warning("認証コード交換エラー (%s)", type(e).__name__)
                 return Response({"error": "認証コードの処理に失敗しました"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # メールアドレスの確認
-        if not user_info or not user_info.get("email"):
-            return Response({"error": "メールアドレスが取得できませんでした"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # メール認証の確認（オプション）
-        if not user_info.get("email_verified", True):
-            return Response({"error": "メールアドレスが認証されていません"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # ユーザーの取得または作成
-        email = user_info["email"]
-        user, created = User.objects.get_or_create(
-            email=email,
-            defaults={
-                "username": email.split("@")[0],
-                "first_name": user_info.get("given_name", ""),
-                "last_name": user_info.get("family_name", ""),
-                "nickname": user_info.get("name", email.split("@")[0]),
-            },
-        )
-
-        # 既存ユーザーの情報更新（必要に応じて）
-        if not created:
-            updated = False
-            if not user.nickname and user_info.get("name"):
-                user.nickname = user_info["name"]
-                updated = True
-            if not user.first_name and user_info.get("given_name"):
-                user.first_name = user_info["given_name"]
-                updated = True
-            if not user.last_name and user_info.get("family_name"):
-                user.last_name = user_info["family_name"]
-                updated = True
-
-            if updated:
-                user.save()
-
-        _mark_email_verified(user, email)
-
-        # DRFトークンの生成
-        token, _ = Token.objects.get_or_create(user=user)
+        user, created, token = complete_google_login(user_info, request.user, link=request.data.get("link", False))
 
         # レスポンスデータ
         response_data = {"token": token.key, "user": UserSerializer(user).data, "created": created}
 
-        logger.info(f"Google OAuth認証成功: {email} (新規: {created})")
+        logger.info("Google OAuth認証成功 (新規: %s)", created)
 
         return Response(response_data, status=status.HTTP_200_OK)
 
+    except GoogleIdentityError as e:
+        return Response(e.data, status=e.status)
     except requests.RequestException as e:
         logger.warning("Google OAuth通信エラー (%s)", type(e).__name__)
         return Response(
@@ -196,9 +185,9 @@ def google_auth(request):
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
     except Exception as e:
-        logger.error(f"Google OAuth認証エラー: {e}")
+        logger.error("Google OAuth認証エラー (%s)", type(e).__name__)
         return Response(
-            {"error": "認証処理中にエラーが発生しました", "detail": str(e)},
+            {"error": "認証処理中にエラーが発生しました"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
