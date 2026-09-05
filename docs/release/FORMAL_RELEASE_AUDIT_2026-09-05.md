@@ -529,3 +529,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - SQLite関連45件・28 subtests成功（32.17秒、tmp/skill-budget-related.log）。PostgreSQL 16も関連45件・28 subtests成功（22.19秒、tmp/skill-budget-postgres-accounts.log）。再配分・新規作成先行・職業/趣味の最終合計超過・省略フィールド・重複IDの逐次PATCH・従来の部分失敗巻戻しを検証。最後に重複した新規技能名検査を整理した変更はPostgreSQLの最終実行に含む。
 - 特定ビューだけを--cov対象にしたPostgreSQL実行はDB接続が閉じるエラーで失敗（tmp/skill-budget-postgres.log、tmp/skill-budget-postgres-final.log）。計測なしでは成功し、既存の全体検証と同じ--cov=accountsでは成功した。計測範囲に伴う失敗の根本原因は未確定で、失敗結果は保持する。最終計測tmp/skill-budget-accounts-coverage.jsonでbulk_updateに未実行行なし。分岐網羅・他の更新経路との同時編集の証明ではない。
 - Black/isort/flake8成功、差分と日本語応答を確認。共有環境・実データ・DBスキーマ・権限・費用の変更なし。専用PostgreSQLとinternalネットワークは削除済み。復旧は当該アプリ変更のrevertで可能だが再配分の不具合が戻る。最終候補全体/CI/実連携/公開運用の検証は未完了で、正式公開No-Goを維持する。
+
+## 継続監査: パスワードログインのDB照合障害
+
+- 824857b4と差分なしから開始。CustomLoginFormはEmailAddress照合の例外を無視してCustomUser照合へ進んでいた。またCustomUser照合・必須メール確認のDB障害はフォームで処理されていなかった。OperationalErrorを各箇所に注入した回帰テスト3件で修正前の失敗を確認（tmp/login-lookup-red.log）。
+- DB障害はDatabaseErrorに限定して捕捉し、日本語の再試行案内とlogin_unavailableコードでフォームを拒否する。EmailAddress障害時にCustomUser照合へ進まない。ログには例外型だけを記録する。元からモジュール先頭で必須importされているEmailAddressの重複importと広い例外処理を除去した。通常の未確認メール拒否も日本語へ変更し、既存の画面テストを更新した。
+- 実データ・外部通信から隔離したSQLiteで既存認証を含む33件・3 subtests成功（52.64秒、tmp/login-lookup-green.log）。後から追加したHTTP画面テスト・ログ本文非露出の検査を含む障害テスト4件も成功（34.94秒、tmp/login-lookup-final.log）。実際のログイン画面が再試行案内を返し、認証セッションを作らないことを確認。DB障害は注入テストであり、共有DBの停止実験や実メール送信は行っていない。
+- tmp/login-lookup-coverage.jsonで新規の例外ハンドラーと再試行案内に未実行行なし。Black/isort/flake8・差分・日本語文言を確認。DBスキーマ・実利用者・共有環境・権限・費用の変更なし。復旧はアプリ変更のrevertで可能だが障害時フォールバックが戻る。残る画像処理の例外監査・最終候補全体/CI/実サービス検証は未完了。正式公開No-Goを維持する。

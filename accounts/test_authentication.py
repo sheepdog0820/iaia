@@ -171,7 +171,7 @@ class AuthenticationTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("_auth_user_id", self.client.session)
-        self.assertContains(response, "Email verification is required before login.")
+        self.assertContains(response, "ログインする前にメールアドレスの確認を完了してください。")
 
     @override_settings(ACCOUNT_EMAIL_VERIFICATION="mandatory")
     def test_user_without_verified_email_record_cannot_login_when_verification_is_mandatory(self):
@@ -187,7 +187,7 @@ class AuthenticationTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("_auth_user_id", self.client.session)
-        self.assertContains(response, "Email verification is required before login.")
+        self.assertContains(response, "ログインする前にメールアドレスの確認を完了してください。")
 
     @override_settings(ACCOUNT_EMAIL_VERIFICATION="mandatory")
     def test_verified_email_can_login_when_verification_is_mandatory(self):

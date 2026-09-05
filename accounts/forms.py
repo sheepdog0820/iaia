@@ -6,6 +6,7 @@ from django import forms
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.db import DatabaseError
 
 from .character_image_limits import (
     character_image_limit_error_message,
@@ -67,8 +68,6 @@ class CustomLoginForm(AuthenticationForm):
         # メールアドレス入力の場合、usernameへ変換してAuthenticationFormの認証に渡す。
         # allauthのEmailAddressを優先（主メール/検証状態を考慮）
         try:
-            from allauth.account.models import EmailAddress
-
             email_address = (
                 EmailAddress.objects.select_related("user")
                 .filter(email__iexact=login)
@@ -77,14 +76,22 @@ class CustomLoginForm(AuthenticationForm):
             )
             if email_address and email_address.user:
                 return email_address.user.username
-        except Exception:
-            pass
+        except DatabaseError as exc:
+            self.login_lookup_unavailable(exc)
 
         try:
             user = CustomUser.objects.get(email__iexact=login)
             return user.username
         except CustomUser.DoesNotExist:
             return login
+        except DatabaseError as exc:
+            self.login_lookup_unavailable(exc)
+
+    def login_lookup_unavailable(self, exc):
+        logger.warning("Login identity lookup failed (%s)", type(exc).__name__)
+        raise forms.ValidationError(
+            "ログイン情報を確認できませんでした。時間をおいて再度お試しください。", code="login_unavailable"
+        ) from None
 
     def confirm_login_allowed(self, user):
         super().confirm_login_allowed(user)
@@ -92,21 +99,16 @@ class CustomLoginForm(AuthenticationForm):
             return
 
         try:
-            from allauth.account.models import EmailAddress
-        except Exception:
-            raise forms.ValidationError(
-                "Email verification is required before login.",
-                code="email_unverified",
-            )
-
-        email_verified = EmailAddress.objects.filter(
-            user=user,
-            email__iexact=user.email,
-            verified=True,
-        ).exists()
+            email_verified = EmailAddress.objects.filter(
+                user=user,
+                email__iexact=user.email,
+                verified=True,
+            ).exists()
+        except DatabaseError as exc:
+            self.login_lookup_unavailable(exc)
         if not email_verified:
             raise forms.ValidationError(
-                "Email verification is required before login.",
+                "ログインする前にメールアドレスの確認を完了してください。",
                 code="email_unverified",
             )
 
