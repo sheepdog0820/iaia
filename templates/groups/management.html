@@ -895,9 +895,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="invitation-item">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
-                            <strong>${invite.group_detail.name}</strong>
-                            <div class="invitation-meta">招待者: ${invite.inviter_detail.nickname}</div>
-                            ${invite.message ? `<div class="invitation-meta">メッセージ: ${invite.message}</div>` : ''}
+                            <strong>${escapeHtml(invite.group_detail.name)}</strong>
+                            <div class="invitation-meta">招待者: ${escapeHtml(invite.inviter_detail.nickname)}</div>
+                            ${invite.message ? `<div class="invitation-meta">メッセージ: ${escapeHtml(invite.message)}</div>` : ''}
                         </div>
                         <span class="badge bg-${badgeClass}">${statusBadge}</span>
                     </div>

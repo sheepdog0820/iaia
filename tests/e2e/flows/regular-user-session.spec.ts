@@ -15,6 +15,44 @@ async function signUp(page: Page, suffix: string, nickname?: string): Promise<vo
   ]);
 }
 
+test('group invitation displays stored markup safely and can be accepted', async ({ page, browser }) => {
+  const suffix = `${Date.now()}_${test.info().project.name}`;
+  const markup = '<img src=x onerror="window.__inviteXss=1">';
+  await signUp(page, `invite_${suffix}`, markup);
+  const group = await page.evaluate(async name => {
+    return (await (window as any).axios.post('/api/accounts/groups/', { name, visibility: 'private' })).data;
+  }, markup);
+  const recipientContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
+  try {
+    const recipient = await recipientContext.newPage();
+    await signUp(recipient, `recipient_${suffix}`);
+    const invitation = await page.evaluate(async ({ id, username, message }) => {
+      return (await (window as any).axios.post(`/api/accounts/groups/${id}/invite/`, { username, message })).data;
+    }, { id: group.id, username: `release_recipient_${suffix}`, message: markup });
+    expect(invitation.status).toBe('pending');
+    await recipient.goto('/accounts/groups/view/?show_test_data=1');
+    const item = recipient.locator('.invitation-item');
+    await expect(item).toBeVisible();
+    await expect(item.locator('strong')).toHaveText(markup);
+    await expect(item.locator('.invitation-meta').nth(0)).toHaveText(`招待者: ${markup}`);
+    await expect(item.locator('.invitation-meta').nth(1)).toHaveText(`メッセージ: ${markup}`);
+    await expect(item.locator('img')).toHaveCount(0);
+    expect(await recipient.evaluate(() => (window as any).__inviteXss)).toBeUndefined();
+    const [accepted] = await Promise.all([
+      recipient.waitForResponse(response => new URL(response.url()).pathname === `/api/accounts/invitations/${invitation.id}/accept/` && response.request().method() === 'POST'),
+      item.getByRole('button', { name: /承認$/ }).click(),
+    ]);
+    expect(accepted.status()).toBe(200);
+    await expect(item).toContainText('承認済み');
+    await expect(recipient.locator('.group-card', { hasText: markup })).toBeVisible();
+    const saved = await (await recipient.request.get(`/api/accounts/groups/${group.id}/`)).json();
+    expect(saved.is_member).toBe(true);
+    expect(saved.member_role).toBe('member');
+  } finally {
+    await recipientContext.close();
+  }
+});
+
 test('group details display stored markup as text for another registered user', async ({ page, browser }) => {
   const suffix = `${Date.now()}_${test.info().project.name}`;
   const markup = '<img src=x onerror="window.__groupXss=1">';
