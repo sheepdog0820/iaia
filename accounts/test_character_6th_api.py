@@ -439,15 +439,14 @@ class Character6thAPITestCase(APITestCase):
         self.assertTrue(imported.system_data.skills.filter(skill_name="Spot Hidden").exists())
         self.assertTrue(imported.system_data.skills.filter(skill_name="Library Use").exists())
 
-    def test_ccfolia_import_requires_premium_access(self):
+    def test_ccfolia_import_allows_free_user(self):
         url = reverse("character-sheet-import-ccfolia-json")
         payload = self.make_ccfolia_payload(name="Free User Import Attempt")
 
         response = self.client.post(url, {"ccfolia": payload, "age": 20, "edition": "6th"}, format="json")
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(response.data["detail"], "CCFOLIAインポートはプレミアム機能です。")
-        self.assertFalse(CharacterSheet.objects.by_system_name("Free User Import Attempt", user=self.user).exists())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(CharacterSheet.objects.by_system_name("Free User Import Attempt", user=self.user).exists())
 
     def test_ccfolia_import_uses_form_edition_and_optional_profile_fields(self):
         self.user.is_premium = True
@@ -529,15 +528,15 @@ class CCFOLIAImportUITestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="uiuser", password="testpass123", email="ui@example.com")
 
-    def test_character_list_shows_billing_link_for_non_premium_import(self):
+    def test_character_list_shows_import_form_for_free_user(self):
         self.client.force_login(self.user)
 
         response = self.client.get(reverse("character_list"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertContains(response, "CCFOLIAインポート（プレミアム）")
-        self.assertContains(response, reverse("billing"))
-        self.assertNotContains(response, 'id="ccfoliaImportModal"')
+        self.assertContains(response, "CCFOLIAインポート")
+        self.assertNotContains(response, "CCFOLIAインポート（プレミアム）")
+        self.assertContains(response, 'id="ccfoliaImportModal"')
 
     def test_character_list_shows_premium_import_form_fields(self):
         self.user.is_premium = True

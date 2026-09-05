@@ -608,10 +608,6 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
                 scenario_changed = current_scenario_id != next_scenario_id
                 if scenario_changed and not session_permissions.can_manage_secret_content(user, self.instance):
                     raise serializers.ValidationError({"scenario": "関連シナリオを変更できるのはKP/GMのみです"})
-                if scenario_changed and not getattr(user, "has_premium_access", False):
-                    raise serializers.ValidationError(
-                        {"scenario": "シナリオ情報を変更するにはプレミアム権限が必要です"}
-                    )
 
         return attrs
 

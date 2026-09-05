@@ -338,12 +338,6 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
     @action(detail=False, methods=["post"], url_path="import_ccfolia_json")
     def import_ccfolia_json(self, request):
         """Import a character sheet from CCFOLIA format JSON"""
-        if not getattr(request.user, "has_premium_access", False):
-            return Response(
-                {"detail": "CCFOLIAインポートはプレミアム機能です。"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
         try:
             ccfolia_payload = self._extract_ccfolia_payload(request.data)
             parsed = self._parse_ccfolia_character(ccfolia_payload)

@@ -1506,7 +1506,7 @@ class CharacterImageSerializer(serializers.ModelSerializer):
         if not character_sheet:
             raise serializers.ValidationError("キャラクターシートが指定されていません。")
 
-        # 画像数制限チェック（通常2枚、プレミアム10枚まで）
+        # 新規追加だけに共通上限を適用し、旧上限で保存した画像の編集を維持する。
         existing_count = character_sheet.system_data.images.count()
 
         if self.instance:
@@ -1514,7 +1514,7 @@ class CharacterImageSerializer(serializers.ModelSerializer):
             existing_count -= 1
 
         limit = get_character_image_limit_for_sheet(character_sheet)
-        if existing_count + 1 > limit:
+        if self.instance is None and existing_count + 1 > limit:
             raise serializers.ValidationError(character_image_limit_error_message(limit))
 
         # 総容量制限チェック（30MB）

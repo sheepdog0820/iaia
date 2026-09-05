@@ -2652,7 +2652,7 @@ function initOccupationTemplates() {
         
         if (!imageInput) return;
 
-        const maxImages = parseInt(imageInput.dataset.maxImages || '2', 10) || 2;
+        const maxImages = parseInt(imageInput.dataset.maxImages || '5', 10) || 5;
         const maxFileSize = 5 * 1024 * 1024;
         const allowedImagePattern = /^image\/(jpeg|jpg|png|gif)$/;
         let selectedFiles = [];
@@ -3404,7 +3404,7 @@ function initOccupationTemplates() {
             .getAll('character_images')
             .filter(f => f instanceof File && f.size > 0 && f.name);
         const imageInput = form.querySelector('#character-images');
-        const maxImages = parseInt(imageInput?.dataset.maxImages || '2', 10) || 2;
+        const maxImages = parseInt(imageInput?.dataset.maxImages || '5', 10) || 5;
         if (imageFiles.length > maxImages) {
             throw { error: `キャラクター画像は最大${maxImages}枚まで選択できます。` };
         }

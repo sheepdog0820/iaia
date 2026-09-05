@@ -155,28 +155,28 @@ class CharacterImageAPITestCase(APITestCase):
         self.assertEqual(CharacterImage.objects.count(), 2)
 
     def test_image_count_limit(self):
-        """通常ユーザーの画像数制限のテスト（2枚まで）"""
+        """通常ユーザーの画像数制限のテスト（5枚まで）"""
         url = reverse("character-image-list", kwargs={"character_id": self.character.id})
 
-        # 2枚まではアップロード可能
-        for i in range(2):
+        # 5枚まではアップロード可能
+        for i in range(5):
             image = self.create_test_image(f"test{i}.png")
             response = self.client.post(url, {"image": image}, format="multipart")
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-        # 3枚目はエラー
+        # 6枚目はエラー
         image = self.create_test_image("test2.png")
         response = self.client.post(url, {"image": image}, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("最大2枚", str(response.data))
+        self.assertIn("最大5枚", str(response.data))
 
     def test_premium_image_count_limit(self):
-        """プレミアムユーザーの画像数制限のテスト（10枚まで）"""
+        """プレミアムでも共通の5枚制限を使う"""
         self.user.is_premium = True
         self.user.save(update_fields=["is_premium"])
         url = reverse("character-image-list", kwargs={"character_id": self.character.id})
 
-        for i in range(10):
+        for i in range(5):
             image = self.create_test_image(f"premium{i}.png")
             response = self.client.post(url, {"image": image}, format="multipart")
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -184,7 +184,40 @@ class CharacterImageAPITestCase(APITestCase):
         image = self.create_test_image("premium10.png")
         response = self.client.post(url, {"image": image}, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("最大10枚", str(response.data))
+        self.assertIn("最大5枚", str(response.data))
+
+    def test_existing_over_limit_images_remain_editable_after_premium_expiry(self):
+        images = [
+            CharacterImage.objects.create(
+                character_sheet=self.character.system_data,
+                image=self.create_test_image(f"legacy-{index}.png"),
+                order=index,
+            )
+            for index in range(6)
+        ]
+        self.user.is_premium = False
+        self.user.save(update_fields=["is_premium"])
+        detail_url = reverse("character-image-detail", kwargs={"character_id": self.character.id, "pk": images[0].pk})
+        response = self.client.patch(detail_url, {"order": 10}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(self.character.system_data.images.count(), 6)
+        character_url = reverse("character-sheet-detail", kwargs={"pk": self.character.id})
+        response = self.client.patch(character_url, {"name": "画像を保持して名前を変更"}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.character.system_data.refresh_from_db()
+        self.assertEqual(self.character.system_data.name, "画像を保持して名前を変更")
+        list_url = reverse("character-image-list", kwargs={"character_id": self.character.id})
+        response = self.client.post(list_url, {"image": self.create_test_image()}, format="multipart")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.client.delete(detail_url).status_code, 204)
+        self.assertEqual(self.character.system_data.images.count(), 5)
+        response = self.client.post(list_url, {"image": self.create_test_image()}, format="multipart")
+        self.assertEqual(response.status_code, 400)
+        next_url = reverse("character-image-detail", kwargs={"character_id": self.character.id, "pk": images[1].pk})
+        self.assertEqual(self.client.delete(next_url).status_code, 204)
+        response = self.client.post(list_url, {"image": self.create_test_image()}, format="multipart")
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(self.character.system_data.images.count(), 5)
 
     def test_file_size_limit(self):
         """ファイルサイズ制限のテスト（5MB）"""
@@ -203,14 +236,14 @@ class CharacterImageAPITestCase(APITestCase):
         self.user.save(update_fields=["is_premium"])
         url = reverse("character-image-list", kwargs={"character_id": self.character.id})
 
-        # 4MBの画像を8枚アップロードしようとする（32MB）
-        for i in range(8):
-            image = self.create_test_image(f"test{i}.png", size=(2000, 2000))
+        # 圧縮ファイルは小さいが推定容量は各7,840,000バイト。5枚目で30 MiBを超える。
+        for i in range(5):
+            image = self.create_test_image(f"test{i}.png", size=(2800, 2800))
             response = self.client.post(url, {"image": image}, format="multipart")
 
-            if i < 7:  # 7枚目まではOK
+            if i < 4:
                 self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-            else:  # 8枚目でエラー
+            else:
                 self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
                 self.assertIn("30MB", str(response.data))
 
@@ -384,7 +417,7 @@ class CharacterImageIntegrationTestCase(TestCase):
 
     def test_character_creation_rejects_normal_user_over_image_limit(self):
         """通常ユーザーは作成画面で3枚以上の画像を添付できない"""
-        images = [self.create_test_image(f"over-limit{i}.png") for i in range(3)]
+        images = [self.create_test_image(f"over-limit{i}.png") for i in range(6)]
         form_data = {
             "name": "画像上限テスト",
             "age": "25",
@@ -411,7 +444,7 @@ class CharacterImageIntegrationTestCase(TestCase):
         self.assertFalse(
             CharacterSheet.objects.by_system_name("画像上限テスト", user=self.user, edition="6th").exists()
         )
-        self.assertIn("最大2枚", str(response.context["form"].errors))
+        self.assertIn("最大5枚", str(response.context["form"].errors))
 
     def test_character_create_templates_allow_multiple_images_with_role_limits(self):
         """作成画面の画像入力は複数選択とユーザー別上限を持つ"""
@@ -420,8 +453,8 @@ class CharacterImageIntegrationTestCase(TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertContains(response, 'id="character-images"')
             self.assertContains(response, "multiple")
-            self.assertContains(response, 'data-max-images="2"')
-            self.assertContains(response, "現在の添付上限: 最大2枚")
+            self.assertContains(response, 'data-max-images="5"')
+            self.assertContains(response, "現在の添付上限: 最大5枚")
             self.assertContains(response, 'id="characterImageUploadModal"')
             self.assertContains(response, 'id="character-image-drop-zone"')
             self.assertContains(response, 'id="character-image-select-btn"')
@@ -432,8 +465,8 @@ class CharacterImageIntegrationTestCase(TestCase):
         self.user.is_premium = True
         self.user.save(update_fields=["is_premium"])
         response = self.client.get(reverse("character_create_6th"))
-        self.assertContains(response, 'data-max-images="10"')
-        self.assertContains(response, "現在の添付上限: 最大10枚")
+        self.assertContains(response, 'data-max-images="5"')
+        self.assertContains(response, "現在の添付上限: 最大5枚")
 
     def test_character_detail_with_images(self):
         """画像付きキャラクター詳細表示テスト"""

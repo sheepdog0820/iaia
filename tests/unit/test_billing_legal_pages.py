@@ -153,6 +153,13 @@ class BillingLegalPagesTestCase(TestCase):
         self.assertContains(response, "Stripe Customer Portal")
         self.assertContains(response, "運営発行コード")
         self.assertContains(response, "課金なし")
+        rows = {row["key"]: row for row in response.context["feature_rows"]}
+        for key in ("scenario_archive", "ccfolia_import"):
+            self.assertEqual(rows[key]["free"], "利用可")
+        self.assertEqual(rows["character_images"]["free"], "1キャラクター5枚")
+        self.assertEqual(rows["character_images"]["premium"], "1キャラクター5枚")
+        self.assertEqual(rows["background_removal"]["free"], "利用不可")
+        self.assertEqual(rows["background_removal"]["premium"], "利用可")
 
     @override_settings(
         PREMIUM_PRICE_LABEL="Monthly 500 JPY",

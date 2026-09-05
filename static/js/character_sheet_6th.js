@@ -293,14 +293,14 @@ function initializeImageUpload() {
 }
 
 function handleFiles(files) {
-    const maxFiles = 10;
+    const maxFiles = 5;
     const maxSize = 5 * 1024 * 1024; // 5MB
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
     
     Array.from(files).forEach(file => {
         // バリデーション
         if (uploadedImages.length >= maxFiles) {
-            showToast('画像は最大10枚までアップロード可能です', 'warning');
+            showToast('画像は最大5枚までアップロード可能です', 'warning');
             return;
         }
         

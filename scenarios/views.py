@@ -487,7 +487,7 @@ class PremiumOnlyTemplateView(LoginRequiredMixin, TemplateView):
         return super().dispatch(request, *args, **kwargs)
 
 
-class ScenarioArchivePageView(PremiumOnlyTemplateView):
+class ScenarioArchivePageView(LoginRequiredMixin, TemplateView):
     """シナリオAPI結果確認（アーカイブ画面）"""
 
     template_name = "scenarios/archive.html"

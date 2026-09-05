@@ -680,11 +680,11 @@ class ScenarioArchivePremiumAccessTestCase(TestCase):
             nickname="Premium Test",
         )
 
-    def test_archive_view_requires_premium(self):
+    def test_archive_view_allows_free_user(self):
         self.client.login(username=self.user.username, password=self.password)
         response = self.client.get("/api/scenarios/archive/view/")
-        self.assertEqual(response.status_code, 403)
-        self.assertContains(response, "利用できない機能です", status_code=403)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Mythos Archive")
 
     def test_archive_view_allows_premium(self):
         self.user.is_premium = True
@@ -695,12 +695,12 @@ class ScenarioArchivePremiumAccessTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Mythos Archive")
 
-    def test_home_hides_scenario_links_for_non_premium(self):
+    def test_home_shows_scenario_links_for_non_premium(self):
         self.client.login(username=self.user.username, password=self.password)
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, 'id="scenarios-link"')
-        self.assertNotContains(response, 'id="add-scenario-btn"')
+        self.assertContains(response, 'id="scenarios-link"')
+        self.assertContains(response, 'id="add-scenario-btn"')
 
     def test_home_shows_scenario_links_for_premium(self):
         self.user.is_premium = True

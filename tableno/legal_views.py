@@ -69,16 +69,30 @@ PREMIUM_FEATURE_ROWS = [
     {
         "key": "scenario_archive",
         "name": "シナリオアーカイブ",
-        "free": "利用不可",
+        "free": "利用可",
         "premium": "利用可",
-        "note": "プレミアム限定機能です。",
+        "note": "シナリオの作成・編集と、KP/GMによるセッションの関連シナリオ変更は無料で利用できます。",
     },
     {
         "key": "ccfolia_import",
         "name": "CCFOLIAインポート",
-        "free": "利用不可",
+        "free": "利用可",
         "premium": "利用可",
         "note": "いあきゃら等のCCFOLIA出力JSONからキャラクターを作成できます。",
+    },
+    {
+        "key": "character_images",
+        "name": "キャラクター画像",
+        "free": "1キャラクター5枚",
+        "premium": "1キャラクター5枚",
+        "note": "画像枚数は全プラン共通です。プレミアム失効時に保存済み画像を削除しません。",
+    },
+    {
+        "key": "background_removal",
+        "name": "画像の背景透過",
+        "free": "利用不可",
+        "premium": "利用可",
+        "note": "画像の背景を自動で透過するプレミアム機能です。",
     },
     {
         "key": "billing_management",

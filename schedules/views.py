@@ -2970,7 +2970,7 @@ class SessionDetailView(APIView):
             public_session_url = request.build_absolute_uri(
                 reverse("fixed-shared-session-view", kwargs={"share_token": session.share_token})
             )
-        can_edit_scenario = can_manage_secret_content and getattr(user, "has_premium_access", False)
+        can_edit_scenario = can_manage_secret_content
         scenario_choices = []
         if can_edit_scenario:
             from scenarios.access import visible_scenarios

@@ -99,15 +99,20 @@ class PaidFeatureLifecycleTests(TestCase):
         self.assertFalse(self.user.is_staff)
         self.assertFalse(self.user.is_superuser)
         self.assertEqual(self.user.is_premium, allowed)
-        self.assertEqual(self.client.get(reverse("archive_view")).status_code, 200 if allowed else 403)
+        self.assertEqual(self.client.get(reverse("archive_view")).status_code, 200)
+        # Premium access governs background processing, not KP preparation features.
+        self.assertEqual(
+            self.client.post(reverse("character-image-remove-background"), {}, format="multipart").status_code,
+            400 if allowed else 403,
+        )
         self.assertEqual(
             self.client.get(reverse("scenario-detail", kwargs={"pk": self.private_scenario.pk})).status_code, 404
         )
 
     def check_lifecycle(self, interval, edition):
         self.assert_access(False)
-        self.assertEqual(self.import_character(edition).status_code, 403)
-        self.assertEqual(CharacterSheet.objects.filter(user=self.user).count(), 0)
+        self.assertEqual(self.import_character(edition).status_code, 201)
+        self.assertEqual(CharacterSheet.objects.filter(user=self.user).count(), 1)
         self.assertEqual(
             self.send_subscription("evt_forged", "active", interval, valid_signature=False).status_code, 400
         )
@@ -124,6 +129,7 @@ class PaidFeatureLifecycleTests(TestCase):
         self.assertTrue(duplicate.json()["duplicate"])
         self.assertEqual(PremiumAuditLog.objects.filter(user=self.user, action="granted").count(), 1)
 
+        character_count = 2
         for event_id, status, cancel, allowed in [
             ("evt_cancel_scheduled", "active", True, True),
             ("evt_past_due", "past_due", True, False),
@@ -140,9 +146,9 @@ class PaidFeatureLifecycleTests(TestCase):
                 self.assertEqual(record.cancel_at_period_end, cancel)
                 self.assertEqual(record.last_webhook_event_id, event_id)
                 self.assertEqual(StripeWebhookEvent.objects.get(event_id=event_id).processing_status, "succeeded")
-                if not allowed:
-                    self.assertEqual(self.import_character(edition).status_code, 403)
-                self.assertEqual(CharacterSheet.objects.filter(user=self.user).count(), 1)
+                self.assertEqual(self.import_character(edition).status_code, 201)
+                character_count += 1
+                self.assertEqual(CharacterSheet.objects.filter(user=self.user).count(), character_count)
                 self.assertEqual(
                     self.client.get(reverse("character-sheet-detail", kwargs={"pk": character_id})).status_code, 200
                 )

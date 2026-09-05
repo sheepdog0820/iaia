@@ -420,6 +420,22 @@ class SessionRoleApiTestCase(APITestCase):
         self.assertEqual(identity.user_id, self.group_member.id)
         self.assertEqual(claim.status, ParticipantClaimRequest.Status.APPROVED)
 
+    def test_free_gm_can_edit_scenario_in_detail_but_non_gm_owner_cannot(self):
+        for user, allowed in ((self.gm, True), (self.owner, False)):
+            with self.subTest(user=user.username):
+                self.assertFalse(user.is_premium)
+                self.client.force_authenticate(user=user)
+                response = self.client.get(
+                    f"/api/schedules/sessions/{self.session.id}/detail/", HTTP_ACCEPT="text/html"
+                )
+                self.assertEqual(response.status_code, 200)
+                html = response.content.decode()
+                pattern = r'<select[^>]+id="editSessionScenario"'
+                if allowed:
+                    self.assertRegex(html, pattern)
+                else:
+                    self.assertNotRegex(html, pattern)
+
     def test_session_detail_uses_permission_modal_and_removes_inline_role_controls(self):
         session_permissions.create_participant(
             session=self.session,

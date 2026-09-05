@@ -773,7 +773,7 @@ class ScheduleAPITestCase(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_non_premium_manager_cannot_change_session_scenario(self):
+    def test_non_premium_manager_can_change_session_scenario(self):
         other_scenario = Scenario.objects.create(
             title="Other Scenario",
             game_system="coc",
@@ -787,9 +787,9 @@ class ScheduleAPITestCase(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.session.refresh_from_db()
-        self.assertIsNone(self.session.scenario)
+        self.assertEqual(self.session.scenario, other_scenario)
 
     def test_premium_manager_can_change_session_scenario(self):
         self.user1.is_premium = True

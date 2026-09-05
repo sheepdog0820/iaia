@@ -1,10 +1,10 @@
-NORMAL_CHARACTER_IMAGE_LIMIT = 2
-PREMIUM_CHARACTER_IMAGE_LIMIT = 10
+NORMAL_CHARACTER_IMAGE_LIMIT = 5
+PREMIUM_CHARACTER_IMAGE_LIMIT = NORMAL_CHARACTER_IMAGE_LIMIT
 
 
 def get_character_image_limit(user):
-    """Return the maximum number of character images for a user."""
-    return PREMIUM_CHARACTER_IMAGE_LIMIT if getattr(user, "is_premium", False) else NORMAL_CHARACTER_IMAGE_LIMIT
+    """All plans share the same character image limit."""
+    return NORMAL_CHARACTER_IMAGE_LIMIT
 
 
 def get_character_image_limit_for_sheet(character_sheet):

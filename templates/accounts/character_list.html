@@ -29,15 +29,9 @@
                         </a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
-                            {% if user.has_premium_access %}
                             <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#ccfoliaImportModal">
-                                <i class="fas fa-file-import text-danger"></i> CCFOLIAインポート（プレミアム）
+                                <i class="fas fa-file-import text-danger"></i> CCFOLIAインポート
                             </button>
-                            {% else %}
-                            <a class="dropdown-item" href="{% url 'billing' %}">
-                                <i class="fas fa-crown text-warning"></i> CCFOLIAインポート（プレミアム）
-                            </a>
-                            {% endif %}
                         </li>
                     </ul>
                 </div>
@@ -107,7 +101,6 @@
     </div>
 </div>
 
-{% if user.has_premium_access %}
 <!-- CCFOLIAインポートモーダル -->
 <div class="modal fade" id="ccfoliaImportModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -168,7 +161,6 @@
         </div>
     </div>
 </div>
-{% endif %}
 {% endblock %}
 
 {% block extra_js %}

@@ -310,7 +310,7 @@ def _build_session_detail_context(request, session, *, is_public_view):
         status_value = "expired" if invitation.is_expired else invitation.status
         invitation_status_by_user_id[str(invitation.invitee_id)] = status_value
 
-    can_edit_scenario = is_session_manager and getattr(user, "has_premium_access", False)
+    can_edit_scenario = session_permissions.can_manage_secret_content(user, session)
     scenario_choices = []
     if can_edit_scenario:
         from scenarios.access import visible_scenarios

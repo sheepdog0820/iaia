@@ -167,7 +167,7 @@
                                     <div class="col-lg-5">
                                         <input type="file" class="form-control" id="character-images" name="character_images"
                                                accept="image/jpeg,image/jpg,image/png,image/gif" multiple
-                                               data-max-images="{% if user.is_premium %}10{% else %}2{% endif %}">
+                                               data-max-images="5">
                                         <div class="d-flex flex-wrap gap-2 mt-2">
                                             <button type="button" class="btn btn-outline-primary btn-sm" id="open-image-upload-modal"
                                                     data-bs-toggle="modal" data-bs-target="#characterImageUploadModal">
@@ -182,7 +182,7 @@
                                             </span>
                                             <input type="file" id="background-removal-image" accept="image/jpeg,image/jpg,image/png,image/gif" class="d-none">
                                         </div>
-                                        <small class="text-muted d-block mt-2">対応形式: JPG, PNG, GIF (1枚最大5MB / 現在の添付上限: 最大{% if user.is_premium %}10{% else %}2{% endif %}枚)。アップロードするたびに立ち絵が追加され、登録済み画像はカードから削除できます。</small>
+                                        <small class="text-muted d-block mt-2">対応形式: JPG, PNG, GIF (1枚最大5MB / 現在の添付上限: 最大5枚)。アップロードするたびに立ち絵が追加され、登録済み画像はカードから削除できます。</small>
                                     </div>
                                     <div class="col-lg-7">
                                         <div id="image-preview" class="character-image-preview" style="display: none;" aria-live="polite">

@@ -353,10 +353,10 @@ class CharacterSheetAPITest(APITestCase):
         self.assertEqual(character.system_data.calculate_used_occupation_points(), 280)
 
     def test_create_6th_edition_rejects_normal_user_over_image_limit(self):
-        """通常ユーザーは作成APIで3枚以上の画像を添付できない"""
+        """通常ユーザーは作成APIで6枚以上の画像を添付できない"""
         data = dict(self.character_data_6th)
         data["name"] = "通常ユーザー画像上限"
-        data["character_images"] = [self.create_test_gif(f"normal-limit-{i}.gif") for i in range(3)]
+        data["character_images"] = [self.create_test_gif(f"normal-limit-{i}.gif") for i in range(6)]
 
         response = self.client.post(
             "/api/accounts/character-sheets/create_6th_edition/",
@@ -365,16 +365,16 @@ class CharacterSheetAPITest(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("最大2枚", str(response.data))
+        self.assertIn("最大5枚", str(response.data))
         self.assertFalse(CharacterSheet.objects.by_system_name("通常ユーザー画像上限", user=self.user).exists())
 
-    def test_create_7th_edition_allows_ten_images_for_premium_user(self):
-        """プレミアムユーザーは作成APIで10枚まで画像を添付できる"""
+    def test_create_7th_edition_allows_five_images_for_premium_user(self):
+        """プレミアムユーザーは作成APIで5枚まで画像を添付できる"""
         self.user.is_premium = True
         self.user.save(update_fields=["is_premium"])
         data = {key: value for key, value in self.character_data_7th.items() if key != "seventh_edition_data"}
-        data["name"] = "プレミアム画像10枚"
-        data["character_images"] = [self.create_test_gif(f"premium-create-{i}.gif") for i in range(10)]
+        data["name"] = "プレミアム画像5枚"
+        data["character_images"] = [self.create_test_gif(f"premium-create-{i}.gif") for i in range(5)]
 
         response = self.client.post(
             "/api/accounts/character-sheets/create_7th_edition/",
@@ -384,7 +384,7 @@ class CharacterSheetAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         character = CharacterSheet.objects.get(id=response.data["id"])
-        self.assertEqual(character.system_data.images.count(), 10)
+        self.assertEqual(character.system_data.images.count(), 5)
 
     def test_create_6th_edition_character_with_equipment(self):
         """6版作成APIで武器・防具・アイテムを同時登録できる"""
