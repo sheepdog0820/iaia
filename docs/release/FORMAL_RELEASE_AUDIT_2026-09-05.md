@@ -258,3 +258,14 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 同じイメージを通常entrypointで起動し、専用の空DBに全migrationを適用した。最初のヘルス確認は起動途中で接続失敗だったが、同じコンテナのDaphne起動後にHTTP 200、database/cacheともokとなった。コンテナを作り直して失敗を隠していない。APP_ENV=local、外部サービスなしの確認で、aws-preの実Secrets・S3・Redis・公開ルーティングの検証ではない。
 - 証跡は `tmp/formal-release-b8fad941-` で始まるbuild/postgres/runtimeログ、ready.json、image.json。app/PGコンテナ停止、専用network削除、同名の稼働コンテナがないことを確認した。ローカルイメージIDと未取得のECR manifest digestを区別し、配備準備資料の候補と差分を `8cf3c7f7..b8fad941`（121ファイル）へ更新した。
 - 今回は候補イメージの作成と対象を絞ったPostgreSQL検証が進捗。全体CI、全機能/外部サービス検証、配備承認、秘匿添付ポリシーの応急措置への回答は引き続き未完了。
+
+## 継続監査: 静的指摘とサンプル作成コマンド（2026-09-05）
+
+- `9f9139ec` のclean状態でBandit 1.9.4を `accounts schedules scenarios support tableno api` に再実行。HIGH 0、MEDIUM 1、LOW 536、解析エラー0、終了コード1。証跡 `tmp/formal-release-bandit-9f9139ec.json` / `.log`。過去のMEDIUM 6件のうち、eval・タイムアウト・LINE HTTPの5件はこの再実行でも残っていない。全指摘を解決済みとは扱わない。
+- 残るMEDIUM B608は `reset_dev_session_data.py` のSQLite外部キー診断SQL。識別子はPRAGMAのDBメタデータから、rowidはバインド値から来る。handleはDEBUG=Falseを拒否し、診断自体はSQLiteでのみ実行される。Web入力由来のSQL注入経路はこの確認では見つからなかったが、スキーマ識別子の引用符処理には改善余地があり、指摘は抑制せず残した。
+- LOW B105の4件はOAuthトークン取得先URL2件、公開セッションの権限False値、パスワード復旧フォームのクラスパスであり、埋め込み認証情報ではない。ダイス用randomのB311も暗号用途とは別である。一方、例外握りつぶしや管理コマンドの固定パスワードは、ファイル名にtestがあるだけでテスト専用として除外しない。
+- `create_sample_data` は固定パスワードでユーザーを作成し、`--clear` ではユーザー・シナリオ・セッション等を削除するが、実行環境の制限がなかった。コマンドを実行できる運用者による誤操作の問題であり、未認証HTTPから直接実行できるという指摘ではない。
+- 先にSimpleTestCaseを追加すると、拒否すべき10条件でCommandErrorが発生せず、モックされたユーザー作成後の処理へ進んで失敗した。実データにはアクセスしていない。DEBUG=True、APP_ENVがlocal/dev/development、ENVIRONMENTがlocal/developmentの場合だけ通すガードをデータ削除・作成の前に追加した。新しい拒否メッセージとhelpは日本語。
+- 固定依存の `b8fad941` 配備用イメージに変更コマンドとテストだけを読み取り専用で適用し、2テスト・13 subtests成功（0.013秒）。共有/本番/不明環境、DEBUG=False、--clear有無の拒否と、ローカル3別名での従来処理呼び出しを確認した。DB処理はモックで、今回の変更でサンプルデータ自体を作成・削除していない。証跡 `tmp/sample-data-guard-red.log` / `tmp/sample-data-guard-green.log`。
+- ローカルで同じ2テストを再確認し、追加ガードの実行対象2行（if/raise）を両方実行した。モジュール全体のカバレッジ100%ではない。証跡 `tmp/sample-data-guard-coverage.json`。Black/isort/flake8と差分・日本語文言レビューを確認した。
+- `create_test_data`、`create_session_test_data`、`create_flow_test_data` 等は別の管理コマンドであり、今回のガードで一括保護されたとは扱わない。LOW指摘の残りとこれらの運用制限は引き続き確認対象。今回のコマンド修正は未配備で、既存アカウントの有無やパスワード変更も実施していない。

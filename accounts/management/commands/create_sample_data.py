@@ -1,8 +1,9 @@
 import random
 from datetime import datetime, timedelta
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from accounts.models import CustomUser, Friend, Group, GroupMembership
@@ -14,7 +15,7 @@ User = get_user_model()
 
 
 class Command(BaseCommand):
-    help = "Create sample data for タブレノ"
+    help = "DEBUG=Trueのローカル開発環境にタブレノのサンプルデータを作成します"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -24,6 +25,12 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        if (
+            not settings.DEBUG
+            or settings.APP_ENV not in {"local", "dev", "development"}
+            or settings.ENVIRONMENT not in {"local", "development"}
+        ):
+            raise CommandError("サンプルデータの作成・削除はDEBUG=Trueのローカル開発環境でのみ実行できます。")
         if options["clear"]:
             self.stdout.write(self.style.WARNING("Clearing existing data..."))
             self.clear_data()
