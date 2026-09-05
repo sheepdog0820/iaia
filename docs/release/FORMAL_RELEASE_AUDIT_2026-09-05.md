@@ -355,3 +355,11 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 0ea0e747固定依存イメージへ変更serviceと新規テストを読み取り専用で適用し、専用PostgreSQL 16で新規3件・既存のグループ/セッション権限テストを合わせ19件成功（30.49秒）。2接続からの競合承認はそれぞれ成功1件・409が1件、申請はapproved/rejected各1件となり、対象参加者とグループ所属は承認されたユーザー1人へ一致した。自己却下403・再却下409とコメント保存も確認。`tmp/claim-concurrency-green.log`、`tmp/formal-release-0ea0e747-full-output/claim-fix-junit.xml`。
 - 同ディレクトリの `claim-fix-coverage.json` で、新規ロック取得・対象抽出の実行対象行はすべて実行。モジュール全体は97/117行=82.91%で、全分岐100%ではない。SQLiteは同時行ロックの証明に使わず、却下と既存権限の17件を実行して成功（45.76秒）。`tmp/claim-fix-sqlite.log`。
 - Black/isort/flake8、UTF-8/LF、差分と試験用日本語表示を確認。アプリのユーザー向け文言は変更していない。専用DBコンテナとネットワークを削除し、実環境の変更なし。キャラクターID不一致・所持品API404・一覧比較の不一致と、修正後のPostgreSQL全体確認は引き続き未完了。
+
+## 継続監査: 共通キャラクターIDと版別詳細IDの区別（2026-09-05）
+
+- 所持品API5件の404は、試験用URLへ共通CharacterSheetのIDではなくCharacterSheet6thのIDを渡していたためだった。モデル関連は詳細ID、API URLは共通IDという既存の契約へテストを合わせ、API自体のアクセス制御やID解決は変更していない。詳細IDを共通IDと異なる値で作成すると、SQLiteでも変更前の5件が404になることを再現した。`tmp/character-id-red.log`。
+- 技能保存失敗のログは実装側の不備で、詳細IDをcharacter_sheet_idとして記録していた。URLの検証済み共通IDと、保存対象技能の詳細IDを別項目として記録するよう変更した。追加のDB照会をエラー記録時に行わず、元の例外を再送出する。ログの試験はID末尾の区切りも確認し、1が1001へ部分一致する偽陽性を防止した。旧実装で厳密な判定が失敗する証跡は `tmp/character-id-log-red.log`。
+- 6版/7版とも共通IDと詳細IDを意図的に分け、失敗ログへ共通ID・詳細ID・技能IDが正確に入ることを確認した。0ea0e747の固定依存イメージへ変更view/テスト2ファイルを読み取り専用で適用し、最終版の関連24件はSQLiteで成功（30.82秒）、PostgreSQL 16で成功（18.10秒）。`tmp/character-id-sqlite-final.log`、`tmp/character-id-postgres-accounts.log`、`tmp/formal-release-0ea0e747-full-output/character-id-accounts-junit.xml`。
+- PostgreSQLの最終成功実行はCIと同じ `--cov=accounts` 指定で、同ディレクトリの `character-id-accounts-coverage.json` にログ変更行の実行を保存した。先行して `--cov=accounts.views.character_views` とモジュールを直接指定した実行では14件が接続終了等で失敗し、別の最小試験でもDRFスキーマ初期化エラーになった。`tmp/character-id-postgres-final.log` / `tmp/character-id-connection-probe.log`。これらを成功扱いにしない。[Coverage.py公式説明](https://coverage.readthedocs.io/en/7.14.1/source.html)では、計測対象のモジュールが先行・重複インポートされる副作用を説明しており、今回の指定差による初期化異常もこの影響と考えられる。内部原因の完全な証明ではない。
+- Black/isort/flake8と差分を確認し、アプリ画面の文言・保存ルールの変更なし。専用PostgreSQLコンテナとネットワークを削除した。残る一覧serializer比較の不一致と、修正群をまとめたPostgreSQL全体確認は未完了。

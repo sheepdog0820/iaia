@@ -10,7 +10,14 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from accounts.character_models import CharacterSheet, CharacterSheet6th, CharacterSkill6th, GrowthRecord
+from accounts.character_models import (
+    CharacterSheet,
+    CharacterSheet6th,
+    CharacterSheet7th,
+    CharacterSkill6th,
+    CharacterSkill7th,
+    GrowthRecord,
+)
 
 User = get_user_model()
 
@@ -23,9 +30,10 @@ class CharacterAPIEndpointsTest(TestCase):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
         self.client.force_authenticate(user=self.user)
 
-        # Create test character
+        # Keep registry and edition IDs distinct to detect cross-table ID mixups.
         self.character = CharacterSheet.objects.create(user=self.user, edition="6th")
         CharacterSheet6th.objects.create(
+            id=self.character.pk + 1000,
             character_sheet=self.character,
             name="Test Character",
             age=25,
@@ -93,8 +101,16 @@ class CharacterAPIEndpointsTest(TestCase):
 
     def test_skill_update_logs_character_and_skill_ids_when_save_fails(self):
         """Unexpected skill save failures must retain enough context for CloudWatch diagnosis."""
-        skill = CharacterSkill6th.objects.create(
-            character_sheet=self.character.system_data, skill_name="運転（自動車）", base_value=20
+        self.assert_failed_skill_log(self.character, CharacterSkill6th)
+
+    def test_seventh_edition_skill_failure_logs_registry_and_detail_ids(self):
+        character = CharacterSheet.objects.create(user=self.user, edition="7th")
+        CharacterSheet7th.objects.create(id=character.pk + 1000, character_sheet=character, name="7版の探索者")
+        self.assert_failed_skill_log(character, CharacterSkill7th)
+
+    def assert_failed_skill_log(self, character, skill_model):
+        skill = skill_model.objects.create(
+            character_sheet=character.system_data, skill_name="運転（自動車）", base_value=20
         )
         self.client.raise_request_exception = False
 
@@ -103,7 +119,7 @@ class CharacterAPIEndpointsTest(TestCase):
         ):
             with self.assertLogs("accounts.views.character_views", level="ERROR") as logs:
                 response = self.client.patch(
-                    f"/accounts/character-sheets/{self.character.id}/skills/{skill.id}/",
+                    f"/accounts/character-sheets/{character.id}/skills/{skill.id}/",
                     {
                         "skill_name": skill.skill_name,
                         "base_value": skill.base_value,
@@ -115,8 +131,9 @@ class CharacterAPIEndpointsTest(TestCase):
                 )
 
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
-        self.assertIn(f"character_sheet_id={self.character.id}", "\n".join(logs.output))
-        self.assertIn(f"skill_id={skill.id}", "\n".join(logs.output))
+        self.assertIn(f"character_sheet_id={character.id} ", "\n".join(logs.output))
+        self.assertIn(f"character_detail_id={skill.character_sheet_id} ", "\n".join(logs.output))
+        self.assertIn(f"skill_id={skill.id} ", "\n".join(logs.output))
 
     def test_batch_allocate_skill_points_endpoint(self):
         """Test batch-allocate-skill-points endpoint"""

@@ -215,8 +215,10 @@ class InventoryAPITestCase(APITestCase):
         self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
         self.client.force_authenticate(user=self.user)
 
+        # API URLs use the registry ID; equipment rows refer to the edition record.
         self.registry, self.character = create_6th_character(
             user=self.user,
+            id=1000000,
             name="Test Investigator",
             edition="6th",
             age=25,
@@ -240,7 +242,7 @@ class InventoryAPITestCase(APITestCase):
         self.character_6th.real_estate = "マサチューセッツ州の農場"
         self.character_6th.save()
 
-        response = self.client.get(f"/accounts/character-sheets/{self.character.id}/financial-summary/")
+        response = self.client.get(f"/accounts/character-sheets/{self.registry.id}/financial-summary/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["cash"], "3000.00")
@@ -259,7 +261,7 @@ class InventoryAPITestCase(APITestCase):
         }
 
         response = self.client.patch(
-            f"/accounts/character-sheets/{self.character.id}/update-financial-data/", update_data, format="json"
+            f"/accounts/character-sheets/{self.registry.id}/update-financial-data/", update_data, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -282,7 +284,7 @@ class InventoryAPITestCase(APITestCase):
         }
 
         response = self.client.post(
-            f"/accounts/character-sheets/{self.character.id}/equipment/", item_data, format="json"
+            f"/accounts/character-sheets/{self.registry.id}/equipment/", item_data, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -299,7 +301,7 @@ class InventoryAPITestCase(APITestCase):
             character_sheet=self.character, item_type="item", name="ロープ", quantity=1, weight=5.0
         )
 
-        response = self.client.get(f"/accounts/character-sheets/{self.character.id}/inventory-summary/")
+        response = self.client.get(f"/accounts/character-sheets/{self.registry.id}/inventory-summary/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("items", response.data)
@@ -321,7 +323,7 @@ class InventoryAPITestCase(APITestCase):
         update_data = {"items": [{"id": item1.id, "quantity": 3}, {"id": item2.id, "quantity": 2}]}
 
         response = self.client.post(
-            f"/accounts/character-sheets/{self.character.id}/bulk-update-items/", update_data, format="json"
+            f"/accounts/character-sheets/{self.registry.id}/bulk-update-items/", update_data, format="json"
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
