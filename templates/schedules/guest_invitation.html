@@ -50,6 +50,10 @@
                             <button class="btn btn-primary" type="submit">参加を確定</button>
                         </form>
                         <div class="alert d-none mt-3" id="guest-response-message"></div>
+                        <div class="d-none mt-3" id="guest-claim-help">
+                            <p>アカウントに参加枠を引き継ぐ場合は、参加者IDと引き継ぎコードを控え、会員登録またはログイン後に連携設定へ入力してください。</p>
+                            <a href="/integrations/">参加枠の引き継ぎへ</a>
+                        </div>
                     {% endif %}
                 </div>
             </div>
@@ -75,7 +79,8 @@ document.getElementById('guest-response-form').addEventListener('submit', async 
             }
         );
         message.className = 'alert alert-success mt-3';
-        message.textContent = `参加を登録しました。参加者ID: ${response.data.participant_id} / claim token: ${response.data.claim_token}`;
+        message.textContent = `参加を登録しました。参加者ID: ${response.data.participant_id} / 引き継ぎコード: ${response.data.claim_token}`;
+        document.getElementById('guest-claim-help').classList.remove('d-none');
         event.target.querySelectorAll('input, select, button').forEach(element => {
             element.disabled = true;
         });

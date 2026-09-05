@@ -171,12 +171,14 @@
                         <button class="btn btn-outline-secondary" data-copy="#guest-invitation-url">コピー</button>
                     </div>
                     <button class="btn btn-outline-danger mb-4" id="revoke-guest-invitation" disabled>直前の招待を失効</button>
-                    <label class="form-label" for="claim-participant-id">claimするゲスト参加者ID</label>
-                    <div class="input-group">
+                    <label class="form-label" for="claim-participant-id">引き継ぐゲスト参加者ID</label>
+                    <div class="mb-3">
                         <input class="form-control" id="claim-participant-id" type="number" min="1">
-                        <input class="form-control" id="claim-token" placeholder="claim token">
-                        <button class="btn btn-outline-primary" id="claim-participant">claim</button>
                     </div>
+                    <label class="form-label" for="claim-token">引き継ぎコード</label>
+                    <input class="form-control mb-3" id="claim-token" aria-describedby="guest-claim-description">
+                    <p class="small text-muted" id="guest-claim-description">ゲスト参加の完了画面に表示された参加者IDと引き継ぎコードを入力してください。</p>
+                    <button class="btn btn-outline-primary" id="claim-participant">参加枠を引き継ぐ</button>
                 </div>
             </div>
         </div>
@@ -536,7 +538,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const participantId = document.getElementById('claim-participant-id').value;
         const claimToken = document.getElementById('claim-token').value;
         await axios.post(`/api/participants/${participantId}/claim/`, { claim_token: claimToken });
-        showMessage('ゲスト参加枠をclaimしました。');
+        showMessage('ゲスト参加枠を引き継ぎました。');
     });
 
     document.getElementById('save-release-conditions').addEventListener('click', async function() {

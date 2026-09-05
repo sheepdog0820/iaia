@@ -26,15 +26,21 @@ test('anonymous guest joins and a normally registered user claims the participan
       title: `ゲスト参加 ${suffix}`, group: group.id, visibility: 'group',
       date: new Date(Date.now() + 86400000).toISOString(), duration_minutes: 120,
     })).data;
-    const invitation = (await (window as any).axios.post(`/api/sessions/${session.id}/guest-invitations/`, {
-      expires_in_hours: 1,
-    })).data;
-    return { session, invitation };
+    return { session };
   }, suffix);
+  await page.goto('/integrations/');
+  await page.selectOption('#integration-session', String(setup.session.id));
+  const [issued] = await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).pathname === `/api/sessions/${setup.session.id}/guest-invitations/` && response.request().method() === 'POST'),
+    page.getByRole('button', { name: 'ゲスト招待URLを発行' }).click(),
+  ]);
+  expect(issued.status()).toBe(201);
+  const invitation = await issued.json();
+  await expect(page.locator('#guest-invitation-url')).toHaveValue(invitation.invitation_url);
   const guestContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
   try {
     const guest = await guestContext.newPage();
-    await guest.goto(setup.invitation.invitation_url);
+    await guest.goto(invitation.invitation_url);
     await expect(guest.locator('h1')).toContainText(setup.session.title);
     await guest.fill('#guest-name', '招待された参加者');
     await guest.selectOption('#player-slot', '1');
@@ -47,11 +53,13 @@ test('anonymous guest joins and a normally registered user claims the participan
     const participant = await response.json();
     expect(participant.player_slot).toBe(1);
     await expect(guest.locator('#guest-response-message')).toContainText('参加を登録しました');
+    await expect(guest.locator('#guest-response-message')).toContainText('引き継ぎコード');
+    await expect(guest.getByRole('link', { name: '参加枠の引き継ぎへ' })).toHaveAttribute('href', '/integrations/');
     await expect(guest.getByRole('button', { name: '参加を確定' })).toBeDisabled();
     const claimUrl = `/api/participants/${participant.participant_id}/claim/`;
     const anonymousClaim = await guest.request.post(claimUrl, { data: { claim_token: participant.claim_token } });
     expect([401, 403]).toContain(anonymousClaim.status());
-    const reused = await guest.goto(setup.invitation.invitation_url);
+    const reused = await guest.goto(invitation.invitation_url);
     expect(reused?.status()).toBe(410);
     await expect(guest.locator('h1')).toHaveText('招待を利用できません');
     await expect(guest.locator('#guest-response-form')).toHaveCount(0);
@@ -60,21 +68,33 @@ test('anonymous guest joins and a normally registered user claims the participan
     await signUp(guest, `guestpl_${suffix}`);
     const sessionUrl = `/api/schedules/sessions/${setup.session.id}/`;
     expect((await guest.request.get(sessionUrl)).status()).toBe(404);
-    const claim = await guest.evaluate(async ({ url, token }) => {
-      const client = (window as any).axios;
-      const missing = await client.post(url, {}).catch((error: any) => error.response);
-      const accepted = await client.post(url, { claim_token: token });
-      const duplicate = await client.post(url, { claim_token: token }).catch((error: any) => error.response);
-      return { missing: missing.status, accepted: accepted.status, data: accepted.data, duplicate: duplicate.status };
+    await guest.goto('/integrations/');
+    await guest.setViewportSize({ width: 390, height: 844 });
+    const missing = await guest.evaluate(async url => {
+      return (await (window as any).axios.post(url, {}).catch((error: any) => error.response)).status;
+    }, claimUrl);
+    expect(missing).toBe(403);
+    await guest.getByLabel('引き継ぐゲスト参加者ID', { exact: true }).fill(String(participant.participant_id));
+    await guest.getByLabel('引き継ぎコード', { exact: true }).fill(participant.claim_token);
+    const [claimed] = await Promise.all([
+      guest.waitForResponse(response => new URL(response.url()).pathname === claimUrl && response.request().method() === 'POST'),
+      guest.getByRole('button', { name: '参加枠を引き継ぐ', exact: true }).click(),
+    ]);
+    expect(claimed.status()).toBe(200);
+    const claim = await claimed.json();
+    expect(claim.participant_id).toBe(participant.participant_id);
+    expect(claim.character_name).toBe('引き継ぐ探索者');
+    await expect(guest.locator('#integration-message')).toContainText('ゲスト参加枠を引き継ぎました。');
+    const duplicate = await guest.evaluate(async ({ url, token }) => {
+      return (await (window as any).axios.post(url, { claim_token: token }).catch((error: any) => error.response)).status;
     }, { url: claimUrl, token: participant.claim_token });
-    expect(claim.missing).toBe(403);
-    expect(claim.accepted).toBe(200);
-    expect(claim.data.participant_id).toBe(participant.participant_id);
-    expect(claim.data.character_name).toBe('引き継ぐ探索者');
-    expect(claim.duplicate).toBe(409);
+    expect(duplicate).toBe(409);
     const savedSession = await guest.request.get(sessionUrl);
     expect(savedSession.status()).toBe(200);
     expect((await savedSession.json()).title).toBe(setup.session.title);
+    const claimCard = guest.locator('.card', { has: guest.locator('#claim-participant') });
+    await claimCard.scrollIntoViewIfNeeded();
+    await claimCard.screenshot({ path: test.info().outputPath('guest-claim-mobile.png'), mask: [guest.locator('#claim-token')], animations: 'disabled' });
   } finally {
     await guestContext.close();
   }
