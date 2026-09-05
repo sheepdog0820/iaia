@@ -1113,7 +1113,10 @@ class CharacterSheetListSerializer(serializers.ModelSerializer):
         if system_data is None or request is None:
             return data
         # メイン画像を優先し、未指定なら表示順・アップロード日時で選ぶ。
-        selected_image = system_data.images.order_by("-is_main", "order", "uploaded_at", "pk").first()
+        if hasattr(system_data, "list_images"):
+            selected_image = next(iter(system_data.list_images), None)
+        else:
+            selected_image = system_data.images.order_by("-is_main", "order", "uploaded_at", "pk").first()
         if selected_image and selected_image.image:
             data["character_image"] = request.build_absolute_uri(selected_image.image.url)
 

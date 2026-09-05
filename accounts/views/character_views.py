@@ -11,7 +11,7 @@ from collections.abc import Mapping
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, OperationalError, transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
@@ -26,7 +26,13 @@ from ..character_image_limits import (
     collect_character_image_uploads,
     get_character_image_limit,
 )
-from ..character_models import CharacterEquipment6th, CharacterSkill6th, GrowthRecord
+from ..character_models import (
+    CharacterEquipment6th,
+    CharacterImage6th,
+    CharacterImage7th,
+    CharacterSkill6th,
+    GrowthRecord,
+)
 from ..serializers import CharacterSheetSerializer, CharacterVersionCreateSerializer, GrowthRecordSerializer
 from ..services.character_version_service import CharacterVersionService
 from .base_views import BaseViewSet, PermissionMixin
@@ -178,7 +184,18 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         )
 
         if self.action in ["list", "active", "by_edition"]:
-            return queryset.filter(user=self.request.user)
+            return queryset.filter(user=self.request.user).prefetch_related(
+                Prefetch(
+                    "sixth_edition_data__images",
+                    queryset=CharacterImage6th.objects.order_by("-is_main", "order", "uploaded_at", "pk"),
+                    to_attr="list_images",
+                ),
+                Prefetch(
+                    "seventh_edition_data__images",
+                    queryset=CharacterImage7th.objects.order_by("-is_main", "order", "uploaded_at", "pk"),
+                    to_attr="list_images",
+                ),
+            )
 
         return queryset
 
