@@ -876,3 +876,12 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 現行のSTORAGESにdefault=FileSystemStorage、staticfiles=CompressedManifestStaticFilesStorageを明示。S3利用時のSTORAGES・メディア保存先・DB・料金・権限は変更しない。S3非利用の次回反映では、起動前にcollectstaticでmanifestを生成する必要がある。旧設定の無効化に依存して配信準備を省略していた運用は使えない。
 - 設定プローブ21件がWindowsで成功。その後、本番設定で全staticを一時ディレクトリへ生成し、ハッシュ付きBootstrap CSSをWhiteNoiseへGETして200/gzip応答、解凍内容一致を検証するケースを追加。Linux固定イメージでこのケースを含む設定プローブ全22件成功。S3設定の既存ケースも成功した。外部ネットワークなし、DB接続なしの検証で、実SMTP/Stripe/AWSへの操作はない。
 - 証跡: tmp/non-s3-production-settings-green.log（Windows21件）、tmp/non-s3-static-http-green.log（Linux生成/配信1件）、tmp/non-s3-production-settings-linux.log（Linux22件）。Black/isort/flake8確認済み。実S3/CDN、本番コンテナのHTTP経路、全体テスト・リモートCIは別途検証が必要で、正式公開No-Goを維持する。
+
+## 02f8c91f本番イメージの起動と静的HTTP配信
+
+- 固定ソース02f8c91f9487d92a55e9b9534f5bcd75f7919711をgit archiveで取り出し、通常Dockerfile/requirements.lock.txtからtableno-formal-release:02f8c91fを作成。ローカルIDはsha256:b110f93ec7b670fac7f02bcce5a9ecd2cd3480751b4d139773d6907b6c067750、実行ユーザーtableno。ECR未送信、registry manifest digestなし。
+- テストコードに明記された架空設定から専用envを作り、internalネットワーク・空のPG16 tmpfs・Redis7・本番APP_ENVで起動。通常entrypointのRUN_MIGRATIONS/RUN_COLLECTSTATICを明示して移行成功、199ファイル収集/571件後処理、Daphne起動を確認。アプリ・DB・Redisにホスト公開ポートなし。
+- コンテナ内から実HTTPでreadiness200、登録画面200、画面内のstatic5件200を確認。Bootstrap CSS/JS、FullCalendar、Font Awesome CSS、WOFF2四種の計8件はmanifestのハッシュ付きURLで200かつ収集ファイルのバイト列と一致。CSS/JSはgzip配信され、解凍後一致。HostとX-Forwarded-Protoを付けたHTTPであり、実TLS終端やブラウザの完全操作試験ではない。
+- pip check成功。初回check --deployは短い架空SECRET_KEYのsecurity.W009で失敗。その検証コマンドだけ64文字の検証用鍵へ差し替えて再実行し、--fail-level WARNINGで指摘0を確認した。稼働プロセスの鍵や実サービスの秘密情報は変更していない。
+- 証跡: tmp/formal-release-02f8c91f-production-build.log、tmp/static-runtime-02f8c91f-server.log、tmp/static-runtime-02f8c91f-http.log、tmp/static-runtime-02f8c91f-deploy-check.log。終了後、専用アプリ/DB/Redisコンテナとinternalネットワークを削除した。
+- 候補資料を更新。8cf3c7f7から217ファイル差分、596bcd4cからmigration差分なし。最新全体テスト、実S3/CDN、既存実データ復元、実課金/外部連携、リモートCI、料金等の判断は未完了で正式公開No-Goを維持する。

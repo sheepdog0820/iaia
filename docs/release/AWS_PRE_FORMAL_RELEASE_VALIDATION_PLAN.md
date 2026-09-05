@@ -2,18 +2,18 @@
 
 ## 現在の候補と承認前の残作業（2026-09-05更新）
 
-候補ソースは `596bcd4c427067628d0fd95dbec3103b4bac723e`。f692b994以降に招待参加の競合・応答ヘッダー、Daphneの起動とアクセスログ、Django例外メール/ログの機密情報保護を修正した。以下の過去候補の節は履歴として保持する。この資料は配備承認ではない。
+候補ソースは `02f8c91f9487d92a55e9b9534f5bcd75f7919711`。596bcd4c以降にFullCalendar/Font Awesomeの同梱、Bootstrap source map、S3非利用時の本番静的ファイル設定を修正した。以下の過去候補の節は履歴として保持する。この資料は配備承認ではない。
 
 | 項目 | 最新の証拠と限界 |
 | --- | --- |
-| 配備用イメージ | `tableno-formal-release:596bcd4c`、ローカルID `sha256:a1fac9668908c72bb07dddc990b5d9732c0147b2ce1d080a1c71172ca20c0ce4`。通常Dockerfile/固定依存から作成。ECRへ未送信でmanifest digestは未取得 |
-| 隔離起動 | 596bcd4cでpip check・静的183件・Bootstrapハッシュ一致・check --deploy指摘0。専用の空PG16/Redis7、通常entrypointで全移行・新Daphne起動・readiness200（DB/cache ok）。存在しない招待/購読URLの404とアクセスログ伏せ字を確認。既存データ復元の最新再実証、実TLS/Stripe/OAuth/S3は未確認 |
+| 配備用イメージ | `tableno-formal-release:02f8c91f`、ローカルID `sha256:b110f93ec7b670fac7f02bcce5a9ecd2cd3480751b4d139773d6907b6c067750`。固定ソースを通常Dockerfile/固定依存から作成。ECRへ未送信でmanifest digestは未取得 |
+| 隔離起動 | 02f8c91fでpip check成功、静的199件収集/571件後処理。専用の空PG16/Redis7、通常entrypointで移行・Daphne起動・readiness/登録画面200。登録画面のstatic5件とvendor8件のハッシュ付き配信、CSS/JSのgzip内容一致を確認。check --deployは短い検証用鍵の警告を確認後、同コマンドだけ64文字の検証用鍵へ差し替えて指摘0。既存データ復元の最新再実証、実TLS/Stripe/OAuth/S3は未確認 |
 | 全体検証 | 596bcd4cのSQLite1657成功/10skip・86.90%、PostgreSQL1667成功/skipなし・87.48%、双方465 subtests、終了コード0。SQLite skip10件はPGで成功。リモートCIは未実施 |
-| 稼働版との比較 | 記録済み稼働ソース `8cf3c7f7` から596bcd4cまで200ファイル差分。f692b994以降の追加migrationファイル差分なし。現在のAWS稼働版は配備直前に再確認する。mainとの比較だけで配備範囲を決めない |
+| 稼働版との比較 | 記録済み稼働ソース `8cf3c7f7` から02f8c91fまで217ファイル差分。596bcd4c以降のmigrationファイル差分なし。現在のAWS稼働版は配備直前に再確認する。mainとの比較だけで配備範囲を決めない |
 | DB差分 | 既存 `accounts/0055`・`accounts/0058` の変更、新規 `schedules/0055` の追加。0055修正はデータ移行後のFK検査をDDL前に完了させるもので、適用済み0055を再実行しない。適用済み0058は再実行されないため共有DBの移行履歴と実スキーマ確認が必要。ロール複数化後の旧制約復元はデータ次第で失敗し得る |
 | 未確定事項 | ECR digest、直前の稼働タスク/復旧先、共有DB状態、実データを含む復元・更新・ロールバック、専用テスト利用者/宛先、料金と有料範囲、実連携設定、追加費用。承認対象を具体化してから配備する |
 
-最新証跡は監査記録の596bcd4c節、`tmp/formal-release-596bcd4c-full-output`、`tmp/candidate-596bcd4c-production-check.log`、`tmp/candidate-596bcd4c-runtime.log`。秘匿画像のCloudFront迂回防止も別途承認・適用・実証が必要で、アプリ起動成功だけでは正式公開できない。
+最新起動証跡は監査記録の02f8c91f節、`tmp/static-runtime-02f8c91f-http.log`、`tmp/static-runtime-02f8c91f-server.log`、`tmp/static-runtime-02f8c91f-deploy-check.log`。全体テストは旧候補596bcd4cの`tmp/formal-release-596bcd4c-full-output`であり、最新全体成功とは扱わない。秘匿画像のCloudFront迂回防止も別途承認・適用・実証が必要で、アプリ起動成功だけでは正式公開できない。
 
 ## 過去候補の準備記録
 
