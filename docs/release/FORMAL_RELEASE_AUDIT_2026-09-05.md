@@ -215,3 +215,10 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - Node.js 20.20.2を追加したイメージ `sha256:5cfd026b464bb16a5dd09f0dfcd0223867a2bc99714b1688784c87a26580c2dc` で該当ファイル16件・subtests 10件成功（27.97秒、外部通信なし）。Chromium/ChromeDriver 152.0.7977.75を追加したイメージ `sha256:e85308d15236d0b2f33c19923a0f3e3ed8466ca20746338b95647f338873c8fa` では該当ブラウザ3件成功（85.64秒）。後者は画面の公開CDN資産を読み込むため通常のコンテナネットワークを使用し、DB・ユーザーは専用fixtureのみ。両方とも元の全体実行と重複する対象があるため、単純加算しない。
 - 証跡ディレクトリは `tmp/formal-release-full-e773-output/`。全体は `run.log`、`junit.xml`、`coverage.xml`、`coverage.json`、再確認は `node-export-recheck.xml`、`browser-recheck.xml`。全体のflake8・Black・isortはすべて終了コード0（`static-checks.json`と各ログ）。Django check、makemigrations --check --dry-run、新規SQLiteへのmigrate、migrate --checkも成功（`migrations.log`）。終了したコンテナは `--rm` で除去された。
 - Stripe接続を再確認したが `oauth_token_invalid_grant` のまま。対象ブランチのPR検索結果も0件。最新候補のリモートCI・PostgreSQL全体検証・本番相当実サービス検証は引き続き未完了。
+
+## 継続監査: 販売条件と機能制限の棚卸し（2026-09-05）
+
+- `c50b5fc6` のコード・既存テストから、[料金・有料機能の確定資料](FORMAL_RELEASE_PLAN_DECISIONS.md)を作成した。画像枚数の無料2枚/有料10枚、背景透過の有料限定・既定1日10回、作成済みセッションのシナリオ変更制限が、現行料金比較表に掲載されていなかった。
+- シナリオアーカイブ画面は有料限定だが、作成・編集APIはログイン・可視性・所有権を確認し、有料判定を行わない。セッション作成時の関連付けにも有料判定がない。正式公開時の有料範囲についてユーザーに質問し、回答待ちとして記録した。
+- 有料失効後に画像が無料上限を超えている場合、既存画像の更新もserializerの枚数制限で拒否し得る。既存データ保持と追加・編集制限を販売条件として確定する必要がある。背景透過の失敗ジョブも日次枠に含まれること、保持期間は既定設定であり削除運用の証明ではないことも明記した。
+- 今回は文書のみの変更。新しいAPI制限、料金変更、データ削除、外部操作は行っていない。新規の動的テストは実行せず、全APIの検証完了とは扱わない。公開判定B01に未決事項への参照を追加した。
