@@ -927,3 +927,9 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 両方の実行セッションが終了コード0で完了したことを確認。SQLite1660成功/10skip、469 subtests、159 warnings、coverage86.90%、1322.40秒。PostgreSQL1670成功/skipなし、469 subtests、159 warnings、coverage87.48%、1365.60秒。両JUnitは2139件・failure/error各0。SQLiteのskip10件をクラス名/テスト名でPG結果と照合し、全て成功していることを確認した。
 - 証跡はtmp/formal-release-14aea099-full-outputのログ/JUnit/coverage。全体テストは固定ソース14aea099であり、c0694eee以降のAxios代替処理、日程投票の表示・キャッシュ修正を含まない。これらの後続修正は別の関連テスト/E2E証拠であり、最新ブランチ全体の成功と混同しない。
 - 両テストコンテナの終了後、専用PGコンテナとinternalネットワークを削除。受け入れ表と候補資料へ結果を反映。リモートCI、実課金/外部連携、共有環境・実復元、事業判断は未完了で正式公開No-Goを維持する。
+
+## 外部接続の再確認とDraft PR本文更新
+
+- ba0cb396後、Stripeのアカウント一覧を再確認したがUNAUTHORIZED/oauth_token_invalid_grant。GitHubで対象headの公開中PR検索は0件、最新本文でDraft PR作成を試みたが403 Resource not accessible by integrationのまま。
+- ブラウザによる代替経路も確認。Chromeはツールに接続されておらず、利用可能なアプリ内ブラウザで比較ページを新規表示したがSign in状態だった。PR作成、リモートCI、実Stripe操作は未実施。接続状態の変化があるまで同じ失敗操作を繰り返さない。
+- FORMAL_RELEASE_DRAFT_PR.mdを現在の変更と14aea099全体/後続関連テストの区別が分かる本文へ更新し、受け入れ表F03も日程調整の最新証拠へ更新した。料金/有料範囲、専用実連携先と権限・承認の未確定は残る。ローカルで進められる主要フロー/画面/最新候補の検証は引き続き残っており、目的全体の完了・停止とは扱わない。

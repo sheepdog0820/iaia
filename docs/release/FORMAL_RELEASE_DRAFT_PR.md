@@ -5,6 +5,7 @@ Base: main / Head: codex/delegated-workflow-rules / Draft: true
 有料プラン・外部連携を含む正式公開に向け、課金、認証、秘匿添付、キャラクター管理の不具合を修正し、公開判定の証拠と未完了事項を整備します。正式公開の条件は未達のためDraftです。
 
 主な変更:
+
 - Stripe SDKイベント形式・期間終了日時・DB障害時のWebhook再試行に対応し、有料Checkoutの必須ゲートを整備。
 - Googleの安定した外部IDによる照合とメール確認を徹底。X/Discordを含む登録保存を原子的にし、停止済み利用者、競合、障害時の機密ログを対策。
 - 秘匿HO・セッション/シナリオ画像の取得時認可と旧URLの保護、削除障害時の参照保持。CloudFront迂回防止のTerraform案は未適用。
@@ -13,17 +14,19 @@ Base: main / Head: codex/delegated-workflow-rules / Draft: true
 - 現行Bootstrap/FullCalendar/Font Awesomeを同梱し、CDN不通によるカレンダー作成停止と空白アイコンを修正。source mapの参照欠落とS3非利用時の本番保存設定も是正。他の外部参照は残る。
 - 招待への同時参加を冪等にし、招待応答の保存禁止と参照元保護を追加。DaphneアクセスログとDjango例外ログ/管理者メールからURLトークンやリクエスト情報を除去。
 - 外部出力時の権限再確認、HTTP timeout、ICSの日本語折り返し、一覧取得の効率化、開発コマンドの環境制限を整備。
+- Axios代替処理の検索条件欠落、日程投票の表示時間帯・古い応答再利用・投票行の視認性を是正。
 
 検証:
-- 02f8c91fの通常本番イメージで、専用空PG/Redisへの移行・静的収集/圧縮・Daphne起動と実HTTPの登録画面/ハッシュ付きアセット配信に成功。S3非利用構成での証拠であり、実S3/CDN配信や最新全体テストの完了ではない。CDN対策後の3ブラウザ9件、本番設定22件も成功。
-- 移行修正を含むf692b994のSQLite全体は1639成功/7skip。PostgreSQLではコメント順序テスト1件が失敗したため、919dc0deでテスト時刻を明示し順序・同時刻・limitを検証。修正後PostgreSQL全体は1646成功/skipなし、440 subtests、カバレッジ87.42%。SQLiteは修正後の関連20件成功、全体再実行なし。この919dc0de時点のアプリコードはf692b994と共通。後続変更は含まない。リモートCI未実施。
-- 最新ソース596bcd4cの配備用イメージでpip check、静的183件、Bootstrapハッシュ一致、check --deploy指摘0。専用の空PG16/Redis7で全移行・新Daphne CLIによる通常起動・readiness200とログ伏せ字を確認。既存データ復元・実TLS・外部サービスはこの検証の対象外。
-- 596bcd4cの全体はSQLite1657成功/10skip（86.90%）、PostgreSQL1667成功/skipなし（87.48%）、双方465 subtests成功、終了コード0。SQLite skip10件はPGで成功。招待競合・ログ関連修正を含む。リモートCIは未実施。
-- f692b994のBanditは解析エラー0、HIGH/MEDIUM 0、LOW556。テスト内Node実行9件と課金テストの固定値56件の用途・制約を確認。残る静的指摘・実配送経路の確認は未完了。
-- 一覧改善はPostgreSQLで関連119件・14 subtests成功。キャラクターの画像取得・最新版集計、シナリオの関連取得を一括化。同時要求10のローカルp95はキャラクター4.25→1.59秒、シナリオ3.18→0.91秒、セッション0.68→0.80秒。測定180要求は全て200。合意済み性能基準や実AWSの合格ではない。
+
+- 14aea099の全体はSQLite1660成功/10skip（86.90%）、PostgreSQL1670成功/skipなし（87.48%）、双方469 subtests。JUnitは双方2139件、failure/error 0。SQLite skip10件はPGで成功。後続のAxios代替処理・日程投票修正を含む全体成功とは扱わない。
+- 後続修正では、CDN不通時の検索・通常登録・セッション作成/完了/非参加者拒否とクエリ値保持を3ブラウザ18件で確認。通常登録したGM/PLによる日程候補・回答・確定・保存、UTCブラウザでの日本時間表示、明暗テーマの投票行の視認性を3ブラウザで確認。APIキャッシュ禁止を含む関連22件成功。
+- 02f8c91fの通常本番イメージで専用空PG/Redisへの移行、static199件収集/571件後処理、Daphne起動、実HTTPの登録画面とハッシュ付きCSS/JS/フォント配信に成功。S3非利用構成の証拠であり、後続修正のイメージ・実S3/CDN/TLSを検証したものではない。
+- 596bcd4cのBanditは解析エラー0、HIGH/MEDIUM 0、LOW556。個別判定と最新ソースの再確認は未完了。
+- 既存データ入りPGの0055移行を是正し、実旧イメージdigestへの隔離DB/画像復元で91テーブル/614行/87採番/画像1件の一致を確認。実RDS/S3や同時書込み・RPO/RTOの合格ではない。
+- 一覧の関連取得を一括化。同時要求10のローカルp95はキャラクター4.25→1.59秒、シナリオ3.18→0.91秒、セッション0.68→0.80秒。測定180要求は全て200。合意済み性能基準や実AWSの合格ではない。
 - 詳細: docs/release/FORMAL_RELEASE_AUDIT_2026-09-05.md、FORMAL_RELEASE_ACCEPTANCE_MATRIX.md。
 
 公開前の残作業:
 料金・有料範囲の判断、実Stripe/OAuth/外部配送、リモートCI、実環境のストレージ/CDN対策、性能・復旧/ロールバックの実証。実料金・規約や公開時期は未確定です。本PRの作成はmainマージ、本番反映、共有DB・実データ・権限・費用変更の承認を意味しません。
 
-作成状況: 2026-09-05に対象ブランチのPR検索は0件。作成APIは403 Resource not accessible by integrationで拒否。PRは未作成。GitHub CLIも未ログイン。StripeはUNAUTHORIZED/oauth_token_invalid_grantで再認証が必要。
+作成状況: 2026-09-05の再確認でも対象ブランチのPR検索は0件、作成APIは403 Resource not accessible by integration。利用可能なアプリ内ブラウザの比較画面も未ログインで、PRは未作成。StripeはUNAUTHORIZED/oauth_token_invalid_grantで再認証が必要。接続状態が変わるまでは同じ操作の再試行を続けない。
