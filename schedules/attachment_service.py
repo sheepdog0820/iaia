@@ -6,13 +6,23 @@
 
 from __future__ import annotations
 
+import logging
 import mimetypes
 from dataclasses import dataclass
 
 from django.core.exceptions import ValidationError
+from rest_framework.exceptions import APIException
 
 from schedules.handout_access import can_view_handout
 from schedules.models import HandoutAttachment, HandoutInfo
+
+logger = logging.getLogger(__name__)
+
+
+class AttachmentDeletionUnavailable(APIException):
+    status_code = 503
+    default_detail = "添付ファイルを削除できませんでした。時間をおいて再試行してください。"
+    default_code = "attachment_deletion_unavailable"
 
 
 @dataclass(frozen=True)
@@ -82,12 +92,11 @@ class HandoutAttachmentService:
         ):
             raise PermissionError("この添付ファイルを削除する権限がありません。")
 
-        if attachment.file:
-            try:
-                attachment.file.delete(save=False)
-            except Exception:
-                pass
-        attachment.delete()
+        try:
+            attachment.delete()
+        except Exception as exc:
+            logger.warning("Attachment deletion failed: id=%s error_type=%s", attachment_id, type(exc).__name__)
+            raise AttachmentDeletionUnavailable() from None
         return True
 
     def get_attachment_url(self, attachment: HandoutAttachment, user) -> str:

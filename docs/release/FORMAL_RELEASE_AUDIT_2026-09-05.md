@@ -286,3 +286,14 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 固定依存イメージb8fad941へ変更コマンド・共通ガード・新規テストを読み取り専用で適用し、3件成功（0.002秒）。正常な参照では無出力、引用符付き識別子とWITHOUT ROWIDではSQLエラーではなくCommandErrorと違反情報が出ること、試験行が削除されないことを確認した。`tmp/dev-foreign-key-diagnostics-green.log`。
 - ローカルでは環境境界テストを含む6件も成功（0.090秒）。追加したfor/出力/raiseの3実行対象行をすべて実行した。`tmp/dev-foreign-key-diagnostics-coverage.json`。非SQLiteの診断やコマンド全体のカバレッジ100%ではない。通常の作業DB・共有DB・実データは使っていない。
 - 変更後にBandit 1.9.4をaccounts/schedules/scenarios/support/tableno/apiへ再実行し、HIGH 0・MEDIUM 0・LOW 536、解析エラー0。指摘抑制設定は追加していない。全重要度での終了コードはLOWが残るため1で、全セキュリティ検査合格とは扱わない。証跡 `tmp/formal-release-bandit-fk-fix.json` / `.log`。コード品質と日本語文言・差分レビューを確認し、秘匿添付の実環境対策を含む公開条件は引き続き未完了。
+
+## 継続監査: LOW指摘と添付削除の再試行（2026-09-05）
+
+- `dd92a2da` のclean状態から前回のLOW 536件を分類した。test_*.py/tests.py/tests配下に448件、それ以外に88件（B311 66、B110 11、B106 6、B105 4、B112 1）。管理コマンドは名前にtestを含んでも通常の処理として確認した。分類は指摘の一括抑制や、全件の無害判定ではない。
+- B105は前記のURL・False値・クラスパス、B311はダイス/テストデータ用の乱数、B106 6件は今回までにローカル専用とした一括生成コマンドの固定資格情報だった。例外抑制は別途確認し、添付削除でストレージ失敗を無視してDB行を消す不備を見つけた。
+- 試験用添付に対してstorage.deleteを失敗させる回帰テストを先に追加すると、期待503に対し204が返った。serviceとHandoutAttachment.deleteの両方が例外を握りつぶすため、失敗したファイルの参照を失う経路だった。実S3や実利用者の添付ではなく、専用のローカルメディアと試験DBを使用した。証跡 `tmp/handout-deletion-retry-red.log`。
+- ファイル削除をモデル側の1回にまとめ、成功してからDB削除へ進むよう修正した。serviceは失敗時に一般的な日本語の再試行案内を503で返す。ログは添付IDと例外型のみとし、バックエンドの例外本文を返さない。ローカルfilesystemとS3 storageは既に存在しないファイルの削除を成功として扱うため、事前existsチェックも不要にした。
+- 固定依存イメージb8fad941へ変更model/service/テストを読み取り専用適用し、新規3件と既存の添付・ダウンロード権限を合わせて26件成功（0.604秒）。削除失敗時にDB参照とファイルを保持すること、復旧後の再試行で両方削除すること、PLはstorage削除を呼べないこと、ファイル欠損時でもDB削除できることを確認した。`tmp/handout-deletion-retry-green.log`。
+- カバレッジ取得用の固定依存テストイメージでも新規3件成功（0.162秒）。追加した503例外定義・try/catch/ログとmodelの削除行はすべて実行された。モジュール全体/全分岐100%ではない。`tmp/handout-deletion-coverage.json` / `.log`。変更PythonのBlack/isort/flake8、差分、日本語API文言を確認した。
+- 再度Banditを同じアプリ範囲へ実行し、HIGH 0・MEDIUM 0・LOW 534、解析エラー0。全重要度での終了コードは1のまま。`tmp/formal-release-bandit-deletion-fix.json` / `.log`。
+- 今回は添付単体削除の失敗/再試行を修正した。QuerySetによる一括削除・親からのカスケード・storage削除成功後のDB障害の整合性・S3旧バージョンの保持/消去まで解決したわけではない。ScenarioImage/SessionImageの類似例外抑制、既存migrationのメディア処理、ログイン/画像serializerのフォールバック、技能一括更新の部分失敗は引き続き確認対象。実環境のデータ削除や配備は行っていない。

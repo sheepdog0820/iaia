@@ -1284,13 +1284,9 @@ class HandoutAttachment(models.Model):
     def delete(self, *args, **kwargs):
         """削除時にファイルも削除"""
         if self.file:
-            # ファイルが存在する場合のみ削除
-            try:
-                if self.file.storage.exists(self.file.name):
-                    self.file.delete(save=False)
-            except Exception:
-                pass  # ファイル削除エラーは無視
-
+            # Keep the DB reference if storage deletion fails, so it can be retried.
+            # The supported filesystem/S3 backends treat absent files as deleted.
+            self.file.delete(save=False)
         super().delete(*args, **kwargs)
 
     class Meta:
