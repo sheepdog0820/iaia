@@ -1038,3 +1038,9 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - schedules/guest_views.pyで、ロック取得後にis_activeを再確認し、失効・期限切れなら日本語の案内と410を返す。参加者・responded_atを保存しないことを検証した。既存の招待発行・参加・claim・秘匿情報保持・失効等を含む関連11件、2 subtests成功、9 warnings（35.25秒、tmp/guest-invalidation-green-final.log）。
 - 検証は63bd2436のテスト用イメージへ対象ビューとテストのみを読み取り専用マウントし、network noneの使い捨てSQLiteで実施。失効タイミングは実DB更新を行うテスト用フックで再現しており、実際の並列PostgreSQLトランザクションの網羅検証ではない。先行の試行ログも残すが、最終REDは枠競合の影響を除き両ケース201を確認したもの。
 - Black/isort/flake8と差分確認を通過。DBスキーマ・実データ・設定・費用への変更なし。復旧はこのコミットのコード差分を戻す操作になるが、旧コードでは本欠陥が再発する。実行中の固定63bd2436全体テストと同候補のブラウザ/本番イメージ結果には、この後続修正は含まれない。正式公開No-Goは維持する。
+## 固定候補63bd2436の両DB全体テスト完了
+
+- テスト用イメージtableno-formal-release-test:63bd2436-browser（ID sha256:1e077f0b406eba917aa364e5841899dc562e8492180c49bf6d27c829aeb51ce7）で開始済みの両DBテストが終了コード0で完了した。
+- SQLite1664成功・10skip・カバレッジ86.93%（1242.91秒）、PostgreSQL1674成功・skipなし・87.50%（1268.89秒）。双方476 subtests・159 warnings、JUnit2150件、failure/error 0。SQLite skip10件はclass/nameでPGの成功ケースへ照合した。証跡tmp/formal-release-63bd2436-full-outputの両run.log/JUnit/coverage。
+- 後続55b7d16cのゲスト招待修正は本全体結果に含まれない。同修正は専用テストDB名guest_release_testを使った隔離PostgreSQLでも関連11件・2 subtests成功、9 warnings（33.67秒、tmp/guest-invalidation-postgres.log）。テスト用フックによる確認後の失効再現で、実並列処理の網羅試験ではない。
+- 全プロセスの終了を確認後、専用PGコンテナとinternalネットワークを破棄した。共有環境・実データへの変更なし。リモートCI、実サービス、後続修正を含む固定候補全体の検証は未完了のため正式公開No-Goを維持する。

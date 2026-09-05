@@ -19,7 +19,7 @@ Base: main / Head: codex/delegated-workflow-rules / Draft: true
 
 検証:
 
-- 7cdd7cf8の全体はSQLite1662成功/10skip（86.92%）、PostgreSQL1672成功/skipなし（87.49%）、双方472 subtests・159 warnings。JUnitは双方2144件、failure/error 0。SQLite skip10件はPGで成功。後続のグループAPIキャッシュ・パンくず配色修正を含む63bd2436の両DB全体テストは実行中で、合格とは扱わない。
+- 63bd2436の全体はSQLite1664成功/10skip（86.93%）、PostgreSQL1674成功/skipなし（87.50%）、双方476 subtests・159 warnings。JUnitは双方2150件、failure/error 0。SQLite skip10件はPGで成功。後続55b7d16cでゲスト招待の確認後失効を保存前に再確認する修正を加え、両DBで関連11件・2 subtests成功。同後続修正を含む固定候補全体の合格とは扱わない。
 - 固定ソース63bd2436のChromium/Firefox/WebKitは30件成功（3.6分、retryなし）。通常登録、グループ管理者の追加/解除、通知既読と招待承認、保存文字列の安全な表示、セッション作成/完了/非参加者拒否、日程投票・コメント・確定と日本時間表示、明暗配色、CDN不通時のカレンダー/フォント/検索条件を確認。7cdd7cf8ではFirefoxの権限変更後の表示が1件失敗し、APIキャッシュ禁止の修正後に再検証した。全E2Eファイルを網羅した結果ではない。
 - 同じ63bd2436の通常本番イメージ（ローカルID sha256:68b4915a4678bd08743a4357aa1dac91fd26d3561ceb5803f9fbb9b6f9c64f13）で専用空PG/Redisへの移行、static199件収集/571件後処理、Daphne起動、登録画面とハッシュ付きCSS/JS/フォントのHTTP配信に成功。pip checkとcheck --deployに指摘なし。S3非利用の隔離構成であり、実S3/CDN/TLSや既存データの合格ではない。イメージのレジストリへのpushや実環境配備は行っていない。
 - 0cd9fe45のBanditは解析エラー0、HIGH/MEDIUM 0、LOW556、終了コード1。テスト側478件のうち319件を用途判定し、159件は未判定。警告抑制は追加していない。7cdd7cf8との指摘の追加/削除は0。実サービスの検証完了とは扱わない。
