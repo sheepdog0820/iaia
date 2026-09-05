@@ -53,6 +53,11 @@ def copy_character_data_to_edition_tables(apps, schema_editor):
         elif character.edition == "7th":
             CharacterSheet7th.objects.update_or_create(character_sheet_id=character.id, defaults=values)
 
+    if schema_editor.connection.vendor == "postgresql":
+        # Validate queued foreign-key checks before the schema editor creates
+        # its deferred indexes. Keep the migration's atomic transaction intact.
+        schema_editor.execute("SET CONSTRAINTS ALL IMMEDIATE")
+
 
 def noop_reverse(apps, schema_editor):
     # The parent data is deliberately retained until all reads use edition data.

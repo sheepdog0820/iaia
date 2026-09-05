@@ -653,3 +653,12 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 再実行はaccounts0055の終了時のインデックス作成でOperationalError: cannot CREATE INDEX accounts_charactersheet6th because it has pending trigger events。django_migrationsのaccounts最新行は0054のままで、0055は適用完了していない。現候補へのデータ入りPostgreSQL移行は不合格であり、空DB移行成功や全体テストでは代替できない。
 - accounts0055はCreateModelとRunPythonによる既存データコピーを同じ移行内で行う。Django公式文書にもPostgreSQLでスキーマ変更とRunPythonを同じ移行に混在させる際のpending trigger eventsへの注意がある: https://docs.djangoproject.com/en/5.2/ref/migration-operations/#runpython 。是正方法と既に適用済みの環境への影響は次の作業で検討し、無条件の逆移行・再実行やatomic無効化で回避しない。
 - 証跡: tmp/prove-postgres-registry-upgrade.py、tmp/postgres-registry-upgrade-77b10ded.log（初回fixture不備）、tmp/postgres-registry-upgrade-77b10ded-retry.log（移行不備）。検証用DB/ネットワークは削除済み。共有環境・実データは未操作。修正・移行後のデータ一致・復旧検証は未完了で、正式公開No-Goを維持する。
+
+## PostgreSQLのデータ入り0055移行失敗を是正
+
+- accounts0055のデータコピー末尾でPostgreSQLに限りSET CONSTRAINTS ALL IMMEDIATEを実行し、同一トランザクション内の未実行FK検査を、schema editorのインデックス作成前に完了させる。atomicの無効化、制約の無効化、データ削除は行わない。制約違反は例外として伝播する。挙動の根拠: https://www.postgresql.org/docs/16/sql-set-constraints.html 。
+- 0055は既存マイグレーションだが、未適用の旧構造から現候補へ到達できない問題を直すため局所修正した。既に0055適用済みのDBで再実行する変更ではない。共有環境では移行履歴を確認し、巻戻し/fake/適用済み処理の再実行を独断で行わない。配備前に確認する移行ファイル差分にはaccounts0055も追加される。
+- 既存のレジストリ移行テストを、SQLiteでは独立ファイル、PostgreSQLではテストDB内のUUID名の専用スキーマで実行するよう拡張。移行を逆戻しせず旧状態から開始し、接続とスキーマ/ファイルをcleanupする。修正前のPostgreSQLで同じpending trigger eventsを回帰テストとして再現（24.63秒）。修正後はPostgreSQL1件成功（9.05秒）、SQLite1件成功（29.57秒）、各既存警告9件。6版/7版の移行、版の親子関係、技能/装備の引き継ぎ、旧列・旧関連テーブルの除去を確認。
+- 初回の再現スクリプトも修正した0055を読み取り専用マウントして再実行成功。専用PostgreSQL16で旧構造から全leaf migrationsまで移行し、6版/7版計4件、日本語メモ・秘匿情報・HP/SAN・版・所有者・親子関係の一致、旧列不在、未適用移行0を確認。
+- 証跡: tmp/registry-migration-pg-red.log、tmp/registry-migration-pg-green.log、tmp/registry-migration-sqlite-green.log、tmp/postgres-registry-upgrade-fixed.log。使用した基底イメージは77b10ded固定で、変更ファイルのみマウント。専用DB2台とネットワークは削除済み。
+- Black/isort/flake8とソース差分を確認し追加指摘なし。UI文言変更なし。共有環境・実データ・権限・費用は未変更。復旧はアプリ変更のrevertと事前バックアップ方針に従い、既存の一方向移行を逆に実行しない。77b10dedの全体テストはこの修正を含まず、修正後全体・実環境移行・ロールバックは未検証。正式公開No-Goを維持する。

@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+import uuid
 
 from django.conf import settings
 from django.db import connections
@@ -11,11 +12,11 @@ from django.test import TransactionTestCase
 
 
 class CharacterRegistryMinimizationMigrationTests(TransactionTestCase):
-    """Run the migration against a genuinely pre-split SQLite database.
+    """Run the migration against a genuinely pre-split isolated database/schema.
 
     The production migration is deliberately forward-only, so this uses an
-    independent database rather than attempting to reverse it on Django's test
-    database.  That also verifies the actual SQLite ``DROP COLUMN`` operations.
+    independent SQLite database or PostgreSQL schema rather than reversing it
+    on Django's main test schema. Both backends execute their real DDL.
     """
 
     migrate_from = ("accounts", "0054_remove_cross_edition_basic_skills")
@@ -24,28 +25,44 @@ class CharacterRegistryMinimizationMigrationTests(TransactionTestCase):
 
     def setUp(self):
         super().setUp()
-        descriptor, self.database_name = tempfile.mkstemp(suffix=".sqlite3")
-        os.close(descriptor)
-        database_settings = settings.DATABASES["default"].copy()
-        database_settings["NAME"] = self.database_name
         self.original_connection = connections["default"]
-        self.connection = DatabaseWrapper(database_settings, alias="default")
-        # Schema editors use transaction.get_connection(self.connection.alias).
-        # Temporarily make this independent database the default connection so
-        # those internal transactions are scoped to the same database.
+        if self.original_connection.vendor == "postgresql":
+            from django.db.backends.postgresql.base import DatabaseWrapper as PostgreSQLWrapper
+
+            self.schema_name = "registry_migration_" + uuid.uuid4().hex
+            with self.original_connection.cursor() as cursor:
+                cursor.execute(f'CREATE SCHEMA "{self.schema_name}"')
+            database_settings = self.original_connection.settings_dict.copy()
+            database_settings["OPTIONS"] = database_settings.get("OPTIONS", {}).copy()
+            options = database_settings["OPTIONS"].get("options", "")
+            database_settings["OPTIONS"]["options"] = f"{options} -c search_path={self.schema_name}".strip()
+            self.connection = PostgreSQLWrapper(database_settings, alias="default")
+        else:
+            self._setup_sqlite_connection()
+        self.addCleanup(self._cleanup_database)
+        # Schema editor transactions resolve their connection through this alias.
         connections._connections.default = self.connection
         self.executor = MigrationExecutor(self.connection)
         self.executor.migrate([self.migrate_from])
         self.old_apps = self.executor.loader.project_state([self.migrate_from]).apps
 
-    def tearDown(self):
+    def _setup_sqlite_connection(self):
+        descriptor, self.database_name = tempfile.mkstemp(suffix=".sqlite3")
+        os.close(descriptor)
+        database_settings = settings.DATABASES["default"].copy()
+        database_settings["NAME"] = self.database_name
+        self.connection = DatabaseWrapper(database_settings, alias="default")
+
+    def _cleanup_database(self):
         try:
             self.connection.close()
-            if os.path.exists(self.database_name):
+            if hasattr(self, "schema_name"):
+                with self.original_connection.cursor() as cursor:
+                    cursor.execute(f'DROP SCHEMA "{self.schema_name}" CASCADE')
+            elif os.path.exists(self.database_name):
                 os.unlink(self.database_name)
         finally:
             connections._connections.default = self.original_connection
-            super().tearDown()
 
     def test_legacy_data_is_moved_before_the_registry_columns_are_dropped(self):
         User = self.old_apps.get_model("accounts", "CustomUser")
