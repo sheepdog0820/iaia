@@ -795,3 +795,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - TOKEN_PATHSへ対象prefixを追加。URL自体・認証/認可・受信パスは変更しない。修正後は起動関連と合わせ29件・23 subtests成功（1.20秒、4 warnings）。Black/isort/flake8・差分・UTF-8/LF確認成功。新規UI文言なし。
 - 配備用f692b994イメージへ最終server/entrypointと架空ASGI probeを読取マウントし、network none、公開ポート・DB更新なしで通常起動。ICS、キャラクター共有ZIP、パスワード再設定の3 URLにHTTP要求を送り、元パスのbody一致と実Daphneログの伏せ字を確認。専用コンテナ削除済み。証跡tmp/shared-token-log-green.log、tmp/shared-token-log-runtime.log。
 - この3要求は実Daphneの記録検証であり、アプリ本体の閲覧/再設定フローやメール配送の成功ではない。未配備。Djangoの例外メール・例外ログ、外部監視、既存ログ、今回列挙した以外の新規URL形式は未確認。正式公開No-Goを維持する。
+
+## 管理者向け例外メールからリクエスト情報を除去
+
+- dc261c31のクリーンな作業ツリーで本番mail_adminsの標準AdminEmailHandlerを調査。架空の招待URL・query・POST本文・Authorization/Cookieと例外メッセージを含む記録で、通知内容からfixture値が除去されないことをメモリ内メールで再現。修正前2失敗/1成功（tmp/error-report-red.log）。実メールや実資格情報は使っていない。
+- SafeAdminEmailHandlerを追加し、本番設定のmail_adminsのみ接続。UTC発生時刻、logger、level、静的ルート名、既知HTTP method、妥当なstatus、例外クラス名、スタックのファイル名/行番号/関数名を通知。recordの自由文・URL/リクエスト値・例外メッセージ・ソース行/ローカル変数・HTML詳細報告を出力しない。元request/recordは変更せず、他handlerへの暗黙の改変はしない。
+- 既存のERROR閾値とrequire_debug_falseを維持。ADMINS空の場合の送信なし、例外なし/リクエストなしの通知、HTML指定時にも機密値不在、本番設定のclass接続を検証。トラブル調査に必要な発生箇所は残す一方、入力値・例外メッセージによるメール上の詳細調査はできなくなる。必要な再現は専用データで行う。
+- 固定Linuxイメージに対象module/settings/testsを読取マウントし、network none、locmem backendで23件成功（12.27秒、4 warnings）。新handler全実行行のcoverage成功。Black/isort/flake8・差分・UTF-8/LF確認成功。証跡tmp/error-report-final.log、tmp/error-report-coverage.json。新UI文言なし。
+- 変更は未配備で実SMTP配送は未検証。Djangoのconsole/file例外出力や他の明示的メール送信、外部監視、保存済みメールは対象外。実データ・DBスキーマ・Secrets・配送先・AWS設定・継続費用は変更していない。最新全体CI・実サービス検証は残り、正式公開No-Goを維持する。

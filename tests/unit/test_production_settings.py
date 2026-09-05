@@ -77,6 +77,16 @@ print(json.dumps({
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout.strip())
 
+    def test_admin_error_email_uses_payload_free_handler(self):
+        payload = self.run_settings_probe(expression="""
+import json
+from tableno import settings_production as settings
+print(json.dumps(settings.LOGGING['handlers']['mail_admins']))
+""")
+        self.assertEqual(payload["class"], "tableno.error_reporting.SafeAdminEmailHandler")
+        self.assertIn("require_debug_false", payload["filters"])
+        self.assertEqual(payload["level"], "ERROR")
+
     def test_proxy_and_mysql_tls_settings(self):
         payload = self.run_settings_probe(
             {
