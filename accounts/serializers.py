@@ -1094,15 +1094,33 @@ class CharacterSheetListSerializer(serializers.ModelSerializer):
         system_data = self._system_data(obj)
         if system_data is None:
             return 1
-        root = system_data
-        while root.parent_data_id:
-            root = root.parent_data
-        latest = (
-            system_data.__class__.objects.filter(models.Q(pk=root.pk) | models.Q(parent_data=root))
-            .order_by("-version")
-            .first()
-        )
-        return latest.version if latest else root.version
+        if not hasattr(self, "_latest_versions"):
+            self._latest_versions = {}
+        key = (obj.user_id, obj.edition)
+        if key not in self._latest_versions:
+            records = {
+                pk: (parent_id, version)
+                for pk, parent_id, version in system_data.__class__.objects.filter(
+                    character_sheet__user_id=obj.user_id
+                ).values_list("pk", "parent_data_id", "version")
+            }
+            roots = {}
+            latest = {}
+            for pk in records:
+                path = set()
+                current = pk
+                while current in records and current not in roots and current not in path:
+                    path.add(current)
+                    parent = records[current][0]
+                    if parent not in records:
+                        break
+                    current = parent
+                root = roots.get(current, current)
+                for member in path:
+                    roots[member] = root
+                    latest[root] = max(latest.get(root, 0), records[member][1])
+            self._latest_versions[key] = {pk: latest[root] for pk, root in roots.items()}
+        return self._latest_versions[key].get(system_data.pk, system_data.version)
 
     def to_representation(self, instance):
         """シリアライズ時にメイン画像を追加"""
