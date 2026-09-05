@@ -36,7 +36,25 @@ GOOGLE_INTEGRATION_SCOPES = [
 
 
 def _escape_ical(value):
-    return str(value or "").replace("\\", "\\\\").replace("\n", "\\n").replace(",", "\\,").replace(";", "\\;")
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    return text.replace("\\", "\\\\").replace("\n", "\\n").replace(",", "\\,").replace(";", "\\;")
+
+
+def _fold_ical_line(value):
+    """Fold RFC 5545 content lines without splitting UTF-8 characters."""
+    lines = []
+    line = ""
+    size = 0
+    for character in value:
+        width = len(character.encode("utf-8"))
+        if size + width > 75:
+            lines.append(line)
+            line = " "
+            size = 1
+        line += character
+        size += width
+    lines.append(line)
+    return "\r\n".join(lines)
 
 
 def _gm_role_session_ids_for(user):
@@ -98,7 +116,7 @@ def _build_ical(user):
             ]
         )
     lines.append("END:VCALENDAR")
-    return "\r\n".join(lines) + "\r\n"
+    return "\r\n".join(_fold_ical_line(line) for line in lines) + "\r\n"
 
 
 class CalendarSubscriptionRotateView(APIView):
