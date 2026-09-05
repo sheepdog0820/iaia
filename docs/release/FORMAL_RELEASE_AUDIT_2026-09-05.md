@@ -589,3 +589,12 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 8f85561755e67bc65ffef2fe9df0ef1c53f77156のgit archiveから通常Dockerfileで配備用イメージを再構築。tableno-formal-release:8f855617、ID sha256:b9e97b30ba4ef2aa875e5f77339d8cad81d7c6fcb1fa1d5879b767fe1d3f87bc、実行ユーザーtableno。
 - network none、以前の架空設定、S3無効でcollectstatic成功（183件）。配置済みBootstrap CSS/JSのSHA-256が配布物と一致し、Django staticが/static/vendor/bootstrap/5.3.0/以下の対応URLを生成することを確認。check --deploy指摘0。実CloudFront/S3配信やTLS確認は含まない。
 - 証跡: tmp/formal-release-8f855617-production-build.log、tmp/candidate-8f855617-static-check.log。検証コンテナは終了時に削除。ECRへ送信せず、共有環境・実データ・権限・費用変更なし。全体テストは既存handle18576/60772の同じ実行を継続中。正式公開No-Goを維持する。
+
+## 8f855617全体結果と一覧性能の基準測定
+
+- 全体実行handle18576/60772は双方終了コード0。SQLite1631成功・7skip・437 subtests、86.94%、1239.78秒。PostgreSQL1638成功・skipなし・437 subtests、87.38%、1269.93秒。JUnitは双方2075件、failures/errors 0。前回失敗した技能E2Eが双方成功、SQLiteでskipの行ロック7件もPostgreSQLでは成功を個別照合した。
+- 固定対象は8f855617。以降の性能ツール/文書はこの全体実行に含まれない。性能ツールの単体5件・3 subtestsは別途成功。リモートCI・実連携・公開判断は未完了。全体用の専用DB/ネットワークは削除済み。
+- 全体終了後、準備済みの隔離性能環境でウォームアップ各10要求、その後同時要求1と10で各一覧30要求を順番に測定した。各測定は合計90要求すべて200。最初のウォームアップはポート8000指定漏れで接続失敗し、warmup.jsonに残す。修正後のwarmup-corrected.json以降だけを応答時間の資料とする。
+- 同時要求1→10のp95は、キャラクター一覧361.4→4245.1ms、シナリオ一覧246.3→3184.0ms、セッション全期間183.8→678.5ms。1 CPU/1 GiBのローカルアプリ、専用PostgreSQL/Redis、利用者10人、キャラクター1000件/セッション100件/シナリオ100件という限定条件。合意した性能基準はなく、Q02の合格を意味しない。CPU/メモリのsampleは測定終了後でありピーク利用率ではない。
+- 同じ利用者・データでAPIClientとDB execute_wrapperを用いてクエリを計数。キャラクター100件の一覧206クエリ（同形最大50回）、シナリオ30件152クエリ（同形最大30回）、セッション20件7クエリ。ネットワーク測定とは別の診断であり、一覧の繰り返しクエリを次の改善対象にする。
+- 証跡: tmp/formal-release-8f855617-full-outputとtmp/performance-8f855617のconcurrency-1.json、concurrency-10.json、query-counts.log。性能用アプリ/DB/Redisとネットワーク、使い捨てトークンファイルは削除済み。共有環境・実データ・権限・費用変更なし。正式公開No-Goを維持する。
