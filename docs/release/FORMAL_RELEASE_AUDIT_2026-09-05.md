@@ -670,3 +670,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 出力tmp/formal-release-77b10ded-full-output。旧実行用PostgreSQL/tmpfsとinternalネットワークは削除済み。この全体成功にはf692b994のデータ入りPostgreSQL移行修正が含まれない。
 - 作業ツリーがクリーンなf692b994eb66d01b9c617577c3b7b6453664db95のgit archiveからテストイメージを作成。tableno-formal-release-test:f692b994-browser、sha256:020f2cda8cf566d6a6ade624eeeafbd55d586fae3df8a93d3d17e71a5f37c642、revisionラベル一致。SQLite handle26676、PostgreSQL handle51390で従来と同じ全体対象を開始。SQLite network none、PG16専用tmpfs/internalネットワーク、既存プロセスの再起動ではない。
 - 実行スクリプトtmp/run-full-f692b994.ps1、出力tmp/formal-release-f692b994-full-output、ビルドログtmp/formal-release-f692b994-test-build.log。開始と稼働を確認し終了結果は未取得。共有環境・実データ・権限・費用の変更なし。正式公開No-Goを維持する。
+
+## f692b994の配備用イメージ検証
+
+- git archiveで固定したf692b994eb66d01b9c617577c3b7b6453664db95を通常Dockerfile/requirements.lock.txtで構築。tableno-formal-release:f692b994、sha256:1dd64113d7d6cec628aeda3220210e90c95e38c04bb275240012ad05daaada29、実行ユーザーtableno、revision一致。ECR送信なし。
+- network none、既存の架空設定で、USE_S3_STORAGE=false・SECURE_SSL_REDIRECT=trueを明示。settings_production、DEBUG=false、session/CSRF secure cookie有効をassert。pip check成功、collectstatic183件、Bootstrap CSS/JSの収集先とソースのSHA-256一致、check --deploy（fail_level=WARNING）指摘0で完了。
+- 証跡: tmp/formal-release-f692b994-production-build.log、tmp/check-f692b994-production.py、tmp/candidate-f692b994-production-check.log。コンテナは終了時削除。静的設定・ローカル収集を確認したもので、実TLS・S3/CloudFront・外部連携・実データ更新・バックアップ復旧の証明ではない。
+- 全体テストは既存SQLite handle26676、PostgreSQL handle51390の双方が実行中。結果未取得。配備準備資料をf692b994とaccounts0055の追加差分へ更新。共有環境・実データ・権限・費用変更なし。正式公開No-Goを維持する。
