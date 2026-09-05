@@ -55,6 +55,11 @@ urlpatterns = [
         name="handout_attachment_detail",
     ),
     path(
+        "handouts/attachments/<int:pk>/download/",
+        attachment_views.HandoutAttachmentDownloadView.as_view(),
+        name="handout_attachment_download",
+    ),
+    path(
         "notification-preferences/",
         notification_views.UserNotificationPreferencesViewSet.as_view({"get": "list", "patch": "partial_update"}),
         name="notification_preferences",

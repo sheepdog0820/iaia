@@ -232,3 +232,14 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - DBだけ復元した段階では `media manifest differs` で検証が終了コード1となることを確認した。その後、tarを専用復元先へ展開すると画像の相対パス・SHA-256が一致し、DB参照先での存在確認・画像デコードも成功した。秘匿フラグ、HO対象PL、セッションGMの関連が復元され、新規ユーザーの採番も既存最大IDを超えた。HTTP経由の閲覧権限や全添付種別の試験ではない。
 - 復元先で `migrate --check` とDjango `check` が成功した。DB復元コマンド0.422秒、画像展開0.172秒、内容照合1.953秒。この最小fixtureの操作時間は障害検知・環境準備・切替を含まず、本番RTOを示さない。実RDS snapshot/PITR、実S3 VersionId、暗号鍵・最小DB権限、公開規模の復元、課金/配送の再照合、合意RPO/RTOは未確認。
 - 証跡は `tmp/restore-drill-20260905/` の `run.py`、`probe.py`、`drill_settings.py`、`results.json`、`expected.json` と各操作ログ。試験dumpのSHA-256は `a9ba7b71729dea2e73b7ad8547f4c586dc6bb38f90ab1b656280d8c65204c38e`、メディアtarは `9a1c7ac73eef21c83bec3aac50b1d8d6eec242b7e082253c5cf83d4576f9292b`。これらは専用の合成データで、リポジトリには追加しない。試験コンテナ停止・専用network削除が成功し、同名コンテナが残っていないことを確認した。
+
+## 継続監査: 秘匿HO添付の直接URL（2026-09-05）
+
+- `4d75e043` のclean状態から監査。添付一覧には `can_view_handout` がある一方、serializerの `file` / `file_url` とモデルのダウンロードURLがstorageのURLを返していた。既存の固定依存イメージで、通常GMが試験用textファイルをアップロードし、対象PL・無関係ユーザー・匿名でそのURLを取得した。無関係ユーザーの一覧は403、匿名は401だが、ファイル直URLは両方200で試験用秘匿内容と完全一致し、Cache-Controlもなかった。
+- 再現はDEBUG=True、専用SQLite/TemporaryDirectory、外部通信なしのコンテナで実施。実環境の添付を取得していない。スクリプトは `tmp/handout-direct-url-audit-20260905.py`、初回再現の結果はタスクのコマンド出力に記録した。本番設定では既定querystring_auth=FalseとCloudFrontへの全オブジェクトGetObject許可を確認したが、実配信の同じ不備を動的に確認した証拠ではない。
+- 新規回帰テストを先に実行し失敗を確認。その後、認可付きダウンロードAPI、既存URLの認可、serializer両フィールドのAPI URL化を実装した。取得ごとに最新HOの対象者/GM判定を使い、拒否・欠損・成功すべてにno-storeを付ける。成功はattachment・application/octet-stream・nosniffで返し、保存済みファイル名を直接配信しない。
+- 旧メディアURLはパスの正規化後に秘匿プレフィックスを判定する。`other/../handouts/` やエンコードされた同等パスを、静的ファイル配信への迂回に使えないようにした。一般メディアの開発時配信とDEBUG=False時の非配信も検証した。
+- TerraformでCloudFrontからのhandoutsオブジェクトGetObjectを拒否する構成を用意し、fmt/validate成功。構成の適用とキャッシュ失効は別途必要であり、[配備準備計画](AWS_PRE_FORMAL_RELEASE_VALIDATION_PLAN.md)へ手順と残リスクを追加した。権限変更・配備・invalidation・実ファイルの移動は実施していない。
+- 修正ファイルを固定依存イメージへ読み取り専用でマウントし、新規6件と既存の添付・HO権限・PL枠を合わせて37件成功（23.994秒）。専用SQLite、外部通信なし。証跡 `tmp/handout-download-access-green.log`。途中の試験コードはストリーミングレスポンスを二重にcloseしてDBを閉じたため修正し、Djangoテストクライアントの自動closeを利用した。製品コードでDB接続エラーを無視していない。
+- ローカル修正の成功は、実CloudFrontキャッシュの失効、S3実権限、大容量/同時ダウンロード、全添付種別の閲覧UI、他のCDN/サーバー直配信経路を証明しない。この対策の実環境検証が終わるまでF05/Q04は公開阻害事項として残す。
+- 新規6件をカバレッジ取得付きで再確認し成功（0.716秒）。新しいダウンロードビューの実行対象行はすべて実行され、`tableno/media_views.py` は12/12行。既存の一覧/削除を含むattachment_views全体は45/69行であり、モジュール全体/分岐100%ではない。証跡 `tmp/handout-download-coverage.json` / `tmp/handout-download-coverage.log`。変更PythonのBlack/isort/flake8確認が成功し、新しいUI文言はない。差分レビューで追加の修正事項は見つからなかった。

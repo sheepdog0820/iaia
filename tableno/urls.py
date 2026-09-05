@@ -15,8 +15,9 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+from urllib.parse import urlsplit
+
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth.decorators import login_not_required, login_required
 from django.urls import include, path
@@ -90,6 +91,7 @@ from tableno.legal_views import (
     privacy_view,
     terms_view,
 )
+from tableno.media_views import serve_media
 
 urlpatterns = [
     path("api/integrations/", include("support.urls")),
@@ -335,6 +337,11 @@ urlpatterns = [
     path("", TemplateView.as_view(template_name="home.html"), name="home"),
 ]
 
-# Serve uploaded media in non-production environments (local dev) even if DEBUG is false.
-if settings.DEBUG or getattr(settings, "ENVIRONMENT", "development") != "production":
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Normalize and authorize private paths before any development static serving.
+urlpatterns += [
+    path(
+        f"{urlsplit(settings.MEDIA_URL).path.lstrip('/')}<path:path>",
+        serve_media,
+        name="handout_attachment_legacy_download",
+    ),
+]

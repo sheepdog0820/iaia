@@ -360,6 +360,7 @@ class HandoutAttachmentSerializer(serializers.ModelSerializer):
     """ハンドアウト添付ファイルシリアライザー"""
 
     uploaded_by_detail = PublicUserSerializer(source="uploaded_by", read_only=True)
+    file = serializers.SerializerMethodField(method_name="get_file_url")
     file_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -397,8 +398,8 @@ class HandoutAttachmentSerializer(serializers.ModelSerializer):
             return None
         request = self.context.get("request")
         if request:
-            return request.build_absolute_uri(obj.file.url)
-        return obj.file.url
+            return request.build_absolute_uri(obj.get_download_url())
+        return obj.get_download_url()
 
 
 class TRPGSessionSerializer(serializers.ModelSerializer):

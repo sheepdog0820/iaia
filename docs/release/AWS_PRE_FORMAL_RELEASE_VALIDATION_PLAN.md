@@ -55,3 +55,19 @@
 2026-09-05、専用SQLiteとPostgreSQL 16の両方で0054→0055の更新と逆移行を検証した。単一ロールは主キー・参加者参照・ロールを保持して往復できる。複数ロールを作成した後の逆移行はIntegrityErrorで停止し、2ロールのデータと0055の適用履歴が保持される。同じ参加者への同じロールの重複も拒否される。
 
 各DBで2テスト・2サブテストが成功。これはコードの移行特性の証拠であり、共有DBの履歴・スキーマ・バックアップ/復元を確認した結果ではない。複数ロールが存在するDBでの逆移行を承認する根拠にはしない。
+
+## 秘匿HO添付の直接配信対策（公開を妨げる未完了事項）
+
+2026-09-05、ローカルで添付一覧の認可を迂回する直接URLの取得を再現した。APIの `file` / `file_url` とモデルのダウンロードURLを認可付きAPIへ変更し、Djangoの旧メディアURLも正規化後に同じ認可を通す修正を用意した。DB・ファイルの移動は不要。添付は都度S3等のstorageからアプリ経由で取得するため、最大100MBの添付と同時ダウンロードの負荷・タイムアウトは実環境で検証する。
+
+Terraformの変更対象は `aws_s3_bucket_policy.assets`。対象CloudFrontサービスによる `handouts/*` と `*/handouts/*` のGetObjectを明示的に拒否する。ECSのstorageアクセス権限は維持する案であり、実際のTask Role/KMS・メディアlocationとの照合が必要。`terraform fmt -check` / `validate` は成功したが、plan/applyと実際の拒否確認は未実施。[AWSの明示的拒否の評価](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html)
+
+承認依頼を具体化する際は、次を一体の変更として提示する。
+
+1. 現行バケット、CloudFront distribution、MEDIA location、アプリ候補digest、S3読取権限を値を秘匿して照合し、無関係な変更を含まないTerraform planを保存する。
+2. 認可付きダウンロードのアプリ反映、S3ポリシーの拒否、旧添付URLのCloudFront invalidationを実施する順序・時間・費用上限を決める。拒否を先に適用すると旧アプリの添付が一時利用できなくなる点も承認案に含める。
+3. 対象の既存キャッシュを失効させ、完了後に未ログイン・別PLの旧CloudFront URLが内容を返さないことを確認する。オリジン拒否だけでキャッシュ済み内容が消えるとは扱わない。[AWS CloudFront invalidation](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html)
+4. 通常GM/対象PLの新APIが成功し、対象変更後の旧PLが拒否されること、直接S3・別CDN・nginx alias等の迂回経路がないことを確認する。過去に取得済みのブラウザ内コピーを回収できるとは扱わない。
+5. 問題時も公開GetObjectへ戻すことで復旧扱いにしない。添付の一時停止と認可を維持する前進修正を優先し、旧アプリへの切戻し時の添付利用制限を明示する。
+
+この構成は未適用であり、実環境の漏えい発生を確認したという意味でもない。実ファイルの無断取得による検証や、ポリシー変更・invalidationは行っていない。

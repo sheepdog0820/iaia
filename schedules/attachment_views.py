@@ -6,7 +6,11 @@
 - DELETE   /api/schedules/attachments/<pk>/
 """
 
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
+from django.utils.cache import patch_vary_headers
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -21,6 +25,32 @@ from schedules.serializers import HandoutAttachmentSerializer
 
 def _user_can_view_handout(handout: HandoutInfo, user) -> bool:
     return can_view_handout(handout, user)
+
+
+@method_decorator(never_cache, name="dispatch")
+class HandoutAttachmentDownloadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk=None, path=None):
+        lookup = {"pk": pk} if pk is not None else {"file": f"handouts/{path}"}
+        attachment = get_object_or_404(
+            HandoutAttachment.objects.select_related("handout__session", "handout__participant"), **lookup
+        )
+        if not can_view_handout(attachment.handout, request.user) or not attachment.file:
+            raise Http404
+        try:
+            handle = attachment.file.open("rb")
+        except FileNotFoundError:
+            raise Http404 from None
+        response = FileResponse(
+            handle,
+            as_attachment=True,
+            filename=attachment.original_filename,
+            content_type="application/octet-stream",
+        )
+        response["X-Content-Type-Options"] = "nosniff"
+        patch_vary_headers(response, ("Cookie", "Authorization"))
+        return response
 
 
 class HandoutAttachmentListCreateView(APIView):

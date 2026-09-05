@@ -1248,7 +1248,9 @@ class HandoutAttachment(models.Model):
     def get_download_url(self):
         """ダウンロードURL取得"""
         if self.file:
-            return self.file.url
+            from django.urls import reverse
+
+            return reverse("handout_attachment_download", kwargs={"pk": self.pk})
         return None
 
     def get_file_size_display(self):
