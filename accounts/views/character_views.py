@@ -2353,6 +2353,7 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
                 skill_model = detail.skills.model
                 updated_skills = []
                 created_skills = []
+                existing_skills = {}
                 for item_index, skill_data in enumerate(skills_data, start=1):
                     if not isinstance(skill_data, Mapping):
                         raise ValueError("Invalid skill object")
@@ -2364,6 +2365,23 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
                             skill = skill_model.objects.get(id=skill_id, character_sheet=detail)
                         except skill_model.DoesNotExist:
                             raise ValueError("Unknown skill") from None
+                        existing_skills[int(skill_id)] = skill
+                    else:
+                        skill_name = skill_data.get("skill_name")
+                        if not isinstance(skill_name, str) or not skill_name.strip():
+                            raise ValueError("Missing skill name")
+
+                # Release this batch's allocations only inside the transaction.
+                # Keep original values in memory so omitted fields survive PATCH.
+                # Normal model validation checks each allocation as it is restored;
+                # any invalid final total rolls the entire transaction back.
+                skill_model.objects.filter(character_sheet=detail, pk__in=existing_skills).update(
+                    occupation_points=0, interest_points=0
+                )
+                for item_index, skill_data in enumerate(skills_data, start=1):
+                    skill_id = skill_data.get("id")
+                    if skill_id is not None:
+                        skill = existing_skills[int(skill_id)]
                         for field in (
                             "base_value",
                             "occupation_points",
@@ -2377,8 +2395,6 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
                         updated_skills.append(skill)
                     else:
                         skill_name = skill_data.get("skill_name")
-                        if not isinstance(skill_name, str) or not skill_name.strip():
-                            raise ValueError("Missing skill name")
                         skill = skill_model.create_custom_skill(
                             character_sheet=detail,
                             skill_name=skill_name.strip(),

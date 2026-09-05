@@ -14,7 +14,9 @@ class SkillBulkAtomicityTests(APITestCase):
         self.client.force_authenticate(self.user)
 
     def character(self, edition):
-        return create_character_with_system_data(user=self.user, edition=edition, name="一括技能テスト")
+        return create_character_with_system_data(
+            user=self.user, edition=edition, name="一括技能テスト", edu_value=10, int_value=10
+        )
 
     def submit(self, registry, skills):
         return self.client.patch(
@@ -57,6 +59,80 @@ class SkillBulkAtomicityTests(APITestCase):
                 skill.refresh_from_db()
                 self.assertEqual(skill.current_value, 15)
                 self.assertEqual(detail.skills.get(skill_name="新規技能").current_value, 10)
+
+    def test_full_budget_can_be_redistributed_between_skills(self):
+        for edition in ("6th", "7th"):
+            with self.subTest(edition=edition):
+                registry, detail = self.character(edition)
+                occupation = detail.calculate_occupation_points()
+                interest = detail.calculate_hobby_points()
+                self.assertGreater(occupation, 0)
+                self.assertGreater(interest, 0)
+                first = detail.skills.create(skill_name="職業割当", occupation_points=occupation)
+                second = detail.skills.create(skill_name="趣味割当", interest_points=interest)
+                response = self.submit(
+                    registry,
+                    [
+                        {"id": first.pk, "occupation_points": 0, "interest_points": interest},
+                        {"id": second.pk, "occupation_points": occupation, "interest_points": 0},
+                    ],
+                )
+                self.assertEqual(response.status_code, 200)
+                first.refresh_from_db()
+                second.refresh_from_db()
+                self.assertEqual((first.occupation_points, first.interest_points), (0, interest))
+                self.assertEqual((second.occupation_points, second.interest_points), (occupation, 0))
+
+    def test_creation_can_use_points_released_by_a_later_update(self):
+        for edition in ("6th", "7th"):
+            with self.subTest(edition=edition):
+                registry, detail = self.character(edition)
+                quota = detail.calculate_occupation_points()
+                skill = detail.skills.create(skill_name="既存技能", occupation_points=quota, interest_points=3)
+                response = self.submit(
+                    registry,
+                    [
+                        {"skill_name": "新規技能", "occupation_points": 5},
+                        {"id": skill.pk, "occupation_points": quota - 5},
+                    ],
+                )
+                self.assertEqual(response.status_code, 200)
+                skill.refresh_from_db()
+                self.assertEqual((skill.occupation_points, skill.interest_points), (quota - 5, 3))
+                self.assertEqual(detail.skills.get(skill_name="新規技能").occupation_points, 5)
+
+    def test_final_total_over_budget_rolls_back_including_untouched_skills(self):
+        for edition in ("6th", "7th"):
+            for field, quota_method in (
+                ("occupation_points", "calculate_occupation_points"),
+                ("interest_points", "calculate_hobby_points"),
+            ):
+                with self.subTest(edition=edition, field=field):
+                    registry, detail = self.character(edition)
+                    quota = getattr(detail, quota_method)()
+                    untouched = detail.skills.create(skill_name="未編集技能", **{field: quota - 5})
+                    skill = detail.skills.create(skill_name="編集技能", **{field: 5})
+                    response = self.submit(
+                        registry,
+                        [
+                            {"id": skill.pk, field: 4},
+                            {"skill_name": "上限超過技能", field: 2},
+                        ],
+                    )
+                    self.assertEqual(response.status_code, 400)
+                    skill.refresh_from_db()
+                    untouched.refresh_from_db()
+                    self.assertEqual(getattr(skill, field), 5)
+                    self.assertEqual(getattr(untouched, field), quota - 5)
+                    self.assertFalse(detail.skills.filter(skill_name="上限超過技能").exists())
+
+    def test_repeated_skill_id_keeps_prior_patch_and_omitted_points(self):
+        registry, detail = self.character("6th")
+        skill = detail.skills.create(skill_name="既存技能", occupation_points=5, interest_points=3)
+        response = self.submit(registry, [{"id": skill.pk, "base_value": 10}, {"id": str(skill.pk), "bonus_points": 2}])
+        self.assertEqual(response.status_code, 200)
+        skill.refresh_from_db()
+        self.assertEqual((skill.occupation_points, skill.interest_points, skill.current_value), (5, 3, 20))
 
     def test_malformed_payloads_are_rejected_without_changes(self):
         registry, detail = self.character("6th")
