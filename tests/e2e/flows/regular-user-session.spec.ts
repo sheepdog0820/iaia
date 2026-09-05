@@ -30,6 +30,24 @@ test('group invitation displays stored markup safely and can be accepted', async
       return (await (window as any).axios.post(`/api/accounts/groups/${id}/invite/`, { username, message })).data;
     }, { id: group.id, username: `release_recipient_${suffix}`, message: markup });
     expect(invitation.status).toBe('pending');
+    await recipient.goto('/api/schedules/notifications/view/');
+    const notification = recipient.locator('[data-notification-id]', { hasText: '【グループ招待】' });
+    await expect(notification).toBeVisible();
+    await expect(notification.locator('.notification-message')).toContainText(`${markup}さんから招待が届いています。`);
+    await expect(notification.locator('.notification-message')).toContainText(`グループ: ${markup}`);
+    await expect(notification.locator('.notification-message')).toContainText(`メッセージ: ${markup}`);
+    await expect(notification.locator('img')).toHaveCount(0);
+    expect(await recipient.evaluate(() => (window as any).__inviteXss)).toBeUndefined();
+    const notificationId = await notification.getAttribute('data-notification-id');
+    const [marked] = await Promise.all([
+      recipient.waitForResponse(response => new URL(response.url()).pathname === `/api/schedules/notifications/${notificationId}/mark_read/` && response.request().method() === 'PATCH'),
+      notification.locator('[data-action="mark-read"]').click(),
+    ]);
+    expect(marked.status()).toBe(200);
+    await expect(notification.locator('[data-action="mark-read"]')).toHaveCount(0);
+    const savedNotification = await recipient.request.get(`/api/schedules/notifications/${notificationId}/`);
+    expect(savedNotification.status()).toBe(200);
+    expect((await savedNotification.json()).is_read).toBe(true);
     await recipient.goto('/accounts/groups/view/?show_test_data=1');
     const item = recipient.locator('.invitation-item');
     await expect(item).toBeVisible();
