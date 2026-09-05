@@ -175,3 +175,8 @@
 | schedules/test_session_visibility.py | 20, 25, 30 | 3 |
 | schedules/test_youtube_links.py | 27, 31, 184, 188, 192, 196, 600, 745, 749, 753 | 10 |
 | schedules/tests.py | 19, 22 | 2 |
+## 権限応答修正後の0cd9fe45での再解析
+
+Bandit1.9.4でaccounts/api/scenarios/schedules/support/tablenoを再帰解析した。解析エラー0、HIGH/MEDIUM 0、LOW556、終了コード1。ファイルパスの区切りと先頭の./を正規化し、ファイル・指摘ID・本文の多重集合を7cdd7cf8と比較して追加0・削除0だった。新しいグループAPIキャッシュ禁止処理を含むソースの結果であり、過去の検出件数を流用したものではない。
+
+証跡はtmp/bandit-0cd9fe45-apps.jsonとtmp/bandit-0cd9fe45-run.log。テスト側319件の用途判定・未判定159件を維持する。指摘の差分なしは、全経路の安全性や実サービスでの保護を証明しない。コードと警告抑制の変更は行っていない。
