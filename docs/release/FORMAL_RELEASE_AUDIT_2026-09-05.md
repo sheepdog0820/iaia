@@ -363,3 +363,10 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 6版/7版とも共通IDと詳細IDを意図的に分け、失敗ログへ共通ID・詳細ID・技能IDが正確に入ることを確認した。0ea0e747の固定依存イメージへ変更view/テスト2ファイルを読み取り専用で適用し、最終版の関連24件はSQLiteで成功（30.82秒）、PostgreSQL 16で成功（18.10秒）。`tmp/character-id-sqlite-final.log`、`tmp/character-id-postgres-accounts.log`、`tmp/formal-release-0ea0e747-full-output/character-id-accounts-junit.xml`。
 - PostgreSQLの最終成功実行はCIと同じ `--cov=accounts` 指定で、同ディレクトリの `character-id-accounts-coverage.json` にログ変更行の実行を保存した。先行して `--cov=accounts.views.character_views` とモジュールを直接指定した実行では14件が接続終了等で失敗し、別の最小試験でもDRFスキーマ初期化エラーになった。`tmp/character-id-postgres-final.log` / `tmp/character-id-connection-probe.log`。これらを成功扱いにしない。[Coverage.py公式説明](https://coverage.readthedocs.io/en/7.14.1/source.html)では、計測対象のモジュールが先行・重複インポートされる副作用を説明しており、今回の指定差による初期化異常もこの影響と考えられる。内部原因の完全な証明ではない。
 - Black/isort/flake8と差分を確認し、アプリ画面の文言・保存ルールの変更なし。専用PostgreSQLコンテナとネットワークを削除した。残る一覧serializer比較の不一致と、修正群をまとめたPostgreSQL全体確認は未完了。
+
+## 継続監査: セッション参加者配列の安定した順序（2026-09-05）
+
+- PostgreSQL全体で失敗した一覧/詳細比較は、participantsとparticipants_detailがDB取得順のまま返るため、prefetchの有無で順序が変わるケースだった。逆順のprefetchを渡す回帰テストを追加し、SQLiteでも両フィールドのID順判定が失敗した。`tmp/participant-order-red.log`（2 subtests失敗）。
+- serializerで参加者を主キー順に並べ、両フィールドから同じ処理を使う。prefetch済みデータを再利用し、取得済みキャッシュを変更しない。participants側のキャラクター詳細展開とparticipants_detail側の元の形式を維持し、後者のOpenAPI定義も元の参加者serializerの配列として明示した。
+- 0ea0e747固定依存イメージへ変更serializer/テストを読み取り専用適用し、一覧・詳細の一致、owner/manager/gm別の秘匿HO、ユーザー/ゲスト/キャラクター付き参加者、件数増加に対するクエリ数の検証を実行。PostgreSQLは4件・10 subtests成功（31.08秒）、SQLiteも4件・10 subtests成功（17.72秒）。`tmp/participant-order-postgres.log` / `tmp/participant-order-sqlite.log`、`tmp/formal-release-0ea0e747-full-output/participant-order-junit.xml` / `participant-order-coverage.json`。
+- Black/isort/flake8、差分を確認し、専用DBコンテナとネットワークを削除した。前回PostgreSQL全体の失敗は原因別の関連テストで修正確認できたが、修正群をまとめた全体成功はまだ証明していない。実環境の変更なし。

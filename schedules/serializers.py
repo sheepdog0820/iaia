@@ -417,7 +417,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
     scenario = serializers.PrimaryKeyRelatedField(queryset=Scenario.objects.all(), required=False, allow_null=True)
     scenario_detail = serializers.SerializerMethodField()
     participants = serializers.SerializerMethodField()
-    participants_detail = SessionParticipantSerializer(source="sessionparticipant_set", many=True, read_only=True)
+    participants_detail = serializers.SerializerMethodField()
     handouts_detail = serializers.SerializerMethodField()
     images_detail = SessionImageSerializer(source="images", many=True, read_only=True)
     youtube_links_detail = SessionYouTubeLinkSerializer(source="youtube_links", many=True, read_only=True)
@@ -469,6 +469,11 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
             "max_players",
         ]
         read_only_fields = ["id", "gm", "created_by", "created_at", "updated_at"]
+
+    @extend_schema_field(SessionParticipantSerializer(many=True))
+    def get_participants_detail(self, obj):
+        participants = sorted(obj.sessionparticipant_set.all(), key=lambda participant: participant.pk)
+        return SessionParticipantSerializer(participants, many=True, context=self.context).data
 
     @extend_schema_field(HandoutInfoSerializer(many=True))
     def get_handouts_detail(self, instance):
@@ -530,11 +535,7 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_participants(self, obj):
-        participants = SessionParticipantSerializer(
-            obj.sessionparticipant_set.all(),
-            many=True,
-            context=self.context,
-        ).data
+        participants = self.get_participants_detail(obj)
         for participant in participants:
             detail = participant.get("character_sheet_detail")
             if detail:

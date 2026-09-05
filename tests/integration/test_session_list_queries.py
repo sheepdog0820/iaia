@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import connection
+from django.db.models import Prefetch
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient, APIRequestFactory
@@ -124,3 +125,17 @@ class SessionListQueryTests(TestCase):
                     TRPGSession.objects.get(pk=session.pk), context={"request": request}
                 ).data
                 self.assertEqual(rows[0], expected)
+
+    def test_participant_order_is_stable_with_reversed_prefetch(self):
+        session = self.make_session(True)
+        SessionParticipant.objects.create(session=session, user=self.outsider)
+        expected_ids = list(session.sessionparticipant_set.order_by("pk").values_list("pk", flat=True))
+        cached = TRPGSession.objects.prefetch_related(
+            Prefetch("sessionparticipant_set", queryset=SessionParticipant.objects.order_by("-pk"))
+        ).get(pk=session.pk)
+        request = APIRequestFactory().get("/api/schedules/sessions/?period=all")
+        request.user = self.owner
+        data = TRPGSessionSerializer(cached, context={"request": request}).data
+        for field in ("participants", "participants_detail"):
+            with self.subTest(field=field):
+                self.assertEqual([row["id"] for row in data[field]], expected_ids)
