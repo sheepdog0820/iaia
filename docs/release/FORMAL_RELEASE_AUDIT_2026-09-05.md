@@ -662,3 +662,11 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 初回の再現スクリプトも修正した0055を読み取り専用マウントして再実行成功。専用PostgreSQL16で旧構造から全leaf migrationsまで移行し、6版/7版計4件、日本語メモ・秘匿情報・HP/SAN・版・所有者・親子関係の一致、旧列不在、未適用移行0を確認。
 - 証跡: tmp/registry-migration-pg-red.log、tmp/registry-migration-pg-green.log、tmp/registry-migration-sqlite-green.log、tmp/postgres-registry-upgrade-fixed.log。使用した基底イメージは77b10ded固定で、変更ファイルのみマウント。専用DB2台とネットワークは削除済み。
 - Black/isort/flake8とソース差分を確認し追加指摘なし。UI文言変更なし。共有環境・実データ・権限・費用は未変更。復旧はアプリ変更のrevertと事前バックアップ方針に従い、既存の一方向移行を逆に実行しない。77b10dedの全体テストはこの修正を含まず、修正後全体・実環境移行・ロールバックは未検証。正式公開No-Goを維持する。
+
+## 77b10ded全体結果とf692b994全体検証開始
+
+- 77b10dedの既存handle79521/97010は双方終了コード0。SQLite1639成功・7skip・440 subtests、86.99%、1248.97秒。PostgreSQL1646成功・skipなし・440 subtests、87.43%、1274.06秒。JUnitは双方2086件、failures/errors 0。SQLiteでskipの行ロック7件がPostgreSQLでは全て成功したことと、技能E2E成功を個別照合。
+- 8f855617以降の一覧コードの追加実行可能行をgit diffとPostgreSQL coverage JSONで照合。accounts/serializers25行、accounts/views/character_views3行、scenarios/serializers4行、scenarios/views6行に未通過行なし。行カバレッジであり分岐網羅や全セキュリティ条件の証明ではない。性能ツールや今回の移行修正の範囲を含めた100%主張はしない。
+- 出力tmp/formal-release-77b10ded-full-output。旧実行用PostgreSQL/tmpfsとinternalネットワークは削除済み。この全体成功にはf692b994のデータ入りPostgreSQL移行修正が含まれない。
+- 作業ツリーがクリーンなf692b994eb66d01b9c617577c3b7b6453664db95のgit archiveからテストイメージを作成。tableno-formal-release-test:f692b994-browser、sha256:020f2cda8cf566d6a6ade624eeeafbd55d586fae3df8a93d3d17e71a5f37c642、revisionラベル一致。SQLite handle26676、PostgreSQL handle51390で従来と同じ全体対象を開始。SQLite network none、PG16専用tmpfs/internalネットワーク、既存プロセスの再起動ではない。
+- 実行スクリプトtmp/run-full-f692b994.ps1、出力tmp/formal-release-f692b994-full-output、ビルドログtmp/formal-release-f692b994-test-build.log。開始と稼働を確認し終了結果は未取得。共有環境・実データ・権限・費用の変更なし。正式公開No-Goを維持する。
