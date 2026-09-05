@@ -293,7 +293,7 @@ def twitter_auth(request):
         )
 
         if token_response.status_code != 200:
-            logger.error(f"X OAuthトークン取得失敗: {token_response.text}")
+            logger.error("X OAuthトークン取得失敗 (HTTP %s)", token_response.status_code)
             return Response({"error": "認証コードの処理に失敗しました。"}, status=status.HTTP_400_BAD_REQUEST)
 
         token_data = token_response.json()
@@ -309,7 +309,7 @@ def twitter_auth(request):
         )
 
         if user_response.status_code != 200:
-            logger.error(f"X OAuthユーザー取得失敗: {user_response.text}")
+            logger.error("X OAuthユーザー取得失敗 (HTTP %s)", user_response.status_code)
             return Response({"error": "ユーザー情報の取得に失敗しました。"}, status=status.HTTP_400_BAD_REQUEST)
 
         user_data = user_response.json().get("data") or {}
@@ -366,9 +366,9 @@ def twitter_auth(request):
             status=status.HTTP_200_OK,
         )
     except Exception as e:
-        logger.error(f"X OAuth認証エラー: {e}")
+        logger.error("X OAuth認証エラー (%s)", type(e).__name__)
         return Response(
-            {"error": "認証処理中にエラーが発生しました", "detail": str(e)},
+            {"error": "認証処理中にエラーが発生しました"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
@@ -425,7 +425,7 @@ def discord_auth(request):
             )
 
             if token_response.status_code != 200:
-                logger.error(f"Discord OAuthトークン取得失敗: {token_response.text}")
+                logger.error("Discord OAuthトークン取得失敗 (HTTP %s)", token_response.status_code)
                 return Response({"error": "認証コードの処理に失敗しました。"}, status=status.HTTP_400_BAD_REQUEST)
 
             token_data = token_response.json()
@@ -442,7 +442,7 @@ def discord_auth(request):
         )
 
         if user_response.status_code != 200:
-            logger.error(f"Discord OAuthユーザー取得失敗: {user_response.text}")
+            logger.error("Discord OAuthユーザー取得失敗 (HTTP %s)", user_response.status_code)
             return Response({"error": "ユーザー情報の取得に失敗しました。"}, status=status.HTTP_400_BAD_REQUEST)
 
         user_data = user_response.json()
@@ -524,8 +524,8 @@ def discord_auth(request):
         )
 
     except Exception as e:
-        logger.error(f"Discord OAuth認証エラー: {e}")
+        logger.error("Discord OAuth認証エラー (%s)", type(e).__name__)
         return Response(
-            {"error": "認証処理中にエラーが発生しました", "detail": str(e)},
+            {"error": "認証処理中にエラーが発生しました"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )

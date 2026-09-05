@@ -460,3 +460,11 @@ JUnit XMLとBandit JSONはローカルの `tmp/formal-release-*-20260905.*` に�
 - 前回はGoogle固定ID修正・pushと実行結果があり、進捗あり。現在のca90f687と差分なしを確認して追加監査を開始した。
 - ブラウザ登録でSocialAccount保存失敗後に利用者だけ残ることを隔離テストで再現。アダプターの登録保存を原子的にし、IntegrityError時は全体を取り消して再ログインを案内する修正を実施した。
 - PostgreSQLの実2接続による同時初回登録・再試行を含む認証関連86件と28 subtestsが成功。範囲と証跡は[Google修正記録](GOOGLE_IDENTITY_REMEDIATION.md)を参照。実サービスの検証と全体候補の確認は未完了、正式公開No-Goを維持する。
+
+## 継続監査: 認証エラーのログと応答への情報露出
+
+- b56a3198で作業差分がないことを確認し、全体SQLite/PostgreSQLの既存handle 46678/10387を再確認した。両実行は稼働中で、今回のログ修正はその対象外。全体実行を再起動していない。
+- CustomSocialAccountAdapterのエラー記録は、state、未知のGETパラメーター、Cookie/セッションキーの末尾、例外本文/tracebackを含んでいた。模擬の認証情報を入れた2テストが旧実装で失敗した（tmp/auth-error-logging-red.log）。連携先をgoogle/discord/twitter_oauth2、エラー分類をunknown/cancelled/deniedに制限し、例外型だけを記録するよう修正した。要求ヘッダー・パラメーター・Cookie・例外本文は読んでログに渡さない。
+- X/Discord APIも外部エラー応答の本文と内部例外本文をログに出し、500応答のdetailに例外本文を含めていた。両providerのトークン交換・利用者取得・内部例外の6 subtestsで再現（tmp/provider-error-logging-red.log）。HTTPステータス/例外型に記録を限定し、利用者には既存の日本語errorのみを返すよう修正した。
+- b56a3198の固定テストイメージへ変更ファイルを読み取り専用で載せた隔離SQLiteで、認証ログ・ブラウザGoogle・Google/X/Discord API・連携判定の46件、24 subtests成功、9件の既存警告。tmp/provider-error-logging-green.log / tmp/auth-error-logging-coverage.json。新しいon_authentication_errorの実行行はすべてカバーした。DB変更を含まないためこの変更のPostgreSQL再実行は行っていない。
+- 実OAuth、実ログの内容調査、過去ログの削除、実ユーザー/共有環境への変更は行っていない。過去の実ログに認証情報が記録されていたかは未確認。今回の対象はアプリの認証エラー処理であり、基盤のアクセスログやサービス全体の秘匿情報監査の完了を示すものではない。Q04は引き続き未達。
