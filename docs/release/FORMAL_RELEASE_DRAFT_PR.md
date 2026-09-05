@@ -15,7 +15,7 @@ Base: main / Head: codex/delegated-workflow-rules / Draft: true
 検証:
 - 77b10dedの固定ソースでSQLite/PostgreSQL全体テストを実行中。終了結果は未取得。直前の8f855617ではSQLite1631成功/7skip、PostgreSQL1638成功/skipなし、双方437 subtestsで終了したが、後続の一覧改善の全体合格証拠には流用しない。
 - b6e58ebdの配備用イメージ（77b10dedとは文書のみ差分）で隔離PostgreSQL16/Redis7、全移行・静的183件収集・通常起動・一覧HTTP200を確認。隔離HTTP用設定でcheck --deployはW008を1件報告。実TLSや配備設定の合格証拠とはしない。
-- d572a618のBanditは解析エラー0、HIGH/MEDIUM 0、LOW556。個別分類と残作業を文書化。後続変更の再解析は未実施。
+- 77b10dedのBanditは解析エラー0、HIGH/MEDIUM 0、LOW556。テスト内Node実行の9指摘を個別確認し、用途と制約を記録。残る静的指摘・実配送経路の確認は未完了。
 - 一覧改善はPostgreSQLで関連119件・14 subtests成功。キャラクターの画像取得・最新版集計、シナリオの関連取得を一括化。同時要求10のローカルp95はキャラクター4.25→1.59秒、シナリオ3.18→0.91秒、セッション0.68→0.80秒。測定180要求は全て200。合意済み性能基準や実AWSの合格ではない。
 - 詳細: docs/release/FORMAL_RELEASE_AUDIT_2026-09-05.md、FORMAL_RELEASE_ACCEPTANCE_MATRIX.md。
 
