@@ -15,6 +15,20 @@ async function signUp(page: Page, suffix: string): Promise<void> {
   ]);
 }
 
+test('calendar and session form initialize when the calendar CDN is unavailable', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.route('https://cdn.jsdelivr.net/npm/fullcalendar@*/**', route => route.abort());
+  await signUp(page, `calendar_${Date.now()}_${test.info().project.name}`);
+  await page.goto('/api/schedules/calendar/view/');
+  await expect(page.locator('#calendar .fc-view-harness')).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath('calendar-without-cdn.png'), fullPage: true });
+  await page.click('button[data-bs-target="#newSessionModal"]');
+  await expect(page.locator('#newSessionModal')).toBeVisible();
+  await expect(page.locator('#sessionGroup option').first()).toHaveText('グループなし（個別セッション）');
+  expect(errors).toEqual([]);
+});
+
 test('registered owner creates a private group and completes a session; outsider cannot read it', async ({ page, browser }) => {
   const suffix = `${Date.now()}_${test.info().project.name}`;
   const errors: string[] = [];

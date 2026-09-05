@@ -844,3 +844,13 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - SQLiteでskipした10件を名前でPG JUnitと照合し全て成功。既存のGoogle/OAuth/ゲストclaim/報酬7件に、新しい招待同時参加3件を加えた行ロック検証。コメント順序と既存キャラクターデータ移行テストの成功も照合した。error_reporting全実行行を両DBで通過。serverのCLI起動行は全体coverage外であり、既述の通常起動/HTTP検証で別途確認している。
 - 全体テスト終了後に専用PGコンテナ/internalネットワークを削除。SQLite/PGテストコンテナは--rmで終了済み。最新候補資料・受け入れ表・Draft PR文案へ結果を反映。596bcd4c以降の変更は検証文書のみで、異なるSHAのコード全体成功と混同しない。
 - 認証・課金・主要機能のローカル全体検証は進んだが、リモートCI、料金/有料範囲の判断、実Stripe/OAuth/配送、承認を要するストレージ/CDN・共有環境、実復元/RPO/RTO・合意性能の検証は未完了。正式公開No-Goを維持する。
+
+## カレンダーのCDN障害によるセッション作成停止を修正
+
+- 596bcd4cの通常利用者E2Eを外部ネットワークなしの使い捨てコンテナで実行し、グループ選択肢が読み込まれない失敗を検出。初回trixieイメージはPlaywright 1.53.1の対応OS外でWebKitを起動できず、環境不適合として分離した。bookworm構築の初回もaptの一時的なダウンロード失敗で終了し、終了確認後の再ビルドで成功した。
+- 対応OSの検証イメージtableno-e2e:596bcd4c-bookworm（sha256:161dce3fcf8fdaf5e90720a7f5189857f377061ad17662676cbb20cba9e19411）を使用。ソースは596bcd4c、Python 3.11、Node 20.20.2、npm lockのPlaywright 1.53.1。新しいCDN遮断回帰テストをマウントして修正前の2ケース×3ブラウザが全て失敗することを確認した。各traceでFullCalendar未定義エラーを確認。initCalendarが例外終了し、その後のloadGroupsやフォーム初期化が実行されない。
+- 従来のFullCalendar 6.1.9配布JSとMITライセンスをstatic/vendorへ同梱し、calendar.htmlをDjango static参照へ変更。npm配布のSHA-512/SHA-1を照合、同梱ファイルのSHA-256をREADMEに記録した。バージョン・業務ロジック・料金・DB・権限の変更はない。
+- 修正後のテンプレート・配布JS・テストのみを同じ検証イメージへ読み取り専用マウント。Chromium/Firefox/WebKitで計6件成功（1.3分、retryなし）。CDN遮断時のカレンダー/作成モーダル初期化、通常登録→非公開グループ→セッション作成→完了更新→再読込保存値、別ユーザーのAPI404/画面403、日本語エラー、モバイル403ボタン配置を確認した。両試験はnetwork noneで専用SQLiteを使用し、終了時コンテナごと破棄した。
+- node --check、git diff --check、collectstatic（186ファイル）成功。Chromiumの完了画面画像で完了・グループ内・2時間を確認。外部Font Awesome遮断時にアイコン専用ボタンが空白になる既存の問題も目視で検出し、別修正の対象として残す。
+- カレンダー画面のスクリーンショット記録を追加後、該当3ブラウザケースを再実行して3件成功（38.8秒）。tmp/browser-fullcalendar-visual-outputに記録し、Chromium画像で月表示と作成導線を目視確認した。
+- 証跡: tmp/browser-596bcd4c-bookworm-red.logと同名-output配下のtrace（6失敗）、tmp/browser-fullcalendar-green.logと同名-output配下のJSON/画面（6成功）、tmp/fullcalendar-collectstatic.log。修正後全体テスト・本番イメージ再構築・実環境/CDN配信は未実施。直前596bcd4cの両DB全体成功を、この修正を含む全体成功とは扱わない。
