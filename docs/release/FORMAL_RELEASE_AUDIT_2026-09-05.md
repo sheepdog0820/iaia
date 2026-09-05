@@ -1075,3 +1075,8 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - 専用internalネットワーク・空PG16/tmpfs・Redis7、架空のaws-prod設定とS3非利用構成で通常entrypointを実行。移行成功、静的199件収集/571件後処理、Daphne起動に成功。pip check/check --deploy指摘なし。
 - コンテナ内からHost=tableno.jpとX-Forwarded-Proto=httpsを付けてHTTP検証。readiness/登録画面200、登録画面static5件が200/gzip、vendor8件のハッシュ付きURLが200・ファイル内容一致、CSS/JSはgzip展開後の内容一致。tmp/static-runtime-704c6f06-http.log、同-server.log、同-deploy-check.logに記録した。
 - 検証後に専用app/PG/Redisコンテナとネットワークを破棄。ECRへの送信や配備は行っていない。実TLS、S3/CDN、既存実データの移行/復元、実連携を確認した結果ではない。同候補の両DB全体テストは別の専用環境で継続中。正式公開No-Goを維持する。
+## 固定候補704c6f06の全体検証完了
+
+- 開始済みのSQLite/PostgreSQL全体テストが双方終了コード0で完了した。SQLite1665成功・10skip・86.94%（1338.51秒）、PostgreSQL1675成功・skipなし・87.51%（1371.05秒）。双方478 subtests・159 warnings、JUnit2153件、failure/error 0。SQLiteのskip10件をclass/nameでPG成功ケースへ照合した。
+- 証跡tmp/formal-release-704c6f06-full-outputの両run.log、JUnit、coverage。テストイメージIDは開始記録のsha256:8f3aaa2c143ea05d4f63de5baa2dd11e8dad851e6350629bdacf4aab5ba97dc3。全処理の終了を確認後、専用PG/tmpfsとinternalネットワークを破棄した。
+- 同じ固定候補の3ブラウザ33件と通常本番イメージ起動/HTTP配信も成功済み。704c6f06から本記録直前のHEADまで、アプリ・テスト・テンプレート・静的資産・Dockerfile/固定依存の差分なしを確認した。リモートCI、全E2Eファイル、実認証/決済/配送、実ストレージ/CDN、実復旧/性能の未達条件を解消した意味ではない。正式公開No-Goを維持する。
