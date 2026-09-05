@@ -148,6 +148,34 @@ test.describe('date poll flow', () => {
       expect(new Date(updatedSession.date).getTime()).toBe(new Date(polls[0].selected_date).getTime());
       await expect(page.locator('#datePollContainer')).toContainText('19:00');
       await expect(page.getByText('日時の入力・表示: 日本時間（Asia/Tokyo）')).toBeVisible();
+      for (const colorScheme of ['light', 'dark'] as const) {
+        await page.emulateMedia({ colorScheme });
+        const ratios = await page.locator('#datePollContainer tbody .text-muted').evaluateAll(elements => {
+          const rgb = (value: string) => (value.match(/[\d.]+/g) || []).map(Number);
+          const luminance = (color: number[]) => color.slice(0, 3).map(value => {
+            const normalized = value / 255;
+            return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+          }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+          return elements.map(element => {
+            const cell = element.closest('td')!;
+            const style = getComputedStyle(cell);
+            let background = rgb(style.backgroundColor);
+            const shadow = style.boxShadow.match(/rgba?\([^)]+\)/)?.[0];
+            if (shadow) {
+              const overlay = rgb(shadow);
+              const alpha = overlay[3] ?? 1;
+              background = background.map((value, index) => value * (1 - alpha) + overlay[index] * alpha);
+            }
+            const foregroundL = luminance(rgb(getComputedStyle(element).color));
+            const backgroundL = luminance(background);
+            return (Math.max(foregroundL, backgroundL) + 0.05) / (Math.min(foregroundL, backgroundL) + 0.05);
+          });
+        });
+        expect(ratios.length).toBeGreaterThanOrEqual(2);
+        for (const ratio of ratios) expect(ratio).toBeGreaterThanOrEqual(4.5);
+        await page.screenshot({ path: test.info().outputPath(`poll-${colorScheme}.png`), fullPage: true, animations: 'disabled' });
+      }
+      await page.emulateMedia({ colorScheme: 'light' });
       await page.screenshot({ path: test.info().outputPath('gm-confirmed-date.png'), fullPage: true });
     } finally {
       await playerContext.close();

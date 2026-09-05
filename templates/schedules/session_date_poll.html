@@ -5,6 +5,15 @@
 
 {% block extra_css %}
 <style>
+    .date-poll-options-table {
+        --bs-table-striped-bg: var(--sidebar-bg);
+        --bs-table-striped-color: var(--text-primary);
+    }
+
+    .date-poll-options-table .text-muted {
+        color: var(--text-secondary) !important;
+    }
+
     .date-poll-chat-wrap {
         background: #e9f2ff;
     }
@@ -599,7 +608,7 @@ async function loadDatePollSection() {
                     </td>
                     <td class="text-end">
                         <div class="d-flex justify-content-end gap-2 flex-wrap">
-                            <div class="btn-group btn-group-sm" role="group" aria-label="vote">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="参加可否の回答">
                                 ${voteButton('available', '◯', 'success')}
                                 ${voteButton('maybe', '△', 'warning')}
                                 ${voteButton('unavailable', '✕', 'danger')}
@@ -617,7 +626,7 @@ async function loadDatePollSection() {
 
         const optionsHtml = options.length ? `
             <div class="table-responsive">
-                <table class="table table-dark table-striped table-sm align-middle mb-0">
+                <table class="table date-poll-options-table table-striped table-sm align-middle mb-0">
                     <thead>
                         <tr>
                             <th style="min-width: 220px;">候補日</th>

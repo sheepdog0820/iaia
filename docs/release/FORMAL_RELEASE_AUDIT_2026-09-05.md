@@ -914,3 +914,10 @@ b56a3198全体実行はSQLite1,596成功・5skip・2失敗、PostgreSQL1,601成�
 - DatePollViewSet全体にnever_cacheを適用し、一覧・詳細・更新・認証拒否の応答にprivate/no-store/no-cacheを付与。投票内容・権限判定・DB更新処理は変更しない。ブラウザ等による保存・再利用を防ぎ、投票状況の更新を反映させる。
 - 回帰テスト追加後、修正前はキャッシュ指定欠落で4 assertion失敗。修正後は新規2件と関連20件の計22件成功。最新の配色修正と合わせたChromium/Firefox/WebKitの通常GM/PL日程調整3件も成功（1.1分）。明暗配色の変更ファイルは別コミットに分ける。
 - 証跡: tmp/browser-poll-contrast-green.log/同名-outputのFirefox trace（配色検証時の1失敗・2成功）、tmp/date-poll-cache-red.log、tmp/date-poll-cache-green.log、tmp/browser-poll-cache-contrast-green.log/同名-output（3成功）。外部ネットワークなし・使い捨てDBの検証。実環境反映、DB/実データ/費用/権限の変更なし。過去に保存された応答の削除や、他APIのキャッシュを保証する変更ではない。
+
+## 投票行の明暗テーマと補足文字の視認性を修正
+
+- table-darkによる背景と既存テーマのtext-mutedが混在し、未投票等の文字のコントラスト比が2.7939だった（tmp/browser-poll-contrast-red.log）。投票表に限定したクラスでテーマの行背景/主文字色を使い、補足文字をtext-secondaryへ変更。回答ボタングループのaria-labelも日本語にした。
+- 通常GM/PLの確定フローに、明暗両テーマで投票行の補足文字（未投票・投票詳細）の実computed styleとセル背景/stripedのshadow色から比率を算出する検証を追加。3ブラウザで各4.5以上を確認。スクリーンショットはテーマ切替の途中を撮らないようanimations=disabledで取得し、Chromiumの明暗画像を目視確認した。
+- APIキャッシュ修正後のtmp/browser-poll-cache-contrast-green.logと同名-outputで3件成功（1.1分）。候補作成・PL回答・GM確定・保存値/表示時刻一致も同時に確認。投票行以外の配色、無効ボタン、全画面/全状態のアクセシビリティ合格を示すものではない。暗色時のコメント空表示など、画面全体の追加点検は残る。
+- この修正はテンプレート・E2E・文書のみ。DB/権限/費用に変更なし。実環境反映なし。
