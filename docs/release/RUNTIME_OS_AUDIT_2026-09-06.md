@@ -6,7 +6,7 @@
 
 - イメージ: `tableno-formal-release:0b0cea6f`
 - イメージID: `sha256:5d2c113a6488c0c772f798b250ef45d59878ac110c9cef851e0a677a29cfedd1`
-- Docker Scout CLI: 1.5.0。実行時に1.24.0への更新案内あり。最新版による再評価は未実施。
+- 初回のDocker Scout CLIは1.5.0。下記のとおり1.24.0でも再評価した。
 - コマンド: `docker scout cves --only-package-type deb --format sarif --exit-code --output tmp/runtime-os-0b0cea6f.sarif.json local://tableno-formal-release:0b0cea6f`
 - 終了コード: 2。SBOMの索引366パッケージのうち、指摘されたソースパッケージ20、脆弱性ルール113件。
 - 重大度: High 1、Medium 1、Low 105、Unspecified 6。全ルールのfixed_versionはnot fixed。これは取得した監査情報の表示であり、すべての実行経路が脆弱という意味でも、リスクを受容できるという意味でもない。
@@ -21,7 +21,9 @@
 
 候補内のzlib1g/zlib1g-devは `1:1.3.dfsg+really1.3.1-1+b1`。PythonのZLIB_VERSIONとZLIB_RUNTIME_VERSIONはいずれも1.3.1。[Debian公開ソースのgzwrite.c](https://sources.debian.org/src/zlib/1%3A1.3.dfsg%2Breally1.3.1-1/gzwrite.c/)を取得したところ、gz_vacateは存在せずgzvprintfは存在した。取得ファイルは19,237バイト、SHA-256は `469b1e58932ea11bdda2a153f6655f7b3c13254240fae157181b49ed1bc93b47`、ローカル保存先は `tmp/debian-zlib-1.3.1-gzwrite.c`。
 
-以上は適用範囲に食い違いがある証拠であり、誤検知の確定ではない。Debianのパッチ一覧は取得に失敗しており、実バイナリと適用済みソースの照合は未完了。指摘を抑制せず、パッケージ提供元の判定更新と最終候補の再監査を公開前の残条件とする。
+以上は適用範囲に食い違いがある証拠であり、誤検知の確定ではない。初回に取得できなかったパッチ一覧は、後続で[Debianのseries](https://sources.debian.org/data/main/z/zlib/1%3A1.3.dfsg%2Breally1.3.1-1/debian/patches/series)を直接取得し、空ファイルと確認した。[debian/rules](https://sources.debian.org/data/main/z/zlib/1%3A1.3.dfsg%2Breally1.3.1-1/debian/rules)も取得し、build-stampはconfigure後にmakeを行い、パッチ適用処理の記述は見当たらなかった。rulesのSHA-256は `de5f6bf1daba3309b7ac352c2fc35330b02a703ae1b61d2d45973725783b06fc`。
+
+候補内の `dpkg --verify zlib1g` は終了0で、欠落したchangelog文書3件だけを表示し、ライブラリの変更は報告しなかった。ただしこれはバイナリの再現ビルド検証ではない。対象関数が含まれない可能性を裏付ける追加証拠として扱い、指摘は抑制しない。パッケージ提供元の判定更新と最終候補の再監査を公開前の残条件とする。
 
 ### Medium: CVE-2025-45582 / tar
 
@@ -36,6 +38,12 @@ Unspecified 6件はMariaDBソースパッケージに対応するCVE-2026-47023�
 Low 105件は個別の適用範囲・緩和策を未評価。Dockerfileではbuild-essentialなどのビルド依存も最終イメージに残る。ランタイムからの除去は改善候補だが、必要な共有ライブラリを壊さないビルド・起動・機能検証を伴う別の修正単位で扱う。件数を減らす目的だけでパッケージを削除しない。
 
 ## 影響と残条件
+
+### 現行スキャナーによる再評価
+
+[Docker公式の1.24.0リリース](https://github.com/docker/scout-cli/releases/tag/v1.24.0)からWindows amd64 ZIPを一時ディレクトリへ取得し、GitHub release APIのSHA-256 `1b7afb489e9224411fafe848eb5002cdc5c59a5cf2b77d6ccffcb44ffdf4f350` と一致を確認した。既存のDockerプラグインは置換せず、一時EXEを直接実行した。
+
+同じイメージ・同じdeb限定条件で再検査し、終了2、20ソースパッケージ・113件だった。新旧SARIFのCVE ID集合は一致した。追加の証跡は `tmp/runtime-os-0b0cea6f-scout124.sarif.json`（SHA-256 `8d945c1d870ea204099db2586bdb16518ddf7fcefeb7001be98ebace2de012d8`）と `tmp/runtime-os-0b0cea6f-scout124.log`。旧CLIだけに由来する指摘として除外する根拠は得られなかった。
 
 今回は読み取り監査と文書化のみ。アプリ、DB、Secrets、AWS、課金設定、配備候補の内容は変更していない。既存の読み取り専用AWS検査の承認依頼も未実行のまま。この監査で新たな未解決事項が判明したため、同候補の公開承認には本記録を含める。
 
