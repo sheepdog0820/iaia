@@ -59,6 +59,7 @@ test.describe('scenario-session flow', () => {
     ]);
 
     await expect(page.locator('#newSessionModal.show')).toBeVisible();
+    await expect(page.locator('#newSessionModal')).toBeFocused();
     await expect(page.locator('#sessionScenarioId')).toHaveValue(String(scenario.id));
     await expect(page.locator('#sessionScenarioTitle')).toHaveValue(scenarioTitle);
 
@@ -69,6 +70,7 @@ test.describe('scenario-session flow', () => {
     }, String(group.id));
 
     await page.fill('#sessionTitle', `Flow Session ${timestamp}`);
+    await expect(page.locator('#sessionTitle')).toHaveValue(`Flow Session ${timestamp}`);
     await page.fill('#sessionDate', '2030-01-01T19:00');
     await page.selectOption('#sessionGroup', String(group.id));
     await page.selectOption('#sessionCocEdition', '7th');
@@ -183,6 +185,7 @@ test.describe('scenario-session flow', () => {
     ]);
 
     await expect(page.locator('#newSessionModal.show')).toBeVisible();
+    await expect(page.locator('#newSessionModal')).toBeFocused();
     await expect(page.locator('#sessionScenarioId')).toHaveValue(String(scenario.id));
     await expect(page.locator('#sessionScenarioTitle')).toHaveValue(scenarioTitle);
 
@@ -193,6 +196,7 @@ test.describe('scenario-session flow', () => {
     }, String(group.id));
 
     await page.fill('#sessionTitle', `Flow Session 6th ${timestamp}`);
+    await expect(page.locator('#sessionTitle')).toHaveValue(`Flow Session 6th ${timestamp}`);
     await page.fill('#sessionDate', '2030-01-01T19:00');
     await page.selectOption('#sessionGroup', String(group.id));
     await page.selectOption('#sessionCocEdition', '6th');
