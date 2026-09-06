@@ -25,6 +25,10 @@ for (const edition of ['6th', '7th']) {
       expect(luck).toBeLessThanOrEqual(90);
       expect(luck % 5).toBe(0);
     }
+    await page.locator('#skills-tab').click();
+    await page.locator('#exploration-tab').click();
+    await page.locator('.occupation-skill[data-skill="spot_hidden"]').fill('20');
+    await page.locator('.interest-skill[data-skill="spot_hidden"]').fill('10');
     page.on('dialog', dialog => dialog.accept());
     const [response] = await Promise.all([
       page.waitForResponse(r => r.url().includes(`/create_${edition}_edition/`) && r.request().method() === 'POST'),
@@ -53,6 +57,13 @@ for (const edition of ['6th', '7th']) {
     expect(saved.hit_points_max).toBe(12);
     expect(saved.magic_points_max).toBe(12);
     if (luck !== null) expect(saved.character_7th.current_luck).toBe(luck);
+
+    await page.locator('#skills-tab').click();
+    await page.locator('#exploration-tab').click();
+    await expect(page.locator('.occupation-skill[data-skill="spot_hidden"]')).toHaveValue('20');
+    await expect(page.locator('.interest-skill[data-skill="spot_hidden"]')).toHaveValue('10');
+    await page.locator('.occupation-skill[data-skill="spot_hidden"]').fill('30');
+    await page.locator('.interest-skill[data-skill="spot_hidden"]').fill('15');
 
     await page.locator('#basic-info-tab').click();
     await page.locator('#character-name').fill(`${name} 更新`);
@@ -83,6 +94,16 @@ for (const edition of ['6th', '7th']) {
     expect(data.hit_points_max).toBe(13);
     expect(data.magic_points_max).toBe(14);
     if (luck !== null) expect(data.character_7th.current_luck).toBe(luck);
+    await page.locator('#skills-tab').click();
+    await page.locator('#exploration-tab').click();
+    await expect(page.locator('.occupation-skill[data-skill="spot_hidden"]')).toHaveValue('30');
+    await expect(page.locator('.interest-skill[data-skill="spot_hidden"]')).toHaveValue('15');
+    const skillsResponse = await page.request.get(`/api/accounts/character-sheets/${created.id}/skills/`);
+    expect(skillsResponse.status()).toBe(200);
+    const skillsPayload = await skillsResponse.json();
+    const skill = (Array.isArray(skillsPayload) ? skillsPayload : skillsPayload.results)
+      .find((item: any) => item.skill_name === '目星');
+    expect(skill).toMatchObject({ base_value: 25, occupation_points: 30, interest_points: 15 });
     await page.locator('#basic-info-tab').click();
     await expect(page.locator('.character-edit-thumbnail-image')).toHaveCount(5);
     await page.locator('#character-images').setInputFiles({ name: '上限超過.png', mimeType: 'image/png', buffer: imageBuffer });
