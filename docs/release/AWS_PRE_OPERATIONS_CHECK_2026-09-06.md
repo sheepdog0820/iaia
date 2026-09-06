@@ -25,4 +25,20 @@
 
 初回の検証起動はENV_FILE未指定で停止し、隔離環境設定を明示して再実行した。最終の関連検証は27成功・4警告、17.42秒、終了0。Black/isort/flake8、terraform fmt -check main.tf、terraform validateは成功。証跡はtmp/redis-tls-red-final.log、tmp/redis-tls-final.log。差分・日本語文言・文字コード・自己レビューを確認した。変更はTerraform設定2箇所・回帰テスト・本資料で、DBスキーマ・実データ・Secrets・課金の変更はない。
 
-本修正は証明書を信頼できない接続を拒否するため、適用前に実ElastiCacheでCAチェーン・名前照合を含むTLS接続を検証する。実TLS通信、実環境の上書き設定、Terraform plan/applyは未実施。既存環境へ自動反映しない。コードrevertは可能だが、証明書検証を無効へ戻す運用を復旧の標準にはせず、失敗時は適用を止め信頼設定を是正する。
+本修正は証明書を信頼できない接続を拒否するため、適用前に実ElastiCacheでCAチェーン・名前照合を含むTLS接続を検証する。実ElastiCacheへのTLS通信、実環境の上書き設定、Terraform plan/applyは未実施。既存環境へ自動反映しない。コードrevertは可能だが、証明書検証を無効へ戻す運用を復旧の標準にはせず、失敗時は適用を止め信頼設定を是正する。
+
+## 隔離Redisとの実TLS通信
+
+e1f58c83のTerraform設定を読み取って、内部ネットワーク・公開ポートなしのRedis7.4.11と実TLS接続を行った。有効期間1日の専用CA/サーバー証明書を生成し、サーバーのSANをredis-tls-probeとした。実資格情報・実データは使用していない。
+
+| 証明書条件 | Kombu broker | Celery result backend | Django Redis cache |
+| --- | --- | --- | --- |
+| 信頼するCA・一致する名前 | PING成功 | PING成功 | set/get成功 |
+| 信頼しないCA | 証明書検証エラーで拒否 | 同左 | 同左 |
+| 信頼するCA・異なる名前 | 名前不一致の証明書検証エラーで拒否 | 同左 | 同左 |
+
+各条件を新しいプロセスで実行し、計9件成功・終了0。負の結果は単なる接続失敗ではなくCERTIFICATE_VERIFY_FAILED、名前不一致ではmismatchも確認した。初回はDjango Redisの接続プールが同一URLの先行接続を再利用し、CA差し替えの検査条件が混ざって1件失敗した。プローブを別プロセスへ分離して再検証し、アプリ不具合の修正として扱っていない。
+
+実行イメージtableno-full:01a52f52と通常本番用tableno-formal-release:01a52f52のCelery5.6.3・Kombu5.6.2・redis-py8.1.0・django-redis7.0.0・Django5.2.17は一致した。共有ElastiCacheや全AWS経路、実CA配布設定の検証とは区別する。
+
+証跡はtmp/redis-tls-live-initial-pool.log、tmp/redis-tls-live-final.log、tmp/redis-tls-live-proof/results.json、生成・検証スクリプトはtmp/generate-redis-tls-certificates.pyとtmp/probe-redis-tls.py。サーバーコンテナと専用ネットワークは検証後に削除し、一時サーバー秘密鍵も削除した。CA秘密鍵は保存していない。アプリ・AWS・Secrets設定・費用の変更はない。
