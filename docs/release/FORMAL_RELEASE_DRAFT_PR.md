@@ -23,6 +23,7 @@ Base: main / Head: codex/delegated-workflow-rules / Draft: true
 - 背景透過は実U2netのCPU処理と隔離APIジョブで、画像生成・所有者限定取得・失効後の既存結果取得と新規処理拒否を確認。実AWSのジョブ配送は未検証です。
 - 旧候補704c6f06の本番用イメージを隔離PG/Redisで起動し、HTTPと静的資産の配信、check --deployを確認。旧イメージへの隔離DB・画像復元も確認済みですが、実RDS/S3/CDN、本番設定の最新ソース、合意済みRPO/RTOを満たす証拠ではありません。
 - 既存のBandit集計はHIGH/MEDIUM 0・LOW556・終了コード1。警告を抑制して成功扱いにはしていません。リモートCI全体の成功は未確認です。
+- f016a66dの通常本番用イメージでも、隔離PG16/Redis7への移行・通常起動・登録画面/静的ファイル配信・check --deployを確認。S3/Checkout無効・外向き通信なし・検証用の仮設定であり、実AWS/Stripeの証拠ではありません。詳細は [配備準備資料](AWS_PRE_FORMAL_RELEASE_VALIDATION_PLAN.md) を参照してください。
 
 対象コミット・入力条件・証跡は [追加検証記録](FULL_VALIDATION_2026-09-06.md)、[無料機能方針](FREE_FEATURE_POLICY_2026-09-06.md)、[背景透過検証](BACKGROUND_REMOVAL_MODEL_VALIDATION_2026-09-06.md)、[監査記録](FORMAL_RELEASE_AUDIT_2026-09-05.md) を参照してください。
 

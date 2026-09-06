@@ -1,6 +1,22 @@
 # 正式公開に向けたaws-pre検証・配備準備
 
-## 現在の候補と承認前の残作業（2026-09-05更新）
+## 現在の候補と承認前の残作業（2026-09-06更新）
+
+候補ソースは `f016a66d2bd21e5f41b2e30265fffcc48bdbe1ea`。無料範囲・画像5枚共通・背景透過モデル・ハンドアウト本文・文字表示・履歴APIキャッシュの後続修正を含む。月額480円・年額4,800円と無料範囲は承認済みであり、下記の過去候補の「料金と有料範囲は未確定」は現在の状態ではない。実Stripe Price・公開条件の実証は残る。
+
+| 項目 | 現在の証拠と限界 |
+| --- | --- |
+| 本番用イメージ | 通常Dockerfileと固定依存ロックから `tableno-formal-release:f016a66d` をビルド。ローカルID `sha256:477752156e723bbaccf581aced4ee8388413160428444330c98457a5c0ea3235`、revisionは上記完全SHA、実行ユーザーtableno。ECR未送信・manifest digest未取得 |
+| ソース一致 | archiveと実行コンテナのアプリ8領域にあるPython・HTML・JS・CSS計496ファイルがSHA-256で一致。全依存・OSの再現性を証明するものではない |
+| 本番設定の隔離起動 | APP_ENV=aws-prod、専用空PG16/Redis7、S3無効、Checkout無効、設定値は隔離検証用。外向き通信・公開ポートなし。通常entrypointで移行、static199件収集/571件後処理、Daphne起動、readiness/登録画面200。登録画面のstatic5件とvendor8件のハッシュ付き配信・内容一致・CSS/JS gzipを確認。pip check、migrate --check、check --deploy成功 |
+| 検証用設定の訂正 | 最初の起動はStripeの仮値がsk_test形式だったため本番形式ガードで停止。通信遮断とCheckout無効を維持したまま、実キーではないsk_live形式の仮値で再実行した。実Stripe認証や販売設定の検証には数えない |
+| 機能検証 | 履歴修正前の8f4bbc5dはブラウザ146成功/1失敗。修正後の関連バックエンド38件・3サブテスト、ブラウザ24件成功。f016a66dの147件全体はこの追記時点で実行中。a95e1a20の両DB全体成功を最新ソース全体の証明には使わない |
+| 差分 | 記録済み稼働ソース8cf3c7f7からf016a66dまで262ファイル差分。704c6f06以降のaccounts/schedules/scenarios移行ファイル、Dockerfile、entrypoint、依存ロック、本番設定ファイルの差分なし。過去候補からのDB移行の適用確認は引き続き必要 |
+| 配備前に残る確認 | 直前の実稼働版・復旧先、共有DB履歴とスキーマ、ECR digest、リモートCI、実S3/CDNの保護、実連携・宛先、復旧基準・費用。最新の実状態と照合してから操作内容を確定する |
+
+証跡は `tmp/formal-release-f016a66d-production-build.log`、`tmp/static-runtime-f016a66d-server.log`（初回停止）、`tmp/static-runtime-f016a66d-server-final.log`、`tmp/static-runtime-f016a66d-http.log`、`tmp/static-runtime-f016a66d-deploy-check.log`。専用app/DB/cacheコンテナと内部ネットワークは検証後に削除した。実AWS・実データ・Secrets・権限・費用への変更はなく、配備承認を求める最終資料としては未完成である。
+
+## 704c6f06の準備記録（2026-09-05時点の履歴）
 
 候補ソースは `704c6f062ef73f64ee3b5eae43799264fb4dcbf9`。静的ファイル同梱・本番設定に加え、Axios代替処理、日程投票の時間帯/配色/キャッシュ、グループと招待の文字表示、グループ権限応答のキャッシュ、ゲスト参加の失効再確認・引き継ぎ案内/エラー表示を修正した。以下の過去候補の節は履歴として保持する。この資料は配備承認ではない。
 

@@ -167,3 +167,9 @@ a95e1a20の検証イメージに対象ソース・テストを重ね、ネット
 証跡は `tmp/history-cache-red.log`、`tmp/history-cache-green.log`（期待値の誤り）、`tmp/history-cache-final.log`、`tmp/history-cache-browser.log` と `tmp/history-cache-browser-output/results.json`。元の全体失敗のtrace.zipは `tmp/browser-all-8f4bbc5d-output/results/home-content-security-dash-3a80b-ys-persisted-history-safely-firefox/` に保持した。
 
 Black・isort・flake8、差分・UTF-8・日本語文言と自己レビューを確認した。履歴APIのキャッシュ再利用を止めるため毎回取得が必要になるが、DB移行・既存データ変更・権限変更・秘密情報・費用変更はない。実環境未反映で、既に別クライアントに保存されたコピーの消去を保証しない。
+
+## f016a66dの本番用イメージとブラウザ全体
+
+f016a66dのGit archiveから通常Dockerfileで本番用イメージを作成し、隔離PG16/Redis7・本番設定で通常起動、移行、静的配信、check --deploy等を確認した。初回の仮Stripe設定の形式エラーと訂正、ソース一致496ファイル、検証範囲と限界は [配備準備資料の現候補](AWS_PRE_FORMAL_RELEASE_VALIDATION_PLAN.md) に記録した。実環境への配備・実決済・実OAuth/S3配信・実データ復旧はこの検証に含まない。
+
+ブラウザ用の `tableno-browser:f016a66d`（ID `sha256:0b2223cf8edcdb87edc32b7d0895d53a39add2b98d52b21c1b0523e66bec818e`）はarchiveの857ファイルと全件一致した。今回はアプリ・テストの上書きなしで147件を開始し、再試行なし・失敗時trace保持を維持した。空の隔離SQLiteと開発用ユーザー3件を使用し、外部資産取得可能なネットワーク条件。この追記時点では実行中で、合格扱いにしない。証跡先は `tmp/browser-all-f016a66d.log` と `tmp/browser-all-f016a66d-output/`。
