@@ -6,8 +6,13 @@ async function signUp(page: Page, suffix: string, nickname?: string): Promise<vo
   await page.fill('#id_username', `release_${suffix}`);
   await page.fill('#id_email', `release_${suffix}@example.com`);
   const password = `Vault-${randomUUID()}!`;
-  await page.fill('#id_password1', password);
-  await page.fill('#id_password2', password);
+  for (const selector of ['#id_password1', '#id_password2']) {
+    const input = page.locator(selector);
+    await input.focus();
+    await expect(input).toBeFocused();
+    await input.pressSequentially(password);
+    await expect(input).toHaveValue(password);
+  }
   await page.fill('#id_nickname', nickname ?? `通常利用者 ${suffix}`);
   await Promise.all([
     page.waitForURL(/\/accounts\/dashboard\//),
