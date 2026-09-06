@@ -153,3 +153,17 @@ a95e1a20の検証イメージに対象ソース・テストを重ね、ネット
 現在の8f4bbc5dから作った `tableno-browser:8f4bbc5d`（ID `sha256:e2de82482d82fe13c3591916ffe0aa8c4e35c170ed6c0cbc858100f7d6c47b20`）は、Git archiveの856ファイルと内容が全件一致した。アプリソースを上書きせず、free-kp-featuresとsmokeのテストにのみ前述の操作記録を重ね、再試行なしでブラウザ全体の検証を開始した。元のテスト本文は2ec4ccc5から変更されていないことを確認した。後続のセッション選択欄・ハンドアウトテンプレート修正を含むが、この追記時点では実行中であり合格扱いにしない。証跡先は `tmp/browser-all-8f4bbc5d.log` と `tmp/browser-all-8f4bbc5d-output/`。
 
 初回のアーカイブ展開はホストPythonのextractall引数非対応で停止した。展開先配下の通常ファイル・ディレクトリだけであることを事前検査する形に改めて展開・ビルド・内容照合を完了した。これは検証準備の失敗であり、アプリテストの合否には数えない。
+
+## 8f4bbc5d 全体検証の完了と履歴APIのキャッシュ修正
+
+前述の147件は **146件成功・1件失敗（10.3分、再試行なし、終了コード1）** で終了した。Firefoxの「保存した履歴をダッシュボードに表示する」検査が失敗した。前回の無料インポート・法務リンクは成功したが、過去の停止原因を解消した証拠とはしない。
+
+失敗トレースでは履歴POSTが201で保存された後、再読み込みによる一覧GETが以前と同じ本文を返した。後者は_transferSize=0、time=0で、API応答にはCache-Controlがなく、画面にも以前の履歴だけが残った。個人の履歴APIを `never_cache` で保護し、一覧・詳細・作成・更新・削除と拒否応答をprivate/no-store/no-cache/max-age=0にする。所有者の絞り込み、認証、保存内容は変更しない。
+
+新規のキャッシュ・権限検査は修正前に2件失敗した。初回の修正後検証は37成功・1失敗で、追加したテストの未認証応答の期待値が403だった。既存設定はTokenAuthenticationを先頭に持つため401が正しく、アプリ側は変更せず期待値を訂正した。最終的に `scenarios/test_history_cache.py`、`scenarios/test_scenarios.py`、`scenarios/tests.py` の **38件・3サブテスト成功（56.50秒、警告9件）**。一覧/詳細、更新内容、作成、削除後404、他ユーザー404、未認証401とキャッシュ禁止を確認した。
+
+修正後の `home-content-security.spec.ts` は **3ブラウザ各2回、計24件成功（42.1秒、再試行なし）**。模擬APIの配列/ページ形式とホームの文字表示、実APIで保存後の履歴・メモ表示と再取得を確認した。ブラウザは8f4bbc5d、バックエンドはa95e1a20の固定イメージに対象ソース・新規テストを読み取り専用で重ね、隔離SQLiteで実行した。24件成功を修正後の147件全体成功には読み替えない。
+
+証跡は `tmp/history-cache-red.log`、`tmp/history-cache-green.log`（期待値の誤り）、`tmp/history-cache-final.log`、`tmp/history-cache-browser.log` と `tmp/history-cache-browser-output/results.json`。元の全体失敗のtrace.zipは `tmp/browser-all-8f4bbc5d-output/results/home-content-security-dash-3a80b-ys-persisted-history-safely-firefox/` に保持した。
+
+Black・isort・flake8、差分・UTF-8・日本語文言と自己レビューを確認した。履歴APIのキャッシュ再利用を止めるため毎回取得が必要になるが、DB移行・既存データ変更・権限変更・秘密情報・費用変更はない。実環境未反映で、既に別クライアントに保存されたコピーの消去を保証しない。

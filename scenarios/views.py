@@ -6,6 +6,8 @@ from django.db.models import Count, IntegerField, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import Coalesce
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 from django.views.generic import TemplateView
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -362,6 +364,7 @@ class ScenarioNoteViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
+@method_decorator(never_cache, name="dispatch")
 class PlayHistoryViewSet(viewsets.ModelViewSet):
     queryset = PlayHistory.objects.none()
     serializer_class = PlayHistorySerializer
