@@ -8,11 +8,7 @@ export async function devLogin(
   const nextPath = redirectPath || '/';
   const nextParam = nextPath ? `?next=${encodeURIComponent(nextPath)}` : '';
   const targetUrl = `/accounts/dev-login/${nextParam}`;
-  try {
-    await page.goto(targetUrl, { waitUntil: 'commit', timeout: 30000 });
-  } catch (error) {
-    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  }
+  await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForSelector('.user-card');
 
   const csrfToken = await page.getAttribute('input[name="csrfmiddlewaretoken"]', 'value');
