@@ -78,6 +78,9 @@ jobs:
           docker compose --env-file .env.compose.example config --quiet
           docker compose --env-file .env.compose.example -f docker-compose.mysql.yml config --quiet
 
+      - name: Docker build context isolation
+        run: python scripts/test/check_docker_build_context.py
+
       - name: Django deploy check
         env:
           SECRET_KEY: test-secret-key-for-ci-with-enough-length-and-variety-12345

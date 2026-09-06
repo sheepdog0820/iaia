@@ -66,6 +66,10 @@ docker-compose.*.yml
 .gitlab-ci.yml
 infrastructure/terraform/.terraform/
 infrastructure/terraform/environments/*.tfvars
+**/.terraform
+**/*.tfstate*
+**/*.tfvars
+**/*.tfvars.json
 
 # OS
 .DS_Store
