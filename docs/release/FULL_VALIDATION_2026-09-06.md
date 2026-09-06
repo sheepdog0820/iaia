@@ -230,3 +230,17 @@ Google設定の保存処理に例外処理を追加した。400では追加権�
 固定 `tableno-browser:f016a66d` に対象テンプレートと新規テストを読み取り専用で重ね、空の隔離SQLiteと開発fixtureを使用した。外部連携API応答はブラウザで模擬しており、実Googleへの送信や保存成功の証拠ではない。証跡は `tmp/google-save-red.log`、`tmp/google-save-green.log`、各 `*-output/results.json` と修正前のtrace。テンプレートのJavaScript構文、差分、UTF-8/LF、日本語文言と自己レビューを確認した。DB・権限・Secrets・費用の変更はなく、共有環境には未反映。復旧はこのUI修正のrevertで可能。
 
 認可経路の調査では、固定イメージ内のallauth標準GoogleOAuth2Adapter.complete_loginがIDトークンまたはuserinfoだけからextra_dataを作り、トークン応答のscopeを引き継がないことを確認した。STORE_TOKENSの既定値はFalseで、リポジトリには有効化設定がない。一方、Google設定APIはSocialTokenとextra_data.scopeを要求し、既存テストはそれらを直接DBへ作っている。実コールバックからの保存を再現するテストと修正が必要であり、今回のUI修正でその不足を解消したとはしない。稼働環境の設定・応答との照合も残る。
+
+## Google追加連携の認可保存経路
+
+標準allauthの認証コード交換・state/PKCE・本人照合を維持したGoogleコールバックを追加した。Googleのトークン応答のscopeだけを引き継ぎ、ログイン済み本人による追加連携で、対象SocialAccountの所有者が一致する場合に資格情報とGoogleIntegration.scopesを保存する。URLのscopeやuserinfoのscopeは認可根拠にしない。通常の再ログインは連携資格情報を更新せず、他プロバイダーのトークン保存も有効化しない。設定APIは保存済みの認可結果とトークンの存在を検査し、scopeを書き戻さない。
+
+初回の保存は機能を自動で有効化しない。再連携で付与されなかった機能は無効化し、同じGoogleアカウントの再認可でrefresh tokenが再発行されなければ既存値を保持する。複数のGoogleアカウントを切り替えて元へ戻すと、以前の資格情報が選ばれる不備もテストで再現した。ユーザーごとに1件の有効な連携資格情報に揃えるため、追加連携時にそのユーザーの別のGoogleトークンを削除する。SocialAccount自体や他プロバイダーの資格情報は維持する。ユーザー行のロックとトランザクションで資格情報・scopeを一緒に更新し、途中失敗はロールバックする。
+
+修正前のコールバック検証は4件失敗・1件成功で、認可結果が保存されないことを確認した。追加検証ではアカウント切り替え時の資格情報選択に失敗したほか、不正stateの期待値を200としていたテストを既存仕様の401へ訂正した。同時実行の初回検証はfixtureのSocialToken.account未指定で停止し、fixtureを訂正した。最終版は **SQLite 70件成功・1skip（40.83秒）、PostgreSQL16 71件成功・skipなし（41.70秒）、双方31サブテスト成功・9警告・終了コード0**。SQLiteでスキップした同時連携検証はPGで成功した。
+
+対象はコールバック、Google認証・API認証・連携・アカウント競合保護・認証ログの関連検証。追加連携後の設定保存、限定scope、不正state、通常ログイン、他ユーザーの既存資格情報保護、DB登録SocialApp、アカウント切り替え、同時連携、途中失敗の復旧と他プロバイダーの維持を確認した。新規accounts/google_oauth.pyは両DBで40文・4分岐すべて実行され、行・分岐カバレッジ100%。Black/isort/flake8、差分・文字コード・日本語文言・自己レビューを確認した。Banditは新規3ファイルで解析エラー0、HIGH/MEDIUM 0、テスト用固定文字列のLOW5（B105=2、B106=3）、終了コード1であり、CI合格とはしない。
+
+固定 `tableno-full:f016a66d` に対象6ファイルを読み取り専用で重ね、Googleのコード交換応答とIDトークン復号結果は模擬した。実Googleへの通信・Googleの署名検証・実環境保存の証拠ではない。証跡は `tmp/google-grant-red.log`、`tmp/google-grant-{False,True}-final.log`、同名のcoverage.jsonと `tmp/google-grant-bandit.json`。使い捨てSQLite、内部ネットワーク・tmpfsの専用PGのみを使用した。
+
+スキーマ移行・共有環境への配備・Secrets/IAM/OAuth設定・費用の変更は未実施。適用後は認可時にGoogleの資格情報をDBへ保存し、選択を切り替えると以前のGoogleトークンをローカルで置き換える。Google側の許可取り消しとは異なる。配備前にこの保存範囲を含む対象承認を確認し、候補全体の再検証・実認可・期限更新・Calendar/Sheets同期を行う必要がある。アプリはrevertで戻せるが、置換後の以前の資格情報はrevertでは戻らず、必要なら再認可する。正式公開のNo-Goは維持する。

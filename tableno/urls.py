@@ -25,6 +25,7 @@ from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from accounts.discord_views import GroupDiscordDeliveryListView, GroupDiscordDeliveryRetryView, GroupDiscordSettingsView
+from accounts.google_oauth import oauth2_callback as google_integration_callback
 from accounts.group_link_views import (
     GroupLinkAcceptView,
     GroupLinkDetailView,
@@ -332,6 +333,7 @@ urlpatterns = [
     path("accounts/", include("accounts.urls")),
     # django-allauth URLs（Google OAuth認証用）
     # 注意: accounts.urlsの後に配置することで、カスタムログイン画面を優先
+    path("accounts/google/login/callback/", google_integration_callback, name="google_integration_callback"),
     path("accounts/", include("allauth.urls")),
     # Home page
     path("", TemplateView.as_view(template_name="home.html"), name="home"),

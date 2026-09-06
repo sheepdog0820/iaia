@@ -136,6 +136,7 @@ class GoogleIntegrationTestCase(APITestCase):
             token="access-token",
             token_secret="",
         )
+        GoogleIntegration.objects.create(user=self.user, scopes=scopes)
         response = self.client.put(
             "/api/google/integration/",
             {

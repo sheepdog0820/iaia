@@ -3,8 +3,9 @@ from datetime import timedelta
 from urllib.parse import urlencode
 
 import requests
-from allauth.socialaccount.models import SocialAccount, SocialToken
+from allauth.socialaccount.models import SocialToken
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Q
 from django.http import Http404, HttpResponse
 from django.urls import reverse
@@ -151,11 +152,10 @@ class CalendarSubscriptionView(APIView):
         return response
 
 
-def _authorized_google_scopes(user):
-    account = SocialAccount.objects.filter(user=user, provider="google").first()
-    if not account or not SocialToken.objects.filter(account=account).exists():
+def _authorized_google_scopes(user, integration):
+    if not integration or not SocialToken.objects.filter(account__user=user, account__provider="google").exists():
         return set()
-    raw = account.extra_data.get("scope", [])
+    raw = integration.scopes
     if isinstance(raw, str):
         return set(raw.split())
     return set(raw)
@@ -186,8 +186,10 @@ class GoogleIntegrationView(APIView):
             }
         )
 
+    @transaction.atomic
     def put(self, request):
-        scopes = _authorized_google_scopes(request.user)
+        integration = GoogleIntegration.objects.select_for_update().filter(user=request.user).first()
+        scopes = _authorized_google_scopes(request.user, integration)
         calendar_enabled = bool(request.data.get("calendar_enabled"))
         sheets_enabled = bool(request.data.get("sheets_enabled"))
         errors = {}
@@ -200,7 +202,6 @@ class GoogleIntegrationView(APIView):
         integration, _ = GoogleIntegration.objects.update_or_create(
             user=request.user,
             defaults={
-                "scopes": sorted(scopes),
                 "calendar_enabled": calendar_enabled,
                 "sheets_enabled": sheets_enabled,
                 "connected_at": timezone.now(),
