@@ -29,6 +29,11 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip check \
     && pip uninstall --yes pip setuptools wheel
 
+# Keep native runtime libraries while removing compilers and development headers.
+RUN apt-mark manual libmariadb3 libpq5 libgomp1 \
+    && apt-get purge -y --auto-remove \
+        build-essential default-libmysqlclient-dev libpq-dev pkg-config
+
 # Copy application code.
 COPY --chown=tableno:tableno . /app
 
