@@ -185,3 +185,11 @@ f016a66dのGit archiveから通常Dockerfileで本番用イメージを作成し
 全体検証コンテナと隔離DBは終了時に破棄された。今回の更新は集計・対象SHA・証跡と残条件の文書反映であり、DB・秘密情報・権限・費用・本番への変更はない。
 
 同じf016a66dの857ファイルが一致するバックエンド用イメージ `tableno-full:f016a66d`（ID `sha256:beaf6f4b3329b01cd83b095c8fc3b7ae7552974d2d3cbc99c18c42af55f8fb17`）を作成した。検証用Gitインデックスは非rootユーザーがarchiveから作成する。APP_ENV=local、ENV_FILE空で、accounts/api/scenarios/schedules/support/tableno/tests/unit/tests/integrationをSQLiteとPostgreSQL16で実行開始した。PGは公開ポートなし・内部ネットワーク・tmpfsの専用DBで、実データを使用しない。出力先は `tmp/full-f016a66d-output/`。この追記時点では両方実行中であり、a95e1a20の全体結果を置き換える成功証拠はまだない。
+
+## f016a66dのCI静的チェック
+
+同じ固定バックエンドイメージの/candidateで、CIと同じ `flake8 .`、`black --check .`、`isort --check-only .` を順に実行し、すべて終了コード0。Blackは526ファイルを変更不要と判定した。ソースや設定の上書きなし、外部通信なしで、証跡は `tmp/static-ci-f016a66d.log`。これは静的3チェックの成功であり、GitHub Actionsの実行成功ではない。
+
+CIと同じ `bandit -r accounts schedules scenarios tableno` は解析エラー0、HIGH/MEDIUM 0、LOW555、終了コード1。内訳はB311=66、B106=396、B110=2、B105=82、B404=1、B607=4、B603=4。証跡は `tmp/bandit-f016a66d.log` と `tmp/full-f016a66d-output/bandit.json`。
+
+過去c3996913のLOW556はsupport/tests.pyのB106を1件含む範囲だった。今回のCIコマンドはsupportを走査しない。同じ範囲に絞り、ファイル名の区切り・行番号変動を正規化して、ファイル/検査種別/指摘されたソース行の多重集合を照合すると555件は完全一致した。周辺のテスト名や画像上限変更による差分はあるが、指摘自体の追加・削除はない。1件減を不具合解消とは数えず、警告抑制やCIの合否条件変更も行っていない。既存の用途判定と実環境の未完了事項は [静的指摘の分類記録](SECURITY_STATIC_TRIAGE_494ABD0D.md) を参照する。
