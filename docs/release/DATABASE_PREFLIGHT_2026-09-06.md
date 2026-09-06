@@ -29,3 +29,13 @@ mainへ654d5bb2をマージ後、正式公開準備を再開した。2026-09-06T
 この検査はテーブルのスキーマ変更と集計を含む試験のため、CIのPostgreSQLジョブにも明示的に追加する。SQLiteでのskipを実証の代替にしない。
 
 最終検証は検査8件と既存ロール移行2件、計10件・2サブテスト成功（23.44秒、終了0）。新規コマンド32文・6分岐のカバレッジ100%。途中の実行はテスト中の整形で行番号が変わり、テスト10件は成功したがカバレッジ97%・終了1となったため、整形を完了してから上記の最終検証を実行した。失敗実行を合格として扱わない。Black/isort/Flake8と対象2ファイルのBanditも成功した。
+
+## 配備用イメージでの確認
+
+候補0b0cea6fec716ed7dfda15546b471c9e90cc0d34のgit archiveから通常Dockerfileでビルドした。ローカルタグtableno-formal-release:0b0cea6f、IDはsha256:5d2c113a6488c0c772f798b250ef45d59878ac110c9cef851e0a677a29cfedd1。revisionラベルは候補SHA、実行ユーザーtableno。ECRへの送信は未実施で、このIDをECR manifest digestとして扱わない。
+
+外向き通信・公開ポートのない専用ネットワークの空PostgreSQL 16/Redis 7で、APP_ENV=aws-prod、S3/Checkout無効、隔離用仮値を使って通常entrypointを起動した。初回はDBの起動が完了せず接続拒否で停止したため、pg_isready成功後に同じappコンテナを起動した。移行中のHTTP検査も接続拒否となり、リスナー起動後に検査全体を再実行して成功した。途中の失敗を起動成功とは扱わない。
+
+最終結果はreadiness/登録画面200、登録画面の静的資産5件とvendor8件のハッシュ付き配信・内容照合成功、CSS/JSのgzip確認成功。check --deploy・migrate --check・pip checkは終了0。イメージ内のrelease_database_preflightも終了0、read_only=true、新しいparticipant_id/role制約、複数ロール0・重複組0を返した。空DBの結果であり、共有DBの確認や旧版からの実データ移行成功を示さない。
+
+ローカル証跡はtmp/release-preflight-0b0cea6f-build.log、同startup.log、同result.json。検査用app/DB/cacheコンテナと専用ネットワークは停止・削除済み。共有環境・共有DB・実Secrets・費用への変更なし。リモートCIは[作業ブランチの実行](https://github.com/sheepdog0820/iaia/actions/runs/34014342198)で別途確認する。
