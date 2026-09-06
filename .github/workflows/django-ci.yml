@@ -211,7 +211,7 @@ jobs:
       - run: python manage.py check && python manage.py makemigrations --check --dry-run && python manage.py migrate --noinput && python manage.py migrate --check
       - name: Collect production static assets for template tests
         run: python manage.py collectstatic --noinput
-      - run: python -m pytest accounts/test_character_6th_versioning.py accounts/test_share_links.py accounts/test_billing.py tests/integration/test_participant_role_migration.py tests/integration/test_paid_feature_lifecycle.py -q
+      - run: python -m pytest accounts/test_character_6th_versioning.py accounts/test_share_links.py accounts/test_billing.py tests/integration/test_participant_role_migration.py tests/integration/test_paid_feature_lifecycle.py tests/integration/test_release_database_preflight.py -q
 
   playwright:
     runs-on: ubuntu-latest
