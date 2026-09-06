@@ -5,6 +5,12 @@ on:
   push:
     branches: [main, "codex/**"]
 
+# CI uses explicit test settings; a clean checkout has no developer env file.
+env:
+  ENV_FILE: ""
+  APP_ENV: local
+  SECRET_KEY: test-secret-key-for-ci-with-enough-length-and-variety-12345
+
 jobs:
   test:
     name: Unit / Integration

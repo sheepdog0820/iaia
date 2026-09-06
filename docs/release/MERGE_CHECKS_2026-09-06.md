@@ -19,3 +19,5 @@ accounts/api/schedules/scenarios/support/tablenoを検査し、例外処理修�
 ## リモートCI
 
 PR作成前にも同じ必須ジョブを確認できるよう、Django CIのpush対象にcodex/**を追加する。既存のmain・PRトリガーは維持し、検証ジョブの省略は行わない。Bandit対象をAPIとsupportを含む6アプリへ拡大する。このworkflowにデプロイ・共有DB接続・外部通知のジョブはない。
+
+初回リモートCIでは静的解析ジョブが成功したが、Django初期化のジョブが失敗した。Git管理ファイルだけを展開し、CIと同じ環境変数で実行すると、manage.pyが存在しない.env.developmentを要求する失敗を再現した。systemジョブにも必須SECRET_KEYの設定がなかったため、全ジョブ共通で空ENV_FILEとローカル検証用APP_ENV/SECRET_KEYを明示する。実環境のキーや設定を使う変更ではない。
