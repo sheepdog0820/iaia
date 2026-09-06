@@ -104,3 +104,38 @@ class ReleaseDatabasePreflightTests(TransactionTestCase):
                     "ALTER TABLE schedules_sessionparticipantrole "
                     "ADD CONSTRAINT uniq_participant_role UNIQUE (participant_id, role)"
                 )
+
+    def test_lock_contention_is_bounded_and_session_settings_are_restored(self):
+        def current_limits():
+            with connection.cursor() as cursor:
+                cursor.execute("SHOW statement_timeout")
+                statement_timeout = cursor.fetchone()[0]
+                cursor.execute("SHOW lock_timeout")
+                return statement_timeout, cursor.fetchone()[0]
+
+        original_limits = current_limits()
+        blocker = connection.copy(alias="preflight-lock-holder")
+        failures = []
+
+        def capture_database_failure(execute, sql, params, many, context):
+            try:
+                return execute(sql, params, many, context)
+            except OperationalError as exc:
+                failures.append(exc.__cause__.sqlstate)
+                raise
+
+        try:
+            blocker.set_autocommit(False)
+            with blocker.cursor() as cursor:
+                cursor.execute("LOCK TABLE accounts_charactersheet IN ACCESS EXCLUSIVE MODE")
+            with connection.execute_wrapper(capture_database_failure):
+                with self.assertRaisesMessage(CommandError, "読み取り専用のDB検査に失敗しました"):
+                    self.run_probe()
+            self.assertIn("55P03", failures)  # PostgreSQL lock_not_available, not a generic connection failure.
+            self.assertEqual(current_limits(), original_limits)
+        finally:
+            blocker.rollback()
+            blocker.close()
+
+        self.assertTrue(self.run_probe()["read_only"])
+        self.assertEqual(current_limits(), original_limits)
