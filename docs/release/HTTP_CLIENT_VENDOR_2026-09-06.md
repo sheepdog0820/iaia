@@ -48,3 +48,11 @@ OS監査の初回はScoutキャッシュ競合で終了1となった。[Docker�
 実イメージのトップレベルはsetuptools 79.0.1、wheel 0.46.3、msgpack 1.2.1。一方、setuptools/_vendorのMETADATAはwheel 0.45.1とjaraco.context 5.3.0を示し、pip 26.2.1の_vendor/vendor.txtはmsgpack 1.1.2とsetuptools 70.3.0を示した。実アプリがimportするmsgpack 1.2.1だけを見て、同梱された古いコピーの指摘を解決済みにはしない。CI用requirements-test.lock.txtのsetuptools 84.0.0は、通常イメージ内のsetuptoolsを更新していなかった。ビルド関連ツールがランタイムに必要かを調査し、更新または最終イメージからの除去と起動・機能検証を次の修正単位で行う。
 
 追加証跡: tmp/runtime-os-7ffd1f97-scout.log（初回失敗）、tmp/runtime-os-7ffd1f97-scout-isolated.log、tmp/runtime-os-7ffd1f97.sarif.json、tmp/runtime-os-7ffd1f97-packages.txt、tmp/runtime-all-7ffd1f97.sarif.json、tmp/runtime-all-7ffd1f97-scout.log。指摘を抑制せず、公開判定は引き続き未達とする。
+
+## フレンド検索の障害試験を配信先へ追従
+
+regular-user-session.spec.tsのフレンド検索ケースには旧Axios CDNだけを遮断する指定が残っていた。同梱後はそのURLへアクセスしないため、代替処理の実検索を確認する証拠として不十分だった。まずaxios.VERSIONが存在しないことを検証条件に追加し、3ブラウザとも実際は1.20.0が動いているという理由で失敗することを確認した。
+
+遮断先を現在の/static/vendor/axios配下へ変更し、テスト名も同梱HTTPクライアントの配信障害を示すものへ変更した。修正後はChromium/Firefox/WebKitの3件成功（22.9秒、再試行なし、終了0）。通常ユーザーを登録してグループ画面を開き、代替クライアントの確認後、検索欄へ「検索 +&?」を入力し、実friend-candidates APIのqに同じ文字列が届くことを確認した。
+
+証跡はtmp/friend-fallback-red.log、tmp/friend-fallback-red-output/results.json、tmp/friend-fallback-green.log、tmp/friend-fallback-green-output/results.json。専用空SQLite・合成ユーザーを使った検証コンテナは終了後削除済み。変更はテストと本記録のみ。差分・UTF-8/LF・日本語文書を確認し、アプリ・DB・共有環境の変更は行っていない。既存のHTTPクエリ単体相当のブラウザケースに加え、実画面の検索経路でも代替動作を確認する。

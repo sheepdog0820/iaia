@@ -287,10 +287,11 @@ test('owner grants and revokes group administration for a registered member', as
   }
 });
 
-test('friend search preserves the query when the HTTP client CDN is unavailable', async ({ page }) => {
-  await page.route('https://cdn.jsdelivr.net/npm/axios/**', route => route.abort());
+test('friend search preserves the query when the bundled HTTP client is unavailable', async ({ page }) => {
+  await page.route('**/static/vendor/axios/**', route => route.abort());
   await signUp(page, `search_${Date.now()}_${test.info().project.name}`);
   await page.goto('/accounts/groups/view/');
+  expect(await page.evaluate(() => (window as any).axios.VERSION)).toBeUndefined();
   const query = '検索 +&?';
   const [request] = await Promise.all([
     page.waitForRequest(request => new URL(request.url()).pathname === '/api/accounts/friend-candidates/'),
