@@ -15,3 +15,7 @@ accounts/api/schedules/scenarios/support/tablenoを検査し、例外処理修�
 ディレクトリ除外・LOW全体の除外・終了コードの成功化は行わない。100ファイルのASTを66f016f9と比較し、実行処理の差分0を確認した。注記に伴うBlack整形と既存BOMの除去を含む。2026-09-06の再検査はBandit指摘0・解析エラー0・終了0。依存監査は検証用イメージの207パッケージを対象に脆弱性0・終了0。証跡はtmp/bandit-merge-final.jsonとtmp/pip-audit-merge.json。
 
 この判定は過去のストレージ残存ファイルや実サービスの検証完了を意味しない。新しい指摘や注記対象の処理変更は改めてレビューする。
+
+## リモートCI
+
+PR作成前にも同じ必須ジョブを確認できるよう、Django CIのpush対象にcodex/**を追加する。既存のmain・PRトリガーは維持し、検証ジョブの省略は行わない。Bandit対象をAPIとsupportを含む6アプリへ拡大する。このworkflowにデプロイ・共有DB接続・外部通知のジョブはない。
