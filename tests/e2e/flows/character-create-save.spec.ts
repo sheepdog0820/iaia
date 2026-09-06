@@ -120,5 +120,47 @@ for (const edition of ['6th', '7th']) {
     await expect(page.locator('.character-edit-thumbnail-image')).toHaveCount(4);
     await page.reload();
     await expect(page.locator('.character-edit-thumbnail-image')).toHaveCount(4);
+    await page.goto('/accounts/character/list/');
+    const sourceCard = page.locator('.character-card').filter({ has: page.locator(`a[href="/accounts/character/${created.id}/"]`) });
+    await sourceCard.locator('.dropdown-toggle').click();
+    await sourceCard.locator(`button[onclick="createVersion(${created.id})"]`).click();
+    const versionDialog = page.locator('.modal.show').filter({ hasText: 'このキャラクターの新しいバージョンを作成しますか？' });
+    const [versionResponse] = await Promise.all([
+      page.waitForResponse(r => r.url().includes(`/character-sheets/${created.id}/create_version/`) && r.request().method() === 'POST'),
+      versionDialog.locator('[data-confirm-action]').click(),
+    ]);
+    expect(versionResponse.status()).toBe(201);
+    const version = await versionResponse.json();
+    expect(version.id).not.toBe(created.id);
+    expect(version.edition).toBe(edition);
+    expect(version.version).toBe(2);
+    expect(version.name).toBe(`${name} 更新`);
+    const copiedImagesResponse = await page.request.get(`/api/accounts/character-sheets/${version.id}/images/`);
+    expect(copiedImagesResponse.status()).toBe(200);
+    expect((await copiedImagesResponse.json()).count).toBe(4);
+    const copiedSkillsResponse = await page.request.get(`/api/accounts/character-sheets/${version.id}/skills/`);
+    expect(copiedSkillsResponse.status()).toBe(200);
+    const copiedSkillsPayload = await copiedSkillsResponse.json();
+    expect((Array.isArray(copiedSkillsPayload) ? copiedSkillsPayload : copiedSkillsPayload.results)
+      .find((item: any) => item.skill_name === '目星')).toMatchObject({ occupation_points: 30, interest_points: 15 });
+    const versionCard = page.locator('.character-card').filter({ has: page.locator(`a[href="/accounts/character/${version.id}/"]`) });
+    await expect(versionCard).toBeVisible();
+    await versionCard.locator('.dropdown-toggle').click();
+    await versionCard.locator(`button[onclick="deleteCharacter(${version.id})"]`).click();
+    const deleteDialog = page.locator('.modal.show').filter({ hasText: 'キャラクター削除' });
+    const [deleteVersionResponse] = await Promise.all([
+      page.waitForResponse(r => new URL(r.url()).pathname === `/api/accounts/character-sheets/${version.id}/` && r.request().method() === 'DELETE'),
+      deleteDialog.locator('[data-confirm-action]').click(),
+    ]);
+    expect(deleteVersionResponse.status()).toBe(204);
+    await expect(versionCard).toHaveCount(0);
+    expect((await page.request.get(`/api/accounts/character-sheets/${version.id}/`)).status()).toBe(404);
+    expect((await page.request.get(`/api/accounts/character-sheets/${created.id}/`)).status()).toBe(200);
+    const originalImages = await page.request.get(`/api/accounts/character-sheets/${created.id}/images/`);
+    const originalImageData = await originalImages.json();
+    expect(originalImageData.count).toBe(4);
+    for (const image of originalImageData.results) {
+      expect((await page.request.get(image.image_url)).status()).toBe(200);
+    }
   });
 }

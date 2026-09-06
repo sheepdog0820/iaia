@@ -1,5 +1,11 @@
 # ブラウザ登録テストの入力確認
 
+## 診断追加後のCI（85f5d00c）
+
+[CI実行34020134852](https://github.com/sheepdog0820/iaia/actions/runs/34020134852)では登録フローの失敗は報告されなかったが、WebKitの `session-invitation-security.spec.ts` が再試行時のみ成功した。185 passed / 1 flakyでブラウザジョブは失敗、他4ジョブは成功。会員登録の入力欠落が解消した証拠とはしない。
+
+新たな失敗は `helpers.ts` の `devLogin` でセッション一覧へ遷移する `page.goto` の30秒タイムアウト。artifact 9985395806を `tmp/browser-85f5d00c.zip` に保存し、SHA-256 `fed1898acf535ce9e6b8284186c9871e7e2b1d40c675a5371909ec3d0a20b8b4` をジョブログと照合した。ネットワーク記録にはブラウザの一覧GETが応答未完了のまま残り、一方でAPIクライアントの開発ログインPOSTとリダイレクト先は302/200を返している。ページ遷移が止まった原因は未確定。入力欠落と同じ原因とは断定しない。
+
 ## 再発確認（44358a72）
 
 [CI実行34018989095](https://github.com/sheepdog0820/iaia/actions/runs/34018989095)は、WebKitの同じゲスト登録フローが再試行時のみ成功し、179 passed / 1 flakyで失敗した。他の4ジョブは成功。入力方法の変更だけでは解決していない。
