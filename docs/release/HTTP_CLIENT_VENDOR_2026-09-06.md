@@ -22,3 +22,29 @@
 全画面のブラウザ依存と配布静的ファイルが変わる。DB・Secrets・課金・外部サービス設定・実環境への反映は行っていない。以前の配備候補0b0cea6fには今回のAxios同梱を含まない。最終配備時には新候補の通常イメージを作成し、ハッシュ付きURL・圧縮配信を含めて再検証する。
 
 問題が出た場合はこの変更単位をrevertできるが、未固定CDN参照が戻る。原因に応じて同梱版を維持した修正を優先する。サイト全体のオフライン対応や、ほかの同梱ライブラリの安全性を保証する変更ではない。
+
+## 通常配備イメージの隔離検証
+
+7ffd1f9715395eb0574b67d5f54746576eafa53cのgit archiveから通常Dockerfileでビルドした。タグはtableno-formal-release:7ffd1f97、ローカルIDは `sha256:c490460ebb1844a32eb88fcf9d737ef7da83bb4ae1924b3960c2a15ca197ce3c`。revisionラベルは同SHA、実行ユーザーはtableno。ECR未送信であり、このIDはECR manifest digestではない。
+
+空PostgreSQL 16/Redis 7を専用internalネットワークへ配置し、公開ポートなし・外向き通信なしでAPP_ENV=aws-prodの通常entrypointを起動した。設定は隔離検証用の仮値、S3/Checkout無効。pg_isready成功後にアプリを起動し、空DBへの移行・静的203件収集/583件後処理・Daphneのリスナー起動を確認した。
+
+readiness/登録画面200、登録画面の静的参照6件200、Axiosを加えたvendor9件のハッシュ付きURL・配信内容の照合が成功。CSS/JSはgzipで配信され、展開後はcollectstatic生成ファイルと一致する。AxiosはsourceMappingURLのmanifest書換えがあるため、上流配布物そのものと生成後ファイルのハッシュは異なる。check --deployは指摘0、migrate --checkとpip checkは終了0。release_database_preflightも終了0、read_only=true、participant_id/roleの一意制約、複数ロール・重複組とも0を確認した。
+
+証跡はtmp/release-axios-7ffd1f97-build.log、同http.log、同startup.log、同db.json。検証用アプリ・DB・Redisと専用ネットワークは削除済み。実ユーザーデータや共有DBの移行、実TLS/S3/Stripeの検証を示す結果ではない。
+
+OS監査の初回はScoutキャッシュ競合で終了1となった。[Dockerの設定手順](https://docs.docker.com/scout/how-tos/configure-cli/)に従いDOCKER_SCOUT_CACHE_DIRを専用tmp/scout-cache-7ffd1f97へ変更し、他のプロセスや既存キャッシュを変更せず再実行した。1.24.0で392パッケージを索引し、deb限定では20ソースパッケージ・113件、終了2。新旧イメージのdpkg一覧175件は完全一致した。OSの未解決事項は維持する。
+
+同じ候補をパッケージ種別の除外なしで監査すると25パッケージ・119ルール、終了2だった。High 6、Medium 2、Low 105、Unspecified 6。追加6ルールは以下のPythonパッケージに対するもので、独立した6種類の攻撃経路を実証したという意味ではない。
+
+| 指摘 | 監査上の対象 | 修正版の表示 |
+| --- | --- | --- |
+| CVE-2026-59890 | setuptools 70.3.0 / 79.0.1 | 83.0.0 |
+| CVE-2026-24049 | wheel 0.45.1 | 0.46.2 |
+| CVE-2026-57585 / GHSA-6v7p-g79w-8964 | msgpack 1.1.2 | 1.2.1 |
+| CVE-2025-47273 | setuptools 70.3.0 | 78.1.1 |
+| CVE-2026-23949 | jaraco.context 5.3.0 | 6.1.0 |
+
+実イメージのトップレベルはsetuptools 79.0.1、wheel 0.46.3、msgpack 1.2.1。一方、setuptools/_vendorのMETADATAはwheel 0.45.1とjaraco.context 5.3.0を示し、pip 26.2.1の_vendor/vendor.txtはmsgpack 1.1.2とsetuptools 70.3.0を示した。実アプリがimportするmsgpack 1.2.1だけを見て、同梱された古いコピーの指摘を解決済みにはしない。CI用requirements-test.lock.txtのsetuptools 84.0.0は、通常イメージ内のsetuptoolsを更新していなかった。ビルド関連ツールがランタイムに必要かを調査し、更新または最終イメージからの除去と起動・機能検証を次の修正単位で行う。
+
+追加証跡: tmp/runtime-os-7ffd1f97-scout.log（初回失敗）、tmp/runtime-os-7ffd1f97-scout-isolated.log、tmp/runtime-os-7ffd1f97.sarif.json、tmp/runtime-os-7ffd1f97-packages.txt、tmp/runtime-all-7ffd1f97.sarif.json、tmp/runtime-all-7ffd1f97-scout.log。指摘を抑制せず、公開判定は引き続き未達とする。
