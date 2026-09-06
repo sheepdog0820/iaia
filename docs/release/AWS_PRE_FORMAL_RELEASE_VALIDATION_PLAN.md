@@ -1,6 +1,16 @@
 # 正式公開に向けたaws-pre検証・配備準備
 
-## 現在の候補と承認前の残作業（4499b243、2026-09-06）
+## 現在の候補と承認前の残作業（01a52f52、2026-09-06）
+
+候補ソースは `01a52f523ddcfa087d57b10c69c9f905dd1db44c`。4499b243以降の時間計測・動画操作テスト修正とホーム画面の配置修正を含む。通常Dockerfileから作成した `tableno-formal-release:01a52f52` のローカルIDは `sha256:b649686df0dc3d8d716c1e821af0339ca6d3cf8f3d7108214b56a3384c407de0`、revisionラベルは候補SHA、実行ユーザーはtableno。ECR未送信。
+
+内部ネットワーク・公開ポートなし・外向き通信なしの専用PG16/Redis7と本番設定で、通常entrypointの空DB移行・静的収集・Daphne起動を確認した。readiness/登録画面200、登録画面のstatic5件、vendor8件のハッシュ付き配信・内容照合とCSS/JS gzipが成功。pip check、migrate --check、check --deployも終了0。実行コンテナの8領域499ファイルはarchiveとSHA-256一致。S3/Checkoutは無効で、Stripeキー等は検証用の仮値。実AWS・課金・OAuthの証拠とはしない。
+
+証跡は `tmp/formal-release-01a52f52-production-build.log`、`tmp/runtime-source-01a52f52.json`、`tmp/static-runtime-01a52f52-{server,http,deploy-check}.log`。専用app/DB/cacheコンテナとネットワークは検証後に停止・削除した。別の全体テスト用コンテナは実行中であり、その最終結果を待つ。共有環境・共有DB・Secrets・IAM・契約への変更はない。
+
+AWS稼働版・DB履歴の未確認事項・復旧候補は以下の読み取り結果を引き継ぐ。最新候補の全体テスト・CIゲート・実サービス・共有DB差分の確認が残るため、配備承認用資料はまだ未完成。
+
+## 前候補の確認（4499b243、2026-09-06）
 
 候補ソースは `4499b2433024415fe932ddb175b2cff5eb2e1d9f`。f016a66d以降のGoogle設定保存UIと追加認可の保存経路を含む。共有環境への反映、ECRへの送信、DB操作は未実施。
 

@@ -294,3 +294,9 @@ CCFOLIA 1.36.4上でそれぞれ「タブレノ連携検証 6th 20260906」「�
 初回のブラウザ起動は補助シェルのCRLFで停止し、LFへ訂正して再開した。初回PG実行は補助ランナーの接続先に存在しないコンテナ名が残り、セットアップエラーを起こしたため明示的に停止した。ログは `tmp/full-01a52f52-output/postgres-initial-host-error.log` に保持した。既存の専用・内部ネットワーク・tmpfsのPG16を指定し、pg_isreadyと実行コンテナからの名前解決を確認して、新しい隔離テストDB名で再開した。アプリ・テスト本体は修正していない。
 
 この追記時点では3実行ともコンテナが稼働中で、最終成否は未判定。SQLite/PGの証跡は `tmp/full-01a52f52-output/`、ブラウザは `tmp/browser-all-01a52f52.log` と同名の `-output/`。再開後のPGを含め各終了コードと最終レポートを確認し、過去候補の成功で代用しない。共有DB・AWS・Secrets・権限・契約・正式通知への操作は行っていない。
+
+## 01a52f52の通常本番用イメージ検証
+
+通常Dockerfileの本番用イメージを別途ビルドし、隔離PG16/Redis7とAPP_ENV=aws-prodで通常entrypointを起動した。空DBへの移行・静的収集・Daphne起動、readiness/登録画面200、static5件とvendor8件のハッシュ付き配信・内容照合・CSS/JS gzip、pip check、migrate --check、check --deployを確認した。対象499ソースファイルもarchiveと一致した。イメージID、条件と証跡は[配備準備資料](AWS_PRE_FORMAL_RELEASE_VALIDATION_PLAN.md)の01a52f52節に記録した。
+
+S3/Checkout無効、検証用仮値、内部ネットワーク・公開ポートなし・外向き通信なしであり、実AWS/決済/認可の確認ではない。専用のruntimeコンテナ3件とネットワークは停止・削除した。全体テスト用の3実行は継続中で、完了判定はしていない。CIの既存Bandit指摘は分類記録を再確認したが、警告抑制やゲート変更は行っていない。
