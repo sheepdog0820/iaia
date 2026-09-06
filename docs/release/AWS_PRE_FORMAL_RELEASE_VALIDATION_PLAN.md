@@ -6,11 +6,11 @@
 
 内部ネットワーク・公開ポートなし・外向き通信なしの専用PG16/Redis7と本番設定で、通常entrypointの空DB移行・静的収集・Daphne起動を確認した。readiness/登録画面200、登録画面のstatic5件、vendor8件のハッシュ付き配信・内容照合とCSS/JS gzipが成功。pip check、migrate --check、check --deployも終了0。実行コンテナの8領域499ファイルはarchiveとSHA-256一致。S3/Checkoutは無効で、Stripeキー等は検証用の仮値。実AWS・課金・OAuthの証拠とはしない。
 
-証跡は `tmp/formal-release-01a52f52-production-build.log`、`tmp/runtime-source-01a52f52.json`、`tmp/static-runtime-01a52f52-{server,http,deploy-check}.log`。専用app/DB/cacheコンテナとネットワークは検証後に停止・削除した。別の全体テスト用コンテナは実行中であり、その最終結果を待つ。共有環境・共有DB・Secrets・IAM・契約への変更はない。
+証跡は `tmp/formal-release-01a52f52-production-build.log`、`tmp/runtime-source-01a52f52.json`、`tmp/static-runtime-01a52f52-{server,http,deploy-check}.log`。専用app/DB/cacheコンテナとネットワークは検証後に停止・削除した。全体テストも終了し、結果は下記の追加結果に記録した。共有環境・共有DB・Secrets・IAM・契約への変更はない。
 
 AWS稼働版・DB履歴の未確認事項・復旧候補は以下の読み取り結果を引き継ぐ。最新候補の全体テスト・CIゲート・実サービス・共有DB差分の確認が残るため、配備承認用資料はまだ未完成。
 
-追加結果: 01a52f52のブラウザ全体は25フローファイル、3ブラウザ各58件・計174成功（806.50秒、skip/retry/flakyなし、終了0）で完了した。flake8/Black/isortも終了0、BanditはLOW560・HIGH/MEDIUM 0・解析エラー0・終了1。SQLite/PGのバックエンド全体はまだ実行中であり、リモートCI・実サービス・共有DBの未確認事項は維持する。
+追加結果: 01a52f52のブラウザ全体は25フローファイル、3ブラウザ各58件・計174成功（806.50秒、skip/retry/flakyなし、終了0）で完了した。flake8/Black/isortも終了0、BanditはLOW560・HIGH/MEDIUM 0・解析エラー0・終了1。SQLite1683成功/11skip・86.99%、PG1694成功/skipなし・87.62%、双方終了0で完了した。SQLiteのskip11件はPGで成功。リモートCI・実サービス・共有DBの未確認事項は維持する。
 
 ## 前候補の確認（4499b243、2026-09-06）
 

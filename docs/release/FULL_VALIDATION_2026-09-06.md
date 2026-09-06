@@ -312,3 +312,11 @@ S3/Checkout無効、検証用仮値、内部ネットワーク・公開ポート
 25フローファイル、Chromium/Firefox/WebKit各58件、計174件が806.50秒で成功し、終了コード0。JSONレポートのexpected174・unexpected/flaky/skipped各0と全resultのretry=0を照合した。前候補のホーム画面・動画並べ替え失敗に対する修正と、Google設定保存UIのケースも含む。ソースの上書きがない固定候補の単一実行であり、関連テストの成功数を合算した値ではない。
 
 証跡は `tmp/browser-all-01a52f52-output/results.json` と `tmp/browser-all-01a52f52.log`。隔離SQLiteの開発用fixtureを用い、外部静的資産への通信を許可した条件。実機全状態、実課金、実Google等への同期・認可までを網羅するものではない。バックエンドのSQLite/PG全体はこの追記時点で実行中であり、両DBの完了結果を確認する必要がある。
+
+## 01a52f52の両DB全体検証完了
+
+SQLiteは1683成功・11skip・486サブテスト成功・159警告、1499.72秒、86.99%、終了0。PostgreSQL16は1694成功・skipなし・486サブテスト成功・159警告、1509.83秒、87.62%、終了0。双方のJUnitは2180 testcase・failure/error 0で、SQLiteのskip11件すべてがPGの同一クラス・メソッドで成功したことを照合した。70%のカバレッジ基準は両DBで達成した。前回失敗した統計エクスポートの性能検査も含む。
+
+証跡は `tmp/full-01a52f52-output/{sqlite,postgres}-{junit.xml,coverage.json,coverage.xml}` と同ディレクトリの各-run.log。テストコンテナは終了済みで、専用PGコンテナと内部ネットワークも削除した。アプリ候補01a52f52は両DB・ブラウザ全体・通常本番用イメージの隔離検証が成功したが、リモートCI、既存Bandit LOW、実環境の配信・OAuth・課金・運用・公開条件は未完了。
+
+後続e1f58c83はTerraformのRedis証明書検証2設定と回帰テスト・運用記録の変更。アプリ実装は変更していない。これは上記の固定ソース全体検証には含まれず、関連27件とTerraform fmt/validateで別途確認した。実AWSには未適用。[監視・バックアップと非同期処理の確認](AWS_PRE_OPERATIONS_CHECK_2026-09-06.md)も公開判断の残条件として参照する。
