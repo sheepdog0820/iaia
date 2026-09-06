@@ -46,15 +46,6 @@ function trackJsErrors(page: Page): JsErrorTracker {
   };
 }
 
-async function fetchFirstId(page: Page, endpoint: string): Promise<number | null> {
-  const response = await page.request.get(endpoint);
-  if (!response.ok()) return null;
-  const data = await response.json();
-  const items = Array.isArray(data) ? data : data?.results ?? [];
-  const first = items?.[0];
-  return typeof first?.id === 'number' ? first.id : null;
-}
-
 async function waitForBootstrapModal(page: Page): Promise<void> {
   await page.waitForFunction(() => {
     return Boolean((window as any).bootstrap?.Modal);
@@ -137,6 +128,30 @@ test.describe('ui script health', () => {
     await waitForSpinnerToDisappear(page, '#user-groups');
     tracker.assertNoErrors('home');
 
+    // Own these records: another test's session may contain synthetic video URLs.
+    // Creation failures must fail this test rather than skip detail screens.
+    const { sessionId, scenarioId, groupId } = await page.evaluate(async () => {
+      const api = (window as any).axios;
+      const suffix = Date.now();
+      const group = await api.post('/api/accounts/groups/', {
+        name: `E2E UI Health Group ${suffix}`, visibility: 'private',
+      });
+      const scenario = await api.post('/api/scenarios/scenarios/', {
+        title: `E2E UI Health Scenario ${suffix}`, game_system: 'coc7',
+        author: 'Playwright', summary: '画面の動作確認用シナリオ',
+      });
+      const session = await api.post('/api/schedules/sessions/', {
+        title: `E2E UI Health Session ${suffix}`,
+        date: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+        duration_minutes: 120, location: 'オンライン', visibility: 'group',
+        group: group.data.id, scenario: scenario.data.id, as_gm: true,
+      });
+      return { sessionId: session.data.id, scenarioId: scenario.data.id, groupId: group.data.id };
+    });
+    for (const id of [sessionId, scenarioId, groupId]) {
+      expect(Number.isInteger(id) && id > 0).toBe(true);
+    }
+
     const calendarGroupsResponse = page.waitForResponse(response => {
       if (response.request().method() !== 'GET') return false;
       return new URL(response.url()).pathname === '/api/accounts/groups/';
@@ -164,8 +179,7 @@ test.describe('ui script health', () => {
     await waitForSpinnerToDisappear(page, '#mySessionsList');
     tracker.assertNoErrors('sessions');
 
-    const sessionId = await fetchFirstId(page, '/api/schedules/sessions/');
-    if (sessionId) {
+    {
       await page.goto(`/api/schedules/sessions/${sessionId}/detail/`);
       await expect(page.locator('nav[aria-label="セッション操作"]')).toBeVisible();
       await expect(page.locator('#sessionOverviewCard .card-header h3')).toBeVisible();
@@ -178,8 +192,7 @@ test.describe('ui script health', () => {
     await waitForSpinnerToDisappear(page, '#scenariosList');
     tracker.assertNoErrors('scenarios');
 
-    const scenarioId = await fetchFirstId(page, '/api/scenarios/scenarios/');
-    if (scenarioId) {
+    {
       const detailResponse = page.waitForResponse(response => {
         if (response.request().method() !== 'GET') return false;
         return new URL(response.url()).pathname === `/api/scenarios/scenarios/${scenarioId}/`;
@@ -201,8 +214,7 @@ test.describe('ui script health', () => {
     await waitForSpinnerToDisappear(page, '#friendsList');
     tracker.assertNoErrors('groups');
 
-    const groupId = await fetchFirstId(page, '/api/accounts/groups/');
-    if (groupId) {
+    {
       const groupResponse = page.waitForResponse(response => {
         if (response.request().method() !== 'GET') return false;
         return new URL(response.url()).pathname === `/api/accounts/groups/${groupId}/`;
