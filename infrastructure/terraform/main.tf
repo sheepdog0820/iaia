@@ -21,7 +21,7 @@ locals {
   }
   db_port          = var.db_engine == "postgres" ? 5432 : 3306
   redis_url        = var.enable_elasticache ? "rediss://${aws_elasticache_replication_group.main[0].primary_endpoint_address}:6379/0" : ""
-  celery_redis_url = var.enable_elasticache ? "${local.redis_url}?ssl_cert_reqs=CERT_NONE" : ""
+  celery_redis_url = var.enable_elasticache ? "${local.redis_url}?ssl_cert_reqs=required" : ""
   allowed_hosts    = var.allowed_hosts_override != "" ? var.allowed_hosts_override : var.domain_name
   backup_retention = var.environment == "aws-prod" ? 14 : var.db_backup_retention_period
   app_secret_names = distinct(concat(["SECRET_KEY", "DB_PASSWORD"], var.extra_secret_names))
@@ -54,7 +54,7 @@ locals {
   ]
   app_redis_environment = var.enable_elasticache ? [
     { name = "REDIS_URL", value = local.redis_url },
-    { name = "REDIS_SSL_CERT_REQS", value = "none" },
+    { name = "REDIS_SSL_CERT_REQS", value = "required" },
     { name = "CELERY_BROKER_URL", value = local.celery_redis_url },
     { name = "CELERY_RESULT_BACKEND", value = local.celery_redis_url },
   ] : []
