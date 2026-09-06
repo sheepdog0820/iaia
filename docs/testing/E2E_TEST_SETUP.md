@@ -1,5 +1,7 @@
 # E2Eテスト環境セットアップガイド
 
+Node.js 20以上を使用し、`npm ci` でロックファイルのPlaywrightをインストールしてください。`npm audit` が成功してからブラウザを導入します。Playwrightを更新した場合は、対応するブラウザも `npx playwright install` で更新します。
+
 ## WSL環境でのPlaywright設定
 
 ### 方法1: WSL内で依存関係をインストール（推奨）
@@ -56,7 +58,8 @@ cd C:\Users\endke\Workspace\iaia
 # https://nodejs.org/ からダウンロード
 
 # 3. 依存関係をインストール
-npm install
+npm ci
+npm audit
 
 # 4. Playwrightブラウザをインストール
 npx playwright install
@@ -75,7 +78,7 @@ Dockerを使用して一貫した環境でテストを実行します。
 
 ```dockerfile
 # Dockerfile.e2e
-FROM mcr.microsoft.com/playwright:v1.53.0-jammy
+FROM mcr.microsoft.com/playwright:v1.63.0-noble
 
 WORKDIR /app
 
