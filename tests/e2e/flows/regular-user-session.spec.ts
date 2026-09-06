@@ -3,6 +3,26 @@ import { randomUUID } from 'node:crypto';
 
 async function signUp(page: Page, suffix: string, nickname?: string): Promise<void> {
   await page.goto('/signup/');
+  await page.evaluate(() => {
+    const events: object[] = [];
+    (window as any).__signupInputEvents = events;
+    const record = (event: Event) => {
+      const target = event.target;
+      events.push({
+        type: event.type,
+        time: performance.now(),
+        target: target instanceof HTMLElement ? target.id : 'window',
+        length: target instanceof HTMLInputElement ? target.value.length : null,
+        activeElement: document.activeElement?.id ?? null,
+        documentFocused: document.hasFocus(),
+        visibility: document.visibilityState,
+      });
+      if (events.length > 300) events.shift();
+    };
+    for (const type of ['focus', 'blur', 'focusin', 'focusout', 'beforeinput', 'input', 'visibilitychange']) {
+      window.addEventListener(type, record, true);
+    }
+  });
   await page.fill('#id_username', `release_${suffix}`);
   await page.fill('#id_email', `release_${suffix}@example.com`);
   const password = `Vault-${randomUUID()}!`;
@@ -11,7 +31,21 @@ async function signUp(page: Page, suffix: string, nickname?: string): Promise<vo
     await input.focus();
     await expect(input).toBeFocused();
     await input.pressSequentially(password);
-    await expect(input).toHaveValue(password);
+    try {
+      await expect(input).toHaveValue(password);
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({
+        events: (window as any).__signupInputEvents,
+        activeElement: document.activeElement?.id ?? null,
+        documentFocused: document.hasFocus(),
+        visibility: document.visibilityState,
+      }));
+      await test.info().attach('signup-input-events', {
+        body: JSON.stringify(diagnostic, null, 2),
+        contentType: 'application/json',
+      });
+      throw error;
+    }
   }
   await page.fill('#id_nickname', nickname ?? `通常利用者 ${suffix}`);
   await Promise.all([
