@@ -287,6 +287,22 @@ class CharacterSheetAPITest(APITestCase):
             CharacterSheet.objects.filter(sixth_edition_data__parent_data__character_sheet=character).exists()
         )
 
+    def test_create_6th_edition_preserves_name_kana(self):
+        for payload_format in ("json", "multipart"):
+            with self.subTest(payload_format=payload_format):
+                data = dict(self.character_data_6th)
+                data.pop("sixth_edition_data", None)
+                data["name_kana"] = "ほぞんかくにん"
+                response = self.client.post(
+                    "/api/accounts/character-sheets/create_6th_edition/",
+                    data,
+                    format=payload_format,
+                )
+                self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+                self.assertEqual(response.data["name_kana"], "ほぞんかくにん")
+                character = CharacterSheet.objects.get(pk=response.data["id"])
+                self.assertEqual(character.system_data.name_kana, "ほぞんかくにん")
+
     def test_create_6th_edition_character(self):
         """6版キャラクターシート作成テスト"""
         url = "/api/accounts/character-sheets/"
