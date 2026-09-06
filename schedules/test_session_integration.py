@@ -31,7 +31,11 @@ class SessionManagementIntegrationTestCase(APITestCase):
         """テストデータのセットアップ"""
         # ユーザー作成
         self.gm = CustomUser.objects.create_user(
-            username="gm_user", email="gm@example.com", password="gmpass123", nickname="ゲームマスター"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="gm_user",
+            email="gm@example.com",
+            password="gmpass123",
+            nickname="ゲームマスター",  # nosec B106
         )
 
         self.players = []
@@ -39,7 +43,8 @@ class SessionManagementIntegrationTestCase(APITestCase):
             player = CustomUser.objects.create_user(
                 username=f"player{i+1}",
                 email=f"player{i+1}@example.com",
-                password="playerpass123",
+                # Isolated test fixture or mocked credential; never a production secret.
+                password="playerpass123",  # nosec B106
                 nickname=f"プレイヤー{i+1}",
             )
             self.players.append(player)
@@ -455,7 +460,11 @@ class NotificationSystemIntegrationTestCase(APITestCase):
         self.users = []
         for i in range(4):
             user = CustomUser.objects.create_user(
-                username=f"user{i+1}", email=f"user{i+1}@example.com", password="pass123", nickname=f"ユーザー{i+1}"
+                # Isolated test fixture or mocked credential; never a production secret.
+                username=f"user{i+1}",
+                email=f"user{i+1}@example.com",
+                password="pass123",
+                nickname=f"ユーザー{i+1}",  # nosec B106
             )
             self.users.append(user)
 
@@ -572,7 +581,10 @@ class CalendarExportIntegrationTestCase(APITestCase):
     def setUp(self):
         """テストデータのセットアップ"""
         self.user = CustomUser.objects.create_user(
-            username="calendar_user", email="cal@example.com", password="pass123"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="calendar_user",
+            email="cal@example.com",
+            password="pass123",  # nosec B106
         )
 
         self.group = Group.objects.create(name="Calendar Test Group", created_by=self.user)
@@ -664,7 +676,10 @@ class CalendarExportIntegrationTestCase(APITestCase):
         """カレンダー権限の分離テスト"""
         # 別のユーザーとグループを作成
         other_user = CustomUser.objects.create_user(
-            username="other_user", email="other@example.com", password="pass123"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="other_user",
+            email="other@example.com",
+            password="pass123",  # nosec B106
         )
         other_group = Group.objects.create(name="Other Group", created_by=other_user)
         other_group.members.add(other_user)

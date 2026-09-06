@@ -23,15 +23,27 @@ class HandoutManagementTestCase(APITestCase):
     def setUp(self):
         # テストユーザー作成
         self.gm_user = User.objects.create_user(
-            username="gmuser", email="gm@example.com", password="pass123", nickname="GM User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="gmuser",
+            email="gm@example.com",
+            password="pass123",
+            nickname="GM User",  # nosec B106
         )
 
         self.player1 = User.objects.create_user(
-            username="player1", email="player1@example.com", password="pass123", nickname="Player 1"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="player1",
+            email="player1@example.com",
+            password="pass123",
+            nickname="Player 1",  # nosec B106
         )
 
         self.player2 = User.objects.create_user(
-            username="player2", email="player2@example.com", password="pass123", nickname="Player 2"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="player2",
+            email="player2@example.com",
+            password="pass123",
+            nickname="Player 2",  # nosec B106
         )
 
         # テストグループ作成
@@ -124,7 +136,8 @@ class HandoutManagementTestCase(APITestCase):
             "participant": self.player1_participant.id,
             "title": "新しいハンドアウト",
             "content": "新しいハンドアウトの内容です。",
-            "is_secret": True,
+            # Isolated test fixture or mocked credential; never a production secret.
+            "is_secret": True,  # nosec B105
         }
 
         response = self.client.post("/api/schedules/gm-handouts/", handout_data)
@@ -148,13 +161,15 @@ class HandoutManagementTestCase(APITestCase):
                     "participant": self.player1_participant.id,
                     "title": "一括ハンドアウト1",
                     "content": "一括作成コンテンツ1",
-                    "is_secret": True,
+                    # Isolated test fixture or mocked credential; never a production secret.
+                    "is_secret": True,  # nosec B105
                 },
                 {
                     "participant": self.player2_participant.id,
                     "title": "一括ハンドアウト2",
                     "content": "一括作成コンテンツ2",
-                    "is_secret": False,
+                    # Isolated test fixture or mocked credential; never a production secret.
+                    "is_secret": False,  # nosec B105
                 },
             ],
         }
@@ -222,7 +237,8 @@ class HandoutManagementTestCase(APITestCase):
             "template_id": "basic_intro",
             "session_id": self.session.id,
             "participant_id": self.player1_participant.id,
-            "customizations": {"title": "テンプレートハンドアウト", "is_secret": True},
+            # Isolated test fixture or mocked credential; never a production secret.
+            "customizations": {"title": "テンプレートハンドアウト", "is_secret": True},  # nosec B105
         }
 
         response = self.client.post("/api/schedules/handout-templates/", template_data, format="json")
@@ -268,7 +284,8 @@ class HandoutManagementTestCase(APITestCase):
             "participant": self.player2_participant.id,
             "title": "不正ハンドアウト",
             "content": "作成できないはず",
-            "is_secret": True,
+            # Isolated test fixture or mocked credential; never a production secret.
+            "is_secret": True,  # nosec B105
         }
 
         response = self.client.post("/api/schedules/gm-handouts/", handout_data)
@@ -289,11 +306,19 @@ class HandoutManagementIntegrationTestCase(TestCase):
     def setUp(self):
         # APITestCaseと同じセットアップ
         self.gm_user = User.objects.create_user(
-            username="gmuser", email="gm@example.com", password="pass123", nickname="GM User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="gmuser",
+            email="gm@example.com",
+            password="pass123",
+            nickname="GM User",  # nosec B106
         )
 
         self.player1 = User.objects.create_user(
-            username="player1", email="player1@example.com", password="pass123", nickname="Player 1"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="player1",
+            email="player1@example.com",
+            password="pass123",
+            nickname="Player 1",  # nosec B106
         )
 
         self.group = Group.objects.create(name="Test Group", created_by=self.gm_user)
@@ -314,7 +339,8 @@ class HandoutManagementIntegrationTestCase(TestCase):
 
     def test_gm_handout_management_html_view(self):
         """GMハンドアウト管理HTMLビューテスト"""
-        self.client.login(username="gmuser", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.client.login(username="gmuser", password="pass123")  # nosec B106
 
         response = self.client.get(f"/api/schedules/sessions/{self.session.id}/handouts/manage/")
 
@@ -327,7 +353,8 @@ class HandoutManagementIntegrationTestCase(TestCase):
     def test_complete_handout_workflow(self):
         """完全なハンドアウトワークフローテスト"""
         # 1. GMログイン
-        self.client.login(username="gmuser", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.client.login(username="gmuser", password="pass123")  # nosec B106
 
         # 2. ハンドアウト作成
         handout = HandoutInfo.objects.create(
@@ -346,15 +373,20 @@ class HandoutManagementIntegrationTestCase(TestCase):
         self.assertContains(response, "完全ワークフローテスト")
 
         # 5. プレイヤーとして詳細画面でハンドアウト確認
-        self.client.login(username="player1", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.client.login(username="player1", password="pass123")  # nosec B106
         response = self.client.get(f"/api/schedules/sessions/{self.session.id}/detail/")
         self.assertContains(response, "完全ワークフローテスト")
 
         # 6. 他のプレイヤーからは秘匿ハンドアウトが見えないことを確認
-        other_player = User.objects.create_user(username="other_player", email="other@example.com", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        other_player = User.objects.create_user(
+            username="other_player", email="other@example.com", password="pass123"
+        )  # nosec B106
 
         session_permissions.create_participant(session=self.session, user=other_player, role="player")
 
-        self.client.login(username="other_player", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.client.login(username="other_player", password="pass123")  # nosec B106
         response = self.client.get(f"/api/schedules/sessions/{self.session.id}/detail/")
         self.assertNotContains(response, "完全ワークフローテスト")

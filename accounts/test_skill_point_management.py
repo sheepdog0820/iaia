@@ -21,7 +21,10 @@ class SkillPointCalculationTestCase(TestCase):
     """技能ポイント計算のテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         _, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
@@ -92,7 +95,10 @@ class SkillPointValidationTestCase(TestCase):
     """技能ポイント割り振りのバリデーションテスト"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         _, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
@@ -164,7 +170,10 @@ class SkillPointManagementAPITestCase(APITestCase):
     """技能ポイント管理APIのテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.client.force_authenticate(user=self.user)
 
         _, self.character = create_6th_character(
@@ -283,7 +292,10 @@ class OccupationSkillSetTestCase(TestCase):
     """職業別技能セットのテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         _, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",

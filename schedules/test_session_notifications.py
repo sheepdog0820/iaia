@@ -24,13 +24,25 @@ class SessionNotificationServiceTestCase(TestCase):
         """テストデータのセットアップ"""
         # ユーザー作成
         self.gm = CustomUser.objects.create_user(
-            username="gm", email="gm@example.com", password="pass123", nickname="GMユーザー"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="gm",
+            email="gm@example.com",
+            password="pass123",
+            nickname="GMユーザー",  # nosec B106
         )
         self.player1 = CustomUser.objects.create_user(
-            username="player1", email="player1@example.com", password="pass123", nickname="プレイヤー1"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="player1",
+            email="player1@example.com",
+            password="pass123",
+            nickname="プレイヤー1",  # nosec B106
         )
         self.player2 = CustomUser.objects.create_user(
-            username="player2", email="player2@example.com", password="pass123", nickname="プレイヤー2"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="player2",
+            email="player2@example.com",
+            password="pass123",
+            nickname="プレイヤー2",  # nosec B106
         )
 
         # グループ作成
@@ -165,10 +177,19 @@ class SessionInviteAPITestCase(APITestCase):
     def setUp(self):
         """テストデータのセットアップ"""
         # ユーザー作成
-        self.gm = CustomUser.objects.create_user(username="gm", email="gm@example.com", password="pass123")
-        self.player = CustomUser.objects.create_user(username="player", email="player@example.com", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.gm = CustomUser.objects.create_user(
+            username="gm", email="gm@example.com", password="pass123"
+        )  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.player = CustomUser.objects.create_user(
+            username="player", email="player@example.com", password="pass123"
+        )  # nosec B106
         self.non_member = CustomUser.objects.create_user(
-            username="nonmember", email="non@example.com", password="pass123"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="nonmember",
+            email="non@example.com",
+            password="pass123",  # nosec B106
         )
 
         # グループ作成
@@ -254,8 +275,14 @@ class SessionUpdateNotificationTestCase(APITestCase):
 
     def setUp(self):
         """テストデータのセットアップ"""
-        self.gm = CustomUser.objects.create_user(username="gm", email="gm@example.com", password="pass123")
-        self.player = CustomUser.objects.create_user(username="player", email="player@example.com", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.gm = CustomUser.objects.create_user(
+            username="gm", email="gm@example.com", password="pass123"
+        )  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.player = CustomUser.objects.create_user(
+            username="player", email="player@example.com", password="pass123"
+        )  # nosec B106
 
         self.group = Group.objects.create(name="Test Group", created_by=self.gm)
         self.group.members.add(self.gm, self.player)

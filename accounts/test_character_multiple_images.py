@@ -27,7 +27,10 @@ class CharacterImageModelTestCase(TestCase):
 
     def setUp(self):
         """テストデータの準備"""
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.character, _ = create_6th_character(
             user=self.user,
             name="テストキャラクター",
@@ -104,8 +107,12 @@ class CharacterImageAPITestCase(APITestCase):
 
     def setUp(self):
         """テストデータの準備"""
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.other_user = User.objects.create_user(username="otheruser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.other_user = User.objects.create_user(username="otheruser", password="testpass123")  # nosec B106
         self.character, _ = create_6th_character(
             user=self.user,
             name="テストキャラクター",
@@ -366,8 +373,10 @@ class CharacterImageIntegrationTestCase(TestCase):
 
     def setUp(self):
         """テストデータの準備"""
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
-        self.client.login(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.client.login(username="testuser", password="testpass123")  # nosec B106
 
     def create_test_image(self, name="test.png"):
         """テスト用画像ファイルを作成"""

@@ -24,9 +24,13 @@ class SimpleSessionCharacterTest(TestCase):
     def setUp(self):
         """基本的なテストデータの作成"""
         # ユーザー作成
-        self.gm = User.objects.create_user(username="gm", password="gmpass123", email="gm@test.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.gm = User.objects.create_user(username="gm", password="gmpass123", email="gm@test.com")  # nosec B106
 
-        self.player = User.objects.create_user(username="player", password="playerpass123", email="player@test.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.player = User.objects.create_user(
+            username="player", password="playerpass123", email="player@test.com"
+        )  # nosec B106
 
         # グループ作成
         self.group = Group.objects.create(name="テストグループ", created_by=self.gm, visibility="private")
@@ -127,7 +131,10 @@ class SimpleSessionCharacterTest(TestCase):
     def test_multiple_characters_in_session(self):
         """複数キャラクターのセッション参加テスト"""
         # 追加プレイヤー作成
-        player2 = User.objects.create_user(username="player2", password="pass123", email="player2@test.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        player2 = User.objects.create_user(
+            username="player2", password="pass123", email="player2@test.com"
+        )  # nosec B106
 
         # グループに追加
         GroupMembership.objects.create(user=player2, group=self.group, role="member")

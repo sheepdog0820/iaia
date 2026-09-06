@@ -87,7 +87,8 @@ class JapaneseHolidayApiTestCase(APITestCase):
         self.user = User.objects.create_user(
             username="holiday-user",
             email="holiday-user@example.com",
-            password="testpass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="testpass123",  # nosec B106
         )
         JapaneseHoliday.objects.create(date=date(2026, 1, 1), name="元日")
         JapaneseHoliday.objects.create(date=date(2026, 1, 12), name="成人の日")

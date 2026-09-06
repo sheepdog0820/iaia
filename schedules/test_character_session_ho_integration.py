@@ -24,7 +24,11 @@ class CharacterSessionHOIntegrationTestCase(APITestCase):
         """テストデータのセットアップ"""
         # GM作成
         self.gm = CustomUser.objects.create_user(
-            username="gamemaster", email="gm@example.com", password="gmpassword", nickname="ゲームマスター"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="gamemaster",
+            email="gm@example.com",
+            password="gmpassword",
+            nickname="ゲームマスター",  # nosec B106
         )
 
         # プレイヤー4人作成
@@ -33,7 +37,8 @@ class CharacterSessionHOIntegrationTestCase(APITestCase):
             player = CustomUser.objects.create_user(
                 username=f"player{i+1}",
                 email=f"player{i+1}@example.com",
-                password="playerpassword",
+                # Isolated test fixture or mocked credential; never a production secret.
+                password="playerpassword",  # nosec B106
                 nickname=f"プレイヤー{i+1}",
             )
             self.players.append(player)
@@ -156,7 +161,8 @@ class CharacterSessionHOIntegrationTestCase(APITestCase):
                 "participant": participant.id,
                 "title": handout_contents[i]["title"],
                 "content": handout_contents[i]["content"],
-                "is_secret": True,
+                # Isolated test fixture or mocked credential; never a production secret.
+                "is_secret": True,  # nosec B105
                 "handout_number": i + 1,
                 "assigned_player_slot": i + 1,
             }

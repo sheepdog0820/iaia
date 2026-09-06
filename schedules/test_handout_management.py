@@ -26,16 +26,32 @@ class HandoutManagementDetailTestCase(APITestCase):
         """テストデータのセットアップ"""
         # ユーザー作成
         self.gm_user = User.objects.create_user(
-            username="gmuser", email="gm@example.com", password="pass123", nickname="GM User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="gmuser",
+            email="gm@example.com",
+            password="pass123",
+            nickname="GM User",  # nosec B106
         )
         self.player1 = User.objects.create_user(
-            username="player1", email="player1@example.com", password="pass123", nickname="Player 1"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="player1",
+            email="player1@example.com",
+            password="pass123",
+            nickname="Player 1",  # nosec B106
         )
         self.player2 = User.objects.create_user(
-            username="player2", email="player2@example.com", password="pass123", nickname="Player 2"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="player2",
+            email="player2@example.com",
+            password="pass123",
+            nickname="Player 2",  # nosec B106
         )
         self.other_user = User.objects.create_user(
-            username="other", email="other@example.com", password="pass123", nickname="Other User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="other",
+            email="other@example.com",
+            password="pass123",
+            nickname="Other User",  # nosec B106
         )
 
         # グループ作成
@@ -83,13 +99,15 @@ class HandoutManagementDetailTestCase(APITestCase):
                 "participant": self.participant1.id,
                 "title": "Handout for Player 1",
                 "content": "Secret information for player 1",
-                "is_secret": True,
+                # Isolated test fixture or mocked credential; never a production secret.
+                "is_secret": True,  # nosec B105
             },
             {
                 "participant": self.participant2.id,
                 "title": "Handout for Player 2",
                 "content": "Public information for player 2",
-                "is_secret": False,
+                # Isolated test fixture or mocked credential; never a production secret.
+                "is_secret": False,  # nosec B105
             },
         ]
 
@@ -251,7 +269,8 @@ class HandoutManagementDetailTestCase(APITestCase):
                 "template_id": "basic_intro",
                 "session_id": self.session.id,
                 "participant_id": self.participant1.id,
-                "customizations": {"title": "Custom Handout Title", "is_secret": True},
+                # Isolated test fixture or mocked credential; never a production secret.
+                "customizations": {"title": "Custom Handout Title", "is_secret": True},  # nosec B105
             },
             format="json",
         )
@@ -334,7 +353,8 @@ class HandoutManagementDetailTestCase(APITestCase):
             "participant": self.participant1.id,
             "title": "Test CRUD Handout",
             "content": "Original content",
-            "is_secret": True,
+            # Isolated test fixture or mocked credential; never a production secret.
+            "is_secret": True,  # nosec B105
         }
         response = self.client.post("/api/schedules/handouts/", create_data)
         if response.status_code == status.HTTP_201_CREATED:
@@ -346,7 +366,12 @@ class HandoutManagementDetailTestCase(APITestCase):
                 self.assertEqual(response.json()["title"], "Test CRUD Handout")
 
             # Update
-            update_data = {"title": "Updated CRUD Handout", "content": "Updated content", "is_secret": False}
+            # Isolated test fixture or mocked credential; never a production secret.
+            update_data = {
+                "title": "Updated CRUD Handout",
+                "content": "Updated content",
+                "is_secret": False,
+            }  # nosec B105
             response = self.client.patch(f"/api/schedules/handouts/{handout_id}/", update_data)
             if response.status_code == status.HTTP_200_OK:
                 self.assertEqual(response.json()["title"], "Updated CRUD Handout")

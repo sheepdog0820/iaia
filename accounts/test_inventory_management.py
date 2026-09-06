@@ -23,7 +23,10 @@ class InventoryModelTestCase(TestCase):
     """所持品モデルの基本テストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         _, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
@@ -62,7 +65,10 @@ class FinancialDataTestCase(TestCase):
     """財務データ管理のテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         _, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
@@ -121,7 +127,10 @@ class ItemManagementTestCase(TestCase):
     """アイテム管理のテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         _, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
@@ -212,7 +221,10 @@ class InventoryAPITestCase(APITestCase):
     """所持品管理APIのテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.client.force_authenticate(user=self.user)
 
         # API URLs use the registry ID; equipment rows refer to the edition record.
@@ -340,7 +352,10 @@ class InventoryIntegrationTestCase(TestCase):
     """所持品管理統合テストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         _, self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",

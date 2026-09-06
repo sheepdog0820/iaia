@@ -13,13 +13,15 @@ class GrouplessSessionCreationAPITests(APITestCase):
         self.owner = User.objects.create_user(
             username="groupless-owner",
             email="groupless-owner@example.com",
-            password="password",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="password",  # nosec B106
             nickname="作成者",
         )
         self.invitee = User.objects.create_user(
             username="groupless-invitee",
             email="groupless-invitee@example.com",
-            password="password",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="password",  # nosec B106
             nickname="招待相手",
         )
         self.client.force_authenticate(self.owner)
@@ -128,7 +130,8 @@ class GrouplessSessionCreationAPITests(APITestCase):
 
 class GrouplessSessionModelDefaultsTests(APITestCase):
     def test_new_session_model_defaults_to_private_without_creating_group(self):
-        owner = User.objects.create_user(username="model-owner", password="password")
+        # Isolated test fixture or mocked credential; never a production secret.
+        owner = User.objects.create_user(username="model-owner", password="password")  # nosec B106
 
         session = TRPGSession.objects.create(title="モデル既定値", gm=owner, created_by=owner)
 

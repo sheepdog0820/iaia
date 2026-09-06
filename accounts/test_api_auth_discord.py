@@ -22,7 +22,8 @@ class DummyResponse:
 
 @override_settings(
     DISCORD_CLIENT_ID="test-client",
-    DISCORD_CLIENT_SECRET="test-secret",
+    # Isolated test fixture or mocked credential; never a production secret.
+    DISCORD_CLIENT_SECRET="test-secret",  # nosec B106
     DISCORD_REDIRECT_URI="http://localhost:3000/callback",
 )
 class DiscordAuthApiTests(APITestCase):
@@ -38,7 +39,8 @@ class DiscordAuthApiTests(APITestCase):
                     200,
                     {"id": f"unverified-{index}", "username": f"new-{index}", "email": owner.email, "verified": value},
                 )
-                response = self.client.post(self.url, {"access_token": "fixture"}, format="json")
+                # Isolated test fixture or mocked credential; never a production secret.
+                response = self.client.post(self.url, {"access_token": "fixture"}, format="json")  # nosec B105
                 self.assertEqual(response.status_code, 200)
                 self.assertNotEqual(response.data["user"]["id"], owner.pk)
                 self.assertFalse(Token.objects.filter(user=owner).exists())
@@ -53,7 +55,8 @@ class DiscordAuthApiTests(APITestCase):
         mock_get.return_value = DummyResponse(
             200, {"id": "case-id", "username": "case-owner", "email": owner.email.upper(), "verified": True}
         )
-        response = self.client.post(self.url, {"access_token": "fixture"}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post(self.url, {"access_token": "fixture"}, format="json")  # nosec B105
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["user"]["id"], owner.pk)
         self.assertEqual(EmailAddress.objects.filter(user=owner).count(), 1)
@@ -67,7 +70,8 @@ class DiscordAuthApiTests(APITestCase):
         mock_get.return_value = DummyResponse(
             200, {"id": "stable-id", "username": "original", "email": other.email, "verified": True}
         )
-        response = self.client.post(self.url, {"access_token": "fixture"}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post(self.url, {"access_token": "fixture"}, format="json")  # nosec B105
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["user"]["id"], owner.pk)
         owner.refresh_from_db()
@@ -92,7 +96,8 @@ class DiscordAuthApiTests(APITestCase):
     @patch("accounts.views.api_auth_views.requests.get")
     @patch("accounts.views.api_auth_views.requests.post")
     def test_user_fetch_failure(self, mock_post, mock_get):
-        mock_post.return_value = DummyResponse(200, {"access_token": "token"})
+        # Isolated test fixture or mocked credential; never a production secret.
+        mock_post.return_value = DummyResponse(200, {"access_token": "token"})  # nosec B105
         mock_get.return_value = DummyResponse(400, {"error": "invalid"})
 
         response = self.client.post(self.url, {"code": "code"}, format="json")
@@ -102,7 +107,8 @@ class DiscordAuthApiTests(APITestCase):
     @patch("accounts.views.api_auth_views.requests.get")
     @patch("accounts.views.api_auth_views.requests.post")
     def test_create_user_from_discord(self, mock_post, mock_get):
-        mock_post.return_value = DummyResponse(200, {"access_token": "token"})
+        # Isolated test fixture or mocked credential; never a production secret.
+        mock_post.return_value = DummyResponse(200, {"access_token": "token"})  # nosec B105
         mock_get.return_value = DummyResponse(
             200,
             {
@@ -133,10 +139,12 @@ class DiscordAuthApiTests(APITestCase):
         existing = User.objects.create_user(
             username="existing-discord",
             email="same.discord@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="",
         )
-        mock_post.return_value = DummyResponse(200, {"access_token": "token"})
+        # Isolated test fixture or mocked credential; never a production secret.
+        mock_post.return_value = DummyResponse(200, {"access_token": "token"})  # nosec B105
         mock_get.return_value = DummyResponse(
             200,
             {
@@ -176,10 +184,12 @@ class DiscordAuthApiTests(APITestCase):
         existing = User.objects.create_user(
             username="existing-unverified-discord",
             email="unverified.discord@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="",
         )
-        mock_post.return_value = DummyResponse(200, {"access_token": "token"})
+        # Isolated test fixture or mocked credential; never a production secret.
+        mock_post.return_value = DummyResponse(200, {"access_token": "token"})  # nosec B105
         mock_get.return_value = DummyResponse(
             200,
             {
@@ -213,7 +223,8 @@ class DiscordAuthApiTests(APITestCase):
     @patch("accounts.views.api_auth_views.requests.get")
     @patch("accounts.views.api_auth_views.requests.post")
     def test_link_conflict(self, mock_post, mock_get):
-        mock_post.return_value = DummyResponse(200, {"access_token": "token"})
+        # Isolated test fixture or mocked credential; never a production secret.
+        mock_post.return_value = DummyResponse(200, {"access_token": "token"})  # nosec B105
         mock_get.return_value = DummyResponse(
             200,
             {

@@ -30,20 +30,36 @@ class CharacterToSessionIntegrationTestCase(TestCase):
 
         # GMユーザー作成
         self.gm_user = User.objects.create_user(
-            username="gamemaster", password="gmpass123", email="gm@example.com", nickname="GM太郎"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="gamemaster",
+            password="gmpass123",
+            email="gm@example.com",
+            nickname="GM太郎",  # nosec B106
         )
 
         # プレイヤーユーザー作成（3名）
         self.player1 = User.objects.create_user(
-            username="player1", password="pass123", email="player1@example.com", nickname="探索者A"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="player1",
+            password="pass123",
+            email="player1@example.com",
+            nickname="探索者A",  # nosec B106
         )
 
         self.player2 = User.objects.create_user(
-            username="player2", password="pass123", email="player2@example.com", nickname="探索者B"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="player2",
+            password="pass123",
+            email="player2@example.com",
+            nickname="探索者B",  # nosec B106
         )
 
         self.player3 = User.objects.create_user(
-            username="player3", password="pass123", email="player3@example.com", nickname="探索者C"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="player3",
+            password="pass123",
+            email="player3@example.com",
+            nickname="探索者C",  # nosec B106
         )
 
         # グループ作成
@@ -75,7 +91,8 @@ class CharacterToSessionIntegrationTestCase(TestCase):
         """キャラクター作成からセッション開催までの完全なフロー"""
 
         # === Step 1: プレイヤー1がキャラクターを作成 ===
-        self.client.login(username="player1", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.client.login(username="player1", password="pass123")  # nosec B106
 
         character_data = {
             "name": "田中太郎",
@@ -115,7 +132,8 @@ class CharacterToSessionIntegrationTestCase(TestCase):
 
         # === Step 2: プレイヤー2がキャラクターを作成 ===
         self.client.logout()
-        self.client.login(username="player2", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.client.login(username="player2", password="pass123")  # nosec B106
 
         character_data2 = {
             "name": "山田花子",
@@ -152,7 +170,8 @@ class CharacterToSessionIntegrationTestCase(TestCase):
 
         # === Step 3: プレイヤー3がキャラクターを作成（負傷状態） ===
         self.client.logout()
-        self.client.login(username="player3", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.client.login(username="player3", password="pass123")  # nosec B106
 
         character_data3 = {
             "name": "佐藤次郎",
@@ -326,7 +345,8 @@ class CharacterToSessionIntegrationTestCase(TestCase):
     def test_insane_character_participation(self):
         """発狂状態のキャラクターのセッション参加"""
         # プレイヤーがキャラクター作成（発狂状態）
-        self.client.login(username="player2", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.client.login(username="player2", password="pass123")  # nosec B106
 
         character_data = {
             "name": "狂気の研究者",

@@ -39,7 +39,10 @@ class Character6thAPITestCase(APITestCase):
     """6版API機能のテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.client.force_authenticate(user=self.user)
 
         # テストキャラクター作成
@@ -512,7 +515,8 @@ class Character6thAPITestCase(APITestCase):
     def test_api_permission_check(self):
         """API権限チェックテスト"""
         # 他のユーザーを作成
-        other_user = User.objects.create_user(username="otheruser", password="otherpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        other_user = User.objects.create_user(username="otheruser", password="otherpass123")  # nosec B106
         self.character.access_scope = "public"
         self.character.save(update_fields=["access_scope"])
 
@@ -526,7 +530,10 @@ class Character6thAPITestCase(APITestCase):
 
 class CCFOLIAImportUITestCase(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username="uiuser", password="testpass123", email="ui@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="uiuser", password="testpass123", email="ui@example.com"
+        )  # nosec B106
 
     def test_character_list_shows_import_form_for_free_user(self):
         self.client.force_login(self.user)
@@ -569,7 +576,8 @@ class CCFOLIASynchronizationTestCase(TestCase):
     """CCFOLIA同期機能のテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
 
         self.character = create_6th_character(
             user=self.user,
@@ -620,7 +628,8 @@ class BulkExportTestCase(TestCase):
     """一括エクスポート機能のテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
 
         # 複数キャラクター作成
         self.characters = []

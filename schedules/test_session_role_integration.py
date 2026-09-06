@@ -17,10 +17,20 @@ User = get_user_model()
 
 class UnifiedSessionRoleServiceTestCase(TestCase):
     def setUp(self):
-        self.owner = User.objects.create_user(username="role-owner", email="owner@example.com", password="pass")
-        self.manager = User.objects.create_user(username="role-manager", email="manager@example.com", password="pass")
-        self.gm = User.objects.create_user(username="role-gm", email="gm@example.com", password="pass")
-        self.player = User.objects.create_user(username="role-player", email="player@example.com", password="pass")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.owner = User.objects.create_user(
+            username="role-owner", email="owner@example.com", password="pass"
+        )  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.manager = User.objects.create_user(
+            username="role-manager", email="manager@example.com", password="pass"
+        )  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.gm = User.objects.create_user(username="role-gm", email="gm@example.com", password="pass")  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.player = User.objects.create_user(
+            username="role-player", email="player@example.com", password="pass"
+        )  # nosec B106
         self.group = Group.objects.create(name="Unified Role Group", created_by=self.owner)
         GroupMembership.objects.create(group=self.group, user=self.owner, role="admin")
         GroupMembership.objects.create(group=self.group, user=self.manager, role="member")
@@ -100,16 +110,29 @@ class UnifiedSessionRoleServiceTestCase(TestCase):
 
 class UnifiedSessionRoleApiTestCase(APITestCase):
     def setUp(self):
-        self.owner = User.objects.create_user(username="api-role-owner", email="owner@example.com", password="pass")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.owner = User.objects.create_user(
+            username="api-role-owner", email="owner@example.com", password="pass"
+        )  # nosec B106
         self.manager = User.objects.create_user(
-            username="api-role-manager", email="manager@example.com", password="pass"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="api-role-manager",
+            email="manager@example.com",
+            password="pass",  # nosec B106
         )
-        self.gm = User.objects.create_user(username="api-role-gm", email="gm@example.com", password="pass")
-        self.player = User.objects.create_user(username="api-role-player", email="player@example.com", password="pass")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.gm = User.objects.create_user(
+            username="api-role-gm", email="gm@example.com", password="pass"
+        )  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.player = User.objects.create_user(
+            username="api-role-player", email="player@example.com", password="pass"
+        )  # nosec B106
         self.group_member = User.objects.create_user(
             username="api-role-member",
             email="member@example.com",
-            password="pass",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass",  # nosec B106
         )
         self.group = Group.objects.create(name="Unified Role API Group", created_by=self.owner)
         for user in [self.owner, self.manager, self.gm, self.player, self.group_member]:

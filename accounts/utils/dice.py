@@ -294,7 +294,8 @@ def roll_ability_with_setting(ability_name: str, setting: CharacterDiceRollSetti
     # ダイスロール実行
     total = 0
     for _ in range(dice_count):
-        total += random.randint(1, dice_sides)
+        # Game dice only; not used for security tokens.
+        total += random.randint(1, dice_sides)  # nosec B311
 
     return total + dice_bonus
 

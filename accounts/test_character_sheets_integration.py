@@ -44,8 +44,14 @@ class CharacterSheetModelTestCase(TestCase):
     """キャラクターシートモデルのテスト"""
 
     def setUp(self):
-        self.user1 = User.objects.create_user(username="testuser1", password="testpass123", nickname="テストユーザー1")
-        self.user2 = User.objects.create_user(username="testuser2", password="testpass123", nickname="テストユーザー2")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user1 = User.objects.create_user(
+            username="testuser1", password="testpass123", nickname="テストユーザー1"
+        )  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user2 = User.objects.create_user(
+            username="testuser2", password="testpass123", nickname="テストユーザー2"
+        )  # nosec B106
 
     def test_character_sheet_creation_6th(self):
         """6版キャラクターシート作成テスト"""
@@ -229,8 +235,14 @@ class CharacterSheetAPITestCase(APITestCase):
     """キャラクターシートAPI統合テスト"""
 
     def setUp(self):
-        self.user1 = User.objects.create_user(username="apiuser1", password="testpass123", nickname="APIユーザー1")
-        self.user2 = User.objects.create_user(username="apiuser2", password="testpass123", nickname="APIユーザー2")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user1 = User.objects.create_user(
+            username="apiuser1", password="testpass123", nickname="APIユーザー1"
+        )  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user2 = User.objects.create_user(
+            username="apiuser2", password="testpass123", nickname="APIユーザー2"
+        )  # nosec B106
 
         self.client = APIClient()
 
@@ -383,8 +395,14 @@ class CharacterSheetWebViewTestCase(TestCase):
     """キャラクターシートWebビュー統合テスト"""
 
     def setUp(self):
-        self.user1 = User.objects.create_user(username="webuser1", password="testpass123", nickname="Webユーザー1")
-        self.user2 = User.objects.create_user(username="webuser2", password="testpass123", nickname="Webユーザー2")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user1 = User.objects.create_user(
+            username="webuser1", password="testpass123", nickname="Webユーザー1"
+        )  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user2 = User.objects.create_user(
+            username="webuser2", password="testpass123", nickname="Webユーザー2"
+        )  # nosec B106
 
         self.client = Client()
 
@@ -480,10 +498,16 @@ class CharacterSheetIntegrationTestCase(TestCase):
 
     def setUp(self):
         self.user1 = User.objects.create_user(
-            username="integrationuser1", password="testpass123", nickname="統合テストユーザー1"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="integrationuser1",
+            password="testpass123",
+            nickname="統合テストユーザー1",  # nosec B106
         )
         self.user2 = User.objects.create_user(
-            username="integrationuser2", password="testpass123", nickname="統合テストユーザー2"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="integrationuser2",
+            password="testpass123",
+            nickname="統合テストユーザー2",  # nosec B106
         )
 
     def test_complete_character_lifecycle(self):

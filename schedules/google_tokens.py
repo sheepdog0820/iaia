@@ -7,7 +7,8 @@ from django.utils import timezone
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 
-GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
+# Public OAuth endpoint URL, not a credential.
+GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"  # nosec B105
 
 
 def get_google_access_token(user):

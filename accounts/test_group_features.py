@@ -25,20 +25,23 @@ class FriendAPITestCase(APITestCase):
         self.user = User.objects.create_user(
             username="friend_user",
             email="friend_user@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Friend User",
         )
         self.friend = User.objects.create_user(
             username="friend_target",
             email="friend_target@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Friend Target",
             trpg_history="friend private history",
         )
         self.new_friend = User.objects.create_user(
             username="new_friend_target",
             email="new_friend_target@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="New Friend Target",
             trpg_introduction_sheet={"visibility": "public"},
         )
@@ -71,12 +74,17 @@ class FriendAPITestCase(APITestCase):
 class GroupSearchAPITestCase(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="search_user", email="search@example.com", password="pass123", nickname="Search User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="search_user",
+            email="search@example.com",
+            password="pass123",
+            nickname="Search User",  # nosec B106
         )
         self.owner = User.objects.create_user(
             username="owner_user",
             email="owner@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Owner User",
             trpg_history="owner private history",
         )
@@ -132,19 +140,25 @@ class GroupInvitationFlowAPITestCase(APITestCase):
         self.inviter = User.objects.create_user(
             username="inviter",
             email="inviter@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Inviter",
             trpg_history="inviter private history",
         )
         self.invitee1 = User.objects.create_user(
             username="invitee1",
             email="invitee1@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Invitee1",
             trpg_history="invitee1 private history",
         )
         self.invitee2 = User.objects.create_user(
-            username="invitee2", email="invitee2@example.com", password="pass123", nickname="Invitee2"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="invitee2",
+            email="invitee2@example.com",
+            password="pass123",
+            nickname="Invitee2",  # nosec B106
         )
         self.group = Group.objects.create(name="Invite Group", visibility="private", created_by=self.inviter)
         GroupMembership.objects.create(user=self.inviter, group=self.group, role="admin")
@@ -256,10 +270,18 @@ class GroupInvitationNotificationTestCase(APITestCase):
 
     def setUp(self):
         self.inviter = User.objects.create_user(
-            username="inviter_notify", email="inviter_notify@example.com", password="pass123", nickname="InviterNotify"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="inviter_notify",
+            email="inviter_notify@example.com",
+            password="pass123",
+            nickname="InviterNotify",  # nosec B106
         )
         self.invitee = User.objects.create_user(
-            username="invitee_notify", email="invitee_notify@example.com", password="pass123", nickname="InviteeNotify"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="invitee_notify",
+            email="invitee_notify@example.com",
+            password="pass123",
+            nickname="InviteeNotify",  # nosec B106
         )
         self.group = Group.objects.create(name="Notify Group", visibility="private", created_by=self.inviter)
         GroupMembership.objects.create(user=self.inviter, group=self.group, role="admin")
@@ -299,10 +321,18 @@ class GroupMemberRoleManagementTestCase(APITestCase):
 
     def setUp(self):
         self.owner = User.objects.create_user(
-            username="role_owner", email="role_owner@example.com", password="pass123", nickname="RoleOwner"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="role_owner",
+            email="role_owner@example.com",
+            password="pass123",
+            nickname="RoleOwner",  # nosec B106
         )
         self.member = User.objects.create_user(
-            username="role_member", email="role_member@example.com", password="pass123", nickname="RoleMember"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="role_member",
+            email="role_member@example.com",
+            password="pass123",
+            nickname="RoleMember",  # nosec B106
         )
 
         self.group = Group.objects.create(name="Role Group", visibility="private", created_by=self.owner)
@@ -352,10 +382,18 @@ class GroupLeaveSafetyTestCase(APITestCase):
 
     def setUp(self):
         self.owner = User.objects.create_user(
-            username="leave_owner", email="leave_owner@example.com", password="pass123", nickname="LeaveOwner"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="leave_owner",
+            email="leave_owner@example.com",
+            password="pass123",
+            nickname="LeaveOwner",  # nosec B106
         )
         self.member = User.objects.create_user(
-            username="leave_member", email="leave_member@example.com", password="pass123", nickname="LeaveMember"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="leave_member",
+            email="leave_member@example.com",
+            password="pass123",
+            nickname="LeaveMember",  # nosec B106
         )
 
         self.group = Group.objects.create(name="Leave Group", visibility="private", created_by=self.owner)
@@ -379,13 +417,25 @@ class GroupLeaveSafetyTestCase(APITestCase):
 class GroupMemberCharactersAPITestCase(APITestCase):
     def setUp(self):
         self.admin = User.objects.create_user(
-            username="admin_user", email="admin@example.com", password="pass123", nickname="Admin User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="admin_user",
+            email="admin@example.com",
+            password="pass123",
+            nickname="Admin User",  # nosec B106
         )
         self.member = User.objects.create_user(
-            username="member_user", email="member@example.com", password="pass123", nickname="Member User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="member_user",
+            email="member@example.com",
+            password="pass123",
+            nickname="Member User",  # nosec B106
         )
         self.non_member = User.objects.create_user(
-            username="outsider", email="outsider@example.com", password="pass123", nickname="Outsider"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="outsider",
+            email="outsider@example.com",
+            password="pass123",
+            nickname="Outsider",  # nosec B106
         )
 
         self.group = Group.objects.create(name="Character Group", visibility="private", created_by=self.admin)
@@ -465,19 +515,22 @@ class GroupSessionsAPITestCase(APITestCase):
         self.admin = User.objects.create_user(
             username="group_session_admin",
             email="group_session_admin@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Group Session Admin",
         )
         self.member = User.objects.create_user(
             username="group_session_member",
             email="group_session_member@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Group Session Member",
         )
         self.outsider = User.objects.create_user(
             username="group_session_outsider",
             email="group_session_outsider@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Group Session Outsider",
         )
         self.group = Group.objects.create(name="Session Group", visibility="private", created_by=self.admin)
@@ -570,19 +623,22 @@ class GroupTemporaryMemberAPITestCase(APITestCase):
         self.admin = User.objects.create_user(
             username="temp_admin",
             email="temp_admin@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Temp Admin",
         )
         self.member = User.objects.create_user(
             username="temp_member",
             email="temp_member@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Temp Member",
         )
         self.outsider = User.objects.create_user(
             username="temp_outsider",
             email="temp_outsider@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Temp Outsider",
         )
         self.group = Group.objects.create(name="Temp Group", visibility="private", created_by=self.admin)
@@ -773,12 +829,17 @@ class GroupTemporaryMemberAPITestCase(APITestCase):
 class GroupAdminActionsAPITestCase(APITestCase):
     def setUp(self):
         self.admin = User.objects.create_user(
-            username="admin_action_user", email="admin_action@example.com", password="pass123", nickname="Admin Action"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="admin_action_user",
+            email="admin_action@example.com",
+            password="pass123",
+            nickname="Admin Action",  # nosec B106
         )
         self.member = User.objects.create_user(
             username="member_action_user",
             email="member_action@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Member Action",
         )
         self.group = Group.objects.create(

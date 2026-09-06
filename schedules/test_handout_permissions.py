@@ -19,17 +19,20 @@ class HandoutPermissionTestCase(APITestCase):
         self.gm = User.objects.create_user(
             username="handout_gm",
             email="handout_gm@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
         )
         self.player = User.objects.create_user(
             username="handout_player",
             email="handout_player@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
         )
         self.other_player = User.objects.create_user(
             username="handout_other",
             email="handout_other@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
         )
 
         self.session_a = TRPGSession.objects.create(

@@ -40,16 +40,28 @@ class SessionCharacterIntegrationTestCase(TestCase):
 
         # GMユーザー作成
         self.gm_user = User.objects.create_user(
-            username="gamemaster", password="gmpass123", email="gm@example.com", nickname="GM太郎"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="gamemaster",
+            password="gmpass123",
+            email="gm@example.com",
+            nickname="GM太郎",  # nosec B106
         )
 
         # プレイヤーユーザー作成
         self.player1 = User.objects.create_user(
-            username="player1", password="pass123", email="player1@example.com", nickname="プレイヤー1"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="player1",
+            password="pass123",
+            email="player1@example.com",
+            nickname="プレイヤー1",  # nosec B106
         )
 
         self.player2 = User.objects.create_user(
-            username="player2", password="pass123", email="player2@example.com", nickname="プレイヤー2"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="player2",
+            password="pass123",
+            email="player2@example.com",
+            nickname="プレイヤー2",  # nosec B106
         )
 
         # シナリオ作成

@@ -64,7 +64,8 @@ class PremiumSubscriptionModelTestCase(TestCase):
         self.user = User.objects.create_user(
             username="billing-user",
             email="billing@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
 
     def test_active_subscription_grants_premium(self):
@@ -197,7 +198,8 @@ class PremiumSubscriptionModelTestCase(TestCase):
 
 @override_settings(
     STRIPE_CHECKOUT_ENABLED=True,
-    STRIPE_SECRET_KEY="sk_test_dummy",
+    # Isolated test fixture or mocked credential; never a production secret.
+    STRIPE_SECRET_KEY="sk_test_dummy",  # nosec B106
     STRIPE_PREMIUM_PRICE_ID="price_dummy",
 )
 class BillingApiTestCase(TestCase):
@@ -206,7 +208,8 @@ class BillingApiTestCase(TestCase):
         self.user = User.objects.create_user(
             username="api-billing-user",
             email="api-billing@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
 
     def test_billing_view_failures_use_operational_logger(self):
@@ -438,7 +441,8 @@ class BillingApiTestCase(TestCase):
 
     def test_redeem_code_respects_max_uses(self):
         _, raw_code = PremiumAccessCode.issue(max_uses=1)
-        other = User.objects.create_user(username="other-code-user", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        other = User.objects.create_user(username="other-code-user", password="pass123")  # nosec B106
 
         self.client.force_authenticate(other)
         first = self.client.post(reverse("billing-redeem-code"), {"code": raw_code})
@@ -467,7 +471,8 @@ class BillingPageTestCase(TestCase):
         self.user = User.objects.create_user(
             username="billing-page-user",
             email="billing-page@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
 
     def test_billing_page_shows_payment_failed_card_update_notice(self):
@@ -509,7 +514,8 @@ class BillingPageTestCase(TestCase):
 
     @override_settings(
         STRIPE_CHECKOUT_ENABLED=True,
-        STRIPE_SECRET_KEY="sk_test_page",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_page",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_monthly_page",
         STRIPE_PREMIUM_YEARLY_PRICE_ID="price_yearly_page",
         PREMIUM_MONTHLY_PRICE_DESCRIPTION="480\u5186/\u6708",
@@ -528,7 +534,8 @@ class BillingPageTestCase(TestCase):
 
     @override_settings(
         STRIPE_CHECKOUT_ENABLED=False,
-        STRIPE_SECRET_KEY="sk_test_page",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_page",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_monthly_page",
     )
     def test_billing_page_hides_checkout_options_when_checkout_disabled(self):
@@ -681,7 +688,8 @@ class BillingPageTestCase(TestCase):
 
 
 @override_settings(
-    STRIPE_SECRET_KEY="sk_test_dummy",
+    # Isolated test fixture or mocked credential; never a production secret.
+    STRIPE_SECRET_KEY="sk_test_dummy",  # nosec B106
     STRIPE_WEBHOOK_SECRET="whsec_dummy",
 )
 class StripeWebhookTestCase(TestCase):
@@ -1034,13 +1042,15 @@ class StripeWebhookTestCase(TestCase):
         )
 
 
-@override_settings(STRIPE_SECRET_KEY="sk_test_dummy")
+# Isolated test fixture or mocked credential; never a production secret.
+@override_settings(STRIPE_SECRET_KEY="sk_test_dummy")  # nosec B106
 class BillingServiceTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             username="service-billing-user",
             email="service-billing@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
 
     def test_sync_subscription_object_updates_user_access(self):
@@ -2730,7 +2740,8 @@ Premium audit logs
 )
 class BillingPreflightCommandTestCase(TestCase):
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         PREMIUM_PRICE_LABEL="月額500円",
@@ -2762,7 +2773,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("billing_preflight=ok", output)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         STRIPE_PUBLISHABLE_KEY="pk_test_preflight",
@@ -2793,7 +2805,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("billing_preflight=ok", output)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         STRIPE_PUBLISHABLE_KEY="invalid_publishable_key",
@@ -2825,7 +2838,8 @@ class BillingPreflightCommandTestCase(TestCase):
 
     @override_settings(
         ENVIRONMENT="development",
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         STRIPE_PUBLISHABLE_KEY="pk_live_preflight",
@@ -2854,7 +2868,8 @@ class BillingPreflightCommandTestCase(TestCase):
 
     @override_settings(
         ENVIRONMENT="production",
-        STRIPE_SECRET_KEY="sk_live_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_live_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         STRIPE_PUBLISHABLE_KEY="pk_test_preflight",
@@ -2882,7 +2897,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("test Stripe publishable key cannot be used in production", message)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         STRIPE_PREMIUM_EXPECTED_CURRENCY="jpy",
@@ -2913,7 +2929,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("billing_preflight=ok", output)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         STRIPE_PREMIUM_EXPECTED_CURRENCY="JPY",
@@ -2945,7 +2962,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT", message)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         STRIPE_PREMIUM_YEARLY_PRICE_ID="price_yearly_preflight",
@@ -2976,7 +2994,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("billing_preflight=ok", output)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         STRIPE_PREMIUM_YEARLY_PRICE_ID="price_yearly_preflight",
@@ -3007,7 +3026,8 @@ class BillingPreflightCommandTestCase(TestCase):
 
     @override_settings(
         ENVIRONMENT="development",
-        STRIPE_SECRET_KEY="sk_live_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_live_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         PREMIUM_PRICE_LABEL="月額500円",
@@ -3034,7 +3054,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("live Stripe secret key cannot be used outside production", message)
 
     @override_settings(
-        STRIPE_SECRET_KEY="",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="",  # nosec B106
         STRIPE_WEBHOOK_SECRET="",
         STRIPE_PREMIUM_PRICE_ID="",
         PREMIUM_PRICE_LABEL="月額500円",
@@ -3057,7 +3078,8 @@ class BillingPreflightCommandTestCase(TestCase):
             call_command("billing_preflight", "--strict", stdout=StringIO())
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         PREMIUM_PRICE_LABEL="月額料金はStripe Checkout画面に表示される金額",
@@ -3084,7 +3106,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("月額料金", message)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         PREMIUM_PRICE_LABEL="月額500円",
@@ -3111,7 +3134,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("販売事業者名", message)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         PREMIUM_PRICE_LABEL="月額500円",
@@ -3138,7 +3162,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("問い合わせ先メール", message)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         PREMIUM_PRICE_LABEL="月額500円",
@@ -3172,7 +3197,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("LEGAL_SELLER_NAME", message)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         PREMIUM_PRICE_LABEL="月額500円",
@@ -3191,7 +3217,8 @@ class BillingPreflightCommandTestCase(TestCase):
         },
     )
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         PREMIUM_PRICE_LABEL="\u6708\u984d500\u5186",
@@ -3239,7 +3266,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("mojibake marker found", message)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         PREMIUM_PRICE_LABEL="\u6708\u984d500\u5186",
@@ -3291,7 +3319,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("支払い失敗通知", message)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_preflight",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_preflight",  # nosec B106
         STRIPE_WEBHOOK_SECRET="whsec_preflight",
         STRIPE_PREMIUM_PRICE_ID="price_preflight",
         PREMIUM_PRICE_LABEL="月額500円",
@@ -3318,7 +3347,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("1時間以内", message)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         PUBLIC_SITE_URL="https://example.test",
         STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID="bpc_remote",
@@ -3357,7 +3387,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("billing_stripe_remote_check=ok", output)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_monthly_remote",
         STRIPE_PREMIUM_YEARLY_PRICE_ID="price_yearly_remote",
         PUBLIC_SITE_URL="https://example.test",
@@ -3406,7 +3437,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("billing_stripe_remote_check=ok", output)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_monthly_remote",
         STRIPE_PREMIUM_YEARLY_PRICE_ID="price_yearly_remote",
         PUBLIC_SITE_URL="https://example.test",
@@ -3439,7 +3471,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("price interval is not year", str(context.exception))
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         PUBLIC_SITE_URL="https://example.test",
     )
@@ -3512,7 +3545,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("billing_stripe_remote_check=ok", output)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         PUBLIC_SITE_URL="https://example.test",
     )
@@ -3567,7 +3601,8 @@ class BillingPreflightCommandTestCase(TestCase):
         )
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         PUBLIC_SITE_URL="https://example.test",
     )
@@ -3669,7 +3704,8 @@ class BillingPreflightCommandTestCase(TestCase):
     def test_billing_stripe_remote_check_rejects_unknown_secret_key_prefix(self, get_stripe):
         with override_settings(
             ENVIRONMENT="development",
-            STRIPE_SECRET_KEY="invalid_remote_key",
+            # Isolated test fixture or mocked credential; never a production secret.
+            STRIPE_SECRET_KEY="invalid_remote_key",  # nosec B106
             STRIPE_PREMIUM_PRICE_ID="price_remote",
             PUBLIC_SITE_URL="https://example.test",
         ):
@@ -3685,7 +3721,8 @@ class BillingPreflightCommandTestCase(TestCase):
         get_stripe.assert_not_called()
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         PUBLIC_SITE_URL="https://example.test",
     )
@@ -3712,7 +3749,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("price interval is not month", str(context.exception))
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         PUBLIC_SITE_URL="https://example.test",
     )
@@ -3739,7 +3777,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("price livemode mismatch: expected test, got live", str(context.exception))
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         STRIPE_PREMIUM_EXPECTED_CURRENCY="jpy",
         STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT="480",
@@ -3771,7 +3810,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("billing_stripe_remote_check=ok", stdout.getvalue())
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         STRIPE_PREMIUM_EXPECTED_CURRENCY="jpy",
         STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT="480",
@@ -3804,7 +3844,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("price unit_amount mismatch: expected 480, got 500", message)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT="not-an-integer",
         PUBLIC_SITE_URL="https://example.test",
@@ -3835,7 +3876,8 @@ class BillingPreflightCommandTestCase(TestCase):
         )
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         PUBLIC_SITE_URL="https://example.test",
     )
@@ -3867,7 +3909,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("missing webhook events", str(context.exception))
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         PUBLIC_SITE_URL="https://example.test",
     )
@@ -3902,7 +3945,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("webhook endpoint is not enabled: disabled", str(context.exception))
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         PUBLIC_SITE_URL="https://example.test",
     )
@@ -3939,7 +3983,8 @@ class BillingPreflightCommandTestCase(TestCase):
         )
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         PUBLIC_SITE_URL="https://example.test",
     )
@@ -3965,7 +4010,8 @@ class BillingPreflightCommandTestCase(TestCase):
         )
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         PUBLIC_SITE_URL="https://example.test",
         STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID="bpc_missing",
@@ -3989,7 +4035,8 @@ class BillingPreflightCommandTestCase(TestCase):
         self.assertIn("customer portal configuration not found: bpc_missing", str(context.exception))
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         PUBLIC_SITE_URL="https://example.test",
         STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID="bpc_inactive",
@@ -4019,7 +4066,8 @@ class BillingPreflightCommandTestCase(TestCase):
         )
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_remote",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_remote",  # nosec B106
         STRIPE_PREMIUM_PRICE_ID="price_remote",
         PUBLIC_SITE_URL="https://example.test",
     )
@@ -4978,7 +5026,8 @@ class BillingDevelopmentCheckCommandTestCase(TestCase):
     def test_billing_development_check_rejects_live_secret_key(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             base_dir = Path(tmpdir)
-            env_path = self._write_env(base_dir, STRIPE_SECRET_KEY="sk_live_accidental")
+            # Isolated test fixture or mocked credential; never a production secret.
+            env_path = self._write_env(base_dir, STRIPE_SECRET_KEY="sk_live_accidental")  # nosec B106
 
             with override_settings(BASE_DIR=base_dir):
                 with self.assertRaises(CommandError) as context:
@@ -4991,7 +5040,8 @@ class BillingDevelopmentCheckCommandTestCase(TestCase):
             base_dir = Path(tmpdir)
             env_path = self._write_env(
                 base_dir,
-                STRIPE_SECRET_KEY="sk_test_development",
+                # Isolated test fixture or mocked credential; never a production secret.
+                STRIPE_SECRET_KEY="sk_test_development",  # nosec B106
                 STRIPE_PUBLISHABLE_KEY="pk_test_development",
                 STRIPE_WEBHOOK_SECRET="whsec_development",
                 STRIPE_PREMIUM_PRICE_ID="price_monthly_development",
@@ -5018,12 +5068,15 @@ class BillingDevelopmentCheckCommandTestCase(TestCase):
         values = {
             "APP_ENV": "local",
             "ENVIRONMENT": "development",
-            "SECRET_KEY": "development-secret",
+            # Isolated test fixture or mocked credential; never a production secret.
+            "SECRET_KEY": "development-secret",  # nosec B105
             "DEBUG": "True",
             "PUBLIC_SITE_URL": "http://127.0.0.1:8000",
             "STRIPE_CHECKOUT_ENABLED": "True",
-            "STRIPE_SECRET_KEY": "",
-            "STRIPE_WEBHOOK_SECRET": "",
+            # Isolated test fixture or mocked credential; never a production secret.
+            "STRIPE_SECRET_KEY": "",  # nosec B105
+            # Isolated test fixture or mocked credential; never a production secret.
+            "STRIPE_WEBHOOK_SECRET": "",  # nosec B105
             "STRIPE_PREMIUM_PRICE_ID": "",
             "STRIPE_PREMIUM_YEARLY_PRICE_ID": "",
             "STRIPE_PREMIUM_EXPECTED_CURRENCY": "jpy",
@@ -5042,7 +5095,8 @@ class BillingDevelopmentCheckCommandTestCase(TestCase):
 
 class CreateStripeDevelopmentPricesCommandTestCase(TestCase):
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_development_prices",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_development_prices",  # nosec B106
         ENVIRONMENT="development",
     )
     @patch("accounts.management.commands.create_stripe_development_prices.get_stripe")
@@ -5076,7 +5130,8 @@ class CreateStripeDevelopmentPricesCommandTestCase(TestCase):
         self.assertIn("STRIPE_PREMIUM_YEARLY_PRICE_ID=price_yearly_development", output)
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_live_development_prices",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_live_development_prices",  # nosec B106
         ENVIRONMENT="development",
     )
     def test_create_stripe_development_prices_rejects_live_secret_key(self):
@@ -5086,7 +5141,8 @@ class CreateStripeDevelopmentPricesCommandTestCase(TestCase):
         self.assertIn("sk_test_", str(context.exception))
 
     @override_settings(
-        STRIPE_SECRET_KEY="sk_test_development_prices",
+        # Isolated test fixture or mocked credential; never a production secret.
+        STRIPE_SECRET_KEY="sk_test_development_prices",  # nosec B106
         ENVIRONMENT="development",
     )
     @patch("accounts.management.commands.create_stripe_development_prices.get_stripe")

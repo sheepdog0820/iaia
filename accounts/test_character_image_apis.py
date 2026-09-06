@@ -1,4 +1,4 @@
-﻿import io
+import io
 import tempfile
 import zipfile
 from urllib.parse import quote
@@ -22,7 +22,10 @@ class CharacterImageAPISMokeTest(APITestCase):
     """画像APIの簡易スモークテスト"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="apitester", password="pass123", email="api@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="apitester", password="pass123", email="api@example.com"
+        )  # nosec B106
         self.client.force_authenticate(user=self.user)
 
         self.sheet, self.detail = create_6th_character(
@@ -105,12 +108,14 @@ class CharacterImageDownloadZipTest(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             username="zip_owner",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             email="zip-owner@example.com",
         )
         self.other_user = User.objects.create_user(
             username="zip_other",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             email="zip-other@example.com",
         )
         self.sheet, self.detail = create_6th_character(
@@ -278,7 +283,10 @@ class CCFOLIAEndpointSmokeTest(APITestCase):
     """CCFOLIAエクスポートの簡易確認"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="ccfoliauser", password="pass123", email="ccfolia@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="ccfoliauser", password="pass123", email="ccfolia@example.com"
+        )  # nosec B106
         self.client.force_authenticate(user=self.user)
 
         helper = CharacterIntegrationTestCase()

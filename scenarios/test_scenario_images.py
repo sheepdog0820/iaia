@@ -26,19 +26,22 @@ class ScenarioImageTestCase(APITestCase):
         self.creator = CustomUser.objects.create_user(
             username="scenario_creator",
             email="creator@example.com",
-            password="password",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="password",  # nosec B106
             nickname="作成者",
         )
         self.uploader = CustomUser.objects.create_user(
             username="scenario_uploader",
             email="uploader@example.com",
-            password="password",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="password",  # nosec B106
             nickname="投稿者",
         )
         self.other_user = CustomUser.objects.create_user(
             username="scenario_other",
             email="other@example.com",
-            password="password",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="password",  # nosec B106
             nickname="その他",
         )
 

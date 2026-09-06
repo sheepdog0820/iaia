@@ -1,5 +1,7 @@
 import json
-import subprocess
+
+# Fixed Node test script and arguments; trusted test PATH, no shell.
+import subprocess  # nosec B404
 from pathlib import Path
 
 from django.test import TestCase
@@ -10,7 +12,8 @@ from accounts.models import CharacterSheet, CharacterSheet6th, CharacterSheet7th
 
 class CharacterCcfolliaExportTests(TestCase):
     def test_server_exports_all_equipment_fields_and_weapon_commands(self):
-        user = CustomUser.objects.create_user(username="ccfolia-equipment", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        user = CustomUser.objects.create_user(username="ccfolia-equipment", password="testpass123")  # nosec B106
         character = CharacterSheet.objects.create(user=user, edition="6th")
         detail = CharacterSheet6th.objects.create(
             character_sheet=character,
@@ -139,7 +142,8 @@ const exported = window.CCFOLIACharacterCopy.buildCharacterClipboard({
 process.stdout.write(JSON.stringify(exported));
 """
 
-        completed = subprocess.run(
+        # Fixed Node test script and arguments; trusted test PATH, no shell.
+        completed = subprocess.run(  # nosec B603, B607
             ["node", "-e", runner, script_path.as_posix()],
             check=True,
             capture_output=True,
@@ -254,7 +258,8 @@ process.stdout.write(JSON.stringify({
 }));
 """
 
-        completed = subprocess.run(
+        # Fixed Node test script and arguments; trusted test PATH, no shell.
+        completed = subprocess.run(  # nosec B603, B607
             ["node", "-e", runner, script_path.as_posix()],
             check=True,
             capture_output=True,
@@ -307,7 +312,8 @@ const exported = window.CCFOLIACharacterCopy.buildCharacterClipboard({
 process.stdout.write(JSON.stringify(exported.data));
 """
 
-        completed = subprocess.run(
+        # Fixed Node test script and arguments; trusted test PATH, no shell.
+        completed = subprocess.run(  # nosec B603, B607
             ["node", "-e", runner, script_path.as_posix()],
             check=True,
             capture_output=True,
@@ -372,7 +378,8 @@ const exported = window.CCFOLIACharacterCopy.buildCharacterClipboard({
 process.stdout.write(JSON.stringify(exported.data));
 """
 
-        completed = subprocess.run(
+        # Fixed Node test script and arguments; trusted test PATH, no shell.
+        completed = subprocess.run(  # nosec B603, B607
             ["node", "-e", runner, script_path.as_posix()],
             check=True,
             capture_output=True,
@@ -389,7 +396,8 @@ process.stdout.write(JSON.stringify(exported.data));
             self.assertFalse(any(f"【{alias}】" in command for command in commands))
 
     def test_export_includes_name_kana_in_character_memo(self):
-        user = CustomUser.objects.create_user(username="ccfolia-reader", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        user = CustomUser.objects.create_user(username="ccfolia-reader", password="testpass123")  # nosec B106
         character = CharacterSheet.objects.create(user=user, edition="6th")
         CharacterSheet6th.objects.create(
             character_sheet=character,
@@ -419,7 +427,8 @@ process.stdout.write(JSON.stringify(exported.data));
         self.assertIn("CCB<={STR}*5　【STR × 5】", exported["data"]["commands"].splitlines())
 
     def test_export_omits_memo_when_name_kana_is_blank(self):
-        user = CustomUser.objects.create_user(username="ccfolia-no-reader", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        user = CustomUser.objects.create_user(username="ccfolia-no-reader", password="testpass123")  # nosec B106
         character = CharacterSheet.objects.create(user=user, edition="6th")
         CharacterSheet6th.objects.create(
             character_sheet=character,
@@ -445,7 +454,8 @@ process.stdout.write(JSON.stringify(exported.data));
         self.assertEqual(character.export_ccfolia_format()["data"]["memo"], "")
 
     def test_server_export_uses_kobushi_name_damage_bonus_and_current_san_max(self):
-        user = CustomUser.objects.create_user(username="ccfolia-sixth-combat", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        user = CustomUser.objects.create_user(username="ccfolia-sixth-combat", password="testpass123")  # nosec B106
         character = CharacterSheet.objects.create(user=user, edition="6th")
         detail = CharacterSheet6th.objects.create(
             character_sheet=character,
@@ -502,7 +512,8 @@ process.stdout.write(JSON.stringify(exported.data));
                     "近接戦闘",
                 )
 
-        user = CustomUser.objects.create_user(username="ccfolia-seventh-combat", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        user = CustomUser.objects.create_user(username="ccfolia-seventh-combat", password="testpass123")  # nosec B106
         character = CharacterSheet.objects.create(user=user, edition="7th")
         detail = CharacterSheet7th.objects.create(
             character_sheet=character,
@@ -537,7 +548,8 @@ process.stdout.write(JSON.stringify(exported.data));
         self.assertIn({"name": "近接戦闘", "value": 70}, exported["skills"])
 
     def test_7th_edition_export_uses_cc_ability_placeholders_and_luck_status(self):
-        user = CustomUser.objects.create_user(username="ccfolia-7th", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        user = CustomUser.objects.create_user(username="ccfolia-7th", password="testpass123")  # nosec B106
         character = CharacterSheet.objects.create(user=user, edition="7th")
         detail = CharacterSheet7th.objects.create(
             character_sheet=character,

@@ -40,7 +40,11 @@ class CharacterIntegrationTestCase(TestCase):
         """テスト環境のセットアップ"""
         # テストユーザーの作成
         self.user = User.objects.create_user(
-            username="testuser", password="testpass123", email="test@example.com", nickname="テストユーザー"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="testuser",
+            password="testpass123",
+            email="test@example.com",
+            nickname="テストユーザー",  # nosec B106
         )
 
         # クライアントの設定
@@ -49,7 +53,8 @@ class CharacterIntegrationTestCase(TestCase):
         self.api_client.force_authenticate(user=self.user)
 
         # ログイン
-        self.client.login(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.client.login(username="testuser", password="testpass123")  # nosec B106
 
     def create_test_image(self, name="test.jpg"):
         """テスト用画像を作成"""
@@ -441,8 +446,14 @@ class CharacterAPIPermissionTestCase(TestCase):
     def setUp(self):
         """テスト環境のセットアップ"""
         # 2人のユーザーを作成
-        self.user1 = User.objects.create_user(username="user1", password="pass1", email="user1@example.com")
-        self.user2 = User.objects.create_user(username="user2", password="pass2", email="user2@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user1 = User.objects.create_user(
+            username="user1", password="pass1", email="user1@example.com"
+        )  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user2 = User.objects.create_user(
+            username="user2", password="pass2", email="user2@example.com"
+        )  # nosec B106
 
         # user1のキャラクターを作成（非公開）
         self.private_character = self._create_character_with_stats(
@@ -573,13 +584,18 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
     def setUp(self):
         """テスト環境のセットアップ"""
         self.user = User.objects.create_user(
-            username="testuser", password="testpass123", email="test@example.com", nickname="テストユーザー"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="testuser",
+            password="testpass123",
+            email="test@example.com",
+            nickname="テストユーザー",  # nosec B106
         )
 
         self.client = Client()
         self.api_client = APIClient()
         self.api_client.force_authenticate(user=self.user)
-        self.client.login(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.client.login(username="testuser", password="testpass123")  # nosec B106
 
     def _create_character_with_stats(self, user=None, **kwargs):
         """派生ステータスを含む完全なキャラクターを作成"""
@@ -894,7 +910,11 @@ class CharacterAdvancedIntegrationTestCase(TestCase):
 
         # GMユーザーを作成
         gm_user = User.objects.create_user(
-            username="gmuser", password="gmpass123", email="gm@example.com", nickname="GMユーザー"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="gmuser",
+            password="gmpass123",
+            email="gm@example.com",
+            nickname="GMユーザー",  # nosec B106
         )
         GroupMembership.objects.create(group=group, user=gm_user, role="member")
 

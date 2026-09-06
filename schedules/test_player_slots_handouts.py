@@ -24,7 +24,11 @@ class PlayerSlotHandoutTestCase(APITestCase):
         """テストデータのセットアップ"""
         # ユーザー作成
         self.gm = CustomUser.objects.create_user(
-            username="gm", email="gm@example.com", password="password", nickname="GM"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="gm",
+            email="gm@example.com",
+            password="password",
+            nickname="GM",  # nosec B106
         )
 
         self.players = []
@@ -32,7 +36,8 @@ class PlayerSlotHandoutTestCase(APITestCase):
             player = CustomUser.objects.create_user(
                 username=f"player{i+1}",
                 email=f"player{i+1}@example.com",
-                password="password",
+                # Isolated test fixture or mocked credential; never a production secret.
+                password="password",  # nosec B106
                 nickname=f"プレイヤー{i+1}",
             )
             self.players.append(player)
@@ -149,7 +154,8 @@ class PlayerSlotHandoutTestCase(APITestCase):
                 "participant": participant.id,
                 "title": f"HO{i+1}: 秘密の情報",
                 "content": f"プレイヤー{i+1}への秘匿情報",
-                "is_secret": True,
+                # Isolated test fixture or mocked credential; never a production secret.
+                "is_secret": True,  # nosec B105
                 "handout_number": i + 1,
                 "assigned_player_slot": i + 1,
             }

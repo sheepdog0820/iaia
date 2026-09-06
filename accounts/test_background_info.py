@@ -21,7 +21,10 @@ class BackgroundModelTestCase(TestCase):
     """背景情報モデルのテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.character = CharacterSheet.objects.create(user=self.user, edition="6th")
         self.character_6th = CharacterSheet6th.objects.create(
             character_sheet=self.character,
@@ -101,7 +104,10 @@ class BackgroundAPITestCase(APITestCase):
     """背景情報管理APIのテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.client.force_authenticate(user=self.user)
 
         self.character = CharacterSheet.objects.create(user=self.user, edition="6th")
@@ -145,7 +151,8 @@ class BackgroundAPITestCase(APITestCase):
     def test_character_serializers_include_safe_background_info(self):
         """詳細/共有シリアライザーは背景情報を返し、私的メモは共有しない"""
         self.character_6th.notes = "共有してはいけない私的メモ"
-        self.character_6th.secret_ho_info = "共有してはいけない秘匿HO"
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.character_6th.secret_ho_info = "共有してはいけない秘匿HO"  # nosec B105
         self.character_6th.save(update_fields=["notes", "secret_ho_info"])
         CharacterBackground.objects.create(
             character_sheet=self.character,
@@ -218,7 +225,8 @@ class BackgroundAPITestCase(APITestCase):
         """秘匿HO情報は通常詳細APIで保存・取得できる"""
         response = self.client.patch(
             f"/accounts/character-sheets/{self.character.id}/",
-            {"secret_ho_info": "本人だけが見る秘匿HO"},
+            # Isolated test fixture or mocked credential; never a production secret.
+            {"secret_ho_info": "本人だけが見る秘匿HO"},  # nosec B105
             format="json",
         )
 
@@ -247,7 +255,10 @@ class BackgroundIntegrationTestCase(TestCase):
     """背景情報統合テストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.character = CharacterSheet.objects.create(user=self.user, edition="6th")
         self.character_6th = CharacterSheet6th.objects.create(
             character_sheet=self.character,

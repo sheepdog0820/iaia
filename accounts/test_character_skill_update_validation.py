@@ -8,7 +8,10 @@ from accounts.test_character_factories import create_7th_character
 
 class CharacterSkillUpdateValidationTest(APITestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(username="skill-update-user", password="password")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = get_user_model().objects.create_user(
+            username="skill-update-user", password="password"
+        )  # nosec B106
         self.client.force_authenticate(self.user)
         self.sheet, self.detail = create_7th_character(
             user=self.user,

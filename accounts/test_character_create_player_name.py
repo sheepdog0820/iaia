@@ -9,7 +9,8 @@ class CharacterCreatePlayerNameTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             username="character-player",
-            password="test-password",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="test-password",  # nosec B106
             nickname="プレイヤー表示名",
         )
         self.client.force_login(self.user)

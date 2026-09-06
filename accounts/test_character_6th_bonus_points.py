@@ -16,7 +16,8 @@ class BonusPointsTestCase(TestCase):
     """ボーナスポイント機能のテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
 
         self.character, _ = create_6th_character(
             user=self.user,
@@ -142,7 +143,8 @@ class SkillManagementTestCase(TestCase):
     """技能管理システムのテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
 
         self.character, _ = create_6th_character(
             user=self.user,

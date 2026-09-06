@@ -37,7 +37,8 @@ class Command(BaseCommand):
             (255, 240, 245),  # LavenderBlush
             (255, 255, 240),  # LightYellow
         ]
-        bg_color = random.choice(bg_colors)
+        # Local-only sample data; shared environments rejected by command guard.
+        bg_color = random.choice(bg_colors)  # nosec B311
 
         # 画像作成
         img = Image.new("RGB", size, bg_color)
@@ -97,7 +98,8 @@ class Command(BaseCommand):
         ]
 
         for i in range(count):
-            img_type, size, color = random.choice(image_types)
+            # Local-only sample data; shared environments rejected by command guard.
+            img_type, size, color = random.choice(image_types)  # nosec B311
             img = Image.new("RGB", size, (255, 255, 255))
             draw = ImageDraw.Draw(img)
 

@@ -10,7 +10,10 @@ from rest_framework.test import APITestCase
 
 
 @override_settings(
-    TWITTER_CLIENT_ID="isolated", TWITTER_CLIENT_SECRET="fixture", TWITTER_REDIRECT_URI="https://example.test/callback"
+    # Isolated test fixture or mocked credential; never a production secret.
+    TWITTER_CLIENT_ID="isolated",
+    TWITTER_CLIENT_SECRET="fixture",
+    TWITTER_REDIRECT_URI="https://example.test/callback",  # nosec B106
 )
 class InactiveOAuthUserTests(APITestCase):
     def authenticate(self, provider, uid="existing-id", email="disabled@example.test"):
@@ -18,7 +21,8 @@ class InactiveOAuthUserTests(APITestCase):
         payload = {"data": profile} if provider == "twitter" else profile
         with patch(
             "accounts.views.api_auth_views.requests.post",
-            return_value=SimpleNamespace(status_code=200, json=lambda: {"access_token": "fixture"}),
+            # Isolated test fixture or mocked credential; never a production secret.
+            return_value=SimpleNamespace(status_code=200, json=lambda: {"access_token": "fixture"}),  # nosec B105
         ):
             with patch(
                 "accounts.views.api_auth_views.requests.get",
@@ -26,7 +30,8 @@ class InactiveOAuthUserTests(APITestCase):
             ):
                 return self.client.post(
                     f"/api/auth/{provider}/",
-                    {"access_token": "fixture", "code": "fixture", "code_verifier": "fixture"},
+                    # Isolated test fixture or mocked credential; never a production secret.
+                    {"access_token": "fixture", "code": "fixture", "code_verifier": "fixture"},  # nosec B105
                     format="json",
                 )
 

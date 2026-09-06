@@ -9,7 +9,10 @@ from .test_character_factories import create_6th_character
 
 class EditionImageApiTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(username="edition-image", password="test-password")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = get_user_model().objects.create_user(
+            username="edition-image", password="test-password"
+        )  # nosec B106
         self.client = APIClient()
         self.client.force_authenticate(self.user)
         self.sheet, self.detail = create_6th_character(user=self.user, name="Image detail")

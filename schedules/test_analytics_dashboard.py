@@ -18,19 +18,22 @@ class SessionAnalyticsDashboardApiTestCase(APITestCase):
         self.gm = User.objects.create_user(
             username="gm",
             email="gm@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="GM",
         )
         self.player1 = User.objects.create_user(
             username="player1",
             email="player1@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Player 1",
         )
         self.player2 = User.objects.create_user(
             username="player2",
             email="player2@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Player 2",
         )
 
@@ -108,7 +111,8 @@ class SessionAnalyticsDashboardApiTestCase(APITestCase):
         outsider = User.objects.create_user(
             username="outsider",
             email="outsider@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Outsider",
         )
         self.client.force_authenticate(user=outsider)

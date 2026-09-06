@@ -24,7 +24,8 @@ from schedules.models import (
 
 
 class SessionRecruitmentLinkTestCase(APITestCase):
-    password = "pass12345"
+    # Isolated test fixture or mocked credential; never a production secret.
+    password = "pass12345"  # nosec B105
 
     def setUp(self):
         user_model = get_user_model()

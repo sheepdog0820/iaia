@@ -17,7 +17,8 @@ class CustomFormulaCalculatorTestCase(TestCase):
     """任意式職業技能ポイント計算のテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
 
         # テスト用キャラクター（7版仕様の値）
         registry = CharacterSheet.objects.create(user=self.user, edition="6th")
@@ -128,7 +129,8 @@ class OccupationSkillPointsTestCase(TestCase):
     """職業技能ポイント計算式の拡張テスト"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
 
         registry = CharacterSheet.objects.create(user=self.user, edition="6th")
         self.character = CharacterSheet6th.objects.create(

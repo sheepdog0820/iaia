@@ -19,13 +19,15 @@ class RepairPastImportCharacterLinkTests(TestCase):
         self.owner = User.objects.create_user(
             username="sheepdog1919",
             email="owner@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Owner",
         )
         self.player = User.objects.create_user(
             username="player1",
             email="player@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Player",
         )
         self.group = Group.objects.create(

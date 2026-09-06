@@ -17,12 +17,14 @@ class NotificationWebSocketTestCase(TransactionTestCase):
         self.user = user_model.objects.create_user(
             username="socket-user",
             email="socket-user@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.other = user_model.objects.create_user(
             username="socket-other",
             email="socket-other@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
 
     def test_anonymous_connection_is_rejected(self):

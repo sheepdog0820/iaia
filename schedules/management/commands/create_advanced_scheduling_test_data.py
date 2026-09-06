@@ -117,7 +117,8 @@ class Command(BaseCommand):
             gm = self._get_or_create_user(
                 username="adv_gm",
                 nickname="ADVTEST GM",
-                password="advpass123",
+                # Local-only sample data; shared environments rejected by command guard.
+                password="advpass123",  # nosec B106
                 defaults={"is_staff": True},
             )
         if len(players) < 3:
@@ -126,7 +127,8 @@ class Command(BaseCommand):
                 self._get_or_create_user(
                     username=f"adv_pl{i}",
                     nickname=f"ADVTEST PL{i}",
-                    password="advpass123",
+                    # Local-only sample data; shared environments rejected by command guard.
+                    password="advpass123",  # nosec B106
                 )
                 for i in range(1, 4)
             ]

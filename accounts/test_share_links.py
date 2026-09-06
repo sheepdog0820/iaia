@@ -17,13 +17,15 @@ class ShareLinkApiTests(APITestCase):
         self.owner = CustomUser.objects.create_user(
             username="share_owner",
             email="owner@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Owner GM",
         )
         self.player = CustomUser.objects.create_user(
             username="share_player",
             email="player@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Player Name",
         )
         self.group = Group.objects.create(

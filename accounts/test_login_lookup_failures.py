@@ -10,11 +10,17 @@ from accounts.models import CustomUser
 class LoginLookupFailureTests(TestCase):
     def setUp(self):
         self.user = CustomUser.objects.create_user(
-            username="lookup-user", email="lookup@example.test", password="fixture-password"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="lookup-user",
+            email="lookup@example.test",
+            password="fixture-password",  # nosec B106
         )
 
     def form(self, username=None):
-        return CustomLoginForm(data={"username": username or self.user.email, "password": "fixture-password"})
+        # Isolated test fixture or mocked credential; never a production secret.
+        return CustomLoginForm(
+            data={"username": username or self.user.email, "password": "fixture-password"}  # nosec B105
+        )
 
     def test_email_lookup_failure_does_not_fall_back_to_user_table(self):
         with patch("accounts.forms.EmailAddress.objects.select_related", side_effect=OperationalError("secret")):
@@ -30,7 +36,9 @@ class LoginLookupFailureTests(TestCase):
     def test_login_page_renders_retry_message_without_authenticating(self):
         with patch("accounts.forms.EmailAddress.objects.select_related", side_effect=OperationalError("secret")):
             response = self.client.post(
-                "/accounts/login/", {"username": self.user.email, "password": "fixture-password"}
+                # Isolated test fixture or mocked credential; never a production secret.
+                "/accounts/login/",
+                {"username": self.user.email, "password": "fixture-password"},  # nosec B105
             )
         self.assertContains(response, "ログイン情報を確認できませんでした。時間をおいて再度お試しください。")
         self.assertNotContains(response, "secret")

@@ -16,8 +16,10 @@ User = get_user_model()
 
 class RecommendedSkillComparisonServiceTests(TestCase):
     def setUp(self):
-        self.gm = User.objects.create_user(username="comparison-gm", password="pass123")
-        self.player = User.objects.create_user(username="comparison-player", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.gm = User.objects.create_user(username="comparison-gm", password="pass123")  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.player = User.objects.create_user(username="comparison-player", password="pass123")  # nosec B106
         self.scenario = Scenario.objects.create(
             title="技能比較シナリオ",
             game_system="coc6",
@@ -298,9 +300,12 @@ class RecommendedSkillComparisonServiceTests(TestCase):
 
 class RecommendedSkillComparisonViewTests(TestCase):
     def setUp(self):
-        self.gm = User.objects.create_user(username="comparison-view-gm", password="pass123")
-        self.player = User.objects.create_user(username="comparison-view-player", password="pass123")
-        self.observer = User.objects.create_user(username="comparison-view-observer", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.gm = User.objects.create_user(username="comparison-view-gm", password="pass123")  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.player = User.objects.create_user(username="comparison-view-player", password="pass123")  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.observer = User.objects.create_user(username="comparison-view-observer", password="pass123")  # nosec B106
         self.group = CustomGroup.objects.create(name="技能比較グループ", created_by=self.gm)
         self.group.members.add(self.gm, self.player, self.observer)
         self.scenario = Scenario.objects.create(

@@ -16,12 +16,14 @@ class AsyncJobApiTestCase(APITestCase):
         self.user = get_user_model().objects.create_user(
             username="job-owner",
             email="job-owner@example.com",
-            password="testpass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="testpass123",  # nosec B106
         )
         self.other = get_user_model().objects.create_user(
             username="other-owner",
             email="other-owner@example.com",
-            password="testpass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="testpass123",  # nosec B106
         )
         self.client.force_authenticate(self.user)
 

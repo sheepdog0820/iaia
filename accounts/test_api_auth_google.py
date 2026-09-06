@@ -25,10 +25,12 @@ class DummyFlow:
         self.credentials = None
 
     def fetch_token(self, code, timeout):
-        self.credentials = SimpleNamespace(id_token="dummy-id-token")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.credentials = SimpleNamespace(id_token="dummy-id-token")  # nosec B106
 
 
-@override_settings(GOOGLE_OAUTH_CLIENT_ID="test-client", GOOGLE_OAUTH_CLIENT_SECRET="test-secret")
+# Isolated test fixture or mocked credential; never a production secret.
+@override_settings(GOOGLE_OAUTH_CLIENT_ID="test-client", GOOGLE_OAUTH_CLIENT_SECRET="test-secret")  # nosec B106
 class GoogleAuthApiTests(APITestCase):
     def setUp(self):
         self.url = "/api/auth/google/"
@@ -50,14 +52,16 @@ class GoogleAuthApiTests(APITestCase):
         ):
             with self.subTest(changes=changes):
                 mock_get.side_effect = [DummyResponse(200, {**info, **changes}), DummyResponse(200, profile)]
-                response = self.client.post(self.url, {"access_token": "fixture"}, format="json")
+                # Isolated test fixture or mocked credential; never a production secret.
+                response = self.client.post(self.url, {"access_token": "fixture"}, format="json")  # nosec B105
                 self.assertEqual(response.status_code, 400)
                 self.assertFalse(User.objects.exists())
 
     @override_settings(GOOGLE_OAUTH_CLIENT_ID="")
     @patch("accounts.views.api_auth_views.id_token.verify_oauth2_token")
     def test_missing_client_configuration_does_not_disable_audience_validation(self, verify):
-        response = self.client.post(self.url, {"id_token": "fixture"}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post(self.url, {"id_token": "fixture"}, format="json")  # nosec B105
         self.assertEqual(response.status_code, 503)
         verify.assert_not_called()
 
@@ -74,7 +78,8 @@ class GoogleAuthApiTests(APITestCase):
     def test_access_profile_failure_is_rejected(self, mock_get):
         info = {"audience": "test-client", "issued_to": "test-client", "user_id": "uid", "expires_in": 3600}
         mock_get.side_effect = [DummyResponse(200, info), DummyResponse(401)]
-        response = self.client.post(self.url, {"access_token": "fixture"}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post(self.url, {"access_token": "fixture"}, format="json")  # nosec B105
         self.assertEqual(response.status_code, 400)
         self.assertFalse(User.objects.exists())
 
@@ -84,7 +89,8 @@ class GoogleAuthApiTests(APITestCase):
             with self.subTest(exception=type(exception).__name__):
                 mock_get.side_effect = exception
                 with self.assertLogs("accounts.views.api_auth_views", level="WARNING") as logs:
-                    response = self.client.post(self.url, {"access_token": "secret-token"}, format="json")
+                    # Isolated test fixture or mocked credential; never a production secret.
+                    response = self.client.post(self.url, {"access_token": "secret-token"}, format="json")  # nosec B105
                 self.assertEqual(response.status_code, expected)
                 self.assertNotIn("secret-token", str(response.data))
                 self.assertNotIn("secret-token", str(logs.output))
@@ -104,7 +110,8 @@ class GoogleAuthApiTests(APITestCase):
             "email_verified": True,
         }
 
-        response = self.client.post(self.url, {"id_token": "fake"}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post(self.url, {"id_token": "fake"}, format="json")  # nosec B105
         self.assertEqual(response.status_code, 200)
 
         data = response.json()
@@ -121,7 +128,8 @@ class GoogleAuthApiTests(APITestCase):
         existing = User.objects.create_user(
             username="existing-google",
             email="same.google@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="",
         )
         mock_verify.return_value = {
@@ -135,7 +143,8 @@ class GoogleAuthApiTests(APITestCase):
             "email_verified": True,
         }
 
-        response = self.client.post(self.url, {"id_token": "fake"}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post(self.url, {"id_token": "fake"}, format="json")  # nosec B105
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -156,7 +165,8 @@ class GoogleAuthApiTests(APITestCase):
             "email_verified": True,
         }
 
-        response = self.client.post(self.url, {"id_token": "fake"}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post(self.url, {"id_token": "fake"}, format="json")  # nosec B105
         self.assertEqual(response.status_code, 400)
         self.assertIn("error", response.json())
 
@@ -170,7 +180,8 @@ class GoogleAuthApiTests(APITestCase):
             "email_verified": False,
         }
 
-        response = self.client.post(self.url, {"id_token": "fake"}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post(self.url, {"id_token": "fake"}, format="json")  # nosec B105
         self.assertEqual(response.status_code, 400)
         self.assertIn("error", response.json())
 
@@ -194,7 +205,8 @@ class GoogleAuthApiTests(APITestCase):
             },
         )
 
-        response = self.client.post(self.url, {"access_token": "fake"}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post(self.url, {"access_token": "fake"}, format="json")  # nosec B105
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("token", data)
@@ -207,7 +219,8 @@ class GoogleAuthApiTests(APITestCase):
     def test_google_auth_access_token_invalid(self, mock_get):
         mock_get.return_value = DummyResponse(400, {"error": "invalid"})
 
-        response = self.client.post(self.url, {"access_token": "fake"}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post(self.url, {"access_token": "fake"}, format="json")  # nosec B105
         self.assertEqual(response.status_code, 400)
         self.assertIn("error", response.json())
 

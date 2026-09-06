@@ -15,7 +15,8 @@ class SessionNotesLogsRemovedAPITestCase(APITestCase):
         self.gm = CustomUser.objects.create_user(
             username="gm_user",
             email="gm@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="GM",
         )
         self.group = Group.objects.create(
@@ -58,13 +59,15 @@ class SessionNotesLogsRemovedUITestCase(TestCase):
         self.gm = CustomUser.objects.create_user(
             username="gm_user",
             email="gm@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="GM",
         )
         self.player = CustomUser.objects.create_user(
             username="player1",
             email="player1@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="PL1",
         )
         self.group = Group.objects.create(
@@ -84,7 +87,8 @@ class SessionNotesLogsRemovedUITestCase(TestCase):
         session_permissions.create_participant(session=self.session, user=self.player, role="player")
 
     def test_session_detail_does_not_show_notes_logs_ui(self):
-        self.client.login(username="player1", password="pass1234")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.client.login(username="player1", password="pass1234")  # nosec B106
         response = self.client.get(f"/api/schedules/sessions/{self.session.id}/detail/")
 
         self.assertEqual(response.status_code, 200)

@@ -17,17 +17,20 @@ class GroupLinkTestCase(APITestCase):
         self.source_admin = user_model.objects.create_user(
             username="source-admin",
             email="source-admin@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.target_admin = user_model.objects.create_user(
             username="target-admin",
             email="target-admin@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.target_member = user_model.objects.create_user(
             username="target-member",
             email="target-member@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.source = Group.objects.create(name="Source Group", created_by=self.source_admin)
         self.target = Group.objects.create(name="Target Group", created_by=self.target_admin)
@@ -108,22 +111,26 @@ class GuestInvitationClaimTestCase(APITestCase):
         self.gm = user_model.objects.create_user(
             username="guest-gm",
             email="guest-gm@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.claimant = user_model.objects.create_user(
             username="guest-claimant",
             email="guest-claimant@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.other = user_model.objects.create_user(
             username="guest-other",
             email="guest-other@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.group_admin = user_model.objects.create_user(
             username="guest-group-admin",
             email="guest-group-admin@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.group = Group.objects.create(name="Guest Group", created_by=self.gm)
         GroupMembership.objects.create(group=self.group, user=self.group_admin, role="admin")
@@ -237,7 +244,8 @@ class GuestInvitationClaimTestCase(APITestCase):
 
         invalid_token = self.client.post(
             f"/api/participants/{participant.pk}/claim/",
-            {"claim_token": "wrong-token"},
+            # Isolated test fixture or mocked credential; never a production secret.
+            {"claim_token": "wrong-token"},  # nosec B105
             format="json",
         )
         self.assertEqual(invalid_token.status_code, status.HTTP_403_FORBIDDEN)

@@ -58,7 +58,8 @@ class GoogleIdentityConcurrencyTests(TransactionTestCase):
     ROOT_URLCONF="accounts.test_google_identity_browser",
     ACCOUNT_EMAIL_VERIFICATION="mandatory",
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
-    SOCIALACCOUNT_PROVIDERS={"google": {"APP": {"client_id": "isolated", "secret": "fixture"}}},
+    # Isolated test fixture or mocked credential; never a production secret.
+    SOCIALACCOUNT_PROVIDERS={"google": {"APP": {"client_id": "isolated", "secret": "fixture"}}},  # nosec B105
 )
 class GoogleBrowserSignupConcurrencyTests(TransactionTestCase):
     def test_same_uid_competing_signups_leave_one_user_and_allow_retry(self):

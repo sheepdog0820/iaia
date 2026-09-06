@@ -25,12 +25,14 @@ class CalendarSubscriptionTestCase(APITestCase):
         self.user = user_model.objects.create_user(
             username="calendar-owner",
             email="calendar-owner@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.other = user_model.objects.create_user(
             username="calendar-other",
             email="calendar-other@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.group = Group.objects.create(name="Calendar Group", created_by=self.user)
         self.other_group = Group.objects.create(name="Other Group", created_by=self.other)
@@ -108,7 +110,8 @@ class GoogleIntegrationTestCase(APITestCase):
         self.user = get_user_model().objects.create_user(
             username="google-owner",
             email="google-owner@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.group = Group.objects.create(name="Google Group", created_by=self.user)
         self.session = TRPGSession.objects.create(
@@ -133,7 +136,8 @@ class GoogleIntegrationTestCase(APITestCase):
         )
         SocialToken.objects.create(
             account=account,
-            token="access-token",
+            # Isolated test fixture or mocked credential; never a production secret.
+            token="access-token",  # nosec B106
             token_secret="",
         )
         GoogleIntegration.objects.create(user=self.user, scopes=scopes)
@@ -229,19 +233,23 @@ class GoogleIntegrationTestCase(APITestCase):
 
     @override_settings(
         GOOGLE_OAUTH_CLIENT_ID="client-id",
-        GOOGLE_OAUTH_CLIENT_SECRET="client-secret",
+        # Isolated test fixture or mocked credential; never a production secret.
+        GOOGLE_OAUTH_CLIENT_SECRET="client-secret",  # nosec B106
     )
     @patch("schedules.google_tokens.Credentials")
     def test_expired_google_token_is_refreshed_before_api_use(self, credentials_class):
         self.connect_google()
         social_token = SocialToken.objects.get(account__user=self.user)
         social_token.expires_at = timezone.now() - timedelta(minutes=1)
-        social_token.token_secret = "refresh-token"
+        # Isolated test fixture or mocked credential; never a production secret.
+        social_token.token_secret = "refresh-token"  # nosec B105
         social_token.save(update_fields=["expires_at", "token_secret"])
 
         credentials = credentials_class.return_value
-        credentials.token = "new-access-token"
-        credentials.refresh_token = "new-refresh-token"
+        # Isolated test fixture or mocked credential; never a production secret.
+        credentials.token = "new-access-token"  # nosec B105
+        # Isolated test fixture or mocked credential; never a production secret.
+        credentials.refresh_token = "new-refresh-token"  # nosec B105
         credentials.expiry = timezone.now() + timedelta(hours=1)
 
         access_token = get_google_access_token(self.user)

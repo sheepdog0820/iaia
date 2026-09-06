@@ -16,31 +16,36 @@ class SessionRewardsAPITestCase(APITestCase):
         self.gm = CustomUser.objects.create_user(
             username="gm_user",
             email="gm@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="GM",
         )
         self.co_gm = CustomUser.objects.create_user(
             username="co_gm_user",
             email="co_gm@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="CoGM",
         )
         self.player1 = CustomUser.objects.create_user(
             username="player1",
             email="player1@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="PL1",
         )
         self.player2 = CustomUser.objects.create_user(
             username="player2",
             email="player2@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="PL2",
         )
         self.outsider = CustomUser.objects.create_user(
             username="outsider",
             email="outsider@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="Outsider",
         )
 
@@ -257,19 +262,22 @@ class SessionRewardsUITestCase(TestCase):
         self.gm = CustomUser.objects.create_user(
             username="gm_user",
             email="gm@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="GM",
         )
         self.viewer = CustomUser.objects.create_user(
             username="viewer",
             email="viewer@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="Viewer",
         )
         self.player = CustomUser.objects.create_user(
             username="player1",
             email="player1@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="PL1",
         )
         self.group = Group.objects.create(
@@ -290,7 +298,8 @@ class SessionRewardsUITestCase(TestCase):
         session_permissions.create_participant(session=self.session, user=self.player, role="player")
 
     def test_session_detail_does_not_render_reward_ui(self):
-        self.client.login(username="player1", password="pass1234")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.client.login(username="player1", password="pass1234")  # nosec B106
         response = self.client.get(f"/api/schedules/sessions/{self.session.id}/detail/")
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'id="sessionRewardsCard"')
@@ -298,7 +307,8 @@ class SessionRewardsUITestCase(TestCase):
         self.assertNotContains(response, "setupSessionRewardsUi")
 
         self.client.logout()
-        self.client.login(username="viewer", password="pass1234")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.client.login(username="viewer", password="pass1234")  # nosec B106
         response = self.client.get(f"/api/schedules/sessions/{self.session.id}/detail/")
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'id="sessionRewardsCard"')

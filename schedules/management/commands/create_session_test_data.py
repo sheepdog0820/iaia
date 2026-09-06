@@ -192,21 +192,36 @@ class Command(BaseCommand):
                 occupation=char_info["occupation"],
                 age=char_info["age"],
                 recommended_skills=[skill_name for skill_name, _ in (char_info.get("skills") or [])],
-                str_value=random.randint(8, 15),
-                con_value=random.randint(8, 15),
-                pow_value=random.randint(8, 15),
-                dex_value=random.randint(8, 15),
-                app_value=random.randint(8, 15),
-                siz_value=random.randint(10, 16),
-                int_value=random.randint(10, 17),
-                edu_value=random.randint(12, 18),
-                hit_points_max=random.randint(10, 15),
-                hit_points_current=random.randint(10, 15),
-                magic_points_max=random.randint(10, 15),
-                magic_points_current=random.randint(10, 15),
-                sanity_max=random.randint(50, 80),
-                sanity_current=random.randint(45, 75),
-                sanity_starting=random.randint(50, 80),
+                # Local-only sample data; shared environments rejected by command guard.
+                str_value=random.randint(8, 15),  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                con_value=random.randint(8, 15),  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                pow_value=random.randint(8, 15),  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                dex_value=random.randint(8, 15),  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                app_value=random.randint(8, 15),  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                siz_value=random.randint(10, 16),  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                int_value=random.randint(10, 17),  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                edu_value=random.randint(12, 18),  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                hit_points_max=random.randint(10, 15),  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                hit_points_current=random.randint(10, 15),  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                magic_points_max=random.randint(10, 15),  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                magic_points_current=random.randint(10, 15),  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                sanity_max=random.randint(50, 80),  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                sanity_current=random.randint(45, 75),  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                sanity_starting=random.randint(50, 80),  # nosec B311
             )
 
             # 技能を追加

@@ -15,7 +15,8 @@ class AuthenticationErrorLoggingTests(SimpleTestCase):
                 "code": "fixture-code",
                 "state": "fixture-state",
                 "error_description": "fixture-description",
-                "new_token": "fixture-token",
+                # Isolated test fixture or mocked credential; never a production secret.
+                "new_token": "fixture-token",  # nosec B105
             },
             HTTP_HOST="fixture-host",
             HTTP_X_FORWARDED_HOST="fixture-forwarded-host",
@@ -58,7 +59,8 @@ class AuthenticationErrorLoggingTests(SimpleTestCase):
 
 @override_settings(
     TWITTER_CLIENT_ID="isolated-client",
-    TWITTER_CLIENT_SECRET="isolated-secret",
+    # Isolated test fixture or mocked credential; never a production secret.
+    TWITTER_CLIENT_SECRET="isolated-secret",  # nosec B106
     TWITTER_REDIRECT_URI="https://example.test/callback",
     DISCORD_CLIENT_ID="isolated-client",
     DISCORD_CLIENT_SECRET="isolated-secret",
@@ -91,7 +93,8 @@ class ProviderApiErrorLoggingTests(APITestCase):
             with self.subTest(provider=provider):
                 self.check_failure(
                     provider,
-                    SimpleNamespace(status_code=200, json=lambda: {"access_token": "fixture-token"}),
+                    # Isolated test fixture or mocked credential; never a production secret.
+                    SimpleNamespace(status_code=200, json=lambda: {"access_token": "fixture-token"}),  # nosec B105
                     SimpleNamespace(status_code=403, text="fixture-user-body"),
                     400,
                 )

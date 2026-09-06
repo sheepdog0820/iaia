@@ -28,7 +28,8 @@ class AdvancedSchedulingModelsTestCase(TestCase):
         self.gm = User.objects.create_user(
             username="gmuser",
             email="gm@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="GM User",
         )
         self.group = CustomGroup.objects.create(
@@ -103,19 +104,22 @@ class AdvancedSchedulingAPITestCase(APITestCase):
         self.gm = User.objects.create_user(
             username="gmuser",
             email="gm@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="GM User",
         )
         self.member = User.objects.create_user(
             username="member",
             email="member@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Member",
         )
         self.outsider = User.objects.create_user(
             username="outsider",
             email="outsider@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Outsider",
         )
         self.group = CustomGroup.objects.create(

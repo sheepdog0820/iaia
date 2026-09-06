@@ -15,19 +15,22 @@ class GroupInviteLinkAPITestCase(APITestCase):
         self.admin = User.objects.create_user(
             username="group_link_admin",
             email="group_link_admin@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Group Link Admin",
         )
         self.member = User.objects.create_user(
             username="group_link_member",
             email="group_link_member@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Group Link Member",
         )
         self.invitee = User.objects.create_user(
             username="group_link_invitee",
             email="group_link_invitee@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="Group Link Invitee",
         )
         self.group = Group.objects.create(name="Invite Link Private Group", visibility="private", created_by=self.admin)
@@ -150,7 +153,8 @@ class GroupInviteLinkAPITestCase(APITestCase):
         first = self.client.post(f"/api/group-invitations/{token}/join/")
         self.assertEqual(first.status_code, status.HTTP_201_CREATED)
 
-        other = User.objects.create_user(username="group_link_other", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        other = User.objects.create_user(username="group_link_other", password="pass123")  # nosec B106
         self.client.force_authenticate(user=other)
         second = self.client.post(f"/api/group-invitations/{token}/join/")
 

@@ -316,7 +316,8 @@ ACCOUNT_PREVENT_ENUMERATION = _get_bool(
     default=not DEBUG,
 )
 SOCIALACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_FORMS = {"reset_password": "accounts.forms.CustomPasswordResetForm"}
+# Form class import path, not a credential.
+ACCOUNT_FORMS = {"reset_password": "accounts.forms.CustomPasswordResetForm"}  # nosec B105
 
 # Custom adapters
 ACCOUNT_ADAPTER = "accounts.adapters.CustomAccountAdapter"

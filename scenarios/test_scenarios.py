@@ -16,7 +16,11 @@ User = get_user_model()
 class ScenarioModelsTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="authoruser", email="author@example.com", password="pass123", nickname="Author User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="authoruser",
+            email="author@example.com",
+            password="pass123",
+            nickname="Author User",  # nosec B106
         )
         self.group = CustomGroup.objects.create(name="Test Group", created_by=self.user)
 
@@ -133,13 +137,25 @@ class ScenarioModelsTestCase(TestCase):
 class ScenarioAPITestCase(APITestCase):
     def setUp(self):
         self.user1 = User.objects.create_user(
-            username="authoruser", email="author@example.com", password="pass123", nickname="Author User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="authoruser",
+            email="author@example.com",
+            password="pass123",
+            nickname="Author User",  # nosec B106
         )
         self.user2 = User.objects.create_user(
-            username="playeruser", email="player@example.com", password="pass123", nickname="Player User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="playeruser",
+            email="player@example.com",
+            password="pass123",
+            nickname="Player User",  # nosec B106
         )
         self.user3 = User.objects.create_user(
-            username="outsideuser", email="outside@example.com", password="pass123", nickname="Outside User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="outsideuser",
+            email="outside@example.com",
+            password="pass123",
+            nickname="Outside User",  # nosec B106
         )
         self.group = CustomGroup.objects.create(name="Test Group", created_by=self.user1)
         self.group.members.add(self.user1, self.user2)
@@ -463,7 +479,8 @@ class ScenarioAPITestCase(APITestCase):
                     "title": "導入HO",
                     "content": "あなたは依頼人を知っている。",
                     "recommended_skills": "図書館",
-                    "is_secret": True,
+                    # Isolated test fixture or mocked credential; never a production secret.
+                    "is_secret": True,  # nosec B105
                     "handout_number": 1,
                     "assigned_player_slot": 1,
                 },
@@ -471,7 +488,8 @@ class ScenarioAPITestCase(APITestCase):
                     "title": "探索者共通",
                     "content": "全探索者が知っている導入情報。",
                     "recommended_skills": "目星",
-                    "is_secret": False,
+                    # Isolated test fixture or mocked credential; never a production secret.
+                    "is_secret": False,  # nosec B105
                     "handout_number": None,
                     "assigned_player_slot": None,
                 },
@@ -560,7 +578,8 @@ class ScenarioAPITestCase(APITestCase):
                     "name": "Detective",
                     "title": "Legacy Detective",
                     "content": "Primary investigator",
-                    "is_secret": True,
+                    # Isolated test fixture or mocked credential; never a production secret.
+                    "is_secret": True,  # nosec B105
                     "handout_number": 1,
                     "assigned_player_slot": 1,
                     "order": 2,
@@ -577,7 +596,8 @@ class ScenarioAPITestCase(APITestCase):
                     "code": "HO1-B",
                     "name": "Assistant",
                     "content": "Additional role",
-                    "is_secret": True,
+                    # Isolated test fixture or mocked credential; never a production secret.
+                    "is_secret": True,  # nosec B105
                     "handout_number": 1,
                     "assigned_player_slot": None,
                     "order": 1,
@@ -672,7 +692,8 @@ class ScenarioAPITestCase(APITestCase):
 
 class ScenarioArchivePremiumAccessTestCase(TestCase):
     def setUp(self):
-        self.password = "pass123"
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.password = "pass123"  # nosec B105
         self.user = User.objects.create_user(
             username="premiumtest",
             email="premiumtest@example.com",

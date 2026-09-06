@@ -19,7 +19,8 @@ from accounts.services.character_version_service import CharacterVersionService
 
 class CharacterSystemDataModelsTests(TestCase):
     def setUp(self):
-        self.user = get_user_model().objects.create_user(username="system-data-user", password="pass")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = get_user_model().objects.create_user(username="system-data-user", password="pass")  # nosec B106
 
     def create_registry_character(self, edition):
         return CharacterSheet.objects.create(user=self.user, edition=edition)

@@ -29,7 +29,10 @@ class GrowthRecordModelTestCase(TestCase):
     """成長記録モデルのテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
@@ -110,7 +113,10 @@ class SkillGrowthRecordModelTestCase(TestCase):
     """技能成長記録モデルのテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",
@@ -214,7 +220,10 @@ class GrowthRecordAPITestCase(APITestCase):
     """成長記録管理APIのテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.client.force_authenticate(user=self.user)
 
         self.character = create_6th_character(
@@ -348,7 +357,10 @@ class GrowthRecordIntegrationTestCase(TestCase):
     """成長記録統合テストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.character = create_6th_character(
             user=self.user,
             name="Test Investigator",

@@ -25,7 +25,10 @@ class Character6thModelTestCase(TestCase):
     """6版キャラクターモデルのテスト"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
 
     def test_character_6th_creation(self):
         """6版キャラクター作成の基本テスト"""
@@ -150,7 +153,8 @@ class Character6thSkillTestCase(TestCase):
 
     def test_max_sanity_calculation_with_cthulhu_mythos(self):
         """クトゥルフ神話技能による最大SAN値の計算テスト"""
-        user = User.objects.create_user(username="test", password="test")
+        # Isolated test fixture or mocked credential; never a production secret.
+        user = User.objects.create_user(username="test", password="test")  # nosec B106
         _, character = create_6th_character(
             user=user,
             name="SAN Test",
@@ -203,7 +207,8 @@ class Character6thSkillTestCase(TestCase):
         self.assertEqual(character.sanity_max, 49)  # 99 - 50 = 49
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
         _, self.character = create_6th_character(
             user=self.user,
             name="Test Character",
@@ -284,7 +289,8 @@ class Character6thOccupationTestCase(TestCase):
     """6版職業システムのテスト"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
         _, self.character = create_6th_character(
             user=self.user,
             name="Test Character",
@@ -344,7 +350,8 @@ class Character6thVersioningTestCase(TestCase):
     """6版バージョン管理機能のテスト"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
         _, self.character = create_6th_character(
             user=self.user,
             name="Test Character",
@@ -389,7 +396,8 @@ class Character6thAPITestCase(APITestCase):
     """6版API機能のテスト"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
         self.client.force_authenticate(user=self.user)
 
     def test_api_endpoints_not_implemented(self):
@@ -402,7 +410,8 @@ class Character6thFormValidationTestCase(TestCase):
     """6版フォームバリデーションテスト"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
 
     def test_ability_roll_dice_validation(self):
         """能力値ダイスロール設定の検証テスト"""

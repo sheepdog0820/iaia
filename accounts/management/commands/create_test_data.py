@@ -94,7 +94,8 @@ class Command(BaseCommand):
             user = CustomUser.objects.create_user(
                 username=f"testuser{i+1}",
                 email=f"test{i+1}@arkham.nexus",
-                password="testpass123",
+                # Local-only sample data; shared environments rejected by command guard.
+                password="testpass123",  # nosec B106
                 nickname=nickname,
                 trpg_history=self.generate_trpg_history(),
             )
@@ -114,7 +115,8 @@ class Command(BaseCommand):
             "シナリオ作成もしています。オリジナルシナリオ多数あり。",
             "オンセ・オフセどちらも参加します。",
         ]
-        return random.choice(histories)
+        # Local-only sample data; shared environments rejected by command guard.
+        return random.choice(histories)  # nosec B311
 
     def create_scenarios(self, users, count):
         """テストシナリオを作成"""
@@ -226,8 +228,10 @@ class Command(BaseCommand):
                 summary=data["summary"],
                 author=data["author"],
                 recommended_players=data["recommended_players"],
-                url=f"https://booth.pm/scenario/{i+1}" if random.choice([True, False]) else "",
-                created_by=random.choice(users),
+                # Local-only sample data; shared environments rejected by command guard.
+                url=f"https://booth.pm/scenario/{i+1}" if random.choice([True, False]) else "",  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                created_by=random.choice(users),  # nosec B311
             )
             scenarios.append(scenario)
 
@@ -249,7 +253,8 @@ class Command(BaseCommand):
             group = Group.objects.create(
                 name=name,
                 description=f"{name}の説明です。一緒にTRPGを楽しみましょう！",
-                visibility=random.choice(["private", "public"]),
+                # Local-only sample data; shared environments rejected by command guard.
+                visibility=random.choice(["private", "public"]),  # nosec B311
                 created_by=users[i % len(users)],
             )
 
@@ -257,9 +262,11 @@ class Command(BaseCommand):
             GroupMembership.objects.create(user=group.created_by, group=group, role="admin")
 
             # ランダムにメンバーを追加
-            member_count = random.randint(3, 8)
+            # Local-only sample data; shared environments rejected by command guard.
+            member_count = random.randint(3, 8)  # nosec B311
             available_users = [u for u in users if u != group.created_by]
-            selected_members = random.sample(available_users, min(member_count, len(available_users)))
+            # Local-only sample data; shared environments rejected by command guard.
+            selected_members = random.sample(available_users, min(member_count, len(available_users)))  # nosec B311
 
             for user in selected_members:
                 GroupMembership.objects.create(user=user, group=group, role="member")
@@ -272,9 +279,11 @@ class Command(BaseCommand):
         """フレンド関係を作成"""
         for user in users:
             # 各ユーザーに2-5人のフレンドを作成
-            friend_count = random.randint(2, 5)
+            # Local-only sample data; shared environments rejected by command guard.
+            friend_count = random.randint(2, 5)  # nosec B311
             potential_friends = [u for u in users if u != user]
-            friends = random.sample(potential_friends, min(friend_count, len(potential_friends)))
+            # Local-only sample data; shared environments rejected by command guard.
+            friends = random.sample(potential_friends, min(friend_count, len(potential_friends)))  # nosec B311
 
             for friend in friends:
                 # 双方向のフレンド関係（重複チェック）
@@ -290,32 +299,41 @@ class Command(BaseCommand):
 
         for i in range(count):
             # 過去6ヶ月から未来1ヶ月の範囲でセッション日時を設定
-            days_offset = random.randint(-180, 30)
+            # Local-only sample data; shared environments rejected by command guard.
+            days_offset = random.randint(-180, 30)  # nosec B311
             session_date = current_date + timedelta(days=days_offset)
 
             # 時間を設定（19:00-22:00の範囲）
-            hour = random.randint(19, 21)
+            # Local-only sample data; shared environments rejected by command guard.
+            hour = random.randint(19, 21)  # nosec B311
             session_date = session_date.replace(hour=hour, minute=0, second=0, microsecond=0)
 
-            group = random.choice(groups)
-            gm = random.choice(list(group.members.all()))
+            # Local-only sample data; shared environments rejected by command guard.
+            group = random.choice(groups)  # nosec B311
+            # Local-only sample data; shared environments rejected by command guard.
+            gm = random.choice(list(group.members.all()))  # nosec B311
 
             # セッションステータス決定
             if days_offset < -1:
                 status = "completed"
-                duration = random.randint(120, 360)  # 2-6時間
+                # Local-only sample data; shared environments rejected by command guard.
+                duration = random.randint(120, 360)  # 2-6時間  # nosec B311
             elif days_offset < 0:
-                status = random.choice(["completed", "ongoing"])
-                duration = random.randint(120, 360) if status == "completed" else 0
+                # Local-only sample data; shared environments rejected by command guard.
+                status = random.choice(["completed", "ongoing"])  # nosec B311
+                # Local-only sample data; shared environments rejected by command guard.
+                duration = random.randint(120, 360) if status == "completed" else 0  # nosec B311
             else:
                 status = "planned"
                 duration = 0
 
             session = TRPGSession.objects.create(
-                title=f"{random.choice(scenarios).title} セッション{i+1}",
+                # Local-only sample data; shared environments rejected by command guard.
+                title=f"{random.choice(scenarios).title} セッション{i+1}",  # nosec B311
                 description=f"楽しいTRPGセッションです！参加者募集中。",
                 date=session_date,
-                location=random.choice(
+                # Local-only sample data; shared environments rejected by command guard.
+                location=random.choice(  # nosec B311
                     [
                         "オンライン(Discord)",
                         "渋谷TRPG cafe",
@@ -324,9 +342,15 @@ class Command(BaseCommand):
                         "秋葉原ボードゲームカフェ",
                     ]
                 ),
-                youtube_url=f"https://youtube.com/watch?v=demo{i+1}" if random.choice([True, False, False]) else "",
+                # Local-only sample data; shared environments rejected by command guard.
+                youtube_url=(
+                    f"https://youtube.com/watch?v=demo{i+1}"
+                    if random.choice([True, False, False])  # nosec B311
+                    else ""
+                ),
                 status=status,
-                visibility=random.choice(["group", "public", "private"]),
+                # Local-only sample data; shared environments rejected by command guard.
+                visibility=random.choice(["group", "public", "private"]),  # nosec B311
                 gm=gm,
                 group=group,
                 duration_minutes=duration,
@@ -339,16 +363,20 @@ class Command(BaseCommand):
                 roles=[SessionParticipantRole.Role.GM],
                 character_name=f"GM_{gm.nickname}",
                 character_sheet_url=(
-                    f"https://charasheet.vampire-blood.net/{random.randint(100000, 999999)}"
-                    if random.choice([True, False])
+                    # Local-only sample data; shared environments rejected by command guard.
+                    f"https://charasheet.vampire-blood.net/{random.randint(100000, 999999)}"  # nosec B311
+                    # Local-only sample data; shared environments rejected by command guard.
+                    if random.choice([True, False])  # nosec B311
                     else ""
                 ),
             )
 
             # PLを追加
             group_members = list(group.members.exclude(id=gm.id))
-            pl_count = min(random.randint(2, 5), len(group_members))
-            pls = random.sample(group_members, pl_count)
+            # Local-only sample data; shared environments rejected by command guard.
+            pl_count = min(random.randint(2, 5), len(group_members))  # nosec B311
+            # Local-only sample data; shared environments rejected by command guard.
+            pls = random.sample(group_members, pl_count)  # nosec B311
 
             character_names = [
                 "田中刑事",
@@ -370,8 +398,10 @@ class Command(BaseCommand):
                     roles=[SessionParticipantRole.Role.PLAYER],
                     character_name=character_names[j % len(character_names)],
                     character_sheet_url=(
-                        f"https://charasheet.vampire-blood.net/{random.randint(100000, 999999)}"
-                        if random.choice([True, False])
+                        # Local-only sample data; shared environments rejected by command guard.
+                        f"https://charasheet.vampire-blood.net/{random.randint(100000, 999999)}"  # nosec B311
+                        # Local-only sample data; shared environments rejected by command guard.
+                        if random.choice([True, False])  # nosec B311
                         else ""
                     ),
                 )
@@ -384,7 +414,8 @@ class Command(BaseCommand):
         """プレイ履歴を作成"""
         for session in sessions:
             if session.status == "completed":
-                scenario = random.choice(scenarios)
+                # Local-only sample data; shared environments rejected by command guard.
+                scenario = random.choice(scenarios)  # nosec B311
 
                 for participant in session.sessionparticipant_set.all():
                     participant_role = session_permissions.get_primary_participant_role(participant)
@@ -395,7 +426,8 @@ class Command(BaseCommand):
                         played_date=session.date,
                         role=participant_role,
                         notes=(
-                            random.choice(
+                            # Local-only sample data; shared environments rejected by command guard.
+                            random.choice(  # nosec B311
                                 [
                                     "とても楽しいセッションでした！",
                                     "ハラハラドキドキの展開でした。",
@@ -405,7 +437,8 @@ class Command(BaseCommand):
                                     "他のPLとの連携が良かった。",
                                 ]
                             )
-                            if random.choice([True, False])
+                            # Local-only sample data; shared environments rejected by command guard.
+                            if random.choice([True, False])  # nosec B311
                             else ""
                         ),
                     )
@@ -414,12 +447,14 @@ class Command(BaseCommand):
         """グループ招待を作成"""
         for group in groups:
             # いくつかの招待を作成
-            invitation_count = random.randint(0, 3)
+            # Local-only sample data; shared environments rejected by command guard.
+            invitation_count = random.randint(0, 3)  # nosec B311
             group_members = set(group.members.all())
             non_members = [u for u in users if u not in group_members]
 
             if len(non_members) > 0:
-                invitees = random.sample(non_members, min(invitation_count, len(non_members)))
+                # Local-only sample data; shared environments rejected by command guard.
+                invitees = random.sample(non_members, min(invitation_count, len(non_members)))  # nosec B311
                 admin = group.groupmembership_set.filter(role="admin").first().user
 
                 for invitee in invitees:
@@ -427,6 +462,7 @@ class Command(BaseCommand):
                         group=group,
                         inviter=admin,
                         invitee=invitee,
-                        status=random.choice(["pending", "pending", "accepted", "declined"]),
+                        # Local-only sample data; shared environments rejected by command guard.
+                        status=random.choice(["pending", "pending", "accepted", "declined"]),  # nosec B311
                         message=f"{group.name}へのご招待です。一緒にTRPGを楽しみましょう！",
                     )

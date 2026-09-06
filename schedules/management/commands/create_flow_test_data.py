@@ -54,14 +54,16 @@ class Command(BaseCommand):
         gm = self._get_or_create_user(
             username=f"{prefix}gm",
             nickname="フローテストGM",
-            password="flowpass123",
+            # Local-only sample data; shared environments rejected by command guard.
+            password="flowpass123",  # nosec B106
             defaults={"is_staff": True},
         )
         players = [
             self._get_or_create_user(
                 username=f"{prefix}pl{i}",
                 nickname=f"フローテストPL{i}",
-                password="flowpass123",
+                # Local-only sample data; shared environments rejected by command guard.
+                password="flowpass123",  # nosec B106
             )
             for i in range(1, 5)
         ]

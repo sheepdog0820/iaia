@@ -28,7 +28,11 @@ class BasicAccountsTestCase(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = User.objects.create_user(
-            username="basicuser", email="basic@example.com", password="basicpass123", nickname="Basic User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="basicuser",
+            email="basic@example.com",
+            password="basicpass123",
+            nickname="Basic User",  # nosec B106
         )
 
     def test_custom_user_model(self):
@@ -104,19 +108,22 @@ class BasicAccountsTestCase(TestCase):
         owner = User.objects.create_user(
             username="owneruser",
             email="owner@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="Owner User",
         )
         other = User.objects.create_user(
             username="otheruser",
             email="other@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="Other User",
         )
         outsider = User.objects.create_user(
             username="outsider",
             email="outsider@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="Outsider",
         )
 
@@ -139,7 +146,8 @@ class BasicAccountsTestCase(TestCase):
         other = User.objects.create_user(
             username="apiother",
             email="apiother@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="API Other",
             trpg_history="private history",
         )
@@ -168,19 +176,22 @@ class BasicAccountsTestCase(TestCase):
         gm = User.objects.create_user(
             username="gmuser",
             email="gm@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="GM User",
         )
         player = User.objects.create_user(
             username="playeruser",
             email="player@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="Player User",
         )
         outsider = User.objects.create_user(
             username="outsideruser",
             email="outsider@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="Outsider User",
         )
 
@@ -252,25 +263,29 @@ class BasicAccountsTestCase(TestCase):
         owner = User.objects.create_user(
             username="scope_owner",
             email="scope_owner@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="Scope Owner",
         )
         group_user = User.objects.create_user(
             username="scope_group_user",
             email="scope_group@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="Scope Group",
         )
         allowed_user = User.objects.create_user(
             username="scope_allowed_user",
             email="scope_allowed@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="Scope Allowed",
         )
         outsider = User.objects.create_user(
             username="scope_outsider",
             email="scope_outsider@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="Scope Outsider",
         )
         group = Group.objects.create(name="Scope Group", created_by=owner)
@@ -330,7 +345,8 @@ class BasicAccountsTestCase(TestCase):
         owner = User.objects.create_user(
             username="scope_update_owner",
             email="scope_update_owner@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="Scope Update Owner",
         )
         character = create_6th_character(
@@ -379,7 +395,8 @@ class BasicAccountsTestCase(TestCase):
         owner = User.objects.create_user(
             username="direct_link_owner",
             email="direct_link_owner@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="Direct Link Owner",
         )
         character = create_6th_character(
@@ -495,7 +512,11 @@ class BasicAccountsTestCase(TestCase):
 class GroupBasicTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="groupowner", email="owner@example.com", password="pass123", nickname="Group Owner"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="groupowner",
+            email="owner@example.com",
+            password="pass123",
+            nickname="Group Owner",  # nosec B106
         )
 
     def test_group_creation(self):

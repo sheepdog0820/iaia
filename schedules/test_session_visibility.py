@@ -17,17 +17,20 @@ class SessionVisibilitySerializerTestCase(APITestCase):
         self.gm = User.objects.create_user(
             username="session_visibility_gm",
             email="session_visibility_gm@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
         )
         self.player = User.objects.create_user(
             username="session_visibility_player",
             email="session_visibility_player@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
         )
         self.outsider = User.objects.create_user(
             username="session_visibility_outsider",
             email="session_visibility_outsider@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
         )
         self.group = Group.objects.create(
             name="Session Visibility Group",

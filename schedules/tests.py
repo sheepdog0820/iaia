@@ -16,10 +16,18 @@ class BasicScheduleTestCase(TestCase):
     def setUp(self):
         self.client = Client()
         self.user1 = User.objects.create_user(
-            username="gmuser", email="gm@example.com", password="pass123", nickname="GM User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="gmuser",
+            email="gm@example.com",
+            password="pass123",
+            nickname="GM User",  # nosec B106
         )
         self.user2 = User.objects.create_user(
-            username="playeruser", email="player@example.com", password="pass123", nickname="Player User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="playeruser",
+            email="player@example.com",
+            password="pass123",
+            nickname="Player User",  # nosec B106
         )
         self.group = Group.objects.create(name="Test Group", created_by=self.user1)
 

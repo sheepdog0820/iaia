@@ -3110,7 +3110,8 @@ class PublicSessionDetailView(APIView):
             "is_participant": False,
             "can_edit": False,
             "can_invite": False,
-            "can_manage_secret_content": False,
+            # Boolean permission flag, not a credential.
+            "can_manage_secret_content": False,  # nosec B105
             "can_manage_permissions": False,
             "can_join": False,
             "user_participant": None,

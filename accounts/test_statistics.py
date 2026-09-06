@@ -22,10 +22,18 @@ class StatisticsViewsTestCase(APITestCase):
         """テストデータのセットアップ"""
         # ユーザー作成
         self.user1 = User.objects.create_user(
-            username="testuser1", email="test1@example.com", password="pass123", nickname="Test User 1"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="testuser1",
+            email="test1@example.com",
+            password="pass123",
+            nickname="Test User 1",  # nosec B106
         )
         self.user2 = User.objects.create_user(
-            username="testuser2", email="test2@example.com", password="pass123", nickname="Test User 2"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="testuser2",
+            email="test2@example.com",
+            password="pass123",
+            nickname="Test User 2",  # nosec B106
         )
 
         # グループ作成
@@ -360,7 +368,11 @@ class StatisticsViewsTestCase(APITestCase):
         """データがない場合の統計テスト"""
         # 新規ユーザーを作成（データなし）
         new_user = User.objects.create_user(
-            username="newuser", email="new@example.com", password="pass123", nickname="New User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="newuser",
+            email="new@example.com",
+            password="pass123",
+            nickname="New User",  # nosec B106
         )
 
         self.client.force_authenticate(user=new_user)

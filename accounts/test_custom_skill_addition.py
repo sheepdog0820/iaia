@@ -18,7 +18,8 @@ class CustomSkillAdditionModelTestCase(TestCase):
     """カスタム技能追加機能のモデルテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
 
         self.character, _ = create_6th_character(
             user=self.user,
@@ -123,7 +124,8 @@ class CustomSkillAdditionAPITestCase(APITestCase):
     """カスタム技能追加機能のAPIテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
 
         self.character, _ = create_6th_character(
             user=self.user,
@@ -176,7 +178,8 @@ class CustomSkillAdditionAPITestCase(APITestCase):
 
     def test_custom_skill_api_permission_check(self):
         """他のユーザーのキャラクターにカスタム技能を追加できないことをテスト"""
-        other_user = User.objects.create_user(username="otheruser", password="otherpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        other_user = User.objects.create_user(username="otheruser", password="otherpass123")  # nosec B106
 
         other_character, _ = create_6th_character(
             user=other_user,
@@ -254,7 +257,8 @@ class CustomSkillCategoryTestCase(TestCase):
     """カスタム技能カテゴリ機能のテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
 
         self.character, _ = create_6th_character(
             user=self.user,
@@ -312,7 +316,8 @@ class CustomSkillValidationTestCase(TestCase):
     """カスタム技能バリデーション機能のテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
 
         self.character, _ = create_6th_character(
             user=self.user,

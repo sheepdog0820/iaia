@@ -19,7 +19,10 @@ class CharacterImageUploadTestCase(APITestCase):
 
     def setUp(self):
         """テストデータの準備"""
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.client.force_authenticate(user=self.user)
 
     def create_test_image(self, filename="test_image.jpg", size=(400, 600), format="JPEG"):

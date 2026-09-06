@@ -117,7 +117,8 @@ class Command(BaseCommand):
             user = User.objects.create_user(
                 username=user_data["username"],
                 email=user_data["email"],
-                password="arkham2024",
+                # Local-only sample data; shared environments rejected by command guard.
+                password="arkham2024",  # nosec B106
                 nickname=user_data["nickname"],
                 trpg_history=user_data["trpg_history"],
             )
@@ -155,7 +156,8 @@ class Command(BaseCommand):
 
             # 他のメンバーも追加
             other_users = [u for u in users if u != group_data["created_by"]]
-            for user in random.sample(other_users, min(3, len(other_users))):
+            # Local-only sample data; shared environments rejected by command guard.
+            for user in random.sample(other_users, min(3, len(other_users))):  # nosec B311
                 GroupMembership.objects.create(user=user, group=group, role="member")
 
         return groups
@@ -165,7 +167,8 @@ class Command(BaseCommand):
         for i, user in enumerate(users):
             # 各ユーザーに2-3人の友達を作成
             potential_friends = [u for u in users if u != user]
-            friends = random.sample(potential_friends, random.randint(2, 3))
+            # Local-only sample data; shared environments rejected by command guard.
+            friends = random.sample(potential_friends, random.randint(2, 3))  # nosec B311
 
             for friend in friends:
                 # 既に友達関係がある場合はスキップ
@@ -228,7 +231,8 @@ class Command(BaseCommand):
             scenarios.append(scenario)
 
             # シナリオメモも作成
-            if random.choice([True, False]):
+            # Local-only sample data; shared environments rejected by command guard.
+            if random.choice([True, False]):  # nosec B311
                 ScenarioNote.objects.create(
                     scenario=scenario,
                     user=scenario_data["created_by"],
@@ -245,22 +249,30 @@ class Command(BaseCommand):
 
         # 過去のセッション
         for i in range(8):
-            date = timezone.now() - timedelta(days=random.randint(7, 365))
-            scenario = random.choice(scenarios)
-            group = random.choice(groups)
-            gm = random.choice([m.user for m in group.groupmembership_set.all()])
+            # Local-only sample data; shared environments rejected by command guard.
+            date = timezone.now() - timedelta(days=random.randint(7, 365))  # nosec B311
+            # Local-only sample data; shared environments rejected by command guard.
+            scenario = random.choice(scenarios)  # nosec B311
+            # Local-only sample data; shared environments rejected by command guard.
+            group = random.choice(groups)  # nosec B311
+            # Local-only sample data; shared environments rejected by command guard.
+            gm = random.choice([m.user for m in group.groupmembership_set.all()])  # nosec B311
 
             session = TRPGSession.objects.create(
                 title=f"{scenario.title} #{i+1}",
                 description=f"{scenario.title}のセッション",
                 date=date,
                 location="オンライン（Discord）",
-                youtube_url=f"https://www.youtube.com/watch?v=example{i}" if random.choice([True, False]) else "",
+                # Local-only sample data; shared environments rejected by command guard.
+                youtube_url=(
+                    f"https://www.youtube.com/watch?v=example{i}" if random.choice([True, False]) else ""  # nosec B311
+                ),
                 status="completed",
                 visibility="group",
                 gm=gm,
                 group=group,
-                duration_minutes=random.randint(180, 420),
+                # Local-only sample data; shared environments rejected by command guard.
+                duration_minutes=random.randint(180, 420),  # nosec B311
             )
             sessions.append(session)
 
@@ -273,7 +285,8 @@ class Command(BaseCommand):
 
             # PLを追加
             group_members = [m.user for m in group.groupmembership_set.all() if m.user != gm]
-            participants = random.sample(group_members, min(scenario.player_count, len(group_members)))
+            # Local-only sample data; shared environments rejected by command guard.
+            participants = random.sample(group_members, min(scenario.player_count, len(group_members)))  # nosec B311
 
             for participant in participants:
                 session_permissions.create_participant(
@@ -286,10 +299,14 @@ class Command(BaseCommand):
 
         # 未来のセッション
         for i in range(3):
-            date = timezone.now() + timedelta(days=random.randint(1, 30))
-            scenario = random.choice(scenarios)
-            group = random.choice(groups)
-            gm = random.choice([m.user for m in group.groupmembership_set.all()])
+            # Local-only sample data; shared environments rejected by command guard.
+            date = timezone.now() + timedelta(days=random.randint(1, 30))  # nosec B311
+            # Local-only sample data; shared environments rejected by command guard.
+            scenario = random.choice(scenarios)  # nosec B311
+            # Local-only sample data; shared environments rejected by command guard.
+            group = random.choice(groups)  # nosec B311
+            # Local-only sample data; shared environments rejected by command guard.
+            gm = random.choice([m.user for m in group.groupmembership_set.all()])  # nosec B311
 
             session = TRPGSession.objects.create(
                 title=f"{scenario.title} - 新セッション",
@@ -319,7 +336,8 @@ class Command(BaseCommand):
 
         for session in completed_sessions:
             participants = SessionParticipant.objects.filter(session=session)
-            scenario = random.choice(scenarios)  # セッションに対応するシナリオを選択
+            # Local-only sample data; shared environments rejected by command guard.
+            scenario = random.choice(scenarios)  # セッションに対応するシナリオを選択  # nosec B311
 
             for participant in participants:
                 # 重複チェック

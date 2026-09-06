@@ -18,7 +18,8 @@ def public_profile():
 
 class FriendCandidateAPITestCase(APITestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username="searcher", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="searcher", password="pass123")  # nosec B106
         self.public_user = User.objects.create_user(
             username="public_target",
             nickname="公開ユーザー",
@@ -117,14 +118,17 @@ class FriendCandidateAPITestCase(APITestCase):
 
 class FriendRequestAPITestCase(APITestCase):
     def setUp(self):
-        self.sender = User.objects.create_user(username="sender", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.sender = User.objects.create_user(username="sender", password="pass123")  # nosec B106
         self.recipient = User.objects.create_user(
             username="recipient",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
             nickname="受信者",
             trpg_introduction_sheet=public_profile(),
         )
-        self.other = User.objects.create_user(username="other", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.other = User.objects.create_user(username="other", password="pass123")  # nosec B106
         self.client.force_authenticate(user=self.sender)
 
     def create_request(self):

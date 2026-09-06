@@ -16,7 +16,8 @@ class GoogleIdentityProbe(APITestCase):
             "accounts.views.api_auth_views.id_token.verify_oauth2_token",
             return_value={"iss": "accounts.google.com", **claims},
         ):
-            return self.client.post("/api/auth/google/", {"id_token": "fixture", **data}, format="json")
+            # Isolated test fixture or mocked credential; never a production secret.
+            return self.client.post("/api/auth/google/", {"id_token": "fixture", **data}, format="json")  # nosec B105
 
     def test_pending_browser_signup_cannot_bypass_mail_confirmation(self):
         owner = get_user_model().objects.create_user(username="pending", email="pending@example.test")
@@ -113,7 +114,10 @@ class GoogleIdentityProbe(APITestCase):
             "email_verified": True,
         }
         self.client.force_authenticate(owner)
-        response = self.client.post("/api/auth/google/", {"id_token": "fixture", "link": True}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post(
+            "/api/auth/google/", {"id_token": "fixture", "link": True}, format="json"  # nosec B105
+        )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["user"]["id"], owner.pk)
         self.assertTrue(SocialAccount.objects.filter(user=owner, provider="google", uid="third-party-google").exists())
@@ -132,7 +136,10 @@ class GoogleIdentityProbe(APITestCase):
             "email_verified": True,
         }
         self.client.force_authenticate(other)
-        response = self.client.post("/api/auth/google/", {"id_token": "fixture", "link": True}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post(
+            "/api/auth/google/", {"id_token": "fixture", "link": True}, format="json"  # nosec B105
+        )
         self.assertEqual(response.status_code, 409)
         self.assertEqual(SocialAccount.objects.get(provider="google", uid="owned-id").user_id, owner.pk)
 
@@ -144,7 +151,8 @@ class GoogleIdentityProbe(APITestCase):
             "email": "new@example.test",
             "email_verified": True,
         }
-        response = self.client.post("/api/auth/google/", {"id_token": "fixture"}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post("/api/auth/google/", {"id_token": "fixture"}, format="json")  # nosec B105
         self.assertEqual(response.status_code, 409)
         self.assertEqual(response.data["code"], "google_link_confirmation_required")
         self.assertIn("login_url", response.data)
@@ -162,14 +170,16 @@ class GoogleIdentityProbe(APITestCase):
             "email": "active@gmail.com",
             "email_verified": True,
         }
-        response = self.client.post("/api/auth/google/", {"id_token": "fixture"}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post("/api/auth/google/", {"id_token": "fixture"}, format="json")  # nosec B105
         self.assertEqual(response.status_code, 403)
         self.assertFalse(Token.objects.exists())
 
     @patch("accounts.views.api_auth_views.id_token.verify_oauth2_token")
     def test_missing_google_id_is_rejected(self, verify):
         verify.return_value = {"iss": "accounts.google.com", "email": "valid@gmail.com", "email_verified": True}
-        response = self.client.post("/api/auth/google/", {"id_token": "fixture"}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post("/api/auth/google/", {"id_token": "fixture"}, format="json")  # nosec B105
         self.assertEqual(response.status_code, 400)
         self.assertFalse(Token.objects.exists())
 
@@ -182,7 +192,8 @@ class GoogleIdentityProbe(APITestCase):
             "email": owner.email,
             "email_verified": True,
         }
-        response = self.client.post("/api/auth/google/", {"id_token": "fixture"}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post("/api/auth/google/", {"id_token": "fixture"}, format="json")  # nosec B105
         self.assertNotEqual(response.status_code, 200)
         self.assertFalse(Token.objects.filter(user=owner).exists())
 
@@ -198,7 +209,8 @@ class GoogleIdentityProbe(APITestCase):
             "email": mailbox_owner.email,
             "email_verified": True,
         }
-        response = self.client.post("/api/auth/google/", {"id_token": "fixture"}, format="json")
+        # Isolated test fixture or mocked credential; never a production secret.
+        response = self.client.post("/api/auth/google/", {"id_token": "fixture"}, format="json")  # nosec B105
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["user"]["id"], original.id)
         self.assertFalse(Token.objects.filter(user=mailbox_owner).exists())

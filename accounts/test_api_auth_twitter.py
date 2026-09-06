@@ -21,7 +21,8 @@ class DummyResponse:
 
 @override_settings(
     TWITTER_CLIENT_ID="test-client",
-    TWITTER_CLIENT_SECRET="test-secret",
+    # Isolated test fixture or mocked credential; never a production secret.
+    TWITTER_CLIENT_SECRET="test-secret",  # nosec B106
     TWITTER_REDIRECT_URI="http://localhost:3000/callback",
 )
 class TwitterAuthApiTests(APITestCase):
@@ -44,7 +45,8 @@ class TwitterAuthApiTests(APITestCase):
     @patch("accounts.views.api_auth_views.requests.get")
     @patch("accounts.views.api_auth_views.requests.post")
     def test_user_fetch_failure(self, mock_post, mock_get):
-        mock_post.return_value = DummyResponse(200, {"access_token": "token"})
+        # Isolated test fixture or mocked credential; never a production secret.
+        mock_post.return_value = DummyResponse(200, {"access_token": "token"})  # nosec B105
         mock_get.return_value = DummyResponse(400, {"error": "invalid"})
 
         response = self.client.post(self.url, {"code": "code", "code_verifier": "verifier"}, format="json")
@@ -54,7 +56,8 @@ class TwitterAuthApiTests(APITestCase):
     @patch("accounts.views.api_auth_views.requests.get")
     @patch("accounts.views.api_auth_views.requests.post")
     def test_create_user_from_twitter(self, mock_post, mock_get):
-        mock_post.return_value = DummyResponse(200, {"access_token": "token"})
+        # Isolated test fixture or mocked credential; never a production secret.
+        mock_post.return_value = DummyResponse(200, {"access_token": "token"})  # nosec B105
         mock_get.return_value = DummyResponse(200, {"data": {"id": "123", "username": "xuser", "name": "X User"}})
 
         response = self.client.post(self.url, {"code": "code", "code_verifier": "verifier"}, format="json")
@@ -69,7 +72,8 @@ class TwitterAuthApiTests(APITestCase):
     @patch("accounts.views.api_auth_views.requests.get")
     @patch("accounts.views.api_auth_views.requests.post")
     def test_link_to_authenticated_user(self, mock_post, mock_get):
-        mock_post.return_value = DummyResponse(200, {"access_token": "token"})
+        # Isolated test fixture or mocked credential; never a production secret.
+        mock_post.return_value = DummyResponse(200, {"access_token": "token"})  # nosec B105
         mock_get.return_value = DummyResponse(
             200, {"data": {"id": "456", "username": "linkeduser", "name": "Linked User"}}
         )
@@ -92,7 +96,8 @@ class TwitterAuthApiTests(APITestCase):
     @patch("accounts.views.api_auth_views.requests.get")
     @patch("accounts.views.api_auth_views.requests.post")
     def test_link_conflict(self, mock_post, mock_get):
-        mock_post.return_value = DummyResponse(200, {"access_token": "token"})
+        # Isolated test fixture or mocked credential; never a production secret.
+        mock_post.return_value = DummyResponse(200, {"access_token": "token"})  # nosec B105
         mock_get.return_value = DummyResponse(200, {"data": {"id": "789", "username": "conflict", "name": "Conflict"}})
 
         owner = User.objects.create_user(username="owner", email="")

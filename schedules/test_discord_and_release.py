@@ -20,12 +20,14 @@ class DiscordSettingsTestCase(APITestCase):
         self.admin = user_model.objects.create_user(
             username="discord-admin",
             email="discord-admin@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.member = user_model.objects.create_user(
             username="discord-member",
             email="discord-member@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.group = Group.objects.create(name="Discord Group", created_by=self.admin)
         GroupMembership.objects.create(group=self.group, user=self.member, role="member")
@@ -275,12 +277,14 @@ class HandoutReleaseTestCase(APITestCase):
         self.gm = user_model.objects.create_user(
             username="release-gm",
             email="release-gm@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.player = user_model.objects.create_user(
             username="release-player",
             email="release-player@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.group = Group.objects.create(name="Release Group", created_by=self.gm)
         self.session = TRPGSession.objects.create(

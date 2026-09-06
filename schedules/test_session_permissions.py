@@ -27,19 +27,31 @@ User = get_user_model()
 
 class SessionRoleServiceTestCase(TestCase):
     def setUp(self):
-        self.owner = User.objects.create_user(username="owner", email="owner@example.com", password="pass")
-        self.gm = User.objects.create_user(username="gm", email="gm@example.com", password="pass")
-        self.manager = User.objects.create_user(username="manager", email="manager@example.com", password="pass")
-        self.player = User.objects.create_user(username="player", email="player@example.com", password="pass")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.owner = User.objects.create_user(
+            username="owner", email="owner@example.com", password="pass"
+        )  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.gm = User.objects.create_user(username="gm", email="gm@example.com", password="pass")  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.manager = User.objects.create_user(
+            username="manager", email="manager@example.com", password="pass"
+        )  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.player = User.objects.create_user(
+            username="player", email="player@example.com", password="pass"
+        )  # nosec B106
         self.group_admin = User.objects.create_user(
             username="group-admin",
             email="group-admin@example.com",
-            password="pass",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass",  # nosec B106
         )
         self.group_member = User.objects.create_user(
             username="group-member",
             email="group-member@example.com",
-            password="pass",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass",  # nosec B106
         )
         self.group = Group.objects.create(name="Permission Group", created_by=self.owner)
         GroupMembership.objects.create(group=self.group, user=self.owner, role="admin")
@@ -143,22 +155,31 @@ class SessionRoleServiceTestCase(TestCase):
 
 class SessionRoleApiTestCase(APITestCase):
     def setUp(self):
-        self.owner = User.objects.create_user(username="view-owner", email="view-owner@example.com", password="pass")
-        self.gm = User.objects.create_user(username="view-gm", email="view-gm@example.com", password="pass")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.owner = User.objects.create_user(
+            username="view-owner", email="view-owner@example.com", password="pass"
+        )  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.gm = User.objects.create_user(
+            username="view-gm", email="view-gm@example.com", password="pass"
+        )  # nosec B106
         self.manager = User.objects.create_user(
             username="view-manager",
             email="view-manager@example.com",
-            password="pass",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass",  # nosec B106
         )
         self.player = User.objects.create_user(
             username="view-player",
             email="view-player@example.com",
-            password="pass",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass",  # nosec B106
         )
         self.group_member = User.objects.create_user(
             username="view-member",
             email="view-member@example.com",
-            password="pass",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass",  # nosec B106
         )
         self.group = Group.objects.create(name="View Permission Group", created_by=self.owner)
         for user in [self.owner, self.gm, self.manager, self.player, self.group_member]:

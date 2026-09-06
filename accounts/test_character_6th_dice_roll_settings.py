@@ -21,7 +21,10 @@ class CharacterDiceRollSettingModelTestCase(TestCase):
 
     def setUp(self):
         """テストデータの準備"""
-        self.user = User.objects.create_user(username="testuser", email="test@example.com", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", email="test@example.com", password="testpass123"
+        )  # nosec B106
 
     def test_dice_roll_setting_creation_success(self):
         """正常系: ダイスロール設定の作成成功"""
@@ -284,7 +287,10 @@ class CharacterDiceRollSettingModelTestCase(TestCase):
         self.assertEqual(parsed_data["str_dice_count"], 3)
 
         # インポートテスト
-        new_user = User.objects.create_user(username="importuser", email="import@example.com", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        new_user = User.objects.create_user(
+            username="importuser", email="import@example.com", password="testpass123"
+        )  # nosec B106
 
         imported_setting = CharacterDiceRollSetting.import_from_json(
             user=new_user, json_data=exported_data, new_name="インポート設定"
@@ -301,7 +307,10 @@ class CharacterDiceRollSettingAPITestCase(TestCase):
 
     def setUp(self):
         """テストデータの準備"""
-        self.user = User.objects.create_user(username="apiuser", email="api@example.com", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="apiuser", email="api@example.com", password="testpass123"
+        )  # nosec B106
 
     def test_get_user_dice_settings(self):
         """ユーザーのダイス設定一覧取得テスト"""

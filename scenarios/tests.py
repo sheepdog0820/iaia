@@ -11,7 +11,11 @@ class BasicScenarioTestCase(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = User.objects.create_user(
-            username="scenariouser", email="scenario@example.com", password="pass123", nickname="Scenario User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="scenariouser",
+            email="scenario@example.com",
+            password="pass123",
+            nickname="Scenario User",  # nosec B106
         )
 
     def test_scenario_creation(self):

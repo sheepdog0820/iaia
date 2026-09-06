@@ -29,10 +29,18 @@ def create_7th_character(user, **values):
 class ScheduleModelsTestCase(TestCase):
     def setUp(self):
         self.user1 = User.objects.create_user(
-            username="gmuser", email="gm@example.com", password="pass123", nickname="GM User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="gmuser",
+            email="gm@example.com",
+            password="pass123",
+            nickname="GM User",  # nosec B106
         )
         self.user2 = User.objects.create_user(
-            username="playeruser", email="player@example.com", password="pass123", nickname="Player User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="playeruser",
+            email="player@example.com",
+            password="pass123",
+            nickname="Player User",  # nosec B106
         )
         self.group = CustomGroup.objects.create(name="Test Group", created_by=self.user1)
         self.group.members.add(self.user1, self.user2)
@@ -97,10 +105,18 @@ class ScheduleModelsTestCase(TestCase):
 class ScheduleAPITestCase(APITestCase):
     def setUp(self):
         self.user1 = User.objects.create_user(
-            username="gmuser", email="gm@example.com", password="pass123", nickname="GM User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="gmuser",
+            email="gm@example.com",
+            password="pass123",
+            nickname="GM User",  # nosec B106
         )
         self.user2 = User.objects.create_user(
-            username="playeruser", email="player@example.com", password="pass123", nickname="Player User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="playeruser",
+            email="player@example.com",
+            password="pass123",
+            nickname="Player User",  # nosec B106
         )
         self.group = CustomGroup.objects.create(name="Test Group", created_by=self.user1)
         self.group.members.add(self.user1, self.user2)
@@ -725,7 +741,11 @@ class ScheduleAPITestCase(APITestCase):
     def test_session_join_group_non_member_forbidden(self):
         """グループ外メンバーの参加拒否テスト"""
         outsider = User.objects.create_user(
-            username="outsider", email="outsider@example.com", password="pass123", nickname="Outsider"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="outsider",
+            email="outsider@example.com",
+            password="pass123",
+            nickname="Outsider",  # nosec B106
         )
         self.client.force_authenticate(user=outsider)
         response = self.client.post(f"/api/schedules/sessions/{self.session.id}/join/")
@@ -942,7 +962,11 @@ class ScheduleAPITestCase(APITestCase):
     def test_participant_delete_other_forbidden(self):
         """GM以外が他人の参加情報を削除できない"""
         user3 = User.objects.create_user(
-            username="member3", email="member3@example.com", password="pass123", nickname="Member3"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="member3",
+            email="member3@example.com",
+            password="pass123",
+            nickname="Member3",  # nosec B106
         )
         self.group.members.add(user3)
 
@@ -1347,7 +1371,11 @@ class ScheduleAPITestCase(APITestCase):
         invitation_id = invite_res.data["invitation_id"]
 
         user3 = User.objects.create_user(
-            username="member3", email="member3@example.com", password="pass123", nickname="Member3"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="member3",
+            email="member3@example.com",
+            password="pass123",
+            nickname="Member3",  # nosec B106
         )
         self.client.force_authenticate(user=user3)
         res = self.client.post(f"/api/schedules/session-invitations/{invitation_id}/accept/")
@@ -1373,10 +1401,18 @@ class ScheduleAPITestCase(APITestCase):
 class PublicSessionLinkTestCase(APITestCase):
     def setUp(self):
         self.gm = User.objects.create_user(
-            username="gm_share", email="gm_share@example.com", password="pass123", nickname="GM Share"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="gm_share",
+            email="gm_share@example.com",
+            password="pass123",
+            nickname="GM Share",  # nosec B106
         )
         self.player = User.objects.create_user(
-            username="player_share", email="player_share@example.com", password="pass123", nickname="Player Share"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="player_share",
+            email="player_share@example.com",
+            password="pass123",
+            nickname="Player Share",  # nosec B106
         )
         self.group = CustomGroup.objects.create(name="Share Test Group", created_by=self.gm)
         self.group.description = "PUBLIC_VIEW_SHOULD_NOT_SHOW_THIS"

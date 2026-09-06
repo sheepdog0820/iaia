@@ -1935,7 +1935,8 @@ class CharacterDiceRollSetting(models.Model):
         """ダイスロール実行"""
         import random
 
-        total = sum(random.randint(1, dice_sides) for _ in range(dice_count))
+        # Game dice only; not used for security tokens.
+        total = sum(random.randint(1, dice_sides) for _ in range(dice_count))  # nosec B311
         return total + bonus
 
     def roll_all_abilities(self):

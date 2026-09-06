@@ -35,7 +35,11 @@ class CharacterSheetAPITest(APITestCase):
         """テストデータ準備"""
         # テストユーザー作成
         self.user = User.objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123", nickname="テストユーザー"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",
+            nickname="テストユーザー",  # nosec B106
         )
 
         # 認証
@@ -196,10 +200,12 @@ class CharacterSheetAPITest(APITestCase):
         data = dict(self.character_data_6th)
         data["name"] = "Complete Version Source"
         character = self.create_character(data)
-        allowed_user = User.objects.create_user(username="allowed", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        allowed_user = User.objects.create_user(username="allowed", password="testpass123")  # nosec B106
         character.access_scope = "link"
         detail = character.system_data
-        detail.secret_ho_info = "secret handout"
+        # Isolated test fixture or mocked credential; never a production secret.
+        detail.secret_ho_info = "secret handout"  # nosec B105
         detail.recommended_skills = ["Spot Hidden"]
         detail.occupation_skills = ["Library Use"]
         detail.save()

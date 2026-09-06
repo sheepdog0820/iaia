@@ -14,7 +14,8 @@ from support.services import resolve_ticket_and_notify
 
 
 @override_settings(
-    LINE_CHANNEL_SECRET="test-secret",
+    # Isolated test fixture or mocked credential; never a production secret.
+    LINE_CHANNEL_SECRET="test-secret",  # nosec B106
     LINE_CHANNEL_ACCESS_TOKEN="test-token",
     LINE_SUPPORT_ADMIN_EMAIL="admin@example.com",
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",

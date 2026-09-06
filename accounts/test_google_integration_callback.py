@@ -14,7 +14,8 @@ from schedules.models import GoogleIntegration
 @override_settings(
     SOCIALACCOUNT_PROVIDERS={
         "google": {
-            "APP": {"client_id": "isolated-google", "secret": "fixture"},
+            # Isolated test fixture or mocked credential; never a production secret.
+            "APP": {"client_id": "isolated-google", "secret": "fixture"},  # nosec B105
             "SCOPE": ["openid", "email", "profile"],
             "OAUTH_PKCE_ENABLED": True,
         }
@@ -38,7 +39,8 @@ class GoogleIntegrationCallbackTests(TestCase):
         token_response = {
             "access_token": access,
             "refresh_token": refresh,
-            "id_token": "id-fixture",
+            # Isolated test fixture or mocked credential; never a production secret.
+            "id_token": "id-fixture",  # nosec B105
             "expires_in": 3600,
         }
         if scopes is not None:
@@ -103,7 +105,8 @@ class GoogleIntegrationCallbackTests(TestCase):
     def test_other_owners_account_cannot_receive_integration_changes(self):
         other = get_user_model().objects.create_user(username="other-grant-owner")
         account = SocialAccount.objects.create(user=other, provider="google", uid="other-google")
-        SocialToken.objects.create(account=account, token="other-existing-fixture")
+        # Isolated test fixture or mocked credential; never a production secret.
+        SocialToken.objects.create(account=account, token="other-existing-fixture")  # nosec B106
         GoogleIntegration.objects.create(
             user=other, scopes=[GoogleIntegration.REQUIRED_SHEETS_SCOPE], sheets_enabled=True
         )
@@ -147,7 +150,10 @@ class GoogleIntegrationCallbackTests(TestCase):
 
     @override_settings(SOCIALACCOUNT_PROVIDERS={"google": {"SCOPE": ["openid", "email", "profile"]}})
     def test_database_oauth_app_is_associated_with_the_credential(self):
-        app = SocialApp.objects.create(provider="google", name="isolated", client_id="isolated", secret="fixture")
+        # Isolated test fixture or mocked credential; never a production secret.
+        app = SocialApp.objects.create(
+            provider="google", name="isolated", client_id="isolated", secret="fixture"
+        )  # nosec B106
         app.sites.add(Site.objects.get_current())
         self.callback(GoogleIntegration.REQUIRED_CALENDAR_SCOPE)
         self.assertEqual(SocialToken.objects.get(account__user=self.user).app_id, app.pk)
@@ -164,7 +170,8 @@ class GoogleIntegrationCallbackTests(TestCase):
 
     def test_connect_preserves_other_providers_credentials(self):
         account = SocialAccount.objects.create(user=self.user, provider="discord", uid="discord-owner")
-        credential = SocialToken.objects.create(account=account, token="discord-fixture")
+        # Isolated test fixture or mocked credential; never a production secret.
+        credential = SocialToken.objects.create(account=account, token="discord-fixture")  # nosec B106
         self.callback(GoogleIntegration.REQUIRED_CALENDAR_SCOPE)
         credential.refresh_from_db()
         self.assertEqual(credential.token, "discord-fixture")

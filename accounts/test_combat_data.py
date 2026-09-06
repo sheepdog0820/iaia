@@ -21,7 +21,10 @@ class CombatDataCalculationTestCase(TestCase):
     """戦闘データ計算のテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.character, self.character_6th = create_6th_character(
             user=self.user,
             name="Test Investigator",
@@ -71,7 +74,10 @@ class WeaponManagementTestCase(TestCase):
     """武器管理のテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.character, _ = create_6th_character(
             user=self.user,
             name="Test Investigator",
@@ -179,7 +185,10 @@ class ArmorManagementTestCase(TestCase):
     """防具管理のテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.character, _ = create_6th_character(
             user=self.user,
             name="Test Investigator",
@@ -246,7 +255,10 @@ class CombatDataAPITestCase(APITestCase):
     """戦闘データ管理APIのテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.client.force_authenticate(user=self.user)
 
         self.character, _ = create_6th_character(
@@ -389,7 +401,10 @@ class CombatCalculationIntegrationTestCase(TestCase):
     """戦闘計算統合テストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.character, self.character_6th = create_6th_character(
             user=self.user,
             name="Test Investigator",

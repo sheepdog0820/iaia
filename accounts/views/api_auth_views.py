@@ -137,7 +137,8 @@ def google_auth(request):
                         "client_id": settings.GOOGLE_OAUTH_CLIENT_ID,
                         "client_secret": settings.GOOGLE_OAUTH_CLIENT_SECRET,
                         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                        "token_uri": "https://oauth2.googleapis.com/token",
+                        # Public OAuth endpoint URL, not a credential.
+                        "token_uri": "https://oauth2.googleapis.com/token",  # nosec B105
                         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
                     }
                 },

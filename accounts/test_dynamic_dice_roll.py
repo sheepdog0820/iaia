@@ -25,7 +25,10 @@ class DynamicDiceRollTestCase(TestCase):
 
     def setUp(self):
         """テストデータの準備"""
-        self.user = User.objects.create_user(username="testuser", email="test@example.com", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", email="test@example.com", password="testpass123"
+        )  # nosec B106
 
         # 標準設定を作成
         self.standard_setting = CharacterDiceRollSetting.objects.create(
@@ -268,7 +271,10 @@ class DynamicDiceRollTestCase(TestCase):
     def test_setting_not_found_handling(self):
         """設定が見つからない場合のハンドリングテスト"""
         # 存在しないユーザーでの設定取得
-        other_user = User.objects.create_user(username="otheruser", email="other@example.com", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        other_user = User.objects.create_user(
+            username="otheruser", email="other@example.com", password="testpass123"
+        )  # nosec B106
 
         # デフォルト設定がない場合のテスト
         settings = get_current_dice_settings(other_user)
@@ -343,7 +349,10 @@ class DiceSettingUtilityFunctionTestCase(TestCase):
     """ダイス設定のユーティリティ関数テスト"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="utiluser", email="util@example.com", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="utiluser", email="util@example.com", password="testpass123"
+        )  # nosec B106
 
     def test_get_dice_count_function(self):
         """ダイス数取得関数のテスト"""
@@ -389,7 +398,10 @@ class DiceSettingIntegrationTestCase(TestCase):
     """ダイス設定の統合テスト"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="intuser", email="int@example.com", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="intuser", email="int@example.com", password="testpass123"
+        )  # nosec B106
 
     def test_complete_character_creation_workflow(self):
         """完全なキャラクター作成ワークフローテスト"""

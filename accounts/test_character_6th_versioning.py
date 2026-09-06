@@ -37,7 +37,8 @@ class CharacterVersioningTestCase(TestCase):
     """キャラクターバージョン管理機能のテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
 
         # 元になるキャラクター
         self.base_character = create_6th_character(
@@ -181,7 +182,8 @@ class CharacterVersionMetadataTestCase(TestCase):
     """キャラクターバージョンメタデータのテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
 
         self.character = create_6th_character(
             user=self.user,
@@ -243,7 +245,8 @@ class CharacterVersionValidationTestCase(TestCase):
     """キャラクターバージョンバリデーションのテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(username="testuser", password="testpass123")  # nosec B106
 
         self.character = create_6th_character(
             user=self.user,

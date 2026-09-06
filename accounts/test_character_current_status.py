@@ -18,8 +18,12 @@ class CharacterCurrentStatusTestCase(TestCase):
     def setUp(self):
         """テストデータのセットアップ"""
         self.client = Client()
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
-        self.client.login(username="testuser", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.client.login(username="testuser", password="testpass123")  # nosec B106
         self.create_url = reverse("character_create_6th")
 
     def test_create_character_with_current_values(self):

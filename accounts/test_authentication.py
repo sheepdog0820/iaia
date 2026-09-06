@@ -20,11 +20,13 @@ User = get_user_model()
 class AuthenticationTestCase(TestCase):
     def setUp(self):
         self.client = Client()
-        self.user_data = {"email": "test@example.com", "password": "testpass123", "nickname": "testuser"}
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user_data = {"email": "test@example.com", "password": "testpass123", "nickname": "testuser"}  # nosec B105
         self.user = User.objects.create_user(
             username="testuser",  # CustomUserでも username が必要
             email="test@example.com",
-            password="testpass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="testpass123",  # nosec B106
             nickname="testuser",
         )
 
@@ -92,7 +94,8 @@ class AuthenticationTestCase(TestCase):
             "/accounts/login/",
             data={
                 "username": self.user.email,
-                "password": "testpass123",
+                # Isolated test fixture or mocked credential; never a production secret.
+                "password": "testpass123",  # nosec B105
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -165,7 +168,8 @@ class AuthenticationTestCase(TestCase):
             "/accounts/login/",
             data={
                 "username": self.user.email,
-                "password": "testpass123",
+                # Isolated test fixture or mocked credential; never a production secret.
+                "password": "testpass123",  # nosec B105
             },
         )
 
@@ -181,7 +185,8 @@ class AuthenticationTestCase(TestCase):
             "/accounts/login/",
             data={
                 "username": self.user.email,
-                "password": "testpass123",
+                # Isolated test fixture or mocked credential; never a production secret.
+                "password": "testpass123",  # nosec B105
             },
         )
 
@@ -201,7 +206,8 @@ class AuthenticationTestCase(TestCase):
             "/accounts/login/",
             data={
                 "username": self.user.email,
-                "password": "testpass123",
+                # Isolated test fixture or mocked credential; never a production secret.
+                "password": "testpass123",  # nosec B105
             },
         )
 
@@ -307,7 +313,8 @@ class AuthenticationTestCase(TestCase):
             "/accounts/profile/delete/",
             data={
                 "confirm": "DELETE",
-                "password": "testpass123",
+                # Isolated test fixture or mocked credential; never a production secret.
+                "password": "testpass123",  # nosec B105
             },
         )
 
@@ -329,7 +336,8 @@ class AuthenticationTestCase(TestCase):
             "/accounts/profile/delete/",
             data={
                 "confirm": "DELETE",
-                "password": "testpass123",
+                # Isolated test fixture or mocked credential; never a production secret.
+                "password": "testpass123",  # nosec B105
             },
         )
 
@@ -343,7 +351,8 @@ class AuthenticationTestCase(TestCase):
             "/accounts/profile/delete/",
             data={
                 "confirm": "DELETE",
-                "password": "testpass123",
+                # Isolated test fixture or mocked credential; never a production secret.
+                "password": "testpass123",  # nosec B105
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -353,10 +362,18 @@ class AuthenticationTestCase(TestCase):
 class GroupTestCase(TestCase):
     def setUp(self):
         self.user1 = User.objects.create_user(
-            username="user1", email="user1@example.com", password="pass123", nickname="user1"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="user1",
+            email="user1@example.com",
+            password="pass123",
+            nickname="user1",  # nosec B106
         )
         self.user2 = User.objects.create_user(
-            username="user2", email="user2@example.com", password="pass123", nickname="user2"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="user2",
+            email="user2@example.com",
+            password="pass123",
+            nickname="user2",  # nosec B106
         )
 
     def test_group_creation(self):
@@ -378,7 +395,11 @@ class GroupTestCase(TestCase):
 class APIAuthenticationTestCase(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="apiuser", email="api@example.com", password="apipass123", nickname="apiuser"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="apiuser",
+            email="api@example.com",
+            password="apipass123",
+            nickname="apiuser",  # nosec B106
         )
 
     def test_unauthenticated_api_access(self):

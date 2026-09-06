@@ -30,7 +30,8 @@ urlpatterns = [path("isolated-google-callback/", isolated_google_callback), *app
     ROOT_URLCONF=__name__,
     ACCOUNT_EMAIL_VERIFICATION="mandatory",
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
-    SOCIALACCOUNT_PROVIDERS={"google": {"APP": {"client_id": "isolated", "secret": "fixture"}}},
+    # Isolated test fixture or mocked credential; never a production secret.
+    SOCIALACCOUNT_PROVIDERS={"google": {"APP": {"client_id": "isolated", "secret": "fixture"}}},  # nosec B105
 )
 class GoogleBrowserIdentityTests(TestCase):
     def callback(self, **claims):

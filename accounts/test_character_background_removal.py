@@ -33,7 +33,8 @@ class CharacterBackgroundRemovalTests(TestCase):
         cls.media_directory.cleanup()
 
     def setUp(self):
-        self.user = CustomUser.objects.create_user(username="premium-user", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = CustomUser.objects.create_user(username="premium-user", password="testpass123")  # nosec B106
         self.client = APIClient()
         self.client.force_authenticate(self.user)
 
@@ -223,7 +224,8 @@ class CharacterBackgroundRemovalTests(TestCase):
         self.assertIn("portrait_Injected-transparent.png", response["Content-Disposition"])
 
     def test_background_removal_job_status_is_owner_only(self):
-        other_user = CustomUser.objects.create_user(username="other-user", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        other_user = CustomUser.objects.create_user(username="other-user", password="testpass123")  # nosec B106
         job = BackgroundRemovalJob.objects.create(user=other_user, source_image=self.image_upload())
 
         response = self.client.get(reverse("character-image-background-removal-status", args=[job.pk]))

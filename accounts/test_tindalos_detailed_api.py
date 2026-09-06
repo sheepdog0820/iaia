@@ -23,7 +23,10 @@ class SimpleTindalosMetricsDetailedTestCase(APITestCase):
     """SimpleTindalosMetricsViewの詳細機能テストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.client.force_authenticate(user=self.user)
 
         # テスト用グループ作成
@@ -250,7 +253,10 @@ class DetailedTindalosMetricsTestCase(APITestCase):
     """DetailedTindalosMetricsViewのテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.client.force_authenticate(user=self.user)
 
         # テスト用データの作成
@@ -446,7 +452,10 @@ class TindalosMetricsFilterTestCase(APITestCase):
     """期間指定フィルタ機能のテストケース"""
 
     def setUp(self):
-        self.user = User.objects.create_user(username="testuser", password="testpass123", email="test@example.com")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.user = User.objects.create_user(
+            username="testuser", password="testpass123", email="test@example.com"
+        )  # nosec B106
         self.client.force_authenticate(user=self.user)
 
         self.group = Group.objects.create(

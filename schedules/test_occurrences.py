@@ -18,13 +18,15 @@ class SessionOccurrenceAPITestCase(APITestCase):
         self.gm_user = CustomUser.objects.create_user(
             username="gm_user",
             email="gm@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="GM",
         )
         self.member_user = CustomUser.objects.create_user(
             username="member_user",
             email="member@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
             nickname="Member",
         )
         self.group = Group.objects.create(
@@ -138,7 +140,8 @@ class SessionOccurrenceAPITestCase(APITestCase):
         outsider = CustomUser.objects.create_user(
             username="outsider",
             email="outsider@example.com",
-            password="pass1234",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass1234",  # nosec B106
         )
         start_at = (self.session.date + timedelta(days=3)).replace(microsecond=0)
 

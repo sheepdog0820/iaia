@@ -26,19 +26,35 @@ class SessionImageTestCase(APITestCase):
         """テストデータのセットアップ"""
         # ユーザー作成
         self.gm = CustomUser.objects.create_user(
-            username="gm_user", email="gm@example.com", password="password", nickname="GMユーザー"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="gm_user",
+            email="gm@example.com",
+            password="password",
+            nickname="GMユーザー",  # nosec B106
         )
 
         self.player1 = CustomUser.objects.create_user(
-            username="player1", email="player1@example.com", password="password", nickname="プレイヤー1"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="player1",
+            email="player1@example.com",
+            password="password",
+            nickname="プレイヤー1",  # nosec B106
         )
 
         self.player2 = CustomUser.objects.create_user(
-            username="player2", email="player2@example.com", password="password", nickname="プレイヤー2"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="player2",
+            email="player2@example.com",
+            password="password",
+            nickname="プレイヤー2",  # nosec B106
         )
 
         self.other_user = CustomUser.objects.create_user(
-            username="other", email="other@example.com", password="password", nickname="その他ユーザー"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="other",
+            email="other@example.com",
+            password="password",
+            nickname="その他ユーザー",  # nosec B106
         )
 
         # グループ作成

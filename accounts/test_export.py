@@ -31,7 +31,11 @@ class ExportFunctionalityTestCase(APITestCase):
         """テストデータのセットアップ"""
         # ユーザー作成
         self.user = User.objects.create_user(
-            username="exportuser", email="export@example.com", password="pass123", nickname="Export User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="exportuser",
+            email="export@example.com",
+            password="pass123",
+            nickname="Export User",  # nosec B106
         )
 
         # グループ作成
@@ -255,7 +259,11 @@ class ExportFunctionalityTestCase(APITestCase):
         """データが存在しない場合のエクスポートテスト"""
         # 新規ユーザーを作成（データなし）
         new_user = User.objects.create_user(
-            username="nodata", email="nodata@example.com", password="pass123", nickname="No Data User"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="nodata",
+            email="nodata@example.com",
+            password="pass123",
+            nickname="No Data User",  # nosec B106
         )
 
         self.client.force_authenticate(user=new_user)
@@ -464,12 +472,16 @@ class ExportIntegrationTestCase(APITestCase):
         self.user = User.objects.create_user(
             username="integration_user",
             email="integration@arkham.edu",
-            password="integration_2024",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="integration_2024",  # nosec B106
             nickname="Integration User",
         )
 
         # 大量のテストデータ作成
-        self.gm_user = User.objects.create_user(username="perf_gm", email="perf_gm@arkham.edu", password="perf_2024")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.gm_user = User.objects.create_user(
+            username="perf_gm", email="perf_gm@arkham.edu", password="perf_2024"
+        )  # nosec B106
 
         self.group = Group.objects.create(name="Integration Test Group", created_by=self.gm_user)
 

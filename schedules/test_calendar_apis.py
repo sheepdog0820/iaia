@@ -23,9 +23,15 @@ class MonthlyEventListViewTestCase(APITestCase):
         """テストデータのセットアップ"""
         # ユーザー作成
         self.user = CustomUser.objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",  # nosec B106
         )
-        self.gm_user = CustomUser.objects.create_user(username="gmuser", email="gm@example.com", password="testpass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        self.gm_user = CustomUser.objects.create_user(
+            username="gmuser", email="gm@example.com", password="testpass123"
+        )  # nosec B106
 
         # グループ作成
         self.group = Group.objects.create(
@@ -176,7 +182,10 @@ class SessionAggregationViewTestCase(APITestCase):
         """テストデータのセットアップ"""
         # ユーザー作成
         self.user = CustomUser.objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",  # nosec B106
         )
 
         # グループ作成
@@ -206,7 +215,10 @@ class SessionAggregationViewTestCase(APITestCase):
             self.sessions.append(session)
 
         # 参加者として3セッション
-        other_gm = CustomUser.objects.create_user(username="other_gm", email="other@example.com", password="pass123")
+        # Isolated test fixture or mocked credential; never a production secret.
+        other_gm = CustomUser.objects.create_user(
+            username="other_gm", email="other@example.com", password="pass123"
+        )  # nosec B106
 
         for i in range(3):
             session = TRPGSession.objects.create(
@@ -328,7 +340,10 @@ class ICalExportViewTestCase(APITestCase):
     def setUp(self):
         """テストデータのセットアップ"""
         self.user = CustomUser.objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            # Isolated test fixture or mocked credential; never a production secret.
+            username="testuser",
+            email="test@example.com",
+            password="testpass123",  # nosec B106
         )
 
         self.group = Group.objects.create(name="Test Group", created_by=self.user)

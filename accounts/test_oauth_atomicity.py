@@ -19,7 +19,8 @@ class OAuthAtomicityTests(APITestCase):
         payload = {"data": profile} if provider == "twitter" else profile
         with patch(
             "accounts.views.api_auth_views.requests.post",
-            return_value=SimpleNamespace(status_code=200, json=lambda: {"access_token": "fixture"}),
+            # Isolated test fixture or mocked credential; never a production secret.
+            return_value=SimpleNamespace(status_code=200, json=lambda: {"access_token": "fixture"}),  # nosec B105
         ):
             with patch(
                 "accounts.views.api_auth_views.requests.get",
@@ -27,7 +28,8 @@ class OAuthAtomicityTests(APITestCase):
             ):
                 return self.client.post(
                     f"/api/auth/{provider}/",
-                    {"access_token": "fixture", "code": "fixture", "code_verifier": "fixture"},
+                    # Isolated test fixture or mocked credential; never a production secret.
+                    {"access_token": "fixture", "code": "fixture", "code_verifier": "fixture"},  # nosec B105
                     format="json",
                 )
 
@@ -92,7 +94,8 @@ class OAuthSignupConcurrencyTests(TransactionTestCase):
             try:
                 response = APIClient().post(
                     f"/api/auth/{provider}/",
-                    {"access_token": "fixture", "code": "fixture", "code_verifier": "fixture"},
+                    # Isolated test fixture or mocked credential; never a production secret.
+                    {"access_token": "fixture", "code": "fixture", "code_verifier": "fixture"},  # nosec B105
                     format="json",
                 )
                 return response.status_code, response.data
@@ -101,7 +104,8 @@ class OAuthSignupConcurrencyTests(TransactionTestCase):
 
         with patch(
             "accounts.views.api_auth_views.requests.post",
-            return_value=SimpleNamespace(status_code=200, json=lambda: {"access_token": "fixture"}),
+            # Isolated test fixture or mocked credential; never a production secret.
+            return_value=SimpleNamespace(status_code=200, json=lambda: {"access_token": "fixture"}),  # nosec B105
         ):
             with patch(
                 "accounts.views.api_auth_views.requests.get",

@@ -16,12 +16,14 @@ class FixedShareUrlTests(APITestCase):
         self.owner = CustomUser.objects.create_user(
             username="fixed_share_owner",
             email="fixed-owner@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.other_user = CustomUser.objects.create_user(
             username="fixed_share_other",
             email="fixed-other@example.com",
-            password="pass123",
+            # Isolated test fixture or mocked credential; never a production secret.
+            password="pass123",  # nosec B106
         )
         self.group = Group.objects.create(
             name="Fixed Share Group",
