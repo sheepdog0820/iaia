@@ -173,3 +173,15 @@ Black・isort・flake8、差分・UTF-8・日本語文言と自己レビュー�
 f016a66dのGit archiveから通常Dockerfileで本番用イメージを作成し、隔離PG16/Redis7・本番設定で通常起動、移行、静的配信、check --deploy等を確認した。初回の仮Stripe設定の形式エラーと訂正、ソース一致496ファイル、検証範囲と限界は [配備準備資料の現候補](AWS_PRE_FORMAL_RELEASE_VALIDATION_PLAN.md) に記録した。実環境への配備・実決済・実OAuth/S3配信・実データ復旧はこの検証に含まない。
 
 ブラウザ用の `tableno-browser:f016a66d`（ID `sha256:0b2223cf8edcdb87edc32b7d0895d53a39add2b98d52b21c1b0523e66bec818e`）はarchiveの857ファイルと全件一致した。今回はアプリ・テストの上書きなしで147件を開始し、再試行なし・失敗時trace保持を維持した。空の隔離SQLiteと開発用ユーザー3件を使用し、外部資産取得可能なネットワーク条件。この追記時点では実行中で、合格扱いにしない。証跡先は `tmp/browser-all-f016a66d.log` と `tmp/browser-all-f016a66d-output/`。
+
+## f016a66d ブラウザ全体の完了結果
+
+前述の実行は **147件すべて成功（602.80秒、約10.0分、終了コード0）** で完了した。results.jsonを集計し、23フローファイル、Chromium/Firefox/WebKit各49件、skip=0、unexpected=0、flaky=0、全147結果のretry=0を確認した。ソース・テストの上書きなしで、履歴修正を含むf016a66dの結果である。その後の1c8814e3は文書のみの変更。
+
+以前失敗した履歴表示・無料CCFOLIAインポート・法務リンクと秘匿ハンドアウトのフローも含め、今回は成功した。キャッシュ修正の結果と、原因未確定の過去のクリック停止を混同しない。過去の失敗ログと診断記録は削除せず、再発時の比較材料として維持する。この成功は隔離ブラウザフローの一括合格であり、実サービス・実機・全状態の網羅や正式公開条件全体の達成ではない。
+
+2026-09-06、現在の文書コミット1c8814e3に対するGitHubのPR起動ワークフロー一覧とcombined commit statusを読み取り、両方とも空を確認した。API応答の成功はCI実行成功を意味せず、ワークフロー取得ツールはPR起動分の最初のページに限定される。CLI/連携の権限変更やPR作成再試行は行っていない。リモートCIの成功は未確認のまま。
+
+全体検証コンテナと隔離DBは終了時に破棄された。今回の更新は集計・対象SHA・証跡と残条件の文書反映であり、DB・秘密情報・権限・費用・本番への変更はない。
+
+同じf016a66dの857ファイルが一致するバックエンド用イメージ `tableno-full:f016a66d`（ID `sha256:beaf6f4b3329b01cd83b095c8fc3b7ae7552974d2d3cbc99c18c42af55f8fb17`）を作成した。検証用Gitインデックスは非rootユーザーがarchiveから作成する。APP_ENV=local、ENV_FILE空で、accounts/api/scenarios/schedules/support/tableno/tests/unit/tests/integrationをSQLiteとPostgreSQL16で実行開始した。PGは公開ポートなし・内部ネットワーク・tmpfsの専用DBで、実データを使用しない。出力先は `tmp/full-f016a66d-output/`。この追記時点では両方実行中であり、a95e1a20の全体結果を置き換える成功証拠はまだない。
