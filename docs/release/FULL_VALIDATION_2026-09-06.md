@@ -300,3 +300,15 @@ CCFOLIA 1.36.4上でそれぞれ「タブレノ連携検証 6th 20260906」「�
 通常Dockerfileの本番用イメージを別途ビルドし、隔離PG16/Redis7とAPP_ENV=aws-prodで通常entrypointを起動した。空DBへの移行・静的収集・Daphne起動、readiness/登録画面200、static5件とvendor8件のハッシュ付き配信・内容照合・CSS/JS gzip、pip check、migrate --check、check --deployを確認した。対象499ソースファイルもarchiveと一致した。イメージID、条件と証跡は[配備準備資料](AWS_PRE_FORMAL_RELEASE_VALIDATION_PLAN.md)の01a52f52節に記録した。
 
 S3/Checkout無効、検証用仮値、内部ネットワーク・公開ポートなし・外向き通信なしであり、実AWS/決済/認可の確認ではない。専用のruntimeコンテナ3件とネットワークは停止・削除した。全体テスト用の3実行は継続中で、完了判定はしていない。CIの既存Bandit指摘は分類記録を再確認したが、警告抑制やゲート変更は行っていない。
+
+## 01a52f52のCI相当静的チェック
+
+固定バックエンドイメージ内で、CIと同じflake8・Black・isortを実行し終了0。Blackは529ファイル変更不要、isortの既存設定によるskipは4ファイル。CIと同じaccounts/schedules/scenarios/tablenoへのBanditはLOW560・HIGH/MEDIUM 0・解析エラー0・終了1。前候補4499b243のファイルパス・指摘ID・本文・該当コードの多重集合と比較し、追加0・削除0だった。新たな警告抑制や合否条件変更は行っていない。
+
+証跡は `tmp/static-ci-01a52f52.log`、`tmp/bandit-01a52f52.log`、`tmp/full-01a52f52-output/bandit.json`。これはローカルのCI相当検証であり、リモートCIの実行・全ゲート成功や正式公開可能を示すものではない。
+
+## 01a52f52のブラウザ全体検証完了
+
+25フローファイル、Chromium/Firefox/WebKit各58件、計174件が806.50秒で成功し、終了コード0。JSONレポートのexpected174・unexpected/flaky/skipped各0と全resultのretry=0を照合した。前候補のホーム画面・動画並べ替え失敗に対する修正と、Google設定保存UIのケースも含む。ソースの上書きがない固定候補の単一実行であり、関連テストの成功数を合算した値ではない。
+
+証跡は `tmp/browser-all-01a52f52-output/results.json` と `tmp/browser-all-01a52f52.log`。隔離SQLiteの開発用fixtureを用い、外部静的資産への通信を許可した条件。実機全状態、実課金、実Google等への同期・認可までを網羅するものではない。バックエンドのSQLite/PG全体はこの追記時点で実行中であり、両DBの完了結果を確認する必要がある。
