@@ -17,8 +17,18 @@
 
 証拠は `tmp/character-kana-red.log`、`tmp/character-kana-green.log`、`tmp/character-create-save.log`、`tmp/character-create-save-green.log`、`tmp/character-create-save-output/results.json` に保存する。
 
+## 編集保存の追加確認
+
+作成済みキャラクターの名前・読み仮名・年齢・CON・POWをフォームで変更し、更新後の詳細画面と再読み込みした編集画面、API応答を確認するテストを追加した。CON・POWの変更による最大HP・MPの再計算と、7版の幸運がPOWに連動して上書きされないことも確認対象とする。
+
+初回は7版の詳細URLを版別と想定したため、7版の3ケースが遷移待ちで失敗した。`CharacterDetailRedirectView` とURL定義を確認したところ、現在は両版とも `/accounts/character/6th/<id>/` を使用する共通詳細画面だった。テストを現行ルートへ合わせた。版の保存値の検証はAPI応答で維持する。アプリのルートや表示は変更していない。
+
+実行環境は上記と同じ隔離環境で、証拠は `tmp/character-edit-save.log` と `tmp/character-edit-save-green.log`、`tmp/character-create-save-output/results.json`。後者は最新実行結果で上書きされる。
+
+最終実行は Chromium・Firefox・WebKit × 6版・7版の6ケースに合格（44.1秒、再試行・スキップなし）。テストと文書だけの追加であり、バックエンド全体の再実行は行っていない。
+
 ## 残る範囲と復旧
 
-今回の確認は作成と再読み込みであり、画像・技能編集・バージョン作成・削除を含むF04全体の完了を意味しない。正式公開には最新コミットのCIと他の受け入れ条件の確認も必要。
+今回の確認は作成・基本情報と能力値の編集・再読み込みであり、画像・技能編集・バージョン作成・削除を含むF04全体の完了を意味しない。正式公開には最新コミットのCIと他の受け入れ条件の確認も必要。
 
 DBスキーマ・権限・課金・外部通信の変更はない。まだ失われている既存キャラクターの読み仮名を復元する変更ではない。復旧はこの修正のrevertで行え、保存済みの読み仮名を削除する必要はない。
