@@ -23,8 +23,11 @@ RUN groupadd --gid "${APP_GID}" tableno \
 
 # Install Python dependencies first to improve Docker layer caching.
 COPY requirements.lock.txt /app/requirements.lock.txt
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r /app/requirements.lock.txt
+# Validate installed dependencies before removing packaging tools from runtime.
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r /app/requirements.lock.txt \
+    && pip check \
+    && pip uninstall --yes pip setuptools wheel
 
 # Copy application code.
 COPY --chown=tableno:tableno . /app

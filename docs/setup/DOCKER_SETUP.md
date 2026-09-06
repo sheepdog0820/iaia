@@ -4,6 +4,8 @@ TablenoのDocker起動手順です。Pythonランタイムは `Dockerfile` とCI
 
 アプリイメージは既定でUID/GID `10001`の非rootユーザー`tableno`として動作します。LinuxやNASで`staticfiles`、`media`、`logs`をbind mountする場合は、ホスト側ディレクトリを同じUID/GIDから書き込み可能にしてください。環境に合わせる場合は`APP_UID`と`APP_GID`をビルド引数で指定します。
 
+Python依存はイメージのビルド時に固定ロックから導入し、`pip check`成功後にpip・setuptools・wheelを除去します。稼働コンテナにはこれらのパッケージ管理ツールがないため、依存の追加・更新はロックを更新してイメージを再ビルドしてください。Django管理コマンドは引き続き実行できます。
+
 ## 前提
 
 - Docker / Docker Compose
