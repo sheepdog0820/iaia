@@ -1,6 +1,22 @@
 # 正式公開に向けたaws-pre検証・配備準備
 
-## 現在の候補と承認前の残作業（2026-09-06更新）
+## 現在の候補と承認前の残作業（4499b243、2026-09-06）
+
+候補ソースは `4499b2433024415fe932ddb175b2cff5eb2e1d9f`。f016a66d以降のGoogle設定保存UIと追加認可の保存経路を含む。共有環境への反映、ECRへの送信、DB操作は未実施。
+
+| 項目 | 現在の証拠と限界 |
+| --- | --- |
+| 本番用イメージ | 通常Dockerfile/requirements.lock.txtから `tableno-formal-release:4499b243` をビルド。ID `sha256:700a3d48b07fb404dbd73d227471d8bf840227cb3fda0e9673846f0866540286`、revisionは上記完全SHA、実行ユーザーtableno。ECR digest未取得 |
+| ソース一致と起動 | archiveと実行コンテナのアプリ8領域のPython/HTML/JS/CSS 499ファイルが一致。APP_ENV=aws-prod、専用空PG16/Redis7、S3/Checkout無効、外向き通信・公開ポートなしで通常entrypointの移行・static199件収集/571件後処理・Daphne起動に成功 |
+| 配信・設定 | readiness/登録画面200、登録画面のstatic5件、vendor8件のハッシュ付き配信・内容一致・CSS/JS gzipを確認。pip check、migrate --check、check --deploy成功。Stripe等は隔離用仮値であり実サービス検証には数えない |
+| 全体検証 | ソース861ファイルが一致する固定イメージでSQLite/PGの全体検証とブラウザ168件を実行中。成功判定は結果確認後。flake8/Black/isortは成功。BanditはLOW560・HIGH/MEDIUM 0・解析エラー0・終了1で、CIゲートは未達 |
+| 現在のAWS | 2026-09-06にprofile tableno-preと対象アカウントを確認。サービスACTIVE、desired/running=1、pending=0、タスク定義40、rollout COMPLETED、稼働タスクHEALTHY。イメージtag `aws-pre-8cf3c7f7`、稼働digest `sha256:551535a7219a599891d592346480803966abfb54f856656201ca08eec1d42b66`。readinessのDB/cacheともok |
+| 配備差分・DB | 稼働ソース8cf3c7f7から266ファイル。accounts/0055・0058の修正、schedules/0055の新規追加を含む。サービスはECS Exec無効であり、この手段による共有DBの適用履歴・スキーマ確認は未実施。アクセス設定を変更していない |
+| 承認時に示す影響 | 通常のECSイメージ更新に加え、DB移行の適用範囲確認が必要。Google追加連携後はトークンをDBに保存し、ユーザーごとに有効なGoogle資格情報を1件に揃える。以前のGoogleトークンのローカル置換はコードrevertでは戻らないため必要なら再認可する。通常ログイン・他プロバイダーは維持 |
+
+本番用の専用コンテナ・DB/cache・ネットワークは検証後に停止・削除した。証跡は `tmp/formal-release-4499b243-production-build.log`、`tmp/static-runtime-4499b243-{server,http,deploy-check}.log`。復旧候補は再確認したタスク定義40と稼働digestだが、DBの旧制約復元可否・バックアップ・実データ影響は別途確認が必要。現在の稼働版へ戻せることだけでDBロールバック可能とは判定しない。
+
+## 過去候補f016a66dの準備記録
 
 候補ソースは `f016a66d2bd21e5f41b2e30265fffcc48bdbe1ea`。無料範囲・画像5枚共通・背景透過モデル・ハンドアウト本文・文字表示・履歴APIキャッシュの後続修正を含む。月額480円・年額4,800円と無料範囲は承認済みであり、下記の過去候補の「料金と有料範囲は未確定」は現在の状態ではない。実Stripe Price・公開条件の実証は残る。
 

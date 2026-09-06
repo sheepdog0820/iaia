@@ -244,3 +244,11 @@ Google設定の保存処理に例外処理を追加した。400では追加権�
 固定 `tableno-full:f016a66d` に対象6ファイルを読み取り専用で重ね、Googleのコード交換応答とIDトークン復号結果は模擬した。実Googleへの通信・Googleの署名検証・実環境保存の証拠ではない。証跡は `tmp/google-grant-red.log`、`tmp/google-grant-{False,True}-final.log`、同名のcoverage.jsonと `tmp/google-grant-bandit.json`。使い捨てSQLite、内部ネットワーク・tmpfsの専用PGのみを使用した。
 
 スキーマ移行・共有環境への配備・Secrets/IAM/OAuth設定・費用の変更は未実施。適用後は認可時にGoogleの資格情報をDBへ保存し、選択を切り替えると以前のGoogleトークンをローカルで置き換える。Google側の許可取り消しとは異なる。配備前にこの保存範囲を含む対象承認を確認し、候補全体の再検証・実認可・期限更新・Calendar/Sheets同期を行う必要がある。アプリはrevertで戻せるが、置換後の以前の資格情報はrevertでは戻らず、必要なら再認可する。正式公開のNo-Goは維持する。
+
+## 4499b243の固定イメージと配備前確認
+
+Google認可保存を含む4499b243のGit archiveからバックエンド用 `tableno-full:4499b243`（ID `sha256:7be3761972a0400b7c14b01732f321c79f3d408a5017df49df5c4774645dc170`）とブラウザ用 `tableno-browser:4499b243`（ID `sha256:64f39f2353779346f7113c03f54df76f202b16fecb506ae9c8a9ea68d76be9e3`）を作成した。双方ともarchiveの861ファイル全件がSHA-256で一致した。テスト時のアプリ・テストソース上書きなしでSQLite/PGの全体検証と3ブラウザ168件を開始。この記録時点では実行中であり、成功扱いにしない。
+
+通常Dockerfileの本番用イメージも作成し、実行コンテナの499ファイル一致、通常entrypoint、空PG16/Redis7、本番設定の起動・静的配信・check --deploy等を確認した。外向き通信・公開ポート・S3・Checkoutは無効で、実資格情報を使わない。実AWSは読み取りでタスク定義40、aws-pre-8cf3c7f7と稼働digest・HEALTHY/readinessを再確認した。候補・本番用image ID・差分・DBの未確認事項・復旧候補は[配備準備資料](AWS_PRE_FORMAL_RELEASE_VALIDATION_PLAN.md)の4499b243節に記録した。ECS Execは無効で、共有DBの適用履歴は未確認。権限設定を変更していない。
+
+固定バックエンドイメージでCIと同じflake8/Black/isortは終了0（Black529ファイル変更不要）。BanditのCI範囲はLOW560・HIGH/MEDIUM 0・解析エラー0・終了1。内訳B106=399、B105=84、B311=66、B607/B603各4、B110=2、B404=1。前回f016a66dの555件に対して新規Googleコールバックのテスト用固定文字列5件が加わった。抑制や合否条件の変更はしておらず、リモートCI成功でもない。証跡は `tmp/static-ci-4499b243.log`、`tmp/bandit-4499b243.log`、`tmp/full-4499b243-output/bandit.json`。
