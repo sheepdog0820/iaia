@@ -537,18 +537,18 @@ class ExportIntegrationTestCase(APITestCase):
         # エクスポート実行時間の確認
         import time
 
-        start_time = time.time()
+        start_time = time.perf_counter()
 
         response = self.client.get("/api/accounts/export/statistics/", {"format": "json"})
 
-        end_time = time.time()
+        end_time = time.perf_counter()
         execution_time = end_time - start_time
 
-        if response.status_code == status.HTTP_200_OK:
-            # エクスポートが5秒以内に完了することを確認
-            self.assertLess(execution_time, 5.0, f"Export took {execution_time:.2f} seconds, which is too slow")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # エクスポートが5秒以内に完了することを確認
+        self.assertLess(execution_time, 5.0, f"Export took {execution_time:.2f} seconds, which is too slow")
 
-            # データの整合性確認
-            data = response.json()
-            play_history = data.get("play_history", [])
-            self.assertEqual(len(play_history), 10, "All 10 sessions should be exported")
+        # データの整合性確認
+        data = response.json()
+        play_history = data.get("play_history", [])
+        self.assertEqual(len(play_history), 10, "All 10 sessions should be exported")

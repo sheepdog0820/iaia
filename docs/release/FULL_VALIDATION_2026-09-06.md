@@ -252,3 +252,11 @@ Google認可保存を含む4499b243のGit archiveからバックエンド用 `ta
 通常Dockerfileの本番用イメージも作成し、実行コンテナの499ファイル一致、通常entrypoint、空PG16/Redis7、本番設定の起動・静的配信・check --deploy等を確認した。外向き通信・公開ポート・S3・Checkoutは無効で、実資格情報を使わない。実AWSは読み取りでタスク定義40、aws-pre-8cf3c7f7と稼働digest・HEALTHY/readinessを再確認した。候補・本番用image ID・差分・DBの未確認事項・復旧候補は[配備準備資料](AWS_PRE_FORMAL_RELEASE_VALIDATION_PLAN.md)の4499b243節に記録した。ECS Execは無効で、共有DBの適用履歴は未確認。権限設定を変更していない。
 
 固定バックエンドイメージでCIと同じflake8/Black/isortは終了0（Black529ファイル変更不要）。BanditのCI範囲はLOW560・HIGH/MEDIUM 0・解析エラー0・終了1。内訳B106=399、B105=84、B311=66、B607/B603各4、B110=2、B404=1。前回f016a66dの555件に対して新規Googleコールバックのテスト用固定文字列5件が加わった。抑制や合否条件の変更はしておらず、リモートCI成功でもない。証跡は `tmp/static-ci-4499b243.log`、`tmp/bandit-4499b243.log`、`tmp/full-4499b243-output/bandit.json`。
+
+## 4499b243全体検証の終了結果と時間計測の修正
+
+上記の実行は終了した。SQLiteは1683成功・11skip・486サブテスト成功、86.99%、1472.58秒、終了0。PostgreSQL16は1693成功・1失敗・486サブテスト成功、87.61%、1512.39秒、終了1。双方159警告。PGの失敗は統計エクスポートの5秒制限で、time.timeによる計測は5.362秒だったが、JUnitの当該テスト時間は1.324秒だった。時計補正を実証したものではないが、経過時間の検査には単調時計が適切なためperf_counterへ変更した。5秒の制限は維持し、従来200以外で検査を通過していた分岐も修正して200を必須にした。
+
+修正テストだけを固定4499b243へ読み取り専用で重ねた関連検証はSQLite24成功（37.11秒）、PG24成功（29.48秒）、双方4サブテスト成功・9警告。PGの性能検査本体は0.89秒。Black/isort/flake8と差分・自己レビューを確認した。証跡は `tmp/export-monotonic-{sqlite,postgres}.log`。テストのみの変更でDBスキーマ・アプリ動作・権限・費用への影響はなく、復旧はrevert。候補全体のPG成功とは区別する。
+
+同じ固定候補のブラウザ全体は166成功・2失敗、skip/retryなし、841.116秒。Firefoxのホーム画面キャラクター作成モーダルとWebKitの動画並べ替え操作で失敗した。証跡は `tmp/browser-all-4499b243-output/results.json` と各失敗trace。全体合格・公開可能とはしない。
