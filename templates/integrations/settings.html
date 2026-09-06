@@ -335,7 +335,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadGoogleSettings() {
         const response = await axios.get('/api/google/integration/');
-        const data = response.data;
+        displayGoogleSettings(response.data);
+    }
+
+    function displayGoogleSettings(data) {
         document.getElementById('google-calendar-enabled').checked = !!data.calendar_enabled;
         document.getElementById('google-sheets-enabled').checked = !!data.sheets_enabled;
         if (data.reconnect_url) {
@@ -451,12 +454,33 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.getElementById('save-google-settings').addEventListener('click', async function() {
-        await axios.put('/api/google/integration/', {
-            calendar_enabled: document.getElementById('google-calendar-enabled').checked,
-            sheets_enabled: document.getElementById('google-sheets-enabled').checked,
-        });
-        await loadGoogleSettings();
-        showMessage('Google連携設定を保存しました。');
+        const calendar = document.getElementById('google-calendar-enabled');
+        const sheets = document.getElementById('google-sheets-enabled');
+        this.disabled = true;
+        calendar.disabled = true;
+        sheets.disabled = true;
+        showMessage('Google連携設定を保存しています。', 'info');
+        try {
+            const response = await axios.put('/api/google/integration/', {
+                calendar_enabled: calendar.checked,
+                sheets_enabled: sheets.checked,
+            }, { timeout: 15000 });
+            displayGoogleSettings(response.data);
+            showMessage('Google連携設定を保存しました。');
+        } catch (error) {
+            const status = error.response?.status;
+            if (status === 400) {
+                showMessage('Googleの追加権限を確認できません。「Googleを再連携」から権限を許可して、もう一度保存してください。', 'danger');
+            } else if (status === 401 || status === 403) {
+                showMessage('ログイン状態を確認できません。再ログインしてから、もう一度保存してください。', 'danger');
+            } else {
+                showMessage('Google連携設定の保存を確認できませんでした。通信状態を確認し、再読み込みで保存状態を確認してください。', 'danger');
+            }
+        } finally {
+            this.disabled = false;
+            calendar.disabled = false;
+            sheets.disabled = false;
+        }
     });
 
     document.getElementById('save-discord-settings').addEventListener('click', async function() {
