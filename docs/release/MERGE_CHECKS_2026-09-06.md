@@ -21,3 +21,7 @@ accounts/api/schedules/scenarios/support/tablenoを検査し、例外処理修�
 PR作成前にも同じ必須ジョブを確認できるよう、Django CIのpush対象にcodex/**を追加する。既存のmain・PRトリガーは維持し、検証ジョブの省略は行わない。Bandit対象をAPIとsupportを含む6アプリへ拡大する。このworkflowにデプロイ・共有DB接続・外部通知のジョブはない。
 
 初回リモートCIでは静的解析ジョブが成功したが、Django初期化のジョブが失敗した。Git管理ファイルだけを展開し、CIと同じ環境変数で実行すると、manage.pyが存在しない.env.developmentを要求する失敗を再現した。systemジョブにも必須SECRET_KEYの設定がなかったため、全ジョブ共通で空ENV_FILEとローカル検証用APP_ENV/SECRET_KEYを明示する。実環境のキーや設定を使う変更ではない。
+
+続くPostgreSQLジョブでは静的資産のmanifest未生成によるテンプレート描画失敗を隔離環境でも30件再現した。本番用storage設定を維持したまま、テスト前にcollectstaticを実行する。共有ストレージは使わず、ジョブ内で生成する。
+
+修正後の同一PostgreSQL対象は214件・10サブテスト成功、終了0（60.09秒）。Django check・移行ファイル検査・移行適用と履歴検査・collectstaticも成功した。証跡はtmp/merge-pg-ci-fixed.log。CI設定の環境変数はworkflowから読み取り、接続先ホストだけを使い捨てPostgreSQLへ置換した。
