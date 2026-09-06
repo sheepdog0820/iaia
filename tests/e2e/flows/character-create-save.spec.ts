@@ -9,6 +9,11 @@ for (const edition of ['6th', '7th']) {
     await page.locator('#character-name').fill(name);
     await page.locator('#character-name-kana').fill('ほぞんかくにん');
     await page.locator('#age').fill('28');
+    const imageBuffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGNkYPjPwMDAxAAGAAsfAQMU4wsAAAAAAElFTkSuQmCC', 'base64');
+    await expect(page.locator('#character-images')).toHaveAttribute('data-max-images', '5');
+    await page.locator('#character-images').setInputFiles(
+      Array.from({ length: 5 }, (_, index) => ({ name: `立ち絵${index + 1}.png`, mimeType: 'image/png', buffer: imageBuffer }))
+    );
     await page.locator('#abilities-tab').click();
     const ability = edition === '6th' ? '12' : '60';
     for (const field of ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu']) {
@@ -32,6 +37,11 @@ for (const edition of ['6th', '7th']) {
     await expect(page.locator('#character-name')).toHaveValue(name);
     await expect(page.locator('#character-name-kana')).toHaveValue('ほぞんかくにん');
     await expect(page.locator('#age')).toHaveValue('28');
+    await expect(page.locator('.character-edit-thumbnail-image')).toHaveCount(5);
+    for (const thumbnail of await page.locator('.character-edit-thumbnail-image').all()) {
+      await expect(thumbnail).toBeVisible();
+      await expect.poll(() => thumbnail.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(2);
+    }
     await page.locator('#abilities-tab').click();
     for (const field of ['str', 'con', 'pow', 'dex', 'app', 'siz', 'int', 'edu']) {
       await expect(page.locator(`#${field}`)).toHaveValue(ability);
@@ -73,5 +83,21 @@ for (const edition of ['6th', '7th']) {
     expect(data.hit_points_max).toBe(13);
     expect(data.magic_points_max).toBe(14);
     if (luck !== null) expect(data.character_7th.current_luck).toBe(luck);
+    await page.locator('#basic-info-tab').click();
+    await expect(page.locator('.character-edit-thumbnail-image')).toHaveCount(5);
+    await page.locator('#character-images').setInputFiles({ name: '上限超過.png', mimeType: 'image/png', buffer: imageBuffer });
+    await expect(page.locator('.alert').filter({ hasText: 'キャラクター画像は最大5枚まで選択できます。' })).toBeVisible();
+    expect(await page.locator('#character-images').evaluate((input: HTMLInputElement) => input.files?.length)).toBe(0);
+    await page.locator('[data-delete-existing-image-id]').first().click();
+    const confirmation = page.locator('.modal.show').filter({ hasText: '既存の立ち絵を削除しますか？' });
+    await expect(confirmation).toBeVisible();
+    const [deleted] = await Promise.all([
+      page.waitForResponse(r => r.url().includes(`/character-sheets/${created.id}/images/`) && r.request().method() === 'DELETE'),
+      confirmation.locator('[data-confirm-action]').click(),
+    ]);
+    expect(deleted.status()).toBe(204);
+    await expect(page.locator('.character-edit-thumbnail-image')).toHaveCount(4);
+    await page.reload();
+    await expect(page.locator('.character-edit-thumbnail-image')).toHaveCount(4);
   });
 }

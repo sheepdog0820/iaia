@@ -21,6 +21,8 @@ from django.http.response import content_disposition_header
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 from PIL import Image, UnidentifiedImageError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -300,6 +302,7 @@ def build_character_images_zip_response(character_sheet):
     return response
 
 
+@method_decorator(never_cache, name="dispatch")
 class CharacterImageViewSet(viewsets.ModelViewSet):
     """キャラクター画像の管理ViewSet"""
 
