@@ -57,21 +57,23 @@ test.describe('youtube links', () => {
     });
     expect(orderBefore).toHaveLength(3);
 
-    const reorderWaiters = Array.from({ length: orderBefore.length }, () =>
+    const reorderWaiters = orderBefore.map(id =>
       page.waitForResponse(response => {
         if (response.request().method() !== 'POST') return false;
         const url = new URL(response.url());
         return (
-          url.pathname.startsWith('/api/schedules/youtube-links/') &&
-          url.pathname.endsWith('/reorder/') &&
+          url.pathname === `/api/schedules/youtube-links/${encodeURIComponent(id)}/reorder/` &&
           response.status() === 200
         );
       })
     );
 
     const dragHandle = page.locator('#youtubeLinksContainer .youtube-link-drag-handle').first();
-    const lastItem = page.locator('#youtubeLinksContainer .youtube-link-item').nth(2);
-    await lastItem.scrollIntoViewIfNeeded();
+    const lastItem = page.locator(`#youtubeLinksContainer .youtube-link-item[data-youtube-link-id="${orderBefore[2]}"]`);
+    // Keep both endpoints visible so native dragging does not scroll the page mid-gesture.
+    await page.locator('#youtubeLinksContainer .youtube-link-group-list').scrollIntoViewIfNeeded();
+    await expect(dragHandle).toBeInViewport();
+    await expect(lastItem).toBeInViewport();
     const lastBox = await lastItem.boundingBox();
     if (!lastBox) {
       throw new Error('Expected last youtube link item to be visible');
