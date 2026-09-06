@@ -5,6 +5,9 @@
 
 /* ベーステーマ - 明るくて見やすい色調 */
 :root {
+    /* 操作対象を表示する自動スクロールは、クリックやドラッグ前に完了させる。 */
+    scroll-behavior: auto;
+
     /* 明るい基調色 */
     --primary-bg: #f8fafc;
     --secondary-bg: #ffffff;
