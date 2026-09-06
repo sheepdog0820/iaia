@@ -4,6 +4,7 @@
 """
 
 import io
+import logging
 import random
 
 from django.contrib.auth import get_user_model
@@ -16,6 +17,7 @@ from accounts.models import CharacterSheet, CharacterSheet6th
 from tableno.development_commands import local_development_only
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -106,8 +108,8 @@ class Command(BaseCommand):
             title = f"{character_name}の{img_type}"
             try:
                 draw.text((20, 20), title, fill=color)
-            except:
-                pass
+            except UnicodeError:
+                logger.warning("Sample image title could not be rendered with the available font")
 
             output = io.BytesIO()
             img.save(output, format="PNG")
