@@ -39,3 +39,17 @@ mainへ654d5bb2をマージ後、正式公開準備を再開した。2026-09-06T
 最終結果はreadiness/登録画面200、登録画面の静的資産5件とvendor8件のハッシュ付き配信・内容照合成功、CSS/JSのgzip確認成功。check --deploy・migrate --check・pip checkは終了0。イメージ内のrelease_database_preflightも終了0、read_only=true、新しいparticipant_id/role制約、複数ロール0・重複組0を返した。空DBの結果であり、共有DBの確認や旧版からの実データ移行成功を示さない。
 
 ローカル証跡はtmp/release-preflight-0b0cea6f-build.log、同startup.log、同result.json。検査用app/DB/cacheコンテナと専用ネットワークは停止・削除済み。共有環境・共有DB・実Secrets・費用への変更なし。リモートCIは[作業ブランチの実行](https://github.com/sheepdog0820/iaia/actions/runs/34014342198)で別途確認する。
+
+## 承認対象となる一時検査の具体案
+
+1. 上記0b0cea6fのイメージを既存ECR tablenoへ専用タグdb-preflight-0b0cea6fで送信し、manifest digestを取得する。
+2. 現行タスク定義40を基に、一時family tableno-aws-pre-db-preflightを登録する。既存のtask/execution role、DBのSecrets参照、ネットワーク、ログ先を使用する。変更はfamily、イメージ、entryPoint/command、不要なHTTP healthCheck/portMappingsの除去だけ。通常entrypointを通さず、timeout 120 python manage.py release_database_preflightだけを実行する。イメージ内にGNU timeout 9.7があることを確認済み。
+3. 東京の既存clusterで0.25vCPU/512MiBのFargateタスクを1回実行する。既存サービスと同じ2サブネット・SG・public IPv4を使用し、ECSサービスへの関連付け・ALB登録はしない。タスク内120秒の制限に加え、イメージ取得を含む15分で未終了ならこの専用タスクをstop-taskする。自動再試行はしない。
+4. 停止とexitCodeを確認し、専用ログストリームから検査JSONを取得して候補の移行・制約と照合する。終了1/124や欠落は未確認として報告する。
+5. 作成した一時タスク定義を登録解除し、専用ECRタグだけを削除する。他のタグ・既存イメージ・既存サービスは削除しない。ログは既存の保持設定に従う。
+
+登録用JSONはtmp/db-preflight-0b0cea6f-task.json、SHA256は94eb81bbc1fd966540d8598fa6f4a6e1ded78dfec370a56c6c3db4b8904916b2。実行前に現行タスク定義との相違が上記だけであることを再確認する。既存Secretsの設定が候補の起動要件を満たさない可能性は残る。その場合は検査を止め、値を表示せず不足項目を報告し、Secretsを変更して続行しない。
+
+費用は2026-09-06にAWS Price List APIで東京Linux/x86のCPU 0.05056 USD/vCPU時、メモリ0.00553 USD/GiB時を再取得した。15分のCPU・メモリ・[public IPv4](https://aws.amazon.com/vpc/pricing/)の合計は約0.0051 USD。ローカルイメージ全容量約1.30GBを追加保管と仮定した[ECR](https://aws.amazon.com/ecr/pricing/)の月額換算は約0.13 USD（実際は圧縮・既存レイヤー共有・保管時間に依存）。専用タグは検査後に削除する。ログ・通信・税を含む承認予算案は1 USD以内。これは実請求額の保証や継続サービスの予算承認ではない。
+
+承認対象はこの一時検査と後片付けのみ。アプリ配備、DB移行・データ更新、IAM/Secrets変更、S3/CDN変更、worker/beat/Redis作成、外部通知を含まない。DB変更を行わないためデータの切り戻し処理は不要で、失敗時は専用タスクの停止と上記の後片付けを行う。
