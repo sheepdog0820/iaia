@@ -21,8 +21,35 @@
     </div>
 
     <div class="row g-4">
+        <!-- クイックアクション -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bolt"></i> クイックアクション
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a class="btn btn-outline-primary" id="create-session-btn" href="/api/schedules/calendar/view/" role="button">
+                            <i class="fas fa-plus"></i> セッション作成
+                        </a>
+                        <a class="btn btn-outline-info" id="join-session-btn" href="/api/schedules/sessions/view/" role="button">
+                            <i class="fas fa-user-plus"></i> セッション参加
+                        </a>
+                        <a class="btn btn-outline-success" id="add-scenario-btn" href="/api/scenarios/archive/view/" role="button">
+                            <i class="fas fa-book"></i> シナリオ追加
+                        </a>
+                        <button class="btn btn-outline-warning" id="create-character-btn" data-bs-toggle="modal" data-bs-target="#characterCreationModal">
+                            <i class="fas fa-eye"></i> 探索者作成
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 次回セッション -->
-        <div class="col-lg-6">
+        <div class="col-lg-8">
             <div class="card h-100">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
@@ -57,35 +84,8 @@
             </div>
         </div>
 
-        <!-- クイックアクション -->
-        <div class="col-lg-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-bolt"></i> クイックアクション
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <a class="btn btn-outline-primary" id="create-session-btn" href="/api/schedules/calendar/view/" role="button">
-                            <i class="fas fa-plus"></i> セッション作成
-                        </a>
-                        <a class="btn btn-outline-info" id="join-session-btn" href="/api/schedules/sessions/view/" role="button">
-                            <i class="fas fa-user-plus"></i> セッション参加
-                        </a>
-                        <a class="btn btn-outline-success" id="add-scenario-btn" href="/api/scenarios/archive/view/" role="button">
-                            <i class="fas fa-book"></i> シナリオ追加
-                        </a>
-                        <button class="btn btn-outline-warning" id="create-character-btn" data-bs-toggle="modal" data-bs-target="#characterCreationModal">
-                            <i class="fas fa-eye"></i> 探索者作成
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- 最近のアクティビティ -->
-        <div class="col-lg-8">
+        <div class="col-lg-6">
             <div class="card">
                 <div class="card-header">
                     <h5 class="card-title mb-0">

@@ -14,7 +14,7 @@ test.describe('smoke', () => {
     if (href) {
       expect(href).toContain(fallbackPath);
     }
-    await actionLocator.evaluate(el => (el as HTMLElement).click());
+    await actionLocator.click();
     await expect(page).toHaveURL(expectedPath, { timeout: 15000 });
   }
 
