@@ -39,6 +39,29 @@ Low 105件は個別の適用範囲・緩和策を未評価。Dockerfileではbui
 
 ## 影響と残条件
 
+### 2026-09-08: 現候補の対象コンポーネント照合
+
+OSビルド用パッケージ除去後の対象は `tableno-runtime-build-deps:clean`、イメージID `sha256:ce8767d4e6dea73fc701a26098e3e4c4daa7626a91e698909d198d94778246ae`。上記の旧候補113件とは区別する。最新の保存済み監査は48件（HIGH 1 / MEDIUM 1 / LOW 40 / UNSPECIFIED 6）であり、この照合だけで件数やスキャナーの終了コードを変更しない。[ビルド・検証記録](RUNTIME_BUILD_DEPENDENCIES_PROBE_2026-09-06.md)を参照。
+
+Debianの各CVEページを再取得して対象を照合した。
+
+| CVE | 公式説明の対象コンポーネント |
+| --- | --- |
+| [CVE-2026-47023](https://security-tracker.debian.org/tracker/CVE-2026-47023) | Server: Replication |
+| [CVE-2026-60184](https://security-tracker.debian.org/tracker/CVE-2026-60184) | Server: Replication |
+| [CVE-2026-60331](https://security-tracker.debian.org/tracker/CVE-2026-60331) | Server: Replication |
+| [CVE-2026-60585](https://security-tracker.debian.org/tracker/CVE-2026-60585) | Server: Replication |
+| [CVE-2026-60747](https://security-tracker.debian.org/tracker/CVE-2026-60747) | Server: Replication |
+| [CVE-2026-61081](https://security-tracker.debian.org/tracker/CVE-2026-61081) | Server: Performance Schema |
+
+6ページともソースパッケージmariadbのtrixie `1:11.8.6-0+deb13u1` はvulnerable、sidの修正版は `1:11.8.9+ds-1` と記載されていた。sidの修正情報だけで現行安定版イメージを更新済みとは扱わず、配布系列も変更しない。
+
+固定イメージを `docker run --rm -i --network none --read-only --entrypoint python` で検査。`dpkg-query -W` の全パッケージからmysql/mariadbを抽出すると、インストール済みは `libmariadb3:amd64` と `mariadb-common`（ともに `1:11.8.6-0+deb13u1`）、`mysql-common`（`5.8+1.1.1`）のみだった。PATH内のmariadbd/mysqld/mysql/mariadb、`/usr/sbin/mariadbd`、`/usr/sbin/mysqld`、`/usr/lib/mysql/plugin` は存在せず、`/usr/lib/x86_64-linux-gnu/libmariadb.so.3` は存在した。
+
+この結果は説明対象のサーバーがアプリイメージにインストールされていないことを裏付ける。クライアントライブラリは残っており、ソースパッケージ単位の指摘とバイナリの適用範囲を区別する必要がある。修正差分のクライアントへの影響までは未確認のため、6件を一括で誤検知・例外承認済みとはしない。外部DBサーバーの安全性を証明する検査でもない。
+
+HIGHのzlibは再取得時もtrixieがvulnerableで、説明の対象バージョンとの不一致が残る。注記が参照する[上流Issue #1310](https://github.com/madler/zlib/issues/1310)はopenでコメント0件だった。問い合わせの存在は上流による修正・非該当の確認ではない。tarのページも上流が仕様として争っている旨の記載を維持していた。新たな安全宣言や指摘の抑制は行わない。
+
 ### 現行スキャナーによる再評価
 
 [Docker公式の1.24.0リリース](https://github.com/docker/scout-cli/releases/tag/v1.24.0)からWindows amd64 ZIPを一時ディレクトリへ取得し、GitHub release APIのSHA-256 `1b7afb489e9224411fafe848eb5002cdc5c59a5cf2b77d6ccffcb44ffdf4f350` と一致を確認した。既存のDockerプラグインは置換せず、一時EXEを直接実行した。
