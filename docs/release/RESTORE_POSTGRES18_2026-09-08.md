@@ -25,3 +25,17 @@ pg_restoreは0.484秒、画像復元は0.218秒、比較検査は1.875秒。合�
 この隔離復旧はproduction-databaseの全テストを代替しない。変更後CIはpush後に結果を確認する必要があり、本記録時点では合格未確認。実RDS/S3復元、RPO/RTO、全権限のHTTP検証、旧アプリへの切戻し、同時書き込みは残る。正式公開No-Goは維持する。
 
 共有DB・実データ・Secrets・アクセス権・AWSリソースは変更していない。既存CIジョブのDBイメージ変更で、ジョブ数の追加や新しい有料契約はない。問題時はこのCIイメージ変更を戻せるが、16系成功だけで18系互換性を保証しない。
+
+## 直近修正の18.3での追加検証
+
+同日、CI d12c0c08のpush run 34194811572とPR run 34194814714はqueuedと確認した。待機中に別の隔離PG18.3環境を作り、復旧訓練と同じ条件でDB/画像の復元後、次のDjangoテストを固定アプリ候補で実行した。
+
+- schedules.test_session_rewards
+- schedules.test_reward_concurrency
+- schedules.test_attachment_error_privacy
+- schedules.test_handout_attachments
+- schedules.test_handout_download_access
+
+36テストすべて成功、11.617秒、省略なし。テストDBの作成・削除を含むコマンドは27.297秒、終了0。報酬の反映先変更、同時反映、添付エラーの秘匿、閲覧権限と直リンク拒否を含む。全CIの代替ではなく、本番設定の全テスト完了とも区別する。
+
+証跡はGit管理外の `tmp/recent-fixes-pg18-10d21e42/recent-fixes.log` とrun.py/results.json。テスト用DBはDjangoが削除し、DBコンテナ・networkも所有ラベルを照合して削除、残存なしを確認した。CI結果は別途追跡する。
