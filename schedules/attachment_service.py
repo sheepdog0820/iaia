@@ -16,6 +16,10 @@ from schedules.models import HandoutAttachment, HandoutInfo
 from tableno.media_deletion import delete_media_instance
 
 
+class HandoutAttachmentPermissionError(PermissionError):
+    """利用者へ案内できる添付ファイルの権限エラー。"""
+
+
 @dataclass(frozen=True)
 class UploadResult:
     attachment: HandoutAttachment
@@ -27,14 +31,14 @@ class HandoutAttachmentService:
     def _require_access(self, handout: HandoutInfo, user) -> None:
         user_id = getattr(user, "id", None)
         if user_id is None:
-            raise PermissionError("この添付ファイルにアクセスする権限がありません。")
+            raise HandoutAttachmentPermissionError("この添付ファイルにアクセスする権限がありません。")
         if can_view_handout(handout, user):
             return
-        raise PermissionError("この添付ファイルにアクセスする権限がありません。")
+        raise HandoutAttachmentPermissionError("この添付ファイルにアクセスする権限がありません。")
 
     def _require_gm(self, handout: HandoutInfo, user) -> None:
         if handout.session.gm_id != getattr(user, "id", None):
-            raise PermissionError("GMのみが添付ファイルを操作できます。")
+            raise HandoutAttachmentPermissionError("GMのみが添付ファイルを操作できます。")
 
     def _detect_file_type(self, content_type: str) -> str:
         for file_type, supported in HandoutAttachment.SUPPORTED_CONTENT_TYPES.items():
@@ -81,7 +85,7 @@ class HandoutAttachmentService:
         if attachment.handout.session.gm_id != getattr(user, "id", None) and attachment.uploaded_by_id != getattr(
             user, "id", None
         ):
-            raise PermissionError("この添付ファイルを削除する権限がありません。")
+            raise HandoutAttachmentPermissionError("この添付ファイルを削除する権限がありません。")
 
         delete_media_instance(attachment)
         return True

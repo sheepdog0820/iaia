@@ -6,6 +6,9 @@
 - DELETE   /api/schedules/attachments/<pk>/
 """
 
+import logging
+
+from django.core.exceptions import ValidationError
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django.utils.cache import patch_vary_headers
@@ -17,10 +20,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from schedules.attachment_service import HandoutAttachmentService
+from schedules.attachment_service import HandoutAttachmentPermissionError, HandoutAttachmentService
 from schedules.handout_access import can_view_handout
 from schedules.models import HandoutAttachment, HandoutInfo
 from schedules.serializers import HandoutAttachmentSerializer
+
+logger = logging.getLogger(__name__)
 
 
 def _user_can_view_handout(handout: HandoutInfo, user) -> bool:
@@ -85,11 +90,16 @@ class HandoutAttachmentListCreateView(APIView):
                 uploaded_by=request.user,
                 description=request.data.get("description", ""),
             )
-        except PermissionError as exc:
+        except HandoutAttachmentPermissionError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_403_FORBIDDEN)
-        except Exception as exc:
-            # ValidationError も含めて 400 で返す
+        except ValidationError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            logger.exception("ハンドアウト添付ファイルの保存中に内部エラーが発生しました。")
+            return Response(
+                {"error": "添付ファイルの保存に失敗しました。時間をおいて再度お試しください。"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         serializer = HandoutAttachmentSerializer(attachment, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -108,7 +118,7 @@ class HandoutAttachmentDetailView(APIView):
         service = HandoutAttachmentService()
         try:
             ok = service.delete_attachment(pk, request.user)
-        except PermissionError as exc:
+        except HandoutAttachmentPermissionError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_403_FORBIDDEN)
 
         if not ok:
