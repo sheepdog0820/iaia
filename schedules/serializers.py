@@ -1321,6 +1321,15 @@ class DatePollSerializer(serializers.ModelSerializer):
     options = DatePollOptionSerializer(many=True, read_only=True)
     session_detail = serializers.SerializerMethodField()
 
+    def validate(self, attrs):
+        if "selected_date" in attrs:
+            raise serializers.ValidationError({"selected_date": "確定日は投票の確定操作でのみ設定できます"})
+        if self.instance and self.instance.selected_date is not None and attrs.get("is_closed") is False:
+            raise serializers.ValidationError(
+                {"is_closed": "確定済みの投票は再開できません。変更はセッション編集から行ってください"}
+            )
+        return attrs
+
     class Meta:
         model = DatePoll
         fields = [

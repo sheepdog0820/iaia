@@ -675,8 +675,10 @@ async function loadDatePollSection() {
             : '';
 
         const closedHtml = poll.is_closed ? `
-            <div class="alert alert-info py-2 mt-3 mb-0">
-                確定日: <strong>${poll.selected_date ? formatPollDateTime(poll.selected_date) : '未設定'}</strong>
+            <div class="alert alert-info text-body py-2 mt-3 mb-0">
+                この投票での確定日: <strong>${poll.selected_date ? formatPollDateTime(poll.selected_date) : '未設定'}</strong>
+                ${poll.session_detail ? `<div>現在の開催日時: <strong>${poll.session_detail.date ? formatPollDateTime(poll.session_detail.date) : '未設定'}</strong></div>` : ''}
+                <div class="small mt-1">確定後の日程変更はセッション編集から行ってください。この投票の結果は履歴として残ります。</div>
             </div>
         ` : '';
 
