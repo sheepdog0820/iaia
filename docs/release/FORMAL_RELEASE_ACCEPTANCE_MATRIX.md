@@ -1,5 +1,7 @@
 # 有料プラン・外部連携を含む正式公開の受け入れ条件
 
+2026-09-08追加の公開阻害要因（F04 / Q04）: 18499ef9の現行accountsで、6版・7版とも親・中間バージョンを削除すると後続の版別データが消え、登録レコードだけが残ることを隔離再現した。[世代削除の記録](CHARACTER_LINEAGE_DELETION_FINDING_2026-09-08.md)を参照。未修正であり、後続世代の扱いは方針確認中。1939296aの全5ジョブ成功（[CI](https://github.com/sheepdog0820/iaia/actions/runs/34177185979)）を、この不足ケースの合格には使わない。
+
 現況の照合（2026-09-08、アプリ候補3da61949時点）: codex/formal-release-resumeへpush済み。[同候補のCI](https://github.com/sheepdog0820/iaia/actions/runs/34175817824)は実行中であり、全体合格は未確定。全5ジョブの成功を確認済みの直近アプリ候補は67221be6（[CI](https://github.com/sheepdog0820/iaia/actions/runs/34174163214)）。以下の旧候補の結果を最新候補の成功として扱わない。今回の作業ではmainへの追加マージ・実環境への配備は未実施。CIの本番DB検証は隔離PostgreSQLであり、共有環境のDB検査を完了した意味ではない。
 
 ### 直近の修正と受け入れ条件の対応
