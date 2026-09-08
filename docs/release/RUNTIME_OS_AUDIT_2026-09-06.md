@@ -23,6 +23,12 @@
 
 以上は適用範囲に食い違いがある証拠であり、誤検知の確定ではない。初回に取得できなかったパッチ一覧は、後続で[Debianのseries](https://sources.debian.org/data/main/z/zlib/1%3A1.3.dfsg%2Breally1.3.1-1/debian/patches/series)を直接取得し、空ファイルと確認した。[debian/rules](https://sources.debian.org/data/main/z/zlib/1%3A1.3.dfsg%2Breally1.3.1-1/debian/rules)も取得し、build-stampはconfigure後にmakeを行い、パッチ適用処理の記述は見当たらなかった。rulesのSHA-256は `de5f6bf1daba3309b7ac352c2fc35330b02a703ae1b61d2d45973725783b06fc`。
 
+2026-09-08の補足: 上記の上流コミットe3dc0a8は、説明と差分からNULLへの加算による未定義動作を避ける変更と確認できる。このCVEが説明する書き込み停止後の古い外部バッファポインターによるオーバーフロー全体を修正したという上流の確認は得られていない。「上流の修正」をCVE解決の証拠として読み替えない。
+
+同日、固定候補10d21e42（イメージID `sha256:dec00ade1cc08142732ee124b9082d2c19e88003cac4a40339d3efc302e69cf2`）をネットワークなし・読み取り専用・終了時削除で検査した。Pythonのコンパイル時/実行時zlibはともに1.3.1、zlib1gは `1:1.3.dfsg+really1.3.1-1+b1`。`/usr/lib/x86_64-linux-gnu/libz.so.1.3.1` のSHA-256は `85590dd58edf5445e18bc7193e5ebc01ac5841f1ae187e97705a662e90c6421e`。dpkg --verifyは終了0で欠落したchangelog 3件のみを表示し、ライブラリの変更は報告しなかった。これで旧候補に限られていたパッケージ検証を最新の固定候補でも確認したが、再現ビルドや非該当の確定ではない。
+
+主要アプリaccounts/schedules/scenarios/tablenoのPython（test*除外）でgzprintf/gzvprintf/gzwrite/gzip/zlibの記述は一致なし。依存内部の圧縮処理の不在を証明しない。公式追跡ページは対象バージョンの食い違いを維持し、以前あったcheck detailsという注記は今回の表示にはなく、Debian Bug #1146895への参照が追加されている。注記の削除だけで調査完了と推定しない。Bug本文は閲覧ツールのエラーで取得できず、その内容は未確認。上流Issue #1310にも解決を示す応答は確認できなかった。HIGHは未解決を維持し、根拠のないパッチ適用や指摘抑制は行わない。
+
 候補内の `dpkg --verify zlib1g` は終了0で、欠落したchangelog文書3件だけを表示し、ライブラリの変更は報告しなかった。ただしこれはバイナリの再現ビルド検証ではない。対象関数が含まれない可能性を裏付ける追加証拠として扱い、指摘は抑制しない。パッケージ提供元の判定更新と最終候補の再監査を公開前の残条件とする。
 
 ### Medium: CVE-2025-45582 / tar
