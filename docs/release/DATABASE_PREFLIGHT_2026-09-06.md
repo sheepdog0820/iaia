@@ -1,5 +1,20 @@
 # 配備前のPostgreSQL読み取り検査
 
+## 2026-09-08 実行結果
+
+ユーザーが「費用を再確認し、1米ドル以内ならそのまま実行」を承認した。東京Fargate単価をPrice List APIで再取得し、CPU 0.05056 USD/vCPU時、メモリ0.00553 USD/GiB時を確認。0.25vCPU・0.5GiB・15分と[IPv4](https://aws.amazon.com/vpc/pricing/)で約0.0051 USD。イメージ1.30GBを1か月保持した場合でも[ECR](https://aws.amazon.com/ecr/pricing/)は約0.13 USDで、同一リージョン転送と少量ログを含め1 USD未満の見込みとして実施した。実請求の確定値ではない。
+
+現行サービスは引き続きタスク定義40、running=desired=1。保存済みの検査JSONが、許可したfamily・イメージ・entryPoint/command・HTTP設定の差だけで現行定義と一致することを機械確認した。0b0cea6fの検査イメージを専用タグで送信し、ECR digestは `sha256:39bafe0d1842cabcab29f2e9bf3bc4e3c94145a8cfcf274ed8c7bb3766b39af3`。
+
+一時定義 `tableno-aws-pre-db-preflight:1`、タスク `040b91234e6e4ba481f39394c8f8fd7f` を1回実行。JST 12:43:26作成、12:43:52起動、12:44:29停止、終了コード0、`read_only=true`。
+
+- accountsの適用履歴は0063まで。キャラクター登録列はaccess_scope/created_at/edition/id/share_token/updated_at/user_idで、0058以前の旧列は残っていない。
+- schedulesの適用履歴は0054まで。参加者ロールの一意制約はparticipant_id単独であり、0055の複数ロール対応は未適用。
+- 複数ロールを持つ参加者0件、同一参加者・ロールの重複0組。データ本文や利用者IDは出力していない。
+- 候補にあるaccounts/0064（世代削除保護）も未適用。DB移行・修復・アプリ反映は今回の検査に含めず、未実施。
+
+停止後に一時定義を登録解除（INACTIVE）、専用ECRタグを削除（failuresなし）。既存サービスは定義40のままrunning=desired=1、readinessはDB/cacheともok。証跡は `tmp/db-preflight-live-result-20260908.json` と `tmp/db-preflight-stopped.json`。以下の「承認待ち」は実行前の経緯であり、今回の一時検査は完了した。共有DBへの変更と実データの復旧検証は別途承認・実施が必要。
+
 mainへ654d5bb2をマージ後、正式公開準備を再開した。2026-09-06T05:27ZのAWS読み取り確認では、aws-preはタスク定義40、旧イメージaws-pre-8cf3c7f7、desired/running=1/1、readinessのDB/cacheともokだった。worker/beatはMISSING、ECS Execは無効。共有DBの適用履歴・実制約は引き続き未確認である。
 
 ## 用意した検査
