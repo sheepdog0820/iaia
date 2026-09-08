@@ -1,5 +1,15 @@
 # 配備前のPostgreSQL読み取り検査
 
+## 2026-09-08 夕方の証拠再照合
+
+一時定義 `tableno-aws-pre-db-preflight:1` はAWS APIでINACTIVEと確認。CloudWatchの `/ecs/tableno-aws-pre`、stream `web/web/040b91234e6e4ba481f39394c8f8fd7f` から検査JSONを再取得し、保存済み `tmp/db-preflight-live-result-20260908.json` と全項目一致した。イベント時刻はUnixミリ秒1788839036070で、以下の12:44の検査結果を再確認したものであり、夕方にDBへ再接続した結果ではない。
+
+読み取り専用true、accountsは0063まで、schedulesは0054まで、schedules/0041も適用済み。旧登録列なし、participant_id単独の一意制約、複数ロール0件・同一ロール重複0組を照合した。検査コマンドのソースは実行候補0b0cea6fから最新アプリ4d7c4ea7まで差分なし。保存済み停止応答はSTOPPED/EssentialContainerExited、コンテナ終了0だった。
+
+後続の判定表・配備案で「共有DB検査は未実施」と記載したのは、この先行結果を見落とした誤りであり訂正する。候補のaccounts/0064とschedules/0055は、この検査時点で未適用。一方、差分にある既存accounts/0055・0058、schedules/0041は適用済みなので、通常のmigrateによる再実行対象とはしない。
+
+検査の対象はaccounts/schedulesの履歴と上記の限定した列・制約・集計であり、全スキーマ・全データの整合性、最新候補の配備、復旧、実RDS/S3復元の証明ではない。反映直前の差分再確認は必要だが、過去の検査が未実施という理由で一時リソースを作り直す必要はない。今回の再照合は既存ログ/APIの読み取りだけで、新規タスク・ECR送信・DB接続・権限/費用変更は行っていない。
+
 ## 2026-09-08 実行結果
 
 ユーザーが「費用を再確認し、1米ドル以内ならそのまま実行」を承認した。東京Fargate単価をPrice List APIで再取得し、CPU 0.05056 USD/vCPU時、メモリ0.00553 USD/GiB時を確認。0.25vCPU・0.5GiB・15分と[IPv4](https://aws.amazon.com/vpc/pricing/)で約0.0051 USD。イメージ1.30GBを1か月保持した場合でも[ECR](https://aws.amazon.com/ecr/pricing/)は約0.13 USDで、同一リージョン転送と少量ログを含め1 USD未満の見込みとして実施した。実請求の確定値ではない。
