@@ -1,0 +1,123 @@
+from django.contrib.auth import get_user_model
+from rest_framework.test import APITestCase
+
+from accounts.models import Group, GroupMembership
+
+from .models import Scenario, ScenarioNote
+
+
+class ScenarioNotePermissionTests(APITestCase):
+    def setUp(self):
+        self.owner = get_user_model().objects.create_user(username="note-owner")
+        self.reader = get_user_model().objects.create_user(username="note-reader")
+        self.scenario = Scenario.objects.create(title="公開シナリオ", created_by=self.owner, visibility="public")
+        self.note = ScenarioNote.objects.create(
+            scenario=self.scenario, user=self.owner, title="作成者のメモ", content="元の内容", is_private=False
+        )
+        self.url = f"/api/scenarios/notes/{self.note.pk}/"
+
+    def test_other_user_can_read_public_note(self):
+        self.client.force_authenticate(self.reader)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["content"], "元の内容")
+
+    def test_other_user_cannot_modify_or_delete_public_note(self):
+        self.client.force_authenticate(self.reader)
+        for method in ("patch", "put", "delete"):
+            with self.subTest(method=method):
+                response = getattr(self.client, method)(
+                    self.url,
+                    {"scenario": self.scenario.pk, "title": "改変", "content": "変更内容", "is_private": False},
+                    format="json",
+                )
+                self.assertEqual(response.status_code, 403)
+                self.assertEqual(str(response.data["detail"]), "メモの変更・削除は作成者のみ可能です。")
+                self.note.refresh_from_db()
+                self.assertEqual(self.note.title, "作成者のメモ")
+                self.assertEqual(self.note.content, "元の内容")
+                self.assertFalse(self.note.is_private)
+
+    def test_other_user_cannot_access_private_note(self):
+        self.note.is_private = True
+        self.note.save(update_fields=["is_private"])
+        self.client.force_authenticate(self.reader)
+        for method in ("get", "patch", "put", "delete"):
+            with self.subTest(method=method):
+                self.assertEqual(getattr(self.client, method)(self.url).status_code, 404)
+
+    def test_owner_can_update_and_delete_private_note(self):
+        self.client.force_authenticate(self.owner)
+        response = self.client.patch(self.url, {"is_private": True, "content": "更新済み"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        response = self.client.put(
+            self.url,
+            {"scenario": self.scenario.pk, "title": "更新", "content": "再更新", "is_private": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.get(self.url).data["content"], "再更新")
+        self.assertEqual(self.client.delete(self.url).status_code, 204)
+        self.assertFalse(ScenarioNote.objects.filter(pk=self.note.pk).exists())
+
+    def test_anonymous_user_cannot_read_or_modify_note(self):
+        for method in ("get", "patch", "put", "delete"):
+            with self.subTest(method=method):
+                self.assertIn(getattr(self.client, method)(self.url).status_code, (401, 403))
+
+    def test_cannot_create_note_for_unreadable_scenario(self):
+        self.scenario.visibility = "private"
+        self.scenario.save(update_fields=["visibility"])
+        self.client.force_authenticate(self.reader)
+        response = self.client.post(
+            "/api/scenarios/notes/",
+            {"scenario": self.scenario.pk, "title": "新規メモ", "content": "本文"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(str(response.data["scenario"][0]), "閲覧できるシナリオを指定してください。")
+        self.assertNotIn(self.scenario.title, str(response.data))
+        self.assertFalse(ScenarioNote.objects.filter(user=self.reader).exists())
+
+    def test_cannot_move_own_note_to_unreadable_scenario(self):
+        hidden = Scenario.objects.create(title="非公開の題名", created_by=self.reader, visibility="private")
+        self.client.force_authenticate(self.owner)
+        response = self.client.patch(self.url, {"scenario": hidden.pk}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertNotIn(hidden.title, str(response.data))
+        self.note.refresh_from_db()
+        self.assertEqual(self.note.scenario_id, self.scenario.pk)
+
+    def test_can_create_note_for_own_private_scenario(self):
+        self.scenario.visibility = "private"
+        self.scenario.save(update_fields=["visibility"])
+        self.client.force_authenticate(self.owner)
+        response = self.client.post(
+            "/api/scenarios/notes/",
+            {"scenario": self.scenario.pk, "title": "自分のメモ", "content": "本文"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+
+    def test_can_create_note_for_public_scenario(self):
+        self.client.force_authenticate(self.reader)
+        response = self.client.post(
+            "/api/scenarios/notes/",
+            {"scenario": self.scenario.pk, "title": "公開シナリオのメモ", "content": "本文"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+
+    def test_can_create_note_for_scenario_visible_through_group(self):
+        group = Group.objects.create(name="メモ共有グループ", created_by=self.owner)
+        GroupMembership.objects.create(group=group, user=self.owner, role="admin")
+        GroupMembership.objects.create(group=group, user=self.reader, role="member")
+        self.scenario.visibility = "private"
+        self.scenario.save(update_fields=["visibility"])
+        self.client.force_authenticate(self.reader)
+        response = self.client.post(
+            "/api/scenarios/notes/",
+            {"scenario": self.scenario.pk, "title": "共有先のメモ", "content": "本文"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)

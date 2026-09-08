@@ -1,12 +1,20 @@
 import { expect, test } from '@playwright/test';
 
-for (const mode of ['object', 'searchParams']) {
-  test(`HTTP fallback preserves query values (${mode})`, async ({ page }) => {
-    await page.route('https://cdn.jsdelivr.net/npm/axios/**', route => route.abort());
+for (const [clientMode, mode] of [
+  ['bundled', 'object'], ['bundled', 'searchParams'],
+  ['fallback', 'object'], ['fallback', 'searchParams'],
+]) {
+  test(`HTTP ${clientMode} preserves query values (${mode})`, async ({ page }) => {
+    await page.route('https://**/*', route => route.abort());
+    if (clientMode === 'fallback') {
+      await page.route('**/static/vendor/axios/**', route => route.abort());
+    }
     await page.route('**/http-query-probe?**', route => route.fulfill({
       contentType: 'application/json', body: JSON.stringify({ url: route.request().url() }),
     }));
     await page.goto('/signup/');
+    expect(await page.evaluate(() => (window as any).axios.VERSION))
+      .toBe(clientMode === 'bundled' ? '1.20.0' : undefined);
     const url = await page.evaluate(async mode => {
       const params = mode === 'object'
         ? { q: '日本語 +&?', zero: 0, disabled: false, omitted: null,

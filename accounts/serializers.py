@@ -1569,7 +1569,7 @@ class CharacterImageSerializer(serializers.ModelSerializer):
         # 順序番号の自動設定
         if "order" not in validated_data:
             max_order = detail.images.aggregate(max_order=models.Max("order"))["max_order"]
-            validated_data["order"] = (max_order or -1) + 1
+            validated_data["order"] = (max_order if max_order is not None else -1) + 1
 
         return detail.images.model.objects.create(**validated_data)
 

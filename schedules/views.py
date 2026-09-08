@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Case, Count, DateTimeField, F, IntegerField, Prefetch, Q, Sum, Value, When
 from django.db.models.deletion import ProtectedError
@@ -61,6 +62,7 @@ from .serializers import (
     DatePollCreateSerializer,
     DatePollOptionSerializer,
     DatePollSerializer,
+    DatePollVoteInputSerializer,
     DatePollVoteSerializer,
     HandoutInfoSerializer,
     SessionAvailabilitySerializer,
@@ -3670,13 +3672,28 @@ class DatePollViewSet(viewsets.ModelViewSet):
         headers = self.get_success_headers(output_serializer.data)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+    def get_locked_poll(self):
+        """トランザクション内で投票をロックし、現在の閲覧範囲と状態を再取得する。"""
+        visible_poll = self.get_object()
+        get_object_or_404(DatePoll.objects.select_for_update(), pk=visible_poll.pk)
+        poll = get_object_or_404(self.filter_queryset(self.get_queryset()), pk=visible_poll.pk)
+        self.check_object_permissions(self.request, poll)
+        return poll
+
+    @transaction.atomic
     def update(self, request, *args, **kwargs):
-        if self.get_object().created_by_id != request.user.id:
+        poll = self.get_locked_poll()
+        if poll.created_by_id != request.user.id:
             return Response(
-                {"detail": "Only the poll owner can update it."},
+                {"detail": "作成者のみが投票を編集できます"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        return super().update(request, *args, **kwargs)
+        serializer = self.get_serializer(poll, data=request.data, partial=kwargs.pop("partial", False))
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        if getattr(poll, "_prefetched_objects_cache", None):
+            poll._prefetched_objects_cache = {}
+        return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
         if self.get_object().created_by_id != request.user.id:
@@ -3728,27 +3745,33 @@ class DatePollViewSet(viewsets.ModelViewSet):
         return queryset
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def vote(self, request, pk=None):
         """日程調整に投票"""
-        poll = self.get_object()
+        poll = self.get_locked_poll()
 
         if poll.is_closed:
             raise ValidationError({"error": "投票は締め切られています"})
 
+        if not isinstance(request.data, dict):
+            raise ValidationError({"votes": "投票データはオブジェクト形式で指定してください"})
         votes_data = request.data.get("votes", [])
         if not votes_data:
             raise ValidationError({"votes": "投票データが必要です"})
+        input_serializer = DatePollVoteInputSerializer(data=votes_data, many=True)
+        if not input_serializer.is_valid():
+            raise ValidationError({"votes": input_serializer.errors})
 
         results = []
-        for vote_data in votes_data:
-            option_id = vote_data.get("option_id")
-            vote_status = vote_data.get("status", "available")
-            comment = vote_data.get("comment", "")
+        for vote_data in input_serializer.validated_data:
+            option_id = vote_data["option_id"]
+            vote_status = vote_data["status"]
+            comment = vote_data["comment"]
 
             try:
                 option = poll.options.get(id=option_id)
-            except DatePollOption.DoesNotExist:
-                continue
+            except DatePollOption.DoesNotExist as exc:
+                raise ValidationError({"votes": "候補日が見つかりません"}) from exc
 
             vote, _ = DatePollVote.objects.update_or_create(
                 option=option, user=request.user, defaults={"status": vote_status, "comment": comment}
@@ -3758,12 +3781,19 @@ class DatePollViewSet(viewsets.ModelViewSet):
         return Response({"votes": results})
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def confirm(self, request, pk=None):
         """日程を確定"""
-        poll = self.get_object()
+        poll = self.get_locked_poll()
 
         if poll.created_by != request.user:
             raise PermissionDenied("作成者のみが確定できます")
+
+        if poll.session_id:
+            if not session_permissions.can_edit_session_basic(request.user, poll.session):
+                raise PermissionDenied("セッションを編集する権限がありません")
+            if poll.session.group_id != poll.group_id:
+                raise ValidationError({"session": "セッションと日程調整のグループが一致しません"})
 
         if poll.is_closed:
             raise ValidationError({"error": "投票は締め切られています"})
@@ -3777,7 +3807,10 @@ class DatePollViewSet(viewsets.ModelViewSet):
         except DatePollOption.DoesNotExist:
             raise ValidationError({"option_id": "候補日が見つかりません"})
 
-        session = poll.confirm_date(option)
+        try:
+            session = poll.confirm_date(option)
+        except DjangoValidationError as exc:
+            raise ValidationError(exc.message_dict) from exc
 
         serializer = self.get_serializer(poll)
         response_data = serializer.data
@@ -3791,9 +3824,10 @@ class DatePollViewSet(viewsets.ModelViewSet):
         return Response(response_data)
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def add_option(self, request, pk=None):
         """候補日を追加"""
-        poll = self.get_object()
+        poll = self.get_locked_poll()
 
         if poll.is_closed:
             raise ValidationError({"error": "投票は締め切られています"})

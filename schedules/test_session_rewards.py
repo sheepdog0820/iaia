@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.character_models import CharacterSheet, CharacterSheet6th, GrowthRecord
+from accounts.character_models import CharacterSheet, CharacterSheet6th, CharacterSheet7th, GrowthRecord
 from accounts.models import CustomUser, Group
 from schedules import session_permissions
 from schedules.models import SessionParticipant, SessionReward, TRPGSession
@@ -183,6 +183,52 @@ class SessionRewardsAPITestCase(APITestCase):
             format="json",
         )
         self.assertEqual(bad.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_reapply_after_character_change_preserves_original_growth(self):
+        self._assert_changed_character_preserves_growth("6th")
+
+    def test_reapply_after_seventh_edition_character_change_preserves_original_growth(self):
+        self._assert_changed_character_preserves_growth("7th")
+
+    def _assert_changed_character_preserves_growth(self, edition):
+        reward = SessionReward.objects.create(participant=self.participant1, created_by=self.gm, experience_points=5)
+        self.client.force_authenticate(user=self.gm)
+        url = f"/api/schedules/rewards/{reward.pk}/apply/"
+        self.assertEqual(self.client.post(url, {}, format="json").status_code, 200)
+        reward.refresh_from_db()
+        growth_id = reward.applied_growth_record_id
+        applied_at = reward.applied_at
+
+        replacement = CharacterSheet.objects.create(user=self.player1, edition=edition)
+        system_model = CharacterSheet6th if edition == "6th" else CharacterSheet7th
+        system_model.objects.create(character_sheet=replacement, name="差し替え後の探索者")
+        changed = self.client.patch(
+            f"/api/schedules/participants/{self.participant1.pk}/",
+            {"character_sheet": replacement.pk},
+            format="json",
+        )
+        self.assertEqual(changed.status_code, 200)
+        reward.experience_points = 99
+        reward.save(update_fields=["experience_points"])
+
+        response = self.client.post(url, {}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["error"],
+            "前回の反映先と参加キャラクターが異なるため、再反映できません。前回の成長記録は変更していません。",
+        )
+        reward.refresh_from_db()
+        self.assertEqual(reward.applied_growth_record_id, growth_id)
+        self.assertEqual(reward.applied_at, applied_at)
+        self.assertEqual(GrowthRecord.objects.get(pk=growth_id).experience_gained, 5)
+        self.assertFalse(GrowthRecord.objects.filter(character_sheet=replacement).exists())
+
+        # 元の参加キャラクターに戻した場合は、同じ成長記録へ再反映できる。
+        self.participant1.character_sheet = self.character1
+        self.participant1.save(update_fields=["character_sheet"])
+        self.assertEqual(self.client.post(url, {}, format="json").status_code, 200)
+        self.assertEqual(GrowthRecord.objects.get(pk=growth_id).experience_gained, 99)
+        self.assertEqual(GrowthRecord.objects.filter(character_sheet=self.character1).count(), 1)
 
     def test_rewards_update_and_apply(self):
         self.client.force_authenticate(user=self.gm)

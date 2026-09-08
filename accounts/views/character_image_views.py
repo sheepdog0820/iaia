@@ -21,6 +21,9 @@ from django.http.response import content_disposition_header
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
+from django.views.decorators.vary import vary_on_headers
 from PIL import Image, UnidentifiedImageError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -158,6 +161,8 @@ class CharacterImageBackgroundRemovalView(APIView):
         )
 
 
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(vary_on_headers("Cookie", "Authorization"), name="dispatch")
 class CharacterImageBackgroundRemovalStatusView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -300,6 +305,7 @@ def build_character_images_zip_response(character_sheet):
     return response
 
 
+@method_decorator(never_cache, name="dispatch")
 class CharacterImageViewSet(viewsets.ModelViewSet):
     """キャラクター画像の管理ViewSet"""
 
@@ -340,8 +346,13 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
         context["character_sheet"] = self._get_character_sheet(require_owner=self._requires_owner())
         return context
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """画像のアップロード"""
+        character = self._get_character_sheet(require_owner=True)
+        # Serialize the limit check and save for this character, including when
+        # there are no image rows yet. Recheck ownership after acquiring the lock.
+        self._character_sheet = get_object_or_404(CharacterSheet.objects.select_for_update(), pk=character.pk)
         character = self._get_character_sheet(require_owner=True)
 
         serializer = self.get_serializer(data=request.data)

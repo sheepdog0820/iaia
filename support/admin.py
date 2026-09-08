@@ -1,4 +1,6 @@
 from django.contrib import admin, messages
+from django.urls import reverse
+from django.utils.html import format_html
 
 from support.models import LineWebhookEvent, SupportMessage, SupportTicket
 from support.services import resolve_ticket_and_notify
@@ -7,7 +9,14 @@ from support.services import resolve_ticket_and_notify
 class SupportMessageInline(admin.TabularInline):
     model = SupportMessage
     extra = 0
-    readonly_fields = ("kind", "body", "line_message_id", "attachment", "created_at")
+    exclude = ("attachment",)
+    readonly_fields = ("kind", "body", "line_message_id", "attachment_download", "created_at")
+
+    @admin.display(description="添付ファイル")
+    def attachment_download(self, obj):
+        if not obj.attachment:
+            return "添付なし"
+        return format_html('<a href="{}">添付をダウンロード</a>', reverse("support-attachment-download", args=[obj.pk]))
 
 
 @admin.register(SupportTicket)

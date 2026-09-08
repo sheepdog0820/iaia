@@ -1,10 +1,13 @@
 /* タブレノ - Modern Clean Theme CSS */
 /* モダンで洗練された、見やすい色合いのテーマ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+@import url('../vendor/theme-fonts/fonts.css');
 
 /* ベーステーマ - 明るくて見やすい色調 */
 :root {
+    /* 操作対象を表示する自動スクロールは、クリックやドラッグ前に完了させる。 */
+    scroll-behavior: auto;
+
     /* 明るい基調色 */
     --primary-bg: #f8fafc;
     --secondary-bg: #ffffff;

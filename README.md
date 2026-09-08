@@ -117,7 +117,7 @@ python -m piptools compile --generate-hashes --allow-unsafe --strip-extras --new
 python -m piptools compile --generate-hashes --allow-unsafe --strip-extras --newline=lf --output-file requirements-test.lock.txt requirements-test.txt
 ```
 
-E2Eを実行する場合はNode.js 18+とPlaywright依存を準備してください。
+E2Eを実行する場合はNode.js 20+とPlaywright依存を準備してください。
 
 ```bash
 npm install

@@ -882,9 +882,12 @@ class SessionCharacterSyncTestCase(TestCase):
         # 削除後の参加者状態確認
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
-        # キャラクターに紐づくセッション参加情報も削除されることを確認
+        # セッション参加情報は維持し、キャラクターとの紐付けだけ解除する
         participant.refresh_from_db()
         self.assertIsNone(participant.character_sheet)
+        self.assertEqual(participant.user_id, self.player.pk)
+        self.assertEqual(participant.session_id, session.pk)
+        self.assertEqual(participant.character_name, "同期テストキャラ")
 
     def test_session_cancellation_notification(self):
         """セッションキャンセル時の通知"""

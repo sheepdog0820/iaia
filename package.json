@@ -2,6 +2,9 @@
   "name": "tableno",
   "version": "1.0.0",
   "description": "Tableno - TRPG Session Management System",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test:e2e": "node ./node_modules/playwright/cli.js test",
     "test:e2e:ui": "node ./node_modules/playwright/cli.js test --ui",
@@ -11,6 +14,6 @@
     "test:e2e:codegen": "node ./node_modules/playwright/cli.js codegen http://localhost:8000"
   },
   "devDependencies": {
-    "@playwright/test": "^1.53.1"
+    "@playwright/test": "1.63.0"
   }
 }

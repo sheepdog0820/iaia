@@ -4,7 +4,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from .character_models import CharacterImage6th
-from .test_character_factories import create_6th_character
+from .test_character_factories import create_6th_character, create_7th_character
 
 
 class EditionImageApiTests(TestCase):
@@ -37,3 +37,18 @@ class EditionImageApiTests(TestCase):
         first.refresh_from_db()
         self.assertTrue(first.is_main)
         self.assertEqual(CharacterImage6th.objects.filter(character_sheet=self.detail).count(), 1)
+
+    def test_image_lists_are_not_cached_for_either_edition(self):
+        seventh, _ = create_7th_character(user=self.user, name="Image cache check")
+        for sheet in (self.sheet, seventh):
+            with self.subTest(edition=sheet.edition):
+                response = self.client.get(f"/api/accounts/character-sheets/{sheet.id}/images/")
+                self.assertEqual(response.status_code, 200)
+                directives = set(response.get("Cache-Control", "").split(", "))
+                self.assertTrue({"private", "no-store", "no-cache", "max-age=0"}.issubset(directives))
+
+    def test_unauthenticated_image_response_is_not_cached(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.get(f"/api/accounts/character-sheets/{self.sheet.id}/images/")
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("no-store", response.get("Cache-Control", ""))

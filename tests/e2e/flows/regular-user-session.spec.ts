@@ -3,11 +3,50 @@ import { randomUUID } from 'node:crypto';
 
 async function signUp(page: Page, suffix: string, nickname?: string): Promise<void> {
   await page.goto('/signup/');
+  await page.evaluate(() => {
+    const events: object[] = [];
+    (window as any).__signupInputEvents = events;
+    const record = (event: Event) => {
+      const target = event.target;
+      events.push({
+        type: event.type,
+        time: performance.now(),
+        target: target instanceof HTMLElement ? target.id : 'window',
+        length: target instanceof HTMLInputElement ? target.value.length : null,
+        activeElement: document.activeElement?.id ?? null,
+        documentFocused: document.hasFocus(),
+        visibility: document.visibilityState,
+      });
+      if (events.length > 300) events.shift();
+    };
+    for (const type of ['focus', 'blur', 'focusin', 'focusout', 'beforeinput', 'input', 'visibilitychange']) {
+      window.addEventListener(type, record, true);
+    }
+  });
   await page.fill('#id_username', `release_${suffix}`);
   await page.fill('#id_email', `release_${suffix}@example.com`);
   const password = `Vault-${randomUUID()}!`;
-  await page.fill('#id_password1', password);
-  await page.fill('#id_password2', password);
+  for (const selector of ['#id_password1', '#id_password2']) {
+    const input = page.locator(selector);
+    await input.focus();
+    await expect(input).toBeFocused();
+    await input.pressSequentially(password);
+    try {
+      await expect(input).toHaveValue(password);
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({
+        events: (window as any).__signupInputEvents,
+        activeElement: document.activeElement?.id ?? null,
+        documentFocused: document.hasFocus(),
+        visibility: document.visibilityState,
+      }));
+      await test.info().attach('signup-input-events', {
+        body: JSON.stringify(diagnostic, null, 2),
+        contentType: 'application/json',
+      });
+      throw error;
+    }
+  }
   await page.fill('#id_nickname', nickname ?? `通常利用者 ${suffix}`);
   await Promise.all([
     page.waitForURL(/\/accounts\/dashboard\//),
@@ -16,6 +55,14 @@ async function signUp(page: Page, suffix: string, nickname?: string): Promise<vo
 }
 
 test('anonymous guest joins and a normally registered user claims the participant', async ({ page, browser }) => {
+  const externalFonts: string[] = [];
+  const blockExternalFonts = async (context: import('@playwright/test').BrowserContext) => {
+    await context.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//, route => {
+      externalFonts.push(route.request().url());
+      return route.abort();
+    });
+  };
+  await blockExternalFonts(page.context());
   const suffix = `${Date.now()}_${test.info().project.name}`;
   await signUp(page, `guestgm_${suffix}`);
   const setup = await page.evaluate(async suffix => {
@@ -38,10 +85,19 @@ test('anonymous guest joins and a normally registered user claims the participan
   const invitation = await issued.json();
   await expect(page.locator('#guest-invitation-url')).toHaveValue(invitation.invitation_url);
   const guestContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
+  await blockExternalFonts(guestContext);
   try {
     const guest = await guestContext.newPage();
     await guest.goto(invitation.invitation_url);
     await expect(guest.locator('h1')).toContainText(setup.session.title);
+    const fontsLoaded = await guest.evaluate(async () => {
+      const faces = await Promise.all([
+        document.fonts.load('400 16px Inter', 'Tableno'),
+        document.fonts.load('600 16px Poppins', 'Tableno'),
+      ]);
+      return faces.every(items => items.length > 0 && items.every(face => face.status === 'loaded'));
+    });
+    expect(fontsLoaded).toBe(true);
     await guest.fill('#guest-name', '招待された参加者');
     await guest.selectOption('#player-slot', '1');
     await guest.fill('#character-name', '引き継ぐ探索者');
@@ -108,6 +164,7 @@ test('anonymous guest joins and a normally registered user claims the participan
     const claimCard = guest.locator('.card', { has: guest.locator('#claim-participant') });
     await claimCard.scrollIntoViewIfNeeded();
     await claimCard.screenshot({ path: test.info().outputPath('guest-claim-mobile.png'), mask: [guest.locator('#claim-token')], animations: 'disabled' });
+    expect(externalFonts).toEqual([]);
   } finally {
     await guestContext.close();
   }
@@ -282,10 +339,11 @@ test('owner grants and revokes group administration for a registered member', as
   }
 });
 
-test('friend search preserves the query when the HTTP client CDN is unavailable', async ({ page }) => {
-  await page.route('https://cdn.jsdelivr.net/npm/axios/**', route => route.abort());
+test('friend search preserves the query when the bundled HTTP client is unavailable', async ({ page }) => {
+  await page.route('**/static/vendor/axios/**', route => route.abort());
   await signUp(page, `search_${Date.now()}_${test.info().project.name}`);
   await page.goto('/accounts/groups/view/');
+  expect(await page.evaluate(() => (window as any).axios.VERSION)).toBeUndefined();
   const query = '検索 +&?';
   const [request] = await Promise.all([
     page.waitForRequest(request => new URL(request.url()).pathname === '/api/accounts/friend-candidates/'),

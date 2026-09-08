@@ -15,7 +15,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     default-libmysqlclient-dev \
     libpq-dev \
     pkg-config \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --gid "${APP_GID}" tableno \
@@ -23,8 +22,16 @@ RUN groupadd --gid "${APP_GID}" tableno \
 
 # Install Python dependencies first to improve Docker layer caching.
 COPY requirements.lock.txt /app/requirements.lock.txt
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r /app/requirements.lock.txt
+# Validate installed dependencies before removing packaging tools from runtime.
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r /app/requirements.lock.txt \
+    && pip check \
+    && pip uninstall --yes pip setuptools wheel
+
+# Keep native runtime libraries while removing compilers and development headers.
+RUN apt-mark manual libmariadb3 libpq5 libgomp1 \
+    && apt-get purge -y --auto-remove \
+        build-essential default-libmysqlclient-dev libpq-dev pkg-config
 
 # Copy application code.
 COPY --chown=tableno:tableno . /app

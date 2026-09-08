@@ -275,6 +275,8 @@
 
 ### 4. CCFOLIA連携
 
+画像の自動転送は未対応。[公式Clipboard API](https://docs.ccfolia.com/developer-api/clipboard-api)は外部データからの画像URL・表情差分URLの設定を許可していないため、現行出力の`iconUrl`は空文字とする。画像登録・差分表示の実サービス検証は[残条件](../release/CCFOLIA_IMAGE_COMPATIBILITY_2026-09-08.md)を参照。
+
 #### エクスポート形式
 ```json
 {
@@ -283,7 +285,7 @@
     "name": "キャラクター名",
     "initiative": DEX値,
     "externalUrl": "キャラクターシートURL",
-    "iconUrl": "キャラクター画像URL",
+    "iconUrl": "",
     "commands": "ダイスロールコマンド（複数行）",
     "status": [
       {"label": "HP", "value": 現在HP, "max": 最大HP},

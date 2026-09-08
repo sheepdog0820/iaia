@@ -1,0 +1,23 @@
+# 画像透過ファイルのCDN直アクセス対策
+
+2026-09-08。背景透過APIは所有者を照合してS3から結果を読み取り返すが、TerraformのCloudFront向けS3 GetObject拒否対象に `background_removal/` がなかった。defaultストレージは他のメディアと同じS3を使うため、APIの所有者判定だけでCDNの直アクセスまで保護できるとは限らない。
+
+## ローカルの修正
+
+既存のDenyPublicPrivateMediaDownloadsにバケット直下と任意のメディアprefix配下のbackground_removalを追加した。入力画像と処理結果の両方が対象。DenyのPrincipalはCloudFrontサービス、Conditionは当該distributionのSourceArnのままで、アプリ/ワーカー用IAMロールのS3取得権限は今回変更しない。
+
+既存インフラテストへ、3種類のprefix×入力/結果の6条件と、静的ファイル・プロフィール・通常キャラクター画像を巻き込まない3条件を追加。修正前は保護対象6条件で失敗、修正後はモジュールの4テストすべて成功。これはResourceのワイルドカードと文の構造を検査するテストで、AWS上でのポリシー評価や実ファイル取得試験ではない。
+
+Blackの初回チェックで整形差分を検出し、対象テストファイルだけを整形。Black・isort・Flake8・差分/テキスト検査を確認した。Terraform fmt -checkとvalidateも成功。terraform applyやplanによる変更操作は行っていない。
+
+## 実環境の読み取り結果と残条件
+
+aws-pre assetsバケットはPublicAccessBlockの4項目がtrue。ただし実際のバケットポリシーは、CloudFront distribution E3RQ829D1NVY28へ全オブジェクトのGetObjectをAllowする文だけで、リポジトリのDeny文自体が未適用だった。
+
+同distributionは有効、既定behaviorのTrustedSigners/TrustedKeyGroupsは無効、Function/Lambda関連付けなし、追加behaviorなし。これは設定上の保護不足を示す。オブジェクトの列挙や本文取得はしておらず、実際に非公開内容が存在したか、第三者へ漏えいしたかは確認していない。
+
+反映前に現行アプリが保護対象の全ファイルを認可付き経路で配信できること、現行ポリシーとの差分、キャッシュと復旧手順を確認する。許可を得た実環境でCDN拒否と所有者API取得を両方検証する必要がある。バケットポリシーの適用はアクセス権変更の承認対象であり、本修正のコミットだけで適用しない。
+
+問い合わせ添付の `support/line/` は、この画像透過対策時点の追加対象ではない。後続の[問い合わせ添付対策](SUPPORT_ATTACHMENT_PROTECTION_2026-09-08.md)で、管理画面の認可付き取得とCDN拒否を追加した。いずれもAWSには未適用。通常キャラクター画像など他のファイルの公開範囲も、それぞれの仕様と配信経路に従って照合する。
+
+アプリコード・DB・実データ・Secrets・AWSの設定・費用への変更はない。ローカルTerraform変更を取り消す場合は今回追加した2パスを戻す。将来の実環境反映での復旧に備え、適用直前のポリシーを別途保存する。機能維持と情報保護のどちらも確認せず旧ポリシーへ戻さない。

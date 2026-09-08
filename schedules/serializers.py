@@ -2,6 +2,7 @@ from datetime import datetime
 from datetime import time as time_cls
 
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
@@ -1223,6 +1224,14 @@ class SessionAvailabilitySerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class DatePollVoteInputSerializer(serializers.Serializer):
+    """複数候補への投票入力を保存前に検証する。"""
+
+    option_id = serializers.IntegerField(min_value=1)
+    status = serializers.ChoiceField(choices=DatePollVote.VOTE_CHOICES, default="available")
+    comment = serializers.CharField(max_length=100, default="", allow_blank=True, trim_whitespace=False)
+
+
 class DatePollVoteSerializer(serializers.ModelSerializer):
     """日程調整投票シリアライザ"""
 
@@ -1312,6 +1321,15 @@ class DatePollSerializer(serializers.ModelSerializer):
     options = DatePollOptionSerializer(many=True, read_only=True)
     session_detail = serializers.SerializerMethodField()
 
+    def validate(self, attrs):
+        if "selected_date" in attrs:
+            raise serializers.ValidationError({"selected_date": "確定日は投票の確定操作でのみ設定できます"})
+        if self.instance and self.instance.selected_date is not None and attrs.get("is_closed") is False:
+            raise serializers.ValidationError(
+                {"is_closed": "確定済みの投票は再開できません。変更はセッション編集から行ってください"}
+            )
+        return attrs
+
     class Meta:
         model = DatePoll
         fields = [
@@ -1333,6 +1351,16 @@ class DatePollSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_by", "session", "created_at", "updated_at"]
+
+    def validate_group(self, group):
+        user = getattr(self.context.get("request"), "user", None)
+        if not user or not user.is_authenticated:
+            raise serializers.ValidationError("このグループで日程調整を編集する権限がありません")
+        if group.created_by_id != user.id and not group.members.filter(id=user.id).exists():
+            raise serializers.ValidationError("このグループで日程調整を編集する権限がありません")
+        if self.instance and self.instance.session_id and self.instance.session.group_id != group.pk:
+            raise serializers.ValidationError("セッションと日程調整のグループが一致しません")
+        return group
 
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_session_detail(self, obj):
@@ -1400,7 +1428,16 @@ class DatePollCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"session": "このセッションには未締め切りの日程調整が既にあります"})
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
+        session = validated_data.get("session")
+        if session:
+            session = TRPGSession.objects.select_for_update().filter(pk=session.pk).first()
+            if session is None:
+                raise serializers.ValidationError({"session": "対象のセッションが見つかりません"})
+            validated_data["session"] = session
+        # 事前検証後の作成・日程確定・管理権限の変更を保存前に再確認する。
+        validated_data = self.validate(validated_data)
         options_data = validated_data.pop("options")
         validated_data["created_by"] = self.context["request"].user
 

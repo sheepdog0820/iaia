@@ -8,7 +8,7 @@ import uuid
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, router, transaction
 from django.utils import timezone
 
 # Circular import回避のため、文字列参照を使用
@@ -232,9 +232,35 @@ class CharacterSheet(models.Model):
         """バージョン統計を取得"""
         return CharacterVersionManager.get_version_statistics(self)
 
-    def delete(self, *args, **kwargs):
+    def delete(self, using=None, keep_parents=False):
         """子バージョンの参照を付け替えてから削除"""
-        return super().delete(*args, **kwargs)
+        if self.pk is None:
+            return super().delete(using=using, keep_parents=keep_parents)
+        using = using or router.db_for_write(type(self), instance=self)
+        with transaction.atomic(using=using):
+            registry = type(self).objects.using(using).select_for_update().filter(pk=self.pk).first()
+            if registry is None:
+                return (0, {})
+            data_model = CharacterSheet6th if registry.edition == "6th" else CharacterSheet7th
+            # Match version creation's registry-then-edition lock order. Read
+            # lineage after locking; cached system_data may already be stale.
+            records = list(data_model.objects.using(using).select_for_update().order_by("pk"))
+            detail = next((record for record in records if record.character_sheet_id == registry.pk), None)
+            if detail is not None:
+                children = sorted(
+                    (record for record in records if record.parent_data_id == detail.pk),
+                    key=lambda record: (record.version, record.pk),
+                )
+                parent_id = detail.parent_data_id
+                if children and parent_id is None:
+                    successor = children.pop(0)
+                    data_model.objects.using(using).filter(pk=successor.pk).update(parent_data=None)
+                    parent_id = successor.pk
+                if children:
+                    data_model.objects.using(using).filter(pk__in=[child.pk for child in children]).update(
+                        parent_data_id=parent_id
+                    )
+            return super().delete(using=using, keep_parents=keep_parents)
 
     def calculate_max_sanity(self):
         return self.system_data.calculate_max_sanity()
@@ -892,7 +918,7 @@ class CharacterSheet6th(CharacterSheetSystemData):
     """6版固有データ"""
 
     character_sheet = models.OneToOneField(CharacterSheet, on_delete=models.CASCADE, related_name="sixth_edition_data")
-    parent_data = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="versions")
+    parent_data = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="versions")
 
     # 6版固有フィールド
     mental_disorder = models.TextField(blank=True, verbose_name="精神的障害")
@@ -997,7 +1023,7 @@ class CharacterSheet7th(CharacterSheetSystemData):
     character_sheet = models.OneToOneField(
         CharacterSheet, on_delete=models.CASCADE, related_name="seventh_edition_data"
     )
-    parent_data = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="versions")
+    parent_data = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="versions")
     luck_starting = models.IntegerField(default=0)
     luck_current = models.IntegerField(default=0)
     luck_max = models.IntegerField(default=0)
