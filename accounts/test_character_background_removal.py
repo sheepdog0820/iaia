@@ -222,6 +222,13 @@ class CharacterBackgroundRemovalTests(TestCase):
         self.assertNotIn("\r", response["Content-Disposition"])
         self.assertNotIn("\n", response["Content-Disposition"])
         self.assertIn("portrait_Injected-transparent.png", response["Content-Disposition"])
+        self.assert_private_response(response)
+
+    def assert_private_response(self, response):
+        self.assertIn("no-store", response.get("Cache-Control", ""))
+        self.assertIn("private", response.get("Cache-Control", ""))
+        self.assertIn("Cookie", response.get("Vary", ""))
+        self.assertIn("Authorization", response.get("Vary", ""))
 
     def test_background_removal_job_status_is_owner_only(self):
         # Isolated test fixture or mocked credential; never a production secret.
@@ -231,6 +238,7 @@ class CharacterBackgroundRemovalTests(TestCase):
         response = self.client.get(reverse("character-image-background-removal-status", args=[job.pk]))
 
         self.assertEqual(response.status_code, 404)
+        self.assert_private_response(response)
 
     def test_pending_job_returns_accepted_status(self):
         job = BackgroundRemovalJob.objects.create(user=self.user, source_image=self.image_upload())
@@ -239,6 +247,20 @@ class CharacterBackgroundRemovalTests(TestCase):
 
         self.assertEqual(response.status_code, 202)
         self.assertEqual(response.data, {"job_id": str(job.pk), "status": BackgroundRemovalJob.Status.PENDING})
+        self.assert_private_response(response)
+
+    def test_failed_job_response_is_not_cached(self):
+        job = BackgroundRemovalJob.objects.create(user=self.user, status=BackgroundRemovalJob.Status.FAILED)
+        response = self.client.get(reverse("character-image-background-removal-status", args=[job.pk]))
+        self.assertEqual(response.status_code, 503)
+        self.assert_private_response(response)
+
+    def test_anonymous_job_response_is_not_cached(self):
+        job = BackgroundRemovalJob.objects.create(user=self.user)
+        self.client.force_authenticate(user=None)
+        response = self.client.get(reverse("character-image-background-removal-status", args=[job.pk]))
+        self.assertEqual(response.status_code, 401)
+        self.assert_private_response(response)
 
     @patch("accounts.background_removal_tasks.remove_background", autospec=True)
     def test_worker_processes_persisted_job_outside_the_web_request(self, remove_background):

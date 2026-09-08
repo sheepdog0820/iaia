@@ -23,6 +23,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
+from django.views.decorators.vary import vary_on_headers
 from PIL import Image, UnidentifiedImageError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -160,6 +161,8 @@ class CharacterImageBackgroundRemovalView(APIView):
         )
 
 
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(vary_on_headers("Cookie", "Authorization"), name="dispatch")
 class CharacterImageBackgroundRemovalStatusView(APIView):
     permission_classes = [IsAuthenticated]
 
