@@ -62,6 +62,7 @@ from .serializers import (
     DatePollCreateSerializer,
     DatePollOptionSerializer,
     DatePollSerializer,
+    DatePollVoteInputSerializer,
     DatePollVoteSerializer,
     HandoutInfoSerializer,
     SessionAvailabilitySerializer,
@@ -3752,20 +3753,25 @@ class DatePollViewSet(viewsets.ModelViewSet):
         if poll.is_closed:
             raise ValidationError({"error": "投票は締め切られています"})
 
+        if not isinstance(request.data, dict):
+            raise ValidationError({"votes": "投票データはオブジェクト形式で指定してください"})
         votes_data = request.data.get("votes", [])
         if not votes_data:
             raise ValidationError({"votes": "投票データが必要です"})
+        input_serializer = DatePollVoteInputSerializer(data=votes_data, many=True)
+        if not input_serializer.is_valid():
+            raise ValidationError({"votes": input_serializer.errors})
 
         results = []
-        for vote_data in votes_data:
-            option_id = vote_data.get("option_id")
-            vote_status = vote_data.get("status", "available")
-            comment = vote_data.get("comment", "")
+        for vote_data in input_serializer.validated_data:
+            option_id = vote_data["option_id"]
+            vote_status = vote_data["status"]
+            comment = vote_data["comment"]
 
             try:
                 option = poll.options.get(id=option_id)
-            except DatePollOption.DoesNotExist:
-                continue
+            except DatePollOption.DoesNotExist as exc:
+                raise ValidationError({"votes": "候補日が見つかりません"}) from exc
 
             vote, _ = DatePollVote.objects.update_or_create(
                 option=option, user=request.user, defaults={"status": vote_status, "comment": comment}

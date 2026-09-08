@@ -1224,6 +1224,14 @@ class SessionAvailabilitySerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class DatePollVoteInputSerializer(serializers.Serializer):
+    """複数候補への投票入力を保存前に検証する。"""
+
+    option_id = serializers.IntegerField(min_value=1)
+    status = serializers.ChoiceField(choices=DatePollVote.VOTE_CHOICES, default="available")
+    comment = serializers.CharField(max_length=100, default="", allow_blank=True, trim_whitespace=False)
+
+
 class DatePollVoteSerializer(serializers.ModelSerializer):
     """日程調整投票シリアライザ"""
 
