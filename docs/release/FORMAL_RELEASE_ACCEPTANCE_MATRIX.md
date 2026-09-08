@@ -1,5 +1,7 @@
 # 有料プラン・外部連携を含む正式公開の受け入れ条件
 
+OS監査の追加評価（2026-09-08、systemd）: 固定候補10d21e42で[LOW 4件の実行条件](RUNTIME_SYSTEMD_APPLICABILITY_2026-09-08.md)を照合。systemd実行条件の1件は不一致、journal 3件は通常アプリ経路を確認できないがライブラリ全体の非該当は未確定。LOWの個別評価は計15件、未評価は25件。スキャン48指摘と正式公開No-Goを維持する。
+
 OS監査の追加評価（2026-09-08）: 固定候補10d21e42で[OpenLDAPのLOW 5件](RUNTIME_LDAP_APPLICABILITY_2026-09-08.md)を照合。NSS/サーバー/未搭載ツールに依存する4件は条件不一致、証明書検証の1件は未解決。curlと合わせてLOW 11件を個別照合し、残るLOW 29件とHIGH/MEDIUM/MariaDBの残条件を維持する。スキャナーの件数削減や公開合格には読み替えない。
 
 レビュー準備（2026-09-08）: [Draft PR #2](https://github.com/sheepdog0820/iaia/pull/2)を作成。対象はcodex/formal-release-resumeからmain、作成時HEADは0a0a2e79、52コミット・91ファイル。GitHub連携は403、CLIは未ログインだったが、指定Chromeのログイン済みアカウントで作成し、Draft表示を確認できた。以前の「PR未作成」は解消したが、連携ツール自体の権限を変更したわけではない。固定候補10d21e42以降は文書変更のみとgit diffで照合。PR最新HEADのCI、マージ判断、実環境反映、正式公開判定は別に扱う。mainマージは未実行。
