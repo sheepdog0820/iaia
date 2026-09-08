@@ -134,7 +134,7 @@ def post_json(session: requests.Session, base_url: str, path: str, payload: dict
     return response.json()
 
 
-def create_fixtures(session: requests.Session, base_url: str, timeout: float) -> dict:
+def create_fixtures(session: requests.Session, base_url: str, timeout: float, character_count: int) -> dict:
     suffix = int(time.time() * 1000)
     group = post_json(
         session,
@@ -151,7 +151,8 @@ def create_fixtures(session: requests.Session, base_url: str, timeout: float) ->
             "title": f"Load Probe Scenario {suffix}",
             "author": "release-check",
             "summary": "Image upload load probe fixture.",
-            "game_system": "coc",
+            "game_system": "coc6",
+            "visibility": "private",
             "difficulty": "beginner",
             "estimated_time": 180,
         },
@@ -172,26 +173,31 @@ def create_fixtures(session: requests.Session, base_url: str, timeout: float) ->
         },
         timeout,
     )
-    character = post_json(
-        session,
-        base_url,
-        "/api/accounts/character-sheets/create_6th_edition/",
-        {
-            "name": f"Load Probe Investigator {suffix}",
-            "player_name": "release-check",
-            "age": 30,
-            "str_value": 10,
-            "con_value": 11,
-            "pow_value": 12,
-            "dex_value": 13,
-            "app_value": 10,
-            "siz_value": 11,
-            "int_value": 14,
-            "edu_value": 15,
-        },
-        timeout,
-    )
-    return {"group": group, "scenario": scenario, "session": session_obj, "character": character}
+    characters = []
+    for index in range(character_count):
+        characters.append(
+            post_json(
+                session,
+                base_url,
+                "/api/accounts/character-sheets/create_6th_edition/",
+                {
+                    "name": f"Load Probe Investigator {suffix}-{index}",
+                    "access_scope": "private",
+                    "player_name": "release-check",
+                    "age": 30,
+                    "str_value": 10,
+                    "con_value": 11,
+                    "pow_value": 12,
+                    "dex_value": 13,
+                    "app_value": 10,
+                    "siz_value": 11,
+                    "int_value": 14,
+                    "edu_value": 15,
+                },
+                timeout,
+            )
+        )
+    return {"group": group, "scenario": scenario, "session": session_obj, "characters": characters}
 
 
 def cloned_session(auth_session: requests.Session) -> requests.Session:
@@ -274,9 +280,11 @@ def summarize(results: Iterable[ProbeResult]) -> bool:
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.requests_per_target < 1 or args.concurrency < 1 or args.timeout <= 0:
+        raise ValueError("Request count, concurrency and timeout must be positive")
     base_url = args.base_url.rstrip("/")
     auth_session = login(base_url, args)
-    fixtures = create_fixtures(auth_session, base_url, args.timeout)
+    fixtures = create_fixtures(auth_session, base_url, args.timeout, args.requests_per_target)
 
     one_mb = 1024 * 1024
     five_mb = 5 * 1024 * 1024
@@ -301,7 +309,7 @@ def run(args: argparse.Namespace) -> int:
             [
                 (
                     f"character-{image_name}",
-                    f"/api/accounts/character-sheets/{fixtures['character']['id']}/images/",
+                    f"/api/accounts/character-sheets/{fixtures['characters'][index]['id']}/images/",
                     {},
                     "image",
                     filename,
@@ -368,7 +376,7 @@ def parse_args() -> argparse.Namespace:
         "--requests-per-target",
         type=int,
         default=int(os.environ.get("TABLENO_LOAD_REQUESTS_PER_TARGET", "9")),
-        help="Number of uploads per target. Keep <= 10 for character image limits.",
+        help="Uploads per resource type; creates a separate character for every size/format case.",
     )
     parser.add_argument("--timeout", type=float, default=float(os.environ.get("TABLENO_LOAD_TIMEOUT", "30")))
     return parser.parse_args()
