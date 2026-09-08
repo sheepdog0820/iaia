@@ -55,6 +55,14 @@ async function signUp(page: Page, suffix: string, nickname?: string): Promise<vo
 }
 
 test('anonymous guest joins and a normally registered user claims the participant', async ({ page, browser }) => {
+  const externalFonts: string[] = [];
+  const blockExternalFonts = async (context: import('@playwright/test').BrowserContext) => {
+    await context.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//, route => {
+      externalFonts.push(route.request().url());
+      return route.abort();
+    });
+  };
+  await blockExternalFonts(page.context());
   const suffix = `${Date.now()}_${test.info().project.name}`;
   await signUp(page, `guestgm_${suffix}`);
   const setup = await page.evaluate(async suffix => {
@@ -77,10 +85,19 @@ test('anonymous guest joins and a normally registered user claims the participan
   const invitation = await issued.json();
   await expect(page.locator('#guest-invitation-url')).toHaveValue(invitation.invitation_url);
   const guestContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
+  await blockExternalFonts(guestContext);
   try {
     const guest = await guestContext.newPage();
     await guest.goto(invitation.invitation_url);
     await expect(guest.locator('h1')).toContainText(setup.session.title);
+    const fontsLoaded = await guest.evaluate(async () => {
+      const faces = await Promise.all([
+        document.fonts.load('400 16px Inter', 'Tableno'),
+        document.fonts.load('600 16px Poppins', 'Tableno'),
+      ]);
+      return faces.every(items => items.length > 0 && items.every(face => face.status === 'loaded'));
+    });
+    expect(fontsLoaded).toBe(true);
     await guest.fill('#guest-name', '招待された参加者');
     await guest.selectOption('#player-slot', '1');
     await guest.fill('#character-name', '引き継ぐ探索者');
@@ -147,6 +164,7 @@ test('anonymous guest joins and a normally registered user claims the participan
     const claimCard = guest.locator('.card', { has: guest.locator('#claim-participant') });
     await claimCard.scrollIntoViewIfNeeded();
     await claimCard.screenshot({ path: test.info().outputPath('guest-claim-mobile.png'), mask: [guest.locator('#claim-token')], animations: 'disabled' });
+    expect(externalFonts).toEqual([]);
   } finally {
     await guestContext.close();
   }
