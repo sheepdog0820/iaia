@@ -416,6 +416,8 @@ resource "aws_s3_bucket_policy" "assets" {
         "${aws_s3_bucket.assets.arn}/*/scenario_images/*",
         "${aws_s3_bucket.assets.arn}/session_template_images/*",
         "${aws_s3_bucket.assets.arn}/*/session_template_images/*",
+        "${aws_s3_bucket.assets.arn}/background_removal/*",
+        "${aws_s3_bucket.assets.arn}/*/background_removal/*",
       ]
       Condition = { StringEquals = { "AWS:SourceArn" = aws_cloudfront_distribution.assets.arn } }
     }]

@@ -1,3 +1,4 @@
+import fnmatch
 import re
 from pathlib import Path
 
@@ -40,3 +41,19 @@ class BackgroundRemovalInfrastructureTests(SimpleTestCase):
             variables,
             re.compile(r'variable "background_removal_memory"\s*\{.*?default\s*=\s*2048', re.DOTALL),
         )
+
+    def test_cloudfront_cannot_fetch_private_background_removal_files(self):
+        terraform = (self.ROOT / "infrastructure" / "terraform" / "main.tf").read_text(encoding="utf-8")
+        statement = terraform.split('Sid       = "DenyPublicPrivateMediaDownloads"', 1)[1].split("Condition =", 1)[0]
+        self.assertIn('Effect    = "Deny"', statement)
+        self.assertIn('Principal = { Service = "cloudfront.amazonaws.com" }', statement)
+        self.assertIn('Action    = "s3:GetObject"', statement)
+        patterns = re.findall(r'"\$\{aws_s3_bucket.assets.arn\}/([^"\n]+)"', statement)
+        for prefix in ("", "media/", "custom/media/"):
+            for suffix in ("input/source.png", "output/result.png"):
+                key = f"{prefix}background_removal/{suffix}"
+                with self.subTest(key=key):
+                    self.assertTrue(any(fnmatch.fnmatchcase(key, pattern) for pattern in patterns))
+        for key in ("static/app.css", "media/profiles/avatar.png", "media/character_images/portrait.png"):
+            with self.subTest(public_key=key):
+                self.assertFalse(any(fnmatch.fnmatchcase(key, pattern) for pattern in patterns))
