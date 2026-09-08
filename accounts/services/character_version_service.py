@@ -40,9 +40,7 @@ class CharacterVersionService:
             # Use the locked row, not a relation cached before that deletion.
             source_data = next(data for data in locked_data if data.character_sheet_id == source_character.pk)
             root_data = cls._root_data_for(source_data)
-            latest_version = max(
-                data.version for data in locked_data if cls._belongs_to_data_root(data, root_data.pk, locked_data)
-            )
+            latest_version = cls._latest_version_for_root(locked_data, root_data.pk)
 
             detail_data = cls._system_data(source_data)
             # The registry receives only registry-owned values.  Character
@@ -88,12 +86,16 @@ class CharacterVersionService:
         return data
 
     @staticmethod
-    def _belongs_to_data_root(data, root_id, records):
-        parents = {record.pk: record.parent_data_id for record in records}
+    def _belongs_to_data_root(data, root_id, parents):
         current_id = data.pk
         while parents[current_id] is not None:
             current_id = parents[current_id]
         return current_id == root_id
+
+    @classmethod
+    def _latest_version_for_root(cls, records, root_id):
+        parents = {record.pk: record.parent_data_id for record in records}
+        return max(data.version for data in records if cls._belongs_to_data_root(data, root_id, parents))
 
     @staticmethod
     def _system_data(data):
