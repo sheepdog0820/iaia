@@ -40,6 +40,8 @@ CloudFrontはDeployedになったが、Chromeと別Chromiumの新規セッショ
 
 ## 背景透過の追加確認
 
+追記：ユーザーが権限修正を承認したため、定義3の起動許可を追加し、実AI処理・透過PNG保存・合成データの後片付けまで成功した。以下は承認前の記録。最新結果は[背景透過の権限修正記録](BACKGROUND_REMOVAL_IAM_FIX_2026-09-08.md)を参照。
+
 Web環境は背景透過定義2（旧 `aws-pre-2b2f02a3`）を指定する一方、既存の起動用IAM inline policyは定義1だけを許可していた。最新イメージに揃えた定義3を登録し、既存CPU1024/メモリ2048・コマンド・ロール等を保持した。
 
 既存IAM文を変更せず定義3の `ecs:RunTask` 許可だけを追加する案を `tmp/aws-pre-14ac4746/background-launcher-policy-proposed.json` に作成し、IAM追加とWeb参照変更をユーザーへ確認中。IAM変更・Web参照変更・実透過処理はまだ実行していない。今回のWeb/S3反映を背景透過・Stripe・外部連携の全面的な検証完了とは扱わない。
