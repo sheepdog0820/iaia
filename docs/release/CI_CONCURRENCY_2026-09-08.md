@@ -1,0 +1,19 @@
+# 最新コミットのCI待機を減らす設定
+
+2026-09-08、GitHub ActionsのAPIで最新30実行を確認。直近の8実行がqueued、先行する8実行がin_progressだった。同じ変更にpush/PRの両実行があり、数分間隔の文書更新でも5ジョブずつ起動していた。アカウントの同時実行枠やGitHub内部の待機原因までは確認していない。
+
+## 変更
+
+Django CIにworkflow名とgithub.refの組み合わせでconcurrencyを設定し、cancel-in-progressを有効にした。[GitHub公式仕様](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)に基づき、同じブランチまたは同じPRの新しい実行が古い実行を置き換える。
+
+pushのrefs/headsとPRのrefs/pullは異なるため、両者を相互にキャンセルしない。別ブランチや別workflowもグループが異なる。mainもCIのみの最新実行を優先する。テスト項目、ジョブ数、トリガー、デプロイ構成は変更しない。
+
+この設定を持たずに開始された既存実行が遡って整理されるとは保証しない。既存runの手動キャンセル・再実行はしていない。中断された旧コミットを成功扱いせず、マージ判断には対象の最新SHAで必要なジョブが完了した証拠を使う。
+
+## 検証と残事項
+
+YAMLの構文と設定値、既存5ジョブが維持されることを確認し、差分・UTF-8/LFを検証した。実GitHubでの新旧実行の置換は、後続実行時に確認する。設定だけで待機が解消したとは報告しない。
+
+PostgreSQL 18.3変更d12c0c08のpush run 34194811572、PR run 34194814714は調査時queuedで合格未確認。直近f7930fa0もqueuedだった。過去bc69f587のPR run 34193275629はplaywrightジョブ101955539471が失敗している。同SHAのpushと後続50433a89/654a4dd7の両イベントはsuccessだが、過去の失敗原因を確定したわけではない。失敗ステップはブラウザ導入とE2E実行の複合ステップであり、ログ未確認の段階では環境障害やテスト不具合のどちらとも断定しない。
+
+DB・Secrets・実環境・権限の変更や新規契約はない。CI設定はこのconcurrency節を戻せば復旧できる。既にキャンセルされた実行の再開は別途必要になる。
