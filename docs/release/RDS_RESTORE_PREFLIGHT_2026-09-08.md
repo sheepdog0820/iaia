@@ -1,5 +1,7 @@
 # 実RDS復元試験の読み取り調査
 
+後続更新: PG18の隔離復旧と本番設定起動は完了。[実行構成案](RDS_RESTORE_EXECUTION_DRAFT_2026-09-08.md)に専用SG2件・最小Secretsの単発タスク・削除範囲・CPUクレジット込みの小計約0.363 USDを整理した。probe/JSON/残費用の検証が残り、実行承認は未依頼。
+
 2026-09-08、tableno-preプロファイルでdescribe-db-instances、describe-db-snapshots、describe-security-groups、Pricing GetProductsのみを実行した。新規リソース、DB接続、Secrets取得、権限変更は行っていない。
 
 ## 実環境との相違
