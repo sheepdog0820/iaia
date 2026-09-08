@@ -116,8 +116,17 @@ test.describe('date poll flow', () => {
         playerPage.click(voteButtonSelector),
       ]);
 
-      await page.reload({ waitUntil: 'domcontentloaded' });
+      const [commentsResponse] = await Promise.all([
+        page.waitForResponse(response =>
+          new URL(response.url()).pathname === `/api/schedules/date-polls/${pollId}/comments/` &&
+          response.request().method() === 'GET'
+        ),
+        page.reload({ waitUntil: 'domcontentloaded' }),
+      ]);
+      expect(commentsResponse.status()).toBe(200);
+      await expect(page.locator('#datePollChatInput')).toBeEnabled();
       await page.fill('#datePollChatInput', '回答ありがとうございます。');
+      await expect(page.locator('#datePollChatInput')).toHaveValue('回答ありがとうございます。');
       const [replyResponse] = await Promise.all([
         page.waitForResponse(response => new URL(response.url()).pathname === `/api/schedules/date-polls/${pollId}/comments/` && response.request().method() === 'POST'),
         page.click('#datePollChatSendBtn'),
