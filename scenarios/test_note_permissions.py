@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 
+from accounts.models import Group, GroupMembership
+
 from .models import Scenario, ScenarioNote
 
 
@@ -62,3 +64,60 @@ class ScenarioNotePermissionTests(APITestCase):
         for method in ("get", "patch", "put", "delete"):
             with self.subTest(method=method):
                 self.assertIn(getattr(self.client, method)(self.url).status_code, (401, 403))
+
+    def test_cannot_create_note_for_unreadable_scenario(self):
+        self.scenario.visibility = "private"
+        self.scenario.save(update_fields=["visibility"])
+        self.client.force_authenticate(self.reader)
+        response = self.client.post(
+            "/api/scenarios/notes/",
+            {"scenario": self.scenario.pk, "title": "新規メモ", "content": "本文"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(str(response.data["scenario"][0]), "閲覧できるシナリオを指定してください。")
+        self.assertNotIn(self.scenario.title, str(response.data))
+        self.assertFalse(ScenarioNote.objects.filter(user=self.reader).exists())
+
+    def test_cannot_move_own_note_to_unreadable_scenario(self):
+        hidden = Scenario.objects.create(title="非公開の題名", created_by=self.reader, visibility="private")
+        self.client.force_authenticate(self.owner)
+        response = self.client.patch(self.url, {"scenario": hidden.pk}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertNotIn(hidden.title, str(response.data))
+        self.note.refresh_from_db()
+        self.assertEqual(self.note.scenario_id, self.scenario.pk)
+
+    def test_can_create_note_for_own_private_scenario(self):
+        self.scenario.visibility = "private"
+        self.scenario.save(update_fields=["visibility"])
+        self.client.force_authenticate(self.owner)
+        response = self.client.post(
+            "/api/scenarios/notes/",
+            {"scenario": self.scenario.pk, "title": "自分のメモ", "content": "本文"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+
+    def test_can_create_note_for_public_scenario(self):
+        self.client.force_authenticate(self.reader)
+        response = self.client.post(
+            "/api/scenarios/notes/",
+            {"scenario": self.scenario.pk, "title": "公開シナリオのメモ", "content": "本文"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+
+    def test_can_create_note_for_scenario_visible_through_group(self):
+        group = Group.objects.create(name="メモ共有グループ", created_by=self.owner)
+        GroupMembership.objects.create(group=group, user=self.owner, role="admin")
+        GroupMembership.objects.create(group=group, user=self.reader, role="member")
+        self.scenario.visibility = "private"
+        self.scenario.save(update_fields=["visibility"])
+        self.client.force_authenticate(self.reader)
+        response = self.client.post(
+            "/api/scenarios/notes/",
+            {"scenario": self.scenario.pk, "title": "共有先のメモ", "content": "本文"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
