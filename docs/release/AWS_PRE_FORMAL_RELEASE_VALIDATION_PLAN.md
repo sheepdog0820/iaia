@@ -1,5 +1,52 @@
 # 正式公開に向けたaws-pre検証・配備準備
 
+## 現行の反映候補と事前確認（4d7c4ea7、2026-09-08）
+
+これは反映許可ではない。[候補4d7c4ea7の記録](RUNTIME_PRIVATE_MEDIA_4D7C4EA7_2026-09-08.md)で、PR/push CI全5ジョブ成功・通常イメージの実HTTP34件・ソース照合を確認した。イメージIDは `sha256:73c235a6e14a86fc90d26958f5e2b6c5c5c5ddb09e8647e8415cd7ed237ba3bd`、ローカルタグは `tableno-formal-release:4d7c4ea7`。ECR送信とmanifest digest照合、実S3/Secrets/TLSの検証は未実施。以降の旧候補に対する証跡・許可案を、この候補の許可に読み替えない。
+
+### 実環境の再照合
+
+AWS profile tableno-pre、アカウント083773015316で読み取り確認した。サービスtableno-aws-preはdesired/running=1/1、タスク定義40、CPU256/メモリ512。実行中タスクは `29b1bd7a28d941888198479e296e6a85`、webイメージは `aws-pre-8cf3c7f7`、imageDigestは `sha256:551535a7219a599891d592346480803966abfb54f856656201ca08eec1d42b66`。
+
+タスク定義の平文environmentにはAWS_MEDIA_LOCATION・RUN_MIGRATIONS・RUN_COLLECTSTATIC・CREATE_DEV_LOGIN_USERの指定を確認できなかった。これだけでSecretsや環境ファイルを含む実効値が未設定とは断定しない。値を表示するSecrets取得はしていない。
+
+### 移行差分と停止条件
+
+稼働タグ名に対応するGit ref 8cf3c7f7と候補4d7c4ea7の比較では、移行差分は以下の5ファイル。タグ名とGitの対応だけで実DBの適用履歴・スキーマやイメージ内ソース一致を証明しない。
+
+| 移行 | 差分・確認点 |
+| --- | --- |
+| accounts 0064 | 新規。両版のparent_dataのDjango削除動作をSET_NULLに変更し後続世代を保護する。DB側のCASCADE制約を変更するSQLだと決めつけず、適用計画と履歴を確認する |
+| schedules 0055 | 新規。参加者単位の一意制約を参加者/ロール単位へ変更。複数ロール作成後の逆移行は衝突し得る |
+| accounts 0055 | 既存移行の修正。PGの遅延制約をインデックス作成前に検証する。適用済みなら通常のmigrateでは再実行されない |
+| accounts 0058 | 既存移行の修正。旧登録列の削除をDB別に処理する。未適用なら列削除があるため、データ移送と復旧を確認する |
+| schedules 0041 | 既存移行の修正。旧テンプレート画像削除の失敗を秘匿したログで報告。未適用なら従来のファイル削除処理も動くため、削除承認なしに実行しない |
+
+共有DBの移行履歴・制約・必要な件数だけを読み取り検査し、未適用一覧を確定することが先行条件。[既存の検査案](DATABASE_PREFLIGHT_2026-09-06.md)は旧候補と一時タスクの案なので、実施時は候補・digest・差分・費用・停止/後片付けを更新して承認範囲を確認する。移行履歴のfake変更、既存移行の強制再実行、複数ロールの削除による逆移行回避は行わない。
+
+### 非公開S3ポリシーの具体案
+
+バケット `tableno-aws-pre-assets-083773015316` の現行ポリシーは、CloudFront E3RQ829D1NVY28へ全キーのGetObjectを許可する1文のみ。PublicAccessBlockの4項目はtrueだが、リポジトリのDeny文は未適用。CloudFrontは有効、origin pathなし、追加behaviorなし、Min/Default/Max TTLは0。既存コピーの消去や情報漏えいの有無を確認した結果ではない。
+
+現行ポリシーを再取得し、元の文を完全に保持したままDenyPublicPrivateMediaDownloadsを追加するJSON案を作成した。対象はhandouts・session_images・scenario_images・session_template_images・background_removal・support/lineのそれぞれバケット直下/任意prefix配下、計12パターン。Terraformの現行Resourceから抽出して照合し、PrincipalはCloudFrontサービス、Conditionは当該distribution、ActionはGetObjectだけとする。
+
+- 元ポリシーSHA-256: `96aad423a8a79088b9bb351fbbbfdc652785b36f916cd2ff7f616914ae132f05`
+- 提案SHA-256: `7f02873b1fe30c319ff8af6d0cf4ed7640e256df040b6b74914b79dc0f203bb0`
+- ローカル案: `tmp/private-policy-4d7c4ea7/proposed-policy.json`。元文書とsummary.jsonも同じ専用ディレクトリに保存
+- AWS Access AnalyzerのRESOURCE_POLICY/AWS::S3::Bucket検査はfindings=[]。静的検査であり、S3ポリシーは変更していない
+
+旧案の8パターンでは問い合わせ添付と透過画像が対象外となる。承認済みと推定して旧案または新案を適用しない。適用直前に実ポリシーを再取得し、元SHAや意味が変わっていれば案を再評価する。
+
+### 実施案を確定する順序
+
+1. 最新候補のECR manifest digest、既存Secretsによる起動要件、読み取りDB検査の結果を確認する。一時検査タスクはentrypointの移行・静的収集・開発ユーザー作成を起動しない構成に限定する。
+2. 実DB/S3の整合した復旧点、必要な停止/書き込み制限、未適用移行、静的配信の互換性、S3拒否との順序を確定する。空DBの移行成功やローカル復元だけで、この条件を満たしたとは扱わない。
+3. 反映対象・停止影響・一時作業と継続費用・キャッシュ失効範囲・後片付けを揃え、共有DB変更/アプリ反映/S3権限変更を明示して承認を確認する。現時点では追加費用・停止時間を確定しておらず、一括実行へは進まない。
+4. 承認された順序で認可付きアプリ・必要な移行/静的ファイル・S3拒否を反映し、合成ファイルで正規取得とCDN拒否を両方確認する。旧アプリのままDenyを先行させる案は、ダウンロードが一時利用不能になる別の選択として扱う。
+5. 問題時は非公開ファイルの拒否と後続世代保護を維持する修正を優先する。旧タスク定義40への更新だけを安全な復旧とせず、DB/ファイル/アプリの組合せを照合する。旧ポリシーへ戻して公開取得を再許可する復旧は自動実行しない。
+
+本節の作業は読み取り調査・ローカル案・静的検証だけで、DB/実データ/Secrets/IAM/S3ポリシー・稼働タスク・資源・費用は変更していない。文書の訂正は後続コミットで可能であり、稼働環境のロールバックは不要。
+
 ## 最新候補のローカル準備（46530ebc、2026-09-08）
 
 [固定候補の記録](RUNTIME_CANDIDATE_46530EBC_2026-09-08.md)にイメージIDとPostgreSQL 18.3・本番設定での隔離起動結果を保存した。登録フォーカスと自己配信フォントの修正を含み、HTTP配信・静的ファイルのハッシュ・deploy checkが成功。ECR送信・共有環境反映は未実施。下記の10d21e42以前は過去候補の履歴として扱う。
