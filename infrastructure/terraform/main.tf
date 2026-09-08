@@ -368,6 +368,10 @@ resource "aws_cloudfront_origin_access_control" "assets" {
   signing_protocol                  = "sigv4"
 }
 
+data "aws_cloudfront_response_headers_policy" "static_cors" {
+  name = "Managed-SimpleCORS"
+}
+
 resource "aws_cloudfront_distribution" "assets" {
   enabled     = true
   price_class = var.cloudfront_price_class
@@ -381,6 +385,19 @@ resource "aws_cloudfront_distribution" "assets" {
     cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "assets"
     viewer_protocol_policy = "redirect-to-https"
+    forwarded_values {
+      query_string = false
+      cookies { forward = "none" }
+    }
+  }
+  # Keep public static assets usable by cross-origin consumers and older pages.
+  ordered_cache_behavior {
+    path_pattern               = "static/*"
+    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+    cached_methods             = ["GET", "HEAD"]
+    target_origin_id           = "assets"
+    viewer_protocol_policy     = "redirect-to-https"
+    response_headers_policy_id = data.aws_cloudfront_response_headers_policy.static_cors.id
     forwarded_values {
       query_string = false
       cookies { forward = "none" }

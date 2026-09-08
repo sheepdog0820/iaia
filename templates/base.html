@@ -7,7 +7,8 @@
     {% block extra_head %}{% endblock %}
     {% load static %}
     <link href="{% static 'vendor/bootstrap/5.3.0/bootstrap.min.css' %}" rel="stylesheet">
-    <link href="{% static 'vendor/fontawesome/6.0.0/css/all.min.css' %}" rel="stylesheet">
+    <link href="{% url 'public_font' 'fontawesome/6.0.0/css/all.min.css' %}" rel="stylesheet">
+    <link href="{% url 'public_font' 'theme-fonts/fonts.css' %}" rel="stylesheet">
     <link href="{% static 'css/arkham_modern.css' %}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
 </head>

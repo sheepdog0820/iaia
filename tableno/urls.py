@@ -93,8 +93,10 @@ from tableno.legal_views import (
     terms_view,
 )
 from tableno.media_views import serve_media
+from tableno.public_fonts import public_font
 
 urlpatterns = [
+    path("fonts/<path:font_path>", public_font, name="public_font"),
     path("api/integrations/", include("support.urls")),
     path("health/live/", health_live_view, name="health_live"),
     path("health/live", health_live_view),

@@ -1,8 +1,6 @@
 /* タブレノ - Modern Clean Theme CSS */
 /* モダンで洗練された、見やすい色合いのテーマ */
 
-@import url('../vendor/theme-fonts/fonts.css');
-
 /* ベーステーマ - 明るくて見やすい色調 */
 :root {
     /* 操作対象を表示する自動スクロールは、クリックやドラッグ前に完了させる。 */
