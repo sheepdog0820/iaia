@@ -343,8 +343,13 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
         context["character_sheet"] = self._get_character_sheet(require_owner=self._requires_owner())
         return context
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """画像のアップロード"""
+        character = self._get_character_sheet(require_owner=True)
+        # Serialize the limit check and save for this character, including when
+        # there are no image rows yet. Recheck ownership after acquiring the lock.
+        self._character_sheet = get_object_or_404(CharacterSheet.objects.select_for_update(), pk=character.pk)
         character = self._get_character_sheet(require_owner=True)
 
         serializer = self.get_serializer(data=request.data)
