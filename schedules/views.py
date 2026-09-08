@@ -3671,13 +3671,28 @@ class DatePollViewSet(viewsets.ModelViewSet):
         headers = self.get_success_headers(output_serializer.data)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+    def get_locked_poll(self):
+        """トランザクション内で投票をロックし、現在の閲覧範囲と状態を再取得する。"""
+        visible_poll = self.get_object()
+        get_object_or_404(DatePoll.objects.select_for_update(), pk=visible_poll.pk)
+        poll = get_object_or_404(self.filter_queryset(self.get_queryset()), pk=visible_poll.pk)
+        self.check_object_permissions(self.request, poll)
+        return poll
+
+    @transaction.atomic
     def update(self, request, *args, **kwargs):
-        if self.get_object().created_by_id != request.user.id:
+        poll = self.get_locked_poll()
+        if poll.created_by_id != request.user.id:
             return Response(
-                {"detail": "Only the poll owner can update it."},
+                {"detail": "作成者のみが投票を編集できます"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        return super().update(request, *args, **kwargs)
+        serializer = self.get_serializer(poll, data=request.data, partial=kwargs.pop("partial", False))
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        if getattr(poll, "_prefetched_objects_cache", None):
+            poll._prefetched_objects_cache = {}
+        return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
         if self.get_object().created_by_id != request.user.id:
@@ -3729,9 +3744,10 @@ class DatePollViewSet(viewsets.ModelViewSet):
         return queryset
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def vote(self, request, pk=None):
         """日程調整に投票"""
-        poll = self.get_object()
+        poll = self.get_locked_poll()
 
         if poll.is_closed:
             raise ValidationError({"error": "投票は締め切られています"})
@@ -3759,9 +3775,10 @@ class DatePollViewSet(viewsets.ModelViewSet):
         return Response({"votes": results})
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def confirm(self, request, pk=None):
         """日程を確定"""
-        poll = self.get_object()
+        poll = self.get_locked_poll()
 
         if poll.created_by != request.user:
             raise PermissionDenied("作成者のみが確定できます")
@@ -3795,9 +3812,10 @@ class DatePollViewSet(viewsets.ModelViewSet):
         return Response(response_data)
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def add_option(self, request, pk=None):
         """候補日を追加"""
-        poll = self.get_object()
+        poll = self.get_locked_poll()
 
         if poll.is_closed:
             raise ValidationError({"error": "投票は締め切られています"})
