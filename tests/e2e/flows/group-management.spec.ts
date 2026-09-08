@@ -6,8 +6,9 @@ test.describe('groups', () => {
     await devLogin(page);
     await page.goto('/accounts/groups/view/?show_test_data=1');
 
-    await page.click('button[data-bs-target="#createGroupModal"]');
-    await expect(page.locator('#createGroupModal')).toBeVisible();
+    const createButton = page.locator('button[data-bs-target="#createGroupModal"]');
+    await createButton.click();
+    await expect(page.locator('#createGroupModal')).toBeFocused();
 
     const groupName = `E2E Group ${Date.now()}`;
 
@@ -20,13 +21,12 @@ test.describe('groups', () => {
       response.request().method() === 'POST'
     );
     await page.click('#saveGroupBtn');
-    await createResponse;
-    await page.waitForResponse(response => {
-      if (response.request().method() !== 'GET') return false;
-      return new URL(response.url()).pathname === '/api/accounts/groups/';
-    });
+    expect((await createResponse).status()).toBe(201);
+    await expect(page.locator('#createGroupModal')).toBeHidden();
+    await expect(createButton).toBeFocused();
 
     await page.fill('#groupSearchInput', groupName);
+    await expect(page.locator('#groupSearchInput')).toHaveValue(groupName);
     const groupCard = page.locator('.group-card', { hasText: groupName });
     await expect(groupCard).toBeVisible({ timeout: 15000 });
   });
