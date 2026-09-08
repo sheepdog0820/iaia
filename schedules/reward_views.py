@@ -125,6 +125,14 @@ class SessionRewardViewSet(viewsets.ModelViewSet):
                 else None
             )
             if growth_record:
+                if growth_record.character_sheet_id != character_sheet.pk:
+                    return Response(
+                        {
+                            "error": "前回の反映先と参加キャラクターが異なるため、再反映できません。"
+                            "前回の成長記録は変更していません。"
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
                 growth_record.session_date = session_date
                 growth_record.scenario_name = scenario_name
                 growth_record.gm_name = gm_name
