@@ -29,6 +29,16 @@ Docker Scout 1.24.0でこの固定イメージをdeb限定で再監査した。2
 
 Git管理外の証跡: `tmp/release-build-10d21e42.log`、`tmp/release-source-hashes-10d21e42.json`、`tmp/release-runtime-10d21e42-{first-start,startup,http}.log`、`tmp/release-runtime-10d21e42-db.json`。再検証時は固定SHA・イメージIDを照合する。
 
-同候補の[CI](https://github.com/sheepdog0820/iaia/actions/runs/34191048141)は確認時点でproduction-database・lint-security・systemが成功、Unit / Integrationとplaywrightが実行中。全体CI成功や正式公開可能とは未判定。
+同候補の[CI](https://github.com/sheepdog0820/iaia/actions/runs/34191048141)は2026-09-08の後続確認でcompleted/success、全5ジョブ成功。GitHubのhead_shaが上記完全SHAであることも照合した。
+
+| ジョブ | 完了ログの結果 |
+| --- | --- |
+| Unit / Integration（101949012876） | 1745成功・28省略・159警告、844.03秒、総カバレッジ86.87% |
+| production-database（101949013136） | 284成功・38サブテスト成功・9警告、80.60秒。報酬APIと同時反映を実行対象に含む |
+| playwright（101949013137） | Chromium/Firefox/WebKitの計186成功、12.4分 |
+| lint-security（101949013007） | success |
+| system（101949012999） | success |
+
+省略や警告を0件と読み替えない。CIのlint-security成功も、別途実行したOS監査の48指摘を解消した意味ではない。以後のソース変更に、この候補のCI成功をそのまま適用しない。
 
 共有環境のマイグレーション・アプリ更新・バックアップ復元検証は未実施。実ストレージ/CDN保護、外部認可/配送、Stripeテスト環境の課金ライフサイクル、公開に必要な事業判断を引き続き揃える。実環境の復旧候補は稼働版とバックアップの再確認が必要で、空DB起動成功だけではロールバック実証にならない。

@@ -20,6 +20,8 @@
 
 ## CIと残条件
 
+後続のCI補完候補10d21e42は[全5ジョブ成功](https://github.com/sheepdog0820/iaia/actions/runs/34191048141)を確認した。production-databaseの完了ログに追加した `schedules/test_session_rewards.py` が含まれ、284成功・38サブテスト成功・9警告、80.60秒だった。これは下段の過去候補59f07079の途中状態とは別の確定結果である。
+
 候補59f07079の[CI](https://github.com/sheepdog0820/iaia/actions/runs/34190819633)は確認時点でlint-securityとsystemが成功、Unit / Integration・production-database・playwrightは実行中。ローカル36件の成功でCI完了・正式公開可能とは判定しない。今回のCI対象追加後のジョブ成功も確認する。
 
 共有環境へのアプリ反映・未適用マイグレーションの適用、実S3/CDNでの保護、Stripeを含む実外部連携検証は引き続き未完了。以前に誤更新された成長記録の復元を証明する検証ではない。
