@@ -222,6 +222,7 @@ jobs:
             accounts/test_google_grant_concurrency.py accounts/test_google_identity_concurrency.py \
             accounts/test_group_invite_concurrency.py accounts/test_oauth_atomicity.py \
             schedules/test_claim_concurrency.py schedules/test_reward_concurrency.py \
+            schedules/test_session_rewards.py \
             schedules/test_date_poll_confirmation.py schedules/test_date_poll_edit_permissions.py \
             schedules/test_date_poll_final_date_policy.py \
             schedules/test_date_poll_creation.py schedules/test_date_poll_vote_validation.py \
