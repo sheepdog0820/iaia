@@ -196,7 +196,7 @@ jobs:
       LEGAL_SELLER_PHONE: 000-0000-0000
     services:
       postgres:
-        image: postgres:16
+        image: postgres:18.3
         env:
           POSTGRES_DB: tableno_ci
           POSTGRES_USER: tableno_ci
