@@ -17,7 +17,11 @@
 
 ### High: CVE-2026-85091 / zlib
 
-[Debianの追跡情報](https://security-tracker.debian.org/tracker/CVE-2026-85091)の説明は1.3.1.2から1.3.2のgz_vacate関数を対象としている。一方、同じページのパッケージ表はtrixieの1.3.1もvulnerableとし、注記にcheck detailsが残る。[上流の修正](https://github.com/madler/zlib/commit/e3dc0a85b7032e98380dec011bc8f2c2ee0d8fca)はgzwrite.cでNULLポインターの判定を追加している。
+[Debianの追跡情報](https://security-tracker.debian.org/tracker/CVE-2026-85091)の説明は1.3.1.2から1.3.2のgz_vacate関数を対象としている。一方、同じページのパッケージ表はtrixieの1.3.1もvulnerableとしている。[上流の未定義動作への対処](https://github.com/madler/zlib/commit/e3dc0a85b7032e98380dec011bc8f2c2ee0d8fca)はgzwrite.cでNULLポインターの判定を追加しているが、これを当該CVEの正式な修正とする確認は取れていない。
+
+2026-09-08の再確認では、Debianの注記に[上流への照会Issue #1310](https://github.com/madler/zlib/issues/1310)が追加されていた。IssueはOpenで、取得した本文は報告の有無を尋ねるものであり、修正完了や非該当の回答ではない。Debianバグ1146895の本文は今回取得できず、内容を確認した扱いにはしない。
+
+同日、curl削除後の通常イメージ `158c7301a238` でPythonの実行時zlibは1.3.1、実体は `/usr/lib/x86_64-linux-gnu/libz.so.1.3.1`、SHA-256は `85590dd58edf5445e18bc7193e5ebc01ac5841f1ae187e97705a662e90c6421e`。`dpkg -V zlib1g` は終了0だがchangelogファイル3件の欠落を表示した。libz本体の不一致は表示されなかったものの、終了値だけでパッケージ全体が完全一致と解釈しない。最新版候補でもHIGH指摘の正式な解消判断は保留する。
 
 候補内のzlib1g/zlib1g-devは `1:1.3.dfsg+really1.3.1-1+b1`。PythonのZLIB_VERSIONとZLIB_RUNTIME_VERSIONはいずれも1.3.1。[Debian公開ソースのgzwrite.c](https://sources.debian.org/src/zlib/1%3A1.3.dfsg%2Breally1.3.1-1/gzwrite.c/)を取得したところ、gz_vacateは存在せずgzvprintfは存在した。取得ファイルは19,237バイト、SHA-256は `469b1e58932ea11bdda2a153f6655f7b3c13254240fae157181b49ed1bc93b47`、ローカル保存先は `tmp/debian-zlib-1.3.1-gzwrite.c`。
 
