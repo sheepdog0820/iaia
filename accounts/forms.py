@@ -143,6 +143,8 @@ class CustomSignUpForm(UserCreationForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Delayed browser autofocus can steal focus after password entry has begun.
+        self.fields["username"].widget.attrs.pop("autofocus", None)
         self.fields["username"].widget.attrs.update({"class": "form-control", "placeholder": "ユーザー名"})
         self.fields["password1"].widget.attrs.update({"class": "form-control", "placeholder": "パスワード"})
         self.fields["password2"].widget.attrs.update({"class": "form-control", "placeholder": "パスワード（確認）"})
