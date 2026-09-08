@@ -2,6 +2,7 @@ from datetime import datetime
 from datetime import time as time_cls
 
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
@@ -1410,7 +1411,16 @@ class DatePollCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"session": "このセッションには未締め切りの日程調整が既にあります"})
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
+        session = validated_data.get("session")
+        if session:
+            session = TRPGSession.objects.select_for_update().filter(pk=session.pk).first()
+            if session is None:
+                raise serializers.ValidationError({"session": "対象のセッションが見つかりません"})
+            validated_data["session"] = session
+        # 事前検証後の作成・日程確定・管理権限の変更を保存前に再確認する。
+        validated_data = self.validate(validated_data)
         options_data = validated_data.pop("options")
         validated_data["created_by"] = self.context["request"].user
 
