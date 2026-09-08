@@ -7,12 +7,13 @@ from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
+from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.character_models import CharacterImage6th as CharacterImage
 from accounts.models import CharacterSheet
-from accounts.test_character_factories import create_6th_character
+from accounts.test_character_factories import create_6th_character, create_character_with_system_data
 from accounts.test_character_integration import CharacterIntegrationTestCase
 
 User = get_user_model()
@@ -101,6 +102,35 @@ class CharacterImageAPISMokeTest(APITestCase):
 
         img2.refresh_from_db()
         self.assertTrue(img2.is_main)
+
+
+class CharacterImageAppendOrderTests(APITestCase):
+    def check_append_order(self, edition):
+        user = User.objects.create_user(username="image_order")
+        self.client.force_authenticate(user=user)
+        sheet, detail = create_character_with_system_data(user=user, edition=edition, name="画像の順序確認")
+        buffer = io.BytesIO()
+        Image.new("RGB", (8, 8), "blue").save(buffer, "PNG")
+        with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
+            for index, expected_order in enumerate((0, 1, 2, 7, 8)):
+                payload = {
+                    "image": SimpleUploadedFile(f"image-{index}.png", buffer.getvalue(), content_type="image/png")
+                }
+                if index == 3:
+                    payload["order"] = 7
+                response = self.client.post(
+                    f"/api/accounts/character-sheets/{sheet.pk}/images/", payload, format="multipart"
+                )
+                self.assertEqual(response.status_code, 201)
+                self.assertEqual(response.data["order"], expected_order)
+            self.assertEqual(list(detail.images.order_by("order").values_list("order", flat=True)), [0, 1, 2, 7, 8])
+            self.assertEqual(detail.images.filter(is_main=True).count(), 1)
+
+    def test_6th_uploads_append_after_zero_and_explicit_order(self):
+        self.check_append_order("6th")
+
+    def test_7th_uploads_append_after_zero_and_explicit_order(self):
+        self.check_append_order("7th")
 
 
 @override_settings(MEDIA_ROOT=tempfile.mkdtemp())
