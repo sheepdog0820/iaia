@@ -8,7 +8,7 @@ from datetime import timedelta
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.urls import reverse
 from django.utils import timezone
 
@@ -1726,8 +1726,14 @@ class DatePoll(models.Model):
 
         return options
 
+    @transaction.atomic
     def confirm_date(self, selected_option):
         """日程を確定する"""
+        locked_poll = type(self).objects.select_for_update().get(pk=self.pk)
+        if locked_poll.is_closed:
+            raise ValidationError({"error": "投票は締め切られています"})
+        # ロック待機前に取得した状態で確定済み日時やセッションを上書きしない。
+        self.refresh_from_db()
         selected_dt = selected_option.datetime
         if selected_dt and timezone.is_naive(selected_dt):
             selected_dt = timezone.make_aware(selected_dt, timezone.get_current_timezone())

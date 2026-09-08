@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Case, Count, DateTimeField, F, IntegerField, Prefetch, Q, Sum, Value, When
 from django.db.models.deletion import ProtectedError
@@ -3777,7 +3778,10 @@ class DatePollViewSet(viewsets.ModelViewSet):
         except DatePollOption.DoesNotExist:
             raise ValidationError({"option_id": "候補日が見つかりません"})
 
-        session = poll.confirm_date(option)
+        try:
+            session = poll.confirm_date(option)
+        except DjangoValidationError as exc:
+            raise ValidationError(exc.message_dict) from exc
 
         serializer = self.get_serializer(poll)
         response_data = serializer.data
