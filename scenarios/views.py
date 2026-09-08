@@ -348,17 +348,11 @@ class ScenarioNoteViewSet(viewsets.ModelViewSet):
         return ScenarioNote.objects.filter(Q(user=self.request.user) | Q(is_private=False))
 
     def get_object(self):
-        """オブジェクト取得時の権限チェック"""
+        """閲覧可能なメモでも、変更・削除は作成者だけに許可する。"""
         obj = super().get_object()
-
-        # 自分が作成したメモ、または公開メモのみアクセス可能
-        if obj.user == self.request.user or not obj.is_private:
-            return obj
-
-        # プライベートメモで作成者でない場合は404を返す
-        from django.http import Http404
-
-        raise Http404("Note not found")
+        if self.request.method not in ("GET", "HEAD", "OPTIONS") and obj.user_id != self.request.user.pk:
+            raise PermissionDenied("メモの変更・削除は作成者のみ可能です。")
+        return obj
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
