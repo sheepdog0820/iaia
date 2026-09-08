@@ -1334,6 +1334,16 @@ class DatePollSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_by", "session", "created_at", "updated_at"]
 
+    def validate_group(self, group):
+        user = getattr(self.context.get("request"), "user", None)
+        if not user or not user.is_authenticated:
+            raise serializers.ValidationError("このグループで日程調整を編集する権限がありません")
+        if group.created_by_id != user.id and not group.members.filter(id=user.id).exists():
+            raise serializers.ValidationError("このグループで日程調整を編集する権限がありません")
+        if self.instance and self.instance.session_id and self.instance.session.group_id != group.pk:
+            raise serializers.ValidationError("セッションと日程調整のグループが一致しません")
+        return group
+
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_session_detail(self, obj):
         if obj.session:

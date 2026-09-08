@@ -3783,6 +3783,12 @@ class DatePollViewSet(viewsets.ModelViewSet):
         if poll.created_by != request.user:
             raise PermissionDenied("作成者のみが確定できます")
 
+        if poll.session_id:
+            if not session_permissions.can_edit_session_basic(request.user, poll.session):
+                raise PermissionDenied("セッションを編集する権限がありません")
+            if poll.session.group_id != poll.group_id:
+                raise ValidationError({"session": "セッションと日程調整のグループが一致しません"})
+
         if poll.is_closed:
             raise ValidationError({"error": "投票は締め切られています"})
 
