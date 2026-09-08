@@ -24,6 +24,20 @@ CloudFrontはDeployedになったが、Chromeと別Chromiumの新規セッショ
 
 フォント資産の将来変更では、未ハッシュURLのため既存ブラウザに最大1時間旧フォントが残り得る。新しいCSSが旧フォントと非互換になる変更では、バージョン別ディレクトリを使う。公開範囲はライセンス文書を含む同梱フォント資産のみ。その他の静的ファイルは従来どおりCloudFrontを利用する。
 
+### 同一ドメイン配信の反映・検証結果
+
+- 修正コミット `fa09731c47ee0342dfb344466f9f3cc39963f192` を作業ブランチへpush。関連テスト8件成功、新規配信モジュールの19文・カバレッジ100%。Black/isort・差分・ステージ済みUTF-8/LF確認成功。画面文言の変更なし。固定ディレクトリ外・パストラバーサル・POST拒否、匿名HTTP取得・HEAD・ETag/304を確認した。
+- クリーンなコミットからイメージ `aws-pre-fa09731c` をビルド。digest `sha256:f0c900978e2e6b686782fbed2ddf5b007ae5bdbb8deac8f04bbf126a3a890ecd`。定義41のWebイメージだけを変更した定義42へ切り替え、その他の設定が完全一致することを比較した。
+- チェック・移行計画確認・静的収集のタスク `c71b214dd70b4964a4d5ca87ddb93ac9` はSTOPPED/終了0。移行計画なし、既存W008のみ。今回はDB移行を適用していない。
+- 静的キャッシュ失効 `I1TEACX2FYPTJ0NQX304X3OW8F` はCompleted。新テーマCSS `static/css/arkham_modern.6b5af6300cf0.css` はS3/CloudFrontのバイトが一致し、フォントimportを含まない。
+- 定義42のみ稼働1、rollout COMPLETED。タスク `cd4009951ae3488b91a32a4934592118` はHEALTHY、実イメージdigest一致。13:11 UTC時点のreadinessはDB/cacheともok。
+- 新規Chromeと別Chromiumで、Font Awesome Free/Brands・Inter・Poppinsの4ファミリーがloaded。ページで必要なwoff2全5件がアプリの `/fonts/` からHTTP200で取得され、フォントerror状態なし。登録画面のスクリーンショットでもサイコロ・メール・鍵等のアイコンを確認し、ログイン画面へのリンク遷移も成功した。不要な言語・ウェイトのunloadedはブラウザが要求していない状態で、失敗ではない。
+- 検証スクリプトの最初のリンク完全一致指定は、アイコン文字を含むアクセシブル名に一致せずタイムアウトした。文字列包含で指定し直して遷移成功。フォント読み込み成功と、この検証側セレクター失敗を区別した。
+- 既存faviconの404は残るが、フォントCORSエラーは解消。CI run34229623157は記録時点で進行中（lint-security/system/production-database成功、残り未完了）。CI全体成功とはまだ扱わない。
+- 復旧はWeb定義41へ戻せるが、アイコン不具合も戻る。今回DB・IAM・S3アクセス権限・常時稼働台数の変更なし。背景透過のIAM追加は引き続き未実施。
+
+今回の実行証跡はGit管理外の `tmp/aws-pre-fa09731c/`、ブラウザの詳細と画像は `tmp/aws-pre-14ac4746/browser-font-check.json`・`signup.png` に保存した。
+
 ## 背景透過の追加確認
 
 Web環境は背景透過定義2（旧 `aws-pre-2b2f02a3`）を指定する一方、既存の起動用IAM inline policyは定義1だけを許可していた。最新イメージに揃えた定義3を登録し、既存CPU1024/メモリ2048・コマンド・ロール等を保持した。
