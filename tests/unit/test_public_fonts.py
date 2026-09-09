@@ -1,9 +1,11 @@
 from pathlib import Path
 
-from django.test import RequestFactory, SimpleTestCase
+from django.test import RequestFactory, TestCase
 
 
-class PublicFontTests(SimpleTestCase):
+class PublicFontTests(TestCase):
+    # Response.close() dispatches Django's DB connection cleanup signal even
+    # for static responses. Keep that lifecycle inside a managed test DB.
     def test_anonymous_http_route_works_with_external_static_domain(self):
         from django.test import override_settings
         from django.urls import reverse
@@ -11,10 +13,11 @@ class PublicFontTests(SimpleTestCase):
         with override_settings(STATIC_URL="https://example.invalid/static/"):
             url = reverse("public_font", args=["theme-fonts/fonts.css"])
             self.assertEqual(url, "/fonts/theme-fonts/fonts.css")
-            response = self.client.get(url)
-            self.assertEqual(response.status_code, 200)
-            self.assertTrue(response["Content-Type"].startswith("text/css"))
-            response.close()
+            with self.assertNumQueries(0):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response["Content-Type"].startswith("text/css"))
+                response.close()
 
     def test_anonymous_font_delivery_and_conditional_request(self):
         from tableno.public_fonts import public_font
