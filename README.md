@@ -11,15 +11,15 @@
 
 | 対象 | 確認結果 |
 | --- | --- |
-| 最新コード候補 | `e85dd330`。Google認可更新失敗の終了処理、Calendar作成再試行の重複防止を含む |
-| 候補のCI | [push CI](https://github.com/sheepdog0820/iaia/actions/runs/34445814677)・[PR CI](https://github.com/sheepdog0820/iaia/actions/runs/34445818404)ともに成功 |
-| 開発AWS | [stg.tableno.jp](https://stg.tableno.jp/)：`595a390a`／Webタスク定義47、稼働1・正常。最新候補は未反映 |
-| 反映済みの主な修正 | フォント配信、背景透過の起動権限、セッション性能・統計、Google再試行受付の権限確認とSheets出力対象の維持 |
-| main | マージ済み版は `14ac4746`。後続修正は[Draft PR #3](https://github.com/sheepdog0820/iaia/pull/3)で管理 |
+| 検証・反映済みコード | `f97c7809`。Google認可更新失敗の終了処理、Calendar作成再試行の重複防止を含む |
+| 反映対象のCI | [push CI](https://github.com/sheepdog0820/iaia/actions/runs/34455121479)・[PR CI](https://github.com/sheepdog0820/iaia/actions/runs/34455126552)ともに全6ジョブ成功 |
+| 開発AWS | [stg.tableno.jp](https://stg.tableno.jp/)：`aws-pre-f97c7809`／Webタスク定義48。17:47 JSTに切替完了・稼働1・正常、DB/キャッシュ・ログイン・統計表示を確認 |
+| 反映済みの主な修正 | フォント配信、背景透過の起動権限、セッション性能・統計、Google再試行受付の権限確認、Sheets出力対象の維持、認可更新失敗とCalendar重複防止 |
+| main | [PR #3](https://github.com/sheepdog0820/iaia/pull/3)を `74a4b506` でマージ済み。マージ直後の内容は検証・配布した `f97c7809` と一致。後続のREADME・反映記録は文書のみの更新 |
 | Google処理基盤 | 一時Redis・workerのAWS接続試験は成功・撤去済み。常設基盤と実Calendar/Sheets同期は未完了 |
 | Stripe | 登録・連携作業は保留中。実Stripeテストモードの課金ライフサイクルは未検証 |
 
-項目別の証拠と残条件は[正式公開の受け入れ条件](docs/release/FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)、稼働版の記録は[Google再試行修正のAWS反映](docs/release/AWS_PRE_GOOGLE_RETRY_2026-09-10.md)を参照してください。CI成功だけで実サービス検証や本番公開完了とは扱いません。
+項目別の証拠と残条件は[正式公開の受け入れ条件](docs/release/FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)、稼働版と復旧先の記録は[Google配送修正のAWS反映](docs/release/AWS_PRE_GOOGLE_DELIVERY_2026-09-10.md)を参照してください。CI成功だけで実サービス検証や本番公開完了とは扱いません。
 
 ## 無料・有料の範囲
 
@@ -151,7 +151,7 @@ GitHub Actions ([ワークフロー定義](.github/workflows/django-ci.yml)) は
 - production settings の `python manage.py check --deploy`
 - `python manage.py billing_release_gate`
 
-最新コード候補のCI結果は冒頭のリンクを参照してください。テスト件数と合格範囲は対象SHAごとに確認し、過去の件数を現在の全体検証結果として扱いません。
+反映対象コードのCI結果は冒頭のリンクを参照してください。後続の文書コミットやmainのCIとは区別します。テスト件数と合格範囲は対象SHAごとに確認し、過去の件数を現在の全体検証結果として扱いません。
 
 ## Development Commands
 
@@ -218,7 +218,7 @@ AWSでは `APP_ENV=aws-pre` / `aws-prod` が `tableno.settings_production` を�
 
 | 分野 | 残条件 |
 | --- | --- |
-| 最新版の反映 | 候補の開発AWS反映と動作確認、mainへのマージ判断 |
+| 本番公開の判断 | 検証済み版のmainマージ・開発AWS反映は完了。本番反映は未実施で、以下の公開条件を満たしてから判断 |
 | 外部連携 | Google実同期・失効/再試行/取消・公開審査、Discord/Xの実認証・通知、CCFOLIA画像/ダイス・ICS受信側確認 |
 | 非同期・監視 | 常設worker・待ち行列・定期処理、夜間停止、監視通知・問い合わせ配送の実証 |
 | 課金 | 保留解除後、Stripeテストモードの月額/年額決済・更新・解約・支払失敗/回復・返金・Webhook重複/再送の検証 |
