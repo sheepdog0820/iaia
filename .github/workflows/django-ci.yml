@@ -28,7 +28,7 @@ jobs:
         working-directory: infrastructure/terraform
         run: |
           terraform init -backend=false -input=false
-          terraform fmt -check main.tf tests/worker_network.tftest.hcl
+          terraform fmt -check main.tf variables.tf tests/worker_network.tftest.hcl
           terraform validate -no-color
           terraform test -no-color
 

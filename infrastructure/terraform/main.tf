@@ -22,6 +22,7 @@ locals {
   db_port          = var.db_engine == "postgres" ? 5432 : 3306
   redis_url        = var.enable_elasticache ? "rediss://${aws_elasticache_replication_group.main[0].primary_endpoint_address}:6379/0" : ""
   celery_redis_url = var.enable_elasticache ? "${local.redis_url}?ssl_cert_reqs=required" : ""
+  redis_web_state  = var.enable_elasticache && var.enable_redis_web_state
   allowed_hosts    = var.allowed_hosts_override != "" ? var.allowed_hosts_override : var.domain_name
   backup_retention = var.environment == "aws-prod" ? 14 : var.db_backup_retention_period
   app_secret_names = distinct(concat(["SECRET_KEY", "DB_PASSWORD"], var.extra_secret_names))
@@ -39,9 +40,9 @@ locals {
     { name = "DB_NAME", value = var.db_name },
     { name = "DB_USER", value = var.db_username },
     { name = "DB_SSL_MODE", value = "require" },
-    { name = "USE_REDIS_CACHE", value = tostring(var.enable_elasticache) },
-    { name = "WEBSOCKET_NOTIFICATIONS_ENABLED", value = tostring(var.enable_elasticache) },
-    { name = "SESSION_ENGINE", value = var.enable_elasticache ? "django.contrib.sessions.backends.cache" : "django.contrib.sessions.backends.db" },
+    { name = "USE_REDIS_CACHE", value = tostring(local.redis_web_state) },
+    { name = "WEBSOCKET_NOTIFICATIONS_ENABLED", value = tostring(local.redis_web_state) },
+    { name = "SESSION_ENGINE", value = local.redis_web_state ? "django.contrib.sessions.backends.cache" : "django.contrib.sessions.backends.db" },
     { name = "USE_S3_STORAGE", value = "True" },
     { name = "AWS_STORAGE_BUCKET_NAME", value = aws_s3_bucket.assets.id },
     { name = "AWS_S3_REGION_NAME", value = var.aws_region },

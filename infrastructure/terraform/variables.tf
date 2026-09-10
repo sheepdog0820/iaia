@@ -109,6 +109,12 @@ variable "enable_elasticache" {
   default = true
 }
 
+variable "enable_redis_web_state" {
+  description = "Use enabled ElastiCache for web cache, sessions and websocket notifications. Disable to retain database sessions while using Redis only for Celery."
+  type        = bool
+  default     = true
+}
+
 variable "desired_count" {
   type    = number
   default = 1
