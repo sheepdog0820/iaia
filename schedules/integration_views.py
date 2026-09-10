@@ -10,7 +10,7 @@ from django.db.models import Q
 from django.http import Http404, HttpResponse
 from django.urls import reverse
 from django.utils import timezone
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -260,6 +260,27 @@ class GoogleCalendarSyncView(APIView):
         )
 
 
+class GoogleSheetsSelectionSerializer(serializers.Serializer):
+    character_ids = serializers.ListField(
+        child=serializers.IntegerField(
+            min_value=1,
+            error_messages={
+                "invalid": "キャラクターIDは正の整数で指定してください。",
+                "min_value": "キャラクターIDは1以上で指定してください。",
+                "null": "キャラクターIDを指定してください。",
+                "max_string_length": "キャラクターIDが長すぎます。",
+            },
+        ),
+        required=False,
+        allow_empty=False,
+        error_messages={
+            "empty": "出力するキャラクターを1件以上指定してください。",
+            "null": "出力するキャラクターを一覧で指定してください。",
+            "not_a_list": "出力するキャラクターを一覧で指定してください。",
+        },
+    )
+
+
 class GoogleSheetsExportView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -270,9 +291,12 @@ class GoogleSheetsExportView(APIView):
                 {"detail": "Google Sheets is not connected."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        selection = GoogleSheetsSelectionSerializer(data=request.data)
+        selection.is_valid(raise_exception=True)
+        character_ids = selection.validated_data.get("character_ids")
         characters = CharacterSheet.objects.filter(user=request.user)
-        if request.data.get("character_ids"):
-            characters = characters.filter(pk__in=request.data["character_ids"])
+        if character_ids is not None:
+            characters = characters.filter(pk__in=character_ids)
         rows = []
         for character in characters.order_by("id"):
             detail = character.system_data
@@ -306,7 +330,7 @@ class GoogleSheetsExportView(APIView):
             payload={
                 "spreadsheet_id": spreadsheet_id,
                 "range": request.data.get("range", SHEETS_DEFAULT_START_RANGE),
-                "character_ids": request.data.get("character_ids", []),
+                "character_ids": character_ids if character_ids is not None else [],
             },
             expires_at=timezone.now() + timedelta(days=7),
         )

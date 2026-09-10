@@ -269,6 +269,56 @@ class GoogleIntegrationTestCase(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    @patch("schedules.integration_views.queue_google_sheet_export", return_value=True)
+    def test_sheets_export_rejects_empty_or_invalid_selection_before_queueing(self, queue_export):
+        self.connect_google()
+        character = CharacterSheet.objects.create(user=self.user, edition="7th")
+        CharacterSheet7th.objects.create(character_sheet=character, name="Private selection fixture")
+        for selection in ([], None, "1", {}, [0], [-1], ["invalid"]):
+            with self.subTest(selection=selection):
+                response = self.client.post(
+                    "/api/character-sheets/google-sheets/export/",
+                    {"character_ids": selection, "spreadsheet_id": "isolated-sheet"},
+                    format="json",
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("character_ids", response.data)
+                if selection == []:
+                    self.assertEqual(
+                        response.data["character_ids"],
+                        ["出力するキャラクターを1件以上指定してください。"],
+                    )
+                queue_export.assert_not_called()
+                self.assertFalse(AsyncJob.objects.filter(job_type="google_sheets_export").exists())
+
+    @patch("schedules.integration_views.queue_google_sheet_export", return_value=True)
+    def test_sheets_export_selection_does_not_include_other_owned_or_foreign_characters(self, queue_export):
+        self.connect_google()
+        other = get_user_model().objects.create_user(username="sheet-other-owner")
+        characters = []
+        for owner, name in ((self.user, "Selected"), (self.user, "Not selected"), (other, "Other owner")):
+            character = CharacterSheet.objects.create(user=owner, edition="7th")
+            CharacterSheet7th.objects.create(character_sheet=character, name=name)
+            characters.append(character)
+        response = self.client.post(
+            "/api/character-sheets/google-sheets/export/",
+            {"character_ids": [characters[0].pk, characters[2].pk]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([row[0] for row in response.data["rows"]], [characters[0].pk])
+        response = self.client.post("/api/character-sheets/google-sheets/export/", {}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([row[0] for row in response.data["rows"]], [c.pk for c in characters[:2]])
+        response = self.client.post(
+            "/api/character-sheets/google-sheets/export/",
+            {"character_ids": [str(characters[0].pk)], "spreadsheet_id": "isolated-sheet"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertEqual([row[0] for row in queue_export.call_args.args[-1][1:]], [characters[0].pk])
+        self.assertEqual(AsyncJob.objects.get(pk=response.data["job_id"]).payload["character_ids"], [characters[0].pk])
+
     def test_sheets_export_includes_7th_luck_and_current_statuses(self):
         self.connect_google()
         character = CharacterSheet.objects.create(user=self.user, edition="7th")
