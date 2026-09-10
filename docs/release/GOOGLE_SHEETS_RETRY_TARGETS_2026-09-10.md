@@ -19,4 +19,4 @@
 - 外部通信を遮断したコンテナ、メモリDB、ダミー設定とキューのモックを使用。Google実送信は0件、コンテナは終了時削除。
 - Black/isort/flake8、差分、日本語エラーを確認。Git管理外の `tmp/sheets-target-snapshot-red.log`、`tmp/sheets-legacy-snapshot-red.log`、`tmp/sheets-snapshot-green.log` に証跡を保存。
 
-DB移行、共有データ変更、IAM/Secrets、課金変更なし。この修正の全体CIと開発AWS反映、実Googleの再試行試験は未完了。前版に戻すと全件再試行で対象が広がる不備も戻るため、復旧時は外部出力の利用範囲を再確認する。
+DB移行、共有データ変更、IAM/Secrets、課金変更なし。その後、[通常配布物での検証・全体CI・開発AWS定義47への反映](AWS_PRE_GOOGLE_RETRY_2026-09-10.md)が完了。実Googleの再試行試験は未完了。前版に戻すと全件再試行で対象が広がる不備も戻るため、復旧時は外部出力の利用範囲を再確認する。
