@@ -9,6 +9,35 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class ProductionSettingsTests(TestCase):
+    def test_celery_broker_does_not_require_redis_web_sessions(self):
+        broker = "rediss://broker.example.invalid:6379/0?ssl_cert_reqs=required"
+        payload = self.run_settings_probe(
+            {
+                "APP_ENV": "aws-pre",
+                "USE_REDIS_CACHE": "false",
+                "WEBSOCKET_NOTIFICATIONS_ENABLED": "false",
+                "SESSION_ENGINE": "django.contrib.sessions.backends.db",
+                "CELERY_BROKER_URL": broker,
+                "CELERY_RESULT_BACKEND": broker,
+            },
+            expression="""
+import json
+from tableno import settings_production as settings
+print(json.dumps({
+    "broker": settings.CELERY_BROKER_URL,
+    "result_backend": settings.CELERY_RESULT_BACKEND,
+    "sessions": settings.SESSION_ENGINE,
+    "cache": settings.CACHES["default"]["BACKEND"],
+    "websockets": settings.WEBSOCKET_NOTIFICATIONS_ENABLED,
+}))
+""",
+        )
+        self.assertEqual(payload["broker"], broker)
+        self.assertEqual(payload["result_backend"], broker)
+        self.assertEqual(payload["sessions"], "django.contrib.sessions.backends.db")
+        self.assertEqual(payload["cache"], "django.core.cache.backends.locmem.LocMemCache")
+        self.assertFalse(payload["websockets"])
+
     def run_settings_probe(self, overrides=None, expression=None, check=True):
         env = {
             "APP_ENV": "aws-prod",

@@ -12,7 +12,8 @@ class ThemeFontTests(unittest.TestCase):
         self.assertNotIn("fonts.gstatic.com", css)
         fonts = root / "static/vendor/theme-fonts/fonts.css"
         font_css = fonts.read_text(encoding="utf-8")
-        self.assertIn("../vendor/theme-fonts/fonts.css", css)
+        template = (root / "templates/base.html").read_text(encoding="utf-8")
+        self.assertIn("{% url 'public_font' 'theme-fonts/fonts.css' %}", template)
         self.assertNotRegex(font_css, r"https?://")
         urls = re.findall(r"url\(['\"]?([^)'\"]+)", font_css)
         self.assertTrue(urls)

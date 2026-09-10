@@ -109,8 +109,9 @@ class GoogleJobAuthorizationTests(TestCase):
     @patch("schedules.tasks.requests.post")
     @patch("schedules.tasks.get_google_access_token", return_value="local-fixture-token")
     def test_authorized_jobs_still_export_and_update_existing_calendar_event(self, token, post, put):
-        post.return_value = Mock()
-        post.return_value.json.return_value = {"id": "external-fixture"}
+        post.side_effect = lambda *args, **kwargs: Mock(
+            status_code=200, json=Mock(return_value={"id": kwargs["json"]["id"]})
+        )
         put.return_value = Mock()
         put.return_value.json.return_value = {"updatedCells": 2}
         first = self.job("calendar")
@@ -119,7 +120,8 @@ class GoogleJobAuthorizationTests(TestCase):
         self.run_job("calendar", second)
         self.assertEqual(post.call_count, 1)
         self.assertEqual(put.call_count, 1)
-        self.assertTrue(put.call_args.args[0].endswith("/external-fixture"))
+        event_id = post.call_args.kwargs["json"]["id"]
+        self.assertTrue(put.call_args.args[0].endswith(f"/{event_id}"))
         self.assertEqual(post.call_args.kwargs["json"]["description"], "共有説明")
         sheet = self.job("sheets")
         self.run_job("sheets", sheet)
@@ -127,3 +129,20 @@ class GoogleJobAuthorizationTests(TestCase):
         for job in (first, second, sheet):
             job.refresh_from_db()
             self.assertEqual(job.status, AsyncJob.Status.SUCCEEDED)
+
+    @patch("schedules.tasks.requests.put")
+    @patch("schedules.tasks.requests.post")
+    @patch("schedules.tasks.get_google_access_token", return_value="local-fixture-token")
+    def test_existing_server_generated_event_id_is_preserved(self, token, post, put):
+        self.sync.external_event_id = "existing-server-generated-id"
+        self.sync.save(update_fields=["external_event_id"])
+        put.return_value = Mock()
+        job = self.job("calendar")
+        self.run_job("calendar", job)
+        job.refresh_from_db()
+        self.sync.refresh_from_db()
+        self.assertEqual(job.status, AsyncJob.Status.SUCCEEDED)
+        self.assertEqual(self.sync.external_event_id, "existing-server-generated-id")
+        put.assert_called_once()
+        self.assertTrue(put.call_args.args[0].endswith("/existing-server-generated-id"))
+        post.assert_not_called()

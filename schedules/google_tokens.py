@@ -4,6 +4,7 @@ from datetime import timezone as datetime_timezone
 from allauth.socialaccount.models import SocialToken
 from django.conf import settings
 from django.utils import timezone
+from google.auth.exceptions import RefreshError, TransportError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 
@@ -39,7 +40,12 @@ def get_google_access_token(user):
         client_id=client_id,
         client_secret=client_secret,
     )
-    credentials.refresh(Request())
+    try:
+        credentials.refresh(Request())
+    except (RefreshError, TransportError):
+        raise ValueError(
+            "Google認可の更新に失敗しました。時間をおいて再試行し、解消しない場合はGoogleを再連携してください。"
+        ) from None
 
     token.token = credentials.token
     if credentials.refresh_token:

@@ -1,5 +1,6 @@
 import logging
 import socket
+import uuid
 from datetime import timedelta
 from urllib.parse import urlparse
 
@@ -283,16 +284,33 @@ def sync_google_calendar(self, sync_id, job_id):
             response.raise_for_status()
             sync.status = GoogleCalendarSync.Status.SYNCED
         else:
+            event_id = uuid.uuid5(
+                uuid.NAMESPACE_URL,
+                f"https://tableno.jp/calendar-sync/{sync.pk}/{sync.user_id}/{sync.session_id}/{sync.created_at.isoformat()}",
+            ).hex
+            payload = _calendar_event_payload(sync.session)
+            payload["id"] = event_id
+            payload["extendedProperties"]["private"]["tableno_sync_key"] = event_id
             response = requests.post(
                 base_url,
                 headers=headers,
-                json=_calendar_event_payload(sync.session),
+                json=payload,
                 timeout=15,
             )
+            if response.status_code == 409:
+                existing = requests.get(f"{base_url}/{event_id}", headers=headers, timeout=15)
+                existing.raise_for_status()
+                event = existing.json()
+                private = event.get("extendedProperties", {}).get("private", {})
+                if event.get("id") != event_id or private != payload["extendedProperties"]["private"]:
+                    raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
+                response = requests.put(f"{base_url}/{event_id}", headers=headers, json=payload, timeout=15)
             response.raise_for_status()
-            sync.external_event_id = response.json()["id"]
+            if response.json()["id"] != event_id:
+                raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
+            sync.external_event_id = event_id
             sync.status = GoogleCalendarSync.Status.SYNCED
-    except (requests.RequestException, KeyError) as exc:
+    except (requests.RequestException, KeyError, ValueError) as exc:
         sync.status = GoogleCalendarSync.Status.FAILED
         sync.last_error = str(exc)
         sync.save(update_fields=["status", "last_error", "updated_at"])

@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.db import connection
 from django.db.models import Prefetch
@@ -15,10 +17,32 @@ from schedules.models import (
     SessionYouTubeLink,
     TRPGSession,
 )
-from schedules.serializers import TRPGSessionSerializer
+from schedules.serializers import SessionParticipantSerializer, TRPGSessionSerializer
 
 
 class SessionListQueryTests(TestCase):
+    def test_each_participant_is_serialized_once_without_changing_legacy_fields(self):
+        first = self.make_session(True)
+        second = self.make_session(True)
+        HandoutInfo.objects.filter(session__in=[first, second]).delete()
+        calls = []
+        original = SessionParticipantSerializer.to_representation
+
+        def record(serializer, participant):
+            calls.append(participant.pk)
+            return original(serializer, participant)
+
+        with patch.object(SessionParticipantSerializer, "to_representation", record):
+            rows, _ = self.read_list(self.owner)
+        expected_ids = list(SessionParticipant.objects.filter(session__in=[first, second]).values_list("pk", flat=True))
+        self.assertCountEqual(calls, expected_ids)
+        for row in rows:
+            detail = next(p for p in row["participants_detail"] if p["character_sheet_detail"])
+            legacy = next(p for p in row["participants"] if p["id"] == detail["id"])
+            self.assertIsInstance(detail["character_sheet"], int)
+            self.assertEqual(legacy["character_sheet"], detail["character_sheet_detail"])
+            self.assertEqual([p["id"] for p in row["participants"]], [p["id"] for p in row["participants_detail"]])
+
     def setUp(self):
         self.owner = get_user_model().objects.create_user(username="list-owner")
         self.player = get_user_model().objects.create_user(username="list-player")

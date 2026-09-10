@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.utils import timezone
+from google.auth.exceptions import GoogleAuthError, RefreshError, TransportError
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -211,7 +212,7 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertTrue(GoogleCalendarSync.objects.filter(user=self.user, session=self.session).exists())
 
     @patch("schedules.tasks.requests.post")
-    def test_calendar_task_creates_external_event_idempotently(self, post):
+    def test_calendar_task_creates_external_event_with_client_id(self, post):
         self.connect_google()
         sync = GoogleCalendarSync.objects.create(user=self.user, session=self.session)
         job = AsyncJob.objects.create(
@@ -221,14 +222,14 @@ class GoogleIntegrationTestCase(APITestCase):
         )
         post.return_value = Mock(status_code=200)
         post.return_value.raise_for_status.return_value = None
-        post.return_value.json.return_value = {"id": "google-event-1"}
+        post.return_value.json.side_effect = lambda: {"id": post.call_args.kwargs["json"]["id"]}
 
         result = sync_google_calendar.run(sync.pk, str(job.pk))
 
         self.assertEqual(result, GoogleCalendarSync.Status.SYNCED)
         sync.refresh_from_db()
         job.refresh_from_db()
-        self.assertEqual(sync.external_event_id, "google-event-1")
+        self.assertEqual(sync.external_event_id, post.call_args.kwargs["json"]["id"])
         self.assertEqual(job.status, AsyncJob.Status.SUCCEEDED)
 
     @override_settings(
@@ -260,6 +261,52 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertEqual(social_token.token, "new-access-token")
         self.assertEqual(social_token.token_secret, "new-refresh-token")
 
+    @override_settings(
+        GOOGLE_OAUTH_CLIENT_ID="fixture-client", GOOGLE_OAUTH_CLIENT_SECRET="fixture-secret"
+    )  # nosec B106
+    @patch("schedules.tasks.requests.put")
+    @patch("schedules.tasks.requests.post")
+    @patch("schedules.google_tokens.Credentials")
+    def test_google_refresh_failures_finish_jobs_without_exporting(self, credentials_class, post, put):
+        from schedules.tasks import export_google_sheet
+
+        self.connect_google()
+        token = SocialToken.objects.get(account__user=self.user)
+        token.expires_at = timezone.now() - timedelta(minutes=1)
+        token.token_secret = "isolated-refresh-fixture"  # nosec B105
+        token.save(update_fields=["expires_at", "token_secret"])
+        original = (token.token, token.token_secret, token.expires_at)
+        sync = GoogleCalendarSync.objects.create(user=self.user, session=self.session)
+        message = "Google認可の更新に失敗しました。時間をおいて再試行し、解消しない場合はGoogleを再連携してください。"
+        for error_type in (RefreshError, TransportError):
+            for kind in ("google_calendar_sync", "google_sheets_export"):
+                with self.subTest(error=error_type.__name__, kind=kind):
+                    credentials_class.return_value.refresh.side_effect = error_type("private-provider-error-fixture")
+                    job = AsyncJob.objects.create(
+                        owner=self.user, job_type=kind, expires_at=timezone.now() + timedelta(days=1)
+                    )
+                    result = None
+                    try:
+                        if kind == "google_calendar_sync":
+                            result = sync_google_calendar.run(sync.pk, str(job.pk))
+                        else:
+                            result = export_google_sheet.run(str(job.pk), self.user.pk, "isolated-sheet", "A1", [])
+                    except GoogleAuthError:
+                        pass
+                    job.refresh_from_db()
+                    self.assertEqual(job.status, AsyncJob.Status.FAILED)
+                    self.assertIsNotNone(job.finished_at)
+                    self.assertEqual(job.error, message)
+                    self.assertEqual(result, "missing-token")
+                    if kind == "google_calendar_sync":
+                        sync.refresh_from_db()
+                        self.assertEqual(sync.status, GoogleCalendarSync.Status.FAILED)
+                        self.assertEqual(sync.last_error, message)
+                    token.refresh_from_db()
+                    self.assertEqual((token.token, token.token_secret, token.expires_at), original)
+                    post.assert_not_called()
+                    put.assert_not_called()
+
     def test_sheets_import_endpoint_is_not_available(self):
         self.connect_google()
         response = self.client.post(
@@ -268,6 +315,56 @@ class GoogleIntegrationTestCase(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    @patch("schedules.integration_views.queue_google_sheet_export", return_value=True)
+    def test_sheets_export_rejects_empty_or_invalid_selection_before_queueing(self, queue_export):
+        self.connect_google()
+        character = CharacterSheet.objects.create(user=self.user, edition="7th")
+        CharacterSheet7th.objects.create(character_sheet=character, name="Private selection fixture")
+        for selection in ([], None, "1", {}, [0], [-1], ["invalid"]):
+            with self.subTest(selection=selection):
+                response = self.client.post(
+                    "/api/character-sheets/google-sheets/export/",
+                    {"character_ids": selection, "spreadsheet_id": "isolated-sheet"},
+                    format="json",
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("character_ids", response.data)
+                if selection == []:
+                    self.assertEqual(
+                        response.data["character_ids"],
+                        ["出力するキャラクターを1件以上指定してください。"],
+                    )
+                queue_export.assert_not_called()
+                self.assertFalse(AsyncJob.objects.filter(job_type="google_sheets_export").exists())
+
+    @patch("schedules.integration_views.queue_google_sheet_export", return_value=True)
+    def test_sheets_export_selection_does_not_include_other_owned_or_foreign_characters(self, queue_export):
+        self.connect_google()
+        other = get_user_model().objects.create_user(username="sheet-other-owner")
+        characters = []
+        for owner, name in ((self.user, "Selected"), (self.user, "Not selected"), (other, "Other owner")):
+            character = CharacterSheet.objects.create(user=owner, edition="7th")
+            CharacterSheet7th.objects.create(character_sheet=character, name=name)
+            characters.append(character)
+        response = self.client.post(
+            "/api/character-sheets/google-sheets/export/",
+            {"character_ids": [characters[0].pk, characters[2].pk]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([row[0] for row in response.data["rows"]], [characters[0].pk])
+        response = self.client.post("/api/character-sheets/google-sheets/export/", {}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([row[0] for row in response.data["rows"]], [c.pk for c in characters[:2]])
+        response = self.client.post(
+            "/api/character-sheets/google-sheets/export/",
+            {"character_ids": [str(characters[0].pk)], "spreadsheet_id": "isolated-sheet"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertEqual([row[0] for row in queue_export.call_args.args[-1][1:]], [characters[0].pk])
+        self.assertEqual(AsyncJob.objects.get(pk=response.data["job_id"]).payload["character_ids"], [characters[0].pk])
 
     def test_sheets_export_includes_7th_luck_and_current_statuses(self):
         self.connect_google()

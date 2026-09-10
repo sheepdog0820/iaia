@@ -9,7 +9,8 @@ from rest_framework.views import APIView
 from accounts.models import CharacterSheet
 
 from .google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_START_RANGE
-from .models import AsyncJob, GoogleCalendarSync
+from .integration_access import visible_user_sessions
+from .models import AsyncJob, GoogleCalendarSync, GoogleIntegration
 from .tasks import queue_google_calendar_sync, queue_google_sheet_export
 
 
@@ -57,8 +58,8 @@ class AsyncJobListView(generics.ListAPIView):
 def _sheet_export_values(user, payload):
     characters = CharacterSheet.objects.filter(user=user)
     character_ids = payload.get("character_ids")
-    if character_ids:
-        characters = characters.filter(pk__in=character_ids)
+    if payload.get("selection_snapshot") or character_ids:
+        characters = characters.filter(pk__in=character_ids or [])
     rows = []
     for character in characters.order_by("id"):
         detail = character.system_data
@@ -99,6 +100,19 @@ class AsyncJobRetryView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        google_requirements = {
+            "google_calendar_sync": ("calendar_enabled", GoogleIntegration.REQUIRED_CALENDAR_SCOPE),
+            "google_sheets_export": ("sheets_enabled", GoogleIntegration.REQUIRED_SHEETS_SCOPE),
+        }
+        if job.job_type in google_requirements:
+            enabled, scope = google_requirements[job.job_type]
+            integration = GoogleIntegration.objects.filter(user=request.user, **{enabled: True}).first()
+            if not request.user.is_active or not integration or not integration.has_scope(scope):
+                return Response(
+                    {"detail": "Google連携が無効、または再試行する権限がありません。"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         if job.job_type == "google_calendar_sync":
             return self._retry_google_calendar_sync(request, job)
         if job.job_type == "google_sheets_export":
@@ -117,6 +131,11 @@ class AsyncJobRetryView(APIView):
         if not sync:
             return Response(
                 {"detail": "The original Google Calendar sync record was not found."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not visible_user_sessions(request.user).filter(pk=sync.session_id).exists():
+            return Response(
+                {"detail": "このセッションを同期する権限がありません。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         sync.status = GoogleCalendarSync.Status.PENDING
@@ -151,13 +170,20 @@ class AsyncJobRetryView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         range_name = job.payload.get("range", SHEETS_DEFAULT_START_RANGE)
+        if not job.payload.get("selection_snapshot") and not job.payload.get("character_ids"):
+            return Response(
+                {"detail": "以前の出力対象を確認できません。連携設定から新しく出力してください。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        values = _sheet_export_values(request.user, job.payload)
         retry_job = AsyncJob.objects.create(
             owner=request.user,
             job_type=job.job_type,
             payload={
                 "spreadsheet_id": spreadsheet_id,
                 "range": range_name,
-                "character_ids": job.payload.get("character_ids", []),
+                "character_ids": [row[0] for row in values[1:]],
+                "selection_snapshot": True,
                 "retry_of": str(job.pk),
             },
             expires_at=timezone.now() + timedelta(days=7),
@@ -167,7 +193,7 @@ class AsyncJobRetryView(APIView):
             request.user.pk,
             spreadsheet_id,
             range_name,
-            _sheet_export_values(request.user, retry_job.payload),
+            values,
         )
         if not queued:
             retry_job.mark_failed("Background task broker is unavailable.")

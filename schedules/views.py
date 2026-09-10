@@ -2765,18 +2765,33 @@ class SessionStatisticsView(APIView):
     def get(self, request):
         user = request.user
         now = timezone.now()
-        year_ago = now - timedelta(days=365)
-
-        # 年間統計
-        user_sessions = TRPGSession.objects.filter(
-            Q(participants=user) | Q(gm=user), date__gte=year_ago, date__lte=now
-        ).distinct()
+        user_sessions = TRPGSession.objects.filter(Q(participants=user) | Q(gm=user), date__lte=now).distinct()
+        year_raw = request.query_params.get("year")
+        if year_raw is None:
+            user_sessions = user_sessions.filter(date__gte=now - timedelta(days=365))
+        else:
+            try:
+                year = int(year_raw)
+                if not 1 <= year <= 9999:
+                    raise ValueError
+            except (TypeError, ValueError):
+                raise ValidationError({"year": "年は1から9999までの整数で指定してください"}) from None
+            # Avoid out-of-range UTC conversion of datetime.min/max year bounds.
+            year_filter = Value(year) if year in (1, 9999) else year
+            user_sessions = user_sessions.filter(date__year=year_filter)
 
         session_count = user_sessions.count()
         total_minutes = user_sessions.aggregate(total=Sum(effective_duration_expression()))["total"] or 0
         total_hours = round(total_minutes / 60, 1)
 
-        return Response({"session_count": session_count, "total_hours": total_hours, "total_minutes": total_minutes})
+        return Response(
+            {
+                "session_count": session_count,
+                "total_hours": total_hours,
+                "total_minutes": total_minutes,
+                "average_session_hours": round(total_minutes / 60 / session_count, 1) if session_count else 0,
+            }
+        )
 
 
 def _get_selected_occurrence_from_request(request, occurrences):

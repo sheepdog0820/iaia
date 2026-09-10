@@ -22,6 +22,7 @@ locals {
   db_port          = var.db_engine == "postgres" ? 5432 : 3306
   redis_url        = var.enable_elasticache ? "rediss://${aws_elasticache_replication_group.main[0].primary_endpoint_address}:6379/0" : ""
   celery_redis_url = var.enable_elasticache ? "${local.redis_url}?ssl_cert_reqs=required" : ""
+  redis_web_state  = var.enable_elasticache && var.enable_redis_web_state
   allowed_hosts    = var.allowed_hosts_override != "" ? var.allowed_hosts_override : var.domain_name
   backup_retention = var.environment == "aws-prod" ? 14 : var.db_backup_retention_period
   app_secret_names = distinct(concat(["SECRET_KEY", "DB_PASSWORD"], var.extra_secret_names))
@@ -39,9 +40,9 @@ locals {
     { name = "DB_NAME", value = var.db_name },
     { name = "DB_USER", value = var.db_username },
     { name = "DB_SSL_MODE", value = "require" },
-    { name = "USE_REDIS_CACHE", value = tostring(var.enable_elasticache) },
-    { name = "WEBSOCKET_NOTIFICATIONS_ENABLED", value = tostring(var.enable_elasticache) },
-    { name = "SESSION_ENGINE", value = var.enable_elasticache ? "django.contrib.sessions.backends.cache" : "django.contrib.sessions.backends.db" },
+    { name = "USE_REDIS_CACHE", value = tostring(local.redis_web_state) },
+    { name = "WEBSOCKET_NOTIFICATIONS_ENABLED", value = tostring(local.redis_web_state) },
+    { name = "SESSION_ENGINE", value = local.redis_web_state ? "django.contrib.sessions.backends.cache" : "django.contrib.sessions.backends.db" },
     { name = "USE_S3_STORAGE", value = "True" },
     { name = "AWS_STORAGE_BUCKET_NAME", value = aws_s3_bucket.assets.id },
     { name = "AWS_S3_REGION_NAME", value = var.aws_region },
@@ -368,6 +369,10 @@ resource "aws_cloudfront_origin_access_control" "assets" {
   signing_protocol                  = "sigv4"
 }
 
+data "aws_cloudfront_response_headers_policy" "static_cors" {
+  name = "Managed-SimpleCORS"
+}
+
 resource "aws_cloudfront_distribution" "assets" {
   enabled     = true
   price_class = var.cloudfront_price_class
@@ -381,6 +386,19 @@ resource "aws_cloudfront_distribution" "assets" {
     cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "assets"
     viewer_protocol_policy = "redirect-to-https"
+    forwarded_values {
+      query_string = false
+      cookies { forward = "none" }
+    }
+  }
+  # Keep public static assets usable by cross-origin consumers and older pages.
+  ordered_cache_behavior {
+    path_pattern               = "static/*"
+    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+    cached_methods             = ["GET", "HEAD"]
+    target_origin_id           = "assets"
+    viewer_protocol_policy     = "redirect-to-https"
+    response_headers_policy_id = data.aws_cloudfront_response_headers_policy.static_cors.id
     forwarded_values {
       query_string = false
       cookies { forward = "none" }
@@ -919,9 +937,9 @@ resource "aws_ecs_service" "worker" {
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
   network_configuration {
-    subnets          = aws_subnet.private[*].id
+    subnets          = var.enable_nat_gateway ? aws_subnet.private[*].id : aws_subnet.public[*].id
     security_groups  = [aws_security_group.ecs.id]
-    assign_public_ip = false
+    assign_public_ip = !var.enable_nat_gateway
   }
 }
 
@@ -935,9 +953,9 @@ resource "aws_ecs_service" "beat" {
   deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
   network_configuration {
-    subnets          = aws_subnet.private[*].id
+    subnets          = var.enable_nat_gateway ? aws_subnet.private[*].id : aws_subnet.public[*].id
     security_groups  = [aws_security_group.ecs.id]
-    assign_public_ip = false
+    assign_public_ip = !var.enable_nat_gateway
   }
 }
 
