@@ -180,7 +180,7 @@ class DockerEntrypointTests(SimpleTestCase):
         self.assertIn("coverage-xml", str(steps))
         self.assertIn("Billing release gate", step_names)
         self.assertEqual(
-            {"test", "system", "production-database", "playwright", "lint-security"},
+            {"test", "system", "production-database", "playwright", "lint-security", "infrastructure"},
             set(workflow["jobs"]),
         )
 
