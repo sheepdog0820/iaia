@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.functional import cached_property
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
@@ -482,10 +483,27 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "gm", "created_by", "created_at", "updated_at"]
 
+    @cached_property
+    def _participant_serializer(self):
+        return SessionParticipantSerializer(many=True, context=self.context)
+
+    def to_representation(self, instance):
+        try:
+            return super().to_representation(instance)
+        finally:
+            self._participant_session = None
+            self._participant_details = None
+
     @extend_schema_field(SessionParticipantSerializer(many=True))
     def get_participants_detail(self, obj):
+        if getattr(self, "_participant_session", None) is obj:
+            return self._participant_details
         participants = sorted(obj.sessionparticipant_set.all(), key=lambda participant: participant.pk)
-        return SessionParticipantSerializer(participants, many=True, context=self.context).data
+        details = self._participant_serializer.to_representation(participants)
+        # Retain only the current row, scoped to this response serializer.
+        self._participant_session = obj
+        self._participant_details = details
+        return details
 
     @extend_schema_field(HandoutInfoSerializer(many=True))
     def get_handouts_detail(self, instance):
@@ -547,12 +565,13 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_participants(self, obj):
-        participants = self.get_participants_detail(obj)
-        for participant in participants:
-            detail = participant.get("character_sheet_detail")
-            if detail:
-                participant["character_sheet"] = detail
-        return participants
+        return [
+            {
+                **participant,
+                "character_sheet": participant.get("character_sheet_detail") or participant["character_sheet"],
+            }
+            for participant in self.get_participants_detail(obj)
+        ]
 
     def validate(self, attrs):
         session_date = attrs.pop("session_date", None)
