@@ -212,7 +212,7 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertTrue(GoogleCalendarSync.objects.filter(user=self.user, session=self.session).exists())
 
     @patch("schedules.tasks.requests.post")
-    def test_calendar_task_creates_external_event_idempotently(self, post):
+    def test_calendar_task_creates_external_event_with_client_id(self, post):
         self.connect_google()
         sync = GoogleCalendarSync.objects.create(user=self.user, session=self.session)
         job = AsyncJob.objects.create(
@@ -222,14 +222,14 @@ class GoogleIntegrationTestCase(APITestCase):
         )
         post.return_value = Mock(status_code=200)
         post.return_value.raise_for_status.return_value = None
-        post.return_value.json.return_value = {"id": "google-event-1"}
+        post.return_value.json.side_effect = lambda: {"id": post.call_args.kwargs["json"]["id"]}
 
         result = sync_google_calendar.run(sync.pk, str(job.pk))
 
         self.assertEqual(result, GoogleCalendarSync.Status.SYNCED)
         sync.refresh_from_db()
         job.refresh_from_db()
-        self.assertEqual(sync.external_event_id, "google-event-1")
+        self.assertEqual(sync.external_event_id, post.call_args.kwargs["json"]["id"])
         self.assertEqual(job.status, AsyncJob.Status.SUCCEEDED)
 
     @override_settings(
