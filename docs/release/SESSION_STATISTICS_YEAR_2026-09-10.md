@@ -25,6 +25,6 @@ PostgreSQLはlocalhost限定の動的ポート・tmpfsの一時コンテナを�
 
 DB移行・実ユーザーデータ・権限・課金・外部通知の変更なし。テンプレートやJavaScriptの変更もない。指定年の集計結果は、その年のデータだけを返すよう変わる。
 
-平均時間の修正と今回の年指定修正は、まだ開発AWSのWeb定義44に含まれていない。最新候補のCI、配布物の作成・反映、Chrome上の統計表示確認が残る。正式公開全体は未完了。
+平均時間の修正と今回の年指定修正は、CI全5ジョブ成功と通常配布物のHTTP9ケース確認後、[開発AWSのWeb定義45へ反映](AWS_PRE_STATISTICS_2026-09-10.md)した。Chromeで平均時間0.6hの表示を確認済み。正式公開全体は未完了。
 
 証跡はGit管理外の `tmp/session-statistics-year-coverage.json`、`tmp/session-statistics-year-postgres.log`、`tmp/check-statistics-year-postgres.py`。共有DBや既存ユーザーのデータを試験に使用していない。
