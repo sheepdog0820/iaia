@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import Group
-from schedules.models import AsyncJob, GoogleCalendarSync, TRPGSession
+from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration, TRPGSession
 
 
 class AsyncJobApiTestCase(APITestCase):
@@ -116,6 +116,9 @@ class AsyncJobApiTestCase(APITestCase):
 
     @patch("schedules.job_views.queue_google_calendar_sync", return_value=True)
     def test_retry_failed_google_calendar_sync_job(self, queue_sync):
+        GoogleIntegration.objects.create(
+            user=self.user, calendar_enabled=True, scopes=[GoogleIntegration.REQUIRED_CALENDAR_SCOPE]
+        )
         group = Group.objects.create(name="Retry Group", created_by=self.user)
         session = TRPGSession.objects.create(
             title="Retry Session",
@@ -149,6 +152,9 @@ class AsyncJobApiTestCase(APITestCase):
 
     @patch("schedules.job_views.queue_google_sheet_export", return_value=True)
     def test_retry_failed_google_sheets_export_job(self, queue_export):
+        GoogleIntegration.objects.create(
+            user=self.user, sheets_enabled=True, scopes=[GoogleIntegration.REQUIRED_SHEETS_SCOPE]
+        )
         job = AsyncJob.objects.create(
             owner=self.user,
             job_type="google_sheets_export",
@@ -164,6 +170,69 @@ class AsyncJobApiTestCase(APITestCase):
         retry_job = AsyncJob.objects.get(pk=response.data["job_id"])
         self.assertEqual(retry_job.payload["retry_of"], str(job.pk))
         queue_export.assert_called_once()
+
+    @patch("schedules.job_views.queue_google_calendar_sync", return_value=True)
+    @patch("schedules.job_views.queue_google_sheet_export", return_value=True)
+    def test_google_retry_rejects_missing_disabled_or_unscoped_integration(self, queue_sheet, queue_calendar):
+        for job_type, enabled, scope in (
+            ("google_calendar_sync", "calendar_enabled", GoogleIntegration.REQUIRED_CALENDAR_SCOPE),
+            ("google_sheets_export", "sheets_enabled", GoogleIntegration.REQUIRED_SHEETS_SCOPE),
+        ):
+            for state in ("missing", "disabled", "unscoped"):
+                with self.subTest(job_type=job_type, state=state):
+                    GoogleIntegration.objects.filter(user=self.user).delete()
+                    if state != "missing":
+                        GoogleIntegration.objects.create(
+                            user=self.user,
+                            **{enabled: state != "disabled"},
+                            scopes=[] if state == "unscoped" else [scope],
+                        )
+                    job = AsyncJob.objects.create(
+                        owner=self.user,
+                        job_type=job_type,
+                        status=AsyncJob.Status.FAILED,
+                        payload={"spreadsheet_id": "isolated-sheet"},
+                        expires_at=timezone.now() + timedelta(days=1),
+                    )
+                    count = AsyncJob.objects.count()
+                    response = self.client.post(reverse("async-job-retry", kwargs={"pk": job.pk}))
+                    self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                    self.assertEqual(response.data["detail"], "Google連携が無効、または再試行する権限がありません。")
+                    self.assertEqual(AsyncJob.objects.count(), count)
+                    queue_sheet.assert_not_called()
+                    queue_calendar.assert_not_called()
+
+    @patch("schedules.job_views.queue_google_calendar_sync", return_value=True)
+    def test_calendar_retry_rejects_session_access_revoked(self, queue_sync):
+        GoogleIntegration.objects.create(
+            user=self.user, calendar_enabled=True, scopes=[GoogleIntegration.REQUIRED_CALENDAR_SCOPE]
+        )
+        group = Group.objects.create(name="Private retry group", created_by=self.other)
+        session = TRPGSession.objects.create(
+            title="Private retry session",
+            gm=self.other,
+            group=group,
+            visibility="private",
+            date=timezone.now() + timedelta(days=1),
+        )
+        sync = GoogleCalendarSync.objects.create(
+            user=self.user, session=session, status=GoogleCalendarSync.Status.FAILED, last_error="previous failure"
+        )
+        job = AsyncJob.objects.create(
+            owner=self.user,
+            job_type="google_calendar_sync",
+            status=AsyncJob.Status.FAILED,
+            payload={"sync_id": sync.pk},
+            expires_at=timezone.now() + timedelta(days=1),
+        )
+        response = self.client.post(reverse("async-job-retry", kwargs={"pk": job.pk}))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "このセッションを同期する権限がありません。")
+        self.assertEqual(AsyncJob.objects.count(), 1)
+        sync.refresh_from_db()
+        self.assertEqual(sync.status, GoogleCalendarSync.Status.FAILED)
+        self.assertEqual(sync.last_error, "previous failure")
+        queue_sync.assert_not_called()
 
 
 class OpenApiEndpointTestCase(APITestCase):

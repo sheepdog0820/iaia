@@ -9,7 +9,8 @@ from rest_framework.views import APIView
 from accounts.models import CharacterSheet
 
 from .google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_START_RANGE
-from .models import AsyncJob, GoogleCalendarSync
+from .integration_access import visible_user_sessions
+from .models import AsyncJob, GoogleCalendarSync, GoogleIntegration
 from .tasks import queue_google_calendar_sync, queue_google_sheet_export
 
 
@@ -99,6 +100,19 @@ class AsyncJobRetryView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        google_requirements = {
+            "google_calendar_sync": ("calendar_enabled", GoogleIntegration.REQUIRED_CALENDAR_SCOPE),
+            "google_sheets_export": ("sheets_enabled", GoogleIntegration.REQUIRED_SHEETS_SCOPE),
+        }
+        if job.job_type in google_requirements:
+            enabled, scope = google_requirements[job.job_type]
+            integration = GoogleIntegration.objects.filter(user=request.user, **{enabled: True}).first()
+            if not request.user.is_active or not integration or not integration.has_scope(scope):
+                return Response(
+                    {"detail": "Google連携が無効、または再試行する権限がありません。"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         if job.job_type == "google_calendar_sync":
             return self._retry_google_calendar_sync(request, job)
         if job.job_type == "google_sheets_export":
@@ -117,6 +131,11 @@ class AsyncJobRetryView(APIView):
         if not sync:
             return Response(
                 {"detail": "The original Google Calendar sync record was not found."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not visible_user_sessions(request.user).filter(pk=sync.session_id).exists():
+            return Response(
+                {"detail": "このセッションを同期する権限がありません。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         sync.status = GoogleCalendarSync.Status.PENDING
