@@ -2776,7 +2776,14 @@ class SessionStatisticsView(APIView):
         total_minutes = user_sessions.aggregate(total=Sum(effective_duration_expression()))["total"] or 0
         total_hours = round(total_minutes / 60, 1)
 
-        return Response({"session_count": session_count, "total_hours": total_hours, "total_minutes": total_minutes})
+        return Response(
+            {
+                "session_count": session_count,
+                "total_hours": total_hours,
+                "total_minutes": total_minutes,
+                "average_session_hours": round(total_minutes / 60 / session_count, 1) if session_count else 0,
+            }
+        )
 
 
 def _get_selected_occurrence_from_request(request, occurrences):
