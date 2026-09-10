@@ -17,6 +17,21 @@ env:
   SECRET_KEY: test-secret-key-for-ci-with-enough-length-and-variety-12345
 
 jobs:
+  infrastructure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.6"
+      - name: Validate infrastructure without AWS access
+        working-directory: infrastructure/terraform
+        run: |
+          terraform init -backend=false -input=false
+          terraform fmt -check main.tf tests/worker_network.tftest.hcl
+          terraform validate -no-color
+          terraform test -no-color
+
   test:
     name: Unit / Integration
     runs-on: ubuntu-latest
