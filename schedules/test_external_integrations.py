@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.utils import timezone
+from google.auth.exceptions import GoogleAuthError, RefreshError, TransportError
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -259,6 +260,52 @@ class GoogleIntegrationTestCase(APITestCase):
         social_token.refresh_from_db()
         self.assertEqual(social_token.token, "new-access-token")
         self.assertEqual(social_token.token_secret, "new-refresh-token")
+
+    @override_settings(
+        GOOGLE_OAUTH_CLIENT_ID="fixture-client", GOOGLE_OAUTH_CLIENT_SECRET="fixture-secret"
+    )  # nosec B106
+    @patch("schedules.tasks.requests.put")
+    @patch("schedules.tasks.requests.post")
+    @patch("schedules.google_tokens.Credentials")
+    def test_google_refresh_failures_finish_jobs_without_exporting(self, credentials_class, post, put):
+        from schedules.tasks import export_google_sheet
+
+        self.connect_google()
+        token = SocialToken.objects.get(account__user=self.user)
+        token.expires_at = timezone.now() - timedelta(minutes=1)
+        token.token_secret = "isolated-refresh-fixture"  # nosec B105
+        token.save(update_fields=["expires_at", "token_secret"])
+        original = (token.token, token.token_secret, token.expires_at)
+        sync = GoogleCalendarSync.objects.create(user=self.user, session=self.session)
+        message = "Google認可の更新に失敗しました。時間をおいて再試行し、解消しない場合はGoogleを再連携してください。"
+        for error_type in (RefreshError, TransportError):
+            for kind in ("google_calendar_sync", "google_sheets_export"):
+                with self.subTest(error=error_type.__name__, kind=kind):
+                    credentials_class.return_value.refresh.side_effect = error_type("private-provider-error-fixture")
+                    job = AsyncJob.objects.create(
+                        owner=self.user, job_type=kind, expires_at=timezone.now() + timedelta(days=1)
+                    )
+                    result = None
+                    try:
+                        if kind == "google_calendar_sync":
+                            result = sync_google_calendar.run(sync.pk, str(job.pk))
+                        else:
+                            result = export_google_sheet.run(str(job.pk), self.user.pk, "isolated-sheet", "A1", [])
+                    except GoogleAuthError:
+                        pass
+                    job.refresh_from_db()
+                    self.assertEqual(job.status, AsyncJob.Status.FAILED)
+                    self.assertIsNotNone(job.finished_at)
+                    self.assertEqual(job.error, message)
+                    self.assertEqual(result, "missing-token")
+                    if kind == "google_calendar_sync":
+                        sync.refresh_from_db()
+                        self.assertEqual(sync.status, GoogleCalendarSync.Status.FAILED)
+                        self.assertEqual(sync.last_error, message)
+                    token.refresh_from_db()
+                    self.assertEqual((token.token, token.token_secret, token.expires_at), original)
+                    post.assert_not_called()
+                    put.assert_not_called()
 
     def test_sheets_import_endpoint_is_not_available(self):
         self.connect_google()
