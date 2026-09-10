@@ -58,8 +58,8 @@ class AsyncJobListView(generics.ListAPIView):
 def _sheet_export_values(user, payload):
     characters = CharacterSheet.objects.filter(user=user)
     character_ids = payload.get("character_ids")
-    if character_ids:
-        characters = characters.filter(pk__in=character_ids)
+    if payload.get("selection_snapshot") or character_ids:
+        characters = characters.filter(pk__in=character_ids or [])
     rows = []
     for character in characters.order_by("id"):
         detail = character.system_data
@@ -170,13 +170,20 @@ class AsyncJobRetryView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         range_name = job.payload.get("range", SHEETS_DEFAULT_START_RANGE)
+        if not job.payload.get("selection_snapshot") and not job.payload.get("character_ids"):
+            return Response(
+                {"detail": "以前の出力対象を確認できません。連携設定から新しく出力してください。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        values = _sheet_export_values(request.user, job.payload)
         retry_job = AsyncJob.objects.create(
             owner=request.user,
             job_type=job.job_type,
             payload={
                 "spreadsheet_id": spreadsheet_id,
                 "range": range_name,
-                "character_ids": job.payload.get("character_ids", []),
+                "character_ids": [row[0] for row in values[1:]],
+                "selection_snapshot": True,
                 "retry_of": str(job.pk),
             },
             expires_at=timezone.now() + timedelta(days=7),
@@ -186,7 +193,7 @@ class AsyncJobRetryView(APIView):
             request.user.pk,
             spreadsheet_id,
             range_name,
-            _sheet_export_values(request.user, retry_job.payload),
+            values,
         )
         if not queued:
             retry_job.mark_failed("Background task broker is unavailable.")
