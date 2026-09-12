@@ -36,6 +36,48 @@ class GoogleCalendarDeliveryTest(TestCase):
         return result
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
+    def test_malformed_creation_response_finishes_job_as_failed(self, token):
+        for data in (None, [], "unexpected", 42):
+            with self.subTest(data=data), patch("schedules.tasks.requests.post", return_value=self.response(200, data)):
+                job = self.job()
+                self.assertEqual(sync_google_calendar.run(self.sync.pk, str(job.pk)), "invalid-response")
+                job.refresh_from_db()
+                self.sync.refresh_from_db()
+                self.assertEqual(job.status, AsyncJob.Status.FAILED)
+                self.assertEqual(self.sync.status, GoogleCalendarSync.Status.FAILED)
+                self.assertEqual(self.sync.external_event_id, "")
+                self.assertEqual(job.error, "Google Calendarの応答形式を確認できません。連携状態を確認してください。")
+                self.assertEqual(self.sync.last_error, job.error)
+
+    @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
+    def test_malformed_identity_response_never_updates_or_deletes_event(self, token):
+        malformed = (None, [], "unexpected", {"extendedProperties": None}, {"extendedProperties": []})
+        for cancelling in (False, True):
+            self.session.status = "cancelled" if cancelling else "planned"
+            self.session.save(update_fields=["status"])
+            for data in malformed:
+                with (
+                    self.subTest(cancelling=cancelling, data=data),
+                    patch("schedules.tasks.requests.post", return_value=self.response(409, {})),
+                    patch("schedules.tasks.requests.get", return_value=self.response(200, data)),
+                    patch("schedules.tasks.requests.put") as put,
+                    patch("schedules.tasks.requests.delete") as delete,
+                ):
+                    job = self.job()
+                    self.assertEqual(sync_google_calendar.run(self.sync.pk, str(job.pk)), "invalid-response")
+                    job.refresh_from_db()
+                    self.sync.refresh_from_db()
+                    self.assertEqual(job.status, AsyncJob.Status.FAILED)
+                    self.assertEqual(self.sync.status, GoogleCalendarSync.Status.FAILED)
+                    self.assertEqual(self.sync.external_event_id, "")
+                    self.assertEqual(
+                        job.error, "Google Calendarの応答形式を確認できません。連携状態を確認してください。"
+                    )
+                    self.assertEqual(self.sync.last_error, job.error)
+                    put.assert_not_called()
+                    delete.assert_not_called()
+
+    @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_create_cancel_resume_keeps_identity_metadata(self, token):
         events = {}
 

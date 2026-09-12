@@ -224,6 +224,20 @@ def _calendar_event_payload(session):
     }
 
 
+def _calendar_response_event(response):
+    event = response.json()
+    if not isinstance(event, dict):
+        raise ValueError("Google Calendarの応答形式を確認できません。連携状態を確認してください。")
+    return event
+
+
+def _calendar_private_properties(event):
+    properties = event.get("extendedProperties", {})
+    if not isinstance(properties, dict):
+        raise ValueError("Google Calendarの応答形式を確認できません。連携状態を確認してください。")
+    return properties.get("private", {})
+
+
 @shared_task(bind=True, max_retries=3, name="schedules.tasks.sync_google_calendar")
 def sync_google_calendar(self, sync_id, job_id):
     sync = GoogleCalendarSync.objects.select_related("session", "user").get(pk=sync_id)
@@ -276,8 +290,8 @@ def sync_google_calendar(self, sync_id, job_id):
                 existing = requests.get(f"{base_url}/{generated_event_id}", headers=headers, timeout=15)
                 if existing.status_code not in {404, 410}:
                     existing.raise_for_status()
-                    event = existing.json()
-                    private = event.get("extendedProperties", {}).get("private", {})
+                    event = _calendar_response_event(existing)
+                    private = _calendar_private_properties(event)
                     if event.get("id") != generated_event_id or private != {
                         "tableno_session_id": str(sync.session_id),
                         "tableno_sync_key": generated_event_id,
@@ -315,13 +329,13 @@ def sync_google_calendar(self, sync_id, job_id):
             if response.status_code == 409:
                 existing = requests.get(f"{base_url}/{event_id}", headers=headers, timeout=15)
                 existing.raise_for_status()
-                event = existing.json()
-                private = event.get("extendedProperties", {}).get("private", {})
+                event = _calendar_response_event(existing)
+                private = _calendar_private_properties(event)
                 if event.get("id") != event_id or private != payload["extendedProperties"]["private"]:
                     raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
                 response = requests.put(f"{base_url}/{event_id}", headers=headers, json=payload, timeout=15)
             response.raise_for_status()
-            if response.json()["id"] != event_id:
+            if _calendar_response_event(response).get("id") != event_id:
                 raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
             sync.external_event_id = event_id
             sync.status = GoogleCalendarSync.Status.SYNCED
