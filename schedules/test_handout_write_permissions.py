@@ -42,7 +42,8 @@ class HandoutWritePermissionTests(APITestCase):
                             "participant": self.participant.pk,
                             "title": "改変",
                             "content": "改変",
-                            "is_secret": False,
+                            # Handout visibility flag, not an authentication secret.
+                            "is_secret": False,  # nosec B105
                         }
                         response = getattr(self.client, method)(url, payload, format="json")
                         self.assertEqual(response.status_code, 403)
