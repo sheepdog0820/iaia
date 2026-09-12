@@ -7,18 +7,23 @@
     <div class="row justify-content-center">
         <div class="col-lg-9">
             <h1 class="h3 mb-4">{{ labels.commercial_title }}</h1>
+            {% if disclosure_on_request %}
+            <p>タブレノは個人事業者が運営しています。販売事業者の氏名、所在地および電話番号については、請求があった場合、遅滞なく開示します。開示を希望される方は、<a href="mailto:{{ contact_email }}">{{ contact_email }}</a>までご連絡ください。お申込みを判断する前に、十分な時間的余裕をもって情報をご確認いただけるよう対応します。</p>
+            {% endif %}
             <div class="table-responsive">
                 <table class="table table-bordered align-middle">
                     <tbody>
-                        <tr><th class="w-25">{{ labels.seller }}</th><td>{{ seller_name }}</td></tr>
-                        <tr><th>{{ labels.address }}</th><td>{{ seller_address }}</td></tr>
-                        <tr><th>{{ labels.phone }}</th><td>{{ seller_phone }}</td></tr>
+                        <tr><th class="w-25">{{ labels.seller }}</th><td>{% if disclosure_on_request %}個人事業者（氏名は請求があった場合、遅滞なく開示します。）{% else %}{{ seller_name }}{% endif %}</td></tr>
+                        {% if disclosure_on_request %}<tr><th>運営責任者</th><td>販売事業者本人（氏名は請求があった場合、遅滞なく開示します。）</td></tr>{% endif %}
+                        <tr><th>{{ labels.address }}</th><td>{% if disclosure_on_request %}請求があった場合、遅滞なく開示します。{% else %}{{ seller_address }}{% endif %}</td></tr>
+                        <tr><th>{{ labels.phone }}</th><td>{% if disclosure_on_request %}請求があった場合、遅滞なく開示します。{% else %}{{ seller_phone }}{% endif %}</td></tr>
                         <tr><th>{{ labels.contact }}</th><td><a href="mailto:{{ contact_email }}">{{ contact_email }}</a></td></tr>
                         <tr><th>{{ labels.price }}</th><td>{{ premium_price_label }}</td></tr>
                         <tr><th>{{ labels.extra_fee }}</th><td>{{ labels.extra_fee_text }}</td></tr>
                         <tr><th>{{ labels.payment_method }}</th><td>{{ payment_method }}</td></tr>
                         <tr><th>{{ labels.payment_timing }}</th><td>{{ payment_timing }}</td></tr>
                         <tr><th>{{ labels.delivery }}</th><td>{{ service_delivery_timing }}</td></tr>
+                        <tr><th>契約期間</th><td>月額プランは1か月、年額プランは1年。解約手続きまで同じ期間で自動更新されます。</td></tr>
                         <tr><th>{{ labels.cancel_method }}</th><td>{{ cancellation_method }}</td></tr>
                         <tr><th>{{ labels.cancel_effect }}</th><td>{{ cancellation_effect }}</td></tr>
                         <tr><th>{{ labels.refund }}</th><td>{{ refund_policy }}</td></tr>

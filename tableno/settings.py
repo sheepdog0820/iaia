@@ -352,33 +352,34 @@ STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID = os.environ.get(
     "",
 )
 STRIPE_REVOKE_ON_REFUND_OR_DISPUTE = _get_bool("STRIPE_REVOKE_ON_REFUND_OR_DISPUTE", default=True)
-PREMIUM_PRICE_LABEL = os.environ.get("PREMIUM_PRICE_LABEL", "月額480円 / 年額4,800円")
+PREMIUM_PRICE_LABEL = os.environ.get("PREMIUM_PRICE_LABEL", "月額480円 / 年額4,800円（税込）")
 PREMIUM_MONTHLY_PRICE_LABEL = os.environ.get("PREMIUM_MONTHLY_PRICE_LABEL", "月額プラン")
-PREMIUM_MONTHLY_PRICE_DESCRIPTION = os.environ.get("PREMIUM_MONTHLY_PRICE_DESCRIPTION", "480円/月")
+PREMIUM_MONTHLY_PRICE_DESCRIPTION = os.environ.get("PREMIUM_MONTHLY_PRICE_DESCRIPTION", "480円/月（税込）")
 PREMIUM_YEARLY_PRICE_LABEL = os.environ.get("PREMIUM_YEARLY_PRICE_LABEL", "年額プラン")
-PREMIUM_YEARLY_PRICE_DESCRIPTION = os.environ.get("PREMIUM_YEARLY_PRICE_DESCRIPTION", "4,800円/年")
-LEGAL_PAYMENT_METHOD = os.environ.get(
-    "LEGAL_PAYMENT_METHOD", "Stripe Checkoutで利用可能なクレジットカード等の決済手段。"
-)
+PREMIUM_YEARLY_PRICE_DESCRIPTION = os.environ.get("PREMIUM_YEARLY_PRICE_DESCRIPTION", "4,800円/年（税込）")
+LEGAL_PAYMENT_METHOD = os.environ.get("LEGAL_PAYMENT_METHOD", "クレジットカード決済（Stripe）。")
 LEGAL_PAYMENT_TIMING = os.environ.get(
     "LEGAL_PAYMENT_TIMING",
     "\u521d\u56de\u7533\u3057\u8fbc\u307f\u6642\u306b\u8ab2\u91d1\u3055\u308c\u3001\u4ee5\u5f8c\u306f\u9078\u629e\u3057\u305f\u6708\u984d\u307e\u305f\u306f\u5e74\u984d\u30b5\u30d6\u30b9\u30af\u30ea\u30d7\u30b7\u30e7\u30f3\u3068\u3057\u3066\u81ea\u52d5\u66f4\u65b0\u3055\u308c\u307e\u3059\u3002",
 )
 LEGAL_SERVICE_DELIVERY_TIMING = os.environ.get(
-    "LEGAL_SERVICE_DELIVERY_TIMING", "決済完了後、Stripe Webhookの処理完了をもってプレミアム機能を利用できます。"
+    "LEGAL_SERVICE_DELIVERY_TIMING", "決済完了後、直ちにプレミアム機能を提供します。"
 )
 LEGAL_CANCELLATION_METHOD = os.environ.get(
     "LEGAL_CANCELLATION_METHOD",
     "ログイン後のプレミアム管理画面からStripe Customer Portalへ移動し、いつでも解約できます。",
 )
 LEGAL_CANCELLATION_EFFECT = os.environ.get(
-    "LEGAL_CANCELLATION_EFFECT", "解約後も支払い済み期間の終了まではプレミアム機能を利用できます。"
+    "LEGAL_CANCELLATION_EFFECT",
+    "次回更新日前までに解約手続きを行うと、支払い済み期間の終了時に解約となります。それまではプレミアム機能を利用できます。",
 )
 LEGAL_REFUND_POLICY = os.environ.get(
     "LEGAL_REFUND_POLICY",
-    "デジタルサービスの性質上、決済完了後のお客様都合による返金は原則として受け付けません。重複請求や誤請求が確認された場合は個別に対応します。",
+    "法令上必要な場合を除き、決済完了後の返金は原則として受け付けません。重複請求や誤請求についてはお問い合わせください。",
 )
-LEGAL_SELLER_NAME = os.environ.get("LEGAL_SELLER_NAME", "タブレノ運営")
+LEGAL_DISCLOSURE_ON_REQUEST = _get_bool("LEGAL_DISCLOSURE_ON_REQUEST", default=True)
+LEGAL_DISCLOSURE_OPERATIONS_READY = _get_bool("LEGAL_DISCLOSURE_OPERATIONS_READY", default=False)
+LEGAL_SELLER_NAME = os.environ.get("LEGAL_SELLER_NAME", "請求があった場合、遅滞なく開示します。")
 LEGAL_SELLER_ADDRESS = os.environ.get("LEGAL_SELLER_ADDRESS", "請求があった場合、遅滞なく開示します。")
 LEGAL_SELLER_PHONE = os.environ.get("LEGAL_SELLER_PHONE", "請求があった場合、遅滞なく開示します。")
 PUBLIC_SITE_URL = os.environ.get("PUBLIC_SITE_URL", "")

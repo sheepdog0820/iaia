@@ -322,14 +322,16 @@ LEGAL_CANCELLATION_METHOD = _require_env("LEGAL_CANCELLATION_METHOD")
 LEGAL_CANCELLATION_EFFECT = _require_env("LEGAL_CANCELLATION_EFFECT")
 LEGAL_REFUND_POLICY = _require_env("LEGAL_REFUND_POLICY")
 LEGAL_SELLER_NAME = _require_env("LEGAL_SELLER_NAME")
-LEGAL_SELLER_ADDRESS = _require_non_placeholder_env(
-    "LEGAL_SELLER_ADDRESS",
-    placeholder_fragment="請求があった場合",
-)
-LEGAL_SELLER_PHONE = _require_non_placeholder_env(
-    "LEGAL_SELLER_PHONE",
-    placeholder_fragment="請求があった場合",
-)
+LEGAL_DISCLOSURE_ON_REQUEST = _get_bool_env("LEGAL_DISCLOSURE_ON_REQUEST", default=False)
+LEGAL_DISCLOSURE_OPERATIONS_READY = _get_bool_env("LEGAL_DISCLOSURE_OPERATIONS_READY", default=False)
+if LEGAL_DISCLOSURE_ON_REQUEST:
+    LEGAL_SELLER_ADDRESS = _require_env("LEGAL_SELLER_ADDRESS")
+    LEGAL_SELLER_PHONE = _require_env("LEGAL_SELLER_PHONE")
+    if STRIPE_CHECKOUT_ENABLED and not LEGAL_DISCLOSURE_OPERATIONS_READY:
+        raise RuntimeError("LEGAL_DISCLOSURE_OPERATIONS_READY must be true before enabling sales")
+else:
+    LEGAL_SELLER_ADDRESS = _require_non_placeholder_env("LEGAL_SELLER_ADDRESS", placeholder_fragment="請求があった場合")
+    LEGAL_SELLER_PHONE = _require_non_placeholder_env("LEGAL_SELLER_PHONE", placeholder_fragment="請求があった場合")
 
 # ロギング設定
 LOG_TO_STDOUT = _get_bool_env("LOG_TO_STDOUT", default=True)

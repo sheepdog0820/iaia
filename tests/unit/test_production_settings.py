@@ -9,6 +9,36 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class ProductionSettingsTests(TestCase):
+    def test_on_request_disclosure_requires_operations_before_sales(self):
+        result = self.run_settings_probe(
+            {"LEGAL_DISCLOSURE_ON_REQUEST": "true", "STRIPE_CHECKOUT_ENABLED": "true"}, check=False
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("LEGAL_DISCLOSURE_OPERATIONS_READY", result.stderr)
+
+    def test_on_request_disclosure_accepts_verified_operations(self):
+        result = self.run_settings_probe(
+            {
+                "LEGAL_DISCLOSURE_ON_REQUEST": "true",
+                "STRIPE_CHECKOUT_ENABLED": "true",
+                "LEGAL_DISCLOSURE_OPERATIONS_READY": "true",
+            },
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_on_request_disclosure_is_allowed_with_sales_disabled(self):
+        result = self.run_settings_probe(
+            {
+                "LEGAL_DISCLOSURE_ON_REQUEST": "true",
+                "LEGAL_SELLER_NAME": "請求があった場合、遅滞なく開示します。",
+                "LEGAL_SELLER_ADDRESS": "請求があった場合、遅滞なく開示します。",
+                "LEGAL_SELLER_PHONE": "請求があった場合、遅滞なく開示します。",
+            },
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_celery_broker_does_not_require_redis_web_sessions(self):
         broker = "rediss://broker.example.invalid:6379/0?ssl_cert_reqs=required"
         payload = self.run_settings_probe(

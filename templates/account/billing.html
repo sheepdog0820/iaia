@@ -101,6 +101,13 @@
                     </div>
                     {% endif %}
 
+                    <div class="border rounded p-3 mb-3">
+                        <p class="fw-bold mb-2">{{ premium_price_label }}</p>
+                        <p class="mb-2">{{ legal_payment_timing }}</p>
+                        <p class="mb-2">{{ legal_cancellation_effect }}</p>
+                        <p class="mb-2">{{ legal_refund_policy }}</p>
+                        <p class="mb-0">お申込み内容・次回請求は決済の最終確認画面でご確認ください。解約は支払い・解約管理（Stripe Customer Portal）から手続きできます。</p>
+                    </div>
                     <div class="d-grid gap-2 d-sm-flex">
                         {% if subscription and subscription.stripe_customer_id %}
                         <button class="btn btn-primary" id="billing-portal-btn" {% if not stripe_configured %}disabled{% endif %}>
@@ -216,5 +223,4 @@ document.getElementById('premium-code-form')?.addEventListener('submit', async (
 });
 </script>
 {% endblock %}
-
 

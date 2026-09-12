@@ -1,16 +1,16 @@
 from django.conf import settings
 from django.shortcuts import render
 
-DEFAULT_SELLER_NAME = "タブレノ運営"
+DEFAULT_SELLER_NAME = "請求があった場合、遅滞なく開示します。"
 DEFAULT_DISCLOSURE_ON_REQUEST = "請求があった場合、遅滞なく開示します。"
-DEFAULT_PRICE_LABEL = "月額480円 / 年額4,800円"
-DEFAULT_PAYMENT_METHOD = "Stripe Checkoutで利用可能なクレジットカード等の決済手段。"
+DEFAULT_PRICE_LABEL = "月額480円 / 年額4,800円（税込）"
+DEFAULT_PAYMENT_METHOD = "クレジットカード決済（Stripe）。"
 DEFAULT_PAYMENT_TIMING = (
     "初回申し込み時に課金され、以後は選択した月額または年額サブスクリプションとして自動更新されます。"
 )
-DEFAULT_SERVICE_DELIVERY_TIMING = "決済完了後、Stripe Webhookの処理完了をもってプレミアム機能を利用できます。"
+DEFAULT_SERVICE_DELIVERY_TIMING = "決済完了後、直ちにプレミアム機能を提供します。"
 DEFAULT_CANCELLATION_METHOD = "ログイン後のプレミアム管理画面からStripe Customer Portalへ移動し、いつでも解約できます。"
-DEFAULT_CANCELLATION_EFFECT = "解約後も支払い済み期間の終了まではプレミアム機能を利用できます。"
+DEFAULT_CANCELLATION_EFFECT = "次回更新日前までに解約手続きを行うと、支払い済み期間の終了時に解約となります。それまではプレミアム機能を利用できます。"
 
 LEGAL_LABELS = {
     "commercial_title": "特定商取引法に基づく表記",
@@ -28,7 +28,7 @@ LEGAL_LABELS = {
     "cancel_effect": "解約の効力",
     "refund": "返品・キャンセル・返金",
     "environment": "動作環境",
-    "environment_text": "最新版の主要ブラウザでの利用を推奨します。",
+    "environment_text": "Chrome・Edge・Firefox・Safariの最新版と、インターネット接続が必要です。",
     "premium_features": "プレミアム機能",
     "fee": "料金",
     "feature": "機能",
@@ -48,7 +48,7 @@ LEGAL_LABELS = {
     "listed": "に記載しています。",
 }
 
-DEFAULT_REFUND_POLICY = "デジタルサービスの性質上、決済完了後のお客様都合による返金は原則として受け付けません。重複請求や誤請求が確認された場合は個別に対応します。"
+DEFAULT_REFUND_POLICY = "法令上必要な場合を除き、決済完了後の返金は原則として受け付けません。重複請求や誤請求についてはお問い合わせください。"
 
 
 PREMIUM_FEATURE_ROWS = [
@@ -125,6 +125,7 @@ def contact_view(request):
 
 def commercial_disclosure_view(request):
     context = {
+        "disclosure_on_request": getattr(settings, "LEGAL_DISCLOSURE_ON_REQUEST", True),
         "seller_name": getattr(settings, "LEGAL_SELLER_NAME", DEFAULT_SELLER_NAME),
         "seller_address": getattr(settings, "LEGAL_SELLER_ADDRESS", DEFAULT_DISCLOSURE_ON_REQUEST),
         "seller_phone": getattr(settings, "LEGAL_SELLER_PHONE", DEFAULT_DISCLOSURE_ON_REQUEST),

@@ -55,6 +55,10 @@ class BillingPageView(TemplateView):
         context["checkout_enabled"] = checkout_enabled
         context["stripe_configured"] = bool(checkout_enabled and settings.STRIPE_SECRET_KEY and configured_plans)
         context["checkout_price_options"] = configured_plans if checkout_enabled else []
+        context["premium_price_label"] = settings.PREMIUM_PRICE_LABEL
+        context["legal_payment_timing"] = settings.LEGAL_PAYMENT_TIMING
+        context["legal_cancellation_effect"] = settings.LEGAL_CANCELLATION_EFFECT
+        context["legal_refund_policy"] = settings.LEGAL_REFUND_POLICY
         context["refund_or_dispute_auto_revoke"] = getattr(
             settings,
             "STRIPE_REVOKE_ON_REFUND_OR_DISPUTE",

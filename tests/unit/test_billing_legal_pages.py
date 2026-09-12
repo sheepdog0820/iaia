@@ -5,6 +5,40 @@ from django.urls import reverse
 
 
 class BillingLegalPagesTestCase(TestCase):
+    @override_settings(
+        LEGAL_DISCLOSURE_ON_REQUEST=True,
+        LEGAL_DISCLOSURE_OPERATIONS_READY=True,
+        LEGAL_SELLER_NAME="非公開氏名テスト",
+        LEGAL_SELLER_ADDRESS="非公開住所テスト",
+        LEGAL_SELLER_PHONE="非公開電話テスト",
+    )
+    def test_on_request_mode_does_not_render_private_operator_values(self):
+        from accounts.management.commands.billing_preflight import Command
+
+        response = self.client.get(reverse("commercial_disclosure"))
+        for text in ("非公開氏名テスト", "非公開住所テスト", "非公開電話テスト"):
+            self.assertNotContains(response, text)
+        result = Command()._page_contains_check(
+            "commercial_disclosure",
+            ("LEGAL_SELLER_NAME", "LEGAL_SELLER_ADDRESS", "LEGAL_SELLER_PHONE", "CONTACT_EMAIL"),
+        )
+        self.assertTrue(result[1], result)
+
+    @override_settings(LEGAL_DISCLOSURE_ON_REQUEST=True, LEGAL_DISCLOSURE_OPERATIONS_READY=False)
+    def test_preflight_requires_disclosure_operations(self):
+        from accounts.management.commands.billing_preflight import Command
+
+        self.assertFalse(Command()._setting_check("LEGAL_SELLER_ADDRESS", reject_disclosure_placeholder=True)[1])
+        with override_settings(LEGAL_DISCLOSURE_OPERATIONS_READY=True):
+            self.assertTrue(Command()._setting_check("LEGAL_SELLER_ADDRESS", reject_disclosure_placeholder=True)[1])
+
+    def test_billing_page_displays_terms_before_checkout(self):
+        user = get_user_model().objects.create_user(username="terms-fixture")
+        self.client.force_login(user)
+        response = self.client.get(reverse("billing"))
+        for text in ("税込", "次回更新日前まで", "自動更新", "法令上必要な場合を除き"):
+            self.assertContains(response, text)
+
     MOJIBAKE_MARKERS = [
         chr(0x90E2) + chr(0xFF67),
         chr(0x90B5) + chr(0xFF7A),
@@ -29,6 +63,24 @@ class BillingLegalPagesTestCase(TestCase):
         self.assertContains(response, "販売価格")
         self.assertContains(response, "解約方法")
         self.assertContains(response, "返品・キャンセル・返金")
+
+    @override_settings(LEGAL_DISCLOSURE_ON_REQUEST=True, CONTACT_EMAIL="support@tableno.jp")
+    def test_individual_seller_disclosure_request_and_contract_terms(self):
+        response = self.client.get(reverse("commercial_disclosure"))
+        for text in (
+            "個人事業者",
+            "運営責任者",
+            "販売事業者本人",
+            "氏名、所在地および電話番号",
+            "請求があった場合、遅滞なく開示します。",
+            "mailto:support@tableno.jp",
+            "契約期間",
+            "税込",
+            "法令上必要な場合を除き",
+            "次回更新日前まで",
+        ):
+            self.assertContains(response, text)
+        self.assertNotContains(response, "Stripe Webhook")
 
     def test_commercial_disclosure_page_contains_required_legal_items(self):
         response = self.client.get(reverse("commercial_disclosure"))
@@ -88,6 +140,7 @@ class BillingLegalPagesTestCase(TestCase):
         self.assertContains(response, "特定商取引法に基づく表記")
 
     @override_settings(
+        LEGAL_DISCLOSURE_ON_REQUEST=False,
         CONTACT_EMAIL="billing-help@example.com",
         PREMIUM_PRICE_LABEL="月額500円",
         LEGAL_PAYMENT_METHOD="クレジットカード",

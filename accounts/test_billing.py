@@ -2737,6 +2737,7 @@ Premium audit logs
     STRIPE_PREMIUM_EXPECTED_CURRENCY="",
     STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT="",
     STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT="",
+    LEGAL_DISCLOSURE_ON_REQUEST=False,
 )
 class BillingPreflightCommandTestCase(TestCase):
     @override_settings(

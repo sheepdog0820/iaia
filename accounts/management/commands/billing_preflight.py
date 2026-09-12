@@ -267,6 +267,12 @@ class Command(BaseCommand):
         reject_message="本番では具体的な値を設定してください。",
     ):
         value = getattr(settings, name, "")
+        if name in {"LEGAL_SELLER_NAME", "LEGAL_SELLER_ADDRESS", "LEGAL_SELLER_PHONE"} and getattr(
+            settings, "LEGAL_DISCLOSURE_ON_REQUEST", False
+        ):
+            if not getattr(settings, "LEGAL_DISCLOSURE_OPERATIONS_READY", False):
+                return name, False, "請求開示窓口の受信・返信と実情報の開示体制を確認してください。"
+            return name, True, "請求開示方式（運用体制確認済み）"
         if not value:
             return name, False, "値が設定されていません。"
         if required_prefix and not str(value).startswith(required_prefix):
@@ -293,6 +299,14 @@ class Command(BaseCommand):
         if response.status_code != 200:
             return f"page:{url_name}", False, f"HTTP {response.status_code}"
         html = response.content.decode(response.charset or "utf-8", errors="replace")
+        if url_name == "commercial_disclosure" and getattr(settings, "LEGAL_DISCLOSURE_ON_REQUEST", False):
+            setting_names = tuple(
+                name
+                for name in setting_names
+                if name not in {"LEGAL_SELLER_NAME", "LEGAL_SELLER_ADDRESS", "LEGAL_SELLER_PHONE"}
+            )
+            if "請求があった場合、遅滞なく開示します。" not in html:
+                return f"page:{url_name}", False, "請求開示の案内がありません。"
         missing = [
             setting_name for setting_name in setting_names if str(getattr(settings, setting_name, "")) not in html
         ]
