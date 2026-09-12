@@ -4,6 +4,8 @@
 .gitattributes text eol=lf
 .env.example text eol=lf
 .env.production.example text eol=lf
+.env.development.example text eol=lf
+.env.staging.example text eol=lf
 
 *.css text eol=lf
 *.html text eol=lf

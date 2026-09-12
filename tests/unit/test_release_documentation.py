@@ -272,10 +272,6 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
         env_specific_lines = {
             ".env.staging.example": [
                 "PUBLIC_SITE_URL=https://stg.tableno.jp",
-                "PREMIUM_PRICE_LABEL=Monthly 480 JPY / Yearly 4,800 JPY",
-                "LEGAL_PAYMENT_METHOD=Credit card and other payment methods available through Stripe Checkout.",
-                "LEGAL_PAYMENT_TIMING=Charged when the subscription starts and renewed on each billing cycle.",
-                "LEGAL_SELLER_NAME=Tableno operations",
             ],
             ".env.production.example": [
                 "PUBLIC_SITE_URL=https://tableno.jp",
@@ -293,6 +289,30 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
                 content = (self.ROOT / env_name).read_text(encoding="utf-8")
                 for line in [*common_required_lines, *required_lines]:
                     self.assertIn(line, content)
+
+    def test_all_env_examples_use_approved_seller_policy_without_enabling_sales(self):
+        required_lines = [
+            "STRIPE_CHECKOUT_ENABLED=False",
+            "LEGAL_DISCLOSURE_ON_REQUEST=True",
+            "LEGAL_DISCLOSURE_OPERATIONS_READY=False",
+            "CONTACT_EMAIL=support@tableno.jp",
+            "PREMIUM_PRICE_LABEL=月額480円 / 年額4,800円（税込）",
+            "PREMIUM_MONTHLY_PRICE_DESCRIPTION=480円/月（税込）",
+            "PREMIUM_YEARLY_PRICE_DESCRIPTION=4,800円/年（税込）",
+            "LEGAL_PAYMENT_METHOD=クレジットカード決済（Stripe）。",
+            "LEGAL_SERVICE_DELIVERY_TIMING=決済完了後、直ちにプレミアム機能を提供します。",
+            "LEGAL_CANCELLATION_EFFECT=次回更新日前までに解約手続きを行うと、支払い済み期間の終了時に解約となります。それまではプレミアム機能を利用できます。",
+            "LEGAL_REFUND_POLICY=法令上必要な場合を除き、決済完了後の返金は原則として受け付けません。重複請求や誤請求についてはお問い合わせください。",
+            "LEGAL_SELLER_NAME=請求があった場合、遅滞なく開示します。",
+            "LEGAL_SELLER_ADDRESS=請求があった場合、遅滞なく開示します。",
+            "LEGAL_SELLER_PHONE=請求があった場合、遅滞なく開示します。",
+        ]
+        for env_name in (".env.example", ".env.development.example", ".env.staging.example", ".env.production.example"):
+            with self.subTest(env_name=env_name):
+                lines = (self.ROOT / env_name).read_text(encoding="utf-8").splitlines()
+                for expected in required_lines:
+                    key = expected.split("=", 1)[0]
+                    self.assertEqual([line for line in lines if line.startswith(f"{key}=")], [expected])
 
     def test_aws_pre_task_definition_keeps_smtp_credentials_injected(self):
         tfvars = (self.ROOT / "infrastructure" / "terraform" / "environments" / "aws-pre.tfvars.example").read_text(
