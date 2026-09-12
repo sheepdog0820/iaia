@@ -1880,6 +1880,12 @@ class HandoutInfoViewSet(viewsets.ModelViewSet):
                 | Q(matches_assigned_slot=True)
             )
             .distinct()
+            .select_related(
+                "participant__user",
+                "participant__character_sheet__sixth_edition_data",
+                "participant__character_sheet__seventh_edition_data",
+            )
+            .prefetch_related("participant__participant_roles")
         )
 
     def perform_create(self, serializer):
