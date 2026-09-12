@@ -42,6 +42,8 @@ class DatePollResponseQueryTests(APITestCase):
                 )
                 self.assertEqual(len(option["votes"]), 1)
             totals.append(len(queries))
+            vote_reads = [query for query in queries if 'FROM "schedules_datepollvote"' in query["sql"]]
+            self.assertEqual(len(vote_reads), 1)
         self.assertEqual(totals[0], totals[1], totals)
 
     def test_counts_match_with_and_without_prefetched_votes(self):

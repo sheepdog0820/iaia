@@ -3735,9 +3735,11 @@ class DatePollViewSet(viewsets.ModelViewSet):
         queryset = (
             DatePoll.objects.filter(Q(created_by=user) | Q(group_id__in=group_ids) | Q(id__in=shared_poll_ids))
             .select_related("created_by", "group", "session")
-            .prefetch_related("options__votes__user")
             .distinct()
         )
+        # Confirmation loads display data after the locked state change.
+        if getattr(self, "action", None) != "confirm":
+            queryset = queryset.prefetch_related("options__votes__user")
 
         session_id = self.request.query_params.get("session_id")
         if session_id:
