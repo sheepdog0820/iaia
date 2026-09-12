@@ -18,7 +18,7 @@
 | main | [PR #3](https://github.com/sheepdog0820/iaia/pull/3)を `74a4b506` でマージ済み。マージ直後の内容は検証・配布した `f97c7809` と一致。後続のREADME・反映記録は文書のみの更新 |
 | Google処理基盤 | 一時Redis・workerのAWS接続試験は成功・撤去済み。常設基盤と実Calendar/Sheets同期は未完了 |
 | Stripe | 登録・連携作業は保留中。実Stripeテストモードの課金ライフサイクルは未検証 |
-| 未反映の作業ブランチ | [Draft PR #4](https://github.com/sheepdog0820/iaia/pull/4)：Calendar・Sheetsの異常応答/復旧、個人事業者の請求開示表示、日程確定の性能改善。[cc160e7bの通常配布物](docs/release/RUNTIME_CANDIDATE_CC160E7B_2026-09-12.md)で関連47テストと503ファイルのソース一致を確認。push/PR CIは全6ジョブ成功（単体・統合1,820成功/30スキップ、ブラウザ各186成功）。main・開発AWSには未反映 |
+| 未反映の作業ブランチ | [Draft PR #4](https://github.com/sheepdog0820/iaia/pull/4)：Calendar・Sheetsの復旧、請求開示表示、日程確定の性能、ハンドアウト権限・入力検査・一覧性能を改善。[a1a50b63の通常配布物とCI](docs/release/RUNTIME_CANDIDATE_A1A50B63_2026-09-12.md)で関連55テストと506ファイルの一致を確認。push/PR CI全6ジョブ成功（単体・統合各1,828成功/30スキップ、ブラウザ各186成功）。main・開発AWSには未反映 |
 | 運営者情報 | 個人事業者として氏名・所在地・電話番号を請求時に遅滞なく開示する方針。support@tableno.jp の受信・返信と実情報の開示体制は未確認のため、販売準備完了とは扱わない |
 
 項目別の証拠と残条件は[正式公開の受け入れ条件](docs/release/FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)、稼働版と復旧先の記録は[Google配送修正のAWS反映](docs/release/AWS_PRE_GOOGLE_DELIVERY_2026-09-10.md)を参照してください。CI成功だけで実サービス検証や本番公開完了とは扱いません。
@@ -38,7 +38,7 @@
 
 特商法ページと課金前の画面には、税込料金、自動更新、次回更新日前までの解約と期間終了時の効力、返金条件を表示します。[個人事業者・請求開示方式の設定](docs/release/INDIVIDUAL_SELLER_POLICY_2026-09-12.md)に設定方法と開示依頼の運用準備を記録しています。
 
-直近の追加修正は、[ハンドアウトの更新・削除権限](docs/release/HANDOUT_WRITE_AUTHORIZATION_2026-09-12.md)と[一覧の関連データ取得](docs/release/HANDOUT_LIST_PERFORMANCE_2026-09-12.md)です。アプリ候補 `d9e65188` の通常配布物で関連53テストが成功し、隔離環境の一覧100要求で許可されたID・本文が一致、p95は1.694秒でした。これらは上表の `cc160e7b` より後の変更で、main・開発AWSへは未反映です。`7a6719a2` の[PR CI](https://github.com/sheepdog0820/iaia/actions/runs/34697076411)は確認時点で4ジョブ成功、単体・統合とブラウザが実行中です。旧候補のCI成功を最新候補の合格とは扱いません。
+ハンドアウトは[更新・削除権限](docs/release/HANDOUT_WRITE_AUTHORIZATION_2026-09-12.md)、[一括作成の入力形式](docs/release/HANDOUT_BULK_VALIDATION_2026-09-12.md)、[管理テストの検証漏れ](docs/release/HANDOUT_MANAGEMENT_TEST_COVERAGE_2026-09-12.md)を修正しました。[一覧の隔離測定](docs/release/HANDOUT_LIST_PERFORMANCE_2026-09-12.md)は100要求で許可されたID・本文が一致し、p95は1.694秒でした。実AWS・全操作・長時間負荷の合格は未証明です。
 
 ## ローカルで起動する
 
