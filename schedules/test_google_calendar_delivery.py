@@ -37,6 +37,44 @@ class GoogleCalendarDeliveryTest(TestCase):
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     @patch("schedules.tasks.requests.delete")
+    def test_cancelled_session_without_date_removes_existing_event(self, delete, token):
+        self.session.status = "cancelled"
+        self.session.date = None
+        self.session.save(update_fields=["status", "date"])
+        self.sync.external_event_id = "existing-event"
+        self.sync.save(update_fields=["external_event_id"])
+        delete.return_value = self.response(204, {})
+        job = self.job()
+        self.assertEqual(sync_google_calendar.run(self.sync.pk, str(job.pk)), GoogleCalendarSync.Status.DELETED)
+        delete.assert_called_once_with(
+            "https://www.googleapis.com/calendar/v3/calendars/primary/events/existing-event",
+            headers={"Authorization": "Bearer isolated-token", "Content-Type": "application/json"},
+            timeout=15,
+        )
+        job.refresh_from_db()
+        self.assertEqual(job.status, AsyncJob.Status.SUCCEEDED)
+
+    @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
+    @patch("schedules.tasks.requests.delete")
+    @patch("schedules.tasks.requests.put")
+    @patch("schedules.tasks.requests.post")
+    def test_undated_active_session_does_not_send_event(self, post, put, delete, token):
+        self.session.date = None
+        self.session.save(update_fields=["date"])
+        for external_id in ("", "existing-event"):
+            with self.subTest(external_id=external_id):
+                self.sync.external_event_id = external_id
+                self.sync.save(update_fields=["external_event_id"])
+                job = self.job()
+                self.assertEqual(sync_google_calendar.run(self.sync.pk, str(job.pk)), "undated")
+                job.refresh_from_db()
+                self.assertEqual(job.status, AsyncJob.Status.FAILED)
+        post.assert_not_called()
+        put.assert_not_called()
+        delete.assert_not_called()
+
+    @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
+    @patch("schedules.tasks.requests.delete")
     def test_lost_deletion_response_completes_on_already_deleted_retry(self, delete, token):
         self.session.status = "cancelled"
         self.session.save(update_fields=["status"])

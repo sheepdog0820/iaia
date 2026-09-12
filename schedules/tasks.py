@@ -251,7 +251,8 @@ def sync_google_calendar(self, sync_id, job_id):
         sync.save(update_fields=["status", "last_error", "updated_at"])
         job.mark_failed(error)
         return "missing-token"
-    if sync.session.date is None:
+    deleting_existing_event = sync.session.status == "cancelled" and bool(sync.external_event_id)
+    if sync.session.date is None and not deleting_existing_event:
         error = "Undated sessions cannot be synchronized to Google Calendar."
         sync.status = GoogleCalendarSync.Status.FAILED
         sync.last_error = error
@@ -265,7 +266,7 @@ def sync_google_calendar(self, sync_id, job_id):
     }
     base_url = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
     try:
-        if sync.session.status == "cancelled" and sync.external_event_id:
+        if deleting_existing_event:
             response = requests.delete(
                 f"{base_url}/{sync.external_event_id}",
                 headers=headers,
