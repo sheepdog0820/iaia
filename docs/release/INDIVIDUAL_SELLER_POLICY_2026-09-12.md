@@ -34,3 +34,25 @@
 ローカルの隔離テストDBで法務ページ・本番設定・課金画面・公開前チェック計98件と10サブテストが成功。初回はWindowsの子プロセス出力をcp932で読む検証側の文字コードエラー1件があったが、UTF-8指定で再実行して全件成功。既存Django非推奨警告9件あり。Black/isort/flake8成功。実ブラウザの見た目、実メール、実Stripe最終画面とCIは未確認。
 
 DB変更・マイグレーションなし。戻す場合は当該コミットを作業ブランチでrevertし検証する。従来の本番設定へ戻すと請求開示の住所・電話が拒否されるため、稼働環境の設定方式との整合を確認する必要がある。
+
+## 通常配布物の確認
+
+2026-09-12、コミット `2a0ecbc6d8608907a3dff8e79e27eb9679db52b6` のgit archiveから標準Dockerfileでイメージ `tableno-release:2a0ecbc6` を作成、終了コード0。イメージIDは `sha256:12c1ef2f58fb78379d650542c7743cedf49ba1d244f948b16efe8fca1c741b80`。作業ツリーの未追跡ファイルは含めていない。
+
+同イメージへ隔離テスト設定だけを読み込み、ネットワークなし・使い捨てメモリSQLiteで次の140テストが成功（20.893秒、終了0）。ソース差し替えなし。Stripe/Googleの応答は模擬し、実外部送信はしていない。
+
+```text
+tests.unit.test_billing_legal_pages
+tests.unit.test_public_legal_pages
+tests.unit.test_production_settings
+accounts.test_billing.BillingPageTestCase
+accounts.test_billing.BillingPreflightCommandTestCase
+schedules.test_google_calendar_delivery
+tests.integration.test_google_job_authorization
+schedules.test_external_integrations
+schedules.test_async_jobs
+```
+
+法務ページの実情報非表示、公開方式の具体値表示、開示体制と販売可否の設定検査、課金前表示、Calendar取消を含む。APIの404/400やブローカー不在の警告は拒否ケースの期待結果。ビルドログはGit管理外の `tmp/legal-2a0ecbc6-build.log`、再現スクリプトは `tmp/build-legal-candidate.py` に保持。
+
+同候補の[CI 34685820007](https://github.com/sheepdog0820/iaia/actions/runs/34685820007)は確認時点でinfrastructure成功・残り5ジョブ実行中。これはCI全体成功の証明ではない。AWSへのイメージ送信・反映、mainマージ、実サービス・ブラウザ全経路は未実施。
