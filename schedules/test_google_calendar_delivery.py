@@ -36,6 +36,48 @@ class GoogleCalendarDeliveryTest(TestCase):
         return result
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
+    @patch("schedules.tasks.requests.delete")
+    def test_lost_deletion_response_completes_on_already_deleted_retry(self, delete, token):
+        self.session.status = "cancelled"
+        self.session.save(update_fields=["status"])
+        self.sync.external_event_id = "existing-event"
+        self.sync.save(update_fields=["external_event_id"])
+        delete.side_effect = [requests.Timeout("response lost after deletion"), self.response(410, {})]
+        with patch.object(sync_google_calendar, "retry", side_effect=Retry()) as retry:
+            with self.assertRaises(Retry):
+                sync_google_calendar.run(self.sync.pk, str(self.job().pk))
+            job = self.job()
+            self.assertEqual(sync_google_calendar.run(self.sync.pk, str(job.pk)), GoogleCalendarSync.Status.DELETED)
+        self.sync.refresh_from_db()
+        job.refresh_from_db()
+        self.assertEqual(retry.call_count, 1)
+        self.assertEqual(delete.call_count, 2)
+        self.assertEqual(delete.call_args_list[0], delete.call_args_list[1])
+        self.assertEqual(self.sync.external_event_id, "existing-event")
+        self.assertEqual(self.sync.last_error, "")
+        self.assertIsNotNone(self.sync.synced_at)
+        self.assertEqual(job.status, AsyncJob.Status.SUCCEEDED)
+
+    @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
+    @patch("schedules.tasks.requests.delete")
+    def test_cancellation_does_not_hide_other_http_failures(self, delete, token):
+        self.session.status = "cancelled"
+        self.session.save(update_fields=["status"])
+        self.sync.external_event_id = "existing-event"
+        self.sync.save(update_fields=["external_event_id"])
+        for code in (401, 403, 429, 500):
+            with self.subTest(code=code):
+                delete.return_value = self.response(code, {})
+                job = self.job()
+                with patch.object(sync_google_calendar, "retry", side_effect=Retry()):
+                    with self.assertRaises(Retry):
+                        sync_google_calendar.run(self.sync.pk, str(job.pk))
+                job.refresh_from_db()
+                self.sync.refresh_from_db()
+                self.assertEqual(job.status, AsyncJob.Status.FAILED)
+                self.assertEqual(self.sync.status, GoogleCalendarSync.Status.FAILED)
+
+    @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_lost_creation_response_does_not_duplicate_event_on_new_job(self, token):
         events = {}
         attempts = []

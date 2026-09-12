@@ -271,7 +271,7 @@ def sync_google_calendar(self, sync_id, job_id):
                 headers=headers,
                 timeout=15,
             )
-            if response.status_code not in {204, 404}:
+            if response.status_code not in {204, 404, 410}:
                 response.raise_for_status()
             sync.status = GoogleCalendarSync.Status.DELETED
         elif sync.external_event_id:
