@@ -5,7 +5,6 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -13,8 +12,7 @@ from rest_framework.test import APITestCase
 from accounts.models import Group
 from schedules import session_permissions
 
-from . import session_permissions
-from .models import HandoutInfo, SessionParticipant, TRPGSession
+from .models import HandoutInfo, TRPGSession
 
 User = get_user_model()
 
@@ -74,21 +72,27 @@ class HandoutManagementDetailTestCase(APITestCase):
     def test_gm_handout_management_view_authenticated(self):
         """GM認証済みハンドアウト管理ビューテスト"""
         self.client.force_authenticate(user=self.gm_user)
-        response = self.client.get(f"/api/schedules/gm-handouts/{self.session.id}/", HTTP_ACCEPT="application/json")
+        response = self.client.get(
+            f"/api/schedules/sessions/{self.session.id}/handouts/manage/", HTTP_ACCEPT="application/json"
+        )
 
-        if response.status_code == status.HTTP_200_OK:
-            data = response.json()
-            self.assertEqual(data["session_id"], self.session.id)
-            self.assertEqual(data["session_title"], self.session.title)
-            self.assertIn("participants", data)
-            self.assertEqual(len(data["participants"]), 2)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["session_id"], self.session.id)
+        self.assertEqual(data["session_title"], self.session.title)
+        self.assertIn("participants", data)
+        self.assertEqual(
+            {entry["participant"]["user"] for entry in data["participants"]},
+            {self.gm_user.pk, self.player1.pk, self.player2.pk},
+        )
 
     def test_gm_handout_management_view_permission_denied(self):
         """非GM権限でのハンドアウト管理ビューアクセステスト"""
         self.client.force_authenticate(user=self.player1)
-        response = self.client.get(f"/api/schedules/gm-handouts/{self.session.id}/", HTTP_ACCEPT="application/json")
-        # URLが存在しない場合は404、存在する場合は403を期待
-        self.assertIn(response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+        response = self.client.get(
+            f"/api/schedules/sessions/{self.session.id}/handouts/manage/", HTTP_ACCEPT="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_handout_bulk_creation(self):
         """ハンドアウト一括作成テスト"""
@@ -112,16 +116,23 @@ class HandoutManagementDetailTestCase(APITestCase):
         ]
 
         response = self.client.post(
-            "/api/schedules/handouts/bulk_create/",
+            "/api/schedules/gm-handouts/bulk_create/",
             {"session_id": self.session.id, "handouts": handouts_data},
             format="json",
         )
 
-        if response.status_code == status.HTTP_201_CREATED:
-            data = response.json()
-            self.assertEqual(data["created_count"], 2)
-            self.assertEqual(data["error_count"], 0)
-            self.assertEqual(len(data["created"]), 2)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        data = response.json()
+        self.assertEqual(data["created_count"], 2)
+        self.assertEqual(data["error_count"], 0)
+        self.assertEqual(len(data["created"]), 2)
+        self.assertEqual(
+            set(HandoutInfo.objects.values_list("participant_id", "content")),
+            {
+                (self.participant1.pk, "Secret information for player 1"),
+                (self.participant2.pk, "Public information for player 2"),
+            },
+        )
 
     def test_handout_bulk_creation_with_invalid_data(self):
         """無効なデータでのハンドアウト一括作成テスト"""
@@ -137,15 +148,16 @@ class HandoutManagementDetailTestCase(APITestCase):
         ]
 
         response = self.client.post(
-            "/api/schedules/handouts/bulk_create/",
+            "/api/schedules/gm-handouts/bulk_create/",
             {"session_id": self.session.id, "handouts": handouts_data},
             format="json",
         )
 
-        if response.status_code == status.HTTP_400_BAD_REQUEST:
-            data = response.json()
-            self.assertEqual(data["created_count"], 1)
-            self.assertEqual(data["error_count"], 1)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        data = response.json()
+        self.assertEqual(data["created_count"], 1)
+        self.assertEqual(data["error_count"], 1)
+        self.assertEqual(HandoutInfo.objects.get().content, "Valid content")
 
     def test_handout_visibility_toggle(self):
         """ハンドアウト公開/秘匿切り替えテスト"""
@@ -159,16 +171,16 @@ class HandoutManagementDetailTestCase(APITestCase):
         )
 
         self.client.force_authenticate(user=self.gm_user)
-        response = self.client.post("/api/schedules/handouts/toggle_visibility/", {"handout_id": handout.id})
+        response = self.client.post("/api/schedules/gm-handouts/toggle_visibility/", {"handout_id": handout.id})
 
-        if response.status_code == status.HTTP_200_OK:
-            data = response.json()
-            self.assertFalse(data["handout"]["is_secret"])  # 秘匿 → 公開
-            self.assertIn("公開", data["message"])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertFalse(data["handout"]["is_secret"])  # 秘匿 → 公開
+        self.assertIn("公開", data["message"])
 
-            # データベースでも確認
-            handout.refresh_from_db()
-            self.assertFalse(handout.is_secret)
+        # データベースでも確認
+        handout.refresh_from_db()
+        self.assertFalse(handout.is_secret)
 
     def test_handout_visibility_toggle_permission_denied(self):
         """非GM権限でのハンドアウト公開/秘匿切り替えテスト"""
@@ -181,7 +193,7 @@ class HandoutManagementDetailTestCase(APITestCase):
         )
 
         self.client.force_authenticate(user=self.player1)
-        response = self.client.post("/api/schedules/handouts/toggle_visibility/", {"handout_id": handout.id})
+        response = self.client.post("/api/schedules/gm-handouts/toggle_visibility/", {"handout_id": handout.id})
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_handout_by_session_as_gm(self):
@@ -203,11 +215,15 @@ class HandoutManagementDetailTestCase(APITestCase):
         )
 
         self.client.force_authenticate(user=self.gm_user)
-        response = self.client.get("/api/schedules/handouts/by_session/", {"session_id": self.session.id})
+        response = self.client.get("/api/schedules/gm-handouts/by_session/", {"session_id": self.session.id})
 
-        if response.status_code == status.HTTP_200_OK:
-            data = response.json()
-            self.assertEqual(len(data), 2)  # GMは全てのハンドアウトを見れる
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(
+            {(item["participant"], item["content"]) for item in data},
+            {(self.participant1.pk, "Content 1"), (self.participant2.pk, "Content 2")},
+        )
+        self.assertEqual(len(data), 2)
 
     def test_handout_by_session_as_player(self):
         """プレイヤーとしてのセッション別ハンドアウト取得テスト"""
@@ -228,36 +244,38 @@ class HandoutManagementDetailTestCase(APITestCase):
         )
 
         self.client.force_authenticate(user=self.player1)
-        response = self.client.get("/api/schedules/handouts/by_session/", {"session_id": self.session.id})
+        response = self.client.get("/api/schedules/gm-handouts/by_session/", {"session_id": self.session.id})
 
-        if response.status_code == status.HTTP_200_OK:
-            data = response.json()
-            self.assertEqual(len(data), 1)  # プレイヤーは自分のハンドアウトのみ
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(
+            [(item["participant"], item["content"]) for item in data],
+            [(self.participant1.pk, "Content for Player 1")],
+        )
 
     def test_handout_by_session_unauthorized_user(self):
         """権限のないユーザーでのセッション別ハンドアウト取得テスト"""
         self.client.force_authenticate(user=self.other_user)
-        response = self.client.get("/api/schedules/handouts/by_session/", {"session_id": self.session.id})
-        # URLが存在しない場合は404、存在する場合は403を期待
-        self.assertIn(response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+        response = self.client.get("/api/schedules/gm-handouts/by_session/", {"session_id": self.session.id})
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_handout_template_list(self):
         """ハンドアウトテンプレート一覧取得テスト"""
         self.client.force_authenticate(user=self.gm_user)
         response = self.client.get("/api/schedules/handout-templates/")
 
-        if response.status_code == status.HTTP_200_OK:
-            data = response.json()
-            self.assertIn("templates", data)
-            templates = data["templates"]
-            self.assertGreater(len(templates), 0)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertIn("templates", data)
+        templates = data["templates"]
+        self.assertGreater(len(templates), 0)
 
-            # テンプレートの構造確認
-            template = templates[0]
-            self.assertIn("id", template)
-            self.assertIn("name", template)
-            self.assertIn("description", template)
-            self.assertIn("template", template)
+        # テンプレートの構造確認
+        template = templates[0]
+        self.assertIn("id", template)
+        self.assertIn("name", template)
+        self.assertIn("description", template)
+        self.assertIn("template", template)
 
     def test_handout_creation_from_template(self):
         """テンプレートからハンドアウト作成テスト"""
@@ -275,11 +293,11 @@ class HandoutManagementDetailTestCase(APITestCase):
             format="json",
         )
 
-        if response.status_code == status.HTTP_201_CREATED:
-            data = response.json()
-            self.assertEqual(data["title"], "Custom Handout Title")
-            self.assertTrue(data["is_secret"])
-            self.assertEqual(data["participant"], self.participant1.id)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        data = response.json()
+        self.assertEqual(data["title"], "Custom Handout Title")
+        self.assertTrue(data["is_secret"])
+        self.assertEqual(data["participant"], self.participant1.id)
 
     def test_handout_creation_from_template_missing_params(self):
         """必須パラメータ不足でのテンプレートからハンドアウト作成テスト"""
@@ -357,29 +375,29 @@ class HandoutManagementDetailTestCase(APITestCase):
             "is_secret": True,  # nosec B105
         }
         response = self.client.post("/api/schedules/handouts/", create_data)
-        if response.status_code == status.HTTP_201_CREATED:
-            handout_id = response.json()["id"]
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        handout_id = response.json()["id"]
 
-            # Read
-            response = self.client.get(f"/api/schedules/handouts/{handout_id}/")
-            if response.status_code == status.HTTP_200_OK:
-                self.assertEqual(response.json()["title"], "Test CRUD Handout")
+        # Read
+        response = self.client.get(f"/api/schedules/handouts/{handout_id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["title"], "Test CRUD Handout")
 
-            # Update
-            # Isolated test fixture or mocked credential; never a production secret.
-            update_data = {
-                "title": "Updated CRUD Handout",
-                "content": "Updated content",
-                "is_secret": False,
-            }  # nosec B105
-            response = self.client.patch(f"/api/schedules/handouts/{handout_id}/", update_data)
-            if response.status_code == status.HTTP_200_OK:
-                self.assertEqual(response.json()["title"], "Updated CRUD Handout")
-                self.assertFalse(response.json()["is_secret"])
+        # Update
+        # Isolated test fixture or mocked credential; never a production secret.
+        update_data = {
+            "title": "Updated CRUD Handout",
+            "content": "Updated content",
+            "is_secret": False,
+        }  # nosec B105
+        response = self.client.patch(f"/api/schedules/handouts/{handout_id}/", update_data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["title"], "Updated CRUD Handout")
+        self.assertFalse(response.json()["is_secret"])
 
-            # Delete
-            response = self.client.delete(f"/api/schedules/handouts/{handout_id}/")
-            self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        # Delete
+        response = self.client.delete(f"/api/schedules/handouts/{handout_id}/")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
     def test_handout_queryset_filtering(self):
         """ハンドアウトクエリセットフィルタリングテスト"""
@@ -389,7 +407,7 @@ class HandoutManagementDetailTestCase(APITestCase):
         )
 
         # ハンドアウト作成
-        my_handout = HandoutInfo.objects.create(
+        HandoutInfo.objects.create(
             session=self.session, participant=self.participant1, title="My Handout", content="My content"
         )
 
@@ -404,12 +422,12 @@ class HandoutManagementDetailTestCase(APITestCase):
         # GMとしてアクセス
         self.client.force_authenticate(user=self.gm_user)
         response = self.client.get("/api/schedules/handouts/")
-        if response.status_code == status.HTTP_200_OK:
-            data = response.json()
-            handouts = data.get("results", data) if isinstance(data, dict) else data
-            handout_titles = [h["title"] for h in handouts]
-            self.assertIn("My Handout", handout_titles)
-            self.assertNotIn("Other Handout", handout_titles)  # 他のセッションは見えない
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        handouts = data.get("results", data) if isinstance(data, dict) else data
+        handout_titles = [h["title"] for h in handouts]
+        self.assertIn("My Handout", handout_titles)
+        self.assertNotIn("Other Handout", handout_titles)  # 他のセッションは見えない
 
     def test_handout_secret_content_access(self):
         """秘匿ハンドアウトのアクセス制御テスト"""
@@ -425,15 +443,15 @@ class HandoutManagementDetailTestCase(APITestCase):
         # Player1（対象者）としてアクセス
         self.client.force_authenticate(user=self.player1)
         response = self.client.get(f"/api/schedules/handouts/{secret_handout.id}/")
-        if response.status_code == status.HTTP_200_OK:
-            data = response.json()
-            self.assertEqual(data["content"], "Secret information")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["content"], "Secret information")
 
         # Player2（非対象者）としてアクセス
         self.client.force_authenticate(user=self.player2)
         response = self.client.get(f"/api/schedules/handouts/{secret_handout.id}/")
-        # Player2からは見えないか、権限エラーになる
-        self.assertIn(response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertNotIn("Secret information", response.content.decode())
 
     def test_handout_content_validation(self):
         """ハンドアウト内容バリデーションテスト"""
