@@ -171,12 +171,20 @@ class HandoutManagementViewSet(viewsets.ModelViewSet):
         created_handouts = []
         errors = []
 
+        if not isinstance(handouts_data, list):
+            return Response({"error": "ハンドアウトは配列で指定してください。"}, status=status.HTTP_400_BAD_REQUEST)
+
         for handout_data in handouts_data:
             # handout_dataがdict型であることを確認してからsessionを設定
             if isinstance(handout_data, dict):
                 handout_data["session"] = session.id
             else:
-                errors.append({"data": handout_data, "errors": {"non_field_errors": ["Invalid data format"]}})
+                errors.append(
+                    {
+                        "data": handout_data,
+                        "errors": {"non_field_errors": ["ハンドアウトは項目名と値の形式で指定してください。"]},
+                    }
+                )
                 continue
 
             serializer = HandoutInfoSerializer(data=handout_data)
