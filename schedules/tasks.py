@@ -291,10 +291,12 @@ def sync_google_calendar(self, sync_id, job_id):
                 sync.external_event_id = event_id
             sync.status = GoogleCalendarSync.Status.DELETED
         elif sync.external_event_id:
+            payload = _calendar_event_payload(sync.session)
+            payload["extendedProperties"]["private"]["tableno_sync_key"] = generated_event_id
             response = requests.put(
                 f"{base_url}/{sync.external_event_id}",
                 headers=headers,
-                json=_calendar_event_payload(sync.session),
+                json=payload,
                 timeout=15,
             )
             response.raise_for_status()

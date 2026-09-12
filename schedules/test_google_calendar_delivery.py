@@ -36,6 +36,46 @@ class GoogleCalendarDeliveryTest(TestCase):
         return result
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
+    def test_create_cancel_resume_keeps_identity_metadata(self, token):
+        events = {}
+
+        def insert(url, *, json, **kwargs):
+            events[json["id"]] = json
+            return self.response(200, json)
+
+        def delete(url, **kwargs):
+            events[url.rsplit("/", 1)[1]]["status"] = "cancelled"
+            return self.response(204, {})
+
+        def update(url, *, json, **kwargs):
+            event_id = url.rsplit("/", 1)[1]
+            events[event_id] = {**json, "id": event_id}
+            return self.response(200, events[event_id])
+
+        with (
+            patch("schedules.tasks.requests.post", side_effect=insert) as post,
+            patch("schedules.tasks.requests.delete", side_effect=delete),
+            patch("schedules.tasks.requests.put", side_effect=update),
+        ):
+            sync_google_calendar.run(self.sync.pk, str(self.job().pk))
+            self.sync.refresh_from_db()
+            event_id = self.sync.external_event_id
+            identity = dict(events[event_id]["extendedProperties"]["private"])
+            self.session.status = "cancelled"
+            self.session.save(update_fields=["status"])
+            sync_google_calendar.run(self.sync.pk, str(self.job().pk))
+            self.assertEqual(events[event_id]["status"], "cancelled")
+            self.session.status = "planned"
+            self.session.title = "再開後のタイトル"
+            self.session.save(update_fields=["status", "title"])
+            sync_google_calendar.run(self.sync.pk, str(self.job().pk))
+        self.assertEqual(post.call_count, 1)
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[event_id]["status"], "confirmed")
+        self.assertEqual(events[event_id]["summary"], "再開後のタイトル")
+        self.assertEqual(events[event_id]["extendedProperties"]["private"], identity)
+
+    @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_cancel_after_lost_creation_response_finds_and_deletes_event(self, token):
         events = {}
 
