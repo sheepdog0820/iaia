@@ -30,3 +30,5 @@ mainマージ・AWS反映・販売開始は未実施。稼働版の最終確認�
 Googleの実同期・出力と常設worker/Redis、保留中のStripe実テスト、開示窓口の受信・返信、全操作の性能、DB/S3を含む復旧・運用条件は残る。先行a32b6a86のOS指摘41件の解消も未完了で、本イメージのOSスキャン成功とは扱わない。正式公開は引き続きNo-Go。[全受け入れ条件](FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)を維持する。
 
 この検証記録を追加する後続コミットは文書変更であり、上記CIの対象SHAとは区別する。復旧は対象変更のrevertと関連検証が必要で、旧コードの取消・異常応答・性能問題や請求開示設定の不整合を再導入しないよう確認する。
+
+後続文書コミット1e96d8a8の[push CI](https://github.com/sheepdog0820/iaia/actions/runs/34691707414)はsuccess、[PR CI](https://github.com/sheepdog0820/iaia/actions/runs/34691709436)も認証済みGitHub連携で全6ジョブsuccessを確認した。アプリ変更はない。新たな[大きな画像の性能未達](CHARACTER_IMAGE_PERFORMANCE_2026-09-12.md)が確認されており、CI成功を正式公開可能という判定に置き換えない。
