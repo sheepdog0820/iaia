@@ -1913,6 +1913,21 @@ class HandoutInfoViewSet(viewsets.ModelViewSet):
             )
         return Response(self.get_serializer(instance).data)
 
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        destination = serializer.validated_data.get("session", instance.session)
+        if not session_permissions.can_manage_secret_content(self.request.user, instance.session) or (
+            destination.pk != instance.session_id
+            and not session_permissions.can_manage_secret_content(self.request.user, destination)
+        ):
+            raise PermissionDenied("GM権限が必要です")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if not session_permissions.can_manage_secret_content(self.request.user, instance.session):
+            raise PermissionDenied("GM権限が必要です")
+        instance.delete()
+
     @action(detail=False, methods=["post"])
     def toggle_visibility(self, request):
         """ハンドアウトの公開/秘匿切り替え（GMのみ）"""

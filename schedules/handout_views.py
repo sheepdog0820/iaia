@@ -134,8 +134,12 @@ class HandoutManagementViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         """ハンドアウト更新（GM権限チェック）"""
-        instance = self.get_object()
-        if not session_permissions.can_manage_secret_content(self.request.user, instance.session):
+        instance = serializer.instance
+        destination = serializer.validated_data.get("session", instance.session)
+        if not session_permissions.can_manage_secret_content(self.request.user, instance.session) or (
+            destination.pk != instance.session_id
+            and not session_permissions.can_manage_secret_content(self.request.user, destination)
+        ):
             from rest_framework.exceptions import PermissionDenied
 
             raise PermissionDenied("GM権限が必要です")
