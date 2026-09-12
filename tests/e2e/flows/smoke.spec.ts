@@ -104,16 +104,21 @@ test.describe('smoke', () => {
   test('public footer links open legal and contact pages', async ({ page }) => {
     await devLogin(page);
 
+    // Home API panels can move the footer between pointer down and pointer up.
+    // Wait for their rendered content before testing the navigation itself.
+    await expect(page.locator('.home-page .spinner-border')).toHaveCount(0);
     await page.click('footer a[href="/terms/"]');
     await expect(page).toHaveURL(/\/terms\//);
     await expect(page.locator('h1')).toContainText('利用規約');
 
     await page.goto('/');
+    await expect(page.locator('.home-page .spinner-border')).toHaveCount(0);
     await page.click('footer a[href="/privacy/"]');
     await expect(page).toHaveURL(/\/privacy\//);
     await expect(page.locator('h1')).toContainText('プライバシーポリシー');
 
     await page.goto('/');
+    await expect(page.locator('.home-page .spinner-border')).toHaveCount(0);
     await page.click('footer a[href="/contact/"]');
     await expect(page).toHaveURL(/\/contact\//);
     await expect(page.locator('h1')).toContainText('問い合わせ');
