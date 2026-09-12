@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)
 ![Django](https://img.shields.io/badge/Django-5.2-green.svg)
 
-## 現在の状態（2026-09-12更新、AWSは2026-09-10確認）
+## 現在の状態（2026-09-12確認）
 
 **有料プランと外部連携を含む正式公開に向けて開発・検証中です。公開条件はまだ満たしていません。** 以下のSHAは確認したコードの版を示し、後続の文書コミットとは区別します。
 
@@ -13,12 +13,12 @@
 | --- | --- |
 | 検証・反映済みコード | `f97c7809`。Google認可更新失敗の終了処理、Calendar作成再試行の重複防止を含む |
 | 反映対象のCI | [push CI](https://github.com/sheepdog0820/iaia/actions/runs/34455121479)・[PR CI](https://github.com/sheepdog0820/iaia/actions/runs/34455126552)ともに全6ジョブ成功 |
-| 開発AWS | [stg.tableno.jp](https://stg.tableno.jp/)：`aws-pre-f97c7809`／Webタスク定義48。17:47 JSTに切替完了・稼働1・正常、DB/キャッシュ・ログイン・統計表示を確認 |
+| 開発AWS | [stg.tableno.jp](https://stg.tableno.jp/)：`aws-pre-f97c7809`／Webタスク定義48。9月12日19:03 JSTに稼働1・切替完了・DB/キャッシュ正常を再確認。ログイン・統計表示の確認は9月10日 |
 | 反映済みの主な修正 | フォント配信、背景透過の起動権限、セッション性能・統計、Google再試行受付の権限確認、Sheets出力対象の維持、認可更新失敗とCalendar重複防止 |
 | main | [PR #3](https://github.com/sheepdog0820/iaia/pull/3)を `74a4b506` でマージ済み。マージ直後の内容は検証・配布した `f97c7809` と一致。後続のREADME・反映記録は文書のみの更新 |
 | Google処理基盤 | 一時Redis・workerのAWS接続試験は成功・撤去済み。常設基盤と実Calendar/Sheets同期は未完了 |
 | Stripe | 登録・連携作業は保留中。実Stripeテストモードの課金ライフサイクルは未検証 |
-| 未反映の作業ブランチ | [Draft PR #4](https://github.com/sheepdog0820/iaia/pull/4)：Calendar取消・再開時の復旧と個人事業者の請求開示表示。`cf1448b9` の通常配布イメージで関連278テスト成功。main・開発AWSには未反映 |
+| 未反映の作業ブランチ | [Draft PR #4](https://github.com/sheepdog0820/iaia/pull/4)：Calendar取消・再開・異常応答の処理と個人事業者の請求開示表示。[a32b6a86の通常配布物](docs/release/RUNTIME_CANDIDATE_A32B6A86_2026-09-12.md)で関連280テストと516ファイルのソース一致を確認。push/PR CIは全6ジョブ成功。main・開発AWSには未反映 |
 | 運営者情報 | 個人事業者として氏名・所在地・電話番号を請求時に遅滞なく開示する方針。support@tableno.jp の受信・返信と実情報の開示体制は未確認のため、販売準備完了とは扱わない |
 
 項目別の証拠と残条件は[正式公開の受け入れ条件](docs/release/FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)、稼働版と復旧先の記録は[Google配送修正のAWS反映](docs/release/AWS_PRE_GOOGLE_DELIVERY_2026-09-10.md)を参照してください。CI成功だけで実サービス検証や本番公開完了とは扱いません。
