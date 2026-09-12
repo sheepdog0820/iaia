@@ -259,10 +259,6 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
             "STRIPE_PUBLISHABLE_KEY=pk_test_or_live_replace_me",
             "STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID=bpc_replace_me",
             "STRIPE_REVOKE_ON_REFUND_OR_DISPUTE=True",
-            "PREMIUM_PRICE_LABEL=Monthly 480 JPY / Yearly 4,800 JPY",
-            "LEGAL_PAYMENT_METHOD=Credit card and other payment methods available through Stripe Checkout.",
-            "LEGAL_PAYMENT_TIMING=Charged when the subscription starts and renewed on each billing cycle.",
-            "LEGAL_SELLER_NAME=Tableno operations",
             "EMAIL_HOST=smtp.gmail.com",
             "EMAIL_PORT=587",
             "EMAIL_USE_TLS=True",
@@ -274,14 +270,28 @@ class ReleaseDocumentationTestCase(SimpleTestCase):
             "SUPPORT_EMAIL=support@tableno.jp",
         ]
         env_specific_lines = {
-            ".env.staging.example": "PUBLIC_SITE_URL=https://stg.tableno.jp",
-            ".env.production.example": "PUBLIC_SITE_URL=https://tableno.jp",
+            ".env.staging.example": [
+                "PUBLIC_SITE_URL=https://stg.tableno.jp",
+                "PREMIUM_PRICE_LABEL=Monthly 480 JPY / Yearly 4,800 JPY",
+                "LEGAL_PAYMENT_METHOD=Credit card and other payment methods available through Stripe Checkout.",
+                "LEGAL_PAYMENT_TIMING=Charged when the subscription starts and renewed on each billing cycle.",
+                "LEGAL_SELLER_NAME=Tableno operations",
+            ],
+            ".env.production.example": [
+                "PUBLIC_SITE_URL=https://tableno.jp",
+                "PREMIUM_PRICE_LABEL=月額480円 / 年額4,800円（税込）",
+                "LEGAL_PAYMENT_METHOD=クレジットカード決済（Stripe）。",
+                "LEGAL_PAYMENT_TIMING=初回申し込み時に課金され、以後は選択した月額または年額サブスクリプションとして自動更新されます。",
+                "LEGAL_SELLER_NAME=請求があった場合、遅滞なく開示します。",
+                "LEGAL_DISCLOSURE_ON_REQUEST=True",
+                "LEGAL_DISCLOSURE_OPERATIONS_READY=False",
+            ],
         }
 
-        for env_name, public_site_url in env_specific_lines.items():
+        for env_name, required_lines in env_specific_lines.items():
             with self.subTest(env_name=env_name):
                 content = (self.ROOT / env_name).read_text(encoding="utf-8")
-                for line in [*common_required_lines, public_site_url]:
+                for line in [*common_required_lines, *required_lines]:
                     self.assertIn(line, content)
 
     def test_aws_pre_task_definition_keeps_smtp_credentials_injected(self):
