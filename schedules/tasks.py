@@ -404,7 +404,13 @@ def export_google_sheet(
     except requests.RequestException as exc:
         job.mark_failed(exc)
         raise self.retry(exc=exc, countdown=2**self.request.retries)
-    result = response.json()
+    try:
+        result = response.json()
+    except ValueError:
+        result = None
+    if not isinstance(result, dict):
+        job.mark_failed("Google Sheetsの応答形式を確認できません。出力先を確認して再試行してください。")
+        return "invalid-response"
     job.mark_succeeded(
         {
             "spreadsheet_id": spreadsheet_id,
