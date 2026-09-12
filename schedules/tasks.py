@@ -251,8 +251,8 @@ def sync_google_calendar(self, sync_id, job_id):
         sync.save(update_fields=["status", "last_error", "updated_at"])
         job.mark_failed(error)
         return "missing-token"
-    deleting_existing_event = sync.session.status == "cancelled" and bool(sync.external_event_id)
-    if sync.session.date is None and not deleting_existing_event:
+    cancelling = sync.session.status == "cancelled"
+    if sync.session.date is None and not cancelling:
         error = "Undated sessions cannot be synchronized to Google Calendar."
         sync.status = GoogleCalendarSync.Status.FAILED
         sync.last_error = error
@@ -265,15 +265,30 @@ def sync_google_calendar(self, sync_id, job_id):
         "Content-Type": "application/json",
     }
     base_url = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+    generated_event_id = uuid.uuid5(
+        uuid.NAMESPACE_URL,
+        f"https://tableno.jp/calendar-sync/{sync.pk}/{sync.user_id}/{sync.session_id}/{sync.created_at.isoformat()}",
+    ).hex
     try:
-        if deleting_existing_event:
-            response = requests.delete(
-                f"{base_url}/{sync.external_event_id}",
-                headers=headers,
-                timeout=15,
-            )
-            if response.status_code not in {204, 404, 410}:
-                response.raise_for_status()
+        if cancelling:
+            event_id = sync.external_event_id
+            if not event_id:
+                existing = requests.get(f"{base_url}/{generated_event_id}", headers=headers, timeout=15)
+                if existing.status_code not in {404, 410}:
+                    existing.raise_for_status()
+                    event = existing.json()
+                    private = event.get("extendedProperties", {}).get("private", {})
+                    if event.get("id") != generated_event_id or private != {
+                        "tableno_session_id": str(sync.session_id),
+                        "tableno_sync_key": generated_event_id,
+                    }:
+                        raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
+                    event_id = generated_event_id
+            if event_id:
+                response = requests.delete(f"{base_url}/{event_id}", headers=headers, timeout=15)
+                if response.status_code not in {204, 404, 410}:
+                    response.raise_for_status()
+                sync.external_event_id = event_id
             sync.status = GoogleCalendarSync.Status.DELETED
         elif sync.external_event_id:
             response = requests.put(
@@ -285,10 +300,7 @@ def sync_google_calendar(self, sync_id, job_id):
             response.raise_for_status()
             sync.status = GoogleCalendarSync.Status.SYNCED
         else:
-            event_id = uuid.uuid5(
-                uuid.NAMESPACE_URL,
-                f"https://tableno.jp/calendar-sync/{sync.pk}/{sync.user_id}/{sync.session_id}/{sync.created_at.isoformat()}",
-            ).hex
+            event_id = generated_event_id
             payload = _calendar_event_payload(sync.session)
             payload["id"] = event_id
             payload["extendedProperties"]["private"]["tableno_sync_key"] = event_id

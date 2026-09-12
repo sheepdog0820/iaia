@@ -36,6 +36,60 @@ class GoogleCalendarDeliveryTest(TestCase):
         return result
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
+    def test_cancel_after_lost_creation_response_finds_and_deletes_event(self, token):
+        events = {}
+
+        def insert(url, *, json, **kwargs):
+            events[json["id"]] = json
+            raise requests.Timeout("created but response lost")
+
+        def fetch(url, **kwargs):
+            return self.response(200, events[url.rsplit("/", 1)[1]])
+
+        with (
+            patch("schedules.tasks.requests.post", side_effect=insert) as post,
+            patch("schedules.tasks.requests.get", side_effect=fetch),
+            patch("schedules.tasks.requests.put") as put,
+            patch("schedules.tasks.requests.delete", return_value=self.response(204, {})) as delete,
+            patch.object(sync_google_calendar, "retry", side_effect=Retry()),
+        ):
+            with self.assertRaises(Retry):
+                sync_google_calendar.run(self.sync.pk, str(self.job().pk))
+            self.session.status = "cancelled"
+            self.session.date = None
+            self.session.save(update_fields=["status", "date"])
+            job = self.job()
+            self.assertEqual(sync_google_calendar.run(self.sync.pk, str(job.pk)), GoogleCalendarSync.Status.DELETED)
+        self.assertEqual(post.call_count, 1)
+        put.assert_not_called()
+        delete.assert_called_once()
+        self.assertTrue(delete.call_args.args[0].endswith("/" + next(iter(events))))
+        job.refresh_from_db()
+        self.assertEqual(job.status, AsyncJob.Status.SUCCEEDED)
+
+    @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
+    @patch("schedules.tasks.requests.post")
+    @patch("schedules.tasks.requests.delete")
+    @patch("schedules.tasks.requests.get")
+    def test_cancel_without_saved_id_does_not_create_or_delete_unrelated_event(self, get, delete, post, token):
+        self.session.status = "cancelled"
+        self.session.save(update_fields=["status"])
+        for code in (404, 410, 200):
+            with self.subTest(code=code):
+                get.return_value = self.response(code, {"id": "unrelated"})
+                job = self.job()
+                result = sync_google_calendar.run(self.sync.pk, str(job.pk))
+                job.refresh_from_db()
+                if code == 200:
+                    self.assertEqual(result, "invalid-response")
+                    self.assertEqual(job.status, AsyncJob.Status.FAILED)
+                else:
+                    self.assertEqual(result, GoogleCalendarSync.Status.DELETED)
+                    self.assertEqual(job.status, AsyncJob.Status.SUCCEEDED)
+        post.assert_not_called()
+        delete.assert_not_called()
+
+    @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     @patch("schedules.tasks.requests.delete")
     def test_cancelled_session_without_date_removes_existing_event(self, delete, token):
         self.session.status = "cancelled"
