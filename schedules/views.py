@@ -3827,6 +3827,12 @@ class DatePollViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as exc:
             raise ValidationError(exc.message_dict) from exc
 
+        # confirm_date refreshes the model and clears its prefetched relations.
+        poll = (
+            DatePoll.objects.select_related("created_by", "group", "session")
+            .prefetch_related("options__votes__user")
+            .get(pk=poll.pk)
+        )
         serializer = self.get_serializer(poll)
         response_data = serializer.data
         if session:

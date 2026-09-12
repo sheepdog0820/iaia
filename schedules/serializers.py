@@ -1319,17 +1319,23 @@ class DatePollOptionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at"]
 
+    def _vote_count(self, obj, status):
+        votes = getattr(obj, "_prefetched_objects_cache", {}).get("votes")
+        if votes is not None:
+            return sum(vote.status == status for vote in votes)
+        return obj.votes.filter(status=status).count()
+
     @extend_schema_field(OpenApiTypes.INT)
     def get_available_count(self, obj):
-        return obj.votes.filter(status="available").count()
+        return self._vote_count(obj, "available")
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_maybe_count(self, obj):
-        return obj.votes.filter(status="maybe").count()
+        return self._vote_count(obj, "maybe")
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_unavailable_count(self, obj):
-        return obj.votes.filter(status="unavailable").count()
+        return self._vote_count(obj, "unavailable")
 
 
 class DatePollSerializer(serializers.ModelSerializer):
