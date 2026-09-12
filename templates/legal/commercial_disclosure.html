@@ -8,7 +8,7 @@
         <div class="col-lg-9">
             <h1 class="h3 mb-4">{{ labels.commercial_title }}</h1>
             {% if disclosure_on_request %}
-            <p>タブレノは個人事業者が運営しています。販売事業者の氏名、所在地および電話番号については、請求があった場合、遅滞なく開示します。開示を希望される方は、<a href="mailto:{{ contact_email }}">{{ contact_email }}</a>までご連絡ください。お申込みを判断する前に、十分な時間的余裕をもって情報をご確認いただけるよう対応します。</p>
+            <p>タブレノは個人事業者が運営しています。販売事業者の氏名、所在地および電話番号については、請求があった場合、遅滞なく開示します。開示を希望される方は、<a class="text-reset" href="mailto:{{ contact_email }}">{{ contact_email }}</a>までご連絡ください。お申込みを判断する前に、十分な時間的余裕をもって情報をご確認いただけるよう対応します。</p>
             {% endif %}
             <div class="table-responsive">
                 <table class="table table-bordered align-middle">
@@ -17,7 +17,7 @@
                         {% if disclosure_on_request %}<tr><th>運営責任者</th><td>販売事業者本人（氏名は請求があった場合、遅滞なく開示します。）</td></tr>{% endif %}
                         <tr><th>{{ labels.address }}</th><td>{% if disclosure_on_request %}請求があった場合、遅滞なく開示します。{% else %}{{ seller_address }}{% endif %}</td></tr>
                         <tr><th>{{ labels.phone }}</th><td>{% if disclosure_on_request %}請求があった場合、遅滞なく開示します。{% else %}{{ seller_phone }}{% endif %}</td></tr>
-                        <tr><th>{{ labels.contact }}</th><td><a href="mailto:{{ contact_email }}">{{ contact_email }}</a></td></tr>
+                        <tr><th>{{ labels.contact }}</th><td><a class="text-reset" href="mailto:{{ contact_email }}">{{ contact_email }}</a></td></tr>
                         <tr><th>{{ labels.price }}</th><td>{{ premium_price_label }}</td></tr>
                         <tr><th>{{ labels.extra_fee }}</th><td>{{ labels.extra_fee_text }}</td></tr>
                         <tr><th>{{ labels.payment_method }}</th><td>{{ payment_method }}</td></tr>
