@@ -18,7 +18,7 @@
 | main | [PR #3](https://github.com/sheepdog0820/iaia/pull/3)を `74a4b506` でマージ済み。マージ直後の内容は検証・配布した `f97c7809` と一致。後続のREADME・反映記録は文書のみの更新 |
 | Google処理基盤 | 一時Redis・workerのAWS接続試験は成功・撤去済み。常設基盤と実Calendar/Sheets同期は未完了 |
 | Stripe | 登録・連携作業は保留中。実Stripeテストモードの課金ライフサイクルは未検証 |
-| 未反映の作業ブランチ | [Draft PR #4](https://github.com/sheepdog0820/iaia/pull/4)：Calendar取消・再開・異常応答の処理と個人事業者の請求開示表示。[a32b6a86の通常配布物](docs/release/RUNTIME_CANDIDATE_A32B6A86_2026-09-12.md)で関連280テストと516ファイルのソース一致を確認。push/PR CIは全6ジョブ成功。main・開発AWSには未反映 |
+| 未反映の作業ブランチ | [Draft PR #4](https://github.com/sheepdog0820/iaia/pull/4)：Calendar・Sheetsの異常応答/復旧、個人事業者の請求開示表示、日程確定の性能改善。[cc160e7bの通常配布物](docs/release/RUNTIME_CANDIDATE_CC160E7B_2026-09-12.md)で関連47テストと503ファイルのソース一致を確認。push/PR CIは全6ジョブ成功（単体・統合1,820成功/30スキップ、ブラウザ各186成功）。main・開発AWSには未反映 |
 | 運営者情報 | 個人事業者として氏名・所在地・電話番号を請求時に遅滞なく開示する方針。support@tableno.jp の受信・返信と実情報の開示体制は未確認のため、販売準備完了とは扱わない |
 
 項目別の証拠と残条件は[正式公開の受け入れ条件](docs/release/FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)、稼働版と復旧先の記録は[Google配送修正のAWS反映](docs/release/AWS_PRE_GOOGLE_DELIVERY_2026-09-10.md)を参照してください。CI成功だけで実サービス検証や本番公開完了とは扱いません。
