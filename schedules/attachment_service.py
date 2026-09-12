@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from django.core.exceptions import ValidationError
 
+from schedules import session_permissions
 from schedules.handout_access import can_view_handout
 from schedules.models import HandoutAttachment, HandoutInfo
 from tableno.media_deletion import delete_media_instance
@@ -37,7 +38,7 @@ class HandoutAttachmentService:
         raise HandoutAttachmentPermissionError("この添付ファイルにアクセスする権限がありません。")
 
     def _require_gm(self, handout: HandoutInfo, user) -> None:
-        if handout.session.gm_id != getattr(user, "id", None):
+        if not session_permissions.can_manage_secret_content(user, handout.session):
             raise HandoutAttachmentPermissionError("GMのみが添付ファイルを操作できます。")
 
     def _detect_file_type(self, content_type: str) -> str:
@@ -82,9 +83,9 @@ class HandoutAttachmentService:
             return False
 
         # 削除はGMまたはアップロード者に限定
-        if attachment.handout.session.gm_id != getattr(user, "id", None) and attachment.uploaded_by_id != getattr(
-            user, "id", None
-        ):
+        if not session_permissions.can_manage_secret_content(
+            user, attachment.handout.session
+        ) and attachment.uploaded_by_id != getattr(user, "id", None):
             raise HandoutAttachmentPermissionError("この添付ファイルを削除する権限がありません。")
 
         delete_media_instance(attachment)
