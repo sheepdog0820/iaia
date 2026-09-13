@@ -1,0 +1,79 @@
+{
+  "account": "acct_1UFA5iE2s31mT3or",
+  "checks": [
+    {
+      "name": "listener_ready",
+      "passed": true
+    },
+    {
+      "name": "won_customer_is_test",
+      "passed": true
+    },
+    {
+      "name": "won_real_dispute_revokes",
+      "passed": true
+    },
+    {
+      "name": "won_dispute_is_test",
+      "passed": true
+    },
+    {
+      "name": "canceled_before_dispute_closed",
+      "passed": true
+    },
+    {
+      "name": "won_stripe_closed",
+      "passed": true
+    },
+    {
+      "name": "won_closed_event_processed",
+      "passed": true
+    },
+    {
+      "name": "won_access_correct",
+      "passed": true
+    },
+    {
+      "name": "won_cleanup_canceled",
+      "passed": true
+    },
+    {
+      "name": "all_events_succeeded",
+      "passed": true
+    }
+  ],
+  "customers": [
+    "cus_VFgfNzsJSxntmf"
+  ],
+  "subscriptions": [
+    "sub_1UFBHtE2s31mT3orNCfA4Lns"
+  ],
+  "scope": "Real dispute won after subscription canceled; premium access remains disabled.",
+  "webhook_events": [
+    {
+      "event_id": "evt_1UFBI4E2s31mT3orD4LLxyGB",
+      "event_type": "charge.dispute.closed",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UFBHyE2s31mT3oral2LlJDP",
+      "event_type": "customer.subscription.deleted",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UFBHwE2s31mT3ortBOzIiC1",
+      "event_type": "invoice.payment_succeeded",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UFBHwE2s31mT3orCQwdtqvd",
+      "event_type": "charge.dispute.created",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UFBHwE2s31mT3orZeBfm3Q2",
+      "event_type": "customer.subscription.created",
+      "processing_status": "succeeded"
+    }
+  ]
+}

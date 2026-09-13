@@ -271,16 +271,23 @@ class Command(BaseCommand):
             label="subscription.active_after_dispute",
         )
 
-        dispute_won_record = mark_refund_or_dispute(
-            {
-                "id": "dp_smoke_disputed",
-                "charge": "ch_smoke_disputed",
+        # This command is an offline state-transition exercise, not an API test.
+        with patch("accounts.billing.get_stripe") as stripe:
+            stripe.return_value.Subscription.retrieve.return_value = {
+                "id": subscription_id,
                 "customer": customer_id,
-                "status": "won",
-            },
-            event_type="charge.dispute.closed",
-            event_id="evt_smoke_charge_dispute_won",
-        )
+                "status": "active",
+            }
+            dispute_won_record = mark_refund_or_dispute(
+                {
+                    "id": "dp_smoke_disputed",
+                    "charge": "ch_smoke_disputed",
+                    "customer": customer_id,
+                    "status": "won",
+                },
+                event_type="charge.dispute.closed",
+                event_id="evt_smoke_charge_dispute_won",
+            )
         if dispute_won_record.revoked_at is not None:
             raise AssertionError("charge.dispute.closed won did not restore access")
         self._assert_state(dispute_won_record, expected_premium=True, label="charge.dispute.closed.won")
@@ -309,3 +316,6 @@ class Command(BaseCommand):
         if record.user.is_premium != expected_premium:
             raise AssertionError(f"{label} expected is_premium={expected_premium}, got {record.user.is_premium}")
         self.stdout.write(self.style.SUCCESS(f"OK {label} is_premium={record.user.is_premium}"))
+
+
+from unittest.mock import patch

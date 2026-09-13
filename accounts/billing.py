@@ -416,6 +416,7 @@ def mark_invoice_payment_succeeded(invoice, event_id=""):
     return record
 
 
+@transaction.atomic
 def mark_refund_or_dispute(data_object, *, event_type, event_id=""):
     customer_id = stripe_object_get(data_object, "customer")
     charge_id = stripe_object_get(data_object, "charge") or stripe_object_get(data_object, "id", "")
@@ -426,7 +427,12 @@ def mark_refund_or_dispute(data_object, *, event_type, event_id=""):
         charge_obj = stripe.Charge.retrieve(charge_id)
         customer_id = stripe_object_get(charge_obj, "customer", "")
 
-    record = PremiumSubscription.objects.select_related("user").filter(stripe_customer_id=customer_id).first()
+    record = (
+        PremiumSubscription.objects.select_for_update(of=("self",))
+        .select_related("user")
+        .filter(stripe_customer_id=customer_id)
+        .first()
+    )
     if record is None:
         return None
 
@@ -459,8 +465,15 @@ def mark_refund_or_dispute(data_object, *, event_type, event_id=""):
         and record.access_source == "stripe"
         and record.revoked_at is not None
         and record.revoked_reason == "Stripe charge disputed"
+        and record.stripe_subscription_id
     ):
-        record.subscription_status = "active"
+        current_subscription = get_stripe().Subscription.retrieve(record.stripe_subscription_id)
+        if (
+            stripe_object_get(current_subscription, "id") != record.stripe_subscription_id
+            or stripe_object_get(current_subscription, "customer") != record.stripe_customer_id
+        ):
+            raise ValueError("Stripe subscription ownership mismatch")
+        record.subscription_status = stripe_object_get(current_subscription, "status", "")
         record.revoked_at = None
         record.revoked_reason = ""
         record.last_refund_or_dispute_at = None

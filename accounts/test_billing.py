@@ -1682,9 +1682,13 @@ class BillingServiceTestCase(TestCase):
         self.assertFalse(audit_log.metadata["access_revoked"])
         self.assertFalse(audit_log.metadata["access_restored"])
 
-    def test_dispute_closed_won_restores_dispute_revoked_access(self):
+    @patch("accounts.billing.get_stripe")
+    def test_dispute_closed_won_restores_dispute_revoked_access(self, get_stripe):
         from accounts.billing import mark_refund_or_dispute
 
+        get_stripe.return_value.Subscription.retrieve.return_value = SimpleNamespace(
+            id="sub_dispute_created_then_won", customer="cus_dispute_created_then_won", status="active"
+        )
         self.user.is_premium = True
         self.user.save(update_fields=["is_premium"])
         record = PremiumSubscription.objects.create(
