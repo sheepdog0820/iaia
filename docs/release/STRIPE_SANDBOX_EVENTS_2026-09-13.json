@@ -1,0 +1,357 @@
+{
+  "api_lifecycle": {
+    "account": "acct_1UFA5iE2s31mT3or",
+    "checks": [
+      {
+        "name": "listener_ready",
+        "passed": true
+      },
+      {
+        "name": "invalid_webhook_signature_rejected",
+        "passed": true
+      },
+      {
+        "name": "monthly_checkout_session_created",
+        "passed": true
+      },
+      {
+        "name": "monthly_real_subscription_active",
+        "passed": true
+      },
+      {
+        "name": "monthly_webhook_grants_access",
+        "passed": true
+      },
+      {
+        "name": "monthly_cancel_at_period_end_keeps_access",
+        "passed": true
+      },
+      {
+        "name": "monthly_canceled_revokes_access",
+        "passed": true
+      },
+      {
+        "name": "yearly_checkout_session_created",
+        "passed": true
+      },
+      {
+        "name": "yearly_real_subscription_active",
+        "passed": true
+      },
+      {
+        "name": "yearly_webhook_grants_access",
+        "passed": true
+      },
+      {
+        "name": "yearly_cancel_at_period_end_keeps_access",
+        "passed": true
+      },
+      {
+        "name": "yearly_canceled_revokes_access",
+        "passed": true
+      },
+      {
+        "name": "all_received_events_succeeded",
+        "passed": true
+      }
+    ],
+    "subscriptions": [
+      "sub_1UFAOVE2s31mT3ormAMsD3lw",
+      "sub_1UFAOeE2s31mT3orallu8lsq"
+    ],
+    "webhook_events": [
+      {
+        "event_id": "evt_1UFAOjE2s31mT3or8283Q6ga",
+        "event_type": "customer.subscription.deleted",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAOhE2s31mT3or4efks50c",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAOgE2s31mT3orNwpYemR7",
+        "event_type": "invoice.payment_succeeded",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAOgE2s31mT3orphsVZAg6",
+        "event_type": "customer.subscription.created",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAOaE2s31mT3orljxH3jvG",
+        "event_type": "customer.subscription.deleted",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAOZE2s31mT3orsdwFffKi",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAOYE2s31mT3orTH1Cgbi8",
+        "event_type": "invoice.payment_succeeded",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAOYE2s31mT3or4MGNNXGL",
+        "event_type": "customer.subscription.created",
+        "processing_status": "succeeded"
+      }
+    ],
+    "scope": "Real API sessions and subscription lifecycle with Stripe CLI signed webhook forwarding; hosted Checkout completion, renewal, failures and Portal remain pending."
+  },
+  "test_clock": {
+    "account": "acct_1UFA5iE2s31mT3or",
+    "checks": [
+      {
+        "name": "listener_ready",
+        "passed": true
+      },
+      {
+        "name": "invalid_webhook_signature_rejected",
+        "passed": true
+      },
+      {
+        "name": "clock_customer_is_test",
+        "passed": true
+      },
+      {
+        "name": "initial_payment_grants_access",
+        "passed": true
+      },
+      {
+        "name": "clock_ready_1791893640",
+        "passed": true
+      },
+      {
+        "name": "monthly_renewal_paid",
+        "passed": true
+      },
+      {
+        "name": "renewal_keeps_access",
+        "passed": true
+      },
+      {
+        "name": "clock_ready_1794572040",
+        "passed": true
+      },
+      {
+        "name": "renewal_failure_recorded",
+        "passed": true
+      },
+      {
+        "name": "failed_invoice_repaid",
+        "passed": true
+      },
+      {
+        "name": "payment_recovery_clears_failure",
+        "passed": true
+      },
+      {
+        "name": "app_creates_customer_portal_session",
+        "passed": true
+      },
+      {
+        "name": "period_end_cancel_scheduled",
+        "passed": true
+      },
+      {
+        "name": "clock_ready_1797156845",
+        "passed": true
+      },
+      {
+        "name": "period_end_automatically_revokes_access",
+        "passed": true
+      },
+      {
+        "name": "all_received_events_succeeded",
+        "passed": true
+      }
+    ],
+    "subscriptions": [
+      "sub_1UFAQ9E2s31mT3orF1kZnmBX"
+    ],
+    "clock": "clock_1UFAQ8E2s31mT3orzdn1URBr",
+    "portal_configuration": "bpc_1UFAQiE2s31mT3orcSL49Zr1",
+    "webhook_events": [
+      {
+        "event_id": "evt_1UFAQrE2s31mT3or3nqc4WEZ",
+        "event_type": "customer.subscription.deleted",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAQjE2s31mT3or0oYRoO7C",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAQhE2s31mT3orC08weFlo",
+        "event_type": "invoice.payment_succeeded",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAQhE2s31mT3or4BNn7LeK",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAQeE2s31mT3orhptAzrtH",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAQdE2s31mT3oraFgkwxAF",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAQcE2s31mT3orjXav2Rb1",
+        "event_type": "invoice.payment_failed",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAQXE2s31mT3orpoBTJHzp",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAQQE2s31mT3or3ykbVort",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAQNE2s31mT3orpJ4h04xQ",
+        "event_type": "invoice.payment_succeeded",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAQHE2s31mT3or245K2M8Q",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAQCE2s31mT3orbkLBonfb",
+        "event_type": "invoice.payment_succeeded",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAQBE2s31mT3ormko2Euec",
+        "event_type": "customer.subscription.created",
+        "processing_status": "succeeded"
+      }
+    ],
+    "scope": "Real Stripe test-clock renewal, failure/recovery, period-end cancellation and API Portal session with signed forwarded webhooks. Hosted Checkout and Portal browser operations remain pending."
+  },
+  "old_code_checkout_portal": {
+    "account": "acct_1UFA5iE2s31mT3or",
+    "checks": [
+      {
+        "name": "listener_ready",
+        "passed": true
+      },
+      {
+        "name": "hosted_session_test_mode",
+        "passed": true
+      },
+      {
+        "name": "hosted_checkout_completed",
+        "passed": true
+      },
+      {
+        "name": "checkout_webhook_grants_access",
+        "passed": true
+      },
+      {
+        "name": "checkout_customer_subscription_linked",
+        "passed": true
+      },
+      {
+        "name": "portal_cancel_at_period_end",
+        "passed": false
+      }
+    ],
+    "subscriptions": [
+      "sub_1UFASnE2s31mT3or8nxeG8BT"
+    ],
+    "error_type": "AssertionError",
+    "webhook_events": [
+      {
+        "event_id": "evt_1UFATLE2s31mT3orVJbvVjKm",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFASpE2s31mT3orTeEQgFVr",
+        "event_type": "invoice.payment_succeeded",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFASpE2s31mT3orMSJrB6xZ",
+        "event_type": "customer.subscription.created",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFASpE2s31mT3orvaCX2A6e",
+        "event_type": "checkout.session.completed",
+        "processing_status": "succeeded"
+      }
+    ]
+  },
+  "fixed_portal_retest": {
+    "account": "acct_1UFA5iE2s31mT3or",
+    "checks": [
+      {
+        "name": "listener_ready",
+        "passed": true
+      },
+      {
+        "name": "existing_subscription_is_test",
+        "passed": true
+      },
+      {
+        "name": "reactivation_webhook_grants_access",
+        "passed": true
+      },
+      {
+        "name": "portal_cancel_timestamp_recognized",
+        "passed": true
+      },
+      {
+        "name": "portal_uses_cancel_at_timestamp",
+        "passed": true
+      },
+      {
+        "name": "cleanup_subscription_canceled",
+        "passed": true
+      },
+      {
+        "name": "all_received_events_succeeded",
+        "passed": true
+      }
+    ],
+    "subscriptions": [
+      "sub_1UFASnE2s31mT3or8nxeG8BT"
+    ],
+    "scope": "Fixed application recognizes actual Portal cancel_at timestamp from signed Stripe webhook.",
+    "webhook_events": [
+      {
+        "event_id": "evt_1UFAb7E2s31mT3orZZAEXfRl",
+        "event_type": "customer.subscription.deleted",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAb6E2s31mT3orMYlv2Hxt",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAaWE2s31mT3or9EszuSdO",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      }
+    ]
+  }
+}

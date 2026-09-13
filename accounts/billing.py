@@ -169,6 +169,10 @@ def sync_subscription_object(subscription, event_id=""):
         if item_data:
             current_period_end = stripe_object_get(item_data[0], "current_period_end")
     cancel_at_period_end = bool(stripe_object_get(subscription, "cancel_at_period_end", False))
+    # Customer Portal can schedule the same period-end cancellation via cancel_at.
+    cancel_at = stripe_object_get(subscription, "cancel_at")
+    if current_period_end and cancel_at == current_period_end:
+        cancel_at_period_end = True
     stripe_price_id, billing_interval = extract_subscription_price(subscription)
 
     was_active = record.user.is_premium
