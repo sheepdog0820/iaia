@@ -888,6 +888,7 @@ class StripeWebhookTestCase(TestCase):
         }
         stripe = Mock()
         stripe.Webhook.construct_event.return_value = event
+        stripe.Subscription.retrieve.return_value = event["data"]["object"]
         get_stripe.return_value = stripe
 
         response = self.client.post(
@@ -913,6 +914,7 @@ class StripeWebhookTestCase(TestCase):
         }
         stripe = Mock()
         stripe.Webhook.construct_event.return_value = event
+        stripe.Subscription.retrieve.return_value = event["data"]["object"]
         get_stripe.return_value = stripe
 
         response = self.client.post(
@@ -938,6 +940,7 @@ class StripeWebhookTestCase(TestCase):
         }
         stripe = Mock()
         stripe.Webhook.construct_event.return_value = event
+        stripe.Subscription.retrieve.return_value = event["data"]["object"]
         get_stripe.return_value = stripe
 
         response = self.client.post(

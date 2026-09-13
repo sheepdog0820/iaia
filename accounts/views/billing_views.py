@@ -25,6 +25,7 @@ from accounts.billing import (
     mark_refund_or_dispute,
     redeem_premium_access_code,
     require_price_id,
+    stripe_object_get,
     sync_subscription_object,
 )
 from accounts.models import PremiumSubscription, StripeWebhookEvent
@@ -215,7 +216,22 @@ class StripeWebhookView(APIView):
                     "customer.subscription.updated",
                     "customer.subscription.deleted",
                 }:
-                    sync_subscription_object(data_object, event_id=event_id)
+                    # Serialize events for one customer, then fetch the current state.
+                    # Stripe does not guarantee snapshot delivery order.
+                    record = (
+                        PremiumSubscription.objects.select_for_update()
+                        .filter(stripe_customer_id=data_object.get("customer"))
+                        .first()
+                    )
+                    current_subscription = stripe.Subscription.retrieve(data_object["id"])
+                    superseded_cancellation = (
+                        record
+                        and record.stripe_subscription_id
+                        and record.stripe_subscription_id != stripe_object_get(current_subscription, "id")
+                        and stripe_object_get(current_subscription, "status") in {"canceled", "incomplete_expired"}
+                    )
+                    if not superseded_cancellation:
+                        sync_subscription_object(current_subscription, event_id=event_id)
                 elif event_type == "invoice.payment_failed":
                     mark_invoice_payment_failed(data_object, event_id=event_id)
                 elif event_type == "invoice.payment_succeeded":

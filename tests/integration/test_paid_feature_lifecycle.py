@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import json
 import time
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
@@ -64,12 +65,13 @@ class PaidFeatureLifecycleTests(TestCase):
         ).hexdigest()
         if not valid_signature:
             signature = "0" * 64
-        return self.client.post(
-            reverse("billing-webhook"),
-            data=payload,
-            content_type="application/json",
-            HTTP_STRIPE_SIGNATURE=f"t={timestamp},v1={signature}",
-        )
+        with patch("stripe.Subscription.retrieve", return_value=event["data"]["object"]):
+            return self.client.post(
+                reverse("billing-webhook"),
+                data=payload,
+                content_type="application/json",
+                HTTP_STRIPE_SIGNATURE=f"t={timestamp},v1={signature}",
+            )
 
     def import_character(self, edition):
         payload = {
