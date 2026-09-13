@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 
 from django.conf import settings
@@ -8,7 +8,13 @@ from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import PremiumAccessCode, PremiumAccessCodeRedemption, PremiumAuditLog, PremiumSubscription
+from .models import (
+    PremiumAccessCode,
+    PremiumAccessCodeRedemption,
+    PremiumAuditLog,
+    PremiumSubscription,
+    StripeBillingRequest,
+)
 
 
 def get_stripe():
@@ -93,17 +99,41 @@ def get_or_create_subscription_record(user):
 def get_or_create_stripe_customer(user):
     stripe = get_stripe()
     record = get_or_create_subscription_record(user)
-    if record.stripe_customer_id:
+    # Persist the immutable retry parameters before making a remote write.
+    with transaction.atomic():
+        record = PremiumSubscription.objects.select_for_update().get(pk=record.pk)
+        if record.stripe_customer_id:
+            return record
+        StripeBillingRequest.objects.get_or_create(
+            subscription=record,
+            operation="customer",
+            defaults={
+                "parameters": {
+                    "email": user.email or None,
+                    "name": user.get_full_name() or user.nickname or user.username,
+                    "metadata": {"user_id": str(user.id)},
+                }
+            },
+        )
+    with transaction.atomic():
+        record = PremiumSubscription.objects.select_for_update().get(pk=record.pk)
+        if record.stripe_customer_id:
+            return record
+        attempt = StripeBillingRequest.objects.get(subscription=record, operation="customer")
+        customer = execute_stripe_creation(attempt, stripe.Customer.create)
+        record.stripe_customer_id = customer.id
+        record.save(update_fields=["stripe_customer_id", "updated_at"])
+        attempt.resource_id = customer.id
+        attempt.save(update_fields=["resource_id"])
         return record
 
-    customer = stripe.Customer.create(
-        email=user.email or None,
-        name=user.get_full_name() or user.nickname or user.username,
-        metadata={"user_id": str(user.id)},
-    )
-    record.stripe_customer_id = customer.id
-    record.save(update_fields=["stripe_customer_id", "updated_at"])
-    return record
+
+def execute_stripe_creation(attempt, create):
+    # Stripe can discard idempotency keys after 24 hours. An unresolved write must
+    # be reconciled by support, never silently retried with a fresh key.
+    if attempt.created_at <= timezone.now() - timedelta(hours=23):
+        raise ValueError("前回の購入処理の確認が必要です。お問い合わせ窓口へご連絡ください。")
+    return create(**attempt.parameters, idempotency_key=str(attempt.idempotency_key))
 
 
 def create_checkout_session(request, plan="monthly"):
@@ -114,19 +144,60 @@ def create_checkout_session(request, plan="monthly"):
     success_url = request.build_absolute_uri(reverse("billing_success"))
     cancel_url = request.build_absolute_uri(reverse("billing_cancel"))
 
-    session = stripe.checkout.Session.create(
-        mode="subscription",
-        customer=record.stripe_customer_id,
-        line_items=[{"price": price_id, "quantity": 1}],
-        success_url=f"{success_url}?session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=cancel_url,
-        client_reference_id=str(request.user.id),
-        metadata={"user_id": str(request.user.id), "billing_plan": plan},
-        subscription_data={
-            "metadata": {"user_id": str(request.user.id), "billing_plan": plan},
-        },
-    )
-    return session
+    parameters = {
+        "mode": "subscription",
+        "customer": record.stripe_customer_id,
+        "line_items": [{"price": price_id, "quantity": 1}],
+        "success_url": f"{success_url}?session_id={{CHECKOUT_SESSION_ID}}",
+        "cancel_url": cancel_url,
+        "client_reference_id": str(request.user.id),
+        "metadata": {"user_id": str(request.user.id), "billing_plan": plan},
+        "subscription_data": {"metadata": {"user_id": str(request.user.id), "billing_plan": plan}},
+    }
+    # Each iteration commits an intent before its API call in the next iteration.
+    # The customer row serializes purchase requests across processes on PostgreSQL.
+    for _ in range(4):
+        with transaction.atomic():
+            record = PremiumSubscription.objects.select_for_update().get(pk=record.pk)
+            subscriptions = stripe.Subscription.list(customer=record.stripe_customer_id, status="all", limit=100)
+            if any(
+                stripe_object_get(sub, "status") not in {"canceled", "incomplete_expired"}
+                for sub in subscriptions.auto_paging_iter()
+            ):
+                raise ValueError("既に契約があります。請求管理画面で契約をご確認ください。")
+            attempt = StripeBillingRequest.objects.filter(subscription=record, operation="checkout").first()
+            if attempt is None:
+                # Close untracked sessions from an older app version before
+                # creating an intent; otherwise two browser tabs could both pay.
+                open_sessions = stripe.checkout.Session.list(
+                    customer=record.stripe_customer_id, status="open", limit=100
+                )
+                for old_session in open_sessions.auto_paging_iter():
+                    stripe.checkout.Session.expire(old_session.id)
+            if attempt is not None:
+                session = (
+                    stripe.checkout.Session.retrieve(attempt.resource_id)
+                    if attempt.resource_id
+                    else execute_stripe_creation(attempt, stripe.checkout.Session.create)
+                )
+                attempt.resource_id = session.id
+                attempt.save(update_fields=["resource_id"])
+                session_status = stripe_object_get(session, "status")
+                if session_status == "open":
+                    if attempt.parameters == parameters:
+                        return session
+                    # Expiration must succeed before another price can be purchased.
+                    stripe.checkout.Session.expire(session.id)
+                elif session_status == "complete":
+                    subscription_id = stripe_object_get(session, "subscription")
+                    current = stripe.Subscription.retrieve(subscription_id) if subscription_id else None
+                    if stripe_object_get(current, "status") not in {"canceled", "incomplete_expired"}:
+                        raise ValueError("既に契約があります。請求管理画面で契約をご確認ください。")
+                elif session_status != "expired":
+                    raise ValueError("購入処理を確認できません。時間をおいて再度お試しください。")
+                attempt.delete()
+            StripeBillingRequest.objects.create(subscription=record, operation="checkout", parameters=parameters)
+    raise ValueError("別の購入操作が進行中です。時間をおいて再度お試しください。")
 
 
 def create_portal_session(request):

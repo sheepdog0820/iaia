@@ -238,6 +238,7 @@ jobs:
         run: |
           python -m pytest \
             accounts/test_character_6th_versioning.py accounts/test_share_links.py accounts/test_billing.py \
+            accounts/test_billing_concurrency.py \
             accounts/test_character_lineage_deletion.py \
             accounts/test_character_image_concurrency.py \
             accounts/test_google_grant_concurrency.py accounts/test_google_identity_concurrency.py \

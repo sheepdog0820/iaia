@@ -256,7 +256,11 @@ class BillingApiTestCase(TestCase):
     def test_checkout_creates_customer_for_new_user(self, get_stripe):
         stripe = Mock()
         stripe.Customer.create.return_value = SimpleNamespace(id="cus_new")
-        stripe.checkout.Session.create.return_value = SimpleNamespace(url="https://checkout.stripe.test/new")
+        stripe.Subscription.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.create.return_value = SimpleNamespace(
+            id="cs_new", status="open", url="https://checkout.stripe.test/new"
+        )
         get_stripe.return_value = stripe
         self.client.force_authenticate(self.user)
 
@@ -272,7 +276,11 @@ class BillingApiTestCase(TestCase):
     def test_checkout_reuses_existing_customer(self, get_stripe):
         PremiumSubscription.objects.create(user=self.user, stripe_customer_id="cus_existing")
         stripe = Mock()
-        stripe.checkout.Session.create.return_value = SimpleNamespace(url="https://checkout.stripe.test/existing")
+        stripe.Subscription.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.create.return_value = SimpleNamespace(
+            id="cs_existing", status="open", url="https://checkout.stripe.test/existing"
+        )
         get_stripe.return_value = stripe
         self.client.force_authenticate(self.user)
 
@@ -290,7 +298,11 @@ class BillingApiTestCase(TestCase):
     def test_checkout_uses_yearly_price_when_requested(self, get_stripe):
         stripe = Mock()
         stripe.Customer.create.return_value = SimpleNamespace(id="cus_yearly")
-        stripe.checkout.Session.create.return_value = SimpleNamespace(url="https://checkout.stripe.test/yearly")
+        stripe.Subscription.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.create.return_value = SimpleNamespace(
+            id="cs_yearly", status="open", url="https://checkout.stripe.test/yearly"
+        )
         get_stripe.return_value = stripe
         self.client.force_authenticate(self.user)
 
@@ -319,7 +331,11 @@ class BillingApiTestCase(TestCase):
     def test_checkout_sets_subscription_metadata_for_subscription_webhooks(self, get_stripe):
         stripe = Mock()
         stripe.Customer.create.return_value = SimpleNamespace(id="cus_metadata")
-        stripe.checkout.Session.create.return_value = SimpleNamespace(url="https://checkout.stripe.test/metadata")
+        stripe.Subscription.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.create.return_value = SimpleNamespace(
+            id="cs_metadata", status="open", url="https://checkout.stripe.test/metadata"
+        )
         get_stripe.return_value = stripe
         self.client.force_authenticate(self.user)
 

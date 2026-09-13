@@ -76,6 +76,7 @@ class BillingCancelView(BillingPageView):
     template_name = "account/billing_cancel.html"
 
 
+@method_decorator(transaction.non_atomic_requests, name="dispatch")
 class CheckoutSessionView(APIView):
     permission_classes = [IsAuthenticated]
 
