@@ -5,23 +5,23 @@
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)
 ![Django](https://img.shields.io/badge/Django-5.2-green.svg)
 
-## 現在の状態（2026-09-12確認）
+## 現在の状態（2026-09-13確認）
 
 **有料プランと外部連携を含む正式公開に向けて開発・検証中です。公開条件はまだ満たしていません。** 以下のSHAは確認したコードの版を示し、後続の文書コミットとは区別します。
 
 | 対象 | 確認結果 |
 | --- | --- |
-| 検証・反映済みコード | `f97c7809`。Google認可更新失敗の終了処理、Calendar作成再試行の重複防止を含む |
-| 反映対象のCI | [push CI](https://github.com/sheepdog0820/iaia/actions/runs/34455121479)・[PR CI](https://github.com/sheepdog0820/iaia/actions/runs/34455126552)ともに全6ジョブ成功 |
-| 開発AWS | [stg.tableno.jp](https://stg.tableno.jp/)：`aws-pre-f97c7809`／Webタスク定義48。9月12日19:03 JSTに稼働1・切替完了・DB/キャッシュ正常を再確認。ログイン・統計表示の確認は9月10日 |
-| 反映済みの主な修正 | フォント配信、背景透過の起動権限、セッション性能・統計、Google再試行受付の権限確認、Sheets出力対象の維持、認可更新失敗とCalendar重複防止 |
-| main | [PR #3](https://github.com/sheepdog0820/iaia/pull/3)を `74a4b506` でマージ済み。マージ直後の内容は検証・配布した `f97c7809` と一致。後続のREADME・反映記録は文書のみの更新 |
+| 検証・反映済みコード | `d875d028`。Google再試行・請求開示・日程確定性能・ハンドアウト権限/入力検査/一覧性能/追加GMの添付操作を含む |
+| 反映対象のCI | [push CI](https://github.com/sheepdog0820/iaia/actions/runs/34700102559)・[PR CI](https://github.com/sheepdog0820/iaia/actions/runs/34700105294)とも全6ジョブ成功。単体・統合各1,832成功/30スキップ、ブラウザ各186成功 |
+| 開発AWS | [stg.tableno.jp](https://stg.tableno.jp/)：`aws-pre-d875d028`／Webタスク定義49。9月13日12:17 JSTに切替完了・稼働1・DB/キャッシュ正常を確認。ログイン済みChromeで特商法・プレミアム管理の表示を確認 |
+| 反映済みの主な修正 | 従来のフォント配信・背景透過起動権限等に加え、Google取消再試行・Sheets応答検査・請求開示・日程確定性能・ハンドアウトの権限と性能を改善 |
+| main | 確認済みの `d875d028` までfast-forwardでマージ済み。通常配布物のコードと一致 |
 | Google処理基盤 | 一時Redis・workerのAWS接続試験は成功・撤去済み。常設基盤と実Calendar/Sheets同期は未完了 |
 | Stripe | 登録・連携作業は保留中。実Stripeテストモードの課金ライフサイクルは未検証 |
-| 未反映の作業ブランチ | [Draft PR #4](https://github.com/sheepdog0820/iaia/pull/4)：Calendar・Sheetsの復旧、請求開示表示、日程確定の性能、ハンドアウト権限・入力検査・一覧性能を改善。[a1a50b63の通常配布物とCI](docs/release/RUNTIME_CANDIDATE_A1A50B63_2026-09-12.md)で関連55テストと506ファイルの一致を確認。push/PR CI全6ジョブ成功（単体・統合各1,828成功/30スキップ、ブラウザ各186成功）。main・開発AWSには未反映 |
+| 未反映の作業ブランチ | ハンドアウト添付の操作画面と関連修正は別ブランチで検証中。今回のmainコード・開発AWSには含まれない |
 | 運営者情報 | 個人事業者として氏名・所在地・電話番号を請求時に遅滞なく開示する方針。support@tableno.jp の受信・返信と実情報の開示体制は未確認のため、販売準備完了とは扱わない |
 
-項目別の証拠と残条件は[正式公開の受け入れ条件](docs/release/FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)、稼働版と復旧先の記録は[Google配送修正のAWS反映](docs/release/AWS_PRE_GOOGLE_DELIVERY_2026-09-10.md)を参照してください。CI成功だけで実サービス検証や本番公開完了とは扱いません。
+項目別の証拠と残条件は[正式公開の受け入れ条件](docs/release/FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)、稼働版と復旧先の記録は[確認済み版のAWS反映](docs/release/AWS_PRE_D875D028_2026-09-13.md)を参照してください。CI成功だけで実サービス検証や本番公開完了とは扱いません。
 
 ## 無料・有料の範囲
 
