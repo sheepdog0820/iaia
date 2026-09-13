@@ -350,12 +350,10 @@ def mark_refund_or_dispute(data_object, *, event_type, event_id=""):
     charge_id = stripe_object_get(data_object, "charge") or stripe_object_get(data_object, "id", "")
     charge_obj = None
     if not customer_id and charge_id:
-        try:
-            stripe = get_stripe()
-            charge_obj = stripe.Charge.retrieve(charge_id)
-            customer_id = stripe_object_get(charge_obj, "customer", "")
-        except Exception:
-            customer_id = ""
+        # Let the webhook record a failure so Stripe can retry a transient outage.
+        stripe = get_stripe()
+        charge_obj = stripe.Charge.retrieve(charge_id)
+        customer_id = stripe_object_get(charge_obj, "customer", "")
 
     record = PremiumSubscription.objects.select_related("user").filter(stripe_customer_id=customer_id).first()
     if record is None:
