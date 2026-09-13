@@ -1,0 +1,126 @@
+{
+  "account": "acct_1UFA5iE2s31mT3or",
+  "livemode": false,
+  "checkout": {
+    "account": "acct_1UFA5iE2s31mT3or",
+    "checks": [
+      {
+        "name": "listener_ready",
+        "passed": true
+      },
+      {
+        "name": "hosted_session_test_mode",
+        "passed": true
+      },
+      {
+        "name": "hosted_checkout_completed",
+        "passed": true
+      },
+      {
+        "name": "checkout_webhook_grants_access",
+        "passed": true
+      },
+      {
+        "name": "checkout_customer_subscription_linked",
+        "passed": true
+      },
+      {
+        "name": "portal_cancel_at_period_end",
+        "passed": false
+      }
+    ],
+    "customers": [
+      "cus_VFgHmco3C2fdxI"
+    ],
+    "subscriptions": [
+      "sub_1UFAwUE2s31mT3orKCi3qLdg"
+    ],
+    "error_type": "AssertionError",
+    "webhook_events": [
+      {
+        "event_id": "evt_1UFAwYE2s31mT3orgyZyjcMO",
+        "event_type": "customer.subscription.created",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAwYE2s31mT3orQJIMXd3y",
+        "event_type": "invoice.payment_succeeded",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAwXE2s31mT3orUmpCzSaP",
+        "event_type": "checkout.session.completed",
+        "processing_status": "succeeded"
+      }
+    ]
+  },
+  "portal_retest": {
+    "account": "acct_1UFA5iE2s31mT3or",
+    "checks": [
+      {
+        "name": "listener_ready",
+        "passed": true
+      },
+      {
+        "name": "existing_subscription_is_test",
+        "passed": true
+      },
+      {
+        "name": "reactivation_webhook_grants_access",
+        "passed": true
+      },
+      {
+        "name": "portal_cancel_timestamp_recognized",
+        "passed": true
+      },
+      {
+        "name": "portal_uses_cancel_at_timestamp",
+        "passed": true
+      },
+      {
+        "name": "cleanup_subscription_canceled",
+        "passed": true
+      },
+      {
+        "name": "all_received_events_succeeded",
+        "passed": true
+      }
+    ],
+    "customers": [
+      "cus_VFgHmco3C2fdxI"
+    ],
+    "subscriptions": [
+      "sub_1UFAwUE2s31mT3orKCi3qLdg"
+    ],
+    "scope": "Fixed application recognizes actual Portal cancel_at timestamp from signed Stripe webhook.",
+    "webhook_events": [
+      {
+        "event_id": "evt_1UFB1zE2s31mT3orZkK6pRJT",
+        "event_type": "customer.subscription.deleted",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFB1xE2s31mT3orNi5nscQb",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFB1dE2s31mT3orx1gTgQkP",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      }
+    ]
+  },
+  "browser_checks": {
+    "3ds_failure_message_japanese": true,
+    "3ds_failure_premium_false_in_disposable_db": true,
+    "3ds_success_checkout_completed": true,
+    "portal_4242_default_displayed": true,
+    "yearly_amount_jpy": 4800,
+    "period_end_displayed": "2027-09-13"
+  },
+  "limitations": [
+    "Initial portal wait timed out; same subscription retested successfully.",
+    "Local WSGI static assets returned 404; AWS return UI remains unverified."
+  ]
+}
