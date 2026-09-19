@@ -26,3 +26,11 @@
 再現スクリプトはGit管理外の `C:/Users/endke/Workspace/iaia/tmp/billing_health_cli_probe_20260919.py`。実メール・AWS・実利用者データは使用しない。Python内部のcall_commandテストに加えてOSの終了コードを確認したが、配布コンテナや実AWSの定期監視での検証ではない。
 
 [対象SHAのCI run 35437997407](https://github.com/sheepdog0820/iaia/actions/runs/35437997407)は記録時点でinfrastructure/systemが成功、残り4ジョブは実行中。6ff9a1f9のCI成功を、この追加実装の全体CI成功として扱わない。
+
+## 通常配布イメージの検証
+
+bb61b0e6のクリーンな専用worktreeから通常Dockerfileで `tableno:stripe-candidate-bb61b0e6` を作成した。ビルド終了0、イメージIDは `sha256:e2d81b173fd6e7b632c0c2990e198559d6a669442bce85e6c7e4530961616fd3`。
+
+ネットワークなしの一時コンテナ内で、上記と同じ7項目の実コマンド検証を実施した。イメージ内の一時SQLite DBへマイグレーションと合成データを作成し、CLIの正常/異常終了・JSON・情報非表示・データ保持を確認した。アプリソースの差し替えやホストソースのマウントは行っていない。さらに新規コマンドのSHA-256を固定コミットと照合し、[計8項目が成功](BILLING_EMAIL_HEALTH_CONTAINER_2026-09-19.json)。試験DB/設定は削除し、コンテナは `--rm` で終了した。
+
+6ff9a1f9からDockerfile・requirements.lock.txt・entrypoint・DBマイグレーションに差分がないことをgitで確認した。今回、Webの通常起動、実PostgreSQLを使うイメージ内検査、バックアップ復元やOS再スキャンを繰り返したとは扱わない。先行候補の検証結果と今回のコマンド検証は対象・範囲を区別する。ECR登録やAWS反映は未実施。
