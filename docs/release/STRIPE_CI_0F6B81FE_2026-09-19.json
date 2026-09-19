@@ -1,0 +1,38 @@
+{
+  "run_id": 35435438622,
+  "head_sha": "0f6b81feacf5a8fd77ad05128dea41f0ea5d2dc6",
+  "url": "https://github.com/sheepdog0820/iaia/actions/runs/35435438622",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "name": "Unit / Integration",
+      "conclusion": "success",
+      "completed_at": "2026-09-19T09:58:37Z"
+    },
+    {
+      "name": "infrastructure",
+      "conclusion": "success",
+      "completed_at": "2026-09-19T09:42:46Z"
+    },
+    {
+      "name": "lint-security",
+      "conclusion": "success",
+      "completed_at": "2026-09-19T09:43:52Z"
+    },
+    {
+      "name": "system",
+      "conclusion": "success",
+      "completed_at": "2026-09-19T09:43:44Z"
+    },
+    {
+      "name": "production-database",
+      "conclusion": "success",
+      "completed_at": "2026-09-19T09:45:42Z"
+    },
+    {
+      "name": "playwright",
+      "conclusion": "success",
+      "completed_at": "2026-09-19T09:59:27Z"
+    }
+  ]
+}

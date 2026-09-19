@@ -17,7 +17,7 @@
 
 coverageでは追加した管理画面メソッド18実行行とAPI共通処理5実行行の未実行行は0。Black/isort、flake8、Bandit、差分・UTF-8/LF検査に合格。隔離PostgreSQLコンテナは停止・削除済み。
 
-通常画面のブラウザー検証や実StripeのAPI・署名付き通知検証は[先行検証](STRIPE_DELETION_BROWSER_2026-09-19.md)、[同時処理検証](STRIPE_DELETION_RACE_2026-09-19.md)を参照。本変更では実Stripe操作・実データ削除を行っていない。API・管理画面の新経路について実Stripe/AWSを通した検証は残る。
+通常画面のブラウザー検証や実StripeのAPI・署名付き通知検証は[先行検証](STRIPE_DELETION_BROWSER_2026-09-19.md)、[同時処理検証](STRIPE_DELETION_RACE_2026-09-19.md)を参照。後続の[4削除経路と実Stripeの接続試験](STRIPE_DELETION_PATHS_API_2026-09-19.md)は23項目成功した。新経路の管理画面を実ブラウザーで操作する試験とAWS上の検証は残る。
 
 ## 反映
 

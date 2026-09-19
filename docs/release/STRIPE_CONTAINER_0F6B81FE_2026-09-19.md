@@ -25,6 +25,6 @@ RDSはPostgreSQL 18.3・available・バックアップ保持7日。取得時のL
 
 前の[承認案](STRIPE_AWS_APP_APPROVAL_2026-09-19.md)は99acd8caを対象にしている。0f6b81feにはその後の退会安全対策・ブラウザーテスト・検証記録が含まれるため、旧案への承認を新候補への承認と解釈しない。
 
-退会実装743e1e46の[CI run 35434803342](https://github.com/sheepdog0820/iaia/actions/runs/35434803342)は全6ジョブ成功。統合候補0f6b81feの[CI run 35435438622](https://github.com/sheepdog0820/iaia/actions/runs/35435438622)は記録時点で4ジョブ成功、Unit / Integration・Playwrightが実行中で、候補全体の合格はまだ確定していない。候補の全チェックが揃ってから、新SHAを明示した反映案を提示する。
+退会実装743e1e46の[CI run 35434803342](https://github.com/sheepdog0820/iaia/actions/runs/35434803342)は全6ジョブ成功。統合候補0f6b81feの[CI run 35435438622](https://github.com/sheepdog0820/iaia/actions/runs/35435438622)も[全6ジョブ成功](STRIPE_CI_0F6B81FE_2026-09-19.json)を確認した。ただし、その後に[API・管理画面の削除経路修正](STRIPE_DELETION_PATHS_2026-09-19.md)が加わったため、新候補のCI・配布コンテナを確認してから新SHAを明示した反映案を提示する。
 
 想定する反映範囲は従来どおり、main通常マージ・既存Webのイメージ更新・追加3テーブルの事前適用・確認、異常時は定義49へ切戻し。購入・メール配送は無効のまま、Secrets・IAM・常設worker/Redis・継続費用増加は別承認とする。正式公開は引き続きNo-Go。
