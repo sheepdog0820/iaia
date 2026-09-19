@@ -505,16 +505,16 @@ class AccountDeleteView(TemplateView):
                 messages.error(request, "パスワードが正しくありません。")
                 return redirect("account_delete")
 
-        if self._active_stripe_subscription(user):
-            messages.error(
-                request,
-                "Stripeの契約が終了していません。課金管理ページで解約し、契約終了後にアカウントを削除してください。",
-            )
+        from accounts.billing_deletion import BillingDeletionBlocked, delete_account_after_billing_check
+
+        try:
+            delete_account_after_billing_check(user)
+        except BillingDeletionBlocked as exc:
+            messages.error(request, str(exc))
             return redirect("billing")
 
-        # Logout first so the session does not reference a deleted user.
+        # Retain the login when billing verification refuses deletion.
         auth_logout(request)
-        user.delete()
 
         messages.success(request, "アカウントを削除しました。ご利用ありがとうございました。")
         return redirect("home")
