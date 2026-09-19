@@ -1,0 +1,51 @@
+{
+  "users": 100,
+  "concurrency": 10,
+  "dimensions": [
+    2048,
+    3072
+  ],
+  "image_bytes": 4553465,
+  "requests": 500,
+  "errors": [],
+  "operations": [
+    {
+      "operation": "empty-list-verify",
+      "requests": 100,
+      "valid": 100,
+      "p95_ms": 630.5003430024954,
+      "max_ms": 856.0767440067139
+    },
+    {
+      "operation": "image-delete",
+      "requests": 100,
+      "valid": 100,
+      "p95_ms": 678.9361359988106,
+      "max_ms": 912.4241009994876
+    },
+    {
+      "operation": "image-list",
+      "requests": 100,
+      "valid": 100,
+      "p95_ms": 714.498633002222,
+      "max_ms": 941.1995659975219
+    },
+    {
+      "operation": "image-upload",
+      "requests": 100,
+      "valid": 100,
+      "p95_ms": 1776.2919349988806,
+      "max_ms": 1785.6396830029553
+    },
+    {
+      "operation": "nonowner-list-denied",
+      "requests": 100,
+      "valid": 100,
+      "p95_ms": 563.9615100008086,
+      "max_ms": 840.3804310000851
+    }
+  ],
+  "candidate": "bb61b0e6244aa5c9726dca4b8b00c3dd29e9cf05",
+  "app_cpu": 1,
+  "app_memory_gib": 2
+}
