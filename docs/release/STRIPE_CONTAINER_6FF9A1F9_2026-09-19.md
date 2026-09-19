@@ -11,4 +11,4 @@
 
 検証用Web・DBコンテナと専用内部ネットワークは終了・削除済み。実Stripeへの接続、実メール送信、ECR登録、共有DB変更、mainマージ、AWS反映は行っていない。ソース側の実Stripe検証は[4削除経路の接続試験](STRIPE_DELETION_PATHS_API_2026-09-19.md)を参照。
 
-候補6ff9a1f9の[CI run 35436261975](https://github.com/sheepdog0820/iaia/actions/runs/35436261975)は記録時点で4ジョブ成功、Unit / IntegrationとPlaywrightが実行中。コンテナ検証成功だけでは候補全体のCI合格や正式公開を意味しない。CIが揃い、対象SHAを明示した反映承認を得るまではmain・AWSへ反映しない。正式公開判定は引き続きNo-Go。
+候補6ff9a1f9の[CI run 35436261975](https://github.com/sheepdog0820/iaia/actions/runs/35436261975)は全6ジョブ成功し、対象SHAとrun全体のsuccessを確認した。[CI記録](STRIPE_CI_6FF9A1F9_2026-09-19.json)を参照。対象SHAを明示した反映承認を得るまではmain・AWSへ反映しない。CI合格は実AWSのStripe接続や配送基盤の検証を意味せず、正式公開判定は引き続きNo-Go。
