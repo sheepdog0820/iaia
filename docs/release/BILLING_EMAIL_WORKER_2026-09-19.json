@@ -1,0 +1,57 @@
+{
+  "candidate": "6ff9a1f9b9fe965b2461de0694530d3e18ffda96",
+  "checks": [
+    {
+      "name": "beat_enqueued_and_worker_recorded_smtp_failure",
+      "passed": true
+    },
+    {
+      "name": "pending_delivery_survives_worker_stop",
+      "passed": true
+    },
+    {
+      "name": "beat_retries_after_restart_without_due_time_override",
+      "passed": true
+    },
+    {
+      "name": "audit_marks_smtp_accepted",
+      "passed": true
+    },
+    {
+      "name": "only_one_smtp_acceptance_after_extra_task",
+      "passed": true
+    }
+  ],
+  "first_failure": {
+    "status": "pending",
+    "attempts": 1,
+    "next_attempt_at": "2026-09-19 10:32:00.338829+00:00",
+    "last_error_code": "transport_error",
+    "audit__metadata": {
+      "email_sent": false,
+      "invoice_id": "in_isolated_worker",
+      "email_status": "pending"
+    }
+  },
+  "final": {
+    "status": "sent",
+    "attempts": 2,
+    "next_attempt_at": "2026-09-19 10:32:00.338829+00:00",
+    "last_error_code": "",
+    "audit__metadata": {
+      "email_sent": true,
+      "invoice_id": "in_isolated_worker",
+      "email_status": "sent"
+    }
+  },
+  "smtp_receipts": [
+    {
+      "attempt": 1,
+      "accepted": false
+    },
+    {
+      "attempt": 2,
+      "accepted": true
+    }
+  ]
+}
