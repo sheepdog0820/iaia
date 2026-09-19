@@ -972,7 +972,7 @@ class StripeWebhookTestCase(TestCase):
             event_id="evt_sub_deleted",
         )
 
-    @patch("accounts.views.billing_views.mark_invoice_payment_failed")
+    @patch("accounts.views.billing_views.reconcile_invoice_payment")
     @patch("accounts.views.billing_views.get_stripe")
     def test_webhook_routes_invoice_payment_failed(self, get_stripe, mark_payment_failed_mock):
         event = {
@@ -1001,9 +1001,10 @@ class StripeWebhookTestCase(TestCase):
         mark_payment_failed_mock.assert_called_once_with(
             event["data"]["object"],
             event_id="evt_invoice_failed",
+            event_type="invoice.payment_failed",
         )
 
-    @patch("accounts.views.billing_views.mark_invoice_payment_succeeded")
+    @patch("accounts.views.billing_views.reconcile_invoice_payment")
     @patch("accounts.views.billing_views.get_stripe")
     def test_webhook_routes_invoice_payment_succeeded(self, get_stripe, mark_payment_succeeded_mock):
         event = {
@@ -1032,6 +1033,7 @@ class StripeWebhookTestCase(TestCase):
         mark_payment_succeeded_mock.assert_called_once_with(
             event["data"]["object"],
             event_id="evt_invoice_succeeded",
+            event_type="invoice.payment_succeeded",
         )
 
     @patch("accounts.views.billing_views.mark_refund_or_dispute")

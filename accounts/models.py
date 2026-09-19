@@ -25,6 +25,7 @@ __all__ = [
     "Friend",
     "PremiumSubscription",
     "StripeBillingRequest",
+    "StripeInvoiceState",
     "StripeWebhookEvent",
     "PremiumAccessCode",
     "PremiumAccessCodeRedemption",

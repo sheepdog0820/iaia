@@ -14,6 +14,7 @@ from .models import (
     PremiumAuditLog,
     PremiumSubscription,
     StripeBillingRequest,
+    StripeInvoiceState,
 )
 
 
@@ -367,6 +368,68 @@ def handle_checkout_completed(session, event_id=""):
         subscription = stripe.Subscription.retrieve(record.stripe_subscription_id)
         return sync_subscription_object(subscription, event_id=event_id)
 
+    return record
+
+
+def current_invoice_state(stripe, invoice_id, customer_id):
+    current = stripe.Invoice.retrieve(invoice_id)
+    if stripe_object_get(current, "id") != invoice_id or stripe_object_get(current, "customer") != customer_id:
+        raise ValueError("Stripe invoice ownership mismatch")
+    status = stripe_object_get(current, "status")
+    if status not in {"open", "paid", "void", "uncollectible"}:
+        raise ValueError("Unexpected Stripe invoice state")
+    return status
+
+
+@transaction.atomic
+def reconcile_invoice_payment(invoice, event_type, event_id=""):
+    customer_id = invoice.get("customer")
+    record = PremiumSubscription.objects.select_for_update().filter(stripe_customer_id=customer_id).first()
+    if record is None:
+        return None
+    stripe = get_stripe()
+    states = StripeInvoiceState.objects.filter(subscription=record)
+    if not states.exists():
+        # Seed pre-upgrade failures from audit history and current Stripe state.
+        # Never attribute a legacy warning to an unrelated successful invoice.
+        prior_ids = {
+            metadata.get("invoice_id")
+            for metadata in PremiumAuditLog.objects.filter(
+                user=record.user, source="stripe", action="payment_failed"
+            ).values_list("metadata", flat=True)
+            if metadata.get("invoice_id")
+        }
+        if record.last_payment_failed_at and not prior_ids:
+            raise ValueError("Legacy payment failure requires invoice reconciliation")
+        for prior_id in sorted(prior_ids):
+            current_status = current_invoice_state(stripe, prior_id, customer_id)
+            StripeInvoiceState.objects.create(
+                subscription=record,
+                invoice_id=prior_id,
+                status=current_status,
+                payment_failed=current_status in {"open", "uncollectible"},
+            )
+    invoice_id = invoice["id"]
+    current_status = current_invoice_state(stripe, invoice_id, customer_id)
+    state, _ = StripeInvoiceState.objects.get_or_create(
+        subscription=record, invoice_id=invoice_id, defaults={"status": current_status}
+    )
+    was_failed = state.payment_failed
+    state.status = current_status
+    if current_status in {"paid", "void"}:
+        state.payment_failed = False
+    elif event_type == "invoice.payment_failed":
+        state.payment_failed = True
+    state.last_event_id = event_id
+    state.save(update_fields=["status", "payment_failed", "last_event_id", "updated_at"])
+    if state.payment_failed and not was_failed:
+        return mark_invoice_payment_failed(invoice, event_id=event_id)
+    if not states.filter(payment_failed=True).exists():
+        return mark_invoice_payment_succeeded(invoice, event_id=event_id)
+    if record.last_payment_failed_at is None:
+        record.last_payment_failed_at = timezone.now()
+    record.last_webhook_event_id = event_id
+    record.save(update_fields=["last_payment_failed_at", "last_webhook_event_id", "updated_at"])
     return record
 
 

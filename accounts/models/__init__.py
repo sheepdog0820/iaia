@@ -18,6 +18,7 @@ from .billing_models import (
     PremiumAuditLog,
     PremiumSubscription,
     StripeBillingRequest,
+    StripeInvoiceState,
     StripeWebhookEvent,
 )
 
@@ -66,6 +67,7 @@ __all__ = [
     "FriendRequest",
     "PremiumSubscription",
     "StripeBillingRequest",
+    "StripeInvoiceState",
     "StripeWebhookEvent",
     "PremiumAccessCode",
     "PremiumAccessCodeRedemption",

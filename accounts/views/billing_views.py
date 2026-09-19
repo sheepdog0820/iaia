@@ -20,9 +20,8 @@ from accounts.billing import (
     get_configured_checkout_plans,
     get_stripe,
     handle_checkout_completed,
-    mark_invoice_payment_failed,
-    mark_invoice_payment_succeeded,
     mark_refund_or_dispute,
+    reconcile_invoice_payment,
     redeem_premium_access_code,
     require_price_id,
     stripe_object_get,
@@ -233,10 +232,8 @@ class StripeWebhookView(APIView):
                     )
                     if not superseded_cancellation:
                         sync_subscription_object(current_subscription, event_id=event_id)
-                elif event_type == "invoice.payment_failed":
-                    mark_invoice_payment_failed(data_object, event_id=event_id)
-                elif event_type == "invoice.payment_succeeded":
-                    mark_invoice_payment_succeeded(data_object, event_id=event_id)
+                elif event_type in {"invoice.payment_failed", "invoice.payment_succeeded"}:
+                    reconcile_invoice_payment(data_object, event_type=event_type, event_id=event_id)
                 elif event_type in {
                     "charge.refunded",
                     "charge.dispute.created",

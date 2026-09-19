@@ -1,0 +1,79 @@
+{
+  "account": "acct_1UFA5iE2s31mT3or",
+  "checks": [
+    {
+      "name": "listener_ready",
+      "passed": true
+    },
+    {
+      "name": "customer_is_test",
+      "passed": true
+    },
+    {
+      "name": "real_failed_event_held",
+      "passed": true
+    },
+    {
+      "name": "invoice_now_paid",
+      "passed": true
+    },
+    {
+      "name": "paid_webhook_received",
+      "passed": true
+    },
+    {
+      "name": "delayed_failed_event_succeeds",
+      "passed": true
+    },
+    {
+      "name": "paid_invoice_does_not_restore_warning",
+      "passed": true
+    },
+    {
+      "name": "delayed_event_recorded_success",
+      "passed": true
+    },
+    {
+      "name": "paid_invoice_ledger_correct",
+      "passed": true
+    },
+    {
+      "name": "no_false_failure_audit",
+      "passed": true
+    }
+  ],
+  "customers": [
+    "cus_VHsRvgYC2R6hCk"
+  ],
+  "subscriptions": [
+    "sub_1UHIh7E2s31mT3or20yfXErt"
+  ],
+  "subscriptions_canceled": true,
+  "webhook_events": [
+    {
+      "event_id": "evt_1UHIhEE2s31mT3orjNRCNrCL",
+      "event_type": "customer.subscription.deleted",
+      "processing_status": "processing"
+    },
+    {
+      "event_id": "evt_1UHIh9E2s31mT3orbNWmHSw9",
+      "event_type": "invoice.payment_failed",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UHIhCE2s31mT3orIyjhP4WN",
+      "event_type": "invoice.payment_succeeded",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UHIhCE2s31mT3orX4DVhWys",
+      "event_type": "customer.subscription.updated",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UHIh8E2s31mT3ort0q3RP0a",
+      "event_type": "customer.subscription.created",
+      "processing_status": "succeeded"
+    }
+  ]
+}

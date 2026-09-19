@@ -7,8 +7,8 @@ from django.contrib.auth import get_user_model
 from django.db import close_old_connections, connections
 from django.test import RequestFactory, TransactionTestCase, override_settings, skipUnlessDBFeature
 
-from accounts.billing import create_checkout_session
-from accounts.models import StripeBillingRequest
+from accounts.billing import create_checkout_session, reconcile_invoice_payment
+from accounts.models import PremiumSubscription, StripeBillingRequest, StripeInvoiceState
 
 
 @override_settings(STRIPE_PREMIUM_PRICE_ID="price_concurrency")
@@ -65,3 +65,34 @@ class BillingCheckoutConcurrencyTests(TransactionTestCase):
             self.assertEqual(self.purchase(), "cs_parallel")
         calls = self.stripe.checkout.Session.create.call_args_list
         self.assertEqual(calls[0], calls[1])
+
+    def test_parallel_invoices_preserve_another_invoices_failure(self):
+        record = PremiumSubscription.objects.create(user=self.user, stripe_customer_id="cus_parallel")
+        barrier = Barrier(2)
+        self.stripe.Invoice.retrieve.side_effect = lambda invoice_id: SimpleNamespace(
+            id=invoice_id, customer="cus_parallel", status="open" if invoice_id == "in_failed" else "paid"
+        )
+
+        def deliver(invoice_id, event_type):
+            close_old_connections()
+            try:
+                barrier.wait(timeout=10)
+                reconcile_invoice_payment(
+                    {"id": invoice_id, "customer": "cus_parallel"},
+                    event_type=event_type,
+                    event_id=f"evt_{invoice_id}",
+                )
+            finally:
+                connections.close_all()
+
+        with patch("accounts.billing.get_stripe", return_value=self.stripe), ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [
+                pool.submit(deliver, "in_failed", "invoice.payment_failed"),
+                pool.submit(deliver, "in_paid", "invoice.payment_succeeded"),
+            ]
+            for future in futures:
+                future.result(timeout=15)
+        record.refresh_from_db()
+        self.assertIsNotNone(record.last_payment_failed_at)
+        self.assertEqual(StripeInvoiceState.objects.filter(payment_failed=True).count(), 1)
+        self.assertEqual(StripeInvoiceState.objects.count(), 2)

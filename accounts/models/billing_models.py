@@ -7,6 +7,18 @@ from django.db import models
 from django.utils import timezone
 
 
+class StripeInvoiceState(models.Model):
+    subscription = models.ForeignKey("PremiumSubscription", on_delete=models.CASCADE)
+    invoice_id = models.CharField(max_length=255, unique=True)
+    status = models.CharField(max_length=32)
+    payment_failed = models.BooleanField(default=False)
+    last_event_id = models.CharField(max_length=255, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Stripe請求状態"
+
+
 class StripeBillingRequest(models.Model):
     subscription = models.ForeignKey("PremiumSubscription", on_delete=models.CASCADE)
     operation = models.CharField(max_length=16, choices=[("customer", "顧客作成"), ("checkout", "購入画面作成")])
