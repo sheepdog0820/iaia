@@ -1,0 +1,67 @@
+{
+  "candidate": "bb61b0e6244aa5c9726dca4b8b00c3dd29e9cf05",
+  "checks": [
+    {
+      "name": "enabled_empty_queue_exits_zero",
+      "exit_code": 0,
+      "json": {
+        "healthy": true,
+        "enabled": true,
+        "pending": 0,
+        "due": 0,
+        "overdue": 0,
+        "oldest_pending_age_seconds": null,
+        "max_pending_age_seconds": 600
+      },
+      "passed": true
+    },
+    {
+      "name": "disabled_empty_queue_exits_one",
+      "exit_code": 1,
+      "json": {
+        "healthy": false,
+        "enabled": false,
+        "pending": 0,
+        "due": 0,
+        "overdue": 0,
+        "oldest_pending_age_seconds": null,
+        "max_pending_age_seconds": 600
+      },
+      "passed": true
+    },
+    {
+      "name": "old_pending_future_retry_exits_one",
+      "exit_code": 1,
+      "json": {
+        "healthy": false,
+        "enabled": true,
+        "pending": 1,
+        "due": 0,
+        "overdue": 1,
+        "oldest_pending_age_seconds": 701,
+        "max_pending_age_seconds": 600
+      },
+      "passed": true
+    },
+    {
+      "name": "missing_threshold_exits_two",
+      "exit_code": 2,
+      "json": null,
+      "passed": true
+    },
+    {
+      "name": "invalid_threshold_exits_one",
+      "exit_code": 1,
+      "json": null,
+      "passed": true
+    },
+    {
+      "name": "pending_delivery_unchanged",
+      "passed": true
+    },
+    {
+      "name": "isolated_database_and_settings_removed",
+      "passed": true
+    }
+  ]
+}

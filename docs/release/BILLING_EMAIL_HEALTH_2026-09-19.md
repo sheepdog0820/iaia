@@ -10,4 +10,19 @@
 
 監視基盤への定期実行・アラーム接続は未実施。コマンドが実行されない場合やDB障害も監視側で検出する必要がある。キューが空のときの成功はworker稼働の証明ではない。[運用手順](../runbooks/STRIPE_BILLING_OPERATIONS.md)に限界を記載した。
 
-別ブランチの追加実装であり、承認待ちの6ff9a1f9には含まれない。今回の変更をmain/AWSへ反映したとは扱わず、新候補のCI確認と反映範囲の判断を残す。正式公開No-Goは維持する。
+実装コミットは `bb61b0e6244aa5c9726dca4b8b00c3dd29e9cf05`。別ブランチの追加実装であり、承認待ちの6ff9a1f9には含まれない。今回の変更をmain/AWSへ反映したとは扱わず、新候補のCI確認と反映範囲の判断を残す。正式公開No-Goは維持する。
+
+## 実コマンドの終了コード検証
+
+上記コミットから `manage.py` を別プロセスで起動し、専用一時SQLite DBにマイグレーションと合成データを作って検査した。[結果JSON](BILLING_EMAIL_HEALTH_CLI_2026-09-19.json)の7項目が成功。
+
+- 配送有効・空のキュー: JSON healthy=true、終了0。
+- 配送無効・空のキュー: JSON healthy=false、終了1。
+- 作成から700秒、次回試行は1時間先の配送待ち: 閾値600秒でpending=1、overdue=1、due=0、終了1。
+- 閾値引数なし: 終了2。閾値0: 終了1。
+- 宛先・利用者名・請求IDは標準出力/標準エラーに含まれず、検査後も配送待ち・試行回数0を保持。
+- 試験用DBと設定ディレクトリの削除・不在を確認。
+
+再現スクリプトはGit管理外の `C:/Users/endke/Workspace/iaia/tmp/billing_health_cli_probe_20260919.py`。実メール・AWS・実利用者データは使用しない。Python内部のcall_commandテストに加えてOSの終了コードを確認したが、配布コンテナや実AWSの定期監視での検証ではない。
+
+[対象SHAのCI run 35437997407](https://github.com/sheepdog0820/iaia/actions/runs/35437997407)は記録時点でinfrastructure/systemが成功、残り4ジョブは実行中。6ff9a1f9のCI成功を、この追加実装の全体CI成功として扱わない。
