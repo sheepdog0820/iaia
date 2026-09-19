@@ -25,7 +25,7 @@
 
 再現スクリプトはGit管理外の `C:/Users/endke/Workspace/iaia/tmp/billing_health_cli_probe_20260919.py`。実メール・AWS・実利用者データは使用しない。Python内部のcall_commandテストに加えてOSの終了コードを確認したが、配布コンテナや実AWSの定期監視での検証ではない。
 
-[対象SHAのCI run 35437997407](https://github.com/sheepdog0820/iaia/actions/runs/35437997407)は記録時点でinfrastructure/systemが成功、残り4ジョブは実行中。6ff9a1f9のCI成功を、この追加実装の全体CI成功として扱わない。
+[対象SHAのCI run 35437997407](https://github.com/sheepdog0820/iaia/actions/runs/35437997407)は全6ジョブsuccess。対象SHAとrun全体のcompleted/successを照合し、[確定結果](STRIPE_CI_BB61B0E6_2026-09-19.json)を保存した。これにより追加実装のCI待ちは解消したが、実AWSの監視・反映は未完了。
 
 ## 通常配布イメージの検証
 

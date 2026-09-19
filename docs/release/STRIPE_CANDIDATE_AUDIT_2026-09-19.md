@@ -2,7 +2,7 @@
 
 ## 後続検証を反映した現在の状態
 
-本ページの69cfa876に対する監査は下記の経過記録として保持する。現在の反映承認案は[6ff9a1f9](STRIPE_AWS_APP_APPROVAL_2026-09-19.md)。同SHAのCI全6ジョブと配布物検証は成功したがmain/AWSへ未反映。さらに[課金メール滞留の監視コマンドbb61b0e6](BILLING_EMAIL_HEALTH_2026-09-19.md)を追加し、関連テスト・実CLI・配布物内検証は成功、全体CIは確認継続中。
+本ページの69cfa876に対する監査は下記の経過記録として保持する。現在の反映承認案は[6ff9a1f9](STRIPE_AWS_APP_APPROVAL_2026-09-19.md)。同SHAのCI全6ジョブと配布物検証は成功したがmain/AWSへ未反映。さらに[課金メール滞留の監視コマンドbb61b0e6](BILLING_EMAIL_HEALTH_2026-09-19.md)を追加し、関連テスト・実CLI・配布物内検証と[全体CI6ジョブ](STRIPE_CI_BB61B0E6_2026-09-19.json)が成功。
 
 - B03/B04: 請求通知順序、複数停止理由、異議通知順序、古いCheckout通知、各利用者削除経路を修正し、実Stripeサンドボックスと隔離PostgreSQLで検証した。詳細・限定条件は[再開タスクの完了済み検証](STRIPE_CONNECTION_PENDING.md)と[受入表](FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)を参照する。旧表の未検証項目をそのまま現在の未着手一覧にしない。
 - 課金メールは永続キュー化済み。[配布物の実worker/beat・SMTP試験](BILLING_EMAIL_WORKER_2026-09-19.md)で一時拒否、worker再起動、自動再送を確認。実AWSの常設worker/Redis・SMTP認証/受信・監視通知は未確認。
