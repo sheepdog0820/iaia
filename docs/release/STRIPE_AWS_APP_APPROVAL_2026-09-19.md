@@ -1,16 +1,18 @@
 # 検証済みStripe候補のmain・開発AWSアプリ反映 承認案
 
-対象コミット: `99acd8ca4d319c2579f74e4c1a102815ccd4a668`。
+対象コミット: `6ff9a1f9b9fe965b2461de0694530d3e18ffda96`。
+旧候補99acd8caの案を置き換える。2026-09-19 19:15 JST時点ではCIが未完了のため、これは承認依頼前の準備案である。旧候補への承認を新候補への承認として扱わない。
 対象環境: AWSアカウント083773015316、ap-northeast-1、ECS tableno-aws-pre、stg.tableno.jp。
 現在のmain: d875d028ede0b3172780d54d4baacdb226a1d3b3。稼働ECS定義49、aws-pre-d875d028。
 
 ## 検証済みの根拠
 
-- CI run 35431750178の6ジョブすべて成功: Unit / Integration、PostgreSQL、Playwright、infrastructure、lint/security、system。
-- 同一SHAのコンテナをビルドし、起動とHTTP readiness成功。
-- PostgreSQL 18.3で旧版→0065/0066/0067→新版、旧版での読出し、新版への復帰を確認。既存データと未配送記録を保持。
-- pg_dump/pg_restoreで既存データと追加3テーブルが一致。実AWSはPostgreSQL 18.3、バックアップ保持7日、確認時の最新復元可能時刻は2026-09-19 17:28:41 JST。
-- 詳細: STRIPE_CANDIDATE_CONTAINER_2026-09-19.md、STRIPE_CANDIDATE_CONTAINER_RESULT_2026-09-19.json、STRIPE_CANDIDATE_CI_2026-09-19.json。
+- 候補の[CI run 35436261975](https://github.com/sheepdog0820/iaia/actions/runs/35436261975)は4ジョブ成功、Unit / IntegrationとPlaywrightが実行中。全6ジョブの成功と対象SHAを確認してから承認を依頼する。旧候補のCI成功で代用しない。
+- 課金契約が残るアカウントの削除を、退会画面・通常API・管理者API・管理画面の単件/一括処理で拒否する。Webhookとの行ロック競合、通知未反映の契約、未確定のCheckout作成を含めて保護する。管理画面の一括削除は対象に削除不可の利用者がいれば全件をDB上でロールバックする。
+- 関連252テストが隔離PostgreSQL 18.3で成功。実Stripeサンドボックスを使った4削除経路の23項目が成功し、試験用契約はすべて終了済み。[削除経路の検証](STRIPE_DELETION_PATHS_2026-09-19.md)、[実Stripe接続試験](STRIPE_DELETION_PATHS_API_2026-09-19.md)、[署名付き通知との競合試験](STRIPE_DELETION_RACE_2026-09-19.md)を参照。
+- 同一SHAのコンテナをビルドし、隔離DBへのマイグレーション、イメージ内9回帰テスト、5ソースファイルのハッシュ照合、通常起動とHTTP readinessが成功。[配布イメージ検証](STRIPE_CONTAINER_6FF9A1F9_2026-09-19.md)を参照。ローカルイメージIDは `sha256:5e8f4f132ae472f0bd2a5d64c7019e501aab0303bfecfa9860f1769a64e7f702`。
+- 前候補0f6b81feではPostgreSQL 18.3で旧版→0065/0066/0067→新版、旧版での読出し、新版への復帰、pg_dump/pg_restoreによる既存データと追加3テーブルの保持を確認。0f6b81feから今回候補までDBマイグレーション・依存ロック・Dockerfile・entrypointの差分はない。今回同じ復元試験を再実施したとは扱わない。[前候補のDB検証](STRIPE_CONTAINER_0F6B81FE_2026-09-19.md)を参照。
+- 実AWSの読み取り確認時点（18:49 JST）ではPostgreSQL 18.3、バックアップ保持7日、最新復元可能時刻18:43:43 JST。ECS定義49、desired/runningとも1、readinessのdatabase/cacheともok。反映直前にmainと稼働定義を再確認し、変化があれば差分を再評価する。
 
 ## 今回承認する操作
 
