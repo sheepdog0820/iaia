@@ -1,0 +1,14 @@
+{
+  "account": "acct_1UFA5iE2s31mT3or",
+  "checks": [
+    {
+      "name": "historical_active_snapshot_uses_real_canceled_state",
+      "passed": true
+    },
+    {
+      "name": "old_canceled_subscription_does_not_overwrite_local_new_fixture",
+      "passed": true
+    }
+  ],
+  "scope": "Synthetic checkout snapshot with real read-only sandbox Subscription retrieval; not a signed Checkout end-to-end test."
+}

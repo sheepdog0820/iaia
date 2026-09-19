@@ -1330,7 +1330,8 @@ class BillingServiceTestCase(TestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.is_premium)
 
-    def test_checkout_completed_can_use_expanded_subscription_without_remote_retrieve(self):
+    @patch("accounts.billing.get_stripe")
+    def test_checkout_completed_retrieves_current_expanded_subscription(self, get_stripe):
         session = {
             "client_reference_id": str(self.user.id),
             "customer": "cus_checkout_expanded",
@@ -1344,7 +1345,9 @@ class BillingServiceTestCase(TestCase):
             "metadata": {},
         }
 
+        get_stripe.return_value.Subscription.retrieve.return_value = session["subscription"]
         record = handle_checkout_completed(session, event_id="evt_checkout_expanded")
+        get_stripe.return_value.Subscription.retrieve.assert_called_once_with("sub_checkout_expanded")
 
         self.assertEqual(record.stripe_customer_id, "cus_checkout_expanded")
         self.assertEqual(record.stripe_subscription_id, "sub_checkout_expanded")

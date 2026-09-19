@@ -331,44 +331,46 @@ def sync_subscription_object(subscription, event_id=""):
     return record
 
 
+@transaction.atomic
 def handle_checkout_completed(session, event_id=""):
     from django.contrib.auth import get_user_model
 
-    user_id = session.get("client_reference_id") or session.get("metadata", {}).get("user_id")
+    user_id = stripe_object_get(session, "client_reference_id") or stripe_object_get(
+        stripe_object_get(session, "metadata", {}) or {}, "user_id"
+    )
     if not user_id:
         return None
 
-    User = get_user_model()
-    user = User.objects.filter(id=user_id).first()
+    user = get_user_model().objects.filter(id=user_id).first()
     if user is None:
         return None
 
-    subscription = session.get("subscription")
-    subscription_id = stripe_object_get(subscription, "id") if isinstance(subscription, dict) else subscription
-
+    customer_id = stripe_reference_id(stripe_object_get(session, "customer"))
+    subscription_id = stripe_reference_id(stripe_object_get(session, "subscription"))
+    if not customer_id or not subscription_id:
+        raise ValueError("Stripe checkout subscription reference missing")
     record = get_or_create_subscription_record(user)
-    record.stripe_customer_id = session.get("customer") or record.stripe_customer_id
-    record.stripe_subscription_id = subscription_id or record.stripe_subscription_id
-    if event_id:
-        record.last_webhook_event_id = event_id
-    record.save(
-        update_fields=[
-            "stripe_customer_id",
-            "stripe_subscription_id",
-            "last_webhook_event_id",
-            "updated_at",
-        ]
-    )
+    record = PremiumSubscription.objects.select_for_update().get(pk=record.pk)
+    if record.stripe_customer_id and record.stripe_customer_id != customer_id:
+        raise ValueError("Stripe checkout customer ownership mismatch")
 
-    if isinstance(subscription, dict):
-        return sync_subscription_object(subscription, event_id=event_id)
+    # Even expanded event payloads are historical snapshots. Fetch after locking.
+    current = get_stripe().Subscription.retrieve(subscription_id)
+    if (
+        stripe_object_get(current, "id") != subscription_id
+        or stripe_reference_id(stripe_object_get(current, "customer")) != customer_id
+    ):
+        raise ValueError("Stripe checkout subscription ownership mismatch")
+    if (
+        record.stripe_subscription_id
+        and record.stripe_subscription_id != subscription_id
+        and stripe_object_get(current, "status") in {"canceled", "incomplete_expired"}
+    ):
+        return record
 
-    if record.stripe_subscription_id:
-        stripe = get_stripe()
-        subscription = stripe.Subscription.retrieve(record.stripe_subscription_id)
-        return sync_subscription_object(subscription, event_id=event_id)
-
-    return record
+    record.stripe_customer_id = customer_id
+    record.save(update_fields=["stripe_customer_id", "updated_at"])
+    return sync_subscription_object(current, event_id=event_id)
 
 
 def current_invoice_state(stripe, invoice_id, customer_id):

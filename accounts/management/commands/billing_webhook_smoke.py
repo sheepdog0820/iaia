@@ -63,21 +63,29 @@ class Command(BaseCommand):
             "id": "price_smoke_yearly",
             "recurring": {"interval": "year"},
         }
-        checkout_record = handle_checkout_completed(
-            {
-                "id": "cs_smoke_checkout_completed",
-                "client_reference_id": str(user.pk),
+        with patch("accounts.billing.get_stripe") as stripe:
+            stripe.return_value.Subscription.retrieve.return_value = {
+                "id": subscription_id,
                 "customer": customer_id,
-                "subscription": {
-                    "id": subscription_id,
+                "status": "active",
+                "current_period_end": now + 3600,
+                "cancel_at_period_end": False,
+            }
+            checkout_record = handle_checkout_completed(
+                {
+                    "id": "cs_smoke_checkout_completed",
+                    "client_reference_id": str(user.pk),
                     "customer": customer_id,
-                    "status": "active",
-                    "current_period_end": now + 3600,
-                    "cancel_at_period_end": False,
+                    "subscription": {
+                        "id": subscription_id,
+                        "customer": customer_id,
+                        "status": "active",
+                        "current_period_end": now + 3600,
+                        "cancel_at_period_end": False,
+                    },
                 },
-            },
-            event_id="evt_smoke_checkout_completed",
-        )
+                event_id="evt_smoke_checkout_completed",
+            )
         if checkout_record.stripe_customer_id != customer_id:
             raise AssertionError("checkout.session.completed did not link customer")
         if checkout_record.stripe_subscription_id != subscription_id:

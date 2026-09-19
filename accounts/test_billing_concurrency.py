@@ -9,6 +9,7 @@ from django.test import RequestFactory, TransactionTestCase, override_settings, 
 
 from accounts.billing import (
     create_checkout_session,
+    handle_checkout_completed,
     mark_refund_or_dispute,
     reconcile_dispute_event,
     reconcile_invoice_payment,
@@ -19,6 +20,38 @@ from accounts.models import PremiumAuditLog, PremiumSubscription, StripeBillingR
 @override_settings(STRIPE_PREMIUM_PRICE_ID="price_concurrency")
 @skipUnlessDBFeature("has_select_for_update")
 class BillingCheckoutConcurrencyTests(TransactionTestCase):
+    def test_parallel_checkout_completion_grants_access_once(self):
+        PremiumSubscription.objects.create(user=self.user, stripe_customer_id="cus_parallel")
+        self.stripe.Subscription.retrieve.return_value = {
+            "id": "sub_parallel",
+            "customer": "cus_parallel",
+            "status": "active",
+        }
+        barrier = Barrier(2)
+
+        def deliver(event_id):
+            close_old_connections()
+            try:
+                barrier.wait(timeout=10)
+                handle_checkout_completed(
+                    {
+                        "client_reference_id": str(self.user.pk),
+                        "customer": "cus_parallel",
+                        "subscription": "sub_parallel",
+                    },
+                    event_id=event_id,
+                )
+            finally:
+                connections.close_all()
+
+        with patch("accounts.billing.get_stripe", return_value=self.stripe), ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(deliver, event_id) for event_id in ("evt_checkout_a", "evt_checkout_b")]
+            for future in futures:
+                future.result(timeout=15)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_premium)
+        self.assertEqual(PremiumAuditLog.objects.filter(action="granted").count(), 1)
+
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="parallel-billing")
         self.stripe = Mock()
