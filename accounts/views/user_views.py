@@ -476,11 +476,14 @@ class AccountDeleteView(TemplateView):
         subscription = PremiumSubscription.objects.filter(user=user).first()
         if not subscription:
             return None
-        if not subscription.is_stripe_active:
+        # Revoked access or a failed payment does not end the Stripe contract.
+        if subscription.subscription_status in {"canceled", "incomplete_expired"}:
             return None
-        if not (subscription.stripe_customer_id or subscription.stripe_subscription_id):
-            return None
-        return subscription
+        if subscription.stripe_subscription_id:
+            return subscription
+        if subscription.stripe_customer_id and subscription.subscription_status in subscription.ACTIVE_STATUSES:
+            return subscription
+        return None
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -503,7 +506,10 @@ class AccountDeleteView(TemplateView):
                 return redirect("account_delete")
 
         if self._active_stripe_subscription(user):
-            messages.error(request, "有効なStripe購読が残っています。先に課金管理ページから解約してください。")
+            messages.error(
+                request,
+                "Stripeの契約が終了していません。課金管理ページで解約し、契約終了後にアカウントを削除してください。",
+            )
             return redirect("billing")
 
         # Logout first so the session does not reference a deleted user.

@@ -296,7 +296,7 @@ class AuthenticationTestCase(TestCase):
         response = self.client.get("/accounts/profile/delete/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "課金中のアカウントです。")
+        self.assertContains(response, "Stripeの契約が終了していません。")
         self.assertContains(response, "課金管理へ")
 
     def test_account_delete_blocks_active_stripe_subscription(self):
