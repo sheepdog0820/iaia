@@ -20,6 +20,16 @@ zlibのCVE-2026-85091は引き続きHIGH、fixed_versionはnot fixed。ネット
 
 Debianのtrixieパッケージ判定は依然vulnerableで、説明にある対象バージョンとパッケージ表の不一致も残る。上流の解決だけでは配布済みライブラリが修正済みとはいえない。次の判断には、修正の搭載版への適用範囲とDebianの対応状況の照合が必要。独自ビルドやバックポートを選ぶ場合はABI・Pythonの圧縮処理・画像処理等の回帰検証を伴う別の変更として扱う。指摘の抑制や未検証ライブラリへの置換は行っていない。
 
+## 搭載zlibの追加照合
+
+同日の追加検査で、搭載ライブラリの実行時バージョンは1.3.1、SHA-256は `85590dd58edf5445e18bc7193e5ebc01ac5841f1ae187e97705a662e90c6421e` と確認した。過去に照合したライブラリと一致する。
+
+[上流1.3.1のgzwrite.c](https://raw.githubusercontent.com/madler/zlib/v1.3.1/gzwrite.c)と保存済みDebianソースでは、書き込みエラー後のgzvprintfはエラー状態を検査して処理を拒否する。一方、[修正コミットのソース](https://raw.githubusercontent.com/madler/zlib/df84af25dc1942490e1d1c899a07619152a46148/gzwrite.c)にはnon-blockingの再試行を許す状態管理と、入力バッファを戻す修正がある。新しい版の差分を1.3.1へそのまま当てることは適切とは限らない。
+
+実配布イメージをネットワークなし・読み取り専用・128 MiB制限で起動し、ctypesで実libzを呼び出した。非ブロッキングpipeを満杯にし、1 MiBの入力をgzwriteへ渡した直後、エラーを手動解除せずgzprintfを呼んだ。圧縮モードwbと直接書き込みwbTの両方でgzwriteは0、状態はZ_ERRNO (-1)、続くgzprintfはZ_STREAM_ERROR (-2)だった。満杯にしない対照条件では両モードとも5文字を書き込めた。4条件の検査は終了0、コンテナは終了時に削除した。再現スクリプトはGit管理外の `C:/Users/endke/Workspace/iaia/tmp/zlib_nonblocking_probe_20260919.py`。
+
+これは搭載版が「書き込み停止後、エラーを解除せず書式付き出力を続ける」経路を拒否する証拠であり、CVE全条件の再現試験やメモリ安全性の証明ではない。部分書き込み、明示的なエラー解除、依存ライブラリからの到達、修正前後の新版との比較は未検証。Debianのvulnerable判定が残る以上、非該当の確定・例外承認・HIGHの解消とは扱わない。
+
 ## MEDIUMと残る範囲
 
 tarのCVE-2025-45582も残り、イメージのtarは `1.35+dfsg-3.1`。[Debian追跡情報](https://security-tracker.debian.org/tracker/CVE-2025-45582)は、同じ場所への連続展開とシンボリックリンクを使う条件、および上流が仕様として争っている旨を記載している。前回の限定的なソース検索を、全依存・運用経路の非該当証明へ広げない。
