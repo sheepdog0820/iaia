@@ -21,6 +21,7 @@ from accounts.billing import (
     get_stripe,
     handle_checkout_completed,
     mark_refund_or_dispute,
+    reconcile_dispute_event,
     reconcile_invoice_payment,
     redeem_premium_access_code,
     require_price_id,
@@ -234,11 +235,9 @@ class StripeWebhookView(APIView):
                         sync_subscription_object(current_subscription, event_id=event_id)
                 elif event_type in {"invoice.payment_failed", "invoice.payment_succeeded"}:
                     reconcile_invoice_payment(data_object, event_type=event_type, event_id=event_id)
-                elif event_type in {
-                    "charge.refunded",
-                    "charge.dispute.created",
-                    "charge.dispute.closed",
-                }:
+                elif event_type in {"charge.dispute.created", "charge.dispute.closed"}:
+                    reconcile_dispute_event(data_object, event_type=event_type, event_id=event_id)
+                elif event_type == "charge.refunded":
                     mark_refund_or_dispute(data_object, event_type=event_type, event_id=event_id)
                 webhook_event.processing_status = StripeWebhookEvent.STATUS_SUCCEEDED
                 webhook_event.error_message = ""

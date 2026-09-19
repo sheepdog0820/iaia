@@ -479,6 +479,55 @@ def mark_invoice_payment_succeeded(invoice, event_id=""):
     return record
 
 
+def stripe_reference_id(value):
+    return value if isinstance(value, str) else stripe_object_get(value, "id", "")
+
+
+@transaction.atomic
+def reconcile_dispute_event(data_object, *, event_type, event_id=""):
+    stripe = get_stripe()
+    dispute_id = stripe_object_get(data_object, "id")
+    charge_id = stripe_reference_id(stripe_object_get(data_object, "charge"))
+    if not dispute_id or not charge_id:
+        raise ValueError("Stripe dispute reference missing")
+    charge = stripe.Charge.retrieve(charge_id)
+    customer_id = stripe_reference_id(stripe_object_get(charge, "customer"))
+    if stripe_object_get(charge, "id") != charge_id or not customer_id:
+        raise ValueError("Stripe dispute charge ownership mismatch")
+    record = PremiumSubscription.objects.select_for_update().filter(stripe_customer_id=customer_id).first()
+    if record is None:
+        return None
+    # Read under the same row lock as subscription/refund updates so an older
+    # notification cannot overwrite a completed dispute with its old snapshot.
+    current = stripe.Dispute.retrieve(dispute_id)
+    if (
+        stripe_object_get(current, "id") != dispute_id
+        or stripe_reference_id(stripe_object_get(current, "charge")) != charge_id
+    ):
+        raise ValueError("Stripe dispute charge mismatch")
+    current_status = stripe_object_get(current, "status")
+    closed_statuses = {"won", "lost", "warning_closed", "prevented"}
+    if current_status not in closed_statuses | {
+        "needs_response",
+        "under_review",
+        "warning_needs_response",
+        "warning_under_review",
+    }:
+        raise ValueError("Unexpected Stripe dispute state")
+    current_data = {
+        key: stripe_object_get(current, key, "")
+        for key in ("id", "status", "amount", "currency", "reason", "payment_intent")
+    }
+    current_data.update(
+        customer=customer_id,
+        charge=charge_id,
+        invoice=stripe_reference_id(stripe_object_get(charge, "invoice")),
+        payment_intent=stripe_reference_id(stripe_object_get(current, "payment_intent")),
+    )
+    effective_type = "charge.dispute.closed" if current_status in closed_statuses else "charge.dispute.created"
+    return mark_refund_or_dispute(current_data, event_type=effective_type, event_id=event_id)
+
+
 def has_other_automatic_payment_revocation(user, winning_dispute_id):
     if not winning_dispute_id:
         return True

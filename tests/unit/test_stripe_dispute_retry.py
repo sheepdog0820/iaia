@@ -25,6 +25,7 @@ class StripeDisputeRetryTests(TestCase):
             "data": {"object": {"id": "dp_retry", "charge": "ch_retry", "status": "needs_response"}},
         }
         stripe.Charge.retrieve.side_effect = TimeoutError("isolated Stripe outage")
+        stripe.Dispute.retrieve.return_value = {"id": "dp_retry", "charge": "ch_retry", "status": "needs_response"}
         client = APIClient()
         with (
             patch("accounts.views.billing_views.get_stripe", return_value=stripe),

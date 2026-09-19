@@ -23,10 +23,14 @@ class StripeDisputeRestorationTests(TestCase):
             revoked_reason="Stripe charge disputed",
         )
         self.stripe = Mock()
+        self.stripe.Charge.retrieve.return_value = SimpleNamespace(id="ch_restore", customer="cus_restore")
+        self.stripe.Dispute.retrieve.return_value = SimpleNamespace(id="dp_restore", charge="ch_restore", status="won")
         self.stripe.Webhook.construct_event.return_value = {
             "id": "evt_restore",
             "type": "charge.dispute.closed",
-            "data": {"object": {"id": "dp_restore", "customer": "cus_restore", "status": "won"}},
+            "data": {
+                "object": {"id": "dp_restore", "charge": "ch_restore", "customer": "cus_restore", "status": "won"}
+            },
         }
 
     def deliver(self):

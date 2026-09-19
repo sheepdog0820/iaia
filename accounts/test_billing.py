@@ -1036,7 +1036,7 @@ class StripeWebhookTestCase(TestCase):
             event_type="invoice.payment_succeeded",
         )
 
-    @patch("accounts.views.billing_views.mark_refund_or_dispute")
+    @patch("accounts.views.billing_views.reconcile_dispute_event")
     @patch("accounts.views.billing_views.get_stripe")
     def test_webhook_routes_charge_dispute_created(self, get_stripe, mark_refund_or_dispute_mock):
         event = {

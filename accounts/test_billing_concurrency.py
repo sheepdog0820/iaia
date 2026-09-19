@@ -7,7 +7,12 @@ from django.contrib.auth import get_user_model
 from django.db import close_old_connections, connections
 from django.test import RequestFactory, TransactionTestCase, override_settings, skipUnlessDBFeature
 
-from accounts.billing import create_checkout_session, mark_refund_or_dispute, reconcile_invoice_payment
+from accounts.billing import (
+    create_checkout_session,
+    mark_refund_or_dispute,
+    reconcile_dispute_event,
+    reconcile_invoice_payment,
+)
 from accounts.models import PremiumAuditLog, PremiumSubscription, StripeBillingRequest, StripeInvoiceState
 
 
@@ -136,3 +141,45 @@ class BillingCheckoutConcurrencyTests(TransactionTestCase):
         self.assertTrue(self.user.is_premium)
         self.assertEqual(PremiumAuditLog.objects.filter(action="restored").count(), 1)
         self.stripe.Subscription.retrieve.assert_called_once()
+
+    def test_parallel_old_and_new_dispute_events_use_current_state(self):
+        PremiumSubscription.objects.create(
+            user=self.user,
+            stripe_customer_id="cus_parallel",
+            stripe_subscription_id="sub_parallel",
+            subscription_status="active",
+            access_source="stripe",
+        )
+        mark_refund_or_dispute(
+            {"id": "dp_parallel", "customer": "cus_parallel", "status": "needs_response"},
+            event_type="charge.dispute.created",
+            event_id="evt_initial",
+        )
+        self.stripe.Charge.retrieve.return_value = SimpleNamespace(id="ch_parallel", customer="cus_parallel")
+        self.stripe.Dispute.retrieve.return_value = SimpleNamespace(
+            id="dp_parallel", charge="ch_parallel", status="won"
+        )
+        self.stripe.Subscription.retrieve.return_value = SimpleNamespace(
+            id="sub_parallel", customer="cus_parallel", status="active"
+        )
+        barrier = Barrier(2)
+
+        def deliver(event_type):
+            close_old_connections()
+            try:
+                barrier.wait(timeout=10)
+                reconcile_dispute_event(
+                    {"id": "dp_parallel", "charge": "ch_parallel"},
+                    event_type=event_type,
+                    event_id=event_type,
+                )
+            finally:
+                connections.close_all()
+
+        with patch("accounts.billing.get_stripe", return_value=self.stripe), ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(deliver, kind) for kind in ("charge.dispute.created", "charge.dispute.closed")]
+            for future in futures:
+                future.result(timeout=15)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_premium)
+        self.assertEqual(PremiumAuditLog.objects.filter(action="restored").count(), 1)
