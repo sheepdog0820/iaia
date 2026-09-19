@@ -20,6 +20,34 @@ from accounts.models import PremiumAuditLog, PremiumSubscription, StripeBillingR
 @override_settings(STRIPE_PREMIUM_PRICE_ID="price_concurrency")
 @skipUnlessDBFeature("has_select_for_update")
 class BillingCheckoutConcurrencyTests(TransactionTestCase):
+    @override_settings(BILLING_EMAIL_DELIVERY_ENABLED=True)
+    def test_parallel_billing_email_workers_send_once(self):
+        from accounts.billing import mark_invoice_payment_failed
+        from accounts.billing_email import dispatch_billing_emails
+        from accounts.models import BillingEmailDelivery
+
+        PremiumSubscription.objects.create(user=self.user, stripe_customer_id="cus_parallel")
+        mark_invoice_payment_failed({"id": "in_parallel", "customer": "cus_parallel"}, event_id="evt_email")
+        barrier = Barrier(2)
+
+        def dispatch():
+            close_old_connections()
+            try:
+                barrier.wait(timeout=10)
+                return dispatch_billing_emails()
+            finally:
+                connections.close_all()
+
+        with patch("accounts.billing_email.send_payment_failed_email", return_value=True) as send:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [pool.submit(dispatch) for _ in range(2)]
+                for future in futures:
+                    future.result(timeout=15)
+        send.assert_called_once()
+        delivery = BillingEmailDelivery.objects.get()
+        self.assertEqual(delivery.status, "sent")
+        self.assertEqual(delivery.attempts, 1)
+
     def test_parallel_checkout_completion_grants_access_once(self):
         PremiumSubscription.objects.create(user=self.user, stripe_customer_id="cus_parallel")
         self.stripe.Subscription.retrieve.return_value = {

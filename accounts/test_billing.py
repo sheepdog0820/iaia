@@ -1359,6 +1359,7 @@ class BillingServiceTestCase(TestCase):
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
         PUBLIC_SITE_URL="https://example.test",
     )
+    @override_settings(BILLING_EMAIL_DELIVERY_ENABLED=True)
     def test_payment_failed_sends_email_and_logs_audit(self):
         from accounts.billing import mark_invoice_payment_failed
 
@@ -1375,6 +1376,10 @@ class BillingServiceTestCase(TestCase):
         )
 
         self.assertIsNotNone(record)
+        from accounts.billing_email import dispatch_billing_emails
+
+        self.assertEqual(len(mail.outbox), 0)
+        dispatch_billing_emails()
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("https://example.test/accounts/billing/", mail.outbox[0].body)
         self.assertIn("カード更新が必要です。", mail.outbox[0].body)
@@ -2534,7 +2539,7 @@ remote check not run or produced no output
         self.assertIn("not release-ready", message)
         self.assertIn("remote check not run or produced no output", message)
 
-    @override_settings(STRIPE_CHECKOUT_ENABLED=True)
+    @override_settings(STRIPE_CHECKOUT_ENABLED=True, BILLING_EMAIL_DELIVERY_ENABLED=True)
     def test_billing_release_gate_accepts_complete_test_mode_verification_record(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             record_path = Path(tmpdir) / "aws-pre-record.md"
@@ -2552,6 +2557,22 @@ remote check not run or produced no output
         output = stdout.getvalue()
         self.assertIn("stripe_checkout_enabled=true", output)
         self.assertIn("billing_release_gate=ok checkout-verified", output)
+
+    @override_settings(STRIPE_CHECKOUT_ENABLED=True, BILLING_EMAIL_DELIVERY_ENABLED=False)
+    def test_billing_release_gate_rejects_disabled_email_delivery(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            record_path = Path(tmpdir) / "record.md"
+            record_path.write_text(self._complete_billing_release_record(), encoding="utf-8")
+            with self.assertRaisesMessage(CommandError, "BILLING_EMAIL_DELIVERY_ENABLED"):
+                call_command("billing_release_gate", verification_record=str(record_path), stdout=StringIO())
+
+    @override_settings(STRIPE_CHECKOUT_ENABLED=True, BILLING_EMAIL_DELIVERY_ENABLED=True, CELERY_BEAT_SCHEDULE={})
+    def test_billing_release_gate_rejects_missing_email_schedule(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            record_path = Path(tmpdir) / "record.md"
+            record_path.write_text(self._complete_billing_release_record(), encoding="utf-8")
+            with self.assertRaisesMessage(CommandError, "dispatch_billing_emails"):
+                call_command("billing_release_gate", verification_record=str(record_path), stdout=StringIO())
 
     def _complete_billing_release_record(self):
         return """# Stripe billing verification record

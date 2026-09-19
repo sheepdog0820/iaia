@@ -66,6 +66,12 @@ class Command(BaseCommand):
         if issues:
             raise CommandError("billing verification record is not release-ready: " + "; ".join(issues))
 
+        if not getattr(settings, "BILLING_EMAIL_DELIVERY_ENABLED", False):
+            raise CommandError("BILLING_EMAIL_DELIVERY_ENABLED must be true before exposing paid Checkout")
+        schedules = getattr(settings, "CELERY_BEAT_SCHEDULE", {}).values()
+        if not any(item.get("task") == "accounts.tasks.dispatch_billing_emails" for item in schedules):
+            raise CommandError("accounts.tasks.dispatch_billing_emails must be scheduled before exposing paid Checkout")
+
         self.stdout.write(self.style.SUCCESS("billing_release_gate=ok checkout-verified"))
 
     def _validate_record(self, content):

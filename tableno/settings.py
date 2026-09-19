@@ -476,7 +476,12 @@ CELERY_TASK_TIME_LIMIT = int(os.environ.get("CELERY_TASK_TIME_LIMIT", "900"))
 CELERY_TASK_SOFT_TIME_LIMIT = int(os.environ.get("CELERY_TASK_SOFT_TIME_LIMIT", "840"))
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_TIMEZONE = TIME_ZONE
+BILLING_EMAIL_DELIVERY_ENABLED = _get_bool("BILLING_EMAIL_DELIVERY_ENABLED", default=False)
 CELERY_BEAT_SCHEDULE = {
+    "dispatch-billing-emails": {
+        "task": "accounts.tasks.dispatch_billing_emails",
+        "schedule": 60.0,
+    },
     "publish-scheduled-handouts": {
         "task": "schedules.tasks.publish_scheduled_handouts",
         "schedule": 60.0,

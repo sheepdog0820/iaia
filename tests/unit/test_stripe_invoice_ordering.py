@@ -7,7 +7,13 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from accounts.models import PremiumAuditLog, PremiumSubscription, StripeInvoiceState, StripeWebhookEvent
+from accounts.models import (
+    BillingEmailDelivery,
+    PremiumAuditLog,
+    PremiumSubscription,
+    StripeInvoiceState,
+    StripeWebhookEvent,
+)
 
 
 @override_settings(STRIPE_WEBHOOK_SECRET="whsec_test", EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
@@ -43,7 +49,7 @@ class StripeInvoiceOrderingTests(TestCase):
         self.deliver("evt_paid_a", "invoice.payment_succeeded", "in_a", "paid")
         self.record.refresh_from_db()
         self.assertIsNotNone(self.record.last_payment_failed_at)
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(BillingEmailDelivery.objects.count(), 1)
         self.deliver("evt_paid_b", "invoice.payment_succeeded", "in_b", "paid")
         self.record.refresh_from_db()
         self.assertIsNone(self.record.last_payment_failed_at)
@@ -51,7 +57,7 @@ class StripeInvoiceOrderingTests(TestCase):
     def test_distinct_failure_events_for_one_invoice_send_one_warning(self):
         self.deliver("evt_fail_1", "invoice.payment_failed", "in_b", "open")
         self.deliver("evt_fail_2", "invoice.payment_failed", "in_b", "open")
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(BillingEmailDelivery.objects.count(), 1)
 
     def test_lookup_failure_remains_retryable(self):
         self.stripe.Invoice.retrieve.side_effect = TimeoutError("temporary read failure")
@@ -120,4 +126,4 @@ class StripeInvoiceOrderingTests(TestCase):
         self.deliver("evt_vb", "invoice.payment_failed", "in_b", "void")
         self.record.refresh_from_db()
         self.assertIsNone(self.record.last_payment_failed_at)
-        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(BillingEmailDelivery.objects.count(), 2)

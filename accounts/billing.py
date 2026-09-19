@@ -3,12 +3,13 @@ from datetime import timezone as dt_timezone
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.core.mail import send_mail
+from django.core.mail import get_connection, send_mail
 from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 
 from .models import (
+    BillingEmailDelivery,
     PremiumAccessCode,
     PremiumAccessCodeRedemption,
     PremiumAuditLog,
@@ -435,6 +436,7 @@ def reconcile_invoice_payment(invoice, event_type, event_id=""):
     return record
 
 
+@transaction.atomic
 def mark_invoice_payment_failed(invoice, event_id=""):
     customer_id = invoice.get("customer")
     record = PremiumSubscription.objects.select_related("user").filter(stripe_customer_id=customer_id).first()
@@ -444,8 +446,7 @@ def mark_invoice_payment_failed(invoice, event_id=""):
     if event_id:
         record.last_webhook_event_id = event_id
     record.save(update_fields=["last_payment_failed_at", "last_webhook_event_id", "updated_at"])
-    email_sent = send_payment_failed_email(record.user)
-    create_premium_audit_log(
+    audit = create_premium_audit_log(
         record.user,
         action="payment_failed",
         source="stripe",
@@ -453,9 +454,11 @@ def mark_invoice_payment_failed(invoice, event_id=""):
         stripe_event_id=event_id,
         metadata={
             "invoice_id": invoice.get("id", ""),
-            "email_sent": email_sent,
+            "email_sent": False,
+            "email_status": "pending",
         },
     )
+    BillingEmailDelivery.objects.create(audit=audit, subscription=record, invoice_id=invoice.get("id", ""))
     return record
 
 
@@ -817,6 +820,7 @@ def send_payment_failed_email(user):
         ),
         from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@tableno.jp"),
         recipient_list=[user.email],
+        connection=get_connection(timeout=10),
         fail_silently=True,
     )
     return bool(sent_count)

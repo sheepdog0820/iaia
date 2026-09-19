@@ -7,6 +7,27 @@ from django.db import models
 from django.utils import timezone
 
 
+class BillingEmailDelivery(models.Model):
+    audit = models.OneToOneField("PremiumAuditLog", on_delete=models.CASCADE, related_name="email_delivery")
+    subscription = models.ForeignKey("PremiumSubscription", on_delete=models.CASCADE)
+    invoice_id = models.CharField(max_length=255)
+    status = models.CharField(
+        max_length=16,
+        default="pending",
+        choices=[("pending", "送信待ち"), ("sent", "送信済み"), ("canceled", "送信不要")],
+    )
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    last_error_code = models.CharField(max_length=32, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "課金メール配送"
+        verbose_name_plural = "課金メール配送"
+        indexes = [models.Index(fields=["status", "next_attempt_at"], name="billing_mail_due_idx")]
+
+
 class StripeInvoiceState(models.Model):
     subscription = models.ForeignKey("PremiumSubscription", on_delete=models.CASCADE)
     invoice_id = models.CharField(max_length=255, unique=True)

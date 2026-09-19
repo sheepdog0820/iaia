@@ -1,0 +1,25 @@
+{
+  "scope": "Loopback SMTP only; no external recipients or shared DB",
+  "checks": [
+    {
+      "name": "webhook_only_persists_queue",
+      "passed": true
+    },
+    {
+      "name": "smtp_451_keeps_pending",
+      "passed": true
+    },
+    {
+      "name": "retry_state_persisted",
+      "passed": true
+    },
+    {
+      "name": "retry_after_db_reconnect_accepted",
+      "passed": true
+    },
+    {
+      "name": "repeat_dispatch_does_not_resend",
+      "passed": true
+    }
+  ]
+}

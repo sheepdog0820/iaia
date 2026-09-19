@@ -13,6 +13,7 @@ from ..background_removal_models import BackgroundRemovalJob
 # Import base models
 from .base_models import TimestampedModel
 from .billing_models import (
+    BillingEmailDelivery,
     PremiumAccessCode,
     PremiumAccessCodeRedemption,
     PremiumAuditLog,
@@ -61,6 +62,7 @@ except ImportError:
 
 # Make all models available at package level
 __all__ = [
+    "BillingEmailDelivery",
     "TimestampedModel",
     "CustomUser",
     "Friend",
