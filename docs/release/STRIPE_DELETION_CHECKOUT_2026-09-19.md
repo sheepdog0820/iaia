@@ -20,6 +20,6 @@ Stripeの[Checkout失効API](https://docs.stripe.com/api/checkout/sessions/expir
 
 ## 未確認事項と反映条件
 
-実ブラウザーでの退会確認操作、実署名Webhook配送と退会の同時処理、AWSでのAPI・DB・通信障害を含む全フローは未確認。今回の実API試験は隔離DBで退会サービスを呼び出し、Webhook未反映状態を再現したもので、署名付き通知との同時E2Eとは区別する。Stripe Dashboard等からアプリのロックを経由せず外部で契約を作成する操作までは直列化できない。
+後続の[退会画面検証](STRIPE_DELETION_BROWSER_2026-09-19.md)では、通常退会とローカルfixtureによる契約未終了時の拒否が3ブラウザーで成功した。実Stripe契約を伴うブラウザー退会、実署名Webhook配送と退会の同時処理、AWSでのAPI・DB・通信障害を含む全フローは未確認。今回の実API試験は隔離DBで退会サービスを呼び出し、Webhook未反映状態を再現したもので、署名付き通知との同時E2Eとは区別する。Stripe Dashboard等からアプリのロックを経由せず外部で契約を作成する操作までは直列化できない。
 
 DBマイグレーション・Secrets・継続費用の変更なし。既存のmain/AWS承認対象99acd8caは変更していない。本修正自身のCIを別途確認し、反映候補の変更は明示する。正式公開は引き続きNo-Go。旧版へ戻す場合は購入・退会を制限し、Stripeの残契約と購入画面を照合する。
