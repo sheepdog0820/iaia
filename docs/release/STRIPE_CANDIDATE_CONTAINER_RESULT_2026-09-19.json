@@ -1,0 +1,45 @@
+{
+  "candidate": "99acd8ca4d319c2579f74e4c1a102815ccd4a668",
+  "old_digest": "083773015316.dkr.ecr.ap-northeast-1.amazonaws.com/tableno@sha256:59542e45e5dc8e1e33cbf7202eb12911ffbb390156a778fe7eb11f0fe4c65f79",
+  "database": "PostgreSQL 18.3 isolated Docker network",
+  "checks": [
+    {
+      "name": "only_three_additive_migrations",
+      "passed": true
+    },
+    {
+      "name": "new_migrations_applied",
+      "passed": true
+    },
+    {
+      "name": "existing_data_preserved",
+      "passed": true
+    },
+    {
+      "name": "old_runtime_reads_new_schema",
+      "passed": true
+    },
+    {
+      "name": "reupgrade_keeps_pending_records_and_billing_page",
+      "passed": true
+    },
+    {
+      "name": "normal_container_start_http_readiness",
+      "passed": true
+    },
+    {
+      "name": "pg_dump_restore_preserves_original_and_new_billing_records",
+      "passed": true
+    },
+    {
+      "name": "image_excludes_common_local_secret_and_state_paths",
+      "passed": true
+    }
+  ],
+  "new_image_id": "sha256:af0e52839ab52b4c5af3f0fd4e1087b0b58c1d24d4af1fd2d883ea8729601c32",
+  "cleanup": {
+    "web_container_stopped": true,
+    "database_container_stopped": true,
+    "isolated_network_removed": true
+  }
+}

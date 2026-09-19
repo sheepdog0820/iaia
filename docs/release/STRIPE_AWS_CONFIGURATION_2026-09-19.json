@@ -1,0 +1,18 @@
+{
+  "observed_date": "2026-09-19",
+  "environment": "aws-pre",
+  "presence": {
+    "stripe_key_kind": "test",
+    "matches_authorized_local_sandbox_key": false,
+    "webhook_secret_present": true,
+    "monthly_price_matches_test": false,
+    "yearly_price_matches_test": false,
+    "publishable_key_is_test": true,
+    "smtp_user_present": true,
+    "smtp_password_present": true
+  },
+  "stripe_account_lookup": {
+    "source": "aws-pre existing Stripe configuration; read-only GET /v1/account",
+    "lookup_error_type": "AuthenticationError"
+  }
+}
