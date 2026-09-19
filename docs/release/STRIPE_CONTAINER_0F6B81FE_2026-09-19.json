@@ -1,0 +1,45 @@
+{
+  "candidate": "0f6b81feacf5a8fd77ad05128dea41f0ea5d2dc6",
+  "old_digest": "083773015316.dkr.ecr.ap-northeast-1.amazonaws.com/tableno@sha256:59542e45e5dc8e1e33cbf7202eb12911ffbb390156a778fe7eb11f0fe4c65f79",
+  "database": "PostgreSQL 18.3 isolated Docker network",
+  "checks": [
+    {
+      "name": "only_three_additive_migrations",
+      "passed": true
+    },
+    {
+      "name": "new_migrations_applied",
+      "passed": true
+    },
+    {
+      "name": "existing_data_preserved",
+      "passed": true
+    },
+    {
+      "name": "old_runtime_reads_new_schema",
+      "passed": true
+    },
+    {
+      "name": "reupgrade_keeps_pending_records_and_billing_page",
+      "passed": true
+    },
+    {
+      "name": "normal_container_start_http_readiness",
+      "passed": true
+    },
+    {
+      "name": "pg_dump_restore_preserves_original_and_new_billing_records",
+      "passed": true
+    },
+    {
+      "name": "container_deletion_source_matches_candidate",
+      "passed": true
+    }
+  ],
+  "new_image_id": "sha256:246ffea363c028ffeee0095dde85307cac019626222e003eb6e2bca584348804",
+  "source_sha256": {
+    "accounts/billing_deletion.py": "c0dc4b0eefda2cbd07256a539d1fab23d5a0df0d8affc42fc06a22cb90cbe60f",
+    "accounts/views/user_views.py": "0958f909aeb0e10fca62bc7dde30bbdcdd7a9c356d447ddf983875f0d2c100c5",
+    "templates/account/account_delete.html": "0b847e12144faf0b86e04166cea4fb542eabb81f7662644f78bd9f550c2c1341"
+  }
+}
