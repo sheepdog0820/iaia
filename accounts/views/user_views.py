@@ -28,10 +28,10 @@ from ..friend_requests import (
 )
 from .base_views import BaseViewSet
 from .common_imports import *
-from .mixins import ErrorHandlerMixin, UserOwnershipMixin
+from .mixins import BillingSafeUserDeletionMixin, ErrorHandlerMixin, UserOwnershipMixin
 
 
-class UserViewSet(viewsets.ModelViewSet):
+class UserViewSet(BillingSafeUserDeletionMixin, viewsets.ModelViewSet):
     """User management ViewSet"""
 
     queryset = CustomUser.objects.all()

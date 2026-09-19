@@ -13,11 +13,12 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 from ..serializers import UserDetailSerializer, UserSerializer
+from .mixins import BillingSafeUserDeletionMixin
 
 User = get_user_model()
 
 
-class AdminUserViewSet(viewsets.ModelViewSet):
+class AdminUserViewSet(BillingSafeUserDeletionMixin, viewsets.ModelViewSet):
     """
     管理者用ユーザー管理ViewSet
 

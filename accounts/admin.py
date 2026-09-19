@@ -1,15 +1,16 @@
 import csv
 
 from django.conf import settings
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin
-from django.db import models
-from django.http import HttpResponse
+from django.db import models, transaction
+from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 
 from accounts.billing import create_premium_audit_log, premium_access_code_metadata
+from accounts.billing_deletion import BillingDeletionBlocked, delete_account_after_billing_check
 
 from .character_models import (
     CharacterEquipment6th,
@@ -436,6 +437,30 @@ class UserPremiumSourceFilter(admin.SimpleListFilter):
 
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
+    def delete_model(self, request, obj):
+        delete_account_after_billing_check(obj)
+
+    @transaction.atomic
+    def delete_queryset(self, request, queryset):
+        for user in queryset.order_by("pk"):
+            delete_account_after_billing_check(user)
+
+    def delete_view(self, request, object_id, extra_context=None):
+        try:
+            return super().delete_view(request, object_id, extra_context)
+        except BillingDeletionBlocked as exc:
+            self.message_user(request, str(exc), level=messages.ERROR)
+            return HttpResponseRedirect(reverse("admin:accounts_customuser_changelist"))
+
+    def changelist_view(self, request, extra_context=None):
+        try:
+            # Include the admin deletion log in the rollback of a blocked batch.
+            with transaction.atomic():
+                return super().changelist_view(request, extra_context)
+        except BillingDeletionBlocked as exc:
+            self.message_user(request, str(exc), level=messages.ERROR)
+            return HttpResponseRedirect(request.get_full_path())
+
     list_display = (
         "username",
         "email",

@@ -7,7 +7,20 @@ from django.db import models
 from django.http import Http404
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import ValidationError as APIValidationError
 from rest_framework.response import Response
+
+from accounts.billing_deletion import BillingDeletionBlocked, delete_account_after_billing_check
+
+
+class BillingSafeUserDeletionMixin:
+    """Apply the same billing guard to self-service and administrative APIs."""
+
+    def perform_destroy(self, instance):
+        try:
+            delete_account_after_billing_check(instance)
+        except BillingDeletionBlocked as exc:
+            raise APIValidationError({"detail": str(exc)}) from exc
 
 
 class UserOwnershipMixin:
