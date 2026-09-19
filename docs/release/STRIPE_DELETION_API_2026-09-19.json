@@ -1,0 +1,35 @@
+{
+  "account": "acct_1UFA5iE2s31mT3or",
+  "checks": [
+    {
+      "name": "checkout_test_mode",
+      "passed": true
+    },
+    {
+      "name": "account_deleted_after_expiration",
+      "passed": true
+    },
+    {
+      "name": "remote_checkout_expired",
+      "passed": true
+    },
+    {
+      "name": "subscription_test_mode",
+      "passed": true
+    },
+    {
+      "name": "remote_contract_blocks_without_webhook",
+      "passed": true
+    },
+    {
+      "name": "remote_cancellation_allows_deletion",
+      "passed": true
+    }
+  ],
+  "all_subscriptions_ended": true,
+  "all_checkouts_expired": true,
+  "source_sha256": {
+    "accounts/billing_deletion.py": "c0dc4b0eefda2cbd07256a539d1fab23d5a0df0d8affc42fc06a22cb90cbe60f",
+    "accounts/views/user_views.py": "0958f909aeb0e10fca62bc7dde30bbdcdd7a9c356d447ddf983875f0d2c100c5"
+  }
+}

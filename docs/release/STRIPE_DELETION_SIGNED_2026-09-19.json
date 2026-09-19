@@ -1,0 +1,76 @@
+{
+  "account": "acct_1UFA5iE2s31mT3or",
+  "checks": [
+    {
+      "name": "listener_ready",
+      "passed": true
+    },
+    {
+      "name": "customer_test_mode",
+      "passed": true
+    },
+    {
+      "name": "subscription_test_mode",
+      "passed": true
+    },
+    {
+      "name": "created_event_held",
+      "passed": true
+    },
+    {
+      "name": "active_remote_contract_prevents_deletion",
+      "passed": true
+    },
+    {
+      "name": "deleted_event_held",
+      "passed": true
+    },
+    {
+      "name": "account_deleted_before_events",
+      "passed": true
+    },
+    {
+      "name": "customer.subscription.deleted_signature_accepted",
+      "passed": true
+    },
+    {
+      "name": "customer.subscription.created_signature_accepted",
+      "passed": true
+    },
+    {
+      "name": "customer.subscription.created_duplicate_accepted",
+      "passed": true
+    },
+    {
+      "name": "customer.subscription.deleted_duplicate_accepted",
+      "passed": true
+    },
+    {
+      "name": "no_user_or_premium_recreated",
+      "passed": true
+    },
+    {
+      "name": "two_successful_events_only",
+      "passed": true
+    }
+  ],
+  "subscription_canceled": true,
+  "webhook_events": [
+    {
+      "event_id": "evt_1UHKkbE2s31mT3orh3rpLaXw",
+      "event_type": "customer.subscription.created",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UHKkcE2s31mT3ora04JfJIV",
+      "event_type": "customer.subscription.deleted",
+      "processing_status": "succeeded"
+    }
+  ],
+  "tested_commit": "4f068ca654ffe96b984d40bef560075a8683ddda",
+  "source_sha256": {
+    "accounts\\billing_deletion.py": "c0dc4b0eefda2cbd07256a539d1fab23d5a0df0d8affc42fc06a22cb90cbe60f",
+    "accounts\\billing.py": "25d307b4ca1a6f356b23d9e439fd33266801de0fc28467290a144148eed9cd76",
+    "accounts\\views\\billing_views.py": "c1d57d9d2f63971bf4af328ba4fb8b0813a2b45ab85e123a6f426f60c6c37069"
+  }
+}

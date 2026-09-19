@@ -20,6 +20,56 @@ from accounts.models import PremiumAuditLog, PremiumSubscription, StripeBillingR
 @override_settings(STRIPE_PREMIUM_PRICE_ID="price_concurrency")
 @skipUnlessDBFeature("has_select_for_update")
 class BillingCheckoutConcurrencyTests(TransactionTestCase):
+    def test_deletion_lock_prevents_waiting_checkout_creation(self):
+        from accounts.billing_deletion import delete_account_after_billing_check
+
+        PremiumSubscription.objects.create(user=self.user, stripe_customer_id="cus_parallel")
+        deletion_checking = Event()
+        purchase_started = Event()
+
+        def list_sessions(**kwargs):
+            deletion_checking.set()
+            if not purchase_started.wait(timeout=10):
+                raise TimeoutError("purchase did not start")
+            return Mock(auto_paging_iter=Mock(return_value=[]))
+
+        self.stripe.checkout.Session.list.side_effect = list_sessions
+
+        def remove_account():
+            close_old_connections()
+            try:
+                delete_account_after_billing_check(get_user_model().objects.get(pk=self.user.pk))
+            finally:
+                connections.close_all()
+
+        def purchase_after_check_starts():
+            close_old_connections()
+            try:
+                if not deletion_checking.wait(timeout=10):
+                    raise TimeoutError("deletion did not start")
+                request = RequestFactory().post("/api/billing/checkout-session/")
+                request.user = get_user_model().objects.get(pk=self.user.pk)
+                purchase_started.set()
+                try:
+                    create_checkout_session(request)
+                except (PremiumSubscription.DoesNotExist, get_user_model().DoesNotExist):
+                    return
+                self.fail("Checkout must not be created after account deletion")
+            finally:
+                connections.close_all()
+
+        with (
+            patch("accounts.billing.get_stripe", return_value=self.stripe),
+            patch("accounts.billing_deletion.get_stripe", return_value=self.stripe),
+            ThreadPoolExecutor(max_workers=2) as pool,
+        ):
+            deletion = pool.submit(remove_account)
+            purchase = pool.submit(purchase_after_check_starts)
+            deletion.result(timeout=15)
+            purchase.result(timeout=15)
+        self.assertFalse(get_user_model().objects.filter(pk=self.user.pk).exists())
+        self.stripe.checkout.Session.create.assert_not_called()
+
     @override_settings(BILLING_EMAIL_DELIVERY_ENABLED=True)
     def test_parallel_billing_email_workers_send_once(self):
         from accounts.billing import mark_invoice_payment_failed
