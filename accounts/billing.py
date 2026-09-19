@@ -479,6 +479,35 @@ def mark_invoice_payment_succeeded(invoice, event_id=""):
     return record
 
 
+def has_other_automatic_payment_revocation(user, winning_dispute_id):
+    if not winning_dispute_id:
+        return True
+    disputes = {}
+    history = PremiumAuditLog.objects.filter(
+        user=user, source="stripe", action__in=["refunded", "disputed", "granted", "restored"]
+    )
+    for audit in history.order_by("-created_at", "-pk").iterator():
+        # A completed access restoration starts a new period of automatic holds.
+        if audit.action in {"granted", "restored"}:
+            break
+        metadata = audit.metadata
+        automatic = metadata.get("auto_revoked", True)
+        if audit.action == "refunded":
+            if automatic:
+                return True
+            continue
+        dispute_id = metadata.get("object_id")
+        if dispute_id == winning_dispute_id:
+            continue
+        if not dispute_id:
+            if automatic:
+                return True
+            continue
+        disposition = disputes.setdefault(dispute_id, {"status": metadata.get("dispute_status"), "automatic": False})
+        disposition["automatic"] = disposition["automatic"] or automatic
+    return any(item["automatic"] and item["status"] != "won" for item in disputes.values())
+
+
 @transaction.atomic
 def mark_refund_or_dispute(data_object, *, event_type, event_id=""):
     customer_id = stripe_object_get(data_object, "customer")
@@ -529,6 +558,7 @@ def mark_refund_or_dispute(data_object, *, event_type, event_id=""):
         and record.revoked_at is not None
         and record.revoked_reason == "Stripe charge disputed"
         and record.stripe_subscription_id
+        and not has_other_automatic_payment_revocation(record.user, stripe_object_get(data_object, "id"))
     ):
         current_subscription = get_stripe().Subscription.retrieve(record.stripe_subscription_id)
         if (
