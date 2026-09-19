@@ -284,6 +284,16 @@ python manage.py reconcile_premium_access
 
 `billing_status_report` prints subscription status counts, active access counts, manual override counts, manual overrides without billing records, cancel_at_period_end records, payment failures, refund/dispute records, refund_or_dispute_active_records, expired promo records, indefinite promo records, expiring promo records, promo campaign breakdowns, stale user flags, last processed Stripe Webhook event details, failed_webhook_events, processing_status=failed, and stale_processing_webhook_events. `--fail-on-issues` fails on stale access or expired promo records. `--include-payment-issues` also fails on payment failures, refund/dispute review items, failed Webhook events, and stale processing Webhook events. JSON includes `stripe_checkout_enabled`, `billing_intervals` with `month`, `year`, and blank interval counts, plus `expected_stripe_price_currency`, `expected_monthly_unit_amount`, and `expected_yearly_unit_amount` for Stripe Price verification.
 
+課金メール配送の監視には、読み取り専用の `check_billing_email_queue` を使用できます。例の600秒は実行例であり、公開サービスの配送保証や採用済みの監視閾値ではありません。運用で決めた正の秒数を必須指定します。
+
+```bash
+python manage.py check_billing_email_queue --max-pending-age-seconds 600
+```
+
+標準出力はJSONで、enabled、healthy、pending、due、overdue、oldest_pending_age_secondsを返します。配送無効、または作成から指定時間以上残るpendingがあれば終了コード1と日本語エラーを返します。再試行予定が未来でも長時間の未配送は検出対象です。sent/canceledは対象外。利用者・メールアドレス・請求ID・本文は出力せず、送信・再試行予定の変更・監査更新は行いません。
+
+このコマンドだけでは定期監視やアラームは設定されません。定期実行に組み込む際は、コマンド自体の起動失敗・DB接続失敗・無出力も異常として検知してください。空のキューが正常でもworker/beatの稼働や実受信箱への到達は証明できないため、タスク稼働監視と配送確認を併用します。既定の配送無効状態では意図的に異常終了します。
+
 個別ユーザーへ運営判断で手動付与・解除する場合は、理由を付けて実行します。状態が変わった場合は `Premium audit logs` に `source=manual`、`action=granted` または `revoked`、指定した理由、`metadata.command=set_premium_user` が記録されます。最新の手動ログが `source=manual/action=granted` のユーザーは、Stripe購読の失効、返金/チャージバック自動停止、期限付きコードの自動失効、`reconcile_premium_access` の再同期ではプレミアム権限を保持します。手動付与を終了する場合は `set_premium_user --off` または管理画面で明示的に解除してください。
 
 ```bash
@@ -302,6 +312,5 @@ Django管理画面で以下を確認します。
 - `Premium access code redemptions`: コード利用者
 - `Stripe webhook events`: Stripe event ID、event type、`processing_status`、`error_message`、処理時刻。`failed` はStripe Dashboardから再送し、成功後に `succeeded` へ変わることを確認します
 - `Premium audit logs`: 付与、復旧、失効、支払い失敗、支払い復旧、返金、チャージバック、確認済み化の履歴。管理画面の手動停止・復旧・同期・返金/チャージバック確認済み化は実行者を `actor` に保存し、Webhookやバッチ由来のログは `actor` なしのシステム処理として扱います。支払い失敗ログは `invoice_id` と `email_sent` をmetadataに保存し、支払い復旧ログは `invoice_id` をmetadataに保存します。返金/チャージバックログは `event_type`、`object_id`、`charge_id`、`invoice_id`、`payment_intent_id`、`amount`、`currency`、`auto_revoked`、`access_revoked`、`access_restored` をmetadataに保存するため、Stripe DashboardのCharge/Invoice/PaymentIntentと照合してください。`access_revoked` はユーザーのプレミアム権限が実際に停止した場合にのみ `true` です。手動付与で権限が保持された場合、課金レコードが失効しても `access_revoked=false` になります。返金/チャージバック確認済み化ログは `action=reviewed` として、最後に検知した時刻をmetadataに保存します Stripe subscription grant/revoke metadata includes `stripe_subscription_id`, `stripe_price_id`, `billing_interval`, and `cancel_at_period_end`.
-
 
 
