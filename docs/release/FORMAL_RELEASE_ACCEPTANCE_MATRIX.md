@@ -2,7 +2,7 @@
 
 ## 現在の公開判断（Stripe・Google候補、OS監査の更新: 2026-09-22）
 
-Stripe・Google統合候補は `9889f4c8`。対象SHAの[CI全6ジョブ、通常コンテナ、隔離PostgreSQL/Redis起動](RUNTIME_CANDIDATE_9889F4C8_2026-09-22.md)、先行Stripe実装の[配布コンテナ内の課金メール監視検証](BILLING_EMAIL_HEALTH_2026-09-19.md)、[4削除経路の実Stripe試験](STRIPE_DELETION_PATHS_API_2026-09-19.md)を確認した。main・開発AWSへの反映は[承認待ち](STRIPE_AWS_APP_APPROVAL_2026-09-19.md)。最新候補のOS再監査は36指摘でHIGH 2件・MEDIUM 1件が残る。9月13日以降の実サンドボックス試験で解消した範囲はB01〜B05を参照する。他分野の過去記録を最新の実証として扱わず、正式公開No-Goを維持する。
+最新作業候補は`c0a2b277`。同候補の[CI全6ジョブ、通常コンテナ、隔離PostgreSQL/Redis起動](INTEGRATION_RETRY_GUIDANCE_2026-09-22.md)を確認した。基礎となるStripe・Google統合候補`9889f4c8`の[固定候補検証](RUNTIME_CANDIDATE_9889F4C8_2026-09-22.md)、先行Stripe実装の[配布コンテナ内の課金メール監視検証](BILLING_EMAIL_HEALTH_2026-09-19.md)、[4削除経路の実Stripe試験](STRIPE_DELETION_PATHS_API_2026-09-19.md)も保持する。main・開発AWSへの反映は[承認待ち](STRIPE_AWS_APP_APPROVAL_2026-09-19.md)。最新候補のOS再監査は未実施で、先行監査には36指摘（HIGH 2件・MEDIUM 1件）が残る。9月13日以降の実サンドボックス試験で解消した範囲はB01〜B05を参照する。他分野の過去記録を最新の実証として扱わず、正式公開No-Goを維持する。
 
 以下は9月12日以前の経過記録。
 
@@ -27,8 +27,8 @@ Googleトークン更新の追加修正（2026-09-22）: [期限不明のアク�
 | 区分 | 現在の状態 |
 | --- | --- |
 | 開発環境 | [9月22日の再確認](RUNTIME_OS_BB61B0E6_2026-09-22.md)ではWeb定義49・コードd875d028、desired/running=1、readinessのDB/cache正常。後続のStripe修正は未反映 |
-| main / 作業候補 | 9月22日にorigin/main=d875d028を再確認。Stripe候補bb61b0e6へのGoogle修正と証跡を含む最新候補は9889f4c8。[main/開発AWS反映案](STRIPE_AWS_APP_APPROVAL_2026-09-19.md)を同候補へ更新。stgのHTTP readinessは正常だがAWS CLI認証が失効しており、ECS/RDSは反映直前に再確認する。本番反映は未実施 |
-| 自動検査 | [6ff9a1f9のCI全6ジョブ成功](STRIPE_CI_6FF9A1F9_2026-09-19.json)と[通常配布物](STRIPE_CONTAINER_6FF9A1F9_2026-09-19.md)を確認。後続bb61b0e6の[監視コマンド・配布物検証](BILLING_EMAIL_HEALTH_2026-09-19.md)と[全体CI](STRIPE_CI_BB61B0E6_2026-09-19.json)、さらに9889f4c8の[全6ジョブCI・通常配布物検証](RUNTIME_CANDIDATE_9889F4C8_2026-09-22.md)が成功 |
+| main / 作業候補 | 9月22日にorigin/main=d875d028を再確認。Stripe・Google・OAuth耐障害性・外部連携再試行を含む最新アプリ候補はc0a2b277。main・開発AWSへの反映案は先行9889f4c8時点で承認待ちのため、最新候補へは未更新。stgのHTTP readinessは正常だがAWS CLI認証が失効しており、ECS/RDSは反映直前に再確認する。本番反映は未実施 |
+| 自動検査 | [c0a2b277のCI全6ジョブ・通常配布物・隔離PostgreSQL 18/Redis検証](INTEGRATION_RETRY_GUIDANCE_2026-09-22.md)が成功。先行9889f4c8の[固定候補検証](RUNTIME_CANDIDATE_9889F4C8_2026-09-22.md)、bb61b0e6の[監視コマンド・配布物検証](BILLING_EMAIL_HEALTH_2026-09-19.md)と[全体CI](STRIPE_CI_BB61B0E6_2026-09-19.json)も保持 |
 | Google | 実認可の保存成功。実同期・トークン更新・公開審査は未完了。[一時Redis/workerのAWS接続試験](GOOGLE_WORKER_CONNECTIVITY_RESULT_2026-09-10.md)は成功・削除済み |
 | Stripe | 登録保留は解除済み。9月13日に月額・年額・更新・支払失敗/回復・解約・返金/異議を実サンドボックスで確認。[候補監査](STRIPE_CANDIDATE_AUDIT_2026-09-19.md)。AWS検証と残る異常系は未完了 |
 | 性能・復旧 | 隔離環境の対象APIは基準内、実RDSの限定復元は成功。実AWSの全操作性能とDB/S3を含むRPO/RTOは未証明 |
@@ -175,7 +175,7 @@ OSパッケージ監査の更新: 不要なビルド用パッケージ除去とT
 | I07 | ICS購読の更新・トークン失効とCCFOLIA出力/無料インポートが受け取り側で使える | ICSの日本語長文・CR改行の出力を修正し、折り返し・内容保持・旧トークン失効をローカル確認。CCFOLIA JSONダウンロードとTablenoへの無料インポートE2E成功。4499b243のサーバー出力をユーザー指定の実6版/7版ルームへ各1体取り込み、能力値・ステータス・パレット保持を確認。画像・実ダイス・ICS購読は未確認 | 専用の受け取り側で内容、秘匿、文字化け、失効を確認 / Codex |
 | Q01 | PC・スマートフォンの主要操作が読めて操作でき、重大なJSエラーがない | 20803480のPlaywright CIが成功し、開発AWS反映後に既存ログインで一覧・詳細・統計表示を確認。平均時間undefinedhは0.6hへ改善。旧候補で3ブラウザ186件の成功記録もある | 実機・全状態・実契約導線は未確認。後続Terraform/文書を含む候補CIは別途完了確認 / Codex |
 | Q02 | 合意した人数・データ量・同時利用で応答/エラー率の目標を満たす | 基準は登録100人・同時10人、通常操作p95が3秒以内、予期しないエラー0件として承認済み。7b196988の隔離通常イメージで[一覧900件](READ_API_OPTIMIZED_RUNTIME_2026-09-10.md)と[基本の作成・編集・再取得1,200件](WRITE_API_RUNTIME_2026-09-10.md)がエラー0、各操作p95は基準内。背景透過は別枠で、[実AWSの処理成功](BACKGROUND_REMOVAL_IAM_FIX_2026-09-08.md)を確認済み。全通常操作・実AWSの性能合格は未確認 | 画像・日程・参加者/秘匿情報等の不足操作、長時間・本番相当試験、開発AWS反映後の認証済み操作と性能再測定 / Codex |
-| Q03 | リリース候補SHAのCI・固定依存関係・本番DB検証が成功する | [659b3575のCI全6ジョブ・通常配布物・隔離PostgreSQL 18/Redis検証](OAUTH_PROVIDER_RESILIENCE_2026-09-22.md)を確認。[先行9889f4c8の統合候補検証](RUNTIME_CANDIDATE_9889F4C8_2026-09-22.md)と6ff9a1f9/bb61b0e6の配布物・実Stripe証拠も保持。9月22日の最終AWS API確認は資格情報切れで未実施 | 候補の反映・実環境確認、全スキーマ/実データ監査、本番相当の移行・復旧と正式公開は未完了 / Codex、人間 |
+| Q03 | リリース候補SHAのCI・固定依存関係・本番DB検証が成功する | [c0a2b277のCI全6ジョブ・通常配布物・隔離PostgreSQL 18/Redis検証](INTEGRATION_RETRY_GUIDANCE_2026-09-22.md)を確認。[先行9889f4c8の統合候補検証](RUNTIME_CANDIDATE_9889F4C8_2026-09-22.md)と6ff9a1f9/bb61b0e6の配布物・実Stripe証拠も保持。9月22日の最終AWS API確認は資格情報切れで未実施 | 候補の反映・実環境確認、全スキーマ/実データ監査、本番相当の移行・復旧と正式公開は未完了 / Codex、人間 |
 | Q04 | 情報保護の重大な既知欠陥がなく、セキュリティ指摘に判定がある | 非公開ファイル保護を反映し、実S3/CDNの12パターン拒否と認可付き取得を実証済み。[bb61b0e6の通常配布物](RUNTIME_OS_BB61B0E6_2026-09-22.md)を9月22日に再スキャンし36件（HIGH2/MEDIUM1/LOW33）。Perl HIGHは脆弱なPod::Textが配布物にないことを確認したが、zlib HIGHはDebianで未修正 | 未修正zlib、tar、スキャナー非ゼロを含む残リスク判定、全配送・権限経路監査を継続 / Codex、人間 |
 | O01 | 本番設定・秘密情報・監視・問い合わせ配送が正しく構成され実証される | 9月19日の読み取り確認ではWeb定義49が稼働。過去の監視確認ではアラーム3件・SNS購読confirmed、実通知到達は未確認。現時点でworker/beatサービスとブローカーなし。ネットワーク・DBセッション維持設定はローカル修正済み | 一時AWS通信試験は成功・削除済み。継続運用/夜間停止・監視・問い合わせ配送を別途実証 / Codex、人間承認 |
 | O02 | DBと画像のバックアップを復元し、合意RPO/RTOと整合性を満たす | [実RDS snapshot復元](RDS_RESTORE_RESULT_2026-09-08.md)は承認後に実施し、別の非公開DBの読み取り検査が終了0、限定メタデータが一致。一時リソース削除済み。ローカルではDB/11ファイル項目の復元も成功 | 実S3の世代選択とDB整合、アプリ切り替え、主要操作、RPO24時間/RTO4時間を含むサービス全体の復旧は未証明 / Codex、人間承認 |
