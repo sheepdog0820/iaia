@@ -1,5 +1,7 @@
 # 検証済みStripe・Google統合候補のmain・開発AWSアプリ反映 承認案
 
+2026-09-22更新: 最新の対象・操作・稼働確認は[f8aa55a9の反映案](AWS_APP_APPROVAL_F8AA55A9_2026-09-22.md)を参照。以下は旧候補9889f4c8時点の証拠と計画である。
+
 対象コミット: `9889f4c8903658e6dfa0ddf4b25b8901e74b9bc9`。
 旧候補bb61b0e6の案を置き換える。bb61b0e6の課金メール監視に加え、期限不明のGoogleアクセストークンをrefreshする修正・テスト・証跡を含む。監視の定期実行、Googleのscope/Secrets/公開設定変更、worker常設化は含まない。対象SHAのCI全6ジョブと通常配布物の隔離検証を確認済み。旧候補への承認を新候補への承認として扱わず、本案の操作について承認を得てから実行する。
 対象環境: AWSアカウント083773015316、ap-northeast-1、ECS tableno-aws-pre、stg.tableno.jp。
