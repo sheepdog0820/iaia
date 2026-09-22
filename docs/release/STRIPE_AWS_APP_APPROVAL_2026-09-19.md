@@ -1,20 +1,21 @@
-# 検証済みStripe候補のmain・開発AWSアプリ反映 承認案
+# 検証済みStripe・Google統合候補のmain・開発AWSアプリ反映 承認案
 
-対象コミット: `bb61b0e6244aa5c9726dca4b8b00c3dd29e9cf05`。
-旧候補6ff9a1f9の案を置き換える。差分の実行コードは読み取り専用の課金メール監視コマンド1ファイルで、関連テストと文書を伴う。監視の定期実行や通知設定は含まない。対象SHAのCI全6ジョブ成功を確認済み。旧候補への承認を新候補への承認として扱わず、本案の操作について承認を得てから実行する。
+対象コミット: `9889f4c8903658e6dfa0ddf4b25b8901e74b9bc9`。
+旧候補bb61b0e6の案を置き換える。bb61b0e6の課金メール監視に加え、期限不明のGoogleアクセストークンをrefreshする修正・テスト・証跡を含む。監視の定期実行、Googleのscope/Secrets/公開設定変更、worker常設化は含まない。対象SHAのCI全6ジョブと通常配布物の隔離検証を確認済み。旧候補への承認を新候補への承認として扱わず、本案の操作について承認を得てから実行する。
 対象環境: AWSアカウント083773015316、ap-northeast-1、ECS tableno-aws-pre、stg.tableno.jp。
 現在のmain: d875d028ede0b3172780d54d4baacdb226a1d3b3。稼働ECS定義49、aws-pre-d875d028。
 
 ## 検証済みの根拠
 
-- 候補の[CI run 35437997407](https://github.com/sheepdog0820/iaia/actions/runs/35437997407)はUnit / Integration、lint-security、production-database、infrastructure、playwright、systemの全6ジョブ成功。対象SHAとrun全体のsuccessを照合済み。[CI記録](STRIPE_CI_BB61B0E6_2026-09-19.json)を参照。
+- 候補の[CI run 35675930275](https://github.com/sheepdog0820/iaia/actions/runs/35675930275)はUnit / Integration、lint-security、production-database、infrastructure、playwright、systemの全6ジョブ成功。対象SHAとrun全体のsuccessを照合済み。[統合候補の検証記録](RUNTIME_CANDIDATE_9889F4C8_2026-09-22.md)を参照。
 - 課金契約が残るアカウントの削除を、退会画面・通常API・管理者API・管理画面の単件/一括処理で拒否する。Webhookとの行ロック競合、通知未反映の契約、未確定のCheckout作成を含めて保護する。管理画面の一括削除は対象に削除不可の利用者がいれば全件をDB上でロールバックする。
 - 関連252テストが隔離PostgreSQL 18.3で成功。実Stripeサンドボックスを使った4削除経路の23項目が成功し、試験用契約はすべて終了済み。[削除経路の検証](STRIPE_DELETION_PATHS_2026-09-19.md)、[実Stripe接続試験](STRIPE_DELETION_PATHS_API_2026-09-19.md)、[署名付き通知との競合試験](STRIPE_DELETION_RACE_2026-09-19.md)を参照。
-- bb61b0e6から通常コンテナをビルドし、隔離DBへのマイグレーション、実CLIの正常/異常終了とJSON・データ保持、コマンドのハッシュ照合の8項目が成功。[配布イメージ検証](BILLING_EMAIL_HEALTH_2026-09-19.md)を参照。今回登録するローカルイメージIDは `sha256:e2d81b173fd6e7b632c0c2990e198559d6a669442bce85e6c7e4530961616fd3`。
+- 9889f4c8から通常コンテナをビルドし、ネットワークなしのGoogle連携16テストとソースハッシュ、隔離PostgreSQL 18.3/Redis 7での全マイグレーション・collectstatic・通常起動・DB/cache readinessを確認。[統合候補の検証記録](RUNTIME_CANDIDATE_9889F4C8_2026-09-22.md)を参照。今回登録するローカルイメージIDは `sha256:af008fa03e3fa2f870ff40e596237750815cb2cfc3a45b221133e7032685819d`。
+- bb61b0e6の隔離DBへのマイグレーション、実CLIの正常/異常終了とJSON・データ保持、コマンドのハッシュ照合の8項目も成功済み。[課金監視の配布イメージ検証](BILLING_EMAIL_HEALTH_2026-09-19.md)を参照。bb61b0e6から今回候補まで課金監視コマンド・DBマイグレーション・依存ロック・Dockerfile・entrypointに差分はない。
 - 先行6ff9a1f9では隔離PostgreSQLへのマイグレーション、イメージ内9回帰テスト、5ソースファイルのハッシュ照合、通常起動とHTTP readinessが成功。[先行配布イメージ検証](STRIPE_CONTAINER_6FF9A1F9_2026-09-19.md)を参照。今回の追加コマンド以外の実行コード・DBマイグレーション・依存ロック・Dockerfile・entrypointに差分はなく、これらを今回再実施したと扱わない。
 - 前候補0f6b81feではPostgreSQL 18.3で旧版→0065/0066/0067→新版、旧版での読出し、新版への復帰、pg_dump/pg_restoreによる既存データと追加3テーブルの保持を確認。0f6b81feから今回候補までDBマイグレーション・依存ロック・Dockerfile・entrypointの差分はない。今回同じ復元試験を再実施したとは扱わない。[前候補のDB検証](STRIPE_CONTAINER_0F6B81FE_2026-09-19.md)を参照。
-- 実AWSの読み取り確認時点（18:49 JST）ではPostgreSQL 18.3、バックアップ保持7日、最新復元可能時刻18:43:43 JST。ECS定義49、desired/runningとも1、readinessのdatabase/cacheともok。反映直前にmainと稼働定義を再確認し、変化があれば差分を再評価する。
-- 19:58 JSTの再確認でもmain=d875d028、ECS定義49、desired/running=1、pending=0、rollout=COMPLETED、CPU256/メモリ512、既存イメージdigest59542e45、readinessのdatabase/cache正常。mainがbb61b0e6の祖先であることも確認した。RDSの復元時刻はこの再確認では取得していない。
+- 実AWSの9月22日09:10 JST頃の読み取り確認ではPostgreSQL 18.3、バックアップ保持7日、ECS定義49、desired/runningとも1、CPU256/メモリ512、既存イメージdigest59542e45、readinessのdatabase/cacheともok。origin/main=d875d028が今回候補の祖先であることも確認した。
+- 同日10:53 JSTのstg HTTP readinessはdatabase/cache正常。一方、AWS CLI資格情報が失効してECS/RDSの再取得はできなかった。前回値を最新状態へ読み替えず、反映前にAWS認証・稼働定義・バックアップ・復元可能時刻を再確認し、不一致なら停止する。
 
 ## 今回承認する操作
 
