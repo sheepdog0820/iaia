@@ -50,5 +50,18 @@
 | character6th.js | `1b42af1fddcd4b40693790d4dbcf01a53a7e288ab9e52614fb79730ced9a4b66` |
 | character7th.js | `2fb55c4c16a4a131228a5c03b5a4edd7317b7b4f49641378cbc41d5abf6320c1` |
 
-今回の配布物検証はローカル設定・SQLiteを使用した。最新イメージのPostgreSQL/Redis起動、OS再スキャン、AWS配信確認は未実施である。
+上記62テストはローカル設定・SQLiteを使用した。後続のPostgreSQL/Redis起動とOS再スキャンは下記を参照する。AWS配信確認は未実施である。
 また、前述のWebKitの401はCIログで確認した事実だが、Cookie同期を根本原因と断定する通信証跡までは得られていない。テスト修正後の成功を、アプリ認証全体の問題不存在の証明にはしない。
+
+## PostgreSQL・Redis起動とOS再監査
+
+同日の後続検証で同じ固定イメージを使用し、外向き通信を禁止したDocker内部ネットワークに空のPostgreSQL 18.3とRedis 7-alpineを起動した。公開ポートや実資格情報は使用せず、DB領域はtmpfsとした。
+
+- `APP_ENV=aws-pre`で本番用設定を読み込み、通常entrypointによる全マイグレーションと静的ファイル227件の収集・617件の後処理、Daphne起動が成功した。
+- コンテナ内の実HTTPで`/health/ready/`が200、database/cacheがともに`ok`だった。`migrate --check`も終了0だった。
+- 初回のPG確認は初期化中で`no response`だった。再確認で`accepting connections`となってからWebを起動した。
+- 専用Web・PG・Redisコンテナと内部ネットワークを名前・イメージで照合して削除し、対象コンテナの不在を確認した。イメージはローカルに保持する。
+
+Docker Scout 1.24.0で同イメージのdebパッケージを再監査した。259パッケージ中14脆弱パッケージ、36指摘（HIGH 2 / MEDIUM 1 / LOW 33）が残った。実行は非ゼロ終了（今回の呼び出し結果は1）であり、合格とはしない。SARIFは`C:/tmp/runtime-os-f8aa55a9-20260922.sarif.json`、SHA-256は`e970d0a297894c0113b10fc03e2b6d1e43125dd18e14a9e0af56c03d124a9ac5`。先行9889f4c8の監査ファイルと一致した。
+
+OS指摘の解消、実RDS/S3、実外部連携、実メール、AWSの性能・配信を証明する検証ではない。正式公開No-Goを維持する。
