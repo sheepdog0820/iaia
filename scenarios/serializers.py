@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from accounts.serializers import UserSerializer, validate_character_image
 from schedules.duration import effective_duration_expression
+from schedules.session_permissions import can_view_session_basic
 
 from .access import can_view_scenario
 from .image_limits import get_scenario_image_max_bytes
@@ -349,8 +350,43 @@ class ScenarioNoteSerializer(serializers.ModelSerializer):
 
 class PlayHistorySerializer(serializers.ModelSerializer):
     user_detail = UserSerializer(source="user", read_only=True)
-    scenario_detail = ScenarioSerializer(source="scenario", read_only=True)
+    scenario_detail = serializers.SerializerMethodField()
     session_title = serializers.CharField(source="session.title", read_only=True)
+
+    def _can_view_scenario(self, scenario):
+        user = getattr(self.context.get("request"), "user", None)
+        return scenario.visibility == "public" or can_view_scenario(user, scenario)
+
+    def _can_view_session(self, session):
+        user = getattr(self.context.get("request"), "user", None)
+        return bool(
+            user
+            and user.is_authenticated
+            and (session.created_by_id == user.id or session.gm_id == user.id or can_view_session_basic(user, session))
+        )
+
+    @extend_schema_field(ScenarioSerializer)
+    def get_scenario_detail(self, obj):
+        if not self._can_view_scenario(obj.scenario):
+            return {"title": "閲覧できないシナリオ", "author": "", "game_system": ""}
+        return ScenarioSerializer(obj.scenario, context=self.context).data
+
+    def validate_scenario(self, value):
+        if not self._can_view_scenario(value):
+            raise serializers.ValidationError("閲覧できるシナリオを指定してください。")
+        return value
+
+    def validate_session(self, value):
+        if value is not None and not self._can_view_session(value):
+            raise serializers.ValidationError("閲覧できるセッションを指定してください。")
+        return value
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.session_id and not self._can_view_session(instance.session):
+            data["session"] = None
+            data.pop("session_title", None)
+        return data
 
     class Meta:
         model = PlayHistory
