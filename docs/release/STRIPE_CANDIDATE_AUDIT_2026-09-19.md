@@ -2,13 +2,13 @@
 
 ## 後続検証を反映した現在の状態
 
-本ページの69cfa876に対する監査は下記の経過記録として保持する。現在の反映承認案は[6ff9a1f9](STRIPE_AWS_APP_APPROVAL_2026-09-19.md)。同SHAのCI全6ジョブと配布物検証は成功したがmain/AWSへ未反映。さらに[課金メール滞留の監視コマンドbb61b0e6](BILLING_EMAIL_HEALTH_2026-09-19.md)を追加し、関連テスト・実CLI・配布物内検証と[全体CI6ジョブ](STRIPE_CI_BB61B0E6_2026-09-19.json)が成功。
+本ページの69cfa876に対する監査は下記の経過記録として保持する。現在の[反映承認案](STRIPE_AWS_APP_APPROVAL_2026-09-19.md)の対象は最新候補bb61b0e6。同SHAは[課金メール滞留の監視コマンド](BILLING_EMAIL_HEALTH_2026-09-19.md)を含み、関連テスト・実CLI・配布物内検証と[全体CI6ジョブ](STRIPE_CI_BB61B0E6_2026-09-19.json)が成功したが、main/AWSへ未反映。
 
 - B03/B04: 請求通知順序、複数停止理由、異議通知順序、古いCheckout通知、各利用者削除経路を修正し、実Stripeサンドボックスと隔離PostgreSQLで検証した。詳細・限定条件は[再開タスクの完了済み検証](STRIPE_CONNECTION_PENDING.md)と[受入表](FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)を参照する。旧表の未検証項目をそのまま現在の未着手一覧にしない。
 - 課金メールは永続キュー化済み。[配布物の実worker/beat・SMTP試験](BILLING_EMAIL_WORKER_2026-09-19.md)で一時拒否、worker再起動、自動再送を確認。実AWSの常設worker/Redis・SMTP認証/受信・監視通知は未確認。
 - 9月19日にmain=d875d028をGitHub APIで再確認。AWSは[同日18:49 JSTの記録](STRIPE_CONTAINER_0F6B81FE_2026-09-19.md)でWeb定義49・d875d028。既存Stripeテストキーの照会は[認証エラー](STRIPE_AWS_CONFIGURATION_2026-09-19.json)。サービス用キー・Price・Webhook設定、実環境の購入戻り導線とメール到達を残す。
 - 共有DBへ追加する想定は0065/0066/0067の3テーブル。承認待ちのアプリ反映案は購入・配送無効を維持し、Secretsや常設基盤変更は含まない。
-- [最新OS監査](RUNTIME_OS_6FF9A1F9_2026-09-19.md)のHIGH/MEDIUM、外部連携、性能・サービス全体の復旧・運用条件も未完了。B01〜B05および正式公開は引き続きNo-Go。
+- [最新候補のOS再監査](RUNTIME_OS_BB61B0E6_2026-09-22.md)のHIGH/MEDIUM、外部連携、性能・サービス全体の復旧・運用条件も未完了。B01〜B05および正式公開は引き続きNo-Go。
 
 ## 69cfa876時点の経過記録
 
