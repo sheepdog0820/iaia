@@ -16,8 +16,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.character_models import CharacterSheet
 from accounts.share_serializers import SharedScenarioSerializer
 from schedules.duration import effective_duration_expression
+from schedules.models import SessionParticipant
 from tableno.media_deletion import delete_media_instance
 
 from .access import visible_scenarios
@@ -365,7 +367,20 @@ class PlayHistoryViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return PlayHistory.objects.filter(user=self.request.user).order_by("-played_date")
+        queryset = PlayHistory.objects.filter(user=self.request.user).select_related("scenario", "user", "session")
+        character_id = self.request.query_params.get("character_sheet")
+        if character_id is not None:
+            if not character_id.isascii() or not character_id.isdecimal() or len(character_id) > 19:
+                raise Http404
+            character_id = int(character_id)
+            if not 0 < character_id <= 9223372036854775807:
+                raise Http404
+            character = get_object_or_404(CharacterSheet, pk=character_id, user=self.request.user)
+            sessions = SessionParticipant.objects.filter(character_sheet=character, user=self.request.user).values(
+                "session_id"
+            )
+            queryset = queryset.filter(session_id__in=sessions)
+        return queryset.order_by("-played_date", "-pk")
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)

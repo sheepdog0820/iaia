@@ -14,15 +14,21 @@ for (const edition of ['6th', '7th']) {
       return response.data.id;
     }, edition);
     try {
+      // Verify the real API contract without injecting a user field or history response.
+      await page.goto(`/accounts/character/6th/${id}/`);
+      const [emptyHistory] = await Promise.all([
+        page.waitForResponse(response => response.url().endsWith(`/api/scenarios/history/?character_sheet=${id}`)),
+        page.locator('#play-history-tab').click(),
+      ]);
+      expect(emptyHistory.status()).toBe(200);
+      expect(await emptyHistory.json()).toEqual([]);
+      await expect(page.locator('#playHistoryContainer')).toHaveText('この探索者を設定したセッションのプレイ履歴はありません。');
       const attack = '"><img src=x onerror="window.__detailXss++">入力 & 値';
       await page.addInitScript(() => { (window as any).__detailXss = 0; });
       await page.route(`**/api/accounts/character-sheets/${id}/`, async route => {
         if (route.request().method() !== 'GET') return route.continue();
         const response = await route.fetch();
         const character = await response.json();
-        // The legacy history guard expects user, absent from the current API.
-        // Supply it only to exercise rendering; real history loading needs a separate fix.
-        character.user = 1;
         character.skills = [{ skill_name: attack, current_value: 30, base_value: 20, occupation_points: 10 }];
         character.equipment = ['weapon', 'armor', 'item'].map(item_type => ({
           item_type, name: attack, damage: attack, base_range: attack, description: attack, armor_points: 2,
@@ -33,7 +39,7 @@ for (const edition of ['6th', '7th']) {
         }
         await route.fulfill({ json: character });
       });
-      await page.route('**/api/scenarios/history/', route => route.fulfill({ json: [{
+      await page.route(`**/api/scenarios/history/?character_sheet=${id}`, route => route.fulfill({ json: [{
         played_date: '2026-09-22', role: 'player', notes: attack,
         scenario_detail: { title: attack, author: attack, game_system: 'coc' },
       }] }));

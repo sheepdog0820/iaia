@@ -240,11 +240,13 @@
                                     <i class="fas fa-history"></i> バージョン履歴
                                 </a>
                             </li>
+                            {% if can_edit_character %}
                             <li class="nav-item">
                                 <a class="nav-link" id="play-history-tab" data-bs-toggle="tab" href="#play-history">
                                     <i class="fas fa-dice-d20"></i> 探索者履歴
                                 </a>
                             </li>
+                            {% endif %}
                             <li class="nav-item">
                                 <a class="nav-link" id="growth-records-tab" data-bs-toggle="tab" href="#growth-records">
                                     <i class="fas fa-level-up-alt"></i> 成長記録
@@ -1315,7 +1317,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // プレイ履歴読み込み
     let playHistoryLoaded = false;
     function loadPlayHistory() {
-        if (!character || !character.user || playHistoryLoaded) return;
+        if (!character || !document.getElementById('play-history-tab') || playHistoryLoaded) return;
         
         // ローディング表示
         const loadingElement = document.getElementById('playHistoryLoading');
@@ -1325,7 +1327,7 @@ document.addEventListener('DOMContentLoaded', function() {
             loadingElement.classList.remove('d-none');
         }
         
-        axios.get(`/api/scenarios/history/`)
+        axios.get(`/api/scenarios/history/?character_sheet=${encodeURIComponent(characterId)}`)
             .then(response => {
                 displayPlayHistory(response.data);
                 playHistoryLoaded = true;
@@ -1348,7 +1350,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const container = document.getElementById('playHistoryContainer');
         
         if (playHistory.length === 0) {
-            container.innerHTML = '<p class="text-muted">プレイ履歴がありません。</p>';
+            container.innerHTML = '<p class="text-muted">この探索者を設定したセッションのプレイ履歴はありません。</p>';
             return;
         }
         
@@ -1445,6 +1447,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // ゲームシステム表示名取得
     function getSystemDisplayName(systemCode) {
         const systems = {
+            'coc6': 'クトゥルフ神話TRPG 6版',
+            'coc7': 'クトゥルフ神話TRPG 7版',
             'coc': 'クトゥルフ神話TRPG',
             'dnd': 'D&D',
             'sw': 'ソード・ワールド',
