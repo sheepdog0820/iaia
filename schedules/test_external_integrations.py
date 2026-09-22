@@ -301,7 +301,11 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertEqual(social_token.token_secret, "refresh-token")
         self.assertTrue(timezone.is_aware(social_token.expires_at))
 
-    @override_settings(GOOGLE_OAUTH_CLIENT_ID="client-id", GOOGLE_OAUTH_CLIENT_SECRET="client-secret")
+    # Isolated test fixture or mocked credential; never a production secret.
+    @override_settings(
+        GOOGLE_OAUTH_CLIENT_ID="client-id",
+        GOOGLE_OAUTH_CLIENT_SECRET="client-secret",  # nosec B106
+    )
     def test_google_token_without_expiry_requires_reconnect_when_refresh_token_is_missing(self):
         self.connect_google()
         social_token = SocialToken.objects.get(account__user=self.user)
