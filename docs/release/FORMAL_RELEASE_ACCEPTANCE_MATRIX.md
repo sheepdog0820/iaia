@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（Stripe・Google候補、OS監査の更新: 2026-09-22）
 
+反映案: [fec10aa0対象の最新計画](AWS_APP_APPROVAL_FEC10AA0_2026-09-22.md)を準備した。17:21 JSTの読み取り確認でmain=d875d028、開発AWS定義49・desired/running=1・pending=0・readiness正常。CI全体成功の確認と反映/共有DBの承認は残り、変更操作は未実施。以下の「最新候補へ反映案の更新が必要」はこの計画作成の範囲で解消した。
+
 最新OS監査: `fec10aa0` の[専用キャッシュによる再監査](RUNTIME_HISTORY_PERMISSIONS_FEC10AA0_2026-09-22.md#os監査の初回失敗と専用キャッシュでの完了)が完了し、36指摘（HIGH 2 / MEDIUM 1 / LOW 33）が残る。以下のキャッシュ障害による未完了は解消したが、脆弱性ゲートは未合格。Perlの対象モジュール不在という限定的証拠を得たものの適用除外はしていない。最新CI/AWS検証と正式公開No-Goは継続する。
 
 最新確認: 先行 `d9a61f4c` のCI全6ジョブ成功を確認。後続の非公開情報保護を含む `fec10aa0` は[通常配布物・隔離PG/Redis](RUNTIME_HISTORY_PERMISSIONS_FEC10AA0_2026-09-22.md)で起動と関連19テスト（SQLite/PGそれぞれ）が成功した。最新修正のCI/AWS検証は別途必要で、先行CI成功とは区別する。
