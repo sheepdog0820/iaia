@@ -22,16 +22,16 @@ def get_google_access_token(user):
         .first()
     )
     if not token:
-        raise ValueError("Google access token is unavailable.")
+        raise ValueError("Googleのアクセストークンを確認できません。Googleを再連携してください。")
 
     refresh_margin = timezone.now() + timedelta(minutes=2)
-    if not token.expires_at or token.expires_at > refresh_margin:
+    if token.expires_at and token.expires_at > refresh_margin:
         return token.token
 
     client_id = getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", "")
     client_secret = getattr(settings, "GOOGLE_OAUTH_CLIENT_SECRET", "")
     if not token.token_secret or not client_id or not client_secret:
-        raise ValueError("Google refresh token is unavailable. Reconnect Google.")
+        raise ValueError("Googleの更新トークンを確認できません。Googleを再連携してください。")
 
     credentials = Credentials(
         token=token.token,
