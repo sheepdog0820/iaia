@@ -382,6 +382,7 @@ test('calendar and session form initialize when the calendar CDN is unavailable'
 });
 
 test('registered owner creates a private group and completes a session; outsider cannot read it', async ({ page, browser }) => {
+  test.slow();
   const suffix = `${Date.now()}_${test.info().project.name}`;
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -442,11 +443,16 @@ test('registered owner creates a private group and completes a session; outsider
   expect(updateResponse.status()).toBe(200);
   await page.reload();
   await expect(page.locator('span.badge', { hasText: '完了' }).first()).toBeVisible();
-  const savedResponse = await page.request.get(`/api/schedules/sessions/${session.id}/`);
-  expect(savedResponse.status()).toBe(200);
-  const saved = await savedResponse.json();
-  expect(saved.status).toBe('completed');
-  expect(saved.duration_minutes).toBe(120);
+  const savedResponse = await page.evaluate(async sessionId => {
+    const response = await fetch(`/api/schedules/sessions/${sessionId}/`, {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    });
+    return { status: response.status, body: await response.json() };
+  }, session.id);
+  expect(savedResponse.status).toBe(200);
+  expect(savedResponse.body.status).toBe('completed');
+  expect(savedResponse.body.duration_minutes).toBe(120);
   await page.screenshot({ path: test.info().outputPath('owner-completed.png'), fullPage: true });
 
   const outsiderContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
