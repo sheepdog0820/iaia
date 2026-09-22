@@ -1093,10 +1093,10 @@ document.addEventListener('DOMContentLoaded', function() {
             html += `
                 <div class="skill-card">
                     <div class="skill-card-main">
-                        <div class="skill-card-title">${skill.skill_name}</div>
+                        <div class="skill-card-title">${escapeHtml(skill.skill_name)}</div>
                         <div class="skill-breakdown">${breakdownHtml}</div>
                     </div>
-                    <div class="skill-total" aria-label="${skill.skill_name} \u5408\u8a08 ${totalValue}">
+                    <div class="skill-total" aria-label="${escapeHtml(skill.skill_name)} \u5408\u8a08 ${totalValue}">
                         <span class="skill-total-label">\u5408\u8a08</span>
                         <span class="skill-total-value">${totalValue}</span>
                     </div>
@@ -1180,14 +1180,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="col-md-6 mb-3">
                     <div class="card">
                         <div class="card-body">
-                            <h6 class="card-title">${item.name}</h6>
+                            <h6 class="card-title">${escapeHtml(item.name)}</h6>
             `;
             
             if (type === 'weapon') {
                 html += `
                     <div class="small">
-                        <div><strong>ダメージ:</strong> ${item.damage || '-'}</div>
-                        <div><strong>射程:</strong> ${item.base_range || item.range || '-'}</div>
+                        <div><strong>ダメージ:</strong> ${escapeHtml(item.damage || '-')}</div>
+                        <div><strong>射程:</strong> ${escapeHtml(item.base_range || item.range || '-')}</div>
                         ${item.ammo ? `<div><strong>装弾数:</strong> ${item.ammo}</div>` : ''}
                     </div>
                 `;
@@ -1202,7 +1202,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             if (item.description) {
-                html += `<div class="small text-muted mt-2">${item.description}</div>`;
+                html += `<div class="small text-muted mt-2">${escapeHtml(item.description)}</div>`;
             }
             
             html += `
@@ -1234,13 +1234,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             ${data.mental_disorder ? `
                                 <div class="mb-3">
                                     <strong>精神的障害:</strong>
-                                    <div class="text-muted">${data.mental_disorder}</div>
+                                    <div class="text-muted">${escapeHtml(data.mental_disorder)}</div>
                                 </div>
                             ` : ''}
                             ${data.damage_bonus ? `
                                 <div class="mb-3">
                                     <strong>ダメージボーナス:</strong>
-                                    <span class="badge bg-info">${data.damage_bonus}</span>
+                                    <span class="badge bg-info">${escapeHtml(data.damage_bonus)}</span>
                                 </div>
                             ` : ''}
                         </div>
@@ -1395,7 +1395,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="card h-100 play-history-card">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <h6 class="card-title mb-0">${play.scenario_detail.title}</h6>
+                                    <h6 class="card-title mb-0">${escapeHtml(play.scenario_detail.title)}</h6>
                                     <span class="badge bg-${roleColor}">
                                         <i class="${roleIcon}"></i> ${roleText}
                                     </span>
@@ -1410,13 +1410,13 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                                 
                                 <div class="small mb-2">
-                                    <div><strong>システム:</strong> ${getSystemDisplayName(play.scenario_detail.game_system)}</div>
-                                    ${play.scenario_detail.author ? `<div><strong>作者:</strong> ${play.scenario_detail.author}</div>` : ''}
+                                    <div><strong>システム:</strong> ${escapeHtml(getSystemDisplayName(play.scenario_detail.game_system))}</div>
+                                    ${play.scenario_detail.author ? `<div><strong>作者:</strong> ${escapeHtml(play.scenario_detail.author)}</div>` : ''}
                                 </div>
                                 
                                 ${play.notes ? `
                                     <div class="card-text small text-muted">
-                                        ${play.notes.length > 100 ? play.notes.substring(0, 100) + '...' : play.notes}
+                                        ${escapeHtml(play.notes.length > 100 ? play.notes.substring(0, 100) + '...' : play.notes)}
                                     </div>
                                 ` : ''}
                                 
