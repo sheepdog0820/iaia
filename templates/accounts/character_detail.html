@@ -1507,7 +1507,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="card-header">
                             <div class="d-flex justify-content-between align-items-center">
                                 <h6 class="mb-0">
-                                    <i class="fas fa-calendar"></i> ${record.session_date} - ${record.scenario_name}
+                                    <i class="fas fa-calendar"></i> ${escapeHtml(record.session_date)} - ${escapeHtml(record.scenario_name)}
                                 </h6>
                                 <button class="btn btn-sm btn-outline-danger" onclick="deleteGrowthRecord(${record.id})">
                                     <i class="fas fa-trash"></i>
@@ -1518,7 +1518,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="row">
                                 <div class="col-md-3">
                                     <small class="text-muted">GM</small>
-                                    <div>${record.gm_name || '不明'}</div>
+                                    <div>${escapeHtml(record.gm_name || '不明')}</div>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted">SAN値変化</small>
@@ -1533,10 +1533,10 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted">特別報酬</small>
-                                    <div>${record.special_rewards || 'なし'}</div>
+                                    <div>${escapeHtml(record.special_rewards || 'なし')}</div>
                                 </div>
                             </div>
-                            ${record.notes ? `<div class="mt-2"><small class="text-muted">メモ:</small> ${record.notes}</div>` : ''}
+                            ${record.notes ? `<div class="mt-2"><small class="text-muted">メモ:</small> ${escapeHtml(record.notes)}</div>` : ''}
                             ${record.skill_growths && record.skill_growths.length > 0 ? `
                                 <div class="mt-3">
                                     <h6><i class="fas fa-chart-line"></i> スキル成長</h6>
@@ -1544,7 +1544,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         ${record.skill_growths.map(sg => `
                                             <div class="col-md-4 mb-2">
                                                 <div class="border rounded p-2">
-                                                    <strong>${sg.skill_name}</strong>: 
+                                                    <strong>${escapeHtml(sg.skill_name)}</strong>:
                                                     ${sg.old_value} → ${sg.new_value} 
                                                     <span class="text-success">(+${sg.growth_amount})</span>
                                                     ${sg.growth_roll_result ? `<br><small>ロール: ${sg.growth_roll_result}</small>` : ''}
@@ -1758,7 +1758,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <tbody>
                                             ${Object.entries(summary.skill_growth_stats).map(([skill, stats]) => `
                                                 <tr>
-                                                    <td>${skill}</td>
+                                                    <td>${escapeHtml(skill)}</td>
                                                     <td class="text-success">+${stats.total_growth}</td>
                                                     <td>${stats.growth_count}</td>
                                                 </tr>
