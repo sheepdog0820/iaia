@@ -31,7 +31,7 @@
 2. 検証済みイメージをECRの`aws-pre-f8aa55a9`へpushしdigestを記録する。現行定義49を基にイメージだけを差し替え、CPU・メモリ・台数・役割・環境変数・Secrets参照・ネットワークを維持する。
 3. 新定義の単発タスクで`migrate --plan`を確認する。想定はaccounts 0065 StripeBillingRequest、0066 StripeInvoiceState、0067 BillingEmailDeliveryの新規3テーブル。想定外なら停止する。
 4. 上記移行を共有DBへ適用し、終了0と`migrate --check`を確認する。失敗時は旧Webを維持する。逆マイグレーションは行わない。
-5. 新定義で`collectstatic --noinput`を実行し終了0を確認する。旧版と共有する静的パスを更新するため、事前に変更対象JSの旧S3オブジェクトのVersionIdまたは復旧用コピーを確保する。復旧手段を確保できなければ更新前に停止する。
+5. 新定義で`collectstatic --noinput`を実行し終了0を確認する。事前に共有`static/staticfiles.json`と変更対象JSの旧VersionIdを再取得する。ハッシュ付き旧ファイルを保持し、`--clear`を使用しない。復旧手段を確保できなければ更新前に停止する。
 6. Webを新定義へ更新し安定化を待つ。静的CloudFront `E3RQ829D1NVY28`の`/static/*`を無効化し完了を確認する。
 7. 稼働タスクの定義・digest、readiness、ログイン、連携設定、統計、6版/7版作成画面を確認する。修正JSのS3存在・CloudFront応答・配信ハッシュ・構文と実画面表示を確認する。
 
@@ -45,6 +45,22 @@ Stripeキー・Price・Webhook設定、購入・メール配送有効化、OAuth
 
 新Webが健全化しなければ定義49へ戻す。静的障害では記録した旧オブジェクトを復元してCloudFrontを無効化する。旧JSには今回修正した表示上の脆弱性が戻るため、切戻しを安全性の回復とみなさず、影響画面の利用制限または修正版再配信を判断する。
 
+静的復旧には共有`staticfiles.json`の復元も含む。各VersionIdの内容を同じキーの新しい最新バージョンとして復元する（履歴は削除しない）。マニフェストを起動時に保持するWebプロセスも入れ替えて、旧マニフェストから解決されたハッシュ付きURLを実画面で確認する。定義49への変更だけで静的配信が戻るとは扱わない。
+
 追加3テーブルは残す。既存データの復元・削除が必要なら影響を提示して別途判断する。切戻し後もreadinessと主要導線を確認する。
 
 開発環境への反映は正式公開承認ではない。OS指摘、AWS課金・実OAuth・通知、常設worker、実メール、性能・復旧・事業運用が残り、正式公開No-Goを維持する。
+
+## 静的復旧用の読み取り記録（2026-09-22）
+
+S3バケット`tableno-aws-pre-assets-083773015316`のVersioningはEnabled。以下は事前調査の値であり、反映直前に再取得する。復元操作自体は未実施。
+
+| S3キー | VersionId |
+| --- | --- |
+| static/staticfiles.json | `KQgwSMzHUZMPMlKJHyGr_h8FowgO8d6m` |
+| static/accounts/js/character6th.js | `q0vjH_Er7vDXBcaBK_A5rJkdGpsoLCA6` |
+| static/accounts/js/character7th.js | `T.jiyS43vpWJ2dOXN.nqsW2LXo9J7Nrg` |
+| static/accounts/js/character6th.bde23960a4a4.js | `WE53mPS_Nh8peUVkCDyNWvcmrLoOAXub` |
+| static/accounts/js/character7th.d207f0c969a3.js | `wSH9SbyDrbuChrR9RrQE3CO7wWG1huzi` |
+
+取得したマニフェストは上記ハッシュ付きJSを参照していた。CloudFrontから両ファイルを取得でき、`node --check`は成功した。配信内容のSHA-256は6版が`3ea316fc7095270a0b8d3eab8df4beed90e2f16fdb3271af24b5e2b2268bd585`、7版が`4c38bde73256e1e8ad23ee63384cf4f96e880759a585235e167c2f4e672c33bb`。最新候補のJSハッシュとは異なり、修正のAWS配信完了を意味しない。
