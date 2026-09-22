@@ -2,7 +2,7 @@
 
 ## 現在の公開判断（Stripe・Google候補、OS監査の更新: 2026-09-22）
 
-最新作業候補は`c0a2b277`。同候補の[CI全6ジョブ、通常コンテナ、隔離PostgreSQL/Redis起動](INTEGRATION_RETRY_GUIDANCE_2026-09-22.md)を確認した。基礎となるStripe・Google統合候補`9889f4c8`の[固定候補検証](RUNTIME_CANDIDATE_9889F4C8_2026-09-22.md)、先行Stripe実装の[配布コンテナ内の課金メール監視検証](BILLING_EMAIL_HEALTH_2026-09-19.md)、[4削除経路の実Stripe試験](STRIPE_DELETION_PATHS_API_2026-09-19.md)も保持する。main・開発AWSへの反映は[承認待ち](STRIPE_AWS_APP_APPROVAL_2026-09-19.md)。最新候補のOS再監査は未実施で、先行監査には36指摘（HIGH 2件・MEDIUM 1件）が残る。9月13日以降の実サンドボックス試験で解消した範囲はB01〜B05を参照する。他分野の過去記録を最新の実証として扱わず、正式公開No-Goを維持する。
+最新アプリ候補は`1b051dba`。同候補の[CI全6ジョブ成功](https://github.com/sheepdog0820/iaia/actions/runs/35695689750)を確認した。先行候補`898e8dda`の[通常コンテナと隔離PostgreSQL/Redis起動](GOOGLE_SHEETS_LARGE_EXPORT_2026-09-22.md)も保持するが、最新候補の通常イメージ再構築とOS再監査は未実施である。基礎となるStripe・Google統合候補`9889f4c8`の[固定候補検証](RUNTIME_CANDIDATE_9889F4C8_2026-09-22.md)、先行Stripe実装の[配布コンテナ内の課金メール監視検証](BILLING_EMAIL_HEALTH_2026-09-19.md)、[4削除経路の実Stripe試験](STRIPE_DELETION_PATHS_API_2026-09-19.md)も保持する。main・開発AWSへの反映は[承認待ち](STRIPE_AWS_APP_APPROVAL_2026-09-19.md)。先行OS監査には36指摘（HIGH 2件・MEDIUM 1件）が残る。9月13日以降の実サンドボックス試験で解消した範囲はB01〜B05を参照する。他分野の過去記録を最新の実証として扱わず、正式公開No-Goを維持する。
 
 以下は9月12日以前の経過記録。
 
@@ -28,13 +28,13 @@ Google Sheets大規模出力（2026-09-22）: [100行単位の分割・進捗・
 
 統計画面の動的HTML保護（2026-09-22）: [Tindalos MetricsのAPI値エスケープ](STATISTICS_DYNAMIC_HTML_SECURITY_2026-09-22.md)を追加し、修正前の要素・イベント生成をブラウザで再現した。修正後は悪意あるグループ名・GM名・セッション名・ランキング名を文字として表示し、3ブラウザでイベント実行0を確認した。AWS未反映かつ全表示経路の監査完了ではないため、Q04と正式公開No-Goを維持する。
 
-キャラクター技能名の動的HTML保護（2026-09-22）: [6版・7版カスタム技能名のHTMLエスケープ](CHARACTER_CUSTOM_SKILL_SECURITY_2026-09-22.md)を追加し、悪意あるタグ・イベント属性を含む技能名が文字として保持され、要素・イベントを生成しないことを3ブラウザ6件で確認した。AWS未反映かつ全キャラクター表示経路の監査完了ではないため、Q04と正式公開No-Goを維持する。
+キャラクター技能名の動的HTML保護（2026-09-22）: [6版・7版カスタム技能名のHTMLエスケープ](CHARACTER_CUSTOM_SKILL_SECURITY_2026-09-22.md)を追加し、悪意あるタグ・イベント属性を含む技能名が文字として保持され、要素・イベントを生成しないことを3ブラウザ6件で確認した。安定化後候補`1b051dba`の[CI全6ジョブ](https://github.com/sheepdog0820/iaia/actions/runs/35695689750)も成功した。AWS未反映かつ全キャラクター表示経路の監査完了ではないため、Q04と正式公開No-Goを維持する。
 
 | 区分 | 現在の状態 |
 | --- | --- |
 | 開発環境 | [9月22日の再確認](RUNTIME_OS_BB61B0E6_2026-09-22.md)ではWeb定義49・コードd875d028、desired/running=1、readinessのDB/cache正常。後続のStripe修正は未反映 |
-| main / 作業候補 | 9月22日にorigin/main=d875d028を再確認。Stripe・Google・OAuth耐障害性・外部連携再試行を含む最新アプリ候補はc0a2b277。main・開発AWSへの反映案は先行9889f4c8時点で承認待ちのため、最新候補へは未更新。stgのHTTP readinessは正常だがAWS CLI認証が失効しており、ECS/RDSは反映直前に再確認する。本番反映は未実施 |
-| 自動検査 | [c0a2b277のCI全6ジョブ・通常配布物・隔離PostgreSQL 18/Redis検証](INTEGRATION_RETRY_GUIDANCE_2026-09-22.md)が成功。先行9889f4c8の[固定候補検証](RUNTIME_CANDIDATE_9889F4C8_2026-09-22.md)、bb61b0e6の[監視コマンド・配布物検証](BILLING_EMAIL_HEALTH_2026-09-19.md)と[全体CI](STRIPE_CI_BB61B0E6_2026-09-19.json)も保持 |
+| main / 作業候補 | 9月22日にorigin/main=d875d028を再確認。Stripe・Google・OAuth耐障害性・外部連携再試行・表示セキュリティを含む最新アプリ候補は1b051dba。main・開発AWSへの反映案は先行9889f4c8時点で承認待ちのため、最新候補へは未更新。stgのHTTP readinessは正常だがAWS CLI認証が失効しており、ECS/RDSは反映直前に再確認する。本番反映は未実施 |
+| 自動検査 | [1b051dbaのCI全6ジョブ](https://github.com/sheepdog0820/iaia/actions/runs/35695689750)が成功。先行898e8ddaの[通常配布物・隔離PostgreSQL 18/Redis検証](GOOGLE_SHEETS_LARGE_EXPORT_2026-09-22.md)、9889f4c8の[固定候補検証](RUNTIME_CANDIDATE_9889F4C8_2026-09-22.md)、bb61b0e6の[監視コマンド・配布物検証](BILLING_EMAIL_HEALTH_2026-09-19.md)と[全体CI](STRIPE_CI_BB61B0E6_2026-09-19.json)も保持。最新候補の通常イメージ再構築は未実施 |
 | Google | 実認可の保存成功。実同期・トークン更新・公開審査は未完了。[一時Redis/workerのAWS接続試験](GOOGLE_WORKER_CONNECTIVITY_RESULT_2026-09-10.md)は成功・削除済み |
 | Stripe | 登録保留は解除済み。9月13日に月額・年額・更新・支払失敗/回復・解約・返金/異議を実サンドボックスで確認。[候補監査](STRIPE_CANDIDATE_AUDIT_2026-09-19.md)。AWS検証と残る異常系は未完了 |
 | 性能・復旧 | 隔離環境の対象APIは基準内、実RDSの限定復元は成功。実AWSの全操作性能とDB/S3を含むRPO/RTOは未証明 |
