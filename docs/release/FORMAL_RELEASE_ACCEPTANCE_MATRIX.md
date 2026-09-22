@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（Stripe・Google候補、OS監査の更新: 2026-09-22）
 
+最新OS監査: `fec10aa0` の[専用キャッシュによる再監査](RUNTIME_HISTORY_PERMISSIONS_FEC10AA0_2026-09-22.md#os監査の初回失敗と専用キャッシュでの完了)が完了し、36指摘（HIGH 2 / MEDIUM 1 / LOW 33）が残る。以下のキャッシュ障害による未完了は解消したが、脆弱性ゲートは未合格。Perlの対象モジュール不在という限定的証拠を得たものの適用除外はしていない。最新CI/AWS検証と正式公開No-Goは継続する。
+
 最新確認: 先行 `d9a61f4c` のCI全6ジョブ成功を確認。後続の非公開情報保護を含む `fec10aa0` は[通常配布物・隔離PG/Redis](RUNTIME_HISTORY_PERMISSIONS_FEC10AA0_2026-09-22.md)で起動と関連19テスト（SQLite/PGそれぞれ）が成功した。最新修正のCI/AWS検証は別途必要で、先行CI成功とは区別する。
 
 追加の権限修正: [履歴による非公開シナリオ/セッション参照](HISTORY_RELATED_OBJECT_PERMISSIONS_2026-09-22.md)を再現し、作成/変更時の権限検査と読み出し時の関連情報の非表示化を追加。ローカル検証済みだが44a18301の配布物には含まれず、同候補の反映案は更新が必要。CI/最新配布物/AWS未検証としてNo-Goを維持する。
@@ -51,8 +53,8 @@ Google Sheets大規模出力（2026-09-22）: [100行単位の分割・進捗・
 | 区分 | 現在の状態 |
 | --- | --- |
 | 開発環境 | [9月22日の再確認](RUNTIME_OS_BB61B0E6_2026-09-22.md)ではWeb定義49・コードd875d028、desired/running=1、readinessのDB/cache正常。後続のStripe修正は未反映 |
-| main / 作業候補 | 9月22日にorigin/main=d875d028を再確認。Stripe・Google・OAuth耐障害性・外部連携再試行・表示セキュリティを含む最新アプリ候補は1b051dba。main・開発AWSへの反映案は先行9889f4c8時点で承認待ちのため、最新候補へは未更新。stgのHTTP readinessは正常だがAWS CLI認証が失効しており、ECS/RDSは反映直前に再確認する。本番反映は未実施 |
-| 自動検査 | [1b051dbaのCI全6ジョブ](https://github.com/sheepdog0820/iaia/actions/runs/35695689750)が成功。先行898e8ddaの[通常配布物・隔離PostgreSQL 18/Redis検証](GOOGLE_SHEETS_LARGE_EXPORT_2026-09-22.md)、9889f4c8の[固定候補検証](RUNTIME_CANDIDATE_9889F4C8_2026-09-22.md)、bb61b0e6の[監視コマンド・配布物検証](BILLING_EMAIL_HEALTH_2026-09-19.md)と[全体CI](STRIPE_CI_BB61B0E6_2026-09-19.json)も保持。最新候補の通常イメージ再構築は未実施 |
+| main / 作業候補 | 9月22日にorigin/main=d875d028を再確認。最新アプリ候補は非公開関連情報保護を含むfec10aa0。main・開発AWSへ未反映。[44a18301の反映案](AWS_APP_APPROVAL_44A18301_2026-09-22.md)は後続修正を含まないため更新が必要。9月22日16:58 JSTのAWS再確認では定義49・desired/running=1・pending=0、HTTP readinessのDB/cache正常。反映承認は未取得で、実行直前にも再確認する。本番反映は未実施 |
+| 自動検査 | 先行d9a61f4cのCI全6ジョブ成功。fec10aa0を含む[e2d08157のCI](https://github.com/sheepdog0820/iaia/actions/runs/35703522004)は実行中。[最新通常配布物](RUNTIME_HISTORY_PERMISSIONS_FEC10AA0_2026-09-22.md)はSQLite/PG各19テスト、隔離PG/Redis・aws-pre設定の通常起動、全移行、readiness、deploy check成功。OS監査は36指摘が残る。実AWS・外部連携の検証を代替しない |
 | Google | 実認可の保存成功。実同期・トークン更新・公開審査は未完了。[一時Redis/workerのAWS接続試験](GOOGLE_WORKER_CONNECTIVITY_RESULT_2026-09-10.md)は成功・削除済み |
 | Stripe | 登録保留は解除済み。9月13日に月額・年額・更新・支払失敗/回復・解約・返金/異議を実サンドボックスで確認。[候補監査](STRIPE_CANDIDATE_AUDIT_2026-09-19.md)。AWS検証と残る異常系は未完了 |
 | 性能・復旧 | 隔離環境の対象APIは基準内、実RDSの限定復元は成功。実AWSの全操作性能とDB/S3を含むRPO/RTOは未証明 |

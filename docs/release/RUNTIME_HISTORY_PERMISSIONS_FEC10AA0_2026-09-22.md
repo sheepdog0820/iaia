@@ -16,6 +16,19 @@
 
 実AWS・RDS/S3・外部認証/決済・メールは未使用。新候補のCIは別途必要。先行d9a61f4cのCI全6ジョブ成功をこの修正へ拡張しない。OS指摘と正式公開No-Goは維持し、反映案は新候補への更新が必要。
 
-## OS監査の再実行失敗
+## OS監査の初回失敗と専用キャッシュでの完了
 
-Docker Scout 1.24.0で新イメージのdeb監査を試みたが、イメージ保存後のindexingで「failed to initialize cache: cache may be in use by another process: timeout」となり終了1。新候補のOS監査成功/指摘件数を得たものではない。終了後にdocker-scoutの実行中プロセスは見つからなかったが、共有キャッシュは削除していない。キャッシュ障害の安全な解消または独立した監査で再実行が必要。直近で完了した44a18301の監査36指摘を未解消として保持する。
+初回はDocker Scout 1.24.0のindexingが共有キャッシュのtimeoutで終了1となった。その後、[Docker公式の設定](https://docs.docker.com/scout/how-tos/configure-cli/)に従い、`DOCKER_SCOUT_CACHE_DIR` に新規専用ディレクトリを指定して同一イメージを再監査した。共有キャッシュは削除・変更していない。
+
+- コマンド: `docker-scout cves local://tableno:history-permissions-fec10aa0 --only-package-type deb --format sarif --output <report> --exit-code`
+- 268パッケージをindexing、脆弱な14パッケージに36指摘（HIGH 2 / MEDIUM 1 / LOW 33）。終了1であり、脆弱性ゲート合格ではない。
+- レポート: `C:/tmp/runtime-os-fec10aa0-isolated-20260922.sarif.json`
+- SHA-256: `3e3bfab1a1bc22471e12229fe84be14cf4217fc3189eaa1c44f0c17b014afad3`
+- 一時イメージアーカイブが他プロセスに使用中という削除警告は残ったが、指摘抽出とSARIF生成は完了した。専用キャッシュは保持し、強制削除していない。
+
+### HIGH指摘の適用条件の確認
+
+- `CVE-2026-82560`（perl）: [Debianの説明](https://security-tracker.debian.org/tracker/CVE-2026-82560)はPod::TextのPOD整形処理を対象とする。同一イメージの通信禁止・使い捨てコンテナで `perl-base 5.40.1-6+deb13u1` の存在を確認したが、`find /usr -path '*/Pod/Text.pm'` は結果なし、`perl -MPod::Text` はモジュール不在で失敗した。対象モジュール不在という限定的証拠であり、正式な適用除外・リスク受容は行っていない。
+- `CVE-2026-85091`（zlib）: 実際の `zlib1g` は `1:1.3.dfsg+really1.3.1-1+b1`。[Debianの説明](https://security-tracker.debian.org/tracker/CVE-2026-85091)の上流影響バージョン記述とDebianパッケージ判定に差があるが、それだけで誤検知とは判断しない。バイナリ/ソースへの適用性と修正版の確認が残る。
+
+両方とも今回の監査では `not fixed`。指摘数を減算せず、正式公開No-Goを維持する。実AWSのイメージを監査したものではない。
