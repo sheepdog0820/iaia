@@ -185,8 +185,11 @@
 - [x] Discord通知失敗の権限、状態、webhook未設定、通知無効、event_type無効、broker不可の回帰テストを追加した。
 - [x] 外部連携失敗復旧Runbookを追加し、Google/Discord/broker不可の確認・再試行・記録方法を整理した。
 
+**2026-09-22 進捗**
+- [x] Google Calendar API障害とbroker停止を模擬し、失敗状態・日本語の復旧案内・再試行拒否・受付後の一覧更新失敗を3ブラウザで確認した。外部HTTP例外に含まれ得るWebhook URL・出力先ID・上流診断は履歴へ保存しないようにした。詳細は[検証記録](../release/INTEGRATION_RETRY_GUIDANCE_2026-09-22.md)を参照する。
+
 **未完了タスク**
-- [ ] Google Calendar API障害時に、失敗状態と再試行導線が残ることを確認する。
+- [x] Google Calendar API障害時に、失敗状態と再試行導線が残ることをローカルmockで確認する。
 - [ ] Google Sheets大規模エクスポートで進捗と失敗理由を確認する。
 - [ ] 実Google資格情報を使った本番相当の失敗復旧検証を行う。
 - [ ] 実Discord資格情報を使った本番相当の失敗復旧検証を行う。

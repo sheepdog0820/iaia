@@ -18,6 +18,14 @@ from .integration_access import visible_user_sessions
 from .models import AsyncJob, GoogleCalendarSync, GoogleIntegration, HandoutInfo
 
 logger = logging.getLogger(__name__)
+BACKGROUND_TASK_UNAVAILABLE_MESSAGE = "バックグラウンド処理を開始できませんでした。時間をおいて再試行してください。"
+DISCORD_DELIVERY_FAILED_MESSAGE = "Discord通知の送信に失敗しました。設定を確認して再送してください。"
+GOOGLE_CALENDAR_DELIVERY_FAILED_MESSAGE = (
+    "Google Calendar APIとの通信に失敗しました。連携状態を確認して再試行してください。"
+)
+GOOGLE_SHEETS_DELIVERY_FAILED_MESSAGE = (
+    "Google Sheets APIとの通信に失敗しました。連携状態と出力先を確認して再試行してください。"
+)
 
 
 def _broker_available():
@@ -111,9 +119,9 @@ def schedule_session_google_syncs(session):
             expires_at=timezone.now() + timedelta(days=7),
         )
         if not queue_google_calendar_sync(sync.pk, str(job.pk)):
-            job.mark_failed("Background task broker is unavailable.")
+            job.mark_failed(BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
             sync.status = GoogleCalendarSync.Status.FAILED
-            sync.last_error = "Background task broker is unavailable."
+            sync.last_error = BACKGROUND_TASK_UNAVAILABLE_MESSAGE
             sync.save(update_fields=["status", "last_error", "updated_at"])
 
 
@@ -190,13 +198,14 @@ def send_discord_webhook(self, group_id, event_type, payload, idempotency_key):
         if response.status_code == 429 or response.status_code >= 500:
             raise requests.RequestException(f"Discord returned {response.status_code}")
         response.raise_for_status()
-    except requests.RequestException as exc:
+    except requests.RequestException:
         delivery.status = DiscordDelivery.Status.FAILED
-        delivery.last_error = str(exc)
+        delivery.last_error = DISCORD_DELIVERY_FAILED_MESSAGE
         delivery.save(update_fields=["status", "last_error"])
         settings_obj.failure_count += 1
         settings_obj.save(update_fields=["failure_count", "updated_at"])
-        raise self.retry(exc=exc, countdown=min(60, 2**delivery.attempts))
+        retry_error = requests.RequestException(DISCORD_DELIVERY_FAILED_MESSAGE)
+        raise self.retry(exc=retry_error, countdown=min(60, 2**delivery.attempts)) from None
 
     delivery.status = DiscordDelivery.Status.SENT
     delivery.last_error = ""
@@ -267,7 +276,7 @@ def sync_google_calendar(self, sync_id, job_id):
         return "missing-token"
     cancelling = sync.session.status == "cancelled"
     if sync.session.date is None and not cancelling:
-        error = "Undated sessions cannot be synchronized to Google Calendar."
+        error = "開催日時が未設定のセッションはGoogle Calendarへ同期できません。"
         sync.status = GoogleCalendarSync.Status.FAILED
         sync.last_error = error
         sync.save(update_fields=["status", "last_error", "updated_at"])
@@ -340,12 +349,19 @@ def sync_google_calendar(self, sync_id, job_id):
             sync.external_event_id = event_id
             sync.status = GoogleCalendarSync.Status.SYNCED
     except (requests.RequestException, KeyError, ValueError) as exc:
-        sync.status = GoogleCalendarSync.Status.FAILED
-        sync.last_error = str(exc)
-        sync.save(update_fields=["status", "last_error", "updated_at"])
-        job.mark_failed(exc)
         if isinstance(exc, requests.RequestException):
-            raise self.retry(exc=exc, countdown=2**self.request.retries)
+            error = GOOGLE_CALENDAR_DELIVERY_FAILED_MESSAGE
+        elif isinstance(exc, KeyError):
+            error = "Google Calendarの応答形式を確認できません。連携状態を確認してください。"
+        else:
+            error = str(exc)
+        sync.status = GoogleCalendarSync.Status.FAILED
+        sync.last_error = error
+        sync.save(update_fields=["status", "last_error", "updated_at"])
+        job.mark_failed(error)
+        if isinstance(exc, requests.RequestException):
+            retry_error = requests.RequestException(GOOGLE_CALENDAR_DELIVERY_FAILED_MESSAGE)
+            raise self.retry(exc=retry_error, countdown=2**self.request.retries) from None
         return "invalid-response"
 
     sync.last_error = ""
@@ -401,9 +417,10 @@ def export_google_sheet(
             timeout=15,
         )
         response.raise_for_status()
-    except requests.RequestException as exc:
-        job.mark_failed(exc)
-        raise self.retry(exc=exc, countdown=2**self.request.retries)
+    except requests.RequestException:
+        job.mark_failed(GOOGLE_SHEETS_DELIVERY_FAILED_MESSAGE)
+        retry_error = requests.RequestException(GOOGLE_SHEETS_DELIVERY_FAILED_MESSAGE)
+        raise self.retry(exc=retry_error, countdown=2**self.request.retries) from None
     try:
         result = response.json()
     except ValueError:

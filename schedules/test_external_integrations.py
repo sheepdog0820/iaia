@@ -196,6 +196,27 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertContains(response, "ICS購読URLを再発行")
         self.assertContains(response, "通知対象イベント")
         self.assertContains(response, "連携ジョブ状況")
+        self.assertContains(response, "再試行を開始できませんでした。時間をおいて、もう一度お試しください。")
+        self.assertContains(
+            response,
+            "Google Calendar同期を開始できませんでした。時間をおいて、もう一度お試しください。",
+        )
+        self.assertContains(
+            response,
+            "Discord通知の再送を受け付けられませんでした。設定を確認し、もう一度お試しください。",
+        )
+        self.assertContains(
+            response,
+            "再試行は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。",
+        )
+        self.assertContains(
+            response,
+            "Google Calendar同期は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。",
+        )
+        self.assertContains(
+            response,
+            "Discord通知の再送は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。",
+        )
         self.assertContains(response, "Google Sheets キャラクターシート出力")
         self.assertNotContains(response, "取込プレビュー")
         self.assertNotContains(response, 'id="import-google-sheets"')
@@ -218,6 +239,23 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
         self.assertTrue(AsyncJob.objects.filter(pk=response.data["job_id"]).exists())
         self.assertTrue(GoogleCalendarSync.objects.filter(user=self.user, session=self.session).exists())
+
+    @patch("schedules.integration_views.queue_google_calendar_sync", return_value=False)
+    def test_calendar_sync_broker_failure_is_saved_with_japanese_retry_guidance(self, queue_sync):
+        self.connect_google()
+
+        response = self.client.post(f"/api/sessions/{self.session.pk}/google-calendar/sync/")
+
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertFalse(response.data["queued"])
+        job = AsyncJob.objects.get(pk=response.data["job_id"])
+        sync = GoogleCalendarSync.objects.get(user=self.user, session=self.session)
+        message = "バックグラウンド処理を開始できませんでした。時間をおいて再試行してください。"
+        self.assertEqual(job.status, AsyncJob.Status.FAILED)
+        self.assertEqual(job.error, message)
+        self.assertEqual(sync.status, GoogleCalendarSync.Status.FAILED)
+        self.assertEqual(sync.last_error, message)
+        queue_sync.assert_called_once_with(sync.pk, str(job.pk))
 
     @patch("schedules.tasks.requests.post")
     def test_calendar_task_creates_external_event_with_client_id(self, post):

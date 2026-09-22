@@ -28,7 +28,7 @@ from .models import (
     SessionOccurrence,
     SessionParticipantRole,
 )
-from .tasks import queue_google_calendar_sync, queue_google_sheet_export
+from .tasks import BACKGROUND_TASK_UNAVAILABLE_MESSAGE, queue_google_calendar_sync, queue_google_sheet_export
 
 GOOGLE_INTEGRATION_SCOPES = [
     GoogleIntegration.REQUIRED_CALENDAR_SCOPE,
@@ -230,7 +230,7 @@ class GoogleCalendarSyncView(APIView):
         ).first()
         if not integration or not integration.has_scope(GoogleIntegration.REQUIRED_CALENDAR_SCOPE):
             return Response(
-                {"detail": "Google Calendar is not connected."},
+                {"detail": "Google Calendar連携を確認できません。Googleを再連携してください。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         sync, _ = GoogleCalendarSync.objects.update_or_create(
@@ -246,9 +246,9 @@ class GoogleCalendarSyncView(APIView):
         )
         queued = queue_google_calendar_sync(sync.pk, str(job.pk))
         if not queued:
-            job.mark_failed("Background task broker is unavailable.")
+            job.mark_failed(BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
             sync.status = GoogleCalendarSync.Status.FAILED
-            sync.last_error = "Background task broker is unavailable."
+            sync.last_error = BACKGROUND_TASK_UNAVAILABLE_MESSAGE
             sync.save(update_fields=["status", "last_error", "updated_at"])
         return Response(
             {
@@ -344,7 +344,7 @@ class GoogleSheetsExportView(APIView):
             values,
         )
         if not queued:
-            job.mark_failed("Background task broker is unavailable.")
+            job.mark_failed(BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
         return Response(
             {"job_id": job.pk, "queued": queued},
             status=status.HTTP_202_ACCEPTED,

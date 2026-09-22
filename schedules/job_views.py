@@ -11,10 +11,28 @@ from accounts.models import CharacterSheet
 from .google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_START_RANGE
 from .integration_access import visible_user_sessions
 from .models import AsyncJob, GoogleCalendarSync, GoogleIntegration
-from .tasks import queue_google_calendar_sync, queue_google_sheet_export
+from .tasks import (
+    BACKGROUND_TASK_UNAVAILABLE_MESSAGE,
+    GOOGLE_CALENDAR_DELIVERY_FAILED_MESSAGE,
+    GOOGLE_SHEETS_DELIVERY_FAILED_MESSAGE,
+    queue_google_calendar_sync,
+    queue_google_sheet_export,
+)
 
 
 class AsyncJobSerializer(serializers.ModelSerializer):
+    error = serializers.SerializerMethodField()
+
+    def get_error(self, obj) -> str:
+        error = obj.error
+        if "http://" not in error.lower() and "https://" not in error.lower():
+            return error
+        if obj.job_type == "google_calendar_sync":
+            return GOOGLE_CALENDAR_DELIVERY_FAILED_MESSAGE
+        if obj.job_type == "google_sheets_export":
+            return GOOGLE_SHEETS_DELIVERY_FAILED_MESSAGE
+        return "外部サービスとの通信に失敗しました。時間をおいて再試行してください。"
+
     class Meta:
         model = AsyncJob
         fields = [
@@ -96,7 +114,7 @@ class AsyncJobRetryView(APIView):
             return Response(status=status.HTTP_404_NOT_FOUND)
         if job.status != AsyncJob.Status.FAILED:
             return Response(
-                {"detail": "Only failed jobs can be retried."},
+                {"detail": "失敗したジョブだけ再試行できます。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -118,7 +136,7 @@ class AsyncJobRetryView(APIView):
         if job.job_type == "google_sheets_export":
             return self._retry_google_sheets_export(request, job)
         return Response(
-            {"detail": f"Retry is not supported for {job.job_type}."},
+            {"detail": "この種類のジョブは再試行できません。"},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -130,7 +148,7 @@ class AsyncJobRetryView(APIView):
         ).first()
         if not sync:
             return Response(
-                {"detail": "The original Google Calendar sync record was not found."},
+                {"detail": "元のGoogle Calendar同期情報が見つかりません。連携設定から新しく同期してください。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not visible_user_sessions(request.user).filter(pk=sync.session_id).exists():
@@ -149,9 +167,9 @@ class AsyncJobRetryView(APIView):
         )
         queued = queue_google_calendar_sync(sync.pk, str(retry_job.pk))
         if not queued:
-            retry_job.mark_failed("Background task broker is unavailable.")
+            retry_job.mark_failed(BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
             sync.status = GoogleCalendarSync.Status.FAILED
-            sync.last_error = "Background task broker is unavailable."
+            sync.last_error = BACKGROUND_TASK_UNAVAILABLE_MESSAGE
             sync.save(update_fields=["status", "last_error", "updated_at"])
         return Response(
             {
@@ -166,7 +184,7 @@ class AsyncJobRetryView(APIView):
         spreadsheet_id = job.payload.get("spreadsheet_id")
         if not spreadsheet_id:
             return Response(
-                {"detail": "The original Google Sheets export is missing spreadsheet_id."},
+                {"detail": "元のGoogle Sheets出力先を確認できません。連携設定から新しく出力してください。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         range_name = job.payload.get("range", SHEETS_DEFAULT_START_RANGE)
@@ -196,7 +214,7 @@ class AsyncJobRetryView(APIView):
             values,
         )
         if not queued:
-            retry_job.mark_failed("Background task broker is unavailable.")
+            retry_job.mark_failed(BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
         return Response(
             {
                 "job_id": retry_job.pk,

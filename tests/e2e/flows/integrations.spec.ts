@@ -4,6 +4,39 @@ import { devLogin } from './helpers';
 test.describe('integration settings', () => {
   test('operational integration controls call the public APIs', async ({ page }) => {
     const requests: Array<{ method: string; path: string; body?: unknown }> = [];
+    const googleJobs = [
+      {
+        id: 'calendar-broker-failed',
+        job_type: 'google_calendar_sync',
+        status: 'failed',
+        progress: 0,
+        error: 'Google Calendar APIとの通信に失敗しました。',
+        created_at: '2026-06-18T00:02:00Z',
+        started_at: '2026-06-18T00:02:01Z',
+        finished_at: '2026-06-18T00:02:02Z',
+      },
+      {
+        id: 'calendar-permission-revoked',
+        job_type: 'google_calendar_sync',
+        status: 'failed',
+        progress: 0,
+        error: 'Google認可が失効しました。',
+        created_at: '2026-06-18T00:03:00Z',
+        started_at: '2026-06-18T00:03:01Z',
+        finished_at: '2026-06-18T00:03:02Z',
+      },
+      {
+        id: 'calendar-refresh-failed',
+        job_type: 'google_calendar_sync',
+        status: 'failed',
+        progress: 0,
+        error: 'Google Calendar APIとの通信に失敗しました。',
+        created_at: '2026-06-18T00:04:00Z',
+        started_at: '2026-06-18T00:04:01Z',
+        finished_at: '2026-06-18T00:04:02Z',
+      },
+    ];
+    let jobRefreshFails = false;
     let discordDeliveries = [
       {
         id: 77,
@@ -27,6 +60,17 @@ test.describe('integration settings', () => {
         payload: { content: 'broker unavailable' },
         idempotency_key: 'handout-released:78',
       },
+      {
+        id: 79,
+        event_type: 'session_cancelled',
+        status: 'failed',
+        attempts: 1,
+        last_error: 'Discord returned 403',
+        created_at: '2026-06-18T00:02:00Z',
+        sent_at: null,
+        payload: { content: 'permission revoked' },
+        idempotency_key: 'session-cancelled:79',
+      },
     ];
 
     await page.route('**/api/accounts/groups/', route => route.fulfill({
@@ -49,6 +93,47 @@ test.describe('integration settings', () => {
       }
       await route.fulfill({ json: { connected: true } });
     });
+    await page.route('**/api/jobs/**', async route => {
+      const url = new URL(route.request().url());
+      if (route.request().method() === 'GET') {
+        if (jobRefreshFails) {
+          jobRefreshFails = false;
+          await route.fulfill({ status: 503, json: { detail: '一時的に利用できません。' } });
+          return;
+        }
+        await route.fulfill({
+          json: url.searchParams.get('job_type') === 'google_calendar_sync' ? googleJobs : [],
+        });
+        return;
+      }
+      if (url.pathname === '/api/jobs/calendar-broker-failed/retry/') {
+        await route.fulfill({
+          status: 202,
+          json: { job_id: 'calendar-retry-broker-failed', queued: false },
+        });
+        return;
+      }
+      if (url.pathname === '/api/jobs/calendar-permission-revoked/retry/') {
+        await route.fulfill({
+          status: 400,
+          json: { detail: 'Google連携が無効、または再試行する権限がありません。' },
+        });
+        return;
+      }
+      if (url.pathname === '/api/jobs/calendar-refresh-failed/retry/') {
+        jobRefreshFails = true;
+        await route.fulfill({
+          status: 202,
+          json: { job_id: 'calendar-retry-refresh-failed', queued: true },
+        });
+        return;
+      }
+      await route.fallback();
+    });
+    await page.route('**/api/sessions/10/google-calendar/sync/', route => route.fulfill({
+      status: 202,
+      json: { job_id: 'calendar-initial-broker-failed', queued: false, sync_status: 'failed' },
+    }));
     await page.route('**/api/groups/1/discord-settings/', async route => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
@@ -83,8 +168,18 @@ test.describe('integration settings', () => {
         method: route.request().method(),
         path: new URL(route.request().url()).pathname,
       });
-      discordDeliveries = [];
+      discordDeliveries = discordDeliveries.filter(delivery => delivery.id !== 78);
       await route.fulfill({ status: 202, json: { delivery_id: 78, queued: false } });
+    });
+    await page.route('**/api/groups/1/discord-deliveries/79/retry/', async route => {
+      requests.push({
+        method: route.request().method(),
+        path: new URL(route.request().url()).pathname,
+      });
+      await route.fulfill({
+        status: 400,
+        json: { detail: 'この種類のDiscord通知は無効です。' },
+      });
     });
     await page.route('**/api/groups/1/links/', route => route.fulfill({ json: [] }));
     await page.route('**/api/calendar/subscription-token/rotate/', async route => {
@@ -112,8 +207,35 @@ test.describe('integration settings', () => {
     await expect(page.locator('#discord-session-updated')).toBeChecked();
     await expect(page.locator('h2')).toContainText('Discord通知失敗履歴');
     await expect(page.locator('#discord-deliveries')).toContainText('Discord returned 500');
-    await expect(page.locator('#discord-deliveries')).toContainText('Background task broker is unavailable.');
+    await expect(page.locator('#discord-deliveries')).toContainText(
+      'バックグラウンド処理を開始できませんでした。時間をおいて再試行してください。'
+    );
     await expect(page.locator('[data-retry-discord-delivery="77"]')).toHaveText('再送');
+    await expect(page.locator('#integration-jobs')).toContainText('Google Calendar APIとの通信に失敗しました。');
+
+    await page.click('[data-retry-job="calendar-broker-failed"]');
+    await expect(page.locator('#integration-message')).toContainText(
+      '再試行を開始できませんでした。時間をおいて、もう一度お試しください。'
+    );
+    await expect(page.locator('#integration-message')).toHaveClass(/alert-warning/);
+
+    await page.click('[data-retry-job="calendar-permission-revoked"]');
+    await expect(page.locator('#integration-message')).toContainText(
+      'Google連携が無効、または再試行する権限がありません。'
+    );
+    await expect(page.locator('#integration-message')).toHaveClass(/alert-danger/);
+
+    await page.click('[data-retry-job="calendar-refresh-failed"]');
+    await expect(page.locator('#integration-message')).toContainText(
+      '再試行は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。'
+    );
+    await expect(page.locator('#integration-message')).toHaveClass(/alert-warning/);
+
+    await page.click('#sync-google-calendar');
+    await expect(page.locator('#integration-message')).toContainText(
+      'Google Calendar同期を開始できませんでした。時間をおいて、もう一度お試しください。'
+    );
+    await expect(page.locator('#integration-message')).toHaveClass(/alert-warning/);
 
     await page.check('#discord-handout-released');
     await page.click('#save-discord-settings');
@@ -143,6 +265,10 @@ test.describe('integration settings', () => {
     await expect(page.locator('#integration-message')).toContainText(
       'Discord通知を再送キューに登録できませんでした: 78'
     );
+    await page.click('[data-retry-discord-delivery="79"]');
+    await expect(page.locator('#integration-message')).toContainText('この種類のDiscord通知は無効です。');
+    await expect(page.locator('#integration-message')).toHaveClass(/alert-danger/);
+    discordDeliveries = [];
     await page.click('#reload-discord-deliveries');
     await expect(page.locator('#discord-deliveries')).toContainText('Discord通知失敗はありません。');
 
