@@ -32,9 +32,18 @@ Google公式の[`spreadsheets.values.update`](https://developers.google.com/work
 - Black、isort、flake8、`git diff --check`が成功した。
 - 変更したGoogle Sheets分割処理・入力防御の全分岐を対象テストで実行した。共有モジュール全体の行カバレッジ値は、無関係なCalendar/Discord等を同時に含むため、この限定実行の合否判定には使用していない。
 
+## CI・通常イメージ検証
+
+- 実装と初回証跡を含む`898e8dda`の[GitHub Actions #330](https://github.com/sheepdog0820/iaia/actions/runs/35687706423)は、Unit / Integration、Playwright、production-database、system、lint-security、infrastructureの全6ジョブが成功した。
+- `898e8dda`から通常Dockerイメージ`tableno:sheets-progress-898e8dda`を構築した。イメージIDは`sha256:53c8f202be7662d81557ef2b7aba230277883e032ec7603e62ccb23dd20f40e0`。
+- 通常イメージ内の関連26件がSQLiteで成功した。
+- 専用ネットワーク、空のPostgreSQL 18.3、Redis 7で通常entrypointを起動し、全migration、静的ファイル227件収集、Daphne起動に成功した。
+- `/health/ready/`はHTTP 200でdatabase/cacheともに`ok`、`migrate --check`も終了0だった。
+- PostgreSQL 18公式イメージの初回起動では旧配置`/var/lib/postgresql/data`へのtmpfs指定が公式イメージに拒否された。アプリ起動前の隔離ハーネス設定であり、18系の配置`/var/lib/postgresql`へ修正後に上記検証へ成功した。
+- 専用web/PG/Redisコンテナと専用ネットワークは、対象名を照合して削除した。通常イメージだけをローカル検証証跡として保持している。
+
 ## 未検証・承認境界
 
 - 実Googleシートへの限定データ出力、実トークン失効、実workerによる再試行は未検証。
-- 候補コミットのGitHub Actions、通常Dockerイメージ、隔離PostgreSQL 18/Redis検証は未実施。
 - mainマージ、共有DB変更、AWS反映、Secrets・OAuth権限変更、継続費用を伴う操作は行っていない。
 - I05完了には、承認済みの専用シートと限定キャラクターを使った実出力・権限・失効・再試行確認が必要である。
