@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（Stripe・Google候補、OS監査の更新: 2026-09-22）
 
+配布物の後続確認: 文書更新を含む`f8aa55a9`から[通常イメージの構築・関連62テスト・静的ファイル227件収集・6版/7版JavaScriptのハッシュ一致](CHARACTER_CUSTOM_SKILL_SECURITY_2026-09-22.md#通常配布イメージの確認)を確認した。以下の「通常イメージ再構築は未実施」はこの範囲で解消した。最新イメージのPostgreSQL/Redis起動、OS再スキャン、AWS配信は未実施である。
+
 最新アプリ候補は`1b051dba`。同候補の[CI全6ジョブ成功](https://github.com/sheepdog0820/iaia/actions/runs/35695689750)を確認した。先行候補`898e8dda`の[通常コンテナと隔離PostgreSQL/Redis起動](GOOGLE_SHEETS_LARGE_EXPORT_2026-09-22.md)も保持するが、最新候補の通常イメージ再構築とOS再監査は未実施である。基礎となるStripe・Google統合候補`9889f4c8`の[固定候補検証](RUNTIME_CANDIDATE_9889F4C8_2026-09-22.md)、先行Stripe実装の[配布コンテナ内の課金メール監視検証](BILLING_EMAIL_HEALTH_2026-09-19.md)、[4削除経路の実Stripe試験](STRIPE_DELETION_PATHS_API_2026-09-19.md)も保持する。main・開発AWSへの反映は[承認待ち](STRIPE_AWS_APP_APPROVAL_2026-09-19.md)。先行OS監査には36指摘（HIGH 2件・MEDIUM 1件）が残る。9月13日以降の実サンドボックス試験で解消した範囲はB01〜B05を参照する。他分野の過去記録を最新の実証として扱わず、正式公開No-Goを維持する。
 
 以下は9月12日以前の経過記録。
