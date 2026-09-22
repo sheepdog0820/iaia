@@ -50,3 +50,5 @@ mainマージ・ECR push・共有DB変更・AWS反映・認可/課金/継続費�
 上記の「最新固定イメージのPostgreSQL/Redis・aws-pre設定起動未確認」はこの範囲で解消した。S3は無効でローカルストレージ、実Stripe・外部連携・メール・AWSは未使用。OS指摘36件・正式公開No-Goは変わらない。
 
 記録更新元 `d9a61f4c` の[CI](https://github.com/sheepdog0820/iaia/actions/runs/35701686200)は、確認時点でLint/Security・System・Infrastructure成功、残り3ジョブ実行中。ブランチ更新によるCI中断を避け、記録のpushはこの実行の完了後に行う。
+
+後続確認: 上記CIは2026-09-22に全6ジョブ成功で完了した。対象SHAは `d9a61f4c26145c36ee6a913c649d6037c932f60c`。後続の非公開関連情報保護 `fec10aa0` は含まれないため、その修正には新しいCIが必要。

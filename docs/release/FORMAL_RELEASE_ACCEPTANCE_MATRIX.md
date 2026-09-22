@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（Stripe・Google候補、OS監査の更新: 2026-09-22）
 
+最新確認: 先行 `d9a61f4c` のCI全6ジョブ成功を確認。後続の非公開情報保護を含む `fec10aa0` は[通常配布物・隔離PG/Redis](RUNTIME_HISTORY_PERMISSIONS_FEC10AA0_2026-09-22.md)で起動と関連19テスト（SQLite/PGそれぞれ）が成功した。最新修正のCI/AWS検証は別途必要で、先行CI成功とは区別する。
+
 追加の権限修正: [履歴による非公開シナリオ/セッション参照](HISTORY_RELATED_OBJECT_PERMISSIONS_2026-09-22.md)を再現し、作成/変更時の権限検査と読み出し時の関連情報の非表示化を追加。ローカル検証済みだが44a18301の配布物には含まれず、同候補の反映案は更新が必要。CI/最新配布物/AWS未検証としてNo-Goを維持する。
 
 最新配布物の起動確認: [44a18301の同一イメージ](RUNTIME_CANDIDATE_44A18301_2026-09-22.md#同イメージのpostgresqlredis検証)で、隔離PostgreSQL 18.3/Redis・aws-pre設定の通常起動、全マイグレーション、readiness、deploy checkが成功。関連10テストも隔離PGで成功。以下の最新PG/Redis起動未確認はこの範囲で解消したが、実AWS・S3・外部連携の証明ではない。最新CIは実行中で、OS指摘とNo-Goを維持する。
