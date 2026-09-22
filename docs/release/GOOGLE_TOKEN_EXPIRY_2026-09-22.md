@@ -23,6 +23,7 @@ DBマイグレーション、OAuth scope、Secrets、権限、料金、外部送
 - Calendar/Sheets配送、ジョブ再試行、OAuthコールバック、Google ID固定・競合を含む関連75件成功、Google browser依存の3件skip。
 - `schedules/google_tokens.py` は35実行行すべてを通過し、行カバレッジ100%。
 - Black、isort、flake8、Bandit、差分・UTF-8/LF検査が成功。
+- 修正と証跡を含む候補`9ca92792`の[GitHub Actions全6ジョブ](https://github.com/sheepdog0820/iaia/actions/runs/35674518374)が成功（Unit / Integration、Playwright、production-database、system、lint-security、infrastructure）。
 - 新規・変更した利用者向けエラーは日本語。秘密値や外部エラー詳細を表示しない。
 
 テストはSQLiteとGoogle応答のmockを使用した。実Google API、実refresh token、AWS worker、失効・取消後の実応答は未検証であり、I01/I04/I05と正式公開No-Goを維持する。共有環境への反映、Secrets変更、Google Cloud設定・公開OAuth審査は行っていない。

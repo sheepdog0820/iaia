@@ -1,6 +1,6 @@
 # 有料プラン・外部連携を含む正式公開の受け入れ条件
 
-## 現在の公開判断（Stripe候補・OS監査の更新: 2026-09-22）
+## 現在の公開判断（Stripe・Google候補、OS監査の更新: 2026-09-22）
 
 Stripe候補は `bb61b0e6`。対象SHAの[CI全6ジョブ成功](STRIPE_CI_BB61B0E6_2026-09-19.json)、[配布コンテナ内の課金メール監視検証](BILLING_EMAIL_HEALTH_2026-09-19.md)、先行6ff9a1f9と同じ課金実装に対する[4削除経路の実Stripe試験](STRIPE_DELETION_PATHS_API_2026-09-19.md)を確認した。main・開発AWSへの反映は[承認待ち](STRIPE_AWS_APP_APPROVAL_2026-09-19.md)。[最新候補のOS再監査](RUNTIME_OS_BB61B0E6_2026-09-22.md)は36指摘でHIGH 2件・MEDIUM 1件が残る。9月13日以降の実サンドボックス試験で解消した範囲はB01〜B05を参照する。他分野の過去記録を最新の実証として扱わず、正式公開No-Goを維持する。
 
@@ -20,13 +20,13 @@ Stripe候補は `bb61b0e6`。対象SHAの[CI全6ジョブ成功](STRIPE_CI_BB61B
 
 正式公開はNo-Go。以下の「判定表」は現在の確認結果へ更新した。冒頭の経過記録と各資料の過去時点の記述より、判定表および日付の新しい実施結果を優先する。要件を削除したり、限定試験で全体合格としたりしない。
 
-Googleトークン更新の追加修正（2026-09-22）: [期限不明のアクセストークンを有効扱いせずrefreshする修正](GOOGLE_TOKEN_EXPIRY_2026-09-22.md)を実装し、関連75件成功・3件skip、変更モジュール行カバレッジ100%を確認した。実Google API・実トークン・AWS workerは未使用で、実認可の取消・失効・更新やCalendar/Sheets配送の完了証拠にはしない。修正はmain・AWSへ未反映で、I01/I04/I05と正式公開No-Goを維持する。
+Googleトークン更新の追加修正（2026-09-22）: [期限不明のアクセストークンを有効扱いせずrefreshする修正](GOOGLE_TOKEN_EXPIRY_2026-09-22.md)を実装し、関連75件成功・3件skip、変更モジュール行カバレッジ100%、候補`9ca92792`の[CI全6ジョブ成功](https://github.com/sheepdog0820/iaia/actions/runs/35674518374)を確認した。実Google API・実トークン・AWS workerは未使用で、実認可の取消・失効・更新やCalendar/Sheets配送の完了証拠にはしない。修正はmain・AWSへ未反映で、I01/I04/I05と正式公開No-Goを維持する。
 
 | 区分 | 現在の状態 |
 | --- | --- |
 | 開発環境 | [9月22日の再確認](RUNTIME_OS_BB61B0E6_2026-09-22.md)ではWeb定義49・コードd875d028、desired/running=1、readinessのDB/cache正常。後続のStripe修正は未反映 |
-| main / 作業候補 | 9月22日にorigin/main=d875d028を再確認。最新候補bb61b0e6は[main/開発AWS反映の承認待ち](STRIPE_AWS_APP_APPROVAL_2026-09-19.md)。開発AWSは定義49・d875d028のままで、本番反映も未実施 |
-| 自動検査 | [6ff9a1f9のCI全6ジョブ成功](STRIPE_CI_6FF9A1F9_2026-09-19.json)と[通常配布物](STRIPE_CONTAINER_6FF9A1F9_2026-09-19.md)を確認。後続bb61b0e6の[監視コマンド・配布物検証](BILLING_EMAIL_HEALTH_2026-09-19.md)は成功、[全体CIも6ジョブ成功](STRIPE_CI_BB61B0E6_2026-09-19.json) |
+| main / 作業候補 | 9月22日にorigin/main=d875d028を再確認。Stripe候補bb61b0e6へのGoogle修正を含む最新候補は9ca92792。旧候補の[main/開発AWS反映案](STRIPE_AWS_APP_APPROVAL_2026-09-19.md)は対象SHAの更新が必要。開発AWSは定義49・d875d028のままで、本番反映も未実施 |
+| 自動検査 | [6ff9a1f9のCI全6ジョブ成功](STRIPE_CI_6FF9A1F9_2026-09-19.json)と[通常配布物](STRIPE_CONTAINER_6FF9A1F9_2026-09-19.md)を確認。後続bb61b0e6の[監視コマンド・配布物検証](BILLING_EMAIL_HEALTH_2026-09-19.md)と[全体CI](STRIPE_CI_BB61B0E6_2026-09-19.json)、さらにGoogle修正を含む9ca92792の[全6ジョブCI](https://github.com/sheepdog0820/iaia/actions/runs/35674518374)が成功 |
 | Google | 実認可の保存成功。実同期・トークン更新・公開審査は未完了。[一時Redis/workerのAWS接続試験](GOOGLE_WORKER_CONNECTIVITY_RESULT_2026-09-10.md)は成功・削除済み |
 | Stripe | 登録保留は解除済み。9月13日に月額・年額・更新・支払失敗/回復・解約・返金/異議を実サンドボックスで確認。[候補監査](STRIPE_CANDIDATE_AUDIT_2026-09-19.md)。AWS検証と残る異常系は未完了 |
 | 性能・復旧 | 隔離環境の対象APIは基準内、実RDSの限定復元は成功。実AWSの全操作性能とDB/S3を含むRPO/RTOは未証明 |
