@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+import requests
 from allauth.account.models import EmailAddress
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import get_user_model
@@ -85,6 +86,16 @@ class DiscordAuthApiTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("error", response.json())
 
+    @override_settings(DISCORD_CLIENT_ID="")
+    @patch("accounts.views.api_auth_views.requests.post")
+    def test_missing_client_configuration_returns_retryable_generic_error(self, mock_post):
+        response = self.client.post(self.url, {"code": "code"}, format="json")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.data, {"error": "Discord認証の設定を確認中です。"})
+        self.assertNotIn("DISCORD_CLIENT_ID", str(response.data))
+        mock_post.assert_not_called()
+
     @patch("accounts.views.api_auth_views.requests.post")
     def test_token_exchange_failure(self, mock_post):
         mock_post.return_value = DummyResponse(400, {"error": "invalid"})
@@ -103,6 +114,41 @@ class DiscordAuthApiTests(APITestCase):
         response = self.client.post(self.url, {"code": "code"}, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertIn("error", response.json())
+
+    @patch("accounts.views.api_auth_views.requests.post")
+    def test_token_exchange_timeout_is_retryable_without_exposing_details(self, mock_post):
+        mock_post.side_effect = requests.Timeout("secret-token")
+
+        with self.assertLogs("accounts.views.api_auth_views", level="WARNING") as logs:
+            response = self.client.post(self.url, {"code": "code"}, format="json")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.data,
+            {"error": "Discordとの通信に失敗しました。時間をおいて再度お試しください。"},
+        )
+        self.assertNotIn("secret-token", str(response.data))
+        self.assertNotIn("secret-token", str(logs.output))
+        self.assertFalse(User.objects.exists())
+
+    @patch("accounts.views.api_auth_views.requests.get")
+    @patch("accounts.views.api_auth_views.requests.post")
+    def test_user_fetch_timeout_is_retryable_without_exposing_details(self, mock_post, mock_get):
+        # Isolated test fixture or mocked credential; never a production secret.
+        mock_post.return_value = DummyResponse(200, {"access_token": "token"})  # nosec B105
+        mock_get.side_effect = requests.Timeout("secret-token")
+
+        with self.assertLogs("accounts.views.api_auth_views", level="WARNING") as logs:
+            response = self.client.post(self.url, {"code": "code"}, format="json")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.data,
+            {"error": "Discordとの通信に失敗しました。時間をおいて再度お試しください。"},
+        )
+        self.assertNotIn("secret-token", str(response.data))
+        self.assertNotIn("secret-token", str(logs.output))
+        self.assertFalse(User.objects.exists())
 
     @patch("accounts.views.api_auth_views.requests.get")
     @patch("accounts.views.api_auth_views.requests.post")
