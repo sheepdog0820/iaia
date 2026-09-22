@@ -36,3 +36,17 @@ SARIF: `C:/tmp/runtime-os-44a18301-20260922.sarif.json`。SHA-256: `e970d0a29789
 最新固定イメージのPostgreSQL/Redis・aws-pre設定の起動確認、実AWS・RDS/S3配信、実外部連携、実メール、総合性能・復旧は未実施。先行f8aa55a9の起動成功をこのイメージの成功へ拡張しない。反映承認案も旧f8aa55a9対象のままで、最新候補への更新が必要。
 
 mainマージ・ECR push・共有DB変更・AWS反映・認可/課金/継続費用の変更なし。正式公開No-Goを維持する。
+
+## 同イメージのPostgreSQL/Redis検証
+
+2026-09-22 16:53 JST、上記と同じイメージIDをDocker内部ネットワーク（Internal=true、公開ポートなし）で検証した。PostgreSQL 18.3のデータ領域はtmpfs、Redisは7-alpine。資格情報は使い捨てのダミーのみ。
+
+- `APP_ENV=aws-pre`、通常entrypointで空DBへの全マイグレーション・静的227ファイル収集/617後処理・Daphne起動に成功。
+- 実HTTPの `/health/ready/` は200、database/cacheともにok。
+- `migrate --check` と `check --deploy` は終了0、指摘なし。
+- 同じ配布物からローカルテスト設定/隔離PostgreSQLで履歴・キャッシュ10テスト成功（0.427秒）。テストDBは終了時に削除。テスト設定でのAPI試験と、aws-pre設定での起動/readinessは別々の検証である。
+- 3コンテナの名前・イメージ・公開ポートなしを照合後、専用Web/PG/Redisと内部ネットワークを削除し不在を確認。tmpfsの試験データは破棄、配布イメージとローカル監査ファイルは保持した。
+
+上記の「最新固定イメージのPostgreSQL/Redis・aws-pre設定起動未確認」はこの範囲で解消した。S3は無効でローカルストレージ、実Stripe・外部連携・メール・AWSは未使用。OS指摘36件・正式公開No-Goは変わらない。
+
+記録更新元 `d9a61f4c` の[CI](https://github.com/sheepdog0820/iaia/actions/runs/35701686200)は、確認時点でLint/Security・System・Infrastructure成功、残り3ジョブ実行中。ブランチ更新によるCI中断を避け、記録のpushはこの実行の完了後に行う。
