@@ -218,6 +218,8 @@ class GoogleIntegrationTestCase(APITestCase):
             "Discord通知の再送は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。",
         )
         self.assertContains(response, "Google Sheets キャラクターシート出力")
+        self.assertContains(response, "スプレッドシートID")
+        self.assertContains(response, "出力範囲（A1形式）")
         self.assertNotContains(response, "取込プレビュー")
         self.assertNotContains(response, 'id="import-google-sheets"')
         self.assertContains(response, "直前の招待を失効")
@@ -432,6 +434,34 @@ class GoogleIntegrationTestCase(APITestCase):
                     )
                 queue_export.assert_not_called()
                 self.assertFalse(AsyncJob.objects.filter(job_type="google_sheets_export").exists())
+
+    @patch("schedules.integration_views.queue_google_sheet_export", return_value=True)
+    def test_sheets_export_rejects_non_a1_range_before_queueing(self, queue_export):
+        self.connect_google()
+
+        response = self.client.post(
+            "/api/character-sheets/google-sheets/export/",
+            {"spreadsheet_id": "isolated-sheet", "range": "NamedRange"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["range"],
+            ["出力範囲はA1形式で指定してください（例: Characters!A1）。"],
+        )
+        queue_export.assert_not_called()
+        self.assertFalse(AsyncJob.objects.filter(job_type="google_sheets_export").exists())
+
+    def test_sheets_export_requires_connected_google_in_japanese(self):
+        response = self.client.post(
+            "/api/character-sheets/google-sheets/export/",
+            {"spreadsheet_id": "isolated-sheet"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "Google Sheets連携を確認できません。Googleを再連携してください。")
 
     @patch("schedules.integration_views.queue_google_sheet_export", return_value=True)
     def test_sheets_export_selection_does_not_include_other_owned_or_foreign_characters(self, queue_export):

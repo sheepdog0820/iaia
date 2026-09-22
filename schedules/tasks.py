@@ -11,6 +11,11 @@ from django.utils import timezone
 
 from accounts.models import DiscordDelivery, GroupDiscordSettings
 
+from .google_sheets import (
+    SHEETS_EXPORT_CHUNK_ROWS,
+    normalize_sheet_start_range,
+    offset_sheet_start_range,
+)
 from .google_tokens import get_google_access_token
 from .handout_release import evaluate_release_conditions, publish_handout
 from .holiday_sync import sync_japanese_holidays as run_japanese_holiday_sync
@@ -26,6 +31,11 @@ GOOGLE_CALENDAR_DELIVERY_FAILED_MESSAGE = (
 GOOGLE_SHEETS_DELIVERY_FAILED_MESSAGE = (
     "Google Sheets APIとの通信に失敗しました。連携状態と出力先を確認して再試行してください。"
 )
+GOOGLE_SHEETS_PARTIAL_DELIVERY_FAILED_MESSAGE = (
+    "Google Sheets APIとの通信に失敗しました。途中まで出力されている可能性があります。"
+    "連携状態と出力先を確認して再試行してください。"
+)
+GOOGLE_SHEETS_INVALID_RESPONSE_MESSAGE = "Google Sheetsの応答形式を確認できません。出力先を確認して再試行してください。"
 
 
 def _broker_available():
@@ -406,33 +416,63 @@ def export_google_sheet(
         job.mark_failed(exc)
         return "missing-token"
     try:
-        response = requests.put(
-            f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}/values/{range_name}",
-            params={"valueInputOption": "RAW"},
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Content-Type": "application/json",
-            },
-            json={"majorDimension": "ROWS", "values": values},
-            timeout=15,
-        )
-        response.raise_for_status()
-    except requests.RequestException:
-        job.mark_failed(GOOGLE_SHEETS_DELIVERY_FAILED_MESSAGE)
-        retry_error = requests.RequestException(GOOGLE_SHEETS_DELIVERY_FAILED_MESSAGE)
-        raise self.retry(exc=retry_error, countdown=2**self.request.retries) from None
-    try:
-        result = response.json()
-    except ValueError:
-        result = None
-    if not isinstance(result, dict):
-        job.mark_failed("Google Sheetsの応答形式を確認できません。出力先を確認して再試行してください。")
-        return "invalid-response"
+        range_name = normalize_sheet_start_range(range_name)
+    except ValueError as exc:
+        job.mark_failed(exc)
+        return "invalid-range"
+
+    chunks = [
+        values[index : index + SHEETS_EXPORT_CHUNK_ROWS] for index in range(0, len(values), SHEETS_EXPORT_CHUNK_ROWS)
+    ]
+    if not chunks:
+        chunks = [[]]
+    total_rows = len(values)
+    completed_rows = 0
+    updated_cells = 0
+    for chunk in chunks:
+        chunk_range = offset_sheet_start_range(range_name, completed_rows)
+        try:
+            response = requests.put(
+                f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}/values/{chunk_range}",
+                params={"valueInputOption": "RAW"},
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                },
+                json={"majorDimension": "ROWS", "values": chunk},
+                timeout=15,
+            )
+            response.raise_for_status()
+        except requests.RequestException:
+            failure_message = (
+                GOOGLE_SHEETS_PARTIAL_DELIVERY_FAILED_MESSAGE
+                if completed_rows
+                else GOOGLE_SHEETS_DELIVERY_FAILED_MESSAGE
+            )
+            job.mark_failed(failure_message)
+            retry_error = requests.RequestException(failure_message)
+            raise self.retry(exc=retry_error, countdown=2**self.request.retries) from None
+        try:
+            result = response.json()
+        except ValueError:
+            result = None
+        if not isinstance(result, dict):
+            job.mark_failed(GOOGLE_SHEETS_INVALID_RESPONSE_MESSAGE)
+            return "invalid-response"
+        chunk_updated_cells = result.get("updatedCells", 0)
+        if not isinstance(chunk_updated_cells, int) or isinstance(chunk_updated_cells, bool) or chunk_updated_cells < 0:
+            job.mark_failed(GOOGLE_SHEETS_INVALID_RESPONSE_MESSAGE)
+            return "invalid-response"
+        updated_cells += chunk_updated_cells
+        completed_rows += len(chunk)
+        if total_rows:
+            job.set_progress(10 + int((completed_rows / total_rows) * 80))
     job.mark_succeeded(
         {
             "spreadsheet_id": spreadsheet_id,
             "range": range_name,
-            "updated_cells": result.get("updatedCells", 0),
+            "updated_cells": updated_cells,
+            "request_count": len(chunks),
         }
     )
     return "exported"

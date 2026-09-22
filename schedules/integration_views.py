@@ -17,7 +17,11 @@ from rest_framework.views import APIView
 
 from accounts.models import CharacterSheet
 
-from .google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_START_RANGE
+from .google_sheets import (
+    SHEET_COLUMNS,
+    SHEETS_DEFAULT_START_RANGE,
+    normalize_sheet_start_range,
+)
 from .google_tokens import get_google_access_token
 from .integration_access import visible_user_sessions as _visible_user_sessions
 from .models import (
@@ -279,6 +283,18 @@ class GoogleSheetsSelectionSerializer(serializers.Serializer):
             "not_a_list": "出力するキャラクターを一覧で指定してください。",
         },
     )
+    range = serializers.CharField(
+        required=False,
+        default=SHEETS_DEFAULT_START_RANGE,
+        allow_blank=False,
+        max_length=255,
+    )
+
+    def validate_range(self, value):
+        try:
+            return normalize_sheet_start_range(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
 
 
 class GoogleSheetsExportView(APIView):
@@ -288,12 +304,13 @@ class GoogleSheetsExportView(APIView):
         integration = GoogleIntegration.objects.filter(user=request.user, sheets_enabled=True).first()
         if not integration or not integration.has_scope(GoogleIntegration.REQUIRED_SHEETS_SCOPE):
             return Response(
-                {"detail": "Google Sheets is not connected."},
+                {"detail": "Google Sheets連携を確認できません。Googleを再連携してください。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         selection = GoogleSheetsSelectionSerializer(data=request.data)
         selection.is_valid(raise_exception=True)
         character_ids = selection.validated_data.get("character_ids")
+        range_name = selection.validated_data["range"]
         characters = CharacterSheet.objects.filter(user=request.user)
         if character_ids is not None:
             characters = characters.filter(pk__in=character_ids)
@@ -329,7 +346,7 @@ class GoogleSheetsExportView(APIView):
             job_type="google_sheets_export",
             payload={
                 "spreadsheet_id": spreadsheet_id,
-                "range": request.data.get("range", SHEETS_DEFAULT_START_RANGE),
+                "range": range_name,
                 "character_ids": [row[0] for row in rows],
                 "selection_snapshot": True,
             },
@@ -340,7 +357,7 @@ class GoogleSheetsExportView(APIView):
             str(job.pk),
             request.user.pk,
             spreadsheet_id,
-            request.data.get("range", SHEETS_DEFAULT_START_RANGE),
+            range_name,
             values,
         )
         if not queued:
