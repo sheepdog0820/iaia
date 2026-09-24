@@ -17,6 +17,11 @@ urlpatterns = [
         ScenarioImageContentView.as_view(),
         name="scenario_image_session_content",
     ),
+    path(
+        "scenario-images/<int:pk>/shared-sessions/<uuid:share_token>/content/",
+        ScenarioImageContentView.as_view(),
+        name="scenario_image_shared_session_content",
+    ),
     # API URLs
     path("", include(router.urls)),
     path("archive/", views.ScenarioArchiveView.as_view(), name="scenario_archive"),

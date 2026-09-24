@@ -28,10 +28,18 @@ class ScenarioImageContentView(GenericAPIView):
             (200, "application/octet-stream"): OpenApiTypes.BINARY,
         }
     )
-    def get(self, request, pk=None, path=None, session_pk=None):
+    def get(self, request, pk=None, path=None, session_pk=None, share_token=None):
         lookup = {"pk": pk} if pk is not None else {"image": f"scenario_images/{path}"}
         picture = get_object_or_404(ScenarioImage.objects.select_related("scenario"), **lookup)
-        if session_pk is not None:
+        if share_token is not None:
+            session = get_object_or_404(
+                TRPGSession,
+                share_token=share_token,
+                visibility__in=("link", "public"),
+                scenario_id=picture.scenario_id,
+            )
+            allowed = True
+        elif session_pk is not None:
             session = get_object_or_404(TRPGSession, pk=session_pk, scenario_id=picture.scenario_id)
             # The session detail page requires a signed-in viewer, even for public sessions.
             allowed = request.user.is_authenticated and can_view_session_basic(request.user, session)
