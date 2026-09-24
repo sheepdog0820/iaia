@@ -18,6 +18,19 @@ GitHub mainは`d875d028ede0b3172780d54d4baacdb226a1d3b3`。AWSアカウント083
 
 共有DBの移行履歴は直接照会していない。RDS復元可能時刻、稼働イメージdigest、S3 VersionIdは今回更新していない。[前回の復旧証拠](AWS_APP_APPROVAL_F8AA55A9_2026-09-22.md)を参照し、適用直前に必ず再取得する。認証失効や対象変更があれば停止する。
 
+## 9月25日 06:51 JSTの追加読み取り確認
+
+STS accountは083773015316。ECS定義49はdesired/running/pending=0/0/0、HTTP readinessは503。RDS `tableno-aws-pre` はstoppedで、バックアップ保持は7日。CloudTrailでは2時台のECS/RDS操作がEventBridge SchedulerのAWS SDK呼び出しとして記録され、スケジュール本体も次を確認した。
+
+| 操作 | 有効スケジュール（Asia/Tokyo） |
+| --- | --- |
+| ECS desired count 0 | 毎日 02:00 |
+| RDS停止 | 毎日 02:05 |
+| RDS起動 | 毎日 07:30 |
+| ECS desired count 1 | 毎日 08:00 |
+
+したがって06:51の503は定期停止時間帯に一致する。7:30/8:00の再開成功は未確認であり、今回の読み取り確認ではサービスを起動していない。再開時刻後に利用・デプロイする場合はreadiness、ECS安定状態、RDS状態を実行直前に確認する。CloudTrail履歴はスケジューラによる実行を示すが、停止時間帯の利用合意や日中の起動成功を証明するものではない。
+
 ## 承認対象と実行前ゲート
 
 1. CI全体成功・対象差分・main不変・稼働状態を再確認後、上記アプリ候補をmainへ通常マージする。未知の更新や競合では停止する。
