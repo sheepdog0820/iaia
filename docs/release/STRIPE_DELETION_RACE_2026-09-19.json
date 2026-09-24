@@ -1,0 +1,80 @@
+{
+  "account": "acct_1UFA5iE2s31mT3or",
+  "checks": [
+    {
+      "name": "listener_ready",
+      "passed": true
+    },
+    {
+      "name": "deletion_resources_test_mode",
+      "passed": true
+    },
+    {
+      "name": "deletion_created_event_held",
+      "passed": true
+    },
+    {
+      "name": "deletion_row_lock_acquired",
+      "passed": true
+    },
+    {
+      "name": "deletion_other_transaction_waits_on_pg_lock",
+      "passed": true
+    },
+    {
+      "name": "deletion_both_operations_completed",
+      "passed": true
+    },
+    {
+      "name": "deletion_no_user_or_premium_recreated",
+      "passed": true
+    },
+    {
+      "name": "deletion_signed_event_succeeded",
+      "passed": true
+    },
+    {
+      "name": "webhook_resources_test_mode",
+      "passed": true
+    },
+    {
+      "name": "webhook_created_event_held",
+      "passed": true
+    },
+    {
+      "name": "webhook_row_lock_acquired",
+      "passed": true
+    },
+    {
+      "name": "webhook_other_transaction_waits_on_pg_lock",
+      "passed": true
+    },
+    {
+      "name": "webhook_both_operations_completed",
+      "passed": true
+    },
+    {
+      "name": "webhook_no_user_or_premium_recreated",
+      "passed": true
+    },
+    {
+      "name": "webhook_signed_event_succeeded",
+      "passed": true
+    }
+  ],
+  "cases": [
+    {
+      "lock_holder": "deletion",
+      "event_id": "evt_1UHKpKE2s31mT3orZYjG0Sl2",
+      "event_type": "customer.subscription.created"
+    },
+    {
+      "lock_holder": "webhook",
+      "event_id": "evt_1UHKpPE2s31mT3orOLK369HT",
+      "event_type": "customer.subscription.created"
+    }
+  ],
+  "subscriptions_canceled": true,
+  "tested_commit": "0f6b81feacf5a8fd77ad05128dea41f0ea5d2dc6",
+  "database": "PostgreSQL 18.3; isolated disposable container"
+}

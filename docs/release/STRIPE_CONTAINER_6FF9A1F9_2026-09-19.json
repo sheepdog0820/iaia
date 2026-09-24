@@ -1,0 +1,30 @@
+{
+  "candidate": "6ff9a1f9b9fe965b2461de0694530d3e18ffda96",
+  "database": "PostgreSQL 18.3 isolated Docker network",
+  "checks": [
+    {
+      "name": "container_migrations_and_check",
+      "passed": true
+    },
+    {
+      "name": "container_nine_deletion_route_tests",
+      "passed": true
+    },
+    {
+      "name": "container_source_matches_candidate",
+      "passed": true
+    },
+    {
+      "name": "normal_startup_http_database_cache_ready",
+      "passed": true
+    }
+  ],
+  "source_sha256": {
+    "accounts/admin.py": "374099129bfd31627d9646e425046c0d997e539d2a65fbd1d6c4aa2bee5e8086",
+    "accounts/views/admin_views.py": "eb42c7e557fb973fcb0d2b25de2e27bc5a99ecf486da24024eeb1b7fdb09f476",
+    "accounts/views/mixins.py": "2663d30260300e92f44d86d3c67f2b1bde379f56622f421b00312b14d1001261",
+    "accounts/views/user_views.py": "9aee3e4abc5f5df8eb2f732ff3786a1f0b67628925997841ae248a727ba2ff1e",
+    "accounts/billing_deletion.py": "c0dc4b0eefda2cbd07256a539d1fab23d5a0df0d8affc42fc06a22cb90cbe60f"
+  },
+  "image_id": "sha256:5e8f4f132ae472f0bd2a5d64c7019e501aab0303bfecfa9860f1769a64e7f702"
+}

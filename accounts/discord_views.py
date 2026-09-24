@@ -6,7 +6,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from schedules.tasks import _broker_available, send_discord_webhook
+from schedules.tasks import (
+    BACKGROUND_TASK_UNAVAILABLE_MESSAGE,
+    DISCORD_DELIVERY_FAILED_MESSAGE,
+    _broker_available,
+    send_discord_webhook,
+)
 
 from .models import DiscordDelivery, Group, GroupDiscordSettings, GroupMembership
 
@@ -29,7 +34,7 @@ class GroupDiscordSettingsSerializer(serializers.ModelSerializer):
         }
         unknown = set(value) - allowed
         if unknown:
-            raise serializers.ValidationError(f"Unknown event types: {sorted(unknown)}")
+            raise serializers.ValidationError(f"未対応の通知種別です: {sorted(unknown)}")
         return value
 
     def update(self, instance, validated_data):
@@ -39,7 +44,7 @@ class GroupDiscordSettingsSerializer(serializers.ModelSerializer):
         for field, value in validated_data.items():
             setattr(instance, field, value)
         if instance.enabled and not instance.is_configured:
-            raise serializers.ValidationError({"enabled": "A webhook URL is required."})
+            raise serializers.ValidationError({"enabled": "Discord Webhook URLを設定してください。"})
         instance.failure_count = 0
         instance.disabled_at = None
         instance.save()
@@ -72,6 +77,13 @@ class GroupDiscordSettingsView(APIView):
 
 
 class DiscordDeliverySerializer(serializers.ModelSerializer):
+    last_error = serializers.SerializerMethodField()
+
+    def get_last_error(self, obj) -> str:
+        if "http://" in obj.last_error.lower() or "https://" in obj.last_error.lower():
+            return DISCORD_DELIVERY_FAILED_MESSAGE
+        return obj.last_error
+
     class Meta:
         model = DiscordDelivery
         fields = [
@@ -158,26 +170,26 @@ class GroupDiscordDeliveryRetryView(APIView):
         settings_obj = delivery.settings
         if delivery.status != DiscordDelivery.Status.FAILED:
             return Response(
-                {"detail": "Only failed Discord deliveries can be retried."},
+                {"detail": "失敗したDiscord通知だけ再送できます。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not settings_obj.enabled:
             return Response(
-                {"detail": "Discord notifications are disabled for this group."},
+                {"detail": "このグループではDiscord通知が無効です。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not settings_obj.is_configured:
             return Response(
-                {"detail": "A Discord webhook URL is required."},
+                {"detail": "Discord Webhook URLを設定してください。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if delivery.event_type not in settings_obj.event_types:
             return Response(
-                {"detail": "This Discord event type is disabled."},
+                {"detail": "この種類のDiscord通知は無効です。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not _broker_available():
-            delivery.last_error = "Background task broker is unavailable."
+            delivery.last_error = BACKGROUND_TASK_UNAVAILABLE_MESSAGE
             delivery.save(update_fields=["last_error"])
             return Response(
                 {"delivery_id": delivery.pk, "queued": False},

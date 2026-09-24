@@ -1,14 +1,22 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.core.mail import send_mail
+from django.core.mail import get_connection, send_mail
 from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import PremiumAccessCode, PremiumAccessCodeRedemption, PremiumAuditLog, PremiumSubscription
+from .models import (
+    BillingEmailDelivery,
+    PremiumAccessCode,
+    PremiumAccessCodeRedemption,
+    PremiumAuditLog,
+    PremiumSubscription,
+    StripeBillingRequest,
+    StripeInvoiceState,
+)
 
 
 def get_stripe():
@@ -93,17 +101,41 @@ def get_or_create_subscription_record(user):
 def get_or_create_stripe_customer(user):
     stripe = get_stripe()
     record = get_or_create_subscription_record(user)
-    if record.stripe_customer_id:
+    # Persist the immutable retry parameters before making a remote write.
+    with transaction.atomic():
+        record = PremiumSubscription.objects.select_for_update().get(pk=record.pk)
+        if record.stripe_customer_id:
+            return record
+        StripeBillingRequest.objects.get_or_create(
+            subscription=record,
+            operation="customer",
+            defaults={
+                "parameters": {
+                    "email": user.email or None,
+                    "name": user.get_full_name() or user.nickname or user.username,
+                    "metadata": {"user_id": str(user.id)},
+                }
+            },
+        )
+    with transaction.atomic():
+        record = PremiumSubscription.objects.select_for_update().get(pk=record.pk)
+        if record.stripe_customer_id:
+            return record
+        attempt = StripeBillingRequest.objects.get(subscription=record, operation="customer")
+        customer = execute_stripe_creation(attempt, stripe.Customer.create)
+        record.stripe_customer_id = customer.id
+        record.save(update_fields=["stripe_customer_id", "updated_at"])
+        attempt.resource_id = customer.id
+        attempt.save(update_fields=["resource_id"])
         return record
 
-    customer = stripe.Customer.create(
-        email=user.email or None,
-        name=user.get_full_name() or user.nickname or user.username,
-        metadata={"user_id": str(user.id)},
-    )
-    record.stripe_customer_id = customer.id
-    record.save(update_fields=["stripe_customer_id", "updated_at"])
-    return record
+
+def execute_stripe_creation(attempt, create):
+    # Stripe can discard idempotency keys after 24 hours. An unresolved write must
+    # be reconciled by support, never silently retried with a fresh key.
+    if attempt.created_at <= timezone.now() - timedelta(hours=23):
+        raise ValueError("前回の購入処理の確認が必要です。お問い合わせ窓口へご連絡ください。")
+    return create(**attempt.parameters, idempotency_key=str(attempt.idempotency_key))
 
 
 def create_checkout_session(request, plan="monthly"):
@@ -114,19 +146,60 @@ def create_checkout_session(request, plan="monthly"):
     success_url = request.build_absolute_uri(reverse("billing_success"))
     cancel_url = request.build_absolute_uri(reverse("billing_cancel"))
 
-    session = stripe.checkout.Session.create(
-        mode="subscription",
-        customer=record.stripe_customer_id,
-        line_items=[{"price": price_id, "quantity": 1}],
-        success_url=f"{success_url}?session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=cancel_url,
-        client_reference_id=str(request.user.id),
-        metadata={"user_id": str(request.user.id), "billing_plan": plan},
-        subscription_data={
-            "metadata": {"user_id": str(request.user.id), "billing_plan": plan},
-        },
-    )
-    return session
+    parameters = {
+        "mode": "subscription",
+        "customer": record.stripe_customer_id,
+        "line_items": [{"price": price_id, "quantity": 1}],
+        "success_url": f"{success_url}?session_id={{CHECKOUT_SESSION_ID}}",
+        "cancel_url": cancel_url,
+        "client_reference_id": str(request.user.id),
+        "metadata": {"user_id": str(request.user.id), "billing_plan": plan},
+        "subscription_data": {"metadata": {"user_id": str(request.user.id), "billing_plan": plan}},
+    }
+    # Each iteration commits an intent before its API call in the next iteration.
+    # The customer row serializes purchase requests across processes on PostgreSQL.
+    for _ in range(4):
+        with transaction.atomic():
+            record = PremiumSubscription.objects.select_for_update().get(pk=record.pk)
+            subscriptions = stripe.Subscription.list(customer=record.stripe_customer_id, status="all", limit=100)
+            if any(
+                stripe_object_get(sub, "status") not in {"canceled", "incomplete_expired"}
+                for sub in subscriptions.auto_paging_iter()
+            ):
+                raise ValueError("既に契約があります。請求管理画面で契約をご確認ください。")
+            attempt = StripeBillingRequest.objects.filter(subscription=record, operation="checkout").first()
+            if attempt is None:
+                # Close untracked sessions from an older app version before
+                # creating an intent; otherwise two browser tabs could both pay.
+                open_sessions = stripe.checkout.Session.list(
+                    customer=record.stripe_customer_id, status="open", limit=100
+                )
+                for old_session in open_sessions.auto_paging_iter():
+                    stripe.checkout.Session.expire(old_session.id)
+            if attempt is not None:
+                session = (
+                    stripe.checkout.Session.retrieve(attempt.resource_id)
+                    if attempt.resource_id
+                    else execute_stripe_creation(attempt, stripe.checkout.Session.create)
+                )
+                attempt.resource_id = session.id
+                attempt.save(update_fields=["resource_id"])
+                session_status = stripe_object_get(session, "status")
+                if session_status == "open":
+                    if attempt.parameters == parameters:
+                        return session
+                    # Expiration must succeed before another price can be purchased.
+                    stripe.checkout.Session.expire(session.id)
+                elif session_status == "complete":
+                    subscription_id = stripe_object_get(session, "subscription")
+                    current = stripe.Subscription.retrieve(subscription_id) if subscription_id else None
+                    if stripe_object_get(current, "status") not in {"canceled", "incomplete_expired"}:
+                        raise ValueError("既に契約があります。請求管理画面で契約をご確認ください。")
+                elif session_status != "expired":
+                    raise ValueError("購入処理を確認できません。時間をおいて再度お試しください。")
+                attempt.delete()
+            StripeBillingRequest.objects.create(subscription=record, operation="checkout", parameters=parameters)
+    raise ValueError("別の購入操作が進行中です。時間をおいて再度お試しください。")
 
 
 def create_portal_session(request):
@@ -169,6 +242,10 @@ def sync_subscription_object(subscription, event_id=""):
         if item_data:
             current_period_end = stripe_object_get(item_data[0], "current_period_end")
     cancel_at_period_end = bool(stripe_object_get(subscription, "cancel_at_period_end", False))
+    # Customer Portal can schedule the same period-end cancellation via cancel_at.
+    cancel_at = stripe_object_get(subscription, "cancel_at")
+    if current_period_end and cancel_at == current_period_end:
+        cancel_at_period_end = True
     stripe_price_id, billing_interval = extract_subscription_price(subscription)
 
     was_active = record.user.is_premium
@@ -255,46 +332,111 @@ def sync_subscription_object(subscription, event_id=""):
     return record
 
 
+@transaction.atomic
 def handle_checkout_completed(session, event_id=""):
     from django.contrib.auth import get_user_model
 
-    user_id = session.get("client_reference_id") or session.get("metadata", {}).get("user_id")
+    user_id = stripe_object_get(session, "client_reference_id") or stripe_object_get(
+        stripe_object_get(session, "metadata", {}) or {}, "user_id"
+    )
     if not user_id:
         return None
 
-    User = get_user_model()
-    user = User.objects.filter(id=user_id).first()
+    user = get_user_model().objects.filter(id=user_id).first()
     if user is None:
         return None
 
-    subscription = session.get("subscription")
-    subscription_id = stripe_object_get(subscription, "id") if isinstance(subscription, dict) else subscription
-
+    customer_id = stripe_reference_id(stripe_object_get(session, "customer"))
+    subscription_id = stripe_reference_id(stripe_object_get(session, "subscription"))
+    if not customer_id or not subscription_id:
+        raise ValueError("Stripe checkout subscription reference missing")
     record = get_or_create_subscription_record(user)
-    record.stripe_customer_id = session.get("customer") or record.stripe_customer_id
-    record.stripe_subscription_id = subscription_id or record.stripe_subscription_id
-    if event_id:
-        record.last_webhook_event_id = event_id
-    record.save(
-        update_fields=[
-            "stripe_customer_id",
-            "stripe_subscription_id",
-            "last_webhook_event_id",
-            "updated_at",
-        ]
+    record = PremiumSubscription.objects.select_for_update().get(pk=record.pk)
+    if record.stripe_customer_id and record.stripe_customer_id != customer_id:
+        raise ValueError("Stripe checkout customer ownership mismatch")
+
+    # Even expanded event payloads are historical snapshots. Fetch after locking.
+    current = get_stripe().Subscription.retrieve(subscription_id)
+    if (
+        stripe_object_get(current, "id") != subscription_id
+        or stripe_reference_id(stripe_object_get(current, "customer")) != customer_id
+    ):
+        raise ValueError("Stripe checkout subscription ownership mismatch")
+    if (
+        record.stripe_subscription_id
+        and record.stripe_subscription_id != subscription_id
+        and stripe_object_get(current, "status") in {"canceled", "incomplete_expired"}
+    ):
+        return record
+
+    record.stripe_customer_id = customer_id
+    record.save(update_fields=["stripe_customer_id", "updated_at"])
+    return sync_subscription_object(current, event_id=event_id)
+
+
+def current_invoice_state(stripe, invoice_id, customer_id):
+    current = stripe.Invoice.retrieve(invoice_id)
+    if stripe_object_get(current, "id") != invoice_id or stripe_object_get(current, "customer") != customer_id:
+        raise ValueError("Stripe invoice ownership mismatch")
+    status = stripe_object_get(current, "status")
+    if status not in {"open", "paid", "void", "uncollectible"}:
+        raise ValueError("Unexpected Stripe invoice state")
+    return status
+
+
+@transaction.atomic
+def reconcile_invoice_payment(invoice, event_type, event_id=""):
+    customer_id = invoice.get("customer")
+    record = PremiumSubscription.objects.select_for_update().filter(stripe_customer_id=customer_id).first()
+    if record is None:
+        return None
+    stripe = get_stripe()
+    states = StripeInvoiceState.objects.filter(subscription=record)
+    if not states.exists():
+        # Seed pre-upgrade failures from audit history and current Stripe state.
+        # Never attribute a legacy warning to an unrelated successful invoice.
+        prior_ids = {
+            metadata.get("invoice_id")
+            for metadata in PremiumAuditLog.objects.filter(
+                user=record.user, source="stripe", action="payment_failed"
+            ).values_list("metadata", flat=True)
+            if metadata.get("invoice_id")
+        }
+        if record.last_payment_failed_at and not prior_ids:
+            raise ValueError("Legacy payment failure requires invoice reconciliation")
+        for prior_id in sorted(prior_ids):
+            current_status = current_invoice_state(stripe, prior_id, customer_id)
+            StripeInvoiceState.objects.create(
+                subscription=record,
+                invoice_id=prior_id,
+                status=current_status,
+                payment_failed=current_status in {"open", "uncollectible"},
+            )
+    invoice_id = invoice["id"]
+    current_status = current_invoice_state(stripe, invoice_id, customer_id)
+    state, _ = StripeInvoiceState.objects.get_or_create(
+        subscription=record, invoice_id=invoice_id, defaults={"status": current_status}
     )
-
-    if isinstance(subscription, dict):
-        return sync_subscription_object(subscription, event_id=event_id)
-
-    if record.stripe_subscription_id:
-        stripe = get_stripe()
-        subscription = stripe.Subscription.retrieve(record.stripe_subscription_id)
-        return sync_subscription_object(subscription, event_id=event_id)
-
+    was_failed = state.payment_failed
+    state.status = current_status
+    if current_status in {"paid", "void"}:
+        state.payment_failed = False
+    elif event_type == "invoice.payment_failed":
+        state.payment_failed = True
+    state.last_event_id = event_id
+    state.save(update_fields=["status", "payment_failed", "last_event_id", "updated_at"])
+    if state.payment_failed and not was_failed:
+        return mark_invoice_payment_failed(invoice, event_id=event_id)
+    if not states.filter(payment_failed=True).exists():
+        return mark_invoice_payment_succeeded(invoice, event_id=event_id)
+    if record.last_payment_failed_at is None:
+        record.last_payment_failed_at = timezone.now()
+    record.last_webhook_event_id = event_id
+    record.save(update_fields=["last_payment_failed_at", "last_webhook_event_id", "updated_at"])
     return record
 
 
+@transaction.atomic
 def mark_invoice_payment_failed(invoice, event_id=""):
     customer_id = invoice.get("customer")
     record = PremiumSubscription.objects.select_related("user").filter(stripe_customer_id=customer_id).first()
@@ -304,8 +446,7 @@ def mark_invoice_payment_failed(invoice, event_id=""):
     if event_id:
         record.last_webhook_event_id = event_id
     record.save(update_fields=["last_payment_failed_at", "last_webhook_event_id", "updated_at"])
-    email_sent = send_payment_failed_email(record.user)
-    create_premium_audit_log(
+    audit = create_premium_audit_log(
         record.user,
         action="payment_failed",
         source="stripe",
@@ -313,9 +454,11 @@ def mark_invoice_payment_failed(invoice, event_id=""):
         stripe_event_id=event_id,
         metadata={
             "invoice_id": invoice.get("id", ""),
-            "email_sent": email_sent,
+            "email_sent": False,
+            "email_status": "pending",
         },
     )
+    BillingEmailDelivery.objects.create(audit=audit, subscription=record, invoice_id=invoice.get("id", ""))
     return record
 
 
@@ -341,19 +484,101 @@ def mark_invoice_payment_succeeded(invoice, event_id=""):
     return record
 
 
+def stripe_reference_id(value):
+    return value if isinstance(value, str) else stripe_object_get(value, "id", "")
+
+
+@transaction.atomic
+def reconcile_dispute_event(data_object, *, event_type, event_id=""):
+    stripe = get_stripe()
+    dispute_id = stripe_object_get(data_object, "id")
+    charge_id = stripe_reference_id(stripe_object_get(data_object, "charge"))
+    if not dispute_id or not charge_id:
+        raise ValueError("Stripe dispute reference missing")
+    charge = stripe.Charge.retrieve(charge_id)
+    customer_id = stripe_reference_id(stripe_object_get(charge, "customer"))
+    if stripe_object_get(charge, "id") != charge_id or not customer_id:
+        raise ValueError("Stripe dispute charge ownership mismatch")
+    record = PremiumSubscription.objects.select_for_update().filter(stripe_customer_id=customer_id).first()
+    if record is None:
+        return None
+    # Read under the same row lock as subscription/refund updates so an older
+    # notification cannot overwrite a completed dispute with its old snapshot.
+    current = stripe.Dispute.retrieve(dispute_id)
+    if (
+        stripe_object_get(current, "id") != dispute_id
+        or stripe_reference_id(stripe_object_get(current, "charge")) != charge_id
+    ):
+        raise ValueError("Stripe dispute charge mismatch")
+    current_status = stripe_object_get(current, "status")
+    closed_statuses = {"won", "lost", "warning_closed", "prevented"}
+    if current_status not in closed_statuses | {
+        "needs_response",
+        "under_review",
+        "warning_needs_response",
+        "warning_under_review",
+    }:
+        raise ValueError("Unexpected Stripe dispute state")
+    current_data = {
+        key: stripe_object_get(current, key, "")
+        for key in ("id", "status", "amount", "currency", "reason", "payment_intent")
+    }
+    current_data.update(
+        customer=customer_id,
+        charge=charge_id,
+        invoice=stripe_reference_id(stripe_object_get(charge, "invoice")),
+        payment_intent=stripe_reference_id(stripe_object_get(current, "payment_intent")),
+    )
+    effective_type = "charge.dispute.closed" if current_status in closed_statuses else "charge.dispute.created"
+    return mark_refund_or_dispute(current_data, event_type=effective_type, event_id=event_id)
+
+
+def has_other_automatic_payment_revocation(user, winning_dispute_id):
+    if not winning_dispute_id:
+        return True
+    disputes = {}
+    history = PremiumAuditLog.objects.filter(
+        user=user, source="stripe", action__in=["refunded", "disputed", "granted", "restored"]
+    )
+    for audit in history.order_by("-created_at", "-pk").iterator():
+        # A completed access restoration starts a new period of automatic holds.
+        if audit.action in {"granted", "restored"}:
+            break
+        metadata = audit.metadata
+        automatic = metadata.get("auto_revoked", True)
+        if audit.action == "refunded":
+            if automatic:
+                return True
+            continue
+        dispute_id = metadata.get("object_id")
+        if dispute_id == winning_dispute_id:
+            continue
+        if not dispute_id:
+            if automatic:
+                return True
+            continue
+        disposition = disputes.setdefault(dispute_id, {"status": metadata.get("dispute_status"), "automatic": False})
+        disposition["automatic"] = disposition["automatic"] or automatic
+    return any(item["automatic"] and item["status"] != "won" for item in disputes.values())
+
+
+@transaction.atomic
 def mark_refund_or_dispute(data_object, *, event_type, event_id=""):
     customer_id = stripe_object_get(data_object, "customer")
     charge_id = stripe_object_get(data_object, "charge") or stripe_object_get(data_object, "id", "")
     charge_obj = None
     if not customer_id and charge_id:
-        try:
-            stripe = get_stripe()
-            charge_obj = stripe.Charge.retrieve(charge_id)
-            customer_id = stripe_object_get(charge_obj, "customer", "")
-        except Exception:
-            customer_id = ""
+        # Let the webhook record a failure so Stripe can retry a transient outage.
+        stripe = get_stripe()
+        charge_obj = stripe.Charge.retrieve(charge_id)
+        customer_id = stripe_object_get(charge_obj, "customer", "")
 
-    record = PremiumSubscription.objects.select_related("user").filter(stripe_customer_id=customer_id).first()
+    record = (
+        PremiumSubscription.objects.select_for_update(of=("self",))
+        .select_related("user")
+        .filter(stripe_customer_id=customer_id)
+        .first()
+    )
     if record is None:
         return None
 
@@ -386,8 +611,16 @@ def mark_refund_or_dispute(data_object, *, event_type, event_id=""):
         and record.access_source == "stripe"
         and record.revoked_at is not None
         and record.revoked_reason == "Stripe charge disputed"
+        and record.stripe_subscription_id
+        and not has_other_automatic_payment_revocation(record.user, stripe_object_get(data_object, "id"))
     ):
-        record.subscription_status = "active"
+        current_subscription = get_stripe().Subscription.retrieve(record.stripe_subscription_id)
+        if (
+            stripe_object_get(current_subscription, "id") != record.stripe_subscription_id
+            or stripe_object_get(current_subscription, "customer") != record.stripe_customer_id
+        ):
+            raise ValueError("Stripe subscription ownership mismatch")
+        record.subscription_status = stripe_object_get(current_subscription, "status", "")
         record.revoked_at = None
         record.revoked_reason = ""
         record.last_refund_or_dispute_at = None
@@ -587,6 +820,7 @@ def send_payment_failed_email(user):
         ),
         from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@tableno.jp"),
         recipient_list=[user.email],
+        connection=get_connection(timeout=10),
         fail_silently=True,
     )
     return bool(sent_count)

@@ -1,0 +1,33 @@
+{
+  "candidate_sha": "9889f4c8903658e6dfa0ddf4b25b8901e74b9bc9",
+  "runtime_image": "tableno:google-token-9889f4c8",
+  "image_id": "sha256:af008fa03e3fa2f870ff40e596237750815cb2cfc3a45b221133e7032685819d",
+  "base_image_digest": "sha256:da047cb8f9d1d98e5c070f5300ba9f7274e33b8fc0e5be5ed88740aed1b95ba9",
+  "ci_run_id": 35675930275,
+  "ci_jobs": 6,
+  "ci_conclusion": "success",
+  "container_google_tests": 16,
+  "container_google_tests_conclusion": "success",
+  "isolated_runtime": {
+    "postgres": "18.3",
+    "redis": "7-alpine",
+    "migrations": "success",
+    "collectstatic": "success",
+    "readiness_database": "ok",
+    "readiness_cache": "ok"
+  },
+  "os_scan": {
+    "scanner": "Docker Scout 1.24.0",
+    "package_filter": "deb",
+    "exit_code": 2,
+    "indexed_packages": 259,
+    "vulnerable_packages": 14,
+    "sarif_sha256": "e970d0a297894c0113b10fc03e2b6d1e43125dd18e14a9e0af56c03d124a9ac5",
+    "counts": {
+      "CRITICAL": 0,
+      "HIGH": 2,
+      "MEDIUM": 1,
+      "LOW": 33
+    }
+  }
+}

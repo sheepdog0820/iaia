@@ -28,10 +28,10 @@ from ..friend_requests import (
 )
 from .base_views import BaseViewSet
 from .common_imports import *
-from .mixins import ErrorHandlerMixin, UserOwnershipMixin
+from .mixins import BillingSafeUserDeletionMixin, ErrorHandlerMixin, UserOwnershipMixin
 
 
-class UserViewSet(viewsets.ModelViewSet):
+class UserViewSet(BillingSafeUserDeletionMixin, viewsets.ModelViewSet):
     """User management ViewSet"""
 
     queryset = CustomUser.objects.all()
@@ -476,11 +476,14 @@ class AccountDeleteView(TemplateView):
         subscription = PremiumSubscription.objects.filter(user=user).first()
         if not subscription:
             return None
-        if not subscription.is_stripe_active:
+        # Revoked access or a failed payment does not end the Stripe contract.
+        if subscription.subscription_status in {"canceled", "incomplete_expired"}:
             return None
-        if not (subscription.stripe_customer_id or subscription.stripe_subscription_id):
-            return None
-        return subscription
+        if subscription.stripe_subscription_id:
+            return subscription
+        if subscription.stripe_customer_id and subscription.subscription_status in subscription.ACTIVE_STATUSES:
+            return subscription
+        return None
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -502,13 +505,16 @@ class AccountDeleteView(TemplateView):
                 messages.error(request, "パスワードが正しくありません。")
                 return redirect("account_delete")
 
-        if self._active_stripe_subscription(user):
-            messages.error(request, "有効なStripe購読が残っています。先に課金管理ページから解約してください。")
+        from accounts.billing_deletion import BillingDeletionBlocked, delete_account_after_billing_check
+
+        try:
+            delete_account_after_billing_check(user)
+        except BillingDeletionBlocked as exc:
+            messages.error(request, str(exc))
             return redirect("billing")
 
-        # Logout first so the session does not reference a deleted user.
+        # Retain the login when billing verification refuses deletion.
         auth_logout(request)
-        user.delete()
 
         messages.success(request, "アカウントを削除しました。ご利用ありがとうございました。")
         return redirect("home")

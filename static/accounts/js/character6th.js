@@ -999,10 +999,20 @@ function updateGlobalDiceFormula() {
         if (interestTotalEl) interestTotalEl.value = interestPoints;
     }
 
+    function escapeCharacterSkillText(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     // Skill item HTML generation
     function createSkillItemHTML(key, skill, category = 'all', options = {}) {
         const { isCustom = false, displayName = null, baseValueOverride = null } = options;
         const skillName = displayName || skill?.name || key;
+        const safeSkillName = escapeCharacterSkillText(skillName);
         let baseValue = baseValueOverride;
 
         if (typeof baseValue !== 'number') {
@@ -1022,8 +1032,8 @@ function updateGlobalDiceFormula() {
 
         const customClass = isCustom ? ' custom-skill' : '';
         const nameMarkup = isCustom
-            ? `<input type="text" class="form-control form-control-sm custom-skill-name" value="${skillName}" data-skill="${key}">`
-            : `<label for="base_${key}" class="form-label small fw-bold mb-0 skill-name" title="${skillName}">${skillName}</label>`;
+            ? `<input type="text" class="form-control form-control-sm custom-skill-name" value="${safeSkillName}" data-skill="${key}">`
+            : `<label for="base_${key}" class="form-label small fw-bold mb-0 skill-name" title="${safeSkillName}">${safeSkillName}</label>`;
         const deleteButton = isCustom
             ? `<button type="button" class="btn btn-outline-danger btn-sm custom-skill-remove" data-skill="${key}" aria-label="削除"><i class="fas fa-times"></i></button>`
             : '';
@@ -1049,7 +1059,7 @@ function updateGlobalDiceFormula() {
                                 <input type="number" inputmode="numeric" class="form-control form-control-sm text-center skill-base"
                                        id="base_${key}" value="${baseValue}" min="0" max="999"
                                        data-skill="${key}" data-default="${skill?.base ?? 0}"
-                                       aria-label="${skillName} 初期値"
+                                       aria-label="${safeSkillName} 初期値"
                                        title="左クリックで編集、右クリックで初期値に戻す"
                                        data-bs-toggle="tooltip"
                                        data-bs-placement="top">
@@ -1059,21 +1069,21 @@ function updateGlobalDiceFormula() {
                             <div class="input-group input-group-sm skill-input-group skill-input-group-occ" data-skill-kind="職業" title="職業">
                                 <input type="number" inputmode="numeric" class="form-control form-control-sm occupation-skill text-center"
                                        id="occ_${key}" min="0" max="999" value=""
-                                       data-skill="${key}" aria-label="${skillName} 職業" title="職業技能">
+                                       data-skill="${key}" aria-label="${safeSkillName} 職業" title="職業技能">
                             </div>
                         </div>
                         <div class="col-6 col-lg-3">
                             <div class="input-group input-group-sm skill-input-group skill-input-group-int" data-skill-kind="趣味" title="趣味">
                                 <input type="number" inputmode="numeric" class="form-control form-control-sm interest-skill text-center"
                                        id="int_${key}" min="0" max="999" value=""
-                                       data-skill="${key}" aria-label="${skillName} 趣味" title="趣味技能">
+                                       data-skill="${key}" aria-label="${safeSkillName} 趣味" title="趣味技能">
                             </div>
                         </div>
                         <div class="col-6 col-lg-3">
                             <div class="input-group input-group-sm skill-input-group skill-input-group-other" data-skill-kind="その他" title="その他">
                                 <input type="number" inputmode="numeric" class="form-control form-control-sm other-skill text-center"
                                        id="other_${key}" min="0" max="999" value=""
-                                       data-skill="${key}" aria-label="${skillName} その他" title="その他">
+                                       data-skill="${key}" aria-label="${safeSkillName} その他" title="その他">
                             </div>
                         </div>
                     </div>

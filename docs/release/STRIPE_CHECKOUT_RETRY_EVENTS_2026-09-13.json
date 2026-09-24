@@ -1,0 +1,39 @@
+{
+  "account": "acct_1UFA5iE2s31mT3or",
+  "livemode": false,
+  "checks": [
+    {
+      "name": "customer_response_loss_reuses_customer",
+      "passed": true
+    },
+    {
+      "name": "checkout_response_loss_reuses_session",
+      "passed": true
+    },
+    {
+      "name": "double_purchase_reuses_session",
+      "passed": true
+    },
+    {
+      "name": "plan_change_expires_monthly",
+      "passed": true
+    },
+    {
+      "name": "yearly_checkout_is_distinct_test_session",
+      "passed": true
+    },
+    {
+      "name": "only_one_open_checkout",
+      "passed": true
+    },
+    {
+      "name": "exactly_two_remote_checkouts",
+      "passed": true
+    }
+  ],
+  "checkout_ids": [
+    "cs_test_a17Umo6P6QpYwLaW9zZROWmuNxHn6YSBFqCe8Ect3sbt7t5FIZ4vhvX5U3",
+    "cs_test_a1gQgNIDmiJDMYWesjYy5dljvnJXbIilsi2lr3DC8skNNcrAO7S9LjLeoo"
+  ],
+  "all_created_sessions_expired": true
+}

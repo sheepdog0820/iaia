@@ -50,6 +50,30 @@ class GoogleCalendarDeliveryTest(TestCase):
                 self.assertEqual(self.sync.last_error, job.error)
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
+    def test_http_failure_does_not_store_external_error(self, token):
+        job = self.job()
+        external_error = requests.Timeout("private upstream diagnostic")
+
+        with (
+            patch("schedules.tasks.requests.post", side_effect=external_error),
+            patch.object(sync_google_calendar, "retry", side_effect=Retry()) as retry,
+        ):
+            with self.assertRaises(Retry):
+                sync_google_calendar.run(self.sync.pk, str(job.pk))
+
+        job.refresh_from_db()
+        self.sync.refresh_from_db()
+        self.assertEqual(
+            job.error,
+            "Google Calendar APIとの通信に失敗しました。連携状態を確認して再試行してください。",
+        )
+        self.assertEqual(self.sync.last_error, job.error)
+        self.assertNotIn(str(external_error), job.error)
+        retry_error = retry.call_args.kwargs["exc"]
+        self.assertEqual(str(retry_error), job.error)
+        self.assertNotIn(str(external_error), str(retry_error))
+
+    @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_malformed_identity_response_never_updates_or_deletes_event(self, token):
         malformed = (None, [], "unexpected", {"extendedProperties": None}, {"extendedProperties": []})
         for cancelling in (False, True):

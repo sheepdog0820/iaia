@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from allauth.account.models import EmailAddress
 from allauth.socialaccount.models import SocialApp
 from django.conf import settings
@@ -296,7 +298,7 @@ class AuthenticationTestCase(TestCase):
         response = self.client.get("/accounts/profile/delete/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "課金中のアカウントです。")
+        self.assertContains(response, "Stripeの契約が終了していません。")
         self.assertContains(response, "課金管理へ")
 
     def test_account_delete_blocks_active_stripe_subscription(self):
@@ -322,7 +324,16 @@ class AuthenticationTestCase(TestCase):
         self.assertEqual(response["Location"], reverse("billing"))
         self.assertTrue(User.objects.filter(id=self.user.id).exists())
 
-    def test_account_delete_allows_canceled_stripe_subscription(self):
+    @patch("accounts.billing_deletion.get_stripe")
+    def test_account_delete_allows_canceled_stripe_subscription(self, get_stripe):
+        stripe = get_stripe.return_value
+        stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = []
+        stripe.Subscription.list.return_value.auto_paging_iter.return_value = []
+        stripe.Subscription.retrieve.return_value = {
+            "id": "sub_delete_guard",
+            "customer": "cus_delete_guard",
+            "status": "canceled",
+        }
         PremiumSubscription.objects.create(
             user=self.user,
             stripe_customer_id="cus_delete_guard",

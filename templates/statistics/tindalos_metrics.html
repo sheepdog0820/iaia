@@ -312,6 +312,12 @@ document.addEventListener('DOMContentLoaded', function() {
         radio.addEventListener('change', loadRanking);
     });
 
+    function escapeStatisticsText(value) {
+        const element = document.createElement('span');
+        element.textContent = String(value ?? '');
+        return element.innerHTML;
+    }
+
     function changeYear(delta) {
         currentYear += delta;
         document.getElementById('currentYear').textContent = currentYear;
@@ -348,34 +354,34 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="col-md-2">
                 <div class="card stat-card h-100">
                     <div class="card-body text-center">
-                        <div class="stat-number">${stats.total_sessions}</div>
+                        <div class="stat-number">${escapeStatisticsText(stats.total_sessions)}</div>
                         <div class="stat-label">セッション数</div>
-                        <div class="stat-subtitle">GM: ${stats.gm_sessions} / PL: ${stats.pl_sessions}</div>
+                        <div class="stat-subtitle">GM: ${escapeStatisticsText(stats.gm_sessions)} / PL: ${escapeStatisticsText(stats.pl_sessions)}</div>
                     </div>
                 </div>
             </div>
             <div class="col-md-2">
                 <div class="card stat-card h-100">
                     <div class="card-body text-center">
-                        <div class="stat-number">${stats.total_hours}h</div>
+                        <div class="stat-number">${escapeStatisticsText(stats.total_hours)}h</div>
                         <div class="stat-label">総プレイ時間</div>
-                        <div class="stat-subtitle">月平均: ${stats.sessions_per_month}</div>
+                        <div class="stat-subtitle">月平均: ${escapeStatisticsText(stats.sessions_per_month)}</div>
                     </div>
                 </div>
             </div>
             <div class="col-md-2">
                 <div class="card stat-card h-100">
                     <div class="card-body text-center">
-                        <div class="stat-number">${stats.avg_session_hours}h</div>
+                        <div class="stat-number">${escapeStatisticsText(stats.avg_session_hours)}h</div>
                         <div class="stat-label">平均セッション時間</div>
-                        <div class="stat-subtitle">${ARKHAM.formatDurationHours(stats.total_minutes)}合計</div>
+                        <div class="stat-subtitle">${escapeStatisticsText(ARKHAM.formatDurationHours(stats.total_minutes))}合計</div>
                     </div>
                 </div>
             </div>
             <div class="col-md-2">
                 <div class="card stat-card h-100">
                     <div class="card-body text-center">
-                        <div class="stat-number">${stats.active_groups}</div>
+                        <div class="stat-number">${escapeStatisticsText(stats.active_groups)}</div>
                         <div class="stat-label">活動グループ数</div>
                         <div class="stat-subtitle">参加中</div>
                     </div>
@@ -384,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="col-md-2">
                 <div class="card stat-card h-100">
                     <div class="card-body text-center">
-                        <div class="stat-number">${stats.played_scenarios}</div>
+                        <div class="stat-number">${escapeStatisticsText(stats.played_scenarios)}</div>
                         <div class="stat-label">プレイシナリオ数</div>
                         <div class="stat-subtitle">異なるシナリオ</div>
                     </div>
@@ -393,9 +399,9 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="col-md-2">
                 <div class="card stat-card h-100">
                     <div class="card-body text-center">
-                        <div class="stat-number">${currentYear - user.trpg_start_year + 1}</div>
+                        <div class="stat-number">${escapeStatisticsText(currentYear - user.trpg_start_year + 1)}</div>
                         <div class="stat-label">TRPG歴</div>
-                        <div class="stat-subtitle">${user.trpg_start_year}年開始</div>
+                        <div class="stat-subtitle">${escapeStatisticsText(user.trpg_start_year)}年開始</div>
                     </div>
                 </div>
             </div>
@@ -550,14 +556,14 @@ document.addEventListener('DOMContentLoaded', function() {
         
         container.innerHTML = groupData.map(group => `
             <div class="group-item">
-                <h6 class="mb-1">${group.group_name}</h6>
+                <h6 class="mb-1">${escapeStatisticsText(group.group_name)}</h6>
                 <div class="d-flex justify-content-between">
-                    <small>${group.session_count}セッション</small>
-                    <small>${group.total_hours}時間</small>
+                    <small>${escapeStatisticsText(group.session_count)}セッション</small>
+                    <small>${escapeStatisticsText(group.total_hours)}時間</small>
                 </div>
                 <div class="d-flex justify-content-between text-muted">
-                    <small>アクティブ: ${group.active_members ?? '—'}人</small>
-                    <small>上位GM: ${group.top_gm || '—'}</small>
+                    <small>アクティブ: ${escapeStatisticsText(group.active_members ?? '—')}人</small>
+                    <small>上位GM: ${escapeStatisticsText(group.top_gm || '—')}</small>
                 </div>
             </div>
         `).join('');
@@ -587,12 +593,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 <tbody>
                     ${sessions.map(session => `
                         <tr>
-                            <td>${session.title}</td>
-                            <td>${session.date ? new Date(session.date).toLocaleDateString('ja-JP') : '未定'}</td>
-                            <td>${session.group_name}</td>
-                            <td>${session.gm_name}</td>
-                            <td><span class="badge bg-${session.role === 'gm' ? 'warning' : 'info'}">${session.role.toUpperCase()}</span></td>
-                            <td>${session.duration_hours}h</td>
+                            <td>${escapeStatisticsText(session.title)}</td>
+                            <td>${escapeStatisticsText(session.date ? new Date(session.date).toLocaleDateString('ja-JP') : '未定')}</td>
+                            <td>${escapeStatisticsText(session.group_name)}</td>
+                            <td>${escapeStatisticsText(session.gm_name)}</td>
+                            <td><span class="badge bg-${session.role === 'gm' ? 'warning' : 'info'}">${escapeStatisticsText(String(session.role || '').toUpperCase())}</span></td>
+                            <td>${escapeStatisticsText(session.duration_hours)}h</td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -621,9 +627,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const getValueDisplay = (item, type) => {
             switch(type) {
-                case 'hours': return `${item.total_hours}時間`;
-                case 'sessions': return `${item.session_count}セッション`;
-                case 'gm': return `${item.gm_count}回`;
+                case 'hours': return `${escapeStatisticsText(item.total_hours)}時間`;
+                case 'sessions': return `${escapeStatisticsText(item.session_count)}セッション`;
+                case 'gm': return `${escapeStatisticsText(item.gm_count)}回`;
                 default: return '';
             }
         };
@@ -633,10 +639,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="ranking-item ${item.rank <= 3 ? 'top-3 rank-' + item.rank : ''}">
                     <div class="d-flex align-items-center">
                         <div class="rank-badge rank-${item.rank <= 3 ? item.rank : 'other'} me-3">
-                            ${item.rank}
+                            ${escapeStatisticsText(item.rank)}
                         </div>
                         <div>
-                            <strong>${item.nickname}</strong>
+                            <strong>${escapeStatisticsText(item.nickname)}</strong>
                         </div>
                     </div>
                     <div class="text-end">

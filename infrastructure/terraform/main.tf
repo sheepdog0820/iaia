@@ -816,9 +816,11 @@ resource "aws_iam_role_policy" "off_hours_scheduler" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = ["ecs:UpdateService"]
-        Resource = "arn:aws:ecs:${var.aws_region}:${local.account_id}:service/${local.name}/${local.name}"
+        Effect = "Allow"
+        Action = ["ecs:UpdateService"]
+        Resource = [for service in concat([local.name], [for name in keys(local.off_hours_background_services) : "${local.name}-${name}"]) :
+          "arn:aws:ecs:${var.aws_region}:${local.account_id}:service/${local.name}/${service}"
+        ]
       },
       {
         Effect = "Allow"
@@ -838,7 +840,11 @@ resource "aws_iam_role_policy" "off_hours_scheduler" {
 }
 
 locals {
-  off_hours_schedules = var.enable_off_hours_schedule ? {
+  off_hours_background_services = merge(
+    var.enable_worker_service ? { worker = var.worker_desired_count } : {},
+    var.enable_beat_service ? { beat = var.beat_desired_count } : {},
+  )
+  off_hours_base_schedules = {
     maintenance_on = {
       description = "Show the Tableno maintenance page before ECS stops at 01:59 JST"
       schedule    = "cron(59 1 * * ? *)"
@@ -899,7 +905,30 @@ locals {
         }]
       })
     }
-  } : {}
+  }
+  off_hours_schedules = var.enable_off_hours_schedule ? merge(
+    local.off_hours_base_schedules,
+    { for name, desired_count in local.off_hours_background_services : "${name}_stop" => {
+      description = "Stop the Tableno pre ${name} before the database stops"
+      schedule    = name == "beat" ? "cron(57 1 * * ? *)" : "cron(0 2 * * ? *)"
+      target_arn  = "arn:aws:scheduler:::aws-sdk:ecs:updateService"
+      input = jsonencode({
+        Cluster      = local.name
+        Service      = "${local.name}-${name}"
+        DesiredCount = 0
+      })
+    } },
+    { for name, desired_count in local.off_hours_background_services : "${name}_start" => {
+      description = "Restore the Tableno pre ${name} after database startup"
+      schedule    = name == "beat" ? "cron(2 8 * * ? *)" : "cron(0 8 * * ? *)"
+      target_arn  = "arn:aws:scheduler:::aws-sdk:ecs:updateService"
+      input = jsonencode({
+        Cluster      = local.name
+        Service      = "${local.name}-${name}"
+        DesiredCount = desired_count
+      })
+    } },
+  ) : {}
 }
 
 resource "aws_scheduler_schedule" "off_hours" {

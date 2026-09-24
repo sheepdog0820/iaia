@@ -1,0 +1,67 @@
+{
+  "account": "acct_1UFA5iE2s31mT3or",
+  "checks": [
+    {
+      "name": "listener_ready",
+      "passed": true
+    },
+    {
+      "name": "customer_is_test",
+      "passed": true
+    },
+    {
+      "name": "initial_access_granted",
+      "passed": true
+    },
+    {
+      "name": "active_snapshot_held",
+      "passed": true
+    },
+    {
+      "name": "held_snapshot_is_active",
+      "passed": true
+    },
+    {
+      "name": "newer_cancellation_revokes_access",
+      "passed": true
+    },
+    {
+      "name": "delayed_active_event_does_not_restore_access",
+      "passed": true
+    },
+    {
+      "name": "delayed_event_processed",
+      "passed": true
+    },
+    {
+      "name": "all_events_succeeded",
+      "passed": true
+    }
+  ],
+  "subscriptions": [
+    "sub_1UFArnE2s31mT3oriKdWsJLH"
+  ],
+  "scope": "Hold real signed active update, deliver newer cancellation first, then replay held active update through the real view.",
+  "webhook_events": [
+    {
+      "event_id": "evt_1UFArsE2s31mT3orM2MhO2NJ",
+      "event_type": "customer.subscription.updated",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UFAruE2s31mT3or9vrHy9AG",
+      "event_type": "customer.subscription.deleted",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UFArqE2s31mT3orGCcYXb7y",
+      "event_type": "invoice.payment_succeeded",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UFArqE2s31mT3oru2TTGdpj",
+      "event_type": "customer.subscription.created",
+      "processing_status": "succeeded"
+    }
+  ]
+}

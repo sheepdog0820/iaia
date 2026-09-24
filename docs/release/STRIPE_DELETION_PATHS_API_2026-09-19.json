@@ -1,0 +1,100 @@
+{
+  "account": "acct_1UFA5iE2s31mT3or",
+  "checks": [
+    {
+      "name": "self_api_test_mode",
+      "passed": true
+    },
+    {
+      "name": "self_api_local_subscription_unset",
+      "passed": true
+    },
+    {
+      "name": "self_api_active_contract_prevents_deletion",
+      "passed": true
+    },
+    {
+      "name": "self_api_no_false_deletion_log",
+      "passed": true
+    },
+    {
+      "name": "self_api_canceled_contract_allows_deletion",
+      "passed": true
+    },
+    {
+      "name": "admin_api_test_mode",
+      "passed": true
+    },
+    {
+      "name": "admin_api_local_subscription_unset",
+      "passed": true
+    },
+    {
+      "name": "admin_api_active_contract_prevents_deletion",
+      "passed": true
+    },
+    {
+      "name": "admin_api_no_false_deletion_log",
+      "passed": true
+    },
+    {
+      "name": "admin_api_canceled_contract_allows_deletion",
+      "passed": true
+    },
+    {
+      "name": "admin_single_test_mode",
+      "passed": true
+    },
+    {
+      "name": "admin_single_local_subscription_unset",
+      "passed": true
+    },
+    {
+      "name": "admin_single_active_contract_prevents_deletion",
+      "passed": true
+    },
+    {
+      "name": "admin_single_no_false_deletion_log",
+      "passed": true
+    },
+    {
+      "name": "admin_single_canceled_contract_allows_deletion",
+      "passed": true
+    },
+    {
+      "name": "admin_bulk_test_mode",
+      "passed": true
+    },
+    {
+      "name": "admin_bulk_local_subscription_unset",
+      "passed": true
+    },
+    {
+      "name": "admin_bulk_active_contract_prevents_deletion",
+      "passed": true
+    },
+    {
+      "name": "admin_bulk_no_false_deletion_log",
+      "passed": true
+    },
+    {
+      "name": "bulk_rejection_keeps_free_companion",
+      "passed": true
+    },
+    {
+      "name": "admin_bulk_canceled_contract_allows_deletion",
+      "passed": true
+    },
+    {
+      "name": "bulk_success_deletes_selected_companion",
+      "passed": true
+    },
+    {
+      "name": "only_isolated_admin_remains",
+      "passed": true
+    }
+  ],
+  "tested_commit": "6ff9a1f9b9fe965b2461de0694530d3e18ffda96",
+  "subscriptions_canceled": true,
+  "test_subscription_count": 4
+}

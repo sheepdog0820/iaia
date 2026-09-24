@@ -256,7 +256,11 @@ class BillingApiTestCase(TestCase):
     def test_checkout_creates_customer_for_new_user(self, get_stripe):
         stripe = Mock()
         stripe.Customer.create.return_value = SimpleNamespace(id="cus_new")
-        stripe.checkout.Session.create.return_value = SimpleNamespace(url="https://checkout.stripe.test/new")
+        stripe.Subscription.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.create.return_value = SimpleNamespace(
+            id="cs_new", status="open", url="https://checkout.stripe.test/new"
+        )
         get_stripe.return_value = stripe
         self.client.force_authenticate(self.user)
 
@@ -272,7 +276,11 @@ class BillingApiTestCase(TestCase):
     def test_checkout_reuses_existing_customer(self, get_stripe):
         PremiumSubscription.objects.create(user=self.user, stripe_customer_id="cus_existing")
         stripe = Mock()
-        stripe.checkout.Session.create.return_value = SimpleNamespace(url="https://checkout.stripe.test/existing")
+        stripe.Subscription.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.create.return_value = SimpleNamespace(
+            id="cs_existing", status="open", url="https://checkout.stripe.test/existing"
+        )
         get_stripe.return_value = stripe
         self.client.force_authenticate(self.user)
 
@@ -290,7 +298,11 @@ class BillingApiTestCase(TestCase):
     def test_checkout_uses_yearly_price_when_requested(self, get_stripe):
         stripe = Mock()
         stripe.Customer.create.return_value = SimpleNamespace(id="cus_yearly")
-        stripe.checkout.Session.create.return_value = SimpleNamespace(url="https://checkout.stripe.test/yearly")
+        stripe.Subscription.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.create.return_value = SimpleNamespace(
+            id="cs_yearly", status="open", url="https://checkout.stripe.test/yearly"
+        )
         get_stripe.return_value = stripe
         self.client.force_authenticate(self.user)
 
@@ -319,7 +331,11 @@ class BillingApiTestCase(TestCase):
     def test_checkout_sets_subscription_metadata_for_subscription_webhooks(self, get_stripe):
         stripe = Mock()
         stripe.Customer.create.return_value = SimpleNamespace(id="cus_metadata")
-        stripe.checkout.Session.create.return_value = SimpleNamespace(url="https://checkout.stripe.test/metadata")
+        stripe.Subscription.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.checkout.Session.create.return_value = SimpleNamespace(
+            id="cs_metadata", status="open", url="https://checkout.stripe.test/metadata"
+        )
         get_stripe.return_value = stripe
         self.client.force_authenticate(self.user)
 
@@ -888,6 +904,7 @@ class StripeWebhookTestCase(TestCase):
         }
         stripe = Mock()
         stripe.Webhook.construct_event.return_value = event
+        stripe.Subscription.retrieve.return_value = event["data"]["object"]
         get_stripe.return_value = stripe
 
         response = self.client.post(
@@ -913,6 +930,7 @@ class StripeWebhookTestCase(TestCase):
         }
         stripe = Mock()
         stripe.Webhook.construct_event.return_value = event
+        stripe.Subscription.retrieve.return_value = event["data"]["object"]
         get_stripe.return_value = stripe
 
         response = self.client.post(
@@ -938,6 +956,7 @@ class StripeWebhookTestCase(TestCase):
         }
         stripe = Mock()
         stripe.Webhook.construct_event.return_value = event
+        stripe.Subscription.retrieve.return_value = event["data"]["object"]
         get_stripe.return_value = stripe
 
         response = self.client.post(
@@ -953,7 +972,7 @@ class StripeWebhookTestCase(TestCase):
             event_id="evt_sub_deleted",
         )
 
-    @patch("accounts.views.billing_views.mark_invoice_payment_failed")
+    @patch("accounts.views.billing_views.reconcile_invoice_payment")
     @patch("accounts.views.billing_views.get_stripe")
     def test_webhook_routes_invoice_payment_failed(self, get_stripe, mark_payment_failed_mock):
         event = {
@@ -982,9 +1001,10 @@ class StripeWebhookTestCase(TestCase):
         mark_payment_failed_mock.assert_called_once_with(
             event["data"]["object"],
             event_id="evt_invoice_failed",
+            event_type="invoice.payment_failed",
         )
 
-    @patch("accounts.views.billing_views.mark_invoice_payment_succeeded")
+    @patch("accounts.views.billing_views.reconcile_invoice_payment")
     @patch("accounts.views.billing_views.get_stripe")
     def test_webhook_routes_invoice_payment_succeeded(self, get_stripe, mark_payment_succeeded_mock):
         event = {
@@ -1013,9 +1033,10 @@ class StripeWebhookTestCase(TestCase):
         mark_payment_succeeded_mock.assert_called_once_with(
             event["data"]["object"],
             event_id="evt_invoice_succeeded",
+            event_type="invoice.payment_succeeded",
         )
 
-    @patch("accounts.views.billing_views.mark_refund_or_dispute")
+    @patch("accounts.views.billing_views.reconcile_dispute_event")
     @patch("accounts.views.billing_views.get_stripe")
     def test_webhook_routes_charge_dispute_created(self, get_stripe, mark_refund_or_dispute_mock):
         event = {
@@ -1309,7 +1330,8 @@ class BillingServiceTestCase(TestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.is_premium)
 
-    def test_checkout_completed_can_use_expanded_subscription_without_remote_retrieve(self):
+    @patch("accounts.billing.get_stripe")
+    def test_checkout_completed_retrieves_current_expanded_subscription(self, get_stripe):
         session = {
             "client_reference_id": str(self.user.id),
             "customer": "cus_checkout_expanded",
@@ -1323,7 +1345,9 @@ class BillingServiceTestCase(TestCase):
             "metadata": {},
         }
 
+        get_stripe.return_value.Subscription.retrieve.return_value = session["subscription"]
         record = handle_checkout_completed(session, event_id="evt_checkout_expanded")
+        get_stripe.return_value.Subscription.retrieve.assert_called_once_with("sub_checkout_expanded")
 
         self.assertEqual(record.stripe_customer_id, "cus_checkout_expanded")
         self.assertEqual(record.stripe_subscription_id, "sub_checkout_expanded")
@@ -1335,6 +1359,7 @@ class BillingServiceTestCase(TestCase):
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
         PUBLIC_SITE_URL="https://example.test",
     )
+    @override_settings(BILLING_EMAIL_DELIVERY_ENABLED=True)
     def test_payment_failed_sends_email_and_logs_audit(self):
         from accounts.billing import mark_invoice_payment_failed
 
@@ -1351,6 +1376,10 @@ class BillingServiceTestCase(TestCase):
         )
 
         self.assertIsNotNone(record)
+        from accounts.billing_email import dispatch_billing_emails
+
+        self.assertEqual(len(mail.outbox), 0)
+        dispatch_billing_emails()
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("https://example.test/accounts/billing/", mail.outbox[0].body)
         self.assertIn("カード更新が必要です。", mail.outbox[0].body)
@@ -1663,9 +1692,13 @@ class BillingServiceTestCase(TestCase):
         self.assertFalse(audit_log.metadata["access_revoked"])
         self.assertFalse(audit_log.metadata["access_restored"])
 
-    def test_dispute_closed_won_restores_dispute_revoked_access(self):
+    @patch("accounts.billing.get_stripe")
+    def test_dispute_closed_won_restores_dispute_revoked_access(self, get_stripe):
         from accounts.billing import mark_refund_or_dispute
 
+        get_stripe.return_value.Subscription.retrieve.return_value = SimpleNamespace(
+            id="sub_dispute_created_then_won", customer="cus_dispute_created_then_won", status="active"
+        )
         self.user.is_premium = True
         self.user.save(update_fields=["is_premium"])
         record = PremiumSubscription.objects.create(
@@ -2506,7 +2539,7 @@ remote check not run or produced no output
         self.assertIn("not release-ready", message)
         self.assertIn("remote check not run or produced no output", message)
 
-    @override_settings(STRIPE_CHECKOUT_ENABLED=True)
+    @override_settings(STRIPE_CHECKOUT_ENABLED=True, BILLING_EMAIL_DELIVERY_ENABLED=True)
     def test_billing_release_gate_accepts_complete_test_mode_verification_record(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             record_path = Path(tmpdir) / "aws-pre-record.md"
@@ -2524,6 +2557,22 @@ remote check not run or produced no output
         output = stdout.getvalue()
         self.assertIn("stripe_checkout_enabled=true", output)
         self.assertIn("billing_release_gate=ok checkout-verified", output)
+
+    @override_settings(STRIPE_CHECKOUT_ENABLED=True, BILLING_EMAIL_DELIVERY_ENABLED=False)
+    def test_billing_release_gate_rejects_disabled_email_delivery(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            record_path = Path(tmpdir) / "record.md"
+            record_path.write_text(self._complete_billing_release_record(), encoding="utf-8")
+            with self.assertRaisesMessage(CommandError, "BILLING_EMAIL_DELIVERY_ENABLED"):
+                call_command("billing_release_gate", verification_record=str(record_path), stdout=StringIO())
+
+    @override_settings(STRIPE_CHECKOUT_ENABLED=True, BILLING_EMAIL_DELIVERY_ENABLED=True, CELERY_BEAT_SCHEDULE={})
+    def test_billing_release_gate_rejects_missing_email_schedule(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            record_path = Path(tmpdir) / "record.md"
+            record_path.write_text(self._complete_billing_release_record(), encoding="utf-8")
+            with self.assertRaisesMessage(CommandError, "dispatch_billing_emails"):
+                call_command("billing_release_gate", verification_record=str(record_path), stdout=StringIO())
 
     def _complete_billing_release_record(self):
         return """# Stripe billing verification record

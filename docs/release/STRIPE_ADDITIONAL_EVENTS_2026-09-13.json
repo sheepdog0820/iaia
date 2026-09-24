@@ -1,0 +1,239 @@
+{
+  "stripe-advanced-probe-result.json": {
+    "account": "acct_1UFA5iE2s31mT3or",
+    "checks": [
+      {
+        "name": "listener_ready",
+        "passed": true
+      },
+      {
+        "name": "customer_is_test",
+        "passed": true
+      },
+      {
+        "name": "annual_initial_access",
+        "passed": true
+      },
+      {
+        "name": "annual_clock_ready",
+        "passed": true
+      },
+      {
+        "name": "annual_renewal_paid_4800",
+        "passed": true
+      },
+      {
+        "name": "real_signed_payload_captured",
+        "passed": true
+      },
+      {
+        "name": "original_event_processed",
+        "passed": true
+      },
+      {
+        "name": "duplicate_returns_success_without_side_effects",
+        "passed": true
+      },
+      {
+        "name": "transient_failure_is_recorded",
+        "passed": true
+      },
+      {
+        "name": "failed_event_replay_recovers",
+        "passed": true
+      },
+      {
+        "name": "sandbox_refund_succeeded",
+        "passed": true
+      },
+      {
+        "name": "real_refund_revokes_access",
+        "passed": true
+      },
+      {
+        "name": "post_refund_event_processed",
+        "passed": true
+      },
+      {
+        "name": "active_event_does_not_restore_refunded_access",
+        "passed": true
+      },
+      {
+        "name": "test_subscription_canceled",
+        "passed": true
+      },
+      {
+        "name": "all_events_succeeded",
+        "passed": true
+      }
+    ],
+    "subscriptions": [
+      "sub_1UFAjKE2s31mT3orLC9htGtt"
+    ],
+    "clock": "clock_1UFAjJE2s31mT3orC5LM8HTU",
+    "scope": "Real annual renewal, captured signed event duplicate and failed replay, refund revocation.",
+    "webhook_events": [
+      {
+        "event_id": "evt_1UFAjhE2s31mT3orEC90tlHP",
+        "event_type": "customer.subscription.deleted",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAjgE2s31mT3orfWjUwFr5",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_3UFAjWE2s31mT3or0BzxHDON",
+        "event_type": "charge.refunded",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAjcE2s31mT3orIY04S1Yr",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAjaE2s31mT3orqMeHiYaC",
+        "event_type": "invoice.payment_succeeded",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAjUE2s31mT3orvSwyfggN",
+        "event_type": "customer.subscription.updated",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAjNE2s31mT3orwQJd9ykO",
+        "event_type": "invoice.payment_succeeded",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAjME2s31mT3oryYNPBBSL",
+        "event_type": "customer.subscription.created",
+        "processing_status": "succeeded"
+      }
+    ]
+  },
+  "stripe-dispute-probe-result.json": {
+    "account": "acct_1UFA5iE2s31mT3or",
+    "checks": [
+      {
+        "name": "listener_ready",
+        "passed": true
+      },
+      {
+        "name": "won_customer_is_test",
+        "passed": true
+      },
+      {
+        "name": "won_real_dispute_revokes",
+        "passed": true
+      },
+      {
+        "name": "won_dispute_is_test",
+        "passed": true
+      },
+      {
+        "name": "won_stripe_closed",
+        "passed": true
+      },
+      {
+        "name": "won_closed_event_processed",
+        "passed": true
+      },
+      {
+        "name": "won_access_correct",
+        "passed": true
+      },
+      {
+        "name": "won_cleanup_canceled",
+        "passed": true
+      },
+      {
+        "name": "lost_customer_is_test",
+        "passed": true
+      },
+      {
+        "name": "lost_real_dispute_revokes",
+        "passed": true
+      },
+      {
+        "name": "lost_dispute_is_test",
+        "passed": true
+      },
+      {
+        "name": "lost_stripe_closed",
+        "passed": true
+      },
+      {
+        "name": "lost_closed_event_processed",
+        "passed": true
+      },
+      {
+        "name": "lost_access_correct",
+        "passed": true
+      },
+      {
+        "name": "lost_cleanup_canceled",
+        "passed": true
+      },
+      {
+        "name": "all_events_succeeded",
+        "passed": true
+      }
+    ],
+    "subscriptions": [
+      "sub_1UFAllE2s31mT3orhVEmF3zJ",
+      "sub_1UFAlzE2s31mT3orL3t1c5JO"
+    ],
+    "scope": "Real Stripe test disputes, winning and losing evidence, signature verification and access decisions.",
+    "webhook_events": [
+      {
+        "event_id": "evt_1UFAmAE2s31mT3orrwP32zrZ",
+        "event_type": "charge.dispute.closed",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAm4E2s31mT3orEoARCtnZ",
+        "event_type": "invoice.payment_succeeded",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAm4E2s31mT3ornhJQ2mUK",
+        "event_type": "charge.dispute.created",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAm4E2s31mT3orXP5Go1gq",
+        "event_type": "customer.subscription.created",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAlxE2s31mT3orKwXXMT0V",
+        "event_type": "customer.subscription.deleted",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAlvE2s31mT3orimvjWiDB",
+        "event_type": "charge.dispute.closed",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAlpE2s31mT3orNZDo82pL",
+        "event_type": "invoice.payment_succeeded",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAlpE2s31mT3orTNzu5KFE",
+        "event_type": "charge.dispute.created",
+        "processing_status": "succeeded"
+      },
+      {
+        "event_id": "evt_1UFAlpE2s31mT3orzAchiS7t",
+        "event_type": "customer.subscription.created",
+        "processing_status": "succeeded"
+      }
+    ]
+  }
+}

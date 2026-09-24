@@ -31,8 +31,8 @@
 
                     {% if active_stripe_subscription %}
                     <div class="alert alert-danger">
-                        <strong>課金中のアカウントです。</strong>
-                        アカウント削除の前に、課金管理ページからStripe購読を解約してください。
+                        <strong>Stripeの契約が終了していません。</strong>
+                        課金管理ページで解約してください。期間末解約の場合は、契約期間の終了後にアカウントを削除できます。
                         <div class="mt-2">
                             <a href="{% url 'billing' %}" class="btn btn-sm btn-outline-light">課金管理へ</a>
                         </div>

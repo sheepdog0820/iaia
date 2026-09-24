@@ -11,6 +11,11 @@ from django.utils import timezone
 
 from accounts.models import DiscordDelivery, GroupDiscordSettings
 
+from .google_sheets import (
+    SHEETS_EXPORT_CHUNK_ROWS,
+    normalize_sheet_start_range,
+    offset_sheet_start_range,
+)
 from .google_tokens import get_google_access_token
 from .handout_release import evaluate_release_conditions, publish_handout
 from .holiday_sync import sync_japanese_holidays as run_japanese_holiday_sync
@@ -18,6 +23,19 @@ from .integration_access import visible_user_sessions
 from .models import AsyncJob, GoogleCalendarSync, GoogleIntegration, HandoutInfo
 
 logger = logging.getLogger(__name__)
+BACKGROUND_TASK_UNAVAILABLE_MESSAGE = "バックグラウンド処理を開始できませんでした。時間をおいて再試行してください。"
+DISCORD_DELIVERY_FAILED_MESSAGE = "Discord通知の送信に失敗しました。設定を確認して再送してください。"
+GOOGLE_CALENDAR_DELIVERY_FAILED_MESSAGE = (
+    "Google Calendar APIとの通信に失敗しました。連携状態を確認して再試行してください。"
+)
+GOOGLE_SHEETS_DELIVERY_FAILED_MESSAGE = (
+    "Google Sheets APIとの通信に失敗しました。連携状態と出力先を確認して再試行してください。"
+)
+GOOGLE_SHEETS_PARTIAL_DELIVERY_FAILED_MESSAGE = (
+    "Google Sheets APIとの通信に失敗しました。途中まで出力されている可能性があります。"
+    "連携状態と出力先を確認して再試行してください。"
+)
+GOOGLE_SHEETS_INVALID_RESPONSE_MESSAGE = "Google Sheetsの応答形式を確認できません。出力先を確認して再試行してください。"
 
 
 def _broker_available():
@@ -111,9 +129,9 @@ def schedule_session_google_syncs(session):
             expires_at=timezone.now() + timedelta(days=7),
         )
         if not queue_google_calendar_sync(sync.pk, str(job.pk)):
-            job.mark_failed("Background task broker is unavailable.")
+            job.mark_failed(BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
             sync.status = GoogleCalendarSync.Status.FAILED
-            sync.last_error = "Background task broker is unavailable."
+            sync.last_error = BACKGROUND_TASK_UNAVAILABLE_MESSAGE
             sync.save(update_fields=["status", "last_error", "updated_at"])
 
 
@@ -190,13 +208,14 @@ def send_discord_webhook(self, group_id, event_type, payload, idempotency_key):
         if response.status_code == 429 or response.status_code >= 500:
             raise requests.RequestException(f"Discord returned {response.status_code}")
         response.raise_for_status()
-    except requests.RequestException as exc:
+    except requests.RequestException:
         delivery.status = DiscordDelivery.Status.FAILED
-        delivery.last_error = str(exc)
+        delivery.last_error = DISCORD_DELIVERY_FAILED_MESSAGE
         delivery.save(update_fields=["status", "last_error"])
         settings_obj.failure_count += 1
         settings_obj.save(update_fields=["failure_count", "updated_at"])
-        raise self.retry(exc=exc, countdown=min(60, 2**delivery.attempts))
+        retry_error = requests.RequestException(DISCORD_DELIVERY_FAILED_MESSAGE)
+        raise self.retry(exc=retry_error, countdown=min(60, 2**delivery.attempts)) from None
 
     delivery.status = DiscordDelivery.Status.SENT
     delivery.last_error = ""
@@ -267,7 +286,7 @@ def sync_google_calendar(self, sync_id, job_id):
         return "missing-token"
     cancelling = sync.session.status == "cancelled"
     if sync.session.date is None and not cancelling:
-        error = "Undated sessions cannot be synchronized to Google Calendar."
+        error = "開催日時が未設定のセッションはGoogle Calendarへ同期できません。"
         sync.status = GoogleCalendarSync.Status.FAILED
         sync.last_error = error
         sync.save(update_fields=["status", "last_error", "updated_at"])
@@ -340,12 +359,19 @@ def sync_google_calendar(self, sync_id, job_id):
             sync.external_event_id = event_id
             sync.status = GoogleCalendarSync.Status.SYNCED
     except (requests.RequestException, KeyError, ValueError) as exc:
-        sync.status = GoogleCalendarSync.Status.FAILED
-        sync.last_error = str(exc)
-        sync.save(update_fields=["status", "last_error", "updated_at"])
-        job.mark_failed(exc)
         if isinstance(exc, requests.RequestException):
-            raise self.retry(exc=exc, countdown=2**self.request.retries)
+            error = GOOGLE_CALENDAR_DELIVERY_FAILED_MESSAGE
+        elif isinstance(exc, KeyError):
+            error = "Google Calendarの応答形式を確認できません。連携状態を確認してください。"
+        else:
+            error = str(exc)
+        sync.status = GoogleCalendarSync.Status.FAILED
+        sync.last_error = error
+        sync.save(update_fields=["status", "last_error", "updated_at"])
+        job.mark_failed(error)
+        if isinstance(exc, requests.RequestException):
+            retry_error = requests.RequestException(GOOGLE_CALENDAR_DELIVERY_FAILED_MESSAGE)
+            raise self.retry(exc=retry_error, countdown=2**self.request.retries) from None
         return "invalid-response"
 
     sync.last_error = ""
@@ -390,32 +416,63 @@ def export_google_sheet(
         job.mark_failed(exc)
         return "missing-token"
     try:
-        response = requests.put(
-            f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}/values/{range_name}",
-            params={"valueInputOption": "RAW"},
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Content-Type": "application/json",
-            },
-            json={"majorDimension": "ROWS", "values": values},
-            timeout=15,
-        )
-        response.raise_for_status()
-    except requests.RequestException as exc:
+        range_name = normalize_sheet_start_range(range_name)
+    except ValueError as exc:
         job.mark_failed(exc)
-        raise self.retry(exc=exc, countdown=2**self.request.retries)
-    try:
-        result = response.json()
-    except ValueError:
-        result = None
-    if not isinstance(result, dict):
-        job.mark_failed("Google Sheetsの応答形式を確認できません。出力先を確認して再試行してください。")
-        return "invalid-response"
+        return "invalid-range"
+
+    chunks = [
+        values[index : index + SHEETS_EXPORT_CHUNK_ROWS] for index in range(0, len(values), SHEETS_EXPORT_CHUNK_ROWS)
+    ]
+    if not chunks:
+        chunks = [[]]
+    total_rows = len(values)
+    completed_rows = 0
+    updated_cells = 0
+    for chunk in chunks:
+        chunk_range = offset_sheet_start_range(range_name, completed_rows)
+        try:
+            response = requests.put(
+                f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}/values/{chunk_range}",
+                params={"valueInputOption": "RAW"},
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                },
+                json={"majorDimension": "ROWS", "values": chunk},
+                timeout=15,
+            )
+            response.raise_for_status()
+        except requests.RequestException:
+            failure_message = (
+                GOOGLE_SHEETS_PARTIAL_DELIVERY_FAILED_MESSAGE
+                if completed_rows
+                else GOOGLE_SHEETS_DELIVERY_FAILED_MESSAGE
+            )
+            job.mark_failed(failure_message)
+            retry_error = requests.RequestException(failure_message)
+            raise self.retry(exc=retry_error, countdown=2**self.request.retries) from None
+        try:
+            result = response.json()
+        except ValueError:
+            result = None
+        if not isinstance(result, dict):
+            job.mark_failed(GOOGLE_SHEETS_INVALID_RESPONSE_MESSAGE)
+            return "invalid-response"
+        chunk_updated_cells = result.get("updatedCells", 0)
+        if not isinstance(chunk_updated_cells, int) or isinstance(chunk_updated_cells, bool) or chunk_updated_cells < 0:
+            job.mark_failed(GOOGLE_SHEETS_INVALID_RESPONSE_MESSAGE)
+            return "invalid-response"
+        updated_cells += chunk_updated_cells
+        completed_rows += len(chunk)
+        if total_rows:
+            job.set_progress(10 + int((completed_rows / total_rows) * 80))
     job.mark_succeeded(
         {
             "spreadsheet_id": spreadsheet_id,
             "range": range_name,
-            "updated_cells": result.get("updatedCells", 0),
+            "updated_cells": updated_cells,
+            "request_count": len(chunks),
         }
     )
     return "exported"

@@ -67,6 +67,24 @@ class AsyncJobApiTestCase(APITestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["job_type"], "google_calendar_sync")
 
+    def test_job_api_masks_url_in_legacy_external_failure(self):
+        job = AsyncJob.objects.create(
+            owner=self.user,
+            job_type="google_sheets_export",
+            status=AsyncJob.Status.FAILED,
+            error="403 Client Error: https://sheets.googleapis.com/v4/spreadsheets/private-sheet-id",
+            expires_at=timezone.now() + timedelta(days=1),
+        )
+
+        response = self.client.get(reverse("async-job-detail", kwargs={"pk": job.pk}))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data["error"],
+            "Google Sheets APIとの通信に失敗しました。連携状態と出力先を確認して再試行してください。",
+        )
+        self.assertNotIn("private-sheet-id", response.data["error"])
+
     def test_other_user_cannot_read_job(self):
         job = AsyncJob.objects.create(
             owner=self.other,
@@ -149,6 +167,46 @@ class AsyncJobApiTestCase(APITestCase):
         self.assertEqual(retry_job.payload["retry_of"], str(job.pk))
         sync.refresh_from_db()
         self.assertEqual(sync.status, GoogleCalendarSync.Status.PENDING)
+        queue_sync.assert_called_once_with(sync.pk, str(retry_job.pk))
+
+    @patch("schedules.job_views.queue_google_calendar_sync", return_value=False)
+    def test_calendar_retry_broker_failure_is_saved_with_japanese_guidance(self, queue_sync):
+        GoogleIntegration.objects.create(
+            user=self.user, calendar_enabled=True, scopes=[GoogleIntegration.REQUIRED_CALENDAR_SCOPE]
+        )
+        group = Group.objects.create(name="Retry failure group", created_by=self.user)
+        session = TRPGSession.objects.create(
+            title="Retry failure session",
+            gm=self.user,
+            group=group,
+            date=timezone.now() + timedelta(days=1),
+        )
+        sync = GoogleCalendarSync.objects.create(
+            user=self.user,
+            session=session,
+            status=GoogleCalendarSync.Status.FAILED,
+            last_error="previous failure",
+        )
+        job = AsyncJob.objects.create(
+            owner=self.user,
+            job_type="google_calendar_sync",
+            status=AsyncJob.Status.FAILED,
+            payload={"sync_id": sync.pk},
+            error="previous failure",
+            expires_at=timezone.now() + timedelta(days=1),
+        )
+
+        response = self.client.post(reverse("async-job-retry", kwargs={"pk": job.pk}))
+
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertFalse(response.data["queued"])
+        retry_job = AsyncJob.objects.get(pk=response.data["job_id"])
+        sync.refresh_from_db()
+        message = "バックグラウンド処理を開始できませんでした。時間をおいて再試行してください。"
+        self.assertEqual(retry_job.status, AsyncJob.Status.FAILED)
+        self.assertEqual(retry_job.error, message)
+        self.assertEqual(sync.status, GoogleCalendarSync.Status.FAILED)
+        self.assertEqual(sync.last_error, message)
         queue_sync.assert_called_once_with(sync.pk, str(retry_job.pk))
 
     @patch("schedules.job_views.queue_google_sheet_export", return_value=True)

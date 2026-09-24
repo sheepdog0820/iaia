@@ -1,0 +1,41 @@
+{
+  "candidate_sha": "bb61b0e6244aa5c9726dca4b8b00c3dd29e9cf05",
+  "image_id": "sha256:e2d81b173fd6e7b632c0c2990e198559d6a669442bce85e6c7e4530961616fd3",
+  "scanner": "Docker Scout 1.24.0",
+  "date": "2026-09-22",
+  "package_filter": "deb",
+  "exit_code": 2,
+  "indexed_packages": 259,
+  "vulnerable_packages": 14,
+  "sarif_sha256": "e970d0a297894c0113b10fc03e2b6d1e43125dd18e14a9e0af56c03d124a9ac5",
+  "counts": {
+    "LOW": 33,
+    "MEDIUM": 1,
+    "HIGH": 2
+  },
+  "non_low_findings": [
+    {
+      "id": "CVE-2025-45582",
+      "severity": "MEDIUM",
+      "package": "tar",
+      "version": "1.35+dfsg-3.1",
+      "fixed_version": "not fixed"
+    },
+    {
+      "id": "CVE-2026-82560",
+      "severity": "HIGH",
+      "package": "perl",
+      "installed_binary_package": "perl-base",
+      "version": "5.40.1-6+deb13u1",
+      "fixed_version": "not fixed",
+      "runtime_component_check": "Pod::Text and pod2text absent"
+    },
+    {
+      "id": "CVE-2026-85091",
+      "severity": "HIGH",
+      "package": "zlib",
+      "version": "1:1.3.dfsg+really1.3.1-1+b1",
+      "fixed_version": "not fixed"
+    }
+  ]
+}

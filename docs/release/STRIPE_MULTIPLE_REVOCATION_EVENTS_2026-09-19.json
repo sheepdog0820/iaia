@@ -1,0 +1,109 @@
+{
+  "account": "acct_1UFA5iE2s31mT3or",
+  "checks": [
+    {
+      "name": "listener_ready",
+      "passed": true
+    },
+    {
+      "name": "customer_is_test",
+      "passed": true
+    },
+    {
+      "name": "two_real_disputes_processed",
+      "passed": true
+    },
+    {
+      "name": "two_disputes_access_disabled",
+      "passed": true
+    },
+    {
+      "name": "exactly_two_test_disputes",
+      "passed": true
+    },
+    {
+      "name": "win_1_processed",
+      "passed": true
+    },
+    {
+      "name": "win_1_access_correct",
+      "passed": true
+    },
+    {
+      "name": "win_2_processed",
+      "passed": true
+    },
+    {
+      "name": "win_2_access_correct",
+      "passed": true
+    },
+    {
+      "name": "exactly_one_restoration",
+      "passed": true
+    },
+    {
+      "name": "all_received_events_succeeded",
+      "passed": true
+    }
+  ],
+  "customers": [
+    "cus_VHscu4G2uog5Fi"
+  ],
+  "subscriptions": [
+    "sub_1UHIr0E2s31mT3orpScvx6ab",
+    "sub_1UHIr4E2s31mT3orFDbHKfTf"
+  ],
+  "subscriptions_canceled": true,
+  "webhook_events": [
+    {
+      "event_id": "evt_1UHIrME2s31mT3orkoNiyrWV",
+      "event_type": "customer.subscription.deleted",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UHIrLE2s31mT3orpiulXaFG",
+      "event_type": "customer.subscription.deleted",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UHIrJE2s31mT3orrs6mBXpT",
+      "event_type": "charge.dispute.closed",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UHIrBE2s31mT3orctgEgZIl",
+      "event_type": "charge.dispute.closed",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UHIr7E2s31mT3ordguZUdtj",
+      "event_type": "invoice.payment_succeeded",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UHIr7E2s31mT3orIHj5V5CO",
+      "event_type": "charge.dispute.created",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UHIr6E2s31mT3orFbfe584i",
+      "event_type": "customer.subscription.created",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UHIr4E2s31mT3orUdR7LfGZ",
+      "event_type": "invoice.payment_succeeded",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UHIr4E2s31mT3orU2dhxlny",
+      "event_type": "charge.dispute.created",
+      "processing_status": "succeeded"
+    },
+    {
+      "event_id": "evt_1UHIr3E2s31mT3orwIMkIJvN",
+      "event_type": "customer.subscription.created",
+      "processing_status": "succeeded"
+    }
+  ]
+}

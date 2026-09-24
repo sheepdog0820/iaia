@@ -190,11 +190,11 @@
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label" for="sheets-spreadsheet-id">Spreadsheet ID</label>
+                            <label class="form-label" for="sheets-spreadsheet-id">スプレッドシートID</label>
                             <input class="form-control" id="sheets-spreadsheet-id">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label" for="sheets-range">Range</label>
+                            <label class="form-label" for="sheets-range">出力範囲（A1形式）</label>
                             <input class="form-control" id="sheets-range" value="{{ sheets_default_range }}">
                         </div>
                     </div>
@@ -253,6 +253,13 @@ document.addEventListener('DOMContentLoaded', function() {
         return element.innerHTML;
     }
 
+    function displayFailureMessage(value) {
+        if (value === 'Background task broker is unavailable.') {
+            return 'バックグラウンド処理を開始できませんでした。時間をおいて再試行してください。';
+        }
+        return value || '';
+    }
+
     function jobBadge(status) {
         const classes = {
             queued: 'bg-secondary',
@@ -296,7 +303,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td>${jobBadge(job.status)}</td>
                 <td>${Number(job.progress || 0)}%</td>
                 <td>${escapeHtml(formatDate(job.finished_at || job.started_at || job.created_at))}</td>
-                <td class="text-danger">${escapeHtml(job.error || '')}</td>
+                <td class="text-danger">${escapeHtml(displayFailureMessage(job.error))}</td>
                 <td class="text-end">
                     ${canRetry ? `<button class="btn btn-sm btn-outline-primary" data-retry-job="${job.id}">再試行</button>` : ''}
                 </td>
@@ -384,7 +391,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td>${discordDeliveryBadge(delivery.status)}</td>
                 <td>${Number(delivery.attempts || 0)}</td>
                 <td>${escapeHtml(formatDate(delivery.sent_at || delivery.created_at))}</td>
-                <td class="text-danger">${escapeHtml(delivery.last_error || '')}</td>
+                <td class="text-danger">${escapeHtml(displayFailureMessage(delivery.last_error))}</td>
                 <td class="text-end">
                     ${canRetry ? `<button class="btn btn-sm btn-outline-primary" data-retry-discord-delivery="${delivery.id}">再送</button>` : ''}
                 </td>
@@ -426,25 +433,74 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('integration-jobs').addEventListener('click', async function(event) {
         const button = event.target.closest('[data-retry-job]');
         if (!button) return;
-        const response = await axios.post(`/api/jobs/${button.dataset.retryJob}/retry/`);
-        showMessage(`再試行ジョブを作成しました: ${response.data.job_id}`);
-        await loadJobs();
+        button.disabled = true;
+        try {
+            const response = await axios.post(`/api/jobs/${button.dataset.retryJob}/retry/`);
+            showMessage(
+                response.data.queued === false
+                    ? '再試行を開始できませんでした。時間をおいて、もう一度お試しください。'
+                    : `再試行ジョブを作成しました: ${response.data.job_id}`,
+                response.data.queued === false ? 'warning' : 'success'
+            );
+            try {
+                await loadJobs();
+            } catch (refreshError) {
+                if (response.data.queued !== false) {
+                    showMessage(
+                        '再試行は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。',
+                        'warning'
+                    );
+                }
+            }
+        } catch (error) {
+            const detail = error?.response?.data?.detail;
+            showMessage(
+                typeof detail === 'string'
+                    ? displayFailureMessage(detail)
+                    : '再試行を受け付けられませんでした。連携状態を確認し、もう一度お試しください。',
+                'danger'
+            );
+        } finally {
+            button.disabled = false;
+        }
     });
 
     document.getElementById('discord-deliveries').addEventListener('click', async function(event) {
         const button = event.target.closest('[data-retry-discord-delivery]');
         if (!button) return;
         const groupId = document.getElementById('discord-group').value;
-        const response = await axios.post(
-            `/api/groups/${groupId}/discord-deliveries/${button.dataset.retryDiscordDelivery}/retry/`
-        );
-        showMessage(
-            response.data.queued
-                ? `Discord通知の再送を開始しました: ${response.data.delivery_id}`
-                : `Discord通知を再送キューに登録できませんでした: ${response.data.delivery_id}`,
-            response.data.queued ? 'success' : 'warning'
-        );
-        await loadDiscordDeliveries();
+        button.disabled = true;
+        try {
+            const response = await axios.post(
+                `/api/groups/${groupId}/discord-deliveries/${button.dataset.retryDiscordDelivery}/retry/`
+            );
+            showMessage(
+                response.data.queued
+                    ? `Discord通知の再送を開始しました: ${response.data.delivery_id}`
+                    : `Discord通知を再送キューに登録できませんでした: ${response.data.delivery_id}`,
+                response.data.queued ? 'success' : 'warning'
+            );
+            try {
+                await loadDiscordDeliveries();
+            } catch (refreshError) {
+                if (response.data.queued) {
+                    showMessage(
+                        'Discord通知の再送は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。',
+                        'warning'
+                    );
+                }
+            }
+        } catch (error) {
+            const detail = error?.response?.data?.detail;
+            showMessage(
+                typeof detail === 'string'
+                    ? displayFailureMessage(detail)
+                    : 'Discord通知の再送を受け付けられませんでした。設定を確認し、もう一度お試しください。',
+                'danger'
+            );
+        } finally {
+            button.disabled = false;
+        }
     });
 
     document.getElementById('rotate-calendar-token').addEventListener('click', async function() {
@@ -532,9 +588,36 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.getElementById('sync-google-calendar').addEventListener('click', async function() {
-        const response = await axios.post(`/api/sessions/${sessionSelect.value}/google-calendar/sync/`);
-        showMessage(`同期ジョブを作成しました: ${response.data.job_id}`);
-        await loadJobs();
+        this.disabled = true;
+        try {
+            const response = await axios.post(`/api/sessions/${sessionSelect.value}/google-calendar/sync/`);
+            showMessage(
+                response.data.queued === false
+                    ? 'Google Calendar同期を開始できませんでした。時間をおいて、もう一度お試しください。'
+                    : `同期ジョブを作成しました: ${response.data.job_id}`,
+                response.data.queued === false ? 'warning' : 'success'
+            );
+            try {
+                await loadJobs();
+            } catch (refreshError) {
+                if (response.data.queued !== false) {
+                    showMessage(
+                        'Google Calendar同期は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。',
+                        'warning'
+                    );
+                }
+            }
+        } catch (error) {
+            const detail = error?.response?.data?.detail;
+            showMessage(
+                typeof detail === 'string'
+                    ? displayFailureMessage(detail)
+                    : 'Google Calendar同期を受け付けられませんでした。連携状態を確認し、もう一度お試しください。',
+                'danger'
+            );
+        } finally {
+            this.disabled = false;
+        }
     });
 
     document.getElementById('create-guest-invitation').addEventListener('click', async function() {

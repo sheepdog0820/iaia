@@ -240,11 +240,13 @@
                                     <i class="fas fa-history"></i> バージョン履歴
                                 </a>
                             </li>
+                            {% if can_edit_character %}
                             <li class="nav-item">
                                 <a class="nav-link" id="play-history-tab" data-bs-toggle="tab" href="#play-history">
                                     <i class="fas fa-dice-d20"></i> 探索者履歴
                                 </a>
                             </li>
+                            {% endif %}
                             <li class="nav-item">
                                 <a class="nav-link" id="growth-records-tab" data-bs-toggle="tab" href="#growth-records">
                                     <i class="fas fa-level-up-alt"></i> 成長記録
@@ -1093,10 +1095,10 @@ document.addEventListener('DOMContentLoaded', function() {
             html += `
                 <div class="skill-card">
                     <div class="skill-card-main">
-                        <div class="skill-card-title">${skill.skill_name}</div>
+                        <div class="skill-card-title">${escapeHtml(skill.skill_name)}</div>
                         <div class="skill-breakdown">${breakdownHtml}</div>
                     </div>
-                    <div class="skill-total" aria-label="${skill.skill_name} \u5408\u8a08 ${totalValue}">
+                    <div class="skill-total" aria-label="${escapeHtml(skill.skill_name)} \u5408\u8a08 ${totalValue}">
                         <span class="skill-total-label">\u5408\u8a08</span>
                         <span class="skill-total-value">${totalValue}</span>
                     </div>
@@ -1180,14 +1182,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="col-md-6 mb-3">
                     <div class="card">
                         <div class="card-body">
-                            <h6 class="card-title">${item.name}</h6>
+                            <h6 class="card-title">${escapeHtml(item.name)}</h6>
             `;
             
             if (type === 'weapon') {
                 html += `
                     <div class="small">
-                        <div><strong>ダメージ:</strong> ${item.damage || '-'}</div>
-                        <div><strong>射程:</strong> ${item.base_range || item.range || '-'}</div>
+                        <div><strong>ダメージ:</strong> ${escapeHtml(item.damage || '-')}</div>
+                        <div><strong>射程:</strong> ${escapeHtml(item.base_range || item.range || '-')}</div>
                         ${item.ammo ? `<div><strong>装弾数:</strong> ${item.ammo}</div>` : ''}
                     </div>
                 `;
@@ -1202,7 +1204,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             if (item.description) {
-                html += `<div class="small text-muted mt-2">${item.description}</div>`;
+                html += `<div class="small text-muted mt-2">${escapeHtml(item.description)}</div>`;
             }
             
             html += `
@@ -1234,13 +1236,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             ${data.mental_disorder ? `
                                 <div class="mb-3">
                                     <strong>精神的障害:</strong>
-                                    <div class="text-muted">${data.mental_disorder}</div>
+                                    <div class="text-muted">${escapeHtml(data.mental_disorder)}</div>
                                 </div>
                             ` : ''}
                             ${data.damage_bonus ? `
                                 <div class="mb-3">
                                     <strong>ダメージボーナス:</strong>
-                                    <span class="badge bg-info">${data.damage_bonus}</span>
+                                    <span class="badge bg-info">${escapeHtml(data.damage_bonus)}</span>
                                 </div>
                             ` : ''}
                         </div>
@@ -1315,7 +1317,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // プレイ履歴読み込み
     let playHistoryLoaded = false;
     function loadPlayHistory() {
-        if (!character || !character.user || playHistoryLoaded) return;
+        if (!character || !document.getElementById('play-history-tab') || playHistoryLoaded) return;
         
         // ローディング表示
         const loadingElement = document.getElementById('playHistoryLoading');
@@ -1325,7 +1327,7 @@ document.addEventListener('DOMContentLoaded', function() {
             loadingElement.classList.remove('d-none');
         }
         
-        axios.get(`/api/scenarios/history/`)
+        axios.get(`/api/scenarios/history/?character_sheet=${encodeURIComponent(characterId)}`)
             .then(response => {
                 displayPlayHistory(response.data);
                 playHistoryLoaded = true;
@@ -1348,7 +1350,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const container = document.getElementById('playHistoryContainer');
         
         if (playHistory.length === 0) {
-            container.innerHTML = '<p class="text-muted">プレイ履歴がありません。</p>';
+            container.innerHTML = '<p class="text-muted">この探索者を設定したセッションのプレイ履歴はありません。</p>';
             return;
         }
         
@@ -1395,7 +1397,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="card h-100 play-history-card">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <h6 class="card-title mb-0">${play.scenario_detail.title}</h6>
+                                    <h6 class="card-title mb-0">${escapeHtml(play.scenario_detail.title)}</h6>
                                     <span class="badge bg-${roleColor}">
                                         <i class="${roleIcon}"></i> ${roleText}
                                     </span>
@@ -1410,13 +1412,13 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                                 
                                 <div class="small mb-2">
-                                    <div><strong>システム:</strong> ${getSystemDisplayName(play.scenario_detail.game_system)}</div>
-                                    ${play.scenario_detail.author ? `<div><strong>作者:</strong> ${play.scenario_detail.author}</div>` : ''}
+                                    <div><strong>システム:</strong> ${escapeHtml(getSystemDisplayName(play.scenario_detail.game_system))}</div>
+                                    ${play.scenario_detail.author ? `<div><strong>作者:</strong> ${escapeHtml(play.scenario_detail.author)}</div>` : ''}
                                 </div>
                                 
                                 ${play.notes ? `
                                     <div class="card-text small text-muted">
-                                        ${play.notes.length > 100 ? play.notes.substring(0, 100) + '...' : play.notes}
+                                        ${escapeHtml(play.notes.length > 100 ? play.notes.substring(0, 100) + '...' : play.notes)}
                                     </div>
                                 ` : ''}
                                 
@@ -1445,6 +1447,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // ゲームシステム表示名取得
     function getSystemDisplayName(systemCode) {
         const systems = {
+            'coc6': 'クトゥルフ神話TRPG 6版',
+            'coc7': 'クトゥルフ神話TRPG 7版',
             'coc': 'クトゥルフ神話TRPG',
             'dnd': 'D&D',
             'sw': 'ソード・ワールド',
@@ -1507,7 +1511,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="card-header">
                             <div class="d-flex justify-content-between align-items-center">
                                 <h6 class="mb-0">
-                                    <i class="fas fa-calendar"></i> ${record.session_date} - ${record.scenario_name}
+                                    <i class="fas fa-calendar"></i> ${escapeHtml(record.session_date)} - ${escapeHtml(record.scenario_name)}
                                 </h6>
                                 <button class="btn btn-sm btn-outline-danger" onclick="deleteGrowthRecord(${record.id})">
                                     <i class="fas fa-trash"></i>
@@ -1518,7 +1522,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="row">
                                 <div class="col-md-3">
                                     <small class="text-muted">GM</small>
-                                    <div>${record.gm_name || '不明'}</div>
+                                    <div>${escapeHtml(record.gm_name || '不明')}</div>
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted">SAN値変化</small>
@@ -1533,10 +1537,10 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                                 <div class="col-md-3">
                                     <small class="text-muted">特別報酬</small>
-                                    <div>${record.special_rewards || 'なし'}</div>
+                                    <div>${escapeHtml(record.special_rewards || 'なし')}</div>
                                 </div>
                             </div>
-                            ${record.notes ? `<div class="mt-2"><small class="text-muted">メモ:</small> ${record.notes}</div>` : ''}
+                            ${record.notes ? `<div class="mt-2"><small class="text-muted">メモ:</small> ${escapeHtml(record.notes)}</div>` : ''}
                             ${record.skill_growths && record.skill_growths.length > 0 ? `
                                 <div class="mt-3">
                                     <h6><i class="fas fa-chart-line"></i> スキル成長</h6>
@@ -1544,7 +1548,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         ${record.skill_growths.map(sg => `
                                             <div class="col-md-4 mb-2">
                                                 <div class="border rounded p-2">
-                                                    <strong>${sg.skill_name}</strong>: 
+                                                    <strong>${escapeHtml(sg.skill_name)}</strong>:
                                                     ${sg.old_value} → ${sg.new_value} 
                                                     <span class="text-success">(+${sg.growth_amount})</span>
                                                     ${sg.growth_roll_result ? `<br><small>ロール: ${sg.growth_roll_result}</small>` : ''}
@@ -1758,7 +1762,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <tbody>
                                             ${Object.entries(summary.skill_growth_stats).map(([skill, stats]) => `
                                                 <tr>
-                                                    <td>${skill}</td>
+                                                    <td>${escapeHtml(skill)}</td>
                                                     <td class="text-success">+${stats.total_growth}</td>
                                                     <td>${stats.growth_count}</td>
                                                 </tr>

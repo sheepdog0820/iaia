@@ -20,11 +20,12 @@ from accounts.billing import (
     get_configured_checkout_plans,
     get_stripe,
     handle_checkout_completed,
-    mark_invoice_payment_failed,
-    mark_invoice_payment_succeeded,
     mark_refund_or_dispute,
+    reconcile_dispute_event,
+    reconcile_invoice_payment,
     redeem_premium_access_code,
     require_price_id,
+    stripe_object_get,
     sync_subscription_object,
 )
 from accounts.models import PremiumSubscription, StripeWebhookEvent
@@ -75,6 +76,7 @@ class BillingCancelView(BillingPageView):
     template_name = "account/billing_cancel.html"
 
 
+@method_decorator(transaction.non_atomic_requests, name="dispatch")
 class CheckoutSessionView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -215,16 +217,27 @@ class StripeWebhookView(APIView):
                     "customer.subscription.updated",
                     "customer.subscription.deleted",
                 }:
-                    sync_subscription_object(data_object, event_id=event_id)
-                elif event_type == "invoice.payment_failed":
-                    mark_invoice_payment_failed(data_object, event_id=event_id)
-                elif event_type == "invoice.payment_succeeded":
-                    mark_invoice_payment_succeeded(data_object, event_id=event_id)
-                elif event_type in {
-                    "charge.refunded",
-                    "charge.dispute.created",
-                    "charge.dispute.closed",
-                }:
+                    # Serialize events for one customer, then fetch the current state.
+                    # Stripe does not guarantee snapshot delivery order.
+                    record = (
+                        PremiumSubscription.objects.select_for_update()
+                        .filter(stripe_customer_id=data_object.get("customer"))
+                        .first()
+                    )
+                    current_subscription = stripe.Subscription.retrieve(data_object["id"])
+                    superseded_cancellation = (
+                        record
+                        and record.stripe_subscription_id
+                        and record.stripe_subscription_id != stripe_object_get(current_subscription, "id")
+                        and stripe_object_get(current_subscription, "status") in {"canceled", "incomplete_expired"}
+                    )
+                    if not superseded_cancellation:
+                        sync_subscription_object(current_subscription, event_id=event_id)
+                elif event_type in {"invoice.payment_failed", "invoice.payment_succeeded"}:
+                    reconcile_invoice_payment(data_object, event_type=event_type, event_id=event_id)
+                elif event_type in {"charge.dispute.created", "charge.dispute.closed"}:
+                    reconcile_dispute_event(data_object, event_type=event_type, event_id=event_id)
+                elif event_type == "charge.refunded":
                     mark_refund_or_dispute(data_object, event_type=event_type, event_id=event_id)
                 webhook_event.processing_status = StripeWebhookEvent.STATUS_SUCCEEDED
                 webhook_event.error_message = ""

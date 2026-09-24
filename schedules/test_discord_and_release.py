@@ -1,6 +1,8 @@
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
+import requests
+from celery.exceptions import Retry
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import status
@@ -89,6 +91,37 @@ class DiscordSettingsTestCase(APITestCase):
             DiscordDelivery.Status.SENT,
         )
 
+    @patch("schedules.tasks.requests.post")
+    def test_delivery_failure_does_not_store_webhook_or_external_error(self, post):
+        settings_obj = GroupDiscordSettings.objects.create(
+            group=self.group,
+            enabled=True,
+            event_types=["session_updated"],
+        )
+        webhook_url = "https://discord.com/api/webhooks/123/private-secret"
+        settings_obj.set_webhook_url(webhook_url)
+        settings_obj.save()
+        post.side_effect = requests.Timeout(f"timed out while posting to {webhook_url}")
+
+        with patch.object(send_discord_webhook, "retry", side_effect=Retry()) as retry:
+            with self.assertRaises(Retry):
+                send_discord_webhook.run(
+                    self.group.pk,
+                    "session_updated",
+                    {"content": "updated"},
+                    "session-updated:failure",
+                )
+
+        delivery = DiscordDelivery.objects.get(idempotency_key="session-updated:failure")
+        self.assertEqual(
+            delivery.last_error,
+            "Discord通知の送信に失敗しました。設定を確認して再送してください。",
+        )
+        self.assertNotIn(webhook_url, delivery.last_error)
+        retry_error = retry.call_args.kwargs["exc"]
+        self.assertEqual(str(retry_error), delivery.last_error)
+        self.assertNotIn(webhook_url, str(retry_error))
+
     def test_admin_can_list_discord_delivery_failures(self):
         settings_obj = GroupDiscordSettings.objects.create(
             group=self.group,
@@ -119,6 +152,32 @@ class DiscordSettingsTestCase(APITestCase):
         self.assertEqual(response.data[0]["id"], failed.pk)
         self.assertEqual(response.data[0]["last_error"], "Discord returned 500")
         self.assertEqual(response.data[0]["payload"], {"content": "failed"})
+
+    def test_delivery_list_masks_url_in_legacy_failure(self):
+        settings_obj = GroupDiscordSettings.objects.create(
+            group=self.group,
+            enabled=True,
+            event_types=["session_updated"],
+        )
+        legacy_error = "403 Client Error: https://discord.com/api/webhooks/123/private-secret"
+        DiscordDelivery.objects.create(
+            settings=settings_obj,
+            event_type="session_updated",
+            idempotency_key="session-updated:legacy-secret",
+            payload={"content": "failed"},
+            status=DiscordDelivery.Status.FAILED,
+            last_error=legacy_error,
+        )
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.get(f"/api/groups/{self.group.pk}/discord-deliveries/?status=failed")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data[0]["last_error"],
+            "Discord通知の送信に失敗しました。設定を確認して再送してください。",
+        )
+        self.assertNotIn("private-secret", response.data[0]["last_error"])
 
     def test_delivery_list_without_settings_has_no_side_effect(self):
         self.client.force_authenticate(self.admin)
@@ -267,7 +326,7 @@ class DiscordSettingsTestCase(APITestCase):
         self.assertEqual(delivery.status, DiscordDelivery.Status.FAILED)
         self.assertEqual(
             delivery.last_error,
-            "Background task broker is unavailable.",
+            "バックグラウンド処理を開始できませんでした。時間をおいて再試行してください。",
         )
 
 

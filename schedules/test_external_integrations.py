@@ -140,6 +140,7 @@ class GoogleIntegrationTestCase(APITestCase):
             # Isolated test fixture or mocked credential; never a production secret.
             token="access-token",  # nosec B106
             token_secret="",
+            expires_at=timezone.now() + timedelta(hours=1),
         )
         GoogleIntegration.objects.create(user=self.user, scopes=scopes)
         response = self.client.put(
@@ -163,6 +164,13 @@ class GoogleIntegrationTestCase(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(GoogleIntegration.objects.filter(user=self.user).exists())
+
+    def test_missing_google_access_token_uses_japanese_reconnect_guidance(self):
+        with self.assertRaisesRegex(
+            ValueError,
+            "Googleのアクセストークンを確認できません。Googleを再連携してください。",
+        ):
+            get_google_access_token(self.user)
 
     def test_google_login_default_scope_is_sign_in_only(self):
         google_scopes = settings.SOCIALACCOUNT_PROVIDERS["google"]["SCOPE"]
@@ -188,7 +196,30 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertContains(response, "ICS購読URLを再発行")
         self.assertContains(response, "通知対象イベント")
         self.assertContains(response, "連携ジョブ状況")
+        self.assertContains(response, "再試行を開始できませんでした。時間をおいて、もう一度お試しください。")
+        self.assertContains(
+            response,
+            "Google Calendar同期を開始できませんでした。時間をおいて、もう一度お試しください。",
+        )
+        self.assertContains(
+            response,
+            "Discord通知の再送を受け付けられませんでした。設定を確認し、もう一度お試しください。",
+        )
+        self.assertContains(
+            response,
+            "再試行は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。",
+        )
+        self.assertContains(
+            response,
+            "Google Calendar同期は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。",
+        )
+        self.assertContains(
+            response,
+            "Discord通知の再送は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。",
+        )
         self.assertContains(response, "Google Sheets キャラクターシート出力")
+        self.assertContains(response, "スプレッドシートID")
+        self.assertContains(response, "出力範囲（A1形式）")
         self.assertNotContains(response, "取込プレビュー")
         self.assertNotContains(response, 'id="import-google-sheets"')
         self.assertContains(response, "直前の招待を失効")
@@ -210,6 +241,23 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
         self.assertTrue(AsyncJob.objects.filter(pk=response.data["job_id"]).exists())
         self.assertTrue(GoogleCalendarSync.objects.filter(user=self.user, session=self.session).exists())
+
+    @patch("schedules.integration_views.queue_google_calendar_sync", return_value=False)
+    def test_calendar_sync_broker_failure_is_saved_with_japanese_retry_guidance(self, queue_sync):
+        self.connect_google()
+
+        response = self.client.post(f"/api/sessions/{self.session.pk}/google-calendar/sync/")
+
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertFalse(response.data["queued"])
+        job = AsyncJob.objects.get(pk=response.data["job_id"])
+        sync = GoogleCalendarSync.objects.get(user=self.user, session=self.session)
+        message = "バックグラウンド処理を開始できませんでした。時間をおいて再試行してください。"
+        self.assertEqual(job.status, AsyncJob.Status.FAILED)
+        self.assertEqual(job.error, message)
+        self.assertEqual(sync.status, GoogleCalendarSync.Status.FAILED)
+        self.assertEqual(sync.last_error, message)
+        queue_sync.assert_called_once_with(sync.pk, str(job.pk))
 
     @patch("schedules.tasks.requests.post")
     def test_calendar_task_creates_external_event_with_client_id(self, post):
@@ -251,7 +299,7 @@ class GoogleIntegrationTestCase(APITestCase):
         credentials.token = "new-access-token"  # nosec B105
         # Isolated test fixture or mocked credential; never a production secret.
         credentials.refresh_token = "new-refresh-token"  # nosec B105
-        credentials.expiry = timezone.now() + timedelta(hours=1)
+        credentials.expiry = (timezone.now() + timedelta(hours=1)).replace(tzinfo=None)
 
         access_token = get_google_access_token(self.user)
 
@@ -260,6 +308,55 @@ class GoogleIntegrationTestCase(APITestCase):
         social_token.refresh_from_db()
         self.assertEqual(social_token.token, "new-access-token")
         self.assertEqual(social_token.token_secret, "new-refresh-token")
+        self.assertTrue(timezone.is_aware(social_token.expires_at))
+
+    @override_settings(
+        GOOGLE_OAUTH_CLIENT_ID="client-id",
+        # Isolated test fixture or mocked credential; never a production secret.
+        GOOGLE_OAUTH_CLIENT_SECRET="client-secret",  # nosec B106
+    )
+    @patch("schedules.google_tokens.Credentials")
+    def test_google_token_without_expiry_is_refreshed_before_api_use(self, credentials_class):
+        self.connect_google()
+        social_token = SocialToken.objects.get(account__user=self.user)
+        social_token.expires_at = None
+        social_token.save(update_fields=["expires_at"])
+        self.assertIsNone(social_token.expires_at)
+        # Isolated test fixture or mocked credential; never a production secret.
+        social_token.token_secret = "refresh-token"  # nosec B105
+        social_token.save(update_fields=["token_secret"])
+
+        credentials = credentials_class.return_value
+        # Isolated test fixture or mocked credential; never a production secret.
+        credentials.token = "refreshed-access-token"  # nosec B105
+        credentials.refresh_token = None
+        credentials.expiry = timezone.now() + timedelta(hours=1)
+
+        access_token = get_google_access_token(self.user)
+
+        self.assertEqual(access_token, "refreshed-access-token")
+        credentials.refresh.assert_called_once()
+        social_token.refresh_from_db()
+        self.assertEqual(social_token.token, "refreshed-access-token")
+        self.assertEqual(social_token.token_secret, "refresh-token")
+        self.assertTrue(timezone.is_aware(social_token.expires_at))
+
+    # Isolated test fixture or mocked credential; never a production secret.
+    @override_settings(
+        GOOGLE_OAUTH_CLIENT_ID="client-id",
+        GOOGLE_OAUTH_CLIENT_SECRET="client-secret",  # nosec B106
+    )
+    def test_google_token_without_expiry_requires_reconnect_when_refresh_token_is_missing(self):
+        self.connect_google()
+        social_token = SocialToken.objects.get(account__user=self.user)
+        social_token.expires_at = None
+        social_token.save(update_fields=["expires_at"])
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Googleの更新トークンを確認できません。Googleを再連携してください。",
+        ):
+            get_google_access_token(self.user)
 
     @override_settings(
         GOOGLE_OAUTH_CLIENT_ID="fixture-client", GOOGLE_OAUTH_CLIENT_SECRET="fixture-secret"
@@ -337,6 +434,34 @@ class GoogleIntegrationTestCase(APITestCase):
                     )
                 queue_export.assert_not_called()
                 self.assertFalse(AsyncJob.objects.filter(job_type="google_sheets_export").exists())
+
+    @patch("schedules.integration_views.queue_google_sheet_export", return_value=True)
+    def test_sheets_export_rejects_non_a1_range_before_queueing(self, queue_export):
+        self.connect_google()
+
+        response = self.client.post(
+            "/api/character-sheets/google-sheets/export/",
+            {"spreadsheet_id": "isolated-sheet", "range": "NamedRange"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["range"],
+            ["出力範囲はA1形式で指定してください（例: Characters!A1）。"],
+        )
+        queue_export.assert_not_called()
+        self.assertFalse(AsyncJob.objects.filter(job_type="google_sheets_export").exists())
+
+    def test_sheets_export_requires_connected_google_in_japanese(self):
+        response = self.client.post(
+            "/api/character-sheets/google-sheets/export/",
+            {"spreadsheet_id": "isolated-sheet"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["detail"], "Google Sheets連携を確認できません。Googleを再連携してください。")
 
     @patch("schedules.integration_views.queue_google_sheet_export", return_value=True)
     def test_sheets_export_selection_does_not_include_other_owned_or_foreign_characters(self, queue_export):

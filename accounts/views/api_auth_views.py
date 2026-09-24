@@ -268,9 +268,7 @@ def twitter_auth(request):
         return Response({"error": "code と code_verifier が必要です。"}, status=status.HTTP_400_BAD_REQUEST)
 
     if not settings.TWITTER_CLIENT_ID:
-        return Response(
-            {"error": "TWITTER_CLIENT_ID が設定されていません。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        return Response({"error": "X認証の設定を確認中です。"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     if not redirect_uri:
         return Response({"error": "redirect_uri が設定されていません。"}, status=status.HTTP_400_BAD_REQUEST)
@@ -387,6 +385,12 @@ def twitter_auth(request):
             {"error": "認証処理が競合しました。もう一度ログインをお試しください。"},
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
+    except requests.RequestException as e:
+        logger.warning("X OAuth通信エラー (%s)", type(e).__name__)
+        return Response(
+            {"error": "Xとの通信に失敗しました。時間をおいて再度お試しください。"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
     except Exception as e:
         logger.error("X OAuth認証エラー (%s)", type(e).__name__)
         return Response(
@@ -417,7 +421,8 @@ def discord_auth(request):
         if not access_token:
             if not getattr(settings, "DISCORD_CLIENT_ID", ""):
                 return Response(
-                    {"error": "DISCORD_CLIENT_ID が設定されていません。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    {"error": "Discord認証の設定を確認中です。"},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
                 )
 
             if not redirect_uri:
@@ -559,6 +564,12 @@ def discord_auth(request):
     except IntegrityError:
         return Response(
             {"error": "認証処理が競合しました。もう一度ログインをお試しください。"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    except requests.RequestException as e:
+        logger.warning("Discord OAuth通信エラー (%s)", type(e).__name__)
+        return Response(
+            {"error": "Discordとの通信に失敗しました。時間をおいて再度お試しください。"},
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
     except Exception as e:

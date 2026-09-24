@@ -171,6 +171,11 @@ const DEFAULT_CHARACTER_IMAGE = '{% static "images/default-character.svg" %}';
 document.addEventListener('DOMContentLoaded', function() {
     document.body.classList.add('character-list-page');
     let allCharacters = [];
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, char => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        }[char]));
+    }
     const showTestData = new URLSearchParams(window.location.search).get('show_test_data') === '1';
 
     function isDevelopmentCharacter(character) {
@@ -254,7 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 container.innerHTML = `
                     <div class="col-12">
                         <div class="alert alert-danger" role="alert">
-                            <i class="fas fa-exclamation-triangle"></i> ${errorMessage}
+                            <i class="fas fa-exclamation-triangle"></i> ${escapeHtml(errorMessage)}
                         </div>
                     </div>
                 `;
@@ -277,7 +282,7 @@ document.addEventListener('DOMContentLoaded', function() {
         characters.forEach(character => {
             const editionBadge = character.edition === '6th' ? 
                 '<span class="badge bg-primary">6版</span>' : 
-                '<span class="badge bg-secondary">' + character.edition + '</span>';
+                '<span class="badge bg-secondary">' + escapeHtml(character.edition) + '</span>';
             
             const statusBadge = getStatusBadge(character.status);
             
@@ -299,9 +304,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xxl-2">
                     <div class="card h-100 shadow-sm character-card">
                         <div class="position-relative">
-                            <img src="${imageUrl}" 
+                            <img src="${escapeHtml(imageUrl)}"
                                  class="card-img-top character-card-img" 
-                                 alt="${character.name}"
+                                 alt="${escapeHtml(character.name)}"
                                  loading="lazy"
                                  onerror="this.src='${DEFAULT_CHARACTER_IMAGE}';">
                             ${character.status !== 'alive' ? 
@@ -312,7 +317,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h5 class="card-title mb-0">${character.name}</h5>
+                                <h5 class="card-title mb-0">${escapeHtml(character.name)}</h5>
                                 <div>
                                     ${editionBadge}
                                     ${character.status === 'alive' ? statusBadge : ''}
@@ -320,7 +325,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                             
                             <div class="text-muted small mb-2 character-meta">
-                                <div><strong>職業:</strong> ${character.occupation || '未設定'}</div>
+                                <div><strong>職業:</strong> ${escapeHtml(character.occupation || '未設定')}</div>
                                 <div><strong>年齢:</strong> ${ageLabel}</div>
                                 <div><strong>バージョン:</strong> ${character.version}</div>
                             </div>
