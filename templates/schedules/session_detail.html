@@ -321,7 +321,11 @@
                                 </div>
                                 <div class="row g-2 session-scenario-image-grid">
                                     {% for scenario_image in scenario_images %}
-                                    {% url 'scenario_image_session_content' pk=scenario_image.pk session_pk=session.pk as scenario_image_url %}
+                                    {% if is_public_view %}
+                                        {% url 'scenario_image_shared_session_content' pk=scenario_image.pk share_token=session.share_token as scenario_image_url %}
+                                    {% else %}
+                                        {% url 'scenario_image_session_content' pk=scenario_image.pk session_pk=session.pk as scenario_image_url %}
+                                    {% endif %}
                                     <div class="col-6 col-md-4 col-xl-3">
                                         <div class="session-scenario-image-card h-100">
                                             <a href="{{ scenario_image_url }}"
