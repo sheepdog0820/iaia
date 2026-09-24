@@ -31,6 +31,15 @@ STS accountは083773015316。ECS定義49はdesired/running/pending=0/0/0、HTTP 
 
 したがって06:51の503は定期停止時間帯に一致する。7:30/8:00の再開成功は未確認であり、今回の読み取り確認ではサービスを起動していない。再開時刻後に利用・デプロイする場合はreadiness、ECS安定状態、RDS状態を実行直前に確認する。CloudTrail履歴はスケジューラによる実行を示すが、停止時間帯の利用合意や日中の起動成功を証明するものではない。
 
+## 9月25日 08:15 JSTの反映準備確認
+
+- `tableno-aws-pre` は定義49、desired/running/pending=1/1/0。実行中Webのdigestは `sha256:59542e45e5dc8e1e33cbf7202eb12911ffbb390156a778fe7eb11f0fe4c65f79`。RDS状態はavailable、バックアップ保持7日。HTTP readiness 200相当のJSONは `status=ok`、database/cacheとも`ok`。定期起動後の現行環境は復帰している。
+- 稼働イメージはmainの現行版であり、候補イメージではない。過去の隔離環境での起動成功をAWS配信済みとは扱わない。
+- 作業ブランチ `codex/google-token-expiry-20260922` のHEADは `fbf67c00439721e0bfbe89f585cff6aa9b289bdf`、main `d875d028` は祖先で、未push差分なし。`fec10aa0` のアプリ差分を含むHEADの[CI全6ジョブが成功](https://github.com/sheepdog0820/iaia/actions/runs/35705069778)。現行Docker候補は `tableno:history-permissions-fec10aa0`、digest `sha256:1658cb0b53a2a32e14464561d9d91f9676197e55ece84151bc75a229ff0c553b`、revision label `fec10aa0`。
+- このブランチをheadにした既存PRは公開一覧に見当たらない。GitHub CLIは未認証のためPR作成はできていない。ブランチpushとCIは完了。
+
+この確認で候補のPRレビュー可能性・ローカル固定イメージ・CI・現行サービスの復帰を確認したが、ECR候補push、mainマージ、DB移行、ECS更新、S3/CloudFront変更は未実施。実施には反映承認と、PR作成前のGitHub認証、および直前のAWS/DB/静的復旧情報再取得が必要。
+
 ## 承認対象と実行前ゲート
 
 1. CI全体成功・対象差分・main不変・稼働状態を再確認後、上記アプリ候補をmainへ通常マージする。未知の更新や競合では停止する。
