@@ -682,11 +682,29 @@ document.addEventListener('DOMContentLoaded', function() {
         ];
         
         if (!isPublicView) {
-            info.push({ label: '秘匿HO情報', value: character.secret_ho_info || '未設定', type: 'longText' });
+            const secretHoInfo = String(character.secret_ho_info || '').trim();
+            info.push({
+                label: '秘匿HO情報',
+                value: secretHoInfo || '未設定',
+                type: secretHoInfo ? 'secretHo' : 'longText'
+            });
         }
         
         let html = '';
         info.forEach(item => {
+            if (item.type === 'secretHo') {
+                html += `
+                    <div class="col-12 mb-3 basic-info-long-item">
+                        <div class="basic-info-long-label">${escapeHtml(item.label)}</div>
+                        <div class="form-text text-warning mb-2">表示するとシナリオのネタバレを含みます。</div>
+                        <button type="button" class="btn btn-outline-warning btn-sm" id="secretHoInfoToggle"
+                                aria-expanded="false" aria-controls="secretHoInfoContent">秘匿HO情報を表示</button>
+                        <div class="basic-info-long-body mt-2" id="secretHoInfoContent" aria-live="polite" hidden></div>
+                    </div>
+                `;
+                return;
+            }
+
             if (item.type === 'longText') {
                 html += `
                     <div class="col-12 mb-3 basic-info-long-item">
@@ -705,6 +723,24 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         container.innerHTML = html;
+
+        const secretHoInfoToggle = document.getElementById('secretHoInfoToggle');
+        const secretHoInfoContent = document.getElementById('secretHoInfoContent');
+        secretHoInfoToggle?.addEventListener('click', () => {
+            const isExpanded = secretHoInfoToggle.getAttribute('aria-expanded') === 'true';
+            if (isExpanded) {
+                secretHoInfoContent.innerHTML = '';
+                secretHoInfoContent.hidden = true;
+                secretHoInfoToggle.setAttribute('aria-expanded', 'false');
+                secretHoInfoToggle.textContent = '秘匿HO情報を表示';
+                return;
+            }
+
+            secretHoInfoContent.innerHTML = formatInfoValue(character.secret_ho_info);
+            secretHoInfoContent.hidden = false;
+            secretHoInfoToggle.setAttribute('aria-expanded', 'true');
+            secretHoInfoToggle.textContent = '秘匿HO情報を隠す';
+        });
     }
     
     // 複数画像表示
