@@ -245,6 +245,7 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
                 self.assertIn('<label for="traits_mannerisms" class="form-label">メモ</label>', template)
                 self.assertIn('name="secret_ho_info"', template)
                 self.assertIn("秘匿HO情報", template)
+                self.assertIn("シナリオのネタバレ", template)
 
     def test_edit_payload_persists_secret_ho_info(self):
         for relative_path in [
@@ -536,7 +537,11 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         )
 
         self.assertIn("{ label: 'メモ'", basic_block)
-        self.assertIn("{ label: '秘匿HO情報'", basic_block)
+        self.assertIn("label: '秘匿HO情報'", basic_block)
+        self.assertIn("secretHoInfo ? 'secretHo' : 'longText'", basic_block)
+        self.assertIn("secretHoInfoToggle", basic_block)
+        self.assertIn("secretHoInfoContent", basic_block)
+        self.assertIn("シナリオのネタバレ", basic_block)
 
         for label in [
             "容姿の描写",
