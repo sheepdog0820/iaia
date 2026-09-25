@@ -328,15 +328,17 @@
                                     {% endif %}
                                     <div class="col-6 col-md-4 col-xl-3">
                                         <div class="session-scenario-image-card h-100">
-                                            <a href="{{ scenario_image_url }}"
-                                               target="_blank"
-                                               rel="noopener noreferrer"
-                                               class="d-block">
+                                            <button type="button"
+                                                    class="session-scenario-image-open"
+                                                    data-scenario-image-open
+                                                    data-image-url="{{ scenario_image_url }}"
+                                                    data-image-title="{{ scenario_image.title|default:session.scenario.title }}"
+                                                    aria-label="シナリオ画像を拡大して表示: {{ scenario_image.title|default:session.scenario.title }}">
                                                 <img src="{{ scenario_image_url }}"
                                                      alt="{{ scenario_image.title|default:session.scenario.title }}"
                                                      class="session-scenario-image-thumb rounded"
                                                      loading="lazy">
-                                            </a>
+                                            </button>
                                             <div class="small text-muted text-truncate mt-1"
                                                  title="{{ scenario_image.title|default:'シナリオ画像' }}">
                                                 {{ scenario_image.title|default:"シナリオ画像" }}
@@ -345,6 +347,40 @@
                                     </div>
                                     {% endfor %}
                                 </div>
+                            </div>
+                            <div id="sessionScenarioImageViewer"
+                                 class="session-scenario-image-viewer"
+                                 role="dialog"
+                                 aria-modal="true"
+                                 aria-label="シナリオ画像"
+                                 aria-hidden="true"
+                                 tabindex="-1"
+                                 hidden>
+                                <button type="button"
+                                        class="session-scenario-image-viewer-close"
+                                        data-scenario-viewer-close
+                                        aria-label="画像を閉じる">
+                                    <i class="fas fa-times" aria-hidden="true"></i>
+                                </button>
+                                <button type="button"
+                                        class="session-scenario-image-viewer-arrow session-scenario-image-viewer-previous"
+                                        data-scenario-viewer-previous
+                                        aria-label="前の画像">
+                                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                                </button>
+                                <figure class="session-scenario-image-viewer-figure">
+                                    <img data-scenario-viewer-image alt="">
+                                    <figcaption>
+                                        <span data-scenario-viewer-title></span>
+                                        <span data-scenario-viewer-count role="status" aria-live="polite"></span>
+                                    </figcaption>
+                                </figure>
+                                <button type="button"
+                                        class="session-scenario-image-viewer-arrow session-scenario-image-viewer-next"
+                                        data-scenario-viewer-next
+                                        aria-label="次の画像">
+                                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                                </button>
                             </div>
                             {% endif %}
                         {% endwith %}
@@ -1497,8 +1533,126 @@
     background: var(--bs-tertiary-bg, #f8f9fa);
 }
 
-.session-scenario-image-card a:hover .session-scenario-image-thumb {
+.session-scenario-image-open {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: zoom-in;
+}
+
+.session-scenario-image-open:hover .session-scenario-image-thumb,
+.session-scenario-image-open:focus-visible .session-scenario-image-thumb {
     filter: brightness(0.95);
+}
+
+.session-scenario-image-open:focus-visible {
+    outline: 3px solid var(--accent-primary, #0d6efd);
+    outline-offset: 3px;
+    border-radius: 0.5rem;
+}
+
+.session-scenario-image-viewer[hidden] {
+    display: none !important;
+}
+
+.session-scenario-image-viewer {
+    position: fixed;
+    z-index: 1080;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 5rem 3rem;
+    background: rgba(0, 0, 0, 0.92);
+    color: #fff;
+}
+
+.session-scenario-image-viewer-close,
+.session-scenario-image-viewer-arrow {
+    position: absolute;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    border-radius: 50%;
+    background: rgba(30, 30, 30, 0.8);
+    color: #fff;
+    font-size: 1.35rem;
+}
+
+.session-scenario-image-viewer-close:hover,
+.session-scenario-image-viewer-arrow:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.session-scenario-image-viewer-close:focus-visible,
+.session-scenario-image-viewer-arrow:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 3px;
+}
+
+.session-scenario-image-viewer-close {
+    top: 1rem;
+    right: 1rem;
+}
+
+.session-scenario-image-viewer-previous {
+    left: 1rem;
+}
+
+.session-scenario-image-viewer-next {
+    right: 1rem;
+}
+
+.session-scenario-image-viewer-figure {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+}
+
+.session-scenario-image-viewer-figure img {
+    display: block;
+    max-width: 100%;
+    max-height: calc(100% - 3rem);
+    object-fit: contain;
+}
+
+.session-scenario-image-viewer-figure figcaption {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding-top: 0.75rem;
+    color: #fff;
+    text-align: center;
+}
+
+@media (max-width: 575.98px) {
+    .session-scenario-image-viewer {
+        padding: 4rem 3.75rem 2rem;
+    }
+
+    .session-scenario-image-viewer-close,
+    .session-scenario-image-viewer-arrow {
+        width: 2.5rem;
+        height: 2.5rem;
+    }
+
+    .session-scenario-image-viewer-previous {
+        left: 0.5rem;
+    }
+
+    .session-scenario-image-viewer-next {
+        right: 0.5rem;
+    }
 }
 
 .session-main-column {
@@ -1940,6 +2094,7 @@ a:hover {
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/session_scenario_image_gallery.js' %}?v=20260925-scenario-gallery-2"></script>
 <script src="{% static 'js/screen-actions.js' %}?v=20260728-4"></script>
 <script src="{% static 'js/handout_skill_picker.js' %}?v=20260729-fist-name-1"></script>
 <script src="{% static 'js/ccfolia_character_copy.js' %}?v=20260729-melee-name-1"></script>
