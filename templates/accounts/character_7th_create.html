@@ -357,7 +357,7 @@
                             <span class="badge bg-light text-secondary derived-section-badge">CoC7 / 自動計算</span>
                         </div>
                         <div class="derived-grid" aria-label="副次ステータス">
-                            <div class="derived-card d-none">
+                            <div class="derived-card">
                                 <div class="derived-card-header">
                                     <span class="derived-label">HP</span>
                                     <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="(CON+SIZ)÷10" aria-label="HP計算式">
@@ -367,7 +367,7 @@
                                 <div class="derived-value" id="hp_display">--</div>
                                 <input type="hidden" id="hp" name="hit_points_max">
                             </div>
-                            <div class="derived-card d-none">
+                            <div class="derived-card">
                                 <div class="derived-card-header">
                                     <span class="derived-label">MP</span>
                                     <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="POW÷5" aria-label="MP計算式">
@@ -377,9 +377,9 @@
                                 <div class="derived-value" id="mp_display">--</div>
                                 <input type="hidden" id="mp" name="magic_points_max">
                             </div>
-                            <div class="derived-card d-none">
+                            <div class="derived-card">
                                 <div class="derived-card-header">
-                                    <span class="derived-label">SAN</span>
+                                    <span class="derived-label">初期SAN</span>
                                     <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="POW" aria-label="SAN計算式">
                                         <i class="fas fa-circle-question"></i>
                                     </button>
@@ -399,13 +399,17 @@
                             </div>
                             <div class="derived-card">
                                 <div class="derived-card-header">
-                                    <span class="derived-label">幸運</span>
+                                    <label class="derived-label" for="luck">幸運</label>
                                     <button type="button" class="btn btn-link p-0 derived-info" data-bs-toggle="tooltip" title="3D6×5" aria-label="幸運計算式">
                                         <i class="fas fa-circle-question"></i>
                                     </button>
                                 </div>
-                                <div class="derived-value" id="luck_display">--</div>
-                                <input type="hidden" id="luck" name="luck">
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control" id="luck" name="luck" min="15" max="90" step="5" required aria-label="幸運" title="15〜90の5刻みで入力">
+                                    <button type="button" class="btn btn-outline-secondary" id="rollLuck" aria-label="幸運をロール" title="幸運を3D6×5でロール">
+                                        <i class="fas fa-dice"></i>
+                                    </button>
+                                </div>
                             </div>
                             <div class="derived-card">
                                 <div class="derived-card-header">
@@ -1102,5 +1106,5 @@
 
 {% block extra_js %}
 <script src="{% static 'js/screen-actions.js' %}?v=20260728-4"></script>
-<script src="{% static 'accounts/js/character7th.js' %}?v=20260729-melee-name-1"></script>
+<script src="{% static 'accounts/js/character7th.js' %}?v=20260929-line-luck-1"></script>
 {% endblock %}

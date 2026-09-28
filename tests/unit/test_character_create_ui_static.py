@@ -136,17 +136,40 @@ class CharacterCreateUiStaticTests(SimpleTestCase):
         script = self.read_text("static/accounts/js/character7th.js")
 
         self.assertIn("const idea = int;", script)
-        self.assertIn("const luckEl = document.getElementById('luck');", script)
-        self.assertIn("const existingLuck = parseInt(luckEl?.value, 10);", script)
-        self.assertIn("const luck = existingLuck >= 15 && existingLuck <= 90", script)
-        self.assertIn(") * 5;", script)
+        self.assertIn("function rollLuck() {", script)
+        self.assertIn("rollDice(3, 6, 0, 5)", script)
+        self.assertIn("luck: apiData.luck,", script)
         self.assertNotIn("const luck = pow;", script)
+        self.assertNotIn("updateDisplay('luck_display', luck);", script)
         self.assertIn("const know = edu;", script)
         self.assertIn('title="3D6×5" aria-label="幸運計算式"', template)
         self.assertNotIn('title="POW" aria-label="幸運計算式"', template)
         self.assertNotIn('title="INT×5"', template)
         self.assertNotIn('title="POW×5"', template)
         self.assertNotIn('title="EDU×5"', template)
+
+    def test_7th_create_shows_vitals_and_allows_independent_luck_entry(self):
+        template = self.read_text("templates/accounts/character_7th_create.html")
+        script = self.read_text("static/accounts/js/character7th.js")
+
+        for stat in ("HP", "MP", "初期SAN"):
+            card = re.search(
+                rf'<div class="derived-card([^\"]*)">\s*<div class="derived-card-header">'
+                rf'\s*<span class="derived-label">{stat}</span>',
+                template,
+            )
+            self.assertIsNotNone(card, stat)
+            self.assertNotIn("d-none", card.group(1), stat)
+
+        self.assertRegex(
+            template,
+            r'<input[^>]*type="number"[^>]*id="luck"[^>]*name="luck"'
+            r'[^>]*min="15"[^>]*max="90"[^>]*step="5"[^>]*required',
+        )
+        self.assertIn('id="rollLuck"', template)
+        self.assertIn('aria-label="幸運をロール"', template)
+        self.assertIn("document.getElementById('rollLuck')?.addEventListener('click', rollLuck);", script)
+        self.assertIn("rollDice(3, 6, 0, 5)", script)
 
     def test_background_removal_uses_an_async_job_in_both_create_screens(self):
         for relative_path in [

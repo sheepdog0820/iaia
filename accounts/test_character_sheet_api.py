@@ -688,6 +688,83 @@ class CharacterSheetAPITest(APITestCase):
                 self.assertEqual(response.status_code, status.HTTP_201_CREATED)
                 self.assertEqual(response.data["character_7th"]["current_luck"], luck)
 
+    def test_patch_7th_luck_updates_saved_value_and_rejects_invalid_rolls(self):
+        character = self.create_character(
+            user=self.user,
+            edition="7th",
+            name="幸運更新7版",
+            str_value=60,
+            con_value=60,
+            pow_value=60,
+            dex_value=60,
+            app_value=60,
+            siz_value=60,
+            int_value=60,
+            edu_value=60,
+            luck_starting=75,
+            luck_current=75,
+            luck_max=75,
+        )
+        url = f"/api/accounts/character-sheets/{character.id}/"
+
+        response = self.client.patch(url, {"luck": 70}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["character_7th"]["current_luck"], 70)
+        character.refresh_from_db()
+        self.assertEqual(character.system_data.luck_starting, 70)
+        self.assertEqual(character.system_data.luck_current, 70)
+        self.assertEqual(character.system_data.luck_max, 70)
+
+        for luck in (14, 16, 91):
+            with self.subTest(luck=luck):
+                invalid = self.client.patch(url, {"luck": luck}, format="json")
+                self.assertEqual(invalid.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("luck", invalid.data)
+                character.refresh_from_db()
+                self.assertEqual(character.system_data.luck_current, 70)
+
+    def test_patch_7th_other_fields_preserves_spent_luck_values(self):
+        character = self.create_character(
+            user=self.user,
+            edition="7th",
+            name="幸運保持7版",
+            str_value=60,
+            con_value=60,
+            pow_value=60,
+            dex_value=60,
+            app_value=60,
+            siz_value=60,
+            int_value=60,
+            edu_value=60,
+            luck_starting=75,
+            luck_current=60,
+            luck_max=75,
+        )
+
+        response = self.client.patch(
+            f"/api/accounts/character-sheets/{character.id}/",
+            {"pow_value": 65, "luck": 60},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        character.refresh_from_db()
+        self.assertEqual(character.system_data.luck_starting, 75)
+        self.assertEqual(character.system_data.luck_current, 60)
+        self.assertEqual(character.system_data.luck_max, 75)
+
+    def test_patch_6th_rejects_independent_luck_input(self):
+        character = self.create_character(self.character_data_6th)
+
+        response = self.client.patch(
+            f"/api/accounts/character-sheets/{character.id}/",
+            {"luck": 70},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("luck", response.data)
+
     def test_create_7th_edition_character_with_skills_uses_7th_point_rules(self):
         """7版APIは技能を保存し、職業/趣味ポイントを7版基準で計算できる"""
         data = dict(self.character_data_7th)

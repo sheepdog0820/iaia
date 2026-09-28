@@ -830,6 +830,11 @@ function updateGlobalDiceFormula() {
         return (total + bonus) * multiplier;
     }
 
+    function rollLuck() {
+        const luckInput = document.getElementById('luck');
+        if (luckInput) luckInput.value = rollDice(3, 6, 0, 5);
+    }
+
     // 全能力値ロール
     function buildAbilityRollResults() {
         return ABILITIES_6TH.map(abilityName => {
@@ -884,11 +889,6 @@ function updateGlobalDiceFormula() {
         const mp = Math.floor(pow / 5);  // MP = POW / 5
         const san = pow;  // SAN = POW
         const idea = int;  // アイデア = INT
-        const luckEl = document.getElementById('luck');
-        const existingLuck = parseInt(luckEl?.value, 10);
-        const luck = existingLuck >= 15 && existingLuck <= 90
-            ? existingLuck
-            : (Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1) * 5;
         const know = edu;  // 知識 = EDU
         const sanMax = 99;  // 99 - クトゥルフ神話技能（初期値0）
 
@@ -904,7 +904,6 @@ function updateGlobalDiceFormula() {
         if (document.getElementById('mp')) document.getElementById('mp').value = mp;
         if (document.getElementById('san')) document.getElementById('san').value = san;
         if (document.getElementById('idea')) document.getElementById('idea').value = idea;
-        if (luckEl) luckEl.value = luck;
         if (document.getElementById('know')) document.getElementById('know').value = know;
         
         // Set current values as starting defaults
@@ -935,7 +934,6 @@ function updateGlobalDiceFormula() {
         updateDisplay('mp_display', mp);
         updateDisplay('san_display', san);
         updateDisplay('idea_display', idea);
-        updateDisplay('luck_display', luck);
         updateDisplay('know_display', know);
         
         // 7th edition specific derived calculations
@@ -2416,6 +2414,7 @@ function updateGlobalDiceFormula() {
     // 全能力値ダイス（ボタン）
     document.getElementById('rollAllAbilities')?.addEventListener('click', () => rollAllAbilities());
     document.getElementById('statusRollAllAbilities')?.addEventListener('click', () => rollAllAbilities());
+    document.getElementById('rollLuck')?.addEventListener('click', rollLuck);
     
     // 全能力値ダイス設定の変更時にフォーミュラを更新
     document.getElementById('globalDiceCount')?.addEventListener('input', updateGlobalDiceFormula);
@@ -3619,6 +3618,7 @@ function initOccupationTemplates() {
             siz_value: apiData.siz_value,
             int_value: apiData.int_value,
             edu_value: apiData.edu_value,
+            luck: apiData.luck,
         };
 
         if (apiData.age != null) updatePayload.age = apiData.age;
@@ -3841,6 +3841,8 @@ function initOccupationTemplates() {
                 notifyUser(error?.error || 'Failed to load character data.');
             });
     } else {
+        // 幸運は能力値と独立して一度だけロールする。
+        rollLuck();
         // 初期計算（常にロールして値を埋める）
         setTimeout(() => {
             rollAllAbilities({ requireConfirmation: false });

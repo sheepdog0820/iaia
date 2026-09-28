@@ -1151,6 +1151,7 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
     hit_points_current = serializers.IntegerField(required=False)
     magic_points_current = serializers.IntegerField(required=False)
     sanity_current = serializers.IntegerField(required=False)
+    luck = serializers.IntegerField(required=False, write_only=True)
     recommended_skills = JSONListField(child=serializers.CharField(), required=False)
     occupation_skills = JSONListField(child=serializers.CharField(), required=False)
     scenario_id = serializers.PrimaryKeyRelatedField(
@@ -1215,6 +1216,7 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
             "hit_points_current",
             "magic_points_current",
             "sanity_current",
+            "luck",
             "hp_current",
             "mp_current",
             "san_current",  # エイリアス追加
@@ -1250,11 +1252,18 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
             and occupation_point_method not in CharacterSheet.valid_occupation_point_methods_for_edition(edition)
         ):
             raise serializers.ValidationError({"occupation_point_method": "この版では利用できない計算方式です。"})
+        if "luck" in data:
+            luck = data["luck"]
+            if edition != "7th":
+                raise serializers.ValidationError({"luck": "幸運の個別入力は7版のみ対応しています。"})
+            if luck < 15 or luck > 90 or luck % 5:
+                raise serializers.ValidationError({"luck": "幸運は15から90の5刻みで指定してください。"})
         return data
 
     def update(self, instance, validated_data):
         # Registry fields and edition fields are deliberately persisted apart.
         allowed_users = validated_data.pop("allowed_users", None)
+        luck = validated_data.pop("luck", None)
         registry_data = {}
         if "access_scope" in validated_data:
             registry_data["access_scope"] = validated_data.pop("access_scope")
@@ -1289,6 +1298,10 @@ class CharacterSheetUpdateSerializer(serializers.ModelSerializer):
         for field, value in validated_data.items():
             if field in detail_fields:
                 setattr(detail, field, value)
+        if luck is not None and detail.luck_current != luck:
+            detail.luck_starting = luck
+            detail.luck_current = luck
+            detail.luck_max = luck
         if recalculate:
             new_stats = detail.calculate_derived_stats()
             for field in ("hit_points_max", "magic_points_max", "sanity_starting", "sanity_max"):
