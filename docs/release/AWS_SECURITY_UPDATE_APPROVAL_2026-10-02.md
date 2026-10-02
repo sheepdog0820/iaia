@@ -19,7 +19,7 @@
 | 通常起動 | 外部通信不可のinternal network、公開ポートなし。使い捨てPostgreSQL 18.3/Redis 7、aws-pre設定、通常entrypointで空DB移行・静的228件/620後処理・Daphne起動成功 |
 | readiness / 設定 | TLS終端後を模した `X-Forwarded-Proto: https` 付き内部HTTPで200、DB/cacheともok。`migrate --check` / `check --deploy` は終了0。ヘッダーなしの初回試行はHTTPSへリダイレクトされ、平文ポートへのTLS接続エラー。設定を弱めず正しいプロキシ条件で再確認した |
 | 実イメージ回帰 | 認証・Google連携・Calendar/Sheets配送・画像共有・JWT等146件が隔離PGで成功、43.683秒、省略0。実OAuth/外部配送ではなく、外部API応答はmock |
-| CI | [対象SHAのrun 37014059175](https://github.com/sheepdog0820/iaia/actions/runs/37014059175)。確認時点でproduction-database/lint-security/system/infrastructure成功、Unit/IntegrationとPlaywrightは実行中。全体成功を事前条件として残す |
+| CI | [対象SHAのrun 37014059175](https://github.com/sheepdog0820/iaia/actions/runs/37014059175)は22:51:23 JSTに全6ジョブsuccessで完了。実行SHA一致を確認。pytest、隔離PG移行、Docker context isolation、Bandit/Python・Node依存監査、3ブラウザPlaywright、設定・課金ゲートの各stepもsuccess。課金ゲートはCIの購入無効設定であり、AWS上の有料有効状態の実証ではない |
 | 全パッケージ監査 | 固定イメージの初回はcache-in-use timeoutで終了1。専用キャッシュとNO_CACHEによる再試行は268パッケージを検査、SARIF生成完了。16パッケージ・39指摘（HIGH 3 / MEDIUM 2 / LOW 34、全件Debian、Python/CRITICALは0）。今回のCLIは `--exit-code` なしで終了0だが、脆弱性の合格を意味しない。キャッシュ内の一時archive削除警告は残る |
 
 試験用Web/PG/Redisの3コンテナとinternal networkは専用ラベル・イメージ・ポート公開なしを確認して停止・削除し、不在を確認した。DB/Redisのtmpfsデータは破棄。固定archive、配布イメージ、監査資料は保持し、実ユーザーデータは使っていない。
