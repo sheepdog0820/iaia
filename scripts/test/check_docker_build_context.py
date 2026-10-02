@@ -1,4 +1,4 @@
-"""Verify Docker's actual ignore rules using synthetic Terraform artifacts."""
+"""Verify Docker's actual ignore rules using synthetic local artifacts."""
 
 import os
 import shutil
@@ -17,11 +17,29 @@ FORBIDDEN = (
     "infrastructure/terraform/bootstrap/terraform.tfstate.backup",
     "infrastructure/terraform/bootstrap/local.tfvars",
     "infrastructure/terraform/bootstrap/local.auto.tfvars.json",
+    "__pycache__/cache-marker.txt",
+    "accounts/__pycache__/models.cpython-311.pyc",
+    "tests/unit/__pycache__/test_example.cpython-311-pytest-9.1.1.pyc",
+    "tests/unit/__pycache__/cache-marker.txt",
+    "module.pyc",
+    "accounts/module.pyc",
+    "tests/unit/module.pyo",
+    "tests/unit/module.pyd",
+    ".pytest_cache/v/cache/nodeids",
+    "tests/.pytest_cache/v/cache/nodeids",
+    "tests/unit/.pytest_cache/v/cache/nodeids",
 )
 ALLOWED = (
     "infrastructure/terraform/bootstrap/main.tf",
     "infrastructure/terraform/bootstrap/.terraform.lock.hcl",
     "infrastructure/terraform/bootstrap/terraform.tfvars.example",
+    "manage.py",
+    "accounts/models.py",
+    "tests/unit/test_example.py",
+    "requirements.lock.txt",
+    "templates/accounts/character_detail.html",
+    "static/js/session_images.js",
+    "README.md",
 )
 
 
@@ -49,10 +67,10 @@ def main():
         exported = output / "context"
         leaked = [name for name in FORBIDDEN if (exported / name).exists()]
         if leaked:
-            raise AssertionError(f"Local Terraform artifacts entered the build context: {leaked}")
+            raise AssertionError(f"Local artifacts entered the build context: {leaked}")
         for name in ALLOWED:
             assert (exported / name).read_text(encoding="utf-8") == "synthetic-context-fixture\n", name
-    print("PASS: Terraform caches, state and local variables excluded; source and examples retained")
+    print("PASS: Terraform artifacts and Python caches excluded; source, assets and examples retained")
 
 
 if __name__ == "__main__":

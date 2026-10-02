@@ -4,8 +4,9 @@
 .gitattributes
 
 # Python
-__pycache__
-*.py[cod]
+# Docker patterns without ** do not exclude these in nested app/test folders.
+**/__pycache__
+**/*.py[cod]
 *$py.class
 *.so
 .Python
@@ -46,7 +47,7 @@ cookies.txt
 # Tests
 .coverage
 htmlcov/
-.pytest_cache/
+**/.pytest_cache/
 .tox/
 test_db.sqlite3
 
