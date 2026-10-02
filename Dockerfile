@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
-FROM python:3.11-slim
+# Refresh this digest deliberately with runtime tests and a vulnerability scan.
+FROM python:3.11-slim@sha256:bab1b7ef4b450c81002278d035eff85ebe394ae94df904f7a3ba14f7e16e487b
 
 ARG APP_UID=10001
 ARG APP_GID=10001
@@ -9,10 +10,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system packages required by Python, PostgreSQL, and MySQL dependencies.
+# Refresh PCRE2 security updates even when the base image has an older installed
+# version, alongside packages needed by Python, PostgreSQL, and MySQL dependencies.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     default-libmysqlclient-dev \
+    libpcre2-8-0 \
     libpq-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*

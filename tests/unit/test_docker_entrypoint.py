@@ -246,6 +246,18 @@ class DockerEntrypointTests(SimpleTestCase):
         self.assertIn("requirements-test.lock.txt", workflow)
         self.assertNotIn("pip install -r requirements-test.txt", workflow)
 
+    def test_docker_refreshes_pcre2_from_the_security_repository(self):
+        dockerfile = (self.ROOT / "Dockerfile").read_text(encoding="utf-8")
+        logical_lines = dockerfile.replace("\\\n", " ").splitlines()
+        install = next(line for line in logical_lines if line.startswith("RUN apt-get update"))
+
+        self.assertIn("libpcre2-8-0", install.split())
+
+    def test_docker_base_image_uses_an_immutable_digest(self):
+        dockerfile = (self.ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+        self.assertRegex(dockerfile, r"(?m)^FROM python:3\.11-slim@sha256:[0-9a-f]{64}$")
+
     def test_ci_runs_billing_release_gate(self):
         workflow = (self.ROOT / ".github" / "workflows" / "django-ci.yml").read_text(encoding="utf-8")
 
