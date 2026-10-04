@@ -2,9 +2,9 @@
 
 ## 現在の公開判断（2026-10-04）
 
-正式公開は **No-Go** を維持する。承認済みの[セキュリティ更新](AWS_SECURITY_UPDATE_RESULT_2026-10-04.md)と[アイコン反映](TABLENO_FAVICON_DEPLOYMENT_2026-10-04.md)が完了し、mainは8567f49f・CI全6項目success、開発AWSは定義54・同一digest・1タスクHEALTHY・readinessのDB/cache正常。Web設定/容量を維持し、DB移行・Secrets/権限・課金有効化は行っていない。
+正式公開は **No-Go** を維持する。承認済みの[セキュリティ更新](AWS_SECURITY_UPDATE_RESULT_2026-10-04.md)と[アイコン反映](TABLENO_FAVICON_DEPLOYMENT_2026-10-04.md)が完了し、20:23 JSTの先行照合ではmain8567f49f・CI全6項目success、開発AWSは定義54・同一digest・1タスクHEALTHY・readinessのDB/cache正常だった。Web設定/容量を維持し、DB移行・Secrets/権限・課金有効化は行っていない。後続StripeClient通常配布物の検証ではAWSを再照合・変更していない。
 
-同日先行の[稼働配布物の全OS再監査と適用条件](RUNTIME_HIGH_APPLICABILITY_2026-10-04.md)は39指摘（HIGH2/MEDIUM2/LOW35、Python0）、終了1。当時はzlibの重大度だけがHIGH→LOWとなり、修正による解消ではない。後続候補f4ea34caの[最新監査](BILLING_RUNTIME_F4EA34CA_2026-10-04.md)では同CVEが再びHIGH評価で、HIGH3/MEDIUM2/LOW34・終了2。先行値を現在の候補安全性の証拠にはしない。aligned newのLinux実行経路とzlibのソースに条件不一致の証拠を得たが、指摘抑制・リスク受容・全体合格はしていない。PBDSのnative依存由来と、下表の共有DB・課金実運用・外部連携・性能・復旧・事業者運用等は未達のまま。
+同日先行の[稼働配布物の全OS再監査と適用条件](RUNTIME_HIGH_APPLICABILITY_2026-10-04.md)は39指摘（HIGH2/MEDIUM2/LOW35、Python0）、終了1。当時はzlibの重大度だけがHIGH→LOWとなり、修正による解消ではない。後続候補f4ea34caと最新2ff6a4c8の[通常配布物監査](STRIPE_CLIENT_RUNTIME_2FF6A4C8_2026-10-04.md)では同CVEが再びHIGH評価で、HIGH3/MEDIUM2/LOW34・終了2。先行値を現在の候補安全性の証拠にはしない。aligned newのLinux実行経路とzlibのソースに条件不一致の証拠を得たが、指摘抑制・リスク受容・全体合格はしていない。PBDSのnative依存由来と、下表の共有DB・課金実運用・外部連携・性能・復旧・事業者運用等は未達のまま。
 
 [native依存の来歴照合](RUNTIME_NATIVE_PROVENANCE_2026-10-04.md)では267 ELFのRECORD一致、21パッケージ266ファイルの固定公開wheel一致、残るmysqlclientの固定Cソース構成を確認した。改変・配布物同一性の調査を進めたが、外部LLVM/ONNX等のビルド閉包とPBDSの使用条件は未確認。CVE解消や公開ゲートの合格にはしない。
 
@@ -43,6 +43,8 @@
 後続 `f4ea34ca` の[通常配布物・管理HTTP検証](BILLING_RUNTIME_F4EA34CA_2026-10-04.md)で、追跡668ファイル同一・隔離PG490回帰成功/省略0・通常起動・68確認（61 HTTP/7コマンド）成功を確認した。古い管理フォーム拒否/最新保存、停止/復旧/返金確認/手動付与、保存済み購入intentの不一致と実HTTP中の所有者変更拒否を含む。候補CI全6項目successもSHA照合済み。最新OS監査は39指摘（HIGH3/MEDIUM2/LOW34、Python0）・終了2でゲート未合格。20:23 JSTの読み取りでmain8567f49f・AWS定義54/HEALTHY/DBcache正常・favicon200を再確認し、完了済みアイコン承認を後続候補へ転用しない。管理削除/所有者付け替え方針は回答待ち、main/AWSへの今回候補反映・実決済/外部連携/税務等は未完了で正式公開No-Goを維持する。
 
 [Stripeクライアント設定の分離](STRIPE_CLIENT_ISOLATION_2026-10-04.md)で、モジュール共有のキー/API版書換えをStripeClientへ移行し、SDK15.5.1・既定API版・再試行intent/キー・所有者照合/共有ロックは維持した。実SDKのメモリーtransport試験14件を追加し、最終隔離PG458件成功/省略0・SQLite計測289成功/6省略、新規テスト/設定生成/再試行ヘルパーの文・分岐100%、変更33文未実行0を確認した。本体/新規テストのBandit指摘0だが、変更25ファイル全体には既存合成資格情報LOW6件があり全体合格とはしない。先行3804dbc5のCI全6項目successを後続確認したが、今回CI/通常配布物/AWS・実Stripe・RAK/SDK/API更新・税務等は未完了。管理運用方針は回答待ちで、固定反映案6b6c570cへ追加せず正式公開No-Goを維持する。
+
+後続 `2ff6a4c8` の[通常配布物](STRIPE_CLIENT_RUNTIME_2FF6A4C8_2026-10-04.md)で、追跡670ファイル同一・実SDK試験を含む隔離PG529テスト成功/省略0・通常起動・実HTTP27件成功・静的manifest232件変化0を確認した。全OS監査は39指摘（HIGH3/MEDIUM2/LOW34、Python0）・終了2で、CVE ID/重大度の変化0。候補CIは4項目success/2項目実行中の確認に留まり、main/AWSへは未反映。StripeClient移行の通常配布物未検証を限定範囲で解消したが、実決済/RAK/SDK・API更新/税務・管理運用方針・外部連携等は未完了。既存承認へ追加せず、正式公開No-Goを維持する。
 
 ## 2026-10-02時点の経過記録
 
