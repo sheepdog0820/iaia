@@ -1,4 +1,5 @@
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
 from accounts.billing import create_premium_audit_log, expire_promo_subscriptions
 from accounts.models import PremiumSubscription
@@ -27,34 +28,41 @@ class Command(BaseCommand):
 
         checked = 0
         changed = 0
-        records = PremiumSubscription.objects.select_related("user").order_by("pk")
-        for record in records:
-            checked += 1
-            expected = record.expected_user_premium_access
-            current = record.user.is_premium
-            if expected == current:
-                continue
+        record_ids = PremiumSubscription.objects.order_by("pk").values_list("pk", flat=True)
+        for record_id in record_ids.iterator():
+            with transaction.atomic():
+                records = PremiumSubscription.objects.all()
+                if not dry_run:
+                    records = records.select_for_update()
+                record = records.filter(pk=record_id).first()
+                if record is None:
+                    continue
+                # Load the user after acquiring the billing lock, not from a stale join.
+                checked += 1
+                expected = record.expected_user_premium_access
+                current = record.user.is_premium
+                if expected == current:
+                    continue
+
+                if not dry_run:
+                    record.user.is_premium = expected
+                    record.user.save(update_fields=["is_premium"])
+                    create_premium_audit_log(
+                        record.user,
+                        action="granted" if expected else "revoked",
+                        source=record.access_source,
+                        reason="Premium access reconciled from billing record",
+                        metadata={
+                            "subscription_id": record.pk,
+                            "subscription_status": record.subscription_status,
+                            "dry_run": False,
+                        },
+                    )
 
             changed += 1
             self.stdout.write(
                 f"{record.user.username}: is_premium {current} -> {expected} "
                 f"({record.access_source}:{record.subscription_status})"
-            )
-            if dry_run:
-                continue
-
-            record.user.is_premium = expected
-            record.user.save(update_fields=["is_premium"])
-            create_premium_audit_log(
-                record.user,
-                action="granted" if expected else "revoked",
-                source=record.access_source,
-                reason="Premium access reconciled from billing record",
-                metadata={
-                    "subscription_id": record.pk,
-                    "subscription_status": record.subscription_status,
-                    "dry_run": False,
-                },
             )
 
         self.stdout.write(

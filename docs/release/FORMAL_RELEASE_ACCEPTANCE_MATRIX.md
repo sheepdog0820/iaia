@@ -24,6 +24,8 @@
 
 [native公開署名とビルド由来](NATIVE_BUILD_ATTESTATION_2026-10-04.md)を追加確認し、固定llvmlite wheelの署名・公開元・現在候補内のnative bytes一致を検証した。公開runからLLVM22.1.0/GCC10.2.1のビルドログへ追跡できたが、完全なビルド閉包・PBDS非該当は未証明。ONNX対象wheelのIntegrity APIはprovenanceなしの404。現行DebianにはHIGH2件を解消する新しい候補もなく、指摘を抑制・受容せずNo-Goを維持する。
 
+[権限再同期の競合・監査原子性](PREMIUM_RECONCILIATION_INTEGRITY_2026-10-04.md)で、コマンド/管理画面の古い取得結果による新しい課金権限の上書きと、監査保存失敗時の部分更新を再現・修正した。SQLite309件/隔離PG327件成功、購入完了との行ロック待機・同時再同期の監査1件・dry-runの読み取り専用を確認した。今回候補のCI/通常配布物/AWSと、管理者直接付与等の全経路は未確認。固定反映案6b6c570cへ追加せず、B03/B04/Q04と正式公開No-Goを維持する。
+
 ## 2026-10-02時点の経過記録
 
 同日後続の[通常配布物検証](RUNTIME_SECURITY_2026-10-02.md): 稼働版c6226ddbの画像ギャラリーを保持するブランチへPython修正を統合し、ベースdigest固定とPCRE2更新を追加した。修正後イメージは隔離PG/Redisで通常起動・146テスト成功、全パッケージスキャンは39件（HIGH3/MEDIUM2/LOW34、Python0）。AWSは旧版のままであり、残るOS指摘・修正後CI・実環境検証のためNo-Goを維持する。
