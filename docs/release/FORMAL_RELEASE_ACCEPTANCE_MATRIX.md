@@ -52,6 +52,8 @@
 
 [Stripe制限付きキー対応](STRIPE_RESTRICTED_KEYS_2026-10-04.md)で、既存のskキー互換性を維持してrkキーを各検査・Price作成・production/staging設定へ共通対応し、モード違い/不明形式を拒否した。隔離PG広域598件成功/省略0、最終新規16件成功（重複のため合算しない）、SQLite279件/production設定33件成功。新規helper/単体の文・分岐100%、変更32文未実行0、CI対象Bandit0だが広い変更範囲の既存テストLOW26件は残る。基点847ad563のCI全体successは確認済みで、今回CI/通常配布物/実RAKの認証・権限・アカウント一致は未検証。実キー/Secrets/権限・DB・共有AWS・Taxは変更せず、既存反映承認へ追加しない。正式公開No-Goを維持する。
 
+後続 `529c30c7` の[RAK通常配布物](STRIPE_RAK_RUNTIME_529C30C7_2026-10-04.md)で、選定673ファイル欠落/不一致0、overlayなし隔離PG561件成功/省略0、production設定33件/起動時キー境界7ケース/実HTTP27件成功、通常起動/DBcache readiness正常・静的manifest232件変化0を確認した。全OS監査は39指摘（HIGH3/MEDIUM2/LOW34、Python0）・終了2で、先行2b70f1d5からCVE ID/重大度変化0だがOSゲート未合格。今回CIは当初4項目成功/2項目実行中だったが、後続でUnit / Integrationのproduction設定試験23件失敗を確認し、親環境を継承するfixtureの再現/修正が必要。mainは8567f49fのまま、AWSは再照合・変更していない。RAK形式対応の通常配布物未検証は限定範囲で解消したが、CI・実RAKの最小権限/認証・Sandbox・共有環境切替・管理運用方針・外部連携/性能/復旧/税務等は未完了。既存承認へ追加せず正式公開No-Goを維持する。
+
 ## 2026-10-02時点の経過記録
 
 同日後続の[通常配布物検証](RUNTIME_SECURITY_2026-10-02.md): 稼働版c6226ddbの画像ギャラリーを保持するブランチへPython修正を統合し、ベースdigest固定とPCRE2更新を追加した。修正後イメージは隔離PG/Redisで通常起動・146テスト成功、全パッケージスキャンは39件（HIGH3/MEDIUM2/LOW34、Python0）。AWSは旧版のままであり、残るOS指摘・修正後CI・実環境検証のためNo-Goを維持する。
