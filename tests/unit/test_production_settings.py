@@ -28,6 +28,58 @@ print(json.dumps({"version": settings.STRIPE_API_VERSION}))
         )
         self.assertEqual(payload["version"], "2026-02-25.clover")
 
+    def test_production_accepts_restricted_live_server_key(self):
+        result = self.run_settings_probe(
+            # Unusable key only imports settings in a subprocess, never Stripe HTTP.
+            {"STRIPE_SECRET_KEY": "rk_live_unusable_production_fixture"},  # nosec B105
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_production_rejects_restricted_test_server_key_without_disclosure(self):
+        value = "rk_test_unusable_production_fixture"
+        result = self.run_settings_probe({"STRIPE_SECRET_KEY": value}, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("STRIPE_SECRET_KEY must be a live key in production", result.stderr)
+        self.assertNotIn(value, result.stdout + result.stderr)
+
+    def test_staging_accepts_restricted_test_server_key(self):
+        result = self.run_settings_probe(
+            # Unusable key only imports settings in a subprocess, never Stripe HTTP.
+            {
+                "APP_ENV": "aws-pre",
+                "ENVIRONMENT": "staging",
+                "STRIPE_SECRET_KEY": "rk_test_unusable_staging_fixture",
+            },  # nosec B105
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_staging_rejects_live_and_non_server_keys_without_disclosure(self):
+        for value in (
+            "rk_live_unusable_staging_fixture",
+            "sk_live_unusable_staging_fixture",
+            "pk_test_unusable_staging_fixture",
+            "sk_org_unusable_staging_fixture",
+            "invalid_server_fixture",
+        ):
+            with self.subTest(value=value):
+                result = self.run_settings_probe(
+                    {"APP_ENV": "aws-pre", "ENVIRONMENT": "staging", "STRIPE_SECRET_KEY": value}, check=False
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("STRIPE_SECRET_KEY", result.stderr)
+                self.assertNotIn(value, result.stdout + result.stderr)
+
+    def test_staging_rejects_bare_server_key_prefix(self):
+        result = self.run_settings_probe(
+            # A bare prefix is deliberately invalid; it is not an API credential.
+            {"APP_ENV": "aws-pre", "ENVIRONMENT": "staging", "STRIPE_SECRET_KEY": "rk_test_"},  # nosec B105
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("STRIPE_SECRET_KEY", result.stderr)
+
     def test_on_request_disclosure_requires_operations_before_sales(self):
         result = self.run_settings_probe(
             {"LEGAL_DISCLOSURE_ON_REQUEST": "true", "STRIPE_CHECKOUT_ENABLED": "true"}, check=False
@@ -63,6 +115,7 @@ print(json.dumps({"version": settings.STRIPE_API_VERSION}))
         payload = self.run_settings_probe(
             {
                 "APP_ENV": "aws-pre",
+                "STRIPE_SECRET_KEY": "sk_test_" + "staging_settings_fixture",
                 "USE_REDIS_CACHE": "false",
                 "WEBSOCKET_NOTIFICATIONS_ENABLED": "false",
                 "SESSION_ENGINE": "django.contrib.sessions.backends.db",
@@ -522,6 +575,7 @@ print(json.dumps({
         payload = self.run_settings_probe(
             {
                 "APP_ENV": "aws-pre",
+                "STRIPE_SECRET_KEY": "sk_test_" + "staging_settings_fixture",
                 "USE_REDIS_CACHE": "False",
                 "WEBSOCKET_NOTIFICATIONS_ENABLED": "False",
                 "SESSION_ENGINE": "django.contrib.sessions.backends.db",

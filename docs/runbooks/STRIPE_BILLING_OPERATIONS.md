@@ -4,7 +4,7 @@
 
 - `STRIPE_API_VERSION`: APIリクエストの明示版。既定は `2026-09-30.endive`（SDK 16.0.0）。既存の明示設定は自動上書きしません。Webhook endpointの版は別設定なので、`billing_stripe_remote_check` で同じ版への固定を確認します。アカウント既定に依存するendpointや有効な重複endpointの版不一致も不合格です。
 - `STRIPE_CHECKOUT_ENABLED`: Checkout exposure switch. Keep `False` in aws-pre/aws-prod until Stripe test-mode Product/Price, Webhook, and real event verification are complete. Set `True` only when paid Checkout buttons may be exposed.
-- `STRIPE_SECRET_KEY`: Stripe secret key. `ENVIRONMENT=production` では `sk_live_` で始まる本番キーのみ許可されます。staging/local の検証では `sk_test_` を使用してください。
+- `STRIPE_SECRET_KEY`: サーバー用APIキー。最小権限の制限付きキー（RAK）を推奨します。`ENVIRONMENT=production` では `rk_live_` / `sk_live_`、staging/local の検証では `rk_test_` / `sk_test_` を使用してください。設定名は互換性のため変更しません。
 - `STRIPE_WEBHOOK_SECRET`: Webhook署名検証用secret
 - `STRIPE_PREMIUM_PRICE_ID / STRIPE_PREMIUM_YEARLY_PRICE_ID`: 月額/年額プレミアムのStripe Price ID
 - `STRIPE_PREMIUM_EXPECTED_CURRENCY`, `STRIPE_PREMIUM_MONTHLY_EXPECTED_UNIT_AMOUNT`, `STRIPE_PREMIUM_YEARLY_EXPECTED_UNIT_AMOUNT`: optional Stripe remote check guards for currency and minor-unit amounts. For the local test plan use `jpy`, `480`, and `4800`.
@@ -26,6 +26,12 @@
 - `EMAIL_BACKEND`, `DEFAULT_FROM_EMAIL`: `invoice.payment_failed` 時のカード更新依頼メールを実配送するため、本番では console/dummy/locmem ではないメールbackendと送信元を設定する
 
 ## 本番前チェック
+
+RAKのキー形式対応は、実際の権限・認証・対象アカウントの一致を証明しません。`billing_preflight`、`billing_development_check`、`billing_stripe_remote_check`、テストPrice作成と本番/staging設定でサーバーキーの種類・モードを共通判定します。公開キー、organizationキー、不明形式やprefixだけの値はサーバーキーとして使えません。本番設定はテストキーを、staging起動はライブキーを拒否し、購入開始が無効でもこの境界を維持します。
+
+AWSの実キーは既存のSecrets Manager等で保管・注入し、Git・会話・コマンド引数・ログに残さないでください。ローカルの例示値もプレースホルダーです。実キーを貼り付けたコマンドを履歴へ保存せず、安全なSecrets参照からプロセスへ渡してください。[公式のキー保護手順](https://docs.stripe.com/keys-best-practices)に従い、`sk_live_` と `rk_live_` の双方を検知するコミット前の漏えい検査も運用へ組み込んでください。
+
+アプリ用RAK、読み取り検査用RAK、テスト商品作成用RAKの権限を分けます。`billing_stripe_remote_check` はPrice / Portal Configuration / Webhook Endpoint / Eventsの必要なRead権限を持つ検査用キーで実行します。403等の権限不足は不合格であり、検査を省略して合格扱いにしません。`create_stripe_development_prices` にはProduct/PriceのWriteが必要ですが、そのために通常Webのキーへ商品管理権限を追加しないでください。キー発行・権限・Secrets・Webhook設定の変更は、対象・費用・切戻しを確認して別途承認を受けます。
 
 ```bash
 python manage.py check
@@ -49,7 +55,7 @@ python manage.py billing_status_report --json
 python manage.py billing_webhook_smoke
 ```
 
-`stripe --version` が失敗する場合はStripe CLIをインストールし、`stripe login` で対象Stripeアカウントへ接続してください。`billing_preflight` が `STRIPE_SECRET_KEY`、`STRIPE_WEBHOOK_SECRET`、`STRIPE_PREMIUM_PRICE_ID / STRIPE_PREMIUM_YEARLY_PRICE_ID`、`PUBLIC_SITE_URL` を警告する場合は、テスト環境では `sk_test_...`、`whsec_...`、月額recurring Price ID、ローカル確認用URLを設定してから再実行します。`STRIPE_WEBHOOK_SECRET` は `stripe listen --forward-to http://127.0.0.1:8000/api/billing/webhook/` が表示する `whsec_...` に合わせます。
+`stripe --version` が失敗する場合はStripe CLIをインストールし、`stripe login` で対象Stripeアカウントへ接続してください。`billing_preflight` が `STRIPE_SECRET_KEY`、`STRIPE_WEBHOOK_SECRET`、`STRIPE_PREMIUM_PRICE_ID / STRIPE_PREMIUM_YEARLY_PRICE_ID`、`PUBLIC_SITE_URL` を警告する場合は、テスト環境では `rk_test_...`（または既存の `sk_test_...`）、`whsec_...`、月額recurring Price ID、ローカル確認用URLを設定してから再実行します。`STRIPE_WEBHOOK_SECRET` は `stripe listen --forward-to http://127.0.0.1:8000/api/billing/webhook/` が表示する `whsec_...` に合わせます。
 
 `billing_development_check` validates that `.env.development` is git-ignored, uses the local JPY 480 monthly / JPY 4,800 yearly expected amounts, and contains no live Stripe key prefixes without printing secrets. Before Stripe Product/Price creation, blank `STRIPE_SECRET_KEY` and `STRIPE_PREMIUM_PRICE_ID` values are warnings. Add `--require-stripe` to fail when test keys or test Price IDs are still blank.
 
@@ -79,7 +85,7 @@ Stripe outage safety: Checkout and Customer Portal API failures are logged serve
 作成後、ローカルPowerShellでは以下を設定します。
 
 ```powershell
-$env:STRIPE_SECRET_KEY="sk_test_..."
+$env:STRIPE_SECRET_KEY="rk_test_..."
 $env:STRIPE_PREMIUM_PRICE_ID="price_monthly_test_..."
 $env:STRIPE_PREMIUM_YEARLY_PRICE_ID="price_yearly_test_..."
 $env:STRIPE_PREMIUM_EXPECTED_CURRENCY="jpy"
@@ -97,21 +103,23 @@ Before creating Product or Price objects for verification, confirm all of the fo
 - Stripe Dashboard test mode is enabled.
 - Any MCP or connector result must show `livemode: false` before creating Product/Price objects.
 - If MCP or connector output shows `livemode: true`, do not create test Product/Price objects through that connection.
-- Use only `sk_test_...`, `pk_test_...`, test `price_...`, and the `whsec_...` from `stripe listen` for local or aws-pre verification.
+- Use only `rk_test_...` / `sk_test_...`, `pk_test_...`, test `price_...`, and the `whsec_...` from `stripe listen` for local or aws-pre verification.
 - Keep `STRIPE_PREMIUM_PRICE_ID` and `STRIPE_PREMIUM_YEARLY_PRICE_ID` empty until real test mode Price IDs exist.
 - Run `python manage.py billing_preflight --strict` after setting environment variables. It fails when `sk_live_...` is used outside production.
 
 For the initial test plan, create one Product named `Tableno Premium` in Stripe test mode with two recurring Prices: JPY 480 monthly and JPY 4,800 yearly. Copy the monthly Price ID to `STRIPE_PREMIUM_PRICE_ID` and the yearly Price ID to `STRIPE_PREMIUM_YEARLY_PRICE_ID`.
 
-If you have a `sk_test_...` key locally, you can create the development Product and both Prices through Django instead of MCP:
+If you have a `rk_test_...` / `sk_test_...` key locally, you can create the development Product and both Prices through Django instead of MCP:
 
 ```powershell
 Set-Location C:\Users\endke\Workspace\iaia
-$env:STRIPE_SECRET_KEY="sk_test_..."
+$env:STRIPE_SECRET_KEY="rk_test_..."
 python manage.py create_stripe_development_prices
 ```
 
 The command refuses `sk_live_...`, refuses `ENVIRONMENT=production`, verifies the Product response has `livemode=false`, and stops before Price creation if Stripe returns a live-mode object. Copy the printed `STRIPE_PREMIUM_PRICE_ID` and `STRIPE_PREMIUM_YEARLY_PRICE_ID` values into `.env.development`.
+
+`rk_live_...` も同じく拒否します。テストRAKでもProduct/Priceの作成権限がない場合は失敗します。ここでのコード上の受付は、実RAKによる全購入フローやSecrets切替の検証完了ではありません。
 
 ## Windows PowerShell quick start
 
@@ -119,7 +127,7 @@ PowerShell is often opened in `C:\WINDOWS\system32`. Always move to the project 
 
 ```powershell
 Set-Location C:\Users\endke\Workspace\iaia
-$env:STRIPE_SECRET_KEY="sk_test_..."
+$env:STRIPE_SECRET_KEY="rk_test_..."
 $env:STRIPE_PREMIUM_PRICE_ID="price_monthly_test_..."
 $env:STRIPE_PREMIUM_YEARLY_PRICE_ID="price_yearly_test_..."
 $env:STRIPE_PREMIUM_EXPECTED_CURRENCY="jpy"

@@ -48,7 +48,9 @@
 
 [Stripe SDK/API更新](STRIPE_SDK_API_UPGRADE_2026-10-04.md)で公式のSDK16.0.0/API2026-09-30.endiveを選定し、明示pin・Checkout追跡ラベルのintent単位保持・pause/resume/invoice.paid処理と必須証拠・Webhook版照合を追加した。新規22件を含む隔離PG588件成功/省略0、SQLite478成功/39省略、production設定28件成功。比較した変更20実行文は未実行0、新規テスト208文/4分岐100%、Python lock111件監査0・CI対象Bandit0。今回CI/通常配布物/OS/実Stripe・共有環境の版切替は未検証で、main/AWSへ反映していない。RAK/共有DB/worker/メール/税務/管理運用方針・外部連携等を含む正式公開No-Goを維持する。
 
-後続 `2b70f1d5` の[通常配布物](STRIPE_ENDIVE_RUNTIME_2B70F1D5_2026-10-04.md)で、追跡671ファイルの欠落/不一致0、SDK16.0.0/API Endive、overlayなし隔離PG545件成功/省略0・production設定28件成功・通常起動・実HTTP27件成功を確認した。静的manifest232件変化0。全OS監査は39指摘（HIGH3/MEDIUM2/LOW34、Python0）・終了2で、前候補からCVE ID/重大度の変化0だがOSゲート未合格。候補CIは4項目success/2項目実行中。通常配布物の未検証を限定範囲で解消し、RAK/実Sandbox/共有環境切替・管理運用方針・外部連携/性能/復旧/税務等は未完了。main/AWSには反映せず、正式公開No-Goを維持する。
+後続 `2b70f1d5` の[通常配布物](STRIPE_ENDIVE_RUNTIME_2B70F1D5_2026-10-04.md)で、追跡671ファイルの欠落/不一致0、SDK16.0.0/API Endive、overlayなし隔離PG545件成功/省略0・production設定28件成功・通常起動・実HTTP27件成功を確認した。静的manifest232件変化0。全OS監査は39指摘（HIGH3/MEDIUM2/LOW34、Python0）・終了2で、前候補からCVE ID/重大度の変化0だがOSゲート未合格。候補CIは当初4項目success/2項目実行中だったが、後続で[全体success](https://github.com/sheepdog0820/iaia/actions/runs/37204401824)とSHA/branch一致を確認した。通常配布物の未検証を限定範囲で解消し、RAK/実Sandbox/共有環境切替・管理運用方針・外部連携/性能/復旧/税務等は未完了。main/AWSには反映せず、正式公開No-Goを維持する。
+
+[Stripe制限付きキー対応](STRIPE_RESTRICTED_KEYS_2026-10-04.md)で、既存のskキー互換性を維持してrkキーを各検査・Price作成・production/staging設定へ共通対応し、モード違い/不明形式を拒否した。隔離PG広域598件成功/省略0、最終新規16件成功（重複のため合算しない）、SQLite279件/production設定33件成功。新規helper/単体の文・分岐100%、変更32文未実行0、CI対象Bandit0だが広い変更範囲の既存テストLOW26件は残る。基点847ad563のCI全体successは確認済みで、今回CI/通常配布物/実RAKの認証・権限・アカウント一致は未検証。実キー/Secrets/権限・DB・共有AWS・Taxは変更せず、既存反映承認へ追加しない。正式公開No-Goを維持する。
 
 ## 2026-10-02時点の経過記録
 

@@ -3792,7 +3792,7 @@ class BillingPreflightCommandTestCase(TestCase):
                     stdout=StringIO(),
                 )
 
-        self.assertIn("STRIPE_SECRET_KEY must start with", str(context.exception))
+        self.assertIn("STRIPE_SECRET_KEYにはsk_test_ / rk_test_ / sk_live_ / rk_live_", str(context.exception))
         get_stripe.assert_not_called()
 
     @override_settings(
