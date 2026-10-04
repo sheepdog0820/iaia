@@ -94,8 +94,11 @@ from tableno.legal_views import (
 )
 from tableno.media_views import serve_media
 from tableno.public_fonts import public_font
+from tableno.public_icons import public_icon
 
 urlpatterns = [
+    path("favicon.ico", public_icon, {"icon_path": "favicon-v1.ico"}, name="favicon"),
+    path("site-icons/<str:icon_path>", public_icon, name="public_icon"),
     path("fonts/<path:font_path>", public_font, name="public_font"),
     path("api/integrations/", include("support.urls")),
     path("health/live/", health_live_view, name="health_live"),

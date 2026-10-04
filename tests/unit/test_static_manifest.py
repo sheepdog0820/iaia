@@ -32,6 +32,9 @@ class StaticManifestTests(SimpleTestCase):
                 "vendor/fullcalendar/6.1.9/index.global.min.js",
                 "vendor/fontawesome/6.0.0/css/all.min.css",
                 "vendor/axios/1.20.0/axios.min.js",
+                "branding/favicon-v1.ico",
+                "branding/favicon-32-v1.png",
+                "branding/apple-touch-icon-v1.png",
             ):
                 with self.subTest(asset=name):
                     self.assertIn(name, manifest["paths"])
