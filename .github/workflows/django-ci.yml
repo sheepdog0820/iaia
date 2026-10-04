@@ -253,6 +253,7 @@ jobs:
             tests/integration/test_premium_reconciliation_integrity.py \
             tests/integration/test_admin_access_integrity.py \
             tests/integration/test_manual_premium_integrity.py \
+            tests/integration/test_subscription_admin_save_integrity.py \
             tests/integration/test_session_statistics_contract.py \
             tests/integration/test_release_database_preflight.py -q
 
