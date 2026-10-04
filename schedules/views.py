@@ -1,6 +1,7 @@
 import json
 import uuid
 from datetime import datetime, timedelta
+from datetime import timezone as datetime_timezone
 from urllib.parse import urlparse
 
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -35,6 +36,7 @@ from schedules.duration import effective_duration_expression, format_duration_ho
 from tableno.media_deletion import delete_media_instance
 
 from . import session_permissions
+from .ical_text import escape_ical, fold_ical_line
 from .models import (  # 高度なスケジューリング機能（ISSUE-017）
     DatePoll,
     DatePollComment,
@@ -2385,13 +2387,13 @@ class ICalExportView(APIView):
         lines.append("PRODID:-//タブレノ//TRPG Session Calendar//JP")
         lines.append("CALSCALE:GREGORIAN")
         lines.append("METHOD:PUBLISH")
-        lines.append(f"X-WR-CALNAME:タブレノ - {request.user.nickname or request.user.username}")
+        lines.append(f"X-WR-CALNAME:タブレノ - {escape_ical(request.user.nickname or request.user.username)}")
         lines.append("X-WR-TIMEZONE:Asia/Tokyo")
 
         for occurrence in occurrences:
             # イベントの開始・終了時刻
             session = occurrence.session
-            dtstart = occurrence.start_at
+            dtstart = occurrence.start_at.astimezone(datetime_timezone.utc)
             dtend = dtstart + timedelta(minutes=session.duration_minutes or 180)
 
             # ユーザーとの関係
@@ -2401,9 +2403,9 @@ class ICalExportView(APIView):
             lines.append("BEGIN:VEVENT")
             lines.append(f"UID:{uuid.uuid4()}@tableno.jp")
             lines.append(f'DTSTAMP:{timezone.now().strftime("%Y%m%dT%H%M%SZ")}')
-            lines.append(f'DTSTART:{dtstart.strftime("%Y%m%dT%H%M%S")}')
-            lines.append(f'DTEND:{dtend.strftime("%Y%m%dT%H%M%S")}')
-            lines.append(f"SUMMARY:[{role}] {session.title}")
+            lines.append(f'DTSTART:{dtstart.strftime("%Y%m%dT%H%M%SZ")}')
+            lines.append(f'DTEND:{dtend.strftime("%Y%m%dT%H%M%SZ")}')
+            lines.append(f"SUMMARY:[{role}] {escape_ical(session.title)}")
 
             # 詳細説明
             description_parts = []
@@ -2414,12 +2416,12 @@ class ICalExportView(APIView):
             if session.location:
                 description_parts.append(f"Location: {session.location}")
             if session.description:
-                description_parts.append(f"\\n{session.description}")
+                description_parts.append(f"\n{session.description}")
 
-            lines.append(f'DESCRIPTION:{" | ".join(description_parts)}')
+            lines.append(f'DESCRIPTION:{escape_ical(" | ".join(description_parts))}')
 
             if session.location:
-                lines.append(f"LOCATION:{session.location}")
+                lines.append(f"LOCATION:{escape_ical(session.location)}")
 
             # ステータスに応じた設定
             if session.status == "cancelled":
@@ -2438,14 +2440,14 @@ class ICalExportView(APIView):
                 lines.append("BEGIN:VALARM")
                 lines.append("TRIGGER:-P1D")
                 lines.append("ACTION:DISPLAY")
-                lines.append(f"DESCRIPTION:明日のTRPGセッション: {session.title}")
+                lines.append(f"DESCRIPTION:明日のTRPGセッション: {escape_ical(session.title)}")
                 lines.append("END:VALARM")
 
                 # 1時間前のリマインダー
                 lines.append("BEGIN:VALARM")
                 lines.append("TRIGGER:-PT1H")
                 lines.append("ACTION:DISPLAY")
-                lines.append(f"DESCRIPTION:1時間後のTRPGセッション: {session.title}")
+                lines.append(f"DESCRIPTION:1時間後のTRPGセッション: {escape_ical(session.title)}")
                 lines.append("END:VALARM")
 
             lines.append("END:VEVENT")
@@ -2453,7 +2455,10 @@ class ICalExportView(APIView):
         lines.append("END:VCALENDAR")
 
         # レスポンス生成
-        response = HttpResponse("\r\n".join(lines), content_type="text/calendar; charset=utf-8")
+        response = HttpResponse(
+            "\r\n".join(fold_ical_line(line) for line in lines) + "\r\n",
+            content_type="text/calendar; charset=utf-8",
+        )
         response["Content-Disposition"] = (
             f'attachment; filename="tableno_sessions_{timezone.now().strftime("%Y%m%d")}.ics"'
         )

@@ -8,7 +8,9 @@
 
 [native依存の来歴照合](RUNTIME_NATIVE_PROVENANCE_2026-10-04.md)では267 ELFのRECORD一致、21パッケージ266ファイルの固定公開wheel一致、残るmysqlclientの固定Cソース構成を確認した。改変・配布物同一性の調査を進めたが、外部LLVM/ONNX等のビルド閉包とPBDSの使用条件は未確認。CVE解消や公開ゲートの合格にはしない。
 
-[CCFOLIA JSONの版情報保持](CCFOLIA_EDITION_ROUNDTRIP_2026-10-04.md)を作業ブランチで修正し、7版が6版として再取り込みされる不備を再現・解消。関連41テストと3ブラウザ12件で版・無料保存・能力値/幸運の保持を確認した。main/AWSには未反映で、実CCFOLIAでの画像・ダイス・逆方向取り込みやICS受信側のI07条件は維持する。
+[CCFOLIA JSONの版情報保持](CCFOLIA_EDITION_ROUNDTRIP_2026-10-04.md)を作業ブランチで修正し、7版が6版として再取り込みされる不備を再現・解消。関連41テストと3ブラウザ12件で版・無料保存・能力値/幸運の保持を確認し、759aca7aの[CI全6項目success](https://github.com/sheepdog0820/iaia/actions/runs/37180388301)も照合した。main/AWSには未反映で、実CCFOLIAでの画像・ダイス・逆方向取り込みやICS受信側のI07条件は維持する。
+
+[ICSダウンロードの文字・時刻保持](ICAL_DOWNLOAD_INTEGRITY_2026-10-04.md)で、改行による予定混入・未エスケープ・日本語長文・UTC指定漏れを再現し修正した。Windows/Linuxで既存回帰と独立パーサーを含む各31件成功。実受信アプリの購読/更新/失効、main/AWS反映、I07全体の検証は未完了として維持する。
 
 ## 2026-10-02時点の経過記録
 

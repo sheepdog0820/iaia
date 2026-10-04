@@ -23,6 +23,8 @@ from .google_sheets import (
     normalize_sheet_start_range,
 )
 from .google_tokens import get_google_access_token
+from .ical_text import escape_ical as _escape_ical
+from .ical_text import fold_ical_line as _fold_ical_line
 from .integration_access import visible_user_sessions as _visible_user_sessions
 from .models import (
     AsyncJob,
@@ -38,28 +40,6 @@ GOOGLE_INTEGRATION_SCOPES = [
     GoogleIntegration.REQUIRED_CALENDAR_SCOPE,
     GoogleIntegration.REQUIRED_SHEETS_SCOPE,
 ]
-
-
-def _escape_ical(value):
-    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
-    return text.replace("\\", "\\\\").replace("\n", "\\n").replace(",", "\\,").replace(";", "\\;")
-
-
-def _fold_ical_line(value):
-    """Fold RFC 5545 content lines without splitting UTF-8 characters."""
-    lines = []
-    line = ""
-    size = 0
-    for character in value:
-        width = len(character.encode("utf-8"))
-        if size + width > 75:
-            lines.append(line)
-            line = " "
-            size = 1
-        line += character
-        size += width
-    lines.append(line)
-    return "\r\n".join(lines)
 
 
 def _gm_role_session_ids_for(user):

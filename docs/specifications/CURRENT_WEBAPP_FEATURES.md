@@ -360,6 +360,9 @@
   - 月別イベント一覧（date単位でグルーピング）
   - 今後n日分の集約（グループ別/週別/役割別、直近セッションも付与）
   - iCal（.ics）エクスポート（リマインダー付与）
+    - タイトル・説明・場所・表示名・アラーム説明の改行/区切り文字をTEXTとして保持
+    - 日本語/絵文字を分断しない75 octets以内の折り返しとCRLF
+    - 予定の開始/終了をUTC指定付きで出力し、受信側の現地時刻による解釈を避ける
 - **API（代表）**
   - `GET /api/schedules/calendar/monthly/?month=YYYY-MM`
   - `GET /api/schedules/calendar/aggregation/?days=30`
