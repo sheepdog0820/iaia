@@ -251,6 +251,7 @@ jobs:
             tests/integration/test_participant_role_migration.py tests/integration/test_paid_feature_lifecycle.py \
             tests/integration/test_premium_code_serialization.py tests/integration/test_promo_revocation_integrity.py \
             tests/integration/test_premium_reconciliation_integrity.py \
+            tests/integration/test_admin_access_integrity.py \
             tests/integration/test_session_statistics_contract.py \
             tests/integration/test_release_database_preflight.py -q
 
