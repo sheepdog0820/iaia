@@ -4,11 +4,40 @@ import subprocess
 import sys
 from pathlib import Path
 from unittest import TestCase
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class ProductionSettingsTests(TestCase):
+    def test_production_probe_uses_its_own_settings_module_and_no_env_file(self):
+        with patch.dict(os.environ, {"DJANGO_SETTINGS_MODULE": "tableno.settings", "ENV_FILE": "unused-parent.env"}):
+            payload = self.run_settings_probe(expression="""
+import json
+import os
+from django.conf import settings
+print(json.dumps({"module": settings.SETTINGS_MODULE, "env_file": os.environ["ENV_FILE"]}))
+""")
+        self.assertEqual(payload["module"], "tableno.settings_production")
+        self.assertEqual(payload["env_file"], "")
+
+    def test_production_probe_does_not_inherit_parent_development_mode(self):
+        with patch.dict(os.environ, {"ENVIRONMENT": "development", "DJANGO_ENV": "staging"}):
+            payload = self.run_settings_probe(expression="""
+import json
+from tableno import settings_production as settings
+print(json.dumps({"environment": settings.ENVIRONMENT}))
+""")
+        self.assertEqual(payload["environment"], "production")
+
+    def test_production_probe_rejects_test_key_even_with_parent_development_mode(self):
+        with patch.dict(os.environ, {"ENVIRONMENT": "development", "DJANGO_ENV": "staging"}):
+            result = self.run_settings_probe(
+                {"STRIPE_SECRET_KEY": "rk_test_" + "unusable_parent_environment_fixture"}, check=False
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("STRIPE_SECRET_KEY must be a live key in production", result.stderr)
+
     def test_stripe_api_version_is_explicit_in_production_settings(self):
         payload = self.run_settings_probe(expression="""
 import json
@@ -116,6 +145,7 @@ print(json.dumps({"version": settings.STRIPE_API_VERSION}))
             {
                 "APP_ENV": "aws-pre",
                 "STRIPE_SECRET_KEY": "sk_test_" + "staging_settings_fixture",
+                "ENVIRONMENT": "staging",
                 "USE_REDIS_CACHE": "false",
                 "WEBSOCKET_NOTIFICATIONS_ENABLED": "false",
                 "SESSION_ENGINE": "django.contrib.sessions.backends.db",
@@ -143,6 +173,9 @@ print(json.dumps({
     def run_settings_probe(self, overrides=None, expression=None, check=True):
         env = {
             "APP_ENV": "aws-prod",
+            "ENVIRONMENT": "production",
+            "DJANGO_SETTINGS_MODULE": "tableno.settings_production",
+            "ENV_FILE": "",
             "SECRET_KEY": "test-production-secret",
             "ALLOWED_HOSTS": "tableno.jp,www.tableno.jp",
             "CSRF_TRUSTED_ORIGINS": "https://tableno.jp,https://www.tableno.jp",
@@ -576,6 +609,7 @@ print(json.dumps({
             {
                 "APP_ENV": "aws-pre",
                 "STRIPE_SECRET_KEY": "sk_test_" + "staging_settings_fixture",
+                "ENVIRONMENT": "staging",
                 "USE_REDIS_CACHE": "False",
                 "WEBSOCKET_NOTIFICATIONS_ENABLED": "False",
                 "SESSION_ENGINE": "django.contrib.sessions.backends.db",
@@ -620,6 +654,7 @@ print(json.dumps({
                 **os.environ,
                 "APP_ENV": "aws-prod",
                 "SECRET_KEY": "test-production-secret",
+                "ENVIRONMENT": "production",
                 "ALLOWED_HOSTS": "",
                 "CSRF_TRUSTED_ORIGINS": "https://tableno.jp",
                 "SITE_ID": "1",
@@ -640,6 +675,7 @@ print(json.dumps({
                 **os.environ,
                 "APP_ENV": "aws-prod",
                 "SECRET_KEY": "test-production-secret",
+                "ENVIRONMENT": "production",
                 "ALLOWED_HOSTS": "tableno.jp",
                 "CSRF_TRUSTED_ORIGINS": "https://tableno.jp",
                 "SITE_ID": "1",
@@ -675,6 +711,7 @@ print(json.dumps({
                 **os.environ,
                 "APP_ENV": "aws-prod",
                 "SECRET_KEY": "test-production-secret",
+                "ENVIRONMENT": "production",
                 "ALLOWED_HOSTS": "tableno.jp",
                 "CSRF_TRUSTED_ORIGINS": "https://tableno.jp",
                 "SITE_ID": "1",

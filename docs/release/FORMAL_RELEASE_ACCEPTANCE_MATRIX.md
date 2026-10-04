@@ -54,6 +54,8 @@
 
 後続 `529c30c7` の[RAK通常配布物](STRIPE_RAK_RUNTIME_529C30C7_2026-10-04.md)で、選定673ファイル欠落/不一致0、overlayなし隔離PG561件成功/省略0、production設定33件/起動時キー境界7ケース/実HTTP27件成功、通常起動/DBcache readiness正常・静的manifest232件変化0を確認した。全OS監査は39指摘（HIGH3/MEDIUM2/LOW34、Python0）・終了2で、先行2b70f1d5からCVE ID/重大度変化0だがOSゲート未合格。今回CIは当初4項目成功/2項目実行中だったが、後続でUnit / Integrationのproduction設定試験23件失敗を確認し、親環境を継承するfixtureの再現/修正が必要。mainは8567f49fのまま、AWSは再照合・変更していない。RAK形式対応の通常配布物未検証は限定範囲で解消したが、CI・実RAKの最小権限/認証・Sandbox・共有環境切替・管理運用方針・外部連携/性能/復旧/税務等は未完了。既存承認へ追加せず正式公開No-Goを維持する。
 
+[本番設定テストの環境独立化](PRODUCTION_PROBE_ISOLATION_2026-10-04.md)で、529c30c7のCI23件失敗を親development下で再現し、テストsubprocessのモード/Django設定/envファイルを明示した。本番アプリのモード境界やruntime selectorは変更しない。新規3試験のRED、関連pytest97件成功・設定36件/テストモジュール209文6分岐100%を確認した。Banditの既存LOW26件は残り、新規0。修正後の全CI/通常配布物は未確認で、先行CI失敗を合格へ置換しない。main/AWS/実キー/DB/Taxは変更せず、正式公開No-Goを維持する。
+
 ## 2026-10-02時点の経過記録
 
 同日後続の[通常配布物検証](RUNTIME_SECURITY_2026-10-02.md): 稼働版c6226ddbの画像ギャラリーを保持するブランチへPython修正を統合し、ベースdigest固定とPCRE2更新を追加した。修正後イメージは隔離PG/Redisで通常起動・146テスト成功、全パッケージスキャンは39件（HIGH3/MEDIUM2/LOW34、Python0）。AWSは旧版のままであり、残るOS指摘・修正後CI・実環境検証のためNo-Goを維持する。
