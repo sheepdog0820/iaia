@@ -131,6 +131,7 @@ const ARKHAM = {
     // 確認モーダル
     confirm: function(message, options = {}) {
         return new Promise(resolve => {
+            'use strict';
             const title = options.title || '確認';
             const confirmText = options.confirmText || '実行';
             const cancelText = options.cancelText || 'キャンセル';
@@ -162,19 +163,42 @@ const ARKHAM = {
             modalEl.querySelector('[data-confirm-message]').textContent = message;
             document.body.appendChild(modalEl);
             let modal = null;
-            let settled = false;
+            let shown = false;
+            let decision = null;
+            const requestClose = value => {
+                // Bootstrap ignores hide() during its opening transition.
+                // Keep the first decision and close only after shown.bs.modal.
+                if (decision !== null) return;
+                decision = value;
+                if (shown) modal.hide();
+            };
+            const bindOutsideClick = element => {
+                let startedOutside = false;
+                element.addEventListener('mousedown', event => {
+                    startedOutside = event.target === element;
+                });
+                element.addEventListener('click', event => {
+                    if (startedOutside && event.target === element) requestClose(false);
+                    startedOutside = false;
+                });
+            };
 
             if (useBootstrapModal) {
                 modal = bootstrap.Modal.getOrCreateInstance(modalEl);
             } else {
-                modalEl.classList.add('show');
-                modalEl.removeAttribute('aria-hidden');
-                modalEl.style.display = 'block';
-                document.body.classList.add('modal-open');
                 const backdrop = document.createElement('div');
                 backdrop.className = 'modal-backdrop fade show';
-                document.body.appendChild(backdrop);
+                bindOutsideClick(backdrop);
                 modal = {
+                    show: () => {
+                        modalEl.classList.add('show');
+                        modalEl.removeAttribute('aria-hidden');
+                        modalEl.style.display = 'block';
+                        document.body.classList.add('modal-open');
+                        document.body.appendChild(backdrop);
+                        modalEl.focus();
+                        modalEl.dispatchEvent(new Event('shown.bs.modal'));
+                    },
                     hide: () => {
                         modalEl.classList.remove('show');
                         modalEl.style.display = 'none';
@@ -183,20 +207,33 @@ const ARKHAM = {
                         modalEl.dispatchEvent(new Event('hidden.bs.modal'));
                     }
                 };
-                modalEl.querySelectorAll('[data-bs-dismiss="modal"]').forEach(button => {
-                    button.addEventListener('click', () => modal.hide());
-                });
             }
 
-            modalEl.querySelector('[data-confirm-action]').addEventListener('click', () => {
-                settled = true;
-                modal.hide();
-                resolve(true);
+            modalEl.querySelector('[data-confirm-action]').addEventListener('click', () => requestClose(true));
+            modalEl.querySelectorAll('[data-bs-dismiss="modal"]').forEach(button => {
+                button.addEventListener('click', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    requestClose(false);
+                });
             });
+            modalEl.addEventListener('keydown', event => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    requestClose(false);
+                }
+            }, true);
+            bindOutsideClick(modalEl);
+            modalEl.addEventListener('shown.bs.modal', () => {
+                shown = true;
+                if (decision !== null) modal.hide();
+            }, { once: true });
             modalEl.addEventListener('hidden.bs.modal', () => {
+                if (useBootstrapModal) modal.dispose();
                 modalEl.remove();
-                if (!settled) resolve(false);
-            });
+                resolve(decision === true);
+            }, { once: true });
 
             modal.show();
         });

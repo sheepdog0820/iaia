@@ -28,6 +28,8 @@
 
 後続 `cea7e76b` の[通常配布物](RECONCILE_RUNTIME_CANDIDATE_2026-10-04.md)は578ファイル同一・隔離PG401回帰テスト成功・通常起動・先行19 HTTP・コード利用/失効/再同期23操作成功。Docker Scout1.26.0でも全OS監査39指摘（HIGH2/MEDIUM2/LOW35）・終了1でゲート未合格。候補CIは5項目success・Playwright failure（WebKit退会キャンセル後の確認で30秒上限、233 passed/1 flaky）。traceでnewPageに23.740秒を要したことを確認したが、遅延原因とアプリ不具合の有無は未確定。再試行成功を全CI合格にせず、main/AWS未反映・管理者全経路/OS/実環境等の不足とNo-Goを維持する。
 
+[確認ダイアログの選択保持と終了処理](CONFIRMATION_MODAL_LIFECYCLE_2026-10-04.md)で、表示中キャンセルの喪失/後続確認の誤採用、後片付け前の結果返却、Bootstrapなしの例外を単独再現し修正した。3ブラウザー57件と隔離DBの実退会画面6件が成功。CI予算/合格条件を変えず、変更byteの限定V8計測にも未実行0。先行CI失敗の原因確定や、修正後の全CI/配布物/AWS/OSゲート合格には拡張せず、B04/Q04と正式公開No-Goを維持する。
+
 ## 2026-10-02時点の経過記録
 
 同日後続の[通常配布物検証](RUNTIME_SECURITY_2026-10-02.md): 稼働版c6226ddbの画像ギャラリーを保持するブランチへPython修正を統合し、ベースdigest固定とPCRE2更新を追加した。修正後イメージは隔離PG/Redisで通常起動・146テスト成功、全パッケージスキャンは39件（HIGH3/MEDIUM2/LOW34、Python0）。AWSは旧版のままであり、残るOS指摘・修正後CI・実環境検証のためNo-Goを維持する。
