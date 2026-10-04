@@ -349,6 +349,7 @@
         ].filter(Boolean);
         return {
             kind: 'character',
+            edition: isSeventhEdition ? '7th' : '6th',
             data: {
                 name: character.name || '無名の探索者',
                 memo: character.name_kana || '',

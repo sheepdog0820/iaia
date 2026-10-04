@@ -2874,6 +2874,7 @@ class CharacterExportManager:
 
         ccfolia_data = {
             "kind": "character",
+            "edition": registry.edition,
             "data": {
                 "name": character.name,
                 "memo": memo,

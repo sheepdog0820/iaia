@@ -8,6 +8,8 @@
 
 [native依存の来歴照合](RUNTIME_NATIVE_PROVENANCE_2026-10-04.md)では267 ELFのRECORD一致、21パッケージ266ファイルの固定公開wheel一致、残るmysqlclientの固定Cソース構成を確認した。改変・配布物同一性の調査を進めたが、外部LLVM/ONNX等のビルド閉包とPBDSの使用条件は未確認。CVE解消や公開ゲートの合格にはしない。
 
+[CCFOLIA JSONの版情報保持](CCFOLIA_EDITION_ROUNDTRIP_2026-10-04.md)を作業ブランチで修正し、7版が6版として再取り込みされる不備を再現・解消。関連41テストと3ブラウザ12件で版・無料保存・能力値/幸運の保持を確認した。main/AWSには未反映で、実CCFOLIAでの画像・ダイス・逆方向取り込みやICS受信側のI07条件は維持する。
+
 ## 2026-10-02時点の経過記録
 
 同日後続の[通常配布物検証](RUNTIME_SECURITY_2026-10-02.md): 稼働版c6226ddbの画像ギャラリーを保持するブランチへPython修正を統合し、ベースdigest固定とPCRE2更新を追加した。修正後イメージは隔離PG/Redisで通常起動・146テスト成功、全パッケージスキャンは39件（HIGH3/MEDIUM2/LOW34、Python0）。AWSは旧版のままであり、残るOS指摘・修正後CI・実環境検証のためNo-Goを維持する。
