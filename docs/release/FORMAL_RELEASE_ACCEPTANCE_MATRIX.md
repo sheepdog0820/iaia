@@ -14,6 +14,8 @@
 
 [停止中アカウントのICS購読拒否](ICS_SUBSCRIPTION_AUTHORIZATION_2026-10-04.md)を追加し、GET/HEADで予定を取得できる不備を再現・修正した。SQLite/隔離PostgreSQL 18.3で各35テスト成功し、参加資格の喪失・トークン再発行・削除後の失効も確認。main/AWS未反映・実受信アプリの既存キャッシュ等は未確認で、I07/Q04全体の合格に拡張しない。
 
+3修正を含む `6b6c570c` の[通常配布物](ICS_CCFOLIA_RUNTIME_CANDIDATE_2026-10-04.md)を構築し、575ファイル同一・76関連テスト成功・隔離PG/Redisの通常起動・19件の実HTTPを確認。[候補CI全6項目success](https://github.com/sheepdog0820/iaia/actions/runs/37181732546)も確認した。全OS監査は39指摘（HIGH2/MEDIUM2/LOW35、Python0）・終了1のまま。main/AWSへは未反映で、[今回専用の承認案](AWS_APP_APPROVAL_6B6C570C_2026-10-04.md)を準備した。既存のfavicon反映承認とは区別し、正式公開No-Goを維持する。
+
 ## 2026-10-02時点の経過記録
 
 同日後続の[通常配布物検証](RUNTIME_SECURITY_2026-10-02.md): 稼働版c6226ddbの画像ギャラリーを保持するブランチへPython修正を統合し、ベースdigest固定とPCRE2更新を追加した。修正後イメージは隔離PG/Redisで通常起動・146テスト成功、全パッケージスキャンは39件（HIGH3/MEDIUM2/LOW34、Python0）。AWSは旧版のままであり、残るOS指摘・修正後CI・実環境検証のためNo-Goを維持する。
