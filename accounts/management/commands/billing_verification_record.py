@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.management.commands.billing_preflight import REQUIRED_WEBHOOK_EVENTS
+from accounts.management.stripe_safety import UNEXPECTED_ERROR_SUMMARY
 
 
 class Command(BaseCommand):
@@ -279,8 +280,8 @@ class Command(BaseCommand):
             call_command(command_name, *args, stdout=stdout)
         except CommandError as exc:
             return {"status": "NG", "summary": str(exc)}
-        except Exception as exc:
-            return {"status": "NG", "summary": f"{exc.__class__.__name__}: {exc}"}
+        except Exception:
+            return {"status": "NG", "summary": UNEXPECTED_ERROR_SUMMARY}
 
         output = stdout.getvalue().strip()
         if command_name == "billing_preflight" and "billing_preflight=warnings" in output:

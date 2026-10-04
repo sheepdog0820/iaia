@@ -5237,7 +5237,7 @@ class CreateStripeDevelopmentPricesCommandTestCase(TestCase):
         with self.assertRaises(CommandError) as context:
             call_command("create_stripe_development_prices", stdout=StringIO())
 
-        self.assertIn("not test mode", str(context.exception))
+        self.assertIn("テストモードではありません", str(context.exception))
         stripe.v1.products.update.assert_called_once()
         self.assertEqual(stripe.v1.products.update.call_args.args[0], "prod_live_accidental")
         self.assertIs(stripe.v1.products.update.call_args.kwargs["params"]["active"], False)

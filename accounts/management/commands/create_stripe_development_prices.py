@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from accounts.billing import get_stripe
+from accounts.management.stripe_safety import safe_stripe_command
 from tableno.stripe_keys import stripe_server_key_livemode
 
 
@@ -32,6 +33,7 @@ class Command(BaseCommand):
             help="Lowercase Stripe currency code.",
         )
 
+    @safe_stripe_command
     def handle(self, *args, **options):
         self._validate_safety(options)
         stripe = get_stripe()
@@ -52,25 +54,24 @@ class Command(BaseCommand):
         )
         if _get(product, "livemode") is not False:
             product_id = _get(product, "id", "")
-            try:
-                if product_id:
-                    stripe.v1.products.update(
-                        product_id,
-                        params={
-                            "active": False,
-                            "metadata": {
-                                "app": "tableno",
-                                "environment": "development",
-                                "managed_by": "django_command",
-                                "purpose": "local_billing_verification",
-                                "disabled_reason": "unexpected_live_mode_response",
-                            },
+            if product_id:
+                stripe.v1.products.update(
+                    product_id,
+                    params={
+                        "active": False,
+                        "metadata": {
+                            "app": "tableno",
+                            "environment": "development",
+                            "managed_by": "django_command",
+                            "purpose": "local_billing_verification",
+                            "disabled_reason": "unexpected_live_mode_response",
                         },
-                    )
-            finally:
-                raise CommandError(
-                    "Stripe Product response was not test mode; disabled Product and stopped before Price creation"
+                    },
                 )
+            raise CommandError(
+                "Stripe Productがテストモードではありません。Price作成前に停止しました。"
+                "Productの無効化状態を確認してください。"
+            )
 
         monthly_price = self._create_price(
             stripe,

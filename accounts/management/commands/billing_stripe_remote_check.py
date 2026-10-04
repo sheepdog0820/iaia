@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from accounts.billing import get_stripe
 from accounts.management.commands.billing_preflight import REQUIRED_WEBHOOK_EVENTS
+from accounts.management.stripe_safety import safe_stripe_command
 from tableno.stripe_keys import stripe_server_key_livemode
 
 RECENT_OPERATIONAL_EVENT_TYPES = (
@@ -55,6 +56,7 @@ class Command(BaseCommand):
             help="--require-recent-eventsで確認する直近イベントの時間幅です。",
         )
 
+    @safe_stripe_command
     def handle(self, *args, **options):
         if not settings.STRIPE_PREMIUM_PRICE_ID:
             raise CommandError("STRIPE_PREMIUM_PRICE_ID is required")
