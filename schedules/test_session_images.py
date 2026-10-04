@@ -459,6 +459,42 @@ class SessionImageTestCase(APITestCase):
         )
         self.assertContains(response, "トレーラー")
 
+    def test_shared_session_view_can_load_linked_scenario_image_without_login(self):
+        scenario = Scenario.objects.create(
+            title="共有用画像シナリオ",
+            author="テスト作者",
+            summary="テスト用あらすじ",
+            game_system="coc",
+            difficulty="intermediate",
+            estimated_time=270,
+            created_by=self.gm,
+            visibility="private",
+        )
+        scenario_image = ScenarioImage.objects.create(
+            scenario=scenario,
+            image=self.create_test_image("shared-scenario.png"),
+            title="共有画像",
+            uploaded_by=self.gm,
+        )
+        self.session.scenario = scenario
+        self.session.visibility = "public"
+        self.session.save(update_fields=["scenario", "visibility"])
+
+        page = self.client.get(reverse("fixed-shared-session-view", kwargs={"share_token": self.session.share_token}))
+        self.assertEqual(page.status_code, status.HTTP_200_OK)
+        image_url = reverse(
+            "scenario_image_shared_session_content",
+            kwargs={"pk": scenario_image.pk, "share_token": self.session.share_token},
+        )
+        self.assertContains(page, image_url)
+        image_response = self.client.get(image_url)
+        self.assertEqual(image_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(image_response["Content-Type"], "image/png")
+
+        self.session.visibility = "private"
+        self.session.save(update_fields=["visibility"])
+        self.assertEqual(self.client.get(image_url).status_code, status.HTTP_404_NOT_FOUND)
+
 
 if __name__ == "__main__":
     import django
