@@ -2432,9 +2432,9 @@ stevedore==5.9.1 \
     --hash=sha256:5c8ff3a9f336cc1a06ac0f597bc79d11a2f950bfd32e290ca56b5a301fafafbf \
     --hash=sha256:e97a2667923efda926e8713fde6a73616df68210a3cbc6f02b48967b676fd8bf
     # via bandit
-stripe==15.5.1 \
-    --hash=sha256:5d76a311ae2ba636f3b42fa0766242cc7c9a844c5db73fe0b1702f81b5cdccd5 \
-    --hash=sha256:ee87b696419f4d65a0637c3158393de8a2201de81b589632418517713e4ec8ed
+stripe==16.0.0 \
+    --hash=sha256:5016068d54aebb43e61b3c377ef45bede4e0b4eb1817d7a12af81630c55a23d2 \
+    --hash=sha256:6a401baf2fc19c59ccb59005e674f8da8fa256e8db319ad8c50292f4cddf8c26
     # via -r requirements.txt
 tifffile==2026.3.3 \
     --hash=sha256:d9a1266bed6f2ee1dd0abde2018a38b4f8b2935cb843df381d70ac4eac5458b7 \

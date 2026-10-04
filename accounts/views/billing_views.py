@@ -216,6 +216,8 @@ class StripeWebhookView(APIView):
                     "customer.subscription.created",
                     "customer.subscription.updated",
                     "customer.subscription.deleted",
+                    "customer.subscription.paused",
+                    "customer.subscription.resumed",
                 }:
                     # Serialize events for one customer, then fetch the current state.
                     # Stripe does not guarantee snapshot delivery order.
@@ -233,7 +235,7 @@ class StripeWebhookView(APIView):
                     )
                     if not superseded_cancellation:
                         sync_subscription_object(current_subscription, event_id=event_id)
-                elif event_type in {"invoice.payment_failed", "invoice.payment_succeeded"}:
+                elif event_type in {"invoice.payment_failed", "invoice.payment_succeeded", "invoice.paid"}:
                     reconcile_invoice_payment(data_object, event_type=event_type, event_id=event_id)
                 elif event_type in {"charge.dispute.created", "charge.dispute.closed"}:
                     reconcile_dispute_event(data_object, event_type=event_type, event_id=event_id)

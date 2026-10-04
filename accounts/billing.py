@@ -1,3 +1,5 @@
+import secrets
+import string
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
@@ -25,9 +27,11 @@ def get_stripe():
 
     if not settings.STRIPE_SECRET_KEY:
         raise ImproperlyConfigured("STRIPE_SECRET_KEY is required")
+    if not settings.STRIPE_API_VERSION:
+        raise ImproperlyConfigured("STRIPE_API_VERSION is required")
     return stripe.StripeClient(
         settings.STRIPE_SECRET_KEY,
-        stripe_version=getattr(settings, "STRIPE_API_VERSION", "2026-02-25.clover"),
+        stripe_version=settings.STRIPE_API_VERSION,
     )
 
 
@@ -248,7 +252,11 @@ def create_checkout_session(request, plan="monthly"):
                 attempt.save(update_fields=["resource_id"])
                 session_status = stripe_object_get(session, "status")
                 if session_status == "open":
-                    if attempt.parameters == parameters:
+                    # Tracking is immutable per intent, not part of plan/owner identity.
+                    business_parameters = {
+                        key: value for key, value in attempt.parameters.items() if key != "integration_identifier"
+                    }
+                    if business_parameters == parameters:
                         return session
                     # Expiration must succeed before another price can be purchased.
                     stripe.v1.checkout.sessions.expire(session.id)
@@ -260,7 +268,13 @@ def create_checkout_session(request, plan="monthly"):
                 elif session_status != "expired":
                     raise ValueError("購入処理を確認できません。時間をおいて再度お試しください。")
                 attempt.delete()
-            StripeBillingRequest.objects.create(subscription=record, operation="checkout", parameters=parameters)
+            intent_parameters = parameters.copy()
+            # The date prefix orders official API releases. Explicit older pins
+            # must not receive a parameter first introduced in March 2026.
+            if settings.STRIPE_API_VERSION >= "2026-03-25":
+                suffix = "".join(secrets.choice(string.ascii_letters) for _ in range(8))
+                intent_parameters["integration_identifier"] = f"tableno_checkout_{suffix}"
+            StripeBillingRequest.objects.create(subscription=record, operation="checkout", parameters=intent_parameters)
     raise ValueError("別の購入操作が進行中です。時間をおいて再度お試しください。")
 
 

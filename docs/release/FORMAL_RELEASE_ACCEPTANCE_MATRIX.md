@@ -44,7 +44,9 @@
 
 [Stripeクライアント設定の分離](STRIPE_CLIENT_ISOLATION_2026-10-04.md)で、モジュール共有のキー/API版書換えをStripeClientへ移行し、SDK15.5.1・既定API版・再試行intent/キー・所有者照合/共有ロックは維持した。実SDKのメモリーtransport試験14件を追加し、最終隔離PG458件成功/省略0・SQLite計測289成功/6省略、新規テスト/設定生成/再試行ヘルパーの文・分岐100%、変更33文未実行0を確認した。本体/新規テストのBandit指摘0だが、変更25ファイル全体には既存合成資格情報LOW6件があり全体合格とはしない。先行3804dbc5のCI全6項目successを後続確認したが、今回CI/通常配布物/AWS・実Stripe・RAK/SDK/API更新・税務等は未完了。管理運用方針は回答待ちで、固定反映案6b6c570cへ追加せず正式公開No-Goを維持する。
 
-後続 `2ff6a4c8` の[通常配布物](STRIPE_CLIENT_RUNTIME_2FF6A4C8_2026-10-04.md)で、追跡670ファイル同一・実SDK試験を含む隔離PG529テスト成功/省略0・通常起動・実HTTP27件成功・静的manifest232件変化0を確認した。全OS監査は39指摘（HIGH3/MEDIUM2/LOW34、Python0）・終了2で、CVE ID/重大度の変化0。候補CIは4項目success/2項目実行中の確認に留まり、main/AWSへは未反映。StripeClient移行の通常配布物未検証を限定範囲で解消したが、実決済/RAK/SDK・API更新/税務・管理運用方針・外部連携等は未完了。既存承認へ追加せず、正式公開No-Goを維持する。
+後続 `2ff6a4c8` の[通常配布物](STRIPE_CLIENT_RUNTIME_2FF6A4C8_2026-10-04.md)で、追跡670ファイル同一・実SDK試験を含む隔離PG529テスト成功/省略0・通常起動・実HTTP27件成功・静的manifest232件変化0を確認した。全OS監査は39指摘（HIGH3/MEDIUM2/LOW34、Python0）・終了2で、CVE ID/重大度の変化0。候補CIは当初4項目success/2項目実行中だったが、後続で[全体success](https://github.com/sheepdog0820/iaia/actions/runs/37200546871)とSHA/branch一致を確認。main/AWSへは未反映。StripeClient移行の通常配布物未検証を限定範囲で解消したが、実決済/RAK/SDK・API更新/税務・管理運用方針・外部連携等は未完了。既存承認へ追加せず、正式公開No-Goを維持する。
+
+[Stripe SDK/API更新](STRIPE_SDK_API_UPGRADE_2026-10-04.md)で公式のSDK16.0.0/API2026-09-30.endiveを選定し、明示pin・Checkout追跡ラベルのintent単位保持・pause/resume/invoice.paid処理と必須証拠・Webhook版照合を追加した。新規22件を含む隔離PG588件成功/省略0、SQLite478成功/39省略、production設定28件成功。比較した変更20実行文は未実行0、新規テスト208文/4分岐100%、Python lock111件監査0・CI対象Bandit0。今回CI/通常配布物/OS/実Stripe・共有環境の版切替は未検証で、main/AWSへ反映していない。RAK/共有DB/worker/メール/税務/管理運用方針・外部連携等を含む正式公開No-Goを維持する。
 
 ## 2026-10-02時点の経過記録
 

@@ -2,6 +2,7 @@
 
 ## 必須環境変数
 
+- `STRIPE_API_VERSION`: APIリクエストの明示版。既定は `2026-09-30.endive`（SDK 16.0.0）。既存の明示設定は自動上書きしません。Webhook endpointの版は別設定なので、`billing_stripe_remote_check` で同じ版への固定を確認します。アカウント既定に依存するendpointや有効な重複endpointの版不一致も不合格です。
 - `STRIPE_CHECKOUT_ENABLED`: Checkout exposure switch. Keep `False` in aws-pre/aws-prod until Stripe test-mode Product/Price, Webhook, and real event verification are complete. Set `True` only when paid Checkout buttons may be exposed.
 - `STRIPE_SECRET_KEY`: Stripe secret key. `ENVIRONMENT=production` では `sk_live_` で始まる本番キーのみ許可されます。staging/local の検証では `sk_test_` を使用してください。
 - `STRIPE_WEBHOOK_SECRET`: Webhook署名検証用secret
@@ -228,11 +229,20 @@ Stripe DashboardのWebhook endpointに以下を登録します。
 - `customer.subscription.created`
 - `customer.subscription.updated`
 - `customer.subscription.deleted`
+- `customer.subscription.paused`
+- `customer.subscription.resumed`
+- `invoice.paid`
 - `invoice.payment_failed`
 - `invoice.payment_succeeded`
 - `charge.refunded`
 - `charge.dispute.created`
 - `charge.dispute.closed`
+
+`paused/resumed` はスナップショットの状態ではなく、署名検証後に取得した最新契約でStripe由来の権限を同期します。手動付与・有効な運営コード・返金等による自動停止の既存方針は維持します。`invoice.paid` は最新の請求状態と他の未解決請求を照合して支払い失敗の案内を解除します。
+
+API版更新時は、[公式アップグレード手順](https://docs.stripe.com/upgrades)に従って隔離SandboxでCheckout・Portal・更新・失敗/回復・解約・返金/Dispute・一時停止/再開と署名付きイベントを検証してください。クライアントの版変更だけではStripe上のWebhook版やアカウント既定版は変わりません。endpoint作成/変更、署名Secrets更新、共有環境への反映は別途承認が必要です。ローカルの合成イベントやCLI fixtureだけで実決済検証の完了とはしません。
+
+新APIのCheckout追跡ラベルは作成intentごとに一度だけ保存します。応答消失時は同じ本文・冪等キーを再送し、更新前のラベルなしintentへ後付けしません。新しいプランは既存sessionの失効確認後に別intentで作成します。
 
 ## 運営コード
 

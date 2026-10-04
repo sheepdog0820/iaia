@@ -11,6 +11,7 @@ Secrets、実カード情報、顧客の個人情報、Webhook signing secretは
 | 環境 | local / aws-pre / aws-prod |
 | base URL |  |
 | Stripe mode | test / live |
+| STRIPE_API_VERSION / Webhook API版 | 2026-09-30.endive / 要Stripe確認 |
 | Monthly Price ID |  |
 | Yearly Price ID |  |
 | Expected Stripe Price currency | jpy |
@@ -29,8 +30,8 @@ Secrets、実カード情報、顧客の個人情報、Webhook signing secretは
 | Django check | `python manage.py check` | 未実行 |  |
 | 課金preflight | `python manage.py billing_preflight --strict` | 未実行 |  |
 | Billing status report | `python manage.py billing_status_report` | 未実行 | `last_webhook_event_id` / `last_webhook_event_type` / `last_webhook_processed_at` をStripe Dashboardのイベントと照合する。`stripe_checkout_enabled` matches the intended exposure state. `billing_intervals` includes month/year/blank counts, and expected Stripe currency/unit amount values match the basic information above. `failed_webhook_events=0`、`stale_processing_webhook_events=0` を確認する。 |
-| Stripe remote check | `python manage.py billing_stripe_remote_check` | 未実行 |  |
-| Stripe recent events check | `python manage.py billing_stripe_remote_check --require-recent-events --recent-hours 72` | 未実行 | 実Checkout/Stripe Dashboard操作後に `checkout.session.completed`、`customer.subscription.created/updated/deleted`、`invoice.payment_failed/succeeded`、`charge.refunded`、`charge.dispute.created/closed`、`cancel_at_period_end=true` を確認。出力された `recent_event_ids` と `recent_cancel_at_period_end_event_ids` をこの記録へ転記 |
+| Stripe remote check | `python manage.py billing_stripe_remote_check` | 未実行 | endpointのAPI版がSTRIPE_API_VERSIONと一致し、有効な重複endpointも同版に固定されていること |
+| Stripe recent events check | `python manage.py billing_stripe_remote_check --require-recent-events --recent-hours 72` | 未実行 | 実Checkout/Stripe Dashboard操作後に `checkout.session.completed`、`customer.subscription.created/updated/deleted`、`customer.subscription.paused/resumed`、`invoice.payment_failed/succeeded`、`invoice.paid`、`charge.refunded`、`charge.dispute.created/closed`、`cancel_at_period_end=true` を確認。出力された `recent_event_ids` と `recent_cancel_at_period_end_event_ids` をこの記録へ転記 |
 | Local state transition smoke | `python manage.py billing_webhook_smoke` | Not run | Confirms `stripe_price_id=price_smoke_monthly` / `billing_interval=month` and `stripe_price_id=price_smoke_yearly` / `billing_interval=year`. |
 | 特商法ページ | `/commercial-disclosure/` | 未確認 | 料金、解約、返金、提供時期、事業者情報 |
 | プレミアム機能ページ | `/premium/` | 未確認 | 無料/有料差分 |
@@ -64,6 +65,9 @@ Secrets、実カード情報、顧客の個人情報、Webhook signing secretは
 | `customer.subscription.updated` | 解約予定なら `cancel_at_period_end=True`、期間終了までは有効 | 未確認 |  | 課金画面、管理画面 |
 | `customer.subscription.updated` | `unpaid` なら `is_premium=False` | 未確認 |  | ユーザー詳細、監査ログ |
 | `customer.subscription.deleted` | `canceled` として権限失効 | 未確認 |  | ユーザー詳細、監査ログ |
+| `customer.subscription.paused` | 最新契約がpausedならStripe由来の権限を失効 | 未確認 |  | ユーザー詳細、監査ログ |
+| `customer.subscription.resumed` | 最新契約で権限同期。返金等による自動停止は保持 | 未確認 |  | ユーザー詳細、監査ログ |
+| `invoice.paid` | 最新請求を照合し、他の未解決請求がなければ支払い失敗の案内を解除 | 未確認 |  | 課金画面、監査ログ |
 | `invoice.payment_failed` | 支払い失敗日時を保存し、課金画面とメールでカード更新を案内 | 未確認 |  | メール、課金画面 |
 | `invoice.payment_succeeded` | 支払い失敗日時を解除し、課金画面のカード更新案内が消える | 未確認 |  | 課金画面、監査ログ |
 | `charge.refunded` | 監査ログを残し、設定に応じて権限停止。自動停止後は `customer.subscription.updated` が `active` でも自動復旧しない | 未確認 |  | 監査ログ、ユーザー詳細 |

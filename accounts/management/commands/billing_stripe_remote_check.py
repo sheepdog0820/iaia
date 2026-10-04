@@ -11,6 +11,9 @@ RECENT_OPERATIONAL_EVENT_TYPES = (
     "customer.subscription.created",
     "customer.subscription.updated",
     "customer.subscription.deleted",
+    "customer.subscription.paused",
+    "customer.subscription.resumed",
+    "invoice.paid",
     "invoice.payment_failed",
     "invoice.payment_succeeded",
     "charge.refunded",
@@ -111,6 +114,7 @@ class Command(BaseCommand):
             endpoints,
             webhook_url,
             expected_livemode=expected_livemode,
+            expected_api_version=settings.STRIPE_API_VERSION,
         )
         if endpoint_errors:
             raise CommandError("Stripe webhook check failed: " + ", ".join(endpoint_errors))
@@ -196,7 +200,7 @@ def validate_price(
     return errors
 
 
-def validate_webhook_endpoints(endpoints, webhook_url, expected_livemode=None):
+def validate_webhook_endpoints(endpoints, webhook_url, expected_livemode=None, expected_api_version=None):
     endpoint = None
     for candidate in _get(endpoints, "data", []) or []:
         if _get(candidate, "url") == webhook_url:
@@ -214,6 +218,19 @@ def validate_webhook_endpoints(endpoints, webhook_url, expected_livemode=None):
         expected = "live" if expected_livemode else "test"
         actual = "live" if livemode else "test"
         return [f"webhook endpoint livemode mismatch: expected {expected}, got {actual}"]
+
+    if expected_api_version is not None:
+        # Duplicate enabled destinations can emit incompatible snapshots even
+        # when the first matching endpoint is correct.
+        for candidate in _get(endpoints, "data", []) or []:
+            if _get(candidate, "url") != webhook_url or _get(candidate, "status") == "disabled":
+                continue
+            actual_version = _get(candidate, "api_version")
+            if actual_version != expected_api_version:
+                return [
+                    f"webhook endpoint API version mismatch: expected {expected_api_version}, "
+                    f'got {actual_version or "account default/unknown"}'
+                ]
 
     enabled_events = set(_get(endpoint, "enabled_events", []) or [])
     if "*" in enabled_events:
