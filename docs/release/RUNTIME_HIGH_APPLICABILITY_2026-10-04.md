@@ -45,6 +45,8 @@
 
 [上流修正](https://github.com/gcc-mirror/gcc/commit/aaa8351f4d2e636f9680a1f0a8ebc2f0a60611e6)はC++ヘッダー内の再確保後ポインター更新である。共有ライブラリがロードされるかだけでは、wheel内にコンパイルされた当該テンプレートの使用を判定できない。ヘッダー削除済み・文字列検索不一致を非該当証拠にしない。native wheelのビルド由来・対象テンプレートの使用/修正版取り込みの確認が残る。[Debian](https://security-tracker.debian.org/tracker/CVE-2026-102010)もunfixedのまま。
 
+後続の[native配布物照合](RUNTIME_NATIVE_PROVENANCE_2026-10-04.md)で267 ELFのRECORD一致、うち21パッケージ266ファイルの固定公開wheel一致を確認。残るmysqlclientは固定Cソースの構成を確認した。配布物の同一性とPBDS非該当証明は区別し、外部LLVM/ONNX等のビルド閉包・使用条件は未確認としてHIGH指摘を維持する。
+
 ### CVE-2026-85091: zlibの非ブロッキングgzwrite経路
 
 [Debian記録](https://security-tracker.debian.org/tracker/CVE-2026-85091)の説明は上流1.3.1.2〜1.3.2の`gz_vacate`経路を対象とし、trixieのパッケージ表はvulnerableと表示する。[導入コミット](https://github.com/madler/zlib/commit/81cc0bebedd935daeb81b0b6e475d8786b51af3d)は非ブロッキング状態管理等を追加している。

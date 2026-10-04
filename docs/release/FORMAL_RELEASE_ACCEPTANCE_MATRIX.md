@@ -6,6 +6,8 @@
 
 その後の[稼働配布物の全OS再監査と適用条件](RUNTIME_HIGH_APPLICABILITY_2026-10-04.md)は39指摘（HIGH2/MEDIUM2/LOW35、Python0）、終了1。旧39指摘からzlibの重大度だけがHIGH→LOWとなり、修正による解消ではない。aligned newのLinux実行経路とzlibのソースに条件不一致の証拠を得たが、指摘抑制・リスク受容・全体合格はしていない。PBDSのnative依存由来と、下表の共有DB・課金実運用・外部連携・性能・復旧・事業者運用等は未達のまま。
 
+[native依存の来歴照合](RUNTIME_NATIVE_PROVENANCE_2026-10-04.md)では267 ELFのRECORD一致、21パッケージ266ファイルの固定公開wheel一致、残るmysqlclientの固定Cソース構成を確認した。改変・配布物同一性の調査を進めたが、外部LLVM/ONNX等のビルド閉包とPBDSの使用条件は未確認。CVE解消や公開ゲートの合格にはしない。
+
 ## 2026-10-02時点の経過記録
 
 同日後続の[通常配布物検証](RUNTIME_SECURITY_2026-10-02.md): 稼働版c6226ddbの画像ギャラリーを保持するブランチへPython修正を統合し、ベースdigest固定とPCRE2更新を追加した。修正後イメージは隔離PG/Redisで通常起動・146テスト成功、全パッケージスキャンは39件（HIGH3/MEDIUM2/LOW34、Python0）。AWSは旧版のままであり、残るOS指摘・修正後CI・実環境検証のためNo-Goを維持する。
