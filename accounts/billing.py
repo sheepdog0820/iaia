@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 
@@ -96,6 +97,24 @@ def extract_subscription_price(subscription):
 def get_or_create_subscription_record(user):
     record, _ = PremiumSubscription.objects.get_or_create(user=user)
     return record
+
+
+@contextmanager
+def locked_manual_premium_user(user):
+    with transaction.atomic():
+        # Creating the shared row also serializes a concurrent first Checkout.
+        # Keep billing -> user lock order, matching billing writes and deletion.
+        record, created = PremiumSubscription.objects.get_or_create(user=user)
+        record = PremiumSubscription.objects.select_for_update().get(pk=record.pk)
+        current = type(user).objects.select_for_update().get(pk=user.pk)
+        previous = current.is_premium
+        yield current
+        if created:
+            current.refresh_from_db(fields=["is_premium"])
+            if previous == current.is_premium:
+                # Do not turn an unchanged legacy grant without an audit into
+                # an inactive billing record that reconciliation would revoke.
+                record.delete()
 
 
 def get_or_create_stripe_customer(user):

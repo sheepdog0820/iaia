@@ -1,7 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
-from accounts.billing import create_premium_audit_log
+from accounts.billing import create_premium_audit_log, locked_manual_premium_user
+from accounts.models import PremiumSubscription
 
 
 class Command(BaseCommand):
@@ -43,17 +44,23 @@ class Command(BaseCommand):
         if not hasattr(user, "is_premium"):
             raise CommandError("This project does not have is_premium on the user model.")
 
-        previous = user.is_premium
-        user.is_premium = enable
-        user.save(update_fields=["is_premium"])
-        if previous != enable:
-            create_premium_audit_log(
-                user,
-                action="granted" if enable else "revoked",
-                source="manual",
-                reason=reason,
-                metadata={"command": "set_premium_user"},
-            )
+        try:
+            with locked_manual_premium_user(user) as current:
+                previous = current.is_premium
+                current.is_premium = enable
+                current.save(update_fields=["is_premium"])
+                if previous != enable:
+                    create_premium_audit_log(
+                        current,
+                        action="granted" if enable else "revoked",
+                        source="manual",
+                        reason=reason,
+                        metadata={"command": "set_premium_user"},
+                    )
+        except User.DoesNotExist as exc:
+            raise CommandError("対象ユーザーは削除されています。") from exc
+        except PremiumSubscription.DoesNotExist as exc:
+            raise CommandError("課金情報が変更されています。再試行してください。") from exc
 
         state = "ON" if enable else "OFF"
-        self.stdout.write(self.style.SUCCESS(f"is_premium={state} for user={user.username}"))
+        self.stdout.write(self.style.SUCCESS(f"is_premium={state} for user={current.username}"))
