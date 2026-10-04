@@ -43,7 +43,7 @@ accounts/api/schedules/scenarios/support/tableno/static/templates内の対象拡
 
 Docker Scout 1.24.0、専用cache・NO_CACHE=true、無抑制の全パッケージ監査は268 indexed・16 vulnerable packages・39 CVE（HIGH2/MEDIUM2/LOW35、Python0）、終了1。6b6c570cレポートとCVE ID差分0・SARIF SHA-256一致。archive削除にWindows file-in-use警告があるが、index/全結果/SARIF出力は完了した。抑制・only-fixed・ベース除外・リスク受容・脆弱性解消はない。
 
-候補[CI run 37185332518](https://github.com/sheepdog0820/iaia/actions/runs/37185332518)はhead SHA一致。今回確認時点でlint-security・production-database・infrastructure・systemがsuccess、Unit / Integrationとplaywrightは実行中。PGジョブログに新規のコード利用/失効競合テスト2ファイルを含む実行コマンドと `329 passed, 9 warnings, 50 subtests passed in 90.47s` を確認し、省略のない対象成功を照合した。CI全6成功とはまだ報告しない。
+候補[CI run 37185332518](https://github.com/sheepdog0820/iaia/actions/runs/37185332518)はhead SHA一致。初回確認は4項目success・Unit / Integrationとplaywrightが実行中だったが、後続で全6項目successを照合した。PGジョブログに新規のコード利用/失効競合テスト2ファイルを含む実行コマンドと `329 passed, 9 warnings, 50 subtests passed in 90.47s` を確認し、省略のない対象成功を照合した。CIの成功を39指摘のOSゲート合格やmain/AWS反映へ拡張しない。
 
 mainは読み取りで `8567f49f8d411bad7f732afaeebad85357eeca09` と確認した。今回AWS状態を読み直しておらず、先行記録の定義54/digestの確認時刻を現在へ繰り上げない。mainマージ・ECR push・ECS更新・共有DB変更・S3書込み/CloudFront無効化は未実施。
 

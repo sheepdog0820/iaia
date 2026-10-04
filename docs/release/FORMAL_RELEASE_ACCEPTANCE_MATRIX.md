@@ -20,7 +20,9 @@
 
 [コード由来権限の失効・監査の競合防止](PROMO_REVOCATION_SERIALIZATION_2026-10-04.md)で、古い取得結果/旧コードによる新しい権限の誤失効と、監査保存失敗時の部分更新を再現し修正した。SQLite300件/隔離PG315件成功、購入完了ハンドラーとの行ロック待機と監査rollbackも確認した。PG専用試験をCIに追加したが、今回候補のCI/通常配布物/AWSは未確認で、手動付与等の全経路や正式公開条件の合格には拡張しない。main/AWS反映案の固定対象6b6c570cへ追加せず、No-Goを維持する。
 
-後続 `3492d3d3` の[通常配布物](PROMO_RUNTIME_CANDIDATE_2026-10-04.md)を構築し、577ファイル同一・PG389回帰テスト成功・隔離PG/Redisの通常起動・19 HTTPと13コード利用/失効操作を確認した。全OS監査は39指摘（HIGH2/MEDIUM2/LOW35、Python0）・終了1でゲート未合格。候補CIは4ジョブsuccess・2実行中で、main/AWSは未反映。これら2修正の通常配布物未検証を限定範囲で解消したが、既存反映案の対象6b6c570cは変えず、正式公開No-Goを維持する。
+後続 `3492d3d3` の[通常配布物](PROMO_RUNTIME_CANDIDATE_2026-10-04.md)を構築し、577ファイル同一・PG389回帰テスト成功・隔離PG/Redisの通常起動・19 HTTPと13コード利用/失効操作を確認した。全OS監査は39指摘（HIGH2/MEDIUM2/LOW35、Python0）・終了1でゲート未合格。後続で候補CI全6項目successを照合したが、main/AWSは未反映。これら2修正の通常配布物未検証を限定範囲で解消したが、既存反映案の対象6b6c570cは変えず、正式公開No-Goを維持する。
+
+[native公開署名とビルド由来](NATIVE_BUILD_ATTESTATION_2026-10-04.md)を追加確認し、固定llvmlite wheelの署名・公開元・現在候補内のnative bytes一致を検証した。公開runからLLVM22.1.0/GCC10.2.1のビルドログへ追跡できたが、完全なビルド閉包・PBDS非該当は未証明。ONNX対象wheelのIntegrity APIはprovenanceなしの404。現行DebianにはHIGH2件を解消する新しい候補もなく、指摘を抑制・受容せずNo-Goを維持する。
 
 ## 2026-10-02時点の経過記録
 
