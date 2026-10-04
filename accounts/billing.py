@@ -704,6 +704,7 @@ def redeem_premium_access_code(user, raw_code):
         if access_code is None:
             raise PremiumCodeRedeemError("コードが見つかりません。")
 
+        user.refresh_from_db(fields=["is_premium", "is_staff", "is_superuser"])
         if PremiumAccessCodeRedemption.objects.filter(
             access_code=access_code,
             user=user,
@@ -716,6 +717,16 @@ def redeem_premium_access_code(user, raw_code):
         if user.has_premium_access:
             return access_code, False
 
+        # Different codes have different locks. Serialize this user's grants on
+        # the same billing row used by Checkout/webhooks, then recheck access.
+        record = get_or_create_subscription_record(user)
+        record = PremiumSubscription.objects.select_for_update().get(pk=record.pk)
+        user.refresh_from_db(fields=["is_premium", "is_staff", "is_superuser"])
+        if not access_code.is_active:
+            raise PremiumCodeRedeemError("このコードは利用できません。")
+        if user.has_premium_access:
+            return access_code, False
+
         PremiumAccessCodeRedemption.objects.create(access_code=access_code, user=user)
         access_code.use_count += 1
         access_code.save(update_fields=["use_count"])
@@ -723,7 +734,6 @@ def redeem_premium_access_code(user, raw_code):
         user.is_premium = True
         user.save(update_fields=["is_premium"])
 
-        record = get_or_create_subscription_record(user)
         record.subscription_status = "promo"
         record.access_source = "promo_code"
         record.current_period_end = access_code.expires_at
