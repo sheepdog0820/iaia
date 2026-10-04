@@ -19,7 +19,7 @@ class StripeMultipleRevocationsTests(TestCase):
             access_source="stripe",
         )
         stripe = Mock()
-        stripe.Subscription.retrieve.return_value = SimpleNamespace(
+        stripe.v1.subscriptions.retrieve.return_value = SimpleNamespace(
             id="sub_multi", customer="cus_multi", status="active"
         )
         self.patch = patch("accounts.billing.get_stripe", return_value=stripe)

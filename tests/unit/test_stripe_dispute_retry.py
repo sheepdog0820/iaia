@@ -19,13 +19,13 @@ class StripeDisputeRetryTests(TestCase):
             access_source="stripe",
         )
         stripe = Mock()
-        stripe.Webhook.construct_event.return_value = {
+        stripe.construct_event.return_value = {
             "id": "evt_dispute_retry",
             "type": "charge.dispute.created",
             "data": {"object": {"id": "dp_retry", "charge": "ch_retry", "status": "needs_response"}},
         }
-        stripe.Charge.retrieve.side_effect = TimeoutError("isolated Stripe outage")
-        stripe.Dispute.retrieve.return_value = {"id": "dp_retry", "charge": "ch_retry", "status": "needs_response"}
+        stripe.v1.charges.retrieve.side_effect = TimeoutError("isolated Stripe outage")
+        stripe.v1.disputes.retrieve.return_value = {"id": "dp_retry", "charge": "ch_retry", "status": "needs_response"}
         client = APIClient()
         with (
             patch("accounts.views.billing_views.get_stripe", return_value=stripe),
@@ -38,8 +38,8 @@ class StripeDisputeRetryTests(TestCase):
             user.refresh_from_db()
             self.assertTrue(user.is_premium)
 
-            stripe.Charge.retrieve.side_effect = None
-            stripe.Charge.retrieve.return_value = {"id": "ch_retry", "customer": "cus_retry"}
+            stripe.v1.charges.retrieve.side_effect = None
+            stripe.v1.charges.retrieve.return_value = {"id": "ch_retry", "customer": "cus_retry"}
             response = client.post("/api/billing/webhook/", {}, format="json", HTTP_STRIPE_SIGNATURE="test")
             self.assertEqual(response.status_code, 200)
             self.assertEqual(StripeWebhookEvent.objects.get().processing_status, "succeeded")
@@ -50,4 +50,4 @@ class StripeDisputeRetryTests(TestCase):
             response = client.post("/api/billing/webhook/", {}, format="json", HTTP_STRIPE_SIGNATURE="test")
             self.assertTrue(response.json()["duplicate"])
             self.assertEqual(PremiumAuditLog.objects.count(), audit_count)
-            self.assertEqual(stripe.Charge.retrieve.call_count, 2)
+            self.assertEqual(stripe.v1.charges.retrieve.call_count, 2)

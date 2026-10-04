@@ -25,13 +25,13 @@ class BillingRequestOwnerSetup:
         self.request = RequestFactory().post("/api/billing/checkout/")
         self.request.user = self.user
         self.stripe = Mock()
-        self.stripe.Customer.create.return_value = SimpleNamespace(id="cus_created_fixture")
-        self.stripe.Subscription.list.return_value.auto_paging_iter.side_effect = lambda: iter([])
-        self.stripe.checkout.Session.list.return_value.auto_paging_iter.side_effect = lambda: iter([])
+        self.stripe.v1.customers.create.return_value = SimpleNamespace(id="cus_created_fixture")
+        self.stripe.v1.subscriptions.list.return_value.auto_paging_iter.side_effect = lambda: iter([])
+        self.stripe.v1.checkout.sessions.list.return_value.auto_paging_iter.side_effect = lambda: iter([])
         self.session = SimpleNamespace(id="cs_owner_fixture", status="open", url="https://checkout.stripe.test/fixture")
-        self.stripe.checkout.Session.create.return_value = self.session
-        self.stripe.checkout.Session.retrieve.return_value = self.session
-        self.stripe.billing_portal.Session.create.return_value = SimpleNamespace(
+        self.stripe.v1.checkout.sessions.create.return_value = self.session
+        self.stripe.v1.checkout.sessions.retrieve.return_value = self.session
+        self.stripe.v1.billing_portal.sessions.create.return_value = SimpleNamespace(
             url="https://billing.stripe.test/fixture"
         )
         stripe_patch = patch("accounts.billing.get_stripe", return_value=self.stripe)
@@ -39,11 +39,11 @@ class BillingRequestOwnerSetup:
         self.addCleanup(stripe_patch.stop)
 
     def assertNoRemoteMutation(self):
-        self.stripe.Customer.create.assert_not_called()
-        self.stripe.checkout.Session.create.assert_not_called()
-        self.stripe.checkout.Session.retrieve.assert_not_called()
-        self.stripe.checkout.Session.expire.assert_not_called()
-        self.stripe.billing_portal.Session.create.assert_not_called()
+        self.stripe.v1.customers.create.assert_not_called()
+        self.stripe.v1.checkout.sessions.create.assert_not_called()
+        self.stripe.v1.checkout.sessions.retrieve.assert_not_called()
+        self.stripe.v1.checkout.sessions.expire.assert_not_called()
+        self.stripe.v1.billing_portal.sessions.create.assert_not_called()
         self.assertFalse(PremiumAuditLog.objects.exists())
         self.user.refresh_from_db()
         self.other.refresh_from_db()
@@ -51,10 +51,10 @@ class BillingRequestOwnerSetup:
         self.assertFalse(self.other.is_premium)
 
     def saveUncertainCheckout(self):
-        self.stripe.checkout.Session.create.side_effect = TimeoutError("isolated response lost")
+        self.stripe.v1.checkout.sessions.create.side_effect = TimeoutError("isolated response lost")
         with self.assertRaises(TimeoutError):
             create_checkout_session(self.request)
-        self.stripe.checkout.Session.create.side_effect = None
+        self.stripe.v1.checkout.sessions.create.side_effect = None
         self.stripe.reset_mock()
         return StripeBillingRequest.objects.get(subscription=self.record, operation="checkout")
 
@@ -91,12 +91,12 @@ class BillingRequestOwnerIntegrityTests(BillingRequestOwnerSetup, TestCase):
 
     def test_customer_rejects_mismatched_saved_intent_without_replacing_key(self):
         PremiumSubscription.objects.filter(pk=self.record.pk).update(stripe_customer_id="")
-        self.stripe.Customer.create.side_effect = TimeoutError("isolated response lost")
+        self.stripe.v1.customers.create.side_effect = TimeoutError("isolated response lost")
         with self.assertRaises(TimeoutError):
             get_or_create_stripe_customer(self.user)
         attempt = StripeBillingRequest.objects.get(subscription=self.record, operation="customer")
         self.stripe.reset_mock()
-        self.stripe.Customer.create.side_effect = None
+        self.stripe.v1.customers.create.side_effect = None
         for parameters in [[], {}, {"metadata": None}, {"metadata": []}, {"metadata": {"user_id": str(self.other.pk)}}]:
             with self.subTest(parameters=parameters), transaction.atomic():
                 self.stripe.reset_mock()
@@ -130,7 +130,7 @@ class BillingRequestOwnerIntegrityTests(BillingRequestOwnerSetup, TestCase):
         with patch("accounts.billing.get_or_create_stripe_customer", return_value=self.record):
             with self.assertRaisesMessage(ValueError, OWNER_ERROR):
                 create_checkout_session(self.request)
-        self.stripe.Subscription.list.assert_not_called()
+        self.stripe.v1.subscriptions.list.assert_not_called()
         self.assertFalse(StripeBillingRequest.objects.exists())
         self.assertNoRemoteMutation()
 
@@ -139,7 +139,7 @@ class BillingRequestOwnerIntegrityTests(BillingRequestOwnerSetup, TestCase):
         with patch("accounts.billing.get_or_create_stripe_customer", return_value=self.record):
             with self.assertRaisesMessage(ValueError, OWNER_ERROR):
                 create_checkout_session(self.request)
-        self.stripe.Subscription.list.assert_not_called()
+        self.stripe.v1.subscriptions.list.assert_not_called()
         self.assertNoRemoteMutation()
 
     def test_checkout_rejects_missing_customer_without_remote_query(self):
@@ -148,7 +148,7 @@ class BillingRequestOwnerIntegrityTests(BillingRequestOwnerSetup, TestCase):
         with patch("accounts.billing.get_or_create_stripe_customer", return_value=self.record):
             with self.assertRaisesMessage(ValueError, OWNER_ERROR):
                 create_checkout_session(self.request)
-        self.stripe.Subscription.list.assert_not_called()
+        self.stripe.v1.subscriptions.list.assert_not_called()
         self.assertFalse(StripeBillingRequest.objects.exists())
         self.assertNoRemoteMutation()
 
@@ -166,7 +166,7 @@ class BillingRequestOwnerIntegrityTests(BillingRequestOwnerSetup, TestCase):
         attempt = StripeBillingRequest.objects.get(subscription=self.record, operation="checkout")
         self.assertEqual(attempt.parameters["client_reference_id"], str(self.user.pk))
         self.assertEqual(attempt.resource_id, "")
-        self.assertEqual(self.stripe.Subscription.list.call_count, 1)
+        self.assertEqual(self.stripe.v1.subscriptions.list.call_count, 1)
         self.assertNoRemoteMutation()
 
     def test_checkout_rejects_customer_changed_between_intent_and_execution(self):
@@ -183,33 +183,38 @@ class BillingRequestOwnerIntegrityTests(BillingRequestOwnerSetup, TestCase):
         attempt = StripeBillingRequest.objects.get(subscription=self.record, operation="checkout")
         self.assertEqual(attempt.parameters["customer"], "cus_owner_fixture")
         self.assertEqual(attempt.resource_id, "")
-        self.assertEqual(self.stripe.Subscription.list.call_count, 1)
+        self.assertEqual(self.stripe.v1.subscriptions.list.call_count, 1)
         self.assertNoRemoteMutation()
 
     def test_unknown_checkout_status_keeps_retry_intent(self):
         attempt = self.saveUncertainCheckout()
         before = StripeBillingRequest.objects.values().get(pk=attempt.pk)
-        self.stripe.checkout.Session.create.return_value = SimpleNamespace(id="cs_unknown_fixture", status="unknown")
+        self.stripe.v1.checkout.sessions.create.return_value = SimpleNamespace(
+            id="cs_unknown_fixture", status="unknown"
+        )
         with self.assertRaisesMessage(ValueError, "購入処理を確認できません。時間をおいて再度お試しください。"):
             create_checkout_session(self.request)
         self.assertEqual(StripeBillingRequest.objects.values().get(pk=attempt.pk), before)
-        self.stripe.checkout.Session.create.assert_called_once()
+        self.stripe.v1.checkout.sessions.create.assert_called_once()
         self.assertEqual(
-            self.stripe.checkout.Session.create.call_args.kwargs["idempotency_key"], str(attempt.idempotency_key)
+            self.stripe.v1.checkout.sessions.create.call_args.kwargs["options"]["idempotency_key"],
+            str(attempt.idempotency_key),
         )
-        self.stripe.checkout.Session.expire.assert_not_called()
+        self.stripe.v1.checkout.sessions.expire.assert_not_called()
 
     def test_checkout_iteration_limit_keeps_last_committed_intent(self):
-        self.stripe.checkout.Session.create.return_value = SimpleNamespace(id="cs_expired_fixture", status="expired")
+        self.stripe.v1.checkout.sessions.create.return_value = SimpleNamespace(
+            id="cs_expired_fixture", status="expired"
+        )
         with self.assertRaisesMessage(ValueError, "別の購入操作が進行中です。時間をおいて再度お試しください。"):
             create_checkout_session(self.request)
-        calls = self.stripe.checkout.Session.create.call_args_list
+        calls = self.stripe.v1.checkout.sessions.create.call_args_list
         self.assertEqual(len(calls), 3)
-        self.assertEqual(len({call.kwargs["idempotency_key"] for call in calls}), 3)
+        self.assertEqual(len({call.kwargs["options"]["idempotency_key"] for call in calls}), 3)
         attempt = StripeBillingRequest.objects.get(subscription=self.record, operation="checkout")
         self.assertEqual(attempt.parameters["client_reference_id"], str(self.user.pk))
         self.assertEqual(attempt.resource_id, "")
-        self.stripe.checkout.Session.expire.assert_not_called()
+        self.stripe.v1.checkout.sessions.expire.assert_not_called()
 
     def test_checkout_rejects_mismatched_saved_intent_before_read_or_write(self):
         attempt = self.saveUncertainCheckout()
@@ -237,7 +242,7 @@ class BillingRequestOwnerIntegrityTests(BillingRequestOwnerSetup, TestCase):
                     with self.assertRaisesMessage(ValueError, OWNER_ERROR):
                         create_checkout_session(self.request)
                     self.assertEqual(StripeBillingRequest.objects.values().get(pk=attempt.pk), before)
-                    self.stripe.Subscription.list.assert_not_called()
+                    self.stripe.v1.subscriptions.list.assert_not_called()
                     self.assertNoRemoteMutation()
 
     def test_transferred_checkout_intent_is_not_executed_for_new_owner(self):
@@ -286,15 +291,15 @@ class BillingRequestOwnerLockTests(BillingRequestOwnerSetup, TransactionTestCase
         acquired = Event()
         if operation == "customer":
             PremiumSubscription.objects.filter(pk=self.record.pk).update(stripe_customer_id="")
-            remote = self.stripe.Customer.create
+            remote = self.stripe.v1.customers.create
             function = partial(get_or_create_stripe_customer, self.user)
             result = SimpleNamespace(id="cus_created_fixture")
         elif operation == "checkout":
-            remote = self.stripe.checkout.Session.create
+            remote = self.stripe.v1.checkout.sessions.create
             function = partial(create_checkout_session, self.request)
             result = self.session
         else:
-            remote = self.stripe.billing_portal.Session.create
+            remote = self.stripe.v1.billing_portal.sessions.create
             function = partial(create_portal_session, self.request)
             result = SimpleNamespace(url="https://billing.stripe.test/fixture")
 

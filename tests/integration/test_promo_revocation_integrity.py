@@ -235,7 +235,7 @@ class PromoRevocationConcurrencyTests(TransactionTestCase):
             self.assertTrue(revocation_waiting.wait(timeout=10))
             return current
 
-        stripe.Subscription.retrieve.side_effect = retrieve_current
+        stripe.v1.subscriptions.retrieve.side_effect = retrieve_current
 
         def checkout():
             close_old_connections()

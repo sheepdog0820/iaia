@@ -64,7 +64,7 @@ class Command(BaseCommand):
             "recurring": {"interval": "year"},
         }
         with patch("accounts.billing.get_stripe") as stripe:
-            stripe.return_value.Subscription.retrieve.return_value = {
+            stripe.return_value.v1.subscriptions.retrieve.return_value = {
                 "id": subscription_id,
                 "customer": customer_id,
                 "status": "active",
@@ -281,7 +281,7 @@ class Command(BaseCommand):
 
         # This command is an offline state-transition exercise, not an API test.
         with patch("accounts.billing.get_stripe") as stripe:
-            stripe.return_value.Subscription.retrieve.return_value = {
+            stripe.return_value.v1.subscriptions.retrieve.return_value = {
                 "id": subscription_id,
                 "customer": customer_id,
                 "status": "active",

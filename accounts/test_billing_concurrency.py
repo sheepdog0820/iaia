@@ -33,7 +33,7 @@ class BillingCheckoutConcurrencyTests(TransactionTestCase):
                 raise TimeoutError("purchase did not start")
             return Mock(auto_paging_iter=Mock(return_value=[]))
 
-        self.stripe.checkout.Session.list.side_effect = list_sessions
+        self.stripe.v1.checkout.sessions.list.side_effect = list_sessions
 
         def remove_account():
             close_old_connections()
@@ -68,7 +68,7 @@ class BillingCheckoutConcurrencyTests(TransactionTestCase):
             deletion.result(timeout=15)
             purchase.result(timeout=15)
         self.assertFalse(get_user_model().objects.filter(pk=self.user.pk).exists())
-        self.stripe.checkout.Session.create.assert_not_called()
+        self.stripe.v1.checkout.sessions.create.assert_not_called()
 
     @override_settings(BILLING_EMAIL_DELIVERY_ENABLED=True)
     def test_parallel_billing_email_workers_send_once(self):
@@ -100,7 +100,7 @@ class BillingCheckoutConcurrencyTests(TransactionTestCase):
 
     def test_parallel_checkout_completion_grants_access_once(self):
         PremiumSubscription.objects.create(user=self.user, stripe_customer_id="cus_parallel")
-        self.stripe.Subscription.retrieve.return_value = {
+        self.stripe.v1.subscriptions.retrieve.return_value = {
             "id": "sub_parallel",
             "customer": "cus_parallel",
             "status": "active",
@@ -133,12 +133,12 @@ class BillingCheckoutConcurrencyTests(TransactionTestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="parallel-billing")
         self.stripe = Mock()
-        self.stripe.Customer.create.return_value = SimpleNamespace(id="cus_parallel")
-        self.stripe.Subscription.list.return_value.auto_paging_iter.return_value = []
-        self.stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = []
+        self.stripe.v1.customers.create.return_value = SimpleNamespace(id="cus_parallel")
+        self.stripe.v1.subscriptions.list.return_value.auto_paging_iter.return_value = []
+        self.stripe.v1.checkout.sessions.list.return_value.auto_paging_iter.return_value = []
         self.session = SimpleNamespace(id="cs_parallel", status="open", url="https://checkout.stripe.test/parallel")
-        self.stripe.checkout.Session.create.return_value = self.session
-        self.stripe.checkout.Session.retrieve.return_value = self.session
+        self.stripe.v1.checkout.sessions.create.return_value = self.session
+        self.stripe.v1.checkout.sessions.retrieve.return_value = self.session
 
     def purchase(self, barrier=None):
         close_old_connections()
@@ -160,7 +160,7 @@ class BillingCheckoutConcurrencyTests(TransactionTestCase):
                 raise TimeoutError("test synchronization timed out")
             return self.session
 
-        self.stripe.checkout.Session.create.side_effect = delayed_create
+        self.stripe.v1.checkout.sessions.create.side_effect = delayed_create
         with patch("accounts.billing.get_stripe", return_value=self.stripe), ThreadPoolExecutor(max_workers=2) as pool:
             futures = [pool.submit(self.purchase, barrier) for _ in range(2)]
             try:
@@ -168,24 +168,24 @@ class BillingCheckoutConcurrencyTests(TransactionTestCase):
             finally:
                 release.set()
             self.assertEqual([future.result(timeout=15) for future in futures], ["cs_parallel", "cs_parallel"])
-        self.stripe.Customer.create.assert_called_once()
-        self.stripe.checkout.Session.create.assert_called_once()
+        self.stripe.v1.customers.create.assert_called_once()
+        self.stripe.v1.checkout.sessions.create.assert_called_once()
         self.assertEqual(StripeBillingRequest.objects.count(), 2)
 
     def test_uncertain_checkout_survives_connection_restart(self):
-        self.stripe.checkout.Session.create.side_effect = [TimeoutError("response lost"), self.session]
+        self.stripe.v1.checkout.sessions.create.side_effect = [TimeoutError("response lost"), self.session]
         with patch("accounts.billing.get_stripe", return_value=self.stripe):
             with self.assertRaises(TimeoutError):
                 self.purchase()
             self.assertTrue(StripeBillingRequest.objects.filter(operation="checkout", resource_id="").exists())
             self.assertEqual(self.purchase(), "cs_parallel")
-        calls = self.stripe.checkout.Session.create.call_args_list
+        calls = self.stripe.v1.checkout.sessions.create.call_args_list
         self.assertEqual(calls[0], calls[1])
 
     def test_parallel_invoices_preserve_another_invoices_failure(self):
         record = PremiumSubscription.objects.create(user=self.user, stripe_customer_id="cus_parallel")
         barrier = Barrier(2)
-        self.stripe.Invoice.retrieve.side_effect = lambda invoice_id: SimpleNamespace(
+        self.stripe.v1.invoices.retrieve.side_effect = lambda invoice_id: SimpleNamespace(
             id=invoice_id, customer="cus_parallel", status="open" if invoice_id == "in_failed" else "paid"
         )
 
@@ -227,7 +227,7 @@ class BillingCheckoutConcurrencyTests(TransactionTestCase):
                 event_type="charge.dispute.created",
                 event_id=f"evt_created_{dispute_id}",
             )
-        self.stripe.Subscription.retrieve.return_value = SimpleNamespace(
+        self.stripe.v1.subscriptions.retrieve.return_value = SimpleNamespace(
             id="sub_parallel", customer="cus_parallel", status="active"
         )
         barrier = Barrier(2)
@@ -251,7 +251,7 @@ class BillingCheckoutConcurrencyTests(TransactionTestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.is_premium)
         self.assertEqual(PremiumAuditLog.objects.filter(action="restored").count(), 1)
-        self.stripe.Subscription.retrieve.assert_called_once()
+        self.stripe.v1.subscriptions.retrieve.assert_called_once()
 
     def test_parallel_old_and_new_dispute_events_use_current_state(self):
         PremiumSubscription.objects.create(
@@ -266,11 +266,11 @@ class BillingCheckoutConcurrencyTests(TransactionTestCase):
             event_type="charge.dispute.created",
             event_id="evt_initial",
         )
-        self.stripe.Charge.retrieve.return_value = SimpleNamespace(id="ch_parallel", customer="cus_parallel")
-        self.stripe.Dispute.retrieve.return_value = SimpleNamespace(
+        self.stripe.v1.charges.retrieve.return_value = SimpleNamespace(id="ch_parallel", customer="cus_parallel")
+        self.stripe.v1.disputes.retrieve.return_value = SimpleNamespace(
             id="dp_parallel", charge="ch_parallel", status="won"
         )
-        self.stripe.Subscription.retrieve.return_value = SimpleNamespace(
+        self.stripe.v1.subscriptions.retrieve.return_value = SimpleNamespace(
             id="sub_parallel", customer="cus_parallel", status="active"
         )
         barrier = Barrier(2)

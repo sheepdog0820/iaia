@@ -1,4 +1,4 @@
-﻿from django.conf import settings
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.urls import reverse
 from django.utils import timezone
@@ -57,7 +57,7 @@ class Command(BaseCommand):
 
         expected_livemode = get_expected_livemode()
         stripe = get_stripe()
-        price = stripe.Price.retrieve(settings.STRIPE_PREMIUM_PRICE_ID)
+        price = stripe.v1.prices.retrieve(settings.STRIPE_PREMIUM_PRICE_ID)
         price_errors = validate_price(
             price,
             expected_livemode=expected_livemode,
@@ -71,7 +71,7 @@ class Command(BaseCommand):
 
         yearly_price_id = getattr(settings, "STRIPE_PREMIUM_YEARLY_PRICE_ID", "")
         if yearly_price_id:
-            yearly_price = stripe.Price.retrieve(yearly_price_id)
+            yearly_price = stripe.v1.prices.retrieve(yearly_price_id)
             yearly_price_errors = validate_price(
                 yearly_price,
                 expected_livemode=expected_livemode,
@@ -86,7 +86,7 @@ class Command(BaseCommand):
         if options["skip_portal"]:
             self.stdout.write(self.style.WARNING("SKIP stripe customer portal"))
         else:
-            portal_configurations = stripe.billing_portal.Configuration.list(limit=100)
+            portal_configurations = stripe.v1.billing_portal.configurations.list(params={"limit": 100})
             portal_errors = validate_portal_configurations(
                 portal_configurations,
                 expected_livemode=expected_livemode,
@@ -106,7 +106,7 @@ class Command(BaseCommand):
             return
 
         webhook_url = options["webhook_url"] or build_default_webhook_url()
-        endpoints = stripe.WebhookEndpoint.list(limit=100)
+        endpoints = stripe.v1.webhook_endpoints.list(params={"limit": 100})
         endpoint_errors = validate_webhook_endpoints(
             endpoints,
             webhook_url,
@@ -117,10 +117,8 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"OK stripe webhook endpoint {webhook_url}"))
         if options["require_recent_events"]:
             created_gte = int((timezone.now() - timezone.timedelta(hours=options["recent_hours"])).timestamp())
-            recent_events = stripe.Event.list(
-                limit=100,
-                created={"gte": created_gte},
-                types=list(RECENT_OPERATIONAL_EVENT_TYPES),
+            recent_events = stripe.v1.events.list(
+                params={"limit": 100, "created": {"gte": created_gte}, "types": list(RECENT_OPERATIONAL_EVENT_TYPES)}
             )
             recent_event_errors = validate_recent_operational_events(
                 recent_events,

@@ -35,31 +35,35 @@ class Command(BaseCommand):
         self._validate_safety(options)
         stripe = get_stripe()
 
-        product = stripe.Product.create(
-            name=options["product_name"],
-            description="Development/test-mode premium subscription for Tableno local verification.",
-            active=True,
-            type="service",
-            metadata={
-                "app": "tableno",
-                "environment": "development",
-                "managed_by": "django_command",
-                "purpose": "local_billing_verification",
-            },
+        product = stripe.v1.products.create(
+            params={
+                "name": options["product_name"],
+                "description": "Development/test-mode premium subscription for Tableno local verification.",
+                "active": True,
+                "type": "service",
+                "metadata": {
+                    "app": "tableno",
+                    "environment": "development",
+                    "managed_by": "django_command",
+                    "purpose": "local_billing_verification",
+                },
+            }
         )
         if _get(product, "livemode") is not False:
             product_id = _get(product, "id", "")
             try:
                 if product_id:
-                    stripe.Product.modify(
+                    stripe.v1.products.update(
                         product_id,
-                        active=False,
-                        metadata={
-                            "app": "tableno",
-                            "environment": "development",
-                            "managed_by": "django_command",
-                            "purpose": "local_billing_verification",
-                            "disabled_reason": "unexpected_live_mode_response",
+                        params={
+                            "active": False,
+                            "metadata": {
+                                "app": "tableno",
+                                "environment": "development",
+                                "managed_by": "django_command",
+                                "purpose": "local_billing_verification",
+                                "disabled_reason": "unexpected_live_mode_response",
+                            },
                         },
                     )
             finally:
@@ -106,19 +110,21 @@ class Command(BaseCommand):
             raise CommandError("monthly and yearly amounts must be positive")
 
     def _create_price(self, stripe, *, product_id, nickname, amount, currency, interval):
-        price = stripe.Price.create(
-            product=product_id,
-            nickname=nickname,
-            unit_amount=amount,
-            currency=currency,
-            recurring={"interval": interval},
-            metadata={
-                "app": "tableno",
-                "environment": "development",
-                "managed_by": "django_command",
-                "billing_interval": interval,
-                "purpose": "local_billing_verification",
-            },
+        price = stripe.v1.prices.create(
+            params={
+                "product": product_id,
+                "nickname": nickname,
+                "unit_amount": amount,
+                "currency": currency,
+                "recurring": {"interval": interval},
+                "metadata": {
+                    "app": "tableno",
+                    "environment": "development",
+                    "managed_by": "django_command",
+                    "billing_interval": interval,
+                    "purpose": "local_billing_verification",
+                },
+            }
         )
         if _get(price, "livemode") is not False:
             raise CommandError(f"Stripe {interval} Price response was not test mode")

@@ -21,12 +21,12 @@ class StripeSubscriptionEventOrderingTests(TestCase):
         )
         old = {"id": "sub_old", "customer": "cus_resubscribed", "status": "canceled"}
         stripe = Mock()
-        stripe.Webhook.construct_event.return_value = {
+        stripe.construct_event.return_value = {
             "id": "evt_old_cancellation",
             "type": "customer.subscription.deleted",
             "data": {"object": old},
         }
-        stripe.Subscription.retrieve.return_value = SimpleNamespace(**old)
+        stripe.v1.subscriptions.retrieve.return_value = SimpleNamespace(**old)
         with patch("accounts.views.billing_views.get_stripe", return_value=stripe):
             response = APIClient().post("/api/billing/webhook/", {}, format="json", HTTP_STRIPE_SIGNATURE="test")
         self.assertEqual(response.status_code, 200)
@@ -46,28 +46,28 @@ class StripeSubscriptionEventOrderingTests(TestCase):
         )
         snapshot = {"id": "sub_ordered", "customer": "cus_ordered", "status": "active"}
         stripe = Mock()
-        stripe.Webhook.construct_event.return_value = {
+        stripe.construct_event.return_value = {
             "id": "evt_delayed_active",
             "type": "customer.subscription.updated",
             "data": {"object": snapshot},
         }
-        stripe.Subscription.retrieve.return_value = SimpleNamespace(**{**snapshot, "status": "canceled"})
+        stripe.v1.subscriptions.retrieve.return_value = SimpleNamespace(**{**snapshot, "status": "canceled"})
         with patch("accounts.views.billing_views.get_stripe", return_value=stripe):
             response = APIClient().post("/api/billing/webhook/", {}, format="json", HTTP_STRIPE_SIGNATURE="test")
         self.assertEqual(response.status_code, 200)
         user.refresh_from_db()
         self.assertFalse(user.is_premium)
         self.assertEqual(PremiumSubscription.objects.get().subscription_status, "canceled")
-        stripe.Subscription.retrieve.assert_called_once_with("sub_ordered")
+        stripe.v1.subscriptions.retrieve.assert_called_once_with("sub_ordered")
 
     def test_current_subscription_lookup_failure_remains_retryable(self):
         stripe = Mock()
-        stripe.Webhook.construct_event.return_value = {
+        stripe.construct_event.return_value = {
             "id": "evt_ordered_lookup_failure",
             "type": "customer.subscription.updated",
             "data": {"object": {"id": "sub_ordered", "customer": "cus_ordered", "status": "active"}},
         }
-        stripe.Subscription.retrieve.side_effect = TimeoutError("isolated lookup failure")
+        stripe.v1.subscriptions.retrieve.side_effect = TimeoutError("isolated lookup failure")
         with patch("accounts.views.billing_views.get_stripe", return_value=stripe):
             response = APIClient().post("/api/billing/webhook/", {}, format="json", HTTP_STRIPE_SIGNATURE="test")
         self.assertEqual(response.status_code, 500)

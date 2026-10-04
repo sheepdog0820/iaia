@@ -23,9 +23,11 @@ class StripeDisputeRestorationTests(TestCase):
             revoked_reason="Stripe charge disputed",
         )
         self.stripe = Mock()
-        self.stripe.Charge.retrieve.return_value = SimpleNamespace(id="ch_restore", customer="cus_restore")
-        self.stripe.Dispute.retrieve.return_value = SimpleNamespace(id="dp_restore", charge="ch_restore", status="won")
-        self.stripe.Webhook.construct_event.return_value = {
+        self.stripe.v1.charges.retrieve.return_value = SimpleNamespace(id="ch_restore", customer="cus_restore")
+        self.stripe.v1.disputes.retrieve.return_value = SimpleNamespace(
+            id="dp_restore", charge="ch_restore", status="won"
+        )
+        self.stripe.construct_event.return_value = {
             "id": "evt_restore",
             "type": "charge.dispute.closed",
             "data": {
@@ -41,7 +43,7 @@ class StripeDisputeRestorationTests(TestCase):
             return APIClient().post("/api/billing/webhook/", {}, format="json", HTTP_STRIPE_SIGNATURE="test")
 
     def test_dispute_won_cannot_reactivate_canceled_subscription(self):
-        self.stripe.Subscription.retrieve.return_value = SimpleNamespace(
+        self.stripe.v1.subscriptions.retrieve.return_value = SimpleNamespace(
             id="sub_restore", customer="cus_restore", status="canceled"
         )
         self.assertEqual(self.deliver().status_code, 200)
@@ -51,13 +53,13 @@ class StripeDisputeRestorationTests(TestCase):
         self.assertEqual(self.record.subscription_status, "canceled")
 
     def test_lookup_failure_retries_without_clearing_revocation(self):
-        self.stripe.Subscription.retrieve.side_effect = TimeoutError("current status unavailable")
+        self.stripe.v1.subscriptions.retrieve.side_effect = TimeoutError("current status unavailable")
         self.assertEqual(self.deliver().status_code, 500)
         self.record.refresh_from_db()
         self.assertIsNotNone(self.record.revoked_at)
         self.assertEqual(StripeWebhookEvent.objects.get().processing_status, "failed")
-        self.stripe.Subscription.retrieve.side_effect = None
-        self.stripe.Subscription.retrieve.return_value = SimpleNamespace(
+        self.stripe.v1.subscriptions.retrieve.side_effect = None
+        self.stripe.v1.subscriptions.retrieve.return_value = SimpleNamespace(
             id="sub_restore", customer="cus_restore", status="active"
         )
         self.assertEqual(self.deliver().status_code, 200)
@@ -65,7 +67,7 @@ class StripeDisputeRestorationTests(TestCase):
         self.assertTrue(self.user.is_premium)
 
     def test_different_customer_response_is_rejected(self):
-        self.stripe.Subscription.retrieve.return_value = SimpleNamespace(
+        self.stripe.v1.subscriptions.retrieve.return_value = SimpleNamespace(
             id="sub_restore", customer="cus_other", status="active"
         )
         self.assertEqual(self.deliver().status_code, 500)

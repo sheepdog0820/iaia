@@ -160,7 +160,7 @@ class StripeWebhookView(APIView):
 
         stripe = get_stripe()
         try:
-            event = stripe.Webhook.construct_event(
+            event = stripe.construct_event(
                 payload=request.body,
                 sig_header=signature,
                 secret=settings.STRIPE_WEBHOOK_SECRET,
@@ -224,7 +224,7 @@ class StripeWebhookView(APIView):
                         .filter(stripe_customer_id=data_object.get("customer"))
                         .first()
                     )
-                    current_subscription = stripe.Subscription.retrieve(data_object["id"])
+                    current_subscription = stripe.v1.subscriptions.retrieve(data_object["id"])
                     superseded_cancellation = (
                         record
                         and record.stripe_subscription_id
