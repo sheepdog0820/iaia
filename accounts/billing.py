@@ -764,41 +764,51 @@ def redeem_premium_access_code(user, raw_code):
     return access_code, True
 
 
-def expire_promo_subscriptions(now=None, dry_run=False):
-    now = now or timezone.now()
-    expired = PremiumSubscription.objects.select_related("user").filter(
+def active_promo_subscriptions():
+    return PremiumSubscription.objects.select_related("user").filter(
         subscription_status=PremiumSubscription.PROMO_STATUS,
         access_source="promo_code",
-        premium_expires_at__isnull=False,
-        premium_expires_at__lte=now,
         revoked_at__isnull=True,
         user__is_premium=True,
     )
+
+
+def expire_promo_subscriptions(now=None, dry_run=False):
+    now = now or timezone.now()
+    expired = active_promo_subscriptions().filter(premium_expires_at__isnull=False, premium_expires_at__lte=now)
+    if dry_run:
+        return expired.count()
     count = 0
-    for record in expired:
-        count += 1
-        if dry_run:
-            continue
-        redemption = (
-            PremiumAccessCodeRedemption.objects.select_related("access_code")
-            .filter(user=record.user)
-            .order_by("-redeemed_at")
-            .first()
-        )
-        record.revoke_access(
-            "Premium access code expired",
-            save=True,
-            preserve_manual_override=True,
-        )
-        create_premium_audit_log(
-            record.user,
-            action="revoked",
-            source="promo_code",
-            reason="Premium access code expired",
-            metadata=(
-                premium_access_code_metadata(redemption.access_code) if redemption else {"subscription_id": record.pk}
-            ),
-        )
+    for record_id in expired.order_by("user_id", "pk").values_list("pk", flat=True).iterator():
+        with transaction.atomic():
+            # Candidate IDs are only a snapshot. Recheck eligibility while holding
+            # the same row as Checkout/webhooks through access and audit writes.
+            record = expired.select_for_update(of=("self",)).filter(pk=record_id).first()
+            if record is None:
+                continue
+            redemption = (
+                PremiumAccessCodeRedemption.objects.select_related("access_code")
+                .filter(user=record.user)
+                .order_by("-redeemed_at", "-pk")
+                .first()
+            )
+            record.revoke_access(
+                "Premium access code expired",
+                save=True,
+                preserve_manual_override=True,
+            )
+            create_premium_audit_log(
+                record.user,
+                action="revoked",
+                source="promo_code",
+                reason="Premium access code expired",
+                metadata=(
+                    premium_access_code_metadata(redemption.access_code)
+                    if redemption
+                    else {"subscription_id": record.pk}
+                ),
+            )
+            count += 1
     return count
 
 

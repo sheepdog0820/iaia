@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 
-from accounts.billing import create_premium_audit_log, premium_access_code_metadata
+from accounts.billing import active_promo_subscriptions, create_premium_audit_log, premium_access_code_metadata
 from accounts.billing_deletion import BillingDeletionBlocked, delete_account_after_billing_check
 
 from .character_models import (
@@ -794,39 +794,47 @@ class PremiumAccessCodeAdmin(admin.ModelAdmin):
     @admin.action(description="選択したコードで付与済みのプレミアム権限を失効する")
     def revoke_code_granted_access(self, request, queryset):
         count = 0
-        redemptions = PremiumAccessCodeRedemption.objects.select_related("access_code", "user").filter(
-            access_code__in=queryset
+        redemptions = (
+            PremiumAccessCodeRedemption.objects.select_related("access_code", "user")
+            .filter(access_code__in=queryset)
+            .order_by("user_id", "-redeemed_at", "-pk")
         )
         for redemption in redemptions:
-            record = (
-                PremiumSubscription.objects.select_related("user")
-                .filter(
-                    user=redemption.user,
-                    access_source="promo_code",
-                    subscription_status=PremiumSubscription.PROMO_STATUS,
-                    revoked_at__isnull=True,
+            with transaction.atomic():
+                record = (
+                    active_promo_subscriptions()
+                    .select_for_update(of=("self",))
+                    .filter(user_id=redemption.user_id)
+                    .first()
                 )
-                .first()
-            )
-            if record is None or not record.user.is_premium:
-                continue
-            record.revoke_access(
-                "Premium access code revoked by admin action",
-                save=True,
-                preserve_manual_override=True,
-            )
-            create_premium_audit_log(
-                record.user,
-                action="revoked",
-                source="promo_code",
-                reason="Premium access code revoked by admin action",
-                metadata={
-                    **premium_access_code_metadata(redemption.access_code),
-                    "subscription_id": record.pk,
-                },
-                actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
-            )
-            count += 1
+                if record is None:
+                    continue
+                # A historical redemption cannot revoke a later code's grant.
+                latest_redemption_id = (
+                    PremiumAccessCodeRedemption.objects.filter(user_id=redemption.user_id)
+                    .order_by("-redeemed_at", "-pk")
+                    .values_list("pk", flat=True)
+                    .first()
+                )
+                if latest_redemption_id != redemption.pk:
+                    continue
+                record.revoke_access(
+                    "Premium access code revoked by admin action",
+                    save=True,
+                    preserve_manual_override=True,
+                )
+                create_premium_audit_log(
+                    record.user,
+                    action="revoked",
+                    source="promo_code",
+                    reason="Premium access code revoked by admin action",
+                    metadata={
+                        **premium_access_code_metadata(redemption.access_code),
+                        "subscription_id": record.pk,
+                    },
+                    actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
+                )
+                count += 1
         self.message_user(request, f"{count}件のコード由来プレミアム権限を失効しました。")
 
     @admin.action(description="選択したプレミアムコードをCSV出力する")
