@@ -124,7 +124,11 @@ class CalendarSubscriptionView(APIView):
 
     def get(self, request, token):
         digest = CalendarSubscription.digest(token)
-        subscription = CalendarSubscription.objects.select_related("user").filter(token_digest=digest).first()
+        subscription = (
+            CalendarSubscription.objects.select_related("user")
+            .filter(token_digest=digest, user__is_active=True)
+            .first()
+        )
         if not subscription:
             raise Http404
         response = HttpResponse(

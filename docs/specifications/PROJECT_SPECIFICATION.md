@@ -770,6 +770,8 @@ tableno/
 - `GET /api/jobs/<id>/` - 非同期ジョブ状態
 - `POST /api/calendar/subscription-token/rotate/` - ICS購読トークン再発行
 - `GET /calendar/subscribe/<token>.ics` - 個人用ICS購読フィード
+  - 購読者が停止中の場合はGET/HEADとも404。再有効化では既存トークンを維持する。
+  - 毎回現在のセッション可視性を照合し、参加資格を失った非公開予定は出力しない。
 - `POST /api/groups/<id>/links/` - グループ連携申請
 - `POST /api/groups/<id>/links/<link_id>/accept/` - グループ連携承認
 - `DELETE /api/groups/<id>/links/<link_id>/` - グループ連携解除
