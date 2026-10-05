@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続3e5d46eeの[通常配布物・起動応答消失検証](BACKGROUND_DISPATCH_RUNTIME_3E5D46EE_2026-10-06.md)で679選定ファイル同一・overlayなしPG97成功/省略0・実HTTP35確認を完了。合成ECS wireの接続断/500/SDK回復/400、入力と時刻の保持、同一token/parameters、実U2NET完了/PNG/権限制限、再実行不変/期限後拒否を確認。初回probe4失敗を記録し、未観測running HTTPを合格扱いしない。候補CI全6ジョブ成功、pytest2231成功/81省略/全体表示88%・Playwright291成功/flakyなし。新しい全OS監査は39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2で未合格。実AWS/ECS/S3・課金/外部連携/運用/性能/復旧等は未達で、main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。以下の未確認/CI状態は各先行記録時点として区別する。
+
 後続の[背景透過起動結果不明時の入力保持](BACKGROUND_DISPATCH_UNCERTAIN_2026-10-06.md)で、応答障害後もpendingのjobをWebがfailedへ変更して元画像を削除する問題を再現・修正。関連136件はSQLite124成功/PG専用12省略、隔離PG136成功/省略0。新規14件には実SDK再試行3経路・実PG lock1件があり、変更2関数79文/28分岐・新規テスト267文/22分岐100%。確定失敗と結果不明を区別し、既存timeout/上限を維持した。親a97f07b0のCIはUnit jobがrunner shutdown/canceledでfailure・Playwright実行中のため全成功ではない。今回CI/通常配布物/実ECS・S3/再送parameters永続化/孤立回収等は未確認、既存承認へ追加せずmain/AWS未反映・正式公開No-Goを維持する。
 
 後続7106f6fbの[通常配布物・保持HTTP検証](BACKGROUND_RETENTION_RUNTIME_7106F6FB_2026-10-06.md)で678選定ファイル同一・overlayなし隔離PG83成功/省略0・実HTTP27確認に成功。結果ファイル欠損時の日本語/非公開503、同じ参照への復元後200と時刻不変、実Webのcleanup待機と削除後503、終端削除後404・権限制限を確認した。観測probe3失敗のログを保持し、初回全成功/原因確定とは扱わない。候補CI全6項目success・pytest2218成功/80省略/全体88%・Playwright291成功/flakyなし。新しい全OS監査は39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2で未合格。実ECS/S3/AWS性能・課金/外部連携/運用等は未達、main/AWS未反映で既存承認へ追加せず正式公開No-Goを維持する。
