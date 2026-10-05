@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[native配布物・公開署名の再照合](RUNTIME_NATIVE_REVALIDATION_2026-10-06.md)で通常1a738d2aの267 ELF全RECORD一致、main8567時点との欠落/追加0・266同一/mysqlclient1変更を確認。今回取得したllvmlite/ONNXの固定wheelと4個の実ELFが一致し、llvmlite公開署名の正例成功・配布元違い/1 byte改変の負例拒否も確認した。署名・ビルドログ自体は先行調査済みで、新しいビルド閉包の証明とは扱わない。ONNXの同API署名情報は404、PBDS非該当/全native閉包は未達。OS再スキャンなし、最新39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2を維持する。先行52acfba2 CI全6成功を確認、ba51候補は4成功/2実行中の照合時点で全成功未確認。main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。
+
 後続の[背景透過job作成時の有効アカウント再確認](BACKGROUND_ACTIVE_GATE_2026-10-06.md)で、認証後/実user行ロック待機中のアカウント無効化が確定しても202で作成される問題を再現・修正した。既存ロック内でis_activeも読み、日次制限/期限処理/画像/job/dispatchの前に日本語403で拒否する。新規10件は実Token認証8件・実PG競合2件（commit拒否/rollback許可）、最終Windows SQLite137成功/PG専用16省略、隔離PG153成功/省略0。変更POST51文/24分岐・追加149文/4分岐100%。既存jobの独断キャンセルや管理者運用方針は追加しない。今回CI/通常配布物/実HTTP・AWS/実S3等は未確認で、main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。以下の状態は各先行記録時点として区別する。
 
 後続1a738d2aの[通常配布物・実HTTP権限競合検証](BACKGROUND_PREMIUM_RUNTIME_1A738D2A_2026-10-06.md)で680選定ファイル同一・source/SDK overlayなしPG143成功/省略0・実HTTP16確認を完了。実Webのuser行ロック待機を失効/削除の2ケースで観測し、commit後の日本語403・job/画像/dispatch 0、復帰後202・重複409・作成後失効時の既存job保持・期限処理を確認した。全OSの新規監査は39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2で未合格。候補CIは全6ジョブsuccess、pytest2240成功/83省略/全体表示88%、Playwright291成功（16.9分）。実AWS/ECS/S3・課金/外部連携・worker運用・性能/復旧等の合格には拡張せず、main/AWS未反映・既存承認へ追加しない。正式公開No-Goを維持し、以下の未確認/CI状態は各先行記録時点として区別する。
