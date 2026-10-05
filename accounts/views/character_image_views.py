@@ -144,13 +144,18 @@ class CharacterImageBackgroundRemovalView(APIView):
             start_background_removal_task(job)
         except Exception:
             logger.exception("Character image background removal task could not start")
-            job.status = BackgroundRemovalJob.Status.FAILED
-            job.error_message = "Background removal could not be started."
-            update_fields = ["status", "error_message", "updated_at"]
-            if clear_background_removal_source(job):
-                update_fields.append("source_image")
-            job.save(update_fields=update_fields)
-            return Response({"error": job.error_message}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            with transaction.atomic():
+                job = get_object_or_404(BackgroundRemovalJob.objects.select_for_update(), pk=job.pk, user=request.user)
+                # A lost launch response must not invalidate a worker's progress.
+                if job.status == BackgroundRemovalJob.Status.PENDING:
+                    job.status = BackgroundRemovalJob.Status.FAILED
+                    job.error_message = "Background removal could not be started."
+                    update_fields = ["status", "error_message", "updated_at"]
+                    if clear_background_removal_source(job):
+                        update_fields.append("source_image")
+                    job.save(update_fields=update_fields)
+                if job.status == BackgroundRemovalJob.Status.FAILED:
+                    return Response({"error": job.error_message}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response(
             {
                 "job_id": str(job.pk),

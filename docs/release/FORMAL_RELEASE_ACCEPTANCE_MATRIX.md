@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-05）
 
+後続の[背景透過起動応答とworker進行の競合防止](BACKGROUND_DISPATCH_INTEGRITY_2026-10-05.md)で、応答消失後の古いinstanceによる状態巻き戻り/元画像削除、消えた行の500、task ARN保存による期限延長を再現・修正。最終SQLite98成功/PG専用4省略、隔離PG102件成功/省略0、新規13件・実行ロック1ケース、変更2関数60文/22分岐と新規テスト198文100%を確認。今回CI/通常配布物/実ECS・S3/AWS・pendingの曖昧な起動失敗/孤立ファイル回収等は未証明。親c0b5380bのCIは記録時点で実行中。main/AWS未反映、既存承認へ追加せず正式公開No-Goを維持する。
+
 後続の[背景透過終端状態・タイムアウト競合防止](BACKGROUND_JOB_FINALIZATION_2026-10-05.md)で、遅いworkerによるtimeout状態の巻き戻り、古い取得結果の誤失敗、削除後の遅い画像保存、行ロック前のstorage変更とWindows file lockを再現・修正。最終SQLite86成功/PG専用3省略、隔離PG89成功/省略0、新規15件と実行ロック2ケース、変更2関数61文/18分岐・新規テスト223文/4分岐100%を確認。CI PG対象へ追加したが、今回CI/通常配布物/AWS・実S3/分散原子性/dispatch競合は未確認。main/AWS未反映、既存承認に追加せず正式公開No-Goを維持する。
 
 同日後続の[c7390ee3背景透過worker通常配布物](BACKGROUND_WORKER_RUNTIME_C7390EE3_2026-10-05.md)は固定commit/675対象ファイル一致、Linux/隔離PG31件成功、実U2NET worker3ケースと実HTTP18確認成功。透過PNG・所有者制限・元画像削除・再実行・破損storage失敗・期限後の結果削除を確認した。全OSの新規監査は39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2、先行からID/重大度の変化0。候補CI全6項目success・pytest2181成功/69省略/全体88%・Playwright291成功/flakyなしも後続確認した。実ECS dispatch/S3/AWS性能/worker運用・実課金等の合格に拡張しない。main/AWS未反映、既存承認の対象を維持し正式公開No-Goのまま。以下の今回未確認は先行記録時点の範囲として区別する。
