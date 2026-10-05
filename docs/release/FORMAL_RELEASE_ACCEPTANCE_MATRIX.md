@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-05）
 
+後続の[背景透過native telemetry初期化防止](BACKGROUND_REMOVAL_TELEMETRY_2026-10-05.md)で、通常ONNX importのみの永続識別子/DB作成をネットワーク遮断下で再現し、import前opt-outとnative API無効化を追加した。関連99件・変更サービス/モデルテストの文/分岐100%、通常staged-tree配布物675ファイル同一、実U2NET推論2ケースのPNG透過/telemetryファイル0を確認。過去の外部送信・AWS・全CI/全OS/通常Web/API/PGは今回未確認で、OS/native閉包等のゲート合格には拡張しない。main/AWS未反映、既存承認へ追加せず正式公開No-Goを維持する。
+
 同日後続の[6828f209通常配布物](STRIPE_COMMAND_RUNTIME_6828F209_2026-10-05.md)は675選定ファイル同一・overlayなし隔離PG609件成功/省略0・通常起動/静的収集/実HTTP27件成功。全OSの新しい監査は39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2。先行からdashの重大度だけMEDIUM→LOWで、修正解消ではない。最新コマンド保護を含む配布物未検証は限定範囲で解消したが、OS/native閉包・実RAK/Endive/共有運用・管理方針・外部連携・AWS性能/復旧・事業者運用等は未達。main/AWSを変更せず、正式公開No-Goと既存承認範囲を維持する。以下の配布物未確認・旧OS重大度は記録時点の状態として区別する。
 
 10月5日の[Firefox登録ページ遷移調査](FIREFOX_SIGNUP_DIAGNOSTICS_2026-10-05.md)で、最新アプリ6828f209のCI全6ジョブsuccess・Playwright291成功/flakyなし、pytest2176成功/69省略/全体88%を確認した。失敗f355df1cのartifact digestを照合し、描画済みフォームと17件のHTTP200を確認したがtimeout原因は未確定。隔離Windowsの初回表示30回と3ブラウザーの既存退会フロー30件は成功し、待機条件・上限・retry・合格条件を緩めていない。最新通常配布物は未検証、mainは8567f49f、AWSは今回再照合・変更していない。以下の「今回CI未確認」は各記録時点の状態であり、この候補の自動検証範囲で更新する。OS/実環境/外部連携/運用等の不足と正式公開No-Go、固定6b6c570cの承認範囲は維持する。
