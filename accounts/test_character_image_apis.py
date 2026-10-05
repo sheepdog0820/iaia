@@ -1,3 +1,4 @@
+import gc
 import io
 import tempfile
 import zipfile
@@ -123,6 +124,10 @@ class CharacterImageAppendOrderTests(APITestCase):
                 )
                 self.assertEqual(response.status_code, 201)
                 self.assertEqual(response.data["order"], expected_order)
+                self.assertTrue(response.closed)
+                del response
+            # Release serializer/model file cycles before Windows removes the media directory.
+            gc.collect()
             self.assertEqual(list(detail.images.order_by("order").values_list("order", flat=True)), [0, 1, 2, 7, 8])
             self.assertEqual(detail.images.filter(is_main=True).count(), 1)
 

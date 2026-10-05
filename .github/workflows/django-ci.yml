@@ -258,6 +258,7 @@ jobs:
             tests/integration/test_background_job_finalization_integrity.py \
             tests/integration/test_background_dispatch_integrity.py \
             tests/integration/test_background_dispatch_uncertain.py \
+            tests/integration/test_background_premium_gate.py \
             tests/integration/test_background_result_retention_integrity.py \
             tests/integration/test_stripe_client_transport.py tests/unit/test_stripe_client_isolation.py \
             tests/integration/test_session_statistics_contract.py \
