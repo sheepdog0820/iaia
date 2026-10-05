@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続1a738d2aの[通常配布物・実HTTP権限競合検証](BACKGROUND_PREMIUM_RUNTIME_1A738D2A_2026-10-06.md)で680選定ファイル同一・source/SDK overlayなしPG143成功/省略0・実HTTP16確認を完了。実Webのuser行ロック待機を失効/削除の2ケースで観測し、commit後の日本語403・job/画像/dispatch 0、復帰後202・重複409・作成後失効時の既存job保持・期限処理を確認した。全OSの新規監査は39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2で未合格。候補CIは全6ジョブsuccess、pytest2240成功/83省略/全体表示88%、Playwright291成功（16.9分）。実AWS/ECS/S3・課金/外部連携・worker運用・性能/復旧等の合格には拡張せず、main/AWS未反映・既存承認へ追加しない。正式公開No-Goを維持し、以下の未確認/CI状態は各先行記録時点として区別する。
+
 後続の[背景透過job作成時のプレミアム再確認](BACKGROUND_PREMIUM_GATE_2026-10-06.md)で、古い認証flag・画像検証中/行ロック待機中の失効による不正作成と、削除確定後の500を再現・修正した。画像検証後のuser行ロック下で最新flagを読み、副作用前に日本語403で拒否する。新規11件（実PGロック2件）、最終Windows SQLite129成功/PG専用14省略・隔離PG143成功/省略0、変更POST47文/20分岐・新規155文/2分岐100%。画像APIテストの一時file参照解放も修正し、途中の期待値/Windows/保存先/harness/PG接続失敗を記録した。認可済みjobの後続失効時の扱いは変更しない。今回CI/通常配布物/実HTTP・AWS/実S3等は未確認で、main/AWS未反映・既存承認へ追加せずB01/B03と正式公開No-Goを維持する。
 
 後続3e5d46eeの[通常配布物・起動応答消失検証](BACKGROUND_DISPATCH_RUNTIME_3E5D46EE_2026-10-06.md)で679選定ファイル同一・overlayなしPG97成功/省略0・実HTTP35確認を完了。合成ECS wireの接続断/500/SDK回復/400、入力と時刻の保持、同一token/parameters、実U2NET完了/PNG/権限制限、再実行不変/期限後拒否を確認。初回probe4失敗を記録し、未観測running HTTPを合格扱いしない。候補CI全6ジョブ成功、pytest2231成功/81省略/全体表示88%・Playwright291成功/flakyなし。新しい全OS監査は39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2で未合格。実AWS/ECS/S3・課金/外部連携/運用/性能/復旧等は未達で、main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。以下の未確認/CI状態は各先行記録時点として区別する。
