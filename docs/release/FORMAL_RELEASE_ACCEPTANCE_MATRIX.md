@@ -1,6 +1,10 @@
 # 有料プラン・外部連携を含む正式公開の受け入れ条件
 
-## 現在の公開判断（2026-10-04）
+## 現在の公開判断（2026-10-05）
+
+10月5日の[Firefox登録ページ遷移調査](FIREFOX_SIGNUP_DIAGNOSTICS_2026-10-05.md)で、最新アプリ6828f209のCI全6ジョブsuccess・Playwright291成功/flakyなし、pytest2176成功/69省略/全体88%を確認した。失敗f355df1cのartifact digestを照合し、描画済みフォームと17件のHTTP200を確認したがtimeout原因は未確定。隔離Windowsの初回表示30回と3ブラウザーの既存退会フロー30件は成功し、待機条件・上限・retry・合格条件を緩めていない。最新通常配布物は未検証、mainは8567f49f、AWSは今回再照合・変更していない。以下の「今回CI未確認」は各記録時点の状態であり、この候補の自動検証範囲で更新する。OS/実環境/外部連携/運用等の不足と正式公開No-Go、固定6b6c570cの承認範囲は維持する。
+
+## 2026-10-04時点の経過記録
 
 正式公開は **No-Go** を維持する。承認済みの[セキュリティ更新](AWS_SECURITY_UPDATE_RESULT_2026-10-04.md)と[アイコン反映](TABLENO_FAVICON_DEPLOYMENT_2026-10-04.md)が完了し、20:23 JSTの先行照合ではmain8567f49f・CI全6項目success、開発AWSは定義54・同一digest・1タスクHEALTHY・readinessのDB/cache正常だった。Web設定/容量を維持し、DB移行・Secrets/権限・課金有効化は行っていない。後続StripeClient通常配布物の検証ではAWSを再照合・変更していない。
 
