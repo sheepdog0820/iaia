@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[LLVM同梱レシピ・ソース調査](LLVM_SOURCE_BOUNDARY_2026-10-06.md)で公開llvmdev manylinux_1 archiveの全体ハッシュ・実同梱build_number1/patches:nullを確認し、後のwheelソースrecipe（build0/Windows patchあり）と区別した。指定LLVM公式sourceの全体ハッシュ一致、通常168,946ファイル/約2.02GBでPBDS関連4文字列一致0、検出器の境界/binary正例とハッシュ不一致拒否を確認。19 linkは未追跡で、当時取得archiveのdigest・全compiler headers/生成物/他native閉包・署名付きsource attestationは未証明。文字列不在をPBDS非該当/HIGH解消にせず、OS再スキャンなし・最新39指摘（HIGH3/MEDIUM1/LOW35、Python0）/終了2・正式公開No-Goを維持。main/AWS未反映・既存承認へ追加しない。
+
 後続ba51bdd8の[通常配布物・実HTTP無効化競合検証](BACKGROUND_ACTIVE_RUNTIME_BA51BDD8_2026-10-06.md)で680選定ファイル/entrypoint一致・source/SDK差替えなしPG153成功/省略0・実HTTP25確認を完了。失効/削除/無効化commit/無効化rollbackの実Web行ロック待機4件を観測し、無効化確定後の日本語403・job/画像/dispatch0とrollback後202、初期無効Token401、作成後無効化時のjob保持/復帰後参照を確認した。回帰初回の誤指定3 import errorと診断summary/ログ検索の誤りは訂正・記録し、初回全成功とは扱わない。候補CI全6成功・pytest2248成功/85省略/全体表示88%・Playwright291成功。新規全OS監査39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2で未合格。実AWS/S3/worker運用/実課金/外部連携/性能/復旧等は未達、main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。以下のCI/配布物未確認は各先行記録時点として区別する。
 
 後続の[native配布物・公開署名の再照合](RUNTIME_NATIVE_REVALIDATION_2026-10-06.md)で通常1a738d2aの267 ELF全RECORD一致、main8567時点との欠落/追加0・266同一/mysqlclient1変更を確認。今回取得したllvmlite/ONNXの固定wheelと4個の実ELFが一致し、llvmlite公開署名の正例成功・配布元違い/1 byte改変の負例拒否も確認した。署名・ビルドログ自体は先行調査済みで、新しいビルド閉包の証明とは扱わない。ONNXの同API署名情報は404、PBDS非該当/全native閉包は未達。OS再スキャンなし、最新39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2を維持する。先行52acfba2 CI全6成功を確認、ba51候補は4成功/2実行中の照合時点で全成功未確認。main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。
