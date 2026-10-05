@@ -255,6 +255,7 @@ jobs:
             tests/integration/test_manual_premium_integrity.py \
             tests/integration/test_subscription_admin_save_integrity.py \
             tests/integration/test_billing_request_owner_integrity.py \
+            tests/integration/test_background_job_finalization_integrity.py \
             tests/integration/test_stripe_client_transport.py tests/unit/test_stripe_client_isolation.py \
             tests/integration/test_session_statistics_contract.py \
             tests/integration/test_release_database_preflight.py -q
