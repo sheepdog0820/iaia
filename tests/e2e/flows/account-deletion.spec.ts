@@ -1,12 +1,13 @@
 import { expect, test } from '../fixtures/page-budget';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { openSignup } from '../fixtures/signup-ready';
 
 test('account deletion requires password and confirmation, then ends the login session', async ({ page }) => {
   const suffix = `${Date.now()}_${test.info().project.name}`;
   const username = `delete_${suffix}`;
   const password = `Test-${randomUUID()}!`;
-  await page.goto('/signup/');
+  await openSignup(page);
   await page.fill('#id_username', username);
   await page.fill('#id_email', `${username}@example.test`);
   await page.fill('#id_password1', password);
@@ -63,7 +64,7 @@ test('account deletion requires password and confirmation, then ends the login s
 test('nonterminal Stripe contracts keep the account and login when deletion is confirmed', async ({ page }) => {
   const username = `deleteguard_${Date.now()}_${test.info().project.name}`;
   const password = `Test-${randomUUID()}!`;
-  await page.goto('/signup/');
+  await openSignup(page);
   await page.fill('#id_username', username);
   await page.fill('#id_email', `${username}@example.test`);
   await page.fill('#id_password1', password);

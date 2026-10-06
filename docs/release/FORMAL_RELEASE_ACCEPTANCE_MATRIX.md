@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[退会E2E登録開始条件](SIGNUP_READINESS_2026-10-06.md)で先行1690508eのFirefox signup load待ち30秒timeoutを元artifact/traceで特定した。ページ作成193.845ms・記録17要求200/224.556ms以内でフォーム描画済みだが、load停止の根本原因は未確定。DOMContentLoaded/HTTP200/form可視/入力・送信可能を確認するhelperを退会登録2箇所へ適用し、画像保留/初期化保留/HTTP500/欠落/disabledの正負例を追加。RED4失敗・初期15成功・ANSI照合の広域3失敗を区別して訂正、最終3ブラウザー87成功/retry・省略・flaky0（240.374秒）、helper V8 5観測区間100%。操作30秒/assertion5秒/CI flaky失敗・アプリ仕様を維持、User/契約0・今回server停止/port解放・証拠/別作業13項目を保持。28af6db8 CI全6成功、25ef552eは4成功/2実行中、新候補全CI/元lifecycle原因/全flow/実AWS等は未確認。main/AWS/schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
+
 後続の[Google配送ID境界](GOOGLE_DISPATCH_IDENTITY_2026-10-06.md)で不正UUID型/表現・Sheets ownerの暗黙整数変換をworkerのDB参照前に拒否する。RED15 failure/28 error、正規UUID6表現を維持、最終PG212成功/省略0・SQLite207成功/PG専用5省略、本体差分18文10分岐/新規62文20分岐100%・3 Python品質合格。4535c03f CI全6成功、1690508eは5成功/Playwright失敗（299 passed/1 flaky、Firefox signup page.goto 30秒timeout、原因未確定）、親28af6db8は4成功/2実行中。新候補の全CI/通常配布物/実Google/AWSは未確認。queue全入力/producer・lease/永続外部ID等は残る。合成DB/container/volume削除・証拠保持、main/AWS/schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
 
 後続の[Google配送中ジョブ有効性](GOOGLE_JOB_ACTIVE_GUARD_2026-10-06.md)でtoken前/各HTTP・chunk直前に期限内RUNNINGの元owner/type行を再確認し、進捗/失敗/完了を同条件付きUPDATEで保存する。失効後送信・完了上書き・削除済み保存例外/不要retryを抑止し、確認済みCalendar遠隔結果を保持、開始再読込中cleanupも送信せず終了。初回REDの波及/fixture差分を区別し、独立RED42 failure/27 error（削除保存23・retry Mock TypeError4）・追加PG再読込2 errorを再現、最終PG208成功/省略0・SQLite203成功/PG専用5省略。本体差分62文4分岐/新規211文56分岐100%・3 Python品質合格。先行4535c03f CI5成功/Playwright実行中、1690508eは4成功/2実行中、新候補の全CI/配布物/実Google/AWSは未確認。原子的取消/絶対期限・試行lease/別job競合/途中出力案内等は残る。合成DB/container/volume削除・証拠保持、main/AWS/schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
