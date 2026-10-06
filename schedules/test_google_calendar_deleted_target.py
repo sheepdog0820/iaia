@@ -12,6 +12,7 @@ from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
 
 from schedules import tasks
+from schedules.google_job_lifecycle import GOOGLE_EXECUTION_UNCERTAIN_MESSAGE
 from schedules.models import AsyncJob, GoogleCalendarSync
 from schedules.test_google_job_start_claim import GoogleJobStartFixtures
 
@@ -167,7 +168,22 @@ class GoogleCalendarDeletedTargetTest(GoogleCalendarDeletedTargetFixtures, TestC
                         self.session.save(update_fields=["date"])
                 else:
                     sends["post"].side_effect = fail
-                self._assert_stopped(job, tasks.sync_google_calendar.run(*args), retry, message)
+                result = tasks.sync_google_calendar.run(*args)
+                if phase in ("http", "response"):
+                    # Deleting the local target does not undo a possibly accepted remote write.
+                    self.assertEqual(result, "uncertain")
+                    retry.assert_not_called()
+                    self.assertFalse(GoogleCalendarSync.objects.filter(pk=self.sync.pk).exists())
+                    job.refresh_from_db()
+                    self.assertEqual(job.status, AsyncJob.Status.UNCERTAIN)
+                    self.assertEqual(job.error, GOOGLE_EXECUTION_UNCERTAIN_MESSAGE)
+                    self.assertIsNotNone(job.finished_at)
+                    count = AsyncJob.objects.count()
+                    response = self.api.post(reverse("async-job-retry", kwargs={"pk": job.pk}))
+                    self.assertEqual(response.status_code, 400)
+                    self.assertEqual(AsyncJob.objects.count(), count)
+                else:
+                    self._assert_stopped(job, result, retry, message)
 
     def test_replaced_same_pk_sync_is_not_used_or_overwritten(self):
         for phase in ("claim", "accepted"):

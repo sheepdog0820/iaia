@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from accounts.models import Group
 from schedules.google_job_connection import google_connection_binding
+from schedules.google_job_lifecycle import GOOGLE_EXECUTION_UNCERTAIN_MESSAGE
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration, TRPGSession
 from schedules.tasks import sync_google_calendar
 
@@ -63,18 +64,18 @@ class GoogleCalendarDeliveryTest(TestCase):
         )
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
-    def test_malformed_creation_response_finishes_job_as_failed(self, token):
+    def test_malformed_creation_response_preserves_uncertain_write(self, token):
         for data in (None, [], "unexpected", 42):
             with self.subTest(data=data), patch("schedules.tasks.requests.post", return_value=self.response(200, data)):
                 job = self.job()
-                self.assertEqual(sync_google_calendar.run(self.sync.pk, str(job.pk)), "invalid-response")
+                self.assertEqual(sync_google_calendar.run(self.sync.pk, str(job.pk)), "uncertain")
                 job.refresh_from_db()
                 self.sync.refresh_from_db()
-                self.assertEqual(job.status, AsyncJob.Status.FAILED)
-                self.assertEqual(self.sync.status, GoogleCalendarSync.Status.FAILED)
+                self.assertEqual(job.status, AsyncJob.Status.UNCERTAIN)
+                self.assertEqual(self.sync.status, GoogleCalendarSync.Status.PENDING)
                 self.assertEqual(self.sync.external_event_id, "")
-                self.assertEqual(job.error, "Google Calendarの応答形式を確認できません。連携状態を確認してください。")
-                self.assertEqual(self.sync.last_error, job.error)
+                self.assertEqual(job.error, GOOGLE_EXECUTION_UNCERTAIN_MESSAGE)
+                self.assertEqual(self.sync.last_error, "")
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_http_failure_does_not_store_external_error(self, token):
@@ -85,20 +86,18 @@ class GoogleCalendarDeliveryTest(TestCase):
             patch("schedules.tasks.requests.post", side_effect=external_error),
             patch.object(sync_google_calendar, "retry", side_effect=Retry()) as retry,
         ):
-            with self.assertRaises(Retry):
-                sync_google_calendar.run(self.sync.pk, str(job.pk))
+            self.assertEqual(sync_google_calendar.run(self.sync.pk, str(job.pk)), "uncertain")
 
         job.refresh_from_db()
         self.sync.refresh_from_db()
         self.assertEqual(
             job.error,
-            "Google Calendar APIとの通信に失敗しました。連携状態を確認して再試行してください。",
+            GOOGLE_EXECUTION_UNCERTAIN_MESSAGE,
         )
-        self.assertEqual(self.sync.last_error, job.error)
+        self.assertEqual(job.status, AsyncJob.Status.UNCERTAIN)
+        self.assertEqual(self.sync.last_error, "")
         self.assertNotIn(str(external_error), job.error)
-        retry_error = retry.call_args.kwargs["exc"]
-        self.assertEqual(str(retry_error), job.error)
-        self.assertNotIn(str(external_error), str(retry_error))
+        retry.assert_not_called()
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_malformed_identity_response_never_updates_or_deletes_event(self, token):
@@ -188,10 +187,10 @@ class GoogleCalendarDeliveryTest(TestCase):
             patch("schedules.tasks.requests.get", side_effect=fetch),
             patch("schedules.tasks.requests.put") as put,
             patch("schedules.tasks.requests.delete", return_value=self.response(204, {})) as delete,
-            patch.object(sync_google_calendar, "retry", side_effect=Retry()),
+            patch.object(sync_google_calendar, "retry", side_effect=Retry()) as retry,
         ):
-            with self.assertRaises(Retry):
-                sync_google_calendar.run(self.sync.pk, str(self.job().pk))
+            self.assertEqual(sync_google_calendar.run(self.sync.pk, str(self.job().pk)), "uncertain")
+            retry.assert_not_called()
             self.session.status = "cancelled"
             self.session.date = None
             self.session.save(update_fields=["status", "date"])
@@ -281,13 +280,12 @@ class GoogleCalendarDeliveryTest(TestCase):
         self.sync.save(update_fields=["external_event_id"])
         delete.side_effect = [requests.Timeout("response lost after deletion"), self.response(410, {})]
         with patch.object(sync_google_calendar, "retry", side_effect=Retry()) as retry:
-            with self.assertRaises(Retry):
-                sync_google_calendar.run(self.sync.pk, str(self.job().pk))
+            self.assertEqual(sync_google_calendar.run(self.sync.pk, str(self.job().pk)), "uncertain")
             job = self.job()
             self.assertEqual(sync_google_calendar.run(self.sync.pk, str(job.pk)), GoogleCalendarSync.Status.DELETED)
         self.sync.refresh_from_db()
         job.refresh_from_db()
-        self.assertEqual(retry.call_count, 1)
+        retry.assert_not_called()
         self.assertEqual(delete.call_count, 2)
         self.assertEqual(delete.call_args_list[0], delete.call_args_list[1])
         self.assertEqual(self.sync.external_event_id, "existing-event")
@@ -308,12 +306,16 @@ class GoogleCalendarDeliveryTest(TestCase):
             with self.subTest(code=code):
                 delete.return_value = self.response(code, {})
                 job = self.job()
-                with patch.object(sync_google_calendar, "retry", side_effect=Retry()):
-                    with self.assertRaises(Retry):
-                        sync_google_calendar.run(self.sync.pk, str(job.pk))
+                with patch.object(sync_google_calendar, "retry", side_effect=Retry()) as retry:
+                    if code == 500:
+                        self.assertEqual(sync_google_calendar.run(self.sync.pk, str(job.pk)), "uncertain")
+                        retry.assert_not_called()
+                    else:
+                        with self.assertRaises(Retry):
+                            sync_google_calendar.run(self.sync.pk, str(job.pk))
                 job.refresh_from_db()
                 self.sync.refresh_from_db()
-                self.assertEqual(job.status, AsyncJob.Status.FAILED)
+                self.assertEqual(job.status, AsyncJob.Status.UNCERTAIN if code == 500 else AsyncJob.Status.FAILED)
                 self.assertEqual(self.sync.status, GoogleCalendarSync.Status.FAILED)
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
@@ -343,10 +345,10 @@ class GoogleCalendarDeliveryTest(TestCase):
             patch("schedules.tasks.requests.post", side_effect=insert),
             patch("schedules.tasks.requests.get", side_effect=fetch),
             patch("schedules.tasks.requests.put", side_effect=update),
-            patch.object(sync_google_calendar, "retry", side_effect=Retry()),
+            patch.object(sync_google_calendar, "retry", side_effect=Retry()) as retry,
         ):
-            with self.assertRaises(Retry):
-                sync_google_calendar.run(self.sync.pk, str(self.job().pk))
+            self.assertEqual(sync_google_calendar.run(self.sync.pk, str(self.job().pk)), "uncertain")
+            retry.assert_not_called()
             self.session.title = "Updated before retry"
             self.session.save(update_fields=["title"])
             job = self.job()

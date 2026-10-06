@@ -25,6 +25,7 @@ from .google_job_lifecycle import (
     set_google_job_progress,
     stop_inactive_google_job,
     succeed_google_job,
+    uncertain_google_job,
 )
 from .google_sheets import (
     SHEETS_EXPORT_CHUNK_ROWS,
@@ -35,6 +36,7 @@ from .google_sheets import (
     sheet_values_update_url,
 )
 from .google_tokens import get_google_access_token, google_credential_identity, google_credential_is_current
+from .google_write_outcome import GoogleWriteUncertain, google_write_request
 from .handout_release import evaluate_release_conditions, publish_handout
 from .holiday_sync import sync_japanese_holidays as run_japanese_holiday_sync
 from .integration_access import visible_user_sessions
@@ -389,6 +391,8 @@ def _calendar_request(job, sync, connection, credential, access_token, send, url
         raise _GoogleConnectionChanged
     require_running_google_job(job)
     _require_current_calendar_sync(sync, job)
+    if send is not requests.get:
+        return google_write_request(send, url, **kwargs)
     return send(url, **kwargs)
 
 
@@ -470,6 +474,7 @@ def sync_google_calendar(self, sync_id, job_id):
         uuid.NAMESPACE_URL,
         f"https://tableno.jp/calendar-sync/{sync.pk}/{sync.user_id}/{sync.session_id}/{sync.created_at.isoformat()}",
     ).hex
+    write_accepted = False
     try:
         if sync.external_event_id in {".", ".."}:
             raise ValueError("Google Calendarの予定IDを確認できません。連携状態を確認してください。")
@@ -524,6 +529,7 @@ def sync_google_calendar(self, sync_id, job_id):
                 timeout=15,
             )
             response.raise_for_status()
+            write_accepted = 200 <= response.status_code < 300
             if _calendar_response_event(response).get("id") != sync.external_event_id:
                 raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
             sync.status = GoogleCalendarSync.Status.SYNCED
@@ -573,15 +579,20 @@ def sync_google_calendar(self, sync_id, job_id):
                     timeout=15,
                 )
             response.raise_for_status()
+            write_accepted = 200 <= response.status_code < 300
             if _calendar_response_event(response).get("id") != event_id:
                 raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
             sync.external_event_id = event_id
             sync.status = GoogleCalendarSync.Status.SYNCED
+    except GoogleWriteUncertain:
+        return uncertain_google_job(job)
     except _GoogleCalendarNotAuthorized:
         return _fail_calendar_authorization(sync, job)
     except _GoogleConnectionChanged:
         return _fail_calendar_authorization(sync, job, GOOGLE_CONNECTION_CHANGED_MESSAGE, "connection-changed")
     except (requests.RequestException, KeyError, ValueError) as exc:
+        if write_accepted:
+            return uncertain_google_job(job)
         if isinstance(exc, requests.RequestException):
             error = GOOGLE_CALENDAR_DELIVERY_FAILED_MESSAGE
         elif isinstance(exc, KeyError):
@@ -713,7 +724,8 @@ def export_google_sheet(
         chunk_range = offset_sheet_start_range(range_name, completed_rows)
         require_running_google_job(job)
         try:
-            response = requests.put(
+            response = google_write_request(
+                requests.put,
                 sheet_values_update_url(spreadsheet_id, chunk_range),
                 params={"valueInputOption": "RAW"},
                 headers={
@@ -724,7 +736,12 @@ def export_google_sheet(
                 timeout=15,
             )
             response.raise_for_status()
+        except GoogleWriteUncertain:
+            return uncertain_google_job(job)
         except requests.RequestException:
+            if completed_rows:
+                # Earlier chunks are already acknowledged; replay would rewrite those cells.
+                return uncertain_google_job(job)
             failure_message = (
                 GOOGLE_SHEETS_PARTIAL_DELIVERY_FAILED_MESSAGE
                 if completed_rows
@@ -738,12 +755,10 @@ def export_google_sheet(
         except ValueError:
             result = None
         if not isinstance(result, dict):
-            fail_google_job(job, GOOGLE_SHEETS_INVALID_RESPONSE_MESSAGE)
-            return "invalid-response"
+            return uncertain_google_job(job)
         chunk_updated_cells = result.get("updatedCells", 0)
         if not isinstance(chunk_updated_cells, int) or isinstance(chunk_updated_cells, bool) or chunk_updated_cells < 0:
-            fail_google_job(job, GOOGLE_SHEETS_INVALID_RESPONSE_MESSAGE)
-            return "invalid-response"
+            return uncertain_google_job(job)
         updated_cells += chunk_updated_cells
         completed_rows += len(chunk)
         if total_rows:

@@ -14,6 +14,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from schedules import test_google_calendar_delivery as delivery_tests
+from schedules.google_job_lifecycle import GOOGLE_EXECUTION_UNCERTAIN_MESSAGE
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration
 from schedules.tasks import sync_google_calendar
 
@@ -314,8 +315,15 @@ class GoogleCalendarEventGuardTest(TestCase):
             with self.subTest(data=data), ExitStack() as stack:
                 sends, retry = self._run(stack, "update", self._event("update"))
                 sends["put"].return_value = self.response(200, data)
-                self.assertEqual(self._execute(), "invalid-response")
-                self._failed(self.malformed if not isinstance(data, dict) else self.mismatch)
+                self.assertEqual(self._execute(), "uncertain")
+                self.current_job.refresh_from_db()
+                self.assertEqual(self.current_job.status, AsyncJob.Status.UNCERTAIN)
+                self.assertEqual(self.current_job.error, GOOGLE_EXECUTION_UNCERTAIN_MESSAGE)
+                self.assertIsNotNone(self.current_job.finished_at)
+                self.sync.refresh_from_db()
+                self.assertEqual(self.sync.status, GoogleCalendarSync.Status.PENDING)
+                self.assertIsNone(self.sync.synced_at)
+                self.assertEqual(self.sync.last_error, "")
                 sends["put"].assert_called_once()
                 retry.assert_not_called()
 
@@ -345,9 +353,13 @@ class GoogleCalendarEventGuardTest(TestCase):
                             self.reply(200, event)
 
                         def do_POST(self):
+                            self.rfile.read(int(self.headers.get("Content-Length", "0")))
                             self.reply(409, {})
 
                         def write_event(self):
+                            # Consume the request before replying/closing, including the PUT body.
+                            # The separate lost-response fixture deliberately closes after applying.
+                            self.rfile.read(int(self.headers.get("Content-Length", "0")))
                             remote["calls"].append((self.command, self.headers.get("If-Match")))
                             if self.headers.get("If-Match") != remote["etag"]:
                                 self.reply(412, {"error": "private concurrent edit"})

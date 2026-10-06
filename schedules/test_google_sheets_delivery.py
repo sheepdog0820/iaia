@@ -10,6 +10,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from schedules.google_job_connection import google_connection_binding
+from schedules.google_job_lifecycle import GOOGLE_EXECUTION_UNCERTAIN_MESSAGE
 from schedules.google_sheets import offset_sheet_start_range
 from schedules.models import AsyncJob, GoogleIntegration
 from schedules.tasks import export_google_sheet
@@ -95,7 +96,7 @@ class GoogleSheetsDeliveryTest(TestCase):
 
                 def put_chunk(url, **kwargs):
                     self._revoke_export(reason)
-                    response = Mock()
+                    response = Mock(status_code=200)
                     response.json.return_value = {"updatedCells": 100}
                     return response
 
@@ -133,7 +134,7 @@ class GoogleSheetsDeliveryTest(TestCase):
             observed_progress.append(job.progress)
             sent_ranges.append(unquote(url.rsplit("/values/", 1)[1]))
             sent_row_counts.append(len(kwargs["json"]["values"]))
-            response = Mock()
+            response = Mock(status_code=200)
             response.raise_for_status.return_value = None
             response.json.return_value = {"updatedCells": len(kwargs["json"]["values"]) * 17}
             return response
@@ -155,7 +156,7 @@ class GoogleSheetsDeliveryTest(TestCase):
     def test_large_export_failure_preserves_partial_progress_and_safe_reason(self, token):
         job = self._job()
         values = [[f"row-{row}"] for row in range(201)]
-        first_response = Mock()
+        first_response = Mock(status_code=200)
         first_response.raise_for_status.return_value = None
         first_response.json.return_value = {"updatedCells": 100}
         private_error = requests.Timeout("private upstream error for fixture-sheet")
@@ -164,20 +165,20 @@ class GoogleSheetsDeliveryTest(TestCase):
             patch("schedules.tasks.requests.put", side_effect=[first_response, private_error]) as put,
             patch.object(export_google_sheet, "retry", side_effect=Retry()) as retry,
         ):
-            with self.assertRaises(Retry):
-                run_sheet_fixture(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", values)
+            self.assertEqual(
+                run_sheet_fixture(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", values), "uncertain"
+            )
 
         job.refresh_from_db()
         self.assertEqual(put.call_count, 2)
-        self.assertEqual(job.status, AsyncJob.Status.FAILED)
+        self.assertEqual(job.status, AsyncJob.Status.UNCERTAIN)
         self.assertEqual(job.progress, 49)
         self.assertEqual(
             job.error,
-            "Google Sheets APIとの通信に失敗しました。途中まで出力されている可能性があります。"
-            "連携状態と出力先を確認して再試行してください。",
+            GOOGLE_EXECUTION_UNCERTAIN_MESSAGE,
         )
         self.assertNotIn(str(private_error), job.error)
-        self.assertEqual(str(retry.call_args.kwargs["exc"]), job.error)
+        retry.assert_not_called()
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_legacy_invalid_range_fails_before_delivery(self, token):
@@ -195,7 +196,7 @@ class GoogleSheetsDeliveryTest(TestCase):
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_invalid_updated_cells_response_is_not_exposed(self, token):
         job = self._job()
-        response = Mock()
+        response = Mock(status_code=200)
         response.raise_for_status.return_value = None
         response.json.return_value = {"updatedCells": "private response content"}
 
@@ -203,9 +204,9 @@ class GoogleSheetsDeliveryTest(TestCase):
             result = run_sheet_fixture(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", [[]])
 
         job.refresh_from_db()
-        self.assertEqual(result, "invalid-response")
-        self.assertEqual(job.status, AsyncJob.Status.FAILED)
-        self.assertEqual(job.error, "Google Sheetsの応答形式を確認できません。出力先を確認して再試行してください。")
+        self.assertEqual(result, "uncertain")
+        self.assertEqual(job.status, AsyncJob.Status.UNCERTAIN)
+        self.assertEqual(job.error, GOOGLE_EXECUTION_UNCERTAIN_MESSAGE)
         self.assertNotIn("private response content", job.error)
 
     def test_range_offset_rejects_invalid_inputs(self):
@@ -225,26 +226,25 @@ class GoogleSheetsDeliveryTest(TestCase):
             patch("schedules.tasks.requests.put", side_effect=external_error),
             patch.object(export_google_sheet, "retry", side_effect=Retry()) as retry,
         ):
-            with self.assertRaises(Retry):
-                run_sheet_fixture(str(job.pk), self.user.pk, spreadsheet_id, "Characters!A1", [])
+            self.assertEqual(
+                run_sheet_fixture(str(job.pk), self.user.pk, spreadsheet_id, "Characters!A1", []), "uncertain"
+            )
 
         job.refresh_from_db()
         self.assertEqual(
             job.error,
-            "Google Sheets APIとの通信に失敗しました。連携状態と出力先を確認して再試行してください。",
+            GOOGLE_EXECUTION_UNCERTAIN_MESSAGE,
         )
         self.assertNotIn(spreadsheet_id, job.error)
         self.assertNotIn(str(external_error), job.error)
-        retry_error = retry.call_args.kwargs["exc"]
-        self.assertEqual(str(retry_error), job.error)
-        self.assertNotIn(spreadsheet_id, str(retry_error))
+        retry.assert_not_called()
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_invalid_response_finishes_job_without_exposing_response_body(self, token):
         for value in (None, [], "private response content", 42, ValueError("private response content")):
             with self.subTest(value=type(value).__name__):
                 job = self._job()
-                response = Mock()
+                response = Mock(status_code=200)
                 response.raise_for_status.return_value = None
                 if isinstance(value, Exception):
                     response.json.side_effect = value
@@ -252,13 +252,11 @@ class GoogleSheetsDeliveryTest(TestCase):
                     response.json.return_value = value
                 with patch("schedules.tasks.requests.put", return_value=response) as put:
                     result = run_sheet_fixture(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", [])
-                self.assertEqual(result, "invalid-response")
+                self.assertEqual(result, "uncertain")
                 job.refresh_from_db()
-                self.assertEqual(job.status, AsyncJob.Status.FAILED)
+                self.assertEqual(job.status, AsyncJob.Status.UNCERTAIN)
                 self.assertIsNotNone(job.finished_at)
-                self.assertEqual(
-                    job.error, "Google Sheetsの応答形式を確認できません。出力先を確認して再試行してください。"
-                )
+                self.assertEqual(job.error, GOOGLE_EXECUTION_UNCERTAIN_MESSAGE)
                 put.assert_called_once()
 
     def _job(self, spreadsheet_id="fixture-sheet", range_name="Characters!A1"):

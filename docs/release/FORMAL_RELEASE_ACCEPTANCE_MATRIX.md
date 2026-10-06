@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[Google書き込み応答喪失・結果不明](GOOGLE_WRITE_UNCERTAINTY_2026-10-06.md)で、書き込み時の通信例外/408/5xx・不正な成功ACK・先行Sheets chunk適用後の後続拒否を結果不明へ分類し、自動再送/同一job再配送/通常retry APIの再適用を止めた。REDの10失敗/20エラー、初回回帰の両DB各5失敗/6エラー・後続SQLiteの正常loopback1失敗を保持してfixture/期待値を修正。最終PG253成功/省略0、SQLite245成功/PG専用8省略、製品差分30文8経路100%/除外0。新規実Requests loopback適用後切断2ケース・日本語固定案内・状態保持/追加HTTP0を確認したが、実Redis/別Celery worker・ASGI・Googleではない。専用PG/tmpfs撤去・証拠/別作業保持、schema/共有DB/main/AWS/Secrets/課金/容量変更なし。通常配布物/新規Scout/今回CIは未検証、outbox/同期世代/限定回復・外部連携/運用/性能/復旧等と先行HIGH3は未達で正式公開No-Goを維持する。
+
 後続の[f1f9c443通常配布物・結果不明検証](GOOGLE_RUNTIME_OUTCOME_2026-10-06.md)で、固定通常imageの705選定source/assets・111 packages/先行依存10層を照合し、実PGのGoogle208/設定70の非重複278成功・省略0を確認した。実Celery/Redis/loopback HTTPでsolo/prefork×Calendar/Sheets×未適用/適用後の8 SIGKILL、元unacked4件の実復元、追加の生存worker遅い200/切断4ケースを通し、時刻経過注入後の結果不明・状態保持・再試行400・追加HTTP0を確認。期限前はrunning、Calendar遅い200は同期行だけsyncedとなり完全fence/自動回復ではなく、保存期限処理は先行8 jobを削除してpending同期を残す。12 HTTP/合成適用8/providerエラー0、35 container/tmpfs削除・証拠/別作業保持。新規Scout1.26はHIGH3含む39指摘/終了2で未合格、親f1 CIは19:37に全6成功を確認したが今回文書の全CIとは区別する。main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし。outbox/同期世代/限定回復・外部連携/運用/性能/復旧等は未達で正式公開No-Goを維持する。
 
 後続の[Google実行期限・結果不明検出](GOOGLE_EXECUTION_OUTCOME_2026-10-06.md)で、実行UUID/期限・所有者範囲の条件付き分類・旧実行のjob更新拒否・日本語案内を実装した。初回回帰の正常読み取りUPDATEによる両DB各5失敗を修正し、最終PG247成功/省略0・SQLite239成功/PG専用8省略、差分39文6分岐/新規PG253文32分岐100%。初回色対比2.1477:1の失敗を局所CSSで7.1828:1へ修正し、最終3ブラウザー141成功/通常CI新規6成功・retry/skip/flaky0、mobile表内/キーボード横移動・主要6画面/戻る/再読み込み/未認証/pageerror0を確認した。専用PG/container/tmpfs・server/合成SQLiteを削除、証拠/元worktree別作業を保持。結果不明の自動再送をせず、保存期間・同期行の完全排他・durable outbox・実worker回復等は未完了。新migration 0056は隔離DBのみ適用、共有DB/main/AWSは今回承認対象外。親001addcc CI全6成功と今回候補の未確認CI/通常配布物を区別し、正式公開No-Goを維持する。

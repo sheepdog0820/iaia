@@ -133,6 +133,16 @@ def fail_google_job(job, error):
     _update_running_google_job(job, status=AsyncJob.Status.FAILED, error=str(error), finished_at=timezone.now())
 
 
+def uncertain_google_job(job):
+    _update_running_google_job(
+        job,
+        status=AsyncJob.Status.UNCERTAIN,
+        error=GOOGLE_EXECUTION_UNCERTAIN_MESSAGE,
+        finished_at=timezone.now(),
+    )
+    return "uncertain"
+
+
 def succeed_google_job(job, result):
     _update_running_google_job(
         job, status=AsyncJob.Status.SUCCEEDED, progress=100, result=result or {}, error="", finished_at=timezone.now()

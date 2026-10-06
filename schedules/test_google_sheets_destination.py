@@ -61,7 +61,7 @@ class GoogleSheetsDestinationTest(APITestCase):
                             "PUT", url, params=kwargs["params"], headers=kwargs["headers"], json=kwargs["json"]
                         ).prepare()
                     )
-                    response = Mock()
+                    response = Mock(status_code=200)
                     response.json.return_value = {"updatedCells": len(kwargs["json"]["values"]) * 2}
                     return response
 
