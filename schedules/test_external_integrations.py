@@ -14,6 +14,7 @@ from rest_framework.test import APITestCase
 from accounts.character_models import CharacterSheet7th
 from accounts.models import CharacterSheet, Group
 from schedules import session_permissions
+from schedules.google_job_connection import google_connection_binding
 from schedules.google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_DISPLAY_RANGE
 from schedules.google_tokens import get_google_access_token
 from schedules.models import AsyncJob, CalendarSubscription, GoogleCalendarSync, GoogleIntegration, TRPGSession
@@ -266,6 +267,7 @@ class GoogleIntegrationTestCase(APITestCase):
         job = AsyncJob.objects.create(
             owner=self.user,
             job_type="google_calendar_sync",
+            payload={"google_connection": google_connection_binding(GoogleIntegration.objects.get(user=self.user))},
             expires_at=timezone.now() + timedelta(days=1),
         )
         post.return_value = Mock(status_code=200)
@@ -380,7 +382,14 @@ class GoogleIntegrationTestCase(APITestCase):
                 with self.subTest(error=error_type.__name__, kind=kind):
                     credentials_class.return_value.refresh.side_effect = error_type("private-provider-error-fixture")
                     job = AsyncJob.objects.create(
-                        owner=self.user, job_type=kind, expires_at=timezone.now() + timedelta(days=1)
+                        owner=self.user,
+                        job_type=kind,
+                        expires_at=timezone.now() + timedelta(days=1),
+                        payload={
+                            "google_connection": google_connection_binding(
+                                GoogleIntegration.objects.get(user=self.user)
+                            )
+                        },
                     )
                     result = None
                     try:

@@ -11,6 +11,7 @@ from rest_framework.test import APIClient
 
 from accounts.google_oauth import store_google_integration_grant
 from accounts.models import Group
+from schedules.google_job_connection import google_connection_binding
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration, TRPGSession
 from schedules.tasks import export_google_sheet, sync_google_calendar
 
@@ -60,6 +61,7 @@ class GoogleConnectionGuardTest(TestCase):
         return AsyncJob.objects.create(
             owner=self.user,
             job_type="google_sheets_export" if mode == "sheets" else "google_calendar_sync",
+            payload={"google_connection": google_connection_binding(self.integration)},
             expires_at=timezone.now() + timedelta(days=1),
         )
 
@@ -131,10 +133,10 @@ class GoogleConnectionGuardTest(TestCase):
         sends["delete"].return_value = self._response(204)
         return sends
 
-    def _assert_failed(self, result, job, partial=False):
+    def _assert_failed(self, result, job, partial=False, message=None):
         self.assertEqual(result, "connection-changed")
         job.refresh_from_db()
-        expected = self.message + (
+        expected = (message or self.message) + (
             "途中まで出力されている可能性があります。出力先を確認してください。" if partial else ""
         )
         self.assertEqual(job.error, expected)

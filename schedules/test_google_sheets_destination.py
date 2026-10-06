@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
+from schedules.google_job_connection import google_connection_binding
 from schedules.google_sheets import SHEET_COLUMNS
 from schedules.models import AsyncJob, GoogleIntegration
 from schedules.tasks import export_google_sheet
@@ -26,7 +27,10 @@ class GoogleSheetsDestinationTest(APITestCase):
 
     def _job(self):
         return AsyncJob.objects.create(
-            owner=self.user, job_type="google_sheets_export", expires_at=timezone.now() + timedelta(days=1)
+            owner=self.user,
+            job_type="google_sheets_export",
+            expires_at=timezone.now() + timedelta(days=1),
+            payload={"google_connection": google_connection_binding(GoogleIntegration.objects.get(user=self.user))},
         )
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")

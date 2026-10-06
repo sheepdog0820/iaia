@@ -17,6 +17,7 @@ from rest_framework.views import APIView
 
 from accounts.models import CharacterSheet
 
+from .google_job_connection import google_connection_binding
 from .google_sheets import (
     SHEET_COLUMNS,
     SHEETS_DEFAULT_START_RANGE,
@@ -218,7 +219,8 @@ class GoogleCalendarSyncView(APIView):
             user=request.user,
             calendar_enabled=True,
         ).first()
-        if not integration or not integration.has_scope(GoogleIntegration.REQUIRED_CALENDAR_SCOPE):
+        binding = google_connection_binding(integration)
+        if not integration or not integration.has_scope(GoogleIntegration.REQUIRED_CALENDAR_SCOPE) or not binding:
             return Response(
                 {"detail": "Google Calendar連携を確認できません。Googleを再連携してください。"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -231,7 +233,7 @@ class GoogleCalendarSyncView(APIView):
         job = AsyncJob.objects.create(
             owner=request.user,
             job_type="google_calendar_sync",
-            payload={"sync_id": sync.pk},
+            payload={"sync_id": sync.pk, "google_connection": binding},
             expires_at=timezone.now() + timedelta(days=7),
         )
         queued = queue_google_calendar_sync(sync.pk, str(job.pk))
@@ -352,6 +354,12 @@ class GoogleSheetsExportView(APIView):
         spreadsheet_id = selection.validated_data["spreadsheet_id"]
         if not spreadsheet_id:
             return Response({"columns": SHEET_COLUMNS, "rows": rows})
+        binding = google_connection_binding(integration)
+        if not binding:
+            return Response(
+                {"detail": "Google Sheets連携を確認できません。Googleを再連携してください。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         job = AsyncJob.objects.create(
             owner=request.user,
             job_type="google_sheets_export",
@@ -360,6 +368,7 @@ class GoogleSheetsExportView(APIView):
                 "range": range_name,
                 "character_ids": [row[0] for row in rows],
                 "selection_snapshot": True,
+                "google_connection": binding,
             },
             expires_at=timezone.now() + timedelta(days=7),
         )

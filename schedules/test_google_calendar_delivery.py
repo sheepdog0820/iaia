@@ -9,6 +9,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from accounts.models import Group
+from schedules.google_job_connection import google_connection_binding
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration, TRPGSession
 from schedules.tasks import sync_google_calendar
 
@@ -29,7 +30,10 @@ class GoogleCalendarDeliveryTest(TestCase):
 
     def job(self):
         return AsyncJob.objects.create(
-            owner=self.user, job_type="google_calendar_sync", expires_at=timezone.now() + timedelta(days=1)
+            owner=self.user,
+            job_type="google_calendar_sync",
+            expires_at=timezone.now() + timedelta(days=1),
+            payload={"google_connection": google_connection_binding(GoogleIntegration.objects.get(user=self.user))},
         )
 
     def response(self, code, data):

@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from accounts.google_oauth import store_google_integration_grant
 from accounts.models import Group
+from schedules.google_job_connection import google_connection_binding
 from schedules.google_tokens import get_google_access_token
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration, TRPGSession
 from schedules.tasks import export_google_sheet, sync_google_calendar
@@ -127,7 +128,12 @@ class GoogleRefreshIntegrityTests(GoogleRefreshFixtures, TestCase):
                 credentials = self.credentials()
                 credentials.refresh.side_effect = lambda request: SocialToken.objects.filter(pk=self.token.pk).delete()
                 job = AsyncJob.objects.create(
-                    owner=self.user, job_type=kind, expires_at=timezone.now() + timedelta(days=1)
+                    owner=self.user,
+                    job_type=kind,
+                    expires_at=timezone.now() + timedelta(days=1),
+                    payload={
+                        "google_connection": google_connection_binding(GoogleIntegration.objects.get(user=self.user))
+                    },
                 )
                 with (
                     patch("schedules.google_tokens.Credentials", return_value=credentials),

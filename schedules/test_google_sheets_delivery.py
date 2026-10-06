@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
+from schedules.google_job_connection import google_connection_binding
 from schedules.google_sheets import offset_sheet_start_range
 from schedules.models import AsyncJob, GoogleIntegration
 from schedules.tasks import export_google_sheet
@@ -44,9 +45,7 @@ class GoogleSheetsDeliveryTest(TestCase):
         for reason in ("disabled", "scope", "inactive", "deleted"):
             with self.subTest(reason=reason):
                 self._restore_export()
-                job = AsyncJob.objects.create(
-                    owner=self.user, job_type="google_sheets_export", expires_at=timezone.now() + timedelta(days=1)
-                )
+                job = self._job()
 
                 def refresh(user):
                     self._revoke_export(reason)
@@ -72,9 +71,7 @@ class GoogleSheetsDeliveryTest(TestCase):
             with self.subTest(reason=reason):
                 self._restore_export()
                 self._revoke_export(reason)
-                job = AsyncJob.objects.create(
-                    owner=self.user, job_type="google_sheets_export", expires_at=timezone.now() + timedelta(days=1)
-                )
+                job = self._job()
                 with (
                     patch("schedules.tasks.get_google_access_token") as token,
                     patch("schedules.tasks.requests.put") as put,
@@ -93,9 +90,7 @@ class GoogleSheetsDeliveryTest(TestCase):
         for reason in ("disabled", "scope", "inactive", "deleted"):
             with self.subTest(reason=reason):
                 self._restore_export()
-                job = AsyncJob.objects.create(
-                    owner=self.user, job_type="google_sheets_export", expires_at=timezone.now() + timedelta(days=1)
-                )
+                job = self._job()
 
                 def put_chunk(url, **kwargs):
                     self._revoke_export(reason)
@@ -126,9 +121,7 @@ class GoogleSheetsDeliveryTest(TestCase):
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_large_export_updates_progress_between_bounded_requests(self, token):
-        job = AsyncJob.objects.create(
-            owner=self.user, job_type="google_sheets_export", expires_at=timezone.now() + timedelta(days=1)
-        )
+        job = self._job()
         values = [[f"row-{row}", *range(16)] for row in range(205)]
         observed_progress = []
         sent_ranges = []
@@ -159,9 +152,7 @@ class GoogleSheetsDeliveryTest(TestCase):
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_large_export_failure_preserves_partial_progress_and_safe_reason(self, token):
-        job = AsyncJob.objects.create(
-            owner=self.user, job_type="google_sheets_export", expires_at=timezone.now() + timedelta(days=1)
-        )
+        job = self._job()
         values = [[f"row-{row}"] for row in range(201)]
         first_response = Mock()
         first_response.raise_for_status.return_value = None
@@ -189,9 +180,7 @@ class GoogleSheetsDeliveryTest(TestCase):
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_legacy_invalid_range_fails_before_delivery(self, token):
-        job = AsyncJob.objects.create(
-            owner=self.user, job_type="google_sheets_export", expires_at=timezone.now() + timedelta(days=1)
-        )
+        job = self._job()
 
         with patch("schedules.tasks.requests.put") as put:
             result = export_google_sheet.run(str(job.pk), self.user.pk, "fixture-sheet", "NamedRange", [])
@@ -204,9 +193,7 @@ class GoogleSheetsDeliveryTest(TestCase):
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_invalid_updated_cells_response_is_not_exposed(self, token):
-        job = AsyncJob.objects.create(
-            owner=self.user, job_type="google_sheets_export", expires_at=timezone.now() + timedelta(days=1)
-        )
+        job = self._job()
         response = Mock()
         response.raise_for_status.return_value = None
         response.json.return_value = {"updatedCells": "private response content"}
@@ -229,9 +216,7 @@ class GoogleSheetsDeliveryTest(TestCase):
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_http_failure_does_not_store_sheet_id_or_external_error(self, token):
-        job = AsyncJob.objects.create(
-            owner=self.user, job_type="google_sheets_export", expires_at=timezone.now() + timedelta(days=1)
-        )
+        job = self._job()
         spreadsheet_id = "private-spreadsheet-id"
         external_error = requests.Timeout(f"timed out while writing {spreadsheet_id}")
 
@@ -257,9 +242,7 @@ class GoogleSheetsDeliveryTest(TestCase):
     def test_invalid_response_finishes_job_without_exposing_response_body(self, token):
         for value in (None, [], "private response content", 42, ValueError("private response content")):
             with self.subTest(value=type(value).__name__):
-                job = AsyncJob.objects.create(
-                    owner=self.user, job_type="google_sheets_export", expires_at=timezone.now() + timedelta(days=1)
-                )
+                job = self._job()
                 response = Mock()
                 response.raise_for_status.return_value = None
                 if isinstance(value, Exception):
@@ -276,3 +259,13 @@ class GoogleSheetsDeliveryTest(TestCase):
                     job.error, "Google Sheetsの応答形式を確認できません。出力先を確認して再試行してください。"
                 )
                 put.assert_called_once()
+
+    def _job(self):
+        return AsyncJob.objects.create(
+            owner=self.user,
+            job_type="google_sheets_export",
+            expires_at=timezone.now() + timedelta(days=1),
+            payload={
+                "google_connection": google_connection_binding(GoogleIntegration.objects.filter(user=self.user).first())
+            },
+        )

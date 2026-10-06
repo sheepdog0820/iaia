@@ -7,6 +7,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from accounts.models import Group
+from schedules.google_job_connection import google_connection_binding
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration, SessionParticipant, TRPGSession
 from schedules.tasks import export_google_sheet, sync_google_calendar
 
@@ -39,7 +40,12 @@ class GoogleJobAuthorizationTests(TestCase):
 
     def job(self, feature):
         return AsyncJob.objects.create(
-            owner=self.user, job_type=f"google_{feature}", expires_at=timezone.now() + timedelta(days=1)
+            owner=self.user,
+            job_type=f"google_{feature}",
+            expires_at=timezone.now() + timedelta(days=1),
+            payload={
+                "google_connection": google_connection_binding(GoogleIntegration.objects.filter(user=self.user).first())
+            },
         )
 
     def run_job(self, feature, job):

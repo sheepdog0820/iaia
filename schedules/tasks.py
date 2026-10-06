@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from accounts.models import DiscordDelivery, GroupDiscordSettings
 
+from .google_job_connection import google_connection_binding, google_job_connection_matches
 from .google_sheets import (
     SHEETS_EXPORT_CHUNK_ROWS,
     normalize_sheet_start_range,
@@ -41,6 +42,9 @@ GOOGLE_SHEETS_PARTIAL_DELIVERY_FAILED_MESSAGE = (
 GOOGLE_SHEETS_INVALID_RESPONSE_MESSAGE = "Google Sheetsの応答形式を確認できません。出力先を確認して再試行してください。"
 GOOGLE_SHEETS_NOT_AUTHORIZED_MESSAGE = "Google Sheets連携が無効、または出力する権限がありません。"
 GOOGLE_CONNECTION_CHANGED_MESSAGE = "Googleの連携設定が処理中に変更されました。接続先を確認して再試行してください。"
+GOOGLE_JOB_CONNECTION_FAILED_MESSAGE = (
+    "ジョブ作成時のGoogle接続先を確認できません。接続先を確認して再実行してください。"
+)
 
 
 def _same_google_connection(original, current):
@@ -141,7 +145,7 @@ def schedule_session_google_syncs(session):
         job = AsyncJob.objects.create(
             owner_id=integration.user_id,
             job_type="google_calendar_sync",
-            payload={"sync_id": sync.pk},
+            payload={"sync_id": sync.pk, "google_connection": google_connection_binding(integration)},
             expires_at=timezone.now() + timedelta(days=7),
         )
         if not queue_google_calendar_sync(sync.pk, str(job.pk)):
@@ -322,6 +326,8 @@ def sync_google_calendar(self, sync_id, job_id):
         return _fail_calendar_authorization(sync, job)
     job.mark_running(10)
     credential = google_credential_identity(sync.user_id)
+    if not google_job_connection_matches(job, connection, credential):
+        return _fail_calendar_authorization(sync, job, GOOGLE_JOB_CONNECTION_FAILED_MESSAGE, "connection-changed")
     try:
         access_token = get_google_access_token(sync.user)
     except ValueError as exc:
@@ -519,6 +525,9 @@ def export_google_sheet(
         job.mark_failed(exc)
         return "invalid-range"
     credential = google_credential_identity(user_id)
+    if not google_job_connection_matches(job, connection, credential):
+        job.mark_failed(GOOGLE_JOB_CONNECTION_FAILED_MESSAGE)
+        return "connection-changed"
     try:
         access_token = get_google_access_token(job.owner)
     except ValueError as exc:

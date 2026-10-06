@@ -103,7 +103,11 @@ class GoogleCredentialGuardTest(connection_tests.GoogleConnectionGuardTest):
                         result = export_google_sheet.run(str(job.pk), self.user.pk, "private-sheet-fixture", "A1", [])
                     else:
                         result = sync_google_calendar.run(self.sync.pk, str(job.pk))
-                self._assert_failed(result, job)
+                self._assert_failed(
+                    result,
+                    job,
+                    message="ジョブ作成時のGoogle接続先を確認できません。接続先を確認して再実行してください。",
+                )
                 put.assert_not_called()
                 post.assert_not_called()
 
