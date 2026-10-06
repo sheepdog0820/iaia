@@ -52,7 +52,7 @@ HIGHはCVE-2026-102010/CVE-2026-95619/CVE-2026-85091。未修正・未受容・�
 
 probeがprefix付き合成ユーザー8名/job UUID7件の集合を完全一致で確認し、その画像/job/user/Tokenだけを削除した。独立PG確認でもuser/job/Token=0、test DBなし、保存先media file0。名前/ID/用途label/公開portなし/network/OOMなしを照合し、Web `3fba2d4a7073f2120b1954f6b01f5904bb12864c02d39185f344f9e52e04a26d`、fixture `21a35b3d8ad60c8f8ab8892c1f25fae33015b598a76dbf934d77f97febbdb2da`、PG `619896a7e31ed4a270c7e1aaea9da9f6d48d493373d5d54c868fdfe07e9e60ad` を停止・削除した。今回labelの残存container0を確認済み。途中の停止出力がyieldした後もcontainer一覧で終了を再照合し、停止を重複実行しない。tmpfs DBは破棄済みでfixtureから再構築可能。archive/harness/model/ログ/cache/mediaフォルダーは保持する。
 
-候補の[CI37393905801](https://github.com/sheepdog0820/iaia/actions/runs/37393905801)はfull SHA/branch一致を照合し、照合時点でsystem/production-database/infrastructure/lint-securityはsuccess、Unit/Integration・Playwrightはin_progressだった。全6成功や今回文書commitのCI成功とは扱わない。
+候補の[CI37393905801](https://github.com/sheepdog0820/iaia/actions/runs/37393905801)はfull SHA/branch一致を照合した。先行照合では4成功/Unit・Playwright実行中だったが、証跡コミット直前の後続照合でrun completed/success・全6ジョブsuccessを確認した。この最新結果を追記し、アプリ候補のCIと今回文書commitのCIを区別する。CI成功だけでSDKログ露出やOS指摘を解消扱いしない。
 
 実AWS/ECS/S3・実Stripe/外部連携/共有DB運用・正式性能/長時間負荷・RPO/RTO復旧・ブラウザー表示・本番公開は今回の対象外。main/AWS・共有DB/schema/実データ・Secrets/IAM・課金/継続費用/常設容量・通知は変更せず、既存の固定6b6c570c反映案やfavicon承認へ今回修正/証跡を追加しない。正式公開No-Goを維持する。文書の復旧は通常revertで、共有DBの逆移行や再デプロイは不要。
 
