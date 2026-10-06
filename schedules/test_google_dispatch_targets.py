@@ -5,6 +5,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from schedules import test_google_job_target_guard as target_tests
+from schedules.google_sheets import SHEET_COLUMNS
 from schedules.models import AsyncJob, GoogleCalendarSync, TRPGSession
 from schedules.tasks import export_google_sheet, sync_google_calendar
 
@@ -92,7 +93,9 @@ class GoogleDispatchTargetsTest(TestCase):
         with ExitStack() as stack:
             sends, _ = self._sends(stack)
             self.assertEqual(
-                export_google_sheet.run(str(job.pk), self.user.pk, " isolated-sheet ", "Characters!$a$1:B5", []),
+                export_google_sheet.run(
+                    str(job.pk), self.user.pk, " isolated-sheet ", "Characters!$a$1:B5", [SHEET_COLUMNS]
+                ),
                 "exported",
             )
         sends["put"].assert_called_once()

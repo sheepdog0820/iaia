@@ -12,6 +12,7 @@ from rest_framework.test import APIClient
 
 from schedules import test_google_calendar_delivery as delivery_tests
 from schedules.google_job_connection import google_connection_binding, google_sheet_values_binding
+from schedules.google_sheets import SHEET_COLUMNS
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration
 from schedules.tasks import export_google_sheet, sync_google_calendar
 
@@ -66,7 +67,7 @@ class GoogleJobTargetGuardTest(TestCase):
                 "character_ids": [],
                 "selection_snapshot": True,
                 "google_connection": google_connection_binding(self.integration),
-                "google_values": google_sheet_values_binding([]),
+                "google_values": google_sheet_values_binding([SHEET_COLUMNS]),
             },
         )
 
@@ -88,7 +89,9 @@ class GoogleJobTargetGuardTest(TestCase):
 
     def _run(self, mode, job_id):
         if mode == "sheets":
-            return export_google_sheet.run(str(job_id), self.user.pk, "isolated-sheet", "Characters!A1", [])
+            return export_google_sheet.run(
+                str(job_id), self.user.pk, "isolated-sheet", "Characters!A1", [SHEET_COLUMNS]
+            )
         return sync_google_calendar.run(self.sync.pk, str(job_id))
 
     def _unchanged(self, mode, job):

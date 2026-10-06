@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[Sheets配送時所有権確認](GOOGLE_SHEETS_OWNERSHIP_2026-10-06.md)で保存対象の厳密な型/重複/順序・17列の表との一致を検査し、token前と各chunk送信前に全対象の現在所有権をDB再確認する。削除/移転を検知したら固定日本語失敗・HTTP/自動retry停止、途中送信は警告し、初回内容と元範囲内の明示再試行/0件を維持する。RED34 failure/0 error、最終PG192成功/省略0・SQLite188成功/PG専用4省略、差分本体35文20分岐/新規180文36分岐/fixture補助16文100%。先行cc1e497c CI4成功/2実行中、新候補の全CI/配布物/実Google/AWSは未確認。確認後競合・並列/完了/失効済み再配送等は残る。使い捨てDB/container/volume削除・ログ保持、main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
+
 後続の[Sheets出力内容照合](GOOGLE_SHEETS_CONTENT_BINDING_2026-10-06.md)で初回/再試行の確定表を用途別HMACとして保存し、queueの内容変更・旧/不正digest・不正表をtoken/HTTP前に固定日本語失敗へ終了する。再試行は元対象内の現在所有/現在値・RAW/日本語/0件/分割/失効を維持。修正前6件18 failure/1 error、最終PG183成功/省略0・SQLite179成功/PG専用4省略（文書39含む）、差分本体26文10分岐/新規133文26分岐/fixture補助8文100%。9f46fa97・4f97d179 CI全6成功、新候補の全CI/配布物/実Google/AWSは未確認。待機/分割中のキャラクター所有権変更、並列配送/原子的取消、接続先別外部ID等は残る。合成DB/container/volume削除・記録保持、main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
 
 後続の[Google配送対象照合](GOOGLE_DISPATCH_TARGETS_2026-10-06.md)で、同じownerの別Calendar同期/取消や別Sheets ID/rangeを保存payloadと比較して拒否し、別同期行・token/HTTP/retryを変更しない。修正前新規6件26 failure/7 error、初期13件成功、fixture訂正後PG176成功/省略0・SQLite172成功/PG専用4省略（文書39含む）、本体差分12文8分岐/新規77文16分岐100%。先行9f46fa97 CIは4成功/2実行中、新候補の全CI/配布物/実Google/AWSは未確認。使い捨てDB/container/volume削除・記録保持。Sheets内容の結合、接続先別外部ID/既存予定方針、並列配送/原子的取消等は残り、main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。

@@ -10,7 +10,7 @@ from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
 
-from accounts.models import DiscordDelivery, GroupDiscordSettings
+from accounts.models import CharacterSheet, DiscordDelivery, GroupDiscordSettings
 
 from .google_job_connection import google_connection_binding, google_job_connection_matches, google_job_values_match
 from .google_sheets import (
@@ -18,6 +18,7 @@ from .google_sheets import (
     normalize_sheet_start_range,
     normalize_spreadsheet_id,
     offset_sheet_start_range,
+    sheet_export_character_ids,
     sheet_values_update_url,
 )
 from .google_tokens import get_google_access_token, google_credential_identity, google_credential_is_current
@@ -50,6 +51,10 @@ GOOGLE_JOB_TARGET_FAILED_MESSAGE = "ジョブの処理対象が一致しませ�
 GOOGLE_JOB_VALUES_FAILED_MESSAGE = (
     "ジョブ作成時のGoogle Sheets出力内容を確認できません。連携設定から新しく出力してください。"
 )
+GOOGLE_SHEETS_SELECTION_FAILED_MESSAGE = "ジョブ作成時の出力対象を確認できません。連携設定から新しく出力してください。"
+GOOGLE_SHEETS_CHARACTERS_CHANGED_MESSAGE = (
+    "出力対象のキャラクターが削除されたか、所有者が変更されました。連携設定から新しく出力してください。"
+)
 
 
 def _same_google_connection(original, current):
@@ -61,6 +66,10 @@ def _google_sheets_export_integration(user_id):
     if integration and integration.has_scope(GoogleIntegration.REQUIRED_SHEETS_SCOPE):
         return integration
     return None
+
+
+def _sheet_characters_are_owned(user_id, character_ids):
+    return CharacterSheet.objects.filter(user_id=user_id, pk__in=character_ids).count() == len(character_ids)
 
 
 def _broker_available():
@@ -582,6 +591,13 @@ def export_google_sheet(
     if not google_job_values_match(job, values):
         job.mark_failed(GOOGLE_JOB_VALUES_FAILED_MESSAGE)
         return "invalid-values"
+    character_ids = sheet_export_character_ids(job.payload, values)
+    if character_ids is None:
+        job.mark_failed(GOOGLE_SHEETS_SELECTION_FAILED_MESSAGE)
+        return "invalid-selection"
+    if not _sheet_characters_are_owned(user_id, character_ids):
+        job.mark_failed(GOOGLE_SHEETS_CHARACTERS_CHANGED_MESSAGE)
+        return "characters-changed"
     try:
         access_token = get_google_access_token(job.owner)
     except ValueError as exc:
@@ -609,6 +625,12 @@ def export_google_sheet(
                 error += "途中まで出力されている可能性があります。出力先を確認してください。"
             job.mark_failed(error)
             return "connection-changed" if changed else "not-authorized"
+        if not _sheet_characters_are_owned(user_id, character_ids):
+            error = GOOGLE_SHEETS_CHARACTERS_CHANGED_MESSAGE
+            if completed_rows:
+                error += "途中まで出力されている可能性があります。出力先を確認してください。"
+            job.mark_failed(error)
+            return "characters-changed"
         chunk_range = offset_sheet_start_range(range_name, completed_rows)
         try:
             response = requests.put(

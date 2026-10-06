@@ -40,6 +40,27 @@ SHEETS_EXPORT_CHUNK_ROWS = 100
 SHEETS_RANGE_ERROR_MESSAGE = "出力範囲はA1形式で指定してください（例: Characters!A1）。"
 SHEETS_ID_ERROR_MESSAGE = "出力先のスプレッドシートIDを正しく指定してください。"
 
+
+def sheet_export_character_ids(payload, values):
+    """Resolve an exact export selection, never interpret unknown targets as all."""
+    if not isinstance(payload, dict) or payload.get("selection_snapshot") is not True:
+        return None
+    selected = payload.get("character_ids")
+    if not isinstance(selected, list) or any(type(pk) is not int or not 0 < pk < 2**63 for pk in selected):
+        return None
+    if len(set(selected)) != len(selected):
+        return None
+    if not isinstance(values, list) or not values or values[0] != SHEET_COLUMNS:
+        return None
+    rows = values[1:]
+    if any(not isinstance(row, list) or len(row) != len(SHEET_COLUMNS) for row in rows):
+        return None
+    row_ids = [row[0] for row in rows]
+    if any(type(pk) is not int for pk in row_ids) or row_ids != selected:
+        return None
+    return selected
+
+
 _A1_START_CELL_PATTERN = re.compile(r"^\$?([A-Za-z]+)\$?([1-9]\d*)$")
 
 
