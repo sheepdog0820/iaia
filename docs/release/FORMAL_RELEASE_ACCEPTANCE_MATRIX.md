@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[4535c03f通常配布物検証](GOOGLE_RUNTIME_4535C03F_2026-10-06.md)で最新のGoogle開始取得/対象/内容/所有権対策まで固定archiveから構築した。選定699 source/assetsの欠落/追加/SHA不一致0・111 packages/先行10層一致、通常entrypoint/read-only/no overlayでGoogle19 modules160成功・設定6 modules70成功（非重複230/省略0）。実PG競合5・Calendar loopback8を含む。設定試験の初回環境指定不足による試験前停止は別記録で、正しい空ENV_FILE指定後の終端成功と区別する。CI37422087169は3成功/3実行中、OS HIGH3/native閉包・実課金/連携/常設worker/AWS性能/復旧など未達は保持する。専用DB/container/tmpfsの合成データ削除・証拠保持、main/AWS/schema/Secrets/課金/容量の変更と承認拡張なし・正式公開No-Goを維持する。
+
 後続の[Googleジョブ開始取得](GOOGLE_JOB_START_CLAIM_2026-10-06.md)で成功済み/実行中/不明状態/期限超過を無変更で拒否し、期限内queued/failedをowner/type/status/期限付き単一DB UPDATEでRUNNINGへ取得する。取得できたworkerだけが認可/対象検査・配送へ進み、元開始時刻と失敗後retryを保持、再開始中の古い終了時刻/エラーを解消する。修正前SQLite21 failure/0 error/PG専用1省略・実PG並列2 subtest失敗、最終PG199成功/省略0・SQLite194成功/PG専用5省略、本体差分23文10分岐/新規PG151文26分岐100%。cc1e497c CI全6成功、cf8eba29は5成功/Playwright実行中、新候補の全CI/配布物/実Google/AWSは未確認。取得後停止/期限超過、failed後の遅延duplicate識別、別job同一同期の競合等は残る。使い捨てDB/container/volume削除・証拠保持、main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
 
 後続の[Sheets配送時所有権確認](GOOGLE_SHEETS_OWNERSHIP_2026-10-06.md)で保存対象の厳密な型/重複/順序・17列の表との一致を検査し、token前と各chunk送信前に全対象の現在所有権をDB再確認する。削除/移転を検知したら固定日本語失敗・HTTP/自動retry停止、途中送信は警告し、初回内容と元範囲内の明示再試行/0件を維持する。RED34 failure/0 error、最終PG192成功/省略0・SQLite188成功/PG専用4省略、差分本体35文20分岐/新規180文36分岐/fixture補助16文100%。先行cc1e497c CI4成功/2実行中、新候補の全CI/配布物/実Google/AWSは未確認。確認後競合・並列/完了/失効済み再配送等は残る。使い捨てDB/container/volume削除・ログ保持、main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
