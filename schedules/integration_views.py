@@ -20,7 +20,10 @@ from accounts.models import CharacterSheet
 from .google_sheets import (
     SHEET_COLUMNS,
     SHEETS_DEFAULT_START_RANGE,
+    SHEETS_ID_ERROR_MESSAGE,
+    SHEETS_RANGE_ERROR_MESSAGE,
     normalize_sheet_start_range,
+    normalize_spreadsheet_id,
 )
 from .google_tokens import get_google_access_token
 from .ical_text import escape_ical as _escape_ical
@@ -248,7 +251,32 @@ class GoogleCalendarSyncView(APIView):
         )
 
 
+class GoogleSpreadsheetIdField(serializers.Field):
+    default_error_messages = {"invalid": SHEETS_ID_ERROR_MESSAGE}
+
+    def to_internal_value(self, data):
+        # An empty destination means local preview, not a remote export.
+        if isinstance(data, str) and not data.strip():
+            return ""
+        try:
+            return normalize_spreadsheet_id(data)
+        except ValueError:
+            self.fail("invalid")
+
+
+class GoogleSheetRangeField(serializers.CharField):
+    def to_internal_value(self, data):
+        value = super().to_internal_value(data)
+        # Keep DRF's length checks, but localize its automatic surrogate error.
+        try:
+            value.encode("utf-8")
+        except UnicodeError:
+            raise serializers.ValidationError(SHEETS_RANGE_ERROR_MESSAGE) from None
+        return value
+
+
 class GoogleSheetsSelectionSerializer(serializers.Serializer):
+    spreadsheet_id = GoogleSpreadsheetIdField(required=False, default="", allow_null=True, write_only=True)
     character_ids = serializers.ListField(
         child=serializers.IntegerField(
             min_value=1,
@@ -267,7 +295,7 @@ class GoogleSheetsSelectionSerializer(serializers.Serializer):
             "not_a_list": "出力するキャラクターを一覧で指定してください。",
         },
     )
-    range = serializers.CharField(
+    range = GoogleSheetRangeField(
         required=False,
         default=SHEETS_DEFAULT_START_RANGE,
         allow_blank=False,
@@ -322,7 +350,7 @@ class GoogleSheetsExportView(APIView):
                     detail.luck_current if character.edition == "7th" else "",
                 ]
             )
-        spreadsheet_id = request.data.get("spreadsheet_id")
+        spreadsheet_id = selection.validated_data["spreadsheet_id"]
         if not spreadsheet_id:
             return Response({"columns": SHEET_COLUMNS, "rows": rows})
         job = AsyncJob.objects.create(

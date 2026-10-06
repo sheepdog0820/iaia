@@ -1,5 +1,6 @@
 from datetime import timedelta
 from unittest.mock import Mock, patch
+from urllib.parse import unquote
 
 import requests
 from celery.exceptions import Retry
@@ -133,7 +134,7 @@ class GoogleSheetsDeliveryTest(TestCase):
         def put(url, **kwargs):
             job.refresh_from_db()
             observed_progress.append(job.progress)
-            sent_ranges.append(url.rsplit("/values/", 1)[1])
+            sent_ranges.append(unquote(url.rsplit("/values/", 1)[1]))
             sent_row_counts.append(len(kwargs["json"]["values"]))
             response = Mock()
             response.raise_for_status.return_value = None

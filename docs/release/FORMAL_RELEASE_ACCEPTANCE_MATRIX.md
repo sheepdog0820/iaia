@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[Google Sheets出力先のURL境界](GOOGLE_SHEETS_DESTINATION_2026-10-06.md)で、記号によるfragment/query/path分断・不正ID受理・先行token更新を新規34 failureとして再現し、path要素の個別エンコードとAPI/workerの検証へ修正。ID未指定のプレビュー・17列/100行分割/RAW/認可/再試行snapshotを維持する。最終SQLite90成功/PG専用4省略、差分本体48文6分岐・新規116文10分岐100%。実Requestsの生成後URLを6組×2チャンク確認したが、Google側の受理/書き込み・今回PG/ブラウザー/AWS/全CIは未証明。main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし、元worktreeの別作業を保持・HIGH3未解消・正式公開No-Goを維持する。
+
 後続の[Googleトークン更新の整合性](GOOGLE_REFRESH_INTEGRITY_2026-10-06.md)で、再接続情報の上書き/解除後の保存エラー/並列更新の2成功を隔離PGで7 failure/5 errorとして再現。初案68件成功後も、2 UPDATEの実Lock待機を強制した追加試験で競合1 failureを確認し、比較条件をUPDATE対象WHEREに保持する形へ修正した。最終PG69成功/省略0、SQLite65成功/PG専用4省略、更新モジュール36文12分岐・新規215文20分岐100%。競合では接続情報を保持し、両workerは固定日本語エラーで終了・外部送信なし。新規2 moduleをPG CIへ追加したが、実Googleのtoken回転/HTTP・全CI/AWS等は未証明。隔離DB/コンテナ削除・記録保持、main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし、HIGH3未解消・正式公開No-Goを維持する。
 
 後続の[Google Calendar同期途中の失効チェック](GOOGLE_CALENDAR_REVOCATION_2026-10-06.md)で、トークン取得・409応答・予定確認GET中に連携/scope/利用者/セッション閲覧権限を失ってもHTTPが続く問題を新規35 subtest失敗で再現・修正。全6呼び出し箇所の直前にDBから認可を確認し、観測した失効では追加送信/retryなし・同期/ジョブ失敗を記録する。関連49件成功/省略0、本体差分26文4分岐・新規139文28分岐100%。最終書き込み受理後の失効は成功を維持し、自動巻き戻しをしない。チェック後の競合/開始済みHTTP取消・PG並列/実Google/AWS・全CIは未証明。main/AWS追加反映・DBスキーマ/Secrets/課金/容量変更・承認拡張なし、HIGH3未解消・正式公開No-Goを維持する。

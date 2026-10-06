@@ -14,7 +14,9 @@ from accounts.models import DiscordDelivery, GroupDiscordSettings
 from .google_sheets import (
     SHEETS_EXPORT_CHUNK_ROWS,
     normalize_sheet_start_range,
+    normalize_spreadsheet_id,
     offset_sheet_start_range,
+    sheet_values_update_url,
 )
 from .google_tokens import get_google_access_token
 from .handout_release import evaluate_release_conditions, publish_handout
@@ -447,15 +449,20 @@ def export_google_sheet(
         return "not-authorized"
     job.mark_running(10)
     try:
-        access_token = get_google_access_token(job.owner)
+        spreadsheet_id = normalize_spreadsheet_id(spreadsheet_id)
     except ValueError as exc:
         job.mark_failed(exc)
-        return "missing-token"
+        return "invalid-spreadsheet"
     try:
         range_name = normalize_sheet_start_range(range_name)
     except ValueError as exc:
         job.mark_failed(exc)
         return "invalid-range"
+    try:
+        access_token = get_google_access_token(job.owner)
+    except ValueError as exc:
+        job.mark_failed(exc)
+        return "missing-token"
 
     chunks = [
         values[index : index + SHEETS_EXPORT_CHUNK_ROWS] for index in range(0, len(values), SHEETS_EXPORT_CHUNK_ROWS)
@@ -475,7 +482,7 @@ def export_google_sheet(
         chunk_range = offset_sheet_start_range(range_name, completed_rows)
         try:
             response = requests.put(
-                f"https://sheets.googleapis.com/v4/spreadsheets/{spreadsheet_id}/values/{chunk_range}",
+                sheet_values_update_url(spreadsheet_id, chunk_range),
                 params={"valueInputOption": "RAW"},
                 headers={
                     "Authorization": f"Bearer {access_token}",
