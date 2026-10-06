@@ -1,11 +1,23 @@
 """Start Google delivery once at a time using existing job state."""
 
 from functools import wraps
+from uuid import UUID
 
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from .models import AsyncJob
+
+
+def google_job_identity(value):
+    if type(value) is UUID:
+        return value
+    if type(value) is not str or len(value) > 45:
+        return None
+    try:
+        return UUID(value)
+    except ValueError:
+        return None
 
 
 class GoogleJobInactive(Exception):

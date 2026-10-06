@@ -17,6 +17,7 @@ from .google_job_lifecycle import (
     claim_google_job_start,
     fail_google_job,
     google_job_can_start,
+    google_job_identity,
     require_running_google_job,
     set_google_job_progress,
     stop_inactive_google_job,
@@ -375,6 +376,9 @@ def _fail_calendar_authorization(sync, job, error=GOOGLE_CALENDAR_NOT_AUTHORIZED
 def sync_google_calendar(self, sync_id, job_id):
     if type(sync_id) is not int or not 0 < sync_id < 2**63:
         return "invalid-job"
+    job_id = google_job_identity(job_id)
+    if job_id is None:
+        return "invalid-job"
     sync = GoogleCalendarSync.objects.select_related("session", "user").filter(pk=sync_id).first()
     if not sync:
         return "invalid-job"
@@ -587,6 +591,11 @@ def export_google_sheet(
     range_name,
     values,
 ):
+    if type(user_id) is not int or not 0 < user_id < 2**63:
+        return "invalid-job"
+    job_id = google_job_identity(job_id)
+    if job_id is None:
+        return "invalid-job"
     job = AsyncJob.objects.filter(pk=job_id, owner_id=user_id, job_type="google_sheets_export").first()
     if not job:
         return "invalid-job"
