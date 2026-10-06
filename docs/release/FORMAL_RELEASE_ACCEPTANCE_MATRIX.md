@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続dc0b053eの[通常配布物・SDKログHTTP再検証](SDK_LOG_RUNTIME_DC0B053E_2026-10-06.md)で683選定ファイル/entrypoint一致・source/SDK overlayなしPG191成功/省略0・settings/アクセスログ67成功・実HTTP44確認と実U2NET完了/再実行不変を確認。実SDK WARNING2件・CredentialRetrievalError/コード位置を残し、合成資格情報/ECS応答本文・raw traceback・資格情報値のログ露出0。初回の旧証拠指定/settings環境衝突/readiness待機期限は訂正・記録。新規Scout1.26は39指摘（HIGH3/MEDIUM1/LOW35、Python0）/終了2で未合格、候補CIは4成功/2実行中。独立収集経路・実AWS/課金/外部連携/運用/性能/復旧等は未達、main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。
+
 後続の[SDKログ本文保護](SDK_LOG_PRIVACY_2026-10-06.md)で、boto3/botocore専用の安全なstream/file経路とroot伝播停止を追加。実SDKのmandatory/advisory更新警告・例外classを残し、合成応答本文/message/args/chainを出さず、既存メール通知・SDK再試行・課金/DBは変更しない。新規6・Windows settings60・Linuxアクセスログ含む67成功、Windows背景回帰214成功/PG専用16省略、formatter39文10分岐・新規93文12分岐・追加本番経路6文4分岐100%。初回の環境/DB設定/Twisted import失敗は訂正・記録。今回の通常配布物/実HTTP/PG・全CI・独立収集経路は未証明、OS再監査なし・HIGH3未解消、main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。
 
 後続b3496898の[通常配布物・資格情報更新HTTP検証](BACKGROUND_SIGNING_RUNTIME_B3496898_2026-10-06.md)で682選定ファイル一致・source/SDK overlayなしPG185成功/省略0・実HTTP44確認と実U2NET完了/再実行不変を確認。loopback資格情報のmandatory refresh失敗後も入力を保持し、初回の確定失敗・重複409・期限・所有者制限を維持した。初回のbuild通信設定/probe import/再実行CLI判定/JSON型比較の検証側失敗を訂正・記録し、初回全成功とは扱わない。SDK警告への合成資格情報エラー本文の露出を新規観測し、全SDKログ保護は未達。新規Scout1.26監査は39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2、候補CIは後続照合で全6項目success。実AWS/課金/外部連携/運用/性能/復旧等は未達、main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。
