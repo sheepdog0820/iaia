@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[背景透過SDK署名途中の結果不明判定](BACKGROUND_SIGNING_OUTCOME_2026-10-06.md)で、先行timeout/500後の署名・資格情報更新失敗や最終HTTP200/明示failuresで入力を誤削除する問題を再現・修正。実SDKイベントで先行の結果不明を保持し、初回の確定失敗・token/期限・重複防止・handler解除を維持した。新規14を含むWindows SQLite208成功/PG専用16省略、隔離PG224成功/省略0、変更起動/observer50文16分岐・新規147文14分岐100%。CI PG対象へ追加したが今回全CI/通常配布物/実HTTP・AWS/実S3等は未証明。OS再監査なし・HIGH未解消、main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。
+
 後続の[背景透過SDK再試行後の拒否判定](BACKGROUND_RETRY_OUTCOME_2026-10-06.md)で、timeout/500後の最終400/403だけを確定失敗として元画像を削除する問題を新規8 test中6 failureで再現・修正。実SDKのRetryAttemptsを観測し、再試行後のClientErrorは既存の結果不明/入力保持202、初回400/403は既存失敗503を維持。Windows SQLite194成功/PG専用16省略・隔離PG210成功/省略0、変更関数36文/10分岐・新規108文/8分岐100%。重複409・遅いworker完了・既存timeoutも確認。新規moduleをPG CIへ追加したが、今回全CI/通常配布物/実HTTP・AWS/実S3等は未確認。OS監査再実行なし・HIGH未解消、main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。
 
 後続の[LLVM同梱レシピ・ソース調査](LLVM_SOURCE_BOUNDARY_2026-10-06.md)で公開llvmdev manylinux_1 archiveの全体ハッシュ・実同梱build_number1/patches:nullを確認し、後のwheelソースrecipe（build0/Windows patchあり）と区別した。指定LLVM公式sourceの全体ハッシュ一致、通常168,946ファイル/約2.02GBでPBDS関連4文字列一致0、検出器の境界/binary正例とハッシュ不一致拒否を確認。追加調査で5月run26481208591と固定f3dbf3bbのrecipe/build script完全一致を確認したが、実ログHTTP410/artifacts0、同梱info/gitは空、workflowの可変image/solver入力が残る。19 linkは未追跡で、当時取得archiveのdigest・全compiler headers/生成物/他native閉包・署名付きsource attestationは未証明。文字列不在やrun成功をPBDS非該当/HIGH解消にせず、OS再スキャンなし・最新39指摘（HIGH3/MEDIUM1/LOW35、Python0）/終了2・正式公開No-Goを維持。main/AWS未反映・既存承認へ追加しない。
