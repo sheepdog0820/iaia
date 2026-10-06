@@ -28,6 +28,7 @@ DISCORD_DELIVERY_FAILED_MESSAGE = "Discord通知の送信に失敗しました�
 GOOGLE_CALENDAR_DELIVERY_FAILED_MESSAGE = (
     "Google Calendar APIとの通信に失敗しました。連携状態を確認して再試行してください。"
 )
+GOOGLE_CALENDAR_NOT_AUTHORIZED_MESSAGE = "Google Calendar連携が無効、またはセッションを同期する権限がありません。"
 GOOGLE_SHEETS_DELIVERY_FAILED_MESSAGE = (
     "Google Sheets APIとの通信に失敗しました。連携状態と出力先を確認して再試行してください。"
 )
@@ -263,23 +264,41 @@ def _calendar_private_properties(event):
     return properties.get("private", {})
 
 
+class _GoogleCalendarNotAuthorized(Exception):
+    pass
+
+
+def _google_calendar_sync_authorized(sync):
+    integration = GoogleIntegration.objects.filter(
+        user_id=sync.user_id, user__is_active=True, calendar_enabled=True
+    ).first()
+    return bool(
+        integration
+        and integration.has_scope(GoogleIntegration.REQUIRED_CALENDAR_SCOPE)
+        and visible_user_sessions(sync.user).filter(pk=sync.session_id).exists()
+    )
+
+
+def _calendar_request(sync, send, url, **kwargs):
+    if not _google_calendar_sync_authorized(sync):
+        raise _GoogleCalendarNotAuthorized
+    return send(url, **kwargs)
+
+
+def _fail_calendar_authorization(sync, job):
+    sync.status = GoogleCalendarSync.Status.FAILED
+    sync.last_error = GOOGLE_CALENDAR_NOT_AUTHORIZED_MESSAGE
+    sync.save(update_fields=["status", "last_error", "updated_at"])
+    job.mark_failed(GOOGLE_CALENDAR_NOT_AUTHORIZED_MESSAGE)
+    return "not-authorized"
+
+
 @shared_task(bind=True, max_retries=3, name="schedules.tasks.sync_google_calendar")
 def sync_google_calendar(self, sync_id, job_id):
     sync = GoogleCalendarSync.objects.select_related("session", "user").get(pk=sync_id)
     job = AsyncJob.objects.get(pk=job_id)
-    integration = GoogleIntegration.objects.filter(user=sync.user, calendar_enabled=True).first()
-    if (
-        not sync.user.is_active
-        or not integration
-        or not integration.has_scope(GoogleIntegration.REQUIRED_CALENDAR_SCOPE)
-        or not visible_user_sessions(sync.user).filter(pk=sync.session_id).exists()
-    ):
-        error = "Google Calendar連携が無効、またはセッションを同期する権限がありません。"
-        sync.status = GoogleCalendarSync.Status.FAILED
-        sync.last_error = error
-        sync.save(update_fields=["status", "last_error", "updated_at"])
-        job.mark_failed(error)
-        return "not-authorized"
+    if not _google_calendar_sync_authorized(sync):
+        return _fail_calendar_authorization(sync, job)
     job.mark_running(10)
     try:
         access_token = get_google_access_token(sync.user)
@@ -312,7 +331,9 @@ def sync_google_calendar(self, sync_id, job_id):
         if cancelling:
             event_id = sync.external_event_id
             if not event_id:
-                existing = requests.get(f"{base_url}/{generated_event_id}", headers=headers, timeout=15)
+                existing = _calendar_request(
+                    sync, requests.get, f"{base_url}/{generated_event_id}", headers=headers, timeout=15
+                )
                 if existing.status_code not in {404, 410}:
                     existing.raise_for_status()
                     event = _calendar_response_event(existing)
@@ -324,7 +345,9 @@ def sync_google_calendar(self, sync_id, job_id):
                         raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
                     event_id = generated_event_id
             if event_id:
-                response = requests.delete(f"{base_url}/{event_id}", headers=headers, timeout=15)
+                response = _calendar_request(
+                    sync, requests.delete, f"{base_url}/{event_id}", headers=headers, timeout=15
+                )
                 if response.status_code not in {204, 404, 410}:
                     response.raise_for_status()
                 sync.external_event_id = event_id
@@ -332,7 +355,9 @@ def sync_google_calendar(self, sync_id, job_id):
         elif sync.external_event_id:
             payload = _calendar_event_payload(sync.session)
             payload["extendedProperties"]["private"]["tableno_sync_key"] = generated_event_id
-            response = requests.put(
+            response = _calendar_request(
+                sync,
+                requests.put,
                 f"{base_url}/{sync.external_event_id}",
                 headers=headers,
                 json=payload,
@@ -345,25 +370,31 @@ def sync_google_calendar(self, sync_id, job_id):
             payload = _calendar_event_payload(sync.session)
             payload["id"] = event_id
             payload["extendedProperties"]["private"]["tableno_sync_key"] = event_id
-            response = requests.post(
+            response = _calendar_request(
+                sync,
+                requests.post,
                 base_url,
                 headers=headers,
                 json=payload,
                 timeout=15,
             )
             if response.status_code == 409:
-                existing = requests.get(f"{base_url}/{event_id}", headers=headers, timeout=15)
+                existing = _calendar_request(sync, requests.get, f"{base_url}/{event_id}", headers=headers, timeout=15)
                 existing.raise_for_status()
                 event = _calendar_response_event(existing)
                 private = _calendar_private_properties(event)
                 if event.get("id") != event_id or private != payload["extendedProperties"]["private"]:
                     raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
-                response = requests.put(f"{base_url}/{event_id}", headers=headers, json=payload, timeout=15)
+                response = _calendar_request(
+                    sync, requests.put, f"{base_url}/{event_id}", headers=headers, json=payload, timeout=15
+                )
             response.raise_for_status()
             if _calendar_response_event(response).get("id") != event_id:
                 raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
             sync.external_event_id = event_id
             sync.status = GoogleCalendarSync.Status.SYNCED
+    except _GoogleCalendarNotAuthorized:
+        return _fail_calendar_authorization(sync, job)
     except (requests.RequestException, KeyError, ValueError) as exc:
         if isinstance(exc, requests.RequestException):
             error = GOOGLE_CALENDAR_DELIVERY_FAILED_MESSAGE
