@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[Google worker強制停止・回復不足検証](GOOGLE_WORKER_CRASH_2026-10-06.md)で、固定通常29ef配布物の実PG/Redis/HTTP・solo/prefork×Calendar/Sheets×適用前/後の8停止を実測した。全jobはrunningのまま、再試行400、Calendar同期pending。solo元unacked4件を時刻経過注入で実復元してもSUCCESS/inactive-jobとなり製品jobは回復せず、期限処理はjob8件を削除するだけでpending同期4件が残った。初回のearly ACK仮定timeoutを保存し、再試験28 container/合成tmpfsを削除・証拠/別作業保持。これは障害復旧不足の再現であり修正完了・合格ではない。lease/結果不明保存/限定回復の受入条件を準備したが未実装、親e6 CIは5成功/1実行中、main/AWS/共有DB/schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
+
 後続の[Google投入結果不明時の画面案内](GOOGLE_DISPATCH_UI_2026-10-06.md)で、Calendar/Sheets/再試行のqueued=falseや通信切断/5xxを未配送と断言せず、ジョブID保持・履歴確認へ統一した。一覧更新失敗の分離・Sheets例外処理/再入抑止・警告濃色化を追加し、REDの画面1失敗/修正前cache36件31失敗、最終3ブラウザー135成功（新規108・retry/skip/flaky0）/関連回帰80成功、変更6 JS断片のV8 43区間未実行0・画面対比13.706:1を確認。初期helper/fixture/起動前接続の失敗は区別して保存した。主要6画面・戻る/再読み込み・未認証302/401/404・pageerror0、表示scriptとソース一致、専用サーバー/合成DB削除・証拠/別作業保持。親939118d7 CI全6成功、今回全CI/通常配布物/実Google未確認。OS HIGH3、outbox/lease/常設運用/外部連携/課金/性能/復旧等は未達で、main/AWS/schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。以下は各先行記録時点の状態として区別する。
 
 後続の[隔離Redis・実Celery配送検証](GOOGLE_REAL_BROKER_2026-10-06.md)で、通常29ef38a6 image・network noneの専用PG/Redis・独立2 workerを用い、Calendar/Sheets各5ケース計10成功を確認した。通常/同一job二重配送/投入後呼出元例外/診断ID保存失敗/実HTTP応答消失後retryを実受信付きで検証し、二重配送は各外部変更1回、queued=falseでも成功状態を保全、Calendar応答消失は1イベント、Sheetsは同一PUT2回（exactly-once保証なし）。providerだけはloopback合成、投入後例外/ID保存失敗は限定fault注入で、実Google/Redis TCP応答消失/worker crash・outbox/lease/永続運用等は未証明。初回helperの許可外host失敗を記録・訂正後に終了0、専用6 container/tmpfs合成データ削除・証拠/別作業保持。17:37 JST時点製品29ef38a6 CI全6成功・先行be6d3b76 CI5成功/Playwright実行中、今回OS監査なし・直前HIGH3未合格。main/AWS/schema/Secrets/課金/容量変更・承認拡張なし、正式公開No-Goを維持する。以下は各先行記録時点の状態として区別する。
