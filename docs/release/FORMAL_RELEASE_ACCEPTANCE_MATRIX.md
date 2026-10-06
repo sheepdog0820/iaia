@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[f1f9c443通常配布物・結果不明検証](GOOGLE_RUNTIME_OUTCOME_2026-10-06.md)で、固定通常imageの705選定source/assets・111 packages/先行依存10層を照合し、実PGのGoogle208/設定70の非重複278成功・省略0を確認した。実Celery/Redis/loopback HTTPでsolo/prefork×Calendar/Sheets×未適用/適用後の8 SIGKILL、元unacked4件の実復元、追加の生存worker遅い200/切断4ケースを通し、時刻経過注入後の結果不明・状態保持・再試行400・追加HTTP0を確認。期限前はrunning、Calendar遅い200は同期行だけsyncedとなり完全fence/自動回復ではなく、保存期限処理は先行8 jobを削除してpending同期を残す。12 HTTP/合成適用8/providerエラー0、35 container/tmpfs削除・証拠/別作業保持。新規Scout1.26はHIGH3含む39指摘/終了2で未合格、親f1 CIは19:37に全6成功を確認したが今回文書の全CIとは区別する。main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし。outbox/同期世代/限定回復・外部連携/運用/性能/復旧等は未達で正式公開No-Goを維持する。
+
 後続の[Google実行期限・結果不明検出](GOOGLE_EXECUTION_OUTCOME_2026-10-06.md)で、実行UUID/期限・所有者範囲の条件付き分類・旧実行のjob更新拒否・日本語案内を実装した。初回回帰の正常読み取りUPDATEによる両DB各5失敗を修正し、最終PG247成功/省略0・SQLite239成功/PG専用8省略、差分39文6分岐/新規PG253文32分岐100%。初回色対比2.1477:1の失敗を局所CSSで7.1828:1へ修正し、最終3ブラウザー141成功/通常CI新規6成功・retry/skip/flaky0、mobile表内/キーボード横移動・主要6画面/戻る/再読み込み/未認証/pageerror0を確認した。専用PG/container/tmpfs・server/合成SQLiteを削除、証拠/元worktree別作業を保持。結果不明の自動再送をせず、保存期間・同期行の完全排他・durable outbox・実worker回復等は未完了。新migration 0056は隔離DBのみ適用、共有DB/main/AWSは今回承認対象外。親001addcc CI全6成功と今回候補の未確認CI/通常配布物を区別し、正式公開No-Goを維持する。
 
 後続の[Google worker強制停止・回復不足検証](GOOGLE_WORKER_CRASH_2026-10-06.md)で、固定通常29ef配布物の実PG/Redis/HTTP・solo/prefork×Calendar/Sheets×適用前/後の8停止を実測した。全jobはrunningのまま、再試行400、Calendar同期pending。solo元unacked4件を時刻経過注入で実復元してもSUCCESS/inactive-jobとなり製品jobは回復せず、期限処理はjob8件を削除するだけでpending同期4件が残った。初回のearly ACK仮定timeoutを保存し、再試験28 container/合成tmpfsを削除・証拠/別作業保持。これは障害復旧不足の再現であり修正完了・合格ではない。lease/結果不明保存/限定回復の受入条件を準備したが未実装、親e6 CIは5成功/1実行中、main/AWS/共有DB/schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
