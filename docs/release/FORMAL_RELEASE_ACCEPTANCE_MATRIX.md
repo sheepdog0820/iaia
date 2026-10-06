@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[LLVM上流ソース署名検証](LLVM_SOURCE_PROVENANCE_2026-10-06.md)で、公式sourceの固定identity/issuer/ref/source・signer digest/GitHub-hosted runner条件のcrypto正例終了0、誤identity/digest/issuerの負例終了1を確認。先行source走査168,946件/約2.02GB/PBDS文字列0を再確認し、現在39b43286の267 ELFも先行1aとbytes差分0。ただしsource tarball生成の来歴でありconda/wheelのcompile・compiler headers/生成物/他native閉包は未証明。Debian signed APT policyで修正candidateなし、OS新規scan/指摘抑制/リスク受容なし・HIGH3未解消。先行39 CIは5成功/Playwright290成功・flaky1で失敗、アプリコード同一の後続5deb9b6dは全6成功/pytest2,285成功85省略/Playwright291成功と区別する。main/AWS追加反映・承認拡張なし、正式公開No-Goを維持する。
+
 後続39b43286の[通常配布物・Sentry収集再検証](SENTRY_RUNTIME_39B43286_2026-10-06.md)で684選定ファイル/entrypoint一致、source overlayなしsettings70/PG187成功・省略0、実HTTP44確認・実U2NET完了/再実行不変を確認。実SDK更新警告とERROR eventを試験用offline transportで収集し、event/breadcrumb/Logs・headersで合成本文露出0。実HTTPのSDK Logs WARNING2/コード位置を保持し、全9 envelope・Webログの合成本文/資格情報値露出0。samplingで得たtransaction4件を全監視privacyとは扱わず、実Sentry受信・新OS監査/全CI・HIGH3/native閉包・実AWS/連携/運用等は未達。CI4成功/2実行中、main/AWS未反映・承認範囲は拡張せず正式公開No-Goを維持する。
 
 後続の[Sentry SDK本文保護](SENTRY_SDK_PRIVACY_2026-10-06.md)で、stream formatterを迂回するSentry event/breadcrumb/Logsへの合成本文露出を実SDK・offline transportで再現・修正。SDK専用の安全な診断/分類へ置換し、元データ・SDK以外の監視・既定Logs無効・samplingを維持する。新規9・Linux76/最終header9・Windows背景回帰223成功/PG専用16省略、保護78文16分岐・新規146文22分岐100%。先行dc0b053e CI全6成功は確認したが、新候補の全CI/通常配布物/実HTTP・PG・実受信は未証明。未識別例外/transaction/span/attachment等の範囲は拡張せず、HIGH3未解消・main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。
