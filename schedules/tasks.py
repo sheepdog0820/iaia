@@ -1,7 +1,6 @@
 import logging
 import re
 import socket
-import uuid
 from datetime import timedelta
 from urllib.parse import quote, urlparse
 
@@ -38,6 +37,10 @@ from .google_sheets import (
     sheet_values_update_url,
 )
 from .google_tokens import get_google_access_token, google_credential_identity, google_credential_is_current
+from .google_write_intake import calendar_event_key
+from .google_write_intake import calendar_event_payload as _calendar_event_payload
+from .google_write_intake import register_calendar_intake
+from .google_write_ledger import InvalidGoogleWriteAdmission
 from .google_write_outcome import GoogleWriteUncertain, google_write_request
 from .handout_release import evaluate_release_conditions, publish_handout
 from .holiday_sync import sync_japanese_holidays as run_japanese_holiday_sync
@@ -211,32 +214,44 @@ def schedule_session_google_syncs(session):
     user_ids.add(session.gm_id)
     integrations = GoogleIntegration.objects.filter(
         user_id__in=user_ids,
+        user__is_active=True,
         calendar_enabled=True,
     )
     for integration in integrations:
         if not integration.has_scope(GoogleIntegration.REQUIRED_CALENDAR_SCOPE):
             continue
-        sync, _ = GoogleCalendarSync.objects.get_or_create(
-            user_id=integration.user_id,
-            session=session,
-        )
-        sync.status = GoogleCalendarSync.Status.PENDING
-        sync.last_error = ""
-        sync.save(update_fields=["status", "last_error", "updated_at"])
-        job = AsyncJob.objects.create(
-            owner_id=integration.user_id,
-            job_type="google_calendar_sync",
-            payload={"sync_id": sync.pk, "google_connection": google_connection_binding(integration)},
-            expires_at=timezone.now() + timedelta(days=7),
-        )
-        if queue_google_calendar_sync(sync.pk, str(job.pk)) is False:
-            fail_unstarted_google_dispatch(job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE, sync)
+        binding = google_connection_binding(integration)
+        if not binding:
+            continue
+        try:
+            # A grant disappearing during intake must not undo another owner's intake
+            # or turn a successful session edit into a server error.
+            with transaction.atomic():
+                sync, _ = GoogleCalendarSync.objects.get_or_create(
+                    user_id=integration.user_id,
+                    session=session,
+                )
+                job = AsyncJob.objects.create(
+                    owner_id=integration.user_id,
+                    job_type="google_calendar_sync",
+                    payload={"sync_id": sync.pk, "google_connection": binding},
+                    expires_at=timezone.now() + timedelta(days=7),
+                )
+                register_calendar_intake(job, sync, session)
+                sync.status = GoogleCalendarSync.Status.PENDING
+                sync.last_error = ""
+                sync.save(update_fields=["status", "last_error", "updated_at"])
+                if queue_google_calendar_sync(sync.pk, str(job.pk)) is False:
+                    fail_unstarted_google_dispatch(job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE, sync)
+        except InvalidGoogleWriteAdmission:
+            logger.warning("Google Calendarの自動同期を受け付けられませんでした。連携状態と権限を確認してください。")
 
 
 @shared_task(name="schedules.tasks.expire_async_jobs")
 def expire_async_jobs():
     mark_stalled_google_jobs(AsyncJob.objects.all())
-    return AsyncJob.objects.filter(expires_at__lt=timezone.now()).delete()[0]
+    _, deleted_by_model = AsyncJob.objects.filter(expires_at__lt=timezone.now()).delete()
+    return deleted_by_model.get(AsyncJob._meta.label, 0)
 
 
 @shared_task(name="schedules.tasks.dispatch_google_jobs")
@@ -331,22 +346,6 @@ def send_discord_webhook(self, group_id, event_type, payload, idempotency_key):
         settings_obj.failure_count = 0
         settings_obj.save(update_fields=["failure_count", "updated_at"])
     return "sent"
-
-
-def _calendar_event_payload(session):
-    start = session.date
-    end = start + timedelta(minutes=session.duration_minutes or 180)
-    return {
-        "summary": session.title,
-        "description": session.description,
-        "location": session.location,
-        "start": {"dateTime": start.isoformat()},
-        "end": {"dateTime": end.isoformat()},
-        "status": "cancelled" if session.status == "cancelled" else "confirmed",
-        "extendedProperties": {
-            "private": {"tableno_session_id": str(session.pk)},
-        },
-    }
 
 
 def _calendar_response_event(response):
@@ -529,10 +528,7 @@ def sync_google_calendar(self, sync_id, job_id):
         "Content-Type": "application/json",
     }
     base_url = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
-    generated_event_id = uuid.uuid5(
-        uuid.NAMESPACE_URL,
-        f"https://tableno.jp/calendar-sync/{sync.pk}/{sync.user_id}/{sync.session_id}/{sync.created_at.isoformat()}",
-    ).hex
+    generated_event_id = calendar_event_key(sync)
     write_accepted = False
     try:
         if sync.external_event_id in {".", ".."}:

@@ -255,6 +255,8 @@ jobs:
             schedules/test_google_retry_supersession.py \
             schedules/test_google_write_admission.py \
             schedules/test_google_write_admission_migrations.py \
+            schedules/test_google_write_intake.py \
+            schedules/test_google_write_intake_concurrency.py \
             schedules/test_google_job_active_guard.py \
             schedules/test_google_dispatch_identity.py \
             schedules/test_google_calendar_deleted_target.py \

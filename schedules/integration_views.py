@@ -28,6 +28,8 @@ from .google_sheets import (
     normalize_spreadsheet_id,
 )
 from .google_tokens import get_google_access_token
+from .google_write_intake import register_calendar_intake, register_sheets_intake
+from .google_write_ledger import INVALID_ADMISSION_MESSAGE, InvalidGoogleWriteAdmission
 from .ical_text import escape_ical as _escape_ical
 from .ical_text import fold_ical_line as _fold_ical_line
 from .integration_access import visible_user_sessions as _visible_user_sessions
@@ -227,10 +229,9 @@ class GoogleCalendarSyncView(APIView):
                 {"detail": "Google Calendar連携を確認できません。Googleを再連携してください。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        sync, _ = GoogleCalendarSync.objects.update_or_create(
+        sync, _ = GoogleCalendarSync.objects.get_or_create(
             user=request.user,
             session=session,
-            defaults={"status": GoogleCalendarSync.Status.PENDING, "last_error": ""},
         )
         job = AsyncJob.objects.create(
             owner=request.user,
@@ -238,6 +239,13 @@ class GoogleCalendarSyncView(APIView):
             payload={"sync_id": sync.pk, "google_connection": binding},
             expires_at=timezone.now() + timedelta(days=7),
         )
+        try:
+            register_calendar_intake(job, sync, session)
+        except InvalidGoogleWriteAdmission:
+            raise serializers.ValidationError({"detail": INVALID_ADMISSION_MESSAGE}) from None
+        sync.status = GoogleCalendarSync.Status.PENDING
+        sync.last_error = ""
+        sync.save(update_fields=["status", "last_error", "updated_at"])
         queued = queue_google_calendar_sync(sync.pk, str(job.pk))
         if queued is False:
             fail_unstarted_google_dispatch(job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE, sync)
@@ -381,6 +389,10 @@ class GoogleSheetsExportView(APIView):
             },
             expires_at=timezone.now() + timedelta(days=7),
         )
+        try:
+            register_sheets_intake(job, values)
+        except InvalidGoogleWriteAdmission:
+            raise serializers.ValidationError({"detail": INVALID_ADMISSION_MESSAGE}) from None
         queued = queue_google_sheet_export(
             str(job.pk),
             request.user.pk,

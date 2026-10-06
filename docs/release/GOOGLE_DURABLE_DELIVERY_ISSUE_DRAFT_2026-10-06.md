@@ -8,6 +8,10 @@ Google Calendar/Sheetsを正式公開できる品質にするため、DB確定�
 
 ## 現在の部分実装と証拠
 
+- 最新の[全5経路の固定受付](GOOGLE_WRITE_INTAKE_2026-10-07.md): Calendar/Sheets/両retry/自動同期のjob・固定本文/接続/incarnation・admission/sequence・outboxを原子的に保存。認可再検査、日本語400、失効owner単位のrollback、セッション編集の500防止、期限処理のjob削除件数を修正した。最終PG389成功/省略0・SQLite367成功/PG専用22省略、製品差分92文16分岐先100%/除外0・新規PG348文72分岐先100%、Python7品質/Bandit0・schema差分0。実PGのproducer lock順と別owner/接続/rangeの共有Sheet採番を確認し、先行driver3エラー/coverage不足等を保持して再検証、専用PG/tmpfs撤去・証拠/別作業保持。worker snapshot消費・共有holder・HTTP intent/receipt・独立unknown journal・全lock順/移行/回復は未完了。親75b CI全6成功と今回候補CIを区別。main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし、No-Goを維持する。
+
+### 先行単位（各記録時点）
+
 - [受付台帳・固定snapshot基盤](GOOGLE_WRITE_ADMISSION_2026-10-06.md): 内部3テーブル・確定FIFO採番・暗号化snapshot・rollback/同job冪等/旧raw DELETE互換を追加。最終PG368成功/省略0・SQLite349成功/PG専用19省略、製品差分178文48分岐先100%/除外0・新規PG452文44分岐先100%、Python8品質/Bandit0・schema差分0。実PG独立接続のsource/対象lock待機と固定snapshotを観測し、先行RED/旧migration復元不足による4エラーを保持して修正。専用PG/tmpfs撤去・証拠/別作業保持。全5producer/worker/HTTP/receipt/対象待機は未接続で、共有対象の排他・unknown保持の完成ではない。新migration0059/0060は隔離DBのみ、通常新配布物/実Google/保持方針等は残る。共有DB/main/AWS/Secrets/課金/容量変更・承認拡張なし、No-Goを維持する。
 
 - [対象単位の世代・排他設計](GOOGLE_TARGET_FENCE_DESIGN_2026-10-06.md): a91be6b8で別Calendar jobの二重RUNNING/HTTP許可、古いreceiptによる新PENDING上書き、Sheets UNCERTAIN後の別job書き込みをSQLite/PG各3ケースで再現。mock HTTP・同一接続の順序制御であり、安全性合格や実worker競合の証拠ではない。対象FIFO・immutable snapshot・job削除で消えない未解決holder・共有spreadsheet排他・legacy/drain・限定回復の不変条件と15受入項目を整理。文書のみで実装/配備未完了、No-Goを維持。

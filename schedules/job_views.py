@@ -20,6 +20,8 @@ from .google_job_lifecycle import (
 )
 from .google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_START_RANGE
 from .google_tokens import google_credential_identity
+from .google_write_intake import register_calendar_intake, register_sheets_intake
+from .google_write_ledger import INVALID_ADMISSION_MESSAGE, InvalidGoogleWriteAdmission
 from .integration_access import visible_user_sessions
 from .models import AsyncJob, GoogleCalendarSync, GoogleIntegration
 from .tasks import (
@@ -190,14 +192,12 @@ class AsyncJobRetryView(APIView):
                 {"detail": "元のGoogle Calendar同期情報が見つかりません。連携設定から新しく同期してください。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if not visible_user_sessions(request.user).filter(pk=sync.session_id).exists():
+        session = visible_user_sessions(request.user).filter(pk=sync.session_id).first()
+        if not session:
             return Response(
                 {"detail": "このセッションを同期する権限がありません。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        sync.status = GoogleCalendarSync.Status.PENDING
-        sync.last_error = ""
-        sync.save(update_fields=["status", "last_error", "updated_at"])
         retry_job = AsyncJob.objects.create(
             owner=request.user,
             job_type=job.job_type,
@@ -208,6 +208,13 @@ class AsyncJobRetryView(APIView):
             },
             expires_at=timezone.now() + timedelta(days=7),
         )
+        try:
+            register_calendar_intake(retry_job, sync, session)
+        except InvalidGoogleWriteAdmission:
+            raise serializers.ValidationError({"detail": INVALID_ADMISSION_MESSAGE}) from None
+        sync.status = GoogleCalendarSync.Status.PENDING
+        sync.last_error = ""
+        sync.save(update_fields=["status", "last_error", "updated_at"])
         _record_google_retry_successor(job, retry_job)
         queued = queue_google_calendar_sync(sync.pk, str(retry_job.pk))
         if queued is False:
@@ -249,6 +256,10 @@ class AsyncJobRetryView(APIView):
             },
             expires_at=timezone.now() + timedelta(days=7),
         )
+        try:
+            register_sheets_intake(retry_job, values)
+        except InvalidGoogleWriteAdmission:
+            raise serializers.ValidationError({"detail": INVALID_ADMISSION_MESSAGE}) from None
         _record_google_retry_successor(job, retry_job)
         queued = queue_google_sheet_export(
             str(retry_job.pk),
