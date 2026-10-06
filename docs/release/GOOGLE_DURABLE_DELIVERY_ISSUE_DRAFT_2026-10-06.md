@@ -8,6 +8,8 @@ Google Calendar/Sheetsを正式公開できる品質にするため、DB確定�
 
 ## 現在の部分実装と証拠
 
+- [対象単位の世代・排他設計](GOOGLE_TARGET_FENCE_DESIGN_2026-10-06.md): a91be6b8で別Calendar jobの二重RUNNING/HTTP許可、古いreceiptによる新PENDING上書き、Sheets UNCERTAIN後の別job書き込みをSQLite/PG各3ケースで再現。mock HTTP・同一接続の順序制御であり、安全性合格や実worker競合の証拠ではない。対象FIFO・immutable snapshot・job削除で消えない未解決holder・共有spreadsheet排他・legacy/drain・限定回復の不変条件と15受入項目を整理。文書のみで実装/配備未完了、No-Goを維持。
+
 - [手動再試行の元ジョブ停止](GOOGLE_RETRY_SUPERSESSION_2026-10-06.md): 同じ元FAILED行の再試行受付とworker開始を行ロックで直列化し、元payloadの非公開停止markerを後続作成と同時保存する。二重受付409・後続削除後の元再開拒否・旧relay/worker/Calendar保存の拒否を実装。通常の新規同期・同一予定/重なるSheets領域の共有世代排他、結果照合/限定回復は残り、全体完了とはしない。
 
 - 最新の[2261adf7通常配布物・実プロセス回復](GOOGLE_DURABLE_RUNTIME_2026-10-06.md): 選定713 source/assets・111 packages/先行依存10層一致、通常回帰Google251/設定70の非重複321成功。実PG/Redis/Requests・solo/prefork×Calendar/Sheetsの16ケースでproducer commit後停止、relay停止の実5分期限、未消費message消失、制御されたACK喪失から同じjobを回復。期限内relay4回拒否・重複16配送の追加HTTP0・暗号文消去を確認した。候補CI全6成功。新規Scout HIGH3含む39/終了2は未合格。自分の83 container/tmpfsを撤去・証拠保持、main/AWS/共有DB/Secrets/課金/容量変更なし。自動常設回復/世代fence/結果照合/限定回復/実Google等は残る。

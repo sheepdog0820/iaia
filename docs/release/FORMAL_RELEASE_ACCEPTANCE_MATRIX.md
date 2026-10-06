@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[Google対象単位の世代・排他設計](GOOGLE_TARGET_FENCE_DESIGN_2026-10-06.md)で、a91be6b8の別Calendar job二重RUNNING/HTTP許可・古いreceiptによる後続PENDING上書き・Sheets結果不明後の別job送信をSQLite/専用PG各3ケースで再現した。これはmock HTTP/同一接続の順序制御による不足再現であり、安全性の合格ではない。FIFO受付・immutable snapshot・削除/期限/再連携で消えない未解決holder・共有spreadsheet排他・移行/drain/限定回復を設計候補と15受入条件へ整理したが、製品実装/新schema/通常配布物/実worker競合/実Googleは未完了。専用PG/tmpfsを撤去し証拠/別作業保持、main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし。親a91 CIは23:03頃4成功/2実行中と今回文書候補CIを区別し、OS HIGH3とその他未達を含めNo-Goを維持する。
+
 後続の[Google手動再試行の元ジョブ停止](GOOGLE_RETRY_SUPERSESSION_2026-10-06.md)で、同じ元FAILED行のworker開始と再試行受付を行ロックで直列化し、非公開の後続受付markerを同時保存、二重受付409・後続削除後の元再開拒否・古いrelay/Calendar同期保存拒否を追加した。実PG接続PIDの待機観測で二重POSTと両開始順序を確認し、最終PG336成功/省略0・SQLite322成功/PG専用14省略、製品差分35文12分岐先100%・新規PGテスト376文48分岐100%、8Python品質/Bandit指摘0・schema差分0を確認。初回のfixture/旧期待値/同期対象削除時の分類rollbackは保存して修正、専用PG/tmpfs撤去・証拠/別作業保持。これは明示的な手動再試行系列の部分対策で、新規同期同士/同一予定・重なるSheets領域の共有世代排他、結果照合/限定回復、通常新配布物・実Google・常設運用は残る。親508ec5f0 CI全6成功と今回候補CIは区別。新schema/依存・main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし。OS HIGH3とその他正式公開条件も未達でNo-Goを維持する。
 
 後続の[2261adf7通常配布物・永続配送回復](GOOGLE_DURABLE_RUNTIME_2026-10-06.md)で、選定713 source/assets・111 packages/依存10層を照合、通常Google251/設定70の非重複321成功・省略0を確認。実PG/Redis/Requests・solo/prefork×Calendar/Sheetsの16ケースでcommit直後producer停止、relay停止の実5分期限、未消費message消失、制御されたACK喪失から同じjobを回復した。期限内relay4回拒否・provider16 HTTP/適用16/エラー0・重複16配送の追加HTTP0・開始receipt時の暗号文消去を確認した。新規Scout1.26はHIGH3含む39指摘/終了2で未合格。配布監査JSONの初回誤りとprovider停止137によるcleanup初回停止は記録して訂正、83 container/tmpfs撤去・broker残存0/証拠・別作業保持。アプリ2261adf7 CI全6成功と今回文書commitのCIは区別。main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし。常設beat/監視・世代fence/結果照合/限定回復/実Google・その他公開条件は未達でNo-Goを維持する。
