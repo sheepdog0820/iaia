@@ -1,6 +1,7 @@
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
+from allauth.socialaccount.models import SocialAccount, SocialToken
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
@@ -13,6 +14,8 @@ from schedules.tasks import export_google_sheet, sync_google_calendar
 class GoogleJobAuthorizationTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="export-player")
+        account = SocialAccount.objects.create(user=self.user, provider="google", uid="export-player-fixture")
+        SocialToken.objects.create(account=account, token="local-fixture-token")  # Isolated fixture. # nosec B106
         owner = get_user_model().objects.create_user(username="export-owner")
         group = Group.objects.create(name="Export group", created_by=owner)
         self.session = TRPGSession.objects.create(

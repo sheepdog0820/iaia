@@ -18,7 +18,7 @@ from .google_sheets import (
     offset_sheet_start_range,
     sheet_values_update_url,
 )
-from .google_tokens import get_google_access_token
+from .google_tokens import get_google_access_token, google_credential_identity, google_credential_is_current
 from .handout_release import evaluate_release_conditions, publish_handout
 from .holiday_sync import sync_japanese_holidays as run_japanese_holiday_sync
 from .integration_access import visible_user_sessions
@@ -294,11 +294,13 @@ def _google_calendar_sync_integration(sync):
     return None
 
 
-def _calendar_request(sync, connection, send, url, **kwargs):
+def _calendar_request(sync, connection, credential, access_token, send, url, **kwargs):
     current = _google_calendar_sync_integration(sync)
     if not current:
         raise _GoogleCalendarNotAuthorized
-    if not _same_google_connection(connection, current):
+    if not _same_google_connection(connection, current) or not google_credential_is_current(
+        sync.user_id, credential, access_token
+    ):
         raise _GoogleConnectionChanged
     return send(url, **kwargs)
 
@@ -319,6 +321,7 @@ def sync_google_calendar(self, sync_id, job_id):
     if not connection:
         return _fail_calendar_authorization(sync, job)
     job.mark_running(10)
+    credential = google_credential_identity(sync.user_id)
     try:
         access_token = get_google_access_token(sync.user)
     except ValueError as exc:
@@ -351,7 +354,14 @@ def sync_google_calendar(self, sync_id, job_id):
             event_id = sync.external_event_id
             if not event_id:
                 existing = _calendar_request(
-                    sync, connection, requests.get, f"{base_url}/{generated_event_id}", headers=headers, timeout=15
+                    sync,
+                    connection,
+                    credential,
+                    access_token,
+                    requests.get,
+                    f"{base_url}/{generated_event_id}",
+                    headers=headers,
+                    timeout=15,
                 )
                 if existing.status_code not in {404, 410}:
                     existing.raise_for_status()
@@ -365,7 +375,14 @@ def sync_google_calendar(self, sync_id, job_id):
                     event_id = generated_event_id
             if event_id:
                 response = _calendar_request(
-                    sync, connection, requests.delete, f"{base_url}/{event_id}", headers=headers, timeout=15
+                    sync,
+                    connection,
+                    credential,
+                    access_token,
+                    requests.delete,
+                    f"{base_url}/{event_id}",
+                    headers=headers,
+                    timeout=15,
                 )
                 if response.status_code not in {204, 404, 410}:
                     response.raise_for_status()
@@ -377,6 +394,8 @@ def sync_google_calendar(self, sync_id, job_id):
             response = _calendar_request(
                 sync,
                 connection,
+                credential,
+                access_token,
                 requests.put,
                 f"{base_url}/{sync.external_event_id}",
                 headers=headers,
@@ -393,6 +412,8 @@ def sync_google_calendar(self, sync_id, job_id):
             response = _calendar_request(
                 sync,
                 connection,
+                credential,
+                access_token,
                 requests.post,
                 base_url,
                 headers=headers,
@@ -401,7 +422,14 @@ def sync_google_calendar(self, sync_id, job_id):
             )
             if response.status_code == 409:
                 existing = _calendar_request(
-                    sync, connection, requests.get, f"{base_url}/{event_id}", headers=headers, timeout=15
+                    sync,
+                    connection,
+                    credential,
+                    access_token,
+                    requests.get,
+                    f"{base_url}/{event_id}",
+                    headers=headers,
+                    timeout=15,
                 )
                 existing.raise_for_status()
                 event = _calendar_response_event(existing)
@@ -409,7 +437,15 @@ def sync_google_calendar(self, sync_id, job_id):
                 if event.get("id") != event_id or private != payload["extendedProperties"]["private"]:
                     raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
                 response = _calendar_request(
-                    sync, connection, requests.put, f"{base_url}/{event_id}", headers=headers, json=payload, timeout=15
+                    sync,
+                    connection,
+                    credential,
+                    access_token,
+                    requests.put,
+                    f"{base_url}/{event_id}",
+                    headers=headers,
+                    json=payload,
+                    timeout=15,
                 )
             response.raise_for_status()
             if _calendar_response_event(response).get("id") != event_id:
@@ -482,6 +518,7 @@ def export_google_sheet(
     except ValueError as exc:
         job.mark_failed(exc)
         return "invalid-range"
+    credential = google_credential_identity(user_id)
     try:
         access_token = get_google_access_token(job.owner)
     except ValueError as exc:
@@ -498,7 +535,11 @@ def export_google_sheet(
     updated_cells = 0
     for chunk in chunks:
         current = _google_sheets_export_integration(user_id)
-        if not current or not _same_google_connection(connection, current):
+        if (
+            not current
+            or not _same_google_connection(connection, current)
+            or not google_credential_is_current(user_id, credential, access_token)
+        ):
             changed = bool(current)
             error = GOOGLE_CONNECTION_CHANGED_MESSAGE if changed else GOOGLE_SHEETS_NOT_AUTHORIZED_MESSAGE
             if completed_rows:

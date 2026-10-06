@@ -12,6 +12,28 @@ from google.oauth2.credentials import Credentials
 GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"  # nosec B105
 
 
+def _google_credential(user_id, *fields):
+    return (
+        SocialToken.objects.filter(account__user_id=user_id, account__provider="google")
+        .order_by("-id")
+        .values("pk", "account_id", "app_id", "account__uid", *fields)
+        .first()
+    )
+
+
+def google_credential_identity(user_id):
+    """Capture identity before lookup/refresh without retaining credential secrets."""
+    return _google_credential(user_id)
+
+
+def google_credential_is_current(user_id, identity, access_token):
+    current = _google_credential(user_id, "token")
+    if not identity or not current:
+        return False
+    # Compare in Python; do not put access tokens in diagnostic SQL predicates.
+    return current.pop("token") == access_token and current == identity
+
+
 def get_google_access_token(user):
     token = (
         SocialToken.objects.filter(

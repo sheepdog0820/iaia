@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, unquote, urlsplit
 
 import requests
+from allauth.socialaccount.models import SocialAccount, SocialToken
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework.test import APITestCase
@@ -16,6 +17,8 @@ from schedules.tasks import export_google_sheet
 class GoogleSheetsDestinationTest(APITestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="sheets-destination-fixture")
+        account = SocialAccount.objects.create(user=self.user, provider="google", uid="sheets-destination-fixture")
+        SocialToken.objects.create(account=account, token="isolated-token")  # Isolated fixture. # nosec B106
         GoogleIntegration.objects.create(
             user=self.user, sheets_enabled=True, scopes=[GoogleIntegration.REQUIRED_SHEETS_SCOPE]
         )

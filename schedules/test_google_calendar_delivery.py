@@ -2,6 +2,7 @@ from datetime import timedelta
 from unittest.mock import Mock, patch
 
 import requests
+from allauth.socialaccount.models import SocialAccount, SocialToken
 from celery.exceptions import Retry
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -15,6 +16,8 @@ from schedules.tasks import sync_google_calendar
 class GoogleCalendarDeliveryTest(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="delivery-fixture")
+        account = SocialAccount.objects.create(user=self.user, provider="google", uid="delivery-fixture")
+        SocialToken.objects.create(account=account, token="isolated-token")  # Isolated fixture. # nosec B106
         group = Group.objects.create(name="Delivery fixture", created_by=self.user)
         self.session = TRPGSession.objects.create(
             title="Initial title", gm=self.user, group=group, date=timezone.now() + timedelta(days=1)

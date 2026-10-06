@@ -2,6 +2,7 @@ from contextlib import ExitStack
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
+from allauth.socialaccount.models import SocialAccount, SocialToken
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
@@ -17,6 +18,8 @@ class GoogleCalendarRevocationTest(TestCase):
 
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="calendar-revocation-fixture")
+        account = SocialAccount.objects.create(user=self.user, provider="google", uid="calendar-revocation-fixture")
+        SocialToken.objects.create(account=account, token="isolated-token")  # Isolated fixture. # nosec B106
         self.other = get_user_model().objects.create_user(username="calendar-revocation-other")
         self.group = Group.objects.create(name="Calendar revocation fixture", created_by=self.user)
         self.session = TRPGSession.objects.create(
