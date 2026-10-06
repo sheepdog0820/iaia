@@ -19,6 +19,107 @@ class GoogleSheetsDeliveryTest(TestCase):
             user=self.user, sheets_enabled=True, scopes=[GoogleIntegration.REQUIRED_SHEETS_SCOPE]
         )
 
+    def _revoke_export(self, reason):
+        if reason == "disabled":
+            GoogleIntegration.objects.filter(user=self.user).update(sheets_enabled=False)
+        elif reason == "scope":
+            GoogleIntegration.objects.filter(user=self.user).update(scopes=[])
+        elif reason == "inactive":
+            get_user_model().objects.filter(pk=self.user.pk).update(is_active=False)
+        else:
+            GoogleIntegration.objects.filter(user=self.user).delete()
+
+    def _restore_export(self):
+        get_user_model().objects.filter(pk=self.user.pk).update(is_active=True)
+        GoogleIntegration.objects.update_or_create(
+            user=self.user,
+            defaults={"sheets_enabled": True, "scopes": [GoogleIntegration.REQUIRED_SHEETS_SCOPE]},
+        )
+
+    def test_revocation_during_token_refresh_prevents_first_write(self):
+        for reason in ("disabled", "scope", "inactive", "deleted"):
+            with self.subTest(reason=reason):
+                self._restore_export()
+                job = AsyncJob.objects.create(
+                    owner=self.user, job_type="google_sheets_export", expires_at=timezone.now() + timedelta(days=1)
+                )
+
+                def refresh(user):
+                    self._revoke_export(reason)
+                    return "isolated-token"
+
+                with (
+                    patch("schedules.tasks.get_google_access_token", side_effect=refresh),
+                    patch("schedules.tasks.requests.put") as put,
+                    patch.object(export_google_sheet, "retry") as retry,
+                ):
+                    result = export_google_sheet.run(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", [])
+                job.refresh_from_db()
+                self.assertEqual(result, "not-authorized")
+                self.assertEqual(job.status, AsyncJob.Status.FAILED)
+                self.assertEqual(job.progress, 10)
+                self.assertEqual(job.error, "Google Sheets連携が無効、または出力する権限がありません。")
+                self.assertIsNotNone(job.finished_at)
+                put.assert_not_called()
+                retry.assert_not_called()
+
+    def test_revoked_export_never_refreshes_or_writes(self):
+        for reason in ("disabled", "scope", "inactive", "deleted"):
+            with self.subTest(reason=reason):
+                self._restore_export()
+                self._revoke_export(reason)
+                job = AsyncJob.objects.create(
+                    owner=self.user, job_type="google_sheets_export", expires_at=timezone.now() + timedelta(days=1)
+                )
+                with (
+                    patch("schedules.tasks.get_google_access_token") as token,
+                    patch("schedules.tasks.requests.put") as put,
+                ):
+                    result = export_google_sheet.run(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", [])
+                self.assertEqual(result, "not-authorized")
+                job.refresh_from_db()
+                self.assertEqual(job.status, AsyncJob.Status.FAILED)
+                self.assertEqual(job.progress, 0)
+                self.assertEqual(job.error, "Google Sheets連携が無効、または出力する権限がありません。")
+                token.assert_not_called()
+                put.assert_not_called()
+
+    @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
+    def test_revocation_between_chunks_stops_remaining_writes(self, token):
+        for reason in ("disabled", "scope", "inactive", "deleted"):
+            with self.subTest(reason=reason):
+                self._restore_export()
+                job = AsyncJob.objects.create(
+                    owner=self.user, job_type="google_sheets_export", expires_at=timezone.now() + timedelta(days=1)
+                )
+
+                def put_chunk(url, **kwargs):
+                    self._revoke_export(reason)
+                    response = Mock()
+                    response.json.return_value = {"updatedCells": 100}
+                    return response
+
+                with (
+                    patch("schedules.tasks.requests.put", side_effect=put_chunk) as put,
+                    patch.object(export_google_sheet, "retry") as retry,
+                ):
+                    result = export_google_sheet.run(
+                        str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", [[row] for row in range(201)]
+                    )
+                job.refresh_from_db()
+                self.assertEqual(result, "not-authorized")
+                self.assertEqual(job.status, AsyncJob.Status.FAILED)
+                self.assertEqual(job.progress, 49)
+                self.assertEqual(
+                    job.error,
+                    "Google Sheets連携が無効、または出力する権限がありません。"
+                    "途中まで出力されている可能性があります。出力先を確認してください。",
+                )
+                self.assertEqual(job.result, {})
+                self.assertIsNotNone(job.finished_at)
+                put.assert_called_once()
+                retry.assert_not_called()
+
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_large_export_updates_progress_between_bounded_requests(self, token):
         job = AsyncJob.objects.create(

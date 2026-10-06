@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[Google Sheets分割出力中の失効チェック](GOOGLE_SHEETS_REVOCATION_2026-10-06.md)で、トークン取得中・チャンク間の連携無効化/scope取り消し/利用者停止/連携削除後も送信が続く問題を8 subtest失敗で再現・修正。開始時と各送信前にDBから状態を読み直し、観測した失効では追加送信・自動再試行なし、送信済み分の進捗を保持して部分出力を日本語で通知する。関連45件成功/省略0、本体差分12文6分岐・新規66文12分岐100%。チェック直後の競合や開始済みHTTPの取消・実Google/PG並列/AWS・全CIは未証明。main/AWS追加反映・DBスキーマ/Secrets/課金/容量変更・既存承認の拡張なし、HIGH3未解消・正式公開No-Goを維持する。
+
 後続の[アカウント削除E2E起動予算分離](ACCOUNT_DELETE_PAGE_BUDGET_2026-10-06.md)で、先行WebKit traceのCreate page約20.6秒が操作30秒枠を消費し、timeout後のcontext closeで最終clickが失敗したことを確認。モーダル不具合とは断定せず、当該flowだけpage作成を独立・有限30秒枠にし、操作30秒/assertion5秒/flaky時CI失敗を維持。実runnerの新規3正負例は未実装時2 failureを経て成功、実3ブラウザー72件成功/再試行・省略・flaky0、新fixture2関数のV8観測4区間100%。アプリ削除仕様/権限・Stripe・実性能基準は変更せず、今回全CI/他flow/実AWS等へ結果を拡張しない。隔離user/契約0・起動分server停止、main/AWS追加反映・承認拡張なし・HIGH3未解消/正式公開No-Goを維持する。
 
 後続の[LLVM上流ソース署名検証](LLVM_SOURCE_PROVENANCE_2026-10-06.md)で、公式sourceの固定identity/issuer/ref/source・signer digest/GitHub-hosted runner条件のcrypto正例終了0、誤identity/digest/issuerの負例終了1を確認。先行source走査168,946件/約2.02GB/PBDS文字列0を再確認し、現在39b43286の267 ELFも先行1aとbytes差分0。ただしsource tarball生成の来歴でありconda/wheelのcompile・compiler headers/生成物/他native閉包は未証明。Debian signed APT policyで修正candidateなし、OS新規scan/指摘抑制/リスク受容なし・HIGH3未解消。先行39 CIは5成功/Playwright290成功・flaky1で失敗、アプリコード同一の後続5deb9b6dは全6成功/pytest2,285成功85省略/Playwright291成功と区別する。main/AWS追加反映・承認拡張なし、正式公開No-Goを維持する。

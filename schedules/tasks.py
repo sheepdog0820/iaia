@@ -36,6 +36,12 @@ GOOGLE_SHEETS_PARTIAL_DELIVERY_FAILED_MESSAGE = (
     "連携状態と出力先を確認して再試行してください。"
 )
 GOOGLE_SHEETS_INVALID_RESPONSE_MESSAGE = "Google Sheetsの応答形式を確認できません。出力先を確認して再試行してください。"
+GOOGLE_SHEETS_NOT_AUTHORIZED_MESSAGE = "Google Sheets連携が無効、または出力する権限がありません。"
+
+
+def _google_sheets_export_authorized(user_id):
+    integration = GoogleIntegration.objects.filter(user_id=user_id, user__is_active=True, sheets_enabled=True).first()
+    return bool(integration and integration.has_scope(GoogleIntegration.REQUIRED_SHEETS_SCOPE))
 
 
 def _broker_available():
@@ -405,9 +411,8 @@ def export_google_sheet(
     values,
 ):
     job = AsyncJob.objects.get(pk=job_id, owner_id=user_id)
-    integration = GoogleIntegration.objects.filter(user=job.owner, sheets_enabled=True).first()
-    if not job.owner.is_active or not integration or not integration.has_scope(GoogleIntegration.REQUIRED_SHEETS_SCOPE):
-        job.mark_failed("Google Sheets連携が無効、または出力する権限がありません。")
+    if not _google_sheets_export_authorized(user_id):
+        job.mark_failed(GOOGLE_SHEETS_NOT_AUTHORIZED_MESSAGE)
         return "not-authorized"
     job.mark_running(10)
     try:
@@ -430,6 +435,12 @@ def export_google_sheet(
     completed_rows = 0
     updated_cells = 0
     for chunk in chunks:
+        if not _google_sheets_export_authorized(user_id):
+            error = GOOGLE_SHEETS_NOT_AUTHORIZED_MESSAGE
+            if completed_rows:
+                error += "途中まで出力されている可能性があります。出力先を確認してください。"
+            job.mark_failed(error)
+            return "not-authorized"
         chunk_range = offset_sheet_start_range(range_name, completed_rows)
         try:
             response = requests.put(
