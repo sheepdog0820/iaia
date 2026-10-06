@@ -14,6 +14,7 @@ from accounts.models import CharacterSheet, DiscordDelivery, GroupDiscordSetting
 
 from .google_job_connection import google_connection_binding, google_job_connection_matches, google_job_values_match
 from .google_job_lifecycle import (
+    GoogleJobInactive,
     claim_google_job_start,
     fail_google_job,
     google_job_can_start,
@@ -44,6 +45,10 @@ GOOGLE_CALENDAR_DELIVERY_FAILED_MESSAGE = (
     "Google Calendar APIとの通信に失敗しました。連携状態を確認して再試行してください。"
 )
 GOOGLE_CALENDAR_NOT_AUTHORIZED_MESSAGE = "Google Calendar連携が無効、またはセッションを同期する権限がありません。"
+GOOGLE_CALENDAR_SYNC_CHANGED_MESSAGE = (
+    "Google Calendarの同期情報が削除されたか変更されました。"
+    "予定が変更されている可能性があるため、Google Calendarを確認してください。"
+)
 GOOGLE_SHEETS_DELIVERY_FAILED_MESSAGE = (
     "Google Sheets APIとの通信に失敗しました。連携状態と出力先を確認して再試行してください。"
 )
@@ -329,6 +334,28 @@ class _GoogleConnectionChanged(Exception):
     pass
 
 
+def _current_calendar_sync(sync):
+    return GoogleCalendarSync.objects.filter(
+        pk=sync.pk, user_id=sync.user_id, session_id=sync.session_id, created_at=sync.created_at
+    )
+
+
+def _require_current_calendar_sync(sync, job):
+    if not _current_calendar_sync(sync).exists():
+        fail_google_job(job, GOOGLE_CALENDAR_SYNC_CHANGED_MESSAGE)
+        raise GoogleJobInactive
+
+
+def _save_current_calendar_sync(sync, job, fields):
+    values = {field: getattr(sync, field) for field in fields if field != "updated_at"}
+    values["updated_at"] = timezone.now()
+    if not _current_calendar_sync(sync).update(**values):
+        # Never recreate the target or overwrite a same-PK replacement. If the job
+        # already failed, its original failure wins and the inactive guard stops retry.
+        fail_google_job(job, GOOGLE_CALENDAR_SYNC_CHANGED_MESSAGE)
+        raise GoogleJobInactive
+
+
 def _google_calendar_sync_integration(sync):
     integration = GoogleIntegration.objects.filter(
         user_id=sync.user_id, user__is_active=True, calendar_enabled=True
@@ -344,6 +371,7 @@ def _google_calendar_sync_integration(sync):
 
 def _calendar_request(job, sync, connection, credential, access_token, send, url, **kwargs):
     require_running_google_job(job)
+    _require_current_calendar_sync(sync, job)
     current = _google_calendar_sync_integration(sync)
     if not current:
         raise _GoogleCalendarNotAuthorized
@@ -352,6 +380,7 @@ def _calendar_request(job, sync, connection, credential, access_token, send, url
     ):
         raise _GoogleConnectionChanged
     require_running_google_job(job)
+    _require_current_calendar_sync(sync, job)
     return send(url, **kwargs)
 
 
@@ -367,7 +396,7 @@ def _fail_calendar_authorization(sync, job, error=GOOGLE_CALENDAR_NOT_AUTHORIZED
     fail_google_job(job, error)
     sync.status = GoogleCalendarSync.Status.FAILED
     sync.last_error = error
-    sync.save(update_fields=["status", "last_error", "updated_at"])
+    _save_current_calendar_sync(sync, job, ["status", "last_error", "updated_at"])
     return result
 
 
@@ -397,6 +426,7 @@ def sync_google_calendar(self, sync_id, job_id):
     ):
         fail_google_job(job, GOOGLE_JOB_TARGET_FAILED_MESSAGE)
         return "invalid-target"
+    _require_current_calendar_sync(sync, job)
     connection = _google_calendar_sync_integration(sync)
     if not connection:
         return _fail_calendar_authorization(sync, job)
@@ -412,7 +442,7 @@ def sync_google_calendar(self, sync_id, job_id):
         fail_google_job(job, error)
         sync.status = GoogleCalendarSync.Status.FAILED
         sync.last_error = error
-        sync.save(update_fields=["status", "last_error", "updated_at"])
+        _save_current_calendar_sync(sync, job, ["status", "last_error", "updated_at"])
         return "missing-token"
     cancelling = sync.session.status == "cancelled"
     if sync.session.date is None and not cancelling:
@@ -420,7 +450,7 @@ def sync_google_calendar(self, sync_id, job_id):
         fail_google_job(job, error)
         sync.status = GoogleCalendarSync.Status.FAILED
         sync.last_error = error
-        sync.save(update_fields=["status", "last_error", "updated_at"])
+        _save_current_calendar_sync(sync, job, ["status", "last_error", "updated_at"])
         return "undated"
 
     headers = {
@@ -553,7 +583,7 @@ def sync_google_calendar(self, sync_id, job_id):
         fail_google_job(job, error)
         sync.status = GoogleCalendarSync.Status.FAILED
         sync.last_error = error
-        sync.save(update_fields=["status", "last_error", "updated_at"])
+        _save_current_calendar_sync(sync, job, ["status", "last_error", "updated_at"])
         if isinstance(exc, requests.RequestException):
             retry_error = requests.RequestException(GOOGLE_CALENDAR_DELIVERY_FAILED_MESSAGE)
             raise self.retry(exc=retry_error, countdown=2**self.request.retries) from None
@@ -561,14 +591,16 @@ def sync_google_calendar(self, sync_id, job_id):
 
     sync.last_error = ""
     sync.synced_at = timezone.now()
-    sync.save(
-        update_fields=[
+    _save_current_calendar_sync(
+        sync,
+        job,
+        [
             "external_event_id",
             "status",
             "last_error",
             "synced_at",
             "updated_at",
-        ]
+        ],
     )
     succeed_google_job(
         job,
