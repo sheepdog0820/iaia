@@ -189,12 +189,12 @@ class AsyncJobRetryView(APIView):
             expires_at=timezone.now() + timedelta(days=7),
         )
         queued = queue_google_calendar_sync(sync.pk, str(retry_job.pk))
-        if not queued:
+        if queued is False:
             fail_unstarted_google_dispatch(retry_job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE, sync)
         return Response(
             {
                 "job_id": retry_job.pk,
-                "queued": queued,
+                "queued": queued is True,
                 "retry_of": job.pk,
             },
             status=status.HTTP_202_ACCEPTED,
@@ -235,12 +235,12 @@ class AsyncJobRetryView(APIView):
             range_name,
             values,
         )
-        if not queued:
+        if queued is False:
             fail_unstarted_google_dispatch(retry_job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
         return Response(
             {
                 "job_id": retry_job.pk,
-                "queued": queued,
+                "queued": queued is True,
                 "retry_of": job.pk,
             },
             status=status.HTTP_202_ACCEPTED,

@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[Google DB確定後投入](GOOGLE_DISPATCH_COMMIT_2026-10-06.md)で、Calendar/Sheets/両retry/自動同期のatomic内配送を外側commit後まで待ち、rollback/savepoint rollbackで破棄、確定待ちはqueued=false/job queuedを維持した。状態再検査/Sheets引数固定/確定後失敗の条件付き記録を追加し、初回RED30失敗11エラー（MagicMock task IDのfixture要因を含む）を保持、最終PG265成功/省略0、SQLite256成功/PG専用9省略、製品差分34文20経路100%/除外0。PG独立connectionのcommit可視性を確認したが、今回の別Celery/Redis/HTTP/通常配布物/Scout/ブラウザー/AWSではない。専用PG/tmpfs撤去・証拠/別作業保持、schema/共有DB/main/AWS/Secrets/課金/容量変更なし。新GitHub Issue作成は403、CLI未認証のため下書き保存に留まり未作成。親28ac CI全6成功と今回CIを区別。commit後停止へのdurable outbox、世代fence/結果照合/限定回復・外部連携/運用/性能/復旧等とOS HIGH3は未達で正式公開No-Goを維持する。
+
 後続の[28ac通常配布物・実worker結果不明](GOOGLE_WRITE_RUNTIME_2026-10-06.md)で、固定通常imageの707選定source/assets・111 packages/依存先行10層を照合し、通常Google214/設定70の非重複284成功・省略0を確認。実PG/Redis/Celery/Requestsでsolo/prefork各14の28ケース（結果不明22/成功6）、実行期限内・時刻注入/killなし、42 HTTP/合成適用28/エラー0、重複28配送から追加HTTP0・状態保持・retry400を実測した。回帰由来の不在jobメッセージ1件は追加実workerでHTTP0/invalid-job拒否し、queue0を確認して11 container/tmpfs撤去・証拠/別作業保持。新規Scout1.26はHIGH3含む39指摘/終了2で未合格、アプリ28ac CIは20:18頃5成功/Playwright実行中と今回記録CIを区別する。main/AWS/共有DB/schema/Secrets/課金/容量変更・承認拡張なし。outbox/同期世代/結果照合・限定回復/実外部連携/運用/性能/復旧等は未達で正式公開No-Goを維持する。
 
 後続の[Google書き込み応答喪失・結果不明](GOOGLE_WRITE_UNCERTAINTY_2026-10-06.md)で、書き込み時の通信例外/408/5xx・不正な成功ACK・先行Sheets chunk適用後の後続拒否を結果不明へ分類し、自動再送/同一job再配送/通常retry APIの再適用を止めた。REDの10失敗/20エラー、初回回帰の両DB各5失敗/6エラー・後続SQLiteの正常loopback1失敗を保持してfixture/期待値を修正。最終PG253成功/省略0、SQLite245成功/PG専用8省略、製品差分30文8経路100%/除外0。新規実Requests loopback適用後切断2ケース・日本語固定案内・状態保持/追加HTTP0を確認したが、実Redis/別Celery worker・ASGI・Googleではない。専用PG/tmpfs撤去・証拠/別作業保持、schema/共有DB/main/AWS/Secrets/課金/容量変更なし。通常配布物/新規Scout/今回CIは未検証、outbox/同期世代/限定回復・外部連携/運用/性能/復旧等と先行HIGH3は未達で正式公開No-Goを維持する。

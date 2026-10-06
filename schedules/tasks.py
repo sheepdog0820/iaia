@@ -2,12 +2,15 @@ import logging
 import re
 import socket
 import uuid
+from copy import deepcopy
 from datetime import timedelta
+from functools import partial
 from urllib.parse import quote, urlparse
 
 import requests
 from celery import shared_task
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 
 from accounts.models import CharacterSheet, DiscordDelivery, GroupDiscordSettings
@@ -140,7 +143,7 @@ def _store_google_task_id(job_id, result):
         logger.warning("Google task was published but its task ID could not be saved.")
 
 
-def queue_google_calendar_sync(sync_id, job_id):
+def _publish_google_calendar_sync(sync_id, job_id):
     if not getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False) and not _broker_available():
         logger.warning("Google sync was not queued because the broker is unavailable.")
         return False
@@ -153,7 +156,7 @@ def queue_google_calendar_sync(sync_id, job_id):
     return True
 
 
-def queue_google_sheet_export(job_id, user_id, spreadsheet_id, range_name, values):
+def _publish_google_sheet_export(job_id, user_id, spreadsheet_id, range_name, values):
     if not getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False) and not _broker_available():
         logger.warning("Google Sheets export was not queued because the broker is unavailable.")
         return False
@@ -164,6 +167,54 @@ def queue_google_sheet_export(job_id, user_id, spreadsheet_id, range_name, value
         return False
     _store_google_task_id(job_id, result)
     return True
+
+
+def _queue_google_after_commit(job_id, publish, sync_id=None):
+    """True/False confirms immediate dispatch; None means commit is still pending.
+
+    This callback is not a durable outbox: process loss after commit still needs
+    persistent recovery. Never publish a job that can disappear on rollback.
+    """
+    if not transaction.get_connection().in_atomic_block:
+        if not transaction.get_autocommit():
+            logger.warning("Google dispatch requires autocommit or an atomic transaction.")
+            return False
+        return publish()
+    job = AsyncJob.objects.filter(pk=job_id).first()
+    if job is None:
+        return False
+    sync = GoogleCalendarSync.objects.filter(pk=sync_id).first() if sync_id is not None else None
+
+    def dispatch_committed_job():
+        try:
+            if not AsyncJob.objects.filter(
+                pk=job.pk,
+                owner_id=job.owner_id,
+                job_type=job.job_type,
+                status=AsyncJob.Status.QUEUED,
+                started_at__isnull=True,
+                expires_at__gt=timezone.now(),
+            ).exists():
+                return
+            if not publish():
+                fail_unstarted_google_dispatch(job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE, sync)
+        except Exception:
+            # Commit is already final. Do not turn a committed request into a 500
+            # or log provider payloads/DB exceptions; a durable relay is still needed.
+            logger.error("Unable to finish Google dispatch after database commit.")
+
+    transaction.on_commit(dispatch_committed_job)
+    return None
+
+
+def queue_google_calendar_sync(sync_id, job_id):
+    return _queue_google_after_commit(job_id, partial(_publish_google_calendar_sync, sync_id, job_id), sync_id)
+
+
+def queue_google_sheet_export(job_id, user_id, spreadsheet_id, range_name, values):
+    return _queue_google_after_commit(
+        job_id, partial(_publish_google_sheet_export, job_id, user_id, spreadsheet_id, range_name, deepcopy(values))
+    )
 
 
 def schedule_session_google_syncs(session):
@@ -189,7 +240,7 @@ def schedule_session_google_syncs(session):
             payload={"sync_id": sync.pk, "google_connection": google_connection_binding(integration)},
             expires_at=timezone.now() + timedelta(days=7),
         )
-        if not queue_google_calendar_sync(sync.pk, str(job.pk)):
+        if queue_google_calendar_sync(sync.pk, str(job.pk)) is False:
             fail_unstarted_google_dispatch(job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE, sync)
 
 

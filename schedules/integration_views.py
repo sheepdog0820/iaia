@@ -238,7 +238,7 @@ class GoogleCalendarSyncView(APIView):
             expires_at=timezone.now() + timedelta(days=7),
         )
         queued = queue_google_calendar_sync(sync.pk, str(job.pk))
-        if not queued:
+        if queued is False:
             fail_unstarted_google_dispatch(job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE, sync)
         sync_status = (
             GoogleCalendarSync.objects.filter(
@@ -251,7 +251,7 @@ class GoogleCalendarSyncView(APIView):
             {
                 "job_id": job.pk,
                 "sync_status": sync_status,
-                "queued": queued,
+                "queued": queued is True,
             },
             status=status.HTTP_202_ACCEPTED,
         )
@@ -386,9 +386,9 @@ class GoogleSheetsExportView(APIView):
             range_name,
             values,
         )
-        if not queued:
+        if queued is False:
             fail_unstarted_google_dispatch(job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
         return Response(
-            {"job_id": job.pk, "queued": queued},
+            {"job_id": job.pk, "queued": queued is True},
             status=status.HTTP_202_ACCEPTED,
         )

@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from django.db import DatabaseError, close_old_connections, connection
 from django.db.models.query import QuerySet
-from django.test import TestCase, TransactionTestCase, override_settings
+from django.test import TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -59,7 +59,7 @@ class GoogleDispatchStateFixtures(GoogleJobStartFixtures):
 
 
 @override_settings(CELERY_TASK_ALWAYS_EAGER=False)
-class GoogleDispatchStateTest(GoogleDispatchStateFixtures, TestCase):
+class GoogleDispatchStateTest(GoogleDispatchStateFixtures, TransactionTestCase):
     def test_publish_exception_preserves_started_completed_and_worker_failed_jobs_on_all_routes(self):
         for route in self.routes:
             for outcome in ("running", "succeeded", "failed"):
