@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[背景透過SDK再試行後の拒否判定](BACKGROUND_RETRY_OUTCOME_2026-10-06.md)で、timeout/500後の最終400/403だけを確定失敗として元画像を削除する問題を新規8 test中6 failureで再現・修正。実SDKのRetryAttemptsを観測し、再試行後のClientErrorは既存の結果不明/入力保持202、初回400/403は既存失敗503を維持。Windows SQLite194成功/PG専用16省略・隔離PG210成功/省略0、変更関数36文/10分岐・新規108文/8分岐100%。重複409・遅いworker完了・既存timeoutも確認。新規moduleをPG CIへ追加したが、今回全CI/通常配布物/実HTTP・AWS/実S3等は未確認。OS監査再実行なし・HIGH未解消、main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。
+
 後続の[LLVM同梱レシピ・ソース調査](LLVM_SOURCE_BOUNDARY_2026-10-06.md)で公開llvmdev manylinux_1 archiveの全体ハッシュ・実同梱build_number1/patches:nullを確認し、後のwheelソースrecipe（build0/Windows patchあり）と区別した。指定LLVM公式sourceの全体ハッシュ一致、通常168,946ファイル/約2.02GBでPBDS関連4文字列一致0、検出器の境界/binary正例とハッシュ不一致拒否を確認。追加調査で5月run26481208591と固定f3dbf3bbのrecipe/build script完全一致を確認したが、実ログHTTP410/artifacts0、同梱info/gitは空、workflowの可変image/solver入力が残る。19 linkは未追跡で、当時取得archiveのdigest・全compiler headers/生成物/他native閉包・署名付きsource attestationは未証明。文字列不在やrun成功をPBDS非該当/HIGH解消にせず、OS再スキャンなし・最新39指摘（HIGH3/MEDIUM1/LOW35、Python0）/終了2・正式公開No-Goを維持。main/AWS未反映・既存承認へ追加しない。
 
 後続ba51bdd8の[通常配布物・実HTTP無効化競合検証](BACKGROUND_ACTIVE_RUNTIME_BA51BDD8_2026-10-06.md)で680選定ファイル/entrypoint一致・source/SDK差替えなしPG153成功/省略0・実HTTP25確認を完了。失効/削除/無効化commit/無効化rollbackの実Web行ロック待機4件を観測し、無効化確定後の日本語403・job/画像/dispatch0とrollback後202、初期無効Token401、作成後無効化時のjob保持/復帰後参照を確認した。回帰初回の誤指定3 import errorと診断summary/ログ検索の誤りは訂正・記録し、初回全成功とは扱わない。候補CI全6成功・pytest2248成功/85省略/全体表示88%・Playwright291成功。新規全OS監査39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2で未合格。実AWS/S3/worker運用/実課金/外部連携/性能/復旧等は未達、main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。以下のCI/配布物未確認は各先行記録時点として区別する。
