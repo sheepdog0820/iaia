@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[Google投入結果不明時の画面案内](GOOGLE_DISPATCH_UI_2026-10-06.md)で、Calendar/Sheets/再試行のqueued=falseや通信切断/5xxを未配送と断言せず、ジョブID保持・履歴確認へ統一した。一覧更新失敗の分離・Sheets例外処理/再入抑止・警告濃色化を追加し、REDの画面1失敗/修正前cache36件31失敗、最終3ブラウザー135成功（新規108・retry/skip/flaky0）/関連回帰80成功、変更6 JS断片のV8 43区間未実行0・画面対比13.706:1を確認。初期helper/fixture/起動前接続の失敗は区別して保存した。主要6画面・戻る/再読み込み・未認証302/401/404・pageerror0、表示scriptとソース一致、専用サーバー/合成DB削除・証拠/別作業保持。親939118d7 CI全6成功、今回全CI/通常配布物/実Google未確認。OS HIGH3、outbox/lease/常設運用/外部連携/課金/性能/復旧等は未達で、main/AWS/schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。以下は各先行記録時点の状態として区別する。
+
 後続の[隔離Redis・実Celery配送検証](GOOGLE_REAL_BROKER_2026-10-06.md)で、通常29ef38a6 image・network noneの専用PG/Redis・独立2 workerを用い、Calendar/Sheets各5ケース計10成功を確認した。通常/同一job二重配送/投入後呼出元例外/診断ID保存失敗/実HTTP応答消失後retryを実受信付きで検証し、二重配送は各外部変更1回、queued=falseでも成功状態を保全、Calendar応答消失は1イベント、Sheetsは同一PUT2回（exactly-once保証なし）。providerだけはloopback合成、投入後例外/ID保存失敗は限定fault注入で、実Google/Redis TCP応答消失/worker crash・outbox/lease/永続運用等は未証明。初回helperの許可外host失敗を記録・訂正後に終了0、専用6 container/tmpfs合成データ削除・証拠/別作業保持。17:37 JST時点製品29ef38a6 CI全6成功・先行be6d3b76 CI5成功/Playwright実行中、今回OS監査なし・直前HIGH3未合格。main/AWS/schema/Secrets/課金/容量変更・承認拡張なし、正式公開No-Goを維持する。以下は各先行記録時点の状態として区別する。
 
 後続の[29ef38a6通常配布物検証](GOOGLE_RUNTIME_29EF38A6_2026-10-06.md)で、対象削除・投入状態保全の修正を完全SHA archiveから通常Dockerへ構築した。選定703 source/assetsの欠落/追加/SHA不一致0・111 packages/先行10層一致、read-only通常entrypoint/no overlayでGoogle23 modules190成功・設定6 modules70成功（非重複260/省略0、実PG専用7/Calendar loopback8含む）。新規Scout1.26全OS監査は39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2、先行CVE/severity/package差分0で未合格。固定候補CI37433985459は17:17 JST時点4成功/2実行中、先行72136cf9 CI全6成功を確認済み。今回専用PG/container/tmpfs合成データ削除・証拠/別作業13項目保持、main/AWS/schema/Secrets/課金/容量変更・承認拡張なし、通常配布物検証を正式公開全条件達成とせずNo-Goを維持する。以下は各先行記録時点の状態として区別する。

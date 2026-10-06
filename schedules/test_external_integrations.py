@@ -197,10 +197,10 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertContains(response, "ICS購読URLを再発行")
         self.assertContains(response, "通知対象イベント")
         self.assertContains(response, "連携ジョブ状況")
-        self.assertContains(response, "再試行を開始できませんでした。時間をおいて、もう一度お試しください。")
+        self.assertContains(response, "type === 'warning' ? ' text-dark' : ''")
         self.assertContains(
             response,
-            "Google Calendar同期を開始できませんでした。時間をおいて、もう一度お試しください。",
+            "ジョブを作成しましたが、開始状況を確認できません。重複を避けるため、同じ操作を繰り返す前にジョブ履歴で結果を確認してください。",
         )
         self.assertContains(
             response,
@@ -208,12 +208,14 @@ class GoogleIntegrationTestCase(APITestCase):
         )
         self.assertContains(
             response,
-            "再試行は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。",
+            "一覧を更新できませんでした。ページを再読み込みして結果を確認してください。",
         )
         self.assertContains(
             response,
-            "Google Calendar同期は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。",
+            "操作結果を確認できませんでした。処理が進んでいる可能性があります。",
         )
+        self.assertNotContains(response, "Google Calendar同期を開始できませんでした。")
+        self.assertNotContains(response, "再試行を開始できませんでした。")
         self.assertContains(
             response,
             "Discord通知の再送は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。",

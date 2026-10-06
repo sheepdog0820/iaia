@@ -230,6 +230,7 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    'use strict';
     const message = document.getElementById('integration-message');
     const groupSelects = [
         document.getElementById('discord-group'),
@@ -240,7 +241,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function showMessage(text, type = 'success') {
         message.textContent = text;
-        message.className = `alert alert-${type}`;
+        message.className = `alert alert-${type}${type === 'warning' ? ' text-dark' : ''}`;
     }
 
     function rows(data) {
@@ -309,6 +310,45 @@ document.addEventListener('DOMContentLoaded', function() {
                 </td>
             </tr>`;
         }).join('');
+    }
+
+    async function reportGoogleDispatch(data, acceptedMessage) {
+        const uncertain = data.queued === false;
+        const text = uncertain
+            ? `ジョブを作成しましたが、開始状況を確認できません。重複を避けるため、同じ操作を繰り返す前にジョブ履歴で結果を確認してください。ジョブID: ${data.job_id}`
+            : `${acceptedMessage}: ${data.job_id}`;
+        showMessage(text, uncertain ? 'warning' : 'success');
+        try {
+            await loadJobs();
+        } catch (refreshError) {
+            showMessage(
+                `${text} 一覧を更新できませんでした。ページを再読み込みして結果を確認してください。`,
+                'warning'
+            );
+        }
+    }
+
+    function reportGoogleDispatchError(error) {
+        const status = error?.response?.status;
+        if (!status || status >= 500) {
+            showMessage(
+                '操作結果を確認できませんでした。処理が進んでいる可能性があります。重複を避けるため、同じ操作を繰り返す前にジョブ履歴を更新して結果を確認してください。',
+                'warning'
+            );
+        } else if (status === 401 || status === 403) {
+            showMessage(
+                'ログイン状態または操作権限を確認できません。再ログインしてから連携状態を確認してください。',
+                'danger'
+            );
+        } else {
+            const detail = error?.response?.data?.detail;
+            showMessage(
+                typeof detail === 'string'
+                    ? displayFailureMessage(detail)
+                    : '操作を受け付けられませんでした。入力内容と連携状態を確認してください。',
+                'danger'
+            );
+        }
     }
 
     async function loadGroups() {
@@ -432,34 +472,13 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('link-source-group').addEventListener('change', loadGroupLinks);
     document.getElementById('integration-jobs').addEventListener('click', async function(event) {
         const button = event.target.closest('[data-retry-job]');
-        if (!button) return;
+        if (!button || button.disabled) return;
         button.disabled = true;
         try {
             const response = await axios.post(`/api/jobs/${button.dataset.retryJob}/retry/`);
-            showMessage(
-                response.data.queued === false
-                    ? '再試行を開始できませんでした。時間をおいて、もう一度お試しください。'
-                    : `再試行ジョブを作成しました: ${response.data.job_id}`,
-                response.data.queued === false ? 'warning' : 'success'
-            );
-            try {
-                await loadJobs();
-            } catch (refreshError) {
-                if (response.data.queued !== false) {
-                    showMessage(
-                        '再試行は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。',
-                        'warning'
-                    );
-                }
-            }
+            await reportGoogleDispatch(response.data, '再試行ジョブを作成しました');
         } catch (error) {
-            const detail = error?.response?.data?.detail;
-            showMessage(
-                typeof detail === 'string'
-                    ? displayFailureMessage(detail)
-                    : '再試行を受け付けられませんでした。連携状態を確認し、もう一度お試しください。',
-                'danger'
-            );
+            reportGoogleDispatchError(error);
         } finally {
             button.disabled = false;
         }
@@ -588,33 +607,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.getElementById('sync-google-calendar').addEventListener('click', async function() {
+        if (this.disabled) return;
         this.disabled = true;
         try {
             const response = await axios.post(`/api/sessions/${sessionSelect.value}/google-calendar/sync/`);
-            showMessage(
-                response.data.queued === false
-                    ? 'Google Calendar同期を開始できませんでした。時間をおいて、もう一度お試しください。'
-                    : `同期ジョブを作成しました: ${response.data.job_id}`,
-                response.data.queued === false ? 'warning' : 'success'
-            );
-            try {
-                await loadJobs();
-            } catch (refreshError) {
-                if (response.data.queued !== false) {
-                    showMessage(
-                        'Google Calendar同期は受け付けましたが、一覧を更新できませんでした。ページを再読み込みしてください。',
-                        'warning'
-                    );
-                }
-            }
+            await reportGoogleDispatch(response.data, '同期ジョブを作成しました');
         } catch (error) {
-            const detail = error?.response?.data?.detail;
-            showMessage(
-                typeof detail === 'string'
-                    ? displayFailureMessage(detail)
-                    : 'Google Calendar同期を受け付けられませんでした。連携状態を確認し、もう一度お試しください。',
-                'danger'
-            );
+            reportGoogleDispatchError(error);
         } finally {
             this.disabled = false;
         }
@@ -690,12 +689,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.getElementById('export-google-sheets').addEventListener('click', async function() {
-        const response = await axios.post('/api/character-sheets/google-sheets/export/', {
-            spreadsheet_id: document.getElementById('sheets-spreadsheet-id').value.trim(),
-            range: document.getElementById('sheets-range').value.trim().replace(/:.*$/, '1'),
-        });
-        showMessage(`出力ジョブを作成しました: ${response.data.job_id}`);
-        await loadJobs();
+        if (this.disabled) return;
+        this.disabled = true;
+        try {
+            const response = await axios.post('/api/character-sheets/google-sheets/export/', {
+                spreadsheet_id: document.getElementById('sheets-spreadsheet-id').value.trim(),
+                range: document.getElementById('sheets-range').value.trim().replace(/:.*$/, '1'),
+            });
+            await reportGoogleDispatch(response.data, '出力ジョブを作成しました');
+        } catch (error) {
+            reportGoogleDispatchError(error);
+        } finally {
+            this.disabled = false;
+        }
     });
 
     document.querySelectorAll('[data-copy]').forEach(button => {
