@@ -112,6 +112,47 @@ class GoogleJobDispatch(models.Model):
         return f"Google配送 {self.pk}"
 
 
+class GoogleWriteTarget(models.Model):
+    """Stable resource counter; intentionally independent of job/owner cleanup."""
+
+    resource_key = models.CharField(max_length=64, primary_key=True, editable=False)
+    last_sequence = models.PositiveBigIntegerField(default=0, editable=False)
+
+    def __str__(self):
+        return "Google同期対象"
+
+
+class GoogleWriteAdmission(models.Model):
+    """Sealed receipt of admission, not yet an execution authorization."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    job = models.OneToOneField(AsyncJob, on_delete=models.CASCADE, related_name="google_write_admission")
+    owner_id_snapshot = models.PositiveBigIntegerField(editable=False)
+    job_type_snapshot = models.CharField(max_length=80, editable=False)
+    job_created_at = models.DateTimeField(editable=False)
+    payload_digest = models.CharField(max_length=64, editable=False)
+    allocation_digest = models.CharField(max_length=64, editable=False)
+    snapshot_binding = models.CharField(max_length=64, editable=False)
+    ciphertext = models.TextField(editable=False)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    def __str__(self):
+        return f"Google受付 {self.pk}"
+
+
+class GoogleWriteReservation(models.Model):
+    admission = models.ForeignKey(GoogleWriteAdmission, on_delete=models.CASCADE, related_name="reservations")
+    target = models.ForeignKey(GoogleWriteTarget, on_delete=models.PROTECT, related_name="reservations")
+    sequence = models.PositiveBigIntegerField(editable=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["target", "sequence"], name="google_write_target_sequence_unique"),
+            models.UniqueConstraint(fields=["admission", "target"], name="google_write_admission_target_unique"),
+            models.CheckConstraint(condition=models.Q(sequence__gt=0), name="google_write_sequence_positive"),
+        ]
+
+
 class CalendarSubscription(models.Model):
     user = models.OneToOneField(
         CustomUser,

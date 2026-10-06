@@ -8,6 +8,8 @@ Google Calendar/Sheetsを正式公開できる品質にするため、DB確定�
 
 ## 現在の部分実装と証拠
 
+- [受付台帳・固定snapshot基盤](GOOGLE_WRITE_ADMISSION_2026-10-06.md): 内部3テーブル・確定FIFO採番・暗号化snapshot・rollback/同job冪等/旧raw DELETE互換を追加。最終PG368成功/省略0・SQLite349成功/PG専用19省略、製品差分178文48分岐先100%/除外0・新規PG452文44分岐先100%、Python8品質/Bandit0・schema差分0。実PG独立接続のsource/対象lock待機と固定snapshotを観測し、先行RED/旧migration復元不足による4エラーを保持して修正。専用PG/tmpfs撤去・証拠/別作業保持。全5producer/worker/HTTP/receipt/対象待機は未接続で、共有対象の排他・unknown保持の完成ではない。新migration0059/0060は隔離DBのみ、通常新配布物/実Google/保持方針等は残る。共有DB/main/AWS/Secrets/課金/容量変更・承認拡張なし、No-Goを維持する。
+
 - [対象単位の世代・排他設計](GOOGLE_TARGET_FENCE_DESIGN_2026-10-06.md): a91be6b8で別Calendar jobの二重RUNNING/HTTP許可、古いreceiptによる新PENDING上書き、Sheets UNCERTAIN後の別job書き込みをSQLite/PG各3ケースで再現。mock HTTP・同一接続の順序制御であり、安全性合格や実worker競合の証拠ではない。対象FIFO・immutable snapshot・job削除で消えない未解決holder・共有spreadsheet排他・legacy/drain・限定回復の不変条件と15受入項目を整理。文書のみで実装/配備未完了、No-Goを維持。
 
 - [手動再試行の元ジョブ停止](GOOGLE_RETRY_SUPERSESSION_2026-10-06.md): 同じ元FAILED行の再試行受付とworker開始を行ロックで直列化し、元payloadの非公開停止markerを後続作成と同時保存する。二重受付409・後続削除後の元再開拒否・旧relay/worker/Calendar保存の拒否を実装。通常の新規同期・同一予定/重なるSheets領域の共有世代排他、結果照合/限定回復は残り、全体完了とはしない。

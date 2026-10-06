@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[Google受付台帳・固定snapshot基盤](GOOGLE_WRITE_ADMISSION_2026-10-06.md)で、内部3テーブル・対象共有FIFO採番・改変検知付き暗号化snapshot・rollback/旧raw DELETE互換を追加。最終PG368成功/省略0・SQLite349成功/PG専用19省略、製品差分178文48分岐先100%/除外0・新規PG452文44分岐先100%、Python8品質/Bandit0・schema差分0。実PG独立接続の行lock待機/固定snapshotを観測し、先行RED/旧migration復元不足による4エラーを保持して修正、専用PG/tmpfs撤去・証拠/別作業保持。全5producer/worker/HTTP/receipt/対象待機は未接続で、対象実行holder・unknown保持の完成ではない。新migration0059/0060は隔離DBのみ、通常新配布物/実Google/保持方針等は未確認。親57a240f4/先行a91 CI全6成功と今回候補CIを区別し、共有DB/main/AWS/Secrets/課金/容量変更・favicon承認拡張なし。先行3件の対象競合不足・OS HIGH3・その他正式公開条件は残り、No-Goを維持する。
+
 後続の[Google対象単位の世代・排他設計](GOOGLE_TARGET_FENCE_DESIGN_2026-10-06.md)で、a91be6b8の別Calendar job二重RUNNING/HTTP許可・古いreceiptによる後続PENDING上書き・Sheets結果不明後の別job送信をSQLite/専用PG各3ケースで再現した。これはmock HTTP/同一接続の順序制御による不足再現であり、安全性の合格ではない。FIFO受付・immutable snapshot・削除/期限/再連携で消えない未解決holder・共有spreadsheet排他・移行/drain/限定回復を設計候補と15受入条件へ整理したが、製品実装/新schema/通常配布物/実worker競合/実Googleは未完了。専用PG/tmpfsを撤去し証拠/別作業保持、main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし。親a91 CIは23:03頃4成功/2実行中と今回文書候補CIを区別し、OS HIGH3とその他未達を含めNo-Goを維持する。
 
 後続の[Google手動再試行の元ジョブ停止](GOOGLE_RETRY_SUPERSESSION_2026-10-06.md)で、同じ元FAILED行のworker開始と再試行受付を行ロックで直列化し、非公開の後続受付markerを同時保存、二重受付409・後続削除後の元再開拒否・古いrelay/Calendar同期保存拒否を追加した。実PG接続PIDの待機観測で二重POSTと両開始順序を確認し、最終PG336成功/省略0・SQLite322成功/PG専用14省略、製品差分35文12分岐先100%・新規PGテスト376文48分岐100%、8Python品質/Bandit指摘0・schema差分0を確認。初回のfixture/旧期待値/同期対象削除時の分類rollbackは保存して修正、専用PG/tmpfs撤去・証拠/別作業保持。これは明示的な手動再試行系列の部分対策で、新規同期同士/同一予定・重なるSheets領域の共有世代排他、結果照合/限定回復、通常新配布物・実Google・常設運用は残る。親508ec5f0 CI全6成功と今回候補CIは区別。新schema/依存・main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし。OS HIGH3とその他正式公開条件も未達でNo-Goを維持する。

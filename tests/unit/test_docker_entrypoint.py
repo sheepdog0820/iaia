@@ -288,6 +288,13 @@ class DockerEntrypointTests(SimpleTestCase):
 
         self.assertIn("schedules/test_google_retry_supersession.py", commands)
 
+    def test_production_database_job_runs_google_write_admission_and_migration_tests(self):
+        workflow = self.load_ci_workflow()
+        commands = "\n".join(step.get("run", "") for step in workflow["jobs"]["production-database"]["steps"])
+
+        self.assertIn("schedules/test_google_write_admission.py", commands)
+        self.assertIn("schedules/test_google_write_admission_migrations.py", commands)
+
     def test_python_version_is_consistent_for_release_paths(self):
         dockerfile = (self.ROOT / "Dockerfile").read_text(encoding="utf-8")
         workflow = (self.ROOT / ".github" / "workflows" / "django-ci.yml").read_text(encoding="utf-8")

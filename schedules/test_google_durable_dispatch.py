@@ -382,6 +382,7 @@ class GoogleDurableDispatchTest(GoogleDispatchStateFixtures, TransactionTestCase
     def test_migration_reverse_forward_preserves_job_and_removes_old_sqlite_trigger(self):
         job, _, row = self._intent()
         original_job = AsyncJob.objects.filter(pk=job.pk).values().get()
+        original_targets = MigrationExecutor(connection).loader.graph.leaf_nodes("schedules")
         try:
             MigrationExecutor(connection).migrate([("schedules", "0056_asyncjob_execution_outcome")])
             self.assertNotIn("schedules_googlejobdispatch", connection.introspection.table_names())
@@ -392,7 +393,7 @@ class GoogleDurableDispatchTest(GoogleDispatchStateFixtures, TransactionTestCase
                     [str(job.pk) if connection.vendor == "postgresql" else job.pk.hex],
                 )
         finally:
-            MigrationExecutor(connection).migrate([("schedules", "0058_google_dispatch_delete_cascade")])
+            MigrationExecutor(connection).migrate(original_targets)
         self.assertIn("schedules_googlejobdispatch", connection.introspection.table_names())
         self.assertFalse(GoogleJobDispatch.objects.filter(pk=row.pk).exists())
 
