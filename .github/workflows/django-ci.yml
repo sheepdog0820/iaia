@@ -242,6 +242,7 @@ jobs:
             accounts/test_character_lineage_deletion.py \
             accounts/test_character_image_concurrency.py \
             accounts/test_google_grant_concurrency.py accounts/test_google_identity_concurrency.py \
+            schedules/test_google_refresh_integrity.py schedules/test_google_refresh_concurrency.py \
             accounts/test_group_invite_concurrency.py accounts/test_oauth_atomicity.py \
             schedules/test_claim_concurrency.py schedules/test_reward_concurrency.py \
             schedules/test_session_rewards.py \
