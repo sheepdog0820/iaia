@@ -47,7 +47,12 @@ class SafeAdminEmailHandler(AdminEmailHandler):
 class SafeRequestFormatter(logging.Formatter):
     def format(self, record):
         safe_record = copy(record)
-        if hasattr(record, "request") or record.name == "django.request" or record.name.startswith("django.security"):
+        if (
+            hasattr(record, "request")
+            or record.name == "django.request"
+            or record.name.startswith("django.security")
+            or record.name.partition(".")[0] in {"botocore", "boto3"}
+        ):
             _, safe_record.msg = error_summary(record)
             safe_record.args = ()
             safe_record.exc_info = None

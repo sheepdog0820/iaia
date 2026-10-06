@@ -635,11 +635,20 @@ LOGGING = {
             "format": "{levelname} {asctime} {module} {message}",
             "style": "{",
         },
+        "sdk_safe": {
+            "()": "tableno.error_reporting.SafeRequestFormatter",
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
+        },
+        "sdk_console": {
+            "class": "logging.StreamHandler",
+            "formatter": "sdk_safe",
         },
     },
     "loggers": {
@@ -651,6 +660,9 @@ LOGGING = {
             "handlers": ["console"],
             "level": "DEBUG" if DEBUG else "INFO",
         },
+        # Inherit the server's verbosity, but never send SDK payloads to root.
+        "botocore": {"handlers": ["sdk_console"], "level": "NOTSET", "propagate": False},
+        "boto3": {"handlers": ["sdk_console"], "level": "NOTSET", "propagate": False},
     },
 }
 # On-demand Fargate worker settings for premium image background removal.

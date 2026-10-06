@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[SDKログ本文保護](SDK_LOG_PRIVACY_2026-10-06.md)で、boto3/botocore専用の安全なstream/file経路とroot伝播停止を追加。実SDKのmandatory/advisory更新警告・例外classを残し、合成応答本文/message/args/chainを出さず、既存メール通知・SDK再試行・課金/DBは変更しない。新規6・Windows settings60・Linuxアクセスログ含む67成功、Windows背景回帰214成功/PG専用16省略、formatter39文10分岐・新規93文12分岐・追加本番経路6文4分岐100%。初回の環境/DB設定/Twisted import失敗は訂正・記録。今回の通常配布物/実HTTP/PG・全CI・独立収集経路は未証明、OS再監査なし・HIGH3未解消、main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。
+
 後続b3496898の[通常配布物・資格情報更新HTTP検証](BACKGROUND_SIGNING_RUNTIME_B3496898_2026-10-06.md)で682選定ファイル一致・source/SDK overlayなしPG185成功/省略0・実HTTP44確認と実U2NET完了/再実行不変を確認。loopback資格情報のmandatory refresh失敗後も入力を保持し、初回の確定失敗・重複409・期限・所有者制限を維持した。初回のbuild通信設定/probe import/再実行CLI判定/JSON型比較の検証側失敗を訂正・記録し、初回全成功とは扱わない。SDK警告への合成資格情報エラー本文の露出を新規観測し、全SDKログ保護は未達。新規Scout1.26監査は39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2、候補CIは後続照合で全6項目success。実AWS/課金/外部連携/運用/性能/復旧等は未達、main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。
 
 後続の[背景透過SDK署名途中の結果不明判定](BACKGROUND_SIGNING_OUTCOME_2026-10-06.md)で、先行timeout/500後の署名・資格情報更新失敗や最終HTTP200/明示failuresで入力を誤削除する問題を再現・修正。実SDKイベントで先行の結果不明を保持し、初回の確定失敗・token/期限・重複防止・handler解除を維持した。新規14を含むWindows SQLite208成功/PG専用16省略、隔離PG224成功/省略0、変更起動/observer50文16分岐・新規147文14分岐100%。CI PG対象へ追加したが今回全CI/通常配布物/実HTTP・AWS/実S3等は未証明。OS再監査なし・HIGH未解消、main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。

@@ -392,6 +392,18 @@ if not django_handlers:
 if not tableno_handlers:
     tableno_handlers = ["mail_admins"]
 
+# SDK warnings can contain credential-service response bodies in chained
+# exceptions. Route them through safe formatters without adding admin mail.
+sdk_handlers = []
+if LOG_TO_STDOUT or not ENABLE_FILE_LOGGING:
+    logging_handlers["sdk_console"] = {
+        "class": "logging.StreamHandler",
+        "formatter": "simple",
+    }
+    sdk_handlers.append("sdk_console")
+if ENABLE_FILE_LOGGING:
+    sdk_handlers.insert(0, "file")
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -429,6 +441,8 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
+        "botocore": {"handlers": sdk_handlers, "level": "NOTSET", "propagate": False},
+        "boto3": {"handlers": sdk_handlers, "level": "NOTSET", "propagate": False},
     },
 }
 
