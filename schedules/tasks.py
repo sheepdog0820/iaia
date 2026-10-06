@@ -13,6 +13,7 @@ from django.utils import timezone
 from accounts.models import CharacterSheet, DiscordDelivery, GroupDiscordSettings
 
 from .google_job_connection import google_connection_binding, google_job_connection_matches, google_job_values_match
+from .google_job_lifecycle import claim_google_job_start, google_job_can_start
 from .google_sheets import (
     SHEETS_EXPORT_CHUNK_ROWS,
     normalize_sheet_start_range,
@@ -370,6 +371,10 @@ def sync_google_calendar(self, sync_id, job_id):
     if not job:
         # Never mutate a different owner's job or sync on malformed dispatch.
         return "invalid-job"
+    if not google_job_can_start(job):
+        return "inactive-job"
+    if not claim_google_job_start(job):
+        return "inactive-job"
     if (
         not isinstance(job.payload, dict)
         or type(job.payload.get("sync_id")) is not int
@@ -380,7 +385,7 @@ def sync_google_calendar(self, sync_id, job_id):
     connection = _google_calendar_sync_integration(sync)
     if not connection:
         return _fail_calendar_authorization(sync, job)
-    job.mark_running(10)
+    job.set_progress(10)
     credential = google_credential_identity(sync.user_id)
     if not google_job_connection_matches(job, connection, credential):
         return _fail_calendar_authorization(sync, job, GOOGLE_JOB_CONNECTION_FAILED_MESSAGE, "connection-changed")
@@ -566,11 +571,15 @@ def export_google_sheet(
     job = AsyncJob.objects.filter(pk=job_id, owner_id=user_id, job_type="google_sheets_export").first()
     if not job:
         return "invalid-job"
+    if not google_job_can_start(job):
+        return "inactive-job"
+    if not claim_google_job_start(job):
+        return "inactive-job"
     connection = _google_sheets_export_integration(user_id)
     if not connection:
         job.mark_failed(GOOGLE_SHEETS_NOT_AUTHORIZED_MESSAGE)
         return "not-authorized"
-    job.mark_running(10)
+    job.set_progress(10)
     try:
         spreadsheet_id = normalize_spreadsheet_id(spreadsheet_id)
     except ValueError as exc:

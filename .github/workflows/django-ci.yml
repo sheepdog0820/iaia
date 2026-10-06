@@ -251,6 +251,7 @@ jobs:
             schedules/test_google_dispatch_targets.py \
             schedules/test_google_sheets_content_binding.py \
             schedules/test_google_sheets_ownership.py \
+            schedules/test_google_job_start_claim.py \
             accounts/test_group_invite_concurrency.py accounts/test_oauth_atomicity.py \
             schedules/test_claim_concurrency.py schedules/test_reward_concurrency.py \
             schedules/test_session_rewards.py \

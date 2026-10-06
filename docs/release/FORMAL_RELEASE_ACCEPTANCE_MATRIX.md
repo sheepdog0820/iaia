@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[Googleジョブ開始取得](GOOGLE_JOB_START_CLAIM_2026-10-06.md)で成功済み/実行中/不明状態/期限超過を無変更で拒否し、期限内queued/failedをowner/type/status/期限付き単一DB UPDATEでRUNNINGへ取得する。取得できたworkerだけが認可/対象検査・配送へ進み、元開始時刻と失敗後retryを保持、再開始中の古い終了時刻/エラーを解消する。修正前SQLite21 failure/0 error/PG専用1省略・実PG並列2 subtest失敗、最終PG199成功/省略0・SQLite194成功/PG専用5省略、本体差分23文10分岐/新規PG151文26分岐100%。cc1e497c CI全6成功、cf8eba29は5成功/Playwright実行中、新候補の全CI/配布物/実Google/AWSは未確認。取得後停止/期限超過、failed後の遅延duplicate識別、別job同一同期の競合等は残る。使い捨てDB/container/volume削除・証拠保持、main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
+
 後続の[Sheets配送時所有権確認](GOOGLE_SHEETS_OWNERSHIP_2026-10-06.md)で保存対象の厳密な型/重複/順序・17列の表との一致を検査し、token前と各chunk送信前に全対象の現在所有権をDB再確認する。削除/移転を検知したら固定日本語失敗・HTTP/自動retry停止、途中送信は警告し、初回内容と元範囲内の明示再試行/0件を維持する。RED34 failure/0 error、最終PG192成功/省略0・SQLite188成功/PG専用4省略、差分本体35文20分岐/新規180文36分岐/fixture補助16文100%。先行cc1e497c CI4成功/2実行中、新候補の全CI/配布物/実Google/AWSは未確認。確認後競合・並列/完了/失効済み再配送等は残る。使い捨てDB/container/volume削除・ログ保持、main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
 
 後続の[Sheets出力内容照合](GOOGLE_SHEETS_CONTENT_BINDING_2026-10-06.md)で初回/再試行の確定表を用途別HMACとして保存し、queueの内容変更・旧/不正digest・不正表をtoken/HTTP前に固定日本語失敗へ終了する。再試行は元対象内の現在所有/現在値・RAW/日本語/0件/分割/失効を維持。修正前6件18 failure/1 error、最終PG183成功/省略0・SQLite179成功/PG専用4省略（文書39含む）、差分本体26文10分岐/新規133文26分岐/fixture補助8文100%。9f46fa97・4f97d179 CI全6成功、新候補の全CI/配布物/実Google/AWSは未確認。待機/分割中のキャラクター所有権変更、並列配送/原子的取消、接続先別外部ID等は残る。合成DB/container/volume削除・記録保持、main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
