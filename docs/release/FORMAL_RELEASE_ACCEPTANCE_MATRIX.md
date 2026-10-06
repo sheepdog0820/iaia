@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[Google処理途中の再接続検知](GOOGLE_CONNECTION_GUARD_2026-10-06.md)で、scope/有効フラグを保った再接続後も古いtokenで送信が続く問題を27 subtest失敗として再現。開始時の連携ID/接続日時とHTTP直前のDB値を照合し、次の送信/retryを止め、Sheetsの部分進捗を保持する。レビューで設定保存による誤停止2例も再現・修正し、通常更新/設定保存/最終受理後の成功を維持する。最終PG101成功/省略0、SQLite97成功/PG専用4省略、差分本体34文14分岐・新規210文38分岐100%、PG CIへ新規module追加。キュー待ち中の変更・token/accountだけの変更/解除・原子的な取消・実Google/外部IDの接続先別管理/AWS/全CIは未解消/未証明。隔離DB/コンテナ/volume削除・記録保持、main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし、HIGH3未解消・正式公開No-Goを維持する。
+
 後続の[Google Sheets出力先のURL境界](GOOGLE_SHEETS_DESTINATION_2026-10-06.md)で、記号によるfragment/query/path分断・不正ID受理・先行token更新を新規34 failureとして再現し、path要素の個別エンコードとAPI/workerの検証へ修正。ID未指定のプレビュー・17列/100行分割/RAW/認可/再試行snapshotを維持する。最終SQLite90成功/PG専用4省略、差分本体48文6分岐・新規116文10分岐100%。実Requestsの生成後URLを6組×2チャンク確認したが、Google側の受理/書き込み・今回PG/ブラウザー/AWS/全CIは未証明。main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし、元worktreeの別作業を保持・HIGH3未解消・正式公開No-Goを維持する。
 
 後続の[Googleトークン更新の整合性](GOOGLE_REFRESH_INTEGRITY_2026-10-06.md)で、再接続情報の上書き/解除後の保存エラー/並列更新の2成功を隔離PGで7 failure/5 errorとして再現。初案68件成功後も、2 UPDATEの実Lock待機を強制した追加試験で競合1 failureを確認し、比較条件をUPDATE対象WHEREに保持する形へ修正した。最終PG69成功/省略0、SQLite65成功/PG専用4省略、更新モジュール36文12分岐・新規215文20分岐100%。競合では接続情報を保持し、両workerは固定日本語エラーで終了・外部送信なし。新規2 moduleをPG CIへ追加したが、実Googleのtoken回転/HTTP・全CI/AWS等は未証明。隔離DB/コンテナ削除・記録保持、main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし、HIGH3未解消・正式公開No-Goを維持する。

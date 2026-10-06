@@ -195,7 +195,6 @@ class GoogleIntegrationView(APIView):
             defaults={
                 "calendar_enabled": calendar_enabled,
                 "sheets_enabled": sheets_enabled,
-                "connected_at": timezone.now(),
             },
         )
         return Response(
