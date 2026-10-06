@@ -12,7 +12,10 @@ from accounts.models import CharacterSheet
 from .google_job_connection import google_job_connection_matches, google_sheet_values_binding
 from .google_job_lifecycle import (
     GOOGLE_EXECUTION_UNCERTAIN_MESSAGE,
+    GOOGLE_RETRY_ALREADY_ACCEPTED_MESSAGE,
+    GOOGLE_RETRY_SUCCESSOR_KEY,
     fail_unstarted_google_dispatch,
+    google_job_retry_successors,
     mark_stalled_google_jobs,
 )
 from .google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_START_RANGE
@@ -116,12 +119,19 @@ def _sheet_export_values(user, payload):
     return [SHEET_COLUMNS] + rows
 
 
+def _record_google_retry_successor(source, successor):
+    # Called with the original source row locked in the same transaction as
+    # successor creation/outbox persistence. This survives successor deletion.
+    source.payload = {**source.payload, GOOGLE_RETRY_SUCCESSOR_KEY: str(successor.pk)}
+    source.save(update_fields=["payload"])
+
+
 class AsyncJobRetryView(APIView):
     permission_classes = [IsAuthenticated]
 
     @transaction.atomic
     def post(self, request, pk):
-        queryset = AsyncJob.objects.filter(owner=request.user, pk=pk)
+        queryset = AsyncJob.objects.select_for_update().filter(owner=request.user, pk=pk)
         mark_stalled_google_jobs(queryset)
         job = queryset.first()
         if not job:
@@ -152,6 +162,14 @@ class AsyncJobRetryView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            successor = google_job_retry_successors(job).order_by("created_at", "pk").first()
+            if GOOGLE_RETRY_SUCCESSOR_KEY in job.payload or successor is not None:
+                if successor is not None and GOOGLE_RETRY_SUCCESSOR_KEY not in job.payload:
+                    _record_google_retry_successor(job, successor)
+                return Response(
+                    {"detail": GOOGLE_RETRY_ALREADY_ACCEPTED_MESSAGE},
+                    status=status.HTTP_409_CONFLICT,
+                )
         if job.job_type == "google_calendar_sync":
             return self._retry_google_calendar_sync(request, job)
         if job.job_type == "google_sheets_export":
@@ -190,6 +208,7 @@ class AsyncJobRetryView(APIView):
             },
             expires_at=timezone.now() + timedelta(days=7),
         )
+        _record_google_retry_successor(job, retry_job)
         queued = queue_google_calendar_sync(sync.pk, str(retry_job.pk))
         if queued is False:
             fail_unstarted_google_dispatch(retry_job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE, sync)
@@ -230,6 +249,7 @@ class AsyncJobRetryView(APIView):
             },
             expires_at=timezone.now() + timedelta(days=7),
         )
+        _record_google_retry_successor(job, retry_job)
         queued = queue_google_sheet_export(
             str(retry_job.pk),
             request.user.pk,

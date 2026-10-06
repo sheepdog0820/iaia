@@ -17,7 +17,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .google_job_connection import google_job_values_match
-from .google_job_lifecycle import fail_unstarted_google_dispatch, google_job_identity
+from .google_job_lifecycle import fail_unstarted_google_dispatch, google_job_identity, google_retry_source_is_superseded
 from .models import AsyncJob, GoogleCalendarSync, GoogleJobDispatch
 
 logger = logging.getLogger(__name__)
@@ -137,6 +137,8 @@ def _job_for_dispatch(row, now):
         expires_at__gt=now,
     ).first()
     if job is None or not isinstance(job.payload, dict) or _digest(job.payload) != row.payload_digest:
+        return None
+    if google_retry_source_is_superseded(job):
         return None
     if (
         job.job_type == "google_calendar_sync"

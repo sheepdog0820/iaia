@@ -6,13 +6,17 @@ from uuid import UUID, uuid4
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Exists, Q
 from django.db.models.functions import Coalesce, Least
 from django.utils import timezone
 
 from .models import AsyncJob, GoogleCalendarSync, GoogleJobDispatch
 
 GOOGLE_JOB_TYPES = ("google_calendar_sync", "google_sheets_export")
+GOOGLE_RETRY_SUCCESSOR_KEY = "google_retry_successor"
+GOOGLE_RETRY_ALREADY_ACCEPTED_MESSAGE = (
+    "このジョブは既に再試行を受け付けています。ジョブ一覧で新しい処理の結果を確認してください。"
+)
 GOOGLE_EXECUTION_UNCERTAIN_MESSAGE = (
     "処理結果を確認できません。Google側に反映されている可能性があります。"
     "重複を避けるため、再実行する前にGoogle CalendarまたはGoogle Sheetsの結果を確認してください。"
@@ -55,14 +59,19 @@ def fail_unstarted_google_dispatch(job, error, sync=None):
     """A late publisher failure must never overwrite a worker's claimed job."""
     now = timezone.now()
     with transaction.atomic():
-        updated = AsyncJob.objects.filter(
-            pk=job.pk,
-            owner_id=job.owner_id,
-            job_type=job.job_type,
-            status=AsyncJob.Status.QUEUED,
-            started_at__isnull=True,
-            expires_at__gt=now,
-        ).update(status=AsyncJob.Status.FAILED, error=str(error), finished_at=now)
+        updated = (
+            AsyncJob.objects.filter(
+                pk=job.pk,
+                owner_id=job.owner_id,
+                job_type=job.job_type,
+                status=AsyncJob.Status.QUEUED,
+                started_at__isnull=True,
+                expires_at__gt=now,
+            )
+            .exclude(payload__has_key=GOOGLE_RETRY_SUCCESSOR_KEY)
+            .filter(~Exists(google_job_retry_successors(job)))
+            .update(status=AsyncJob.Status.FAILED, error=str(error), finished_at=now)
+        )
         if updated and sync is not None:
             # Keep both changes atomic with the worker's claim; never recreate a deleted target.
             GoogleCalendarSync.objects.filter(
@@ -86,6 +95,23 @@ def google_job_identity(value):
         return None
 
 
+def google_job_retry_successors(job):
+    """Recognize retained legacy successors as well as new manual retries."""
+    return AsyncJob.objects.filter(owner_id=job.owner_id, job_type=job.job_type, payload__retry_of=str(job.pk)).exclude(
+        pk=job.pk
+    )
+
+
+def google_retry_source_is_superseded(job):
+    # Presence is fail-closed, including malformed markers. Consult current DB
+    # state, not a worker's pre-acceptance payload snapshot or a deleted successor.
+    return (
+        AsyncJob.objects.filter(pk=job.pk, owner_id=job.owner_id, job_type=job.job_type)
+        .filter(Q(payload__has_key=GOOGLE_RETRY_SUCCESSOR_KEY) | Q(Exists(google_job_retry_successors(job))))
+        .exists()
+    )
+
+
 class GoogleJobInactive(Exception):
     """The claimed job can no longer authorize state changes or another send."""
 
@@ -103,16 +129,21 @@ def stop_inactive_google_job(function):
 
 def _running_google_job(job):
     now = timezone.now()
-    return _with_execution_start(
-        AsyncJob.objects.filter(
-            pk=job.pk,
-            owner_id=job.owner_id,
-            job_type=job.job_type,
-            status=AsyncJob.Status.RUNNING,
-            expires_at__gt=now,
-            execution_token=job.execution_token,
+    return (
+        _with_execution_start(
+            AsyncJob.objects.filter(
+                pk=job.pk,
+                owner_id=job.owner_id,
+                job_type=job.job_type,
+                status=AsyncJob.Status.RUNNING,
+                expires_at__gt=now,
+                execution_token=job.execution_token,
+            )
         )
-    ).exclude(_stalled_execution(now))
+        .exclude(_stalled_execution(now))
+        .exclude(payload__has_key=GOOGLE_RETRY_SUCCESSOR_KEY)
+        .filter(~Exists(google_job_retry_successors(job)))
+    )
 
 
 def require_running_google_job(job):
@@ -150,11 +181,22 @@ def succeed_google_job(job, result):
 
 
 def google_job_can_start(job):
-    return job.status in (AsyncJob.Status.QUEUED, AsyncJob.Status.FAILED) and job.expires_at > timezone.now()
+    return (
+        job.status in (AsyncJob.Status.QUEUED, AsyncJob.Status.FAILED)
+        and job.expires_at > timezone.now()
+        and not google_retry_source_is_superseded(job)
+    )
 
 
 @transaction.atomic
 def claim_google_job_start(job):
+    # Use the same source row as the retry API. A stale pre-lock FAILED read
+    # cannot restart after another transaction has committed its successor.
+    source = (
+        AsyncJob.objects.select_for_update().filter(pk=job.pk, owner_id=job.owner_id, job_type=job.job_type).first()
+    )
+    if source is None or google_retry_source_is_superseded(source):
+        return False
     now = timezone.now()
     updated = AsyncJob.objects.filter(
         pk=job.pk,

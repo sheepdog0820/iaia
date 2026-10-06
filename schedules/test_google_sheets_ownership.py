@@ -211,8 +211,14 @@ class GoogleSheetsOwnershipTest(TestCase):
         job, _ = self._queue()
         self._change(first, "transferred")
         self._character("後から追加した対象外")
+        original_payload = dict(job.payload)
         for empty in (False, True):
             with self.subTest(empty=empty):
+                # Independent failed sources: a source already retried is now
+                # deliberately terminal, not a way to create another successor.
+                job = AsyncJob.objects.create(
+                    owner=self.user, job_type=job.job_type, payload=original_payload, expires_at=job.expires_at
+                )
                 job.mark_failed("失効した出力")
                 if empty:
                     self._change(remaining, "deleted")

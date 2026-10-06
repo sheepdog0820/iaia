@@ -8,6 +8,8 @@ Google Calendar/Sheetsを正式公開できる品質にするため、DB確定�
 
 ## 現在の部分実装と証拠
 
+- [手動再試行の元ジョブ停止](GOOGLE_RETRY_SUPERSESSION_2026-10-06.md): 同じ元FAILED行の再試行受付とworker開始を行ロックで直列化し、元payloadの非公開停止markerを後続作成と同時保存する。二重受付409・後続削除後の元再開拒否・旧relay/worker/Calendar保存の拒否を実装。通常の新規同期・同一予定/重なるSheets領域の共有世代排他、結果照合/限定回復は残り、全体完了とはしない。
+
 - 最新の[2261adf7通常配布物・実プロセス回復](GOOGLE_DURABLE_RUNTIME_2026-10-06.md): 選定713 source/assets・111 packages/先行依存10層一致、通常回帰Google251/設定70の非重複321成功。実PG/Redis/Requests・solo/prefork×Calendar/Sheetsの16ケースでproducer commit後停止、relay停止の実5分期限、未消費message消失、制御されたACK喪失から同じjobを回復。期限内relay4回拒否・重複16配送の追加HTTP0・暗号文消去を確認した。候補CI全6成功。新規Scout HIGH3含む39/終了2は未合格。自分の83 container/tmpfsを撤去・証拠保持、main/AWS/共有DB/Secrets/課金/容量変更なし。自動常設回復/世代fence/結果照合/限定回復/実Google等は残る。
 
 - アプリ28ac2bc7は応答喪失/408/5xx/不正ACK/部分Sheets後続拒否を結果不明へ分類し、自動再適用を抑止。親CI全6成功。
@@ -19,7 +21,7 @@ Google Calendar/Sheetsを正式公開できる品質にするため、DB確定�
 
 - [ ] jobと配送意図を同じDB transactionで永続化し、commit直後のproducer停止でも回復可能にする。暗号化・内容binding・同時保存・callback喪失・通常配布物の実producer停止/独立relay回復はローカル検証済み。鍵ローテーション・共有運用時消去・バックアップprivacyの証拠は残る。
 - [ ] 独立relayのclaim/期限/再試行/失われたpublish応答を検証する。PG独立connection・実5分期限、実別relay/Redis/worker・メッセージ消失・制御されたACK喪失・実worker重複受信は新候補で確認済み。取消競合・常設監視/beat・実共有運用は残る。
-- [ ] 旧メッセージ・旧FAILED job・新しい別job/同期対象世代をfenceし、同一予定/Sheets領域の競合を安全に扱う。
+- [ ] 旧メッセージ・旧FAILED job・新しい別job/同期対象世代をfenceし、同一予定/Sheets領域の競合を安全に扱う。明示的な手動再試行系列の元停止は部分実装したが、新規同期同士・共有対象の世代排他は残る。
 - [ ] Google側結果照合と限定回復を設計・実装・検証する。結果不明を成功/失敗と推測せず、保存期限処理だけで痕跡を消さない。
 - [ ] 通常配布物・実Redis/別worker/独立producer/プロセス停止/再起動のfault試験で上記を証明する。
 - [ ] 承認済み範囲で実Google OAuth更新/失効/連携設定変更を検証し、常設worker/監視の運用証拠を揃える。

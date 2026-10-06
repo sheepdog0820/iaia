@@ -26,6 +26,8 @@ class GoogleDispatchStateFixtures(GoogleJobStartFixtures):
             original.mark_failed("元ジョブの失敗")
             before = AsyncJob.objects.filter(pk=original.pk).values().get()
             response = self.api.post(reverse("async-job-retry", kwargs={"pk": original.pk}))
+            self.assertEqual(response.status_code, 202)
+            before["payload"] = {**before["payload"], "google_retry_successor": str(response.data["job_id"])}
             self.assertEqual(AsyncJob.objects.filter(pk=original.pk).values().get(), before)
         elif route == "calendar":
             response = self.api.post(f"/api/sessions/{self.session.pk}/google-calendar/sync/")

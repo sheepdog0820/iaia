@@ -252,6 +252,7 @@ jobs:
             schedules/test_google_sheets_content_binding.py \
             schedules/test_google_sheets_ownership.py \
             schedules/test_google_job_start_claim.py \
+            schedules/test_google_retry_supersession.py \
             schedules/test_google_job_active_guard.py \
             schedules/test_google_dispatch_identity.py \
             schedules/test_google_calendar_deleted_target.py \

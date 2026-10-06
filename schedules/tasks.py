@@ -21,6 +21,7 @@ from .google_job_lifecycle import (
     fail_unstarted_google_dispatch,
     google_job_can_start,
     google_job_identity,
+    google_retry_source_is_superseded,
     mark_stalled_google_jobs,
     require_running_google_job,
     set_google_job_progress,
@@ -403,11 +404,23 @@ def _require_current_calendar_sync(sync, job):
 
 
 def _save_current_calendar_sync(sync, job, fields):
-    values = {field: getattr(sync, field) for field in fields if field != "updated_at"}
-    values["updated_at"] = timezone.now()
-    if not _current_calendar_sync(sync).update(**values):
+    # Failure was saved before this sync update. A user may have accepted a
+    # successor in between; do not overwrite its PENDING state or retry again.
+    with transaction.atomic():
+        source = (
+            AsyncJob.objects.select_for_update().filter(pk=job.pk, owner_id=job.owner_id, job_type=job.job_type).first()
+        )
+        if source is not None and google_retry_source_is_superseded(source):
+            raise GoogleJobInactive
+        # Preserve the existing accepted-write receipt when cleanup removed the
+        # source job. This is not a cross-job/target generation fence.
+        values = {field: getattr(sync, field) for field in fields if field != "updated_at"}
+        values["updated_at"] = timezone.now()
+        updated = _current_calendar_sync(sync).update(**values)
+    if not updated:
         # Never recreate the target or overwrite a same-PK replacement. If the job
         # already failed, its original failure wins and the inactive guard stops retry.
+        # Classify outside the transaction so GoogleJobInactive cannot roll it back.
         fail_google_job(job, GOOGLE_CALENDAR_SYNC_CHANGED_MESSAGE)
         raise GoogleJobInactive
 
