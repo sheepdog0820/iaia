@@ -2,6 +2,19 @@
 
 {% block title %}連携設定 - Tableno{% endblock %}
 
+{% block extra_css %}
+<style>
+    #integration-jobs .badge.bg-warning.text-dark {
+        color: #212529 !important;
+    }
+    @media (max-width: 767px) {
+        #integration-jobs-table {
+            min-width: 900px;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -20,15 +33,15 @@
             <button class="btn btn-sm btn-outline-light" id="reload-jobs">更新</button>
         </div>
         <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-sm align-middle mb-0">
+            <div class="table-responsive" role="region" aria-label="連携ジョブ一覧" tabindex="0">
+                <table class="table table-sm align-middle mb-0" id="integration-jobs-table">
                     <thead>
                         <tr>
                             <th>種類</th>
                             <th>状態</th>
                             <th>進捗</th>
                             <th>最終更新</th>
-                            <th>失敗理由</th>
+                            <th>処理結果・案内</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -267,8 +280,10 @@ document.addEventListener('DOMContentLoaded', function() {
             running: 'bg-info',
             succeeded: 'bg-success',
             failed: 'bg-danger',
+            uncertain: 'bg-warning text-dark',
         };
-        return `<span class="badge ${classes[status] || 'bg-secondary'}">${escapeHtml(status)}</span>`;
+        const label = status === 'uncertain' ? '結果不明' : status;
+        return `<span class="badge ${classes[status] || 'bg-secondary'}">${escapeHtml(label)}</span>`;
     }
 
     function discordDeliveryBadge(status) {

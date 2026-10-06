@@ -256,6 +256,7 @@ jobs:
             schedules/test_google_dispatch_identity.py \
             schedules/test_google_calendar_deleted_target.py \
             schedules/test_google_dispatch_state.py \
+            schedules/test_google_execution_outcome.py \
             accounts/test_group_invite_concurrency.py accounts/test_oauth_atomicity.py \
             schedules/test_claim_concurrency.py schedules/test_reward_concurrency.py \
             schedules/test_session_rewards.py \

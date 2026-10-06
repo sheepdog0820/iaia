@@ -9,7 +9,11 @@ from rest_framework.views import APIView
 from accounts.models import CharacterSheet
 
 from .google_job_connection import google_job_connection_matches, google_sheet_values_binding
-from .google_job_lifecycle import fail_unstarted_google_dispatch
+from .google_job_lifecycle import (
+    GOOGLE_EXECUTION_UNCERTAIN_MESSAGE,
+    fail_unstarted_google_dispatch,
+    mark_stalled_google_jobs,
+)
 from .google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_START_RANGE
 from .google_tokens import google_credential_identity
 from .integration_access import visible_user_sessions
@@ -58,7 +62,9 @@ class AsyncJobDetailView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return AsyncJob.objects.filter(owner=self.request.user)
+        queryset = AsyncJob.objects.filter(owner=self.request.user, pk=self.kwargs["pk"])
+        mark_stalled_google_jobs(queryset)
+        return queryset
 
 
 class AsyncJobListView(generics.ListAPIView):
@@ -67,6 +73,7 @@ class AsyncJobListView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = AsyncJob.objects.filter(owner=self.request.user)
+        mark_stalled_google_jobs(queryset)
         job_type = self.request.query_params.get("job_type")
         if job_type:
             queryset = queryset.filter(job_type=job_type)
@@ -112,9 +119,13 @@ class AsyncJobRetryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        job = AsyncJob.objects.filter(owner=request.user, pk=pk).first()
+        queryset = AsyncJob.objects.filter(owner=request.user, pk=pk)
+        mark_stalled_google_jobs(queryset)
+        job = queryset.first()
         if not job:
             return Response(status=status.HTTP_404_NOT_FOUND)
+        if job.status == AsyncJob.Status.UNCERTAIN:
+            return Response({"detail": GOOGLE_EXECUTION_UNCERTAIN_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
         if job.status != AsyncJob.Status.FAILED:
             return Response(
                 {"detail": "失敗したジョブだけ再試行できます。"},

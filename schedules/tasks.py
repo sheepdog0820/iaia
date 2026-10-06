@@ -20,6 +20,7 @@ from .google_job_lifecycle import (
     fail_unstarted_google_dispatch,
     google_job_can_start,
     google_job_identity,
+    mark_stalled_google_jobs,
     require_running_google_job,
     set_google_job_progress,
     stop_inactive_google_job,
@@ -192,6 +193,7 @@ def schedule_session_google_syncs(session):
 
 @shared_task(name="schedules.tasks.expire_async_jobs")
 def expire_async_jobs():
+    mark_stalled_google_jobs(AsyncJob.objects.all())
     return AsyncJob.objects.filter(expires_at__lt=timezone.now()).delete()[0]
 
 

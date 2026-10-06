@@ -21,6 +21,7 @@ class AsyncJob(models.Model):
         RUNNING = "running", "Running"
         SUCCEEDED = "succeeded", "Succeeded"
         FAILED = "failed", "Failed"
+        UNCERTAIN = "uncertain", "結果不明"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     owner = models.ForeignKey(
@@ -40,6 +41,8 @@ class AsyncJob(models.Model):
     result = models.JSONField(default=dict, blank=True)
     error = models.TextField(blank=True, default="")
     celery_task_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
+    execution_token = models.UUIDField(null=True, blank=True, editable=False)
+    execution_deadline = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(default=timezone.now)
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)

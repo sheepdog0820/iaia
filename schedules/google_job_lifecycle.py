@@ -1,13 +1,54 @@
 """Start Google delivery once at a time using existing job state."""
 
+from datetime import timedelta
 from functools import wraps
-from uuid import UUID
+from uuid import UUID, uuid4
 
+from django.conf import settings
 from django.db import transaction
-from django.db.models.functions import Coalesce
+from django.db.models import Q
+from django.db.models.functions import Coalesce, Least
 from django.utils import timezone
 
 from .models import AsyncJob, GoogleCalendarSync
+
+GOOGLE_JOB_TYPES = ("google_calendar_sync", "google_sheets_export")
+GOOGLE_EXECUTION_UNCERTAIN_MESSAGE = (
+    "処理結果を確認できません。Google側に反映されている可能性があります。"
+    "重複を避けるため、再実行する前にGoogle CalendarまたはGoogle Sheetsの結果を確認してください。"
+)
+
+
+def google_execution_window():
+    limit = getattr(settings, "CELERY_TASK_TIME_LIMIT", 900)
+    if type(limit) is not int or limit <= 0:
+        limit = 900
+    # This is an execution bound, not proof that a worker or provider has stopped.
+    return timedelta(seconds=max(900, limit) + 60)
+
+
+def _stalled_execution(now):
+    return Q(execution_deadline__lte=now) | Q(
+        execution_deadline__isnull=True, execution_start__lte=now - google_execution_window()
+    )
+
+
+def _with_execution_start(queryset):
+    return queryset.annotate(execution_start=Coalesce("started_at", "created_at"))
+
+
+def mark_stalled_google_jobs(queryset):
+    """Classify only the supplied scope; never send or make an uncertain job retryable."""
+    now = timezone.now()
+    stalled = (
+        _with_execution_start(queryset)
+        .filter(job_type__in=GOOGLE_JOB_TYPES, status=AsyncJob.Status.RUNNING)
+        .filter(_stalled_execution(now))
+    )
+    if not stalled.exists():
+        return 0
+    # Re-evaluate the same predicate in UPDATE after any concurrent completion or claim.
+    return stalled.update(status=AsyncJob.Status.UNCERTAIN, error=GOOGLE_EXECUTION_UNCERTAIN_MESSAGE, finished_at=now)
 
 
 def fail_unstarted_google_dispatch(job, error, sync=None):
@@ -61,13 +102,17 @@ def stop_inactive_google_job(function):
 
 
 def _running_google_job(job):
-    return AsyncJob.objects.filter(
-        pk=job.pk,
-        owner_id=job.owner_id,
-        job_type=job.job_type,
-        status=AsyncJob.Status.RUNNING,
-        expires_at__gt=timezone.now(),
-    )
+    now = timezone.now()
+    return _with_execution_start(
+        AsyncJob.objects.filter(
+            pk=job.pk,
+            owner_id=job.owner_id,
+            job_type=job.job_type,
+            status=AsyncJob.Status.RUNNING,
+            expires_at__gt=now,
+            execution_token=job.execution_token,
+        )
+    ).exclude(_stalled_execution(now))
 
 
 def require_running_google_job(job):
@@ -112,11 +157,15 @@ def claim_google_job_start(job):
         started_at=Coalesce("started_at", now),
         finished_at=None,
         error="",
+        execution_token=uuid4(),
+        execution_deadline=Least("expires_at", now + google_execution_window()),
     )
     if not updated:
         return False
     try:
-        job.refresh_from_db(fields=["status", "progress", "started_at", "finished_at", "error"])
+        job.refresh_from_db(
+            fields=["status", "progress", "started_at", "finished_at", "error", "execution_token", "execution_deadline"]
+        )
     except AsyncJob.DoesNotExist:
         return False
     return True
