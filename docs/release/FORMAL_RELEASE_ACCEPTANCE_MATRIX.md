@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[337c7cc9通常配布物検証](GOOGLE_RUNTIME_337C7CC9_2026-10-06.md)で配送中有効性/ID境界まで固定archiveから構築した。選定701 source/assetsの欠落/追加/SHA不一致0・111 packages/先行10層一致、通常entrypoint/read-only/no overlayでGoogle21 modules173成功・設定6 modules70成功（非重複243/省略0）。実PG競合5・Calendar loopback8を含む。初回DB_ENGINEの誤指定による試験前停止2件を別記録に残し、仕様通りの環境指定後の終端成功と区別する。新規Scout1.26全OS監査は39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2、先行CVE/severity/package差分0で未合格。固定候補CI37427440562は16:15 JST時点4成功/2実行中、先行25ef552e全6成功を確認済み。専用DB/container/tmpfsの合成データ削除・証拠保持、main/AWS/schema/Secrets/課金/容量変更・承認拡張なし、実課金/連携/常設worker/AWS性能/復旧等の未達と正式公開No-Goを維持する。以下の未確認/CI状態は各先行記録時点として区別する。
+
 後続の[退会E2E登録開始条件](SIGNUP_READINESS_2026-10-06.md)で先行1690508eのFirefox signup load待ち30秒timeoutを元artifact/traceで特定した。ページ作成193.845ms・記録17要求200/224.556ms以内でフォーム描画済みだが、load停止の根本原因は未確定。DOMContentLoaded/HTTP200/form可視/入力・送信可能を確認するhelperを退会登録2箇所へ適用し、画像保留/初期化保留/HTTP500/欠落/disabledの正負例を追加。RED4失敗・初期15成功・ANSI照合の広域3失敗を区別して訂正、最終3ブラウザー87成功/retry・省略・flaky0（240.374秒）、helper V8 5観測区間100%。操作30秒/assertion5秒/CI flaky失敗・アプリ仕様を維持、User/契約0・今回server停止/port解放・証拠/別作業13項目を保持。28af6db8 CI全6成功、25ef552eは4成功/2実行中、新候補全CI/元lifecycle原因/全flow/実AWS等は未確認。main/AWS/schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
 
 後続の[Google配送ID境界](GOOGLE_DISPATCH_IDENTITY_2026-10-06.md)で不正UUID型/表現・Sheets ownerの暗黙整数変換をworkerのDB参照前に拒否する。RED15 failure/28 error、正規UUID6表現を維持、最終PG212成功/省略0・SQLite207成功/PG専用5省略、本体差分18文10分岐/新規62文20分岐100%・3 Python品質合格。4535c03f CI全6成功、1690508eは5成功/Playwright失敗（299 passed/1 flaky、Firefox signup page.goto 30秒timeout、原因未確定）、親28af6db8は4成功/2実行中。新候補の全CI/通常配布物/実Google/AWSは未確認。queue全入力/producer・lease/永続外部ID等は残る。合成DB/container/volume削除・証拠保持、main/AWS/schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
