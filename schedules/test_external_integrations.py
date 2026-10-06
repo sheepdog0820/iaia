@@ -370,7 +370,7 @@ class GoogleIntegrationTestCase(APITestCase):
     @patch("schedules.tasks.requests.post")
     @patch("schedules.google_tokens.Credentials")
     def test_google_refresh_failures_finish_jobs_without_exporting(self, credentials_class, post, put):
-        from schedules.tasks import export_google_sheet
+        from tests.utils.google_sheet_fixtures import run_sheet_fixture
 
         self.connect_google()
         token = SocialToken.objects.get(account__user=self.user)
@@ -402,7 +402,7 @@ class GoogleIntegrationTestCase(APITestCase):
                         if kind == "google_calendar_sync":
                             result = sync_google_calendar.run(sync.pk, str(job.pk))
                         else:
-                            result = export_google_sheet.run(str(job.pk), self.user.pk, "isolated-sheet", "A1", [])
+                            result = run_sheet_fixture(str(job.pk), self.user.pk, "isolated-sheet", "A1", [])
                     except GoogleAuthError:
                         pass
                     job.refresh_from_db()

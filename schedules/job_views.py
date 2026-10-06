@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 from accounts.models import CharacterSheet
 
-from .google_job_connection import google_job_connection_matches
+from .google_job_connection import google_job_connection_matches, google_sheet_values_binding
 from .google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_START_RANGE
 from .google_tokens import google_credential_identity
 from .integration_access import visible_user_sessions
@@ -215,6 +215,7 @@ class AsyncJobRetryView(APIView):
                 "selection_snapshot": True,
                 "retry_of": str(job.pk),
                 "google_connection": job.payload["google_connection"],
+                "google_values": google_sheet_values_binding(values),
             },
             expires_at=timezone.now() + timedelta(days=7),
         )

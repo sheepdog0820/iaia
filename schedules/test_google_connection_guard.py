@@ -15,6 +15,7 @@ from accounts.models import Group
 from schedules.google_job_connection import google_connection_binding
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration, TRPGSession
 from schedules.tasks import export_google_sheet, sync_google_calendar
+from tests.utils.google_sheet_fixtures import run_sheet_fixture
 
 
 class GoogleConnectionGuardTest(TestCase):
@@ -176,7 +177,7 @@ class GoogleConnectionGuardTest(TestCase):
 
                 stack.enter_context(patch("schedules.tasks.get_google_access_token", side_effect=read))
                 retry = stack.enter_context(patch.object(export_google_sheet, "retry"))
-                result = export_google_sheet.run(str(job.pk), self.user.pk, "private-sheet-fixture", "A1", [])
+                result = run_sheet_fixture(str(job.pk), self.user.pk, "private-sheet-fixture", "A1", [])
                 self._assert_failed(result, job)
                 for send in sends.values():
                     send.assert_not_called()
@@ -195,7 +196,7 @@ class GoogleConnectionGuardTest(TestCase):
 
                 sends["put"].side_effect = put
                 retry = stack.enter_context(patch.object(export_google_sheet, "retry"))
-                result = export_google_sheet.run(
+                result = run_sheet_fixture(
                     str(job.pk), self.user.pk, "private-sheet-fixture", "A1", [[row] for row in range(201)]
                 )
                 self._assert_failed(result, job, partial=True)
@@ -269,7 +270,7 @@ class GoogleConnectionGuardTest(TestCase):
                     sends[method].side_effect = send
                     if mode == "sheets":
                         self.assertEqual(
-                            export_google_sheet.run(str(job.pk), self.user.pk, "private-sheet-fixture", "A1", [[1]]),
+                            run_sheet_fixture(str(job.pk), self.user.pk, "private-sheet-fixture", "A1", [[1]]),
                             "exported",
                         )
                     else:
@@ -303,7 +304,7 @@ class GoogleConnectionGuardTest(TestCase):
                 stack.enter_context(patch("schedules.google_tokens.Credentials", return_value=credentials))
                 if mode == "sheets":
                     self.assertEqual(
-                        export_google_sheet.run(
+                        run_sheet_fixture(
                             str(job.pk), self.user.pk, "private-sheet-fixture", "A1", [[row] for row in range(101)]
                         ),
                         "exported",
@@ -343,7 +344,7 @@ class GoogleConnectionGuardTest(TestCase):
 
                 if mode == "sheets":
                     sends["put"].side_effect = put
-                    result = export_google_sheet.run(
+                    result = run_sheet_fixture(
                         str(job.pk), self.user.pk, "private-sheet-fixture", "A1", [[row] for row in range(101)]
                     )
                     self.assertEqual(result, "exported")

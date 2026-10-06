@@ -14,6 +14,7 @@ from schedules.google_job_connection import google_connection_binding
 from schedules.google_tokens import get_google_access_token
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration, TRPGSession
 from schedules.tasks import export_google_sheet, sync_google_calendar
+from tests.utils.google_sheet_fixtures import run_sheet_fixture
 
 
 class GoogleRefreshFixtures:
@@ -148,7 +149,7 @@ class GoogleRefreshIntegrityTests(GoogleRefreshFixtures, TestCase):
                     if kind == "google_calendar_sync":
                         result = sync_google_calendar.run(sync.pk, str(job.pk))
                     else:
-                        result = export_google_sheet.run(str(job.pk), self.user.pk, "isolated-sheet", "A1", [[1]])
+                        result = run_sheet_fixture(str(job.pk), self.user.pk, "isolated-sheet", "A1", [[1]])
                     self.assertEqual(result, "missing-token")
                     post.assert_not_called()
                     put.assert_not_called()

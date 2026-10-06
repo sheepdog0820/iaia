@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from accounts.models import DiscordDelivery, GroupDiscordSettings
 
-from .google_job_connection import google_connection_binding, google_job_connection_matches
+from .google_job_connection import google_connection_binding, google_job_connection_matches, google_job_values_match
 from .google_sheets import (
     SHEETS_EXPORT_CHUNK_ROWS,
     normalize_sheet_start_range,
@@ -47,6 +47,9 @@ GOOGLE_JOB_CONNECTION_FAILED_MESSAGE = (
     "ジョブ作成時のGoogle接続先を確認できません。接続先を確認して再実行してください。"
 )
 GOOGLE_JOB_TARGET_FAILED_MESSAGE = "ジョブの処理対象が一致しません。連携設定から新しく実行してください。"
+GOOGLE_JOB_VALUES_FAILED_MESSAGE = (
+    "ジョブ作成時のGoogle Sheets出力内容を確認できません。連携設定から新しく出力してください。"
+)
 
 
 def _same_google_connection(original, current):
@@ -576,6 +579,9 @@ def export_google_sheet(
     if job.payload.get("spreadsheet_id") != spreadsheet_id or job.payload.get("range") != range_name:
         job.mark_failed(GOOGLE_JOB_TARGET_FAILED_MESSAGE)
         return "invalid-target"
+    if not google_job_values_match(job, values):
+        job.mark_failed(GOOGLE_JOB_VALUES_FAILED_MESSAGE)
+        return "invalid-values"
     try:
         access_token = get_google_access_token(job.owner)
     except ValueError as exc:

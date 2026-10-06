@@ -17,7 +17,7 @@ from rest_framework.views import APIView
 
 from accounts.models import CharacterSheet
 
-from .google_job_connection import google_connection_binding
+from .google_job_connection import google_connection_binding, google_sheet_values_binding
 from .google_sheets import (
     SHEET_COLUMNS,
     SHEETS_DEFAULT_START_RANGE,
@@ -360,6 +360,7 @@ class GoogleSheetsExportView(APIView):
                 {"detail": "Google Sheets連携を確認できません。Googleを再連携してください。"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        values = [SHEET_COLUMNS] + rows
         job = AsyncJob.objects.create(
             owner=request.user,
             job_type="google_sheets_export",
@@ -369,10 +370,10 @@ class GoogleSheetsExportView(APIView):
                 "character_ids": [row[0] for row in rows],
                 "selection_snapshot": True,
                 "google_connection": binding,
+                "google_values": google_sheet_values_binding(values),
             },
             expires_at=timezone.now() + timedelta(days=7),
         )
-        values = [SHEET_COLUMNS] + rows
         queued = queue_google_sheet_export(
             str(job.pk),
             request.user.pk,

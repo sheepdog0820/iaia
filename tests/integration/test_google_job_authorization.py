@@ -10,7 +10,8 @@ from django.utils import timezone
 from accounts.models import Group
 from schedules.google_job_connection import google_connection_binding
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration, SessionParticipant, TRPGSession
-from schedules.tasks import export_google_sheet, sync_google_calendar
+from schedules.tasks import sync_google_calendar
+from tests.utils.google_sheet_fixtures import run_sheet_fixture
 
 
 class GoogleJobAuthorizationTests(TestCase):
@@ -57,9 +58,7 @@ class GoogleJobAuthorizationTests(TestCase):
     def run_job(self, feature, job):
         if feature == "calendar":
             return sync_google_calendar.run(self.sync.pk, str(job.pk))
-        return export_google_sheet.run(
-            str(job.pk), self.user.pk, "local-fixture", "Characters!A1", [["name"], ["=1+1"]]
-        )
+        return run_sheet_fixture(str(job.pk), self.user.pk, "local-fixture", "Characters!A1", [["name"], ["=1+1"]])
 
     def event_response(self, url, **kwargs):
         sync_key = uuid.uuid5(

@@ -13,6 +13,7 @@ from schedules.google_job_connection import google_connection_binding
 from schedules.google_sheets import SHEET_COLUMNS
 from schedules.models import AsyncJob, GoogleIntegration
 from schedules.tasks import export_google_sheet
+from tests.utils.google_sheet_fixtures import run_sheet_fixture
 
 
 class GoogleSheetsDestinationTest(APITestCase):
@@ -65,7 +66,7 @@ class GoogleSheetsDestinationTest(APITestCase):
                     return response
 
                 with patch("schedules.tasks.requests.put", side_effect=put):
-                    result = export_google_sheet.run(str(job.pk), self.user.pk, spreadsheet_id, range_name, values)
+                    result = run_sheet_fixture(str(job.pk), self.user.pk, spreadsheet_id, range_name, values)
                 self.assertEqual(result, "exported")
                 self.assertEqual(len(prepared), 2)
                 for index, request in enumerate(prepared):
@@ -160,7 +161,7 @@ class GoogleSheetsDestinationTest(APITestCase):
                     patch("schedules.tasks.requests.put") as put,
                     patch.object(export_google_sheet, "retry") as retry,
                 ):
-                    result = export_google_sheet.run(str(job.pk), self.user.pk, value, "A1", [])
+                    result = run_sheet_fixture(str(job.pk), self.user.pk, value, "A1", [])
                 job.refresh_from_db()
                 self.assertEqual(result, "invalid-spreadsheet")
                 self.assertEqual(job.status, AsyncJob.Status.FAILED)
@@ -176,7 +177,7 @@ class GoogleSheetsDestinationTest(APITestCase):
             patch("schedules.tasks.get_google_access_token", return_value="isolated-token") as token,
             patch("schedules.tasks.requests.put") as put,
         ):
-            result = export_google_sheet.run(str(job.pk), self.user.pk, "fixture-sheet", "NamedRange", [])
+            result = run_sheet_fixture(str(job.pk), self.user.pk, "fixture-sheet", "NamedRange", [])
         self.assertEqual(result, "invalid-range")
         token.assert_not_called()
         put.assert_not_called()
@@ -198,7 +199,7 @@ class GoogleSheetsDestinationTest(APITestCase):
             patch("schedules.tasks.get_google_access_token", return_value="isolated-token") as token,
             patch("schedules.tasks.requests.put") as put,
         ):
-            result = export_google_sheet.run(str(job.pk), self.user.pk, "fixture-sheet", range_name, [])
+            result = run_sheet_fixture(str(job.pk), self.user.pk, "fixture-sheet", range_name, [])
         self.assertEqual(result, "invalid-range")
         job.refresh_from_db()
         self.assertEqual(job.status, AsyncJob.Status.FAILED)

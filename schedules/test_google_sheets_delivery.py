@@ -13,6 +13,7 @@ from schedules.google_job_connection import google_connection_binding
 from schedules.google_sheets import offset_sheet_start_range
 from schedules.models import AsyncJob, GoogleIntegration
 from schedules.tasks import export_google_sheet
+from tests.utils.google_sheet_fixtures import run_sheet_fixture
 
 
 class GoogleSheetsDeliveryTest(TestCase):
@@ -56,7 +57,7 @@ class GoogleSheetsDeliveryTest(TestCase):
                     patch("schedules.tasks.requests.put") as put,
                     patch.object(export_google_sheet, "retry") as retry,
                 ):
-                    result = export_google_sheet.run(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", [])
+                    result = run_sheet_fixture(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", [])
                 job.refresh_from_db()
                 self.assertEqual(result, "not-authorized")
                 self.assertEqual(job.status, AsyncJob.Status.FAILED)
@@ -76,7 +77,7 @@ class GoogleSheetsDeliveryTest(TestCase):
                     patch("schedules.tasks.get_google_access_token") as token,
                     patch("schedules.tasks.requests.put") as put,
                 ):
-                    result = export_google_sheet.run(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", [])
+                    result = run_sheet_fixture(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", [])
                 self.assertEqual(result, "not-authorized")
                 job.refresh_from_db()
                 self.assertEqual(job.status, AsyncJob.Status.FAILED)
@@ -102,7 +103,7 @@ class GoogleSheetsDeliveryTest(TestCase):
                     patch("schedules.tasks.requests.put", side_effect=put_chunk) as put,
                     patch.object(export_google_sheet, "retry") as retry,
                 ):
-                    result = export_google_sheet.run(
+                    result = run_sheet_fixture(
                         str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", [[row] for row in range(201)]
                     )
                 job.refresh_from_db()
@@ -138,7 +139,7 @@ class GoogleSheetsDeliveryTest(TestCase):
             return response
 
         with patch("schedules.tasks.requests.put", side_effect=put):
-            result = export_google_sheet.run(str(job.pk), self.user.pk, "fixture-sheet", "'Large Export'!B7", values)
+            result = run_sheet_fixture(str(job.pk), self.user.pk, "fixture-sheet", "'Large Export'!B7", values)
 
         job.refresh_from_db()
         self.assertEqual(result, "exported")
@@ -164,7 +165,7 @@ class GoogleSheetsDeliveryTest(TestCase):
             patch.object(export_google_sheet, "retry", side_effect=Retry()) as retry,
         ):
             with self.assertRaises(Retry):
-                export_google_sheet.run(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", values)
+                run_sheet_fixture(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", values)
 
         job.refresh_from_db()
         self.assertEqual(put.call_count, 2)
@@ -183,7 +184,7 @@ class GoogleSheetsDeliveryTest(TestCase):
         job = self._job()
 
         with patch("schedules.tasks.requests.put") as put:
-            result = export_google_sheet.run(str(job.pk), self.user.pk, "fixture-sheet", "NamedRange", [])
+            result = run_sheet_fixture(str(job.pk), self.user.pk, "fixture-sheet", "NamedRange", [])
 
         job.refresh_from_db()
         self.assertEqual(result, "invalid-range")
@@ -199,7 +200,7 @@ class GoogleSheetsDeliveryTest(TestCase):
         response.json.return_value = {"updatedCells": "private response content"}
 
         with patch("schedules.tasks.requests.put", return_value=response):
-            result = export_google_sheet.run(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", [[]])
+            result = run_sheet_fixture(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", [[]])
 
         job.refresh_from_db()
         self.assertEqual(result, "invalid-response")
@@ -225,7 +226,7 @@ class GoogleSheetsDeliveryTest(TestCase):
             patch.object(export_google_sheet, "retry", side_effect=Retry()) as retry,
         ):
             with self.assertRaises(Retry):
-                export_google_sheet.run(str(job.pk), self.user.pk, spreadsheet_id, "Characters!A1", [])
+                run_sheet_fixture(str(job.pk), self.user.pk, spreadsheet_id, "Characters!A1", [])
 
         job.refresh_from_db()
         self.assertEqual(
@@ -250,7 +251,7 @@ class GoogleSheetsDeliveryTest(TestCase):
                 else:
                     response.json.return_value = value
                 with patch("schedules.tasks.requests.put", return_value=response) as put:
-                    result = export_google_sheet.run(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", [])
+                    result = run_sheet_fixture(str(job.pk), self.user.pk, "fixture-sheet", "Characters!A1", [])
                 self.assertEqual(result, "invalid-response")
                 job.refresh_from_db()
                 self.assertEqual(job.status, AsyncJob.Status.FAILED)

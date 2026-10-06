@@ -11,7 +11,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from schedules import test_google_calendar_delivery as delivery_tests
-from schedules.google_job_connection import google_connection_binding
+from schedules.google_job_connection import google_connection_binding, google_sheet_values_binding
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration
 from schedules.tasks import export_google_sheet, sync_google_calendar
 
@@ -66,6 +66,7 @@ class GoogleJobTargetGuardTest(TestCase):
                 "character_ids": [],
                 "selection_snapshot": True,
                 "google_connection": google_connection_binding(self.integration),
+                "google_values": google_sheet_values_binding([]),
             },
         )
 

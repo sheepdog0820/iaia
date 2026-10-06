@@ -9,6 +9,7 @@ from django.urls import reverse
 
 from schedules import test_google_connection_guard as connection_tests
 from schedules.tasks import export_google_sheet, sync_google_calendar
+from tests.utils.google_sheet_fixtures import run_sheet_fixture
 
 
 class GoogleCredentialGuardTest(connection_tests.GoogleConnectionGuardTest):
@@ -100,7 +101,7 @@ class GoogleCredentialGuardTest(connection_tests.GoogleConnectionGuardTest):
                     patch("schedules.tasks.requests.post") as post,
                 ):
                     if mode == "sheets":
-                        result = export_google_sheet.run(str(job.pk), self.user.pk, "private-sheet-fixture", "A1", [])
+                        result = run_sheet_fixture(str(job.pk), self.user.pk, "private-sheet-fixture", "A1", [])
                     else:
                         result = sync_google_calendar.run(self.sync.pk, str(job.pk))
                 self._assert_failed(
@@ -116,7 +117,7 @@ class GoogleCredentialGuardTest(connection_tests.GoogleConnectionGuardTest):
         with patch("schedules.tasks.requests.put", return_value=self._response(data={"updatedCells": 0})):
             with CaptureQueriesContext(connection) as queries:
                 self.assertEqual(
-                    export_google_sheet.run(str(job.pk), self.user.pk, "private-sheet-fixture", "A1", []), "exported"
+                    run_sheet_fixture(str(job.pk), self.user.pk, "private-sheet-fixture", "A1", []), "exported"
                 )
         for query in queries:
             self.assertNotIn(self.access_fixture, query["sql"])
