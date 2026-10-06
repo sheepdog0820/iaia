@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[アカウント削除E2E起動予算分離](ACCOUNT_DELETE_PAGE_BUDGET_2026-10-06.md)で、先行WebKit traceのCreate page約20.6秒が操作30秒枠を消費し、timeout後のcontext closeで最終clickが失敗したことを確認。モーダル不具合とは断定せず、当該flowだけpage作成を独立・有限30秒枠にし、操作30秒/assertion5秒/flaky時CI失敗を維持。実runnerの新規3正負例は未実装時2 failureを経て成功、実3ブラウザー72件成功/再試行・省略・flaky0、新fixture2関数のV8観測4区間100%。アプリ削除仕様/権限・Stripe・実性能基準は変更せず、今回全CI/他flow/実AWS等へ結果を拡張しない。隔離user/契約0・起動分server停止、main/AWS追加反映・承認拡張なし・HIGH3未解消/正式公開No-Goを維持する。
+
 後続の[LLVM上流ソース署名検証](LLVM_SOURCE_PROVENANCE_2026-10-06.md)で、公式sourceの固定identity/issuer/ref/source・signer digest/GitHub-hosted runner条件のcrypto正例終了0、誤identity/digest/issuerの負例終了1を確認。先行source走査168,946件/約2.02GB/PBDS文字列0を再確認し、現在39b43286の267 ELFも先行1aとbytes差分0。ただしsource tarball生成の来歴でありconda/wheelのcompile・compiler headers/生成物/他native閉包は未証明。Debian signed APT policyで修正candidateなし、OS新規scan/指摘抑制/リスク受容なし・HIGH3未解消。先行39 CIは5成功/Playwright290成功・flaky1で失敗、アプリコード同一の後続5deb9b6dは全6成功/pytest2,285成功85省略/Playwright291成功と区別する。main/AWS追加反映・承認拡張なし、正式公開No-Goを維持する。
 
 後続39b43286の[通常配布物・Sentry収集再検証](SENTRY_RUNTIME_39B43286_2026-10-06.md)で684選定ファイル/entrypoint一致、source overlayなしsettings70/PG187成功・省略0、実HTTP44確認・実U2NET完了/再実行不変を確認。実SDK更新警告とERROR eventを試験用offline transportで収集し、event/breadcrumb/Logs・headersで合成本文露出0。実HTTPのSDK Logs WARNING2/コード位置を保持し、全9 envelope・Webログの合成本文/資格情報値露出0。samplingで得たtransaction4件を全監視privacyとは扱わず、実Sentry受信・新OS監査/全CI・HIGH3/native閉包・実AWS/連携/運用等は未達。CI4成功/2実行中、main/AWS未反映・承認範囲は拡張せず正式公開No-Goを維持する。

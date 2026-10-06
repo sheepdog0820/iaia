@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../fixtures/page-budget';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 
