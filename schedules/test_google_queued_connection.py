@@ -162,13 +162,26 @@ class GoogleQueuedConnectionTest(TestCase):
             for payload in payloads:
                 with self.subTest(mode=mode, payload=payload), ExitStack() as stack:
                     job, args = self._queue("api", mode)
-                    job.payload = payload
+                    job.payload = (
+                        {"sync_id": args[0], **payload} if mode == "create" and isinstance(payload, dict) else payload
+                    )
                     job.save(update_fields=["payload"])
+                    before_sync = GoogleCalendarSync.objects.filter(pk=self.sync.pk).values().get()
                     sends = self._sends(stack)
                     token = stack.enter_context(
                         patch("schedules.tasks.get_google_access_token", wraps=get_google_access_token)
                     )
-                    self._assert_failed(self._run(mode, args), job)
+                    result = self._run(mode, args)
+                    if mode == "create" and not isinstance(payload, dict):
+                        self.assertEqual(result, "invalid-target")
+                        job.refresh_from_db()
+                        self.assertEqual(job.status, AsyncJob.Status.FAILED)
+                        self.assertEqual(
+                            job.error, "ジョブの処理対象が一致しません。連携設定から新しく実行してください。"
+                        )
+                        self.assertEqual(GoogleCalendarSync.objects.filter(pk=self.sync.pk).values().get(), before_sync)
+                    else:
+                        self._assert_failed(result, job)
                     token.assert_not_called()
                     for send in sends.values():
                         send.assert_not_called()

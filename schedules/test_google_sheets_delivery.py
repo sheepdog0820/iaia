@@ -121,7 +121,7 @@ class GoogleSheetsDeliveryTest(TestCase):
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_large_export_updates_progress_between_bounded_requests(self, token):
-        job = self._job()
+        job = self._job(range_name="'Large Export'!B7")
         values = [[f"row-{row}", *range(16)] for row in range(205)]
         observed_progress = []
         sent_ranges = []
@@ -216,8 +216,8 @@ class GoogleSheetsDeliveryTest(TestCase):
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_http_failure_does_not_store_sheet_id_or_external_error(self, token):
-        job = self._job()
         spreadsheet_id = "private-spreadsheet-id"
+        job = self._job(spreadsheet_id=spreadsheet_id)
         external_error = requests.Timeout(f"timed out while writing {spreadsheet_id}")
 
         with (
@@ -260,12 +260,16 @@ class GoogleSheetsDeliveryTest(TestCase):
                 )
                 put.assert_called_once()
 
-    def _job(self):
+    def _job(self, spreadsheet_id="fixture-sheet", range_name="Characters!A1"):
         return AsyncJob.objects.create(
             owner=self.user,
             job_type="google_sheets_export",
             expires_at=timezone.now() + timedelta(days=1),
             payload={
-                "google_connection": google_connection_binding(GoogleIntegration.objects.filter(user=self.user).first())
+                "spreadsheet_id": spreadsheet_id,
+                "range": range_name,
+                "google_connection": google_connection_binding(
+                    GoogleIntegration.objects.filter(user=self.user).first()
+                ),
             },
         )

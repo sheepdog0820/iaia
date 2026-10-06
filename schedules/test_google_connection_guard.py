@@ -62,7 +62,12 @@ class GoogleConnectionGuardTest(TestCase):
         return AsyncJob.objects.create(
             owner=self.user,
             job_type="google_sheets_export" if mode == "sheets" else "google_calendar_sync",
-            payload={"google_connection": google_connection_binding(self.integration)},
+            payload={
+                "sync_id": self.sync.pk,
+                "spreadsheet_id": "private-sheet-fixture",
+                "range": "A1",
+                "google_connection": google_connection_binding(self.integration),
+            },
             expires_at=timezone.now() + timedelta(days=1),
         )
 

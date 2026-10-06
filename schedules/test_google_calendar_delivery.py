@@ -34,7 +34,10 @@ class GoogleCalendarDeliveryTest(TestCase):
             owner=self.user,
             job_type="google_calendar_sync",
             expires_at=timezone.now() + timedelta(days=1),
-            payload={"google_connection": google_connection_binding(GoogleIntegration.objects.get(user=self.user))},
+            payload={
+                "sync_id": self.sync.pk,
+                "google_connection": google_connection_binding(GoogleIntegration.objects.get(user=self.user)),
+            },
         )
 
     def response(self, code, data):

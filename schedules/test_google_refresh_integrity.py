@@ -132,7 +132,10 @@ class GoogleRefreshIntegrityTests(GoogleRefreshFixtures, TestCase):
                     job_type=kind,
                     expires_at=timezone.now() + timedelta(days=1),
                     payload={
-                        "google_connection": google_connection_binding(GoogleIntegration.objects.get(user=self.user))
+                        "sync_id": sync.pk,
+                        "spreadsheet_id": "isolated-sheet",
+                        "range": "A1",
+                        "google_connection": google_connection_binding(GoogleIntegration.objects.get(user=self.user)),
                     },
                 )
                 with (

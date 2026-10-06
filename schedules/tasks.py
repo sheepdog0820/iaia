@@ -46,6 +46,7 @@ GOOGLE_CONNECTION_CHANGED_MESSAGE = "Googleの連携設定が処理中に変更�
 GOOGLE_JOB_CONNECTION_FAILED_MESSAGE = (
     "ジョブ作成時のGoogle接続先を確認できません。接続先を確認して再実行してください。"
 )
+GOOGLE_JOB_TARGET_FAILED_MESSAGE = "ジョブの処理対象が一致しません。連携設定から新しく実行してください。"
 
 
 def _same_google_connection(original, current):
@@ -348,11 +349,22 @@ def _fail_calendar_authorization(sync, job, error=GOOGLE_CALENDAR_NOT_AUTHORIZED
 
 @shared_task(bind=True, max_retries=3, name="schedules.tasks.sync_google_calendar")
 def sync_google_calendar(self, sync_id, job_id):
-    sync = GoogleCalendarSync.objects.select_related("session", "user").get(pk=sync_id)
+    if type(sync_id) is not int or not 0 < sync_id < 2**63:
+        return "invalid-job"
+    sync = GoogleCalendarSync.objects.select_related("session", "user").filter(pk=sync_id).first()
+    if not sync:
+        return "invalid-job"
     job = AsyncJob.objects.filter(pk=job_id, owner_id=sync.user_id, job_type="google_calendar_sync").first()
     if not job:
         # Never mutate a different owner's job or sync on malformed dispatch.
         return "invalid-job"
+    if (
+        not isinstance(job.payload, dict)
+        or type(job.payload.get("sync_id")) is not int
+        or job.payload["sync_id"] != sync.pk
+    ):
+        job.mark_failed(GOOGLE_JOB_TARGET_FAILED_MESSAGE)
+        return "invalid-target"
     connection = _google_calendar_sync_integration(sync)
     if not connection:
         return _fail_calendar_authorization(sync, job)
@@ -561,6 +573,9 @@ def export_google_sheet(
     if not google_job_connection_matches(job, connection, credential):
         job.mark_failed(GOOGLE_JOB_CONNECTION_FAILED_MESSAGE)
         return "connection-changed"
+    if job.payload.get("spreadsheet_id") != spreadsheet_id or job.payload.get("range") != range_name:
+        job.mark_failed(GOOGLE_JOB_TARGET_FAILED_MESSAGE)
+        return "invalid-target"
     try:
         access_token = get_google_access_token(job.owner)
     except ValueError as exc:

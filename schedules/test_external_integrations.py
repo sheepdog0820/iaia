@@ -267,7 +267,10 @@ class GoogleIntegrationTestCase(APITestCase):
         job = AsyncJob.objects.create(
             owner=self.user,
             job_type="google_calendar_sync",
-            payload={"google_connection": google_connection_binding(GoogleIntegration.objects.get(user=self.user))},
+            payload={
+                "sync_id": sync.pk,
+                "google_connection": google_connection_binding(GoogleIntegration.objects.get(user=self.user)),
+            },
             expires_at=timezone.now() + timedelta(days=1),
         )
         post.return_value = Mock(status_code=200)
@@ -386,9 +389,12 @@ class GoogleIntegrationTestCase(APITestCase):
                         job_type=kind,
                         expires_at=timezone.now() + timedelta(days=1),
                         payload={
+                            "sync_id": sync.pk,
+                            "spreadsheet_id": "isolated-sheet",
+                            "range": "A1",
                             "google_connection": google_connection_binding(
                                 GoogleIntegration.objects.get(user=self.user)
-                            )
+                            ),
                         },
                     )
                     result = None

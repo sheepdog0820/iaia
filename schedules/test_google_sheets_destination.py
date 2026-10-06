@@ -25,12 +25,16 @@ class GoogleSheetsDestinationTest(APITestCase):
         )
         self.client.force_authenticate(self.user)
 
-    def _job(self):
+    def _job(self, spreadsheet_id="fixture-sheet", range_name="Characters!A1"):
         return AsyncJob.objects.create(
             owner=self.user,
             job_type="google_sheets_export",
             expires_at=timezone.now() + timedelta(days=1),
-            payload={"google_connection": google_connection_binding(GoogleIntegration.objects.get(user=self.user))},
+            payload={
+                "spreadsheet_id": spreadsheet_id,
+                "range": range_name,
+                "google_connection": google_connection_binding(GoogleIntegration.objects.get(user=self.user)),
+            },
         )
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
@@ -47,7 +51,7 @@ class GoogleSheetsDestinationTest(APITestCase):
         values = [["=SUM(A1:A3)", row] for row in range(101)]
         for spreadsheet_id, range_name in destinations:
             with self.subTest(spreadsheet_id=spreadsheet_id, range_name=range_name):
-                job = self._job()
+                job = self._job(spreadsheet_id, range_name)
                 prepared = []
 
                 def put(url, **kwargs):

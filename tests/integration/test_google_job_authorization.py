@@ -45,7 +45,12 @@ class GoogleJobAuthorizationTests(TestCase):
             job_type="google_calendar_sync" if feature == "calendar" else "google_sheets_export",
             expires_at=timezone.now() + timedelta(days=1),
             payload={
-                "google_connection": google_connection_binding(GoogleIntegration.objects.filter(user=self.user).first())
+                "sync_id": self.sync.pk,
+                "spreadsheet_id": "local-fixture",
+                "range": "Characters!A1",
+                "google_connection": google_connection_binding(
+                    GoogleIntegration.objects.filter(user=self.user).first()
+                ),
             },
         )
 
