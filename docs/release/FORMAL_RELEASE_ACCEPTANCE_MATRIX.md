@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[Google配送中ジョブ有効性](GOOGLE_JOB_ACTIVE_GUARD_2026-10-06.md)でtoken前/各HTTP・chunk直前に期限内RUNNINGの元owner/type行を再確認し、進捗/失敗/完了を同条件付きUPDATEで保存する。失効後送信・完了上書き・削除済み保存例外/不要retryを抑止し、確認済みCalendar遠隔結果を保持、開始再読込中cleanupも送信せず終了。初回REDの波及/fixture差分を区別し、独立RED42 failure/27 error（削除保存23・retry Mock TypeError4）・追加PG再読込2 errorを再現、最終PG208成功/省略0・SQLite203成功/PG専用5省略。本体差分62文4分岐/新規211文56分岐100%・3 Python品質合格。先行4535c03f CI5成功/Playwright実行中、1690508eは4成功/2実行中、新候補の全CI/配布物/実Google/AWSは未確認。原子的取消/絶対期限・試行lease/別job競合/途中出力案内等は残る。合成DB/container/volume削除・証拠保持、main/AWS/schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
+
 後続の[4535c03f通常配布物検証](GOOGLE_RUNTIME_4535C03F_2026-10-06.md)で最新のGoogle開始取得/対象/内容/所有権対策まで固定archiveから構築した。選定699 source/assetsの欠落/追加/SHA不一致0・111 packages/先行10層一致、通常entrypoint/read-only/no overlayでGoogle19 modules160成功・設定6 modules70成功（非重複230/省略0）。実PG競合5・Calendar loopback8を含む。設定試験の初回環境指定不足による試験前停止は別記録で、正しい空ENV_FILE指定後の終端成功と区別する。CI37422087169は3成功/3実行中、OS HIGH3/native閉包・実課金/連携/常設worker/AWS性能/復旧など未達は保持する。専用DB/container/tmpfsの合成データ削除・証拠保持、main/AWS/schema/Secrets/課金/容量の変更と承認拡張なし・正式公開No-Goを維持する。
 
 後続の[Googleジョブ開始取得](GOOGLE_JOB_START_CLAIM_2026-10-06.md)で成功済み/実行中/不明状態/期限超過を無変更で拒否し、期限内queued/failedをowner/type/status/期限付き単一DB UPDATEでRUNNINGへ取得する。取得できたworkerだけが認可/対象検査・配送へ進み、元開始時刻と失敗後retryを保持、再開始中の古い終了時刻/エラーを解消する。修正前SQLite21 failure/0 error/PG専用1省略・実PG並列2 subtest失敗、最終PG199成功/省略0・SQLite194成功/PG専用5省略、本体差分23文10分岐/新規PG151文26分岐100%。cc1e497c CI全6成功、cf8eba29は5成功/Playwright実行中、新候補の全CI/配布物/実Google/AWSは未確認。取得後停止/期限超過、failed後の遅延duplicate識別、別job同一同期の競合等は残る。使い捨てDB/container/volume削除・証拠保持、main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。

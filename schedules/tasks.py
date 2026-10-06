@@ -13,7 +13,15 @@ from django.utils import timezone
 from accounts.models import CharacterSheet, DiscordDelivery, GroupDiscordSettings
 
 from .google_job_connection import google_connection_binding, google_job_connection_matches, google_job_values_match
-from .google_job_lifecycle import claim_google_job_start, google_job_can_start
+from .google_job_lifecycle import (
+    claim_google_job_start,
+    fail_google_job,
+    google_job_can_start,
+    require_running_google_job,
+    set_google_job_progress,
+    stop_inactive_google_job,
+    succeed_google_job,
+)
 from .google_sheets import (
     SHEETS_EXPORT_CHUNK_ROWS,
     normalize_sheet_start_range,
@@ -333,7 +341,8 @@ def _google_calendar_sync_integration(sync):
     return None
 
 
-def _calendar_request(sync, connection, credential, access_token, send, url, **kwargs):
+def _calendar_request(job, sync, connection, credential, access_token, send, url, **kwargs):
+    require_running_google_job(job)
     current = _google_calendar_sync_integration(sync)
     if not current:
         raise _GoogleCalendarNotAuthorized
@@ -341,6 +350,7 @@ def _calendar_request(sync, connection, credential, access_token, send, url, **k
         sync.user_id, credential, access_token
     ):
         raise _GoogleConnectionChanged
+    require_running_google_job(job)
     return send(url, **kwargs)
 
 
@@ -353,14 +363,15 @@ def _calendar_conditional_request(*args, **kwargs):
 
 
 def _fail_calendar_authorization(sync, job, error=GOOGLE_CALENDAR_NOT_AUTHORIZED_MESSAGE, result="not-authorized"):
+    fail_google_job(job, error)
     sync.status = GoogleCalendarSync.Status.FAILED
     sync.last_error = error
     sync.save(update_fields=["status", "last_error", "updated_at"])
-    job.mark_failed(error)
     return result
 
 
 @shared_task(bind=True, max_retries=3, name="schedules.tasks.sync_google_calendar")
+@stop_inactive_google_job
 def sync_google_calendar(self, sync_id, job_id):
     if type(sync_id) is not int or not 0 < sync_id < 2**63:
         return "invalid-job"
@@ -380,31 +391,32 @@ def sync_google_calendar(self, sync_id, job_id):
         or type(job.payload.get("sync_id")) is not int
         or job.payload["sync_id"] != sync.pk
     ):
-        job.mark_failed(GOOGLE_JOB_TARGET_FAILED_MESSAGE)
+        fail_google_job(job, GOOGLE_JOB_TARGET_FAILED_MESSAGE)
         return "invalid-target"
     connection = _google_calendar_sync_integration(sync)
     if not connection:
         return _fail_calendar_authorization(sync, job)
-    job.set_progress(10)
+    set_google_job_progress(job, 10)
     credential = google_credential_identity(sync.user_id)
     if not google_job_connection_matches(job, connection, credential):
         return _fail_calendar_authorization(sync, job, GOOGLE_JOB_CONNECTION_FAILED_MESSAGE, "connection-changed")
+    require_running_google_job(job)
     try:
         access_token = get_google_access_token(sync.user)
     except ValueError as exc:
         error = str(exc)
+        fail_google_job(job, error)
         sync.status = GoogleCalendarSync.Status.FAILED
         sync.last_error = error
         sync.save(update_fields=["status", "last_error", "updated_at"])
-        job.mark_failed(error)
         return "missing-token"
     cancelling = sync.session.status == "cancelled"
     if sync.session.date is None and not cancelling:
         error = "開催日時が未設定のセッションはGoogle Calendarへ同期できません。"
+        fail_google_job(job, error)
         sync.status = GoogleCalendarSync.Status.FAILED
         sync.last_error = error
         sync.save(update_fields=["status", "last_error", "updated_at"])
-        job.mark_failed(error)
         return "undated"
 
     headers = {
@@ -423,7 +435,7 @@ def sync_google_calendar(self, sync_id, job_id):
             event_id = sync.external_event_id or generated_event_id
             event_url = f"{base_url}/{quote(event_id, safe='')}"
             existing = _calendar_request(
-                sync, connection, credential, access_token, requests.get, event_url, headers=headers, timeout=15
+                job, sync, connection, credential, access_token, requests.get, event_url, headers=headers, timeout=15
             )
             if existing.status_code not in {404, 410}:
                 existing.raise_for_status()
@@ -432,6 +444,7 @@ def sync_google_calendar(self, sync_id, job_id):
                         existing, event_id, generated_event_id, sync.session_id, headers
                     )
                     response = _calendar_conditional_request(
+                        job,
                         sync,
                         connection,
                         credential,
@@ -448,7 +461,7 @@ def sync_google_calendar(self, sync_id, job_id):
         elif sync.external_event_id:
             event_url = f"{base_url}/{quote(sync.external_event_id, safe='')}"
             existing = _calendar_request(
-                sync, connection, credential, access_token, requests.get, event_url, headers=headers, timeout=15
+                job, sync, connection, credential, access_token, requests.get, event_url, headers=headers, timeout=15
             )
             existing.raise_for_status()
             conditional_headers = _calendar_event_headers(
@@ -457,6 +470,7 @@ def sync_google_calendar(self, sync_id, job_id):
             payload = _calendar_event_payload(sync.session)
             payload["extendedProperties"]["private"]["tableno_sync_key"] = generated_event_id
             response = _calendar_conditional_request(
+                job,
                 sync,
                 connection,
                 credential,
@@ -477,6 +491,7 @@ def sync_google_calendar(self, sync_id, job_id):
             payload["id"] = event_id
             payload["extendedProperties"]["private"]["tableno_sync_key"] = event_id
             response = _calendar_request(
+                job,
                 sync,
                 connection,
                 credential,
@@ -489,6 +504,7 @@ def sync_google_calendar(self, sync_id, job_id):
             )
             if response.status_code == 409:
                 existing = _calendar_request(
+                    job,
                     sync,
                     connection,
                     credential,
@@ -503,6 +519,7 @@ def sync_google_calendar(self, sync_id, job_id):
                     existing, event_id, generated_event_id, sync.session_id, headers
                 )
                 response = _calendar_conditional_request(
+                    job,
                     sync,
                     connection,
                     credential,
@@ -529,10 +546,10 @@ def sync_google_calendar(self, sync_id, job_id):
             error = "Google Calendarの応答形式を確認できません。連携状態を確認してください。"
         else:
             error = str(exc)
+        fail_google_job(job, error)
         sync.status = GoogleCalendarSync.Status.FAILED
         sync.last_error = error
         sync.save(update_fields=["status", "last_error", "updated_at"])
-        job.mark_failed(error)
         if isinstance(exc, requests.RequestException):
             retry_error = requests.RequestException(GOOGLE_CALENDAR_DELIVERY_FAILED_MESSAGE)
             raise self.retry(exc=retry_error, countdown=2**self.request.retries) from None
@@ -549,17 +566,19 @@ def sync_google_calendar(self, sync_id, job_id):
             "updated_at",
         ]
     )
-    job.mark_succeeded(
+    succeed_google_job(
+        job,
         {
             "sync_id": sync.pk,
             "external_event_id": sync.external_event_id,
             "status": sync.status,
-        }
+        },
     )
     return sync.status
 
 
 @shared_task(bind=True, max_retries=3, name="schedules.tasks.export_google_sheet")
+@stop_inactive_google_job
 def export_google_sheet(
     self,
     job_id,
@@ -577,40 +596,41 @@ def export_google_sheet(
         return "inactive-job"
     connection = _google_sheets_export_integration(user_id)
     if not connection:
-        job.mark_failed(GOOGLE_SHEETS_NOT_AUTHORIZED_MESSAGE)
+        fail_google_job(job, GOOGLE_SHEETS_NOT_AUTHORIZED_MESSAGE)
         return "not-authorized"
-    job.set_progress(10)
+    set_google_job_progress(job, 10)
     try:
         spreadsheet_id = normalize_spreadsheet_id(spreadsheet_id)
     except ValueError as exc:
-        job.mark_failed(exc)
+        fail_google_job(job, exc)
         return "invalid-spreadsheet"
     try:
         range_name = normalize_sheet_start_range(range_name)
     except ValueError as exc:
-        job.mark_failed(exc)
+        fail_google_job(job, exc)
         return "invalid-range"
     credential = google_credential_identity(user_id)
     if not google_job_connection_matches(job, connection, credential):
-        job.mark_failed(GOOGLE_JOB_CONNECTION_FAILED_MESSAGE)
+        fail_google_job(job, GOOGLE_JOB_CONNECTION_FAILED_MESSAGE)
         return "connection-changed"
     if job.payload.get("spreadsheet_id") != spreadsheet_id or job.payload.get("range") != range_name:
-        job.mark_failed(GOOGLE_JOB_TARGET_FAILED_MESSAGE)
+        fail_google_job(job, GOOGLE_JOB_TARGET_FAILED_MESSAGE)
         return "invalid-target"
     if not google_job_values_match(job, values):
-        job.mark_failed(GOOGLE_JOB_VALUES_FAILED_MESSAGE)
+        fail_google_job(job, GOOGLE_JOB_VALUES_FAILED_MESSAGE)
         return "invalid-values"
     character_ids = sheet_export_character_ids(job.payload, values)
     if character_ids is None:
-        job.mark_failed(GOOGLE_SHEETS_SELECTION_FAILED_MESSAGE)
+        fail_google_job(job, GOOGLE_SHEETS_SELECTION_FAILED_MESSAGE)
         return "invalid-selection"
     if not _sheet_characters_are_owned(user_id, character_ids):
-        job.mark_failed(GOOGLE_SHEETS_CHARACTERS_CHANGED_MESSAGE)
+        fail_google_job(job, GOOGLE_SHEETS_CHARACTERS_CHANGED_MESSAGE)
         return "characters-changed"
+    require_running_google_job(job)
     try:
         access_token = get_google_access_token(job.owner)
     except ValueError as exc:
-        job.mark_failed(exc)
+        fail_google_job(job, exc)
         return "missing-token"
 
     chunks = [
@@ -622,6 +642,7 @@ def export_google_sheet(
     completed_rows = 0
     updated_cells = 0
     for chunk in chunks:
+        require_running_google_job(job)
         current = _google_sheets_export_integration(user_id)
         if (
             not current
@@ -632,15 +653,16 @@ def export_google_sheet(
             error = GOOGLE_CONNECTION_CHANGED_MESSAGE if changed else GOOGLE_SHEETS_NOT_AUTHORIZED_MESSAGE
             if completed_rows:
                 error += "途中まで出力されている可能性があります。出力先を確認してください。"
-            job.mark_failed(error)
+            fail_google_job(job, error)
             return "connection-changed" if changed else "not-authorized"
         if not _sheet_characters_are_owned(user_id, character_ids):
             error = GOOGLE_SHEETS_CHARACTERS_CHANGED_MESSAGE
             if completed_rows:
                 error += "途中まで出力されている可能性があります。出力先を確認してください。"
-            job.mark_failed(error)
+            fail_google_job(job, error)
             return "characters-changed"
         chunk_range = offset_sheet_start_range(range_name, completed_rows)
+        require_running_google_job(job)
         try:
             response = requests.put(
                 sheet_values_update_url(spreadsheet_id, chunk_range),
@@ -659,7 +681,7 @@ def export_google_sheet(
                 if completed_rows
                 else GOOGLE_SHEETS_DELIVERY_FAILED_MESSAGE
             )
-            job.mark_failed(failure_message)
+            fail_google_job(job, failure_message)
             retry_error = requests.RequestException(failure_message)
             raise self.retry(exc=retry_error, countdown=2**self.request.retries) from None
         try:
@@ -667,22 +689,23 @@ def export_google_sheet(
         except ValueError:
             result = None
         if not isinstance(result, dict):
-            job.mark_failed(GOOGLE_SHEETS_INVALID_RESPONSE_MESSAGE)
+            fail_google_job(job, GOOGLE_SHEETS_INVALID_RESPONSE_MESSAGE)
             return "invalid-response"
         chunk_updated_cells = result.get("updatedCells", 0)
         if not isinstance(chunk_updated_cells, int) or isinstance(chunk_updated_cells, bool) or chunk_updated_cells < 0:
-            job.mark_failed(GOOGLE_SHEETS_INVALID_RESPONSE_MESSAGE)
+            fail_google_job(job, GOOGLE_SHEETS_INVALID_RESPONSE_MESSAGE)
             return "invalid-response"
         updated_cells += chunk_updated_cells
         completed_rows += len(chunk)
         if total_rows:
-            job.set_progress(10 + int((completed_rows / total_rows) * 80))
-    job.mark_succeeded(
+            set_google_job_progress(job, 10 + int((completed_rows / total_rows) * 80))
+    succeed_google_job(
+        job,
         {
             "spreadsheet_id": spreadsheet_id,
             "range": range_name,
             "updated_cells": updated_cells,
             "request_count": len(chunks),
-        }
+        },
     )
     return "exported"
