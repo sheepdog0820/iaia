@@ -13,6 +13,7 @@ from rest_framework.test import APIClient
 from accounts.google_oauth import store_google_integration_grant
 from accounts.models import Group
 from schedules.google_job_connection import google_connection_binding
+from schedules.google_write_intake import register_calendar_intake
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration, TRPGSession
 from schedules.tasks import export_google_sheet, sync_google_calendar
 from tests.utils.google_sheet_fixtures import run_sheet_fixture
@@ -60,7 +61,9 @@ class GoogleConnectionGuardTest(TestCase):
             last_error="",
             synced_at=None,
         )
-        return AsyncJob.objects.create(
+        self.sync.refresh_from_db()
+        self.session.refresh_from_db()
+        job = AsyncJob.objects.create(
             owner=self.user,
             job_type="google_sheets_export" if mode == "sheets" else "google_calendar_sync",
             payload={
@@ -71,6 +74,9 @@ class GoogleConnectionGuardTest(TestCase):
             },
             expires_at=timezone.now() + timedelta(days=1),
         )
+        if mode != "sheets":
+            register_calendar_intake(job, self.sync, self.session)
+        return job
 
     def _change(self, reason):
         if reason == "recreated-integration":

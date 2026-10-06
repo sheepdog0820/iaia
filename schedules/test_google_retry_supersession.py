@@ -140,9 +140,9 @@ class GoogleRetrySupersessionTest(GoogleRetrySupersessionFixtures, TestCase):
                     send.assert_not_called()
 
     def test_old_calendar_failure_cannot_overwrite_pending_successor_sync_or_schedule_retry(self):
-        job, args = self._failed("calendar")
         self.sync.external_event_id = "known-retry-fixture"
         self.sync.save(update_fields=["external_event_id"])
+        job, args = self._failed("calendar")
         with ExitStack() as stack:
             sends, _ = self._sends(stack)
             sends["get"].side_effect = None

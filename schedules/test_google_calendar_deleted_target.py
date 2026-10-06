@@ -146,6 +146,9 @@ class GoogleCalendarDeletedTargetTest(GoogleCalendarDeletedTargetFixtures, TestC
         }
         for phase, message in reasons.items():
             with self.subTest(phase=phase), transaction.atomic(), ExitStack() as stack:
+                if phase == "undated":
+                    self.session.date = None
+                    self.session.save(update_fields=["date"])
                 job, args = self._prepare("create")
                 sends, token, retry = self._sends(stack)
 
@@ -163,9 +166,6 @@ class GoogleCalendarDeletedTargetTest(GoogleCalendarDeletedTargetFixtures, TestC
                     stack.enter_context(patch.object(tasks, "_google_calendar_sync_integration", side_effect=fail))
                 elif phase in ("refresh", "undated"):
                     token.side_effect = fail
-                    if phase == "undated":
-                        self.session.date = None
-                        self.session.save(update_fields=["date"])
                 else:
                     sends["post"].side_effect = fail
                 result = tasks.sync_google_calendar.run(*args)

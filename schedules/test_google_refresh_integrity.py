@@ -12,6 +12,7 @@ from accounts.google_oauth import store_google_integration_grant
 from accounts.models import Group
 from schedules.google_job_connection import google_connection_binding
 from schedules.google_tokens import get_google_access_token
+from schedules.google_write_intake import register_calendar_intake
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration, TRPGSession
 from schedules.tasks import export_google_sheet, sync_google_calendar
 from tests.utils.google_sheet_fixtures import run_sheet_fixture
@@ -147,6 +148,7 @@ class GoogleRefreshIntegrityTests(GoogleRefreshFixtures, TestCase):
                     patch.object(export_google_sheet, "retry") as sheets_retry,
                 ):
                     if kind == "google_calendar_sync":
+                        register_calendar_intake(job, sync, session)
                         result = sync_google_calendar.run(sync.pk, str(job.pk))
                     else:
                         result = run_sheet_fixture(str(job.pk), self.user.pk, "isolated-sheet", "A1", [[1]])

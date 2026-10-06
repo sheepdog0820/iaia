@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from accounts.models import Group, GroupMembership
 from schedules.google_job_connection import google_connection_binding
+from schedules.google_write_intake import register_calendar_intake
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration, SessionParticipant, TRPGSession
 from schedules.tasks import sync_google_calendar
 
@@ -48,7 +49,8 @@ class GoogleCalendarRevocationTest(TestCase):
             external_event_id=external_id, status=GoogleCalendarSync.Status.PENDING, last_error="", synced_at=None
         )
         self.sync.refresh_from_db()
-        return AsyncJob.objects.create(
+        self.session.refresh_from_db()
+        job = AsyncJob.objects.create(
             owner=self.user,
             job_type="google_calendar_sync",
             expires_at=timezone.now() + timedelta(days=1),
@@ -57,6 +59,8 @@ class GoogleCalendarRevocationTest(TestCase):
                 "google_connection": google_connection_binding(GoogleIntegration.objects.get(user=self.user)),
             },
         )
+        register_calendar_intake(job, self.sync, self.session)
+        return job
 
     def _revoke(self, reason):
         if reason == "disabled":

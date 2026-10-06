@@ -1,4 +1,4 @@
-"""Immutable, transactional Google write admissions; worker integration follows."""
+"""Immutable, transactional Google write admissions; no shared execution claim."""
 
 import base64
 import hashlib
@@ -154,7 +154,7 @@ def register_google_write(job, resource_keys, snapshot):
     """Allocate committed FIFO sequences, no HTTP, no execution claim or permission grant.
 
     Internal callers must derive keys/snapshot from authorized immutable targets.
-    Producers and worker do not use this foundation until their integration unit.
+    Producer acceptance and worker snapshot checks do not claim execution rights.
     """
     if (
         type(resource_keys) not in (list, tuple)

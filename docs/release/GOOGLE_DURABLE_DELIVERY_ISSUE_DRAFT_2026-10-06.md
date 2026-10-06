@@ -8,6 +8,10 @@ Google Calendar/Sheetsを正式公開できる品質にするため、DB確定�
 
 ## 現在の部分実装と証拠
 
+- 最新の[worker固定本文消費](GOOGLE_WORKER_SNAPSHOT_2026-10-07.md): Calendar/Sheets workerが受付の固定本文・操作・対象を使用し、構造/資格情報/同期行incarnation/暗号文/採番/対象keyを照合する。HTTP間の受付喪失・認証済み別本文への差し替えは続送を止め、部分Sheets適用後はUNCERTAINを保持。最終PG410成功/省略0・SQLite388成功/PG専用22省略、製品差分97文36分岐先100%/除外0、新規20試験346文82分岐先/合成Sheets helper22文2分岐先100%、Python17品質/Bandit0・schema差分0。先行fixture/受付後ID変更の失敗を保持して実受付方式に更新、専用PG/tmpfs撤去・証拠/別作業保持。共有holder/FIFO開始・HTTP intent/receipt・独立unknown journal・後続PENDING保全/全lock順/移行/drain/回復は未完了。親d84 CI全6成功と今回候補CIを区別し、main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし、No-Goを維持する。
+
+### 先行の受付実装（検証時点）
+
 - 最新の[全5経路の固定受付](GOOGLE_WRITE_INTAKE_2026-10-07.md): Calendar/Sheets/両retry/自動同期のjob・固定本文/接続/incarnation・admission/sequence・outboxを原子的に保存。認可再検査、日本語400、失効owner単位のrollback、セッション編集の500防止、期限処理のjob削除件数を修正した。最終PG389成功/省略0・SQLite367成功/PG専用22省略、製品差分92文16分岐先100%/除外0・新規PG348文72分岐先100%、Python7品質/Bandit0・schema差分0。実PGのproducer lock順と別owner/接続/rangeの共有Sheet採番を確認し、先行driver3エラー/coverage不足等を保持して再検証、専用PG/tmpfs撤去・証拠/別作業保持。worker snapshot消費・共有holder・HTTP intent/receipt・独立unknown journal・全lock順/移行/回復は未完了。親75b CI全6成功と今回候補CIを区別。main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし、No-Goを維持する。
 
 ### 先行単位（各記録時点）

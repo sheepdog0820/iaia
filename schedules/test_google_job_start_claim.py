@@ -102,6 +102,10 @@ class GoogleJobStartClaimTest(GoogleJobStartFixtures, TestCase):
     def test_failed_retry_keeps_original_start_but_clears_old_finish_and_error(self):
         for mode in ("sheets", "calendar"):
             with self.subTest(mode=mode), ExitStack() as stack:
+                if mode == "calendar":
+                    # A known event is part of acceptance, not a later target edit.
+                    self.sync.external_event_id = "known-start-fixture"
+                    self.sync.save(update_fields=["external_event_id"])
                 job, args = self._queue(mode)
                 start = timezone.now() - timedelta(minutes=1)
                 job.started_at = start
@@ -120,10 +124,6 @@ class GoogleJobStartClaimTest(GoogleJobStartFixtures, TestCase):
                     )
 
                 stack.enter_context(patch("schedules.tasks.requests.put", side_effect=put))
-                if mode == "calendar":
-                    # A known event uses GET + conditional PUT, exercising a failed job's restart.
-                    self.sync.external_event_id = "known-start-fixture"
-                    self.sync.save(update_fields=["external_event_id"])
                 result = self._worker(mode).run(*args)
                 self.assertEqual(result, "exported" if mode == "sheets" else "synced")
 

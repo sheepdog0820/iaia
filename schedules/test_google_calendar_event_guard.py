@@ -49,10 +49,10 @@ class GoogleCalendarEventGuardTest(TestCase):
             },
         }
 
-    def _run(self, stack, mode, event, code=200):
+    def _run(self, stack, mode, event, code=200, external_id="stored-event-fixture"):
         self.session.status = "cancelled" if mode.startswith("cancel") else "planned"
         self.session.save(update_fields=["status"])
-        self.sync.external_event_id = "" if mode in ("conflict", "cancel-unknown") else "stored-event-fixture"
+        self.sync.external_event_id = "" if mode in ("conflict", "cancel-unknown") else external_id
         self.sync.status = GoogleCalendarSync.Status.PENDING
         self.sync.synced_at = None
         self.sync.save(update_fields=["external_event_id", "status", "synced_at"])
@@ -216,9 +216,7 @@ class GoogleCalendarEventGuardTest(TestCase):
             with self.subTest(mode=mode), ExitStack() as stack:
                 event = self._event(mode)
                 event["id"] = "private/path?query=value#fragment"
-                sends, _ = self._run(stack, mode, event)
-                self.sync.external_event_id = event["id"]
-                self.sync.save(update_fields=["external_event_id"])
+                sends, _ = self._run(stack, mode, event, external_id=event["id"])
                 sends["put"].return_value = self.response(200, event)
                 self.assertEqual(
                     self._execute(),
@@ -244,9 +242,7 @@ class GoogleCalendarEventGuardTest(TestCase):
                 with self.subTest(mode=mode, event_id=event_id), ExitStack() as stack:
                     event = self._event(mode)
                     event["id"] = event_id
-                    sends, retry = self._run(stack, mode, event)
-                    self.sync.external_event_id = event_id
-                    self.sync.save(update_fields=["external_event_id"])
+                    sends, retry = self._run(stack, mode, event, external_id=event_id)
                     self.assertEqual(self._execute(), "invalid-response")
                     self._failed("Google Calendarの予定IDを確認できません。連携状態を確認してください。")
                     for send in sends.values():

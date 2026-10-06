@@ -2,6 +2,10 @@
 
 ## 現在の公開判断（2026-10-07）
 
+[Google workerの固定受付情報](GOOGLE_WORKER_SNAPSHOT_2026-10-07.md)をCalendar/Sheetsの実行経路へ接続し、受付時の本文・操作・対象を使用、送信前の暗号文/構造/credential/incarnation/対象照合と改変時の停止を追加した。Sheets部分適用後の受付喪失はUNCERTAINを保持する。最終PG410成功/省略0・SQLite388成功/PG専用22省略、製品差分97文36分岐先100%/除外0、新規20試験346文82分岐先100%・合成Sheets helper22文2分岐先100%、Python17品質/Bandit0・schema差分0。旧fixtureの失敗と予定IDの受付後変更6失敗、CI欠落RED等を保持して同一ソースで再検証、専用PG/tmpfs撤去・証拠/別作業保持。共有holder/FIFO実行、HTTP intent/receipt、独立unknown journal、後続PENDING保全・全lock順・移行/drain/回復は未完了で、先行3件の対象競合不足を全て解消したものではない。親d84 CI全6成功と今回候補CIを区別し、通常新配布物/実Google/共有運用・OS HIGH3・その他公開条件は残る。main/AWS/共有DB/Secrets/課金/容量変更・favicon承認拡張なし、正式公開No-Goを維持する。
+
+### 先行の受付実装（検証時点）
+
 [Google全5経路の固定受付](GOOGLE_WRITE_INTAKE_2026-10-07.md)で、Calendar/Sheets/両retry/自動同期のjob・固定snapshot・admission・sequence・outboxを同時保存し、受付の認可再検査と自動失効owner単位のrollbackを追加した。最終PG389成功/省略0・SQLite367成功/PG専用22省略、製品差分92文16分岐先100%/除外0・新規PG348文72分岐先100%、Python7品質/Bandit0・schema差分0。実PGのproducer target→Sync lock順と別owner/接続/rangeの共有Sheets counter、実セッション編集APIの500→200を確認。先行driver互換3エラー・coverage未実行1文/1分岐等を保存して再検証し、専用PG/tmpfs2回分を撤去・証拠/別作業保持。workerは固定snapshotをまだ消費せず、対象実行holder・HTTP intent/receipt・独立unknown journal・全workflow lock順・移行/回復等は未完了。親75b CI全6成功と今回候補CIを区別し、通常新配布物/実Google/共有運用・OS HIGH3・その他公開条件は残る。共有DB/main/AWS/Secrets/課金/容量変更・favicon承認拡張なし、正式公開No-Goを維持する。
 
 ### 先行記録（各検証時点）

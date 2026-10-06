@@ -13,6 +13,7 @@ from rest_framework.test import APIClient
 from schedules import test_google_calendar_delivery as delivery_tests
 from schedules.google_job_connection import google_connection_binding, google_sheet_values_binding
 from schedules.google_sheets import SHEET_COLUMNS
+from schedules.google_write_intake import register_calendar_intake, register_sheets_intake
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration
 from schedules.tasks import export_google_sheet, sync_google_calendar
 
@@ -54,10 +55,9 @@ class GoogleJobTargetGuardTest(TestCase):
         self.sync.status = GoogleCalendarSync.Status.FAILED
         self.sync.last_error = "以前の試行失敗"
         self.sync.save(update_fields=["status", "last_error"])
-        return AsyncJob.objects.create(
+        job = AsyncJob.objects.create(
             owner=owner or self.user,
             job_type=kind or ("google_sheets_export" if mode == "sheets" else "google_calendar_sync"),
-            status=AsyncJob.Status.FAILED,
             error="以前の試行失敗",
             expires_at=timezone.now() + timedelta(days=1),
             payload={
@@ -70,6 +70,15 @@ class GoogleJobTargetGuardTest(TestCase):
                 "google_values": google_sheet_values_binding([SHEET_COLUMNS]),
             },
         )
+        if job.owner_id == self.user.pk and job.job_type == (
+            "google_sheets_export" if mode == "sheets" else "google_calendar_sync"
+        ):
+            if mode == "sheets":
+                register_sheets_intake(job, [SHEET_COLUMNS])
+            else:
+                register_calendar_intake(job, self.sync, self.session)
+        job.mark_failed("以前の試行失敗")
+        return job
 
     def _sends(self, stack):
         generated = uuid.uuid5(

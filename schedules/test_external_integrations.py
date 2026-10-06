@@ -17,6 +17,7 @@ from schedules import session_permissions
 from schedules.google_job_connection import google_connection_binding
 from schedules.google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_DISPLAY_RANGE
 from schedules.google_tokens import get_google_access_token
+from schedules.google_write_intake import register_calendar_intake
 from schedules.models import AsyncJob, CalendarSubscription, GoogleCalendarSync, GoogleIntegration, TRPGSession
 from schedules.tasks import sync_google_calendar
 
@@ -276,6 +277,7 @@ class GoogleIntegrationTestCase(APITestCase):
             expires_at=timezone.now() + timedelta(days=1),
         )
         post.return_value = Mock(status_code=200)
+        register_calendar_intake(job, sync, self.session)
         post.return_value.raise_for_status.return_value = None
         post.return_value.json.side_effect = lambda: {"id": post.call_args.kwargs["json"]["id"]}
 
@@ -400,6 +402,8 @@ class GoogleIntegrationTestCase(APITestCase):
                         },
                     )
                     result = None
+                    if kind == "google_calendar_sync":
+                        register_calendar_intake(job, sync, self.session)
                     try:
                         if kind == "google_calendar_sync":
                             result = sync_google_calendar.run(sync.pk, str(job.pk))

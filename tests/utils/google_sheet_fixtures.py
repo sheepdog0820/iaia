@@ -2,14 +2,19 @@
 
 from accounts.character_models import CharacterSheet7th
 from accounts.models import CharacterSheet
-from schedules.google_job_connection import google_sheet_values_binding
+from schedules.google_job_connection import google_job_connection_matches, google_sheet_values_binding
+from schedules.google_tokens import google_credential_identity
+from schedules.google_write_intake import register_sheets_intake
 from schedules.job_views import _sheet_export_values
-from schedules.models import AsyncJob
+from schedules.models import AsyncJob, GoogleIntegration, GoogleWriteAdmission
 from schedules.tasks import export_google_sheet
 
 
 def run_sheet_fixture(job_id, user_id, spreadsheet_id, range_name, values):
     job = AsyncJob.objects.get(pk=job_id)
+    # This helper deliberately builds a NEW synthetic transport intent before
+    # starting the worker. It is never a production repair/backfill mechanism.
+    GoogleWriteAdmission.objects.filter(job_id=job.pk).delete()
     # Preserve transport request/row counts, not the old arbitrary table grammar.
     characters = CharacterSheet.objects.bulk_create(
         [CharacterSheet(user_id=job.owner_id, edition="7th") for _ in values[1:]]
@@ -25,4 +30,15 @@ def run_sheet_fixture(job_id, user_id, spreadsheet_id, range_name, values):
     values = _sheet_export_values(job.owner, job.payload)
     job.payload["google_values"] = google_sheet_values_binding(values)
     job.save(update_fields=["payload"])
+    integration = GoogleIntegration.objects.filter(user_id=job.owner_id).first()
+    # Deliberately revoked fixtures exercise the earlier authorization guard;
+    # do not authenticate a disabled/missing credential as a valid acceptance.
+    if (
+        integration
+        and job.owner.is_active
+        and integration.sheets_enabled
+        and integration.has_scope(GoogleIntegration.REQUIRED_SHEETS_SCOPE)
+        and google_job_connection_matches(job, integration, google_credential_identity(job.owner_id))
+    ):
+        register_sheets_intake(job, values)
     return export_google_sheet.run(job_id, user_id, spreadsheet_id, range_name, values)

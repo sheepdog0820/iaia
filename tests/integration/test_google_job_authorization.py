@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from accounts.models import Group
 from schedules.google_job_connection import google_connection_binding
+from schedules.google_write_intake import register_calendar_intake
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration, SessionParticipant, TRPGSession
 from schedules.tasks import sync_google_calendar
 from tests.utils.google_sheet_fixtures import run_sheet_fixture
@@ -41,7 +42,7 @@ class GoogleJobAuthorizationTests(TestCase):
         )
 
     def job(self, feature):
-        return AsyncJob.objects.create(
+        job = AsyncJob.objects.create(
             owner=self.user,
             job_type="google_calendar_sync" if feature == "calendar" else "google_sheets_export",
             expires_at=timezone.now() + timedelta(days=1),
@@ -54,6 +55,17 @@ class GoogleJobAuthorizationTests(TestCase):
                 ),
             },
         )
+        integration = GoogleIntegration.objects.filter(user=self.user).first()
+        if (
+            feature == "calendar"
+            and integration
+            and self.user.is_active
+            and integration.calendar_enabled
+            and integration.has_scope(GoogleIntegration.REQUIRED_CALENDAR_SCOPE)
+        ):
+            self.sync.refresh_from_db()
+            register_calendar_intake(job, self.sync, self.session)
+        return job
 
     def run_job(self, feature, job):
         if feature == "calendar":

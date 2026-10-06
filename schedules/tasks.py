@@ -1,6 +1,7 @@
 import logging
 import re
 import socket
+from copy import deepcopy
 from datetime import timedelta
 from urllib.parse import quote, urlparse
 
@@ -37,10 +38,9 @@ from .google_sheets import (
     sheet_values_update_url,
 )
 from .google_tokens import get_google_access_token, google_credential_identity, google_credential_is_current
-from .google_write_intake import calendar_event_key
-from .google_write_intake import calendar_event_payload as _calendar_event_payload
+from .google_worker_snapshot import prepare_worker_snapshot, require_worker_snapshot
 from .google_write_intake import register_calendar_intake
-from .google_write_ledger import InvalidGoogleWriteAdmission
+from .google_write_ledger import INVALID_ADMISSION_MESSAGE, InvalidGoogleWriteAdmission
 from .google_write_outcome import GoogleWriteUncertain, google_write_request
 from .handout_release import evaluate_release_conditions, publish_handout
 from .holiday_sync import sync_japanese_holidays as run_japanese_holiday_sync
@@ -449,6 +449,9 @@ def _calendar_request(job, sync, connection, credential, access_token, send, url
         raise _GoogleConnectionChanged
     require_running_google_job(job)
     _require_current_calendar_sync(sync, job)
+    require_worker_snapshot(job, sync)
+    require_running_google_job(job)
+    _require_current_calendar_sync(sync, job)
     if send is not requests.get:
         return google_write_request(send, url, **kwargs)
     return send(url, **kwargs)
@@ -504,6 +507,11 @@ def sync_google_calendar(self, sync_id, job_id):
     credential = google_credential_identity(sync.user_id)
     if not google_job_connection_matches(job, connection, credential):
         return _fail_calendar_authorization(sync, job, GOOGLE_JOB_CONNECTION_FAILED_MESSAGE, "connection-changed")
+    try:
+        snapshot = prepare_worker_snapshot(job, credential, sync)
+    except InvalidGoogleWriteAdmission:
+        fail_google_job(job, INVALID_ADMISSION_MESSAGE)
+        return "invalid-admission"
     require_running_google_job(job)
     try:
         access_token = get_google_access_token(sync.user)
@@ -514,8 +522,9 @@ def sync_google_calendar(self, sync_id, job_id):
         sync.last_error = error
         _save_current_calendar_sync(sync, job, ["status", "last_error", "updated_at"])
         return "missing-token"
-    cancelling = sync.session.status == "cancelled"
-    if sync.session.date is None and not cancelling:
+    plan = snapshot["calendar"]
+    cancelling = plan["operation"] == "cancel"
+    if plan["event"] is None and not cancelling:
         error = "開催日時が未設定のセッションはGoogle Calendarへ同期できません。"
         fail_google_job(job, error)
         sync.status = GoogleCalendarSync.Status.FAILED
@@ -528,13 +537,13 @@ def sync_google_calendar(self, sync_id, job_id):
         "Content-Type": "application/json",
     }
     base_url = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
-    generated_event_id = calendar_event_key(sync)
+    generated_event_id = plan["sync_key"]
     write_accepted = False
     try:
-        if sync.external_event_id in {".", ".."}:
+        if plan["event_id"] in {".", ".."}:
             raise ValueError("Google Calendarの予定IDを確認できません。連携状態を確認してください。")
         if cancelling:
-            event_id = sync.external_event_id or generated_event_id
+            event_id = plan["event_id"]
             event_url = f"{base_url}/{quote(event_id, safe='')}"
             existing = _calendar_request(
                 job, sync, connection, credential, access_token, requests.get, event_url, headers=headers, timeout=15
@@ -560,17 +569,17 @@ def sync_google_calendar(self, sync_id, job_id):
                         response.raise_for_status()
                 sync.external_event_id = event_id
             sync.status = GoogleCalendarSync.Status.DELETED
-        elif sync.external_event_id:
-            event_url = f"{base_url}/{quote(sync.external_event_id, safe='')}"
+        elif plan["known_event"]:
+            event_id = plan["event_id"]
+            event_url = f"{base_url}/{quote(event_id, safe='')}"
             existing = _calendar_request(
                 job, sync, connection, credential, access_token, requests.get, event_url, headers=headers, timeout=15
             )
             existing.raise_for_status()
             conditional_headers = _calendar_event_headers(
-                existing, sync.external_event_id, generated_event_id, sync.session_id, headers
+                existing, event_id, generated_event_id, sync.session_id, headers
             )
-            payload = _calendar_event_payload(sync.session)
-            payload["extendedProperties"]["private"]["tableno_sync_key"] = generated_event_id
+            payload = deepcopy(plan["event"])
             response = _calendar_conditional_request(
                 job,
                 sync,
@@ -585,12 +594,12 @@ def sync_google_calendar(self, sync_id, job_id):
             )
             response.raise_for_status()
             write_accepted = 200 <= response.status_code < 300
-            if _calendar_response_event(response).get("id") != sync.external_event_id:
+            if _calendar_response_event(response).get("id") != event_id:
                 raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
             sync.status = GoogleCalendarSync.Status.SYNCED
         else:
-            event_id = generated_event_id
-            payload = _calendar_event_payload(sync.session)
+            event_id = plan["event_id"]
+            payload = deepcopy(plan["event"])
             payload["id"] = event_id
             payload["extendedProperties"]["private"]["tableno_sync_key"] = event_id
             response = _calendar_request(
@@ -741,6 +750,12 @@ def export_google_sheet(
     if not _sheet_characters_are_owned(user_id, character_ids):
         fail_google_job(job, GOOGLE_SHEETS_CHARACTERS_CHANGED_MESSAGE)
         return "characters-changed"
+    try:
+        snapshot = prepare_worker_snapshot(job, credential)
+    except InvalidGoogleWriteAdmission:
+        fail_google_job(job, INVALID_ADMISSION_MESSAGE)
+        return "invalid-admission"
+    values = snapshot["sheets"]["values"]
     require_running_google_job(job)
     try:
         access_token = get_google_access_token(job.owner)
@@ -777,6 +792,7 @@ def export_google_sheet(
             fail_google_job(job, error)
             return "characters-changed"
         chunk_range = offset_sheet_start_range(range_name, completed_rows)
+        require_worker_snapshot(job, accepted_write=bool(completed_rows))
         require_running_google_job(job)
         try:
             response = google_write_request(

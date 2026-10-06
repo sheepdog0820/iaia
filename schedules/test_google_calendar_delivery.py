@@ -12,6 +12,7 @@ from django.utils import timezone
 from accounts.models import Group
 from schedules.google_job_connection import google_connection_binding
 from schedules.google_job_lifecycle import GOOGLE_EXECUTION_UNCERTAIN_MESSAGE
+from schedules.google_write_intake import register_calendar_intake
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration, TRPGSession
 from schedules.tasks import sync_google_calendar
 
@@ -31,7 +32,9 @@ class GoogleCalendarDeliveryTest(TestCase):
         )
 
     def job(self):
-        return AsyncJob.objects.create(
+        self.sync.refresh_from_db()
+        self.session.refresh_from_db()
+        job = AsyncJob.objects.create(
             owner=self.user,
             job_type="google_calendar_sync",
             expires_at=timezone.now() + timedelta(days=1),
@@ -40,6 +43,8 @@ class GoogleCalendarDeliveryTest(TestCase):
                 "google_connection": google_connection_binding(GoogleIntegration.objects.get(user=self.user)),
             },
         )
+        register_calendar_intake(job, self.sync, self.session)
+        return job
 
     def response(self, code, data):
         result = Mock(status_code=code)
