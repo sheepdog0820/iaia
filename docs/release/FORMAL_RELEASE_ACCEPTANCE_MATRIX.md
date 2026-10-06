@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-07）
 
+[無料KP登録の開始条件](FREE_KP_SIGNUP_READINESS_2026-10-07.md)を修正・ローカル検証した。基準77192584のCI37540663348は5成功/Playwright failure（428 passed/1 flaky）、Firefoxの登録page.goto(load)で30秒timeout。画面にはフォームが表示され、traceの記録済み17 HTTPはすべて200だが、browser lifecycle遅延の根本原因は未確定。実登録画面の画像待ちケースで旧開始条件のtimeoutを再現し、既存のDOMContentLoaded/操作可能性helperへ接続、通常/画像待ちの3ブラウザー6件と、退会保護・初期化の異常系等を含む広域93件成功（retry/skip/flaky0・30秒制限維持）を確認した。今回候補の全CIは未確認。合成データ/自分のserverを片付け、Google共有対象の排他/回復等は別の未コミット作業として保持し、main/AWS/共有DB/Secrets/費用変更・favicon承認拡張なし、正式公開No-Goを維持する。
+
 [Google workerの固定受付情報](GOOGLE_WORKER_SNAPSHOT_2026-10-07.md)をCalendar/Sheetsの実行経路へ接続し、受付時の本文・操作・対象を使用、送信前の暗号文/構造/credential/incarnation/対象照合と改変時の停止を追加した。Sheets部分適用後の受付喪失はUNCERTAINを保持する。最終PG410成功/省略0・SQLite388成功/PG専用22省略、製品差分97文36分岐先100%/除外0、新規20試験346文82分岐先100%・合成Sheets helper22文2分岐先100%、Python17品質/Bandit0・schema差分0。旧fixtureの失敗と予定IDの受付後変更6失敗、CI欠落RED等を保持して同一ソースで再検証、専用PG/tmpfs撤去・証拠/別作業保持。共有holder/FIFO実行、HTTP intent/receipt、独立unknown journal、後続PENDING保全・全lock順・移行/drain/回復は未完了で、先行3件の対象競合不足を全て解消したものではない。親d84 CI全6成功と今回候補CIを区別し、通常新配布物/実Google/共有運用・OS HIGH3・その他公開条件は残る。main/AWS/共有DB/Secrets/課金/容量変更・favicon承認拡張なし、正式公開No-Goを維持する。
 
 ### 先行の受付実装（検証時点）
