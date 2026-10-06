@@ -18,6 +18,7 @@ from rest_framework.views import APIView
 from accounts.models import CharacterSheet
 
 from .google_job_connection import google_connection_binding, google_sheet_values_binding
+from .google_job_lifecycle import fail_unstarted_google_dispatch
 from .google_sheets import (
     SHEET_COLUMNS,
     SHEETS_DEFAULT_START_RANGE,
@@ -238,14 +239,18 @@ class GoogleCalendarSyncView(APIView):
         )
         queued = queue_google_calendar_sync(sync.pk, str(job.pk))
         if not queued:
-            job.mark_failed(BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
-            sync.status = GoogleCalendarSync.Status.FAILED
-            sync.last_error = BACKGROUND_TASK_UNAVAILABLE_MESSAGE
-            sync.save(update_fields=["status", "last_error", "updated_at"])
+            fail_unstarted_google_dispatch(job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE, sync)
+        sync_status = (
+            GoogleCalendarSync.objects.filter(
+                pk=sync.pk, user_id=sync.user_id, session_id=sync.session_id, created_at=sync.created_at
+            )
+            .values_list("status", flat=True)
+            .first()
+        )
         return Response(
             {
                 "job_id": job.pk,
-                "sync_status": sync.status,
+                "sync_status": sync_status,
                 "queued": queued,
             },
             status=status.HTTP_202_ACCEPTED,
@@ -382,7 +387,7 @@ class GoogleSheetsExportView(APIView):
             values,
         )
         if not queued:
-            job.mark_failed(BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
+            fail_unstarted_google_dispatch(job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
         return Response(
             {"job_id": job.pk, "queued": queued},
             status=status.HTTP_202_ACCEPTED,

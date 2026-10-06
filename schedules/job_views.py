@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from accounts.models import CharacterSheet
 
 from .google_job_connection import google_job_connection_matches, google_sheet_values_binding
+from .google_job_lifecycle import fail_unstarted_google_dispatch
 from .google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_START_RANGE
 from .google_tokens import google_credential_identity
 from .integration_access import visible_user_sessions
@@ -178,10 +179,7 @@ class AsyncJobRetryView(APIView):
         )
         queued = queue_google_calendar_sync(sync.pk, str(retry_job.pk))
         if not queued:
-            retry_job.mark_failed(BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
-            sync.status = GoogleCalendarSync.Status.FAILED
-            sync.last_error = BACKGROUND_TASK_UNAVAILABLE_MESSAGE
-            sync.save(update_fields=["status", "last_error", "updated_at"])
+            fail_unstarted_google_dispatch(retry_job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE, sync)
         return Response(
             {
                 "job_id": retry_job.pk,
@@ -227,7 +225,7 @@ class AsyncJobRetryView(APIView):
             values,
         )
         if not queued:
-            retry_job.mark_failed(BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
+            fail_unstarted_google_dispatch(retry_job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
         return Response(
             {
                 "job_id": retry_job.pk,

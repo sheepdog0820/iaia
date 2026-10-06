@@ -3,10 +3,35 @@
 from functools import wraps
 from uuid import UUID
 
+from django.db import transaction
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from .models import AsyncJob
+from .models import AsyncJob, GoogleCalendarSync
+
+
+def fail_unstarted_google_dispatch(job, error, sync=None):
+    """A late publisher failure must never overwrite a worker's claimed job."""
+    now = timezone.now()
+    with transaction.atomic():
+        updated = AsyncJob.objects.filter(
+            pk=job.pk,
+            owner_id=job.owner_id,
+            job_type=job.job_type,
+            status=AsyncJob.Status.QUEUED,
+            started_at__isnull=True,
+            expires_at__gt=now,
+        ).update(status=AsyncJob.Status.FAILED, error=str(error), finished_at=now)
+        if updated and sync is not None:
+            # Keep both changes atomic with the worker's claim; never recreate a deleted target.
+            GoogleCalendarSync.objects.filter(
+                pk=sync.pk,
+                user_id=sync.user_id,
+                session_id=sync.session_id,
+                created_at=sync.created_at,
+                status=GoogleCalendarSync.Status.PENDING,
+            ).update(status=GoogleCalendarSync.Status.FAILED, last_error=str(error), updated_at=now)
+    return bool(updated)
 
 
 def google_job_identity(value):

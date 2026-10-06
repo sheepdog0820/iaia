@@ -17,6 +17,7 @@ from .google_job_lifecycle import (
     GoogleJobInactive,
     claim_google_job_start,
     fail_google_job,
+    fail_unstarted_google_dispatch,
     google_job_can_start,
     google_job_identity,
     require_running_google_job,
@@ -128,17 +129,25 @@ def queue_discord_event(group_id, event_type, payload, idempotency_key):
         return False
 
 
+def _store_google_task_id(job_id, result):
+    try:
+        AsyncJob.objects.filter(pk=job_id).update(celery_task_id=result.id)
+    except Exception:
+        # Dispatch already returned successfully. Diagnostic ID storage is not delivery failure.
+        logger.warning("Google task was published but its task ID could not be saved.")
+
+
 def queue_google_calendar_sync(sync_id, job_id):
     if not getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False) and not _broker_available():
         logger.warning("Google sync was not queued because the broker is unavailable.")
         return False
     try:
         result = sync_google_calendar.delay(sync_id, job_id)
-        AsyncJob.objects.filter(pk=job_id).update(celery_task_id=result.id)
-        return True
     except Exception:
         logger.exception("Unable to enqueue Google Calendar synchronization.")
         return False
+    _store_google_task_id(job_id, result)
+    return True
 
 
 def queue_google_sheet_export(job_id, user_id, spreadsheet_id, range_name, values):
@@ -147,11 +156,11 @@ def queue_google_sheet_export(job_id, user_id, spreadsheet_id, range_name, value
         return False
     try:
         result = export_google_sheet.delay(job_id, user_id, spreadsheet_id, range_name, values)
-        AsyncJob.objects.filter(pk=job_id).update(celery_task_id=result.id)
-        return True
     except Exception:
         logger.exception("Unable to enqueue Google Sheets export.")
         return False
+    _store_google_task_id(job_id, result)
+    return True
 
 
 def schedule_session_google_syncs(session):
@@ -178,10 +187,7 @@ def schedule_session_google_syncs(session):
             expires_at=timezone.now() + timedelta(days=7),
         )
         if not queue_google_calendar_sync(sync.pk, str(job.pk)):
-            job.mark_failed(BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
-            sync.status = GoogleCalendarSync.Status.FAILED
-            sync.last_error = BACKGROUND_TASK_UNAVAILABLE_MESSAGE
-            sync.save(update_fields=["status", "last_error", "updated_at"])
+            fail_unstarted_google_dispatch(job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE, sync)
 
 
 @shared_task(name="schedules.tasks.expire_async_jobs")
