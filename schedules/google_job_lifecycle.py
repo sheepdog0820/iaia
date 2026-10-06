@@ -10,7 +10,7 @@ from django.db.models import Q
 from django.db.models.functions import Coalesce, Least
 from django.utils import timezone
 
-from .models import AsyncJob, GoogleCalendarSync
+from .models import AsyncJob, GoogleCalendarSync, GoogleJobDispatch
 
 GOOGLE_JOB_TYPES = ("google_calendar_sync", "google_sheets_export")
 GOOGLE_EXECUTION_UNCERTAIN_MESSAGE = (
@@ -153,6 +153,7 @@ def google_job_can_start(job):
     return job.status in (AsyncJob.Status.QUEUED, AsyncJob.Status.FAILED) and job.expires_at > timezone.now()
 
 
+@transaction.atomic
 def claim_google_job_start(job):
     now = timezone.now()
     updated = AsyncJob.objects.filter(
@@ -172,6 +173,10 @@ def claim_google_job_start(job):
     )
     if not updated:
         return False
+    # Receipt and job claim are one commit: relay never republishes a started job.
+    GoogleJobDispatch.objects.filter(job_id=job.pk).update(
+        state=GoogleJobDispatch.State.DELIVERED, ciphertext="", claim_token=None, claim_until=None
+    )
     try:
         job.refresh_from_db(
             fields=["status", "progress", "started_at", "finished_at", "error", "execution_token", "execution_deadline"]

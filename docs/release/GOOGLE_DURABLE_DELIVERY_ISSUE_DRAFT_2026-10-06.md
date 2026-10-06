@@ -10,12 +10,13 @@ Google Calendar/Sheetsを正式公開できる品質にするため、DB確定�
 
 - アプリ28ac2bc7は応答喪失/408/5xx/不正ACK/部分Sheets後続拒否を結果不明へ分類し、自動再適用を抑止。親CI全6成功。
 - [通常28ac実worker](GOOGLE_WRITE_RUNTIME_2026-10-06.md): 回帰284成功、実PG/Redis/Celery/Requestsの28ケース（結果不明22/成功6）、追加28重複配送のHTTP0を確認。実Google/AWSではない。
-- [今回のDB確定後投入](GOOGLE_DISPATCH_COMMIT_2026-10-06.md): commit待機/rollback破棄、PG265成功/省略0、SQLite256成功/PG専用9省略、製品差分34文20経路100%。callbackはメモリ内であり、durable outboxは未実装。
+- [先行DB確定後投入](GOOGLE_DISPATCH_COMMIT_2026-10-06.md): commit待機/rollback破棄、PG265成功/省略0、SQLite256成功/PG専用9省略、製品差分34文20経路100%。その時点のcallbackはメモリ内でありoutboxなし。親62573a06のCI全6成功を後続で確認した。
+- [未開始ジョブの永続配送](GOOGLE_DURABLE_DISPATCH_2026-10-06.md): jobとAES-GCM暗号化配送意図の原子的保存、5分claim/上限付きrelay、投入ACK後も開始まで保持、開始receiptと暗号文消去の同時確定を実装。最終PG290成功/省略0、SQLite280成功/PG専用10省略、read-onlyソースbindのLinux設定70成功。新migration0057/0058は隔離DBのみ。通常新配布物・実Redis/独立workerのproducer停止/再起動は未検証、旧FAILEDと新job/同期対象世代fence・結果照合・限定回復は未実装。共有運用・Issue全体完了とは扱わない。
 
 ## 完成の受け入れ条件
 
-- [ ] jobと配送意図を同じDB transactionで永続化し、commit直後のproducer停止でも回復可能にする。Sheets内容binding、所有者・接続世代・privacyを維持する。行データの保存/暗号化/期限/ログ扱いを明文化し、既存payloadへの非公開平文の追加で済ませない。
-- [ ] 独立relayのclaim/期限/再試行/失われたpublish応答を検証する。running/succeeded/uncertain/失効/削除済みjobを自動再送せず、実workerの重複受信でも外部HTTPを再適用しない。
+- [ ] jobと配送意図を同じDB transactionで永続化し、commit直後のproducer停止でも回復可能にする。暗号化・内容binding・同時保存・callback喪失はローカル実装/検証済みだが、通常配布物の実停止/再起動は残る。鍵ローテーション・運用時消去・privacyの証拠を含める。
+- [ ] 独立relayのclaim/期限/再試行/失われたpublish応答を検証する。PG独立connectionのclaim/期限とmock ACK競合は確認済み。実別relay/Redis/worker・取消競合・実worker重複受信を新候補で証明する。
 - [ ] 旧メッセージ・旧FAILED job・新しい別job/同期対象世代をfenceし、同一予定/Sheets領域の競合を安全に扱う。
 - [ ] Google側結果照合と限定回復を設計・実装・検証する。結果不明を成功/失敗と推測せず、保存期限処理だけで痕跡を消さない。
 - [ ] 通常配布物・実Redis/別worker/独立producer/プロセス停止/再起動のfault試験で上記を証明する。

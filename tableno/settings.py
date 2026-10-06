@@ -479,6 +479,10 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_TIMEZONE = TIME_ZONE
 BILLING_EMAIL_DELIVERY_ENABLED = _get_bool("BILLING_EMAIL_DELIVERY_ENABLED", default=False)
 CELERY_BEAT_SCHEDULE = {
+    "dispatch-google-jobs": {
+        "task": "schedules.tasks.dispatch_google_jobs",
+        "schedule": 60.0,
+    },
     "dispatch-billing-emails": {
         "task": "accounts.tasks.dispatch_billing_emails",
         "schedule": 60.0,

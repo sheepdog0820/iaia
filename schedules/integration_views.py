@@ -212,6 +212,7 @@ class GoogleIntegrationView(APIView):
 class GoogleCalendarSyncView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, session_id):
         session = _visible_user_sessions(request.user).filter(pk=session_id).first()
         if not session:
@@ -318,6 +319,7 @@ class GoogleSheetsSelectionSerializer(serializers.Serializer):
 class GoogleSheetsExportView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
         integration = GoogleIntegration.objects.filter(user=request.user, sheets_enabled=True).first()
         if not integration or not integration.has_scope(GoogleIntegration.REQUIRED_SHEETS_SCOPE):

@@ -80,6 +80,38 @@ class AsyncJob(models.Model):
         self.save(update_fields=["status", "error", "finished_at"])
 
 
+class GoogleJobDispatch(models.Model):
+    """Encrypted delivery intent, removed with its job and erased on receipt."""
+
+    class State(models.TextChoices):
+        PENDING = "pending", "配送待ち"
+        CLAIMED = "claimed", "投入処理中"
+        DELIVERED = "delivered", "ワーカー開始確認済み"
+        DISCARDED = "discarded", "配送対象外"
+        FAILED = "failed", "配送情報を確認できません"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    job = models.OneToOneField(AsyncJob, on_delete=models.CASCADE, related_name="google_dispatch")
+    owner_id_snapshot = models.PositiveBigIntegerField(editable=False)
+    job_type_snapshot = models.CharField(max_length=80, editable=False)
+    job_created_at = models.DateTimeField(editable=False)
+    payload_digest = models.CharField(max_length=64, editable=False)
+    ciphertext = models.TextField(editable=False)
+    state = models.CharField(max_length=16, choices=State.choices, default=State.PENDING)
+    attempt_count = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now)
+    claim_token = models.UUIDField(null=True, blank=True, editable=False)
+    claim_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        indexes = [models.Index(fields=["state", "next_attempt_at"], name="google_dispatch_due_idx")]
+
+    def __str__(self):
+        return f"Google配送 {self.pk}"
+
+
 class CalendarSubscription(models.Model):
     user = models.OneToOneField(
         CustomUser,

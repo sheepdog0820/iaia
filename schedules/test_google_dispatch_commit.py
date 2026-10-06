@@ -10,8 +10,9 @@ from django.db import DatabaseError, close_old_connections, connection, transact
 from django.test import TransactionTestCase, override_settings
 from django.utils import timezone
 
+from schedules import google_dispatch_outbox as outbox
 from schedules import tasks
-from schedules.models import AsyncJob, GoogleCalendarSync
+from schedules.models import AsyncJob, GoogleCalendarSync, GoogleJobDispatch
 from schedules.test_google_dispatch_state import GoogleDispatchStateFixtures
 
 
@@ -73,7 +74,7 @@ class GoogleDispatchCommitTest(GoogleDispatchStateFixtures, TransactionTestCase)
             delay.assert_called_once_with(self.sync.pk, str(outer.data["job_id"]))
             self.assertFalse(AsyncJob.objects.filter(pk=inner.data["job_id"]).exists())
 
-    def test_deferred_broker_or_publish_failure_is_recorded_after_commit_on_all_routes(self):
+    def test_deferred_broker_or_publish_failure_retains_pending_intent_after_commit_on_all_routes(self):
         for route in self.routes:
             for failure in ("broker", "publish"):
                 with self.subTest(route=route, failure=failure), ExitStack() as stack:
@@ -88,14 +89,18 @@ class GoogleDispatchCommitTest(GoogleDispatchStateFixtures, TransactionTestCase)
                         self.assertEqual(job.status, AsyncJob.Status.QUEUED)
                         delay.assert_not_called()
                     job.refresh_from_db()
-                    self.assertEqual(job.status, AsyncJob.Status.FAILED)
+                    self.assertEqual(job.status, AsyncJob.Status.QUEUED)
                     self.assertIsNone(job.started_at)
-                    self.assertIsNotNone(job.finished_at)
-                    self.assertEqual(job.error, tasks.BACKGROUND_TASK_UNAVAILABLE_MESSAGE)
+                    self.assertIsNone(job.finished_at)
+                    self.assertEqual(job.error, "")
+                    delivery = GoogleJobDispatch.objects.get(job=job)
+                    self.assertEqual(delivery.state, GoogleJobDispatch.State.PENDING)
+                    self.assertEqual(delivery.attempt_count, 1)
+                    self.assertGreater(delivery.next_attempt_at, timezone.now())
                     if mode == "calendar":
                         self.sync.refresh_from_db()
-                        self.assertEqual(self.sync.status, GoogleCalendarSync.Status.FAILED)
-                        self.assertEqual(self.sync.last_error, job.error)
+                        self.assertEqual(self.sync.status, GoogleCalendarSync.Status.PENDING)
+                        self.assertEqual(self.sync.last_error, "")
 
     def test_changed_or_missing_job_is_not_published_after_commit(self):
         for mode in ("calendar", "sheets"):
@@ -196,9 +201,7 @@ class GoogleDispatchCommitTest(GoogleDispatchStateFixtures, TransactionTestCase)
         for mode in ("calendar", "sheets"):
             with self.subTest(mode=mode), ExitStack() as stack:
                 stack.enter_context(patch.object(tasks, "_broker_available", return_value=False))
-                stack.enter_context(
-                    patch.object(tasks, "fail_unstarted_google_dispatch", side_effect=DatabaseError("private-db-value"))
-                )
+                stack.enter_context(patch.object(outbox, "_finish", side_effect=DatabaseError("private-db-value")))
                 with self.assertLogs("schedules.tasks", level="WARNING") as logs:
                     with transaction.atomic():
                         self._dispatch(mode)
@@ -247,10 +250,7 @@ class GoogleDispatchCommitTest(GoogleDispatchStateFixtures, TransactionTestCase)
                         self._dispatch(mode)
                         self.assertEqual(observed, [])
                     job_id, job_before, sync_before = observed[0]
-                    if outcome != "recreated-sync":
-                        self.assertEqual(AsyncJob.objects.filter(pk=job_id).values().get(), job_before)
-                    else:
-                        self.assertEqual(AsyncJob.objects.get(pk=job_id).status, AsyncJob.Status.FAILED)
+                    self.assertEqual(AsyncJob.objects.filter(pk=job_id).values().get(), job_before)
                     self.assertEqual(GoogleCalendarSync.objects.filter(pk=self.sync.pk).values().get(), sync_before)
                     self.sync.refresh_from_db()
 

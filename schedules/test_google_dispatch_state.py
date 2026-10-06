@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from schedules import tasks
-from schedules.models import AsyncJob, GoogleCalendarSync
+from schedules.models import AsyncJob, GoogleCalendarSync, GoogleJobDispatch
 from schedules.test_google_job_start_claim import GoogleJobStartFixtures
 
 
@@ -101,17 +101,21 @@ class GoogleDispatchStateTest(GoogleDispatchStateFixtures, TransactionTestCase):
                     self.assertEqual(len(observed), 1)
                     self._assert_saved(*observed[0])
                     if route == "calendar":
-                        self.assertEqual(response.data["sync_status"], observed[0][2]["status"])
+                        # Response is constructed before the commit callback runs.
+                        self.assertEqual(response.data["sync_status"], GoogleCalendarSync.Status.PENDING)
 
     def test_accepted_publish_is_not_reported_failed_when_task_id_persistence_raises(self):
+        original_update = QuerySet.update
         for route in self.routes:
             with self.subTest(route=route), ExitStack() as stack:
                 mode = self._mode(route)
                 observed = []
 
                 def save(query, **values):
-                    self.assertEqual(set(values), {"celery_task_id"})
-                    raise DatabaseError("Synthetic task ID persistence failure")
+                    if "celery_task_id" in values:
+                        self.assertEqual(set(values), {"celery_task_id"})
+                        raise DatabaseError("Synthetic task ID persistence failure")
+                    return original_update(query, **values)
 
                 def publish(*args):
                     job, sync = self._observe(mode, args)
@@ -129,7 +133,7 @@ class GoogleDispatchStateTest(GoogleDispatchStateFixtures, TransactionTestCase):
                 stack.enter_context(patch.object(tasks, "_broker_available", return_value=True))
                 response = self._dispatch(route)
                 if response is not None:
-                    self.assertTrue(response.data["queued"])
+                    self.assertFalse(response.data["queued"])
                 self._assert_saved(*observed[0])
 
     def test_successful_publish_saves_task_id_and_keeps_normal_queued_state(self):
@@ -148,9 +152,9 @@ class GoogleDispatchStateTest(GoogleDispatchStateFixtures, TransactionTestCase):
                 self.assertIsNone(job.finished_at)
                 self.assertEqual(job.error, "")
                 if response is not None:
-                    self.assertTrue(response.data["queued"])
+                    self.assertFalse(response.data["queued"])
 
-    def test_unavailable_broker_still_fails_only_unstarted_jobs_with_existing_japanese_guidance(self):
+    def test_unavailable_broker_retains_durable_intent_without_failing_or_creating_another_job(self):
         for route in self.routes:
             with self.subTest(route=route), ExitStack() as stack:
                 mode = self._mode(route)
@@ -159,16 +163,19 @@ class GoogleDispatchStateTest(GoogleDispatchStateFixtures, TransactionTestCase):
                 response = self._dispatch(route)
                 delay.assert_not_called()
                 job = AsyncJob.objects.first()
-                self.assertEqual(job.status, AsyncJob.Status.FAILED)
+                self.assertEqual(job.status, AsyncJob.Status.QUEUED)
                 self.assertIsNone(job.started_at)
-                self.assertIsNotNone(job.finished_at)
-                self.assertEqual(
-                    job.error, "バックグラウンド処理を開始できませんでした。時間をおいて再試行してください。"
-                )
+                self.assertIsNone(job.finished_at)
+                self.assertEqual(job.error, "")
+                delivery = GoogleJobDispatch.objects.get(job=job)
+                self.assertEqual(delivery.state, GoogleJobDispatch.State.PENDING)
+                self.assertEqual(delivery.attempt_count, 1)
+                self.assertGreater(delivery.next_attempt_at, timezone.now())
+                self.assertTrue(delivery.ciphertext)
                 if mode == "calendar":
                     self.sync.refresh_from_db()
-                    self.assertEqual(self.sync.status, GoogleCalendarSync.Status.FAILED)
-                    self.assertEqual(self.sync.last_error, job.error)
+                    self.assertEqual(self.sync.status, GoogleCalendarSync.Status.PENDING)
+                    self.assertEqual(self.sync.last_error, "")
                 if response is not None:
                     self.assertFalse(response.data["queued"])
 
@@ -277,9 +284,9 @@ class GoogleDispatchStateTest(GoogleDispatchStateFixtures, TransactionTestCase):
                 response = self._dispatch("calendar")
                 job, sync_before = observed[0]
                 job.refresh_from_db()
-                self.assertEqual(job.status, AsyncJob.Status.FAILED)
+                self.assertEqual(job.status, AsyncJob.Status.QUEUED)
                 self.assertEqual(GoogleCalendarSync.objects.filter(pk=self.sync.pk).values().get(), sync_before)
-                self.assertEqual(response.data["sync_status"], None if change == "recreated" else sync_before["status"])
+                self.assertEqual(response.data["sync_status"], GoogleCalendarSync.Status.PENDING)
                 self.sync.refresh_from_db()
 
 

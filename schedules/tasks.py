@@ -2,9 +2,7 @@ import logging
 import re
 import socket
 import uuid
-from copy import deepcopy
 from datetime import timedelta
-from functools import partial
 from urllib.parse import quote, urlparse
 
 import requests
@@ -169,54 +167,44 @@ def _publish_google_sheet_export(job_id, user_id, spreadsheet_id, range_name, va
     return True
 
 
-def _queue_google_after_commit(job_id, publish, sync_id=None):
-    """True/False confirms immediate dispatch; None means commit is still pending.
+def _queue_google_after_commit(job_id, args):
+    """Persist first; None is retained delivery intent, not confirmed publication."""
+    from .google_dispatch_outbox import dispatch_google_job, persist_google_dispatch
 
-    This callback is not a durable outbox: process loss after commit still needs
-    persistent recovery. Never publish a job that can disappear on rollback.
-    """
-    if not transaction.get_connection().in_atomic_block:
-        if not transaction.get_autocommit():
-            logger.warning("Google dispatch requires autocommit or an atomic transaction.")
-            return False
-        return publish()
-    job = AsyncJob.objects.filter(pk=job_id).first()
-    if job is None:
+    deferred = transaction.get_connection().in_atomic_block
+    if not deferred and not transaction.get_autocommit():
+        logger.warning("Google dispatch requires autocommit or an atomic transaction.")
         return False
-    sync = GoogleCalendarSync.objects.filter(pk=sync_id).first() if sync_id is not None else None
+    identity = google_job_identity(job_id)
+    if identity is None:
+        return False
+    outcome = {"published": False}
+    with transaction.atomic():
+        job = AsyncJob.objects.filter(pk=identity).first()
+        if job is None:
+            return False
+        persist_google_dispatch(job, args)
 
-    def dispatch_committed_job():
-        try:
-            if not AsyncJob.objects.filter(
-                pk=job.pk,
-                owner_id=job.owner_id,
-                job_type=job.job_type,
-                status=AsyncJob.Status.QUEUED,
-                started_at__isnull=True,
-                expires_at__gt=timezone.now(),
-            ).exists():
-                return
-            if not publish():
-                fail_unstarted_google_dispatch(job, BACKGROUND_TASK_UNAVAILABLE_MESSAGE, sync)
-        except Exception:
-            # Commit is already final. Do not turn a committed request into a 500
-            # or log provider payloads/DB exceptions; a durable relay is still needed.
-            logger.error("Unable to finish Google dispatch after database commit.")
+        def dispatch_committed_job():
+            try:
+                outcome["published"] = dispatch_google_job(str(job.pk))
+            except Exception:
+                # Intent is retained; another relay can recover after the claim bound.
+                logger.error("Unable to finish Google dispatch after database commit.")
 
-    transaction.on_commit(dispatch_committed_job)
-    return None
+        transaction.on_commit(dispatch_committed_job)
+    return True if not deferred and outcome["published"] else None
 
 
 def queue_google_calendar_sync(sync_id, job_id):
-    return _queue_google_after_commit(job_id, partial(_publish_google_calendar_sync, sync_id, job_id), sync_id)
+    return _queue_google_after_commit(job_id, [sync_id, job_id])
 
 
 def queue_google_sheet_export(job_id, user_id, spreadsheet_id, range_name, values):
-    return _queue_google_after_commit(
-        job_id, partial(_publish_google_sheet_export, job_id, user_id, spreadsheet_id, range_name, deepcopy(values))
-    )
+    return _queue_google_after_commit(job_id, [job_id, user_id, spreadsheet_id, range_name, values])
 
 
+@transaction.atomic
 def schedule_session_google_syncs(session):
     user_ids = set(session.participants.values_list("id", flat=True))
     user_ids.add(session.gm_id)
@@ -248,6 +236,13 @@ def schedule_session_google_syncs(session):
 def expire_async_jobs():
     mark_stalled_google_jobs(AsyncJob.objects.all())
     return AsyncJob.objects.filter(expires_at__lt=timezone.now()).delete()[0]
+
+
+@shared_task(name="schedules.tasks.dispatch_google_jobs")
+def dispatch_google_jobs():
+    from .google_dispatch_outbox import dispatch_google_jobs as relay
+
+    return relay()
 
 
 @shared_task(name="schedules.tasks.expire_premium_access")

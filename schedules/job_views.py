@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import generics, serializers, status
 from rest_framework.permissions import IsAuthenticated
@@ -118,6 +119,7 @@ def _sheet_export_values(user, payload):
 class AsyncJobRetryView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, pk):
         queryset = AsyncJob.objects.filter(owner=request.user, pk=pk)
         mark_stalled_google_jobs(queryset)
