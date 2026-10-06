@@ -9,6 +9,10 @@ from traceback import walk_tb
 from django.utils.log import AdminEmailHandler
 
 
+def is_sdk_logger(name):
+    return isinstance(name, str) and name.partition(".")[0] in {"botocore", "boto3"}
+
+
 def error_summary(record):
     request = getattr(record, "request", None)
     match = getattr(request, "resolver_match", None)
@@ -38,6 +42,65 @@ def error_summary(record):
     return subject, "\n".join(lines)
 
 
+def sdk_error_summary(record):
+    safe_record = copy(record)
+    safe_record.__dict__.pop("request", None)
+    safe_record.__dict__.pop("status_code", None)
+    return error_summary(safe_record)
+
+
+def _sentry_sdk_record(hint):
+    record = (hint or {}).get("log_record")
+    return record if isinstance(record, logging.LogRecord) and is_sdk_logger(record.name) else None
+
+
+def _sentry_sdk_message(record):
+    return sdk_error_summary(record)[1] if record is not None else "AWS SDK diagnostic payload omitted"
+
+
+def safe_sentry_event(event, hint):
+    record = _sentry_sdk_record(hint)
+    name = record.name if record is not None else event.get("logger")
+    if not is_sdk_logger(name):
+        return event
+    safe = {
+        key: event[key]
+        for key in ("event_id", "timestamp", "level", "platform", "release", "environment")
+        if key in event
+    }
+    safe["logger"] = name
+    safe["logentry"] = {"message": "AWS SDK diagnostic", "formatted": _sentry_sdk_message(record)}
+    safe["fingerprint"] = ["aws-sdk", name, sdk_error_summary(record)[0] if record is not None else "unknown"]
+    return safe
+
+
+def safe_sentry_breadcrumb(breadcrumb, hint):
+    record = _sentry_sdk_record(hint)
+    name = record.name if record is not None else breadcrumb.get("category")
+    if not is_sdk_logger(name):
+        return breadcrumb
+    safe = {key: breadcrumb[key] for key in ("type", "level", "timestamp") if key in breadcrumb}
+    safe["category"] = name
+    safe["message"] = _sentry_sdk_message(record)
+    return safe
+
+
+def safe_sentry_log(log, hint):
+    attributes = log.get("attributes") or {}
+    if not is_sdk_logger(attributes.get("logger.name")):
+        return log
+    safe = {
+        key: log[key]
+        for key in ("severity_text", "severity_number", "time_unix_nano", "trace_id", "span_id")
+        if key in log
+    }
+    safe["body"] = "AWS SDK diagnostic payload omitted"
+    safe["attributes"] = {
+        key: attributes[key] for key in ("logger.name", "code.function.name", "code.line.number") if key in attributes
+    }
+    return safe
+
+
 class SafeAdminEmailHandler(AdminEmailHandler):
     def emit(self, record):
         subject, body = error_summary(record)
@@ -51,9 +114,9 @@ class SafeRequestFormatter(logging.Formatter):
             hasattr(record, "request")
             or record.name == "django.request"
             or record.name.startswith("django.security")
-            or record.name.partition(".")[0] in {"botocore", "boto3"}
+            or is_sdk_logger(record.name)
         ):
-            _, safe_record.msg = error_summary(record)
+            _, safe_record.msg = sdk_error_summary(record) if is_sdk_logger(record.name) else error_summary(record)
             safe_record.args = ()
             safe_record.exc_info = None
             safe_record.exc_text = None
