@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続39b43286の[通常配布物・Sentry収集再検証](SENTRY_RUNTIME_39B43286_2026-10-06.md)で684選定ファイル/entrypoint一致、source overlayなしsettings70/PG187成功・省略0、実HTTP44確認・実U2NET完了/再実行不変を確認。実SDK更新警告とERROR eventを試験用offline transportで収集し、event/breadcrumb/Logs・headersで合成本文露出0。実HTTPのSDK Logs WARNING2/コード位置を保持し、全9 envelope・Webログの合成本文/資格情報値露出0。samplingで得たtransaction4件を全監視privacyとは扱わず、実Sentry受信・新OS監査/全CI・HIGH3/native閉包・実AWS/連携/運用等は未達。CI4成功/2実行中、main/AWS未反映・承認範囲は拡張せず正式公開No-Goを維持する。
+
 後続の[Sentry SDK本文保護](SENTRY_SDK_PRIVACY_2026-10-06.md)で、stream formatterを迂回するSentry event/breadcrumb/Logsへの合成本文露出を実SDK・offline transportで再現・修正。SDK専用の安全な診断/分類へ置換し、元データ・SDK以外の監視・既定Logs無効・samplingを維持する。新規9・Linux76/最終header9・Windows背景回帰223成功/PG専用16省略、保護78文16分岐・新規146文22分岐100%。先行dc0b053e CI全6成功は確認したが、新候補の全CI/通常配布物/実HTTP・PG・実受信は未証明。未識別例外/transaction/span/attachment等の範囲は拡張せず、HIGH3未解消・main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。
 
 後続dc0b053eの[通常配布物・SDKログHTTP再検証](SDK_LOG_RUNTIME_DC0B053E_2026-10-06.md)で683選定ファイル/entrypoint一致・source/SDK overlayなしPG191成功/省略0・settings/アクセスログ67成功・実HTTP44確認と実U2NET完了/再実行不変を確認。実SDK WARNING2件・CredentialRetrievalError/コード位置を残し、合成資格情報/ECS応答本文・raw traceback・資格情報値のログ露出0。初回の旧証拠指定/settings環境衝突/readiness待機期限は訂正・記録。新規Scout1.26は39指摘（HIGH3/MEDIUM1/LOW35、Python0）/終了2で未合格、候補CIは4成功/2実行中。独立収集経路・実AWS/課金/外部連携/運用/性能/復旧等は未達、main/AWS未反映・既存承認へ追加せず正式公開No-Goを維持する。
