@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[Googleジョブ照合/再試行修正](GOOGLE_JOB_TARGET_GUARD_2026-10-06.md)でworkerの所有者/種類不一致・不存在を無変更で拒否し、同じ接続の再試行へ元のダイジェストを引き継ぐ。不正/再接続済み/旧ジョブの再試行は日本語400・追加queue/ジョブ/同期変更なし。修正前新規7件31 failure/0 error、最終PG170成功/省略0・SQLite166成功/PG専用4省略（文書39含む）、本体差分10文6分岐/新規165文36分岐100%。先行a266 CIは5成功/Unit失敗（2,345成功/88省略/Sheets fixture2 subtest失敗）と確認し、合成資格情報・実生成typeへfixtureを訂正。新候補の全CI/配布物/実Google/AWSは未確認。再接続後の既存外部ID方針は確認待ち、Issue作成は403で未完了、main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。
+
 後続a266dd12の[Google通常配布物検証](GOOGLE_RUNTIME_A266DD12_2026-10-06.md)で、固定archiveから構築した通常Docker imageの693選定source/assets・entrypoint一致、111 packages/先行依存10 layers一致を確認した。source overlayなし・外部通信不可の隔離PGでGoogle110件（実loopback HTTP8ケース/refresh認可競合を含む）、設定/ログ保護70件が成功・省略0。文書39件は含まず、実Google・常設Celery・今回Web/U2NET/OS再監査・AWS成功へ拡張しない。候補CIは4成功/2実行中、使い捨てDB/containerを削除し証跡を保持。main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし、HIGH3等の未達条件と正式公開No-Goを維持する。
 
 後続の[Google Calendar予定の照合・条件付き書き込み](GOOGLE_CALENDAR_EVENT_GUARD_2026-10-06.md)で、保存済み外部IDでも遠隔のID/既存private情報を確認し、4変更経路へ強いETag/If-Matchを追加する。412の自動再試行を止め、固定日本語案内・削除済み応答の書き込みなし完了・更新応答ID照合・URL境界を確認した。新規13件117 subtest、実Requests＋loopbackの8ケースを含む。最終PG149成功/省略0・SQLite145成功/PG専用4省略（文書39含む）、本体差分40文16分岐/新規293文66分岐100%、PG CI対象追加。メタデータは認証証明ではなく接続先別の永続ID管理・古い予定移行/実GoogleのETag・原子的取消等は残る。main/AWS追加反映・schema/Secrets/課金/容量変更・承認拡張なし、HIGH3未解消・正式公開No-Goを維持する。

@@ -8,7 +8,9 @@ from rest_framework.views import APIView
 
 from accounts.models import CharacterSheet
 
+from .google_job_connection import google_job_connection_matches
 from .google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_START_RANGE
+from .google_tokens import google_credential_identity
 from .integration_access import visible_user_sessions
 from .models import AsyncJob, GoogleCalendarSync, GoogleIntegration
 from .tasks import (
@@ -130,6 +132,11 @@ class AsyncJobRetryView(APIView):
                     {"detail": "Google連携が無効、または再試行する権限がありません。"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            if not google_job_connection_matches(job, integration, google_credential_identity(request.user.pk)):
+                return Response(
+                    {"detail": "ジョブ作成時のGoogle接続先を確認できません。連携設定から新しく実行してください。"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         if job.job_type == "google_calendar_sync":
             return self._retry_google_calendar_sync(request, job)
@@ -162,7 +169,11 @@ class AsyncJobRetryView(APIView):
         retry_job = AsyncJob.objects.create(
             owner=request.user,
             job_type=job.job_type,
-            payload={"sync_id": sync.pk, "retry_of": str(job.pk)},
+            payload={
+                "sync_id": sync.pk,
+                "retry_of": str(job.pk),
+                "google_connection": job.payload["google_connection"],
+            },
             expires_at=timezone.now() + timedelta(days=7),
         )
         queued = queue_google_calendar_sync(sync.pk, str(retry_job.pk))
@@ -203,6 +214,7 @@ class AsyncJobRetryView(APIView):
                 "character_ids": [row[0] for row in values[1:]],
                 "selection_snapshot": True,
                 "retry_of": str(job.pk),
+                "google_connection": job.payload["google_connection"],
             },
             expires_at=timezone.now() + timedelta(days=7),
         )

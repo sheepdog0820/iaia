@@ -349,7 +349,10 @@ def _fail_calendar_authorization(sync, job, error=GOOGLE_CALENDAR_NOT_AUTHORIZED
 @shared_task(bind=True, max_retries=3, name="schedules.tasks.sync_google_calendar")
 def sync_google_calendar(self, sync_id, job_id):
     sync = GoogleCalendarSync.objects.select_related("session", "user").get(pk=sync_id)
-    job = AsyncJob.objects.get(pk=job_id)
+    job = AsyncJob.objects.filter(pk=job_id, owner_id=sync.user_id, job_type="google_calendar_sync").first()
+    if not job:
+        # Never mutate a different owner's job or sync on malformed dispatch.
+        return "invalid-job"
     connection = _google_calendar_sync_integration(sync)
     if not connection:
         return _fail_calendar_authorization(sync, job)
@@ -536,7 +539,9 @@ def export_google_sheet(
     range_name,
     values,
 ):
-    job = AsyncJob.objects.get(pk=job_id, owner_id=user_id)
+    job = AsyncJob.objects.filter(pk=job_id, owner_id=user_id, job_type="google_sheets_export").first()
+    if not job:
+        return "invalid-job"
     connection = _google_sheets_export_integration(user_id)
     if not connection:
         job.mark_failed(GOOGLE_SHEETS_NOT_AUTHORIZED_MESSAGE)

@@ -42,7 +42,7 @@ class GoogleJobAuthorizationTests(TestCase):
     def job(self, feature):
         return AsyncJob.objects.create(
             owner=self.user,
-            job_type=f"google_{feature}",
+            job_type="google_calendar_sync" if feature == "calendar" else "google_sheets_export",
             expires_at=timezone.now() + timedelta(days=1),
             payload={
                 "google_connection": google_connection_binding(GoogleIntegration.objects.filter(user=self.user).first())

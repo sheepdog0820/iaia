@@ -1,6 +1,7 @@
 from datetime import timedelta
 from unittest.mock import patch
 
+from allauth.socialaccount.models import SocialAccount, SocialToken
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
@@ -9,6 +10,7 @@ from rest_framework.test import APITestCase
 
 from accounts.character_models import CharacterSheet7th
 from accounts.models import CharacterSheet, Group
+from schedules.google_job_connection import google_connection_binding
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration, TRPGSession
 
 
@@ -27,6 +29,11 @@ class AsyncJobApiTestCase(APITestCase):
             password="testpass123",  # nosec B106
         )
         self.client.force_authenticate(self.user)
+        account = SocialAccount.objects.create(user=self.user, provider="google", uid="async-job-owner-fixture")
+        SocialToken.objects.create(account=account, token="isolated-job-access")  # Synthetic fixture only. # nosec B106
+
+    def google_connection(self):
+        return google_connection_binding(GoogleIntegration.objects.filter(user=self.user).first())
 
     def test_owner_can_read_job_state(self):
         job = AsyncJob.objects.create(
@@ -155,7 +162,7 @@ class AsyncJobApiTestCase(APITestCase):
             owner=self.user,
             job_type="google_calendar_sync",
             status=AsyncJob.Status.FAILED,
-            payload={"sync_id": sync.pk},
+            payload={"sync_id": sync.pk, "google_connection": self.google_connection()},
             error="timeout",
             expires_at=timezone.now() + timedelta(days=1),
         )
@@ -191,7 +198,7 @@ class AsyncJobApiTestCase(APITestCase):
             owner=self.user,
             job_type="google_calendar_sync",
             status=AsyncJob.Status.FAILED,
-            payload={"sync_id": sync.pk},
+            payload={"sync_id": sync.pk, "google_connection": self.google_connection()},
             error="previous failure",
             expires_at=timezone.now() + timedelta(days=1),
         )
@@ -218,7 +225,12 @@ class AsyncJobApiTestCase(APITestCase):
             owner=self.user,
             job_type="google_sheets_export",
             status=AsyncJob.Status.FAILED,
-            payload={"spreadsheet_id": "sheet-1", "range": "Characters!A1", "character_ids": [123]},
+            payload={
+                "spreadsheet_id": "sheet-1",
+                "range": "Characters!A1",
+                "character_ids": [123],
+                "google_connection": self.google_connection(),
+            },
             error="timeout",
             expires_at=timezone.now() + timedelta(days=1),
         )
@@ -241,7 +253,11 @@ class AsyncJobApiTestCase(APITestCase):
                     owner=self.user,
                     job_type="google_sheets_export",
                     status=AsyncJob.Status.FAILED,
-                    payload={"spreadsheet_id": "isolated-sheet", **selection},
+                    payload={
+                        "spreadsheet_id": "isolated-sheet",
+                        "google_connection": self.google_connection(),
+                        **selection,
+                    },
                     expires_at=timezone.now() + timedelta(days=1),
                 )
                 count = AsyncJob.objects.count()
@@ -334,7 +350,7 @@ class AsyncJobApiTestCase(APITestCase):
             owner=self.user,
             job_type="google_calendar_sync",
             status=AsyncJob.Status.FAILED,
-            payload={"sync_id": sync.pk},
+            payload={"sync_id": sync.pk, "google_connection": self.google_connection()},
             expires_at=timezone.now() + timedelta(days=1),
         )
         response = self.client.post(reverse("async-job-retry", kwargs={"pk": job.pk}))
