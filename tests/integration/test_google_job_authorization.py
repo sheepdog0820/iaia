@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
@@ -53,6 +54,24 @@ class GoogleJobAuthorizationTests(TestCase):
             return sync_google_calendar.run(self.sync.pk, str(job.pk))
         return export_google_sheet.run(
             str(job.pk), self.user.pk, "local-fixture", "Characters!A1", [["name"], ["=1+1"]]
+        )
+
+    def event_response(self, url, **kwargs):
+        sync_key = uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            f"https://tableno.jp/calendar-sync/{self.sync.pk}/{self.user.pk}/{self.session.pk}/{self.sync.created_at.isoformat()}",
+        ).hex
+        return Mock(
+            status_code=200,
+            json=Mock(
+                return_value={
+                    "id": url.rsplit("/", 1)[1],
+                    "etag": '"isolated-event-version"',
+                    "extendedProperties": {
+                        "private": {"tableno_session_id": str(self.session.pk), "tableno_sync_key": sync_key}
+                    },
+                }
+            ),
         )
 
     @patch("schedules.tasks.requests.delete")
@@ -116,13 +135,16 @@ class GoogleJobAuthorizationTests(TestCase):
 
     @patch("schedules.tasks.requests.put")
     @patch("schedules.tasks.requests.post")
+    @patch("schedules.tasks.requests.get")
     @patch("schedules.tasks.get_google_access_token", return_value="local-fixture-token")
-    def test_authorized_jobs_still_export_and_update_existing_calendar_event(self, token, post, put):
+    def test_authorized_jobs_still_export_and_update_existing_calendar_event(self, token, get, post, put):
+        get.side_effect = self.event_response
         post.side_effect = lambda *args, **kwargs: Mock(
             status_code=200, json=Mock(return_value={"id": kwargs["json"]["id"]})
         )
-        put.return_value = Mock()
-        put.return_value.json.return_value = {"updatedCells": 2}
+        put.side_effect = lambda url, **kwargs: Mock(
+            status_code=200, json=Mock(return_value={"updatedCells": 2, "id": url.rsplit("/", 1)[1]})
+        )
         first = self.job("calendar")
         self.run_job("calendar", first)
         second = self.job("calendar")
@@ -141,11 +163,13 @@ class GoogleJobAuthorizationTests(TestCase):
 
     @patch("schedules.tasks.requests.put")
     @patch("schedules.tasks.requests.post")
+    @patch("schedules.tasks.requests.get")
     @patch("schedules.tasks.get_google_access_token", return_value="local-fixture-token")
-    def test_existing_server_generated_event_id_is_preserved(self, token, post, put):
+    def test_existing_server_generated_event_id_is_preserved(self, token, get, post, put):
+        get.side_effect = self.event_response
         self.sync.external_event_id = "existing-server-generated-id"
         self.sync.save(update_fields=["external_event_id"])
-        put.return_value = Mock()
+        put.return_value = Mock(status_code=200, json=Mock(return_value={"id": "existing-server-generated-id"}))
         job = self.job("calendar")
         self.run_job("calendar", job)
         job.refresh_from_db()

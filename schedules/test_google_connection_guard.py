@@ -1,3 +1,4 @@
+import uuid
 from contextlib import ExitStack
 from datetime import timedelta
 from types import SimpleNamespace
@@ -113,11 +114,16 @@ class GoogleConnectionGuardTest(TestCase):
 
     def _fetch_event(self, url, **kwargs):
         event_id = url.rsplit("/", 1)[1]
+        sync_key = uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            f"https://tableno.jp/calendar-sync/{self.sync.pk}/{self.user.pk}/{self.session.pk}/{self.sync.created_at.isoformat()}",
+        ).hex
         return self._response(
             data={
                 "id": event_id,
+                "etag": '"isolated-event-version"',
                 "extendedProperties": {
-                    "private": {"tableno_session_id": str(self.session.pk), "tableno_sync_key": event_id}
+                    "private": {"tableno_session_id": str(self.session.pk), "tableno_sync_key": sync_key}
                 },
             }
         )
@@ -129,7 +135,9 @@ class GoogleConnectionGuardTest(TestCase):
         }
         sends["post"].side_effect = lambda url, **kwargs: self._response(data=kwargs["json"])
         sends["get"].side_effect = self._fetch_event
-        sends["put"].return_value = self._response(data={"updatedCells": 100})
+        sends["put"].side_effect = lambda url, **kwargs: self._response(
+            data={"updatedCells": 100, "id": url.rsplit("/", 1)[1]}
+        )
         sends["delete"].return_value = self._response(204)
         return sends
 
@@ -245,7 +253,13 @@ class GoogleConnectionGuardTest(TestCase):
 
                     def send(url, **kwargs):
                         self._change(reason)
-                        return self._response(204 if method == "delete" else 200, kwargs.get("json", {}))
+                        return self._response(
+                            204 if method == "delete" else 200,
+                            {
+                                **kwargs.get("json", {}),
+                                "id": url.rsplit("/", 1)[1] if mode == "update" else kwargs.get("json", {}).get("id"),
+                            },
+                        )
 
                     sends[method].side_effect = send
                     if mode == "sheets":

@@ -1,3 +1,4 @@
+import uuid
 from contextlib import ExitStack
 from datetime import timedelta
 from unittest.mock import Mock, patch
@@ -76,14 +77,19 @@ class GoogleCalendarRevocationTest(TestCase):
 
     def _event_response(self, url, **kwargs):
         event_id = url.rsplit("/", 1)[1]
+        sync_key = uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            f"https://tableno.jp/calendar-sync/{self.sync.pk}/{self.user.pk}/{self.session.pk}/{self.sync.created_at.isoformat()}",
+        ).hex
         return self._response(
             200,
             {
                 "id": event_id,
+                "etag": '"isolated-event-version"',
                 "extendedProperties": {
                     "private": {
                         "tableno_session_id": str(self.session.pk),
-                        "tableno_sync_key": event_id,
+                        "tableno_sync_key": sync_key,
                     }
                 },
             },
@@ -186,14 +192,25 @@ class GoogleCalendarRevocationTest(TestCase):
 
                 def send(url, **kwargs):
                     self._revoke("disabled")
-                    return self._response(204 if method == "delete" else 200, kwargs.get("json", {}))
+                    return self._response(
+                        204 if method == "delete" else 200,
+                        {
+                            **kwargs.get("json", {}),
+                            "id": url.rsplit("/", 1)[1] if mode == "update" else kwargs.get("json", {}).get("id"),
+                        },
+                    )
 
                 sends[method].side_effect = send
                 stack.enter_context(patch("schedules.tasks.get_google_access_token", return_value="isolated-token"))
                 expected = GoogleCalendarSync.Status.DELETED if method == "delete" else GoogleCalendarSync.Status.SYNCED
                 self.assertEqual(sync_google_calendar.run(self.sync.pk, str(job.pk)), expected)
                 sends[method].assert_called_once()
-                for other in sends.keys() - {method}:
+                (
+                    sends["get"].assert_called_once()
+                    if mode in ("update", "cancel-known")
+                    else sends["get"].assert_not_called()
+                )
+                for other in sends.keys() - {method, "get"}:
                     sends[other].assert_not_called()
                 job.refresh_from_db()
                 self.sync.refresh_from_db()

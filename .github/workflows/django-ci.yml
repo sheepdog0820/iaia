@@ -246,6 +246,7 @@ jobs:
             schedules/test_google_connection_guard.py \
             schedules/test_google_credential_guard.py \
             schedules/test_google_queued_connection.py \
+            schedules/test_google_calendar_event_guard.py \
             accounts/test_group_invite_concurrency.py accounts/test_oauth_atomicity.py \
             schedules/test_claim_concurrency.py schedules/test_reward_concurrency.py \
             schedules/test_session_rewards.py \

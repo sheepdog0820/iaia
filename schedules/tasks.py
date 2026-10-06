@@ -1,8 +1,9 @@
 import logging
+import re
 import socket
 import uuid
 from datetime import timedelta
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import requests
 from celery import shared_task
@@ -277,6 +278,26 @@ def _calendar_private_properties(event):
     return properties.get("private", {})
 
 
+def _calendar_event_headers(response, event_id, sync_key, session_id, headers):
+    event = _calendar_response_event(response)
+    private = _calendar_private_properties(event)
+    if event.get("id") != event_id or private != {
+        "tableno_session_id": str(session_id),
+        "tableno_sync_key": sync_key,
+    }:
+        raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
+    etag = event.get("etag")
+    # One strong opaque ETag; never a wildcard, list, weak tag or injected header.
+    if not isinstance(etag, str) or not re.fullmatch(r'"[\x21\x23-\x7e\x80-\xff]*"', etag):
+        raise ValueError("Google Calendarの予定の更新情報を確認できません。連携状態を確認してください。")
+    return {**headers, "If-Match": etag}
+
+
+def _calendar_event_is_deleted(response, event_id):
+    event = _calendar_response_event(response)
+    return event.get("id") == event_id and event.get("status") == "cancelled"
+
+
 class _GoogleCalendarNotAuthorized(Exception):
     pass
 
@@ -307,6 +328,14 @@ def _calendar_request(sync, connection, credential, access_token, send, url, **k
     ):
         raise _GoogleConnectionChanged
     return send(url, **kwargs)
+
+
+def _calendar_conditional_request(*args, **kwargs):
+    response = _calendar_request(*args, **kwargs)
+    if response.status_code == 412:
+        # Retrying against a freshly fetched version would overwrite the concurrent edit.
+        raise ValueError("Google Calendarの予定が確認後に変更されました。予定を確認して再実行してください。")
+    return response
 
 
 def _fail_calendar_authorization(sync, job, error=GOOGLE_CALENDAR_NOT_AUTHORIZED_MESSAGE, result="not-authorized"):
@@ -356,59 +385,59 @@ def sync_google_calendar(self, sync_id, job_id):
         f"https://tableno.jp/calendar-sync/{sync.pk}/{sync.user_id}/{sync.session_id}/{sync.created_at.isoformat()}",
     ).hex
     try:
+        if sync.external_event_id in {".", ".."}:
+            raise ValueError("Google Calendarの予定IDを確認できません。連携状態を確認してください。")
         if cancelling:
-            event_id = sync.external_event_id
-            if not event_id:
-                existing = _calendar_request(
-                    sync,
-                    connection,
-                    credential,
-                    access_token,
-                    requests.get,
-                    f"{base_url}/{generated_event_id}",
-                    headers=headers,
-                    timeout=15,
-                )
-                if existing.status_code not in {404, 410}:
-                    existing.raise_for_status()
-                    event = _calendar_response_event(existing)
-                    private = _calendar_private_properties(event)
-                    if event.get("id") != generated_event_id or private != {
-                        "tableno_session_id": str(sync.session_id),
-                        "tableno_sync_key": generated_event_id,
-                    }:
-                        raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
-                    event_id = generated_event_id
-            if event_id:
-                response = _calendar_request(
-                    sync,
-                    connection,
-                    credential,
-                    access_token,
-                    requests.delete,
-                    f"{base_url}/{event_id}",
-                    headers=headers,
-                    timeout=15,
-                )
-                if response.status_code not in {204, 404, 410}:
-                    response.raise_for_status()
+            event_id = sync.external_event_id or generated_event_id
+            event_url = f"{base_url}/{quote(event_id, safe='')}"
+            existing = _calendar_request(
+                sync, connection, credential, access_token, requests.get, event_url, headers=headers, timeout=15
+            )
+            if existing.status_code not in {404, 410}:
+                existing.raise_for_status()
+                if not _calendar_event_is_deleted(existing, event_id):
+                    conditional_headers = _calendar_event_headers(
+                        existing, event_id, generated_event_id, sync.session_id, headers
+                    )
+                    response = _calendar_conditional_request(
+                        sync,
+                        connection,
+                        credential,
+                        access_token,
+                        requests.delete,
+                        event_url,
+                        headers=conditional_headers,
+                        timeout=15,
+                    )
+                    if response.status_code not in {204, 404, 410}:
+                        response.raise_for_status()
                 sync.external_event_id = event_id
             sync.status = GoogleCalendarSync.Status.DELETED
         elif sync.external_event_id:
+            event_url = f"{base_url}/{quote(sync.external_event_id, safe='')}"
+            existing = _calendar_request(
+                sync, connection, credential, access_token, requests.get, event_url, headers=headers, timeout=15
+            )
+            existing.raise_for_status()
+            conditional_headers = _calendar_event_headers(
+                existing, sync.external_event_id, generated_event_id, sync.session_id, headers
+            )
             payload = _calendar_event_payload(sync.session)
             payload["extendedProperties"]["private"]["tableno_sync_key"] = generated_event_id
-            response = _calendar_request(
+            response = _calendar_conditional_request(
                 sync,
                 connection,
                 credential,
                 access_token,
                 requests.put,
-                f"{base_url}/{sync.external_event_id}",
-                headers=headers,
+                event_url,
+                headers=conditional_headers,
                 json=payload,
                 timeout=15,
             )
             response.raise_for_status()
+            if _calendar_response_event(response).get("id") != sync.external_event_id:
+                raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
             sync.status = GoogleCalendarSync.Status.SYNCED
         else:
             event_id = generated_event_id
@@ -438,18 +467,17 @@ def sync_google_calendar(self, sync_id, job_id):
                     timeout=15,
                 )
                 existing.raise_for_status()
-                event = _calendar_response_event(existing)
-                private = _calendar_private_properties(event)
-                if event.get("id") != event_id or private != payload["extendedProperties"]["private"]:
-                    raise ValueError("Google Calendarの予定IDが一致しません。連携状態を確認してください。")
-                response = _calendar_request(
+                conditional_headers = _calendar_event_headers(
+                    existing, event_id, generated_event_id, sync.session_id, headers
+                )
+                response = _calendar_conditional_request(
                     sync,
                     connection,
                     credential,
                     access_token,
                     requests.put,
                     f"{base_url}/{event_id}",
-                    headers=headers,
+                    headers=conditional_headers,
                     json=payload,
                     timeout=15,
                 )

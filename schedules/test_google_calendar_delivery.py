@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
@@ -41,6 +42,22 @@ class GoogleCalendarDeliveryTest(TestCase):
         result.json.return_value = data
         result.raise_for_status.side_effect = requests.HTTPError("fixture failure") if code >= 400 else None
         return result
+
+    def event_response(self, url, **kwargs):
+        sync_key = uuid.uuid5(
+            uuid.NAMESPACE_URL,
+            f"https://tableno.jp/calendar-sync/{self.sync.pk}/{self.user.pk}/{self.session.pk}/{self.sync.created_at.isoformat()}",
+        ).hex
+        return self.response(
+            200,
+            {
+                "id": url.rsplit("/", 1)[1],
+                "etag": '"isolated-event-version"',
+                "extendedProperties": {
+                    "private": {"tableno_session_id": str(self.session.pk), "tableno_sync_key": sync_key}
+                },
+            },
+        )
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_malformed_creation_response_finishes_job_as_failed(self, token):
@@ -113,7 +130,7 @@ class GoogleCalendarDeliveryTest(TestCase):
         events = {}
 
         def insert(url, *, json, **kwargs):
-            events[json["id"]] = json
+            events[json["id"]] = {**json, "etag": '"isolated-event-version"'}
             return self.response(200, json)
 
         def delete(url, **kwargs):
@@ -122,13 +139,17 @@ class GoogleCalendarDeliveryTest(TestCase):
 
         def update(url, *, json, **kwargs):
             event_id = url.rsplit("/", 1)[1]
-            events[event_id] = {**json, "id": event_id}
+            events[event_id] = {**json, "id": event_id, "etag": '"isolated-event-version"'}
             return self.response(200, events[event_id])
 
         with (
             patch("schedules.tasks.requests.post", side_effect=insert) as post,
             patch("schedules.tasks.requests.delete", side_effect=delete),
             patch("schedules.tasks.requests.put", side_effect=update),
+            patch(
+                "schedules.tasks.requests.get",
+                side_effect=lambda url, **kwargs: self.response(200, events[url.rsplit("/", 1)[1]]),
+            ),
         ):
             sync_google_calendar.run(self.sync.pk, str(self.job().pk))
             self.sync.refresh_from_db()
@@ -153,7 +174,7 @@ class GoogleCalendarDeliveryTest(TestCase):
         events = {}
 
         def insert(url, *, json, **kwargs):
-            events[json["id"]] = json
+            events[json["id"]] = {**json, "etag": '"isolated-event-version"'}
             raise requests.Timeout("created but response lost")
 
         def fetch(url, **kwargs):
@@ -204,7 +225,9 @@ class GoogleCalendarDeliveryTest(TestCase):
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     @patch("schedules.tasks.requests.delete")
-    def test_cancelled_session_without_date_removes_existing_event(self, delete, token):
+    @patch("schedules.tasks.requests.get")
+    def test_cancelled_session_without_date_removes_existing_event(self, get, delete, token):
+        get.side_effect = self.event_response
         self.session.status = "cancelled"
         self.session.date = None
         self.session.save(update_fields=["status", "date"])
@@ -215,7 +238,11 @@ class GoogleCalendarDeliveryTest(TestCase):
         self.assertEqual(sync_google_calendar.run(self.sync.pk, str(job.pk)), GoogleCalendarSync.Status.DELETED)
         delete.assert_called_once_with(
             "https://www.googleapis.com/calendar/v3/calendars/primary/events/existing-event",
-            headers={"Authorization": "Bearer isolated-token", "Content-Type": "application/json"},
+            headers={
+                "Authorization": "Bearer isolated-token",
+                "Content-Type": "application/json",
+                "If-Match": '"isolated-event-version"',
+            },
             timeout=15,
         )
         job.refresh_from_db()
@@ -242,7 +269,9 @@ class GoogleCalendarDeliveryTest(TestCase):
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     @patch("schedules.tasks.requests.delete")
-    def test_lost_deletion_response_completes_on_already_deleted_retry(self, delete, token):
+    @patch("schedules.tasks.requests.get")
+    def test_lost_deletion_response_completes_on_already_deleted_retry(self, get, delete, token):
+        get.side_effect = self.event_response
         self.session.status = "cancelled"
         self.session.save(update_fields=["status"])
         self.sync.external_event_id = "existing-event"
@@ -265,7 +294,9 @@ class GoogleCalendarDeliveryTest(TestCase):
 
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     @patch("schedules.tasks.requests.delete")
-    def test_cancellation_does_not_hide_other_http_failures(self, delete, token):
+    @patch("schedules.tasks.requests.get")
+    def test_cancellation_does_not_hide_other_http_failures(self, get, delete, token):
+        get.side_effect = self.event_response
         self.session.status = "cancelled"
         self.session.save(update_fields=["status"])
         self.sync.external_event_id = "existing-event"
@@ -292,7 +323,7 @@ class GoogleCalendarDeliveryTest(TestCase):
             attempts.append(event_id)
             if event_id in events:
                 return self.response(409, {})
-            events[event_id] = {**json, "id": event_id}
+            events[event_id] = {**json, "id": event_id, "etag": '"isolated-event-version"'}
             if len(attempts) == 1:
                 raise requests.Timeout("response lost after storage")
             return self.response(200, events[event_id])
