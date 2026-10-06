@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-06）
 
+後続の[29ef38a6通常配布物検証](GOOGLE_RUNTIME_29EF38A6_2026-10-06.md)で、対象削除・投入状態保全の修正を完全SHA archiveから通常Dockerへ構築した。選定703 source/assetsの欠落/追加/SHA不一致0・111 packages/先行10層一致、read-only通常entrypoint/no overlayでGoogle23 modules190成功・設定6 modules70成功（非重複260/省略0、実PG専用7/Calendar loopback8含む）。新規Scout1.26全OS監査は39指摘（HIGH3/MEDIUM1/LOW35、Python0）・終了2、先行CVE/severity/package差分0で未合格。固定候補CI37433985459は17:17 JST時点4成功/2実行中、先行72136cf9 CI全6成功を確認済み。今回専用PG/container/tmpfs合成データ削除・証拠/別作業13項目保持、main/AWS/schema/Secrets/課金/容量変更・承認拡張なし、通常配布物検証を正式公開全条件達成とせずNo-Goを維持する。以下は各先行記録時点の状態として区別する。
+
 後続の[Google投入結果とworker状態の保全](GOOGLE_DISPATCH_STATE_2026-10-06.md)で、正常投入と診断ID保存失敗を分離し、5経路の投入失敗を期限内/未開始QUEUEDの条件付きUPDATEに限定する。同期失敗の更新は同じtransaction・正確な世代/PENDINGだけで行い、開始/成功/worker失敗の保存状態を維持する。RED32失敗/2エラー、新規PG9成功、最終広域PG229成功/省略0・SQLite222成功/PG専用7省略（文書39含む）、本体差分26文2分岐/新規PG252文62分岐100%。5 Python品質/Bandit0・YAML確認合格、初回fixture未使用分岐の整理/初期証拠保持、Issue作成403を記録。親72136cf9 CIは17:05 JST時点5成功/Playwright実行中、新候補の全CI/通常配布物/実Google未確認。応答不明時の実配送/outbox・lease・新ジョブ重複・投入前PENDING/同sync版競合等は未解決、今回合成DB/container/volume削除・証拠保持、main/AWS/schema/Secrets/課金/容量変更・承認拡張なし・正式公開No-Goを維持する。以下は各先行記録時点として区別する。
 
 後続の[Calendar同期中の対象削除ガード](GOOGLE_CALENDAR_DELETED_TARGET_2026-10-06.md)で、同期行のPK/user/session/created_atをHTTP直前と保存UPDATE条件で照合し、削除後保存例外・同PKの新同期上書き・不要retryを停止する。修正前新規7試験2 failure/21 error、初期PG29成功/別接続削除＋開始競合15成功、最終PG220成功/省略0・SQLite214成功/PG専用6省略（文書39含む）。本体差分21文4分岐/新規PG204文44分岐100%、2 Python品質・YAML確認合格、Banditのfixtureキー誤検知は区分名明確化で解消し抑制なし。先行337c7cc9/親c0c24856 CI全6成功、今回新候補のCI/配布物/実Googleは未確認。開始前削除・enqueue世代固定/同sync版競合・publisher結果不明/lease等は残る。専用DB/container/volumeを削除して証拠保持、main/AWS/schema/Secrets/課金/容量変更・承認拡張なし、HIGH3等の未達と正式公開No-Goを維持する。以下は各先行記録時点の状態として区別する。
