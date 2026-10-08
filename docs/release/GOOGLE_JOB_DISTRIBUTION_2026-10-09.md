@@ -69,11 +69,17 @@ HIGHはcyrus-sasl2のCVE-2026-107161、zlibのCVE-2026-85091で、当該レポ�
 HIGHは同じ2件・当該fixed_versionはnot fixedと確認した（`scan-reviewed.json`）。
 通常回帰449成功をOSスキャンや正式公開の合格へ読み替えない。
 
+後続の[HIGH利用条件調査](RUNTIME_HIGH_IMPACT_2026-10-09.md)でOSとpsycopg同梱のSASLを
+別々に確認した。両方のDIGEST-MD5選択拒否は固定imageの限定証拠で、指摘は除外しない。
+zlibの影響版判定の相違も未解消であり、38指摘/HIGH2の未合格を維持する。
+
 ## CIと残る条件
 
 c3の[CI 37852932860](https://github.com/sheepdog0820/iaia/actions/runs/37852932860)はcancelledで終了。
-修正版の[CI 37854284616](https://github.com/sheepdog0820/iaia/actions/runs/37854284616)は実行中。
-今回照合時点ではInfrastructure/Lint-Security/Systemが成功、残る3項目は実行中だった。
+修正版の[CI 37854284616](https://github.com/sheepdog0820/iaia/actions/runs/37854284616)は
+後続の文書pushによる最新run優先でcancelled終了（3成功/3cancelled）。
+その後続f271の[CI 37854944947](https://github.com/sheepdog0820/iaia/actions/runs/37854944947)は
+10月9日の追加調査時点で実行中。全6成功の確認とは区別する。
 親b710の全6成功とは区別し、cancelledや待機中を今回候補の成功にしない。
 この記録は型修正候補679の配布物であり、後続の文書commitのCI成功を証明しない。
 全cleanup/再連携/保持/認可・全lock順・legacy停止/drain/移行・限定回復・
