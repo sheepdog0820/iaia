@@ -6,6 +6,10 @@
 
 Google Calendar/Sheetsを正式公開できる品質にするため、DB確定とCelery投入の隙間、再配送、結果不明、同期対象の世代競合を解消する。部分修正・ローカル成功のみで完了にしない。
 
+### 10月9日のcleanup独立競合
+
+[cleanup/receiptの独立PG競合](GOOGLE_CLEANUP_CONCURRENCY_2026-10-09.md)に両Lock順32ケース・異常伝播対照1・PG CI選定1を追加した。異なる3 PIDと実Lock待機を確認し、固定通常679imageでも32競合+対照1成功・skip0。製品/保持・解除方針は変更せず、T08/T11の部分証拠のみで、session/sync等の独立競合・privacy/認可/移行/限定回復・実Google/共有運用は残る。Issue全体は未完了・No-Goを維持し、GitHub Issueへ記録済みとはしない。
+
 ### 10月9日のcleanup境界検証
 
 [送信中の退会/削除/期限](GOOGLE_CLEANUP_BOUNDARIES_2026-10-09.md)に20ケースとPG CI選定を追加し、局所SQLite/PG各21成功・新module215文32分岐先全実行を確認した。製品/保持・解除方針は変更しない。未解決記録/確定応答/暗号文cascade/旧配送拒否/後続待機を検査するが、同一接続の模擬HTTP順序制御であり、全cleanup競合・退会privacy/旧予定方針・実Google/共有運用は残る。Issue全体は未完了・No-Goを維持し、GitHub Issueへ記録済みとはしない。

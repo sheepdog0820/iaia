@@ -2,6 +2,10 @@
 
 ## 現在の公開判断（2026-10-09）
 
+### Google cleanup/receiptの独立PG競合
+
+[独立接続のcleanup競合](GOOGLE_CLEANUP_CONCURRENCY_2026-10-09.md)で、Calendar/Sheetsの正式無課金退会・job削除・保存/実行期限とreceiptの両Lock順32ケースを追加し、worker/cleanup/observerの異なるPIDと実Lock待機を確認した。未解決記録/確定応答/旧配送拒否/後続待機を検証し、固定679通常imageでも32競合+計測異常対照1の33件成功・skip0。製品/schema/依存/保持・解除方針/main/AWS/共有DB/Secrets/費用は変更せず、session/sync等の独立競合・全Lock順・privacy/認可/移行/限定回復・実Google/共有運用や他の公開条件は残る。T08/T11部分証拠であり、正式公開No-Goを維持する。
+
 ### Google送信中の退会・削除・期限境界
 
 [cleanup境界](GOOGLE_CLEANUP_BOUNDARIES_2026-10-09.md)の合成20ケースとCI選定1件を追加した。実API/受付/workerを呼び、模擬HTTP中の正式無課金退会・job/session/sync削除・保存/実行期限処理で、未解決の独立記録と禁止を維持し、確定応答も保持する。局所SQLite/PG各21成功、新module215文32分岐先100%/除外0。これは同一接続の順序制御であり、全競合・実Google/共有運用・保持/退会方針の完了ではない。製品/schema/依存/main/AWS/共有DB/Secrets/費用・承認範囲は変更せず、T08全体と他の必須条件が残るため正式公開No-Goを維持する。
