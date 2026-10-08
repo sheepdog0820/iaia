@@ -11,6 +11,7 @@ from schedules import test_google_credential_guard as credential_tests
 from schedules.google_tokens import get_google_access_token
 from schedules.models import AsyncJob, GoogleCalendarSync, TRPGSession
 from schedules.tasks import export_google_sheet, schedule_session_google_syncs, sync_google_calendar
+from tests.utils.google_subcases import rollback_google_subcase
 
 
 class GoogleQueuedConnectionTest(TestCase):
@@ -30,7 +31,9 @@ class GoogleQueuedConnectionTest(TestCase):
 
     def _prepare(self, mode="sheets"):
         SocialAccount.objects.filter(uid__startswith="guard-").delete()
-        return connection_tests.GoogleConnectionGuardTest._prepare(self, mode)
+        # Real API acceptance below creates the only job in this scenario.
+        # An unused Calendar fixture admission would otherwise precede it.
+        return connection_tests.GoogleConnectionGuardTest._prepare(self, mode, create_job=False)
 
     def _change(self, reason):
         if reason in connection_tests.GoogleConnectionGuardTest.reasons:
@@ -70,7 +73,7 @@ class GoogleQueuedConnectionTest(TestCase):
     def test_api_waiting_jobs_reject_connection_changes_before_lookup(self):
         for mode in ("sheets", "create", "update", "cancel-known", "cancel-unknown"):
             for reason in self.reasons:
-                with self.subTest(mode=mode, reason=reason), ExitStack() as stack:
+                with self.subTest(mode=mode, reason=reason), rollback_google_subcase(), ExitStack() as stack:
                     job, args = self._queue("api", mode)
                     self._change(reason)
                     sends = self._sends(stack)
@@ -88,7 +91,7 @@ class GoogleQueuedConnectionTest(TestCase):
 
     def test_automatic_waiting_jobs_reject_connection_changes_before_lookup(self):
         for reason in self.reasons:
-            with self.subTest(reason=reason), ExitStack() as stack:
+            with self.subTest(reason=reason), rollback_google_subcase(), ExitStack() as stack:
                 job, args = self._queue("automatic", "create")
                 self._change(reason)
                 sends = self._sends(stack)
@@ -109,7 +112,7 @@ class GoogleQueuedConnectionTest(TestCase):
             ("api", "cancel-unknown"),
             ("automatic", "create"),
         ):
-            with self.subTest(origin=origin, mode=mode), ExitStack() as stack:
+            with self.subTest(origin=origin, mode=mode), rollback_google_subcase(), ExitStack() as stack:
                 job, args = self._queue(origin, mode)
                 self._sends(stack)
                 result = self._run(mode, args)
@@ -128,7 +131,7 @@ class GoogleQueuedConnectionTest(TestCase):
 
     def test_queue_binding_is_opaque_and_has_no_credentials_or_uid(self):
         for origin, mode in (("api", "sheets"), ("api", "create"), ("automatic", "create")):
-            with self.subTest(origin=origin, mode=mode):
+            with self.subTest(origin=origin, mode=mode), rollback_google_subcase():
                 job, _ = self._queue(origin, mode)
                 self.assertRegex(job.payload.get("google_connection", ""), r"^[0-9a-f]{64}$")
                 stored = json.dumps(job.payload)
@@ -137,7 +140,7 @@ class GoogleQueuedConnectionTest(TestCase):
 
     def test_access_rotation_while_waiting_keeps_the_same_target(self):
         for mode in ("sheets", "create"):
-            with self.subTest(mode=mode), ExitStack() as stack:
+            with self.subTest(mode=mode), rollback_google_subcase(), ExitStack() as stack:
                 job, args = self._queue("api", mode)
                 self._change("access-rotated")
                 sends = self._sends(stack)
@@ -160,7 +163,7 @@ class GoogleQueuedConnectionTest(TestCase):
         )
         for mode in ("sheets", "create"):
             for payload in payloads:
-                with self.subTest(mode=mode, payload=payload), ExitStack() as stack:
+                with self.subTest(mode=mode, payload=payload), rollback_google_subcase(), ExitStack() as stack:
                     job, args = self._queue("api", mode)
                     job.payload = (
                         {"sync_id": args[0], **payload} if mode == "create" and isinstance(payload, dict) else payload
@@ -188,7 +191,7 @@ class GoogleQueuedConnectionTest(TestCase):
 
     def test_new_job_after_reconnect_uses_new_binding_and_delivers(self):
         for mode in ("sheets", "create"):
-            with self.subTest(mode=mode), ExitStack() as stack:
+            with self.subTest(mode=mode), rollback_google_subcase(), ExitStack() as stack:
                 first, first_args = self._queue("api", mode)
                 self._change("other-account")
                 self._sends(stack)
@@ -259,7 +262,7 @@ class GoogleQueuedConnectionTest(TestCase):
 
     def test_signing_key_change_requires_new_job_without_token_lookup(self):
         for mode in ("sheets", "create"):
-            with self.subTest(mode=mode), ExitStack() as stack:
+            with self.subTest(mode=mode), rollback_google_subcase(), ExitStack() as stack:
                 job, args = self._queue("api", mode)
                 sends = self._sends(stack)
                 token = stack.enter_context(patch("schedules.tasks.get_google_access_token"))

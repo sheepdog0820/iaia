@@ -37,11 +37,12 @@ from .google_sheets import (
     sheet_export_character_ids,
     sheet_values_update_url,
 )
+from .google_target_execution import execution_write_request, preserve_newer_calendar_pending, require_execution
 from .google_tokens import get_google_access_token, google_credential_identity, google_credential_is_current
 from .google_worker_snapshot import prepare_worker_snapshot, require_worker_snapshot
 from .google_write_intake import register_calendar_intake
 from .google_write_ledger import INVALID_ADMISSION_MESSAGE, InvalidGoogleWriteAdmission
-from .google_write_outcome import GoogleWriteUncertain, google_write_request
+from .google_write_outcome import GoogleWriteUncertain
 from .handout_release import evaluate_release_conditions, publish_handout
 from .holiday_sync import sync_japanese_holidays as run_japanese_holiday_sync
 from .integration_access import visible_user_sessions
@@ -411,9 +412,12 @@ def _save_current_calendar_sync(sync, job, fields):
         )
         if source is not None and google_retry_source_is_superseded(source):
             raise GoogleJobInactive
-        # Preserve the existing accepted-write receipt when cleanup removed the
-        # source job. This is not a cross-job/target generation fence.
+        # Preserve the accepted-write receipt even after source cleanup, while
+        # retaining PENDING/error state belonging to a newer accepted job.
         values = {field: getattr(sync, field) for field in fields if field != "updated_at"}
+        if preserve_newer_calendar_pending(job, sync):
+            values.pop("status", None)
+            values.pop("last_error", None)
         values["updated_at"] = timezone.now()
         updated = _current_calendar_sync(sync).update(**values)
     if not updated:
@@ -452,8 +456,10 @@ def _calendar_request(job, sync, connection, credential, access_token, send, url
     require_worker_snapshot(job, sync)
     require_running_google_job(job)
     _require_current_calendar_sync(sync, job)
+    require_execution(job)
     if send is not requests.get:
-        return google_write_request(send, url, **kwargs)
+        method = "POST" if send is requests.post else "PUT" if send is requests.put else "DELETE"
+        return execution_write_request(job, method, send, url, **kwargs)
     return send(url, **kwargs)
 
 
@@ -491,7 +497,7 @@ def sync_google_calendar(self, sync_id, job_id):
     if not google_job_can_start(job):
         return "inactive-job"
     if not claim_google_job_start(job):
-        return "inactive-job"
+        return "target-waiting" if getattr(job, "_google_target_waiting", False) else "inactive-job"
     if (
         not isinstance(job.payload, dict)
         or type(job.payload.get("sync_id")) is not int
@@ -674,25 +680,34 @@ def sync_google_calendar(self, sync_id, job_id):
 
     sync.last_error = ""
     sync.synced_at = timezone.now()
-    _save_current_calendar_sync(
-        sync,
-        job,
-        [
-            "external_event_id",
-            "status",
-            "last_error",
-            "synced_at",
-            "updated_at",
-        ],
-    )
-    succeed_google_job(
-        job,
-        {
-            "sync_id": sync.pk,
-            "external_event_id": sync.external_event_id,
-            "status": sync.status,
-        },
-    )
+    inactive = False
+    with transaction.atomic():
+        try:
+            _save_current_calendar_sync(
+                sync,
+                job,
+                [
+                    "external_event_id",
+                    "status",
+                    "last_error",
+                    "synced_at",
+                    "updated_at",
+                ],
+            )
+            succeed_google_job(
+                job,
+                {
+                    "sync_id": sync.pk,
+                    "external_event_id": sync.external_event_id,
+                    "status": sync.status,
+                },
+            )
+        except GoogleJobInactive:
+            # Keep a verified provider receipt or the deleted-target failure,
+            # even when source cleanup prohibits marking that job successful.
+            inactive = True
+    if inactive:
+        raise GoogleJobInactive
     return sync.status
 
 
@@ -717,7 +732,7 @@ def export_google_sheet(
     if not google_job_can_start(job):
         return "inactive-job"
     if not claim_google_job_start(job):
-        return "inactive-job"
+        return "target-waiting" if getattr(job, "_google_target_waiting", False) else "inactive-job"
     connection = _google_sheets_export_integration(user_id)
     if not connection:
         fail_google_job(job, GOOGLE_SHEETS_NOT_AUTHORIZED_MESSAGE)
@@ -795,7 +810,9 @@ def export_google_sheet(
         require_worker_snapshot(job, accepted_write=bool(completed_rows))
         require_running_google_job(job)
         try:
-            response = google_write_request(
+            response = execution_write_request(
+                job,
+                "PUT",
                 requests.put,
                 sheet_values_update_url(spreadsheet_id, chunk_range),
                 params={"valueInputOption": "RAW"},

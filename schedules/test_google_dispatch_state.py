@@ -5,6 +5,7 @@ from threading import Event
 from types import SimpleNamespace
 from unittest import skipUnless
 from unittest.mock import patch
+from uuid import uuid4
 
 from django.db import DatabaseError, close_old_connections, connection
 from django.db.models.query import QuerySet
@@ -13,12 +14,25 @@ from django.urls import reverse
 from django.utils import timezone
 
 from schedules import tasks
-from schedules.models import AsyncJob, GoogleCalendarSync, GoogleJobDispatch
+from schedules.models import AsyncJob, GoogleCalendarSync, GoogleJobDispatch, TRPGSession
 from schedules.test_google_job_start_claim import GoogleJobStartFixtures
 
 
 class GoogleDispatchStateFixtures(GoogleJobStartFixtures):
     routes = ("calendar", "sheets", "retry-calendar", "retry-sheets", "session")
+
+    def _fresh_dispatch_target(self):
+        # Real commit callbacks must not be hidden behind a rollback savepoint.
+        # Keep earlier queued/running journals intact and use new owned targets.
+        self.session = TRPGSession.objects.create(
+            title="独立した配送状態試験",
+            group=self.session.group,
+            created_by=self.user,
+            gm=self.user,
+            date=timezone.now() + timedelta(days=1),
+        )
+        self.sync = GoogleCalendarSync.objects.create(user=self.user, session=self.session)
+        self.fixture_sheet_id = f"isolated-dispatch-{uuid4().hex}"
 
     def _dispatch(self, route):
         if route.startswith("retry-"):
@@ -34,7 +48,7 @@ class GoogleDispatchStateFixtures(GoogleJobStartFixtures):
         elif route == "sheets":
             response = self.api.post(
                 "/api/character-sheets/google-sheets/export/",
-                {"spreadsheet_id": "isolated-dispatch-state"},
+                {"spreadsheet_id": getattr(self, "fixture_sheet_id", "isolated-dispatch-state")},
                 format="json",
             )
         else:
@@ -66,6 +80,7 @@ class GoogleDispatchStateTest(GoogleDispatchStateFixtures, TransactionTestCase):
         for route in self.routes:
             for outcome in ("running", "succeeded", "failed"):
                 with self.subTest(route=route, outcome=outcome), ExitStack() as stack:
+                    self._fresh_dispatch_target()
                     mode = self._mode(route)
                     self.sync.external_event_id = ""
                     self.sync.save(update_fields=["external_event_id"])

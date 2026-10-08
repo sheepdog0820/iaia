@@ -16,6 +16,7 @@ from schedules.google_job_lifecycle import GOOGLE_EXECUTION_UNCERTAIN_MESSAGE
 from schedules.models import AsyncJob, GoogleCalendarSync
 from schedules.test_google_job_start_claim import GoogleJobStartFixtures
 from tests.utils.google_sheet_fixtures import run_sheet_fixture
+from tests.utils.google_subcases import rollback_google_subcase
 
 
 class GoogleWriteUncertaintyTest(GoogleJobStartFixtures, TestCase):
@@ -43,7 +44,11 @@ class GoogleWriteUncertaintyTest(GoogleJobStartFixtures, TestCase):
     def test_lost_write_responses_and_server_errors_are_not_automatically_reapplied(self):
         for operation in ("post", "put", "delete", "conflict-put", "sheets"):
             for failure in ("timeout", "disconnect", "server", "request-timeout"):
-                with self.subTest(operation=operation, failure=failure), ExitStack() as stack:
+                with (
+                    self.subTest(operation=operation, failure=failure),
+                    rollback_google_subcase(),
+                    ExitStack() as stack,
+                ):
                     mode = "sheets" if operation == "sheets" else "calendar"
                     self._calendar_mode(operation)
                     job, args = self._queue(mode)
@@ -72,7 +77,7 @@ class GoogleWriteUncertaintyTest(GoogleJobStartFixtures, TestCase):
     def test_malformed_successful_write_acknowledgement_is_not_retryable(self):
         for mode in ("calendar", "sheets"):
             for body in (None, [], "private response", {"id": "wrong"}, ValueError("private invalid JSON")):
-                with self.subTest(mode=mode, body=body), ExitStack() as stack:
+                with self.subTest(mode=mode, body=body), rollback_google_subcase(), ExitStack() as stack:
                     self._calendar_mode("post")
                     job, args = self._queue(mode)
                     sync_before = GoogleCalendarSync.objects.filter(pk=self.sync.pk).values().get()

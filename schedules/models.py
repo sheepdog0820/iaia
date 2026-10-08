@@ -117,6 +117,8 @@ class GoogleWriteTarget(models.Model):
 
     resource_key = models.CharField(max_length=64, primary_key=True, editable=False)
     last_sequence = models.PositiveBigIntegerField(default=0, editable=False)
+    last_started_sequence = models.PositiveBigIntegerField(default=0, editable=False)
+    active_execution_token = models.UUIDField(null=True, editable=False)
 
     def __str__(self):
         return "Google同期対象"
@@ -150,6 +152,59 @@ class GoogleWriteReservation(models.Model):
             models.UniqueConstraint(fields=["target", "sequence"], name="google_write_target_sequence_unique"),
             models.UniqueConstraint(fields=["admission", "target"], name="google_write_admission_target_unique"),
             models.CheckConstraint(condition=models.Q(sequence__gt=0), name="google_write_sequence_positive"),
+        ]
+
+
+class GoogleWriteExecution(models.Model):
+    """An unresolved holder survives deletion of its source job or owner."""
+
+    class State(models.TextChoices):
+        ACTIVE = "active", "実行中"
+        UNKNOWN = "unknown", "結果確認が必要"
+        FINISHED = "finished", "実行終了確認済み"
+
+    token = models.UUIDField(primary_key=True, editable=False)
+    job_id_snapshot = models.UUIDField(editable=False, db_index=True)
+    admission_binding = models.CharField(max_length=64, editable=False)
+    allocation_binding = models.CharField(max_length=64, editable=False)
+    state = models.CharField(max_length=16, choices=State.choices, default=State.ACTIVE)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    closed_at = models.DateTimeField(null=True, editable=False)
+
+
+class GoogleWriteExecutionTarget(models.Model):
+    execution = models.ForeignKey(GoogleWriteExecution, on_delete=models.PROTECT, related_name="allocations")
+    target = models.ForeignKey(GoogleWriteTarget, on_delete=models.PROTECT, related_name="executions")
+    sequence = models.PositiveBigIntegerField(editable=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["execution", "target"], name="google_execution_target_unique"),
+            models.CheckConstraint(condition=models.Q(sequence__gt=0), name="google_execution_sequence_positive"),
+        ]
+
+
+class GoogleWriteRequest(models.Model):
+    """Minimal pre-HTTP intent/receipt; no URL, credentials or body plaintext."""
+
+    class State(models.TextChoices):
+        INTENT = "intent", "送信結果未確定"
+        KNOWN = "known", "応答確認済み"
+        UNKNOWN = "unknown", "結果確認が必要"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    execution = models.ForeignKey(GoogleWriteExecution, on_delete=models.PROTECT, related_name="requests")
+    ordinal = models.PositiveIntegerField(editable=False)
+    request_digest = models.CharField(max_length=64, editable=False)
+    state = models.CharField(max_length=16, choices=State.choices, default=State.INTENT)
+    response_status = models.PositiveSmallIntegerField(null=True, editable=False)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    received_at = models.DateTimeField(null=True, editable=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["execution", "ordinal"], name="google_execution_request_unique"),
+            models.CheckConstraint(condition=models.Q(ordinal__gt=0), name="google_request_ordinal_positive"),
         ]
 
 

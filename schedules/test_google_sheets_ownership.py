@@ -208,8 +208,11 @@ class GoogleSheetsOwnershipTest(TestCase):
     def test_retry_rebuilds_only_still_owned_original_selection_including_zero(self):
         first = self._character("失効する対象")
         remaining = self._character("残る対象")
-        job, _ = self._queue()
+        job, args = self._queue()
         self._change(first, "transferred")
+        # Finish the real rejected source before testing independent retries;
+        # an abandoned QUEUED acceptance must still block later FIFO jobs.
+        self._refuse(job, args)
         self._character("後から追加した対象外")
         original_payload = dict(job.payload)
         for empty in (False, True):

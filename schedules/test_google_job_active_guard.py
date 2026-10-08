@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 import requests
 from celery.exceptions import Retry
-from django.db import transaction
 from django.test import TestCase
 from django.utils import timezone
 
@@ -13,6 +12,7 @@ from accounts.models import CharacterSheet
 from schedules import tasks
 from schedules.models import AsyncJob, GoogleCalendarSync
 from schedules.test_google_job_start_claim import GoogleJobStartFixtures
+from tests.utils.google_subcases import rollback_google_subcase
 
 
 class GoogleJobActiveGuardTest(GoogleJobStartFixtures, TestCase):
@@ -49,7 +49,7 @@ class GoogleJobActiveGuardTest(GoogleJobStartFixtures, TestCase):
 
     def test_cleanup_between_start_update_and_refresh_stops_without_unhandled_error(self):
         for mode in ("sheets", "create"):
-            with self.subTest(mode=mode), transaction.atomic(), ExitStack() as stack:
+            with self.subTest(mode=mode), rollback_google_subcase(), ExitStack() as stack:
                 job, args, worker = self._prepare(mode)
                 before_sync = GoogleCalendarSync.objects.filter(pk=self.sync.pk).values().get()
                 sends, token = self._sends(stack)
@@ -70,7 +70,7 @@ class GoogleJobActiveGuardTest(GoogleJobStartFixtures, TestCase):
     def test_changed_owner_or_kind_after_token_read_cannot_authorize_send_or_save(self):
         for mode in ("sheets", "create"):
             for change in ({"owner_id": self.other.pk}, {"job_type": "statistics_export"}):
-                with self.subTest(mode=mode, change=change), transaction.atomic(), ExitStack() as stack:
+                with self.subTest(mode=mode, change=change), rollback_google_subcase(), ExitStack() as stack:
                     job, args, worker = self._prepare(mode)
                     sends, token = self._sends(stack)
                     saved = []
@@ -89,7 +89,7 @@ class GoogleJobActiveGuardTest(GoogleJobStartFixtures, TestCase):
     def test_change_during_token_read_stops_every_first_delivery_without_mutation(self):
         for mode in ("sheets", "create", "update", "cancel-known", "cancel-unknown"):
             for reason in self.reasons:
-                with self.subTest(mode=mode, reason=reason), transaction.atomic(), ExitStack() as stack:
+                with self.subTest(mode=mode, reason=reason), rollback_google_subcase(), ExitStack() as stack:
                     job, args, worker = self._prepare(mode)
                     before_sync = GoogleCalendarSync.objects.filter(pk=self.sync.pk).values().get()
                     sends, token = self._sends(stack)
@@ -111,7 +111,7 @@ class GoogleJobActiveGuardTest(GoogleJobStartFixtures, TestCase):
     def test_change_during_last_credential_check_stops_before_http(self):
         for mode in ("sheets", "create"):
             for reason in self.reasons:
-                with self.subTest(mode=mode, reason=reason), transaction.atomic(), ExitStack() as stack:
+                with self.subTest(mode=mode, reason=reason), rollback_google_subcase(), ExitStack() as stack:
                     job, args, worker = self._prepare(mode)
                     sends, _ = self._sends(stack)
                     saved = []
@@ -129,7 +129,7 @@ class GoogleJobActiveGuardTest(GoogleJobStartFixtures, TestCase):
     def test_calendar_change_between_requests_stops_conditional_or_conflict_followup(self):
         for mode in ("update", "cancel-known", "conflict-post", "conflict-get"):
             for reason in self.reasons:
-                with self.subTest(mode=mode, reason=reason), transaction.atomic(), ExitStack() as stack:
+                with self.subTest(mode=mode, reason=reason), rollback_google_subcase(), ExitStack() as stack:
                     job, args, worker = self._prepare(mode)
                     before_sync = GoogleCalendarSync.objects.filter(pk=self.sync.pk).values().get()
                     sends, _ = self._sends(stack)
@@ -164,7 +164,7 @@ class GoogleJobActiveGuardTest(GoogleJobStartFixtures, TestCase):
             [CharacterSheet7th(character_sheet=character, name="非公開の分割出力") for character in characters]
         )
         for reason in self.reasons:
-            with self.subTest(reason=reason), transaction.atomic(), ExitStack() as stack:
+            with self.subTest(reason=reason), rollback_google_subcase(), ExitStack() as stack:
                 job, args, worker = self._prepare("sheets")
                 self.assertEqual(len(args[-1]), 101)
                 sends, _ = self._sends(stack)
@@ -188,7 +188,7 @@ class GoogleJobActiveGuardTest(GoogleJobStartFixtures, TestCase):
                 for reason in self.reasons:
                     with (
                         self.subTest(mode=mode, phase=phase, reason=reason),
-                        transaction.atomic(),
+                        rollback_google_subcase(),
                         ExitStack() as stack,
                     ):
                         job, args, worker = self._prepare(mode)
@@ -217,7 +217,7 @@ class GoogleJobActiveGuardTest(GoogleJobStartFixtures, TestCase):
     def test_last_acknowledged_calendar_write_keeps_sync_but_does_not_recreate_or_overwrite_job(self):
         for mode, method in (("create", "post"), ("update", "put"), ("cancel-known", "delete")):
             for reason in self.reasons:
-                with self.subTest(mode=mode, reason=reason), transaction.atomic(), ExitStack() as stack:
+                with self.subTest(mode=mode, reason=reason), rollback_google_subcase(), ExitStack() as stack:
                     job, args, worker = self._prepare(mode)
                     sends, _ = self._sends(stack)
                     saved = []
@@ -248,7 +248,7 @@ class GoogleJobActiveGuardTest(GoogleJobStartFixtures, TestCase):
     def test_late_authorization_failure_does_not_mutate_inactive_job_or_calendar_sync(self):
         for mode in ("sheets", "create"):
             for reason in self.reasons:
-                with self.subTest(mode=mode, reason=reason), transaction.atomic(), ExitStack() as stack:
+                with self.subTest(mode=mode, reason=reason), rollback_google_subcase(), ExitStack() as stack:
                     job, args, worker = self._prepare(mode)
                     before_sync = GoogleCalendarSync.objects.filter(pk=self.sync.pk).values().get()
                     sends, token = self._sends(stack)

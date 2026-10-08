@@ -8,6 +8,8 @@ Google Calendar/Sheetsを正式公開できる品質にするため、DB確定�
 
 ## 現在の部分実装と証拠
 
+- 10月8日の[共有実行権・独立送信記録](GOOGLE_SHARED_EXECUTION_2026-10-08.md): 対象FIFO/待機cipher保持、送信前INTENTと既知/unknown receipt、job削除後の禁止、後続Calendar PENDING保全、allocation改変/偽token拒否、journalを残す逆移行ガードを追加。最終PG431成功/省略0・SQLite407成功/PG専用24省略、675 source照合不一致0、製品差分241文56分岐先・新規35テスト601文16分岐先/helper10文2分岐先100%・除外0。実PG独立接続のholder1/書き込み1・HTTP前INTENT確定を確認し、Python21品質/Bandit終了0/schema差分0、自分のPG/tmpfs撤去・証拠/別作業保持。無料KP579 CI全6成功を作業ブランチへ取り込んだが、新製品候補のCIとは区別する。全lock順、通常新配布物のSIGKILL、legacy/drain/移行、保持・再連携・認可/濫用防止・UI・限定回復・実Google/共有運用は残り、Issue全体は閉じない。main/AWS/共有DB/Secrets/課金/容量変更・既存承認の拡張なし、No-Goを維持する。以下の未コミット/CI未確認等は各先行記録時点の状態である。
+
 - 基準77192584のCIは[37540663348](https://github.com/sheepdog0820/iaia/actions/runs/37540663348)で5成功/Playwright失敗（428 passed/1 flaky）。Firefox無料KPのsignup goto(load) timeoutを[別の専用修正](FREE_KP_SIGNUP_READINESS_2026-10-07.md)で調査し、画像待ちの旧開始条件をRED再現、既存helperを利用して通常/画像待ちの一連操作と広域93件が3ブラウザーで成功（retry/skip/flaky0）した。ただし元CIの根本原因未確定で、Google実装の安全性合格や全CI成功に読み替えない。共有対象の実行排他6ファイルは未コミットの別worktreeへ保持し、このCI修正へ混ぜない。今回候補の全CIと排他側の広域回帰は未完了。
 
 - 最新の[worker固定本文消費](GOOGLE_WORKER_SNAPSHOT_2026-10-07.md): Calendar/Sheets workerが受付の固定本文・操作・対象を使用し、構造/資格情報/同期行incarnation/暗号文/採番/対象keyを照合する。HTTP間の受付喪失・認証済み別本文への差し替えは続送を止め、部分Sheets適用後はUNCERTAINを保持。最終PG410成功/省略0・SQLite388成功/PG専用22省略、製品差分97文36分岐先100%/除外0、新規20試験346文82分岐先/合成Sheets helper22文2分岐先100%、Python17品質/Bandit0・schema差分0。先行fixture/受付後ID変更の失敗を保持して実受付方式に更新、専用PG/tmpfs撤去・証拠/別作業保持。共有holder/FIFO開始・HTTP intent/receipt・独立unknown journal・後続PENDING保全/全lock順/移行/drain/回復は未完了。親d84 CI全6成功と今回候補CIを区別し、main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし、No-Goを維持する。

@@ -34,7 +34,7 @@ class GoogleConnectionGuardTest(TestCase):
         )
         self.sync = GoogleCalendarSync.objects.create(user=self.user, session=self.session)
 
-    def _prepare(self, mode="sheets"):
+    def _prepare(self, mode="sheets", *, create_job=True):
         SocialAccount.objects.filter(user=self.user).delete()
         self.account = SocialAccount.objects.create(user=self.user, provider="google", uid="guard-initial-identity")
         self.token = SocialToken.objects.create(
@@ -63,6 +63,8 @@ class GoogleConnectionGuardTest(TestCase):
         )
         self.sync.refresh_from_db()
         self.session.refresh_from_db()
+        if not create_job:
+            return None
         job = AsyncJob.objects.create(
             owner=self.user,
             job_type="google_sheets_export" if mode == "sheets" else "google_calendar_sync",

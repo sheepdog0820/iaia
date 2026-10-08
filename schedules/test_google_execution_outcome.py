@@ -16,6 +16,7 @@ from django.utils import timezone
 
 from schedules import google_job_lifecycle as lifecycle
 from schedules import tasks
+from schedules.google_target_execution import finish_execution
 from schedules.models import AsyncJob, GoogleCalendarSync
 from schedules.test_google_job_start_claim import GoogleJobStartFixtures
 
@@ -39,6 +40,9 @@ class GoogleExecutionOutcomeTest(GoogleJobStartFixtures, TestCase):
         self.assertLessEqual(job.execution_deadline, timezone.now() + timedelta(seconds=960))
         original_token, original_start = job.execution_token, job.started_at
         lifecycle.fail_google_job(job, "合成の通信失敗")
+        # Direct helper calls have no worker scope. Close the independently
+        # verified no-request boundary, rather than treating FAILED as unlock.
+        finish_execution(job)
         self.assertTrue(lifecycle.claim_google_job_start(job))
         self.assertNotEqual(job.execution_token, original_token)
         self.assertEqual(job.started_at, original_start)
@@ -134,6 +138,7 @@ class GoogleExecutionOutcomeTest(GoogleJobStartFixtures, TestCase):
     def test_old_execution_token_cannot_update_a_later_failed_retry_claim(self):
         stale, _ = self._claim()
         lifecycle.fail_google_job(stale, "合成の再試行")
+        finish_execution(stale)
         current = AsyncJob.objects.get(pk=stale.pk)
         self.assertTrue(lifecycle.claim_google_job_start(current))
         before = AsyncJob.objects.filter(pk=current.pk).values().get()
@@ -156,7 +161,7 @@ class GoogleExecutionOutcomeTest(GoogleJobStartFixtures, TestCase):
 
     def test_detail_marks_only_requested_owned_stale_job_and_hides_execution_fields(self):
         job, _ = self._claim()
-        other, _ = self._claim()
+        other, _ = self._claim("calendar")
         self._stale(job)
         self._stale(other)
         response = self.api.get(f"/api/jobs/{job.pk}/")
@@ -304,6 +309,9 @@ class GoogleExecutionOutcomeConcurrencyTest(GoogleJobStartFixtures, TransactionT
     def test_completion_or_new_claim_committed_during_detector_lock_wait_is_not_overwritten(self):
         for changed in ("completion", "new-claim"):
             with self.subTest(changed=changed):
+                # The raw completion fixture is not a verified holder close.
+                # Keep its journal and use a distinct Sheet for the next case.
+                self.fixture_sheet_id = f"outcome-concurrency-{changed}"
                 job, _ = self._queue("sheets")
                 self.assertTrue(lifecycle.claim_google_job_start(job))
                 AsyncJob.objects.filter(pk=job.pk).update(execution_deadline=timezone.now() - timedelta(seconds=1))
@@ -331,6 +339,7 @@ class GoogleExecutionOutcomeConcurrencyTest(GoogleJobStartFixtures, TransactionT
                             AsyncJob.objects.filter(pk=job.pk).update(status="succeeded", result={"accepted": True})
                         else:
                             AsyncJob.objects.filter(pk=job.pk).update(status="failed")
+                            finish_execution(job)
                             self.assertTrue(lifecycle.claim_google_job_start(job))
                     self.assertEqual(future.result(timeout=10), 0)
                 job.refresh_from_db()

@@ -15,6 +15,7 @@ from schedules import tasks
 from schedules.google_job_lifecycle import GOOGLE_EXECUTION_UNCERTAIN_MESSAGE
 from schedules.models import AsyncJob, GoogleCalendarSync
 from schedules.test_google_job_start_claim import GoogleJobStartFixtures
+from tests.utils.google_subcases import rollback_google_subcase
 
 
 class GoogleCalendarDeletedTargetFixtures(GoogleJobStartFixtures):
@@ -56,7 +57,7 @@ class GoogleCalendarDeletedTargetFixtures(GoogleJobStartFixtures):
 class GoogleCalendarDeletedTargetTest(GoogleCalendarDeletedTargetFixtures, TestCase):
     def test_deleted_target_after_claim_stops_before_token_or_http(self):
         for mode in ("create", "update", "cancel"):
-            with self.subTest(mode=mode), transaction.atomic(), ExitStack() as stack:
+            with self.subTest(mode=mode), rollback_google_subcase(), ExitStack() as stack:
                 job, args = self._prepare(mode)
                 sends, token, retry = self._sends(stack)
                 original = tasks.claim_google_job_start
@@ -75,7 +76,7 @@ class GoogleCalendarDeletedTargetTest(GoogleCalendarDeletedTargetFixtures, TestC
     def test_deleted_target_during_token_or_last_credential_check_never_sends(self):
         for mode in ("create", "update", "cancel"):
             for phase in ("token", "credential"):
-                with self.subTest(mode=mode, phase=phase), transaction.atomic(), ExitStack() as stack:
+                with self.subTest(mode=mode, phase=phase), rollback_google_subcase(), ExitStack() as stack:
                     job, args = self._prepare(mode)
                     sends, token, retry = self._sends(stack)
 
@@ -93,7 +94,7 @@ class GoogleCalendarDeletedTargetTest(GoogleCalendarDeletedTargetFixtures, TestC
 
     def test_deletion_between_requests_stops_update_cancel_and_conflict_followup(self):
         for mode in ("update", "cancel", "conflict-post", "conflict-get"):
-            with self.subTest(mode=mode), transaction.atomic(), ExitStack() as stack:
+            with self.subTest(mode=mode), rollback_google_subcase(), ExitStack() as stack:
                 job, args = self._prepare(mode)
                 sends, _, retry = self._sends(stack)
 
@@ -117,7 +118,7 @@ class GoogleCalendarDeletedTargetTest(GoogleCalendarDeletedTargetFixtures, TestC
 
     def test_accepted_last_write_never_recreates_deleted_sync_or_retries(self):
         for mode, method in (("create", "post"), ("update", "put"), ("cancel", "delete")):
-            with self.subTest(mode=mode), transaction.atomic(), ExitStack() as stack:
+            with self.subTest(mode=mode), rollback_google_subcase(), ExitStack() as stack:
                 job, args = self._prepare(mode)
                 sends, _, retry = self._sends(stack)
 
@@ -145,7 +146,7 @@ class GoogleCalendarDeletedTargetTest(GoogleCalendarDeletedTargetFixtures, TestC
             "undated": "開催日時が未設定のセッションはGoogle Calendarへ同期できません。",
         }
         for phase, message in reasons.items():
-            with self.subTest(phase=phase), transaction.atomic(), ExitStack() as stack:
+            with self.subTest(phase=phase), rollback_google_subcase(), ExitStack() as stack:
                 if phase == "undated":
                     self.session.date = None
                     self.session.save(update_fields=["date"])
@@ -187,7 +188,7 @@ class GoogleCalendarDeletedTargetTest(GoogleCalendarDeletedTargetFixtures, TestC
 
     def test_replaced_same_pk_sync_is_not_used_or_overwritten(self):
         for phase in ("claim", "accepted"):
-            with self.subTest(phase=phase), transaction.atomic(), ExitStack() as stack:
+            with self.subTest(phase=phase), rollback_google_subcase(), ExitStack() as stack:
                 job, args = self._prepare("create")
                 sends, token, retry = self._sends(stack)
                 saved = []

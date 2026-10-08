@@ -116,13 +116,20 @@ class GoogleJobInactive(Exception):
     """The claimed job can no longer authorize state changes or another send."""
 
 
+class _GoogleStartRejected(Exception):
+    """Rollback an acquired holder when the RUNNING update did not commit."""
+
+
 def stop_inactive_google_job(function):
     @wraps(function)
     def run(*args, **kwargs):
-        try:
-            return function(*args, **kwargs)
-        except GoogleJobInactive:
-            return "inactive-job"
+        from .google_target_execution import execution_scope
+
+        with execution_scope():
+            try:
+                return function(*args, **kwargs)
+            except GoogleJobInactive:
+                return "inactive-job"
 
     return run
 
@@ -175,9 +182,19 @@ def uncertain_google_job(job):
 
 
 def succeed_google_job(job, result):
-    _update_running_google_job(
-        job, status=AsyncJob.Status.SUCCEEDED, progress=100, result=result or {}, error="", finished_at=timezone.now()
-    )
+    from .google_target_execution import finish_execution
+
+    with transaction.atomic():
+        AsyncJob.objects.select_for_update().filter(pk=job.pk).first()
+        _update_running_google_job(
+            job,
+            status=AsyncJob.Status.SUCCEEDED,
+            progress=100,
+            result=result or {},
+            error="",
+            finished_at=timezone.now(),
+        )
+        finish_execution(job)
 
 
 def google_job_can_start(job):
@@ -197,24 +214,42 @@ def claim_google_job_start(job):
     )
     if source is None or google_retry_source_is_superseded(source):
         return False
-    now = timezone.now()
-    updated = AsyncJob.objects.filter(
-        pk=job.pk,
-        owner_id=job.owner_id,
-        job_type=job.job_type,
-        status__in=(AsyncJob.Status.QUEUED, AsyncJob.Status.FAILED),
-        expires_at__gt=now,
-    ).update(
-        status=AsyncJob.Status.RUNNING,
-        progress=0,
-        started_at=Coalesce("started_at", now),
-        finished_at=None,
-        error="",
-        execution_token=uuid4(),
-        execution_deadline=Least("expires_at", now + google_execution_window()),
-    )
-    if not updated:
+    if source.status not in (AsyncJob.Status.QUEUED, AsyncJob.Status.FAILED) or source.expires_at <= timezone.now():
         return False
+    from .google_target_execution import claim_targets, finish_execution, track_execution
+
+    token = uuid4()
+    try:
+        # Only the acquisition/start phase rolls back on a rejected update.
+        # A later source deletion must not be undone to recreate that job.
+        with transaction.atomic():
+            execution = claim_targets(source, token)
+            if execution is False:
+                job._google_target_waiting = not getattr(source, "_google_sequence_retired", False)
+                return False
+            now = timezone.now()
+            updated = AsyncJob.objects.filter(
+                pk=job.pk,
+                owner_id=job.owner_id,
+                job_type=job.job_type,
+                status__in=(AsyncJob.Status.QUEUED, AsyncJob.Status.FAILED),
+                expires_at__gt=now,
+            ).update(
+                status=AsyncJob.Status.RUNNING,
+                progress=0,
+                started_at=Coalesce("started_at", now),
+                finished_at=None,
+                error="",
+                execution_token=token,
+                execution_deadline=Least("expires_at", now + google_execution_window()),
+            )
+            if not updated:
+                raise _GoogleStartRejected
+    except _GoogleStartRejected:
+        return False
+    job.execution_token = token
+    if execution is not None:
+        track_execution(job)
     # Receipt and job claim are one commit: relay never republishes a started job.
     GoogleJobDispatch.objects.filter(job_id=job.pk).update(
         state=GoogleJobDispatch.State.DELIVERED, ciphertext="", claim_token=None, claim_until=None
@@ -224,5 +259,7 @@ def claim_google_job_start(job):
             fields=["status", "progress", "started_at", "finished_at", "error", "execution_token", "execution_deadline"]
         )
     except AsyncJob.DoesNotExist:
+        if execution is not None:
+            finish_execution(job)
         return False
     return True

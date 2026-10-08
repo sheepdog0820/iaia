@@ -1,6 +1,10 @@
 # 有料プラン・外部連携を含む正式公開の受け入れ条件
 
-## 現在の公開判断（2026-10-07）
+## 現在の公開判断（2026-10-08）
+
+[Google共有対象の実行権・独立送信記録](GOOGLE_SHARED_EXECUTION_2026-10-08.md)をworker/HTTP/receiptへ接続した。対象共有FIFO開始・未開始cipher保持・送信前INTENT・job削除でも残るUNKNOWN・後続Calendar PENDING保全・allocation改変/偽token拒否・journalを消す逆移行拒否を追加。最終PG431成功/省略0、SQLite407成功/PG専用24省略、675 source照合不一致0、製品差分241文56分岐先/新規35テスト601文16分岐先/helper10文2分岐先100%・除外0。21 Python品質/Bandit終了0・schema差分0、実PG独立接続の同対象worker lock待機とHTTP前INTENT確定/HTTP中atomicなしを確認した。先行RED・初回PG失敗・独立fixture整理の記録を保持し、専用PG/tmpfs撤去・証拠/別作業保持。無料KP修正579dd6f8は作業ブランチへ取り込み、CI37545025884の全6成功を確認したが今回製品変更のCIではない。通常新配布物/実Redis-Celery SIGKILL・全lock順・legacy停止/drain/移行・保持/退会/再連携方針・共有Sheet認可/濫用防止・日本語対象待機UI・限定回復/実Googleは残る。mainは読み取り8567f49f、AWSは今回未照合/未変更。main/AWS/共有DB/Secrets/課金/容量・favicon承認拡張なし、OS HIGH3とその他必須条件を含め正式公開No-Goを維持する。
+
+### 10月7日時点の先行記録
 
 [無料KP登録の開始条件](FREE_KP_SIGNUP_READINESS_2026-10-07.md)を修正・ローカル検証した。基準77192584のCI37540663348は5成功/Playwright failure（428 passed/1 flaky）、Firefoxの登録page.goto(load)で30秒timeout。画面にはフォームが表示され、traceの記録済み17 HTTPはすべて200だが、browser lifecycle遅延の根本原因は未確定。実登録画面の画像待ちケースで旧開始条件のtimeoutを再現し、既存のDOMContentLoaded/操作可能性helperへ接続、通常/画像待ちの3ブラウザー6件と、退会保護・初期化の異常系等を含む広域93件成功（retry/skip/flaky0・30秒制限維持）を確認した。今回候補の全CIは未確認。合成データ/自分のserverを片付け、Google共有対象の排他/回復等は別の未コミット作業として保持し、main/AWS/共有DB/Secrets/費用変更・favicon承認拡張なし、正式公開No-Goを維持する。
 

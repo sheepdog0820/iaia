@@ -15,6 +15,7 @@ from schedules.google_sheets import offset_sheet_start_range
 from schedules.models import AsyncJob, GoogleIntegration
 from schedules.tasks import export_google_sheet
 from tests.utils.google_sheet_fixtures import run_sheet_fixture
+from tests.utils.google_subcases import rollback_google_subcase
 
 
 class GoogleSheetsDeliveryTest(TestCase):
@@ -242,7 +243,7 @@ class GoogleSheetsDeliveryTest(TestCase):
     @patch("schedules.tasks.get_google_access_token", return_value="isolated-token")
     def test_invalid_response_finishes_job_without_exposing_response_body(self, token):
         for value in (None, [], "private response content", 42, ValueError("private response content")):
-            with self.subTest(value=type(value).__name__):
+            with self.subTest(value=type(value).__name__), rollback_google_subcase():
                 job = self._job()
                 response = Mock(status_code=200)
                 response.raise_for_status.return_value = None

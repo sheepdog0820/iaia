@@ -38,6 +38,9 @@ class GoogleWriteAdmissionMigrationTest(TransactionTestCase):
             MigrationExecutor(connection).migrate(self.new)
             self.assertFalse(GoogleWriteAdmission.objects.exists())
             self.assertFalse(GoogleWriteTarget.objects.exists())
+            # Runtime helpers use the current model; test the old migration
+            # boundary above before restoring its required local schema.
+            MigrationExecutor(connection).migrate(self.original_targets)
             row = register_google_write(job, [sheet_target_key("schema-fixture")], {"private": "合成データ"})
             self.assertEqual(open_google_write_snapshot(row), {"private": "合成データ"})
             self.assertTrue(GoogleWriteReservation.objects.filter(admission=row).exists())
@@ -61,7 +64,12 @@ class GoogleWriteAdmissionMigrationTest(TransactionTestCase):
         try:
             MigrationExecutor(connection).migrate([("schedules", "0059_google_write_admission")])
             self.assertEqual(open_google_write_snapshot(row), {"private": "合成データ"})
-            self.assertEqual(GoogleWriteTarget.objects.get(pk=key).last_sequence, 1)
+            historical = (
+                MigrationExecutor(connection)
+                .loader.project_state([("schedules", "0059_google_write_admission")])
+                .apps.get_model("schedules", "GoogleWriteTarget")
+            )
+            self.assertEqual(historical.objects.get(pk=key).last_sequence, 1)
             MigrationExecutor(connection).migrate(self.new)
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -69,7 +77,7 @@ class GoogleWriteAdmissionMigrationTest(TransactionTestCase):
                 )
             self.assertFalse(GoogleWriteAdmission.objects.exists())
             self.assertFalse(GoogleWriteReservation.objects.exists())
-            self.assertEqual(GoogleWriteTarget.objects.get(pk=key).last_sequence, 1)
+            self.assertEqual(historical.objects.get(pk=key).last_sequence, 1)
         finally:
             MigrationExecutor(connection).migrate(self.original_targets)
 

@@ -32,7 +32,7 @@ class GoogleSheetsContentBindingTest(TestCase):
         with patch("schedules.integration_views.queue_google_sheet_export", return_value=True) as queue:
             response = self.api.post(
                 "/api/character-sheets/google-sheets/export/",
-                {"spreadsheet_id": "isolated-content-sheet"},
+                {"spreadsheet_id": getattr(self, "fixture_sheet_id", "isolated-content-sheet")},
                 format="json",
             )
         self.assertEqual(response.status_code, 202)

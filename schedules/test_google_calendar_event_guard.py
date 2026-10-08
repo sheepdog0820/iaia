@@ -17,6 +17,7 @@ from schedules import test_google_calendar_delivery as delivery_tests
 from schedules.google_job_lifecycle import GOOGLE_EXECUTION_UNCERTAIN_MESSAGE
 from schedules.models import AsyncJob, GoogleCalendarSync, GoogleIntegration
 from schedules.tasks import sync_google_calendar
+from tests.utils.google_subcases import rollback_google_subcase
 
 
 class GoogleCalendarEventGuardTest(TestCase):
@@ -308,7 +309,7 @@ class GoogleCalendarEventGuardTest(TestCase):
 
     def test_update_response_requires_matching_event_identity(self):
         for data in (None, [], "private body", {}, {"id": "another-private-id"}):
-            with self.subTest(data=data), ExitStack() as stack:
+            with self.subTest(data=data), rollback_google_subcase(), ExitStack() as stack:
                 sends, retry = self._run(stack, "update", self._event("update"))
                 sends["put"].return_value = self.response(200, data)
                 self.assertEqual(self._execute(), "uncertain")
