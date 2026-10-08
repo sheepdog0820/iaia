@@ -2,6 +2,10 @@
 
 ## 現在の公開判断（2026-10-09）
 
+### 通常配布物の不合格とAPI仕様の型修正
+
+[通常配布物検査](GOOGLE_JOB_DISTRIBUTION_2026-10-09.md)でc3固定imageの736選定source/assets・111 packages/依存10層/entrypoint一致を確認し、Google回帰378件/省略0が成功した。一方、設定70件でAPI追加項目の型情報欠落によるdeploy checkの1失敗を発見した。boolがstringになる追加REDを確認し、3戻り値の型注釈を修正、局所43成功/PG専用2省略・static36文4分岐先全実行を確認。修正後の通常新配布物とCIは未確認。新Scoutは初回imageで38指摘/HIGH2/MEDIUM1/LOW35/native終了2の未合格（cyrus-sasl2、zlib）で、先行HIGH1を最新判定へ流用しない。専用4container/tmpfs撤去・証拠/別作業保持、main/AWS/共有DB/Secrets/課金/容量変更・既存承認拡張なし、他の公開条件とともに正式公開No-Goを維持する。
+
 ### Googleジョブ履歴の日本語表示と再試行ガード
 
 [Googleジョブ履歴](GOOGLE_JOB_PRESENTATION_2026-10-09.md)に対象待ち/確認必要/期限切れ/引継ぎ済み等の日本語表示、所有者限定の一般案内、明示的な再試行ヒントを追加した。FAILEDでも独立実行記録が未解決なら、元行ロック下で再試行400・新job/配送0とする。202の投入保留を結果不明と誤認する警告をなくし、既存UNCERTAIN拒否文・操作結果不明警告は維持した。不正payloadの追加RED4ケースを含め、初回回帰各37失敗を修正し、最終SQLite379（PG専用27省略）/PG379（省略0）が成功。同一ソースhash・製品59文24分岐先/新規テスト318文42分岐先100%・除外0、変更6 Python品質/Bandit0、実変更JS4関数30範囲未実行0。3ブラウザー126成功/retry・skip・flaky0と、実Django API応答mock0の3ブラウザー×2幅6件を確認。専用server/PG/tmpfs・合成DB/media撤去、証拠/元別作業保持。親b710 CI37847710928全6成功と今回変更のCI/通常新配布物を区別する。ローカルT14表示確認は全15条件の完成ではなく、cleanup/保持/認可/移行-drain/限定回復/実Google・共有運用・OS HIGH1未合格/その他公開条件は残る。main/AWS/共有DB/Secrets/課金/容量変更・favicon承認拡張なし、正式公開No-Goを維持する。

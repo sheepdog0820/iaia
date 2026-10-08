@@ -45,13 +45,13 @@ class AsyncJobSerializer(serializers.ModelSerializer):
     status_message = serializers.SerializerMethodField()
     can_retry = serializers.SerializerMethodField()
 
-    def get_display_state(self, obj):
+    def get_display_state(self, obj) -> str:
         return google_job_presentation(obj)["display_state"]
 
-    def get_status_message(self, obj):
+    def get_status_message(self, obj) -> str:
         return google_job_presentation(obj)["status_message"]
 
-    def get_can_retry(self, obj):
+    def get_can_retry(self, obj) -> bool:
         return google_job_presentation(obj)["can_retry"]
 
     def get_error(self, obj) -> str:

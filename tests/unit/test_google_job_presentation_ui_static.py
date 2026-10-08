@@ -1,10 +1,25 @@
 from pathlib import Path
+from unittest.mock import patch
 
 from django.conf import settings
 from django.test import SimpleTestCase
+from drf_spectacular.openapi import AutoSchema
+
+from schedules.job_views import AsyncJobListView, AsyncJobSerializer
 
 
 class GoogleJobPresentationUiStaticTest(SimpleTestCase):
+    def test_api_schema_has_typed_read_only_status_hints_without_warnings(self):
+        schema = AutoSchema()
+        schema.view = AsyncJobListView()
+        with patch("drf_spectacular.openapi.warn") as warning:
+            generated = schema._map_serializer(AsyncJobSerializer(context={"request": None}), "response")
+        for name, expected in (("display_state", "string"), ("status_message", "string"), ("can_retry", "boolean")):
+            with self.subTest(field=name):
+                self.assertEqual(generated["properties"][name]["type"], expected)
+                self.assertIs(generated["properties"][name]["readOnly"], True)
+        warning.assert_not_called()
+
     def test_history_requires_explicit_retry_hint_and_displays_safe_status_message(self):
         source = (Path(settings.BASE_DIR) / "templates/integrations/settings.html").read_text(encoding="utf-8")
         self.assertIn("job.can_retry === true", source)
