@@ -2,6 +2,10 @@
 
 ## 現在の公開判断（2026-10-09）
 
+### 最新CIで判明した既存文言テストの不整合
+
+[Google通常配布物記録の後続確認](GOOGLE_JOB_DISTRIBUTION_2026-10-09.md)でf271 CIは5成功/Unit・Integration失敗と確認した。202受付案内を旧「開始状況不明」警告へ戻さず、実画面応答のテストを現行仕様へ整合し、旧警告/分岐の不在と通信障害時の既存警告の保持を検査する。局所RED1→GREEN1・変更7実行文の未実行/除外0を確認。製品/配布image/main/AWS/共有DB/Secrets/費用変更なし、新commitの全CI・HIGH2・Google安全性/実連携等の必須条件は未完了で、正式公開No-Goを維持する。
+
 ### HIGH指摘の一次情報・SASL利用条件
 
 [固定imageの追加調査](RUNTIME_HIGH_IMPACT_2026-10-09.md)でDebianのcyrus-sasl2/zlib両方のvulnerable/unfixedを確認した。通常679配布物のOS SASL2.1.28とpsycopg同梱SASL2.1.26は、network noneで実API初期化/列挙・DIGEST-MD5選択を検査し、両方EXTERNALのみ/-4拒否を確認した。これは同じ固定imageの利用条件の証拠で、AWS設定・全native経路・CVE入力の成功/失敗を証明せず、指摘の抑制やリスク受容はしない。zlib bytesは先行バイナリと同一だが、上流影響版表とDebian判定の相違は未解消。38指摘/HIGH2/スキャン終了2・正式公開No-Goを維持し、修正配布/正式判定と新配布物回帰が残る。専用調査container撤去・生証拠と原作業保持、アプリ/依存/main/AWS/共有DB/Secrets/費用変更なし。

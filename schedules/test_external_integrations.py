@@ -201,8 +201,17 @@ class GoogleIntegrationTestCase(APITestCase):
         self.assertContains(response, "type === 'warning' ? ' text-dark' : ''")
         self.assertContains(
             response,
+            "進捗と結果はジョブ履歴で確認してください。ジョブID:",
+        )
+        self.assertContains(response, "showMessage(text, 'info');")
+        self.assertContains(response, "reportGoogleDispatch(response.data, '同期ジョブを作成しました')")
+        self.assertContains(response, "reportGoogleDispatch(response.data, '出力ジョブを作成しました')")
+        self.assertContains(response, "reportGoogleDispatch(response.data, '再試行ジョブを作成しました')")
+        self.assertNotContains(
+            response,
             "ジョブを作成しましたが、開始状況を確認できません。重複を避けるため、同じ操作を繰り返す前にジョブ履歴で結果を確認してください。",
         )
+        self.assertNotContains(response, "const uncertain = data.queued === false")
         self.assertContains(
             response,
             "Discord通知の再送を受け付けられませんでした。設定を確認し、もう一度お試しください。",

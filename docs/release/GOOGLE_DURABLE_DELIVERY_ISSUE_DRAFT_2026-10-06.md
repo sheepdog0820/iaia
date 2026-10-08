@@ -8,6 +8,8 @@ Google Calendar/Sheetsを正式公開できる品質にするため、DB確定�
 
 ### 10月9日のジョブ履歴表示・再試行ガード
 
+後続f271のCIは5成功/Unit・Integration失敗で終了した。旧受付警告を要求する既存testの1失敗を隔離memory DBでも再現し、現行202案内/3入口/info種別・旧文/分岐の不在と通信障害警告の保持へ整合、局所GREEN1成功・変更7実行文100%を確認した。詳細と回帰/後続CIは[配布物記録](GOOGLE_JOB_DISTRIBUTION_2026-10-09.md)を参照する。製品や認可・再試行条件は変更せず、Issue全体/正式公開は未完了のままとする。この記録はGitHub Issueへの書き込み完了ではない。
+
 [通常配布物とAPI型修正](GOOGLE_JOB_DISTRIBUTION_2026-10-09.md)では、初回c3の回帰378成功だが設定70のdeploy checkに1失敗を発見した。3つの戻り値型を追加し、schemaのbool/string/readOnly・警告0のRED→GREENを確認。修正版679の通常image6deは736選定source/assets・111 packages/依存10層/entrypoint一致、c3からの配布変更はview/schema testだけ、回帰379/設定・privacy70の非重複449件成功・省略0。初回と修正版の新Scoutはいずれも38指摘/HIGH2/MEDIUM1/LOW35/native終了2で未合格。計8専用container/tmpfs撤去・固定image/証拠/別作業保持。c3 CIはcancelled、679 CIは確認時点3成功/3実行中。全cleanup/保持・再連携/認可濫用/全lock順/legacy-drain/限定回復/実Google・共有運用・その他公開条件は残り、Issue全体を閉じずNo-Goを維持する。main/AWS/共有DB/Secrets/課金/容量変更・既存承認の拡張なし。
 
 [日本語履歴と未解決実行の再試行拒否](GOOGLE_JOB_PRESENTATION_2026-10-09.md)を追加。対象待ち/確認必要/期限切れ/引継ぎ済み、不正payloadの状態不明、明示的retryヒントを所有者限定で表示する。FAILEDでも未解決journalならロック下で400・新job/配送0、既存UNCERTAIN拒否文とネットワーク結果不明警告を維持する。202の投入保留は受付案内へ統一。最終SQLite379成功/PG専用27省略、PG379成功/省略0、製品59文24分岐先/新規テスト318文42分岐先100%・除外0。3ブラウザー126成功/retry・skip・flaky0、実Django API→画面6件成功/API応答mock0。変更6 Python品質/Bandit0、JS4実関数30範囲未実行0、専用server/PG/tmpfs・合成DB/media撤去、証拠/元別作業保持。親b710 CI37847710928全6成功と今回候補CI/通常新配布物を区別する。全cleanup/再連携/認可濫用/全lock順/legacy-drain/保持/限定回復/実Google/共有運用、OS HIGH1とその他公開条件は残る。main/AWS/共有DB/Secrets/課金/容量・既存承認の拡張なし、Issue全体を閉じずNo-Goを維持する。

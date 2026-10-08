@@ -79,8 +79,30 @@ c3の[CI 37852932860](https://github.com/sheepdog0820/iaia/actions/runs/37852932
 修正版の[CI 37854284616](https://github.com/sheepdog0820/iaia/actions/runs/37854284616)は
 後続の文書pushによる最新run優先でcancelled終了（3成功/3cancelled）。
 その後続f271の[CI 37854944947](https://github.com/sheepdog0820/iaia/actions/runs/37854944947)は
-10月9日の追加調査時点で実行中。全6成功の確認とは区別する。
+追加調査時点では実行中だったが、後続確認で **5成功/Unit・Integration失敗** のterminal failureを
+確認した。pytestは2608成功/112省略/1失敗で、連携設定画面の旧警告文を要求する既存testが失敗。
+Playwrightは438成功。失敗を全6成功へ読み替えない。
 親b710の全6成功とは区別し、cancelledや待機中を今回候補の成功にしない。
 この記録は型修正候補679の配布物であり、後続の文書commitのCI成功を証明しない。
 全cleanup/再連携/保持/認可・全lock順・legacy停止/drain/移行・限定回復・
 実Google/共有運用、課金・実AWS性能・DB/S3復旧・運営条件は残る。
+
+### 既存の画面応答テストと受付案内の整合
+
+失敗した `GoogleIntegrationTestCase.test_integration_settings_page_is_available` は、c3以前の
+`queued=false` に対する「開始状況を確認できません」の警告を要求していた。
+c3の現行仕様は202を受付として案内し、通信障害の結果不明とは区別する。
+隔離メモリSQLiteで同じ1失敗を再現してから、既存testを現行の画面応答へ更新した。
+進捗/履歴/ジョブID案内・info種別・Calendar/Sheets/再試行の3入口・旧警告と旧分岐の不在を検査し、
+ネットワーク結果不明・一覧更新失敗の既存assertionは維持した。画面や製品ガードを旧仕様へ戻さない。
+
+証拠は `D:/tmp/codex-google-ci-copy-20261009`。局所RED1失敗→GREEN1成功、変更7実行文の
+未実行/除外0・新分岐0。Python3.11.1/Django5.2.15の既存ローカル環境であり、CIのlockにある
+Django5.2.17と同一環境だとは主張しない。外部Requests禁止・一時media・memory DBを使用する。
+Google全選定module/外部連携/AsyncJob/API仕様静的/公開文書の回帰441件は173.206秒・終了0、
+414成功/PG専用27省略。変更7実行文は回帰でも全実行・除外0で、PGの省略を合格と数えない。
+Black/isort/Flake8/Banditと差分検査は成功。変更3文書の相対リンク274件は欠落0。
+test DBと一時mediaはrunner終了時に撤去し、専用ログ/coverage/先行CI要約を保持した。
+新commitの全CIはpush後に別途確認し、親runの5成功を新commitへ流用しない。
+今回の変更はtest/検証文書だけで、API・template・JavaScript・schema・依存lockは変更しない。
+配布image/実ブラウザー/実Google/共有AWSの再検証ではない。正式公開No-Goと未完了条件を維持する。
