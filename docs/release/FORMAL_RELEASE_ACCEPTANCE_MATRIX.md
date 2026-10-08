@@ -2,6 +2,12 @@
 
 ## 現在の公開判断（2026-10-09）
 
+### Googleジョブ履歴の日本語表示と再試行ガード
+
+[Googleジョブ履歴](GOOGLE_JOB_PRESENTATION_2026-10-09.md)に対象待ち/確認必要/期限切れ/引継ぎ済み等の日本語表示、所有者限定の一般案内、明示的な再試行ヒントを追加した。FAILEDでも独立実行記録が未解決なら、元行ロック下で再試行400・新job/配送0とする。202の投入保留を結果不明と誤認する警告をなくし、既存UNCERTAIN拒否文・操作結果不明警告は維持した。不正payloadの追加RED4ケースを含め、初回回帰各37失敗を修正し、最終SQLite379（PG専用27省略）/PG379（省略0）が成功。同一ソースhash・製品59文24分岐先/新規テスト318文42分岐先100%・除外0、変更6 Python品質/Bandit0、実変更JS4関数30範囲未実行0。3ブラウザー126成功/retry・skip・flaky0と、実Django API応答mock0の3ブラウザー×2幅6件を確認。専用server/PG/tmpfs・合成DB/media撤去、証拠/元別作業保持。親b710 CI37847710928全6成功と今回変更のCI/通常新配布物を区別する。ローカルT14表示確認は全15条件の完成ではなく、cleanup/保持/認可/移行-drain/限定回復/実Google・共有運用・OS HIGH1未合格/その他公開条件は残る。main/AWS/共有DB/Secrets/課金/容量変更・favicon承認拡張なし、正式公開No-Goを維持する。
+
+### 先行のCOMMIT応答喪失検証
+
 [通常workerのCOMMIT確定応答喪失](GOOGLE_COMMIT_ACK_LOSS_2026-10-09.md)を追加した。固定8f/7e通常imageの733選定source/assets・111 packages/entrypointを再照合。正確なbackend PIDへarmしたloopback PG wire proxyで実COMMIT完了を観測後、そのACKをworkerへ転送せずTCP切断し、予備1件の別接続から確定行を確認した。solo/prefork×Calendar/Sheets×INTENT/receipt commitの8ケースで実OperationalError/FAILURE、独立workerの元/後続/元削除後の追加HTTP0、UNKNOWN8/INTENT4/KNOWN receipt4/target12を確認。正常proxy対照2件は成功/FINISHED/対象解除、総模擬HTTP6/適用6/エラー0、独立audit成功。24container/tmpfs撤去・証拠/別作業保持、製品/schema/依存変更なし。先行回帰449/Scout37指摘・HIGH1未合格は同一imageの先行証拠で今回再実行ではない。7e CI全6成功、先行記録64d CIは1成功/5cancelled/run cancelledと今回CIを区別する。残るcommit境界/保存途中/全cleanup・認可/移行-drain/保持/UI/限定回復/実Google・共有運用・他の公開条件は未完了、main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし、正式公開No-Goを維持する。
 
 ### 10月8日のPG停止・復帰

@@ -9,6 +9,7 @@ test.describe('integration settings', () => {
         id: 'calendar-broker-failed',
         job_type: 'google_calendar_sync',
         status: 'failed',
+        can_retry: true,
         progress: 0,
         error: 'Google Calendar APIとの通信に失敗しました。',
         created_at: '2026-06-18T00:02:00Z',
@@ -19,6 +20,7 @@ test.describe('integration settings', () => {
         id: 'calendar-permission-revoked',
         job_type: 'google_calendar_sync',
         status: 'failed',
+        can_retry: true,
         progress: 0,
         error: 'Google認可が失効しました。',
         created_at: '2026-06-18T00:03:00Z',
@@ -29,6 +31,7 @@ test.describe('integration settings', () => {
         id: 'calendar-refresh-failed',
         job_type: 'google_calendar_sync',
         status: 'failed',
+        can_retry: true,
         progress: 0,
         error: 'Google Calendar APIとの通信に失敗しました。',
         created_at: '2026-06-18T00:04:00Z',
@@ -215,9 +218,9 @@ test.describe('integration settings', () => {
 
     await page.click('[data-retry-job="calendar-broker-failed"]');
     await expect(page.locator('#integration-message')).toContainText(
-      'ジョブを作成しましたが、開始状況を確認できません。'
+      '再試行ジョブを作成しました。進捗と結果はジョブ履歴で確認してください。ジョブID: calendar-retry-broker-failed'
     );
-    await expect(page.locator('#integration-message')).toHaveClass(/alert-warning/);
+    await expect(page.locator('#integration-message')).toHaveClass(/alert-info/);
 
     await page.click('[data-retry-job="calendar-permission-revoked"]');
     await expect(page.locator('#integration-message')).toContainText(
@@ -227,15 +230,15 @@ test.describe('integration settings', () => {
 
     await page.click('[data-retry-job="calendar-refresh-failed"]');
     await expect(page.locator('#integration-message')).toContainText(
-      '再試行ジョブを作成しました: calendar-retry-refresh-failed 一覧を更新できませんでした。ページを再読み込みして結果を確認してください。'
+      '再試行ジョブを作成しました。進捗と結果はジョブ履歴で確認してください。ジョブID: calendar-retry-refresh-failed 一覧を更新できませんでした。ページを再読み込みして結果を確認してください。'
     );
     await expect(page.locator('#integration-message')).toHaveClass(/alert-warning/);
 
     await page.click('#sync-google-calendar');
     await expect(page.locator('#integration-message')).toContainText(
-      'ジョブを作成しましたが、開始状況を確認できません。'
+      '同期ジョブを作成しました。進捗と結果はジョブ履歴で確認してください。ジョブID: calendar-initial-broker-failed'
     );
-    await expect(page.locator('#integration-message')).toHaveClass(/alert-warning/);
+    await expect(page.locator('#integration-message')).toHaveClass(/alert-info/);
 
     await page.check('#discord-handout-released');
     await page.click('#save-discord-settings');

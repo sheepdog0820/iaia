@@ -18,6 +18,12 @@ from .google_job_lifecycle import (
     google_job_retry_successors,
     mark_stalled_google_jobs,
 )
+from .google_job_presentation import (
+    GOOGLE_EXECUTION_REVIEW_MESSAGE,
+    annotate_google_job_presentation,
+    google_job_has_unresolved_execution,
+    google_job_presentation,
+)
 from .google_sheets import SHEET_COLUMNS, SHEETS_DEFAULT_START_RANGE
 from .google_tokens import google_credential_identity
 from .google_write_intake import register_calendar_intake, register_sheets_intake
@@ -35,6 +41,18 @@ from .tasks import (
 
 class AsyncJobSerializer(serializers.ModelSerializer):
     error = serializers.SerializerMethodField()
+    display_state = serializers.SerializerMethodField()
+    status_message = serializers.SerializerMethodField()
+    can_retry = serializers.SerializerMethodField()
+
+    def get_display_state(self, obj):
+        return google_job_presentation(obj)["display_state"]
+
+    def get_status_message(self, obj):
+        return google_job_presentation(obj)["status_message"]
+
+    def get_can_retry(self, obj):
+        return google_job_presentation(obj)["can_retry"]
 
     def get_error(self, obj) -> str:
         error = obj.error
@@ -52,6 +70,9 @@ class AsyncJobSerializer(serializers.ModelSerializer):
             "id",
             "job_type",
             "status",
+            "display_state",
+            "status_message",
+            "can_retry",
             "progress",
             "result",
             "error",
@@ -70,7 +91,7 @@ class AsyncJobDetailView(generics.RetrieveAPIView):
     def get_queryset(self):
         queryset = AsyncJob.objects.filter(owner=self.request.user, pk=self.kwargs["pk"])
         mark_stalled_google_jobs(queryset)
-        return queryset
+        return annotate_google_job_presentation(queryset)
 
 
 class AsyncJobListView(generics.ListAPIView):
@@ -86,7 +107,7 @@ class AsyncJobListView(generics.ListAPIView):
         job_status = self.request.query_params.get("status")
         if job_status:
             queryset = queryset.filter(status=job_status)
-        return queryset[:50]
+        return annotate_google_job_presentation(queryset)[:50]
 
 
 def _sheet_export_values(user, payload):
@@ -140,6 +161,10 @@ class AsyncJobRetryView(APIView):
             return Response(status=status.HTTP_404_NOT_FOUND)
         if job.status == AsyncJob.Status.UNCERTAIN:
             return Response({"detail": GOOGLE_EXECUTION_UNCERTAIN_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+        if job.job_type in ("google_calendar_sync", "google_sheets_export") and google_job_has_unresolved_execution(
+            job
+        ):
+            return Response({"detail": GOOGLE_EXECUTION_REVIEW_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
         if job.status != AsyncJob.Status.FAILED:
             return Response(
                 {"detail": "失敗したジョブだけ再試行できます。"},

@@ -253,6 +253,7 @@ jobs:
             schedules/test_google_sheets_ownership.py \
             schedules/test_google_job_start_claim.py \
             schedules/test_google_retry_supersession.py \
+            schedules/test_google_job_presentation.py \
             schedules/test_google_write_admission.py \
             schedules/test_google_write_admission_migrations.py \
             schedules/test_google_write_intake.py \

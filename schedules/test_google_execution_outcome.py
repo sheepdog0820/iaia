@@ -285,8 +285,12 @@ class GoogleExecutionOutcomeTest(GoogleJobStartFixtures, TestCase):
             encoding="utf-8"
         )
         self.assertIn("uncertain: 'bg-warning text-dark'", source)
-        self.assertIn("#integration-jobs .badge.bg-warning.text-dark {\n        color: #212529 !important;", source)
-        self.assertIn("status === 'uncertain' ? '結果不明' : status", source)
+        self.assertIn(
+            "#integration-jobs .badge.bg-warning.text-dark,\n"
+            "    #integration-jobs .badge.bg-info.text-dark {\n        color: #212529 !important;",
+            source,
+        )
+        self.assertIn("uncertain: '結果不明'", source)
 
 
 @skipUnless(connection.vendor == "postgresql", "PostgreSQL専用の結果不明判定競合検証")

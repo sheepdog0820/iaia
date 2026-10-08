@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { devLogin } from './helpers';
 
-const unknownMessage = 'ジョブを作成しましたが、開始状況を確認できません。重複を避けるため、同じ操作を繰り返す前にジョブ履歴で結果を確認してください。ジョブID: new-google-job';
+const receiptMessage = '。進捗と結果はジョブ履歴で確認してください。ジョブID: new-google-job';
 const refreshMessage = '一覧を更新できませんでした。ページを再読み込みして結果を確認してください。';
 const communicationMessage = '操作結果を確認できませんでした。処理が進んでいる可能性があります。重複を避けるため、同じ操作を繰り返す前にジョブ履歴を更新して結果を確認してください。';
 
@@ -12,7 +12,7 @@ const actions = [
 ];
 
 for (const action of actions) {
-  for (const outcome of ['queued', 'unknown-running', 'unknown-succeeded', 'unknown-refresh', 'queued-refresh', 'network', 'server', 'permission', 'authentication', 'forbidden', 'invalid-detail', 'pending']) {
+  for (const outcome of ['queued', 'deferred-running', 'deferred-succeeded', 'deferred-refresh', 'queued-refresh', 'network', 'server', 'permission', 'authentication', 'forbidden', 'invalid-detail', 'pending']) {
     test(`Google ${action.name} dispatch reports ${outcome} without assuming no delivery`, async ({ page }) => {
       const errors: string[] = [];
       page.on('pageerror', error => errors.push(error.message));
@@ -20,8 +20,9 @@ for (const action of actions) {
       let refreshed = 0;
       let release!: () => void;
       const pending = new Promise<void>(resolve => { release = resolve; });
-      const oldJob = { id: 'old-google-job', job_type: action.type, status: 'failed', progress: 0, error: '試験用エラー', created_at: '2026-10-06T00:00:00Z' };
-      const newJob = { ...oldJob, id: 'new-google-job', status: outcome === 'unknown-succeeded' ? 'succeeded' : 'running', error: '', progress: 50 };
+      const oldJob = { id: 'old-google-job', job_type: action.type, status: 'failed', display_state: 'failed', can_retry: true, progress: 0, error: '試験用エラー', created_at: '2026-10-06T00:00:00Z' };
+      const newState = outcome === 'deferred-succeeded' ? 'succeeded' : 'running';
+      const newJob = { ...oldJob, id: 'new-google-job', status: newState, display_state: newState, can_retry: false, error: '', progress: 50 };
       await page.route('**/api/**', async route => {
         const request = route.request();
         const url = new URL(request.url());
@@ -37,7 +38,7 @@ for (const action of actions) {
             const status = outcome === 'server' ? 503 : outcome === 'authentication' ? 401 : outcome === 'forbidden' ? 403 : 400;
             await route.fulfill({ status, json: { detail: outcome === 'permission' ? 'Google連携を確認してください。' : outcome === 'invalid-detail' ? { secret: 'credential-detail' } : '<img src=x onerror=alert(1)> credential-detail' } });
           } else {
-            await route.fulfill({ status: 202, json: { job_id: 'new-google-job', queued: !outcome.startsWith('unknown') } });
+            await route.fulfill({ status: 202, json: { job_id: 'new-google-job', queued: !outcome.startsWith('deferred') } });
           }
           return;
         }
@@ -77,11 +78,7 @@ for (const action of actions) {
         }
       }
       const message = page.locator('#integration-message');
-      if (outcome.startsWith('unknown')) {
-        await expect(message).toHaveText(unknownMessage + (outcome.endsWith('refresh') ? ` ${refreshMessage}` : ''));
-        await expect(message).toHaveClass(/alert-warning/);
-        await expect(message).toHaveClass(/text-dark/);
-      } else if (outcome === 'network' || outcome === 'server') {
+      if (outcome === 'network' || outcome === 'server') {
         await expect(message).toHaveText(communicationMessage);
         await expect(message).toHaveClass(/alert-warning/);
         await expect(message).toHaveClass(/text-dark/);
@@ -95,17 +92,18 @@ for (const action of actions) {
         await expect(message).toHaveText('操作を受け付けられませんでした。入力内容と連携状態を確認してください。');
         await expect(message).toHaveClass(/alert-danger/);
       } else {
-        await expect(message).toHaveText(`${action.success}: new-google-job` + (outcome.endsWith('refresh') ? ` ${refreshMessage}` : ''));
-        await expect(message).toHaveClass(outcome.endsWith('refresh') ? /alert-warning/ : /alert-success/);
+        await expect(message).toHaveText(action.success + receiptMessage + (outcome.endsWith('refresh') ? ` ${refreshMessage}` : ''));
+        await expect(message).toHaveClass(outcome.endsWith('refresh') ? /alert-warning/ : /alert-info/);
+        if (outcome.endsWith('refresh')) await expect(message).toHaveClass(/text-dark/);
       }
-      if (['queued', 'pending', 'unknown-running', 'unknown-succeeded'].includes(outcome)) {
-        await expect(page.locator('#integration-jobs')).toContainText(newJob.status);
+      if (['queued', 'pending', 'deferred-running', 'deferred-succeeded'].includes(outcome)) {
+        await expect(page.locator('#integration-jobs .badge')).toHaveText(newState === 'succeeded' ? '完了' : '処理中');
         await expect(page.locator('[data-retry-job="new-google-job"]')).toHaveCount(0);
         expect(refreshed).toBe(2);
       }
       await expect(message.locator('img')).toHaveCount(0);
       await expect(message).not.toContainText('credential-detail');
-      if (action.name !== 'retry' || ['network', 'server', 'permission', 'authentication', 'forbidden', 'invalid-detail', 'unknown-refresh', 'queued-refresh'].includes(outcome)) {
+      if (action.name !== 'retry' || ['network', 'server', 'permission', 'authentication', 'forbidden', 'invalid-detail', 'deferred-refresh', 'queued-refresh'].includes(outcome)) {
         await expect(button).toBeEnabled();
       }
       expect(posts).toBe(1);

@@ -26,7 +26,8 @@ from schedules.google_job_lifecycle import (
     succeed_google_job,
     uncertain_google_job,
 )
-from schedules.models import AsyncJob, GoogleCalendarSync, GoogleJobDispatch
+from schedules.google_target_execution import execution_scope, finish_execution
+from schedules.models import AsyncJob, GoogleCalendarSync, GoogleJobDispatch, GoogleWriteExecution, GoogleWriteRequest
 from schedules.test_google_job_start_claim import GoogleJobStartFixtures
 
 
@@ -153,6 +154,14 @@ class GoogleRetrySupersessionTest(GoogleRetrySupersessionFixtures, TestCase):
 
             def fail(candidate, error):
                 original(candidate, error)
+                # This fixture has only a rejected GET, never a write. Model a
+                # confirmed closed execution before accepting its successor.
+                self.assertFalse(GoogleWriteRequest.objects.filter(execution__job_id_snapshot=job.pk).exists())
+                finish_execution(candidate)
+                self.assertEqual(
+                    GoogleWriteExecution.objects.get(job_id_snapshot=job.pk).state,
+                    GoogleWriteExecution.State.FINISHED,
+                )
                 response, _ = self._retry("calendar", job)
                 self.assertEqual(response.status_code, 202)
                 accepted.append(response.data["job_id"])
@@ -199,8 +208,13 @@ class GoogleRetrySupersessionTest(GoogleRetrySupersessionFixtures, TestCase):
         for mode in ("calendar", "sheets"):
             with self.subTest(mode=mode):
                 job, _ = self._failed(mode)
-                self.assertTrue(claim_google_job_start(job))
-                fail_google_job(job, "合成試行の失敗")
+                with execution_scope():
+                    self.assertTrue(claim_google_job_start(job))
+                    fail_google_job(job, "合成試行の失敗")
+                self.assertEqual(
+                    GoogleWriteExecution.objects.get(job_id_snapshot=job.pk).state,
+                    GoogleWriteExecution.State.FINISHED,
+                )
                 response, _ = self._retry(mode, job)
                 self.assertEqual(response.status_code, 202)
                 AsyncJob.objects.filter(pk=job.pk).update(status=AsyncJob.Status.RUNNING)

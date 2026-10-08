@@ -42,9 +42,9 @@ for (const width of [1280, 390]) {
       await expect(badge).toHaveClass(/text-dark/);
       await expect(badge).toHaveCSS('color', 'rgb(33, 37, 41)');
     }
-    await expect(history).toContainText('google_calendar_sync');
-    await expect(history).toContainText('google_sheets_export');
-    await expect(history.locator('td.text-danger')).toHaveText([guidance, guidance]);
+    await expect(history).toContainText('Google Calendar同期');
+    await expect(history).toContainText('Google Sheets出力');
+    await expect(history.locator('[data-job-error]')).toHaveText([guidance, guidance]);
     await expect(history.locator('[data-retry-job]')).toHaveCount(0);
     await expect(history.locator('img')).toHaveCount(0);
     await expect(history).not.toContainText('fixture-private-input');

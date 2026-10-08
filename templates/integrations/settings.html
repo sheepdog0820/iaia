@@ -4,7 +4,8 @@
 
 {% block extra_css %}
 <style>
-    #integration-jobs .badge.bg-warning.text-dark {
+    #integration-jobs .badge.bg-warning.text-dark,
+    #integration-jobs .badge.bg-info.text-dark {
         color: #212529 !important;
     }
     @media (max-width: 767px) {
@@ -274,16 +275,39 @@ document.addEventListener('DOMContentLoaded', function() {
         return value || '';
     }
 
-    function jobBadge(status) {
+    function jobBadge(job) {
+        const labels = {
+            queued: '処理待ち',
+            target_waiting: '対象待ち',
+            running: '処理中',
+            succeeded: '完了',
+            failed: '失敗',
+            uncertain: '結果不明',
+            needs_review: '確認が必要',
+            expired: '期限切れ',
+            superseded: '再試行受付済み',
+            unknown: '状態不明',
+        };
+        const rawState = job.display_state || job.status;
+        const state = Object.hasOwn(labels, rawState) ? rawState : 'unknown';
         const classes = {
             queued: 'bg-secondary',
-            running: 'bg-info',
+            target_waiting: 'bg-info text-dark',
+            running: 'bg-info text-dark',
             succeeded: 'bg-success',
             failed: 'bg-danger',
             uncertain: 'bg-warning text-dark',
+            needs_review: 'bg-warning text-dark',
         };
-        const label = status === 'uncertain' ? '結果不明' : status;
-        return `<span class="badge ${classes[status] || 'bg-secondary'}">${escapeHtml(label)}</span>`;
+        return `<span class="badge ${classes[state] || 'bg-secondary'}">${labels[state]}</span>`;
+    }
+
+    function jobTypeLabel(jobType) {
+        const labels = {
+            google_calendar_sync: 'Google Calendar同期',
+            google_sheets_export: 'Google Sheets出力',
+        };
+        return Object.hasOwn(labels, jobType) ? labels[jobType] : '連携処理';
     }
 
     function discordDeliveryBadge(status) {
@@ -313,26 +337,28 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         tbody.innerHTML = jobs.map(job => {
-            const canRetry = job.status === 'failed';
+            const canRetry = job.can_retry === true && job.status === 'failed' &&
+                (!job.display_state || job.display_state === 'failed');
+            const error = displayFailureMessage(job.error);
             return `<tr>
-                <td>${escapeHtml(job.job_type)}</td>
-                <td>${jobBadge(job.status)}</td>
+                <td>${jobTypeLabel(job.job_type)}</td>
+                <td>${jobBadge(job)}</td>
                 <td>${Number(job.progress || 0)}%</td>
                 <td>${escapeHtml(formatDate(job.finished_at || job.started_at || job.created_at))}</td>
-                <td class="text-danger">${escapeHtml(displayFailureMessage(job.error))}</td>
+                <td>
+                    <div>${escapeHtml(job.status_message)}</div>
+                    ${error ? `<div class="text-danger" data-job-error>${escapeHtml(error)}</div>` : ''}
+                </td>
                 <td class="text-end">
-                    ${canRetry ? `<button class="btn btn-sm btn-outline-primary" data-retry-job="${job.id}">再試行</button>` : ''}
+                    ${canRetry ? `<button class="btn btn-sm btn-outline-primary" data-retry-job="${escapeHtml(job.id)}">再試行</button>` : ''}
                 </td>
             </tr>`;
         }).join('');
     }
 
     async function reportGoogleDispatch(data, acceptedMessage) {
-        const uncertain = data.queued === false;
-        const text = uncertain
-            ? `ジョブを作成しましたが、開始状況を確認できません。重複を避けるため、同じ操作を繰り返す前にジョブ履歴で結果を確認してください。ジョブID: ${data.job_id}`
-            : `${acceptedMessage}: ${data.job_id}`;
-        showMessage(text, uncertain ? 'warning' : 'success');
+        const text = `${acceptedMessage}。進捗と結果はジョブ履歴で確認してください。ジョブID: ${data.job_id}`;
+        showMessage(text, 'info');
         try {
             await loadJobs();
         } catch (refreshError) {

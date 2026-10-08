@@ -6,6 +6,10 @@
 
 Google Calendar/Sheetsを正式公開できる品質にするため、DB確定とCelery投入の隙間、再配送、結果不明、同期対象の世代競合を解消する。部分修正・ローカル成功のみで完了にしない。
 
+### 10月9日のジョブ履歴表示・再試行ガード
+
+[日本語履歴と未解決実行の再試行拒否](GOOGLE_JOB_PRESENTATION_2026-10-09.md)を追加。対象待ち/確認必要/期限切れ/引継ぎ済み、不正payloadの状態不明、明示的retryヒントを所有者限定で表示する。FAILEDでも未解決journalならロック下で400・新job/配送0、既存UNCERTAIN拒否文とネットワーク結果不明警告を維持する。202の投入保留は受付案内へ統一。最終SQLite379成功/PG専用27省略、PG379成功/省略0、製品59文24分岐先/新規テスト318文42分岐先100%・除外0。3ブラウザー126成功/retry・skip・flaky0、実Django API→画面6件成功/API応答mock0。変更6 Python品質/Bandit0、JS4実関数30範囲未実行0、専用server/PG/tmpfs・合成DB/media撤去、証拠/元別作業保持。親b710 CI37847710928全6成功と今回候補CI/通常新配布物を区別する。全cleanup/再連携/認可濫用/全lock順/legacy-drain/保持/限定回復/実Google/共有運用、OS HIGH1とその他公開条件は残る。main/AWS/共有DB/Secrets/課金/容量・既存承認の拡張なし、Issue全体を閉じずNo-Goを維持する。
+
 ## 現在の部分実装と証拠
 
 - 10月9日の[通常worker・COMMIT確定応答喪失](GOOGLE_COMMIT_ACK_LOSS_2026-10-09.md): 固定8f/7e imageの選定733/111 packages/entrypointを照合。PID別wire proxyでPGの実COMMIT完了messageを観測してACK転送前にTCP切断し、予備1件では独立接続の確定行で裏付けた。solo/prefork×Calendar/Sheets×INTENT/receipt commitの8ケースで実OperationalError/FAILURE・元/後続/元削除後の追加HTTP0、UNKNOWN8/INTENT4/KNOWN receipt4/target12を保持。正常対照2件成功/解除、総模擬HTTP6/適用6/エラー0・独立audit成功。24container/tmpfs撤去、製品/schema/依存変更なし。先行記録64d commit/push済みだがCI1成功/5cancelled/run cancelled、7e CI全6成功と今回CIを区別する。先行同一imageの回帰449/Scout37・HIGH1未合格は今回再実行ではない。残るcommit境界/保存途中/全cleanup・認可/移行-drain/保持/UI/限定回復/実Google・共有運用等は未完了、main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし、Issue全体未完了・No-Goを維持する。
