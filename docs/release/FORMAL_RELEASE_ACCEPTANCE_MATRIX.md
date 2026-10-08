@@ -2,6 +2,10 @@
 
 ## 現在の公開判断（2026-10-08）
 
+[通常配布物のPostgreSQL停止・再起動](GOOGLE_DB_RESTART_RUNTIME_2026-10-08.md)を追加した。固定7e配布物の選定733 source/assets・111 packages/依存10層/entrypointを照合し、solo/prefork×Calendar/Sheets×INTENT前/HTTP200後の8ケースでPGだけを実KILL137/OOM false。同じworkerのOperationalError/FAILUREと通常停止0を確認後、同じPG/合成volumeを復帰し、起動時刻差・全行fingerprint一致・Redis同一PIDを確認した。独立workerの元/後続/元job削除後の追加HTTP0、ACTIVE8/INTENT4/保持target12・provider HTTP4/模擬適用4/エラー0。独立audit成功、同じ通常imageの回帰379/設定70の非重複449成功・省略0、新Scout1.26は37指摘/HIGH1/native終了2で未合格。専用24 container/合成volume1撤去・証拠/元別作業保持。b348 CI全6成功、7e CI全6成功（後続確認）と今回文書CIを区別する。製品/schema/依存変更なし、保存途中/commit応答喪失・全cleanup/移行-drain/保持/認可/UI/限定回復/実Google・共有運用/その他公開条件は残る。main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし、正式公開No-Goを維持する。
+
+### 同日先行の保存SQL障害検証
+
 [PostgreSQL保存SQLの前後での障害](GOOGLE_DB_BOUNDARY_FAILURES_2026-10-08.md)を追加した。INTENT/receipt/job成功/journal完了/target解除の各SQLの前後×Calendar/Sheets計20ケースを専用PGで検査し、DB側SQLSTATE22012による実abort/rollback後もUNKNOWN/closed_atなし/全holderを保持、元再配送・後続jobの追加mock送信0を確認。初回局所1テスト内20 subcase成功、変更60文16分岐先100%/除外0。製品コード/schema/依存変更なし。source mount・mock Google・task直接呼出であり通常新配布物/実HTTP/別worker/DB再起動の証拠ではない。広域回帰・品質・片付けは記録の最終結果を参照。先行b348b06aはcommit/push済みと今回commitを区別し、T10全体/残る受入条件/OS37指摘・HIGH1/実Google・共有運用・その他公開条件は未完了、main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし、正式公開No-Goを維持する。
 
 ### 同日先行の通常配布物検証
