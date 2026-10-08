@@ -1,6 +1,10 @@
 # 有料プラン・外部連携を含む正式公開の受け入れ条件
 
-## 現在の公開判断（2026-10-08）
+## 現在の公開判断（2026-10-09）
+
+[通常workerのCOMMIT確定応答喪失](GOOGLE_COMMIT_ACK_LOSS_2026-10-09.md)を追加した。固定8f/7e通常imageの733選定source/assets・111 packages/entrypointを再照合。正確なbackend PIDへarmしたloopback PG wire proxyで実COMMIT完了を観測後、そのACKをworkerへ転送せずTCP切断し、予備1件の別接続から確定行を確認した。solo/prefork×Calendar/Sheets×INTENT/receipt commitの8ケースで実OperationalError/FAILURE、独立workerの元/後続/元削除後の追加HTTP0、UNKNOWN8/INTENT4/KNOWN receipt4/target12を確認。正常proxy対照2件は成功/FINISHED/対象解除、総模擬HTTP6/適用6/エラー0、独立audit成功。24container/tmpfs撤去・証拠/別作業保持、製品/schema/依存変更なし。先行回帰449/Scout37指摘・HIGH1未合格は同一imageの先行証拠で今回再実行ではない。7e CI全6成功、先行記録64d CIは1成功/5cancelled/run cancelledと今回CIを区別する。残るcommit境界/保存途中/全cleanup・認可/移行-drain/保持/UI/限定回復/実Google・共有運用・他の公開条件は未完了、main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし、正式公開No-Goを維持する。
+
+### 10月8日のPG停止・復帰
 
 [通常配布物のPostgreSQL停止・再起動](GOOGLE_DB_RESTART_RUNTIME_2026-10-08.md)を追加した。固定7e配布物の選定733 source/assets・111 packages/依存10層/entrypointを照合し、solo/prefork×Calendar/Sheets×INTENT前/HTTP200後の8ケースでPGだけを実KILL137/OOM false。同じworkerのOperationalError/FAILUREと通常停止0を確認後、同じPG/合成volumeを復帰し、起動時刻差・全行fingerprint一致・Redis同一PIDを確認した。独立workerの元/後続/元job削除後の追加HTTP0、ACTIVE8/INTENT4/保持target12・provider HTTP4/模擬適用4/エラー0。独立audit成功、同じ通常imageの回帰379/設定70の非重複449成功・省略0、新Scout1.26は37指摘/HIGH1/native終了2で未合格。専用24 container/合成volume1撤去・証拠/元別作業保持。b348 CI全6成功、7e CI全6成功（後続確認）と今回文書CIを区別する。製品/schema/依存変更なし、保存途中/commit応答喪失・全cleanup/移行-drain/保持/認可/UI/限定回復/実Google・共有運用/その他公開条件は残る。main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし、正式公開No-Goを維持する。
 
