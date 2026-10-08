@@ -630,6 +630,92 @@ class GoogleSubcaseIsolationTest(GoogleDispatchStateFixtures, TestCase):
         self.assertFalse(GoogleWriteTarget.objects.exists())
 
 
+@skipUnless(connection.vendor == "postgresql", "PostgreSQL専用の保存SQL障害検証")
+@override_settings(CELERY_TASK_ALWAYS_EAGER=False)
+class GoogleTargetDatabaseFailureTest(GoogleDispatchStateFixtures, TransactionTestCase):
+    _accepted = GoogleTargetExecutionTest._accepted
+    _waiting = GoogleTargetExecutionTest._waiting
+
+    def test_server_errors_before_and_after_save_sql_never_release_unknown_writes(self):
+        boundaries = (
+            ("intent", GoogleWriteRequest, "INSERT", None),
+            ("receipt", GoogleWriteRequest, "UPDATE", None),
+            ("completion", AsyncJob, "UPDATE", AsyncJob.Status.SUCCEEDED),
+            ("journal", GoogleWriteExecution, "UPDATE", GoogleWriteExecution.State.FINISHED),
+            ("unlock", GoogleWriteTarget, "UPDATE", None),
+        )
+        for mode in ("calendar", "sheets"):
+            for phase, model, verb, value in boundaries:
+                for position in ("before", "after"):
+                    with self.subTest(mode=mode, phase=phase, position=position), ExitStack() as stack:
+                        self._fresh_dispatch_target()
+                        job, args = self._accepted(mode)
+                        sends, _ = self._sends(stack)
+                        injected = []
+                        executed = []
+
+                        def fail_statement(execute, sql, params, many, context):
+                            statement = sql.upper()
+                            matches = statement.startswith(
+                                f'{verb} {"INTO " if verb == "INSERT" else ""}"{model._meta.db_table.upper()}"'
+                            )
+                            if phase == "unlock":
+                                matches = matches and (
+                                    '"ACTIVE_EXECUTION_TOKEN" = NULL' in statement or params[0] is None
+                                )
+                            elif value is not None:
+                                matches = matches and value in params
+                            if injected or not matches:
+                                return execute(sql, params, many, context)
+                            self.assertFalse(many)
+                            self.assertTrue(connection.in_atomic_block)
+                            injected.append(phase)
+                            if position == "after":
+                                execute(sql, params, many, context)
+                                executed.append(phase)
+                            # PostgreSQL itself aborts the real transaction. Do
+                            # not substitute an ORM-raised synthetic exception.
+                            return execute("SELECT 1 / 0", (), False, context)
+
+                        with connection.execute_wrapper(fail_statement):
+                            with self.assertRaises(DatabaseError) as raised:
+                                self._worker(mode).run(*args)
+                        cause = raised.exception.__cause__
+                        self.assertEqual(getattr(cause, "sqlstate", getattr(cause, "pgcode", None)), "22012")
+                        self.assertEqual(injected, [phase])
+                        self.assertEqual(executed, [phase] if position == "after" else [])
+                        write = sends["post" if mode == "calendar" else "put"]
+                        self.assertEqual(write.call_count, 0 if phase == "intent" else 1)
+                        job.refresh_from_db()
+                        self.assertEqual(job.status, AsyncJob.Status.RUNNING)
+                        self.assertGreater(job.execution_deadline, timezone.now())
+                        self.assertEqual(job.error, "")
+                        execution = GoogleWriteExecution.objects.get(job_id_snapshot=job.pk)
+                        self.assertEqual(execution.state, GoogleWriteExecution.State.UNKNOWN)
+                        self.assertIsNone(execution.closed_at)
+                        self.assertTrue(execution.allocations.exists())
+                        self.assertFalse(
+                            execution.allocations.exclude(target__active_execution_token=execution.pk).exists()
+                        )
+                        if phase == "intent":
+                            self.assertFalse(execution.requests.exists())
+                        else:
+                            request = execution.requests.get()
+                            expected = (
+                                GoogleWriteRequest.State.INTENT
+                                if phase == "receipt"
+                                else GoogleWriteRequest.State.KNOWN
+                            )
+                            self.assertEqual(request.state, expected)
+                            self.assertEqual(request.response_status, None if phase == "receipt" else 200)
+                        self._refuse_unchanged(mode, job, args)
+                        self._waiting(mode, *self._accepted(mode))
+                        self.assertEqual(GoogleWriteExecution.objects.filter(job_id_snapshot=job.pk).count(), 1)
+                        print(
+                            f"GOOGLE_DB_BOUNDARY mode={mode} phase={phase} position={position} sqlstate=22012 http={write.call_count}"
+                        )
+
+
 @skipUnless(connection.vendor == "postgresql", "PostgreSQL専用の共有対象実ロック検証")
 @override_settings(CELERY_TASK_ALWAYS_EAGER=False)
 class GoogleTargetExecutionConcurrencyTest(GoogleDispatchStateFixtures, TransactionTestCase):

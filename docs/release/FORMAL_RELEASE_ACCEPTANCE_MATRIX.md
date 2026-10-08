@@ -2,6 +2,10 @@
 
 ## 現在の公開判断（2026-10-08）
 
+[PostgreSQL保存SQLの前後での障害](GOOGLE_DB_BOUNDARY_FAILURES_2026-10-08.md)を追加した。INTENT/receipt/job成功/journal完了/target解除の各SQLの前後×Calendar/Sheets計20ケースを専用PGで検査し、DB側SQLSTATE22012による実abort/rollback後もUNKNOWN/closed_atなし/全holderを保持、元再配送・後続jobの追加mock送信0を確認。初回局所1テスト内20 subcase成功、変更60文16分岐先100%/除外0。製品コード/schema/依存変更なし。source mount・mock Google・task直接呼出であり通常新配布物/実HTTP/別worker/DB再起動の証拠ではない。広域回帰・品質・片付けは記録の最終結果を参照。先行b348b06aはcommit/push済みと今回commitを区別し、T10全体/残る受入条件/OS37指摘・HIGH1/実Google・共有運用・その他公開条件は未完了、main/AWS/共有DB/Secrets/課金/容量変更・承認拡張なし、正式公開No-Goを維持する。
+
+### 同日先行の通常配布物検証
+
 [Google共有実行権の通常配布物・強制停止検証](GOOGLE_SHARED_RUNTIME_2026-10-08.md)を追加した。固定9a配布物の選定733 source/assets・111 packages/先行依存10層/entrypointを照合し、実PG/Redis/Requests・solo/prefork×Calendar/Sheets×送信境界5点のSIGKILL20ケースを確認。独立workerの元重複配送・新job/元削除後の再配送は追加HTTP0、ACTIVE journal20/INTENT16/target30・provider12 HTTP/適用12/エラー0。独立Celery relayの期限どおり20再投入もtarget-waiting/cipher保持/追加HTTP0だった。期限/時計の注入なし、実Googleや自動UNKNOWN分類・限定回復の証拠ではない。通常回帰の時刻依存fixture3失敗を同時刻REDで再現し受付IDへ修正、DB名衝突等の失敗を保持して分離再試験した。修正treeの通常image378成功/省略0・9a設定70成功、source PG13成功/SQLite+文書81成功/PG専用1省略、差分18文2分岐先100%/除外0。9a CI37779822628は全6成功と今回commitのCIを区別する。新規Scout1.26は両imageとも37指摘（HIGH1/MEDIUM1/LOW35）/終了2で未合格、依存変更なしの指摘減少を修正完了としない。DB障害/全cleanup・再連携/認可濫用/全lock順/legacy-drain/保持・日本語UI/限定回復/共有運用・その他正式公開条件は残る。main/AWS/共有DB/Secrets/課金/容量変更・既存承認の拡張なし、正式公開No-Goを維持する。
 
 ### 10月8日の先行ローカル実装（検証時点）
