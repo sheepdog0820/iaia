@@ -18,6 +18,23 @@ from schedules.test_google_dispatch_state import GoogleDispatchStateFixtures
 
 @override_settings(CELERY_TASK_ALWAYS_EAGER=False)
 class GoogleDispatchCommitTest(GoogleDispatchStateFixtures, TransactionTestCase):
+    def _dispatch_current_job(self, route):
+        before = list(AsyncJob.objects.values_list("pk", flat=True))
+        response = self._dispatch(route)
+        if response is None:
+            job = AsyncJob.objects.exclude(pk__in=before).get()
+        else:
+            job = AsyncJob.objects.get(pk=response.data["job_id"])
+        return job, response
+
+    def test_outer_commit_checks_the_accepted_job_when_creation_times_tie(self):
+        # A clock's resolution is not a job identity or an ordering guarantee.
+        field = AsyncJob._meta.get_field("created_at")
+        with patch.object(field, "_get_default", return_value=timezone.now()):
+            self.test_all_producers_wait_for_outer_commit_without_claiming_delivery()
+        self.assertEqual(AsyncJob.objects.values("created_at").distinct().count(), 1)
+        self.assertEqual(AsyncJob.objects.count(), 7)
+
     def test_all_producers_wait_for_outer_commit_without_claiming_delivery(self):
         for route in self.routes:
             with self.subTest(route=route), ExitStack() as stack:
@@ -28,8 +45,7 @@ class GoogleDispatchCommitTest(GoogleDispatchStateFixtures, TransactionTestCase)
                 )
                 with transaction.atomic():
                     with transaction.atomic():
-                        response = self._dispatch(route)
-                    job = AsyncJob.objects.first()
+                        job, response = self._dispatch_current_job(route)
                     self.assertEqual(job.status, AsyncJob.Status.QUEUED)
                     self.assertEqual(job.error, "")
                     self.assertEqual(job.celery_task_id, "")
@@ -84,8 +100,7 @@ class GoogleDispatchCommitTest(GoogleDispatchStateFixtures, TransactionTestCase)
                         patch.object(self._worker(mode), "delay", side_effect=RuntimeError("synthetic private failure"))
                     )
                     with transaction.atomic():
-                        self._dispatch(route)
-                        job = AsyncJob.objects.first()
+                        job, _ = self._dispatch_current_job(route)
                         self.assertEqual(job.status, AsyncJob.Status.QUEUED)
                         delay.assert_not_called()
                     job.refresh_from_db()
@@ -119,8 +134,7 @@ class GoogleDispatchCommitTest(GoogleDispatchStateFixtures, TransactionTestCase)
                     broker = stack.enter_context(patch.object(tasks, "_broker_available", return_value=True))
                     delay = stack.enter_context(patch.object(self._worker(mode), "delay"))
                     with transaction.atomic():
-                        self._dispatch(mode)
-                        job = AsyncJob.objects.first()
+                        job, _ = self._dispatch_current_job(mode)
                         if change == "deleted":
                             job.delete()
                         else:
@@ -204,8 +218,7 @@ class GoogleDispatchCommitTest(GoogleDispatchStateFixtures, TransactionTestCase)
                 stack.enter_context(patch.object(outbox, "_finish", side_effect=DatabaseError("private-db-value")))
                 with self.assertLogs("schedules.tasks", level="WARNING") as logs:
                     with transaction.atomic():
-                        self._dispatch(mode)
-                        job = AsyncJob.objects.first()
+                        job, _ = self._dispatch_current_job(mode)
                 self.assertNotIn("private-db-value", " ".join(logs.output))
                 self.assertIn("Unable to finish Google dispatch after database commit.", " ".join(logs.output))
                 job.refresh_from_db()
@@ -274,8 +287,7 @@ class GoogleDispatchCommitTest(GoogleDispatchStateFixtures, TransactionTestCase)
                 stack.enter_context(patch.object(tasks, "_broker_available", return_value=True))
                 stack.enter_context(patch.object(self._worker(mode), "delay", side_effect=publish))
                 with transaction.atomic():
-                    self._dispatch(mode)
-                    job = AsyncJob.objects.first()
+                    job, _ = self._dispatch_current_job(mode)
                     self.assertFalse(pool.submit(read, str(job.pk)).result(timeout=5))
                     self.assertEqual(observed, [])
                 self.assertEqual(observed, [True])

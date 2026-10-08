@@ -8,6 +8,8 @@ Google Calendar/Sheetsを正式公開できる品質にするため、DB確定�
 
 ## 現在の部分実装と証拠
 
+- 10月8日の[通常配布物・共有実行権SIGKILL](GOOGLE_SHARED_RUNTIME_2026-10-08.md): 9a通常imageの選定733 source/assets・111 packages/先行依存10層を照合、送信境界5点×Calendar/Sheets×solo/preforkの20停止で独立worker/新job/元job削除後の追加HTTP0を確認。ACTIVE20/INTENT16/target30、provider HTTP12/適用12/エラー0、時計注入なし。独立Celery relay20再投入も待機/cipher保持/追加HTTP0。時刻だけで別jobを選ぶ回帰fixtureの3失敗を同時刻REDで再現し受付IDへ修正、DB名衝突等の失敗を保持して分離再試験、通常修正image378成功/省略0・9a設定70成功・差分18文2分岐先100%/除外0。9a CI37779822628全6成功と今回commitのCIを区別する。新Scout1.26は両image37指摘（HIGH1/MEDIUM1/LOW35）/終了2で未合格、依存変更なしで減った指摘を修正完了としない。実DB fault/全cleanup・再連携/認可濫用/全lock順/legacy-drain/保持・UI/限定回復/実Google・常設運用は残る。main/AWS/共有DB/Secrets/課金/容量変更・既存承認の拡張なし、Issue全体未完了・No-Goを維持する。
+
 - 10月8日の[共有実行権・独立送信記録](GOOGLE_SHARED_EXECUTION_2026-10-08.md): 対象FIFO/待機cipher保持、送信前INTENTと既知/unknown receipt、job削除後の禁止、後続Calendar PENDING保全、allocation改変/偽token拒否、journalを残す逆移行ガードを追加。最終PG431成功/省略0・SQLite407成功/PG専用24省略、675 source照合不一致0、製品差分241文56分岐先・新規35テスト601文16分岐先/helper10文2分岐先100%・除外0。実PG独立接続のholder1/書き込み1・HTTP前INTENT確定を確認し、Python21品質/Bandit終了0/schema差分0、自分のPG/tmpfs撤去・証拠/別作業保持。無料KP579 CI全6成功を作業ブランチへ取り込んだが、新製品候補のCIとは区別する。全lock順、通常新配布物のSIGKILL、legacy/drain/移行、保持・再連携・認可/濫用防止・UI・限定回復・実Google/共有運用は残り、Issue全体は閉じない。main/AWS/共有DB/Secrets/課金/容量変更・既存承認の拡張なし、No-Goを維持する。以下の未コミット/CI未確認等は各先行記録時点の状態である。
 
 - 基準77192584のCIは[37540663348](https://github.com/sheepdog0820/iaia/actions/runs/37540663348)で5成功/Playwright失敗（428 passed/1 flaky）。Firefox無料KPのsignup goto(load) timeoutを[別の専用修正](FREE_KP_SIGNUP_READINESS_2026-10-07.md)で調査し、画像待ちの旧開始条件をRED再現、既存helperを利用して通常/画像待ちの一連操作と広域93件が3ブラウザーで成功（retry/skip/flaky0）した。ただし元CIの根本原因未確定で、Google実装の安全性合格や全CI成功に読み替えない。共有対象の実行排他6ファイルは未コミットの別worktreeへ保持し、このCI修正へ混ぜない。今回候補の全CIと排他側の広域回帰は未完了。

@@ -2,6 +2,10 @@
 
 ## 現在の公開判断（2026-10-08）
 
+[Google共有実行権の通常配布物・強制停止検証](GOOGLE_SHARED_RUNTIME_2026-10-08.md)を追加した。固定9a配布物の選定733 source/assets・111 packages/先行依存10層/entrypointを照合し、実PG/Redis/Requests・solo/prefork×Calendar/Sheets×送信境界5点のSIGKILL20ケースを確認。独立workerの元重複配送・新job/元削除後の再配送は追加HTTP0、ACTIVE journal20/INTENT16/target30・provider12 HTTP/適用12/エラー0。独立Celery relayの期限どおり20再投入もtarget-waiting/cipher保持/追加HTTP0だった。期限/時計の注入なし、実Googleや自動UNKNOWN分類・限定回復の証拠ではない。通常回帰の時刻依存fixture3失敗を同時刻REDで再現し受付IDへ修正、DB名衝突等の失敗を保持して分離再試験した。修正treeの通常image378成功/省略0・9a設定70成功、source PG13成功/SQLite+文書81成功/PG専用1省略、差分18文2分岐先100%/除外0。9a CI37779822628は全6成功と今回commitのCIを区別する。新規Scout1.26は両imageとも37指摘（HIGH1/MEDIUM1/LOW35）/終了2で未合格、依存変更なしの指摘減少を修正完了としない。DB障害/全cleanup・再連携/認可濫用/全lock順/legacy-drain/保持・日本語UI/限定回復/共有運用・その他正式公開条件は残る。main/AWS/共有DB/Secrets/課金/容量変更・既存承認の拡張なし、正式公開No-Goを維持する。
+
+### 10月8日の先行ローカル実装（検証時点）
+
 [Google共有対象の実行権・独立送信記録](GOOGLE_SHARED_EXECUTION_2026-10-08.md)をworker/HTTP/receiptへ接続した。対象共有FIFO開始・未開始cipher保持・送信前INTENT・job削除でも残るUNKNOWN・後続Calendar PENDING保全・allocation改変/偽token拒否・journalを消す逆移行拒否を追加。最終PG431成功/省略0、SQLite407成功/PG専用24省略、675 source照合不一致0、製品差分241文56分岐先/新規35テスト601文16分岐先/helper10文2分岐先100%・除外0。21 Python品質/Bandit終了0・schema差分0、実PG独立接続の同対象worker lock待機とHTTP前INTENT確定/HTTP中atomicなしを確認した。先行RED・初回PG失敗・独立fixture整理の記録を保持し、専用PG/tmpfs撤去・証拠/別作業保持。無料KP修正579dd6f8は作業ブランチへ取り込み、CI37545025884の全6成功を確認したが今回製品変更のCIではない。通常新配布物/実Redis-Celery SIGKILL・全lock順・legacy停止/drain/移行・保持/退会/再連携方針・共有Sheet認可/濫用防止・日本語対象待機UI・限定回復/実Googleは残る。mainは読み取り8567f49f、AWSは今回未照合/未変更。main/AWS/共有DB/Secrets/課金/容量・favicon承認拡張なし、OS HIGH3とその他必須条件を含め正式公開No-Goを維持する。
 
 ### 10月7日時点の先行記録
