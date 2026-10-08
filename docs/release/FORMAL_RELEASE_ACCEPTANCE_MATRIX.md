@@ -4,7 +4,7 @@
 
 ### 通常配布物の不合格とAPI仕様の型修正
 
-[通常配布物検査](GOOGLE_JOB_DISTRIBUTION_2026-10-09.md)でc3固定imageの736選定source/assets・111 packages/依存10層/entrypoint一致を確認し、Google回帰378件/省略0が成功した。一方、設定70件でAPI追加項目の型情報欠落によるdeploy checkの1失敗を発見した。boolがstringになる追加REDを確認し、3戻り値の型注釈を修正、局所43成功/PG専用2省略・static36文4分岐先全実行を確認。修正後の通常新配布物とCIは未確認。新Scoutは初回imageで38指摘/HIGH2/MEDIUM1/LOW35/native終了2の未合格（cyrus-sasl2、zlib）で、先行HIGH1を最新判定へ流用しない。専用4container/tmpfs撤去・証拠/別作業保持、main/AWS/共有DB/Secrets/課金/容量変更・既存承認拡張なし、他の公開条件とともに正式公開No-Goを維持する。
+[通常配布物検査](GOOGLE_JOB_DISTRIBUTION_2026-10-09.md)でc3固定imageの736選定source/assets・111 packages/依存10層/entrypoint一致を確認し、Google回帰378件/省略0が成功した。一方、設定70件でAPI追加項目の型情報欠落によるdeploy checkの1失敗を発見した。boolがstringになる追加REDを確認し、3戻り値の型注釈を修正、局所43成功/PG専用2省略・static36文4分岐先全実行を確認。修正版679の新通常image6deを同じ基準で再照合し、c3からはAPI型注釈とschema testの2ファイルだけが異なることを確認。Google回帰379/設定・privacy70の非重複449件が成功/省略0、deploy check/API仕様の3警告が解消した。新Scoutは両imageとも38指摘/HIGH2/MEDIUM1/LOW35/native終了2の未合格（cyrus-sasl2、zlib）で、先行HIGH1を最新判定へ流用しない。2回分の専用計8container/tmpfs撤去・証拠/固定image/別作業保持。c3 CIはcancelled、679 CIは確認時点で3成功/3実行中であり、全6成功とはしない。全cleanup/保持/認可/移行-drain/限定回復・実Google/共有運用を含む他の公開条件は残る。main/AWS/共有DB/Secrets/課金/容量変更・既存承認拡張なし、正式公開No-Goを維持する。
 
 ### Googleジョブ履歴の日本語表示と再試行ガード
 

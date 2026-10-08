@@ -39,9 +39,23 @@ Schemaの3項目の型とreadOnly、および警告0をassertする追加REDは�
 2失敗（`red-schema.log`）。修正後、実API/history/static・本番deploy checkの局所43試験が
 失敗0、PG専用2省略（`green-schema.log`）。新schema試験を含むstatic module36文/4分岐先は
 全実行・除外なし。Black/isort/Flake8/Banditと差分検査を確認した。
-修正後の通常新imageと全回帰/設定の成功は、別の固定候補でこれから確認する。
 
-## 最新のスキャン（初回image）
+### 修正版の固定配布物
+
+修正は `6791357f468c9aa7debecd68c817629f38329459` としてcommit/pushした。
+同じ通常Dockerfileで新image
+`sha256:6de91d2a3c3fb4d2d4254c656b893352098a40d3dbd1bb3a75b7707c7e238874` を作成。
+証拠は `D:/tmp/codex-google-presentation-schema-runtime-20261009`。
+再照合した736選定source/assets不一致0・111 packages/依存10層/entrypoint一致・pyc0。
+c3配布物との差分は `job_views.py` とschema testの2ファイルだけで、画面資産は一致する。
+同じ隔離条件で新schema testを含むGoogle回帰379件/196.049秒と設定・privacy70件/85.374秒が
+成功。計449件は非重複の選定、全て省略0・終了0・OOM false。
+deploy checkの3警告は解消し、OpenAPIのbool/string/readOnlyと警告0も実配布物で確認した。
+初回の設定不合格やスキャンを、修正版の合格証拠に読み替えない。
+専用4container/tmpfsを正確なID/label/nameで撤去し、test DB消去・base DB public表0を監査した。
+固定image・archive・script/log/SARIF・元の別作業は保持した。
+
+## 各固定imageの新しいスキャン
 
 Docker Scout 1.26.0、フィルターなし・native終了2。SARIFは38指摘
 （HIGH2/MEDIUM1/LOW35）で **未合格**。
@@ -50,9 +64,17 @@ HIGHはcyrus-sasl2のCVE-2026-107161、zlibのCVE-2026-85091で、当該レポ�
 依存bytesは同じであり、スキャン結果の変化を製品更新による改善/悪化と断定しない。
 実際の影響と対策・残リスク判定は未完了で、公開判断を合格へ変えない。
 
+修正版6deの新スキャンも、1.26.0/フィルターなし/native終了2、38指摘
+（HIGH2/MEDIUM1/LOW35）で未合格。実際の38 resultsをrule IDへ照合して分類し、
+HIGHは同じ2件・当該fixed_versionはnot fixedと確認した（`scan-reviewed.json`）。
+通常回帰449成功をOSスキャンや正式公開の合格へ読み替えない。
+
 ## CIと残る条件
 
-c3の[CI 37852932860](https://github.com/sheepdog0820/iaia/actions/runs/37852932860)は検証中。
-親b710の全6成功とは区別する。修正後候補のCIを改めて確認する。
-通常新配布物、全cleanup/再連携/保持/認可・全lock順・legacy停止/drain/移行・限定回復・
+c3の[CI 37852932860](https://github.com/sheepdog0820/iaia/actions/runs/37852932860)はcancelledで終了。
+修正版の[CI 37854284616](https://github.com/sheepdog0820/iaia/actions/runs/37854284616)は実行中。
+今回照合時点ではInfrastructure/Lint-Security/Systemが成功、残る3項目は実行中だった。
+親b710の全6成功とは区別し、cancelledや待機中を今回候補の成功にしない。
+この記録は型修正候補679の配布物であり、後続の文書commitのCI成功を証明しない。
+全cleanup/再連携/保持/認可・全lock順・legacy停止/drain/移行・限定回復・
 実Google/共有運用、課金・実AWS性能・DB/S3復旧・運営条件は残る。
