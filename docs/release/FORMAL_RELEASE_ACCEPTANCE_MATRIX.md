@@ -2,6 +2,10 @@
 
 ## 現在の公開判断（2026-10-09）
 
+### OS HIGHの署名済み更新候補
+
+[fresh APT候補確認](RUNTIME_HIGH_PACKAGE_READINESS_2026-10-09.md)で固定679通常imageと同じ公式trixie配布元の署名検証付きmetadata取得・policy・対象3packageの更新simulationを完了した。zlib/SASLと依存2packageの候補は導入済み版と同じで、通常更新によるHIGH2解消版は確認できない。全OSの最新性や非該当を証明せず、read-only cache cleanup警告・初回fixture失敗も保持する。image再build/scan・製品/依存/main/AWS/共有DB/Secrets/費用変更なし。停止済み専用2container/tmpfsを撤去・生証拠/別作業を保持し、修正配布/正式影響判定と新配布物回帰が残る。同じpackage版の再buildを修正として繰り返さず、他の公開条件を継続する。HIGH2未合格・正式公開No-Goを維持する。
+
 ### 応答不明とCalendar対象削除の独立接続
 
 [UNKNOWN/対象削除](GOOGLE_UNKNOWN_TARGET_DELETION_2026-10-09.md)でsession/sync削除と応答不明保存の両順序4ケースを追加し、異なる3 PID・削除未commit中のreceipt確定・実SQL Lock待機なしを観測した。UNKNOWN/holder保持、同じPKの別世代への後続待機、元job保存期限削除後の待機と旧記録不変を確認。関連PG94成功/省略0・固定679通常image10成功。製品/schema/保持・解除方針/main/AWS/共有DB/権限/費用変更なし。T08部分証拠であり、Sheets認可/全Lock順/保持・privacy/移行/限定回復/実Google/共有運用・OS HIGH2と他の条件は残り、正式公開No-Goを維持する。
