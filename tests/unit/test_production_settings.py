@@ -476,6 +476,7 @@ print(json.dumps({
     "account_prevent_enumeration": settings.ACCOUNT_PREVENT_ENUMERATION,
     "socialaccount_email_required": settings.SOCIALACCOUNT_EMAIL_REQUIRED,
     "account_forms": settings.ACCOUNT_FORMS,
+    "password_reset_timeout": settings.PASSWORD_RESET_TIMEOUT,
 }))
 """,
         )
@@ -489,6 +490,7 @@ print(json.dumps({
         self.assertFalse(payload["has_legacy_account_email_required"])
         self.assertTrue(payload["account_prevent_enumeration"])
         self.assertTrue(payload["socialaccount_email_required"])
+        self.assertEqual(payload["password_reset_timeout"], 24 * 60 * 60)
         self.assertEqual(
             payload["account_forms"]["reset_password"],
             "accounts.forms.CustomPasswordResetForm",

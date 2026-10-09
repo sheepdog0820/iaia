@@ -2,6 +2,10 @@
 
 ## 現在の公開判断（2026-10-09）
 
+### アカウント復旧の期限・公開完了画面
+
+[復旧フロー](ACCOUNT_RECOVERY_FLOW_2026-10-09.md)で案内24時間/実設定72時間、共通TemplateView装飾による匿名完了画面のログイン転送、送信完了の閉じタグ誤記を修正した。calendarと既存非公開URLの認証を明示的に維持し、11局所/142広域テスト、3ブラウザー×2幅の実CSRFフォーム復旧・ログイン6ケースを確認。既存Windows Twisted単体import失敗と旧汎用作成URLの欠落を別課題として保持する。これはF01のローカル部分証拠で、実メール/稼働AWS/全画面・OS HIGH2/Google認可・他の必須条件は残る。main/AWS/共有DB/Secrets/費用変更・承認拡張なし、正式公開No-Goを維持する。
+
 ### OS HIGHの署名済み更新候補
 
 [fresh APT候補確認](RUNTIME_HIGH_PACKAGE_READINESS_2026-10-09.md)で固定679通常imageと同じ公式trixie配布元の署名検証付きmetadata取得・policy・対象3packageの更新simulationを完了した。zlib/SASLと依存2packageの候補は導入済み版と同じで、通常更新によるHIGH2解消版は確認できない。全OSの最新性や非該当を証明せず、read-only cache cleanup警告・初回fixture失敗も保持する。image再build/scan・製品/依存/main/AWS/共有DB/Secrets/費用変更なし。停止済み専用2container/tmpfsを撤去・生証拠/別作業を保持し、修正配布/正式影響判定と新配布物回帰が残る。同じpackage版の再buildを修正として繰り返さず、他の公開条件を継続する。HIGH2未合格・正式公開No-Goを維持する。
