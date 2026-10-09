@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test';
 
 test.describe('auth release flows', () => {
   test('user can sign up and log in with email credentials', async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
     const timestamp = Date.now();
     const username = `e2e_user_${timestamp}`;
     const email = `${username}@example.com`;
@@ -25,7 +27,17 @@ test.describe('auth release flows', () => {
     await expect(page.locator('body')).toContainText(nickname);
 
     await page.goto('/accounts/logout/');
+    await expect(page).toHaveURL(url => url.pathname === '/');
+    await expect(page.locator('body')).not.toContainText(nickname);
+    await page.screenshot({ path: test.info().outputPath('logout-public-home.png'), fullPage: true });
+
+    // A public landing page must not imply that the login session survived.
+    await page.goto('/accounts/dashboard/');
     await expect(page).toHaveURL(/\/accounts\/login\//);
+    expect(new URL(page.url()).searchParams.get('next')).toBe('/accounts/dashboard/');
+
+    // Verify the default login destination without the protected-page next.
+    await page.goto('/accounts/login/');
 
     await page.fill('#id_username', email);
     await page.fill('#id_password', password);
@@ -35,6 +47,7 @@ test.describe('auth release flows', () => {
     ]);
 
     await expect(page.locator('body')).toContainText(nickname);
+    expect(pageErrors).toEqual([]);
   });
 
   test('login page exposes OAuth state for release verification', async ({ page }) => {

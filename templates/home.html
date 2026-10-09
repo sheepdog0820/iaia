@@ -5,6 +5,18 @@
 
 {% block content %}
 <div class="container home-page">
+    {% if messages %}
+    <div id="home-messages" class="mb-3">
+        {% for message in messages %}
+        <div class="alert alert-{% if message.level_tag == 'error' %}danger{% else %}{{ message.level_tag|default:'info' }}{% endif %} alert-dismissible fade show text-reset pe-5" role="alert">
+            <span class="home-message-text">{{ message }}</span>
+            <button type="button" class="btn btn-link position-absolute top-0 end-0 text-reset text-decoration-none p-3" data-bs-dismiss="alert" aria-label="閉じる">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
     {% if user.is_authenticated %}
     <div class="row">
         <div class="col-12">

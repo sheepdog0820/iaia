@@ -96,3 +96,12 @@ archiveの選択662ファイル/lock111依存の一致、Linux154件/隔離PG17�
 通常entrypointと実HTTP15要求、deploy checkの成功を確認した。
 新imageの全パッケージ監査は38指摘（HIGH2/MEDIUM1/LOW35、Python0/native終了2）で未合格。
 候補CI全6成功・main/AWS反映・実メール等は未完了、公開No-Goを維持する。
+
+## 同日後続の退会通知とブラウザー検査
+
+記録commit `b790f758` のCIは5ジョブ成功、Playwrightは6件失敗/222件成功。
+ログアウト/退会後のhomeへの遷移をlogin画面とする古い検査を修正する過程で、
+homeが退会成功通知を描画しない実不具合を発見した。
+[後続の通知修正と検証記録](HOME_ACCOUNT_EXIT_FEEDBACK_2026-10-09.md)を参照する。
+今回home templateの製品差分があるため、先行dbe8fca1の通常image検証を
+後続候補の配布物検証として扱わない。反映承認と正式公開No-Goは維持する。
