@@ -88,7 +88,7 @@ urlpatterns = [
     ),
     path(
         "character/create/",
-        login_required(TemplateView.as_view(template_name="accounts/character_sheet.html")),
+        login_required(TemplateView.as_view(template_name="accounts/character_create_entry.html")),
         name="character_create",
     ),
     path("character/create/6th/", views.Character6thCreateView.as_view(), name="character_create_6th"),

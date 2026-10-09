@@ -105,9 +105,6 @@ class PasswordResetLifecycleTests(TestCase):
                 self.assertIn("next=", response["Location"])
         self.client.force_login(self.user)
         for name in names:
-            # This legacy URL references a missing template; recovery does not restore it.
-            if name == "character_create":
-                continue
             with self.subTest(name=name, authenticated=True):
                 self.assertEqual(self.client.get(reverse(name)).status_code, 200)
 

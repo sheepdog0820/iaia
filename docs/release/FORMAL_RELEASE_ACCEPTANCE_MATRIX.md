@@ -2,6 +2,10 @@
 
 ## 現在の公開判断（2026-10-09）
 
+### 版未指定のキャラクター作成入口
+
+[作成URLの復旧](CHARACTER_CREATE_ENTRY_2026-10-09.md)で旧URLのテンプレート欠落500を修正し、認証を維持して6版/7版の選択画面へ接続した。新規6/復旧11件と関連194件が成功、3ブラウザー×PC/mobileの永続E2E6件も成功（retry/skip/flaky0）。GET/HEAD・遷移で保存0、POST405、復旧検査の認証済み10 URLも確認した。試験import衝突/DEBUG fixture不整合を記録して分離再試験し、専用server/DB/mediaを破棄・別作業を保持した。F04の部分証拠で全作成/編集・実機/実AWS/新配布物・OS HIGH2/Google安全性・他の条件は残る。main/AWS/共有DB/Secrets/費用変更・承認拡張なし、正式公開No-Goを維持する。
+
 ### アカウント復旧の期限・公開完了画面
 
 [復旧フロー](ACCOUNT_RECOVERY_FLOW_2026-10-09.md)で案内24時間/実設定72時間、共通TemplateView装飾による匿名完了画面のログイン転送、送信完了の閉じタグ誤記を修正した。calendarと既存非公開URLの認証を明示的に維持し、11局所/142広域テスト、3ブラウザー×2幅の実CSRFフォーム復旧・ログイン6ケースを確認。既存Windows Twisted単体import失敗と旧汎用作成URLの欠落を別課題として保持する。これはF01のローカル部分証拠で、実メール/稼働AWS/全画面・OS HIGH2/Google認可・他の必須条件は残る。main/AWS/共有DB/Secrets/費用変更・承認拡張なし、正式公開No-Goを維持する。
