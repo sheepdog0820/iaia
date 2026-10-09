@@ -56,7 +56,8 @@ mount/volumeなし、専用 `/tmp` tmpfs256MiB。Dockerのdefault/bridge network
 network noneの調査と混同しない。app設定・環境ファイル・OAuth/token・AWS資格情報を読み込まず、
 entrypointをPythonの診断だけへ置き換えた。metadata/cache/logの書込み先は `/tmp/apt`。
 
-導入済み5package、source設定、keyring、system zlib/SASLの実体hashは検査前後で一致した。
+導入済み5packageとsystem zlib/SASLの実体hashは検査前後で一致した。
+source設定/keyringはread-only rootfs内の一回のsnapshotであり、個別hashの前後比較を実施したとは扱わない。
 source設定SHA-256は `f02a6fd0c0a28e5f47d4512c0e5d264138378272850fe41dcb370ec885a3fcba`、
 keyringは `506b815cbb32d9b6066b4a2aa524071e071761e7e7f68c3ac74f3061ba852017`。
 生ログ・script・container検査結果は `D:/tmp/codex-high-package-readiness-20261009` に保存する。
@@ -70,3 +71,6 @@ tmpfsはcontainerとともに撤去、image・生証拠・元の別作業は保�
 
 アプリ/依存/Dockerfile/schema/main/AWS/共有DB/Secrets/IAM/課金/容量/外部通知・承認範囲に変更なし。
 文書の取り消しは通常revertで可能。実環境の復旧操作は不要。
+
+文書39テストは成功（0.036秒）。変更2文書の相対リンク262件、差分、UTF-8/LF・staged整合を確認。
+全アプリ試験や新配布物の修正合格の証拠にはしない。
