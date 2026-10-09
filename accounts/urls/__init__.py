@@ -1,6 +1,5 @@
 from django.contrib.auth.decorators import login_required
 from django.urls import include, path
-from django.utils.decorators import method_decorator
 from django.views.generic import TemplateView
 from rest_framework.routers import DefaultRouter
 
@@ -79,21 +78,17 @@ urlpatterns = [
     # Web URLs for frontend pages (before router to avoid conflicts)
     path(
         "groups/view/",
-        method_decorator(login_required, name="dispatch")(TemplateView).as_view(template_name="groups/management.html"),
+        login_required(TemplateView.as_view(template_name="groups/management.html")),
         name="groups_view",
     ),
     path(
         "statistics/view/",
-        method_decorator(login_required, name="dispatch")(TemplateView).as_view(
-            template_name="statistics/tindalos_metrics.html"
-        ),
+        login_required(TemplateView.as_view(template_name="statistics/tindalos_metrics.html")),
         name="statistics_view",
     ),
     path(
         "character/create/",
-        method_decorator(login_required, name="dispatch")(TemplateView).as_view(
-            template_name="accounts/character_sheet.html"
-        ),
+        login_required(TemplateView.as_view(template_name="accounts/character_create_entry.html")),
         name="character_create",
     ),
     path("character/create/6th/", views.Character6thCreateView.as_view(), name="character_create_6th"),

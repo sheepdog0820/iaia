@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}キャラクターシート作成 - タブレノ{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <h1 class="h3 mb-3">キャラクターシート作成</h1>
+            <p>クトゥルフ神話TRPGの版を選択してください。</p>
+            <div class="d-grid gap-3 mb-4">
+                <a id="create-entry-6th" class="btn btn-primary btn-lg" href="{% url 'character_create_6th' %}">
+                    6版キャラクター作成
+                </a>
+                <a id="create-entry-7th" class="btn btn-success btn-lg" href="{% url 'character_create_7th' %}">
+                    7版キャラクター作成
+                </a>
+            </div>
+            <a id="create-entry-list" class="btn btn-outline-secondary" href="{% url 'character_list' %}">
+                キャラクター一覧に戻る
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
