@@ -98,3 +98,12 @@ main/ECR/AWS/共有DB・実ユーザー/Secrets/IAM/OAuth/課金・容量/外部
 HIGH2を含むOS指摘を解消したとは扱わず、[正式公開の判定](FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)はNo-Go。
 元checkoutの13件の別作業を保持する。共有環境の復旧先は実行時に再確認し、
 先行限定案の定義54を使う想定だが、既存favicon承認を今回へ拡張しない。
+
+## 同日後続の通常配布物検証
+
+上記の「今回home修正を含む通常配布物は未検証」は修正commit作成時点の状況。
+`0a687631` の[固定image検証](HOME_FEEDBACK_RUNTIME_2026-10-09.md)で
+archive663 files/lock111依存の一致、Linux162件/隔離PG25件、通常起動と実HTTP25要求、
+実CSRF/password退会・通知の消費・元session削除・再ログイン拒否、deploy checkの成功を確認した。
+新imageのOS監査は38指摘（HIGH2/MEDIUM1/LOW35、Python0/native終了2）で未合格。
+同SHAの全CI、反映承認/実AWS、正式公開全体の残タスクは未完了で、No-Goを維持する。
