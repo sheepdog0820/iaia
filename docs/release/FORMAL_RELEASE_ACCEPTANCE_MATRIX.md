@@ -2,6 +2,10 @@
 
 ## 現在の公開判断（2026-10-09）
 
+### 応答不明とCalendar対象削除の独立接続
+
+[UNKNOWN/対象削除](GOOGLE_UNKNOWN_TARGET_DELETION_2026-10-09.md)でsession/sync削除と応答不明保存の両順序4ケースを追加し、異なる3 PID・削除未commit中のreceipt確定・実SQL Lock待機なしを観測した。UNKNOWN/holder保持、同じPKの別世代への後続待機、元job保存期限削除後の待機と旧記録不変を確認。関連PG94成功/省略0・固定679通常image10成功。製品/schema/保持・解除方針/main/AWS/共有DB/権限/費用変更なし。T08部分証拠であり、Sheets認可/全Lock順/保持・privacy/移行/限定回復/実Google/共有運用・OS HIGH2と他の条件は残り、正式公開No-Goを維持する。
+
 ### Calendar対象削除と完了保存の独立PG競合
 
 [session/sync削除競合](GOOGLE_TARGET_DELETION_CONCURRENCY_2026-10-09.md)で、KNOWN200後の完了保存と対象削除の両Lock順4ケースを追加し、異なる3 PID/実UPDATE・DELETE待機、削除行の不再作成、確定receipt保持/終了、同じPKの別世代への旧配送の送信0と新受付の成功を確認した。PG関連89成功/省略0・固定679通常imageの4競合+異常伝播対照1成功。製品/schema/依存/保持・解除方針/main/AWS/共有DB/Secrets/費用は変更しない。応答喪失時の対象削除競合・認可/保持/移行/限定回復/実Google/共有運用・OS HIGH2等は残り、T08/T11部分証拠・正式公開No-Goを維持する。
