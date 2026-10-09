@@ -80,3 +80,11 @@ infrastructure/production-database/system/lint-security/Unit・Integrationの5�
 実行時に稼働版/復旧先を再確認し、既存favicon承認へ追加しない。
 [正式公開の受入条件](FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)の課金・外部連携・権限・性能・
 DB/S3復旧・運営条件も残る。No-Goを維持し、今回の局所的成功を全体合格へ拡張しない。
+
+## 同日後続のCIとOS該当経路
+
+その後の修正SHAのCIは全6ジョブ成功、Playwright228件成功を確認した。
+[OS HIGHの実コンポーネント照合](OS_HIGH_COMPONENT_EXPOSURE_2026-10-09.md)では、
+Cyrus DIGEST-MD5 plugin欠落の証拠を得た一方、zlib1.3.1の実binaryで範囲外caller書き込みを再現した。
+関数名・版範囲だけでzlibを非該当扱いにしない。上流backportの局所対照は成功したが、
+通常配布物への修正組み込み・OSゲート・main/AWS反映と正式公開は未完了。
