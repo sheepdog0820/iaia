@@ -262,6 +262,7 @@ jobs:
             schedules/test_google_target_execution.py \
             schedules/test_google_cleanup_execution.py \
             schedules/test_google_cleanup_concurrency.py \
+            schedules/test_google_target_deletion_concurrency.py \
             schedules/test_google_job_active_guard.py \
             schedules/test_google_dispatch_identity.py \
             schedules/test_google_calendar_deleted_target.py \
