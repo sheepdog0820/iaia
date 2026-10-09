@@ -2,7 +2,7 @@
 
 ## 現在の公開判断（2026-10-09）
 
-[main基準の復旧・作成入口候補](MAIN_ACCOUNT_RECOVERY_CANDIDATE_2026-10-09.md)をmain8567f49fから分離した。復旧期限24時間、共通TemplateViewのlogin波及、完了閉じタグ、版未指定作成500を限定修正し、main基準の関連186件/実ブラウザー12ケースが成功した。Google/Stripe未完成候補やmigration/static/依存の変更は含まない。AWS読み取りで定義54/digest一致/HEALTHY/readiness正常を再確認したが、今回候補はmain/AWS未反映。新配布物・OS監査・候補SHA全CI・実メール/全画面と他の必須条件は未完了、正式公開No-Go・既存承認範囲を維持する。
+[main基準の復旧・作成入口候補](MAIN_ACCOUNT_RECOVERY_CANDIDATE_2026-10-09.md)をmain8567f49fから分離した。復旧期限24時間、共通TemplateViewのlogin波及、完了閉じタグ、版未指定作成500を限定修正し、main基準の関連186件/実ブラウザー12ケースが成功した。Google/Stripe未完成候補やmigration/static/依存の変更は含まない。AWS読み取りで定義54/digest一致/HEALTHY/readiness正常を再確認したが、今回候補はmain/AWS未反映。[同候補の通常配布物](MAIN_ACCOUNT_RECOVERY_RUNTIME_2026-10-09.md)ではarchive662ファイル/lock111依存が一致、Linux154件/隔離PG17件・通常起動/実HTTP15要求・deploy check成功。新imageの監査は38指摘（HIGH2/MEDIUM1/LOW35、Python0/native終了2）で未合格。候補SHA全CI・main/AWS反映・実メール/全画面と他の必須条件は未完了、正式公開No-Go・既存承認範囲を維持する。
 
 ## 2026-10-02時点の経過記録
 

@@ -87,3 +87,12 @@ collectstatic/CloudFront invalidationは予定しない。配布物照合で差�
 元checkoutの13件の別作業と先行候補ブランチを保持する。
 正式公開No-Goを維持し、Google認可/運用、課金/メール、外部連携、性能/全体復旧、
 運営条件とOS監査などの必須残タスクは継続する。
+
+## 同日後続の通常配布物検証
+
+上記「新しい通常配布image/OS再監査は未検証」は候補作成時点の記録。
+`dbe8fca1` の[固定image検証](MAIN_ACCOUNT_RECOVERY_RUNTIME_2026-10-09.md)で
+archiveの選択662ファイル/lock111依存の一致、Linux154件/隔離PG17件、
+通常entrypointと実HTTP15要求、deploy checkの成功を確認した。
+新imageの全パッケージ監査は38指摘（HIGH2/MEDIUM1/LOW35、Python0/native終了2）で未合格。
+候補CI全6成功・main/AWS反映・実メール等は未完了、公開No-Goを維持する。
