@@ -2,6 +2,10 @@
 
 ## 現在の公開判断（2026-10-09）
 
+### Sheets共有待ち行列の認可・濫用防止不足
+
+[Sheets認可設計](SHEETS_TARGET_AUTHORIZATION_DESIGN_2026-10-09.md)で未配備候補の共有FIFO登録前の編集権限証拠がないことを確認した。合成の別Google identityを用いた4診断をSQLite/PG/固定679通常imageで再現し、未確認の予約だけによる待機、拒否応答喪失後のUNKNOWNとsource expiry後も保持する禁止、既知403の正常解除、任意33送信先の受理を確認した。実Google ACL/攻撃実証や修正合格ではない。UNKNOWN/共有keyを弱めず、Picker/drive.file方式とID入力維持/Drive metadata方式を比較し、scope・入力方法が変わるためローカル実装の方針を確認する。製品/承認範囲/main/AWS/共有DB/Secrets/費用は変更せず、T12・他の必須条件と正式公開No-Goを維持する。
+
 ### Google cleanup/receiptの独立PG競合
 
 [独立接続のcleanup競合](GOOGLE_CLEANUP_CONCURRENCY_2026-10-09.md)で、Calendar/Sheetsの正式無課金退会・job削除・保存/実行期限とreceiptの両Lock順32ケースを追加し、worker/cleanup/observerの異なるPIDと実Lock待機を確認した。未解決記録/確定応答/旧配送拒否/後続待機を検証し、固定679通常imageでも32競合+計測異常対照1の33件成功・skip0。製品/schema/依存/保持・解除方針/main/AWS/共有DB/Secrets/費用は変更せず、session/sync等の独立競合・全Lock順・privacy/認可/移行/限定回復・実Google/共有運用や他の公開条件は残る。T08/T11部分証拠であり、正式公開No-Goを維持する。

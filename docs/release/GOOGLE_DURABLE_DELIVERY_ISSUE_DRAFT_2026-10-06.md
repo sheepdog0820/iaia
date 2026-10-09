@@ -6,6 +6,10 @@
 
 Google Calendar/Sheetsを正式公開できる品質にするため、DB確定とCelery投入の隙間、再配送、結果不明、同期対象の世代競合を解消する。部分修正・ローカル成功のみで完了にしない。
 
+### 10月9日のSheets共有待ち行列の認可不足
+
+[Sheets認可の不足と方針案](SHEETS_TARGET_AUTHORIZATION_DESIGN_2026-10-09.md)でT12の未確認target登録・共有待機/UNKNOWN滞留・任意33送信先受理を合成4診断で再現した。SQLite/PG/固定通常679imageで同じ結果だが、実Google ACL/攻撃や修正成功ではない。Picker/drive.fileを推奨候補としてID入力維持案と比較し、ローカル実装の方針を確認中。製品/OAuth要求/承認範囲/main/AWSは変更しない。Issue全体は未完了・No-Go、GitHub Issueへの記録完了でもない。
+
 ### 10月9日のcleanup独立競合
 
 [cleanup/receiptの独立PG競合](GOOGLE_CLEANUP_CONCURRENCY_2026-10-09.md)に両Lock順32ケース・異常伝播対照1・PG CI選定1を追加した。異なる3 PIDと実Lock待機を確認し、固定通常679imageでも32競合+対照1成功・skip0。製品/保持・解除方針は変更せず、T08/T11の部分証拠のみで、session/sync等の独立競合・privacy/認可/移行/限定回復・実Google/共有運用は残る。Issue全体は未完了・No-Goを維持し、GitHub Issueへ記録済みとはしない。
