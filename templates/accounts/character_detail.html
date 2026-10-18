@@ -1112,6 +1112,7 @@ document.addEventListener('DOMContentLoaded', function() {
         trainedSkills.forEach(skill => {
             const occupationPoints = skill.occupation_points || 0;
             const interestPoints = skill.interest_points || 0;
+            const bonusPoints = skill.bonus_points || 0;
             const otherPoints = skill.other_points || 0;
             const baseValue = skill.base_value || 0;
             const totalValue = skill.current_value || 0;
@@ -1119,6 +1120,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 { label: '\u57fa\u672c', value: baseValue, className: 'base' },
                 { label: '\u8077\u696d', value: occupationPoints, className: 'occupation' },
                 { label: '\u8da3\u5473', value: interestPoints, className: 'interest' },
+                { label: 'ボーナス', value: bonusPoints, className: 'bonus' },
                 { label: '\u305d\u306e\u4ed6', value: otherPoints, className: 'other' },
             ].filter(item => item.className === 'base' || item.value > 0);
             const breakdownHtml = breakdown.map(item => `
