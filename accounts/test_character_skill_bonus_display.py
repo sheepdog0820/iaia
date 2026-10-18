@@ -1,4 +1,4 @@
-"""Regression coverage for bonus points in character detail skill breakdowns."""
+"""Regression coverage for unified skill adjustments in character details."""
 
 import shutil
 import subprocess
@@ -16,7 +16,7 @@ from .test_character_factories import create_character_with_system_data
 
 
 class CharacterSkillBonusDisplayAPITests(APITestCase):
-    def test_detail_exposes_bonus_separately_without_changing_totals(self):
+    def test_detail_exposes_legacy_bonus_as_other_without_changing_totals(self):
         user = get_user_model().objects.create_user(username="skill-bonus-display")
         self.client.force_authenticate(user)
         for edition, skill_model in (("6th", CharacterSkill6th), ("7th", CharacterSkill7th)):
@@ -53,8 +53,8 @@ class CharacterSkillBonusDisplayAPITests(APITestCase):
                     ("説得", 30, 70),
                     ("図書館", 0, 45),
                 ):
-                    self.assertEqual(skills[name].get("bonus_points"), bonus)
-                    self.assertEqual(skills[name]["other_points"], 0)
+                    self.assertEqual(skills[name].get("bonus_points"), 0)
+                    self.assertEqual(skills[name]["other_points"], bonus)
                     self.assertEqual(skills[name]["current_value"], total)
 
 

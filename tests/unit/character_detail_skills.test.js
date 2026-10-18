@@ -19,41 +19,49 @@ function render(skills) {
     return container.innerHTML.replace(/\s+/g, ' ');
 }
 
-function assertBonus(html, value) {
-    assert.match(html, new RegExp(`skill-breakdown-bonus"> <span class="skill-breakdown-label">ボーナス</span> <span class="skill-breakdown-value">${value}</span>`));
+function assertOther(html, value) {
+    assert.match(html, new RegExp(`skill-breakdown-other"> <span class="skill-breakdown-label">その他</span> <span class="skill-breakdown-value">${value}</span>`));
+    assert.ok(!html.includes('skill-breakdown-bonus'));
 }
 
-test('HO bonuses appear separately with the persisted totals', () => {
-    for (const [skill_name, base_value, occupation_points, bonus_points, current_value] of [
+test('legacy split adjustments are shown together as other points', () => {
+    const html = render([{ skill_name: '説得', base_value: 15, bonus_points: 30, other_points: 5, current_value: 50 }]);
+    assertOther(html, 35);
+    assert.ok(html.includes('説得 合計 50'));
+});
+
+test('HO adjustments appear as other points with the persisted totals', () => {
+    for (const [skill_name, base_value, occupation_points, other_points, current_value] of [
         ['重機械操作', 1, 40, 30, 71],
         ['電気修理', 10, 35, 20, 65],
         ['説得', 15, 25, 30, 70],
     ]) {
-        const html = render([{ skill_name, base_value, occupation_points, bonus_points, current_value }]);
-        assertBonus(html, bonus_points);
+        const html = render([{ skill_name, base_value, occupation_points, other_points, current_value }]);
+        assertOther(html, other_points);
         assert.ok(html.includes(`${skill_name} 合計 ${current_value}`));
     }
 });
 
-test('a skill trained only through a bonus remains visible', () => {
-    const html = render([{ skill_name: '重機械操作', base_value: 1, bonus_points: 30, current_value: 31 }]);
-    assertBonus(html, 30);
+test('a skill trained only through other points remains visible', () => {
+    const html = render([{ skill_name: '重機械操作', base_value: 1, other_points: 30, current_value: 31 }]);
+    assertOther(html, 30);
     assert.ok(html.includes('重機械操作 合計 31'));
 });
 
-test('missing and zero bonuses do not add empty breakdown chips', () => {
-    for (const bonus of [{}, { bonus_points: 0 }]) {
-        const html = render([{ skill_name: '目星', base_value: 25, occupation_points: 20, current_value: 45, ...bonus }]);
+test('missing and zero adjustments do not add empty breakdown chips', () => {
+    for (const adjustment of [{}, { other_points: 0, bonus_points: 0 }]) {
+        const html = render([{ skill_name: '目星', base_value: 25, occupation_points: 20, current_value: 45, ...adjustment }]);
         assert.ok(!html.includes('skill-breakdown-bonus'));
+        assert.ok(!html.includes('skill-breakdown-other'));
         assert.ok(html.includes('目星 合計 45'));
     }
     assert.ok(!render([{ skill_name: '目星', base_value: 25, bonus_points: 0, current_value: 25 }]).includes('skill-card'));
     assert.match(render([]), /技能ポイントを振った技能がありません。/);
 });
 
-test('bonus and other points stay distinct and totals are not recomputed', () => {
-    const html = render([{ skill_name: '目星', base_value: 25, occupation_points: 40, interest_points: 20, bonus_points: 10, other_points: 5, current_value: 99 }]);
-    assertBonus(html, 10);
-    assert.match(html, /skill-breakdown-other"> <span class="skill-breakdown-label">その他<\/span> <span class="skill-breakdown-value">5<\/span>/);
+test('consolidated other points appear once and totals are not recomputed', () => {
+    const html = render([{ skill_name: '目星', base_value: 25, occupation_points: 40, interest_points: 20, bonus_points: 0, other_points: 15, current_value: 99 }]);
+    assertOther(html, 15);
+    assert.equal((html.match(/skill-breakdown-other/g) || []).length, 1);
     assert.ok(html.includes('目星 合計 99'));
 });
