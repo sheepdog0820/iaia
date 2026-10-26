@@ -11,6 +11,8 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, router, transaction
 from django.utils import timezone
 
+from .ccfolia_skill_categories import group_ccfolia_skills
+
 # Circular import回避のため、文字列参照を使用
 
 
@@ -2781,7 +2783,7 @@ class CharacterExportManager:
         character = registry.system_data
         """CCFOLIA形式でのデータエクスポート"""
         # 技能値からコマンド文字列を生成
-        commands = []
+        commands = ["■ 基本判定 ──────────"]
         skills = []
 
         # 正気度ロール
@@ -2808,10 +2810,13 @@ class CharacterExportManager:
             )
             skill_name = CharacterExportManager._normalize_ccfolia_skill_name(registry.edition, skill.skill_name)
             skill_values[skill_name] = max(skill_values.get(skill_name, 0), total_value)
-        for skill_name, total_value in skill_values.items():
-            commands.append(f"{skill_command_prefix}<={total_value} 【{skill_name}】")
-            skills.append({"name": skill_name, "value": total_value})
+        for category, entries in group_ccfolia_skills(registry.edition, skill_values).items():
+            commands.append(f"■ {category} ──────────")
+            for skill_name, total_value in entries:
+                commands.append(f"{skill_command_prefix}<={total_value} 【{skill_name}】")
+                skills.append({"name": skill_name, "value": total_value})
 
+        commands.append("■ 武器・ダメージ ──────────")
         equipment = CharacterExportManager._export_equipment(character)
         for item in equipment:
             if item["item_type"] != "weapon" or not item["name"]:
@@ -2838,6 +2843,7 @@ class CharacterExportManager:
             commands.append("1D3+{DB} 【近接戦闘ダメージ】")
 
         # 能力値ロール
+        commands.append("■ 能力値 ──────────")
         for ability, value in [
             ("STR", character.str_value),
             ("CON", character.con_value),

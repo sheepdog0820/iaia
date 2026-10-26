@@ -89,6 +89,7 @@ class CharacterCcfolliaExportTests(TestCase):
         commands = exported["data"]["commands"].splitlines()
         self.assertIn("CCB<=70 【試作ライフル】", commands)
         self.assertIn("2D6+1 【試作ライフルダメージ】", commands)
+        self.assertLess(commands.index("■ 武器・ダメージ ──────────"), commands.index("CCB<=70 【試作ライフル】"))
 
         version_data = CharacterExportManager.export_version_data(character)
         self.assertEqual(version_data["equipment"], exported["equipment"])
@@ -157,6 +158,7 @@ process.stdout.write(JSON.stringify(exported));
         commands = exported["data"]["commands"].splitlines()
         self.assertIn("CC<=65 【カスタム拳銃】", commands)
         self.assertIn("1D10 【カスタム拳銃ダメージ】", commands)
+        self.assertLess(commands.index("■ 武器・ダメージ ──────────"), commands.index("CC<=65 【カスタム拳銃】"))
 
     def test_create_screens_and_payloads_include_name_kana(self):
         root = Path(__file__).resolve().parents[1]

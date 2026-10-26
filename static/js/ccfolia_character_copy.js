@@ -169,6 +169,15 @@
         { name: '歴史', base: 5 },
     ];
 
+    const SKILL_CATEGORY_STARTS = new Map([
+        ['回避', '戦闘技能'],
+        ['応急手当', '探索技能'],
+        ['運転', '行動技能'],
+        ['運転（自動車）', '行動技能'],
+        ['言いくるめ', '交渉技能'],
+        ['医学', '知識技能'],
+    ]);
+
     const COC6_SKILL_NAME_ALIASES = new Map([
         ['こぶし（パンチ）', 'こぶし'],
         ['こぶし(パンチ)', 'こぶし'],
@@ -239,12 +248,19 @@
             }
         });
 
+        let category = '';
         return [
-            ...defaultSkills.map(skill => ({
-                skill_name: skill.name,
-                current_value: skillValues.get(skill.name),
+            ...defaultSkills.map(skill => {
+                category = SKILL_CATEGORY_STARTS.get(skill.name) || category;
+                return {
+                    skill_name: skill.name,
+                    current_value: skillValues.get(skill.name),
+                    category,
+                };
+            }),
+            ...Array.from(customSkills, ([skill_name, current_value]) => ({
+                skill_name, current_value, category: 'その他・独自',
             })),
-            ...Array.from(customSkills, ([skill_name, current_value]) => ({ skill_name, current_value })),
         ];
     }
 
@@ -294,8 +310,15 @@
         const sanityCurrent = toNumber(character.sanity_current ?? character.san_current);
         const skillCommandPrefix = isSeventhEdition ? 'CC' : 'CCB';
         const collectedSkills = collectSkills(character, abilities);
-        const skillCommands = collectedSkills
-            .map(skill => `${skillCommandPrefix}<=${toNumber(skill.current_value)} 【${skill.skill_name}】`);
+        const skillCommands = [];
+        let previousCategory = '';
+        collectedSkills.forEach(skill => {
+            if (skill.category !== previousCategory) {
+                skillCommands.push(`■ ${skill.category} ──────────`);
+                previousCategory = skill.category;
+            }
+            skillCommands.push(`${skillCommandPrefix}<=${toNumber(skill.current_value)} 【${skill.skill_name}】`);
+        });
         const skillValues = new Map(
             collectedSkills.map(skill => [skill.skill_name, toNumber(skill.current_value)])
         );
@@ -374,9 +397,12 @@
                 ],
                 params,
                 commands: [
+                    '■ 基本判定 ──────────',
                     ...derivedCommands,
+                    '■ 能力値 ──────────',
                     ...abilityCommands,
                     ...skillCommands,
+                    ...(weaponCommands.length || damageCommands.length ? ['■ 武器・ダメージ ──────────'] : []),
                     ...weaponCommands,
                     ...damageCommands,
                 ].join('\n'),
