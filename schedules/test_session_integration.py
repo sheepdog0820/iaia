@@ -696,7 +696,8 @@ class CalendarExportIntegrationTestCase(APITestCase):
 
         # 月別イベントで他グループのセッションが見えないことを確認
         monthly_url = reverse("monthly_events")
-        response = self.client.get(monthly_url, {"month": timezone.now().strftime("%Y-%m")})
+        session_month = other_session.date.strftime("%Y-%m")
+        response = self.client.get(monthly_url, {"month": session_month})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -712,7 +713,8 @@ class CalendarExportIntegrationTestCase(APITestCase):
         other_session.visibility = "public"
         other_session.save()
 
-        response = self.client.get(monthly_url, {"month": timezone.now().strftime("%Y-%m")})
+        response = self.client.get(monthly_url, {"month": session_month})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         all_titles = []
         for date_group in response.data["dates"]:
