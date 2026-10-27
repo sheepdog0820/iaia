@@ -1,7 +1,7 @@
 """Regression coverage for unified skill adjustments in character details."""
 
 import shutil
-import subprocess
+import subprocess  # nosec B404
 from pathlib import Path
 from unittest import skipUnless
 
@@ -67,7 +67,8 @@ class CharacterSkillBonusRenderingTests(SimpleTestCase):
     @skipUnless(shutil.which("node"), "Node.js is required for skill rendering checks")
     def test_rendered_skill_breakdowns(self):
         script = Path(settings.BASE_DIR) / "tests/unit/character_detail_skills.test.js"
-        result = subprocess.run(
+        # Fixed repository test script; no user input or shell expansion.
+        result = subprocess.run(  # nosec B603
             [shutil.which("node"), "--test", str(script)],
             capture_output=True,
             text=True,
