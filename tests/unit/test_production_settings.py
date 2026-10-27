@@ -4,11 +4,32 @@ import subprocess
 import sys
 from pathlib import Path
 from unittest import TestCase
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class ProductionSettingsTests(TestCase):
+    def test_production_probe_uses_its_own_settings_module_and_no_env_file(self):
+        with patch.dict(os.environ, {"DJANGO_SETTINGS_MODULE": "tableno.settings", "ENV_FILE": "unused-parent.env"}):
+            payload = self.run_settings_probe(expression="""
+import json
+import os
+from django.conf import settings
+print(json.dumps({"module": settings.SETTINGS_MODULE, "env_file": os.environ["ENV_FILE"]}))
+""")
+        self.assertEqual(payload["module"], "tableno.settings_production")
+        self.assertEqual(payload["env_file"], "")
+
+    def test_production_probe_does_not_inherit_parent_development_mode(self):
+        with patch.dict(os.environ, {"ENVIRONMENT": "development", "DJANGO_ENV": "staging"}):
+            payload = self.run_settings_probe(expression="""
+import json
+from tableno import settings_production as settings
+print(json.dumps({"environment": settings.ENVIRONMENT}))
+""")
+        self.assertEqual(payload["environment"], "production")
+
     def test_on_request_disclosure_requires_operations_before_sales(self):
         result = self.run_settings_probe(
             {"LEGAL_DISCLOSURE_ON_REQUEST": "true", "STRIPE_CHECKOUT_ENABLED": "true"}, check=False
@@ -71,6 +92,9 @@ print(json.dumps({
     def run_settings_probe(self, overrides=None, expression=None, check=True):
         env = {
             "APP_ENV": "aws-prod",
+            "ENVIRONMENT": "production",
+            "DJANGO_SETTINGS_MODULE": "tableno.settings_production",
+            "ENV_FILE": "",
             "SECRET_KEY": "test-production-secret",
             "ALLOWED_HOSTS": "tableno.jp,www.tableno.jp",
             "CSRF_TRUSTED_ORIGINS": "https://tableno.jp,https://www.tableno.jp",
@@ -371,6 +395,7 @@ print(json.dumps({
     "account_prevent_enumeration": settings.ACCOUNT_PREVENT_ENUMERATION,
     "socialaccount_email_required": settings.SOCIALACCOUNT_EMAIL_REQUIRED,
     "account_forms": settings.ACCOUNT_FORMS,
+    "password_reset_timeout": settings.PASSWORD_RESET_TIMEOUT,
 }))
 """,
         )
@@ -384,6 +409,7 @@ print(json.dumps({
         self.assertFalse(payload["has_legacy_account_email_required"])
         self.assertTrue(payload["account_prevent_enumeration"])
         self.assertTrue(payload["socialaccount_email_required"])
+        self.assertEqual(payload["password_reset_timeout"], 24 * 60 * 60)
         self.assertEqual(
             payload["account_forms"]["reset_password"],
             "accounts.forms.CustomPasswordResetForm",
