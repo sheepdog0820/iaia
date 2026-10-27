@@ -6,19 +6,19 @@
 
 作業ブランチは `codex/release-candidate-20261028`。元の作業フォルダーのハンドアウト添付UI等の未コミット変更は保持し、この候補へ混ぜていない。
 
-[Draft PR #7](https://github.com/sheepdog0820/iaia/pull/7) を作成済み。**CIの依存監査が不合格のため、現時点ではマージ承認・AWS反映の実行承認を求めない。** 下記の手順は、検証条件を満たした時点で承認を受けるための具体案である。
+[Draft PR #7](https://github.com/sheepdog0820/iaia/pull/7) を作成済み。初回CIの依存監査不合格を受け、[依存更新と通常配布物の再検証](DEPENDENCY_SECURITY_2026-10-28.md)を追加した。**正式公開はNo-Go、mainマージ・共有DB移行・AWS反映は未実施。** mainマージは最終headのCI照合と、Twisted 26.10.0rc2の一時固定を明示した承認を前提とする。AWS/0068の手順は別の承認対象である。
 
 ## 基準となる版
 
 | 対象 | 読み取り結果 | 扱い |
 | --- | --- | --- |
 | GitHub main | `8567f49f8d411bad7f732afaeebad85357eeca09`。10月28日に `git ls-remote` で照合 | このコミットから専用worktreeを作成 |
-| 開発AWSのサービス設定 | `tableno-aws-pre:55`、0.25 vCPU / 512 MiB | 定時停止中でdesired/running=0、RDSもstopped。起動・変更はしていない |
+| 開発AWSのサービス設定 | `tableno-aws-pre:55`、0.25 vCPU / 512 MiB | 初回07:06 JSTは定時停止中。08:16 JSTの再確認ではdesired/running=1、タスクHEALTHY、RDS available。こちらから起動・変更はしていない |
 | 定義55のイメージ | `aws-pre-cbf52dc5`、`sha256:6d4050ec19ba5d34740643d515436baa5dd27b99a912b9c20ad7a9af0812af06` | ECRのタグと照合。既に配備された技能ボーナス表示修正を候補に保持 |
 | 技能統一の準備済み定義 | [10月19日の記録](../test_results/ui/CHARACTER_SKILL_OTHER_POINTS_2026-10-19.md)に定義56・共有DB未適用 | この候補は追加修正を含むため、56をそのまま投入する案は使わない |
-| 公開URL | 開発URLは定時メンテナンス画面/503。本番URLは調査端末で名前解決できず | 稼働時間帯の実操作、本番DNS/ACMは別途確認 |
+| 公開URL | 開発URLは初回の定時メンテナンス/503後、08:16 JSTのreadinessがHTTP 200、DB/cacheともok。本番URLは初回調査端末で名前解決できず | 今回の候補の配備・実操作、本番DNS/ACMは別途確認 |
 
-購入開始はFalse。調査したアカウント・東京リージョンではECS clusterはaws-pre、サービスはWebのみで、ElastiCacheは確認できなかった。他アカウント等の不存在は断定しない。Secrets値や実ユーザーデータは取得していない。
+購入開始はFalse。調査したアカウント・東京リージョンではECS clusterはaws-pre、サービスはWebのみで、ElastiCacheは確認できなかった。他アカウント等の不存在は断定しない。08:16 JSTの実行タスクも定義55・同じイメージdigestだった。Secrets値や実ユーザーデータは取得していない。
 
 ## 採用する修正
 
@@ -28,6 +28,7 @@
 | 技能表示・その他ポイントへの統一 | `cbf52dc5` / `ee9b3dae` | 既に配備された表示修正を保持し、承認済みの統一実装を取り込む。0068はファイル作成・隔離DB試験のみ。共有DBへの適用は行わない |
 | 7版の幸運・両版のよみがな | [Issue #6](https://github.com/sheepdog0820/iaia/issues/6) | 共有APIに `name_kana` と画面/出力に必要な7版派生値を追加。現在値0を保持し、6版の幸運判定は維持。誕生日の新規項目や実データ変更は含めない |
 | 月末のカレンダー権限テスト | 全体CIで失敗を確認 | 対象セッションが翌月になる場合もその月を照会する。公開/非公開の両方の検証を維持し、製品の認可や日付フィルターは変更しない |
+| Python依存・Dockerベース | 初回CIの68指摘と旧通常イメージの監査不合格 | [依存更新記録](DEPENDENCY_SECURITY_2026-10-28.md)に実行用6依存、開発/テスト用10依存と公式ベースdigest更新を記録。全ロック・Linux実インストールのPython監査は0件。OS監査と正式公開条件は継続 |
 
 課金キー、OAuth scope、Google Cloud設定、IAM、料金、保存期間、常設構成、購入有効化は変更しない。mainにある画像ギャラリー、秘匿HO保護、依存更新、サイトアイコン等も保持する。
 
@@ -68,11 +69,13 @@
 - 実イメージ内のコードと本番設定を使い、HTTPリダイレクトと許可ホストだけを隔離テスト向けに調整して関連33テスト成功。独立したテストDBを作成・破棄し、実ユーザーDBには接続していない。
 - 初回の合成設定はDBポート3306と架空Redisを引き継いで起動/readinessが失敗した。検証設定を5432・ローカルメモリーcacheへ修正し再確認した。Redis/worker/beatの本番相当検証を代替するものではない。
 
-### CIと依存監査の未完了
+### 初回CIと後続の依存更新
 
 [413d1f8bのpush CI](https://github.com/sheepdog0820/iaia/actions/runs/40595459727) はsystem、production-database、infrastructureが成功。Unit / Integrationは2034成功・38省略・1失敗、全体行カバレッジ87.45%だった。失敗した月末依存テストは上記のとおり修正済み。Playwrightは後続pushでキャンセルされたため全体成功とは扱わない。後続headの結果は [PRのChecks](https://github.com/sheepdog0820/iaia/pull/7/checks) で照合する。
 
 同runの依存監査は **10パッケージ・68指摘で失敗**。既存の固定依存（DRF、Pillow、Twisted、rembg、certifi、msgpack、および開発用Black/filelock/setuptools/virtualenv）に対する指摘で、今回の機能修正ではロックを変更していない。限定的なBandit注記の修正と、この依存監査の解消は別の事項である。
+
+後続の `619757f1` はUnit / Integrationが2035成功・38省略、Playwrightが228成功した。依存監査の不合格を受け、さらに[依存更新と再検証](DEPENDENCY_SECURITY_2026-10-28.md)を行った。上記の68指摘と下記の104指摘は更新前の証跡であり、新候補の数値は後続記録を優先する。最終headの全必須CIはPRのChecksで照合する。
 
 通常イメージのDocker Scout 1.5.0によるSARIFは、OSパッケージ22件に **104指摘（CRITICAL 8 / HIGH 38 / MEDIUM 22 / LOW 36）**。旧記録の39件やPython0件を現在の安全性判定に使わない。この出力だけでPython依存が安全とも判断しない。ツールの版・DB・実コンポーネントの適用条件を照合し、公式の安定版更新・再ビルド・再監査を後続の優先作業とする。独自パッチ、プレリリースへの無条件更新、監査除外で合格扱いにしない。
 
@@ -86,7 +89,7 @@
 
 Draft PRの最終headを対象に、全必須CI・差分レビュー・候補の確認後、mainへ通常マージする。マージ後のSHAを記録する。本番公開・AWS反映・DB適用を同時に行う承認にはしない。取り消す場合は通常のrevert PRで対象変更を戻す。
 
-現時点では依存監査不合格が残り、この前提を満たしていない。最終headの確認と必須CI成功の後に対象SHAを固定して承認を求める。
+依存更新後の最終headと必須CI成功を照合した後に、対象SHAを固定して承認を求める。Twistedのプレリリースを含む点、OSの残指摘、正式公開No-Goも承認時に示す。mainマージの承認でOS監査や正式公開が合格になったとは扱わない。
 
 ### 2. 開発AWSの反映と0068の実データ移行
 
