@@ -354,10 +354,11 @@ class CharacterSkillSerializer(serializers.ModelSerializer):
             "base_value",
             "occupation_points",
             "interest_points",
+            "bonus_points",
             "other_points",
             "current_value",
         ]
-        read_only_fields = ["id", "current_value"]
+        read_only_fields = ["id", "current_value", "bonus_points"]
 
 
 class CharacterEquipmentSerializer(serializers.ModelSerializer):

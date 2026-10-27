@@ -2231,6 +2231,7 @@ class CharacterSkillSystemData(models.Model):
     base_value = models.IntegerField(default=0)
     occupation_points = models.IntegerField(default=0)
     interest_points = models.IntegerField(default=0)
+    # Retained for legacy input compatibility; save() consolidates it into other_points.
     bonus_points = models.IntegerField(default=0)
     other_points = models.IntegerField(default=0)
     current_value = models.IntegerField(default=0)
@@ -2268,6 +2269,12 @@ class CharacterSkillSystemData(models.Model):
 
     def save(self, *args, **kwargs):
         skip_point_validation = kwargs.pop("skip_point_validation", False)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            update_fields = set(update_fields)
+            if not update_fields:
+                return super().save(*args, **kwargs)
+            kwargs["update_fields"] = update_fields
         if skip_point_validation:
             self._skip_point_validation = True
         try:
@@ -2275,10 +2282,19 @@ class CharacterSkillSystemData(models.Model):
         finally:
             if skip_point_validation:
                 delattr(self, "_skip_point_validation")
+        if self.bonus_points:
+            self.other_points += self.bonus_points
+            self.bonus_points = 0
+            if update_fields is not None:
+                update_fields.update({"bonus_points", "other_points"})
         self.current_value = sum(
             getattr(self, field)
             for field in ("base_value", "occupation_points", "interest_points", "bonus_points", "other_points")
         )
+        if update_fields is not None and update_fields.intersection(
+            {"base_value", "occupation_points", "interest_points", "bonus_points", "other_points"}
+        ):
+            update_fields.add("current_value")
         result = super().save(*args, **kwargs)
         if self.skill_name == "\u30af\u30c8\u30a5\u30eb\u30d5\u795e\u8a71" and self.character_sheet_id:
             self.character_sheet.update_max_sanity()
