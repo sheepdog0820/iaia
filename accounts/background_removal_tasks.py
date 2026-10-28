@@ -175,8 +175,11 @@ def start_background_removal_task(job):
     failures = response.get("failures", [])
     if failures or not response.get("tasks"):
         raise RuntimeError(f"Unable to launch background removal worker: {failures}")
-    job.task_arn = response["tasks"][0]["taskArn"]
-    job.save(update_fields=["task_arn", "updated_at"])
+    with transaction.atomic():
+        job.refresh_from_db(from_queryset=BackgroundRemovalJob.objects.select_for_update())
+        job.task_arn = response["tasks"][0]["taskArn"]
+        # Dispatch metadata must not reset worker timeout or result retention.
+        job.save(update_fields=["task_arn"])
 
 
 def process_background_removal_job(job_id):
