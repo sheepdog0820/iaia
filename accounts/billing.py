@@ -25,9 +25,10 @@ def get_stripe():
 
     if not settings.STRIPE_SECRET_KEY:
         raise ImproperlyConfigured("STRIPE_SECRET_KEY is required")
-    stripe.api_key = settings.STRIPE_SECRET_KEY
-    stripe.api_version = getattr(settings, "STRIPE_API_VERSION", "2026-02-25.clover")
-    return stripe
+    return stripe.StripeClient(
+        settings.STRIPE_SECRET_KEY,
+        stripe_version=getattr(settings, "STRIPE_API_VERSION", "2026-02-25.clover"),
+    )
 
 
 PRICE_SETTINGS_BY_PLAN = {
@@ -178,7 +179,7 @@ def get_or_create_stripe_customer(user):
             return record
         attempt = StripeBillingRequest.objects.get(subscription=record, operation="customer")
         _validate_billing_request_owner(attempt, record)
-        customer = execute_stripe_creation(attempt, stripe.Customer.create)
+        customer = execute_stripe_creation(attempt, stripe.v1.customers.create)
         record.stripe_customer_id = customer.id
         record.save(update_fields=["stripe_customer_id", "updated_at"])
         attempt.resource_id = customer.id
@@ -191,7 +192,7 @@ def execute_stripe_creation(attempt, create):
     # be reconciled by support, never silently retried with a fresh key.
     if attempt.created_at <= timezone.now() - timedelta(hours=23):
         raise ValueError("前回の購入処理の確認が必要です。お問い合わせ窓口へご連絡ください。")
-    return create(**attempt.parameters, idempotency_key=str(attempt.idempotency_key))
+    return create(params=attempt.parameters, options={"idempotency_key": str(attempt.idempotency_key)})
 
 
 def create_checkout_session(request, plan="monthly"):
@@ -221,7 +222,9 @@ def create_checkout_session(request, plan="monthly"):
             attempt = StripeBillingRequest.objects.filter(subscription=record, operation="checkout").first()
             if attempt is not None:
                 _validate_billing_request_owner(attempt, record)
-            subscriptions = stripe.Subscription.list(customer=record.stripe_customer_id, status="all", limit=100)
+            subscriptions = stripe.v1.subscriptions.list(
+                params={"customer": record.stripe_customer_id, "status": "all", "limit": 100}
+            )
             if any(
                 stripe_object_get(sub, "status") not in {"canceled", "incomplete_expired"}
                 for sub in subscriptions.auto_paging_iter()
@@ -230,16 +233,16 @@ def create_checkout_session(request, plan="monthly"):
             if attempt is None:
                 # Close untracked sessions from an older app version before
                 # creating an intent; otherwise two browser tabs could both pay.
-                open_sessions = stripe.checkout.Session.list(
-                    customer=record.stripe_customer_id, status="open", limit=100
+                open_sessions = stripe.v1.checkout.sessions.list(
+                    params={"customer": record.stripe_customer_id, "status": "open", "limit": 100}
                 )
                 for old_session in open_sessions.auto_paging_iter():
-                    stripe.checkout.Session.expire(old_session.id)
+                    stripe.v1.checkout.sessions.expire(old_session.id)
             if attempt is not None:
                 session = (
-                    stripe.checkout.Session.retrieve(attempt.resource_id)
+                    stripe.v1.checkout.sessions.retrieve(attempt.resource_id)
                     if attempt.resource_id
-                    else execute_stripe_creation(attempt, stripe.checkout.Session.create)
+                    else execute_stripe_creation(attempt, stripe.v1.checkout.sessions.create)
                 )
                 attempt.resource_id = session.id
                 attempt.save(update_fields=["resource_id"])
@@ -248,10 +251,10 @@ def create_checkout_session(request, plan="monthly"):
                     if attempt.parameters == parameters:
                         return session
                     # Expiration must succeed before another price can be purchased.
-                    stripe.checkout.Session.expire(session.id)
+                    stripe.v1.checkout.sessions.expire(session.id)
                 elif session_status == "complete":
                     subscription_id = stripe_object_get(session, "subscription")
-                    current = stripe.Subscription.retrieve(subscription_id) if subscription_id else None
+                    current = stripe.v1.subscriptions.retrieve(subscription_id) if subscription_id else None
                     if stripe_object_get(current, "status") not in {"canceled", "incomplete_expired"}:
                         raise ValueError("既に契約があります。請求管理画面で契約をご確認ください。")
                 elif session_status != "expired":
@@ -280,7 +283,7 @@ def create_portal_session(request):
         session_params = {"customer": record.stripe_customer_id, "return_url": return_url}
         if portal_configuration_id:
             session_params["configuration"] = portal_configuration_id
-        return stripe.billing_portal.Session.create(**session_params)
+        return stripe.v1.billing_portal.sessions.create(params=session_params)
 
 
 def sync_subscription_object(subscription, event_id=""):
@@ -416,7 +419,7 @@ def handle_checkout_completed(session, event_id=""):
         raise ValueError("Stripe checkout customer ownership mismatch")
 
     # Even expanded event payloads are historical snapshots. Fetch after locking.
-    current = get_stripe().Subscription.retrieve(subscription_id)
+    current = get_stripe().v1.subscriptions.retrieve(subscription_id)
     if (
         stripe_object_get(current, "id") != subscription_id
         or stripe_reference_id(stripe_object_get(current, "customer")) != customer_id
@@ -435,7 +438,7 @@ def handle_checkout_completed(session, event_id=""):
 
 
 def current_invoice_state(stripe, invoice_id, customer_id):
-    current = stripe.Invoice.retrieve(invoice_id)
+    current = stripe.v1.invoices.retrieve(invoice_id)
     if stripe_object_get(current, "id") != invoice_id or stripe_object_get(current, "customer") != customer_id:
         raise ValueError("Stripe invoice ownership mismatch")
     status = stripe_object_get(current, "status")
@@ -555,7 +558,7 @@ def reconcile_dispute_event(data_object, *, event_type, event_id=""):
     charge_id = stripe_reference_id(stripe_object_get(data_object, "charge"))
     if not dispute_id or not charge_id:
         raise ValueError("Stripe dispute reference missing")
-    charge = stripe.Charge.retrieve(charge_id)
+    charge = stripe.v1.charges.retrieve(charge_id)
     customer_id = stripe_reference_id(stripe_object_get(charge, "customer"))
     if stripe_object_get(charge, "id") != charge_id or not customer_id:
         raise ValueError("Stripe dispute charge ownership mismatch")
@@ -564,7 +567,7 @@ def reconcile_dispute_event(data_object, *, event_type, event_id=""):
         return None
     # Read under the same row lock as subscription/refund updates so an older
     # notification cannot overwrite a completed dispute with its old snapshot.
-    current = stripe.Dispute.retrieve(dispute_id)
+    current = stripe.v1.disputes.retrieve(dispute_id)
     if (
         stripe_object_get(current, "id") != dispute_id
         or stripe_reference_id(stripe_object_get(current, "charge")) != charge_id
@@ -630,7 +633,7 @@ def mark_refund_or_dispute(data_object, *, event_type, event_id=""):
     if not customer_id and charge_id:
         # Let the webhook record a failure so Stripe can retry a transient outage.
         stripe = get_stripe()
-        charge_obj = stripe.Charge.retrieve(charge_id)
+        charge_obj = stripe.v1.charges.retrieve(charge_id)
         customer_id = stripe_object_get(charge_obj, "customer", "")
 
     record = (
@@ -674,7 +677,7 @@ def mark_refund_or_dispute(data_object, *, event_type, event_id=""):
         and record.stripe_subscription_id
         and not has_other_automatic_payment_revocation(record.user, stripe_object_get(data_object, "id"))
     ):
-        current_subscription = get_stripe().Subscription.retrieve(record.stripe_subscription_id)
+        current_subscription = get_stripe().v1.subscriptions.retrieve(record.stripe_subscription_id)
         if (
             stripe_object_get(current_subscription, "id") != record.stripe_subscription_id
             or stripe_object_get(current_subscription, "customer") != record.stripe_customer_id

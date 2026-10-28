@@ -216,7 +216,7 @@ class PremiumCodeConcurrencyTests(TransactionTestCase):
             self.assertTrue(redemption_waiting.wait(timeout=10))
             return current
 
-        stripe.Subscription.retrieve.side_effect = retrieve_current
+        stripe.v1.subscriptions.retrieve.side_effect = retrieve_current
 
         def deliver_checkout():
             close_old_connections()

@@ -24,12 +24,12 @@ class StripeInvoiceOrderingTests(TestCase):
         self.stripe = Mock()
 
     def deliver(self, event_id, event_type, invoice_id, current_status):
-        self.stripe.Webhook.construct_event.return_value = {
+        self.stripe.construct_event.return_value = {
             "id": event_id,
             "type": event_type,
             "data": {"object": {"id": invoice_id, "customer": "cus_order"}},
         }
-        self.stripe.Invoice.retrieve.return_value = SimpleNamespace(
+        self.stripe.v1.invoices.retrieve.return_value = SimpleNamespace(
             id=invoice_id, customer="cus_order", status=current_status
         )
         with (
@@ -60,11 +60,11 @@ class StripeInvoiceOrderingTests(TestCase):
         self.assertEqual(BillingEmailDelivery.objects.count(), 1)
 
     def test_lookup_failure_remains_retryable(self):
-        self.stripe.Invoice.retrieve.side_effect = TimeoutError("temporary read failure")
+        self.stripe.v1.invoices.retrieve.side_effect = TimeoutError("temporary read failure")
         response = self.deliver("evt_retry", "invoice.payment_failed", "in_b", "open")
         self.assertEqual(response.status_code, 500)
         self.assertEqual(StripeWebhookEvent.objects.get().processing_status, "failed")
-        self.stripe.Invoice.retrieve.side_effect = None
+        self.stripe.v1.invoices.retrieve.side_effect = None
         self.assertEqual(self.deliver("evt_retry", "invoice.payment_failed", "in_b", "open").status_code, 200)
 
     def test_legacy_failure_is_seeded_without_being_cleared_by_other_invoice(self):
@@ -73,7 +73,7 @@ class StripeInvoiceOrderingTests(TestCase):
         PremiumAuditLog.objects.create(
             user=self.record.user, source="stripe", action="payment_failed", metadata={"invoice_id": "in_old"}
         )
-        self.stripe.Invoice.retrieve.side_effect = lambda invoice_id: SimpleNamespace(
+        self.stripe.v1.invoices.retrieve.side_effect = lambda invoice_id: SimpleNamespace(
             id=invoice_id, customer="cus_order", status="open" if invoice_id == "in_old" else "paid"
         )
         self.assertEqual(self.deliver("evt_new_paid", "invoice.payment_succeeded", "in_new", "paid").status_code, 200)
@@ -94,7 +94,7 @@ class StripeInvoiceOrderingTests(TestCase):
         PremiumAuditLog.objects.create(
             user=self.record.user, source="stripe", action="payment_failed", metadata={"invoice_id": "in_old"}
         )
-        self.stripe.Invoice.retrieve.side_effect = lambda invoice_id: SimpleNamespace(
+        self.stripe.v1.invoices.retrieve.side_effect = lambda invoice_id: SimpleNamespace(
             id=invoice_id, customer="cus_order", status="open" if invoice_id == "in_old" else "paid"
         )
         self.assertEqual(self.deliver("evt_reconcile", "invoice.payment_succeeded", "in_new", "paid").status_code, 200)
@@ -104,12 +104,12 @@ class StripeInvoiceOrderingTests(TestCase):
     def test_unlinked_customer_is_ignored_without_invoice_access(self):
         self.record.delete()
         self.assertEqual(self.deliver("evt_unlinked", "invoice.payment_failed", "in_unknown", "open").status_code, 200)
-        self.stripe.Invoice.retrieve.assert_not_called()
+        self.stripe.v1.invoices.retrieve.assert_not_called()
 
     def test_wrong_customer_or_unexpected_invoice_status_never_changes_state(self):
         for index, (customer, status) in enumerate((("cus_other", "paid"), ("cus_order", "draft"))):
             with self.subTest(customer=customer, status=status):
-                self.stripe.Invoice.retrieve.side_effect = lambda invoice_id: SimpleNamespace(
+                self.stripe.v1.invoices.retrieve.side_effect = lambda invoice_id: SimpleNamespace(
                     id=invoice_id, customer=customer, status=status
                 )
                 self.assertEqual(

@@ -18,7 +18,7 @@ class StripeCheckoutOrderingTests(TestCase):
             access_source="stripe",
         )
         self.stripe = Mock()
-        self.stripe.Subscription.retrieve.return_value = {
+        self.stripe.v1.subscriptions.retrieve.return_value = {
             "id": "sub_old",
             "customer": "cus_order",
             "status": "canceled",
@@ -47,7 +47,7 @@ class StripeCheckoutOrderingTests(TestCase):
         self.deliver()
         self.user.refresh_from_db()
         self.assertFalse(self.user.is_premium)
-        self.stripe.Subscription.retrieve.assert_called_once_with("sub_old")
+        self.stripe.v1.subscriptions.retrieve.assert_called_once_with("sub_old")
 
     def test_customer_mismatch_cannot_reassign_account(self):
         self.session["customer"] = "cus_other"
@@ -57,12 +57,12 @@ class StripeCheckoutOrderingTests(TestCase):
         self.assertEqual(self.record.stripe_customer_id, "cus_order")
 
     def test_remote_failure_preserves_link_and_retries(self):
-        self.stripe.Subscription.retrieve.side_effect = TimeoutError("temporary lookup failure")
+        self.stripe.v1.subscriptions.retrieve.side_effect = TimeoutError("temporary lookup failure")
         with self.assertRaises(TimeoutError):
             self.deliver()
         self.record.refresh_from_db()
         self.assertEqual(self.record.stripe_subscription_id, "sub_new")
-        self.stripe.Subscription.retrieve.side_effect = None
+        self.stripe.v1.subscriptions.retrieve.side_effect = None
         self.deliver()
         self.record.refresh_from_db()
         self.assertEqual(self.record.stripe_subscription_id, "sub_new")
@@ -70,7 +70,7 @@ class StripeCheckoutOrderingTests(TestCase):
     def test_invalid_subscription_references_roll_back(self):
         for key, value in (("id", "sub_other"), ("customer", "cus_other")):
             with self.subTest(key=key):
-                self.stripe.Subscription.retrieve.return_value = {
+                self.stripe.v1.subscriptions.retrieve.return_value = {
                     "id": "sub_old",
                     "customer": "cus_order",
                     "status": "active",
@@ -94,13 +94,13 @@ class StripeCheckoutOrderingTests(TestCase):
         self.assertIsNone(self.deliver())
         self.session["client_reference_id"] = str(self.user.pk + 10000)
         self.assertIsNone(self.deliver())
-        self.stripe.Subscription.retrieve.assert_not_called()
+        self.stripe.v1.subscriptions.retrieve.assert_not_called()
 
     def test_metadata_user_can_link_new_subscription(self):
         self.session["client_reference_id"] = ""
         self.session["metadata"] = {"user_id": str(self.user.pk)}
         self.session["subscription"] = {"id": "sub_fresh"}
-        self.stripe.Subscription.retrieve.return_value = {
+        self.stripe.v1.subscriptions.retrieve.return_value = {
             "id": "sub_fresh",
             "customer": "cus_order",
             "status": "active",
