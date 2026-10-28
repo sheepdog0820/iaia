@@ -112,30 +112,39 @@ def cleanup_background_removal_jobs(*, now=None, dry_run=False):
             timed_out_jobs += 1
     summary["timed_out_jobs"] = timed_out_jobs
 
-    for job in expired_jobs.iterator():
-        cleared_fields = []
-        deletion_failed = False
-        for field_name in ("source_image", "result_image"):
-            if not getattr(job, field_name):
+    for candidate in expired_jobs.iterator():
+        with transaction.atomic():
+            # Recheck both age and status after acquiring the current row lock.
+            job = expired_jobs.select_for_update().filter(pk=candidate.pk).first()
+            if job is None:
                 continue
-            if _delete_job_file(job, field_name):
-                cleared_fields.append(field_name)
-            else:
-                deletion_failed = True
-        if deletion_failed:
-            if cleared_fields:
-                job.save(update_fields=cleared_fields)
-            summary["failed_jobs"] += 1
-            continue
-        job.delete()
-        summary["deleted_jobs"] += 1
+            cleared_fields = []
+            deletion_failed = False
+            for field_name in ("source_image", "result_image"):
+                if not getattr(job, field_name):
+                    continue
+                if _delete_job_file(job, field_name):
+                    cleared_fields.append(field_name)
+                else:
+                    deletion_failed = True
+            if deletion_failed:
+                if cleared_fields:
+                    job.save(update_fields=cleared_fields)
+                summary["failed_jobs"] += 1
+                continue
+            job.delete()
+            summary["deleted_jobs"] += 1
 
-    for job in expired_results.iterator():
-        if not _delete_job_file(job, "result_image"):
-            summary["failed_jobs"] += 1
-            continue
-        job.save(update_fields=["result_image"])
-        summary["deleted_result_images"] += 1
+    for candidate in expired_results.iterator():
+        with transaction.atomic():
+            job = expired_results.select_for_update().filter(pk=candidate.pk).first()
+            if job is None:
+                continue
+            if not _delete_job_file(job, "result_image"):
+                summary["failed_jobs"] += 1
+                continue
+            job.save(update_fields=["result_image"])
+            summary["deleted_result_images"] += 1
 
     return summary
 
