@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from accounts.billing import get_stripe
 from accounts.management.commands.billing_preflight import REQUIRED_WEBHOOK_EVENTS
+from tableno.stripe_keys import stripe_server_key_livemode
 
 RECENT_OPERATIONAL_EVENT_TYPES = (
     "checkout.session.completed",
@@ -158,15 +159,18 @@ def get_expected_unit_amount(setting_name):
 def get_expected_livemode():
     secret_key = getattr(settings, "STRIPE_SECRET_KEY", "")
     environment = getattr(settings, "ENVIRONMENT", "").strip().lower()
-    if secret_key.startswith("sk_live_"):
+    livemode = stripe_server_key_livemode(secret_key)
+    if livemode is True:
         if environment != "production":
             raise CommandError("STRIPE_SECRET_KEY live key cannot be used outside production")
         return True
-    if secret_key.startswith("sk_test_"):
+    if livemode is False:
         if environment == "production":
             raise CommandError("STRIPE_SECRET_KEY test key cannot be used in production")
         return False
-    raise CommandError("STRIPE_SECRET_KEY must start with sk_test_ or sk_live_")
+    raise CommandError(
+        "STRIPE_SECRET_KEYにはsk_test_ / rk_test_ / sk_live_ / rk_live_で始まるサーバーキーを設定してください。"
+    )
 
 
 def validate_price(

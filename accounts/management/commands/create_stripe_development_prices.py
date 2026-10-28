@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from accounts.billing import get_stripe
+from tableno.stripe_keys import stripe_server_key_livemode
 
 
 class Command(BaseCommand):
@@ -100,8 +101,10 @@ class Command(BaseCommand):
         secret_key = getattr(settings, "STRIPE_SECRET_KEY", "")
         environment = getattr(settings, "ENVIRONMENT", "").strip().lower()
         currency = options["currency"].strip().lower()
-        if not secret_key.startswith("sk_test_"):
-            raise CommandError("STRIPE_SECRET_KEY must be a test key starting with sk_test_")
+        if stripe_server_key_livemode(secret_key) is not False:
+            raise CommandError(
+                "STRIPE_SECRET_KEYにはsk_test_ / rk_test_で始まるテスト用サーバーキーを設定してください。"
+            )
         if environment == "production":
             raise CommandError("create_stripe_development_prices cannot run in production")
         if currency != options["currency"] or len(currency) != 3 or not currency.isalpha():

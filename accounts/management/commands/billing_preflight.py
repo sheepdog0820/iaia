@@ -7,6 +7,8 @@ from django.core.validators import validate_email
 from django.test import Client
 from django.urls import NoReverseMatch, reverse
 
+from tableno.stripe_keys import stripe_server_key_livemode
+
 LEGAL_PAGE_REQUIRED_TEXT = {
     "commercial_disclosure": (
         "\u7279\u5b9a\u5546\u53d6\u5f15\u6cd5\u306b\u57fa\u3065\u304f\u8868\u8a18",
@@ -172,18 +174,21 @@ class Command(BaseCommand):
         )
 
     def _stripe_secret_key_check(self):
-        name, ok, message = self._setting_check("STRIPE_SECRET_KEY", required_prefix="sk_")
+        name, ok, message = self._setting_check("STRIPE_SECRET_KEY")
         if not ok:
             return name, ok, message
         value = str(getattr(settings, "STRIPE_SECRET_KEY", ""))
+        livemode = stripe_server_key_livemode(value)
+        if livemode is None:
+            return name, False, "sk_test_ / rk_test_ / sk_live_ / rk_live_ で始まるサーバーキーを設定してください。"
         environment = (
             str(getattr(settings, "ENVIRONMENT", "") or getattr(settings, "DJANGO_ENV", "") or "development")
             .strip()
             .lower()
         )
-        if environment == "production" and value.startswith("sk_test_"):
+        if environment == "production" and livemode is False:
             return "STRIPE_SECRET_KEY", False, "test Stripe secret key cannot be used in production"
-        if environment != "production" and value.startswith("sk_live_"):
+        if environment != "production" and livemode is True:
             return "STRIPE_SECRET_KEY", False, "live Stripe secret key cannot be used outside production"
         return "STRIPE_SECRET_KEY", True, ""
 
