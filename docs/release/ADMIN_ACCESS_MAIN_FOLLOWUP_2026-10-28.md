@@ -28,6 +28,14 @@ Python 3.11.18 / Django 5.2.17 / PostgreSQL 18.3、現在の固定依存で検�
 
 整形確認後、既存の課金・同時処理・退会・運営コード・失効・再照合・有料機能を含む8ファイルの **269テスト・41 subtestsが実PostgreSQLで成功、省略なし**。追加/変更実行文は33/33のまま、admin全体は約83%である。SQLiteでも13テスト・9 subtests成功、行ロックが必要な3テストのみ意図して省略し、同じ3テストはPostgreSQLで成功した。証跡は `tmp/admin-access-pg-broad.log`、`tmp/admin-access-sqlite.log` に保持する。実Stripeの操作・通信は行っていない。通常配布物と最終CIはまだこの結果に含めない。
 
+### 通常配布物
+
+製品修正 `e8804c7e3981df3806aaa1c365c1ac2c15d58f79` を通常pushし、そのgit archiveから通常Dockerfileで構築した。タグ `tableno:release-candidate-e8804c7e`、イメージID `sha256:3b8741db22a8b9e602ebf836777efa835fa22f9233d8b4223d4db164bdcbab5e`。製品ソース・固定依存・試験・entrypoint等21ファイルと実entrypointのGit blob一致を確認した。
+
+通常配布物内でも、同じ8モジュールの **269 Djangoテストが実PostgreSQLで成功、省略なし**。合成設定ファイルだけを読み取り専用で渡し、製品ソースのbind mount・pip/pytest追加なし、UID10001・読み取り専用・外部通信なしで実行した。実Stripeの参照は既存試験のmockだけであり、実購入・実返金や実ユーザー操作を代替するものではない。証跡は `tmp/admin-access-normal-image-build.log`、`tmp/admin-access-normal-runtime.log`、`tmp/admin-access-normal-source-manifest.json` に保持する。OS再監査・ECR push・AWS反映は行っていない。
+
+[Draft PR #12](https://github.com/sheepdog0820/iaia/pull/12)はPR #10をbaseとし、上記の製品修正と後続の資料コミットを区別する。最終CIはChecksで照合し、完了前の結果をマージ可能とは扱わない。
+
 ## 承認境界と復旧
 
 現時点で共有DB・実ユーザー権限・実Stripe・実AWSを変更していない。DBスキーマ/移行、Secrets/IAM/OAuth、課金/返金、常設資源・継続費用、外部ユーザー通知の変更はない。コードの修正・隔離検証・作業ブランチへの通常push・Draft PRまでを進め、先行PRのマージ後の差分と最終CIを固定してmainへの追加マージを別途承認してもらう。
