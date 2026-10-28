@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import ANY, Mock, patch
 
+from django.conf import settings
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -2593,6 +2594,9 @@ recent_event_ids:
 - customer.subscription.created: evt_created_recent
 - customer.subscription.updated: evt_update_recent
 - customer.subscription.deleted: evt_deleted_recent
+- customer.subscription.paused: evt_paused_recent
+- customer.subscription.resumed: evt_resumed_recent
+- invoice.paid: evt_paid_recent
 - invoice.payment_failed: evt_failed_recent
 - invoice.payment_succeeded: evt_succeeded_recent
 - charge.refunded: evt_refunded_recent
@@ -2652,6 +2656,9 @@ Premium audit logs
                 stdout.write("- customer.subscription.created: evt_created_recent\n")
                 stdout.write("- customer.subscription.updated: evt_update_recent\n")
                 stdout.write("- customer.subscription.deleted: evt_deleted_recent\n")
+                stdout.write("- customer.subscription.paused: evt_paused_recent\n")
+                stdout.write("- customer.subscription.resumed: evt_resumed_recent\n")
+                stdout.write("- invoice.paid: evt_paid_recent\n")
                 stdout.write("- invoice.payment_failed: evt_failed_recent\n")
                 stdout.write("- invoice.payment_succeeded: evt_succeeded_recent\n")
                 stdout.write("- charge.refunded: evt_refunded_recent\n")
@@ -3424,6 +3431,7 @@ class BillingPreflightCommandTestCase(TestCase):
                 {
                     "url": "https://example.test/api/billing/webhook/",
                     "livemode": False,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": list(REQUIRED_WEBHOOK_EVENTS),
                 }
             ]
@@ -3473,6 +3481,7 @@ class BillingPreflightCommandTestCase(TestCase):
                 {
                     "url": "https://example.test/api/billing/webhook/",
                     "livemode": False,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": list(REQUIRED_WEBHOOK_EVENTS),
                 }
             ]
@@ -3547,6 +3556,7 @@ class BillingPreflightCommandTestCase(TestCase):
                 {
                     "url": "https://example.test/api/billing/webhook/",
                     "livemode": False,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": list(REQUIRED_WEBHOOK_EVENTS),
                 }
             ]
@@ -3563,6 +3573,9 @@ class BillingPreflightCommandTestCase(TestCase):
                     "data": {"object": {"cancel_at_period_end": True}},
                 },
                 {"id": "evt_deleted_recent", "type": "customer.subscription.deleted", "livemode": False},
+                {"id": "evt_paused_recent", "type": "customer.subscription.paused", "livemode": False},
+                {"id": "evt_resumed_recent", "type": "customer.subscription.resumed", "livemode": False},
+                {"id": "evt_paid_recent", "type": "invoice.paid", "livemode": False},
                 {"id": "evt_failed_recent", "type": "invoice.payment_failed", "livemode": False},
                 {"id": "evt_succeeded_recent", "type": "invoice.payment_succeeded", "livemode": False},
                 {"id": "evt_refunded_recent", "type": "charge.refunded", "livemode": False},
@@ -3621,6 +3634,7 @@ class BillingPreflightCommandTestCase(TestCase):
                 {
                     "url": "https://example.test/api/billing/webhook/",
                     "livemode": False,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": list(REQUIRED_WEBHOOK_EVENTS),
                 }
             ]
@@ -3637,6 +3651,9 @@ class BillingPreflightCommandTestCase(TestCase):
                     "data": {"object": {"cancel_at_period_end": False}},
                 },
                 {"id": "evt_deleted_recent", "type": "customer.subscription.deleted", "livemode": False},
+                {"id": "evt_paused_recent", "type": "customer.subscription.paused", "livemode": False},
+                {"id": "evt_resumed_recent", "type": "customer.subscription.resumed", "livemode": False},
+                {"id": "evt_paid_recent", "type": "invoice.paid", "livemode": False},
                 {"id": "evt_failed_recent", "type": "invoice.payment_failed", "livemode": False},
                 {"id": "evt_succeeded_recent", "type": "invoice.payment_succeeded", "livemode": False},
                 {"id": "evt_refunded_recent", "type": "charge.refunded", "livemode": False},
@@ -3677,6 +3694,7 @@ class BillingPreflightCommandTestCase(TestCase):
                 {
                     "url": "https://example.test/api/billing/webhook/",
                     "livemode": False,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": list(REQUIRED_WEBHOOK_EVENTS),
                 }
             ]
@@ -3693,6 +3711,9 @@ class BillingPreflightCommandTestCase(TestCase):
                     "data": {"object": {"cancel_at_period_end": True}},
                 },
                 {"id": "evt_deleted_recent", "type": "customer.subscription.deleted", "livemode": False},
+                {"id": "evt_paused_recent", "type": "customer.subscription.paused", "livemode": False},
+                {"id": "evt_resumed_recent", "type": "customer.subscription.resumed", "livemode": False},
+                {"id": "evt_paid_recent", "type": "invoice.paid", "livemode": False},
                 {"id": "evt_failed_recent", "type": "invoice.payment_failed", "livemode": False},
                 {"id": "evt_succeeded_recent", "type": "invoice.payment_succeeded", "livemode": False},
             ]
@@ -3950,6 +3971,7 @@ class BillingPreflightCommandTestCase(TestCase):
                 {
                     "url": "https://example.test/api/billing/webhook/",
                     "livemode": False,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": ["checkout.session.completed"],
                 }
             ]
@@ -3986,6 +4008,7 @@ class BillingPreflightCommandTestCase(TestCase):
                     "url": "https://example.test/api/billing/webhook/",
                     "status": "disabled",
                     "livemode": False,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": list(REQUIRED_WEBHOOK_EVENTS),
                 }
             ]
@@ -4021,6 +4044,7 @@ class BillingPreflightCommandTestCase(TestCase):
                 {
                     "url": "https://example.test/api/billing/webhook/",
                     "livemode": True,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": list(REQUIRED_WEBHOOK_EVENTS),
                 }
             ]

@@ -51,7 +51,7 @@ daphne>=4.1.0
 Twisted==26.10.0rc2
 
 # Billing, security, and monitoring
-stripe>=15.5.1,<16
+stripe>=16.0.1,<17
 django-ratelimit>=4.1.0
 # before_send_log is a top-level option from Sentry SDK 2.35.
 sentry-sdk>=2.35.0,<3

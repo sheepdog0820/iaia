@@ -194,6 +194,7 @@ class StripeClientTransportTests(TestCase):
                         "livemode": False,
                         "status": "enabled",
                         "enabled_events": ["*"],
+                        "api_version": "2026-02-25.clover",
                     }
                 ],
             ),
