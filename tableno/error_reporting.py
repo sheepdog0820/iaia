@@ -13,6 +13,10 @@ def is_sdk_logger(name):
     return isinstance(name, str) and name.partition(".")[0] in {"botocore", "boto3"}
 
 
+def is_request_logger(name):
+    return isinstance(name, str) and (name == "django.request" or name.startswith("django.security"))
+
+
 def error_summary(record):
     request = getattr(record, "request", None)
     match = getattr(request, "resolver_match", None)
@@ -58,43 +62,100 @@ def _sentry_sdk_message(record):
     return sdk_error_summary(record)[1] if record is not None else "AWS SDK diagnostic payload omitted"
 
 
+def _sentry_request_record(event, hint):
+    record = (hint or {}).get("log_record")
+    if isinstance(record, logging.LogRecord) and (hasattr(record, "request") or is_request_logger(record.name)):
+        return record
+    values = (event.get("exception") or {}).get("values") or []
+    django_exception = any(
+        isinstance(value, dict) and (value.get("mechanism") or {}).get("type") == "django" for value in values
+    )
+    name = event.get("logger")
+    if not (is_request_logger(name) or isinstance(event.get("request"), dict) or django_exception):
+        return None
+    if isinstance(record, logging.LogRecord):
+        return record
+    level = logging.getLevelNamesMapping().get(str(event.get("level", "error")).upper(), logging.ERROR)
+    return logging.LogRecord(
+        name if is_request_logger(name) else "django.request", level, __file__, 0, "", (), (hint or {}).get("exc_info")
+    )
+
+
+def _safe_request_mechanism(event):
+    values = (event.get("exception") or {}).get("values") or []
+    for value in reversed(values):
+        mechanism = (value.get("mechanism") or {}) if isinstance(value, dict) else {}
+        kind = mechanism.get("type")
+        if kind in {"django", "logging"}:
+            handled = mechanism.get("handled")
+            return {"type": kind, "handled": handled if isinstance(handled, bool) else kind != "django"}
+    return {"type": "logging", "handled": True}
+
+
 def safe_sentry_event(event, hint):
+    request_record = None
     record = _sentry_sdk_record(hint)
     name = record.name if record is not None else event.get("logger")
-    if not is_sdk_logger(name):
-        return event
+    if is_sdk_logger(name):
+        message = "AWS SDK diagnostic"
+        formatted = _sentry_sdk_message(record)
+        fingerprint = ["aws-sdk", name, sdk_error_summary(record)[0] if record is not None else "unknown"]
+    else:
+        record = _sentry_request_record(event, hint)
+        if record is None:
+            return event
+        name = record.name
+        request_record = record
+        subject, formatted = error_summary(record)
+        message = "HTTP request diagnostic"
+        fingerprint = ["http-request", name, subject]
     safe = {
         key: event[key]
         for key in ("event_id", "timestamp", "level", "platform", "release", "environment")
         if key in event
     }
     safe["logger"] = name
-    safe["logentry"] = {"message": "AWS SDK diagnostic", "formatted": _sentry_sdk_message(record)}
-    safe["fingerprint"] = ["aws-sdk", name, sdk_error_summary(record)[0] if record is not None else "unknown"]
+    safe["logentry"] = {"message": message, "formatted": formatted}
+    safe["fingerprint"] = fingerprint
+    if request_record is not None and request_record.exc_info and request_record.exc_info[0]:
+        safe["exception"] = {
+            "values": [{"type": request_record.exc_info[0].__name__, "mechanism": _safe_request_mechanism(event)}]
+        }
     return safe
 
 
 def safe_sentry_breadcrumb(breadcrumb, hint):
     record = _sentry_sdk_record(hint)
     name = record.name if record is not None else breadcrumb.get("category")
-    if not is_sdk_logger(name):
-        return breadcrumb
+    if is_sdk_logger(name):
+        message = _sentry_sdk_message(record)
+    else:
+        record = _sentry_request_record({"logger": name, "level": breadcrumb.get("level")}, hint)
+        if record is None:
+            return breadcrumb
+        name = record.name
+        message = error_summary(record)[1]
     safe = {key: breadcrumb[key] for key in ("type", "level", "timestamp") if key in breadcrumb}
     safe["category"] = name
-    safe["message"] = _sentry_sdk_message(record)
+    safe["message"] = message
     return safe
 
 
 def safe_sentry_log(log, hint):
     attributes = log.get("attributes") or {}
-    if not is_sdk_logger(attributes.get("logger.name")):
+    name = attributes.get("logger.name")
+    if is_sdk_logger(name):
+        message = "AWS SDK diagnostic payload omitted"
+    elif is_request_logger(name) or "request" in attributes:
+        message = "HTTP request diagnostic payload omitted"
+    else:
         return log
     safe = {
         key: log[key]
         for key in ("severity_text", "severity_number", "time_unix_nano", "trace_id", "span_id")
         if key in log
     }
-    safe["body"] = "AWS SDK diagnostic payload omitted"
+    safe["body"] = message
     safe["attributes"] = {
         key: attributes[key] for key in ("logger.name", "code.function.name", "code.line.number") if key in attributes
     }
@@ -110,12 +171,7 @@ class SafeAdminEmailHandler(AdminEmailHandler):
 class SafeRequestFormatter(logging.Formatter):
     def format(self, record):
         safe_record = copy(record)
-        if (
-            hasattr(record, "request")
-            or record.name == "django.request"
-            or record.name.startswith("django.security")
-            or is_sdk_logger(record.name)
-        ):
+        if hasattr(record, "request") or is_request_logger(record.name) or is_sdk_logger(record.name):
             _, safe_record.msg = sdk_error_summary(record) if is_sdk_logger(record.name) else error_summary(record)
             safe_record.args = ()
             safe_record.exc_info = None
