@@ -2223,22 +2223,12 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
 
     def perform_update(self, serializer):
         """Return model validation errors to the client instead of turning them into 500s."""
-        skill = serializer.instance
         try:
             serializer.save()
         except DjangoValidationError as exc:
             raise DRFValidationError(exc.message_dict if hasattr(exc, "message_dict") else exc.messages) from exc
-        except Exception:
-            logger.exception(
-                "Character skill update failed: character_sheet_id=%s character_detail_id=%s "
-                "skill_id=%s skill_name=%r user_id=%s fields=%s",
-                self.get_character_sheet_id(),
-                skill.character_sheet_id,
-                skill.id,
-                skill.skill_name,
-                self.request.user.id,
-                sorted(serializer.validated_data.keys()),
-            )
+        except Exception as exc:
+            logger.error("Character skill update failed (exception_type=%s).", type(exc).__name__)
             raise
 
     @action(detail=False, methods=["post"])
