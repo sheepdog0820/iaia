@@ -65,7 +65,7 @@ class PaidFeatureLifecycleTests(TestCase):
         ).hexdigest()
         if not valid_signature:
             signature = "0" * 64
-        with patch("stripe.Subscription.retrieve", return_value=event["data"]["object"]):
+        with patch("stripe._subscription_service.SubscriptionService.retrieve", return_value=event["data"]["object"]):
             return self.client.post(
                 reverse("billing-webhook"),
                 data=payload,

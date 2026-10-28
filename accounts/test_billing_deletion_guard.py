@@ -12,9 +12,9 @@ from accounts.models import PremiumSubscription, StripeBillingRequest
 class BillingDeletionGuardTests(TestCase):
     def setUp(self):
         self.stripe = Mock()
-        self.stripe.Subscription.list.return_value.auto_paging_iter.return_value = []
-        self.stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = []
-        self.stripe.Subscription.retrieve.return_value = {
+        self.stripe.v1.subscriptions.list.return_value.auto_paging_iter.return_value = []
+        self.stripe.v1.checkout.sessions.list.return_value.auto_paging_iter.return_value = []
+        self.stripe.v1.subscriptions.retrieve.return_value = {
             "id": "sub_guard",
             "customer": "cus_guard",
             "status": "canceled",
@@ -99,15 +99,15 @@ class BillingDeletionGuardTests(TestCase):
     def test_open_checkout_is_expired_before_deletion(self):
         user = self.make_user("open-checkout", stripe_customer_id="cus_guard")
         session = {"id": "cs_guard", "customer": "cus_guard", "status": "open"}
-        self.stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = [session]
-        self.stripe.checkout.Session.expire.return_value = {**session, "status": "expired"}
+        self.stripe.v1.checkout.sessions.list.return_value.auto_paging_iter.return_value = [session]
+        self.stripe.v1.checkout.sessions.expire.return_value = {**session, "status": "expired"}
         self.assertRedirects(self.delete_account(), reverse("home"), fetch_redirect_response=False)
-        self.stripe.checkout.Session.expire.assert_called_once_with("cs_guard")
+        self.stripe.v1.checkout.sessions.expire.assert_called_once_with("cs_guard")
         self.assertFalse(get_user_model().objects.filter(pk=user.pk).exists())
 
     def test_completed_checkout_with_delayed_webhook_preserves_account(self):
         user = self.make_user("late-webhook", stripe_customer_id="cus_guard")
-        self.stripe.Subscription.list.return_value.auto_paging_iter.return_value = [
+        self.stripe.v1.subscriptions.list.return_value.auto_paging_iter.return_value = [
             {"id": "sub_new", "customer": "cus_guard", "status": "active"}
         ]
         self.assertRedirects(self.delete_account(), reverse("billing"), fetch_redirect_response=False)
@@ -122,16 +122,16 @@ class BillingDeletionGuardTests(TestCase):
 
     def test_expiration_failure_preserves_account(self):
         user = self.make_user("expire-race", stripe_customer_id="cus_guard")
-        self.stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = [
+        self.stripe.v1.checkout.sessions.list.return_value.auto_paging_iter.return_value = [
             {"id": "cs_guard", "customer": "cus_guard", "status": "open"}
         ]
-        self.stripe.checkout.Session.expire.side_effect = RuntimeError("simulated completion race")
+        self.stripe.v1.checkout.sessions.expire.side_effect = RuntimeError("simulated completion race")
         self.delete_account()
         self.assertTrue(get_user_model().objects.filter(pk=user.pk).exists())
 
     def test_remote_lookup_failure_preserves_account(self):
         user = self.make_user("lookup-failed", stripe_customer_id="cus_guard")
-        self.stripe.Subscription.list.side_effect = RuntimeError("simulated lookup failure")
+        self.stripe.v1.subscriptions.list.side_effect = RuntimeError("simulated lookup failure")
         self.delete_account()
         self.assertTrue(get_user_model().objects.filter(pk=user.pk).exists())
 
@@ -150,7 +150,7 @@ class BillingDeletionGuardTests(TestCase):
                 StripeBillingRequest.objects.create(
                     subscription=user.premium_subscription, operation="checkout", resource_id="cs_guard"
                 )
-                self.stripe.checkout.Session.retrieve.return_value = session
+                self.stripe.v1.checkout.sessions.retrieve.return_value = session
                 self.delete_account()
                 self.assertEqual(get_user_model().objects.filter(pk=user.pk).exists(), not allowed)
 
@@ -162,8 +162,8 @@ class BillingDeletionGuardTests(TestCase):
             )
         ):
             user = self.make_user(f"bad-expiry-{index}", stripe_customer_id="cus_guard")
-            self.stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = [session]
-            self.stripe.checkout.Session.expire.return_value = session
+            self.stripe.v1.checkout.sessions.list.return_value.auto_paging_iter.return_value = [session]
+            self.stripe.v1.checkout.sessions.expire.return_value = session
             self.delete_account()
             self.assertTrue(get_user_model().objects.filter(pk=user.pk).exists())
 
@@ -181,7 +181,7 @@ class BillingDeletionGuardTests(TestCase):
                 stripe_subscription_id="sub_guard",
                 subscription_status="canceled",
             )
-            self.stripe.Subscription.retrieve.return_value = remote
+            self.stripe.v1.subscriptions.retrieve.return_value = remote
             self.delete_account()
             self.assertTrue(get_user_model().objects.filter(pk=user.pk).exists())
 

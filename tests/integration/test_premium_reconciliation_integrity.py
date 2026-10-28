@@ -170,7 +170,7 @@ class PremiumReconciliationConcurrencyTests(ReconciliationOperations, Transactio
             self.assertTrue(reconciliation_waiting.wait(timeout=10))
             return {"id": subscription_id, "customer": "cus_reconcile_race", "status": "active"}
 
-        stripe.Subscription.retrieve.side_effect = retrieve_current
+        stripe.v1.subscriptions.retrieve.side_effect = retrieve_current
 
         def checkout():
             close_old_connections()
