@@ -30,6 +30,14 @@ Black/isortは対象2ファイルだけを確認して変更なし、Flake8/Band
 
 その後、既存の再試行・Webhook/返金/支払イベント順序の9モジュールも含めた **20モジュール、396テスト・84 subtestsが実PostgreSQLで成功、省略なし**。追加/変更実行文は **39/39** を通過し、当初の設定ID用の行も既存の正の回帰で通過した。billing全体は約96%であり、全体100%とはしない。SQLiteも修正後の16テスト・25 subtests成功、ロック等が必要な6件のみ意図して省略し、同じ6件はPostgreSQLで成功した。証跡は失敗を保持した `tmp/billing-owner-pg-broad.log`、原因確認/修正の `tmp/billing-owner-webhook-isolation-green.log`、最終の `tmp/billing-owner-pg-final.log` と `tmp/billing-owner-sqlite-final.log`。試験内のStripe参照はmockまたは合成署名のローカル検証であり、実サービスへの送信は行っていない。通常配布物・最終CIは別途照合する。
 
+### 通常配布物
+
+製品修正 `21f8d60177266cd116589d1275f04bc229c88014` を通常push後、そのgit archiveから通常Dockerfileで構築した。タグ `tableno:release-candidate-21f8d601`、イメージID `sha256:3c8280d4f3098b297d00676cd50917fb5a52ea864cf980f0548d8f6e3bf92024`。製品ソース・固定依存・試験・entrypoint等35ファイルと実entrypointのGit blob一致を確認した。
+
+配布物内でも同じ20モジュールの **396 Djangoテストが実PostgreSQLで成功、省略なし**。合成設定ファイルだけを渡し、製品ソースbind mount・pip/pytest追加なし、UID10001・読み取り専用・外部通信なしで実行した。証跡は `tmp/billing-owner-normal-image-build.log`、`tmp/billing-owner-normal-runtime.log`、`tmp/billing-owner-normal-source-manifest.json` に保持する。実Stripeや実ユーザーの操作、OS再監査・ECR push・実AWS反映は行っていない。
+
+[Draft PR #15](https://github.com/sheepdog0820/iaia/pull/15)はPR #14をbaseとし、製品修正と後続の検証資料コミットを区別する。最終CIはChecksで照合し、CI待ちの候補をマージ可能とは扱わない。
+
 ## 承認と復旧
 
 実ユーザーの課金/権限・実Stripe・実AWS・外部通知は操作していない。DBスキーマ/移行、Secrets/IAM/OAuth、料金・保持期間・常設資源/費用の変更はない。作業ブランチの通常push・Draft PRまでを進め、先行PR後のbase変更と最終head・差分・CIを照合し、mainへの追加マージを別途承認してもらう。
