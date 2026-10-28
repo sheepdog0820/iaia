@@ -647,39 +647,50 @@ class PremiumSubscriptionAdmin(admin.ModelAdmin):
     @admin.action(description="選択した課金レコードのプレミアム権限を停止する")
     def revoke_selected_access(self, request, queryset):
         count = 0
-        for record in queryset.select_related("user"):
-            record.revoke_access("Revoked manually by admin action", save=True)
-            create_premium_audit_log(
-                record.user,
-                action="revoked",
-                source=record.access_source,
-                reason="Revoked manually by admin action",
-                metadata={"subscription_id": record.pk},
-                actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
-            )
+        record_ids = queryset.order_by("pk").values_list("pk", flat=True)
+        for record_id in record_ids.iterator():
+            with transaction.atomic():
+                record = PremiumSubscription.objects.select_for_update().filter(pk=record_id).first()
+                if record is None:
+                    continue
+                record.revoke_access("Revoked manually by admin action", save=True)
+                create_premium_audit_log(
+                    record.user,
+                    action="revoked",
+                    source=record.access_source,
+                    reason="Revoked manually by admin action",
+                    metadata={"subscription_id": record.pk},
+                    actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
+                )
             count += 1
         self.message_user(request, f"{count}件のプレミアム権限を停止しました。")
 
     @admin.action(description="選択した課金レコードの失効状態を解除して権限を再同期する")
     def restore_selected_access(self, request, queryset):
         changed = 0
-        for record in queryset.select_related("user"):
-            before = record.user.is_premium
-            record.revoked_at = None
-            record.revoked_reason = ""
-            record.save(update_fields=["revoked_at", "revoked_reason", "updated_at"])
-            record.sync_user_premium_access()
-            record.user.refresh_from_db()
-            if before != record.user.is_premium:
+        record_ids = queryset.order_by("pk").values_list("pk", flat=True)
+        for record_id in record_ids.iterator():
+            with transaction.atomic():
+                record = PremiumSubscription.objects.select_for_update().filter(pk=record_id).first()
+                if record is None:
+                    continue
+                before = record.user.is_premium
+                record.revoked_at = None
+                record.revoked_reason = ""
+                record.save(update_fields=["revoked_at", "revoked_reason", "updated_at"])
+                record.sync_user_premium_access()
+                record.user.refresh_from_db()
+                access_changed = before != record.user.is_premium
+                create_premium_audit_log(
+                    record.user,
+                    action="restored",
+                    source=record.access_source,
+                    reason="Premium access restored manually by admin action",
+                    metadata={"subscription_id": record.pk},
+                    actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
+                )
+            if access_changed:
                 changed += 1
-            create_premium_audit_log(
-                record.user,
-                action="restored",
-                source=record.access_source,
-                reason="Premium access restored manually by admin action",
-                metadata={"subscription_id": record.pk},
-                actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
-            )
         self.message_user(request, f"{changed}件のユーザー権限を復旧しました。")
 
     @admin.action(description="選択した課金レコードからユーザー権限を再同期する")
@@ -712,21 +723,26 @@ class PremiumSubscriptionAdmin(admin.ModelAdmin):
     @admin.action(description="選択した返金/チャージバック検知を確認済みにする")
     def mark_refund_or_dispute_reviewed(self, request, queryset):
         count = 0
-        for record in queryset.select_related("user").filter(last_refund_or_dispute_at__isnull=False):
-            detected_at = record.last_refund_or_dispute_at
-            record.last_refund_or_dispute_at = None
-            record.save(update_fields=["last_refund_or_dispute_at", "updated_at"])
-            create_premium_audit_log(
-                record.user,
-                action="reviewed",
-                source=record.access_source,
-                reason="Refund/dispute manually reviewed by admin action",
-                metadata={
-                    "subscription_id": record.pk,
-                    "last_refund_or_dispute_at": detected_at.isoformat() if detected_at else "",
-                },
-                actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
-            )
+        record_ids = queryset.order_by("pk").values_list("pk", flat=True)
+        for record_id in record_ids.iterator():
+            with transaction.atomic():
+                record = PremiumSubscription.objects.select_for_update().filter(pk=record_id).first()
+                if record is None or record.last_refund_or_dispute_at is None:
+                    continue
+                detected_at = record.last_refund_or_dispute_at
+                record.last_refund_or_dispute_at = None
+                record.save(update_fields=["last_refund_or_dispute_at", "updated_at"])
+                create_premium_audit_log(
+                    record.user,
+                    action="reviewed",
+                    source=record.access_source,
+                    reason="Refund/dispute manually reviewed by admin action",
+                    metadata={
+                        "subscription_id": record.pk,
+                        "last_refund_or_dispute_at": detected_at.isoformat(),
+                    },
+                    actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
+                )
             count += 1
         self.message_user(request, f"{count}件の返金/チャージバック検知を確認済みにしました。")
 

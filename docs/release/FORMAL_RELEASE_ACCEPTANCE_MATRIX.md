@@ -10,7 +10,9 @@ PR #7には復旧・作成入口・退会後の案内、配備済みの技能表
 | --- | --- | --- | --- |
 | #8 [SDKログ・Sentry](SDK_PRIVACY_MAIN_2026-10-28.md) | 最終head 35e25985、製品修正d523f964 | PR/pushの全12チェック成功。全体2050成功・38省略、Playwright228成功。通常配布物内50テスト成功 | mainマージ承認を確認中。実AWS/実Sentryは未実施 |
 | #9 [ICS出力・購読認可](ICS_MAIN_FOLLOWUP_2026-10-28.md) | 最終head 9a12260a、製品修正744eeb88 | PR/pushの全12チェック成功。全体2067成功・38省略、Playwright228成功。隔離54テスト・32 subtests、通常配布物内54テスト成功 | #8マージ後のbase変更・最終照合・追加マージ承認、実受信側。I07全体は未完了 |
-| #10 [運営コード](PREMIUM_CODE_MAIN_FOLLOWUP_2026-10-28.md)・[権限再照合](PREMIUM_RECONCILIATION_MAIN_2026-10-28.md) | 製品修正3884c83f、検証資料の後続headはPR Checksで照合 | 隔離PG253テスト・32 subtests成功。[通常配布物](PREMIUM_RUNTIME_MAIN_2026-10-28.md)でもPG253テスト成功、対象20ファイルのソース一致 | 最終CI、先行PR後のbase変更・追加マージ承認、実AWSの受け入れ。管理者の別経路・Stripe SDK等の後続は継続 |
+| #10 [運営コード](PREMIUM_CODE_MAIN_FOLLOWUP_2026-10-28.md)・[権限再照合](PREMIUM_RECONCILIATION_MAIN_2026-10-28.md) | 最終head e09710f3、製品修正3884c83f | PR/push全12チェック成功。全体2095成功・48省略、PG341成功・54 subtestsで省略なし、Playwright228成功。隔離PG253テスト・32 subtestsと[通常配布物](PREMIUM_RUNTIME_MAIN_2026-10-28.md)内PG253テスト成功、20ファイル一致 | 先行PR後のbase変更・追加マージ承認、実AWSの受け入れ。管理者の別経路・Stripe SDK等の後続は継続 |
+| #11 [HTTP診断・性能トレース](https://github.com/sheepdog0820/iaia/blob/62bd81d0ae64fc134b071d917389ee7d2c9e173c/docs/release/SENTRY_REQUEST_PRIVACY_2026-10-28.md) | 後続head 62bd81d0、製品修正b393d24a。SDKの独立後続で、この枝の製品コードには未統合 | 関連70テスト・86 subtests、通常配布物内70テスト成功。診断モジュール141実行文・38分岐100%、15ファイル一致 | 最終CI、#8後のbase変更・追加マージ承認、実受信・profile/worker等の残る監査 |
+| #12 [管理者の権限操作・監査](ADMIN_ACCESS_MAIN_FOLLOWUP_2026-10-28.md) | #10のe09710f3を基点に3操作だけを追加修正。製品修正e8804c7e | 隔離PGの対象16テスト・9 subtests、関連269テスト・41 subtests成功、省略なし。通常配布物内でもPG269テスト成功、21ファイル一致。SQLiteは行ロック用3件以外成功。変更実行文33/33 | 最終CI、先行PR後のbase変更と追加マージ承認。手動編集等の別経路は継続 |
 
 実課金・実ユーザーのコード使用/失効/再照合、外部送信は行っていない。各PRの成功をもって、課金・外部連携・OS監査・性能・運用復旧や有料必須ゲートを合格にしない。
 
