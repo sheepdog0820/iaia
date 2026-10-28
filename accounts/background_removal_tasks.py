@@ -197,9 +197,15 @@ def start_background_removal_task(job):
         # Even a final connection error can follow an accepted SDK retry attempt.
         raise BackgroundRemovalDispatchUncertain("Worker launch outcome is unknown.") from exc
     except ClientError as exc:
-        http_status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode", 0)
+        metadata = exc.response.get("ResponseMetadata", {})
+        http_status = metadata.get("HTTPStatusCode", 0)
         code = exc.response.get("Error", {}).get("Code", "")
-        if http_status >= 500 or code in {"ServerException", "ConflictException"}:
+        # The final rejection does not disprove acceptance of an earlier SDK attempt.
+        if (
+            http_status >= 500
+            or code in {"ServerException", "ConflictException"}
+            or metadata.get("RetryAttempts", 0) > 0
+        ):
             raise BackgroundRemovalDispatchUncertain("Worker launch outcome is unknown.") from exc
         raise
     tasks = response.get("tasks", [])
