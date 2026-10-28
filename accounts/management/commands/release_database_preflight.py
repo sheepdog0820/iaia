@@ -21,7 +21,7 @@ class Command(BaseCommand):
                 cursor.execute("SET LOCAL statement_timeout = '5s'")
                 cursor.execute("SET LOCAL lock_timeout = '1s'")
                 cursor.execute("SHOW transaction_read_only")
-                report = {"format_version": 1, "read_only": cursor.fetchone()[0] == "on"}
+                report = {"format_version": 2, "read_only": cursor.fetchone()[0] == "on"}
                 cursor.execute(
                     "SELECT app, name FROM django_migrations WHERE app IN (%s, %s) ORDER BY app, name",
                     ["accounts", "schedules"],
@@ -47,6 +47,28 @@ class Command(BaseCommand):
                     "GROUP BY participant_id, role HAVING COUNT(*) > 1) AS duplicate_roles"
                 )
                 report["duplicate_role_pairs"] = cursor.fetchone()[0]
+                report["skill_adjustments"] = {
+                    "migration_applied": "0068_merge_skill_bonus_into_other" in report["migrations"]["accounts"]
+                }
+                # Cast before addition: the probe must detect int32 overflow, not trigger it.
+                queries = {
+                    "6th": (
+                        "SELECT COUNT(*), COUNT(*) FILTER (WHERE bonus_points <> 0), "
+                        "COALESCE(SUM(bonus_points::bigint), 0), COALESCE(SUM(other_points::bigint), 0), "
+                        "COUNT(*) FILTER (WHERE bonus_points::bigint + other_points::bigint "
+                        "NOT BETWEEN -2147483648 AND 2147483647) FROM accounts_characterskill6th"
+                    ),
+                    "7th": (
+                        "SELECT COUNT(*), COUNT(*) FILTER (WHERE bonus_points <> 0), "
+                        "COALESCE(SUM(bonus_points::bigint), 0), COALESCE(SUM(other_points::bigint), 0), "
+                        "COUNT(*) FILTER (WHERE bonus_points::bigint + other_points::bigint "
+                        "NOT BETWEEN -2147483648 AND 2147483647) FROM accounts_characterskill7th"
+                    ),
+                }
+                fields = ("rows", "rows_to_merge", "bonus_total", "other_total", "overflow_rows")
+                for edition, query in queries.items():
+                    cursor.execute(query)
+                    report["skill_adjustments"][edition] = dict(zip(fields, map(int, cursor.fetchone()), strict=True))
         except DatabaseError:
             # Do not print SQL, connection details or database exception text.
             raise CommandError(
