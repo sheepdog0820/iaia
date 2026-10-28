@@ -388,6 +388,18 @@ if not django_handlers:
 if not tableno_handlers:
     tableno_handlers = ["mail_admins"]
 
+# SDK warnings can contain credential-service response bodies in chained
+# exceptions. Route them through safe formatters without adding admin mail.
+sdk_handlers = []
+if LOG_TO_STDOUT or not ENABLE_FILE_LOGGING:
+    logging_handlers["sdk_console"] = {
+        "class": "logging.StreamHandler",
+        "formatter": "simple",
+    }
+    sdk_handlers.append("sdk_console")
+if ENABLE_FILE_LOGGING:
+    sdk_handlers.insert(0, "file")
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -425,6 +437,8 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
+        "botocore": {"handlers": sdk_handlers, "level": "NOTSET", "propagate": False},
+        "boto3": {"handlers": sdk_handlers, "level": "NOTSET", "propagate": False},
     },
 }
 
@@ -463,12 +477,17 @@ if "SENTRY_DSN" in os.environ:
     import sentry_sdk
     from sentry_sdk.integrations.django import DjangoIntegration
 
+    from tableno.error_reporting import safe_sentry_breadcrumb, safe_sentry_event, safe_sentry_log
+
     sentry_sdk.init(
         dsn=os.environ["SENTRY_DSN"],
         integrations=[DjangoIntegration()],
         traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
         send_default_pii=False,
         environment=ENVIRONMENT,
+        before_send=safe_sentry_event,
+        before_breadcrumb=safe_sentry_breadcrumb,
+        before_send_log=safe_sentry_log,
     )
 
 # WhiteNoise設定（S3非利用時のみ）
