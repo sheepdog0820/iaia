@@ -10,6 +10,25 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class ProductionSettingsTests(TestCase):
+    def test_stripe_api_version_is_explicit_in_production_settings(self):
+        payload = self.run_settings_probe(expression="""
+import json
+from tableno import settings_production as settings
+print(json.dumps({"version": settings.STRIPE_API_VERSION}))
+""")
+        self.assertEqual(payload["version"], "2026-09-30.endive")
+
+    def test_stripe_api_version_can_be_overridden_without_silent_downgrade(self):
+        payload = self.run_settings_probe(
+            {"STRIPE_API_VERSION": "2026-02-25.clover"},
+            expression="""
+import json
+from tableno import settings_production as settings
+print(json.dumps({"version": settings.STRIPE_API_VERSION}))
+""",
+        )
+        self.assertEqual(payload["version"], "2026-02-25.clover")
+
     def test_production_probe_uses_its_own_settings_module_and_no_env_file(self):
         with patch.dict(os.environ, {"DJANGO_SETTINGS_MODULE": "tableno.settings", "ENV_FILE": "unused-parent.env"}):
             payload = self.run_settings_probe(expression="""
