@@ -101,9 +101,17 @@ class CharacterImageBackgroundRemovalView(APIView):
         original_filename = _safe_original_filename(image)[:255]
         with transaction.atomic():
             current_user = (
-                get_user_model().objects.select_for_update().only("pk", "is_premium").filter(pk=request.user.pk).first()
+                get_user_model()
+                .objects.select_for_update()
+                .only("pk", "is_active", "is_premium")
+                .filter(pk=request.user.pk)
+                .first()
             )
-            if current_user is None or not current_user.is_premium:
+            if current_user is None:
+                raise PermissionDenied(premium_error)
+            if not current_user.is_active:
+                raise PermissionDenied("アカウントが無効のため、背景透過を開始できません。")
+            if not current_user.is_premium:
                 raise PermissionDenied(premium_error)
             now = timezone.now()
             local_now = timezone.localtime(now)
