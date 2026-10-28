@@ -221,7 +221,7 @@ class StripeRestrictedKeyTests(SimpleTestCase):
                 side_effect=lambda *args, **kwargs: RealStripeClient(*args, **kwargs, http_client=transport),
             ),
         ):
-            with self.assertRaises(stripe.PermissionError):
+            with self.assertRaisesMessage(CommandError, "権限エラー（HTTP 403）"):
                 call_command("billing_stripe_remote_check", stdout=output)
         self.assertNotIn("billing_stripe_remote_check=ok", output.getvalue())
         self.assertEqual(len(transport.calls), 1)
