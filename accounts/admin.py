@@ -4,12 +4,17 @@ from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin
 from django.db import models, transaction
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 
-from accounts.billing import active_promo_subscriptions, create_premium_audit_log, premium_access_code_metadata
+from accounts.billing import (
+    active_promo_subscriptions,
+    create_premium_audit_log,
+    locked_manual_premium_user,
+    premium_access_code_metadata,
+)
 from accounts.billing_deletion import BillingDeletionBlocked, delete_account_after_billing_check
 
 from .character_models import (
@@ -500,13 +505,41 @@ class CustomUserAdmin(UserAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("premium_subscription")
 
+    @transaction.atomic
     def save_model(self, request, obj, form, change):
-        previous_is_premium = None
-        if change and obj.pk:
-            previous_is_premium = type(obj).objects.filter(pk=obj.pk).values_list("is_premium", flat=True).first()
+        if not change:
+            self._save_user_and_premium_audit(request, obj, form, change, None, None)
+            return
 
-        super().save_model(request, obj, form, change)
+        changed_fields = None
+        if form is not None:
+            changed_fields = {
+                field.name
+                for field in obj._meta.concrete_fields
+                if not field.primary_key and field.name in form.changed_data
+            }
+            if changed_fields:
+                changed_fields.add("updated_at")
+        try:
+            if changed_fields is None or "is_premium" in changed_fields:
+                with locked_manual_premium_user(obj) as current:
+                    self._save_user_and_premium_audit(request, obj, form, change, current.is_premium, changed_fields)
+            else:
+                current = type(obj).objects.select_for_update().get(pk=obj.pk)
+                # Unchanged checkboxes are not a manual grant/revoke intent.
+                obj.is_premium = current.is_premium
+                if changed_fields:
+                    obj.save(update_fields=changed_fields)
+        except type(obj).DoesNotExist as exc:
+            raise Http404("ユーザーが見つかりません。") from exc
+        except PremiumSubscription.DoesNotExist as exc:
+            raise Http404("課金情報が変更されています。再読み込みしてください。") from exc
 
+    def _save_user_and_premium_audit(self, request, obj, form, change, previous_is_premium, changed_fields):
+        if changed_fields is None:
+            super().save_model(request, obj, form, change)
+        else:
+            obj.save(update_fields=changed_fields)
         if previous_is_premium is None:
             should_log = obj.is_premium
         else:
