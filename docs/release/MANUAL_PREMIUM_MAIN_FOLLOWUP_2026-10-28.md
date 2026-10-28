@@ -30,6 +30,14 @@ Black/isortは対象4ファイルだけを確認し変更なし、Flake8/Bandit�
 
 整形確認後、既存の課金・退会・運営コード・再照合・管理者操作・有料機能を含む9ファイルで、実PostgreSQLの **298テスト・43 subtestsが成功、省略なし**。変更実行文54/54とコマンド35実行文・6分岐100%を維持した。SQLiteも20テスト・2 subtests成功、行ロック等が必要な9件のみ意図して省略し、同じ9件はPostgreSQLで成功した。証跡は `tmp/manual-premium-pg-broad.log`、`tmp/manual-premium-sqlite.log` に保持する。実Stripeや実ユーザーの操作は行っていない。通常配布物とCIはこの結果だけで完了にしない。
 
+### 通常配布物
+
+製品修正 `38d64e1248108dc689204e4280ccdc2b3a89e837` を通常push後、そのgit archiveから通常Dockerfileで構築した。タグ `tableno:release-candidate-38d64e12`、イメージID `sha256:53d773e5d2a208157c25c720292950a2abedf4b6012c301465ef28b73dd6318b`。製品ソース・固定依存・試験・entrypoint等23ファイルと実entrypointのGit blob一致を確認した。
+
+配布物内でも同じ9モジュールの **298 Djangoテストが実PostgreSQLで成功、省略なし**。合成設定ファイルだけを読み取り専用で渡し、製品ソースbind mountやpip/pytest追加なし、UID10001・読み取り専用・外部通信なしで実行した。実Stripeの参照は既存試験のmockだけである。証跡は `tmp/manual-premium-normal-image-build.log`、`tmp/manual-premium-normal-runtime.log`、`tmp/manual-premium-normal-source-manifest.json` に保持する。OS再監査・ECR push・実AWS反映は行っていない。
+
+[Draft PR #13](https://github.com/sheepdog0820/iaia/pull/13)はPR #12をbaseとし、製品修正と後続の検証資料コミットを区別する。最終CIはChecksで照合し、CI待ちの候補をマージ可能とは扱わない。
+
 ## 承認と復旧
 
 修正・隔離試験・作業ブランチへの通常push・Draft PRまでを進める。先行PRのマージ後にbaseと最終head・差分・CIを固定し、mainへの追加マージを別途承認してもらう。共有DB、実ユーザーの付与/停止、実AWS・公開の承認は含まない。
