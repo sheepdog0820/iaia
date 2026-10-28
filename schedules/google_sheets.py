@@ -1,6 +1,7 @@
 """Shared Google Sheets export schema and range defaults."""
 
 import re
+from urllib.parse import quote
 
 SHEET_COLUMNS = [
     "id",
@@ -37,13 +38,39 @@ SHEETS_DEFAULT_DISPLAY_RANGE = f"Characters!A:{_spreadsheet_column_label(len(SHE
 SHEETS_DEFAULT_START_RANGE = "Characters!A1"
 SHEETS_EXPORT_CHUNK_ROWS = 100
 SHEETS_RANGE_ERROR_MESSAGE = "出力範囲はA1形式で指定してください（例: Characters!A1）。"
+SHEETS_ID_ERROR_MESSAGE = "出力先のスプレッドシートIDを正しく指定してください。"
 
 _A1_START_CELL_PATTERN = re.compile(r"^\$?([A-Za-z]+)\$?([1-9]\d*)$")
+
+
+def normalize_spreadsheet_id(value):
+    """Validate an opaque ID without inventing Google's allowed-character grammar."""
+    if not isinstance(value, str):
+        raise ValueError(SHEETS_ID_ERROR_MESSAGE)
+    value = value.strip()
+    if not value or value in {".", ".."} or any(ord(char) < 32 or ord(char) == 127 for char in value):
+        raise ValueError(SHEETS_ID_ERROR_MESSAGE)
+    try:
+        value.encode("utf-8")
+    except UnicodeError:
+        raise ValueError(SHEETS_ID_ERROR_MESSAGE) from None
+    return value
+
+
+def sheet_values_update_url(spreadsheet_id, start_range):
+    """Keep each validated destination in a single URL path component."""
+    sheet_id = quote(normalize_spreadsheet_id(spreadsheet_id), safe="")
+    range_name = quote(normalize_sheet_start_range(start_range), safe="")
+    return f"https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{range_name}"
 
 
 def normalize_sheet_start_range(value):
     """Return a normalized A1 start cell while preserving an optional sheet prefix."""
     text = str(value).strip()
+    try:
+        text.encode("utf-8")
+    except UnicodeError:
+        raise ValueError(SHEETS_RANGE_ERROR_MESSAGE) from None
     sheet_prefix = ""
     cell_range = text
     if "!" in text:
