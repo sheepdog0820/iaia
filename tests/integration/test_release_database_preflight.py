@@ -28,6 +28,74 @@ class ReleaseDatabasePreflightTests(TransactionTestCase):
         self.assertEqual(report["participants_with_multiple_roles"], 0)
         self.assertEqual(report["duplicate_role_pairs"], 0)
 
+    def test_skill_adjustments_report_empty_tables_and_migration_state(self):
+        report = self.run_probe()
+        self.assertTrue(report["skill_adjustments"]["migration_applied"])
+        for edition in ("6th", "7th"):
+            self.assertEqual(
+                report["skill_adjustments"][edition],
+                {"rows": 0, "rows_to_merge": 0, "bonus_total": 0, "other_total": 0, "overflow_rows": 0},
+            )
+
+    def test_skill_adjustments_report_legacy_values_and_overflow_without_rows_or_writes(self):
+        from django.contrib.auth import get_user_model
+
+        from accounts.models import (
+            CharacterSheet,
+            CharacterSheet6th,
+            CharacterSheet7th,
+            CharacterSkill6th,
+            CharacterSkill7th,
+        )
+
+        user = get_user_model().objects.create_user(username="private-preflight-fixture")
+        registry = CharacterSheet.objects.create(user=user, edition="6th")
+        detail6 = CharacterSheet6th.objects.create(character_sheet=registry, name="非公開の探索者6")
+        registry7 = CharacterSheet.objects.create(user=user, edition="7th")
+        detail7 = CharacterSheet7th.objects.create(character_sheet=registry7, name="非公開の探索者7")
+
+        for detail, skill_model in ((detail6, CharacterSkill6th), (detail7, CharacterSkill7th)):
+            for index, (bonus, other) in enumerate(((30, 5), (-7, 10), (0, -4), (1, 2147483647), (-1, -2147483648))):
+                skill = skill_model.objects.create(character_sheet=detail, skill_name=f"非公開技能{index}")
+                skill_model.objects.filter(pk=skill.pk).update(bonus_points=bonus, other_points=other)
+        before = {
+            "6th": list(CharacterSkill6th.objects.order_by("pk").values()),
+            "7th": list(CharacterSkill7th.objects.order_by("pk").values()),
+        }
+        report = self.run_probe()
+        for edition, model in (("6th", CharacterSkill6th), ("7th", CharacterSkill7th)):
+            self.assertEqual(
+                report["skill_adjustments"][edition],
+                {"rows": 5, "rows_to_merge": 4, "bonus_total": 23, "other_total": 10, "overflow_rows": 2},
+            )
+            self.assertEqual(list(model.objects.order_by("pk").values()), before[edition])
+        self.assertNotIn("非公開", json.dumps(report, ensure_ascii=False))
+
+    def test_skill_adjustment_history_can_report_unapplied_without_recording_it(self):
+        from django.db.migrations.recorder import MigrationRecorder
+
+        recorder = MigrationRecorder(connection)
+        name = "0068_merge_skill_bonus_into_other"
+        recorder.record_unapplied("accounts", name)
+        try:
+            self.assertFalse(self.run_probe()["skill_adjustments"]["migration_applied"])
+            self.assertNotIn(("accounts", name), recorder.applied_migrations())
+        finally:
+            recorder.record_applied("accounts", name)
+
+    def test_missing_skill_table_fails_without_partial_output_or_private_sql(self):
+        output = io.StringIO()
+        with connection.cursor() as cursor:
+            cursor.execute("ALTER TABLE accounts_characterskill7th RENAME TO preflight_hidden_skill")
+        try:
+            with self.assertRaisesMessage(CommandError, "読み取り専用のDB検査に失敗しました") as caught:
+                call_command("release_database_preflight", stdout=output)
+            self.assertEqual(output.getvalue(), "")
+            self.assertNotIn("preflight_hidden_skill", str(caught.exception))
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute("ALTER TABLE preflight_hidden_skill RENAME TO accounts_characterskill7th")
+
     def test_reports_reverse_migration_risk_without_names_or_ids(self):
         from schedules.models import SessionParticipant, SessionParticipantRole, TRPGSession
 

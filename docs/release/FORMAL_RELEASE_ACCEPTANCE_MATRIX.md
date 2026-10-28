@@ -2,9 +2,9 @@
 
 ## 現在の公開判断（2026-10-28）
 
-正式公開は **No-Go**。現在mainは945441ffで、PR #20を承認後21:37 JSTに通常マージした。親はa523d59eと承認head714c2ed0、treeは検証headに一致し、マージ後7チェックも成功した。PR #7/#8の修正も含む。AWS/共有DB/実Stripe/本番公開の操作は含まない。AWSの最終読み取りは08:16 JSTの定義55/aws-pre-cbf52dc5・1タスクHEALTHY・RDS available・readiness 200であり、夜間の現在値ではない。共有0068は未適用である。
+正式公開は **No-Go**。現在mainは945441ffで、PR #20を承認後21:37 JSTに通常マージした。親はa523d59eと承認head714c2ed0、treeは検証headに一致し、マージ後7チェックも成功した。PR #7/#8の修正も含む。AWS/共有DB/実Stripe/本番公開の操作は含まない。23:32 JSTの読み取りでECS tableno-aws-pre定義55、desired/running=1・pending=0・HEALTHY、RDS PostgreSQL18.3 availableを再確認した。23:56 JSTのreadinessは200でdatabase/cacheともok。共有0068は未適用で、実DBの移行履歴・旧内訳の再確認は未実施である。詳細は[読み取り専用事前検査と反映準備](SKILL_ADJUSTMENT_PREFLIGHT_2026-10-28.md)を参照する。
 
-次の[版情報と背景透過の統合候補](RELEASE_BACKGROUND_INTEGRATION_2026-10-28.md)を準備中。mainへの追加マージは未承認で、個別のDraft PRと統合の検証記録を区別する。下表が追加候補の現状であり、後段の古い「main未反映」「マージ承認待ち」等は当時の記録である。
+[版情報と背景透過の統合候補](RELEASE_BACKGROUND_INTEGRATION_2026-10-28.md)は[PR #28](https://github.com/sheepdog0820/iaia/pull/28)、固定head0f45ee78。CI12成功（全体2357成功・85省略、PG553・133 subtests、UI240）、隔離PG865・378 subtests、通常配布物796成功、省略なし。合成画像の実推論2件と診断ファイルなしを確認した。mainへの通常マージ承認を提示しており、未承認・未マージである。下表は個別候補の証拠で、後段の古い「main未反映」「マージ承認待ち」等は当時の記録である。
 
 | PR・対象 | 固定head / 製品修正 | 個別の検証結果 | 未完了 |
 | --- | --- | --- | --- |
@@ -14,11 +14,13 @@
 | #24 [起動応答](BACKGROUND_DISPATCH_MAIN_2026-10-28.md) | 1487eaba / 074aec7e | CI12成功、全体2279成功・73省略、PG472・109 subtests、UI228成功。隔離PG/通常配布物59成功 | 実環境の受け入れ、先行PRとの統合と追加マージ |
 | #25 [取得/期限削除](BACKGROUND_RETENTION_MAIN_2026-10-28.md) | 59543b94 / b1376db9 | CI12成功、全体2292成功・80省略、PG492・113 subtests、UI228成功。隔離PG/通常配布物79成功 | 実S3等の受け入れ、先行PRとの統合と追加マージ |
 | #26 [起動結果不確定](BACKGROUND_UNCERTAIN_MAIN_2026-10-28.md) | b1162e93 / 09f52f83 | CI12成功、全体2327成功・81省略、PG528・131 subtests、UI228成功。隔離PG/通常配布物115成功 | 実ECS・実SDK運用の受け入れ、先行PRとの統合と追加マージ |
-| #27 [認可と失敗ログ](BACKGROUND_ACCESS_MAIN_2026-10-28.md) | 7f5cab70 / e4399bef | 隔離PG140・33 subtests、通常配布物140成功、変更実行文17/17。実token・行ロック・ログレコードを検証 | 最終CI確認中、実受信/既存ログ監査、先行PRとの統合と追加マージ |
+| #27 [認可と失敗ログ](BACKGROUND_ACCESS_MAIN_2026-10-28.md) | 7f5cab70 / e4399bef | CI12成功、全体2348成功・85省略、PG553・133 subtests、UI228。隔離PG140・33 subtests、通常配布物140成功、変更実行文17/17 | 実受信/既存ログ監査、追加マージ（#28へ統合済み） |
 
-背景処理と版情報を合わせた最初の統合では205テスト・48 subtests成功、省略なし。診断初期化防止も加えた最終統合は、課金/ICS/HTTP診断保護を含む53モジュールの隔離PG865テスト・378 subtests成功、省略なし。元の各headと29ファイルのblobが一致し、製品変更実行文169/169、整形/Lint/Bandit・JS構文と追加リンクも確認した。通常配布物・最終CI・OS再監査は未完了。この表は候補作成時点の固定記録であり、以降のCI・承認はPRの最新説明を参照する。
+背景処理と版情報を合わせた最初の統合では205テスト・48 subtests成功、省略なし。診断初期化防止も加えた最終統合は、課金/ICS/HTTP診断保護を含む53モジュールの隔離PG865テスト・378 subtests成功、省略なし。元の各headと29ファイルのblobが一致し、製品変更実行文169/169、整形/Lint/Bandit・JS構文と追加リンクも確認した。通常配布物・最終CI・OS再監査は#28の最終headで実施済み。成果物・詳細な制限はPRの最新説明を参照する。
 
-実OS監査の直近の結果はPR #17のイメージで50指摘（CRITICAL2/HIGH7/MEDIUM6/LOW35）、exit 2。Twisted RC2と正式公開No-Goを維持する。有料必須ゲート、Google/Discord/X等の実OAuth・配送、ICS/CCFOLIA受け取り側、worker/beat/監視/メール、性能・DB/S3復旧、事業者情報・費用・公開判断は未完了のままである。
+実OS監査の直近の結果はPR #28の通常イメージa9b1d51aで50指摘（CRITICAL2/HIGH7/MEDIUM6/LOW35）、Scout1.28・exit 2で不合格。MariaDBサーバーバイナリが含まれないことだけでは適用性を解決済みとしない。Twisted RC2と正式公開No-Goを維持する。有料必須ゲート、Google/Discord/X等の実OAuth・配送、ICS/CCFOLIA受け取り側、worker/beat/監視/メール、性能・DB/S3復旧、事業者情報・費用・公開判断は未完了のままである。
+
+Google Sheetsの予約文字を含む出力先URL・入力拒否は[Draft PR #29](https://github.com/sheepdog0820/iaia/pull/29)、head69076895へ分離した。隔離PG36・50 subtests、通常配布物36成功、変更実行文48/48。23:58 JST時点でCI確認中、main未反映・実Google未送信。本ブランチでは0068の読み取り専用事前検査を追加し、関連PG22・25 subtests、コマンド38実行文/8分岐成功。共有DBの実行・0068適用手順の全行比較と非公開バックアップ・反映承認は未完了である。
 
 ## PR #20前後の個別検証記録（当時の情報）
 
