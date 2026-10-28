@@ -1,3 +1,4 @@
+import os
 import secrets
 import string
 from contextlib import contextmanager
@@ -29,6 +30,8 @@ def get_stripe():
         raise ImproperlyConfigured("STRIPE_SECRET_KEY is required")
     if not settings.STRIPE_API_VERSION:
         raise ImproperlyConfigured("決済サービスのAPIバージョンが設定されていません。管理者にお問い合わせください。")
+    if any(value in ("debug", "info") for value in (stripe.log, stripe._util.STRIPE_LOG, os.environ.get("STRIPE_LOG"))):
+        raise ImproperlyConfigured("決済サービスの詳細ログ設定を確認する必要があります。管理者にお問い合わせください。")
     return stripe.StripeClient(
         settings.STRIPE_SECRET_KEY,
         stripe_version=settings.STRIPE_API_VERSION,

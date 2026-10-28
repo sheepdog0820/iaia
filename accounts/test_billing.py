@@ -841,7 +841,8 @@ class StripeWebhookTestCase(TestCase):
         self.assertEqual(first_response.status_code, 500)
         webhook_event = StripeWebhookEvent.objects.get(event_id="evt_checkout_retry")
         self.assertEqual(webhook_event.processing_status, StripeWebhookEvent.STATUS_FAILED)
-        self.assertIn("temporary failure", webhook_event.error_message)
+        self.assertNotIn("temporary failure", webhook_event.error_message)
+        self.assertIn("確認", webhook_event.error_message)
 
         second_response = self.client.post(
             reverse("billing-webhook"),

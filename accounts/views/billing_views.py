@@ -95,7 +95,7 @@ class CheckoutSessionView(APIView):
         except ImproperlyConfigured as exc:
             return Response({"error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception:
-            logger.exception("Stripe checkout session creation failed")
+            logger.error("Stripe checkout session creation failed")
             return Response(
                 {"error": "Stripe service is temporarily unavailable"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -114,7 +114,7 @@ class PortalSessionView(APIView):
         except ImproperlyConfigured as exc:
             return Response({"error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception:
-            logger.exception("Stripe portal session creation failed")
+            logger.error("Stripe portal session creation failed")
             return Response(
                 {"error": "Stripe service is temporarily unavailable"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -158,7 +158,10 @@ class StripeWebhookView(APIView):
         if not signature:
             return Response({"error": "Missing Stripe signature"}, status=status.HTTP_400_BAD_REQUEST)
 
-        stripe = get_stripe()
+        try:
+            stripe = get_stripe()
+        except ImproperlyConfigured as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         try:
             event = stripe.construct_event(
                 payload=request.body,
@@ -251,11 +254,11 @@ class StripeWebhookView(APIView):
                         "processed_at",
                     ]
                 )
-        except Exception as exc:
+        except Exception:
             StripeWebhookEvent.objects.filter(event_id=event_id).update(
                 event_type=event_type,
                 processing_status=StripeWebhookEvent.STATUS_FAILED,
-                error_message=str(exc)[:2000],
+                error_message="Webhook処理中にエラーが発生しました。運用手順で原因と再送状況を確認してください。",
                 processed_at=timezone.now(),
             )
             return Response(
