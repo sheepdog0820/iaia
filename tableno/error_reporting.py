@@ -162,6 +162,35 @@ def safe_sentry_log(log, hint):
     return safe
 
 
+def safe_sentry_transaction(event, hint):
+    """Keep HTTP timing and span links without request or arbitrary span data."""
+    trace = (event.get("contexts") or {}).get("trace") or {}
+    if not (isinstance(event.get("request"), dict) or trace.get("op") == "http.server"):
+        return event
+    safe = {
+        key: event[key]
+        for key in ("type", "event_id", "start_timestamp", "timestamp", "platform", "release", "environment")
+        if key in event
+    }
+    info = event.get("transaction_info") or {}
+    source = info.get("source")
+    if source in {"route", "component"} and event.get("transaction"):
+        safe["transaction"] = event["transaction"]
+        safe["transaction_info"] = {"source": source}
+    else:
+        safe["transaction"] = "HTTP request"
+        safe["transaction_info"] = {"source": "custom"}
+    trace_keys = ("trace_id", "span_id", "parent_span_id", "op", "origin", "status")
+    safe["contexts"] = {"trace": {key: trace[key] for key in trace_keys if key in trace}}
+    span_keys = (*trace_keys, "start_timestamp", "timestamp", "same_process_as_parent")
+    safe["spans"] = [
+        {key: span[key] for key in span_keys if key in span}
+        for span in event.get("spans") or []
+        if isinstance(span, dict)
+    ]
+    return safe
+
+
 class SafeAdminEmailHandler(AdminEmailHandler):
     def emit(self, record):
         subject, body = error_summary(record)

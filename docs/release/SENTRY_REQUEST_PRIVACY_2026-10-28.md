@@ -1,4 +1,4 @@
-# SentryのHTTPエラー・セキュリティ診断の情報保護（2026-10-28）
+# SentryのHTTP診断・性能トレースの情報保護（2026-10-28）
 
 ## 問題と対象
 
@@ -39,8 +39,18 @@ Python 3.11.18 / Django 5.2.17 / sentry-sdk 2.68.1の固定依存。使い捨て
 
 構築・実行・ソース照合の証跡はGit管理外 `tmp/request-privacy-normal-image-build.log`、`tmp/request-privacy-normal-runtime.log`、`tmp/request-privacy-normal-source-manifest.json`。後続の検証資料だけのコミットと、製品修正SHAは区別する。
 
+### 性能トレースの追加調査
+
+HTTPエラーの保護とは別に、既存の `traces_sample_rate` の対象となる性能トレースも調査した。Django TestClientだけではWSGIのtransaction計測を通らないため、実 `WSGIHandler.__call__` とSDKのoffline Transportで500要求を実行した。実transactionが1件存在することを確認した上で、本文・URL・追加contextに加え、子spanのSQL説明・任意dataにも合成文字列が残る回帰を検出した（`tmp/sentry-http-trace-red.log`）。この記録は外部送信や実ユーザーデータの調査ではない。
+
+`before_send` はtransactionを処理せず、別の `before_send_transaction` を設定する必要があることを、固定版の[公式SDK実装](https://raw.githubusercontent.com/getsentry/sentry-python/2.68.1/sentry_sdk/client.py)でも確認した。HTTP requestまたは `http.server` のtraceを対象に、送信前の許可リストでrequest/user/extra、任意context・tags・measurements、spanの説明/data等を省く。処理時間、trace/span/親spanのID、操作種別・生成元・処理結果は残す。安全なroute/componentをtransaction名に使い、生URL由来や名前不明の場合は固定名にする。span自体を全て捨てて成功扱いにはしない。必須のspan ID・trace ID・開始/終了時刻は[公式Relay schema](https://raw.githubusercontent.com/getsentry/relay/master/relay-event-schema/src/protocol/span.rs)と照合した。
+
+サンプリング率・送信先・Logsの製品設定を変更せず、HTTP以外のtransactionは維持する。SQL・外部通信先・任意タグ別の詳しい解析はできなくなるが、処理時間と操作ごとの内訳を保持する。profileや別のworker診断の保護をこの修正だけで合格にしない。追加の最終検証と通常配布物は以下の追記で区別する。
+
+追加回帰の修正前は実transactionの情報残存を含む4テストが失敗した。修正後は関連6ファイルの70テスト・86 subtestsが成功、省略なし。診断モジュールは141実行文・38分岐とも未通過0、100%。実transactionが1件あり、開始/終了時刻が異なり、DBの子spanが存在し、合成本文が全捕捉内容から消えることを確認した。hook単体ではHTTP以外の維持、route/componentの保持、生URL・名前不明の固定名、元event不変、任意の追加フィールド除外も確認した。証跡は `tmp/sentry-http-trace-hook-red.log`、`tmp/sentry-http-trace-green.log`、整形後の `tmp/sentry-http-trace-formatted.log` と `tmp/sentry-request-coverage/coverage.json` に保持する。
+
 ### 残る条件
 
-今回の最終CIは[Draft PR #11のChecks](https://github.com/sheepdog0820/iaia/pull/11/checks)で照合する。実Sentryの受信画面は未確認。性能tracing/profile、requestの文脈を持たない別のアプリ診断やworkerの経路も引き続き監査する。Q04全体や正式公開のGo条件をこの結果だけで合格にしない。
+今回の最終CIは[Draft PR #11のChecks](https://github.com/sheepdog0820/iaia/pull/11/checks)で照合する。実Sentryの受信画面は未確認。profile、requestの文脈を持たない別のアプリ診断やworkerの経路も引き続き監査する。Q04全体や正式公開のGo条件をこの結果だけで合格にしない。
 
 DB/移行、依存ロック、実データ、Secrets/IAM/OAuth、常設資源・費用、外部通知への変更はない。SDKの先行PRマージ後にbaseをmainへ変更し、最終head・差分・CIを固定して、この追加修正のマージを別途承認してもらう。共有DB・AWS反映・公開の承認に拡張しない。取り消しはrevert PRで可能だが、HTTP診断の本文・変数が再び残るため、それだけで公開可とはしない。

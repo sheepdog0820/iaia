@@ -477,7 +477,12 @@ if "SENTRY_DSN" in os.environ:
     import sentry_sdk
     from sentry_sdk.integrations.django import DjangoIntegration
 
-    from tableno.error_reporting import safe_sentry_breadcrumb, safe_sentry_event, safe_sentry_log
+    from tableno.error_reporting import (
+        safe_sentry_breadcrumb,
+        safe_sentry_event,
+        safe_sentry_log,
+        safe_sentry_transaction,
+    )
 
     sentry_sdk.init(
         dsn=os.environ["SENTRY_DSN"],
@@ -488,6 +493,7 @@ if "SENTRY_DSN" in os.environ:
         before_send=safe_sentry_event,
         before_breadcrumb=safe_sentry_breadcrumb,
         before_send_log=safe_sentry_log,
+        before_send_transaction=safe_sentry_transaction,
     )
 
 # WhiteNoise設定（S3非利用時のみ）

@@ -15,7 +15,11 @@ MARKER = "synthetic-http-private-body-and-url"
 
 
 def synthetic_http_error(request, token):
-    raise ValueError(request.POST["private_note"])
+    import sentry_sdk
+
+    with sentry_sdk.start_span(op="db", description=f"synthetic query {MARKER}") as span:
+        span.set_data("private_note", MARKER)
+        raise ValueError(request.POST["private_note"])
 
 
 def synthetic_server_error(request):
@@ -49,7 +53,7 @@ def offline_http_capture(mode="http"):
         kwargs.update(
             transport=OfflineTransport,
             enable_logs=True,
-            traces_sample_rate=0,
+            traces_sample_rate=1 if mode == "trace" else 0,
             auto_session_tracking=False,
             send_client_reports=False,
         )
@@ -76,10 +80,28 @@ def offline_http_capture(mode="http"):
         if mode == "breadcrumb":
             logging.getLogger("django.security.csrf").warning(MARKER)
             sentry_sdk.capture_message("ordinary-followup")
-        elif mode in {"http", "request_record"}:
+        elif mode in {"http", "trace", "request_record"}:
             scope.set_context("synthetic_private", {"memo": MARKER})
             scope.set_extra("synthetic_private", MARKER)
-            if mode == "http":
+            if mode == "trace":
+                from django.core.handlers.wsgi import WSGIHandler
+                from django.test import RequestFactory
+
+                statuses = []
+
+                def start_response(status_line, headers, exc_info=None):
+                    statuses.append(int(status_line.split()[0]))
+
+                request = RequestFactory().post(
+                    f"/synthetic/{MARKER}/?private_query={MARKER}", {"private_note": MARKER}
+                )
+                response = WSGIHandler()(request.environ, start_response)
+                try:
+                    list(response)
+                finally:
+                    response.close()
+                status = statuses[0]
+            elif mode == "http":
                 response = Client(raise_request_exception=False).post(
                     f"/synthetic/{MARKER}/?private_query={MARKER}", {"private_note": MARKER}
                 )
@@ -101,12 +123,24 @@ def offline_http_capture(mode="http"):
         {"type": item.type, "payload": json.loads(item.get_bytes())}
         for envelope in envelopes
         for item in envelope.items
-        if item.type in {"event", "log"}
+        if item.type in {"event", "log", "transaction"}
     ]
     return {"status": status, "items": items}
 
 
 class SentryRequestPrivacyTests(TestCase):
+    def test_actual_wsgi_transaction_omits_request_and_child_span_payloads(self):
+        payload = self.probe("trace")
+        self.assertEqual(payload["status"], 500)
+        transactions = [item["payload"] for item in payload["items"] if item["type"] == "transaction"]
+        self.assertEqual(len(transactions), 1)
+        self.assertNotIn(MARKER, json.dumps(payload))
+        transaction = transactions[0]
+        self.assertEqual(transaction["type"], "transaction")
+        self.assertEqual(transaction["contexts"]["trace"]["op"], "http.server")
+        self.assertNotEqual(transaction["start_timestamp"], transaction["timestamp"])
+        self.assertTrue(any(span["op"] == "db" for span in transaction["spans"]))
+
     def test_actual_django_handler_omits_body_url_exception_and_private_scope(self):
         payload = self.probe("http")
         self.assertEqual(payload["status"], 500)
@@ -165,6 +199,88 @@ print(json.dumps(offline_http_capture({mode!r})))
 
 
 class SentryRequestHookTests(TestCase):
+    def test_http_transaction_keeps_timing_and_links_without_arbitrary_payloads(self):
+        from tableno.error_reporting import safe_sentry_transaction
+
+        trace = {"trace_id": "a" * 32, "span_id": "b" * 16, "op": "http.server", "data": {"note": MARKER}}
+        span = {
+            "trace_id": "a" * 32,
+            "span_id": "c" * 16,
+            "parent_span_id": "b" * 16,
+            "op": "db",
+            "start_timestamp": 1,
+            "timestamp": 2,
+            "status": "ok",
+            "description": MARKER,
+            "data": {"sql": MARKER},
+            "tags": {"note": MARKER},
+        }
+        event = {
+            "type": "transaction",
+            "event_id": "d" * 32,
+            "start_timestamp": 1,
+            "timestamp": 3,
+            "transaction": "/safe/{token}/",
+            "transaction_info": {"source": "route", "changes": MARKER},
+            "contexts": {"trace": trace, "private": MARKER},
+            "spans": [span, None],
+            "request": {"data": MARKER},
+            "extra": MARKER,
+            "user": MARKER,
+            "measurements": {"private": MARKER},
+            "unknown_future_field": MARKER,
+        }
+        original = deepcopy(event)
+        safe = safe_sentry_transaction(event, None)
+        self.assertNotIn(MARKER, json.dumps(safe))
+        self.assertEqual(event, original)
+        self.assertEqual(safe["contexts"]["trace"], {key: trace[key] for key in ("trace_id", "span_id", "op")})
+        self.assertEqual(safe["transaction"], "/safe/{token}/")
+        self.assertEqual(safe["transaction_info"], {"source": "route"})
+        self.assertEqual(
+            safe["spans"],
+            [
+                {
+                    key: span[key]
+                    for key in ("trace_id", "span_id", "parent_span_id", "op", "start_timestamp", "timestamp", "status")
+                }
+            ],
+        )
+        self.assertEqual((safe["start_timestamp"], safe["timestamp"]), (1, 3))
+
+    def test_http_transaction_without_route_uses_generic_name(self):
+        from tableno.error_reporting import safe_sentry_transaction
+
+        for info in (None, {}, {"source": "url"}, {"source": "custom"}):
+            with self.subTest(info=info):
+                event = {"request": {}, "transaction": MARKER, "transaction_info": info, "spans": None}
+                safe = safe_sentry_transaction(event, {})
+                self.assertNotIn(MARKER, json.dumps(safe))
+                self.assertEqual(safe["transaction"], "HTTP request")
+                self.assertEqual(safe["transaction_info"], {"source": "custom"})
+                self.assertEqual(safe["spans"], [])
+
+    def test_http_trace_without_request_is_sanitized_and_component_name_is_retained(self):
+        from tableno.error_reporting import safe_sentry_transaction
+
+        event = {
+            "contexts": {"trace": {"op": "http.server", "description": MARKER}},
+            "transaction": "module.safe_view",
+            "transaction_info": {"source": "component"},
+        }
+        safe = safe_sentry_transaction(event, None)
+        self.assertNotIn(MARKER, json.dumps(safe))
+        self.assertEqual(safe["transaction"], "module.safe_view")
+        event.pop("transaction")
+        self.assertEqual(safe_sentry_transaction(event, None)["transaction"], "HTTP request")
+
+    def test_non_http_transaction_is_preserved(self):
+        from tableno.error_reporting import safe_sentry_transaction
+
+        for event in ({}, {"contexts": {}}, {"contexts": {"trace": {"op": "queue.task"}}, "extra": MARKER}):
+            with self.subTest(event=event):
+                self.assertIs(safe_sentry_transaction(event, None), event)
+
     def test_request_exception_keeps_only_safe_type_and_handled_state(self):
         from tableno.error_reporting import safe_sentry_event
 
