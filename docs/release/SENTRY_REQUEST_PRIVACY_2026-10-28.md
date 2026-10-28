@@ -31,6 +31,16 @@ Python 3.11.18 / Django 5.2.17 / sentry-sdk 2.68.1の固定依存。使い捨て
 
 ## 未完了と承認
 
-今回の最終CI・通常配布物、実Sentryの受信画面は別途必要。性能tracing/profile、requestの文脈を持たない別のアプリ診断やworkerの経路も引き続き監査する。Q04全体や正式公開のGo条件をこの結果だけで合格にしない。
+### 通常配布物の追加検証
+
+製品修正 `8302068ef276469c1ee15e33ea739d9f4e709806` の `git archive` から通常Dockerfileで構築した。ローカルタグは `tableno:release-candidate-8302068e`、イメージIDは `sha256:0744c6d3019d73a4d9130757e58cf2771eae3e169f0a1c1fdd3055cf7c6b06e6`。ECRへのpushは未実施。
+
+製品コード・固定依存・テスト・entrypoint等15ファイルのGit blob一致と、実entrypointの一致を確認した。ソースのbind mountやpip/pytest追加なし、UID10001・読み取り専用・外部通信なしで、通常イメージ内のDjango runnerでも同じ6モジュールの **65テストが成功、省略なし**。pytestのsubtests件数との合算はしない。実SDKのenvelopeはofflineだけで捕捉しており、実Sentryの受信や実業務のHTTP操作を代替するものではない。
+
+構築・実行・ソース照合の証跡はGit管理外 `tmp/request-privacy-normal-image-build.log`、`tmp/request-privacy-normal-runtime.log`、`tmp/request-privacy-normal-source-manifest.json`。後続の検証資料だけのコミットと、製品修正SHAは区別する。
+
+### 残る条件
+
+今回の最終CIは[Draft PR #11のChecks](https://github.com/sheepdog0820/iaia/pull/11/checks)で照合する。実Sentryの受信画面は未確認。性能tracing/profile、requestの文脈を持たない別のアプリ診断やworkerの経路も引き続き監査する。Q04全体や正式公開のGo条件をこの結果だけで合格にしない。
 
 DB/移行、依存ロック、実データ、Secrets/IAM/OAuth、常設資源・費用、外部通知への変更はない。SDKの先行PRマージ後にbaseをmainへ変更し、最終head・差分・CIを固定して、この追加修正のマージを別途承認してもらう。共有DB・AWS反映・公開の承認に拡張しない。取り消しはrevert PRで可能だが、HTTP診断の本文・変数が再び残るため、それだけで公開可とはしない。
