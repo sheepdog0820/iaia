@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Refresh this digest deliberately with runtime tests and a vulnerability scan.
-FROM python:3.11-slim@sha256:bab1b7ef4b450c81002278d035eff85ebe394ae94df904f7a3ba14f7e16e487b
+FROM python:3.11-slim@sha256:ae952e0a57138a4317b9b61caaa19a8217c2f356803f8d7e63aad08769950937
 
 ARG APP_UID=10001
 ARG APP_GID=10001

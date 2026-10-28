@@ -67,7 +67,11 @@ urlpatterns = [
         name="notification_preferences",
     ),
     # Web URLs (routerより先に配置して衝突を回避)
-    path("calendar/view/", TemplateView.as_view(template_name="schedules/calendar.html"), name="calendar_view"),
+    path(
+        "calendar/view/",
+        login_required(TemplateView.as_view(template_name="schedules/calendar.html")),
+        name="calendar_view",
+    ),
     path(
         "sessions/web/",
         RedirectView.as_view(

@@ -318,6 +318,8 @@ ACCOUNT_PREVENT_ENUMERATION = _get_bool(
 SOCIALACCOUNT_EMAIL_REQUIRED = True
 # Form class import path, not a credential.
 ACCOUNT_FORMS = {"reset_password": "accounts.forms.CustomPasswordResetForm"}  # nosec B105
+# Match the existing reset-link expiry displayed to users (24 hours).
+PASSWORD_RESET_TIMEOUT = 24 * 60 * 60
 
 # Custom adapters
 ACCOUNT_ADAPTER = "accounts.adapters.CustomAccountAdapter"

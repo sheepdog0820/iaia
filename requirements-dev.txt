@@ -9,11 +9,15 @@ ipython>=8.0.0
 pexpect>=4.9.0
 
 # Code quality
-black>=23.0.0
+black>=26.10.1
 isort>=5.12.0
 flake8>=6.0.0
 pre-commit>=3.4.0
 pip-tools>=7.4.0,<8.0
+# Security floors for tooling dependencies when regenerating shared locks.
+filelock>=4.2.1
+setuptools>=84.1.0
+virtualenv>=21.14.10
 
 # Documentation
 Sphinx>=7.1.0

@@ -34,8 +34,8 @@ class BonusPointsTestCase(TestCase):
             edu_value=80,
         )
 
-    def test_bonus_points_field_exists(self):
-        """ボーナスポイントフィールドが存在することをテスト"""
+    def test_legacy_bonus_points_are_stored_as_other(self):
+        """旧ボーナスポイント入力はその他に統一して保存する"""
         skill = CharacterSkill.objects.create(
             character_sheet=self.character.system_data,
             skill_name="目星",
@@ -45,7 +45,8 @@ class BonusPointsTestCase(TestCase):
             bonus_points=5,  # ボーナスポイント
         )
 
-        self.assertEqual(skill.bonus_points, 5)
+        self.assertEqual(skill.bonus_points, 0)
+        self.assertEqual(skill.other_points, 5)
 
     def test_skill_total_calculation_with_bonus(self):
         """ボーナスポイントを含めた技能値合計の計算テスト"""
@@ -121,7 +122,8 @@ class BonusPointsTestCase(TestCase):
         self.assertEqual(skill.base_value, 15)
         self.assertEqual(skill.occupation_points, 35)
         self.assertEqual(skill.interest_points, 25)
-        self.assertEqual(skill.bonus_points, 10)
+        self.assertEqual(skill.bonus_points, 0)
+        self.assertEqual(skill.other_points, 10)
         self.assertEqual(skill.current_value, 85)
 
     def test_skill_category_choices(self):

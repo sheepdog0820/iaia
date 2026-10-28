@@ -1,6 +1,6 @@
 # Core Django runtime
 Django>=5.2.0,<5.3
-djangorestframework>=3.14.0
+djangorestframework>=3.18.2
 drf-spectacular>=0.27.0
 
 # Authentication and authorization
@@ -21,10 +21,12 @@ mysqlclient>=2.2.0
 python-decouple>=3.8
 django-cors-headers>=4.3.0
 requests>=2.31.0
+# Security floor for requests' certificate bundle.
+certifi>=2026.10.19
 
 # Application UI and content handling
-Pillow>=10.0.0
-rembg[cpu]>=2.0.67
+Pillow>=13.0.0
+rembg[cpu]>=2.0.86
 django-crispy-forms>=2.1
 crispy-bootstrap5>=0.7
 openpyxl>=3.1.0
@@ -42,7 +44,11 @@ django-redis>=5.4.0
 celery>=5.3.0
 channels>=4.1.0
 channels-redis>=4.2.0
+# Security floor for the channel layer's message codec.
+msgpack>=1.2.3
 daphne>=4.1.0
+# Temporary upstream security release candidate; revalidate when 26.10.0 is stable.
+Twisted==26.10.0rc2
 
 # Billing, security, and monitoring
 stripe>=12.0.0

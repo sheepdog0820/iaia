@@ -103,6 +103,7 @@ class SharedCharacterEquipmentSerializer(serializers.ModelSerializer):
 
 class SharedCharacterSheetSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="system_data.name", read_only=True)
+    name_kana = serializers.CharField(source="system_data.name_kana", read_only=True)
     player_name = serializers.CharField(source="system_data.player_name", read_only=True)
     status = serializers.CharField(source="system_data.status", read_only=True)
     version = serializers.IntegerField(source="system_data.version", read_only=True)
@@ -133,6 +134,7 @@ class SharedCharacterSheetSerializer(serializers.ModelSerializer):
     abilities = serializers.DictField(read_only=True)
     character_image_url = serializers.SerializerMethodField()
     background_info = serializers.SerializerMethodField()
+    character_7th = serializers.SerializerMethodField()
 
     class Meta:
         model = CharacterSheet
@@ -140,6 +142,7 @@ class SharedCharacterSheetSerializer(serializers.ModelSerializer):
             "id",
             "edition",
             "name",
+            "name_kana",
             "player_name",
             "status",
             "version",
@@ -170,12 +173,29 @@ class SharedCharacterSheetSerializer(serializers.ModelSerializer):
             "background_info",
             "character_image_url",
             "session_count",
+            "character_7th",
         ]
         read_only_fields = fields
 
     def get_character_image_url(self, obj):
         request = self.context.get("request")
         return get_character_preview_image_url(obj, request) or None
+
+    def get_character_7th(self, obj):
+        if obj.edition != "7th":
+            return None
+        detail = self._system_data(obj)
+        if detail is None:
+            return None
+        return {
+            "damage_bonus": detail.calculate_damage_bonus_7th(),
+            "build": detail.calculate_build_7th(),
+            "move_rate": detail.calculate_move_rate_7th(),
+            "dodge": detail.get_7th_skill_base_value("回避"),
+            "starting_luck": detail.luck_starting,
+            "current_luck": detail.luck_current,
+            "max_luck": detail.luck_max,
+        }
 
     @staticmethod
     def _system_data(obj):
@@ -205,6 +225,7 @@ class SharedCharacterSheetSerializer(serializers.ModelSerializer):
 
         fields = (
             "name",
+            "name_kana",
             "player_name",
             "status",
             "age",

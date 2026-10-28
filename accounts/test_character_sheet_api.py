@@ -192,8 +192,8 @@ class CharacterSheetAPITest(APITestCase):
         new_sheet = CharacterSheet.objects.get(id=response.data["id"])
         copied_skill = new_sheet.system_data.skills.get(skill_name="Custom Version Skill")
         self.assertEqual(copied_skill.category, category)
-        self.assertEqual(copied_skill.bonus_points, 7)
-        self.assertEqual(copied_skill.other_points, 2)
+        self.assertEqual(copied_skill.bonus_points, 0)
+        self.assertEqual(copied_skill.other_points, 9)
         self.assertEqual(copied_skill.notes, "growth memo")
 
     def test_create_version_copies_security_and_related_data(self):
