@@ -4,7 +4,7 @@
 
 正式公開はNo-Goを維持する。main e914b325から分離したSDK/ICSの後続、`9a12260a8f6e0238fcd66608bc30043df4d38de5` を基点に、`codex/premium-access-followups-20261028` で運営コードの既知不具合を再検証する。先行の[PR #8](https://github.com/sheepdog0820/iaia/pull/8)・[PR #9](https://github.com/sheepdog0820/iaia/pull/9)は、この作業開始時点ではDraft。これらの未承認変更を先取りしてmainへ入れない。
 
-元の製品修正は `a0f94a403cbbcf9c3f2bdf2699c89b7afe3ac43f` と `3492d3d381d7ccdd0744eee774b479f7f9b831cf`。製品ファイル・回帰テスト・PGのCI対象だけを分離し、以前の巨大候補や過去の実Stripe検証結果を一括で取り込まない。StripeClient/SDK/API版の移行、管理者の他の権限操作や再照合処理は後続の別単位である。
+元の製品修正は `a0f94a403cbbcf9c3f2bdf2699c89b7afe3ac43f` と `3492d3d381d7ccdd0744eee774b479f7f9b831cf`。製品ファイル・回帰テスト・PGのCI対象だけを分離し、以前の巨大候補や過去の実Stripe検証結果を一括で取り込まない。同じ[Draft PR #10](https://github.com/sheepdog0820/iaia/pull/10)内で、[再照合処理を別の修正単位](PREMIUM_RECONCILIATION_MAIN_2026-10-28.md)として続けた。StripeClient/SDK/API版の移行と管理者の他の権限操作はさらに後続である。
 
 ## 問題と修正
 

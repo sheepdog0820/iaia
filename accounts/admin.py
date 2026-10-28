@@ -685,20 +685,28 @@ class PremiumSubscriptionAdmin(admin.ModelAdmin):
     @admin.action(description="選択した課金レコードからユーザー権限を再同期する")
     def sync_selected_user_access(self, request, queryset):
         changed = 0
-        for record in queryset.select_related("user"):
-            before = record.user.is_premium
-            record.sync_user_premium_access()
-            record.user.refresh_from_db()
-            if before != record.user.is_premium:
-                changed += 1
+        record_ids = queryset.order_by("pk").values_list("pk", flat=True)
+        for record_id in record_ids.iterator():
+            with transaction.atomic():
+                record = PremiumSubscription.objects.select_for_update().filter(pk=record_id).first()
+                if record is None:
+                    continue
+                # Read both flags and billing status only after a concurrent writer commits.
+                before = record.user.is_premium
+                expected = record.expected_user_premium_access
+                if before == expected:
+                    continue
+                record.user.is_premium = expected
+                record.user.save(update_fields=["is_premium"])
                 create_premium_audit_log(
                     record.user,
-                    action="granted" if record.user.is_premium else "revoked",
+                    action="granted" if expected else "revoked",
                     source=record.access_source,
                     reason="Premium access synced manually by admin action",
                     metadata={"subscription_id": record.pk},
                     actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
                 )
+            changed += 1
         self.message_user(request, f"{changed}件のユーザー権限を再同期しました。")
 
     @admin.action(description="選択した返金/チャージバック検知を確認済みにする")
