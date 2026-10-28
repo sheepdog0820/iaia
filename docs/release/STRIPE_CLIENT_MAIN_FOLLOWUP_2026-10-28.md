@@ -38,6 +38,16 @@ Python 3.11.18 / Django 5.2.17 / stripe-python 15.5.1の固定依存を使用。
 
 パッケージ指定の最終実行は、既存の課金・退会の全経路・認証・運営コード・管理者操作・再試行/イベント順序・運用コマンド・文書の **25モジュール、488テスト・110 subtestsが実PostgreSQLで成功、省略なし**。製品のDB接続やassertは変更していない。変更した6製品モジュールの追加/変更実行文は **33/33**（billing15、削除5、view2、読み取り確認6、smoke2、Price3）を通過した。全accountsや製品全体100%という意味ではない。証跡は `tmp/stripe-client-pg-package-broad.log`、`tmp/stripe-client-pg-package-coverage/coverage.json`、`tmp/verify_stripe_client_changed_coverage.py`。この実行では診断用のclose観測pluginを使用していない。
 
+### 通常配布物
+
+製品修正 `30e12d46a0893a61098a1743af9af8e12db6aee9` を通常push後、そのgit archiveから通常Dockerfileで構築した。タグ `tableno:release-candidate-30e12d46`、イメージID `sha256:83722478528e604cb62e5b1a8cab9d48febf69d5e8a66feec378de6c63082f00`。製品ソース・固定依存・試験・entrypoint等48ファイルと実entrypointのGit blob一致を確認した。
+
+最初に文書試験を含む488件を配布物内で実行したところ、ソース管理用 `AGENTS.md` を読む一件だけがエラーになった。これは既存のDocker除外対象であり、assertや配布構成を変更して合格にはしていない。文書39件は上記のソース環境で成功済みとし、通常配布物ではアプリ24モジュールの **449 Djangoテストが実PostgreSQLで成功、省略なし** と範囲を分けて記録する。
+
+合成設定ファイルだけを渡し、製品ソースbind mount・pip/pytest追加なし、UID10001・読み取り専用・外部通信なしで実行した。計測やclose観測pluginは使っていない。証跡は `tmp/stripe-client-normal-image-build.log`、初回の `tmp/stripe-client-normal-runtime.log`、アプリ対象の最終 `tmp/stripe-client-normal-app-runtime.log`、`tmp/stripe-client-normal-source-manifest.json` に保持する。実Stripe・実ユーザー、OS再監査・ECR push・実AWS反映は行っていない。
+
+[Draft PR #16](https://github.com/sheepdog0820/iaia/pull/16)はPR #15をbaseとし、製品修正と後続の資料コミットを区別する。最終CIはChecksで照合し、CI待ちの候補をマージ可能とは扱わない。
+
 ## 承認・復旧と残り
 
 DBスキーマ/移行、実データ、実Stripe、Secrets/IAM/OAuth、常設資源・費用、外部ユーザー通知を変更していない。先行PR後のbase変更と最終head・差分・CIを固定してmainへの追加マージ承認を別途求める。共有DB・AWS反映・公開の承認には拡張しない。
