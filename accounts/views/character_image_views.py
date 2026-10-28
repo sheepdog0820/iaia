@@ -12,6 +12,7 @@ import warnings
 import zipfile
 from datetime import timedelta
 
+from botocore.exceptions import BotoCoreError, ClientError
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
@@ -179,20 +180,32 @@ class CharacterImageBackgroundRemovalStatusView(APIView):
                 user=request.user,
             )
             fail_stale_background_removal_job(job)
-        if job.status == BackgroundRemovalJob.Status.COMPLETED:
-            if not job.result_image:
-                return Response(
-                    {"error": "Background removal result is unavailable."},
-                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            if job.status == BackgroundRemovalJob.Status.COMPLETED:
+                if not job.result_image:
+                    return Response(
+                        {
+                            "error": "背景透過した画像を取得できません。再度取得するか、もう一度背景透過を行ってください。"
+                        },
+                        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    )
+                # Retention cleanup must wait until the complete image is buffered.
+                try:
+                    with job.result_image.open("rb") as result_file:
+                        response = HttpResponse(result_file.read(), content_type="image/png")
+                except (OSError, BotoCoreError, ClientError) as exc:
+                    logger.warning("Background removal result read failed for job %s (%s)", job.pk, type(exc).__name__)
+                    return Response(
+                        {
+                            "error": "背景透過した画像を取得できません。再度取得するか、もう一度背景透過を行ってください。"
+                        },
+                        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    )
+                filename_root = os.path.splitext(_safe_original_filename(job.original_filename))[0] or "character"
+                response["Content-Disposition"] = content_disposition_header(
+                    "attachment",
+                    filename=f"{filename_root}-transparent.png",
                 )
-            with job.result_image.open("rb") as result_file:
-                response = HttpResponse(result_file.read(), content_type="image/png")
-            filename_root = os.path.splitext(_safe_original_filename(job.original_filename))[0] or "character"
-            response["Content-Disposition"] = content_disposition_header(
-                "attachment",
-                filename=f"{filename_root}-transparent.png",
-            )
-            return response
+                return response
         if job.status == BackgroundRemovalJob.Status.FAILED:
             return Response(
                 {"error": job.error_message or "Background removal could not be completed."},
