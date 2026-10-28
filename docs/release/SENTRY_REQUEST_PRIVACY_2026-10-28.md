@@ -49,6 +49,8 @@ HTTPエラーの保護とは別に、既存の `traces_sample_rate` の対象と
 
 追加回帰の修正前は実transactionの情報残存を含む4テストが失敗した。修正後は関連6ファイルの70テスト・86 subtestsが成功、省略なし。診断モジュールは141実行文・38分岐とも未通過0、100%。実transactionが1件あり、開始/終了時刻が異なり、DBの子spanが存在し、合成本文が全捕捉内容から消えることを確認した。hook単体ではHTTP以外の維持、route/componentの保持、生URL・名前不明の固定名、元event不変、任意の追加フィールド除外も確認した。証跡は `tmp/sentry-http-trace-hook-red.log`、`tmp/sentry-http-trace-green.log`、整形後の `tmp/sentry-http-trace-formatted.log` と `tmp/sentry-request-coverage/coverage.json` に保持する。
 
+性能トレースを含む製品修正 `b393d24a009aa4e2b1fed8db6d437d6b7e28dc08` をコミット・通常push後、git archiveから再構築した。タグ `tableno:release-candidate-b393d24a`、イメージID `sha256:3924456087ac684b1b1258dc1cf37873201baf585eaa8843eaa1a7712473860d`。対象15ファイルと実entrypointのGit blob一致、通常配布物内の同じ6モジュール **70 Djangoテスト成功、省略なし** を確認した。製品ソースbind mountやテストツール追加なし、UID10001・読み取り専用・外部通信なし。67.743秒はこの隔離試験の実行時間であり、実サービスの性能測定ではない。構築/実行/照合は `tmp/request-trace-normal-image-build.log`、`tmp/request-trace-normal-runtime.log`、`tmp/request-trace-normal-source-manifest.json` に保持する。先行8302068eの配布物65件の証跡を上書きしていない。OS再監査やECRへのpush・実AWS反映は今回行っていない。
+
 ### 残る条件
 
 今回の最終CIは[Draft PR #11のChecks](https://github.com/sheepdog0820/iaia/pull/11/checks)で照合する。実Sentryの受信画面は未確認。profile、requestの文脈を持たない別のアプリ診断やworkerの経路も引き続き監査する。Q04全体や正式公開のGo条件をこの結果だけで合格にしない。
