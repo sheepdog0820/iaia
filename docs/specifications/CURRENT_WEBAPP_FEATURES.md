@@ -360,6 +360,8 @@
   - 月別イベント一覧（date単位でグルーピング）
   - 今後n日分の集約（グループ別/週別/役割別、直近セッションも付与）
   - iCal（.ics）エクスポート（リマインダー付与）
+    - ファイル内の利用者入力をエスケープし、日本語・絵文字をUTF-8の75 octets以内で折り返す
+    - 開始・終了日時はUTCのZ形式で出力する
 - **API（代表）**
   - `GET /api/schedules/calendar/monthly/?month=YYYY-MM`
   - `GET /api/schedules/calendar/aggregation/?days=30`
