@@ -2,6 +2,8 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from accounts.billing import get_stripe
+from accounts.management.stripe_safety import safe_stripe_command
+from tableno.stripe_keys import stripe_server_key_livemode
 
 
 class Command(BaseCommand):
@@ -31,41 +33,45 @@ class Command(BaseCommand):
             help="Lowercase Stripe currency code.",
         )
 
+    @safe_stripe_command
     def handle(self, *args, **options):
         self._validate_safety(options)
         stripe = get_stripe()
 
-        product = stripe.Product.create(
-            name=options["product_name"],
-            description="Development/test-mode premium subscription for Tableno local verification.",
-            active=True,
-            type="service",
-            metadata={
-                "app": "tableno",
-                "environment": "development",
-                "managed_by": "django_command",
-                "purpose": "local_billing_verification",
-            },
+        product = stripe.v1.products.create(
+            params={
+                "name": options["product_name"],
+                "description": "Development/test-mode premium subscription for Tableno local verification.",
+                "active": True,
+                "type": "service",
+                "metadata": {
+                    "app": "tableno",
+                    "environment": "development",
+                    "managed_by": "django_command",
+                    "purpose": "local_billing_verification",
+                },
+            }
         )
         if _get(product, "livemode") is not False:
             product_id = _get(product, "id", "")
-            try:
-                if product_id:
-                    stripe.Product.modify(
-                        product_id,
-                        active=False,
-                        metadata={
+            if product_id:
+                stripe.v1.products.update(
+                    product_id,
+                    params={
+                        "active": False,
+                        "metadata": {
                             "app": "tableno",
                             "environment": "development",
                             "managed_by": "django_command",
                             "purpose": "local_billing_verification",
                             "disabled_reason": "unexpected_live_mode_response",
                         },
-                    )
-            finally:
-                raise CommandError(
-                    "Stripe Product response was not test mode; disabled Product and stopped before Price creation"
+                    },
                 )
+            raise CommandError(
+                "Stripe Productがテストモードではありません。Price作成前に停止しました。"
+                "Productの無効化状態を確認してください。"
+            )
 
         monthly_price = self._create_price(
             stripe,
@@ -96,8 +102,10 @@ class Command(BaseCommand):
         secret_key = getattr(settings, "STRIPE_SECRET_KEY", "")
         environment = getattr(settings, "ENVIRONMENT", "").strip().lower()
         currency = options["currency"].strip().lower()
-        if not secret_key.startswith("sk_test_"):
-            raise CommandError("STRIPE_SECRET_KEY must be a test key starting with sk_test_")
+        if stripe_server_key_livemode(secret_key) is not False:
+            raise CommandError(
+                "STRIPE_SECRET_KEYにはsk_test_ / rk_test_で始まるテスト用サーバーキーを設定してください。"
+            )
         if environment == "production":
             raise CommandError("create_stripe_development_prices cannot run in production")
         if currency != options["currency"] or len(currency) != 3 or not currency.isalpha():
@@ -106,19 +114,21 @@ class Command(BaseCommand):
             raise CommandError("monthly and yearly amounts must be positive")
 
     def _create_price(self, stripe, *, product_id, nickname, amount, currency, interval):
-        price = stripe.Price.create(
-            product=product_id,
-            nickname=nickname,
-            unit_amount=amount,
-            currency=currency,
-            recurring={"interval": interval},
-            metadata={
-                "app": "tableno",
-                "environment": "development",
-                "managed_by": "django_command",
-                "billing_interval": interval,
-                "purpose": "local_billing_verification",
-            },
+        price = stripe.v1.prices.create(
+            params={
+                "product": product_id,
+                "nickname": nickname,
+                "unit_amount": amount,
+                "currency": currency,
+                "recurring": {"interval": interval},
+                "metadata": {
+                    "app": "tableno",
+                    "environment": "development",
+                    "managed_by": "django_command",
+                    "billing_interval": interval,
+                    "purpose": "local_billing_verification",
+                },
+            }
         )
         if _get(price, "livemode") is not False:
             raise CommandError(f"Stripe {interval} Price response was not test mode")

@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import ANY, Mock, patch
 
+from django.conf import settings
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -255,10 +256,10 @@ class BillingApiTestCase(TestCase):
     @patch("accounts.billing.get_stripe")
     def test_checkout_creates_customer_for_new_user(self, get_stripe):
         stripe = Mock()
-        stripe.Customer.create.return_value = SimpleNamespace(id="cus_new")
-        stripe.Subscription.list.return_value.auto_paging_iter.return_value = iter([])
-        stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = iter([])
-        stripe.checkout.Session.create.return_value = SimpleNamespace(
+        stripe.v1.customers.create.return_value = SimpleNamespace(id="cus_new")
+        stripe.v1.subscriptions.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.v1.checkout.sessions.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.v1.checkout.sessions.create.return_value = SimpleNamespace(
             id="cs_new", status="open", url="https://checkout.stripe.test/new"
         )
         get_stripe.return_value = stripe
@@ -270,15 +271,15 @@ class BillingApiTestCase(TestCase):
         self.assertEqual(response.data["url"], "https://checkout.stripe.test/new")
         record = PremiumSubscription.objects.get(user=self.user)
         self.assertEqual(record.stripe_customer_id, "cus_new")
-        stripe.Customer.create.assert_called_once()
+        stripe.v1.customers.create.assert_called_once()
 
     @patch("accounts.billing.get_stripe")
     def test_checkout_reuses_existing_customer(self, get_stripe):
         PremiumSubscription.objects.create(user=self.user, stripe_customer_id="cus_existing")
         stripe = Mock()
-        stripe.Subscription.list.return_value.auto_paging_iter.return_value = iter([])
-        stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = iter([])
-        stripe.checkout.Session.create.return_value = SimpleNamespace(
+        stripe.v1.subscriptions.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.v1.checkout.sessions.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.v1.checkout.sessions.create.return_value = SimpleNamespace(
             id="cs_existing", status="open", url="https://checkout.stripe.test/existing"
         )
         get_stripe.return_value = stripe
@@ -287,20 +288,20 @@ class BillingApiTestCase(TestCase):
         response = self.client.post(reverse("billing-checkout-session"))
 
         self.assertEqual(response.status_code, 200)
-        stripe.Customer.create.assert_not_called()
-        stripe.checkout.Session.create.assert_called_once()
+        stripe.v1.customers.create.assert_not_called()
+        stripe.v1.checkout.sessions.create.assert_called_once()
         self.assertEqual(
-            stripe.checkout.Session.create.call_args.kwargs["customer"],
+            stripe.v1.checkout.sessions.create.call_args.kwargs["params"]["customer"],
             "cus_existing",
         )
 
     @patch("accounts.billing.get_stripe")
     def test_checkout_uses_yearly_price_when_requested(self, get_stripe):
         stripe = Mock()
-        stripe.Customer.create.return_value = SimpleNamespace(id="cus_yearly")
-        stripe.Subscription.list.return_value.auto_paging_iter.return_value = iter([])
-        stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = iter([])
-        stripe.checkout.Session.create.return_value = SimpleNamespace(
+        stripe.v1.customers.create.return_value = SimpleNamespace(id="cus_yearly")
+        stripe.v1.subscriptions.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.v1.checkout.sessions.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.v1.checkout.sessions.create.return_value = SimpleNamespace(
             id="cs_yearly", status="open", url="https://checkout.stripe.test/yearly"
         )
         get_stripe.return_value = stripe
@@ -315,25 +316,25 @@ class BillingApiTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            stripe.checkout.Session.create.call_args.kwargs["line_items"],
+            stripe.v1.checkout.sessions.create.call_args.kwargs["params"]["line_items"],
             [{"price": "price_yearly_dummy", "quantity": 1}],
         )
         self.assertEqual(
-            stripe.checkout.Session.create.call_args.kwargs["metadata"]["billing_plan"],
+            stripe.v1.checkout.sessions.create.call_args.kwargs["params"]["metadata"]["billing_plan"],
             "yearly",
         )
         self.assertEqual(
-            stripe.checkout.Session.create.call_args.kwargs["subscription_data"]["metadata"],
+            stripe.v1.checkout.sessions.create.call_args.kwargs["params"]["subscription_data"]["metadata"],
             {"user_id": str(self.user.id), "billing_plan": "yearly"},
         )
 
     @patch("accounts.billing.get_stripe")
     def test_checkout_sets_subscription_metadata_for_subscription_webhooks(self, get_stripe):
         stripe = Mock()
-        stripe.Customer.create.return_value = SimpleNamespace(id="cus_metadata")
-        stripe.Subscription.list.return_value.auto_paging_iter.return_value = iter([])
-        stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = iter([])
-        stripe.checkout.Session.create.return_value = SimpleNamespace(
+        stripe.v1.customers.create.return_value = SimpleNamespace(id="cus_metadata")
+        stripe.v1.subscriptions.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.v1.checkout.sessions.list.return_value.auto_paging_iter.return_value = iter([])
+        stripe.v1.checkout.sessions.create.return_value = SimpleNamespace(
             id="cs_metadata", status="open", url="https://checkout.stripe.test/metadata"
         )
         get_stripe.return_value = stripe
@@ -343,7 +344,7 @@ class BillingApiTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            stripe.checkout.Session.create.call_args.kwargs["subscription_data"]["metadata"],
+            stripe.v1.checkout.sessions.create.call_args.kwargs["params"]["subscription_data"]["metadata"],
             {"user_id": str(self.user.id), "billing_plan": "monthly"},
         )
 
@@ -379,7 +380,9 @@ class BillingApiTestCase(TestCase):
     def test_portal_returns_redirect_url(self, get_stripe):
         PremiumSubscription.objects.create(user=self.user, stripe_customer_id="cus_portal")
         stripe = Mock()
-        stripe.billing_portal.Session.create.return_value = SimpleNamespace(url="https://billing.stripe.test/portal")
+        stripe.v1.billing_portal.sessions.create.return_value = SimpleNamespace(
+            url="https://billing.stripe.test/portal"
+        )
         get_stripe.return_value = stripe
         self.client.force_authenticate(self.user)
 
@@ -393,7 +396,9 @@ class BillingApiTestCase(TestCase):
     def test_portal_uses_configured_portal_configuration(self, get_stripe):
         PremiumSubscription.objects.create(user=self.user, stripe_customer_id="cus_portal")
         stripe = Mock()
-        stripe.billing_portal.Session.create.return_value = SimpleNamespace(url="https://billing.stripe.test/portal")
+        stripe.v1.billing_portal.sessions.create.return_value = SimpleNamespace(
+            url="https://billing.stripe.test/portal"
+        )
         get_stripe.return_value = stripe
         self.client.force_authenticate(self.user)
 
@@ -401,7 +406,7 @@ class BillingApiTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            stripe.billing_portal.Session.create.call_args.kwargs["configuration"],
+            stripe.v1.billing_portal.sessions.create.call_args.kwargs["params"]["configuration"],
             "bpc_test_config",
         )
 
@@ -723,7 +728,7 @@ class StripeWebhookTestCase(TestCase):
     @patch("accounts.views.billing_views.get_stripe")
     def test_webhook_rejects_invalid_signature(self, get_stripe):
         stripe = Mock()
-        stripe.Webhook.construct_event.side_effect = ValueError("bad signature")
+        stripe.construct_event.side_effect = ValueError("bad signature")
         get_stripe.return_value = stripe
 
         response = self.client.post(
@@ -738,7 +743,7 @@ class StripeWebhookTestCase(TestCase):
     @patch("accounts.views.billing_views.get_stripe")
     def test_webhook_rejects_event_without_id_or_type(self, get_stripe):
         stripe = Mock()
-        stripe.Webhook.construct_event.return_value = {
+        stripe.construct_event.return_value = {
             "data": {"object": {}},
         }
         get_stripe.return_value = stripe
@@ -762,7 +767,7 @@ class StripeWebhookTestCase(TestCase):
             "data": {"object": {"customer": "cus_test", "subscription": "sub_test"}},
         }
         stripe = Mock()
-        stripe.Webhook.construct_event.return_value = event
+        stripe.construct_event.return_value = event
         get_stripe.return_value = stripe
 
         for _ in range(2):
@@ -799,7 +804,7 @@ class StripeWebhookTestCase(TestCase):
             processing_status=StripeWebhookEvent.STATUS_SUCCEEDED,
         )
         stripe = Mock()
-        stripe.Webhook.construct_event.return_value = event
+        stripe.construct_event.return_value = event
         get_stripe.return_value = stripe
 
         response = self.client.post(
@@ -822,7 +827,7 @@ class StripeWebhookTestCase(TestCase):
             "data": {"object": {"customer": "cus_test", "subscription": "sub_test"}},
         }
         stripe = Mock()
-        stripe.Webhook.construct_event.return_value = event
+        stripe.construct_event.return_value = event
         get_stripe.return_value = stripe
         handle_checkout_completed_mock.side_effect = [RuntimeError("temporary failure"), None]
 
@@ -836,7 +841,8 @@ class StripeWebhookTestCase(TestCase):
         self.assertEqual(first_response.status_code, 500)
         webhook_event = StripeWebhookEvent.objects.get(event_id="evt_checkout_retry")
         self.assertEqual(webhook_event.processing_status, StripeWebhookEvent.STATUS_FAILED)
-        self.assertIn("temporary failure", webhook_event.error_message)
+        self.assertNotIn("temporary failure", webhook_event.error_message)
+        self.assertIn("確認", webhook_event.error_message)
 
         second_response = self.client.post(
             reverse("billing-webhook"),
@@ -859,7 +865,7 @@ class StripeWebhookTestCase(TestCase):
             "type": "checkout.session.completed",
             "data": {"object": {"customer": "cus_test", "subscription": "sub_test"}},
         }
-        get_stripe.return_value.Webhook.construct_event.return_value = event
+        get_stripe.return_value.construct_event.return_value = event
 
         def fail_database_write(*args, **kwargs):
             # Trigger a real database constraint failure inside the processing transaction.
@@ -903,8 +909,8 @@ class StripeWebhookTestCase(TestCase):
             "data": {"object": {"id": "sub_test", "customer": "cus_test", "status": "active"}},
         }
         stripe = Mock()
-        stripe.Webhook.construct_event.return_value = event
-        stripe.Subscription.retrieve.return_value = event["data"]["object"]
+        stripe.construct_event.return_value = event
+        stripe.v1.subscriptions.retrieve.return_value = event["data"]["object"]
         get_stripe.return_value = stripe
 
         response = self.client.post(
@@ -929,8 +935,8 @@ class StripeWebhookTestCase(TestCase):
             "data": {"object": {"id": "sub_test", "customer": "cus_test", "status": "active"}},
         }
         stripe = Mock()
-        stripe.Webhook.construct_event.return_value = event
-        stripe.Subscription.retrieve.return_value = event["data"]["object"]
+        stripe.construct_event.return_value = event
+        stripe.v1.subscriptions.retrieve.return_value = event["data"]["object"]
         get_stripe.return_value = stripe
 
         response = self.client.post(
@@ -955,8 +961,8 @@ class StripeWebhookTestCase(TestCase):
             "data": {"object": {"id": "sub_test", "customer": "cus_test", "status": "canceled"}},
         }
         stripe = Mock()
-        stripe.Webhook.construct_event.return_value = event
-        stripe.Subscription.retrieve.return_value = event["data"]["object"]
+        stripe.construct_event.return_value = event
+        stripe.v1.subscriptions.retrieve.return_value = event["data"]["object"]
         get_stripe.return_value = stripe
 
         response = self.client.post(
@@ -987,7 +993,7 @@ class StripeWebhookTestCase(TestCase):
             },
         }
         stripe = Mock()
-        stripe.Webhook.construct_event.return_value = event
+        stripe.construct_event.return_value = event
         get_stripe.return_value = stripe
 
         response = self.client.post(
@@ -1019,7 +1025,7 @@ class StripeWebhookTestCase(TestCase):
             },
         }
         stripe = Mock()
-        stripe.Webhook.construct_event.return_value = event
+        stripe.construct_event.return_value = event
         get_stripe.return_value = stripe
 
         response = self.client.post(
@@ -1045,7 +1051,7 @@ class StripeWebhookTestCase(TestCase):
             "data": {"object": {"id": "dp_test", "charge": "ch_test"}},
         }
         stripe = Mock()
-        stripe.Webhook.construct_event.return_value = event
+        stripe.construct_event.return_value = event
         get_stripe.return_value = stripe
 
         response = self.client.post(
@@ -1308,7 +1314,7 @@ class BillingServiceTestCase(TestCase):
     @patch("accounts.billing.get_stripe")
     def test_checkout_completed_links_user_and_subscription(self, get_stripe):
         stripe = Mock()
-        stripe.Subscription.retrieve.return_value = {
+        stripe.v1.subscriptions.retrieve.return_value = {
             "id": "sub_checkout",
             "customer": "cus_checkout",
             "status": "active",
@@ -1345,9 +1351,9 @@ class BillingServiceTestCase(TestCase):
             "metadata": {},
         }
 
-        get_stripe.return_value.Subscription.retrieve.return_value = session["subscription"]
+        get_stripe.return_value.v1.subscriptions.retrieve.return_value = session["subscription"]
         record = handle_checkout_completed(session, event_id="evt_checkout_expanded")
-        get_stripe.return_value.Subscription.retrieve.assert_called_once_with("sub_checkout_expanded")
+        get_stripe.return_value.v1.subscriptions.retrieve.assert_called_once_with("sub_checkout_expanded")
 
         self.assertEqual(record.stripe_customer_id, "cus_checkout_expanded")
         self.assertEqual(record.stripe_subscription_id, "sub_checkout_expanded")
@@ -1613,7 +1619,7 @@ class BillingServiceTestCase(TestCase):
             access_source="stripe",
         )
         stripe = Mock()
-        stripe.Charge.retrieve.return_value = {
+        stripe.v1.charges.retrieve.return_value = {
             "id": "ch_dispute",
             "customer": "cus_dispute",
             "invoice": "in_dispute",
@@ -1637,7 +1643,7 @@ class BillingServiceTestCase(TestCase):
         self.assertIsNotNone(record)
         self.user.refresh_from_db()
         self.assertTrue(self.user.is_premium)
-        stripe.Charge.retrieve.assert_called_once_with("ch_dispute")
+        stripe.v1.charges.retrieve.assert_called_once_with("ch_dispute")
         audit_log = PremiumAuditLog.objects.get(
             user=self.user,
             action="disputed",
@@ -1696,7 +1702,7 @@ class BillingServiceTestCase(TestCase):
     def test_dispute_closed_won_restores_dispute_revoked_access(self, get_stripe):
         from accounts.billing import mark_refund_or_dispute
 
-        get_stripe.return_value.Subscription.retrieve.return_value = SimpleNamespace(
+        get_stripe.return_value.v1.subscriptions.retrieve.return_value = SimpleNamespace(
             id="sub_dispute_created_then_won", customer="cus_dispute_created_then_won", status="active"
         )
         self.user.is_premium = True
@@ -2589,6 +2595,9 @@ recent_event_ids:
 - customer.subscription.created: evt_created_recent
 - customer.subscription.updated: evt_update_recent
 - customer.subscription.deleted: evt_deleted_recent
+- customer.subscription.paused: evt_paused_recent
+- customer.subscription.resumed: evt_resumed_recent
+- invoice.paid: evt_paid_recent
 - invoice.payment_failed: evt_failed_recent
 - invoice.payment_succeeded: evt_succeeded_recent
 - charge.refunded: evt_refunded_recent
@@ -2648,6 +2657,9 @@ Premium audit logs
                 stdout.write("- customer.subscription.created: evt_created_recent\n")
                 stdout.write("- customer.subscription.updated: evt_update_recent\n")
                 stdout.write("- customer.subscription.deleted: evt_deleted_recent\n")
+                stdout.write("- customer.subscription.paused: evt_paused_recent\n")
+                stdout.write("- customer.subscription.resumed: evt_resumed_recent\n")
+                stdout.write("- invoice.paid: evt_paid_recent\n")
                 stdout.write("- invoice.payment_failed: evt_failed_recent\n")
                 stdout.write("- invoice.payment_succeeded: evt_succeeded_recent\n")
                 stdout.write("- charge.refunded: evt_refunded_recent\n")
@@ -3408,23 +3420,24 @@ class BillingPreflightCommandTestCase(TestCase):
         from accounts.management.commands.billing_preflight import REQUIRED_WEBHOOK_EVENTS
 
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
             "livemode": False,
             "recurring": {"interval": "month"},
         }
-        stripe.WebhookEndpoint.list.return_value = {
+        stripe.v1.webhook_endpoints.list.return_value = {
             "data": [
                 {
                     "url": "https://example.test/api/billing/webhook/",
                     "livemode": False,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": list(REQUIRED_WEBHOOK_EVENTS),
                 }
             ]
         }
-        stripe.billing_portal.Configuration.list.return_value = {"data": [active_portal_configuration()]}
+        stripe.v1.billing_portal.configurations.list.return_value = {"data": [active_portal_configuration()]}
         get_stripe.return_value = stripe
         stdout = StringIO()
 
@@ -3448,7 +3461,7 @@ class BillingPreflightCommandTestCase(TestCase):
         from accounts.management.commands.billing_preflight import REQUIRED_WEBHOOK_EVENTS
 
         stripe = Mock()
-        stripe.Price.retrieve.side_effect = [
+        stripe.v1.prices.retrieve.side_effect = [
             {
                 "id": "price_monthly_remote",
                 "active": True,
@@ -3464,24 +3477,25 @@ class BillingPreflightCommandTestCase(TestCase):
                 "recurring": {"interval": "year"},
             },
         ]
-        stripe.WebhookEndpoint.list.return_value = {
+        stripe.v1.webhook_endpoints.list.return_value = {
             "data": [
                 {
                     "url": "https://example.test/api/billing/webhook/",
                     "livemode": False,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": list(REQUIRED_WEBHOOK_EVENTS),
                 }
             ]
         }
-        stripe.billing_portal.Configuration.list.return_value = {"data": [active_portal_configuration()]}
+        stripe.v1.billing_portal.configurations.list.return_value = {"data": [active_portal_configuration()]}
         get_stripe.return_value = stripe
         stdout = StringIO()
 
         call_command("billing_stripe_remote_check", stdout=stdout)
 
         output = stdout.getvalue()
-        self.assertEqual(stripe.Price.retrieve.call_args_list[0].args[0], "price_monthly_remote")
-        self.assertEqual(stripe.Price.retrieve.call_args_list[1].args[0], "price_yearly_remote")
+        self.assertEqual(stripe.v1.prices.retrieve.call_args_list[0].args[0], "price_monthly_remote")
+        self.assertEqual(stripe.v1.prices.retrieve.call_args_list[1].args[0], "price_yearly_remote")
         self.assertIn("OK stripe price monthly", output)
         self.assertIn("OK stripe price yearly", output)
         self.assertIn("billing_stripe_remote_check=ok", output)
@@ -3496,7 +3510,7 @@ class BillingPreflightCommandTestCase(TestCase):
     @patch("accounts.management.commands.billing_stripe_remote_check.get_stripe")
     def test_billing_stripe_remote_check_rejects_non_yearly_yearly_price(self, get_stripe):
         stripe = Mock()
-        stripe.Price.retrieve.side_effect = [
+        stripe.v1.prices.retrieve.side_effect = [
             {
                 "id": "price_monthly_remote",
                 "active": True,
@@ -3531,24 +3545,25 @@ class BillingPreflightCommandTestCase(TestCase):
         from accounts.management.commands.billing_preflight import REQUIRED_WEBHOOK_EVENTS
 
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
             "livemode": False,
             "recurring": {"interval": "month"},
         }
-        stripe.WebhookEndpoint.list.return_value = {
+        stripe.v1.webhook_endpoints.list.return_value = {
             "data": [
                 {
                     "url": "https://example.test/api/billing/webhook/",
                     "livemode": False,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": list(REQUIRED_WEBHOOK_EVENTS),
                 }
             ]
         }
-        stripe.billing_portal.Configuration.list.return_value = {"data": [active_portal_configuration()]}
-        stripe.Event.list.return_value = {
+        stripe.v1.billing_portal.configurations.list.return_value = {"data": [active_portal_configuration()]}
+        stripe.v1.events.list.return_value = {
             "data": [
                 {"id": "evt_checkout_recent", "type": "checkout.session.completed", "livemode": False},
                 {"id": "evt_created_recent", "type": "customer.subscription.created", "livemode": False},
@@ -3559,6 +3574,9 @@ class BillingPreflightCommandTestCase(TestCase):
                     "data": {"object": {"cancel_at_period_end": True}},
                 },
                 {"id": "evt_deleted_recent", "type": "customer.subscription.deleted", "livemode": False},
+                {"id": "evt_paused_recent", "type": "customer.subscription.paused", "livemode": False},
+                {"id": "evt_resumed_recent", "type": "customer.subscription.resumed", "livemode": False},
+                {"id": "evt_paid_recent", "type": "invoice.paid", "livemode": False},
                 {"id": "evt_failed_recent", "type": "invoice.payment_failed", "livemode": False},
                 {"id": "evt_succeeded_recent", "type": "invoice.payment_succeeded", "livemode": False},
                 {"id": "evt_refunded_recent", "type": "charge.refunded", "livemode": False},
@@ -3578,8 +3596,8 @@ class BillingPreflightCommandTestCase(TestCase):
         )
 
         output = stdout.getvalue()
-        stripe.Event.list.assert_called_once()
-        requested_event_types = set(stripe.Event.list.call_args.kwargs["types"])
+        stripe.v1.events.list.assert_called_once()
+        requested_event_types = set(stripe.v1.events.list.call_args.kwargs["params"]["types"])
         self.assertIn("customer.subscription.created", requested_event_types)
         self.assertIn("invoice.payment_succeeded", requested_event_types)
         self.assertIn("charge.refunded", requested_event_types)
@@ -3605,24 +3623,25 @@ class BillingPreflightCommandTestCase(TestCase):
         from accounts.management.commands.billing_preflight import REQUIRED_WEBHOOK_EVENTS
 
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
             "livemode": False,
             "recurring": {"interval": "month"},
         }
-        stripe.WebhookEndpoint.list.return_value = {
+        stripe.v1.webhook_endpoints.list.return_value = {
             "data": [
                 {
                     "url": "https://example.test/api/billing/webhook/",
                     "livemode": False,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": list(REQUIRED_WEBHOOK_EVENTS),
                 }
             ]
         }
-        stripe.billing_portal.Configuration.list.return_value = {"data": [active_portal_configuration()]}
-        stripe.Event.list.return_value = {
+        stripe.v1.billing_portal.configurations.list.return_value = {"data": [active_portal_configuration()]}
+        stripe.v1.events.list.return_value = {
             "data": [
                 {"id": "evt_checkout_recent", "type": "checkout.session.completed", "livemode": False},
                 {"id": "evt_created_recent", "type": "customer.subscription.created", "livemode": False},
@@ -3633,6 +3652,9 @@ class BillingPreflightCommandTestCase(TestCase):
                     "data": {"object": {"cancel_at_period_end": False}},
                 },
                 {"id": "evt_deleted_recent", "type": "customer.subscription.deleted", "livemode": False},
+                {"id": "evt_paused_recent", "type": "customer.subscription.paused", "livemode": False},
+                {"id": "evt_resumed_recent", "type": "customer.subscription.resumed", "livemode": False},
+                {"id": "evt_paid_recent", "type": "invoice.paid", "livemode": False},
                 {"id": "evt_failed_recent", "type": "invoice.payment_failed", "livemode": False},
                 {"id": "evt_succeeded_recent", "type": "invoice.payment_succeeded", "livemode": False},
                 {"id": "evt_refunded_recent", "type": "charge.refunded", "livemode": False},
@@ -3661,24 +3683,25 @@ class BillingPreflightCommandTestCase(TestCase):
         from accounts.management.commands.billing_preflight import REQUIRED_WEBHOOK_EVENTS
 
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
             "livemode": False,
             "recurring": {"interval": "month"},
         }
-        stripe.WebhookEndpoint.list.return_value = {
+        stripe.v1.webhook_endpoints.list.return_value = {
             "data": [
                 {
                     "url": "https://example.test/api/billing/webhook/",
                     "livemode": False,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": list(REQUIRED_WEBHOOK_EVENTS),
                 }
             ]
         }
-        stripe.billing_portal.Configuration.list.return_value = {"data": [active_portal_configuration()]}
-        stripe.Event.list.return_value = {
+        stripe.v1.billing_portal.configurations.list.return_value = {"data": [active_portal_configuration()]}
+        stripe.v1.events.list.return_value = {
             "data": [
                 {"id": "evt_checkout_recent", "type": "checkout.session.completed", "livemode": False},
                 {"id": "evt_created_recent", "type": "customer.subscription.created", "livemode": False},
@@ -3689,6 +3712,9 @@ class BillingPreflightCommandTestCase(TestCase):
                     "data": {"object": {"cancel_at_period_end": True}},
                 },
                 {"id": "evt_deleted_recent", "type": "customer.subscription.deleted", "livemode": False},
+                {"id": "evt_paused_recent", "type": "customer.subscription.paused", "livemode": False},
+                {"id": "evt_resumed_recent", "type": "customer.subscription.resumed", "livemode": False},
+                {"id": "evt_paid_recent", "type": "invoice.paid", "livemode": False},
                 {"id": "evt_failed_recent", "type": "invoice.payment_failed", "livemode": False},
                 {"id": "evt_succeeded_recent", "type": "invoice.payment_succeeded", "livemode": False},
             ]
@@ -3767,7 +3793,7 @@ class BillingPreflightCommandTestCase(TestCase):
                     stdout=StringIO(),
                 )
 
-        self.assertIn("STRIPE_SECRET_KEY must start with", str(context.exception))
+        self.assertIn("STRIPE_SECRET_KEYにはsk_test_ / rk_test_ / sk_live_ / rk_live_", str(context.exception))
         get_stripe.assert_not_called()
 
     @override_settings(
@@ -3779,7 +3805,7 @@ class BillingPreflightCommandTestCase(TestCase):
     @patch("accounts.management.commands.billing_stripe_remote_check.get_stripe")
     def test_billing_stripe_remote_check_rejects_non_monthly_price(self, get_stripe):
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
@@ -3807,7 +3833,7 @@ class BillingPreflightCommandTestCase(TestCase):
     @patch("accounts.management.commands.billing_stripe_remote_check.get_stripe")
     def test_billing_stripe_remote_check_rejects_price_livemode_mismatch(self, get_stripe):
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
@@ -3837,7 +3863,7 @@ class BillingPreflightCommandTestCase(TestCase):
     @patch("accounts.management.commands.billing_stripe_remote_check.get_stripe")
     def test_billing_stripe_remote_check_validates_expected_monthly_price_amount(self, get_stripe):
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
@@ -3870,7 +3896,7 @@ class BillingPreflightCommandTestCase(TestCase):
     @patch("accounts.management.commands.billing_stripe_remote_check.get_stripe")
     def test_billing_stripe_remote_check_rejects_unexpected_price_amount_or_currency(self, get_stripe):
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
@@ -3903,7 +3929,7 @@ class BillingPreflightCommandTestCase(TestCase):
     @patch("accounts.management.commands.billing_stripe_remote_check.get_stripe")
     def test_billing_stripe_remote_check_rejects_invalid_expected_price_amount_setting(self, get_stripe):
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
@@ -3934,23 +3960,24 @@ class BillingPreflightCommandTestCase(TestCase):
     @patch("accounts.management.commands.billing_stripe_remote_check.get_stripe")
     def test_billing_stripe_remote_check_rejects_missing_webhook_event(self, get_stripe):
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
             "livemode": False,
             "recurring": {"interval": "month"},
         }
-        stripe.WebhookEndpoint.list.return_value = {
+        stripe.v1.webhook_endpoints.list.return_value = {
             "data": [
                 {
                     "url": "https://example.test/api/billing/webhook/",
                     "livemode": False,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": ["checkout.session.completed"],
                 }
             ]
         }
-        stripe.billing_portal.Configuration.list.return_value = {"data": [active_portal_configuration()]}
+        stripe.v1.billing_portal.configurations.list.return_value = {"data": [active_portal_configuration()]}
         get_stripe.return_value = stripe
 
         with self.assertRaises(CommandError) as context:
@@ -3969,24 +3996,25 @@ class BillingPreflightCommandTestCase(TestCase):
         from accounts.management.commands.billing_preflight import REQUIRED_WEBHOOK_EVENTS
 
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
             "livemode": False,
             "recurring": {"interval": "month"},
         }
-        stripe.WebhookEndpoint.list.return_value = {
+        stripe.v1.webhook_endpoints.list.return_value = {
             "data": [
                 {
                     "url": "https://example.test/api/billing/webhook/",
                     "status": "disabled",
                     "livemode": False,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": list(REQUIRED_WEBHOOK_EVENTS),
                 }
             ]
         }
-        stripe.billing_portal.Configuration.list.return_value = {"data": [active_portal_configuration()]}
+        stripe.v1.billing_portal.configurations.list.return_value = {"data": [active_portal_configuration()]}
         get_stripe.return_value = stripe
 
         with self.assertRaises(CommandError) as context:
@@ -4005,23 +4033,24 @@ class BillingPreflightCommandTestCase(TestCase):
         from accounts.management.commands.billing_preflight import REQUIRED_WEBHOOK_EVENTS
 
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
             "livemode": False,
             "recurring": {"interval": "month"},
         }
-        stripe.WebhookEndpoint.list.return_value = {
+        stripe.v1.webhook_endpoints.list.return_value = {
             "data": [
                 {
                     "url": "https://example.test/api/billing/webhook/",
                     "livemode": True,
+                    "api_version": settings.STRIPE_API_VERSION,
                     "enabled_events": list(REQUIRED_WEBHOOK_EVENTS),
                 }
             ]
         }
-        stripe.billing_portal.Configuration.list.return_value = {"data": [active_portal_configuration()]}
+        stripe.v1.billing_portal.configurations.list.return_value = {"data": [active_portal_configuration()]}
         get_stripe.return_value = stripe
 
         with self.assertRaises(CommandError) as context:
@@ -4041,14 +4070,16 @@ class BillingPreflightCommandTestCase(TestCase):
     @patch("accounts.management.commands.billing_stripe_remote_check.get_stripe")
     def test_billing_stripe_remote_check_rejects_portal_livemode_mismatch(self, get_stripe):
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
             "livemode": False,
             "recurring": {"interval": "month"},
         }
-        stripe.billing_portal.Configuration.list.return_value = {"data": [active_portal_configuration(livemode=True)]}
+        stripe.v1.billing_portal.configurations.list.return_value = {
+            "data": [active_portal_configuration(livemode=True)]
+        }
         get_stripe.return_value = stripe
 
         with self.assertRaises(CommandError) as context:
@@ -4069,14 +4100,14 @@ class BillingPreflightCommandTestCase(TestCase):
     @patch("accounts.management.commands.billing_stripe_remote_check.get_stripe")
     def test_billing_stripe_remote_check_rejects_missing_customer_portal(self, get_stripe):
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
             "livemode": False,
             "recurring": {"interval": "month"},
         }
-        stripe.billing_portal.Configuration.list.return_value = {"data": []}
+        stripe.v1.billing_portal.configurations.list.return_value = {"data": []}
         get_stripe.return_value = stripe
 
         with self.assertRaises(CommandError) as context:
@@ -4094,7 +4125,7 @@ class BillingPreflightCommandTestCase(TestCase):
     @patch("accounts.management.commands.billing_stripe_remote_check.get_stripe")
     def test_billing_stripe_remote_check_rejects_inactive_configured_customer_portal(self, get_stripe):
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
@@ -4104,7 +4135,7 @@ class BillingPreflightCommandTestCase(TestCase):
         inactive_configuration = active_portal_configuration()
         inactive_configuration["id"] = "bpc_inactive"
         inactive_configuration["active"] = False
-        stripe.billing_portal.Configuration.list.return_value = {"data": [inactive_configuration]}
+        stripe.v1.billing_portal.configurations.list.return_value = {"data": [inactive_configuration]}
         get_stripe.return_value = stripe
 
         with self.assertRaises(CommandError) as context:
@@ -4124,14 +4155,14 @@ class BillingPreflightCommandTestCase(TestCase):
     @patch("accounts.management.commands.billing_stripe_remote_check.get_stripe")
     def test_billing_stripe_remote_check_rejects_portal_without_cancellation(self, get_stripe):
         stripe = Mock()
-        stripe.Price.retrieve.return_value = {
+        stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
             "active": True,
             "type": "recurring",
             "livemode": False,
             "recurring": {"interval": "month"},
         }
-        stripe.billing_portal.Configuration.list.return_value = {
+        stripe.v1.billing_portal.configurations.list.return_value = {
             "data": [
                 active_portal_configuration(
                     features={"subscription_cancel": {"enabled": False}},
@@ -5152,11 +5183,11 @@ class CreateStripeDevelopmentPricesCommandTestCase(TestCase):
     @patch("accounts.management.commands.create_stripe_development_prices.get_stripe")
     def test_create_stripe_development_prices_creates_monthly_and_yearly_prices(self, get_stripe):
         stripe = Mock()
-        stripe.Product.create.return_value = {
+        stripe.v1.products.create.return_value = {
             "id": "prod_development",
             "livemode": False,
         }
-        stripe.Price.create.side_effect = [
+        stripe.v1.prices.create.side_effect = [
             {"id": "price_monthly_development", "livemode": False},
             {"id": "price_yearly_development", "livemode": False},
         ]
@@ -5166,10 +5197,10 @@ class CreateStripeDevelopmentPricesCommandTestCase(TestCase):
         call_command("create_stripe_development_prices", stdout=stdout)
 
         output = stdout.getvalue()
-        stripe.Product.create.assert_called_once()
-        self.assertEqual(stripe.Price.create.call_count, 2)
-        monthly_call = stripe.Price.create.call_args_list[0].kwargs
-        yearly_call = stripe.Price.create.call_args_list[1].kwargs
+        stripe.v1.products.create.assert_called_once()
+        self.assertEqual(stripe.v1.prices.create.call_count, 2)
+        monthly_call = stripe.v1.prices.create.call_args_list[0].kwargs["params"]
+        yearly_call = stripe.v1.prices.create.call_args_list[1].kwargs["params"]
         self.assertEqual(monthly_call["unit_amount"], 480)
         self.assertEqual(monthly_call["currency"], "jpy")
         self.assertEqual(monthly_call["recurring"], {"interval": "month"})
@@ -5198,7 +5229,7 @@ class CreateStripeDevelopmentPricesCommandTestCase(TestCase):
     @patch("accounts.management.commands.create_stripe_development_prices.get_stripe")
     def test_create_stripe_development_prices_disables_live_product_response(self, get_stripe):
         stripe = Mock()
-        stripe.Product.create.return_value = {
+        stripe.v1.products.create.return_value = {
             "id": "prod_live_accidental",
             "livemode": True,
         }
@@ -5207,8 +5238,8 @@ class CreateStripeDevelopmentPricesCommandTestCase(TestCase):
         with self.assertRaises(CommandError) as context:
             call_command("create_stripe_development_prices", stdout=StringIO())
 
-        self.assertIn("not test mode", str(context.exception))
-        stripe.Product.modify.assert_called_once()
-        self.assertEqual(stripe.Product.modify.call_args.args[0], "prod_live_accidental")
-        self.assertIs(stripe.Product.modify.call_args.kwargs["active"], False)
-        stripe.Price.create.assert_not_called()
+        self.assertIn("テストモードではありません", str(context.exception))
+        stripe.v1.products.update.assert_called_once()
+        self.assertEqual(stripe.v1.products.update.call_args.args[0], "prod_live_accidental")
+        self.assertIs(stripe.v1.products.update.call_args.kwargs["params"]["active"], False)
+        stripe.v1.prices.create.assert_not_called()

@@ -95,7 +95,7 @@ class CheckoutSessionView(APIView):
         except ImproperlyConfigured as exc:
             return Response({"error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception:
-            logger.exception("Stripe checkout session creation failed")
+            logger.error("Stripe checkout session creation failed")
             return Response(
                 {"error": "Stripe service is temporarily unavailable"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -114,7 +114,7 @@ class PortalSessionView(APIView):
         except ImproperlyConfigured as exc:
             return Response({"error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception:
-            logger.exception("Stripe portal session creation failed")
+            logger.error("Stripe portal session creation failed")
             return Response(
                 {"error": "Stripe service is temporarily unavailable"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -158,9 +158,12 @@ class StripeWebhookView(APIView):
         if not signature:
             return Response({"error": "Missing Stripe signature"}, status=status.HTTP_400_BAD_REQUEST)
 
-        stripe = get_stripe()
         try:
-            event = stripe.Webhook.construct_event(
+            stripe = get_stripe()
+        except ImproperlyConfigured as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        try:
+            event = stripe.construct_event(
                 payload=request.body,
                 sig_header=signature,
                 secret=settings.STRIPE_WEBHOOK_SECRET,
@@ -216,6 +219,8 @@ class StripeWebhookView(APIView):
                     "customer.subscription.created",
                     "customer.subscription.updated",
                     "customer.subscription.deleted",
+                    "customer.subscription.paused",
+                    "customer.subscription.resumed",
                 }:
                     # Serialize events for one customer, then fetch the current state.
                     # Stripe does not guarantee snapshot delivery order.
@@ -224,7 +229,7 @@ class StripeWebhookView(APIView):
                         .filter(stripe_customer_id=data_object.get("customer"))
                         .first()
                     )
-                    current_subscription = stripe.Subscription.retrieve(data_object["id"])
+                    current_subscription = stripe.v1.subscriptions.retrieve(data_object["id"])
                     superseded_cancellation = (
                         record
                         and record.stripe_subscription_id
@@ -233,7 +238,7 @@ class StripeWebhookView(APIView):
                     )
                     if not superseded_cancellation:
                         sync_subscription_object(current_subscription, event_id=event_id)
-                elif event_type in {"invoice.payment_failed", "invoice.payment_succeeded"}:
+                elif event_type in {"invoice.payment_failed", "invoice.payment_succeeded", "invoice.paid"}:
                     reconcile_invoice_payment(data_object, event_type=event_type, event_id=event_id)
                 elif event_type in {"charge.dispute.created", "charge.dispute.closed"}:
                     reconcile_dispute_event(data_object, event_type=event_type, event_id=event_id)
@@ -249,11 +254,11 @@ class StripeWebhookView(APIView):
                         "processed_at",
                     ]
                 )
-        except Exception as exc:
+        except Exception:
             StripeWebhookEvent.objects.filter(event_id=event_id).update(
                 event_type=event_type,
                 processing_status=StripeWebhookEvent.STATUS_FAILED,
-                error_message=str(exc)[:2000],
+                error_message="Webhook処理中にエラーが発生しました。運用手順で原因と再送状況を確認してください。",
                 processed_at=timezone.now(),
             )
             return Response(

@@ -1,16 +1,21 @@
-﻿from django.conf import settings
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.urls import reverse
 from django.utils import timezone
 
 from accounts.billing import get_stripe
 from accounts.management.commands.billing_preflight import REQUIRED_WEBHOOK_EVENTS
+from accounts.management.stripe_safety import safe_stripe_command
+from tableno.stripe_keys import stripe_server_key_livemode
 
 RECENT_OPERATIONAL_EVENT_TYPES = (
     "checkout.session.completed",
     "customer.subscription.created",
     "customer.subscription.updated",
     "customer.subscription.deleted",
+    "customer.subscription.paused",
+    "customer.subscription.resumed",
+    "invoice.paid",
     "invoice.payment_failed",
     "invoice.payment_succeeded",
     "charge.refunded",
@@ -51,13 +56,14 @@ class Command(BaseCommand):
             help="--require-recent-eventsで確認する直近イベントの時間幅です。",
         )
 
+    @safe_stripe_command
     def handle(self, *args, **options):
         if not settings.STRIPE_PREMIUM_PRICE_ID:
             raise CommandError("STRIPE_PREMIUM_PRICE_ID is required")
 
         expected_livemode = get_expected_livemode()
         stripe = get_stripe()
-        price = stripe.Price.retrieve(settings.STRIPE_PREMIUM_PRICE_ID)
+        price = stripe.v1.prices.retrieve(settings.STRIPE_PREMIUM_PRICE_ID)
         price_errors = validate_price(
             price,
             expected_livemode=expected_livemode,
@@ -71,7 +77,7 @@ class Command(BaseCommand):
 
         yearly_price_id = getattr(settings, "STRIPE_PREMIUM_YEARLY_PRICE_ID", "")
         if yearly_price_id:
-            yearly_price = stripe.Price.retrieve(yearly_price_id)
+            yearly_price = stripe.v1.prices.retrieve(yearly_price_id)
             yearly_price_errors = validate_price(
                 yearly_price,
                 expected_livemode=expected_livemode,
@@ -86,7 +92,7 @@ class Command(BaseCommand):
         if options["skip_portal"]:
             self.stdout.write(self.style.WARNING("SKIP stripe customer portal"))
         else:
-            portal_configurations = stripe.billing_portal.Configuration.list(limit=100)
+            portal_configurations = stripe.v1.billing_portal.configurations.list(params={"limit": 100})
             portal_errors = validate_portal_configurations(
                 portal_configurations,
                 expected_livemode=expected_livemode,
@@ -106,21 +112,20 @@ class Command(BaseCommand):
             return
 
         webhook_url = options["webhook_url"] or build_default_webhook_url()
-        endpoints = stripe.WebhookEndpoint.list(limit=100)
+        endpoints = stripe.v1.webhook_endpoints.list(params={"limit": 100})
         endpoint_errors = validate_webhook_endpoints(
             endpoints,
             webhook_url,
             expected_livemode=expected_livemode,
+            expected_api_version=settings.STRIPE_API_VERSION,
         )
         if endpoint_errors:
             raise CommandError("Stripe webhook check failed: " + ", ".join(endpoint_errors))
         self.stdout.write(self.style.SUCCESS(f"OK stripe webhook endpoint {webhook_url}"))
         if options["require_recent_events"]:
             created_gte = int((timezone.now() - timezone.timedelta(hours=options["recent_hours"])).timestamp())
-            recent_events = stripe.Event.list(
-                limit=100,
-                created={"gte": created_gte},
-                types=list(RECENT_OPERATIONAL_EVENT_TYPES),
+            recent_events = stripe.v1.events.list(
+                params={"limit": 100, "created": {"gte": created_gte}, "types": list(RECENT_OPERATIONAL_EVENT_TYPES)}
             )
             recent_event_errors = validate_recent_operational_events(
                 recent_events,
@@ -156,15 +161,18 @@ def get_expected_unit_amount(setting_name):
 def get_expected_livemode():
     secret_key = getattr(settings, "STRIPE_SECRET_KEY", "")
     environment = getattr(settings, "ENVIRONMENT", "").strip().lower()
-    if secret_key.startswith("sk_live_"):
+    livemode = stripe_server_key_livemode(secret_key)
+    if livemode is True:
         if environment != "production":
             raise CommandError("STRIPE_SECRET_KEY live key cannot be used outside production")
         return True
-    if secret_key.startswith("sk_test_"):
+    if livemode is False:
         if environment == "production":
             raise CommandError("STRIPE_SECRET_KEY test key cannot be used in production")
         return False
-    raise CommandError("STRIPE_SECRET_KEY must start with sk_test_ or sk_live_")
+    raise CommandError(
+        "STRIPE_SECRET_KEYにはsk_test_ / rk_test_ / sk_live_ / rk_live_で始まるサーバーキーを設定してください。"
+    )
 
 
 def validate_price(
@@ -198,14 +206,12 @@ def validate_price(
     return errors
 
 
-def validate_webhook_endpoints(endpoints, webhook_url, expected_livemode=None):
-    endpoint = None
-    for candidate in _get(endpoints, "data", []) or []:
-        if _get(candidate, "url") == webhook_url:
-            endpoint = candidate
-            break
-    if endpoint is None:
+def validate_webhook_endpoints(endpoints, webhook_url, expected_livemode=None, expected_api_version=None):
+    matching = [candidate for candidate in _get(endpoints, "data", []) or [] if _get(candidate, "url") == webhook_url]
+    if not matching:
         return [f"webhook endpoint not found: {webhook_url}"]
+    # A disabled historical destination must not hide the enabled replacement.
+    endpoint = next((candidate for candidate in matching if _get(candidate, "status") != "disabled"), matching[0])
 
     endpoint_status = _get(endpoint, "status")
     if endpoint_status and endpoint_status != "enabled":
@@ -216,6 +222,19 @@ def validate_webhook_endpoints(endpoints, webhook_url, expected_livemode=None):
         expected = "live" if expected_livemode else "test"
         actual = "live" if livemode else "test"
         return [f"webhook endpoint livemode mismatch: expected {expected}, got {actual}"]
+
+    if expected_api_version is not None:
+        # Duplicate enabled destinations can emit incompatible snapshots even
+        # when the first matching endpoint is correct.
+        for candidate in _get(endpoints, "data", []) or []:
+            if _get(candidate, "url") != webhook_url or _get(candidate, "status") == "disabled":
+                continue
+            actual_version = _get(candidate, "api_version")
+            if actual_version != expected_api_version:
+                return [
+                    f"webhook endpoint API version mismatch: expected {expected_api_version}, "
+                    f'got {actual_version or "account default/unknown"}'
+                ]
 
     enabled_events = set(_get(endpoint, "enabled_events", []) or [])
     if "*" in enabled_events:
