@@ -6,7 +6,7 @@
 
 作業ブランチは `codex/release-candidate-20261028`。元の作業フォルダーのハンドアウト添付UI等の未コミット変更は保持し、この候補へ混ぜていない。
 
-[PR #7](https://github.com/sheepdog0820/iaia/pull/7)を2026-10-28 12:09 JSTに承認後マージした。初回CIの依存監査不合格を受け、[依存更新と通常配布物の再検証](DEPENDENCY_SECURITY_2026-10-28.md)を追加し、Twisted 26.10.0rc2の一時固定とOS残指摘を明示して承認を得た。最終head `5869ffef107d0f93d6e07d2356f00e7f3df29268` はPR/pushの全12チェック成功、Unit / Integrationは2035成功・38省略、Playwrightは228成功。マージコミット `e914b325c2d79eb96c96cd05e418f15b5bd7fc0a` の2親とtree一致を確認した。マージ後の[main CI](https://github.com/sheepdog0820/iaia/actions/runs/40625066768)は別途確認する。**正式公開はNo-Go、共有DB移行・AWS反映は未実施。** AWS/0068の手順は別の承認対象である。後続の[SDK情報保護の分離](SDK_PRIVACY_MAIN_2026-10-28.md)はこのマージ済みmainを基点とする。
+[PR #7](https://github.com/sheepdog0820/iaia/pull/7)を2026-10-28 12:09 JSTに承認後マージした。初回CIの依存監査不合格を受け、[依存更新と通常配布物の再検証](DEPENDENCY_SECURITY_2026-10-28.md)を追加し、Twisted 26.10.0rc2の一時固定とOS残指摘を明示して承認を得た。最終head `5869ffef107d0f93d6e07d2356f00e7f3df29268` はPR/pushの全12チェック成功、Unit / Integrationは2035成功・38省略、Playwrightは228成功。マージコミット `e914b325c2d79eb96c96cd05e418f15b5bd7fc0a` の2親とtree一致を確認した。マージ後の[main CI](https://github.com/sheepdog0820/iaia/actions/runs/40625066768)も成功。**正式公開はNo-Go、共有DB移行・AWS反映は未実施。** AWS/0068の手順は別の承認対象である。後続の[SDK情報保護の分離](SDK_PRIVACY_MAIN_2026-10-28.md)はこのマージ済みmainを基点とする。
 
 ## 基準となる版
 

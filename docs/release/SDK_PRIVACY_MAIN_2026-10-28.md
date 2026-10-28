@@ -35,6 +35,16 @@ Python 3.11.18 / Django 5.2.17、botocore/boto3 1.43.80、sentry-sdk 2.68.1、co
 
 ## 未完了と承認境界
 
-今回の最終コミットのCI、同コミットから構築した通常配布物、実AWS反映・実Sentry宛先の検証は別途確認する。通常配布物をまだ試験したとは扱わない。OS残指摘50件とTwisted RC2、Google/Stripe等の未統合修正、実サービス検証、性能・運用・復旧の必須条件も残る。
+### 通常配布物の追加検証
+
+製品修正のコミット `d523f964ed8c035e59d6113b50c9dfc227999605` の `git archive` を通常Dockerfileで構築した。イメージIDは `sha256:8c6552c795714beb9d1d996bf1c379729d6d1e8d317c3ef849dcc2449f4c4ac7`、ローカルタグは `tableno:release-candidate-d523f964`。ECRへのpushはしていない。
+
+アプリの製品コード、テスト、3ロックと依存入力、entrypointの計10ファイルがGit blobと一致。ソースのbind mount・pip/pytestの追加なし、UID10001・読み取り専用ファイルシステム・外部通信なしで、通常イメージ内のSDK/Sentry・既存エラー通知・本番設定の **50テストが成功**した。50件はDjango runnerの件数で、pytestの57件・subtestsとの合算はしない。Webの起動や実Sentry宛先への送信をこの結果で実証したとは扱わない。
+
+初回は診断用manifestに、Dockerの除外対象であるDockerfileまで含めてしまい、試験前にファイル不在で終了した。検証側の対象を実配布する10ファイルへ直し、失敗ログ `tmp/sdk-normal-runtime-tests.log` を保持して再実行した。成功ログは `tmp/sdk-normal-runtime-tests-verified.log`、構築記録は `tmp/sdk-normal-image-build.log`、ソースmanifestは `tmp/sdk-normal-source-manifest.json`。
+
+### 残る条件
+
+最終headのCIは[PR #8のChecks](https://github.com/sheepdog0820/iaia/pull/8/checks)で確認する。後続の検証資料だけのコミットと製品修正SHAは区別する。実AWS反映・実Sentry宛先は未確認。OS残指摘50件とTwisted RC2、Google/Stripe等の未統合修正、実サービス検証、性能・運用・復旧の必須条件も残る。
 
 DB/移行ファイル、実データ、リソース、費用、購入有効化への変更はない。mainへの追加マージはこのPRの最終headと全必須CIを固定して承認を求める。AWS反映・共有DB0068・公開の承認を含めない。取り消しは通常のrevert PRで可能だが、この保護を戻すと元のログ問題が再発するため、復旧時にも診断の本文を残してよいとは扱わない。
