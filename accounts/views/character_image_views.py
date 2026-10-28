@@ -80,8 +80,9 @@ class CharacterImageBackgroundRemovalView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        premium_error = "背景透過はプレミアムプランの機能です。"
         if not getattr(request.user, "is_premium", False):
-            raise PermissionDenied("Background removal is a premium feature.")
+            raise PermissionDenied(premium_error)
 
         image = request.FILES.get("image")
         if image is None:
@@ -99,7 +100,19 @@ class CharacterImageBackgroundRemovalView(APIView):
 
         original_filename = _safe_original_filename(image)[:255]
         with transaction.atomic():
-            get_user_model().objects.select_for_update().only("pk").get(pk=request.user.pk)
+            current_user = (
+                get_user_model()
+                .objects.select_for_update()
+                .only("pk", "is_active", "is_premium")
+                .filter(pk=request.user.pk)
+                .first()
+            )
+            if current_user is None:
+                raise PermissionDenied(premium_error)
+            if not current_user.is_active:
+                raise PermissionDenied("アカウントが無効のため、背景透過を開始できません。")
+            if not current_user.is_premium:
+                raise PermissionDenied(premium_error)
             now = timezone.now()
             local_now = timezone.localtime(now)
             usage_started_at = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
