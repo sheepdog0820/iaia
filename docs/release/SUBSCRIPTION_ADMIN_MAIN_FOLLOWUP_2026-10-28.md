@@ -28,6 +28,14 @@
 
 整形確認後、既存の課金・退会・運営コード・再照合・管理者操作・手動付与・有料機能を含む10ファイルの **320テスト・45 subtestsが実PostgreSQLで成功、省略なし**。追加/変更実行文は **67/67**（admin23・form44）を通過、新formは44実行文・6分岐100%。admin全体は約86%であり、全体100%とはしない。SQLiteも19テスト・2 subtests成功、ロック等が必要な3件のみ意図して省略し、同じ3件はPostgreSQLで成功した。証跡は `tmp/subscription-admin-pg-broad.log`、`tmp/subscription-admin-sqlite.log`、`tmp/subscription-admin-pg-coverage/coverage.json` に保持する。実Stripeや実ユーザーを操作した検証ではなく、通常配布物とCIは別途照合する。
 
+### 通常配布物
+
+製品修正 `9c7ed38d8ff721347448866b6a8ec2023a76a4bb` を通常push後、そのgit archiveから通常Dockerfileで構築した。タグ `tableno:release-candidate-9c7ed38d`、イメージID `sha256:bc88f62921d39d18dd77f8de063cfe93d478a5c6a46aba2c705db7739a387e97`。製品ソース・固定依存・試験・entrypoint等25ファイルと実entrypointのGit blob一致を確認した。
+
+通常配布物内でも同じ10モジュールの **320 Djangoテストが実PostgreSQLで成功、省略なし**。合成設定ファイルだけを読み取り専用で渡し、製品ソースbind mountやpip/pytest追加なし、UID10001・読み取り専用・外部通信なしで実行した。実Stripeの参照は既存試験のmockだけである。証跡は `tmp/subscription-admin-normal-image-build.log`、`tmp/subscription-admin-normal-runtime.log`、`tmp/subscription-admin-normal-source-manifest.json` に保持する。OS再監査・ECR push・実AWS反映は行っていない。
+
+[Draft PR #14](https://github.com/sheepdog0820/iaia/pull/14)はPR #13をbaseとし、製品修正と後続の資料コミットを区別する。最終CIはChecksで照合し、CI待ちの候補をマージ可能とは扱わない。
+
 ## 承認と復旧
 
 実ユーザーの課金行や権限、実Stripe、実AWSは変更していない。DBスキーマ/移行、Secrets/IAM/OAuth、料金・保持期間、外部通知、常設資源・費用は変更しない。作業ブランチへの通常push・Draft PRまでを進め、先行PRのマージ後にbase・最終head・差分・CIを照合してmainへの追加マージを別途承認してもらう。
