@@ -7,6 +7,11 @@ from django.test import SimpleTestCase
 class DockerEntrypointTests(SimpleTestCase):
     ROOT = Path(__file__).resolve().parents[2]
 
+    def test_distribution_opts_out_of_native_telemetry_before_any_import(self):
+        dockerfile = (self.ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+        self.assertIn("\nENV ORT_DISABLE_TELEMETRY=1\n", dockerfile)
+
     def test_default_server_command_executes_private_daphne_entrypoint(self):
         lines = (self.ROOT / "docker" / "entrypoint.sh").read_text(encoding="utf-8").splitlines()
 

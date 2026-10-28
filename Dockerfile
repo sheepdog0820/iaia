@@ -36,6 +36,9 @@ RUN apt-mark manual libmariadb3 libpq5 libgomp1 \
     && apt-get purge -y --auto-remove \
         build-essential default-libmysqlclient-dev libpq-dev pkg-config
 
+# Opt out before native library initialization in any runtime command/worker.
+ENV ORT_DISABLE_TELEMETRY=1
+
 # Copy application code.
 COPY --chown=tableno:tableno . /app
 
