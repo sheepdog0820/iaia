@@ -32,8 +32,8 @@ def clear_background_removal_source(job):
         return False
     try:
         job.source_image.delete(save=False)
-    except Exception:
-        logger.exception("Background removal source cleanup failed for job %s", job.pk)
+    except Exception as exc:
+        logger.error("Background removal source cleanup failed for job %s (%s)", job.pk, type(exc).__name__)
         return False
     job.source_image = ""
     return True
@@ -66,8 +66,8 @@ def _delete_job_file(job, field_name):
         return True
     try:
         field_file.delete(save=False)
-    except Exception:
-        logger.exception("Background removal %s cleanup failed for job %s", field_name, job.pk)
+    except Exception as exc:
+        logger.error("Background removal %s cleanup failed for job %s (%s)", field_name, job.pk, type(exc).__name__)
         return False
     setattr(job, field_name, "")
     return True
@@ -265,8 +265,8 @@ def process_background_removal_job(job_id):
         with Image.open(io.BytesIO(transparent_png)) as result:
             if result.format != "PNG":
                 raise ValueError("Background removal returned a non-PNG image.")
-    except Exception:
-        logger.exception("Background removal worker failed for job %s", job.pk)
+    except Exception as exc:
+        logger.error("Background removal worker failed for job %s (%s)", job.pk, type(exc).__name__)
         transparent_png = None
 
     # Inference stays outside the lock; timeout/deletion must win over a late result.
@@ -286,8 +286,8 @@ def process_background_removal_job(job_id):
                 filename = f"{filename_root}-transparent.png"
                 job.result_image.save(filename, ContentFile(transparent_png), save=False)
                 update_fields.append("result_image")
-            except Exception:
-                logger.exception("Background removal worker failed for job %s", job.pk)
+            except Exception as exc:
+                logger.error("Background removal worker failed for job %s (%s)", job.pk, type(exc).__name__)
                 transparent_png = None
         if transparent_png is None:
             job.status = BackgroundRemovalJob.Status.FAILED
