@@ -3,6 +3,7 @@ import csv
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
@@ -15,6 +16,7 @@ from accounts.billing import (
     locked_manual_premium_user,
     premium_access_code_metadata,
 )
+from accounts.billing_admin_forms import PremiumSubscriptionAdminForm, validate_subscription_revision
 from accounts.billing_deletion import BillingDeletionBlocked, delete_account_after_billing_check
 
 from .character_models import (
@@ -593,6 +595,7 @@ class FriendRequestAdmin(admin.ModelAdmin):
 
 @admin.register(PremiumSubscription)
 class PremiumSubscriptionAdmin(admin.ModelAdmin):
+    form = PremiumSubscriptionAdminForm
     list_display = (
         "user_link",
         "access_state",
@@ -652,6 +655,31 @@ class PremiumSubscriptionAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("user")
+
+    @transaction.atomic
+    def save_model(self, request, obj, form, change):
+        if not change:
+            super().save_model(request, obj, form, change)
+            return
+        try:
+            current = PremiumSubscription.objects.select_for_update().get(pk=obj.pk)
+        except PremiumSubscription.DoesNotExist as exc:
+            raise Http404("課金情報が見つかりません。") from exc
+        if isinstance(form, PremiumSubscriptionAdminForm):
+            try:
+                validate_subscription_revision(current, form.cleaned_data.get("billing_revision"))
+            except ValidationError as exc:
+                raise Http404("課金情報が変更されています。再読み込みしてください。") from exc
+        if form is None:
+            super().save_model(request, obj, form, change)
+            return
+        changed_fields = {
+            field.name
+            for field in obj._meta.concrete_fields
+            if not field.primary_key and field.name in form.changed_data
+        }
+        if changed_fields:
+            obj.save(update_fields=changed_fields | {"updated_at"})
 
     @admin.display(description="User")
     def user_link(self, obj):
