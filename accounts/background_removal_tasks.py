@@ -191,6 +191,22 @@ def start_background_removal_task(job):
             ]
         },
     )
+    outcome_uncertain = False
+
+    def observe_attempt(response=None, caught_exception=None, **kwargs):
+        nonlocal outcome_uncertain
+        if caught_exception is not None:
+            outcome_uncertain = True
+        else:
+            http_response, parsed = response
+            if http_response.status_code >= 500 or parsed.get("Error", {}).get("Code") in {
+                "ServerException",
+                "ConflictException",
+            }:
+                outcome_uncertain = True
+
+    retry_event = "needs-retry.ecs.RunTask"
+    ecs.meta.events.register_first(retry_event, observe_attempt)
     try:
         response = ecs.run_task(**parameters)
     except (HTTPClientError, BotoConnectionError, ResponseParserError) as exc:
@@ -202,15 +218,23 @@ def start_background_removal_task(job):
         code = exc.response.get("Error", {}).get("Code", "")
         # The final rejection does not disprove acceptance of an earlier SDK attempt.
         if (
-            http_status >= 500
+            outcome_uncertain
+            or http_status >= 500
             or code in {"ServerException", "ConflictException"}
             or metadata.get("RetryAttempts", 0) > 0
         ):
             raise BackgroundRemovalDispatchUncertain("Worker launch outcome is unknown.") from exc
         raise
+    except Exception as exc:
+        # Signing/credential refresh can fail before the next attempt, without metadata.
+        if outcome_uncertain:
+            raise BackgroundRemovalDispatchUncertain("Worker launch outcome is unknown.") from exc
+        raise
+    finally:
+        ecs.meta.events.unregister(retry_event, observe_attempt)
     tasks = response.get("tasks", [])
     if not tasks:
-        if response.get("failures"):
+        if response.get("failures") and not outcome_uncertain:
             raise RuntimeError("Unable to launch background removal worker.")
         raise BackgroundRemovalDispatchUncertain("Worker launch response is incomplete.")
     task_arn = tasks[0].get("taskArn")
