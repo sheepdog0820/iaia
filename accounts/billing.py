@@ -99,6 +99,41 @@ def get_or_create_subscription_record(user):
     return record
 
 
+BILLING_OWNER_ERROR = "課金情報の対応を確認できません。お問い合わせ窓口へご連絡ください。"
+
+
+def _locked_request_subscription(record_id, user_id):
+    record = PremiumSubscription.objects.select_for_update().get(pk=record_id)
+    if record.user_id != user_id:
+        raise ValueError(BILLING_OWNER_ERROR)
+    return record
+
+
+def _require_matching_customer(record, customer_id):
+    if not customer_id or record.stripe_customer_id != customer_id:
+        raise ValueError(BILLING_OWNER_ERROR)
+
+
+def _billing_metadata_user_id(parameters):
+    metadata = parameters.get("metadata") if isinstance(parameters, dict) else None
+    return metadata.get("user_id") if isinstance(metadata, dict) else None
+
+
+def _validate_billing_request_owner(attempt, record):
+    # Validate identity only: retry profiles and prices must remain immutable.
+    parameters = attempt.parameters
+    user_id = str(record.user_id)
+    if _billing_metadata_user_id(parameters) != user_id:
+        raise ValueError(BILLING_OWNER_ERROR)
+    if attempt.operation == "checkout":
+        if (
+            parameters.get("customer") != record.stripe_customer_id
+            or parameters.get("client_reference_id") != user_id
+            or _billing_metadata_user_id(parameters.get("subscription_data")) != user_id
+        ):
+            raise ValueError(BILLING_OWNER_ERROR)
+
+
 @contextmanager
 def locked_manual_premium_user(user):
     with transaction.atomic():
@@ -122,10 +157,10 @@ def get_or_create_stripe_customer(user):
     record = get_or_create_subscription_record(user)
     # Persist the immutable retry parameters before making a remote write.
     with transaction.atomic():
-        record = PremiumSubscription.objects.select_for_update().get(pk=record.pk)
+        record = _locked_request_subscription(record.pk, user.pk)
         if record.stripe_customer_id:
             return record
-        StripeBillingRequest.objects.get_or_create(
+        attempt, _ = StripeBillingRequest.objects.get_or_create(
             subscription=record,
             operation="customer",
             defaults={
@@ -136,11 +171,13 @@ def get_or_create_stripe_customer(user):
                 }
             },
         )
+        _validate_billing_request_owner(attempt, record)
     with transaction.atomic():
-        record = PremiumSubscription.objects.select_for_update().get(pk=record.pk)
+        record = _locked_request_subscription(record.pk, user.pk)
         if record.stripe_customer_id:
             return record
         attempt = StripeBillingRequest.objects.get(subscription=record, operation="customer")
+        _validate_billing_request_owner(attempt, record)
         customer = execute_stripe_creation(attempt, stripe.Customer.create)
         record.stripe_customer_id = customer.id
         record.save(update_fields=["stripe_customer_id", "updated_at"])
@@ -179,14 +216,17 @@ def create_checkout_session(request, plan="monthly"):
     # The customer row serializes purchase requests across processes on PostgreSQL.
     for _ in range(4):
         with transaction.atomic():
-            record = PremiumSubscription.objects.select_for_update().get(pk=record.pk)
+            record = _locked_request_subscription(record.pk, request.user.pk)
+            _require_matching_customer(record, parameters["customer"])
+            attempt = StripeBillingRequest.objects.filter(subscription=record, operation="checkout").first()
+            if attempt is not None:
+                _validate_billing_request_owner(attempt, record)
             subscriptions = stripe.Subscription.list(customer=record.stripe_customer_id, status="all", limit=100)
             if any(
                 stripe_object_get(sub, "status") not in {"canceled", "incomplete_expired"}
                 for sub in subscriptions.auto_paging_iter()
             ):
                 raise ValueError("既に契約があります。請求管理画面で契約をご確認ください。")
-            attempt = StripeBillingRequest.objects.filter(subscription=record, operation="checkout").first()
             if attempt is None:
                 # Close untracked sessions from an older app version before
                 # creating an intent; otherwise two browser tabs could both pay.
@@ -226,20 +266,21 @@ def create_portal_session(request):
     if not record.stripe_customer_id:
         raise ValueError("Stripe customer does not exist for this user")
 
-    stripe = get_stripe()
+    customer_id = record.stripe_customer_id
     return_url = request.build_absolute_uri(reverse("billing"))
-    session_params = {
-        "customer": record.stripe_customer_id,
-        "return_url": return_url,
-    }
     portal_configuration_id = getattr(
         settings,
         "STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID",
         "",
     )
-    if portal_configuration_id:
-        session_params["configuration"] = portal_configuration_id
-    return stripe.billing_portal.Session.create(**session_params)
+    with transaction.atomic():
+        record = _locked_request_subscription(record.pk, request.user.pk)
+        _require_matching_customer(record, customer_id)
+        stripe = get_stripe()
+        session_params = {"customer": record.stripe_customer_id, "return_url": return_url}
+        if portal_configuration_id:
+            session_params["configuration"] = portal_configuration_id
+        return stripe.billing_portal.Session.create(**session_params)
 
 
 def sync_subscription_object(subscription, event_id=""):
