@@ -26,7 +26,15 @@
 4. 新ヘルパーは17実行文・4分岐とも100%。変更実行文はヘルパー17、integration_views 3、views 13の **33/33行**を通過。大きなviewモジュール全体や全製品が100%網羅という主張ではない。
 5. 変更Python 6ファイルのBlack・isort・Flake8・Bandit（medium以上）と差分レビューを完了。既存の表示文言は維持し、技術文字列以外の英語UIは追加していない。
 
-生ログは専用worktreeのGit管理外 `tmp/ics-main-red.log`、`tmp/ics-main-green.log`、`tmp/ics-main-regression-coverage.log`、`tmp/ics-coverage/coverage.json`、`tmp/ics-changed-coverage.json` に保持する。今回のコミットのCIと通常配布物の試験は別途必要で、他のSHAの成功を代用しない。
+生ログは専用worktreeのGit管理外 `tmp/ics-main-red.log`、`tmp/ics-main-green.log`、`tmp/ics-main-regression-coverage.log`、`tmp/ics-coverage/coverage.json`、`tmp/ics-changed-coverage.json` に保持する。最終headのCIは[Draft PR #9](https://github.com/sheepdog0820/iaia/pull/9/checks)で照合し、他のSHAの成功を代用しない。
+
+## 通常配布物
+
+製品修正 `744eeb889b5bc204db7dfbe944186f5a6a95a97c` の `git archive` を通常Dockerfileで構築した。ローカルタグは `tableno:release-candidate-744eeb88`、イメージIDは `sha256:59fa4fcffa20ff601f46a80812719d075b70b62a545157d7f4402469344bc339`。ECRへのpushは未実施。
+
+今回の製品ファイル・テスト・固定依存・SDK保護・entrypoint等14ファイルのGit blobとのSHA-256一致を確認。通常イメージ内のコードだけを使い、pip/pytest追加なし、UID10001・読み取り専用・外部通信なしで上記6ファイルの **Django runnerの54テストが成功**した。メモリーSQLite、locmem cache/mail、使い捨て保存先を指定する合成設定ファイルだけを読み取り専用で渡した。製品ソースのbind mount、実DB、外部受信側への送信はない。Webサービス起動や実ブラウザーでの購読成功の代わりにはしない。
+
+構築・実行・ソース照合の証跡は `tmp/ics-normal-image-build.log`、`tmp/ics-normal-runtime-tests.log`、`tmp/ics-normal-source-manifest.json`。以後の検証資料だけのコミットは、この製品修正SHAと区別する。
 
 ## 残作業と承認
 
