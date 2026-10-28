@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 from .settings import *  # noqa: F401,F403
+from .stripe_keys import stripe_server_key_livemode
 
 
 def _split_env_list(value):
@@ -53,8 +54,11 @@ def _require_non_placeholder_env(name, placeholder_fragment=None, placeholder_fr
 
 def _require_stripe_secret_key():
     value = _require_env("STRIPE_SECRET_KEY")
-    if ENVIRONMENT == "production" and not value.startswith("sk_live_"):
+    livemode = stripe_server_key_livemode(value)
+    if ENVIRONMENT == "production" and livemode is not True:
         raise RuntimeError("STRIPE_SECRET_KEY must be a live key in production")
+    if ENVIRONMENT != "production" and livemode is not False:
+        raise RuntimeError("STRIPE_SECRET_KEYにはsk_test_ / rk_test_で始まるテスト用サーバーキーを設定してください。")
     return value
 
 

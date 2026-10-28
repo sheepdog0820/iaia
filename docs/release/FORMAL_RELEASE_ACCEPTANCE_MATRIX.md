@@ -2,9 +2,30 @@
 
 ## 現在の公開判断（2026-10-28）
 
-正式公開は **No-Go**。現在の候補・採用修正・保留ブランチ・検証結果と承認対象は [10月28日の候補整理](RELEASE_CANDIDATE_2026-10-28.md) を参照する。[PR #7](https://github.com/sheepdog0820/iaia/pull/7)は承認後、12:09 JSTにmainへ通常マージした。mainはe914b325、PR headは5869ffefで、両者のtreeは一致する。開発AWSの最終読み取りは08:16 JSTの定義55/aws-pre-cbf52dc5、1タスクHEALTHY・RDS available・DB/cache readiness 200。AWSの現在値を再取得した証拠ではない。以下の旧稼働定義52・旧候補CIや「Stripe登録保留」等を現状として使わない。
+正式公開は **No-Go**。現在の候補・採用修正・保留ブランチ・検証結果と承認対象は [10月28日の候補整理](RELEASE_CANDIDATE_2026-10-28.md) を参照する。[PR #7](https://github.com/sheepdog0820/iaia/pull/7)は承認後、12:09 JSTにmainへ通常マージした。そのmainはe914b325で、PR head5869ffefとtreeが一致した。続いて承認された[PR #8](https://github.com/sheepdog0820/iaia/pull/8)を19:56 JSTに通常マージし、現在mainはa523d59e、承認head35e25985とtreeが一致する。マージ後のmain CIは確認中。開発AWSの最終読み取りは08:16 JSTの定義55/aws-pre-cbf52dc5、1タスクHEALTHY・RDS available・DB/cache readiness 200。AWSの現在値を再取得した証拠ではない。以下の旧稼働定義52・旧候補CIや「Stripe登録保留」等を現状として使わない。
 
-PR #7には復旧・作成入口・退会後の案内、既に配備された技能表示とその他ポイントへの統一、共有参照の7版幸運・よみがな、依存更新を集約した。0068は隔離DBで検証し、共有DB適用・AWS反映は未実施。PR/push CIの全12チェックと、マージ後のmain CIが成功した。後続の[SDKログ・Sentryの情報保護](SDK_PRIVACY_MAIN_2026-10-28.md)はDraft PR #8で分離し、固定依存の隔離試験と通常配布物内の50テストが成功。最終CI・mainへの追加マージ承認は別途必要である。これらをもって、課金・外部連携・OS監査・性能・運用復旧の受け入れを合格にはしない。
+PR #7には復旧・作成入口・退会後の案内、配備済みの技能表示とその他ポイントへの統一、共有参照の7版幸運・よみがな、依存更新を集約した。PR/pushの全12チェックとマージ後のmain CIが成功した。0068の共有DB適用・AWS反映は未実施。後続の修正は次の単位に分離している。
+
+| PR・対象 | 固定した検証対象 | 現在の証拠 | 次に必要なこと |
+| --- | --- | --- | --- |
+| #8 [SDKログ・Sentry](SDK_PRIVACY_MAIN_2026-10-28.md) | 最終head 35e25985、製品修正d523f964 | PR/pushの全12チェック成功。全体2050成功・38省略、Playwright228成功。通常配布物内50テスト成功 | 19:56 JSTに承認後main a523d59eへ通常マージ済み。実AWS/実Sentryは未実施 |
+| #9 [ICS出力・購読認可](ICS_MAIN_FOLLOWUP_2026-10-28.md) | 最終head 9a12260a、製品修正744eeb88 | PR/pushの全12チェック成功。全体2067成功・38省略、Playwright228成功。隔離54テスト・32 subtests、通常配布物内54テスト成功 | baseをmain a523d59eへ変更し、差分不変を確認。最終照合・追加マージ承認、実受信側は未完了 |
+| #10 [運営コード](PREMIUM_CODE_MAIN_FOLLOWUP_2026-10-28.md)・[権限再照合](PREMIUM_RECONCILIATION_MAIN_2026-10-28.md) | 最終head e09710f3、製品修正3884c83f | PR/push全12チェック成功。全体2095成功・48省略、PG341成功・54 subtestsで省略なし、Playwright228成功。隔離PG253テスト・32 subtestsと[通常配布物](PREMIUM_RUNTIME_MAIN_2026-10-28.md)内PG253テスト成功、20ファイル一致 | 先行PR後のbase変更・追加マージ承認、実AWSの受け入れ。管理者の別経路・Stripe SDK等の後続は継続 |
+| #11 [HTTP診断・性能トレース](https://github.com/sheepdog0820/iaia/blob/62bd81d0ae64fc134b071d917389ee7d2c9e173c/docs/release/SENTRY_REQUEST_PRIVACY_2026-10-28.md) | 最終head 62bd81d0、製品修正b393d24a。SDKの独立後続で、この枝の製品コードには未統合 | PR/push全12チェック成功。全体2063成功・38省略、PG303成功・48 subtestsで省略なし、Playwright228成功。関連70テスト・86 subtests、通常配布物内70テスト成功、15ファイル一致。診断モジュール141実行文・38分岐100% | baseをmain a523d59eへ変更し、差分不変を確認。追加マージ承認、実受信・profile/worker等の監査は未完了 |
+| #12 [管理者の権限操作・監査](ADMIN_ACCESS_MAIN_FOLLOWUP_2026-10-28.md) | 最終head63e01667、製品修正e8804c7e。#10のe09710f3を基点に3操作だけを追加修正 | PR/push全12チェック成功。全体2108成功・51省略、PG357成功・63 subtestsで省略なし、Playwright228成功。隔離PG269テスト・41 subtestsと通常配布物内PG269テスト成功、21ファイル一致。SQLiteはロック用3件以外成功、変更実行文33/33 | 先行PR後のbase変更と追加マージ承認。手動編集等の別経路は継続 |
+| #13 [ユーザー編集・手動付与](MANUAL_PREMIUM_MAIN_FOLLOWUP_2026-10-28.md) | 最終head891b56fa、製品修正38d64e12。#12の63e01667を基点に既知f543f784の差分を分離 | PR/push全12チェック成功。全体2128成功・60省略、PG386成功・65 subtestsで省略なし、Playwright228成功。隔離PG298テスト・43 subtestsと通常配布物内PG298テスト成功、23ファイル一致。SQLiteはロック用9件以外成功。変更実行文54/54、コマンド35実行文・6分岐100% | 先行PR後のbase変更と追加マージ承認。課金レコードの編集等は継続 |
+| #14 [課金レコード編集の古い保存](SUBSCRIPTION_ADMIN_MAIN_FOLLOWUP_2026-10-28.md) | 最終head230837db、製品修正9c7ed38d。#13の891b56faを基点に既知ae4d12efを分離 | PR/push全12チェック成功。全体2147成功・63省略、PG408成功・67 subtestsで省略なし、Playwright228成功。隔離PG320テスト・45 subtestsと通常配布物内PG320テスト成功、25ファイル一致。変更実行文67/67、form44実行文・6分岐100%。SQLiteはロック用3件以外成功 | 先行PR後のbase変更と追加マージ承認 |
+| #15 [購入/請求管理の所有者と再試行](BILLING_OWNER_MAIN_FOLLOWUP_2026-10-28.md) | 最終head9d41e886、製品修正21f8d601。#14の230837dbを基点に既知f4ea34caを分離 | PR/push全12チェック成功。全体2163成功・69省略、PG430成功・92 subtestsで省略なし、Playwright228成功。隔離PG396テスト・84 subtestsと通常配布物内PG396テスト成功、35ファイル一致。変更実行文39/39。SQLiteはロック用6件以外成功 | 先行PR後のbase変更・追加マージ承認。StripeClient・SDK/API等は継続 |
+| #16 [Stripeクライアントのキー/API版分離](STRIPE_CLIENT_MAIN_FOLLOWUP_2026-10-28.md) | 最終head14ff9259。#15の9d41e886を基点に既知2ff6a4c8を分離。製品修正30e12d46。SDK15.5.1・Cloverを保持 | PR/push全12チェック成功。全体2177成功・69省略、PG444成功・109 subtests、Playwright228成功。隔離PG488テスト・110 subtestsと通常配布物内449テスト成功、48ファイル一致。変更6モジュール33/33。計測/配布対象の失敗と切り分けも記録 | 先行PR後のbase変更と追加マージ承認。制限付きキー・診断保護と実サービス確認は継続 |
+| #17 [Stripe API版・Webhook](STRIPE_API_MAIN_FOLLOWUP_2026-10-28.md) | 最終head8519a2e9。#16の14ff9259を基点に既知2b70f1d5から分離。製品修正ddbb6115、Endiveを明示固定・SDK16.0.1へ更新 | PR/push全12チェック成功。全体2204成功・69省略、PG444成功・109 subtests、Playwright228成功。隔離PG513テスト・113 subtests、通常配布物内504テスト成功、54ファイル一致。変更実行文24/24、3依存ロックの既知脆弱性0 | 先行PR後のbase変更と追加マージ承認。実Stripe/API設定・AWS未反映。新イメージのScout監査はOS50指摘・exit 2で不合格 |
+
+制限付きキーは[Draft PR #18](https://github.com/sheepdog0820/iaia/pull/18)、[検証資料](STRIPE_KEYS_MAIN_FOLLOWUP_2026-10-28.md)を参照。#17の8519a2e9を基点に既知529c30c7を分離した製品修正40563fb9で、隔離PG529テスト・151 subtests、本番設定51テスト・43 subtests、通常配布物内525テスト成功、57ファイル一致。変更実行文39/39、新分類関数7実行文・6分岐100%。最終CIは未完了で、実キーの作成・権限・Secrets変更は未実施。SDKエラー/ログの診断保護は別の後続として継続する。
+
+#16の最終CIは[実行40644252174](https://github.com/sheepdog0820/iaia/actions/runs/40644252174)で、個別jobログも最終headと照合済み。#17の通常配布物は製品修正のtreeから作り、後続の検証資料だけのコミットと区別する。新イメージを対象にScout 1.28.0で再監査し、292パッケージ中16パッケージ・OS50指摘（CRITICAL2/HIGH7/MEDIUM6/LOW35）、exit 2の不合格を確認した。抑制せず正式公開No-Goを維持する。
+
+実課金・実ユーザーのコード使用/失効/再照合、外部送信は行っていない。各PRの成功をもって、課金・外部連携・OS監査・性能・運用復旧や有料必須ゲートを合格にしない。
+
+Stripe運用コマンドの追加候補は[情報保護の後続](STRIPE_COMMAND_PRIVACY_MAIN_2026-10-28.md)。#18のf5169af6を基点に既知6828f209を分離し、実SDKの本文/例外/詳細ログ露出と無効化の誤報告を修正した。隔離PG541テスト・216 subtests成功、省略なし。変更実行文53/53、新モジュール43実行文・8分岐100%。通常配布物・最終CIは未完了で、実コマンドによるStripe変更は行っていない。
 
 ## 2026-10-02までの経過記録
 

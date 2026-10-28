@@ -327,9 +327,9 @@ class AuthenticationTestCase(TestCase):
     @patch("accounts.billing_deletion.get_stripe")
     def test_account_delete_allows_canceled_stripe_subscription(self, get_stripe):
         stripe = get_stripe.return_value
-        stripe.checkout.Session.list.return_value.auto_paging_iter.return_value = []
-        stripe.Subscription.list.return_value.auto_paging_iter.return_value = []
-        stripe.Subscription.retrieve.return_value = {
+        stripe.v1.checkout.sessions.list.return_value.auto_paging_iter.return_value = []
+        stripe.v1.subscriptions.list.return_value.auto_paging_iter.return_value = []
+        stripe.v1.subscriptions.retrieve.return_value = {
             "id": "sub_delete_guard",
             "customer": "cus_delete_guard",
             "status": "canceled",

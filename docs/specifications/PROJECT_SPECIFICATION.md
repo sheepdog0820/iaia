@@ -1072,6 +1072,8 @@ Beta/public rollout gate: Google Calendar/Sheets, advanced Discord notification 
   - Webhook URL保存
 - **カレンダー購読（ICSフィード）**【✅ 実装済み】
   - 購読用ICSフィードエンドポイント
+  - token所有者が有効な場合だけGET/HEADを許可し、停止中は404にする。再有効化だけではtokenを再発行しない
+  - 参加・グループ管理権限は取得ごとに確認し、再発行した旧tokenや削除済み利用者の購読は404にする
   - 購読トークン発行/再発行
   - ICSエクスポート（ファイルDL）は実装済み
 - **カレンダー同期（Google Calendar）**【✅ 片方向同期を実装済み】

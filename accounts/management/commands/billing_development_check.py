@@ -4,6 +4,8 @@ from pathlib import Path
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
+from tableno.stripe_keys import stripe_server_key_livemode
+
 
 class Command(BaseCommand):
     help = "Validate local development billing environment settings without printing secrets."
@@ -85,7 +87,7 @@ class Command(BaseCommand):
         )
 
         raw_text = env_path.read_text(encoding="utf-8-sig")
-        forbidden_fragments = ("sk_live_", "pk_live_")
+        forbidden_fragments = ("sk_live_", "rk_live_", "pk_live_")
         leaked_live_fragments = [fragment for fragment in forbidden_fragments if fragment in raw_text]
         if leaked_live_fragments:
             self._add_error(errors, "development env file contains live Stripe key prefix")
@@ -149,10 +151,18 @@ class Command(BaseCommand):
             else:
                 self._add_warning(warnings, message)
             return
-        if live_prefix and value.startswith(live_prefix):
+        if name == "STRIPE_SECRET_KEY":
+            livemode = stripe_server_key_livemode(value)
+            if livemode is True:
+                self._add_error(errors, f"{name} must not use a live Stripe key in development")
+                return
+            if livemode is None:
+                self._add_error(errors, f"{name}にはsk_test_ / rk_test_で始まるサーバーキーを設定してください。")
+                return
+        elif live_prefix and value.startswith(live_prefix):
             self._add_error(errors, f"{name} must not use a live Stripe key in development")
             return
-        if not value.startswith(test_prefix):
+        if name != "STRIPE_SECRET_KEY" and not value.startswith(test_prefix):
             self._add_error(errors, f"{name} must start with {test_prefix}")
             return
         self.stdout.write(self.style.SUCCESS(f"OK {name}: configured with test/development prefix"))

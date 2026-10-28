@@ -3,13 +3,20 @@ import csv
 from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 
-from accounts.billing import create_premium_audit_log, premium_access_code_metadata
+from accounts.billing import (
+    active_promo_subscriptions,
+    create_premium_audit_log,
+    locked_manual_premium_user,
+    premium_access_code_metadata,
+)
+from accounts.billing_admin_forms import PremiumSubscriptionAdminForm, validate_subscription_revision
 from accounts.billing_deletion import BillingDeletionBlocked, delete_account_after_billing_check
 
 from .character_models import (
@@ -500,13 +507,41 @@ class CustomUserAdmin(UserAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("premium_subscription")
 
+    @transaction.atomic
     def save_model(self, request, obj, form, change):
-        previous_is_premium = None
-        if change and obj.pk:
-            previous_is_premium = type(obj).objects.filter(pk=obj.pk).values_list("is_premium", flat=True).first()
+        if not change:
+            self._save_user_and_premium_audit(request, obj, form, change, None, None)
+            return
 
-        super().save_model(request, obj, form, change)
+        changed_fields = None
+        if form is not None:
+            changed_fields = {
+                field.name
+                for field in obj._meta.concrete_fields
+                if not field.primary_key and field.name in form.changed_data
+            }
+            if changed_fields:
+                changed_fields.add("updated_at")
+        try:
+            if changed_fields is None or "is_premium" in changed_fields:
+                with locked_manual_premium_user(obj) as current:
+                    self._save_user_and_premium_audit(request, obj, form, change, current.is_premium, changed_fields)
+            else:
+                current = type(obj).objects.select_for_update().get(pk=obj.pk)
+                # Unchanged checkboxes are not a manual grant/revoke intent.
+                obj.is_premium = current.is_premium
+                if changed_fields:
+                    obj.save(update_fields=changed_fields)
+        except type(obj).DoesNotExist as exc:
+            raise Http404("ユーザーが見つかりません。") from exc
+        except PremiumSubscription.DoesNotExist as exc:
+            raise Http404("課金情報が変更されています。再読み込みしてください。") from exc
 
+    def _save_user_and_premium_audit(self, request, obj, form, change, previous_is_premium, changed_fields):
+        if changed_fields is None:
+            super().save_model(request, obj, form, change)
+        else:
+            obj.save(update_fields=changed_fields)
         if previous_is_premium is None:
             should_log = obj.is_premium
         else:
@@ -560,6 +595,7 @@ class FriendRequestAdmin(admin.ModelAdmin):
 
 @admin.register(PremiumSubscription)
 class PremiumSubscriptionAdmin(admin.ModelAdmin):
+    form = PremiumSubscriptionAdminForm
     list_display = (
         "user_link",
         "access_state",
@@ -620,6 +656,31 @@ class PremiumSubscriptionAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("user")
 
+    @transaction.atomic
+    def save_model(self, request, obj, form, change):
+        if not change:
+            super().save_model(request, obj, form, change)
+            return
+        try:
+            current = PremiumSubscription.objects.select_for_update().get(pk=obj.pk)
+        except PremiumSubscription.DoesNotExist as exc:
+            raise Http404("課金情報が見つかりません。") from exc
+        if isinstance(form, PremiumSubscriptionAdminForm):
+            try:
+                validate_subscription_revision(current, form.cleaned_data.get("billing_revision"))
+            except ValidationError as exc:
+                raise Http404("課金情報が変更されています。再読み込みしてください。") from exc
+        if form is None:
+            super().save_model(request, obj, form, change)
+            return
+        changed_fields = {
+            field.name
+            for field in obj._meta.concrete_fields
+            if not field.primary_key and field.name in form.changed_data
+        }
+        if changed_fields:
+            obj.save(update_fields=changed_fields | {"updated_at"})
+
     @admin.display(description="User")
     def user_link(self, obj):
         return format_html(
@@ -647,78 +708,102 @@ class PremiumSubscriptionAdmin(admin.ModelAdmin):
     @admin.action(description="選択した課金レコードのプレミアム権限を停止する")
     def revoke_selected_access(self, request, queryset):
         count = 0
-        for record in queryset.select_related("user"):
-            record.revoke_access("Revoked manually by admin action", save=True)
-            create_premium_audit_log(
-                record.user,
-                action="revoked",
-                source=record.access_source,
-                reason="Revoked manually by admin action",
-                metadata={"subscription_id": record.pk},
-                actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
-            )
+        record_ids = queryset.order_by("pk").values_list("pk", flat=True)
+        for record_id in record_ids.iterator():
+            with transaction.atomic():
+                record = PremiumSubscription.objects.select_for_update().filter(pk=record_id).first()
+                if record is None:
+                    continue
+                record.revoke_access("Revoked manually by admin action", save=True)
+                create_premium_audit_log(
+                    record.user,
+                    action="revoked",
+                    source=record.access_source,
+                    reason="Revoked manually by admin action",
+                    metadata={"subscription_id": record.pk},
+                    actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
+                )
             count += 1
         self.message_user(request, f"{count}件のプレミアム権限を停止しました。")
 
     @admin.action(description="選択した課金レコードの失効状態を解除して権限を再同期する")
     def restore_selected_access(self, request, queryset):
         changed = 0
-        for record in queryset.select_related("user"):
-            before = record.user.is_premium
-            record.revoked_at = None
-            record.revoked_reason = ""
-            record.save(update_fields=["revoked_at", "revoked_reason", "updated_at"])
-            record.sync_user_premium_access()
-            record.user.refresh_from_db()
-            if before != record.user.is_premium:
+        record_ids = queryset.order_by("pk").values_list("pk", flat=True)
+        for record_id in record_ids.iterator():
+            with transaction.atomic():
+                record = PremiumSubscription.objects.select_for_update().filter(pk=record_id).first()
+                if record is None:
+                    continue
+                before = record.user.is_premium
+                record.revoked_at = None
+                record.revoked_reason = ""
+                record.save(update_fields=["revoked_at", "revoked_reason", "updated_at"])
+                record.sync_user_premium_access()
+                record.user.refresh_from_db()
+                access_changed = before != record.user.is_premium
+                create_premium_audit_log(
+                    record.user,
+                    action="restored",
+                    source=record.access_source,
+                    reason="Premium access restored manually by admin action",
+                    metadata={"subscription_id": record.pk},
+                    actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
+                )
+            if access_changed:
                 changed += 1
-            create_premium_audit_log(
-                record.user,
-                action="restored",
-                source=record.access_source,
-                reason="Premium access restored manually by admin action",
-                metadata={"subscription_id": record.pk},
-                actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
-            )
         self.message_user(request, f"{changed}件のユーザー権限を復旧しました。")
 
     @admin.action(description="選択した課金レコードからユーザー権限を再同期する")
     def sync_selected_user_access(self, request, queryset):
         changed = 0
-        for record in queryset.select_related("user"):
-            before = record.user.is_premium
-            record.sync_user_premium_access()
-            record.user.refresh_from_db()
-            if before != record.user.is_premium:
-                changed += 1
+        record_ids = queryset.order_by("pk").values_list("pk", flat=True)
+        for record_id in record_ids.iterator():
+            with transaction.atomic():
+                record = PremiumSubscription.objects.select_for_update().filter(pk=record_id).first()
+                if record is None:
+                    continue
+                # Read both flags and billing status only after a concurrent writer commits.
+                before = record.user.is_premium
+                expected = record.expected_user_premium_access
+                if before == expected:
+                    continue
+                record.user.is_premium = expected
+                record.user.save(update_fields=["is_premium"])
                 create_premium_audit_log(
                     record.user,
-                    action="granted" if record.user.is_premium else "revoked",
+                    action="granted" if expected else "revoked",
                     source=record.access_source,
                     reason="Premium access synced manually by admin action",
                     metadata={"subscription_id": record.pk},
                     actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
                 )
+            changed += 1
         self.message_user(request, f"{changed}件のユーザー権限を再同期しました。")
 
     @admin.action(description="選択した返金/チャージバック検知を確認済みにする")
     def mark_refund_or_dispute_reviewed(self, request, queryset):
         count = 0
-        for record in queryset.select_related("user").filter(last_refund_or_dispute_at__isnull=False):
-            detected_at = record.last_refund_or_dispute_at
-            record.last_refund_or_dispute_at = None
-            record.save(update_fields=["last_refund_or_dispute_at", "updated_at"])
-            create_premium_audit_log(
-                record.user,
-                action="reviewed",
-                source=record.access_source,
-                reason="Refund/dispute manually reviewed by admin action",
-                metadata={
-                    "subscription_id": record.pk,
-                    "last_refund_or_dispute_at": detected_at.isoformat() if detected_at else "",
-                },
-                actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
-            )
+        record_ids = queryset.order_by("pk").values_list("pk", flat=True)
+        for record_id in record_ids.iterator():
+            with transaction.atomic():
+                record = PremiumSubscription.objects.select_for_update().filter(pk=record_id).first()
+                if record is None or record.last_refund_or_dispute_at is None:
+                    continue
+                detected_at = record.last_refund_or_dispute_at
+                record.last_refund_or_dispute_at = None
+                record.save(update_fields=["last_refund_or_dispute_at", "updated_at"])
+                create_premium_audit_log(
+                    record.user,
+                    action="reviewed",
+                    source=record.access_source,
+                    reason="Refund/dispute manually reviewed by admin action",
+                    metadata={
+                        "subscription_id": record.pk,
+                        "last_refund_or_dispute_at": detected_at.isoformat(),
+                    },
+                    actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
+                )
             count += 1
         self.message_user(request, f"{count}件の返金/チャージバック検知を確認済みにしました。")
 
@@ -794,39 +879,47 @@ class PremiumAccessCodeAdmin(admin.ModelAdmin):
     @admin.action(description="選択したコードで付与済みのプレミアム権限を失効する")
     def revoke_code_granted_access(self, request, queryset):
         count = 0
-        redemptions = PremiumAccessCodeRedemption.objects.select_related("access_code", "user").filter(
-            access_code__in=queryset
+        redemptions = (
+            PremiumAccessCodeRedemption.objects.select_related("access_code", "user")
+            .filter(access_code__in=queryset)
+            .order_by("user_id", "-redeemed_at", "-pk")
         )
         for redemption in redemptions:
-            record = (
-                PremiumSubscription.objects.select_related("user")
-                .filter(
-                    user=redemption.user,
-                    access_source="promo_code",
-                    subscription_status=PremiumSubscription.PROMO_STATUS,
-                    revoked_at__isnull=True,
+            with transaction.atomic():
+                record = (
+                    active_promo_subscriptions()
+                    .select_for_update(of=("self",))
+                    .filter(user_id=redemption.user_id)
+                    .first()
                 )
-                .first()
-            )
-            if record is None or not record.user.is_premium:
-                continue
-            record.revoke_access(
-                "Premium access code revoked by admin action",
-                save=True,
-                preserve_manual_override=True,
-            )
-            create_premium_audit_log(
-                record.user,
-                action="revoked",
-                source="promo_code",
-                reason="Premium access code revoked by admin action",
-                metadata={
-                    **premium_access_code_metadata(redemption.access_code),
-                    "subscription_id": record.pk,
-                },
-                actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
-            )
-            count += 1
+                if record is None:
+                    continue
+                # A historical redemption cannot revoke a later code's grant.
+                latest_redemption_id = (
+                    PremiumAccessCodeRedemption.objects.filter(user_id=redemption.user_id)
+                    .order_by("-redeemed_at", "-pk")
+                    .values_list("pk", flat=True)
+                    .first()
+                )
+                if latest_redemption_id != redemption.pk:
+                    continue
+                record.revoke_access(
+                    "Premium access code revoked by admin action",
+                    save=True,
+                    preserve_manual_override=True,
+                )
+                create_premium_audit_log(
+                    record.user,
+                    action="revoked",
+                    source="promo_code",
+                    reason="Premium access code revoked by admin action",
+                    metadata={
+                        **premium_access_code_metadata(redemption.access_code),
+                        "subscription_id": record.pk,
+                    },
+                    actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
+                )
+                count += 1
         self.message_user(request, f"{count}件のコード由来プレミアム権限を失効しました。")
 
     @admin.action(description="選択したプレミアムコードをCSV出力する")

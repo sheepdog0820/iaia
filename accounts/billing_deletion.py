@@ -30,7 +30,7 @@ def close_checkout(stripe, session, customer_id):
         raise BillingDeletionBlocked(UNCONFIRMED)
     status = stripe_object_get(session, "status")
     if status == "open":
-        expired = stripe.checkout.Session.expire(session_id)
+        expired = stripe.v1.checkout.sessions.expire(session_id)
         check_customer(expired, customer_id)
         if stripe_object_get(expired, "id") != session_id or stripe_object_get(expired, "status") != "expired":
             raise BillingDeletionBlocked(UNCONFIRMED)
@@ -44,7 +44,7 @@ def close_checkout(stripe, session, customer_id):
 
 
 def check_subscription(stripe, subscription_id, customer_id):
-    current = stripe.Subscription.retrieve(subscription_id)
+    current = stripe.v1.subscriptions.retrieve(subscription_id)
     if stripe_object_get(current, "id") != subscription_id:
         raise BillingDeletionBlocked(UNCONFIRMED)
     check_ended(current, customer_id)
@@ -73,19 +73,23 @@ def delete_account_after_billing_check(user):
             stripe = get_stripe()
             for attempt in attempts:
                 if attempt.operation == "checkout":
-                    session = stripe.checkout.Session.retrieve(attempt.resource_id)
+                    session = stripe.v1.checkout.sessions.retrieve(attempt.resource_id)
                     if stripe_object_get(session, "id") != attempt.resource_id:
                         raise BillingDeletionBlocked(UNCONFIRMED)
                     close_checkout(stripe, session, customer_id)
             # Include sessions created before durable request tracking existed.
-            sessions = stripe.checkout.Session.list(customer=customer_id, status="open", limit=100)
+            sessions = stripe.v1.checkout.sessions.list(
+                params={"customer": customer_id, "status": "open", "limit": 100}
+            )
             for session in sessions.auto_paging_iter():
                 close_checkout(stripe, session, customer_id)
             if record.stripe_subscription_id:
                 check_subscription(stripe, record.stripe_subscription_id, customer_id)
             # Check after expiration: payment may have completed before we got
             # the lock, while its webhook is still waiting for this same row.
-            subscriptions = stripe.Subscription.list(customer=customer_id, status="all", limit=100)
+            subscriptions = stripe.v1.subscriptions.list(
+                params={"customer": customer_id, "status": "all", "limit": 100}
+            )
             for subscription in subscriptions.auto_paging_iter():
                 check_ended(subscription, customer_id)
         except BillingDeletionBlocked:
