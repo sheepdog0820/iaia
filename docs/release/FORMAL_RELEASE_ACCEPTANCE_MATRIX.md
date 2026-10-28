@@ -31,6 +31,8 @@ Stripe運用コマンドの追加候補は[情報保護の後続](STRIPE_COMMAND
 
 2026-10-28 21:37 JST追記: 承認されたPR #20を通常マージした現在mainは945441ff。親はa523d59eと承認head714c2ed0で、treeは検証headに一致した。上記の統合候補のマージ承認待ちは解消し、マージ後のmain CIは確認中。AWS/共有DB/実Stripe/本番公開の操作は含まない。独立した[Draft PR #21の版情報保持](https://github.com/sheepdog0820/iaia/pull/21)は未マージである。次の[背景透過の診断初期化防止](BACKGROUND_TELEMETRY_MAIN_2026-10-28.md)は隔離99テスト・21 subtests成功、通常配布物・最終CI・追加マージ承認は未完了。正式公開No-Goは維持する。
 
+背景透過の診断初期化防止はDraft PR #22に分離した。製品修正d5941a0aの通常配布物内の隔離PG31テストと、既存モデルによる合成画像の実推論2ケースが成功した。11ファイルとentrypointがGit blobに一致し、fresh homeの診断ファイルは両ケース0件。最終CI・追加マージ承認、実AWSの受け入れは未完了。
+
 ## 2026-10-02までの経過記録
 
 同日後続の[通常配布物検証](RUNTIME_SECURITY_2026-10-02.md): 稼働版c6226ddbの画像ギャラリーを保持するブランチへPython修正を統合し、ベースdigest固定とPCRE2更新を追加した。修正後イメージは隔離PG/Redisで通常起動・146テスト成功、全パッケージスキャンは39件（HIGH3/MEDIUM2/LOW34、Python0）。AWSは旧版のままであり、残るOS指摘・修正後CI・実環境検証のためNo-Goを維持する。

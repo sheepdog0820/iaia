@@ -15,7 +15,9 @@ Dockerに`ORT_DISABLE_TELEMETRY=1`を設定し、サービスでもnative import
 - 製品変更前は10失敗・27成功（subtest失敗を含む）。修正後はモデル/起動設定/背景透過API/構成/公開条件の5ファイルで99テスト・21 subtests成功、省略なし。
 - サービス8実行文を全て実行し、当該モジュール100%。全アプリ100%とはしない。import順序、未設定や偽の環境値、複数回呼び出し、無効化API失敗時の処理中断を検証した。
 - Black/isort/Flake8/Bandit・差分検査成功。自己レビューで追加の対処事項なし。新しい利用者向け文言はない。DBは隔離SQLiteだけを使用し、ECS/S3は既存mockを使った。初回の関連検査指定に存在しないファイル名がありcollection前に停止したため、実在する対象を指定した再実行の99件だけを成功記録とする。
-- 通常配布物・実モデル推論・最終CIは未完了。古い候補の成功を今回の証拠に置き換えない。
+- 製品修正d5941a0aのgit archiveから通常イメージ`sha256:b296ae978dafe1c2de417aa0f7f033cb4f288324912a8e915849bbe38bb076fd`を構築した。11製品/テスト/依存ファイルと実entrypointがGit blobに一致し、ビルド定義のarchive実バイトとGitの命令も一致した。UID10001・read-only・権限を落とした配布物内で隔離PostgreSQLの31テスト成功、省略なし。pip/pytestや製品ソースoverlayは追加していない。Dockerfileのstage/Git blobはUTF-8/LFである。
+- 同配布物で、既存のU2NETモデル（175,997,641 bytes、SHA256 `8d10d2f3bb75ae3b6d527c77944fc5e7dcd94b29809d47a739a7a728a912b491`）を単一ファイルreadonly mountし、合成128×128画像の実推論を2回確認した。Docker既定値と`0`上書きの両方で環境値が`1`となり、RGBA PNG・alpha 0〜255・同一結果hash `97118d98655762cab2a06137caeeba448a79f62b8cb7eacbd42f7b066c356cde`、診断ファイル0件。各回fresh tmpfs home・network noneで、新規ダウンロードや実ユーザー画像は使っていない。実portraitの品質やAWS性能の証拠にはしない。
+- [Draft PR #22](https://github.com/sheepdog0820/iaia/pull/22)の最終CIは未完了。古い候補の成功を今回の証拠に置き換えない。
 
 ## 境界と残作業
 
