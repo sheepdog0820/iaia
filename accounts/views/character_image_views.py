@@ -34,6 +34,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.background_removal_tasks import (
+    BackgroundRemovalDispatchUncertain,
     clear_background_removal_source,
     fail_stale_background_removal_job,
     start_background_removal_task,
@@ -143,12 +144,14 @@ class CharacterImageBackgroundRemovalView(APIView):
             )
         try:
             start_background_removal_task(job)
-        except Exception:
-            logger.exception("Character image background removal task could not start")
+        except Exception as exc:
+            logger.warning("Background removal dispatch failed for job %s (%s)", job.pk, type(exc).__name__)
             with transaction.atomic():
                 job = get_object_or_404(BackgroundRemovalJob.objects.select_for_update(), pk=job.pk, user=request.user)
                 # A lost launch response must not invalidate a worker's progress.
-                if job.status == BackgroundRemovalJob.Status.PENDING:
+                if job.status == BackgroundRemovalJob.Status.PENDING and not isinstance(
+                    exc, BackgroundRemovalDispatchUncertain
+                ):
                     job.status = BackgroundRemovalJob.Status.FAILED
                     job.error_message = "Background removal could not be started."
                     update_fields = ["status", "error_message", "updated_at"]

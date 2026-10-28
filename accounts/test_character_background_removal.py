@@ -320,6 +320,7 @@ class CharacterBackgroundRemovalTests(TestCase):
 
         boto_client.assert_called_once_with("ecs", region_name="ap-northeast-1")
         ecs.run_task.assert_called_once_with(
+            clientToken=str(job.pk),
             cluster="tableno-aws-pre",
             launchType="FARGATE",
             taskDefinition="background-removal-task:1",

@@ -6,9 +6,13 @@ import os
 import re
 from datetime import timedelta
 
+from botocore.exceptions import ClientError
+from botocore.exceptions import ConnectionError as BotoConnectionError
+from botocore.exceptions import HTTPClientError
+from botocore.parsers import ResponseParserError
 from django.conf import settings
 from django.core.files.base import ContentFile
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.utils import timezone
 from PIL import Image
 
@@ -16,6 +20,10 @@ from accounts.background_removal import remove_background
 from accounts.background_removal_models import BackgroundRemovalJob
 
 logger = logging.getLogger(__name__)
+
+
+class BackgroundRemovalDispatchUncertain(RuntimeError):
+    """ECS may have accepted the job; preserve its input until a terminal outcome."""
 
 
 def clear_background_removal_source(job):
@@ -161,7 +169,9 @@ def start_background_removal_task(job):
 
     import boto3
 
-    response = boto3.client("ecs", region_name=getattr(settings, "AWS_S3_REGION_NAME", None)).run_task(
+    ecs = boto3.client("ecs", region_name=getattr(settings, "AWS_S3_REGION_NAME", None))
+    parameters = dict(
+        clientToken=str(job.pk),
         cluster=getattr(settings, "BACKGROUND_REMOVAL_ECS_CLUSTER", "tableno-aws-pre"),
         launchType="FARGATE",
         taskDefinition=task_definition,
@@ -181,14 +191,63 @@ def start_background_removal_task(job):
             ]
         },
     )
-    failures = response.get("failures", [])
-    if failures or not response.get("tasks"):
-        raise RuntimeError(f"Unable to launch background removal worker: {failures}")
-    with transaction.atomic():
-        job.refresh_from_db(from_queryset=BackgroundRemovalJob.objects.select_for_update())
-        job.task_arn = response["tasks"][0]["taskArn"]
-        # Dispatch metadata must not reset worker timeout or result retention.
-        job.save(update_fields=["task_arn"])
+    outcome_uncertain = False
+
+    def observe_attempt(response=None, caught_exception=None, **kwargs):
+        nonlocal outcome_uncertain
+        if caught_exception is not None:
+            outcome_uncertain = True
+        else:
+            http_response, parsed = response
+            if http_response.status_code >= 500 or parsed.get("Error", {}).get("Code") in {
+                "ServerException",
+                "ConflictException",
+            }:
+                outcome_uncertain = True
+
+    retry_event = "needs-retry.ecs.RunTask"
+    ecs.meta.events.register_first(retry_event, observe_attempt)
+    try:
+        response = ecs.run_task(**parameters)
+    except (HTTPClientError, BotoConnectionError, ResponseParserError) as exc:
+        # Even a final connection error can follow an accepted SDK retry attempt.
+        raise BackgroundRemovalDispatchUncertain("Worker launch outcome is unknown.") from exc
+    except ClientError as exc:
+        metadata = exc.response.get("ResponseMetadata", {})
+        http_status = metadata.get("HTTPStatusCode", 0)
+        code = exc.response.get("Error", {}).get("Code", "")
+        # The final rejection does not disprove acceptance of an earlier SDK attempt.
+        if (
+            outcome_uncertain
+            or http_status >= 500
+            or code in {"ServerException", "ConflictException"}
+            or metadata.get("RetryAttempts", 0) > 0
+        ):
+            raise BackgroundRemovalDispatchUncertain("Worker launch outcome is unknown.") from exc
+        raise
+    except Exception as exc:
+        # Signing/credential refresh can fail before the next attempt, without metadata.
+        if outcome_uncertain:
+            raise BackgroundRemovalDispatchUncertain("Worker launch outcome is unknown.") from exc
+        raise
+    finally:
+        ecs.meta.events.unregister(retry_event, observe_attempt)
+    tasks = response.get("tasks", [])
+    if not tasks:
+        if response.get("failures") and not outcome_uncertain:
+            raise RuntimeError("Unable to launch background removal worker.")
+        raise BackgroundRemovalDispatchUncertain("Worker launch response is incomplete.")
+    task_arn = tasks[0].get("taskArn")
+    if not task_arn:
+        raise BackgroundRemovalDispatchUncertain("Worker launch response is incomplete.")
+    try:
+        with transaction.atomic():
+            job.refresh_from_db(from_queryset=BackgroundRemovalJob.objects.select_for_update())
+            job.task_arn = task_arn
+            # Dispatch metadata must not reset worker timeout or result retention.
+            job.save(update_fields=["task_arn"])
+    except DatabaseError as exc:
+        raise BackgroundRemovalDispatchUncertain("Worker launched but metadata could not be saved.") from exc
 
 
 def process_background_removal_job(job_id):
