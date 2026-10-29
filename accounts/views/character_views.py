@@ -2219,25 +2219,47 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
     permission_classes = [IsAuthenticated]
     system_data_relation = "skills"
 
-    # get_queryset and perform_create are now handled by CharacterNestedResourceMixin
+    def perform_create(self, serializer):
+        """Keep creation atomic and return model input errors as HTTP 400."""
+        try:
+            with transaction.atomic():
+                get_object_or_404(
+                    CharacterSheet.objects.select_for_update(),
+                    pk=self.get_character_sheet_id(),
+                    user=self.request.user,
+                )
+                super().perform_create(serializer)
+        except DjangoValidationError as exc:
+            raise DRFValidationError(exc.message_dict if hasattr(exc, "message_dict") else exc.messages) from exc
 
     def perform_update(self, serializer):
         """Return model validation errors to the client instead of turning them into 500s."""
         skill = serializer.instance
         try:
-            serializer.save()
+            with transaction.atomic():
+                character_sheet = get_object_or_404(
+                    CharacterSheet.objects.select_for_update(),
+                    pk=self.get_character_sheet_id(),
+                    user=self.request.user,
+                )
+                serializer.instance = get_object_or_404(
+                    type(skill).objects.select_for_update(),
+                    pk=skill.pk,
+                    character_sheet__character_sheet=character_sheet,
+                )
+                serializer.save()
         except DjangoValidationError as exc:
             raise DRFValidationError(exc.message_dict if hasattr(exc, "message_dict") else exc.messages) from exc
-        except Exception:
-            logger.exception(
+        except Http404:
+            raise
+        except Exception as exc:
+            logger.error(
                 "Character skill update failed: character_sheet_id=%s character_detail_id=%s "
-                "skill_id=%s skill_name=%r user_id=%s fields=%s",
+                "skill_id=%s exception_type=%s",
                 self.get_character_sheet_id(),
                 skill.character_sheet_id,
                 skill.id,
-                skill.skill_name,
-                self.request.user.id,
-                sorted(serializer.validated_data.keys()),
+                type(exc).__name__,
             )
             raise
 

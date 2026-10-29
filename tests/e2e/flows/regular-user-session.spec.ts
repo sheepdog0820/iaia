@@ -1,8 +1,31 @@
-import { expect, Page, test } from '@playwright/test';
+import { BrowserContext, BrowserContextOptions, expect, Page, test as base } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 
+const test = base.extend<{
+  createActorContext: (options: BrowserContextOptions) => Promise<BrowserContext>;
+}>({
+  createActorContext: async ({ browser }, use) => {
+    const contexts: BrowserContext[] = [];
+    try {
+      await use(async options => {
+        const context = await browser.newContext(options);
+        contexts.push(context);
+        return context;
+      });
+    } finally {
+      const results = await Promise.allSettled(contexts.map(context => context.close()));
+      const failure = results.find(result => result.status === 'rejected');
+      if (failure?.status === 'rejected') throw failure.reason;
+    }
+  },
+});
+
 async function signUp(page: Page, suffix: string, nickname?: string): Promise<void> {
-  await page.goto('/signup/');
+  await page.bringToFront();
+  await page.goto('/signup/', { waitUntil: 'commit' });
+  await expect(page.locator('#email-signup-form')).toBeVisible();
+  await expect(page.locator('#id_username')).toBeEditable();
+  await expect(page.locator('#signup-btn')).toBeEnabled();
   await page.evaluate(() => {
     const events: object[] = [];
     (window as any).__signupInputEvents = events;
@@ -49,12 +72,53 @@ async function signUp(page: Page, suffix: string, nickname?: string): Promise<vo
   }
   await page.fill('#id_nickname', nickname ?? `通常利用者 ${suffix}`);
   await Promise.all([
-    page.waitForURL(/\/accounts\/dashboard\//),
+    page.waitForURL(/\/accounts\/dashboard\//, { waitUntil: 'commit' }),
     page.click('#signup-btn'),
   ]);
+  await expect(page.getByRole('heading', { name: /ダッシュボード/ })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => typeof (window as any).axios?.post)).toBe('function');
 }
 
-test('anonymous guest joins and a normally registered user claims the participant', async ({ page, browser }) => {
+test('normal registration completes while a nonessential signup image is still pending', async ({ page }) => {
+  let imageRequested = false;
+  let signupLoadSeen = false;
+  let releaseImage!: () => void;
+  const imageGate = new Promise<void>(resolve => { releaseImage = resolve; });
+  page.on('load', () => {
+    if (new URL(page.url()).pathname === '/signup/') signupLoadSeen = true;
+  });
+  await page.route('**/__e2e_signup_pending.png', async route => {
+    imageRequested = true;
+    await imageGate;
+    // Navigation away from the form can already have cancelled this fixture.
+    await route.abort().catch(() => {});
+  });
+  await page.route('**/signup/', async route => {
+    if (route.request().method() !== 'GET') return route.continue();
+    const response = await route.fetch();
+    const body = (await response.text()).replace(
+      '</body>',
+      '<img src="/__e2e_signup_pending.png" alt="" style="position:absolute;width:1px;height:1px;opacity:0">\n</body>',
+    );
+    await route.fulfill({ response, body });
+  });
+  const suffix = `pending_${Date.now()}_${test.info().project.name}`;
+  try {
+    await signUp(page, suffix);
+    await expect(page.getByRole('heading', { name: /ダッシュボード/ })).toBeVisible();
+    await expect(page.locator('body')).toContainText(`通常利用者 ${suffix}`);
+    expect((await page.request.get('/api/accounts/character-sheets/')).status()).toBe(200);
+    expect(imageRequested).toBe(true);
+    expect(signupLoadSeen).toBe(false);
+  } finally {
+    releaseImage();
+    await page.unrouteAll({ behavior: 'ignoreErrors' }).catch(error => {
+      if (!page.isClosed()) throw error;
+    });
+  }
+});
+
+test('anonymous guest joins and a normally registered user claims the participant', async ({ page, createActorContext }) => {
   const externalFonts: string[] = [];
   const blockExternalFonts = async (context: import('@playwright/test').BrowserContext) => {
     await context.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//, route => {
@@ -84,10 +148,11 @@ test('anonymous guest joins and a normally registered user claims the participan
   expect(issued.status()).toBe(201);
   const invitation = await issued.json();
   await expect(page.locator('#guest-invitation-url')).toHaveValue(invitation.invitation_url);
-  const guestContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
+  const guestContext = await createActorContext({ baseURL: new URL(page.url()).origin });
   await blockExternalFonts(guestContext);
-  try {
+  await test.step('ゲスト参加と通常登録後の引き継ぎ', async () => {
     const guest = await guestContext.newPage();
+    await guest.bringToFront();
     await guest.goto(invitation.invitation_url);
     await expect(guest.locator('h1')).toContainText(setup.session.title);
     const fontsLoaded = await guest.evaluate(async () => {
@@ -165,20 +230,18 @@ test('anonymous guest joins and a normally registered user claims the participan
     await claimCard.scrollIntoViewIfNeeded();
     await claimCard.screenshot({ path: test.info().outputPath('guest-claim-mobile.png'), mask: [guest.locator('#claim-token')], animations: 'disabled' });
     expect(externalFonts).toEqual([]);
-  } finally {
-    await guestContext.close();
-  }
+  });
 });
 
-test('group invitation displays stored markup safely and can be accepted', async ({ page, browser }) => {
+test('group invitation displays stored markup safely and can be accepted', async ({ page, createActorContext }) => {
   const suffix = `${Date.now()}_${test.info().project.name}`;
   const markup = '<img src=x onerror="window.__inviteXss=1">';
   await signUp(page, `invite_${suffix}`, markup);
   const group = await page.evaluate(async name => {
     return (await (window as any).axios.post('/api/accounts/groups/', { name, visibility: 'private' })).data;
   }, markup);
-  const recipientContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
-  try {
+  const recipientContext = await createActorContext({ baseURL: new URL(page.url()).origin });
+  await test.step('別ユーザーの通知確認と招待承認', async () => {
     const recipient = await recipientContext.newPage();
     await signUp(recipient, `recipient_${suffix}`);
     const invitation = await page.evaluate(async ({ id, username, message }) => {
@@ -222,12 +285,10 @@ test('group invitation displays stored markup safely and can be accepted', async
     const saved = await (await recipient.request.get(`/api/accounts/groups/${group.id}/`)).json();
     expect(saved.is_member).toBe(true);
     expect(saved.member_role).toBe('member');
-  } finally {
-    await recipientContext.close();
-  }
+  });
 });
 
-test('group details display stored markup as text for another registered user', async ({ page, browser }) => {
+test('group details display stored markup as text for another registered user', async ({ page, createActorContext }) => {
   const suffix = `${Date.now()}_${test.info().project.name}`;
   const markup = '<img src=x onerror="window.__groupXss=1">';
   await signUp(page, `markup_${suffix}`, markup);
@@ -235,8 +296,8 @@ test('group details display stored markup as text for another registered user', 
   await page.evaluate(async ({ name, description }) => {
     await (window as any).axios.post('/api/accounts/groups/', { name, description, visibility: 'public' });
   }, { name: groupName, description: markup });
-  const viewerContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
-  try {
+  const viewerContext = await createActorContext({ baseURL: new URL(page.url()).origin });
+  await test.step('別ユーザーからの文字表示確認', async () => {
     const viewer = await viewerContext.newPage();
     await signUp(viewer, `viewer_${suffix}`);
     await viewer.goto('/accounts/groups/view/?show_test_data=1');
@@ -252,12 +313,10 @@ test('group details display stored markup as text for another registered user', 
     await expect(modal.locator('.col-md-4 .card-body')).toContainText(markup);
     await expect(modal.locator('img')).toHaveCount(0);
     expect(await viewer.evaluate(() => (window as any).__groupXss)).toBeUndefined();
-  } finally {
-    await viewerContext.close();
-  }
+  });
 });
 
-test('owner grants and revokes group administration for a registered member', async ({ page, browser }) => {
+test('owner grants and revokes group administration for a registered member', async ({ page, createActorContext }) => {
   const suffix = `${Date.now()}_${test.info().project.name}`;
   await signUp(page, `roles_${suffix}`);
   const groupName = `権限確認 ${suffix}`;
@@ -265,8 +324,8 @@ test('owner grants and revokes group administration for a registered member', as
     const response = await (window as any).axios.post('/api/accounts/groups/', { name, visibility: 'public' });
     return response.data;
   }, groupName);
-  const memberContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
-  try {
+  const memberContext = await createActorContext({ baseURL: new URL(page.url()).origin });
+  await test.step('管理者の追加と解除直後の権限確認', async () => {
     const member = await memberContext.newPage();
     await signUp(member, `member_${suffix}`);
     await member.goto('/accounts/groups/view/?show_test_data=1');
@@ -284,12 +343,14 @@ test('owner grants and revokes group administration for a registered member', as
     await expect(memberModal).toContainText(groupName);
     await expect(memberModal.getByRole('button', { name: 'グループを編集' })).toHaveCount(0);
 
+    await page.bringToFront();
     await page.goto('/accounts/groups/view/?show_test_data=1');
     await page.fill('#groupSearchInput', groupName);
     await page.locator('.group-card', { hasText: groupName }).click();
     const ownerModal = page.locator('#groupDetailModal');
     const memberRow = ownerModal.locator('.member-item', { hasText: `通常利用者 member_${suffix}` });
     const changeRole = async (label: string) => {
+      await page.bringToFront();
       await memberRow.getByRole('button', { name: label, exact: true }).click();
       const [changed] = await Promise.all([
         page.waitForResponse(response => new URL(response.url()).pathname === `/api/accounts/groups/${group.id}/set_member_role/` && response.request().method() === 'POST'),
@@ -299,6 +360,7 @@ test('owner grants and revokes group administration for a registered member', as
     };
     await changeRole('管理者にする');
     await expect(memberRow.locator('.role-badge')).toHaveText('管理者');
+    await member.bringToFront();
     await member.reload();
     await member.fill('#groupSearchInput', groupName);
     await member.locator('.group-card', { hasText: groupName }).click();
@@ -328,15 +390,14 @@ test('owner grants and revokes group administration for a registered member', as
     const saved = await (await page.request.get(`/api/accounts/groups/${group.id}/`)).json();
     expect(saved.description).toBe('追加された管理者による更新');
     expect(saved.created_by).toBe(group.created_by);
+    await member.bringToFront();
     await member.reload();
     await member.fill('#groupSearchInput', groupName);
     await member.locator('.group-card', { hasText: groupName }).click();
     await expect(memberModal).toContainText('追加された管理者による更新');
     await expect(memberModal.getByRole('button', { name: 'グループを編集' })).toHaveCount(0);
     await member.screenshot({ path: test.info().outputPath('member-after-admin-revocation.png'), fullPage: true, animations: 'disabled' });
-  } finally {
-    await memberContext.close();
-  }
+  });
 });
 
 test('friend search preserves the query when the bundled HTTP client is unavailable', async ({ page }) => {
@@ -381,7 +442,7 @@ test('calendar and session form initialize when the calendar CDN is unavailable'
   expect(errors).toEqual([]);
 });
 
-test('registered owner creates a private group and completes a session; outsider cannot read it', async ({ page, browser }) => {
+test('registered owner creates a private group and completes a session; outsider cannot read it', async ({ page, createActorContext }) => {
   test.slow();
   const suffix = `${Date.now()}_${test.info().project.name}`;
   const errors: string[] = [];
@@ -455,8 +516,8 @@ test('registered owner creates a private group and completes a session; outsider
   expect(savedResponse.body.duration_minutes).toBe(120);
   await page.screenshot({ path: test.info().outputPath('owner-completed.png'), fullPage: true });
 
-  const outsiderContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
-  try {
+  const outsiderContext = await createActorContext({ baseURL: new URL(page.url()).origin });
+  await test.step('非参加者の閲覧拒否とモバイル表示', async () => {
     const outsider = await outsiderContext.newPage();
     await signUp(outsider, `${suffix}_outside`);
     expect((await outsider.request.get(`/api/accounts/groups/${group.id}/`)).status()).toBe(404);
@@ -480,8 +541,6 @@ test('registered owner creates a private group and completes a session; outsider
     expect(Math.abs(homeBox!.x - backBox!.x)).toBeLessThan(1);
     expect(Math.abs(homeBox!.width - backBox!.width)).toBeLessThan(1);
     await outsider.screenshot({ path: test.info().outputPath('outsider-poll-denied-mobile.png'), fullPage: true });
-  } finally {
-    await outsiderContext.close();
-  }
+  });
   expect(errors).toEqual([]);
 });
