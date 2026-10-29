@@ -19,6 +19,7 @@ class CharacterSkillLogPrivacyTests(APITransactionTestCase):
         model = CharacterSkill6th if edition == "6th" else CharacterSkill7th
         sheet, detail = factory(
             user=self.user,
+            id=1001 if edition == "6th" else 2001,
             name="未公開探索者の名前",
             edu_value=50 if edition == "7th" else 12,
             int_value=50 if edition == "7th" else 14,
@@ -48,6 +49,9 @@ class CharacterSkillLogPrivacyTests(APITransactionTestCase):
 
         self.assertIs(raised.exception, error)
         output = "\n".join(captured.output)
+        self.assertIn(f"character_sheet_id={sheet.pk} ", output)
+        self.assertIn(f"character_detail_id={detail.pk} ", output)
+        self.assertIn(f"skill_id={skill.pk} ", output)
         for private_value in (
             detail.name,
             skill.skill_name,
