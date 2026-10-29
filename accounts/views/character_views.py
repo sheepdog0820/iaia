@@ -2219,7 +2219,13 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
     permission_classes = [IsAuthenticated]
     system_data_relation = "skills"
 
-    # get_queryset and perform_create are now handled by CharacterNestedResourceMixin
+    def perform_create(self, serializer):
+        """Keep creation atomic and return model input errors as HTTP 400."""
+        try:
+            with transaction.atomic():
+                super().perform_create(serializer)
+        except DjangoValidationError as exc:
+            raise DRFValidationError(exc.message_dict if hasattr(exc, "message_dict") else exc.messages) from exc
 
     def perform_update(self, serializer):
         """Return model validation errors to the client instead of turning them into 500s."""
