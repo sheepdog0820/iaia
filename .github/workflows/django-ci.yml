@@ -243,6 +243,7 @@ jobs:
             accounts/test_character_image_concurrency.py \
             accounts/test_character_skill_log_privacy.py \
             accounts/test_character_skill_create_validation.py \
+            accounts/test_character_skill_budget_concurrency.py \
             accounts/test_google_grant_concurrency.py accounts/test_google_identity_concurrency.py \
             accounts/test_group_invite_concurrency.py accounts/test_oauth_atomicity.py \
             schedules/test_claim_concurrency.py schedules/test_reward_concurrency.py \

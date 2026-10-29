@@ -2223,6 +2223,11 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
         """Keep creation atomic and return model input errors as HTTP 400."""
         try:
             with transaction.atomic():
+                get_object_or_404(
+                    CharacterSheet.objects.select_for_update(),
+                    pk=self.get_character_sheet_id(),
+                    user=self.request.user,
+                )
                 super().perform_create(serializer)
         except DjangoValidationError as exc:
             raise DRFValidationError(exc.message_dict if hasattr(exc, "message_dict") else exc.messages) from exc
@@ -2231,9 +2236,22 @@ class CharacterSkillViewSet(CharacterNestedResourceMixin, ErrorHandlerMixin, vie
         """Return model validation errors to the client instead of turning them into 500s."""
         skill = serializer.instance
         try:
-            serializer.save()
+            with transaction.atomic():
+                character_sheet = get_object_or_404(
+                    CharacterSheet.objects.select_for_update(),
+                    pk=self.get_character_sheet_id(),
+                    user=self.request.user,
+                )
+                serializer.instance = get_object_or_404(
+                    type(skill).objects.select_for_update(),
+                    pk=skill.pk,
+                    character_sheet__character_sheet=character_sheet,
+                )
+                serializer.save()
         except DjangoValidationError as exc:
             raise DRFValidationError(exc.message_dict if hasattr(exc, "message_dict") else exc.messages) from exc
+        except Http404:
+            raise
         except Exception as exc:
             logger.error(
                 "Character skill update failed: character_sheet_id=%s character_detail_id=%s "
