@@ -47,6 +47,8 @@ channels-redis>=4.2.0
 # Security floor for the channel layer's message codec.
 msgpack>=1.2.3
 daphne>=4.1.0
+# Security floor for bounded WebSocket Brotli decompression (CVE-2026-116579).
+autobahn>=26.10.1
 # Temporary upstream security release candidate; revalidate when 26.10.0 is stable.
 Twisted==26.10.0rc2
 

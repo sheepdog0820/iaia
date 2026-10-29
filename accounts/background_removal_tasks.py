@@ -6,9 +6,13 @@ import os
 import re
 from datetime import timedelta
 
+from botocore.exceptions import ClientError
+from botocore.exceptions import ConnectionError as BotoConnectionError
+from botocore.exceptions import HTTPClientError
+from botocore.parsers import ResponseParserError
 from django.conf import settings
 from django.core.files.base import ContentFile
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.utils import timezone
 from PIL import Image
 
@@ -18,14 +22,18 @@ from accounts.background_removal_models import BackgroundRemovalJob
 logger = logging.getLogger(__name__)
 
 
+class BackgroundRemovalDispatchUncertain(RuntimeError):
+    """ECS may have accepted the job; preserve its input until a terminal outcome."""
+
+
 def clear_background_removal_source(job):
     """Delete a persisted source image without changing the job outcome."""
     if not job.source_image:
         return False
     try:
         job.source_image.delete(save=False)
-    except Exception:
-        logger.exception("Background removal source cleanup failed for job %s", job.pk)
+    except Exception as exc:
+        logger.error("Background removal source cleanup failed for job %s (%s)", job.pk, type(exc).__name__)
         return False
     job.source_image = ""
     return True
@@ -33,18 +41,23 @@ def clear_background_removal_source(job):
 
 def fail_stale_background_removal_job(job, *, now=None):
     """Fail a pending/running job that can no longer be expected to finish."""
-    if job.status not in {BackgroundRemovalJob.Status.PENDING, BackgroundRemovalJob.Status.RUNNING}:
-        return False
-    timeout_seconds = max(int(getattr(settings, "BACKGROUND_REMOVAL_JOB_TIMEOUT_SECONDS", 900)), 60)
-    if job.updated_at > (now or timezone.now()) - timedelta(seconds=timeout_seconds):
-        return False
-    job.status = BackgroundRemovalJob.Status.FAILED
-    job.error_message = "Background removal timed out."
-    update_fields = ["status", "error_message", "updated_at"]
-    if clear_background_removal_source(job):
-        update_fields.append("source_image")
-    job.save(update_fields=update_fields)
-    return True
+    with transaction.atomic():
+        try:
+            job.refresh_from_db(from_queryset=BackgroundRemovalJob.objects.select_for_update())
+        except BackgroundRemovalJob.DoesNotExist:
+            return False
+        if job.status not in {BackgroundRemovalJob.Status.PENDING, BackgroundRemovalJob.Status.RUNNING}:
+            return False
+        timeout_seconds = max(int(getattr(settings, "BACKGROUND_REMOVAL_JOB_TIMEOUT_SECONDS", 900)), 60)
+        if job.updated_at > (now or timezone.now()) - timedelta(seconds=timeout_seconds):
+            return False
+        job.status = BackgroundRemovalJob.Status.FAILED
+        job.error_message = "Background removal timed out."
+        update_fields = ["status", "error_message", "updated_at"]
+        if clear_background_removal_source(job):
+            update_fields.append("source_image")
+        job.save(update_fields=update_fields)
+        return True
 
 
 def _delete_job_file(job, field_name):
@@ -53,8 +66,8 @@ def _delete_job_file(job, field_name):
         return True
     try:
         field_file.delete(save=False)
-    except Exception:
-        logger.exception("Background removal %s cleanup failed for job %s", field_name, job.pk)
+    except Exception as exc:
+        logger.error("Background removal %s cleanup failed for job %s (%s)", field_name, job.pk, type(exc).__name__)
         return False
     setattr(job, field_name, "")
     return True
@@ -107,30 +120,39 @@ def cleanup_background_removal_jobs(*, now=None, dry_run=False):
             timed_out_jobs += 1
     summary["timed_out_jobs"] = timed_out_jobs
 
-    for job in expired_jobs.iterator():
-        cleared_fields = []
-        deletion_failed = False
-        for field_name in ("source_image", "result_image"):
-            if not getattr(job, field_name):
+    for candidate in expired_jobs.iterator():
+        with transaction.atomic():
+            # Recheck both age and status after acquiring the current row lock.
+            job = expired_jobs.select_for_update().filter(pk=candidate.pk).first()
+            if job is None:
                 continue
-            if _delete_job_file(job, field_name):
-                cleared_fields.append(field_name)
-            else:
-                deletion_failed = True
-        if deletion_failed:
-            if cleared_fields:
-                job.save(update_fields=cleared_fields)
-            summary["failed_jobs"] += 1
-            continue
-        job.delete()
-        summary["deleted_jobs"] += 1
+            cleared_fields = []
+            deletion_failed = False
+            for field_name in ("source_image", "result_image"):
+                if not getattr(job, field_name):
+                    continue
+                if _delete_job_file(job, field_name):
+                    cleared_fields.append(field_name)
+                else:
+                    deletion_failed = True
+            if deletion_failed:
+                if cleared_fields:
+                    job.save(update_fields=cleared_fields)
+                summary["failed_jobs"] += 1
+                continue
+            job.delete()
+            summary["deleted_jobs"] += 1
 
-    for job in expired_results.iterator():
-        if not _delete_job_file(job, "result_image"):
-            summary["failed_jobs"] += 1
-            continue
-        job.save(update_fields=["result_image"])
-        summary["deleted_result_images"] += 1
+    for candidate in expired_results.iterator():
+        with transaction.atomic():
+            job = expired_results.select_for_update().filter(pk=candidate.pk).first()
+            if job is None:
+                continue
+            if not _delete_job_file(job, "result_image"):
+                summary["failed_jobs"] += 1
+                continue
+            job.save(update_fields=["result_image"])
+            summary["deleted_result_images"] += 1
 
     return summary
 
@@ -147,7 +169,9 @@ def start_background_removal_task(job):
 
     import boto3
 
-    response = boto3.client("ecs", region_name=getattr(settings, "AWS_S3_REGION_NAME", None)).run_task(
+    ecs = boto3.client("ecs", region_name=getattr(settings, "AWS_S3_REGION_NAME", None))
+    parameters = dict(
+        clientToken=str(job.pk),
         cluster=getattr(settings, "BACKGROUND_REMOVAL_ECS_CLUSTER", "tableno-aws-pre"),
         launchType="FARGATE",
         taskDefinition=task_definition,
@@ -167,11 +191,63 @@ def start_background_removal_task(job):
             ]
         },
     )
-    failures = response.get("failures", [])
-    if failures or not response.get("tasks"):
-        raise RuntimeError(f"Unable to launch background removal worker: {failures}")
-    job.task_arn = response["tasks"][0]["taskArn"]
-    job.save(update_fields=["task_arn", "updated_at"])
+    outcome_uncertain = False
+
+    def observe_attempt(response=None, caught_exception=None, **kwargs):
+        nonlocal outcome_uncertain
+        if caught_exception is not None:
+            outcome_uncertain = True
+        else:
+            http_response, parsed = response
+            if http_response.status_code >= 500 or parsed.get("Error", {}).get("Code") in {
+                "ServerException",
+                "ConflictException",
+            }:
+                outcome_uncertain = True
+
+    retry_event = "needs-retry.ecs.RunTask"
+    ecs.meta.events.register_first(retry_event, observe_attempt)
+    try:
+        response = ecs.run_task(**parameters)
+    except (HTTPClientError, BotoConnectionError, ResponseParserError) as exc:
+        # Even a final connection error can follow an accepted SDK retry attempt.
+        raise BackgroundRemovalDispatchUncertain("Worker launch outcome is unknown.") from exc
+    except ClientError as exc:
+        metadata = exc.response.get("ResponseMetadata", {})
+        http_status = metadata.get("HTTPStatusCode", 0)
+        code = exc.response.get("Error", {}).get("Code", "")
+        # The final rejection does not disprove acceptance of an earlier SDK attempt.
+        if (
+            outcome_uncertain
+            or http_status >= 500
+            or code in {"ServerException", "ConflictException"}
+            or metadata.get("RetryAttempts", 0) > 0
+        ):
+            raise BackgroundRemovalDispatchUncertain("Worker launch outcome is unknown.") from exc
+        raise
+    except Exception as exc:
+        # Signing/credential refresh can fail before the next attempt, without metadata.
+        if outcome_uncertain:
+            raise BackgroundRemovalDispatchUncertain("Worker launch outcome is unknown.") from exc
+        raise
+    finally:
+        ecs.meta.events.unregister(retry_event, observe_attempt)
+    tasks = response.get("tasks", [])
+    if not tasks:
+        if response.get("failures") and not outcome_uncertain:
+            raise RuntimeError("Unable to launch background removal worker.")
+        raise BackgroundRemovalDispatchUncertain("Worker launch response is incomplete.")
+    task_arn = tasks[0].get("taskArn")
+    if not task_arn:
+        raise BackgroundRemovalDispatchUncertain("Worker launch response is incomplete.")
+    try:
+        with transaction.atomic():
+            job.refresh_from_db(from_queryset=BackgroundRemovalJob.objects.select_for_update())
+            job.task_arn = task_arn
+            # Dispatch metadata must not reset worker timeout or result retention.
+            job.save(update_fields=["task_arn"])
+    except DatabaseError as exc:
+        raise BackgroundRemovalDispatchUncertain("Worker launched but metadata could not be saved.") from exc
 
 
 def process_background_removal_job(job_id):
@@ -184,23 +260,42 @@ def process_background_removal_job(job_id):
 
     try:
         with job.source_image.open("rb") as source_file:
-            transparent_png = remove_background(source_file.read())
+            source_bytes = source_file.read()
+        transparent_png = remove_background(source_bytes)
         with Image.open(io.BytesIO(transparent_png)) as result:
             if result.format != "PNG":
                 raise ValueError("Background removal returned a non-PNG image.")
-        filename_root = os.path.splitext(os.path.basename(job.original_filename or "character"))[0]
-        filename_root = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', "_", filename_root).strip(" ._") or "character"
-        filename = f"{filename_root}-transparent.png"
-        job.result_image.save(filename, ContentFile(transparent_png), save=False)
-        job.status = BackgroundRemovalJob.Status.COMPLETED
-        job.error_message = ""
-        update_fields = ["result_image", "status", "error_message", "updated_at"]
-    except Exception:
-        logger.exception("Background removal worker failed for job %s", job.pk)
-        job.status = BackgroundRemovalJob.Status.FAILED
-        job.error_message = "Background removal could not be completed."
+    except Exception as exc:
+        logger.error("Background removal worker failed for job %s (%s)", job.pk, type(exc).__name__)
+        transparent_png = None
+
+    # Inference stays outside the lock; timeout/deletion must win over a late result.
+    with transaction.atomic():
+        try:
+            job.refresh_from_db(from_queryset=BackgroundRemovalJob.objects.select_for_update())
+        except BackgroundRemovalJob.DoesNotExist:
+            clear_background_removal_source(job)
+            raise
+        if job.status != BackgroundRemovalJob.Status.RUNNING:
+            return job
         update_fields = ["status", "error_message", "updated_at"]
-    if clear_background_removal_source(job):
-        update_fields.append("source_image")
-    job.save(update_fields=update_fields)
-    return job
+        if transparent_png is not None:
+            try:
+                filename_root = os.path.splitext(os.path.basename(job.original_filename or "character"))[0]
+                filename_root = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', "_", filename_root).strip(" ._") or "character"
+                filename = f"{filename_root}-transparent.png"
+                job.result_image.save(filename, ContentFile(transparent_png), save=False)
+                update_fields.append("result_image")
+            except Exception as exc:
+                logger.error("Background removal worker failed for job %s (%s)", job.pk, type(exc).__name__)
+                transparent_png = None
+        if transparent_png is None:
+            job.status = BackgroundRemovalJob.Status.FAILED
+            job.error_message = "Background removal could not be completed."
+        else:
+            job.status = BackgroundRemovalJob.Status.COMPLETED
+            job.error_message = ""
+        if clear_background_removal_source(job):
+            update_fields.append("source_image")
+        job.save(update_fields=update_fields)
+        return job

@@ -12,6 +12,7 @@ import warnings
 import zipfile
 from datetime import timedelta
 
+from botocore.exceptions import BotoCoreError, ClientError
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
@@ -33,6 +34,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.background_removal_tasks import (
+    BackgroundRemovalDispatchUncertain,
     clear_background_removal_source,
     fail_stale_background_removal_job,
     start_background_removal_task,
@@ -78,8 +80,9 @@ class CharacterImageBackgroundRemovalView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        premium_error = "背景透過はプレミアムプランの機能です。"
         if not getattr(request.user, "is_premium", False):
-            raise PermissionDenied("Background removal is a premium feature.")
+            raise PermissionDenied(premium_error)
 
         image = request.FILES.get("image")
         if image is None:
@@ -97,7 +100,19 @@ class CharacterImageBackgroundRemovalView(APIView):
 
         original_filename = _safe_original_filename(image)[:255]
         with transaction.atomic():
-            get_user_model().objects.select_for_update().only("pk").get(pk=request.user.pk)
+            current_user = (
+                get_user_model()
+                .objects.select_for_update()
+                .only("pk", "is_active", "is_premium")
+                .filter(pk=request.user.pk)
+                .first()
+            )
+            if current_user is None:
+                raise PermissionDenied(premium_error)
+            if not current_user.is_active:
+                raise PermissionDenied("アカウントが無効のため、背景透過を開始できません。")
+            if not current_user.is_premium:
+                raise PermissionDenied(premium_error)
             now = timezone.now()
             local_now = timezone.localtime(now)
             usage_started_at = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -142,15 +157,22 @@ class CharacterImageBackgroundRemovalView(APIView):
             )
         try:
             start_background_removal_task(job)
-        except Exception:
-            logger.exception("Character image background removal task could not start")
-            job.status = BackgroundRemovalJob.Status.FAILED
-            job.error_message = "Background removal could not be started."
-            update_fields = ["status", "error_message", "updated_at"]
-            if clear_background_removal_source(job):
-                update_fields.append("source_image")
-            job.save(update_fields=update_fields)
-            return Response({"error": job.error_message}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception as exc:
+            logger.warning("Background removal dispatch failed for job %s (%s)", job.pk, type(exc).__name__)
+            with transaction.atomic():
+                job = get_object_or_404(BackgroundRemovalJob.objects.select_for_update(), pk=job.pk, user=request.user)
+                # A lost launch response must not invalidate a worker's progress.
+                if job.status == BackgroundRemovalJob.Status.PENDING and not isinstance(
+                    exc, BackgroundRemovalDispatchUncertain
+                ):
+                    job.status = BackgroundRemovalJob.Status.FAILED
+                    job.error_message = "Background removal could not be started."
+                    update_fields = ["status", "error_message", "updated_at"]
+                    if clear_background_removal_source(job):
+                        update_fields.append("source_image")
+                    job.save(update_fields=update_fields)
+                if job.status == BackgroundRemovalJob.Status.FAILED:
+                    return Response({"error": job.error_message}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response(
             {
                 "job_id": str(job.pk),
@@ -174,20 +196,32 @@ class CharacterImageBackgroundRemovalStatusView(APIView):
                 user=request.user,
             )
             fail_stale_background_removal_job(job)
-        if job.status == BackgroundRemovalJob.Status.COMPLETED:
-            if not job.result_image:
-                return Response(
-                    {"error": "Background removal result is unavailable."},
-                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            if job.status == BackgroundRemovalJob.Status.COMPLETED:
+                if not job.result_image:
+                    return Response(
+                        {
+                            "error": "背景透過した画像を取得できません。再度取得するか、もう一度背景透過を行ってください。"
+                        },
+                        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    )
+                # Retention cleanup must wait until the complete image is buffered.
+                try:
+                    with job.result_image.open("rb") as result_file:
+                        response = HttpResponse(result_file.read(), content_type="image/png")
+                except (OSError, BotoCoreError, ClientError) as exc:
+                    logger.warning("Background removal result read failed for job %s (%s)", job.pk, type(exc).__name__)
+                    return Response(
+                        {
+                            "error": "背景透過した画像を取得できません。再度取得するか、もう一度背景透過を行ってください。"
+                        },
+                        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    )
+                filename_root = os.path.splitext(_safe_original_filename(job.original_filename))[0] or "character"
+                response["Content-Disposition"] = content_disposition_header(
+                    "attachment",
+                    filename=f"{filename_root}-transparent.png",
                 )
-            with job.result_image.open("rb") as result_file:
-                response = HttpResponse(result_file.read(), content_type="image/png")
-            filename_root = os.path.splitext(_safe_original_filename(job.original_filename))[0] or "character"
-            response["Content-Disposition"] = content_disposition_header(
-                "attachment",
-                filename=f"{filename_root}-transparent.png",
-            )
-            return response
+                return response
         if job.status == BackgroundRemovalJob.Status.FAILED:
             return Response(
                 {"error": job.error_message or "Background removal could not be completed."},
