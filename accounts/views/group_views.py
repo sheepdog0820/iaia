@@ -2,6 +2,7 @@
 Group management views
 """
 
+from collections.abc import Mapping
 from datetime import timedelta
 
 from django.db import transaction
@@ -26,6 +27,18 @@ from ..serializers import GroupTemporaryMemberSerializer
 from .base_views import PermissionMixin
 from .common_imports import *
 from .mixins import ErrorHandlerMixin, GroupAccessMixin
+
+
+def _parse_group_member_id(value):
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        return None
+    if isinstance(value, str) and not (value.isascii() and value.isdecimal()):
+        return None
+    try:
+        user_id = int(value)
+    except ValueError:
+        return None
+    return user_id if user_id > 0 else None
 
 
 def _is_group_admin(group, user):
@@ -565,19 +578,27 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
         """Set member role (admin only)"""
         group = self.get_object()
 
-        user_id = request.data.get("user_id")
+        if not isinstance(request.data, Mapping):
+            return Response(
+                {"error": "入力内容はオブジェクト形式で指定してください"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         role = request.data.get("role")
 
-        if not user_id or not role:
-            return Response({"error": "user_id and role are required"}, status=status.HTTP_400_BAD_REQUEST)
+        if "user_id" not in request.data or not role:
+            return Response({"error": "ユーザーIDと権限を指定してください"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user_id = _parse_group_member_id(request.data["user_id"])
+        if user_id is None:
+            return Response({"error": "ユーザーIDは正の整数で指定してください"}, status=status.HTTP_400_BAD_REQUEST)
 
         if role not in ["admin", "member"]:
-            return Response({"error": "role must be admin or member"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "権限はadminまたはmemberを指定してください"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             membership = GroupMembership.objects.get(group=group, user_id=user_id)
         except GroupMembership.DoesNotExist:
-            return Response({"error": "Member not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "メンバーが見つかりません"}, status=status.HTTP_404_NOT_FOUND)
 
         # 作成者は常に管理者（安全対策）
         if membership.user == group.created_by and role != "admin":
@@ -602,12 +623,21 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
         """Remove member from group (admin only)"""
         group = self.get_object()
 
+        if not isinstance(request.data, Mapping):
+            return Response(
+                {"error": "入力内容はオブジェクト形式で指定してください"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
-            user_id = request.data.get("user_id")
             username = request.data.get("username")
-            if user_id:
+            if "user_id" in request.data:
+                user_id = _parse_group_member_id(request.data["user_id"])
+                if user_id is None:
+                    return Response(
+                        {"error": "ユーザーIDは正の整数で指定してください"}, status=status.HTTP_400_BAD_REQUEST
+                    )
                 user = CustomUser.objects.get(id=user_id)
-            elif username:
+            elif isinstance(username, str) and username:
                 user = CustomUser.objects.get(username=username)
             else:
                 return Response({"error": "ユーザー指定が必要です"}, status=status.HTTP_400_BAD_REQUEST)
