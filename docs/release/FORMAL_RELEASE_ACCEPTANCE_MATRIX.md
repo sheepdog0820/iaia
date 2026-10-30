@@ -1,6 +1,16 @@
 # 有料プラン・外部連携を含む正式公開の受け入れ条件
 
-## 現在の公開判断（2026-10-30）
+## 現在の公開判断（2026-10-31）
+
+正式公開は **No-Go**。mainは`deddd772`のまま、[統合候補PR #41](https://github.com/sheepdog0820/iaia/pull/41)はhead `a78d15bf20cf4ac0fe6e050e72484fb7ef69fb4e`でmainマージの承認待ち。PR #38/#39/#40の内容を13ファイルでまとめ、隔離PG140件・85 subtests/省略0、通常配布物内PG54件、HTTP/WebSocket/Redis、実インストール111 packageの依存監査0件を確認した。[最終headのCI全12チェック](https://github.com/sheepdog0820/iaia/actions/runs/41062625803)も成功（全体2,379成功・123省略、PG606成功・239 subtests/省略0、Playwright243成功）。個別候補の成功から推測した結果ではなく、統合headの検証である。
+
+通常imageは`sha256:7d5dfc5a87b25d17cf0843864e35baeb1d95e7066bb4cb5dec5099f5e807018d`。OS監査52指摘（C2/H9/M6/L35）・exit2は未除外で保持し、[MySQLdbの限定したC99ビルド経路](MYSQL_NATIVE_PBDS_BUILD_SCOPE_2026-10-30.md)と[ONNX Runtimeの配布物・公開依存ソース照合](ONNXRUNTIME_NATIVE_SOURCE_SCOPE_2026-10-31.md)を、全native依存やPBDS由来HIGHの解消判定へ拡張しない。Twisted26.10.0正式版はこの候補で検証済みだが、main/稼働AWSはRC2のままである。
+
+共有DBの直近の全体READ ONLY検査は10月30日21:29 JSTで、未適用はaccounts0065〜0068の4件だけ、不明履歴0、重複総数1だった。専用task/定義/ECR/ENIは21:30に後片付けを確認済み。この過去のavailable/readiness200を本日の稼働証拠には使わない。保持中snapshotからの非公開コピー内で4件を適用するリハーサルは、準備・隔離検証が済み、別の承認待ち・AWS未実行である。共有DBへの4件適用、Web/背景処理の反映、IAM/設定ポインターや容量/費用の変更は未実施。元snapshotは11月6日08:12:13.770 JST以降に保管を見直し、移行未実施・未検証等で必要なら削除しない。
+
+残る作業は、承認済み対象でのマージ・移行リハーサル・適用直前の全writer/backup/復旧確認、共有4件適用と配備、OS/native依存、実Stripe/メール・OAuth/外部配送、背景処理/監視、100人/同時10人・主要操作p95 3秒/予期せぬエラー0、DB/S3のRPO24h/RTO4h、事業者運用・本番DNS/ACM・最終Go/No-Goである。下表のF/B/I/Q/O全25条件と、既に決定済みの無料範囲・画像5枚・480円/月/4,800円/年・開示方式を変更しない。
+
+## 10月30日の候補と検証記録（当時の情報）
 
 正式公開は **No-Go**。承認済みPR #33と#37を通常マージし、mainは`deddd772`。検証head`98e84ead`とtreeが一致し、[マージ後CI全6チェック](https://github.com/sheepdog0820/iaia/actions/runs/40966342831)も成功した（全体2,379成功・105省略、PG588成功・223 subtests/省略0、Playwright243成功）。#34/#36はGitHub上も統合済み、重複候補の#35はcloseした。追加マージの承認を、AWS反映や共有DB変更の承認として扱わない。
 
