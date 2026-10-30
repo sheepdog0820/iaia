@@ -1,6 +1,29 @@
 # 有料プラン・外部連携を含む正式公開の受け入れ条件
 
-## 現在の公開判断（2026-10-30）
+## 現在の公開判断（2026-10-31）
+
+正式公開は **No-Go**。mainは`deddd772`のまま、[統合候補PR #41](https://github.com/sheepdog0820/iaia/pull/41)はhead `a78d15bf20cf4ac0fe6e050e72484fb7ef69fb4e`でmainマージの承認待ち。PR #38/#39/#40の内容を13ファイルでまとめ、隔離PG140件・85 subtests/省略0、通常配布物内PG54件、HTTP/WebSocket/Redis、実インストール111 packageの依存監査0件を確認した。[最終headのCI全12チェック](https://github.com/sheepdog0820/iaia/actions/runs/41062625803)も成功（全体2,379成功・123省略、PG606成功・239 subtests/省略0、Playwright243成功）。個別候補の成功から推測した結果ではなく、統合headの検証である。
+
+通常imageは`sha256:7d5dfc5a87b25d17cf0843864e35baeb1d95e7066bb4cb5dec5099f5e807018d`。OS監査52指摘（C2/H9/M6/L35）・exit2は未除外で保持し、[MySQLdbの限定したC99ビルド経路](MYSQL_NATIVE_PBDS_BUILD_SCOPE_2026-10-30.md)と[ONNX Runtimeの配布物・公開依存ソース照合](ONNXRUNTIME_NATIVE_SOURCE_SCOPE_2026-10-31.md)を、全native依存やPBDS由来HIGHの解消判定へ拡張しない。Twisted26.10.0正式版は候補で検証済みだが、mainのlockはRC2、稼働AWSの実metadataは26.4.0であり、それぞれ更新が未反映である。
+
+10月31日08:29 JSTの読み取りでは、RDSは18.3/available・暗号化、Webは定義55・desired/running1・pending0、readiness200だった。稼働taskの固定digest `sha256:6d4050ec19ba5d34740643d515436baa5dd27b99a912b9c20ad7a9af0812af06`と、既にローカルにある同じimmutable参照のimageを照合し、ネットワークなしで実インストールmetadataを取得した。revisionラベルは`cbf52dc5c2ecfcef6fb5f5484ae4537d74470675`で、全sourceとGitの同一性まで検証したという意味ではない。過去の「main/稼働AWSともRC2」という記述は、mainのlockと稼働artifactを混同していたため、次の表に訂正する。
+
+| 対象 | Twisted | Stripe SDK | Autobahn |
+| --- | --- | --- | --- |
+| main deddd772のlock | 26.10.0rc2 | 16.0.1 | 26.10.1 |
+| 稼働Web55の固定image 6d4050ec（実metadata） | 26.4.0 | 15.5.1 | 26.7.1 |
+| PR #41通常image 7d5dfc5a（実metadata） | 26.10.0 | 16.0.1 | 26.10.1 |
+| PR #43通常image 49c30e3d（実metadata） | 26.10.0 | 16.0.1 | 26.10.1 |
+
+4者のDjangoは5.2.17。これは上記packageの照合であり、稼働image全体の依存監査や、共有DBの移行履歴の再取得ではない。08:29の検査で起動/更新・task作成・業務行の取得は行っていない。証拠はGit管理外の`tmp/shared-release-status-readonly-20261031.json`と`tmp/deployed-runtime-version-proof-20261031.json`に保持する。
+
+[別Draft PR #43](https://github.com/sheepdog0820/iaia/pull/43)のhead `9b2e266f`では、メンバーIDの誤対象操作/500と、作成者の管理者登録失敗時にグループが残る不備を別コミットで修正した。関連SQLite66件・55 subtests、隔離PG69件・55 subtests/省略0、最新通常image内PG66件、[最終headのCI全12チェック](https://github.com/sheepdog0820/iaia/actions/runs/41143076493)が成功（全体2,390成功・123省略、PG617成功・288 subtests/省略0、UI243成功）。この修正はPR #41の固定headやmain/稼働AWSには含まれない。既存データに同じ不整合があるかは、この合成データによるコード検証からは判断しておらず、実データの修復も行っていない。
+
+共有DBの直近の全体READ ONLY検査は10月30日21:29 JSTで、未適用はaccounts0065〜0068の4件だけ、不明履歴0、重複総数1だった。専用task/定義/ECR/ENIは21:30に後片付けを確認済み。この過去のavailable/readiness200を本日の稼働証拠には使わない。保持中snapshotからの非公開コピー内で4件を適用するリハーサルは、準備・隔離検証が済み、別の承認待ち・AWS未実行である。共有DBへの4件適用、Web/背景処理の反映、IAM/設定ポインターや容量/費用の変更は未実施。元snapshotは11月6日08:12:13.770 JST以降に保管を見直し、移行未実施・未検証等で必要なら削除しない。
+
+残る作業は、承認済み対象でのマージ・移行リハーサル・適用直前の全writer/backup/復旧確認、共有4件適用と配備、OS/native依存、実Stripe/メール・OAuth/外部配送、背景処理/監視、100人/同時10人・主要操作p95 3秒/予期せぬエラー0、DB/S3のRPO24h/RTO4h、事業者運用・本番DNS/ACM・最終Go/No-Goである。下表のF/B/I/Q/O全25条件と、既に決定済みの無料範囲・画像5枚・480円/月/4,800円/年・開示方式を変更しない。
+
+## 10月30日の候補と検証記録（当時の情報）
 
 正式公開は **No-Go**。承認済みPR #33と#37を通常マージし、mainは`deddd772`。検証head`98e84ead`とtreeが一致し、[マージ後CI全6チェック](https://github.com/sheepdog0820/iaia/actions/runs/40966342831)も成功した（全体2,379成功・105省略、PG588成功・223 subtests/省略0、Playwright243成功）。#34/#36はGitHub上も統合済み、重複候補の#35はcloseした。追加マージの承認を、AWS反映や共有DB変更の承認として扱わない。
 
@@ -10,7 +33,7 @@
 
 [4件の検証付き適用準備](VERIFIED_RELEASE_DATABASE_PREPARATION_2026-10-30.md)はPR #38の固定head297a217d。個別の合成DB33件・38 subtests、コマンド全99実行文/44分岐を確認し、CI12成功。PR #39は最新DB/OS調査の文書で、head1a8029e8のCI12成功。[Twisted正式版の更新](TWISTED_STABLE_2026-10-30.md)はPR #40のhead d3e5565bで、個別PG86件/28 subtests・通常配布物のHTTP/WebSocket/Redisと実インストール111件の依存監査成功、最終CIは確認中である。これらを[別の統合候補](RELEASE_DB_STABLE_INTEGRATION_2026-10-30.md)へまとめて検証する。個別の成功を未実行の統合検証の成功と扱わず、mainや稼働AWSへ反映したとも報告しない。PR #38の承認対象headは変更しない。
 
-Webは21:30 JSTの読み取りで定義55・readiness200/database-cache ok。[最新OS監査](RUNTIME_OS_HIGH_CRITICAL_SCOPE_2026-10-30.md)は52指摘（C2/H9/M6/L35）・exit2。固定対象のMariaDB/zlib/aligned newの適用範囲判定を、全OSの合格や別imageの安全性へ拡張しない。Twisted26.10.0正式版は更新候補で検証済みだが、main/稼働版はRC2のまま。アプリ反映、共有移行、背景処理の定義/IAM/設定ポインター、実Stripe/外部連携、全体性能、DB/S3のRPO24h/RTO4h、事業者運用・公開判断と、下表のF/B/I/Q/Oの全条件を維持する。
+Webは21:30 JSTの読み取りで定義55・readiness200/database-cache ok。[最新OS監査](RUNTIME_OS_HIGH_CRITICAL_SCOPE_2026-10-30.md)は52指摘（C2/H9/M6/L35）・exit2。固定対象のMariaDB/zlib/aligned newの適用範囲判定を、全OSの合格や別imageの安全性へ拡張しない。Twisted26.10.0正式版は更新候補で検証済みだが、未反映。旧記述でmainと稼働版をともにRC2としていた点は、10月31日の同digest照合により、mainのlockはRC2・稼働imageは26.4.0と訂正した。アプリ反映、共有移行、背景処理の定義/IAM/設定ポインター、実Stripe/外部連携、全体性能、DB/S3のRPO24h/RTO4h、事業者運用・公開判断と、下表のF/B/I/Q/Oの全条件を維持する。
 
 ## 10月29日の候補と準備記録（当時の情報）
 
