@@ -123,6 +123,7 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
 
         return obj
 
+    @transaction.atomic
     def perform_create(self, serializer):
         """Set creator and add as admin member"""
         group = serializer.save(created_by=self.request.user)
