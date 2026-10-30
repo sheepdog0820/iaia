@@ -1692,9 +1692,9 @@ tqdm==4.70.0 \
     --hash=sha256:55b0b0dbd97462d06ebee91e4dac24ed4d4702be82b24f07e6c1d27e08cea220 \
     --hash=sha256:7f585706bfddbdebf89daac705b2dfcc16890130727d3197ca62c732b4310953
     # via rembg
-twisted==26.10.0rc2 \
-    --hash=sha256:1dd1599faddfaa06c2a27caa880ee73913d8157264f5a9f3748de74e0999fc92 \
-    --hash=sha256:e3e5ee91341a87cf08813f02eb3be2a69e6f429eafa64de07a1f9b39050b88fd
+twisted==26.10.0 \
+    --hash=sha256:3732f42af218925a0fe78d6668db55853f7fb532245a89a2669babe7d3000fa8 \
+    --hash=sha256:5f0355403e507fc23ceea85e9dbb4bc59335aabde41dd324e8b8cea180dd38de
     # via
     #   -r requirements.txt
     #   daphne
