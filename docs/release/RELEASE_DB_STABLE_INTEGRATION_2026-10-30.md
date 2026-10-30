@@ -26,6 +26,8 @@ main deddd772を基点に、次の固定した候補を専用codexブランチ�
 
 21:29 JSTの元DBは、適用履歴がある12アプリを含む全体計画でaccounts0065→0066→0067→0068の4件だけが未適用だった。不明履歴0、重複総数1。21:30の後片付け確認では元RDS available・Web定義55/readiness200。朝のsnapshotは保持中で、11月6日08:12 JST以降に必要性を見直す。後続の更新を含む移行直前backupとして代用しない。
 
+10月31日08:29 JSTにもRDS18.3/available・Web55/稼働1・readiness200を読み取りで再確認した。稼働digest6d4050ecと既存の同immutable参照のローカルimageを照合した実metadataはTwisted26.4.0・Stripe15.5.1・Autobahn26.7.1。mainのlockはTwisted RC2/Stripe16.0.1/Autobahn26.10.1であり、両者を同じ版として扱わない。[進捗表の比較](FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)に訂正した。これは起動/配備や共有DBの移行履歴の再取得ではない。
+
 保持中snapshotから専用非公開RDSへ復元し、コピー内だけで4件を適用するリハーサルは準備済み・別の承認待ちで、AWS未実行である。8件の合成TLS/PG試験・36境界試験・17 SDK入力schema検査は成功したが、実AWSの復元コピーでの移行成功ではない。source/DBの適用直前再照合、全writerの停止・時間帯、直前snapshot、共有4件の適用、新しいWeb/背景処理・限定IAM/設定ポインター・容量/費用は準備と個別承認が残る。DBの自動逆移行、COMMIT応答喪失時の自動再適用、更新を捨てるsnapshot復旧は行わない。
 
 同じ統合imageのScout1.29.0監査もOS52指摘（C2/H9/M6/L35）・exit2で、未除外のまま保持する。[MySQLdb](MYSQL_NATIVE_PBDS_BUILD_SCOPE_2026-10-30.md)と[ONNX Runtime](ONNXRUNTIME_NATIVE_SOURCE_SCOPE_2026-10-31.md)の後続調査を、配布物全体のPBDS由来HIGHの解消判定へ拡張しない。Twistedの正式版はこの統合候補へ入るが、main/稼働AWSは未反映である。実Stripe・OAuth/外部配送・性能・DB/S3全体復旧・事業者運用など、[正式公開の全条件](FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)を維持する。
