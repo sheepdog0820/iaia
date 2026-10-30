@@ -2,7 +2,9 @@
 
 ## 現在の公開判断（2026-10-31）
 
-正式公開は **No-Go**。mainは`deddd772`のまま、[統合候補PR #41](https://github.com/sheepdog0820/iaia/pull/41)はhead `a78d15bf20cf4ac0fe6e050e72484fb7ef69fb4e`でmainマージの承認待ち。PR #38/#39/#40の内容を13ファイルでまとめ、隔離PG140件・85 subtests/省略0、通常配布物内PG54件、HTTP/WebSocket/Redis、実インストール111 packageの依存監査0件を確認した。[最終headのCI全12チェック](https://github.com/sheepdog0820/iaia/actions/runs/41062625803)も成功（全体2,379成功・123省略、PG606成功・239 subtests/省略0、Playwright243成功）。個別候補の成功から推測した結果ではなく、統合headの検証である。
+正式公開は **No-Go**。mainは`deddd772`のまま。08:43 JST、同じ依存を含むPR #42のPR/push両CIが`pyasn1 0.6.4`の新たな4指摘で失敗したため、旧[統合候補PR #41](https://github.com/sheepdog0820/iaia/pull/41)の過去の成功だけで現在もマージ準備完了とは扱わない。[pyasn1修正](PYASN1_SECURITY_2026-10-31.md)とグループ管理の2修正、稼働版・native調査文書を加えた[更新統合候補](RELEASE_GROUP_SECURITY_INTEGRATION_2026-10-31.md)を別ブランチで検証する。既存PRのheadと既存の承認対象は変更せず、追加範囲を含む最終版について承認を確認する。
+
+旧候補PR #41のhead `a78d15bf20cf4ac0fe6e050e72484fb7ef69fb4e`はPR #38/#39/#40の内容を13ファイルでまとめ、隔離PG140件・85 subtests/省略0、通常配布物内PG54件、HTTP/WebSocket/Redis、実インストール111 packageの依存監査0件を当時確認した。[当時のCI全12チェック](https://github.com/sheepdog0820/iaia/actions/runs/41062625803)も成功（全体2,379成功・123省略、PG606成功・239 subtests/省略0、Playwright243成功）。これらは固定headの履歴であり、新しい監査情報を反映した現時点の合格ではない。
 
 通常imageは`sha256:7d5dfc5a87b25d17cf0843864e35baeb1d95e7066bb4cb5dec5099f5e807018d`。OS監査52指摘（C2/H9/M6/L35）・exit2は未除外で保持し、[MySQLdbの限定したC99ビルド経路](MYSQL_NATIVE_PBDS_BUILD_SCOPE_2026-10-30.md)と[ONNX Runtimeの配布物・公開依存ソース照合](ONNXRUNTIME_NATIVE_SOURCE_SCOPE_2026-10-31.md)を、全native依存やPBDS由来HIGHの解消判定へ拡張しない。Twisted26.10.0正式版は候補で検証済みだが、mainのlockはRC2、稼働AWSの実metadataは26.4.0であり、それぞれ更新が未反映である。
 
@@ -16,6 +18,8 @@
 | PR #43通常image 49c30e3d（実metadata） | 26.10.0 | 16.0.1 | 26.10.1 |
 
 4者のDjangoは5.2.17。これは上記packageの照合であり、稼働image全体の依存監査や、共有DBの移行履歴の再取得ではない。08:29の検査で起動/更新・task作成・業務行の取得は行っていない。証拠はGit管理外の`tmp/shared-release-status-readonly-20261031.json`と`tmp/deployed-runtime-version-proof-20261031.json`に保持する。
+
+同じ稼働digestの既存ローカルimageを08:54 JSTに読み取り、pyasn1 0.6.4/pyasn1-modules 0.4.2/google-auth 2.57.0も確認した。PR #44の固定通常image `98d29317`ではpyasn1 0.6.5・実111 package監査0件、配布物内PG60件と公式1,261件成功を確認した。これはmainやAWSへの適用ではなく、公開経路からの悪用可能性や稼働版全体の監査を確認したものでもない。
 
 [別Draft PR #43](https://github.com/sheepdog0820/iaia/pull/43)のhead `9b2e266f`では、メンバーIDの誤対象操作/500と、作成者の管理者登録失敗時にグループが残る不備を別コミットで修正した。関連SQLite66件・55 subtests、隔離PG69件・55 subtests/省略0、最新通常image内PG66件、[最終headのCI全12チェック](https://github.com/sheepdog0820/iaia/actions/runs/41143076493)が成功（全体2,390成功・123省略、PG617成功・288 subtests/省略0、UI243成功）。この修正はPR #41の固定headやmain/稼働AWSには含まれない。既存データに同じ不整合があるかは、この合成データによるコード検証からは判断しておらず、実データの修復も行っていない。
 

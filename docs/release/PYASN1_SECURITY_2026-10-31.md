@@ -29,7 +29,9 @@
 - Google認証/コールバック・OAuth原子性/無効利用者・Google job認可・JWTの既存回帰は、隔離SQLite58件成功・40 subtests/2件省略。省略は行ロック非対応によるもので、同じ対象を隔離PostgreSQL18.3で60件成功・40 subtests/省略0件と確認した。外部OAuthや実利用者のデータは使用していない。
 - UTF-8/LF・差分、依存条件とlockの最小差分を自己レビューした。製品のPython/画面/API・DBモデル/移行は変更せず、新たな利用者向け文言もない。
 
-通常Dockerfileからの配布物構築・実導入metadataとsourceの照合・配布物内回帰・最新CIは、このcommit後に検証する。過去imageの成功を今回の成功として扱わない。ローカルの検証用image作成の初回は、DockerfileのFROMへ短いimage IDを使って失敗したログを保持し、既存の固定IDと一致を確認したローカルtagへ修正して成功した。製品Dockerfileやhash条件は変更していない。
+固定source `a0d2e5527a8dff8de730d4ffa82b4c5650bc0c09`をgit archiveし、通常Dockerfileでimage `sha256:98d2931793417af89c2219b30151c553cba4a4c32c99d98b026fe7dba19caa7d`を構築した。Git由来562ファイル/entrypoint一致、UID10001/root read-only、pip/pytestなし、製品sourceの上書きなしを確認。実111 packageの監査は既知0件/省略0、配布物内の認証PG60件と公式suite1,261件も成功した。OS inventory101件は旧統合候補と一致し、Scout1.29の未除外監査は52指摘（C2/H9/M6/L35）・exit2で不合格のままである。専用PG/networkは08:54 JSTに削除し、endpoint残存0とabsenceを確認した。最新CIは確認中で、過去imageの成功を今回の成功として扱わない。
+
+ローカルの検証用image作成の初回は、DockerfileのFROMへ短いimage IDを使って失敗したログを保持し、既存の固定IDと一致を確認したローカルtagへ修正して成功した。配布物照合の初回もWindows引数長制限で失敗し、manifestを標準入力で渡して同一imageで成功した。製品Dockerfileやhash条件は変更していない。
 
 ## 適用と復旧
 
