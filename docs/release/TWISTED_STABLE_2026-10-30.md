@@ -22,7 +22,17 @@ Python3.11.18/pip-tools7.6.1で全3 scopeを再解決し、生成されたTwiste
 - 更新済み依存の隔離PostgreSQL18.3で、server logging・entrypoint・診断保護・本番設定・systemの関連86テスト/28 subtestsが成功、省略なし。テストDBだけを使用し、実DBには接続していない。
 - UTF-8/LF、差分、lock blockの同一性、依存条件とwheel差分の自己レビューを確認する。製品の画面文言やAPIの変更はない。
 
-通常配布物内の実HTTP/WebSocket/Redis、実インストール依存監査、native/OS監査、最終CIは未完了である。旧head・RC2 imageの成功を正式版候補の成功として扱わない。コードの候補作成だけで、mainや稼働AWSからRC2が解消したとは報告しない。
+## 通常配布物の検証
+
+製品変更のcommit `7afaada33987d0d50a112d54d9fc3eef808663b2`をgit archiveし、通常のDockerfileでimage `sha256:7b5c3e73f7c7f46718dd52f266f98cc7ff78c9f4567921494d5b4f666fe0946a`を構築した。UID10001・root read-only・cap-dropで実行し、Git由来のアプリ/静的/テンプレート/依存入力等560ファイルとentrypointが一致した。pip/pytestは通常imageに存在せず、製品sourceの上書きもしていない。
+
+隔離PG18.3/Redis7上で、通常entrypointの全移行と静的収集からASGI server起動までを確認した。HTTP readiness200/database-cache ok、未認証WebSocket403、認証済みのRedis/msgpack通知配送、別利用者への非漏えい、切断が成功した。利用者とsessionは合成データだけである。初回は検証用フラグを`True`と記述して移行が起動しなかった失敗を保存し、entrypointが受理する`true`に修正して同じ隔離DBで確認し直した。
+
+通常imageに実インストールされた111パッケージにはTwisted26.10.0が入り、その全inventoryのpip-auditも既知指摘0件だった。OS101パッケージは別に記録した。Scout1.29.0の新しい未除外監査は298 packageを識別し、**52指摘（Critical2/High9/Medium6/Low35）、exit2**。Python指摘はなかったが、OS/native全体の合格ではない。
+
+専用のローカルASGI/Redis/PG container3件とnetworkは22:05 JSTに削除し、合成envファイルも削除した。Docker imageと検証記録は保持する。通常配布物の結果はこのcode commitに限定し、文書だけの後続commitは対象source blobの同一性で区別する。
+
+最終CIは確認中である。旧head・RC2 imageの成功を正式版候補の成功として扱わない。候補ではRC2を置き換えたが、mainや稼働AWSへ反映したとは報告しない。
 
 ## 影響と復旧
 
@@ -30,4 +40,4 @@ Python3.11.18/pip-tools7.6.1で全3 scopeを再解決し、生成されたTwiste
 
 復旧はrequirements入力と3ロックを同時に戻すrevert PRで、RC2へ戻る。OS/nativeの指摘と、実課金/外部連携・性能・DB/S3全体復旧・運用を含む正式公開条件は未完了で、**正式公開No-Go** を維持する。
 
-ローカル証拠：`tmp/twisted-stable-artifacts-20261030/release-comparison-proof.json`、`tmp/twisted-stable-lock-adoption-proof.json`、`tmp/twisted-stable-lock-audits.log`、`tmp/twisted-stable-related-pg.log`。これらのprivate artifactをGitに含めない。
+ローカル証拠：`tmp/twisted-stable-artifacts-20261030/release-comparison-proof.json`、`tmp/twisted-stable-lock-adoption-proof.json`、`tmp/twisted-stable-lock-audits.log`、`tmp/twisted-stable-related-pg.log`、`tmp/twisted-stable-wire-proof.json`、`tmp/twisted-stable-runtime-proof.json`、`tmp/current-release-7afaada3-1.29.sarif`、`tmp/current-release-7afaada3-129-scan-summary.json`。これらのprivate artifactをGitに含めない。
