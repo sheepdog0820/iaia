@@ -4,7 +4,7 @@
 
 既知のCritical 2件・High 7件について、下記の固定した通常配布物には該当する問題の実装が含まれないと技術判定する。MariaDBの8件はサーバー/ダンプCLI等の実装、zlibの1件はこの版に未導入のnon-blocking処理である。これは当該image内のコードの適用範囲の判定であり、修正版への更新やリスク受容ではない。スキャナーの元の50指摘・exit2という結果は変更せず、除外設定も追加しない。正式公開は **No-Go** を維持する。
 
-同じ候補をScout1.29.0で新しく監査したところ、未除外の結果は**52指摘（Critical2/High9/Medium6/Low35）、exit2**だった。従来の9件に対する判断で、新たなgcc-14由来のHigh2件を解消済みと扱わない。High/Criticalがすべて解決したという結論にはしない。
+同じ候補をScout1.29.0で新しく監査したところ、未除外の結果は**52指摘（Critical2/High9/Medium6/Low35）、exit2**だった。新たなgcc-14由来のHigh2件のうち、aligned newは後述の実binary/分岐確認に基づき、このOS libraryでは問題の経路を通らないと判定した。priority queueの問題は未判定である。High/Criticalがすべて解決したという結論にはしない。
 
 | 項目 | 対象 |
 | --- | --- |
@@ -31,9 +31,19 @@
 | 新しいHigh | 公式情報と現状 | 未完了 |
 | --- | --- | --- |
 | [CVE-2026-102010](https://security-tracker.debian.org/tracker/CVE-2026-102010) | libstdc++のbinary heap priority queue `erase_if`。trixieのgcc-14 sourceはvulnerable、forky/sidは14.4.0-3でfixed | headerからconsumerへ取り込まれるコードも含め、実native依存への適用範囲と修正を確認する |
-| [CVE-2026-95619](https://security-tracker.debian.org/tracker/CVE-2026-95619) | libstdc++のaligned operator newのinteger overflow。trixieのgcc-14 sourceはvulnerable、forky/sidは14.4.0-3でfixed | 実library・consumerの影響と安定版向けの修正方法を確認する |
+| [CVE-2026-95619](https://security-tracker.debian.org/tracker/CVE-2026-95619) | libstdc++のaligned operator newのinteger overflow。trixieのgcc-14 sourceはvulnerable、forky/sidは14.4.0-3でfixed | 下記の固定OS libraryはPOSIX分岐を使うと確認。別library/versionやvendorが同梱する実装へ拡張しない |
 
-imageにはgcc-14-base/libgcc-s1/libgomp1/**libstdc++6**の14.2.0-19が入っている。compilerの不在を理由にこの2件を適用外としない。修正版表示があるsidのpackageを独断で混入させず、未判定・未修正として残す。新しい監査の52件は全件OS由来で、Pythonの新しい指摘はなかったが、Twisted RC2や全経路の受け入れを解消する証拠にはしない。
+imageにはgcc-14-base/libgcc-s1/libgomp1/**libstdc++6**の14.2.0-19が入っている。compilerの不在を理由にこの2件を適用外としない。修正版表示があるsidのpackageを独断で混入させず、priority queueの問題は未判定で残す。新しい監査の52件は全件OS由来で、Pythonの新しい指摘はなかったが、Twisted RC2や全経路の受け入れを解消する証拠にはしない。
+
+### aligned newの実binary・実行分岐
+
+[GCC14系の公式修正200183d](https://github.com/gcc-mirror/gcc/commit/200183d4ab5d57575f3dfebc6af3baf649910b9e)は、C11 aligned_alloc等へ渡す前のサイズ丸めのoverflowを修正する。同commitはPOSIX memalignの分岐ではその丸めを行わないことも説明している。source packageの版だけで判定せず、次を確認した。
+
+- imageの`libstdc++.so.6.0.33`は、[公式Debian libstdc++6の同版amd64 binary](https://deb.debian.org/debian/pool/main/g/gcc-14/libstdc++6_14.2.0-19_amd64.deb)内のファイルとSHA256一致した。実libraryのSHA256は`972bb2a18b71140dab0240f8a1f68ab3fb1d56bcd4c4f824a91b70888faf5a00`。
+- その実binaryの`_ZnwmSt11align_val_t`を逆アセンブルした。入力sizeを保持して`posix_memalign@plt`へ渡し、問題のsize+alignmentの丸め計算、C11 aligned_alloc、fallback mallocの分岐はなかった。関数名の文字列検索だけでなく、当該関数の命令列をレビューした。
+- 検査専用C++ fixtureをWSLのg++11.4で作り、元の通常image内で動的リンクして実行した。巨大size9ケースはthrowing APIでbad_alloc、同じ9ケースはnothrow APIでnullとなり、通常のsize/alignment12ケースも成功した。計30ケースで想定外の小さい確保や通常入力の失敗は0だった。通信なし・root read-only・cap-drop・128 MiB・0.25 vCPUで、製品sourceは上書きしていない。
+
+この根拠から、固定imageのこのOS libraryのaligned newはCVE-2026-95619の問題経路に該当しないと技術判定する。修正版の導入やscannerの指摘削除ではない。検査用のg++11.4はfixtureを作るためだけに使っており、製品native依存のビルド元やpriority queue headerの安全性を証明しない。native vendorの別実装・静的同梱・別imageはこの判断の対象外である。PGP署名・再現ビルドは未検証のままで、rawの52指摘を保持する。
 
 ## 公式修正が変更するコード
 
@@ -85,8 +95,8 @@ imageにはgcc-14-base/libgcc-s1/libgomp1/**libstdc++6**の14.2.0-19が入って
 
 ## 残る公開条件
 
-この9件に対する固定image内の適用範囲の判断だけでは、Q04や正式公開条件は完了しない。新しいgcc-14由来のHigh2件・ほかのMedium/Low、Twisted RC2、AWS実行経路・実データ/配送/権限の検証は引き続き必要である。指摘のseverityを変更したり、scannerへignoreを追加したり、修正のないパッケージをsid等から混入させたりはしていない。
+従来の9件と追加のaligned newについて固定した対象の適用範囲を確認したが、Q04や正式公開条件は完了しない。gcc-14のpriority queue由来High・ほかのMedium/Low、Twisted RC2、AWS実行経路・実データ/配送/権限の検証は引き続き必要である。指摘のseverityを変更したり、scannerへignoreを追加したり、修正のないパッケージをsid等から混入させたりはしていない。
 
 image・依存package・native plugin・ビルド設定が変わった場合は、この判定を再使用せず再確認する。将来MariaDB serverやembedded serverを導入する場合にも再判定が必要である。最新main・共有DBの適用・Web/背景処理反映・課金/外部連携・復旧/性能・運用を含む[正式公開の受け入れ条件](FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)を維持する。
 
-本変更は調査文書だけで、DB・AWS・IAM/Secrets・費用・外部通知を変更しない。文書の復旧はrevert PRで行える。ローカル証拠は`tmp/mariadb-debian-provenance-20261030/`のbuild-source-map.json/client-binary-scope-proof.json/high-binary-scope-proof.json、`tmp/mariadb-critical-official-patch-map-verified-20261030.json`、`tmp/high-official-patch-map-20261030.json`、`tmp/zlib-gzwrite-provenance-20261030/zlib-gzwrite-scope-proof.json`に保持している。再監査は`tmp/current-release-297a217d-1.28.sarif`・`tmp/current-release-297a217d-1.29.sarif`と各scan-summary.jsonに未除外で保存した。無視対象の調査artifactはGitへ含めない。
+本変更は調査文書だけで、DB・AWS・IAM/Secrets・費用・外部通知を変更しない。文書の復旧はrevert PRで行える。ローカル証拠は`tmp/mariadb-debian-provenance-20261030/`のbuild-source-map.json/client-binary-scope-proof.json/high-binary-scope-proof.json、`tmp/mariadb-critical-official-patch-map-verified-20261030.json`、`tmp/high-official-patch-map-20261030.json`、`tmp/zlib-gzwrite-provenance-20261030/zlib-gzwrite-scope-proof.json`、`tmp/gcc-native-scope-20261030/aligned-new-binary-scope-proof.json`と逆アセンブルに保持している。再監査は`tmp/current-release-297a217d-1.28.sarif`・`tmp/current-release-297a217d-1.29.sarif`と各scan-summary.jsonに未除外で保存した。無視対象の調査artifactはGitへ含めない。

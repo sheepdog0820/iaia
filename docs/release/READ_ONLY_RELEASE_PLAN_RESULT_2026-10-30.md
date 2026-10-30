@@ -52,6 +52,6 @@
 
 元DBの全体計画が4件だけであることの確認は完了した。PR #38のmainマージ、全writerの停止・新しい直前backup・実データcopyでのリハーサル、共有4件の適用、新Web/背景処理・IAM/容量・費用の変更は、それぞれ必要な準備・検証・人間の承認が残る。今回の承認をこれらへ拡張しない。
 
-[最新のOS再監査](RUNTIME_OS_HIGH_CRITICAL_SCOPE_2026-10-30.md)は52指摘・exit2で、新しいgcc-14/libstdc++由来のHigh2件も未解決である。実課金/外部連携・性能・DB/S3全体復旧・運用と[正式公開の受け入れ条件](FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)も維持する。
+[最新のOS再監査](RUNTIME_OS_HIGH_CRITICAL_SCOPE_2026-10-30.md)は52指摘・exit2で、gcc-14のpriority queue由来High等が未解決である。aligned newは固定OS libraryの実binaryと30ケースを照合して適用範囲を判定したが、正式公開条件の完了にはしない。実課金/外部連携・性能・DB/S3全体復旧・運用と[正式公開の受け入れ条件](FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)も維持する。
 
 読み取り検査なのでDBの逆移行は復旧方法にしない。検証済みレポートは`tmp/readonly-release-plan-verified-report-20261030.json`、実行応答は`tmp/readonly-release-plan-execution-20261030.json`、後片付けは`tmp/readonly-release-plan-final-result-20261030.json`に保持している。これらのprivate artifactをGitへ含めず、本変更は調査結果の文書化だけとする。
