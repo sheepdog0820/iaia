@@ -11,13 +11,13 @@ def initialize_owners(apps, schema_editor):
     group_model = apps.get_model("accounts", "Group")
     membership_model = apps.get_model("accounts", "GroupMembership")
     alias = schema_editor.connection.alias
-    for group in group_model.objects.using(alias).order_by("pk").iterator(chunk_size=2000):
-        if group.created_by_id is None:
+    groups = group_model.objects.using(alias).order_by("pk").values_list("pk", "created_by_id")
+    for group_id, creator_id in groups.iterator(chunk_size=2000):
+        if creator_id is None:
             raise ValueError("作成者不明のグループがあるため、所有者の初期設定を中止しました。")
-        group.owner_id = group.created_by_id
-        group.save(using=alias, update_fields=["owner"])
+        group_model.objects.using(alias).filter(pk=group_id).update(owner_id=creator_id)
         membership_model.objects.using(alias).update_or_create(
-            group_id=group.pk, user_id=group.owner_id, defaults={"role": "admin"}
+            group_id=group_id, user_id=creator_id, defaults={"role": "admin"}
         )
 
 

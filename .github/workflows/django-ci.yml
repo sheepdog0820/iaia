@@ -199,6 +199,7 @@ jobs:
       DB_PASSWORD: tableno_ci_password
       DB_HOST: localhost
       DB_PORT: "5432"
+      DB_SSL_MODE: require
       USE_REDIS_CACHE: "False"
       USE_S3_STORAGE: "False"
       STRIPE_SECRET_KEY: sk_test_ci_secret
@@ -233,6 +234,10 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: python -m pip install --upgrade pip && pip install -r requirements-test.lock.txt
+      - name: Enable TLS on disposable PostgreSQL
+        env:
+          PG_SERVICE_CONTAINER: ${{ job.services.postgres.id }}
+        run: bash scripts/ci/enable_postgres_tls.sh
       - run: python manage.py check && python manage.py makemigrations --check --dry-run && python manage.py migrate --noinput && python manage.py migrate --check
       - name: Collect production static assets for template tests
         run: python manage.py collectstatic --noinput
@@ -279,7 +284,8 @@ jobs:
             tests/integration/test_release_database_preflight.py \
             tests/integration/test_group_ownership_migration.py \
             tests/integration/test_skill_command_future_ownership_plan.py \
-            tests/integration/test_verified_skill_migration.py -q
+            tests/integration/test_verified_skill_migration.py \
+            tests/integration/test_verified_release_migrations.py -q
 
   playwright:
     runs-on: ubuntu-latest
