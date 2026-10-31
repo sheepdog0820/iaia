@@ -314,7 +314,7 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadGroups() {
         const response = await axios.get('/api/accounts/groups/');
         const groups = rows(response.data).filter(group =>
-            group.created_by === {{ request.user.id }} || group.member_role === 'admin'
+            group.owner === {{ request.user.id }} || group.member_role === 'admin'
         );
         const options = groups.map(group =>
             `<option value="${group.id}">${escapeHtml(group.name)} (#${group.id})</option>`

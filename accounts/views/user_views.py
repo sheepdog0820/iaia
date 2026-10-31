@@ -505,10 +505,17 @@ class AccountDeleteView(TemplateView):
                 messages.error(request, "パスワードが正しくありません。")
                 return redirect("account_delete")
 
-        from accounts.billing_deletion import BillingDeletionBlocked, delete_account_after_billing_check
+        from accounts.billing_deletion import (
+            BillingDeletionBlocked,
+            GroupOwnershipDeletionBlocked,
+            delete_account_after_billing_check,
+        )
 
         try:
             delete_account_after_billing_check(user)
+        except GroupOwnershipDeletionBlocked as exc:
+            messages.error(request, str(exc))
+            return redirect("groups_view")
         except BillingDeletionBlocked as exc:
             messages.error(request, str(exc))
             return redirect("billing")

@@ -13,9 +13,7 @@ from .models import Group, GroupLink, GroupLinkShare, GroupMembership
 
 
 def _is_group_admin(user, group):
-    return (
-        group.created_by_id == user.id or GroupMembership.objects.filter(user=user, group=group, role="admin").exists()
-    )
+    return group.owner_id == user.id or GroupMembership.objects.filter(user=user, group=group, role="admin").exists()
 
 
 class GroupLinkSerializer(serializers.ModelSerializer):

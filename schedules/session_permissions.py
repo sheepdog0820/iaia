@@ -157,7 +157,7 @@ def revoke_participant_role(
 def is_group_admin(user, session: TRPGSession) -> bool:
     if not _is_authenticated(user) or not session.group_id:
         return False
-    if session.group.created_by_id == user.id:
+    if session.group.owner_id == user.id:
         return True
     return GroupMembership.objects.filter(
         group_id=session.group_id,

@@ -57,7 +57,7 @@ class GroupDiscordSettingsView(APIView):
     def _get_settings(self, request, group_id):
         group = get_object_or_404(Group, pk=group_id)
         is_admin = (
-            group.created_by_id == request.user.id
+            group.owner_id == request.user.id
             or GroupMembership.objects.filter(group=group, user=request.user, role="admin").exists()
         )
         if not is_admin:
@@ -106,9 +106,7 @@ class DiscordDeliveryRetryResponseSerializer(serializers.Serializer):
 
 
 def _is_group_admin(user, group):
-    return (
-        group.created_by_id == user.id or GroupMembership.objects.filter(group=group, user=user, role="admin").exists()
-    )
+    return group.owner_id == user.id or GroupMembership.objects.filter(group=group, user=user, role="admin").exists()
 
 
 def _get_admin_group(request, group_id):

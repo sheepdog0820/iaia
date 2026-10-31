@@ -358,7 +358,15 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    overflow-wrap: anywhere;
 }
+
+.member-item > div:last-child { flex-wrap: wrap; }
+#group-ownership-panel { min-width: 0; }
+#group-ownership-panel .form-select { min-width: 0; max-width: 100%; }
+[id^="arkham-confirm-"] [data-confirm-message] { overflow-wrap: anywhere; }
 
 .member-item:hover {
     background-color: rgba(255, 255, 255, 0.08);
@@ -488,6 +496,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/group_ownership.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     let allGroups = [];
@@ -1179,13 +1188,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // グループ詳細表示
     window.showGroupDetail = async function(groupId) {
         currentGroupId = groupId;
-        const modal = new bootstrap.Modal(document.getElementById('groupDetailModal'));
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('groupDetailModal'));
         const titleEl = document.getElementById('groupDetailTitle');
         const bodyEl = document.getElementById('groupDetailBody');
         
         try {
             const response = await axios.get(`/api/accounts/groups/${groupId}/`);
             const group = response.data;
+            if (currentGroupId !== groupId) return;
             currentGroupDetail = group;
             
             // メンバー情報取得
@@ -1233,6 +1243,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             const adminCount = members.filter(member => member.role === 'admin').length;
+            if (currentGroupId !== groupId) return;
             let actionButtons = '';
 
             if (isAdmin) {
@@ -1250,6 +1261,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         <button class="btn btn-outline-primary w-100 mb-2" onclick="openEditGroupModal()">
                             <i class="fas fa-pen"></i> グループを編集
                         </button>
+                        ${group.owner !== window.CURRENT_USER.id ? `
+                            <button class="btn btn-outline-danger w-100 mb-2" onclick="leaveGroup(${group.id})">
+                                <i class="fas fa-sign-out-alt"></i> グループを退出
+                            </button>
+                        ` : ''}
                         <button class="btn btn-outline-danger w-100" onclick="deleteGroup(${group.id})">
                             <i class="fas fa-trash"></i> グループを削除
                         </button>
@@ -1279,17 +1295,18 @@ document.addEventListener('DOMContentLoaded', function() {
             const membersHtml = members.map(member => {
                 const displayName = member.user_detail.nickname || member.user_detail.username;
                 const joinedDate = new Date(member.joined_at).toLocaleDateString('ja-JP');
-                const isCreator = member.user === group.created_by;
+                const isOwner = member.user === group.owner;
                 const isSelf = member.user === window.CURRENT_USER.id;
-                const canRemove = isAdmin && !isCreator && !isSelf;
+                const canRemove = isAdmin && !isOwner && !isSelf;
                 const targetRole = member.role === 'admin' ? 'member' : 'admin';
-                const canToggleRole = isAdmin && !isCreator && !isSelf && !(member.role === 'admin' && adminCount <= 1);
+                const canToggleRole = isAdmin && !isOwner && !(member.role === 'admin' && adminCount <= 1);
                 const canViewProfiles = isMember;
                 return `
                     <div class="member-item">
                         <div>
                             <i class="fas fa-user-circle"></i> ${escapeHtml(displayName)}
                             ${member.role === 'admin' ? '<span class="badge bg-primary ms-2 role-badge">管理者</span>' : ''}
+                            ${isOwner ? '<span class="badge bg-success ms-2">所有者</span>' : ''}
                         </div>
                         <div class="d-flex align-items-center gap-2">
                             <small class="text-muted">参加: ${joinedDate}</small>
@@ -1337,6 +1354,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
 
                         ${renderGroupSessionsSection(group, sessionsData)}
+                        <section id="group-ownership-panel" class="mt-4 p-3 border rounded" aria-label="グループの所有権"></section>
                         
                         <h6 class="mt-4">メンバー一覧</h6>
                         <div class="members-list">
@@ -1357,7 +1375,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <small class="text-muted">公開設定</small><br>
                                     ${group.visibility === 'public' ? '公開' : 'プライベート'}
                                 </p>
-                                <p class="mb-0">
+                                <p class="mb-2 text-break">
+                                    <small class="text-muted">所有者</small><br>
+                                    ${escapeHtml(group.owner_name)}
+                                </p>
+                                <p class="mb-0 text-break">
                                     <small class="text-muted">作成者</small><br>
                                     ${escapeHtml(group.created_by_name)}
                                 </p>
@@ -1369,6 +1391,14 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
             
             modal.show();
+            await GroupOwnership.mount(document.getElementById('group-ownership-panel'), {
+                group,
+                currentUserId: window.CURRENT_USER.id,
+                onChanged: async () => {
+                    await loadGroups(currentViewType);
+                    if (currentGroupId === group.id) await showGroupDetail(group.id);
+                }
+            });
         } catch (error) {
             console.error('Error loading group details:', error);
             ARKHAM.showError('グループ詳細の読み込みに失敗しました');

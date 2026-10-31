@@ -579,7 +579,9 @@ class SessionRoleDataMigrationTestCase(TransactionTestCase):
         gm = UserModel.objects.create(username="legacy-gm", email="gm@example.com")
         manager = UserModel.objects.create(username="legacy-manager", email="manager@example.com")
         observer = UserModel.objects.create(username="legacy-observer", email="observer@example.com")
-        group = GroupModel.objects.create(name="Legacy Group", created_by=owner)
+        # Other apps stay at their latest schema. Historical models do not run
+        # Group.save(), so initialize the required current owner explicitly.
+        group = GroupModel.objects.create(name="Legacy Group", created_by=owner, owner=owner)
         session = TRPGSessionModel.objects.create(
             title="Legacy Session",
             created_by=owner,
@@ -608,6 +610,9 @@ class SessionRoleDataMigrationTestCase(TransactionTestCase):
         NewParticipant = new_apps.get_model("schedules", "SessionParticipant")
         NewParticipantRole = new_apps.get_model("schedules", "SessionParticipantRole")
         NewInvitation = new_apps.get_model("schedules", "SessionInvitation")
+        current_group = new_apps.get_model("accounts", "Group").objects.get(pk=group.pk)
+        self.assertEqual(current_group.owner_id, owner.pk)
+        self.assertEqual(current_group.created_by_id, owner.pk)
 
         with self.assertRaises(LookupError):
             new_apps.get_model("schedules", "SessionPermission")
