@@ -42,6 +42,7 @@ from accounts.background_removal_tasks import (
 from accounts.models import BackgroundRemovalJob, CharacterSheet
 from accounts.serializers import CharacterImageSerializer
 from accounts.views.mixins import CharacterSheetAccessMixin
+from tableno.media_deletion import MediaDeletionUnavailable
 
 logger = logging.getLogger(__name__)
 
@@ -442,8 +443,15 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
                 other.is_main = True
                 other.save(update_fields=["is_main"])
 
-        if instance.image:
-            instance.image.delete()
+        try:
+            if instance.image:
+                instance.image.delete(save=False)
+        except (BotoCoreError, ClientError, OSError) as exc:
+            logger.warning(
+                "Character image deletion failed: image_id=%s error_type=%s", instance.pk, type(exc).__name__
+            )
+            # Propagate through the atomic block so main-image changes roll back.
+            raise MediaDeletionUnavailable() from None
 
         instance.delete()
         logger.info(f"画像削除成功: image_id={instance.id}")
