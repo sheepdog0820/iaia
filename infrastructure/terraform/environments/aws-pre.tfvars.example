@@ -8,7 +8,6 @@ enable_off_hours_schedule  = true
 worker_desired_count       = 1
 beat_desired_count         = 1
 site_id                    = 1
-allowed_hosts_override     = "*"
 secure_ssl_redirect        = false
 db_backup_retention_period = 7
 db_backup_window           = "16:00-16:30"

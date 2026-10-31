@@ -1,0 +1,85 @@
+{
+  "format_version": 1,
+  "formal_release": "No-Go",
+  "source_commit": "d664bb403fee45873b14e0da8b808a2607adc638",
+  "image_config_digest": "sha256:a85b0dbf62ab838e1b67465fa2c35322b2e86cf285f688d3293287a72d2f0bc0",
+  "image_manifest_digest": "sha256:02776b5b2f570af43ff50bc196dfe228b0e38c9e54951e4e20ef208da5370fc6",
+  "task_id": "33f725f703a44d3f8a113c5d87e562ef",
+  "probe_report": {
+    "applied_migrations": [
+      "accounts.0065_stripe_billing_requests",
+      "accounts.0066_stripe_invoice_states",
+      "accounts.0067_billing_email_delivery",
+      "accounts.0068_merge_skill_bonus_into_other"
+    ],
+    "billing_rows_verified": {
+      "audit_logs": 0,
+      "subscriptions": 0
+    },
+    "duplicate_history_unchanged": true,
+    "format_version": 1,
+    "postcheck_read_only": true,
+    "rows_verified": {
+      "6th": 190,
+      "7th": 48
+    },
+    "server_major": 18,
+    "shared_environment_modified": false,
+    "status": "applied",
+    "tls": true
+  },
+  "recorded_sdk_steps": 17,
+  "mutating_sdk_operations": 16,
+  "verified_noop_steps": [
+    9
+  ],
+  "image_publish_separate": true,
+  "clone_requested_at": "2026-10-31T06:19:22.983010+00:00",
+  "clone_delete_requested_at": "2026-10-31T06:31:53.015522+00:00",
+  "cleanup_verified_at": "2026-10-31T06:41:29.134522+00:00",
+  "temporary_resources_absent": true,
+  "task_stopped": true,
+  "definition_inactive": true,
+  "retained_snapshot": "tableno-aws-pre-pre0068-20261029-a",
+  "snapshot_created_at": "2026-10-30T08:12:13.770+09:00",
+  "snapshot_retention_review_not_before": "2026-11-06T08:12:13.770+09:00",
+  "keep_snapshot_if_still_needed": true,
+  "budget_proposal_usd": 2,
+  "actual_billed_cost": null,
+  "initial_estimate_usd": 0.067,
+  "source_web_definition": 55,
+  "source_web_digest": "sha256:6d4050ec19ba5d34740643d515436baa5dd27b99a912b9c20ad7a9af0812af06",
+  "source_postcheck_at": "2026-10-31T06:44:19.041805+00:00",
+  "source_readiness": "200/database-cache-ok",
+  "shared_migration_performed": false,
+  "source_migration_history_requeried": false,
+  "tls_mode": "require",
+  "tls_verify_full": false,
+  "billing_nonempty_rows_verified": false,
+  "cleanup_read_response_addendum": true,
+  "approved_input_scope_changed": false,
+  "migration_files_and_command_equal_to_854c15c0": [
+    "accounts/management/commands/apply_verified_skill_adjustments.py",
+    "accounts/migrations/0065_stripe_billing_requests.py",
+    "accounts/migrations/0066_stripe_invoice_states.py",
+    "accounts/migrations/0067_billing_email_delivery.py",
+    "accounts/migrations/0068_merge_skill_bonus_into_other.py"
+  ],
+  "local_evidence_sha256": {
+    "migration-rehearsal-d664bb40-runtime-evidence-20261031.json": "bb98a3ad945c13eae73aae91b33bbbc501a81b1887ffe5846bec7f9e31d25b49",
+    "migration-rehearsal-d664bb40-cleanup-verification-20261031.json": "f0996888c624ba91c69186557a9f22fcd9fe53b88df63f4350b61ea18dfcb20e",
+    "migration-rehearsal-d664bb40-source-after-20261031.json": "36dab6b9afeb077f135d89a09c06ab04cdfc6ce3906dee75222c6ed251eb6e02",
+    "migration-rehearsal-d664bb40-real-absence-response-20261031.json": "3f6f41ea06c20cb460c86c97a23543ec12c5f3d52ed5edfd3a8bee38430465f2",
+    "migration-rehearsal-d664bb40-cleanup-addendum-review-20261031.json": "7cd739f81690a42532d51be61d99fab9e5b50492dba847dec98b891c1cc00b9b"
+  },
+  "latest_code_candidate": "854c15c05a4b566adfacb072625781d376f405de",
+  "latest_code_image": "sha256:f77c1ca6733ba33b7c13f8ed46ef2392983d0c46cc1dbdb0e17d27c209177e77",
+  "latest_code_pr": 52,
+  "latest_code_ci_checks_success": 12,
+  "latest_code_normal_pg_passed": 58,
+  "task_started_at": "2026-10-31 15:28:54.213000+09:00",
+  "task_execution_stopped_at": "2026-10-31 15:29:01.752000+09:00",
+  "task_stopped_at": "2026-10-31 15:29:26.622000+09:00",
+  "task_stop_deadline": "2026-10-31T06:43:24.427853+00:00",
+  "clone_delete_deadline": "2026-10-31T08:19:22.983010+00:00"
+}
