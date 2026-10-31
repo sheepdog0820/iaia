@@ -31,6 +31,8 @@ jobs:
           terraform fmt -check main.tf variables.tf tests/worker_network.tftest.hcl
           terraform validate -no-color
           terraform test -no-color
+          terraform test -no-color -var-file=environments/offline-plan.tfvars.example
+          terraform test -no-color -var-file=environments/aws-pre.tfvars.example
 
   test:
     name: Unit / Integration
@@ -237,6 +239,7 @@ jobs:
       - name: PostgreSQL lifecycle and concurrency tests
         run: |
           python -m pytest \
+            tests/unit/test_production_settings.py tests/unit/test_health_endpoints.py \
             accounts/test_character_6th_versioning.py accounts/test_share_links.py accounts/test_billing.py \
             accounts/test_billing_concurrency.py \
             accounts/test_character_lineage_deletion.py \

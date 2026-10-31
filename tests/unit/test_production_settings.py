@@ -10,6 +10,177 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class ProductionSettingsTests(TestCase):
+    def test_production_probe_does_not_inherit_parent_mail_transport(self):
+        with patch.dict(
+            os.environ,
+            {
+                "EMAIL_HOST": "parent.smtp.example.invalid",
+                "EMAIL_PORT": "1",
+                "EMAIL_USE_TLS": "False",
+                "EMAIL_HOST_USER": "parent@example.invalid",
+                "EMAIL_HOST_PASSWORD": "synthetic-parent-mail-token",
+            },
+        ):
+            payload = self.run_settings_probe(expression="""
+import json
+from django.conf import settings
+print(json.dumps({'host': settings.EMAIL_HOST, 'port': settings.EMAIL_PORT,
+                 'tls': settings.EMAIL_USE_TLS,
+                 'has_credentials': bool(settings.EMAIL_HOST_USER or settings.EMAIL_HOST_PASSWORD)}))
+""")
+        self.assertEqual(payload["host"], "smtp.gmail.com")
+        self.assertEqual(payload["port"], 587)
+        self.assertTrue(payload["tls"])
+        self.assertFalse(payload["has_credentials"])
+
+    def test_production_probe_does_not_inherit_parent_cache_or_redirect_flags(self):
+        with patch.dict(os.environ, {"USE_REDIS_CACHE": "False", "SECURE_SSL_REDIRECT": "False"}):
+            payload = self.run_settings_probe(expression="""
+import json
+from django.conf import settings
+print(json.dumps({'websockets': settings.WEBSOCKET_NOTIFICATIONS_ENABLED,
+                 'redirect': settings.SECURE_SSL_REDIRECT, 'cache': settings.CACHES['default']['BACKEND']}))
+""")
+        self.assertTrue(payload["websockets"])
+        self.assertEqual(payload["cache"], "django_redis.cache.RedisCache")
+        self.assertTrue(payload["redirect"])
+
+    def test_host_boundary_rejects_global_wildcard_and_empty_host_lists(self):
+        for hosts in ("*", "tableno.jp, *", "*,tableno.jp", " , "):
+            with self.subTest(hosts=hosts):
+                result = self.run_settings_probe({"ALLOWED_HOSTS": hosts}, check=False)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("ALLOWED_HOSTS must contain explicit hosts", result.stderr)
+
+    def test_host_boundary_uses_the_actual_host_for_absolute_urls(self):
+        payload = self.run_settings_probe(expression="""
+import json
+from django.conf import settings
+from django.test import RequestFactory
+request = RequestFactory().get(
+    '/accounts/login/', HTTP_HOST='tableno.jp',
+    HTTP_X_FORWARDED_HOST='untrusted.example.invalid', HTTP_X_FORWARDED_PROTO='https',
+)
+print(json.dumps({'forwarded_host': settings.USE_X_FORWARDED_HOST,
+                 'url': request.build_absolute_uri('/accounts/login/')}))
+""")
+        self.assertFalse(payload["forwarded_host"])
+        self.assertEqual(payload["url"], "https://tableno.jp/accounts/login/")
+
+    def test_host_boundary_rejects_untrusted_host_with_a_trusted_forwarded_header(self):
+        payload = self.run_settings_probe(expression="""
+import json
+from django.core.exceptions import DisallowedHost
+from django.test import RequestFactory
+request = RequestFactory().get(
+    '/', HTTP_HOST='untrusted.example.invalid', HTTP_X_FORWARDED_HOST='tableno.jp',
+    HTTP_X_FORWARDED_PROTO='https',
+)
+try:
+    request.get_host()
+except DisallowedHost:
+    rejected = True
+else:
+    rejected = False
+print(json.dumps({'rejected': rejected}))
+""")
+        self.assertTrue(payload["rejected"])
+
+    def test_host_boundary_keeps_raw_http_health_probes_working(self):
+        payload = self.run_settings_probe(expression="""
+import json
+from unittest.mock import patch
+import django
+django.setup()
+from django.conf import settings
+from django.test import Client
+settings.EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+client = Client()
+results = []
+with patch('tableno.health_views._check_database'), patch('tableno.health_views._check_cache'):
+    for method in ('GET', 'HEAD'):
+        for path in ('/health/live', '/health/live/', '/health/ready', '/health/ready/'):
+            response = client.generic(method, path, HTTP_HOST='10.40.1.9:8000')
+            results.append({'method': method, 'path': path, 'status': response.status_code,
+                            'body_length': len(response.content), 'location': response.get('Location'),
+                            'content_length': response.get('Content-Length'),
+                            'cache_control': response.get('Cache-Control'),
+                            'content_type_options': response.get('X-Content-Type-Options')})
+print(json.dumps({'responses': results, 'redirect_enabled': settings.SECURE_SSL_REDIRECT,
+                 'hosts': settings.ALLOWED_HOSTS}))
+""")
+        self.assertTrue(payload["redirect_enabled"])
+        self.assertEqual(payload["hosts"], ["tableno.jp", "www.tableno.jp"])
+        self.assertEqual(len(payload["responses"]), 8)
+        for result in payload["responses"]:
+            with self.subTest(method=result["method"], path=result["path"]):
+                self.assertEqual(result["status"], 200)
+                self.assertIsNone(result["location"])
+                self.assertEqual(result["cache_control"], "no-store")
+                self.assertEqual(result["content_type_options"], "nosniff")
+                if result["method"] == "HEAD":
+                    self.assertEqual(result["body_length"], 0)
+                    self.assertGreater(int(result["content_length"]), 0)
+
+    def test_host_boundary_keeps_failed_raw_http_readiness_private(self):
+        payload = self.run_settings_probe(expression="""
+import json
+from unittest.mock import patch
+import django
+django.setup()
+from django.conf import settings
+from django.test import Client
+settings.EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+with (patch('tableno.health_views._check_database', side_effect=RuntimeError('synthetic-private-db-token')),
+      patch('tableno.health_views._check_cache', side_effect=RuntimeError('synthetic-private-cache-token'))):
+    response = Client().get('/health/ready', HTTP_HOST='10.40.1.9:8000')
+print(json.dumps({'status': response.status_code, 'content_type': response.get('Content-Type'),
+                 'body': response.content.decode()}))
+""")
+        self.assertEqual(payload["status"], 503)
+        value = json.loads(payload["body"])
+        self.assertEqual(value["checks"], {"database": "error", "cache": "error"})
+        self.assertEqual(value["errors"], ["database", "cache"])
+        self.assertNotIn("synthetic-private", payload["body"])
+
+    def test_host_boundary_preserves_public_https_headers_and_rejects_other_bad_hosts(self):
+        payload = self.run_settings_probe(expression="""
+import json
+import django
+django.setup()
+from django.conf import settings
+from django.test import Client
+settings.EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+client = Client()
+public = client.get('/health/live/', HTTP_HOST='tableno.jp', HTTP_X_FORWARDED_PROTO='https',
+                    HTTP_X_FORWARDED_HOST='untrusted.example.invalid')
+redirect = client.get('/accounts/login/', HTTP_HOST='tableno.jp')
+public_bad = client.get('/health/live/', HTTP_HOST='untrusted.example.invalid',
+                        HTTP_X_FORWARDED_PROTO='https', HTTP_X_FORWARDED_HOST='tableno.jp')
+rejected = []
+for method, path in (('GET', '/'), ('GET', '/health/live/extra'), ('GET', '/health/ready.evil'),
+                     ('POST', '/health/live'), ('OPTIONS', '/health/ready')):
+    response = client.generic(method, path, HTTP_HOST='untrusted.example.invalid',
+                              HTTP_X_FORWARDED_HOST='tableno.jp')
+    rejected.append({'method': method, 'path': path, 'status': response.status_code,
+                     'location': response.get('Location')})
+print(json.dumps({'public_status': public.status_code,
+                 'hsts': public.get('Strict-Transport-Security'),
+                 'cache_control': public.get('Cache-Control'), 'rejected': rejected,
+                 'redirect_status': redirect.status_code, 'redirect_location': redirect.get('Location'),
+                 'public_bad_host_status': public_bad.status_code}))
+""")
+        self.assertEqual(payload["public_status"], 200)
+        self.assertIn("max-age=", payload["hsts"])
+        self.assertEqual(payload["cache_control"], "no-store")
+        self.assertEqual(payload["redirect_status"], 301)
+        self.assertEqual(payload["redirect_location"], "https://tableno.jp/accounts/login/")
+        self.assertEqual(payload["public_bad_host_status"], 400)
+        for result in payload["rejected"]:
+            with self.subTest(method=result["method"], path=result["path"]):
+                self.assertEqual(result["status"], 400)
+                self.assertIsNone(result["location"])
+
     def test_stripe_api_version_is_explicit_in_production_settings(self):
         payload = self.run_settings_probe(expression="""
 import json
@@ -220,10 +391,24 @@ print(json.dumps({
     "admins": settings.ADMINS,
 }))
 """
+        isolated_defaults = (
+            "USE_REDIS_CACHE",
+            "SECURE_SSL_REDIRECT",
+            "EMAIL_BACKEND",
+            "EMAIL_HOST",
+            "EMAIL_PORT",
+            "EMAIL_USE_TLS",
+            "EMAIL_USE_SSL",
+            "EMAIL_TIMEOUT",
+            "EMAIL_HOST_USER",
+            "EMAIL_HOST_PASSWORD",
+        )
+        probe_env = {key: value for key, value in os.environ.items() if key not in isolated_defaults}
+        probe_env.update(env)
         result = subprocess.run(
             [sys.executable, "-c", probe],
             cwd=REPO_ROOT,
-            env={**os.environ, **env},
+            env=probe_env,
             capture_output=True,
             text=True,
             check=False,
@@ -269,7 +454,7 @@ print(json.dumps(settings.LOGGING['formatters']))
             payload["proxy_header"],
             ["HTTP_X_FORWARDED_PROTO", "https"],
         )
-        self.assertTrue(payload["forwarded_host"])
+        self.assertFalse(payload["forwarded_host"])
         self.assertTrue(payload["websocket_notifications_enabled"])
         self.assertEqual(
             payload["database"]["OPTIONS"]["ssl"],
@@ -745,6 +930,7 @@ print(json.dumps({
                 **os.environ,
                 "SECRET_KEY": "test-secret-key-for-deploy-check-with-enough-length-12345",
                 "DJANGO_SETTINGS_MODULE": "tableno.settings_production",
+                "SECURE_SSL_REDIRECT": "True",
                 "ENVIRONMENT": "staging",
                 "ALLOWED_HOSTS": "localhost",
                 "CSRF_TRUSTED_ORIGINS": "http://localhost",
