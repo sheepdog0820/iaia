@@ -29,7 +29,60 @@
     "O04"
   ],
   "criteria_definition_changed": false,
-  "main": "deddd772ba24e631dd702f8f9e186dff1c419102",
+  "main": "48b550d61b7cc8ac3856521b6e1d33bb76ab5201",
+  "current_candidate": {
+    "source_head": "c00a76dff0bcc8ca5f641e52cdd7be84311f1991",
+    "source_tree": "7a3144983f6af99e2bee3a2d90690bb8ef262d7e",
+    "merged_main": "48b550d61b7cc8ac3856521b6e1d33bb76ab5201",
+    "main_merge_time": "2026-10-31T12:58:50Z",
+    "image_config_digest": "sha256:d68eaa1ce1f0399eddc60192b7dfeabc76332fec6d14d8f2bee7282657a6c3fb",
+    "pr": 55,
+    "pr_push_checks_success": 12,
+    "pr_push_each": {
+      "unit_passed": 2466,
+      "unit_skipped": 160,
+      "pg_passed": 781,
+      "pg_subtests": 425,
+      "pg_skipped": 0,
+      "playwright_passed": 246,
+      "system_passed": 14
+    },
+    "main_postmerge_ci": {
+      "run_id": 41203473013,
+      "complete": true,
+      "checks_detected": 6,
+      "checks_success": 6
+    },
+    "normal_image_pg": {
+      "passed": 186,
+      "skipped": 0
+    },
+    "normal_image_sqlite": {
+      "passed": 123,
+      "skipped": 43,
+      "total": 166,
+      "skip_reason": "explicit PostgreSQL-only migration verification cases",
+      "skip_modules": {
+        "tests.integration.test_group_ownership_migration": 7,
+        "tests.integration.test_skill_command_future_ownership_plan": 4,
+        "tests.integration.test_verified_skill_migration": 32
+      }
+    },
+    "normal_source_files_match": 706,
+    "installed_runtime_packages": 111,
+    "installed_python_audit_findings": 0,
+    "installed_python_audit_skipped": 0,
+    "new_os_scan_performed": false,
+    "os_inventory_matches_main54": true,
+    "known_os_findings_unresolved": 52,
+    "shared_0069_applied_by_this_work": false,
+    "shared_0069_current_state_verified": false,
+    "aws_app_deployed_by_this_work": false,
+    "new_source_sql_inspection_executed": false,
+    "full_25_criteria_complete": false
+  },
+  "historical_records_scope": "The remaining legacy runtime_source/runtime_image/candidate_ci and fixture proofs describe fixed earlier candidates, not the deployed image or the current candidate. The deployed_artifact_metadata/cloud_read_only fields retain their own observation times.",
+  "prior_main_record": "deddd772ba24e631dd702f8f9e186dff1c419102",
   "runtime_source": "d664bb403fee45873b14e0da8b808a2607adc638",
   "runtime_image": "sha256:a85b0dbf62ab838e1b67465fa2c35322b2e86cf285f688d3293287a72d2f0bc0",
   "cloud_read_only": {
