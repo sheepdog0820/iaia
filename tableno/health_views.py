@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from django.core.cache import caches
 from django.db import connections
 from django.http import JsonResponse
@@ -13,12 +15,14 @@ def _check_database():
 
 def _check_cache():
     cache = caches["default"]
-    probe_key = "healthcheck:probe"
+    probe_key = f"healthcheck:probe:{uuid4().hex}"
     probe_value = timezone.now().isoformat()
     cache.set(probe_key, probe_value, timeout=10)
-    if cache.get(probe_key) != probe_value:
-        raise RuntimeError("cache round-trip check failed")
-    cache.delete(probe_key)
+    try:
+        if cache.get(probe_key) != probe_value:
+            raise RuntimeError("cache round-trip check failed")
+    finally:
+        cache.delete(probe_key)
 
 
 def health_live_view(request):

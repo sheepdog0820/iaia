@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-31）
 
+readinessの共有cache検査が同時実行で誤503になる競合を合成fixtureで再現し、[検査キーを分離](READINESS_CACHE_ISOLATION_2026-10-31.md)した。関連SQLite/本番設定PGは各22件・28 subtests成功。前候補のheadを保った別Draftとして実Redis・通常配布物と最終CIを確認し、AWS反映や正式公開の完了とは扱わない。
+
 HTTP Hostの全体許可・転送Host信頼と内部HTTP healthの両立を[別の修正候補](HTTP_HOST_BOUNDARY_2026-10-31.md)で検証した。最終関連SQLite/本番設定PGは各63件・50 subtests成功。全体wildcardの起動を拒否するため、実配備では明示domainとimageをそろえた反映案が必要であり、現行AWSへ適用していない。PR #46/#47の固定headと承認対象は変更せず、通常配布物と最終CIを別途検証する。
 
 追加点検で、公開readinessがDB/cacheの例外本文を返す実装を見つけ、[固定した失敗応答へ変更](HEALTH_READINESS_PRIVACY_2026-10-31.md)した。合成例外による再現と、関連SQLite/PG各20件・28 subtests/省略0を確認した。稼働AWSでの秘密値漏えいの観測ではなく、AWSへの反映も行っていない。PR #46の承認対象headを変えず、別のDraft候補で固定配布物とCIを検証する。
