@@ -4,9 +4,19 @@ PR #45の固定head `5f82dba5`を通常Dockerfileで構築したimage `8106f14e`
 
 ## 原因と変更
 
-`tableno/asgi.py`は通知WebSocketへ`AuthMiddlewareStack`を適用していたが、Originを検証していなかった。[Channels公式のセキュリティ説明](https://channels.readthedocs.io/en/stable/topics/security.html)に従い、その外側を`AllowedHostsOriginValidator`で囲む。Originのhostを既存の`ALLOWED_HOSTS`に照合し、許可外・欠落・null・不正形式を拒否する。Originを認証の代わりにはせず、セッション認証・利用者ごとの通知group・匿名拒否は維持する。
+`tableno/asgi.py`は通知WebSocketへ`AuthMiddlewareStack`を適用していたが、Originを検証していなかった。[Channels公式のセキュリティ説明](https://channels.readthedocs.io/en/stable/topics/security.html)に従い、その外側を`ConfiguredOriginValidator`で囲む。Channelsの`OriginValidator`へ、既存の`CSRF_TRUSTED_ORIGINS`と`PUBLIC_SITE_URL`だけを渡し、許可外・欠落・null・不正形式を拒否する。HTTPの`ALLOWED_HOSTS`はOriginを許可する根拠にしない。Originを認証の代わりにはせず、セッション認証・利用者ごとの通知group・匿名拒否は維持する。
 
-WebSocketのブラウザクライアントは`window.location.host`へ接続し、Originをブラウザが付ける。今回JavaScript/UIは変更しない。非ブラウザの接続元も許可されたOriginを指定する必要があり、Originなしの接続は拒否される。許可hostの追加やwildcard化、IAM/Secrets/OAuth等の設定変更は含まない。HTTPルーターや通知データの保存・配送処理も変更しない。
+WebSocketのブラウザクライアントは`window.location.host`へ接続し、Originをブラウザが付ける。今回JavaScript/UIは変更しない。非ブラウザの接続元も許可されたOriginを指定する必要があり、Originなしの接続は拒否される。既定の開発設定はlocalhost/127.0.0.1のHTTP 8000番を含む。別port/aliasを使う場合も、既存の明示的なOrigin設定が必要である。空の設定と全体wildcard `*`は許可を与えない。Djangoの明示的な`https://*.domain`はChannelsの`https://.domain`へ変換し、指定domainの範囲だけを許可する。許可先の追加やIAM/Secrets/OAuth等の設定変更は含まない。HTTPルーターや通知データの保存・配送処理も変更しない。
+
+## HTTPのwildcardから独立した最終方針
+
+10:08/10:15 JSTの読み取りで、稼働ECS定義55の平文宣言は`ALLOWED_HOSTS=*`、`CSRF_TRUSTED_ORIGINS=https://stg.tableno.jp`、`PUBLIC_SITE_URL=https://stg.tableno.jp`だった。Secretsの値や実効設定は取得しておらず、宣言の確認に限る。AWSの作成・更新・削除は行っていない。
+
+初期修正の`AllowedHostsOriginValidator`はHTTPのwildcardを引き継ぐため、この宣言では安全性の根拠にできない。固定head `24f7d88e`の当時のCIやlocalhost設定の通常配布物検証は保持するが、最終候補の合格とは扱わない。実ASGI入口をwildcard設定の中で読み直す回帰で拒否の失敗を再現し、さらにHTTPで個別許可したhostだけでもOriginを許していた中間案の失敗を再現した。最終実装ではHTTPのhost許可を一切参照しない。
+
+最終のSQLite/PG18.3は各12件・24 subtests、省略0で成功した。実セッション・利用者分離・匿名拒否に加え、HTTP wildcard、HTTPだけで許可したhost、全体wildcardの拒否、公開URLのみの許可、明示subdomainと似せたdomainの境界を確認した。通知/設定/システムを含む関連PGは86件・29 subtests、省略0で成功した。入口と新middlewareは各8実行文を100%計測し、報告分岐数は0である。第三者ライブラリ全体の網羅を意味しない。Black/isort/Flake8/Banditと差分の自己レビューも成功した。
+
+固定commitからの通常配布物は、上記の稼働宣言と同じ文字列を使う隔離PG/Redis環境で再検証する。`https://stg.tableno.jp`はOrigin設定/ヘッダーとして使うだけで、接続先は専用ローカルcontainerである。実AWS・実ユーザー・共有DBには接続しない。HTTP Host/ALB側の制限、Secretsを含む実効設定、承認後の実環境反映は別途必要であり、この変更で完了したとは扱わない。
 
 ## 再現と検証
 
@@ -16,7 +26,7 @@ WebSocketのブラウザクライアントは`window.location.host`へ接続し�
 - プロジェクト既定のcoverage設定はASGIを除外していた。製品設定を変えず、専用の一時設定で入口を計測し、8実行文すべてを実行した。ASGI入口の結果を、第三者ライブラリや配布物全体の100%検証へ拡張しない。
 - 拡張した通知/設定試験は隔離PGで64件・12 subtests成功、省略なし。初回は検証用runnerの`USE_REDIS_CACHE=False`が子processのTLS設定probeへ継承され、1件失敗/63件成功となった。製品コードを変えず不要な強制指定を除くと同じ失敗ケースと全64件が成功した。失敗ログも保持している。
 
-Black/isort/Flake8/Bandit、UTF-8/LF、PG CIの対象、実装差分と既存ブラウザの接続方式を自己レビューした。この修正範囲の未解決の実装指摘はない。新たな利用者向け文言はない。固定commitからの通常配布物の再構築、同じOrigin拒否を含む実通信、最終CIの結果は候補PRへ追記する。修正前imageの成功や、Origin検証を含まない旧試験の成功は、この修正の証明として使わない。
+以下は初期修正の履歴であり、HTTP wildcardに対する最終修正の結果とは区別する。新たな利用者向け文言はない。固定commitからの通常配布物の再構築、同じOrigin拒否を含む実通信、最終CIの結果は候補PRへ追記する。修正前imageの成功や、Origin検証を含まない旧試験の成功は、この修正の証明として使わない。
 
 ## 固定配布物とCIの月末fixture補正
 

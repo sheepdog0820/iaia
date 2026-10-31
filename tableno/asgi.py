@@ -13,16 +13,15 @@ configure_runtime_environment()
 
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.security.websocket import AllowedHostsOriginValidator
 from django.core.asgi import get_asgi_application
 
 import schedules.routing
 
+from .websocket_security import ConfiguredOriginValidator
+
 application = ProtocolTypeRouter(
     {
         "http": get_asgi_application(),
-        "websocket": AllowedHostsOriginValidator(
-            AuthMiddlewareStack(URLRouter(schedules.routing.websocket_urlpatterns))
-        ),
+        "websocket": ConfiguredOriginValidator(AuthMiddlewareStack(URLRouter(schedules.routing.websocket_urlpatterns))),
     }
 )
