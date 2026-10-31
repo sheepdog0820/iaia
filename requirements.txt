@@ -12,6 +12,8 @@ cryptography>=41.0.0
 google-auth>=2.23.0
 google-auth-oauthlib>=1.1.0
 google-auth-httplib2>=0.1.0
+# Security floor for ASN.1 decoder CPU-exhaustion fixes used by Google auth.
+pyasn1>=0.6.5
 
 # Databases
 psycopg[binary]>=3.2.0
@@ -49,8 +51,8 @@ msgpack>=1.2.3
 daphne>=4.1.0
 # Security floor for bounded WebSocket Brotli decompression (CVE-2026-116579).
 autobahn>=26.10.1
-# Temporary upstream security release candidate; revalidate when 26.10.0 is stable.
-Twisted==26.10.0rc2
+# Stable release retaining the security fixes validated with the release candidate.
+Twisted==26.10.0
 
 # Billing, security, and monitoring
 stripe>=16.0.1,<17

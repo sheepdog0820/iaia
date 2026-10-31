@@ -7,7 +7,6 @@ container_image            = "000000000000.dkr.ecr.ap-northeast-1.amazonaws.com/
 worker_desired_count       = 1
 beat_desired_count         = 1
 site_id                    = 1
-allowed_hosts_override     = "*"
 secure_ssl_redirect        = false
 enable_deletion_protection = false
 alarm_email                = ""

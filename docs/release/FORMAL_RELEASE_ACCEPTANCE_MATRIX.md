@@ -1,6 +1,57 @@
 # 有料プラン・外部連携を含む正式公開の受け入れ条件
 
-## 現在の公開判断（2026-10-29）
+## 現在の公開判断（2026-10-31）
+
+最新の候補・稼働版・限定検証・残作業は[10月31日の整理](RELEASE_CANDIDATE_STATUS_2026-10-31.md)と[集計JSON](RELEASE_CANDIDATE_EVIDENCE_2026-10-31.json)を参照する。PR46〜52の固定headは各CI12成功。854/f77の画像修正と、[実AWSコピー内の4移行・後片付け成功](RDS_MIGRATION_REHEARSAL_RESULT_2026-10-31.md)を追加した。d664の合成復元・画像性能・実worker/SMTPの証拠は対象を区別して保持する。正式公開No-Go、全25条件と各承認境界は維持する。
+
+以下の冒頭段落は同日の経過記録を保持したもの。後から完了した通常配布物/CIの結果は上記整理と下の判定表を優先し、過去の「確認中」を現在の未完了へ重複計上しない。
+
+readinessの共有cache検査が同時実行で誤503になる競合を合成fixtureで再現し、[検査キーを分離](READINESS_CACHE_ISOLATION_2026-10-31.md)した。関連SQLite/本番設定PGは各22件・28 subtests成功。前候補のheadを保った別Draftとして実Redis・通常配布物と最終CIを確認し、AWS反映や正式公開の完了とは扱わない。
+
+HTTP Hostの全体許可・転送Host信頼と内部HTTP healthの両立を[別の修正候補](HTTP_HOST_BOUNDARY_2026-10-31.md)で検証した。最終関連SQLite/本番設定PGは各63件・50 subtests成功。全体wildcardの起動を拒否するため、実配備では明示domainとimageをそろえた反映案が必要であり、現行AWSへ適用していない。PR #46/#47の固定headと承認対象は変更せず、通常配布物と最終CIを別途検証する。
+
+追加点検で、公開readinessがDB/cacheの例外本文を返す実装を見つけ、[固定した失敗応答へ変更](HEALTH_READINESS_PRIVACY_2026-10-31.md)した。合成例外による再現と、関連SQLite/PG各20件・28 subtests/省略0を確認した。稼働AWSでの秘密値漏えいの観測ではなく、AWSへの反映も行っていない。PR #46の承認対象headを変えず、別のDraft候補で固定配布物とCIを検証する。
+
+追加の実通信検証で、PR #45の固定imageが許可外Originと合成の有効セッションによる通知受信を許すことを確認し、旧headへのマージ確認を取り下げた。[WebSocketのOrigin制限](WEBSOCKET_ORIGIN_VALIDATION_2026-10-31.md)をPR #46で修正する。10:08/10:15 JSTのECS定義55の読み取りではHTTPの`ALLOWED_HOSTS=*`が宣言されていたため、初期修正のHTTP HostによるOrigin判定も最終候補として扱わず、既存の明示的なCSRF/公開URLだけでOriginを許可する方針へ補正した。Secretsを含む実効設定は未取得である。最終関連PG86件・29 subtestsは成功し、固定配布物と最終CIは別途検証する。AWSへの書き込み、業務行の取得や実データ修復は行っていない。
+
+正式公開は **No-Go**。mainは`deddd772`のまま。08:43 JST、同じ依存を含むPR #42のPR/push両CIが`pyasn1 0.6.4`の新たな4指摘で失敗したため、旧[統合候補PR #41](https://github.com/sheepdog0820/iaia/pull/41)の過去の成功だけで現在もマージ準備完了とは扱わない。[pyasn1修正](PYASN1_SECURITY_2026-10-31.md)とグループ管理の2修正、稼働版・native調査文書を加えた[更新統合候補](RELEASE_GROUP_SECURITY_INTEGRATION_2026-10-31.md)を別ブランチで検証する。既存PRのheadと既存の承認対象は変更せず、追加範囲を含む最終版について承認を確認する。
+
+旧候補PR #41のhead `a78d15bf20cf4ac0fe6e050e72484fb7ef69fb4e`はPR #38/#39/#40の内容を13ファイルでまとめ、隔離PG140件・85 subtests/省略0、通常配布物内PG54件、HTTP/WebSocket/Redis、実インストール111 packageの依存監査0件を当時確認した。[当時のCI全12チェック](https://github.com/sheepdog0820/iaia/actions/runs/41062625803)も成功（全体2,379成功・123省略、PG606成功・239 subtests/省略0、Playwright243成功）。これらは固定headの履歴であり、新しい監査情報を反映した現時点の合格ではない。
+
+通常imageは`sha256:7d5dfc5a87b25d17cf0843864e35baeb1d95e7066bb4cb5dec5099f5e807018d`。OS監査52指摘（C2/H9/M6/L35）・exit2は未除外で保持し、[MySQLdbの限定したC99ビルド経路](MYSQL_NATIVE_PBDS_BUILD_SCOPE_2026-10-30.md)と[ONNX Runtimeの配布物・公開依存ソース照合](ONNXRUNTIME_NATIVE_SOURCE_SCOPE_2026-10-31.md)を、全native依存やPBDS由来HIGHの解消判定へ拡張しない。Twisted26.10.0正式版は候補で検証済みだが、mainのlockはRC2、稼働AWSの実metadataは26.4.0であり、それぞれ更新が未反映である。
+
+10月31日08:29 JSTの読み取りでは、RDSは18.3/available・暗号化、Webは定義55・desired/running1・pending0、readiness200だった。稼働taskの固定digest `sha256:6d4050ec19ba5d34740643d515436baa5dd27b99a912b9c20ad7a9af0812af06`と、既にローカルにある同じimmutable参照のimageを照合し、ネットワークなしで実インストールmetadataを取得した。revisionラベルは`cbf52dc5c2ecfcef6fb5f5484ae4537d74470675`で、全sourceとGitの同一性まで検証したという意味ではない。過去の「main/稼働AWSともRC2」という記述は、mainのlockと稼働artifactを混同していたため、次の表に訂正する。
+
+| 対象 | Twisted | Stripe SDK | Autobahn |
+| --- | --- | --- | --- |
+| main deddd772のlock | 26.10.0rc2 | 16.0.1 | 26.10.1 |
+| 稼働Web55の固定image 6d4050ec（実metadata） | 26.4.0 | 15.5.1 | 26.7.1 |
+| PR #41通常image 7d5dfc5a（実metadata） | 26.10.0 | 16.0.1 | 26.10.1 |
+| PR #43通常image 49c30e3d（実metadata） | 26.10.0 | 16.0.1 | 26.10.1 |
+
+4者のDjangoは5.2.17。これは上記packageの照合であり、稼働image全体の依存監査や、共有DBの移行履歴の再取得ではない。08:29の検査で起動/更新・task作成・業務行の取得は行っていない。証拠はGit管理外の`tmp/shared-release-status-readonly-20261031.json`と`tmp/deployed-runtime-version-proof-20261031.json`に保持する。
+
+同じ稼働digestの既存ローカルimageを08:54 JSTに読み取り、pyasn1 0.6.4/pyasn1-modules 0.4.2/google-auth 2.57.0も確認した。PR #44の固定通常image `98d29317`ではpyasn1 0.6.5・実111 package監査0件、配布物内PG60件と公式1,261件成功を確認した。これはmainやAWSへの適用ではなく、公開経路からの悪用可能性や稼働版全体の監査を確認したものでもない。
+
+[別Draft PR #43](https://github.com/sheepdog0820/iaia/pull/43)のhead `9b2e266f`では、メンバーIDの誤対象操作/500と、作成者の管理者登録失敗時にグループが残る不備を別コミットで修正した。関連SQLite66件・55 subtests、隔離PG69件・55 subtests/省略0、最新通常image内PG66件、[最終headのCI全12チェック](https://github.com/sheepdog0820/iaia/actions/runs/41143076493)が成功（全体2,390成功・123省略、PG617成功・288 subtests/省略0、UI243成功）。この修正はPR #41の固定headやmain/稼働AWSには含まれない。既存データに同じ不整合があるかは、この合成データによるコード検証からは判断しておらず、実データの修復も行っていない。
+
+共有DBの直近の全体READ ONLY検査は10月30日21:29 JSTで、未適用はaccounts0065〜0068の4件だけ、不明履歴0、重複総数1だった。専用task/定義/ECR/ENIは21:30に後片付けを確認済み。この過去のavailable/readiness200を本日の稼働証拠には使わない。保持中snapshotからの非公開コピー内で4件を適用するリハーサルは、準備・隔離検証が済み、別の承認待ち・AWS未実行である。共有DBへの4件適用、Web/背景処理の反映、IAM/設定ポインターや容量/費用の変更は未実施。元snapshotは11月6日08:12:13.770 JST以降に保管を見直し、移行未実施・未検証等で必要なら削除しない。
+
+残る作業は、承認済み対象でのマージ・移行リハーサル・適用直前の全writer/backup/復旧確認、共有4件適用と配備、OS/native依存、実Stripe/メール・OAuth/外部配送、背景処理/監視、100人/同時10人・主要操作p95 3秒/予期せぬエラー0、DB/S3のRPO24h/RTO4h、事業者運用・本番DNS/ACM・最終Go/No-Goである。下表のF/B/I/Q/O全25条件と、既に決定済みの無料範囲・画像5枚・480円/月/4,800円/年・開示方式を変更しない。
+
+## 10月30日の候補と検証記録（当時の情報）
+
+正式公開は **No-Go**。承認済みPR #33と#37を通常マージし、mainは`deddd772`。検証head`98e84ead`とtreeが一致し、[マージ後CI全6チェック](https://github.com/sheepdog0820/iaia/actions/runs/40966342831)も成功した（全体2,379成功・105省略、PG588成功・223 subtests/省略0、Playwright243成功）。#34/#36はGitHub上も統合済み、重複候補の#35はcloseした。追加マージの承認を、AWS反映や共有DB変更の承認として扱わない。
+
+承認済みの[非公開バックアップ・限定復元確認](RDS_BACKUP_RESTORE_RESULT_2026-10-30.md)を実施し、08:34 JSTに一時RDS/SG/ENI/ECRの後片付けを確認した。元snapshotは暗号化・非共有で保持中。実取得は10月30日08:12:13.770 JST、7日後の保管見直しは11月6日08:12:13.770 JST以降で、移行未実施等で必要なら削除しない。2 USDは承認予算案で、実請求額は未確認。
+
+取得時点の復元DBはaccounts0064までで、0065〜0068が未適用だった。21:29 JSTの承認済み[元DBの全体計画のREAD ONLY検査](READ_ONLY_RELEASE_PLAN_RESULT_2026-10-30.md)でも、未適用はこの4件だけ、不明履歴0、重複総数1を確認した。単発taskは約67秒でexit0、21:30に専用定義/ECR/ENIの後片付けを確認した。1 USDは承認予算案で実請求は未確認。共有適用・履歴修復はしていない。
+
+[4件の検証付き適用準備](VERIFIED_RELEASE_DATABASE_PREPARATION_2026-10-30.md)はPR #38の固定head297a217d。個別の合成DB33件・38 subtests、コマンド全99実行文/44分岐を確認し、CI12成功。PR #39は最新DB/OS調査の文書で、head1a8029e8のCI12成功。[Twisted正式版の更新](TWISTED_STABLE_2026-10-30.md)はPR #40のhead d3e5565bで、個別PG86件/28 subtests・通常配布物のHTTP/WebSocket/Redisと実インストール111件の依存監査成功、最終CIは確認中である。これらを[別の統合候補](RELEASE_DB_STABLE_INTEGRATION_2026-10-30.md)へまとめて検証する。個別の成功を未実行の統合検証の成功と扱わず、mainや稼働AWSへ反映したとも報告しない。PR #38の承認対象headは変更しない。
+
+Webは21:30 JSTの読み取りで定義55・readiness200/database-cache ok。[最新OS監査](RUNTIME_OS_HIGH_CRITICAL_SCOPE_2026-10-30.md)は52指摘（C2/H9/M6/L35）・exit2。固定対象のMariaDB/zlib/aligned newの適用範囲判定を、全OSの合格や別imageの安全性へ拡張しない。Twisted26.10.0正式版は更新候補で検証済みだが、未反映。旧記述でmainと稼働版をともにRC2としていた点は、10月31日の同digest照合により、mainのlockはRC2・稼働imageは26.4.0と訂正した。アプリ反映、共有移行、背景処理の定義/IAM/設定ポインター、実Stripe/外部連携、全体性能、DB/S3のRPO24h/RTO4h、事業者運用・公開判断と、下表のF/B/I/Q/Oの全条件を維持する。
+
+## 10月29日の候補と準備記録（当時の情報）
 
 正式公開は **No-Go**。mainは945441ffで、承認済みPR #20/#8/#7を含む。PR #28以降の追加マージ・AWS反映・共有DB/実データ変更・実Stripe・本番公開は本作業では未実施である。
 
@@ -291,7 +342,7 @@ OSパッケージ監査の更新: 不要なビルド用パッケージ除去とT
 | B01 | 月額・年額料金と無料/有料の機能差が承認され、表示・Price・権限と一致する | 月額480円/年額4,800円、背景透過のみ有料、画像5枚共通は承認済み。[実テストPriceの金額・通貨・周期・同一商品](STRIPE_SANDBOX_VERIFICATION_2026-09-13.md)を照合済み | 本番Price・公開画面・AWS設定との最終照合 / Codex、設定変更は承認対象 |
 | B02 | 実Stripeテストモードの月額・年額Checkoutで権限と監査ログが正しく更新される | [月額Checkout](STRIPE_SANDBOX_VERIFICATION_2026-09-13.md)と[年額・3D Secure](STRIPE_ADDITIONAL_VERIFICATION_2026-09-13.md)の実画面・署名付きWebhook・隔離DBの権限反映を確認 | AWSでログイン済み購入・戻り画面・監査記録を照合 / Codex、設定変更は承認対象 |
 | B03 | 更新・期間末解約・支払失敗/回復・返金/異議・退会で権限が過不足なく変化する | 月額・年額更新、失敗/回復、返金、異議、カード変更、期間末解約を実サンドボックスで確認。[解約後勝訴による誤付与も修正・実証](STRIPE_ADDITIONAL_VERIFICATION_2026-09-13.md) | [権限停止中・未終了契約の退会防止](STRIPE_DELETION_GUARD_2026-09-19.md)を修正し隔離DBで検証。[ユーザーAPI・管理画面の削除経路](STRIPE_DELETION_PATHS_2026-09-19.md)も共通課金確認へ統一しPGで検証。[4経路と実Stripeの接続](STRIPE_DELETION_PATHS_API_2026-09-19.md)も23項目成功。[購入画面失効・Stripe残契約照会・退会中の購入防止](STRIPE_DELETION_CHECKOUT_2026-09-19.md)も修正しPG・実APIで検証。[退会画面の3ブラウザー検証](STRIPE_DELETION_BROWSER_2026-09-19.md)も成功。[退会後の実署名付き購読通知の逆順・重複](STRIPE_DELETION_SIGNED_2026-09-19.md)も13項目成功。[退会と実署名付き購読作成通知のPG同時処理](STRIPE_DELETION_RACE_2026-09-19.md)も両ロック順で成功。実Stripe契約を伴うブラウザー退会、その他通知種別との並行処理、複数返金/異議、AWS上の全フローを確認 / Codex |
-| B04 | Webhook重複・順序変動・一時DB障害で課金権限を失わず再処理できる | 実署名通知の重複・失敗再送・購読通知の逆順を確認。[重複購入防止・応答喪失の実API再送・PG同時購入](STRIPE_CHECKOUT_RETRY_2026-09-13.md)も成功 | [請求成功/失敗の逆順・別請求同時更新](STRIPE_INVOICE_ORDERING_2026-09-19.md)は修正し実署名通知・隔離PGで検証済み。[複数停止理由の保持](STRIPE_MULTIPLE_REVOCATIONS_2026-09-19.md)も修正・実検証済み。[同一異議の通知逆順](STRIPE_DISPUTE_ORDERING_2026-09-19.md)も実署名通知・隔離PGで検証済み。[古い購入完了通知・同時処理](STRIPE_CHECKOUT_ORDERING_2026-09-19.md)も修正し単体/PG・実API読み取りを確認。[課金メールの永続キュー・再試行](BILLING_EMAIL_DELIVERY_2026-09-19.md)を実装し隔離PG・ローカルSMTPで検証。[候補99acd8caの全6ジョブCI・コンテナ/DB互換性](STRIPE_CANDIDATE_CONTAINER_2026-09-19.md)は成功。[実署名付きCheckout完了を解約後に処理する試験](STRIPE_CHECKOUT_SIGNED_ORDER_2026-09-19.md)も10項目成功。[統合候補0f6b81feのコンテナ8項目](STRIPE_CONTAINER_0F6B81FE_2026-09-19.md)も成功し同候補のCIは全6ジョブ成功。後続の[削除経路修正6ff9a1f9の配布コンテナ](STRIPE_CONTAINER_6FF9A1F9_2026-09-19.md)も起動・9回帰テスト成功。[6ff9a1f9のCI全6ジョブ成功](STRIPE_CI_6FF9A1F9_2026-09-19.json)を確認。AWS配送、ログイン状態での購入戻り画面、その他Webhook競合を確認 / Codex |
+| B04 | Webhook重複・順序変動・一時DB障害で課金権限を失わず再処理できる | d664通常配布物の実beat/Redis/worker/PG/隔離SMTPで運用12項目成功。451後の期限を変えない再送、worker再起動、2workerの実PGロックによる1通、回復/古い通知取消、無効時保持を確認。実Stripe署名Webhook/権限の全フロー、実AWS/SMTP認証TLS・受信箱、SMTP受理/DB commit間の障害は未証明。詳細は[最新整理](RELEASE_CANDIDATE_STATUS_2026-10-31.md)を参照 | [請求成功/失敗の逆順・別請求同時更新](STRIPE_INVOICE_ORDERING_2026-09-19.md)は修正し実署名通知・隔離PGで検証済み。[複数停止理由の保持](STRIPE_MULTIPLE_REVOCATIONS_2026-09-19.md)も修正・実検証済み。[同一異議の通知逆順](STRIPE_DISPUTE_ORDERING_2026-09-19.md)も実署名通知・隔離PGで検証済み。[古い購入完了通知・同時処理](STRIPE_CHECKOUT_ORDERING_2026-09-19.md)も修正し単体/PG・実API読み取りを確認。[課金メールの永続キュー・再試行](BILLING_EMAIL_DELIVERY_2026-09-19.md)を実装し隔離PG・ローカルSMTPで検証。[候補99acd8caの全6ジョブCI・コンテナ/DB互換性](STRIPE_CANDIDATE_CONTAINER_2026-09-19.md)は成功。[実署名付きCheckout完了を解約後に処理する試験](STRIPE_CHECKOUT_SIGNED_ORDER_2026-09-19.md)も10項目成功。[統合候補0f6b81feのコンテナ8項目](STRIPE_CONTAINER_0F6B81FE_2026-09-19.md)も成功し同候補のCIは全6ジョブ成功。後続の[削除経路修正6ff9a1f9の配布コンテナ](STRIPE_CONTAINER_6FF9A1F9_2026-09-19.md)も起動・9回帰テスト成功。[6ff9a1f9のCI全6ジョブ成功](STRIPE_CI_6FF9A1F9_2026-09-19.json)を確認。AWS配送、ログイン状態での購入戻り画面、その他Webhook競合を確認 / Codex |
 | B05 | 有料必須ゲートが成功し、その記録が実Stripe/アプリ状態に一致する | ゲートの動作確認と個別の実サンドボックス証跡あり。[候補監査](STRIPE_CANDIDATE_AUDIT_2026-09-19.md)。実AWSの有料有効状態の正式記録は未作成 | AWSの実証跡を作成し、形式チェックと独立照合を実行 / Codex |
 | I01 | Google認証の初回・既存連携・取消・失効が実認可で成立する | ID優先・追加メール確認・明示的連携・登録競合を修正。[承認済みChromeで再連携](GOOGLE_RECONNECT_2026-09-10.md)し、実コールバック後の認可保存と再読み込み後の維持を確認。[期限不明トークンの更新](GOOGLE_TOKEN_EXPIRY_2026-09-22.md)もローカル検証済み。Google未確認アプリの案内は残る | 初回登録、取消・失効・実トークン更新、メール到達、Google公開審査/設定を実証 / Codex、権限変更は人間承認 |
 | I02 | Discord認証の初回・既存連携・取消・失効が実認可で成立する | ローカルAPIテスト、停止済み利用者の拒否、[外部通信障害と設定不足の再試行可能な応答](OAUTH_PROVIDER_RESILIENCE_2026-09-22.md)を確認。実認可・取消・失効は未確認 | 同上 / Codex、人間 |
@@ -301,12 +352,12 @@ OSパッケージ監査の更新: 不要なビルド用パッケージ除去とT
 | I06 | Discord通知が指定先だけへ届き、失敗・再送・無効化が機能する | [Webhook URLを履歴へ残さない失敗保存と模擬画面再送](INTEGRATION_RETRY_GUIDANCE_2026-09-22.md)をローカル確認。実配送は未確認 | テスト専用宛先で実配送。送信内容・宛先を事前に具体化 / Codex、送信承認は人間 |
 | I07 | ICS購読の更新・トークン失効とCCFOLIA出力/無料インポートが受け取り側で使える | ICSの日本語長文・CR改行の出力を修正し、折り返し・内容保持・旧トークン失効をローカル確認。CCFOLIA JSONダウンロードとTablenoへの無料インポートE2E成功。4499b243のサーバー出力をユーザー指定の実6版/7版ルームへ各1体取り込み、能力値・ステータス・パレット保持を確認。画像・実ダイス・ICS購読は未確認 | 専用の受け取り側で内容、秘匿、文字化け、失効を確認 / Codex |
 | Q01 | PC・スマートフォンの主要操作が読めて操作でき、重大なJSエラーがない | 20803480のPlaywright CIが成功し、開発AWS反映後に既存ログインで一覧・詳細・統計表示を確認。平均時間undefinedhは0.6hへ改善。旧候補で3ブラウザ186件の成功記録もある | 実機・全状態・実契約導線は未確認。後続Terraform/文書を含む候補CIは別途完了確認 / Codex |
-| Q02 | 合意した人数・データ量・同時利用で応答/エラー率の目標を満たす | 基準は登録100人・同時10人、通常操作p95が3秒以内、予期しないエラー0件として承認済み。7b196988の隔離通常イメージで[一覧900件](READ_API_OPTIMIZED_RUNTIME_2026-09-10.md)と[基本の作成・編集・再取得1,200件](WRITE_API_RUNTIME_2026-09-10.md)がエラー0、各操作p95は基準内。背景透過は別枠で、[実AWSの処理成功](BACKGROUND_REMOVAL_IAM_FIX_2026-09-08.md)を確認済み。全通常操作・実AWSの性能合格は未確認 | 画像・日程・参加者/秘匿情報等の不足操作、長時間・本番相当試験、開発AWS反映後の認証済み操作と性能再測定 / Codex |
-| Q03 | リリース候補SHAのCI・固定依存関係・本番DB検証が成功する | [10月2日の照合](RELEASE_STATE_2026-10-02.md)でマージ5caeaf2c、現main35ecfd5c、AWSタグ対応c6226ddbの各CI成功を確認。稼働定義52の実行digestはECRと一致しreadiness成功。先行候補の隔離PG/Redis検証は当該版の証拠として保持 | mainと稼働版の統一、ソース/配布物の一致、共有DB0065〜0067の適用証拠、全スキーマ/実データ監査、本番相当の移行・復旧は未完了 / Codex、人間 |
-| Q04 | 情報保護の重大な既知欠陥がなく、セキュリティ指摘に判定がある | 非公開ファイル保護を反映し、実S3/CDNの12パターン拒否と認可付き取得を実証済み。[統計画面のAPI値](STATISTICS_DYNAMIC_HTML_SECURITY_2026-09-22.md)と[6版・7版カスタム技能名](CHARACTER_CUSTOM_SKILL_SECURITY_2026-09-22.md)による動的HTML生成を修正し3ブラウザで非実行を確認。[bb61b0e6の通常配布物](RUNTIME_OS_BB61B0E6_2026-09-22.md)の再スキャンは36件（HIGH2/MEDIUM1/LOW33）。Perl HIGHは脆弱なPod::Textが配布物にないことを確認したが、zlib HIGHはDebianで未修正 | 未修正zlib、tar、スキャナー非ゼロを含む残リスク判定、全動的表示・配送・権限経路監査を継続 / Codex、人間 |
-| O01 | 本番設定・秘密情報・監視・問い合わせ配送が正しく構成され実証される | [10月2日の読み取り確認](RELEASE_STATE_2026-10-02.md)ではWeb定義52が正常稼働。対象clusterのサービス一覧はWeb1件で常設worker/beatサービスは見つからない。過去のアラーム3件・SNS購読confirmedは実通知到達を証明しない | 一時AWS通信試験は成功・削除済み。継続運用/夜間停止・監視・問い合わせ配送と課金メール実効設定を別途実証 / Codex、人間承認 |
-| O02 | DBと画像のバックアップを復元し、合意RPO/RTOと整合性を満たす | [実RDS snapshot復元](RDS_RESTORE_RESULT_2026-09-08.md)は承認後に実施し、別の非公開DBの読み取り検査が終了0、限定メタデータが一致。一時リソース削除済み。ローカルではDB/11ファイル項目の復元も成功 | 実S3の世代選択とDB整合、アプリ切り替え、主要操作、RPO24時間/RTO4時間を含むサービス全体の復旧は未証明 / Codex、人間承認 |
-| O03 | リリース候補の移行・ロールバックが本番相当で実証される | 隔離環境のデータ入り移行・旧イメージ復元成功に加え、共有DB0064/0055適用と開発AWS反映が完了。直近の統計反映はDB変更なしで旧定義44への復旧手順を記録 | 本番相当の同時書き込み・全UI・DB/S3の切り戻しとRPO/RTOを検証。旧定義へ戻すだけで過去の脆弱性を再導入しない / Codex、人間承認 |
+| Q02 | 合意した人数・データ量・同時利用で応答/エラー率の目標を満たす | 登録100人・同時10人、主要操作p95≤3秒・予期しないエラー0の承認基準を維持。d664の画像7操作は各容量700要求/計1400要求が期待どおり。0.25CPU/512MiBは追加8.685秒・ZIP7.374秒等が未達。1CPU/2GiBは今回7操作が基準内。全主要操作/実AWS/S3/長時間の合格ではなく容量・費用変更も未承認。詳細は[最新整理](RELEASE_CANDIDATE_STATUS_2026-10-31.md)を参照 | 画像・日程・参加者/秘匿情報等の不足操作、長時間・本番相当試験、開発AWS反映後の認証済み操作と性能再測定 / Codex |
+| Q03 | リリース候補SHAのCI・固定依存関係・本番DB検証が成功する | main deddd772と未統合PR46〜52を区別。854固定headはCI12成功、全体2417/129省略、PG690/361 subtests・省略0、UI243/system14、通常配布物PG58件・570ファイル一致。d664/a85のコピー内4移行と技能238行比較・後片付けが実AWSで成功。15:44の元RDS18.3/Web55/readiness200はmetadata確認。共有履歴の再取得ではない。[最新整理](RELEASE_CANDIDATE_STATUS_2026-10-31.md)を参照 | 統合候補の最終CI/配布物、mainと稼働版の統一、適用直前の再照合、共有0065〜0068適用・全スキーマ/実データ監査、本番相当の移行/復旧は未完了 / Codex、人間承認 |
+| Q04 | 情報保護の重大な既知欠陥がなく、セキュリティ指摘に判定がある | 854/f77通常配布物は実111 Python package監査0件/省略0。OS52指摘（C2/H9/M6/L35）・未除外exit2は不合格。明示Origin/Host、readiness本文保護/検査競合の修正は候補で検証済みだがmain/共有Web未反映。限定したnative調査を全依存の適用除外へ広げない。詳細は[最新整理](RELEASE_CANDIDATE_STATUS_2026-10-31.md)を参照 | OS/nativeの残指摘、Twisted正式版を含む統合候補の検証・反映、全動的表示・配送・権限経路の監査と実環境検証を継続 / Codex、人間 |
+| O01 | 本番設定・秘密情報・監視・問い合わせ配送が正しく構成され実証される | 14:16 JSTの対象clusterサービス一覧はWeb1件、定義55/running1/readiness200。常設worker/beatサービスは見つからない。d664の実worker/beat/Redis/PG/隔離SMTP12項目は成功したが、実AWSの常設処理/IAM/ネットワーク/SMTP認証TLS・問い合わせ配送・監視通知は未証明。詳細は[最新整理](RELEASE_CANDIDATE_STATUS_2026-10-31.md)を参照 | 一時AWS通信試験は成功・削除済み。継続運用/夜間停止・監視・問い合わせ配送と課金メール実効設定を別途実証 / Codex、人間承認 |
+| O02 | DBと画像のバックアップを復元し、合意RPO/RTOと整合性を満たす | 10月30日の非公開RDS限定復元は終了0、一時資源削除・元snapshot保持。追加のd664合成PG復元は94表（非空23）/641行/90シーケンス/全11ファイル一致、APIClient権限76件と失敗検出4条件成功。実RDS/S3の世代/実規模/時点整合やRPO24h/RTO4hではない。詳細は[最新整理](RELEASE_CANDIDATE_STATUS_2026-10-31.md)を参照 | 実S3の世代選択とDB整合、アプリ切り替え、主要操作、RPO24時間/RTO4時間を含むサービス全体の復旧は未証明。snapshotは11月6日08:12 JST以降に必要性を見直す / Codex、人間承認 |
+| O03 | リリース候補の移行・ロールバックが本番相当で実証される | 承認済みd664/a85・予算案2 USDによる[実AWSコピー内4移行](RDS_MIGRATION_REHEARSAL_RESULT_2026-10-31.md)が成功。技能190/48行、TLS/再接続RO、計画空/履歴整合、task exit0と専用資源cleanupを確認。課金行0、元snapshotは10月30日取得。最新共有SQL計画は同日21:29の記録。共有適用/全writer停止/直前backup/実環境切替は未実施。 | 全writer停止・新しい直前backup・直前データ/対象imageの差分再照合、統合候補による共有適用と実環境反映、DB/S3切戻しを実証。旧版へ戻して過去の脆弱性を再導入しない / Codex、人間承認 |
 | O04 | 料金・事業者表示・保存方針・問い合わせ・公開時期・費用上限が確定する | 無料範囲・画像5枚共通は承認済み。9月12日に[個人事業者・請求開示方式](INDIVIDUAL_SELLER_POLICY_2026-09-12.md)、support@tableno.jp、月額480円/年額4,800円（税込）、解約期限・返金条件を確定し、画面と4種類の設定例へ反映。変更はmainへマージ済みだが、現行AWSの公開表示・実運用の最終照合は未完了 | 実情報の非公開保管、開示窓口の受信/返信、保存期間・背景透過保持条件・税務対応・公開時期・費用上限等の残る判断と実運用を確認 / 人間、反映はCodex |
 
 

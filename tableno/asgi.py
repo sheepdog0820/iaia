@@ -17,9 +17,11 @@ from django.core.asgi import get_asgi_application
 
 import schedules.routing
 
+from .websocket_security import ConfiguredOriginValidator
+
 application = ProtocolTypeRouter(
     {
         "http": get_asgi_application(),
-        "websocket": AuthMiddlewareStack(URLRouter(schedules.routing.websocket_urlpatterns)),
+        "websocket": ConfiguredOriginValidator(AuthMiddlewareStack(URLRouter(schedules.routing.websocket_urlpatterns))),
     }
 )

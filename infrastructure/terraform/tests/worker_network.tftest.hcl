@@ -222,3 +222,14 @@ run "without_redis" {
     error_message = "Disabled Redis must not leave enabled web state settings or Celery URLs."
   }
 }
+
+run "explicit_application_hosts" {
+  command = plan
+  assert {
+    condition = alltrue([
+      for host in split(",", one([for item in local.app_base_environment : item.value if item.name == "ALLOWED_HOSTS"])) :
+      trimspace(host) != "" && trimspace(host) != "*"
+    ])
+    error_message = "Application hosts must be explicit; a global wildcard cannot be deployed with the guarded production settings."
+  }
+}

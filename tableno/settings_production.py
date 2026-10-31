@@ -77,6 +77,9 @@ if not ENVIRONMENT:
 # セキュリティ設定
 DEBUG = False
 ALLOWED_HOSTS = _split_env_list(_require_env("ALLOWED_HOSTS"))
+if not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS:
+    raise RuntimeError("ALLOWED_HOSTS must contain explicit hosts without a global wildcard")
+USE_X_FORWARDED_HOST = False
 CSRF_TRUSTED_ORIGINS = _split_env_list(_require_env("CSRF_TRUSTED_ORIGINS"))
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
@@ -501,11 +504,14 @@ if "SENTRY_DSN" in os.environ:
     )
 
 # WhiteNoise設定（S3非利用時のみ）
+MIDDLEWARE = list(MIDDLEWARE)
 if not USE_S3_STORAGE:
     MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
     WHITENOISE_AUTOREFRESH = False
     WHITENOISE_USE_FINDERS = False
     WHITENOISE_COMPRESS_OFFLINE = True
+
+MIDDLEWARE.insert(0, "tableno.host_boundary.ProductionHostMiddleware")
 
 # Django Compressor設定（CSSとJSの圧縮）
 if "compressor" not in INSTALLED_APPS:
