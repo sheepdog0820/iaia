@@ -76,9 +76,9 @@
     "os_inventory_matches_main54": true,
     "known_os_findings_unresolved": 52,
     "shared_0069_applied_by_this_work": false,
-    "shared_0069_current_state_verified": false,
+    "shared_0069_current_state_verified": true,
     "aws_app_deployed_by_this_work": false,
-    "new_source_sql_inspection_executed": false,
+    "new_source_sql_inspection_executed": true,
     "full_25_criteria_complete": false
   },
   "historical_records_scope": "The remaining legacy runtime_source/runtime_image/candidate_ci and fixture proofs describe fixed earlier candidates, not the deployed image or the current candidate. The deployed_artifact_metadata/cloud_read_only fields retain their own observation times.",
@@ -558,5 +558,81 @@
     "revision_label": "cbf52dc5c2ecfcef6fb5f5484ae4537d74470675",
     "full_git_source_equality_verified": false,
     "full_deployed_package_audit_verified": false
+  },
+  "latest_shared_database_readonly": {
+    "result_document": "F02_READONLY_RESULT_2026-10-31.md",
+    "review_sha256": "9ef07b23b16aa3960db9825c67e1775064bd957c578d21ef62b64454b90e2442",
+    "actual_local_proof_sha256": "0ebed5f4ecaa2085f6fafae55d8e0526ff529a59361c71e1858fbdc08bcbc48b",
+    "source_commit": "c00a76dff0bcc8ca5f641e52cdd7be84311f1991",
+    "image_config_digest": "sha256:d68eaa1ce1f0399eddc60192b7dfeabc76332fec6d14d8f2bee7282657a6c3fb",
+    "ecr_response_digest": "sha256:360c851fc864e78b238e42080b01a5642407bacedf0758da651e29dc61324be3",
+    "task_requested_at": "2026-10-31T13:54:40.845155+00:00",
+    "terminal_observed_at": "2026-10-31T13:55:59.621986+00:00",
+    "independent_recheck_at": "2026-10-31T13:56:46.917177+00:00",
+    "read_only": true,
+    "tls": true,
+    "server_major": 18,
+    "pending_plan": [
+      {
+        "app": "accounts",
+        "backwards": false,
+        "name": "0065_stripe_billing_requests"
+      },
+      {
+        "app": "accounts",
+        "backwards": false,
+        "name": "0066_stripe_invoice_states"
+      },
+      {
+        "app": "accounts",
+        "backwards": false,
+        "name": "0067_billing_email_delivery"
+      },
+      {
+        "app": "accounts",
+        "backwards": false,
+        "name": "0068_merge_skill_bonus_into_other"
+      },
+      {
+        "app": "accounts",
+        "backwards": false,
+        "name": "0069_group_ownership_transfer"
+      }
+    ],
+    "duplicate_applied_rows": 1,
+    "unknown_applied_migration_count": 0,
+    "other_database_connections": {
+      "active": 0,
+      "idle_in_transaction": 0,
+      "state_not_visible": 0,
+      "total": 2
+    },
+    "ownership_backfill_counts": {
+      "creator_inactive": 0,
+      "creator_missing": 0,
+      "groups": 2,
+      "owner_membership_missing": 0,
+      "owner_membership_nonadmin": 0
+    },
+    "cleanup": {
+      "definition_inactive": true,
+      "dedicated_tag_removed": true,
+      "eni_absent": true,
+      "cleanup_verified": true
+    },
+    "independent_recheck": {
+      "task_stopped_exit0": true,
+      "definition_inactive": true,
+      "dedicated_tag_absent": true,
+      "eni_absent": true
+    },
+    "readiness_after": 200,
+    "existing_log_retention_days": 3,
+    "budget_proposal_usd": 1,
+    "actual_invoice_verified": false,
+    "shared_migrations_applied": false,
+    "source_web_updated": false,
+    "all_writer_freeze_proven": false,
+    "formal_release": "No-Go"
   }
 }
