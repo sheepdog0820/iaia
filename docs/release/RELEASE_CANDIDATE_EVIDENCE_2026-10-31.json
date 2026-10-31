@@ -1,0 +1,509 @@
+{
+  "schema_version": 1,
+  "formal_release": "No-Go",
+  "criteria_ids": [
+    "F01",
+    "F02",
+    "F03",
+    "F04",
+    "F05",
+    "B01",
+    "B02",
+    "B03",
+    "B04",
+    "B05",
+    "I01",
+    "I02",
+    "I03",
+    "I04",
+    "I05",
+    "I06",
+    "I07",
+    "Q01",
+    "Q02",
+    "Q03",
+    "Q04",
+    "O01",
+    "O02",
+    "O03",
+    "O04"
+  ],
+  "criteria_definition_changed": false,
+  "main": "deddd772ba24e631dd702f8f9e186dff1c419102",
+  "runtime_source": "d664bb403fee45873b14e0da8b808a2607adc638",
+  "runtime_image": "sha256:a85b0dbf62ab838e1b67465fa2c35322b2e86cf285f688d3293287a72d2f0bc0",
+  "cloud_read_only": {
+    "read_at": "2026-10-31T05:16:06.046131+00:00",
+    "rds_status": "available",
+    "rds_engine": "18.3",
+    "rds_encrypted": true,
+    "rds_public": false,
+    "services": [
+      "tableno-aws-pre"
+    ],
+    "web_definition_revision": 55,
+    "web_desired": 1,
+    "web_running": 1,
+    "web_pending": 0,
+    "web_image_digest": "sha256:6d4050ec19ba5d34740643d515436baa5dd27b99a912b9c20ad7a9af0812af06",
+    "web_cpu": "256",
+    "web_memory": "512",
+    "declared_allowed_hosts": "*",
+    "declared_csrf_trusted_origins": "https://stg.tableno.jp",
+    "declared_public_site_url": "https://stg.tableno.jp",
+    "effective_secret_overlays_read": false,
+    "readiness": "200/database-cache-ok",
+    "snapshot_private_encrypted_expected_time_kms": true,
+    "aws_mutations": 0,
+    "secret_values_read": false,
+    "business_rows_read": false,
+    "shared_db_migration_history_read_now": false
+  },
+  "candidate_ci": {
+    "head": "d664bb403fee45873b14e0da8b808a2607adc638",
+    "base": "95d0960981e26520ac3c5751f8734651c0df8c68",
+    "checks_success": 12,
+    "unit": 2413,
+    "skipped": 123,
+    "pg": 680,
+    "subtests": 339,
+    "ui": 243
+  },
+  "candidate_ci_run": "https://github.com/sheepdog0820/iaia/actions/runs/41165217870",
+  "system_passed": 14,
+  "normal_artifact": {
+    "pg_tests": 51,
+    "git_source_files_match": 569,
+    "python_packages": 111,
+    "python_findings": 0,
+    "python_skipped": 0,
+    "os_findings": 52,
+    "os_severity": {
+      "critical": 2,
+      "high": 9,
+      "medium": 6,
+      "low": 35
+    },
+    "os_unfiltered_exit": 2,
+    "os_scanned_at": "2026-10-31T03:48:31.563489+00:00"
+  },
+  "synthetic_restore": {
+    "tables": 94,
+    "nonempty_tables": 23,
+    "rows": 641,
+    "sequences": 90,
+    "file_references": 11,
+    "physical_files": 11,
+    "access_checks": 76,
+    "negative_controls": [
+      {
+        "case": "db-only-restore-missing-media",
+        "detected": true
+      },
+      {
+        "case": "corrupt-media",
+        "expected_failure": "media mismatch",
+        "detected": true
+      },
+      {
+        "case": "changed-row",
+        "expected_failure": "tables mismatch",
+        "detected": true
+      },
+      {
+        "case": "changed-sequence",
+        "expected_failure": "sequences mismatch",
+        "detected": true
+      }
+    ],
+    "rpo_rto_claim": false,
+    "all_five_trials_cleanup_verified": true
+  },
+  "image_performance": {
+    "cases": [
+      {
+        "cpu": "0.25",
+        "memory": "512m",
+        "users": 100,
+        "concurrency": 10,
+        "requests": 700,
+        "errors": [],
+        "operations": [
+          {
+            "operation": "image-upload",
+            "requests": 100,
+            "valid": 100,
+            "expected_status": 201,
+            "p50_ms": 6012.174849998701,
+            "p95_ms": 8685.369990002073,
+            "p99_ms": 9504.253990002326,
+            "max_ms": 9569.942910002283
+          },
+          {
+            "operation": "image-list",
+            "requests": 100,
+            "valid": 100,
+            "expected_status": 200,
+            "p50_ms": 1395.033090000652,
+            "p95_ms": 3385.0989700003993,
+            "p99_ms": 4484.5225700009905,
+            "max_ms": 4492.768060001254
+          },
+          {
+            "operation": "nonowner-list-denied",
+            "requests": 100,
+            "valid": 100,
+            "expected_status": 404,
+            "p50_ms": 1690.8159400009026,
+            "p95_ms": 3406.0618900002737,
+            "p99_ms": 4009.949899998901,
+            "max_ms": 5690.206829996896
+          },
+          {
+            "operation": "image-zip-download",
+            "requests": 100,
+            "valid": 100,
+            "expected_status": 200,
+            "p50_ms": 5330.073760000232,
+            "p95_ms": 7373.585999997886,
+            "p99_ms": 7984.591010001168,
+            "max_ms": 8116.738960001385
+          },
+          {
+            "operation": "nonowner-download-denied",
+            "requests": 100,
+            "valid": 100,
+            "expected_status": 404,
+            "p50_ms": 1453.7667100012186,
+            "p95_ms": 3799.173179999343,
+            "p99_ms": 5076.242489998549,
+            "max_ms": 5968.909320003149
+          },
+          {
+            "operation": "image-delete",
+            "requests": 100,
+            "valid": 100,
+            "expected_status": 204,
+            "p50_ms": 1503.9774200013198,
+            "p95_ms": 3496.6311600001063,
+            "p99_ms": 4892.382549998729,
+            "max_ms": 4996.198900000309
+          },
+          {
+            "operation": "empty-list-verify",
+            "requests": 100,
+            "valid": 100,
+            "expected_status": 200,
+            "p50_ms": 1499.068780001835,
+            "p95_ms": 2996.7408900010923,
+            "p99_ms": 4702.860360001068,
+            "max_ms": 4738.340089999838
+          }
+        ],
+        "actual_memory_swap_bytes": 1073741824,
+        "oom_killed": false,
+        "functionally_valid": true,
+        "all_p95_within_3s": false
+      },
+      {
+        "cpu": "1",
+        "memory": "2g",
+        "users": 100,
+        "concurrency": 10,
+        "requests": 700,
+        "errors": [],
+        "operations": [
+          {
+            "operation": "image-upload",
+            "requests": 100,
+            "valid": 100,
+            "expected_status": 201,
+            "p50_ms": 1483.8635900014197,
+            "p95_ms": 2144.5531799981836,
+            "p99_ms": 2168.7503200009814,
+            "max_ms": 2187.485189999279
+          },
+          {
+            "operation": "image-list",
+            "requests": 100,
+            "valid": 100,
+            "expected_status": 200,
+            "p50_ms": 354.77254999932484,
+            "p95_ms": 712.8832700000203,
+            "p99_ms": 843.2965200008766,
+            "max_ms": 1364.3701500004681
+          },
+          {
+            "operation": "nonowner-list-denied",
+            "requests": 100,
+            "valid": 100,
+            "expected_status": 404,
+            "p50_ms": 403.0375799993635,
+            "p95_ms": 799.6432399995683,
+            "p99_ms": 1143.1267099978868,
+            "max_ms": 1149.1157700002077
+          },
+          {
+            "operation": "image-zip-download",
+            "requests": 100,
+            "valid": 100,
+            "expected_status": 200,
+            "p50_ms": 1391.8942400014203,
+            "p95_ms": 2056.2741100002313,
+            "p99_ms": 2172.137659999862,
+            "max_ms": 2179.1423499998928
+          },
+          {
+            "operation": "nonowner-download-denied",
+            "requests": 100,
+            "valid": 100,
+            "expected_status": 404,
+            "p50_ms": 389.67851999768754,
+            "p95_ms": 840.6774200011569,
+            "p99_ms": 960.7486900022195,
+            "max_ms": 982.0131200031028
+          },
+          {
+            "operation": "image-delete",
+            "requests": 100,
+            "valid": 100,
+            "expected_status": 204,
+            "p50_ms": 347.6574199994502,
+            "p95_ms": 622.6138599995465,
+            "p99_ms": 842.7195699987351,
+            "max_ms": 1280.4131999982928
+          },
+          {
+            "operation": "empty-list-verify",
+            "requests": 100,
+            "valid": 100,
+            "expected_status": 200,
+            "p50_ms": 364.32285999762826,
+            "p95_ms": 769.4822299999942,
+            "p99_ms": 1147.0587700023316,
+            "max_ms": 1191.63670999842
+          }
+        ],
+        "actual_memory_swap_bytes": 4294967296,
+        "oom_killed": false,
+        "functionally_valid": true,
+        "all_p95_within_3s": true
+      }
+    ],
+    "total_requests": 1400,
+    "unexpected_errors": 0,
+    "formal_performance_gate_passed": false,
+    "all_three_trials_cleanup_verified": true
+  },
+  "worker_smtp": {
+    "checks": [
+      {
+        "check": "real_tasks_not_eager_and_default_60_second_schedule",
+        "passed": true
+      },
+      {
+        "check": "beat_worker_persists_smtp_451_as_transport_error",
+        "passed": true
+      },
+      {
+        "check": "first_worker_cleanly_stopped",
+        "passed": true
+      },
+      {
+        "check": "pending_record_unchanged_after_worker_stop",
+        "passed": true
+      },
+      {
+        "check": "automatic_retry_after_restart_without_due_time_override",
+        "passed": true
+      },
+      {
+        "check": "automatic_retry_not_before_saved_deadline",
+        "passed": true
+      },
+      {
+        "check": "distinct_workers_receive_duplicate_tasks_and_actual_pg_lock_wait_observed",
+        "passed": true
+      },
+      {
+        "check": "concurrent_workers_send_once",
+        "passed": true
+      },
+      {
+        "check": "recovered_notification_canceled_without_smtp",
+        "passed": true
+      },
+      {
+        "check": "superseded_notification_canceled_without_smtp",
+        "passed": true
+      },
+      {
+        "check": "disabled_worker_keeps_delivery_pending",
+        "passed": true
+      },
+      {
+        "check": "enabled_worker_delivers_retained_pending",
+        "passed": true
+      }
+    ],
+    "smtp_attempts": 4,
+    "smtp_rejections": 1,
+    "smtp_acceptances": 3,
+    "pg_lock_waiters_observed": 1,
+    "worker_restart_verified": true,
+    "recovered_and_superseded_canceled": true,
+    "disabled_worker_retains_pending": true,
+    "stripe_api_calls": 0,
+    "aws_management_api_calls": 0,
+    "external_recipient_delivery": false,
+    "smtp_db_exactly_once_claim": false,
+    "all_trials_cleanup_verified": true
+  },
+  "private_copy_rehearsal": {
+    "source_commit": "d664bb403fee45873b14e0da8b808a2607adc638",
+    "image_id": "sha256:a85b0dbf62ab838e1b67465fa2c35322b2e86cf285f688d3293287a72d2f0bc0",
+    "review_sha256": "844f0f13b3b012ee1dae7803e5e243f7657ca39c96e8b6f5057c5bccb607588a",
+    "guards": 36,
+    "tls_tests": 8,
+    "extra_proposed_capacity_happy_path": true,
+    "sdk_shapes": 17,
+    "approval_requested": true,
+    "approval_received": false,
+    "old_request_withdrawn": true,
+    "aws_execution_started": false,
+    "budget_proposal_usd": 2,
+    "bandit_unfiltered": {
+      "low": 135,
+      "medium": 0,
+      "high": 0,
+      "by_id": {
+        "B404": 1,
+        "B101": 128,
+        "B106": 1,
+        "B607": 1,
+        "B603": 4
+      },
+      "suppressions": 0,
+      "review": "Assertions protected by fail-closed -O guard, tested with a real subprocess. Offline dummy SDK credential and fixed shell=False Docker commands reviewed. Raw LOW findings retained."
+    }
+  },
+  "compute_cost_proposal": {
+    "read_at": "2026-10-31T04:23:22.755944+00:00",
+    "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonECS/current/ap-northeast-1/index.json",
+    "publication_date": "2026-10-19T22:43:17Z",
+    "region": "ap-northeast-1",
+    "assumed_os_arch": "Linux/x86",
+    "capacity_current": {
+      "cpu": "0.25",
+      "gib": "0.5"
+    },
+    "capacity_proposal": {
+      "cpu": "1",
+      "gib": "2"
+    },
+    "prices": {
+      "cpu": {
+        "sku": "KBQ3Q6DY9J327G8N",
+        "attributes": {
+          "servicecode": "AmazonECS",
+          "location": "Asia Pacific (Tokyo)",
+          "locationType": "AWS Region",
+          "tenancy": "Shared",
+          "usagetype": "APN1-Fargate-vCPU-Hours:perCPU",
+          "operation": "",
+          "cputype": "perCPU",
+          "regionCode": "ap-northeast-1",
+          "servicename": "Amazon Elastic Container Service"
+        },
+        "effective_date": "2026-10-01T00:00:00Z",
+        "rate_code": "KBQ3Q6DY9J327G8N.JRTCKXETXF.6YS6EN2CT7",
+        "usd": "0.0505600000",
+        "unit": "hours",
+        "description": "AWS Fargate - vCPU  - Asia Pacific (Tokyo)"
+      },
+      "memory": {
+        "sku": "JQEE6EF5FAF2AESH",
+        "attributes": {
+          "servicecode": "AmazonECS",
+          "location": "Asia Pacific (Tokyo)",
+          "locationType": "AWS Region",
+          "tenancy": "Shared",
+          "usagetype": "APN1-Fargate-GB-Hours",
+          "operation": "",
+          "memorytype": "perGB",
+          "regionCode": "ap-northeast-1",
+          "servicename": "Amazon Elastic Container Service"
+        },
+        "effective_date": "2026-10-01T00:00:00Z",
+        "rate_code": "JQEE6EF5FAF2AESH.JRTCKXETXF.6YS6EN2CT7",
+        "usd": "0.0055300000",
+        "unit": "hours",
+        "description": "AWS Fargate - Memory  - Asia Pacific (Tokyo)"
+      }
+    },
+    "comparisons": [
+      {
+        "assumed_hours_in_30_days": 540,
+        "current_usd": "8.318700000000",
+        "proposal_usd": "33.2748000000",
+        "increase_usd": "24.956100000000"
+      },
+      {
+        "assumed_hours_in_30_days": 720,
+        "current_usd": "11.091600000000",
+        "proposal_usd": "44.3664000000",
+        "increase_usd": "33.274800000000"
+      }
+    ],
+    "excludes": [
+      "tax",
+      "discounts/Savings Plans",
+      "RDS",
+      "ALB",
+      "S3",
+      "logs",
+      "IPv4",
+      "transfer",
+      "extra tasks during deployment",
+      "other services"
+    ],
+    "cost_change_authorized": false
+  },
+  "limits": [
+    "All25 release criteria remain incomplete as whole-flow requirements",
+    "No new main merge or AWS mutation",
+    "No sharedDB migration or real Stripe/external recipient operation",
+    "Current AWS metadata is not a fresh sharedDB migration history",
+    "Local synthetic tests do not prove real AWS/S3/inbox/OAuth or global SLO/RPO/RTO",
+    "No new product code in this documentation change"
+  ],
+  "local_proof_sha256": {
+    "pr49-runtime-update-d664bb40.json": "c3eb34f5efaa76525ecaa4ae111845da6182a5bc3bb750d6e77064bccd6f72b4",
+    "pr49-ci-evidence-d664bb40.json": "14caa649366371221f370b1734ab7b27ad2f8a7af979a5b714e0a03458797a0a",
+    "restore-d664bb40-20261031-proof.json": "95e31f5ddbd69324523e97151e750417ad13f2650c2e73c0ffd205a22586a27c",
+    "image-performance-d664bb40-20261031-proof.json": "166ca8c5312b064b985be0888fd4a9b382a35cd273bf48d502a4f7e8c735cd76",
+    "billing-worker-d664bb40-20261031-proof.json": "22f34bc5547f420997e0050356d767c16e4aab6f4865104b647c463c6a49b939",
+    "migration-rehearsal-d664bb40-20261031/operations.review.json": "844f0f13b3b012ee1dae7803e5e243f7657ca39c96e8b6f5057c5bccb607588a",
+    "migration-rehearsal-d664bb40-20261031/validation-proof.json": "fc4da8b7dfe35d653ae9a0e5eb38aad10bb0e9614dc9d67d0dde4790bf760ba2",
+    "original-worktree/tmp/deployed-runtime-version-proof-20261031.json": "aadb2d2c5beb0d05c739b708cacf73f43d1ae2fd6bcd10604001441c0ec607d0",
+    "original-worktree/tmp/deployed-pyasn1-metadata-20261031.json": "4bfb44f695387870a0885997c3cbc76f015a48303cee9bf49f29adf4ca616364"
+  },
+  "deployed_artifact_metadata": {
+    "registry_digest": "sha256:6d4050ec19ba5d34740643d515436baa5dd27b99a912b9c20ad7a9af0812af06",
+    "cached_config_digest": "sha256:5fbbce2bc942772e87cc3e83c31bb6ee72b8b1afc11db1734ecd249ce0b6d19b",
+    "metadata_verified_at": "2026-10-30T23:36:40.292483+00:00",
+    "same_digest_confirmed_at": "2026-10-31T05:16:06.046131+00:00",
+    "packages": {
+      "Django": "5.2.17",
+      "Twisted": "26.4.0",
+      "stripe": "15.5.1",
+      "autobahn": "26.7.1",
+      "pyasn1": "0.6.4",
+      "pyasn1-modules": "0.4.2",
+      "google-auth": "2.57.0"
+    },
+    "revision_label": "cbf52dc5c2ecfcef6fb5f5484ae4537d74470675",
+    "full_git_source_equality_verified": false,
+    "full_deployed_package_audit_verified": false
+  }
+}
