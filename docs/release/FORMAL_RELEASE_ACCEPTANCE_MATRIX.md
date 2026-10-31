@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-31）
 
+追加の実通信検証で、PR #45の固定imageが許可外Originと合成の有効セッションによる通知受信を許すことを確認した。[WebSocketのOrigin制限](WEBSOCKET_ORIGIN_VALIDATION_2026-10-31.md)を修正・検証中で、同PRの旧headへのマージ確認はいったん取り下げた。CI成功だけでこの経路の安全性を証明したとは扱わず、修正版を含む統合headを確認対象とする。実データ/AWSへのアクセスや、既存の実データの修復は行っていない。
+
 正式公開は **No-Go**。mainは`deddd772`のまま。08:43 JST、同じ依存を含むPR #42のPR/push両CIが`pyasn1 0.6.4`の新たな4指摘で失敗したため、旧[統合候補PR #41](https://github.com/sheepdog0820/iaia/pull/41)の過去の成功だけで現在もマージ準備完了とは扱わない。[pyasn1修正](PYASN1_SECURITY_2026-10-31.md)とグループ管理の2修正、稼働版・native調査文書を加えた[更新統合候補](RELEASE_GROUP_SECURITY_INTEGRATION_2026-10-31.md)を別ブランチで検証する。既存PRのheadと既存の承認対象は変更せず、追加範囲を含む最終版について承認を確認する。
 
 旧候補PR #41のhead `a78d15bf20cf4ac0fe6e050e72484fb7ef69fb4e`はPR #38/#39/#40の内容を13ファイルでまとめ、隔離PG140件・85 subtests/省略0、通常配布物内PG54件、HTTP/WebSocket/Redis、実インストール111 packageの依存監査0件を当時確認した。[当時のCI全12チェック](https://github.com/sheepdog0820/iaia/actions/runs/41062625803)も成功（全体2,379成功・123省略、PG606成功・239 subtests/省略0、Playwright243成功）。これらは固定headの履歴であり、新しい監査情報を反映した現時点の合格ではない。

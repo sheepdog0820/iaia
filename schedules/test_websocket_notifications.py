@@ -29,7 +29,11 @@ class NotificationWebSocketTestCase(TransactionTestCase):
 
     def test_anonymous_connection_is_rejected(self):
         async def scenario():
-            communicator = WebsocketCommunicator(application, "/ws/notifications/")
+            communicator = WebsocketCommunicator(
+                application,
+                "/ws/notifications/",
+                headers=[(b"origin", b"https://localhost")],
+            )
             connected, _ = await communicator.connect()
             self.assertFalse(connected)
 
@@ -56,6 +60,7 @@ class NotificationWebSocketTestCase(TransactionTestCase):
                 application,
                 "/ws/notifications/",
                 headers=[
+                    (b"origin", b"https://localhost"),
                     (
                         b"cookie",
                         f"{settings.SESSION_COOKIE_NAME}={session_cookie}".encode(),
@@ -79,3 +84,48 @@ class NotificationWebSocketTestCase(TransactionTestCase):
             await communicator.disconnect()
 
         async_to_sync(scenario)()
+
+    def test_authenticated_connection_rejects_untrusted_or_missing_origin(self):
+        client = Client()
+        client.force_login(self.user)
+        cookie = f"{settings.SESSION_COOKIE_NAME}={client.cookies[settings.SESSION_COOKIE_NAME].value}".encode()
+
+        async def scenario(origin):
+            headers = [(b"cookie", cookie)]
+            if origin is not None:
+                headers.append((b"origin", origin))
+            communicator = WebsocketCommunicator(application, "/ws/notifications/", headers=headers)
+            try:
+                connected, _ = await communicator.connect()
+                self.assertFalse(connected)
+            finally:
+                await communicator.disconnect()
+
+        for origin in (
+            None,
+            b"null",
+            b"not-an-origin",
+            b"https://untrusted.example.invalid",
+            b"https://localhost.attacker.invalid",
+        ):
+            with self.subTest(origin=origin):
+                async_to_sync(scenario)(origin)
+
+    def test_authenticated_connection_accepts_allowed_origin_with_port(self):
+        client = Client()
+        client.force_login(self.user)
+        cookie = f"{settings.SESSION_COOKIE_NAME}={client.cookies[settings.SESSION_COOKIE_NAME].value}".encode()
+
+        async def scenario(origin):
+            communicator = WebsocketCommunicator(
+                application, "/ws/notifications/", headers=[(b"cookie", cookie), (b"origin", origin)]
+            )
+            try:
+                connected, _ = await communicator.connect()
+                self.assertTrue(connected)
+            finally:
+                await communicator.disconnect()
+
+        for origin in (b"http://LOCALHOST:8000", b"https://localhost:443"):
+            with self.subTest(origin=origin):
+                async_to_sync(scenario)(origin)
