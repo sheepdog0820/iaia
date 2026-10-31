@@ -44,8 +44,8 @@ def health_ready_view(request):
         try:
             checker()
             checks[name] = "ok"
-        except Exception as exc:  # noqa: BLE001
-            checks[name] = f"error: {exc}"
+        except Exception:  # noqa: BLE001
+            checks[name] = "error"
             errors.append(name)
 
     is_ready = not errors

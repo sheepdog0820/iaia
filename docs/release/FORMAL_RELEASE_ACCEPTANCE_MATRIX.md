@@ -2,6 +2,8 @@
 
 ## 現在の公開判断（2026-10-31）
 
+追加点検で、公開readinessがDB/cacheの例外本文を返す実装を見つけ、[固定した失敗応答へ変更](HEALTH_READINESS_PRIVACY_2026-10-31.md)した。合成例外による再現と、関連SQLite/PG各20件・28 subtests/省略0を確認した。稼働AWSでの秘密値漏えいの観測ではなく、AWSへの反映も行っていない。PR #46の承認対象headを変えず、別のDraft候補で固定配布物とCIを検証する。
+
 追加の実通信検証で、PR #45の固定imageが許可外Originと合成の有効セッションによる通知受信を許すことを確認し、旧headへのマージ確認を取り下げた。[WebSocketのOrigin制限](WEBSOCKET_ORIGIN_VALIDATION_2026-10-31.md)をPR #46で修正する。10:08/10:15 JSTのECS定義55の読み取りではHTTPの`ALLOWED_HOSTS=*`が宣言されていたため、初期修正のHTTP HostによるOrigin判定も最終候補として扱わず、既存の明示的なCSRF/公開URLだけでOriginを許可する方針へ補正した。Secretsを含む実効設定は未取得である。最終関連PG86件・29 subtestsは成功し、固定配布物と最終CIは別途検証する。AWSへの書き込み、業務行の取得や実データ修復は行っていない。
 
 正式公開は **No-Go**。mainは`deddd772`のまま。08:43 JST、同じ依存を含むPR #42のPR/push両CIが`pyasn1 0.6.4`の新たな4指摘で失敗したため、旧[統合候補PR #41](https://github.com/sheepdog0820/iaia/pull/41)の過去の成功だけで現在もマージ準備完了とは扱わない。[pyasn1修正](PYASN1_SECURITY_2026-10-31.md)とグループ管理の2修正、稼働版・native調査文書を加えた[更新統合候補](RELEASE_GROUP_SECURITY_INTEGRATION_2026-10-31.md)を別ブランチで検証する。既存PRのheadと既存の承認対象は変更せず、追加範囲を含む最終版について承認を確認する。
