@@ -18,6 +18,14 @@ WebSocketのブラウザクライアントは`window.location.host`へ接続し�
 
 Black/isort/Flake8/Bandit、UTF-8/LF、PG CIの対象、実装差分と既存ブラウザの接続方式を自己レビューした。この修正範囲の未解決の実装指摘はない。新たな利用者向け文言はない。固定commitからの通常配布物の再構築、同じOrigin拒否を含む実通信、最終CIの結果は候補PRへ追記する。修正前imageの成功や、Origin検証を含まない旧試験の成功は、この修正の証明として使わない。
 
+## 固定配布物とCIの月末fixture補正
+
+Origin修正のcommit `c75542ab`から通常image `b9c8a1f2`を構築した。HTTP readiness200/DB-cache ok、匿名403、不正Origin403、認証済みRedis/msgpack通知、別利用者への非配送、切断に成功し、配布物内の技能/グループ/認証/WebSocket関連187件も成功した。Git由来564ファイルとentrypoint一致、UID10001/root read-only・pip/pytestなし・製品source上書きなし、実111 package監査0件を確認。OS101 packageの一覧は旧候補と一致し、同じimageのScout1.29は52指摘（C2/H9/M6/L35）・未除外exit2で不合格。専用ローカル資源は09:45 JSTに削除・absenceを確認した。
+
+同commitのCIでは、システム試験のカレンダーfixtureが1件失敗した。UTCで当月を問い合わせる一方、UTC月末19時に生成したセッションは日本時間では翌月になるため、正しく日本時間の月境界で絞るAPIには対象がなかった。固定したUTC時刻でも旧fixtureの失敗を再現し、fixtureを日本時間で作成して、その保存した時刻の月を問い合わせる形に修正した。UTC月末の日本時間の同日と、UTCでは月末/日本時間では翌月になる2条件を固定し、返る月とイベントのタイトル集合を明示的に検証する。期待値を空や任意の1件へ弱めず、製品APIは変更していない。
+
+補正後のシステム試験は14件成功・省略0件。カレンダーの予定取得も同じ固定時計に従い、試験後は時計とタイムゾーンを復元する。これはテスト/文書だけの後続commitで、Origin修正や依存・モデル/移行には差分がない。最終headのCI・通常配布物の結果はPRで区別して追記する。ローカルの再現は`tmp/calendar-system-month-end-red-20261031.log`、成功は`tmp/calendar-system-month-end-green-20261031.log`と`tmp/calendar-system-month-boundaries-green-20261031.log`、CI失敗の生ログもGit管理外に保持する。
+
 ## 候補・承認・復旧
 
 旧PR #45の`5f82dba5`へのマージ確認は、追加検証の失敗を受けて取り下げた。旧headと成功/失敗記録は保持し、修正を含む新しい統合headの検証が揃ってから対象を提示する。旧対象への回答を新しいheadの承認へ流用しない。mainマージ・共有DB適用/実データ修復・AWS反映・費用/権限変更・実Stripe・外部通知・正式公開は行っていない。

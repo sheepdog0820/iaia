@@ -4,10 +4,12 @@
 """
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
+from datetime import timezone as datetime_timezone
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -361,11 +363,18 @@ class HandoutManagementTestCase(APITestCase):
         # self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
+@override_settings(TIME_ZONE="Asia/Tokyo")
 class CalendarIntegrationTestCase(APITestCase):
     """カレンダー統合機能のテスト"""
 
+    fixture_now = datetime(2026, 10, 31, 0, 30, tzinfo=datetime_timezone.utc)
+    expected_month = "2026-10"
+    expected_event_titles = ("Calendar Test Session 1",)
+
     def setUp(self):
         """テストデータのセットアップ"""
+        self.enterContext(timezone.override("Asia/Tokyo"))
+        self.enterContext(patch("django.utils.timezone.now", return_value=self.fixture_now))
         self.client = APIClient()
 
         self.user = User.objects.create_user(
@@ -377,11 +386,11 @@ class CalendarIntegrationTestCase(APITestCase):
         GroupMembership.objects.create(user=self.user, group=self.group, role="admin")
 
         # 複数の日程のセッションを作成
-        base_date = timezone.now().replace(hour=19, minute=0, second=0, microsecond=0)
+        self.calendar_start = timezone.localtime().replace(hour=19, minute=0, second=0, microsecond=0)
         for i in range(7):
             TRPGSession.objects.create(
                 title=f"Calendar Test Session {i+1}",
-                date=base_date + timedelta(days=i),
+                date=self.calendar_start + timedelta(days=i),
                 gm=self.user,
                 group=self.group,
                 duration_minutes=180,
@@ -392,18 +401,20 @@ class CalendarIntegrationTestCase(APITestCase):
         self.client.force_authenticate(user=self.user)
 
         # 月表示のカレンダーデータ取得
-        current_month = timezone.now().strftime("%Y-%m")
-        response = self.client.get("/api/schedules/calendar/", {"month": current_month})
+        month = self.calendar_start.strftime("%Y-%m")
+        self.assertEqual(month, self.expected_month)
+        response = self.client.get("/api/schedules/calendar/", {"month": month})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # カレンダーデータの構造確認
         data = response.data
         self.assertIn("events", data)
         self.assertIn("month", data)
+        self.assertEqual(data["month"], month)
 
         # セッションがイベントとして含まれていることを確認
         events = data["events"]
-        self.assertTrue(len(events) > 0)
+        self.assertEqual(tuple(event["title"] for event in events), self.expected_event_titles)
 
         # イベントデータの構造確認
         for event in events:
@@ -427,6 +438,14 @@ class CalendarIntegrationTestCase(APITestCase):
             self.assertIn("title", session)
             self.assertIn("date", session)
             self.assertIn("status", session)
+
+
+class CalendarLocalMonthRolloverTestCase(CalendarIntegrationTestCase):
+    """UTCでは月末、日本時間では翌月の先頭になる条件も確認する。"""
+
+    fixture_now = datetime(2026, 10, 31, 18, 30, tzinfo=datetime_timezone.utc)
+    expected_month = "2026-11"
+    expected_event_titles = tuple(f"Calendar Test Session {index}" for index in range(1, 8))
 
 
 if __name__ == "__main__":
