@@ -380,14 +380,17 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
         context["character_sheet"] = self._get_character_sheet(require_owner=self._requires_owner())
         return context
 
+    def _lock_character_sheet_for_write(self):
+        character = self._get_character_sheet(require_owner=True)
+        # Every image writer shares the registry lock, even when there are no
+        # image rows. Reload ownership and edition data after acquiring it.
+        self._character_sheet = get_object_or_404(CharacterSheet.objects.select_for_update(), pk=character.pk)
+        return self._get_character_sheet(require_owner=True)
+
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         """画像のアップロード"""
-        character = self._get_character_sheet(require_owner=True)
-        # Serialize the limit check and save for this character, including when
-        # there are no image rows yet. Recheck ownership after acquiring the lock.
-        self._character_sheet = get_object_or_404(CharacterSheet.objects.select_for_update(), pk=character.pk)
-        character = self._get_character_sheet(require_owner=True)
+        character = self._lock_character_sheet_for_write()
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -404,6 +407,11 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
 
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        self._lock_character_sheet_for_write()
+        return super().update(request, *args, **kwargs)
+
     def list(self, request, *args, **kwargs):
         """画像一覧の取得"""
         queryset = self.get_queryset()
@@ -417,8 +425,10 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
         character = self._get_character_sheet(require_owner=False)
         return build_character_images_zip_response(character)
 
+    @transaction.atomic
     def destroy(self, request, *args, **kwargs):
         """画像の削除"""
+        self._lock_character_sheet_for_write()
         instance = self.get_object()
         character = instance.character_sheet
 
@@ -440,9 +450,10 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["patch"], url_path="reorder")
+    @transaction.atomic
     def reorder(self, request, **kwargs):
         """画像の並び順変更"""
-        character = self._get_character_sheet(require_owner=True)
+        character = self._lock_character_sheet_for_write()
 
         order_data = request.data.get("order", [])
 
@@ -464,9 +475,10 @@ class CharacterImageViewSet(viewsets.ModelViewSet):
         return Response({"count": images.count(), "results": serializer.data})
 
     @action(detail=True, methods=["patch"], url_path="set-main")
+    @transaction.atomic
     def set_main(self, request, pk=None, **kwargs):
         """メイン画像の設定"""
-        character = self._get_character_sheet(require_owner=True)
+        character = self._lock_character_sheet_for_write()
 
         image = get_object_or_404(character.system_data.images.model, pk=pk, character_sheet=character.system_data)
 
