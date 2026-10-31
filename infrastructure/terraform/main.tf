@@ -732,7 +732,7 @@ resource "aws_ecs_task_definition" "worker" {
     name        = "worker"
     image       = var.container_image
     essential   = true
-    command     = ["celery", "-A", "tableno", "worker", "--loglevel=info"]
+    command     = ["celery", "-A", "tableno", "worker", "--loglevel=info", "--concurrency=${var.worker_concurrency}"]
     environment = local.app_container_environment
     secrets     = local.app_container_secrets
     logConfiguration = {

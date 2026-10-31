@@ -2,6 +2,33 @@
 mock_provider "aws" {}
 mock_provider "random" {}
 
+# Resolve only fixture endpoints so the real container JSON is known at plan.
+override_resource {
+  target          = aws_db_instance.main
+  override_during = plan
+  values          = { address = "db.example.invalid" }
+}
+
+override_resource {
+  target          = aws_s3_bucket.assets
+  override_during = plan
+  values          = { id = "offline-fixture-assets" }
+}
+
+override_resource {
+  target          = aws_cloudfront_distribution.assets
+  override_during = plan
+  values          = { domain_name = "cdn.example.invalid" }
+}
+
+override_resource {
+  target          = aws_secretsmanager_secret.app
+  override_during = plan
+  values = {
+    arn = "arn:aws:secretsmanager:ap-northeast-1:000000000000:secret:offline/app-fixture"
+  }
+}
+
 override_resource {
   target          = aws_lb_listener.https
   override_during = plan
@@ -58,6 +85,54 @@ variables {
   container_image       = "000000000000.dkr.ecr.ap-northeast-1.amazonaws.com/tableno:validation"
   enable_worker_service = true
   enable_beat_service   = true
+}
+
+run "worker_concurrency_is_bounded_by_configuration" {
+  command = plan
+  assert {
+    condition = jsondecode(aws_ecs_task_definition.worker.container_definitions)[0].command == [
+      "celery", "-A", "tableno", "worker", "--loglevel=info", "--concurrency=2"
+    ]
+    error_message = "A small Fargate worker must not infer its pool size from the host CPU count."
+  }
+}
+
+run "worker_concurrency_can_be_overridden_without_resizing" {
+  command = plan
+  variables {
+    worker_concurrency = 3
+  }
+  assert {
+    condition = (
+      contains(jsondecode(aws_ecs_task_definition.worker.container_definitions)[0].command, "--concurrency=3") &&
+      aws_ecs_task_definition.worker.cpu == "512" && aws_ecs_task_definition.worker.memory == "1024"
+    )
+    error_message = "Set only the requested pool size; keep the existing worker CPU and memory."
+  }
+}
+
+run "worker_concurrency_rejects_auto_zero" {
+  command = plan
+  variables {
+    worker_concurrency = 0
+  }
+  expect_failures = [var.worker_concurrency]
+}
+
+run "worker_concurrency_rejects_negative" {
+  command = plan
+  variables {
+    worker_concurrency = -1
+  }
+  expect_failures = [var.worker_concurrency]
+}
+
+run "worker_concurrency_rejects_fraction" {
+  command = plan
+  variables {
+    worker_concurrency = 1.5
+  }
+  expect_failures = [var.worker_concurrency]
 }
 
 run "background_services_follow_database_hours" {
