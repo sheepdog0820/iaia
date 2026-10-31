@@ -121,7 +121,7 @@ def can_review_session_claim(user, session) -> bool:
 def can_review_group_claim(user, group) -> bool:
     if not user or not getattr(user, "is_authenticated", False):
         return False
-    if group.created_by_id == user.id:
+    if group.owner_id == user.id:
         return True
     return GroupMembership.objects.filter(group=group, user=user, role="admin").exists()
 

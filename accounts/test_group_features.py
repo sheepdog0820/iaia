@@ -404,7 +404,7 @@ class GroupLeaveSafetyTestCase(APITestCase):
         self.client.force_authenticate(user=self.owner)
         response = self.client.post(f"/api/accounts/groups/{self.group.id}/leave/", format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data["error"], "グループ作成者は退出できません。")
+        self.assertEqual(response.data["error"], "グループ所有者は退出できません。先に所有権を移譲してください。")
         self.assertTrue(GroupMembership.objects.filter(group=self.group, user=self.owner).exists())
 
     def test_member_can_leave(self):

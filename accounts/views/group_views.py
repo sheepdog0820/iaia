@@ -5,7 +5,7 @@ Group management views
 from collections.abc import Mapping
 from datetime import timedelta
 
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.db.models import Q
 from django.urls import reverse
 from django.utils.cache import add_never_cache_headers
@@ -13,6 +13,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.cache import never_cache
 
+from accounts import group_ownership
 from schedules.models import ParticipantClaimRequest, ParticipantIdentity
 from schedules.notifications import GroupNotificationService
 from schedules.participant_claims import (
@@ -102,7 +103,11 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
     def get_queryset(self):
         """Get groups accessible to current user"""
         # 参加中のグループ + 公開グループ（重複除去）
-        return Group.objects.filter(Q(members=self.request.user) | Q(visibility="public")).distinct()
+        return (
+            Group.objects.filter(Q(members=self.request.user) | Q(visibility="public"))
+            .select_related("owner", "created_by")
+            .distinct()
+        )
 
     def get_object(self):
         """Override to add permission checks"""
@@ -129,6 +134,97 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
         group = serializer.save(created_by=self.request.user)
         # Create admin membership
         GroupMembership.objects.create(user=self.request.user, group=group, role="admin")
+
+    def _locked_admin_group(self, group_id):
+        group = get_object_or_404(Group.objects.select_for_update(), pk=group_id)
+        if not _is_group_admin(group, self.request.user):
+            raise PermissionDenied("この操作には現在の管理者権限が必要です。")
+        return group
+
+    @transaction.atomic
+    def perform_update(self, serializer):
+        # Refresh every read-only field too: a stale serializer must not restore
+        # its old owner while saving an unrelated group-name PATCH.
+        serializer.instance = self._locked_admin_group(serializer.instance.pk)
+        serializer.save()
+
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        self._locked_admin_group(instance.pk).delete()
+
+    @staticmethod
+    def _transfer_data(transfer):
+        if transfer is None:
+            return None
+        return {
+            "id": transfer.pk,
+            "requested_by": transfer.requested_by_id,
+            "target": transfer.target_id,
+            "target_name": transfer.target.nickname or transfer.target.username,
+            "created_at": transfer.created_at,
+            "expires_at": transfer.expires_at,
+            "expired": transfer.expires_at <= timezone.now(),
+        }
+
+    def _ownership_action(self, request, operation):
+        group = self.get_object()
+        if not isinstance(request.data, Mapping):
+            return Response({"error": "入力内容はオブジェクト形式で指定してください。"}, status=400)
+        key = "target_user_id" if operation == "start" else "request_id"
+        identifier = _parse_group_member_id(request.data.get(key))
+        if identifier is None or identifier > 9223372036854775807:
+            return Response({"error": "対象のIDは正の整数で指定してください。"}, status=400)
+        try:
+            if operation == "start":
+                transfer = group_ownership.start_transfer(group.pk, request.user, identifier)
+                return Response({"transfer": self._transfer_data(transfer)}, status=201)
+            if operation == "accept":
+                updated = group_ownership.accept_transfer(group.pk, request.user, identifier)
+                return Response({"success": True, "group": self.get_serializer(updated).data})
+            operation_function = {
+                "cancel": group_ownership.cancel_transfer,
+                "decline": group_ownership.decline_transfer,
+            }[operation]
+            operation_function(group.pk, request.user, identifier)
+            return Response({"success": True})
+        except group_ownership.OwnershipTransferError as exc:
+            return Response({"error": str(exc), "code": exc.code}, status=exc.status)
+        except DatabaseError:
+            return Response(
+                {"error": "所有権の処理を完了できませんでした。状態を確認してから再試行してください。"}, status=503
+            )
+
+    @action(detail=True, methods=["get", "post"], url_path="ownership-transfer")
+    def ownership_transfer(self, request, pk=None):
+        if request.method == "POST":
+            return self._ownership_action(request, "start")
+        group = self.get_object()
+        try:
+            transfer = group_ownership.pending_transfer(group.pk, request.user)
+            return Response(
+                {
+                    "transfer": self._transfer_data(transfer),
+                    "candidates": group_ownership.transfer_candidates(group.pk, request.user),
+                }
+            )
+        except group_ownership.OwnershipTransferError as exc:
+            return Response({"error": str(exc), "code": exc.code}, status=exc.status)
+        except DatabaseError:
+            return Response(
+                {"error": "所有権の申請を取得できませんでした。時間をおいて再試行してください。"}, status=503
+            )
+
+    @action(detail=True, methods=["post"], url_path="ownership-transfer/accept")
+    def ownership_accept(self, request, pk=None):
+        return self._ownership_action(request, "accept")
+
+    @action(detail=True, methods=["post"], url_path="ownership-transfer/cancel")
+    def ownership_cancel(self, request, pk=None):
+        return self._ownership_action(request, "cancel")
+
+    @action(detail=True, methods=["post"], url_path="ownership-transfer/decline")
+    def ownership_decline(self, request, pk=None):
+        return self._ownership_action(request, "decline")
 
     @action(detail=False, methods=["get"])
     def public(self, request):
@@ -546,17 +642,18 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
             return Response({"error": "ユーザーが見つかりません"}, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def leave(self, request, pk=None):
         """Leave group"""
         group = self.get_object()
+        group = get_object_or_404(Group.objects.select_for_update(), pk=group.pk)
 
         try:
             membership = GroupMembership.objects.get(user=request.user, group=group)
 
-            # 作成者が退出するとグループが管理不能になりやすいので禁止
-            if request.user == group.created_by:
+            if request.user.pk == group.owner_id:
                 return Response(
-                    {"error": "グループ作成者は退出できません。"},
+                    {"error": "グループ所有者は退出できません。先に所有権を移譲してください。"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -575,9 +672,11 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
             return Response({"error": "メンバーではありません"}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def set_member_role(self, request, pk=None):
         """Set member role (admin only)"""
         group = self.get_object()
+        group = self._locked_admin_group(group.pk)
 
         if not isinstance(request.data, Mapping):
             return Response(
@@ -601,9 +700,8 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
         except GroupMembership.DoesNotExist:
             return Response({"error": "メンバーが見つかりません"}, status=status.HTTP_404_NOT_FOUND)
 
-        # 作成者は常に管理者（安全対策）
-        if membership.user == group.created_by and role != "admin":
-            return Response({"error": "グループ作成者の管理者権限は解除できません"}, status=status.HTTP_400_BAD_REQUEST)
+        if membership.user_id == group.owner_id and role != "admin":
+            return Response({"error": "グループ所有者の管理者権限は解除できません"}, status=status.HTTP_400_BAD_REQUEST)
 
         if membership.role == role:
             return Response({"success": True, "message": "変更はありません"}, status=status.HTTP_200_OK)
@@ -620,9 +718,11 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
         return Response({"success": True, "message": "メンバー権限を更新しました"}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["delete"])
+    @transaction.atomic
     def remove_member(self, request, pk=None):
         """Remove member from group (admin only)"""
         group = self.get_object()
+        group = self._locked_admin_group(group.pk)
 
         if not isinstance(request.data, Mapping):
             return Response(
@@ -644,9 +744,8 @@ class GroupViewSet(GroupAccessMixin, ErrorHandlerMixin, PermissionMixin, viewset
                 return Response({"error": "ユーザー指定が必要です"}, status=status.HTTP_400_BAD_REQUEST)
             membership = GroupMembership.objects.get(user=user, group=group)
 
-            # Cannot remove group creator
-            if user == group.created_by:
-                return Response({"error": "グループ作成者は除名できません"}, status=status.HTTP_400_BAD_REQUEST)
+            if user.pk == group.owner_id:
+                return Response({"error": "グループ所有者は除名できません"}, status=status.HTTP_400_BAD_REQUEST)
 
             membership.delete()
             return Response({"success": True}, status=status.HTTP_200_OK)

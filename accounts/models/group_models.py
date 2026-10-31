@@ -9,7 +9,11 @@ from datetime import timedelta
 
 from cryptography.fernet import Fernet
 from django.conf import settings
-from django.db import models
+from django.core.exceptions import ValidationError
+from django.db import models, transaction
+from django.db.models.deletion import ProtectedError
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 from django.utils import timezone
 
 from .base_models import TimestampedModel
@@ -28,7 +32,20 @@ class Group(TimestampedModel):
     description = models.TextField(blank=True)
     visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default="private")
     members = models.ManyToManyField(CustomUser, through="GroupMembership")
-    created_by = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="created_groups")
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        related_name="created_groups",
+        null=True,
+        blank=True,
+        verbose_name="作成者",
+    )
+    owner = models.ForeignKey(CustomUser, on_delete=models.PROTECT, related_name="owned_groups", verbose_name="所有者")
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and self.owner_id is None:
+            self.owner_id = self.created_by_id
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
@@ -137,6 +154,9 @@ class GroupLinkShare(models.Model):
 class GroupMembership(models.Model):
     """Group membership model with role management"""
 
+    OWNER_ROLE_ERROR = "所有者の管理者権限は解除できません。先に所有権を移譲してください。"
+    OWNER_IDENTITY_ERROR = "所有者のメンバー情報は付け替えできません。先に所有権を移譲してください。"
+
     ROLE_CHOICES = [
         ("admin", "Admin"),
         ("member", "Member"),
@@ -150,8 +170,101 @@ class GroupMembership(models.Model):
     class Meta:
         unique_together = ("user", "group")
 
+    def clean(self):
+        super().clean()
+        if self.pk:
+            previous = type(self).objects.select_related("group").filter(pk=self.pk).first()
+            if previous is not None:
+                self._validate_owner_identity(previous, previous.group)
+        owner_id = Group.objects.filter(pk=self.group_id).values_list("owner_id", flat=True).first()
+        if owner_id is not None and owner_id == self.user_id:
+            if self._state.adding:
+                self.role = "admin"
+            elif self.role != "admin":
+                raise ValidationError({"role": self.OWNER_ROLE_ERROR})
+
+    def _validate_owner_identity(self, previous, group):
+        if group.owner_id == previous.user_id and (
+            self.user_id != previous.user_id or self.group_id != previous.group_id
+        ):
+            raise ValidationError(self.OWNER_IDENTITY_ERROR)
+
+    def save(self, *args, **kwargs):
+        using = kwargs.get("using") or self._state.db or "default"
+        with transaction.atomic(using=using):
+            previous_group_id = (
+                type(self).objects.using(using).filter(pk=self.pk).values_list("group_id", flat=True).first()
+                if self.pk
+                else None
+            )
+            group_ids = {self.group_id, previous_group_id} - {None}
+            groups = {
+                group.pk: group
+                for group in Group.objects.using(using).select_for_update().filter(pk__in=group_ids).order_by("pk")
+            }
+            if self.group_id not in groups:
+                raise Group.DoesNotExist
+            previous = (
+                type(self).objects.using(using).select_for_update().filter(pk=self.pk).first() if self.pk else None
+            )
+            if previous is not None:
+                if previous.group_id not in groups:
+                    raise ValidationError("所属先が変わりました。画面を再読み込みしてください。")
+                self._validate_owner_identity(previous, groups[previous.group_id])
+            group = groups[self.group_id]
+            if group.owner_id == self.user_id:
+                if self._state.adding:
+                    self.role = "admin"
+                elif self.role != "admin":
+                    raise ValidationError(self.OWNER_ROLE_ERROR)
+            return super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.user.nickname} in {self.group.name} ({self.role})"
+
+
+@receiver(pre_delete, sender=GroupMembership)
+def protect_group_owner_membership(sender, instance, using, origin=None, **kwargs):
+    # Explicit group deletion remains available to the existing group admins.
+    if isinstance(origin, Group) or getattr(origin, "model", None) is Group:
+        return
+    with transaction.atomic(using=using):
+        original = sender.objects.using(using).filter(pk=instance.pk).values("group_id", "user_id").first()
+        if original is None:
+            return
+        group = Group.objects.using(using).select_for_update().filter(pk=original["group_id"]).first()
+        current = (
+            sender.objects.using(using).select_for_update().filter(pk=instance.pk).values("group_id", "user_id").first()
+        )
+        if current is None:
+            return
+        if current["group_id"] != original["group_id"]:
+            raise ProtectedError("所属先が変わったため削除を中止しました。画面を再読み込みしてください。", {instance})
+        # Deleted inline forms can contain edited user/group fields even when
+        # Django ignores their model-validation errors. Protect the stored row.
+        if group is not None and group.owner_id == current["user_id"]:
+            raise ProtectedError("所有者は退出・除名できません。先に所有権を移譲してください。", {instance})
+
+
+class GroupOwnershipTransfer(TimestampedModel):
+    """One pending consent request; completed/cancelled requests are removed."""
+
+    group = models.OneToOneField(Group, on_delete=models.CASCADE, related_name="ownership_transfer")
+    requested_by = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, related_name="sent_group_ownership_transfers"
+    )
+    target = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="received_group_ownership_transfers")
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(requested_by=models.F("target")), name="group_ownership_users_must_differ"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(expires_at__gt=models.F("created_at")), name="group_ownership_expiry_after_creation"
+            ),
+        ]
 
 
 class GroupInvitation(models.Model):

@@ -5,6 +5,8 @@ from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
+from django.db.models.deletion import ProtectedError
+from django.forms.models import BaseInlineFormSet
 from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
@@ -17,7 +19,11 @@ from accounts.billing import (
     premium_access_code_metadata,
 )
 from accounts.billing_admin_forms import PremiumSubscriptionAdminForm, validate_subscription_revision
-from accounts.billing_deletion import BillingDeletionBlocked, delete_account_after_billing_check
+from accounts.billing_deletion import (
+    BillingDeletionBlocked,
+    GroupOwnershipDeletionBlocked,
+    delete_account_after_billing_check,
+)
 
 from .character_models import (
     CharacterEquipment6th,
@@ -449,6 +455,19 @@ class CustomUserAdmin(UserAdmin):
 
     @transaction.atomic
     def delete_queryset(self, request, queryset):
+        user_ids = list(queryset.values_list("pk", flat=True))
+        group_ids = list(
+            Group.objects.filter(
+                models.Q(owner_id__in=user_ids)
+                | models.Q(created_by_id__in=user_ids)
+                | models.Q(groupmembership__user_id__in=user_ids)
+            )
+            .values_list("pk", flat=True)
+            .distinct()
+        )
+        list(Group.objects.select_for_update().filter(pk__in=group_ids).order_by("pk"))
+        if Group.objects.filter(owner_id__in=user_ids).exists():
+            raise GroupOwnershipDeletionBlocked("所有者を含むため削除できません。先に所有権を移譲してください。")
         for user in queryset.order_by("pk"):
             delete_account_after_billing_check(user)
 
@@ -1074,21 +1093,118 @@ class PremiumAuditLogAdmin(admin.ModelAdmin):
         return summary[:120] + ("..." if len(summary) > 120 else "")
 
 
+class GroupMembershipInlineFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        current_owner = Group.objects.filter(pk=self.instance.pk).values_list("owner_id", flat=True).first()
+        owner_id = current_owner or self.instance.owner_id or self.instance.created_by_id
+        for form in self.forms:
+            if (
+                form.cleaned_data.get("DELETE")
+                and GroupMembership.objects.filter(
+                    pk=form.instance.pk, group_id=self.instance.pk, user_id=owner_id
+                ).exists()
+            ):
+                raise ValidationError("所有者のメンバー情報は削除できません。先に所有権を移譲してください。")
+
+
 class GroupMembershipInline(admin.TabularInline):
     model = GroupMembership
+    formset = GroupMembershipInlineFormSet
     extra = 1
 
 
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
-    list_display = ("name", "created_by", "created_at")
+    list_display = ("name", "owner", "created_by", "created_at")
     list_filter = ("created_at",)
     search_fields = ("name", "description")
     inlines = [GroupMembershipInline]
 
+    def get_deleted_objects(self, objs, request):
+        # Permission preview for an explicitly selected parent-group deletion.
+        # Standalone membership deletion never receives this server-only context.
+        groups = list(objs)
+        previous = getattr(request, "_iaia_explicit_group_deletion", None)
+        request._iaia_explicit_group_deletion = {group.pk for group in groups}
+        try:
+            return super().get_deleted_objects(groups, request)
+        finally:
+            if previous is None:
+                del request._iaia_explicit_group_deletion
+            else:
+                request._iaia_explicit_group_deletion = previous
+
+    def get_readonly_fields(self, request, obj=None):
+        return ("owner", "created_by") if obj is not None else ("owner",)
+
+    @transaction.atomic
+    def save_model(self, request, obj, form, change):
+        if change:
+            current = Group.objects.select_for_update().get(pk=obj.pk)
+            obj.owner_id, obj.created_by_id = current.owner_id, current.created_by_id
+        elif obj.created_by_id is None:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        GroupMembership.objects.update_or_create(
+            group=form.instance, user_id=form.instance.owner_id, defaults={"role": "admin"}
+        )
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        try:
+            return super().change_view(request, object_id, form_url, extra_context)
+        except (ValidationError, ProtectedError):
+            self.message_user(
+                request,
+                "所有者の所属・権限の保護により保存を中止しました。画面を再読み込みしてください。",
+                level=messages.ERROR,
+            )
+            return HttpResponseRedirect(request.path)
+
 
 @admin.register(GroupMembership)
 class GroupMembershipAdmin(admin.ModelAdmin):
+    def has_delete_permission(self, request, obj=None):
+        explicit_groups = getattr(request, "_iaia_explicit_group_deletion", set())
+        if obj is not None and obj.group.owner_id == obj.user_id and obj.group_id not in explicit_groups:
+            return False
+        return super().has_delete_permission(request, obj)
+
+    def delete_view(self, request, object_id, extra_context=None):
+        try:
+            return super().delete_view(request, object_id, extra_context)
+        except ProtectedError:
+            self.message_user(
+                request,
+                "所有者の保護または所属の変更により削除を中止しました。画面を再読み込みしてください。",
+                level=messages.ERROR,
+            )
+            return HttpResponseRedirect(reverse("admin:accounts_groupmembership_changelist"))
+
+    def changelist_view(self, request, extra_context=None):
+        try:
+            with transaction.atomic():
+                return super().changelist_view(request, extra_context)
+        except ProtectedError:
+            self.message_user(
+                request,
+                "所有者の保護または所属の変更により削除を中止しました。画面を再読み込みしてください。",
+                level=messages.ERROR,
+            )
+            return HttpResponseRedirect(request.path)
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        try:
+            return super().change_view(request, object_id, form_url, extra_context)
+        except ValidationError:
+            self.message_user(
+                request, "所有者の所属・権限は変更できません。画面を再読み込みしてください。", level=messages.ERROR
+            )
+            return HttpResponseRedirect(request.path)
+
     list_display = ("user", "group", "role", "joined_at")
     list_filter = ("role", "joined_at")
     search_fields = ("user__username", "group__name")

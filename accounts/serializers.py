@@ -185,7 +185,8 @@ class GroupSerializer(serializers.ModelSerializer):
     member_count = serializers.SerializerMethodField()
     session_count = serializers.SerializerMethodField()
     total_play_hours = serializers.SerializerMethodField()
-    created_by_name = serializers.CharField(source="created_by.nickname", read_only=True)
+    created_by_name = serializers.SerializerMethodField()
+    owner_name = serializers.SerializerMethodField()
     is_member = serializers.SerializerMethodField()
     member_role = serializers.SerializerMethodField()
 
@@ -198,6 +199,8 @@ class GroupSerializer(serializers.ModelSerializer):
             "visibility",
             "created_by",
             "created_by_name",
+            "owner",
+            "owner_name",
             "created_at",
             "members_detail",
             "member_count",
@@ -206,7 +209,15 @@ class GroupSerializer(serializers.ModelSerializer):
             "is_member",
             "member_role",
         ]
-        read_only_fields = ["id", "created_by", "created_at"]
+        read_only_fields = ["id", "created_by", "owner", "created_at"]
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_created_by_name(self, obj):
+        return obj.created_by.nickname if obj.created_by_id else "退会済みユーザー"
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_owner_name(self, obj):
+        return obj.owner.nickname or obj.owner.username
 
     @extend_schema_field(OpenApiTypes.INT)
     def get_member_count(self, obj):

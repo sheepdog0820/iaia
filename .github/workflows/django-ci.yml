@@ -251,6 +251,8 @@ jobs:
             accounts/test_google_grant_concurrency.py accounts/test_google_identity_concurrency.py \
             accounts/test_group_invite_concurrency.py accounts/test_group_member_input_validation.py \
             accounts/test_group_creation_atomicity.py accounts/test_oauth_atomicity.py \
+            accounts/test_group_ownership_transfer.py accounts/test_group_ownership_api.py \
+            accounts/test_group_ownership_concurrency.py accounts/test_billing_deletion_guard.py \
             schedules/test_claim_concurrency.py schedules/test_reward_concurrency.py \
             schedules/test_session_rewards.py \
             schedules/test_websocket_notifications.py \
@@ -275,6 +277,8 @@ jobs:
             tests/integration/test_stripe_client_transport.py tests/unit/test_stripe_client_isolation.py \
             tests/integration/test_session_statistics_contract.py \
             tests/integration/test_release_database_preflight.py \
+            tests/integration/test_group_ownership_migration.py \
+            tests/integration/test_skill_command_future_ownership_plan.py \
             tests/integration/test_verified_skill_migration.py -q
 
   playwright:

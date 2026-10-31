@@ -85,7 +85,7 @@ from .template_services import bind_slot_handouts_to_participant, clone_scenario
 
 def _visible_sessions_for(user):
     group_ids = GroupMembership.objects.filter(user=user).values_list("group_id", flat=True)
-    owned_group_ids = Group.objects.filter(created_by=user).values_list("id", flat=True)
+    owned_group_ids = Group.objects.filter(owner=user).values_list("id", flat=True)
     participant_session_ids = SessionParticipant.objects.filter(user=user).values_list("session_id", flat=True)
     shared_session_ids = (
         GroupLinkShare.objects.filter(
@@ -375,8 +375,8 @@ def _session_permission_scope_payload(session):
 
     group_admin_ids = set()
     if session.group_id:
-        if session.group.created_by_id:
-            group_admin_ids.add(session.group.created_by_id)
+        if session.group.owner_id:
+            group_admin_ids.add(session.group.owner_id)
         group_admin_ids.update(
             GroupMembership.objects.filter(group=session.group, role="admin").values_list("user_id", flat=True)
         )

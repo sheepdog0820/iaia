@@ -66,7 +66,7 @@ class Command(BaseCommand):
         with transaction.atomic():
             if group.created_by_id != owner.id:
                 stats["groups_updated"] += 1
-                self.stdout.write(f"group owner: {group.name} -> {owner.username}")
+                self.stdout.write(f"グループ作成者の履歴: {group.name} -> {owner.username}")
                 if not options["dry_run"]:
                     group.created_by = owner
                     group.save(update_fields=["created_by"])

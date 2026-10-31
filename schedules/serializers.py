@@ -606,8 +606,8 @@ class TRPGSessionSerializer(serializers.ModelSerializer):
         user = getattr(request, "user", None)
         if "group" in attrs and user and attrs["group"] is not None:
             group = attrs["group"]
-            if group.created_by_id != user.id and not group.members.filter(id=user.id).exists():
-                raise serializers.ValidationError({"group": "You must belong to the selected group."})
+            if group.owner_id != user.id and not group.members.filter(id=user.id).exists():
+                raise serializers.ValidationError({"group": "選択したグループに参加している必要があります。"})
         if "scenario" in attrs:
             scenario = attrs.get("scenario")
             if user and scenario is not None and not can_view_scenario(user, scenario):
@@ -1205,7 +1205,7 @@ class SessionSeriesCreateSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         user = getattr(request, "user", None)
         if group and user and user.is_authenticated:
-            if not (group.created_by_id == user.id or group.members.filter(id=user.id).exists()):
+            if not (group.owner_id == user.id or group.members.filter(id=user.id).exists()):
                 raise serializers.ValidationError({"group": "このグループでシリーズを作成する権限がありません"})
 
         return attrs
@@ -1381,7 +1381,7 @@ class DatePollSerializer(serializers.ModelSerializer):
         user = getattr(self.context.get("request"), "user", None)
         if not user or not user.is_authenticated:
             raise serializers.ValidationError("このグループで日程調整を編集する権限がありません")
-        if group.created_by_id != user.id and not group.members.filter(id=user.id).exists():
+        if group.owner_id != user.id and not group.members.filter(id=user.id).exists():
             raise serializers.ValidationError("このグループで日程調整を編集する権限がありません")
         if self.instance and self.instance.session_id and self.instance.session.group_id != group.pk:
             raise serializers.ValidationError("セッションと日程調整のグループが一致しません")
@@ -1439,7 +1439,7 @@ class DatePollCreateSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         user = getattr(request, "user", None)
         if group and user and user.is_authenticated:
-            if not (group.created_by_id == user.id or group.members.filter(id=user.id).exists()):
+            if not (group.owner_id == user.id or group.members.filter(id=user.id).exists()):
                 raise serializers.ValidationError({"group": "このグループで日程調整を作成する権限がありません"})
 
         if session:

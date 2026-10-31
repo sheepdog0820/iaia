@@ -33,6 +33,7 @@ from .group_models import (
     GroupLink,
     GroupLinkShare,
     GroupMembership,
+    GroupOwnershipTransfer,
 )
 from .share_models import ShareLink
 
@@ -76,6 +77,7 @@ __all__ = [
     "PremiumAuditLog",
     "Group",
     "GroupMembership",
+    "GroupOwnershipTransfer",
     "GroupInvitation",
     "GroupInviteLink",
     "GroupDiscordSettings",

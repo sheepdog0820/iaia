@@ -1,14 +1,35 @@
 import io
 import json
+from contextlib import contextmanager
 from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import OperationalError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
+from django.db.migrations.loader import MigrationLoader
 from django.db.migrations.recorder import MigrationRecorder
+from psycopg import sql
 
 from tests.integration import test_skill_other_points_migration as fixtures
+
+
+@contextmanager
+def historical_0068_inventory():
+    """Exercise the existing tool's frozen pre-ownership artifact contract.
+
+    The real new 0069 graph is intentionally refused by the unchanged command.
+    Separate tests below prove that refusal without this inventory fixture;
+    ownership migration tests apply the real 0069 with nonempty synthetic data.
+    """
+    original = MigrationLoader.load_disk
+
+    def load_disk(loader):
+        original(loader)
+        loader.disk_migrations.pop(("accounts", "0069_group_ownership_transfer"), None)
+
+    with patch.object(MigrationLoader, "load_disk", load_disk):
+        yield
 
 
 class VerifiedSkillMigrationTests(fixtures.SkillOtherPointsMigrationTests):
@@ -25,7 +46,8 @@ class VerifiedSkillMigrationTests(fixtures.SkillOtherPointsMigrationTests):
         }
         options.update(overrides)
         output = io.StringIO()
-        call_command("apply_verified_skill_adjustments", stdout=output, **options)
+        with historical_0068_inventory():
+            call_command("apply_verified_skill_adjustments", stdout=output, **options)
         return json.loads(output.getvalue())
 
     def current_rows(self):
@@ -174,7 +196,10 @@ class VerifiedSkillMigrationTests(fixtures.SkillOtherPointsMigrationTests):
             raise RuntimeError("private-signed-url-and-user-data")
 
         output = io.StringIO()
-        with patch.object(MigrationExecutor, "migrate", autospec=True, side_effect=fail_after_migration):
+        with (
+            historical_0068_inventory(),
+            patch.object(MigrationExecutor, "migrate", autospec=True, side_effect=fail_after_migration),
+        ):
             with self.assertRaisesMessage(CommandError, "検証付き移行に失敗") as caught:
                 call_command(
                     "apply_verified_skill_adjustments",
@@ -270,7 +295,8 @@ class VerifiedBillingPrerequisiteMigrationTests(fixtures.SkillOtherPointsMigrati
         if not options["include_billing_prerequisites"]:
             options.pop("include_billing_prerequisites")
         output = io.StringIO()
-        call_command("apply_verified_skill_adjustments", stdout=output, **options)
+        with historical_0068_inventory():
+            call_command("apply_verified_skill_adjustments", stdout=output, **options)
         return json.loads(output.getvalue())
 
     def current_rows(self):
@@ -317,7 +343,7 @@ class VerifiedBillingPrerequisiteMigrationTests(fixtures.SkillOtherPointsMigrati
         self.assert_batch_applied()
         with connection.cursor() as cursor:
             for table in self.new_tables:
-                cursor.execute(f'SELECT COUNT(*) FROM "{table}"')
+                cursor.execute(sql.SQL("SELECT COUNT(*) FROM {}").format(sql.Identifier(table)))
                 self.assertEqual(cursor.fetchone()[0], 0)
 
     def test_default_mode_still_rejects_billing_prerequisites_without_changing_anything(self):

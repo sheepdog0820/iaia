@@ -1,6 +1,12 @@
+from django.contrib.auth import get_user_model
 from django.db import transaction
 
 from accounts.billing import get_or_create_subscription_record, get_stripe, stripe_object_get, stripe_reference_id
+from accounts.group_ownership import (
+    OwnershipTransferError,
+    lock_account_deletion_groups,
+    verify_account_deletion_groups,
+)
 from accounts.models import PremiumSubscription, StripeBillingRequest
 
 ENDED = {"canceled", "incomplete_expired"}
@@ -9,6 +15,10 @@ UNCONFIRMED = "購入状態を確認できないため削除を中止しまし�
 
 
 class BillingDeletionBlocked(ValueError):
+    pass
+
+
+class GroupOwnershipDeletionBlocked(BillingDeletionBlocked):
     pass
 
 
@@ -52,10 +62,21 @@ def check_subscription(stripe, subscription_id, customer_id):
 
 @transaction.atomic
 def delete_account_after_billing_check(user):
+    try:
+        locked_groups = lock_account_deletion_groups(user.pk)
+    except OwnershipTransferError as exc:
+        raise GroupOwnershipDeletionBlocked(str(exc)) from None
     # Use the same row as Checkout creation, including accounts with no billing
     # history. Keep it locked through deletion so a waiting purchase cannot write.
     record = get_or_create_subscription_record(user)
     record = PremiumSubscription.objects.select_for_update().get(pk=record.pk)
+    current_user = get_user_model().objects.select_for_update().filter(pk=user.pk).first()
+    if current_user is None:
+        raise BillingDeletionBlocked(UNCONFIRMED)
+    try:
+        verify_account_deletion_groups(user.pk, locked_groups)
+    except OwnershipTransferError as exc:
+        raise GroupOwnershipDeletionBlocked(str(exc)) from None
     if record.subscription_status not in ENDED and (
         record.stripe_subscription_id
         or (record.stripe_customer_id and record.subscription_status in record.ACTIVE_STATUSES)

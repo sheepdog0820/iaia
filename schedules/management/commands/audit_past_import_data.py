@@ -30,8 +30,9 @@ class Command(BaseCommand):
         scenarios = Scenario.objects.filter(id__in=scenario_ids).select_related("created_by")
 
         issues = []
-        if group.created_by.username != expected_username:
-            issues.append(f"group owner mismatch: group={group.name} created_by={group.created_by.username}")
+        creator_name = group.created_by.username if group.created_by else "退会済みユーザー"
+        if creator_name != expected_username:
+            issues.append(f"グループ作成者の不一致: group={group.name} created_by={creator_name}")
         if not GroupMembership.objects.filter(group=group, user__username=expected_username, role="admin").exists():
             issues.append(f"group admin membership missing: user={expected_username}")
 
@@ -70,7 +71,7 @@ class Command(BaseCommand):
             SessionParticipant.objects.filter(
                 session_id__in=session_ids,
                 user__isnull=False,
-                role="player",
+                participant_roles__role=SessionParticipantRole.Role.PLAYER,
                 character_sheet__isnull=True,
             )
             .select_related("session", "session__scenario", "user")

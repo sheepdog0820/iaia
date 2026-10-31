@@ -89,9 +89,9 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING("中止しました。"))
                 return
 
-        # Delete groups first so we do not leave orphaned Group.created_by references in DBs
-        # where FK constraints/cascades are not enforced.
-        Group.objects.filter(created_by__username__in=seed_usernames).delete()
+        # Delete only groups currently owned by these reset accounts. A group
+        # transferred away survives its former creator's account deletion.
+        Group.objects.filter(owner__username__in=seed_usernames).delete()
 
         deleted_count, _ = User.objects.filter(username__in=seed_usernames).delete()
         self.stdout.write(self.style.SUCCESS(f"削除: {deleted_count} 件"))
@@ -188,13 +188,9 @@ class Command(BaseCommand):
 
         # Ensure group memberships exist (create_session_test_data should create them, but keep safe).
         for group in Group.objects.all():
-            # Ensure creator is at least a member.
-            try:
-                created_by = group.created_by
-            except User.DoesNotExist:
-                continue
-            if not GroupMembership.objects.filter(group=group, user=created_by).exists():
-                GroupMembership.objects.create(user=created_by, group=group, role="admin")
+            # Creator is history; never rejoin a former owner after transfer.
+            if not GroupMembership.objects.filter(group=group, user_id=group.owner_id).exists():
+                GroupMembership.objects.create(user_id=group.owner_id, group=group, role="admin")
 
         sessions = list(
             TRPGSession.objects.select_related("gm", "group").prefetch_related("sessionparticipant_set__user")
