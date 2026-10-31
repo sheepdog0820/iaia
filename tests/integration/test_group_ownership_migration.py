@@ -1,5 +1,6 @@
 """Data-bearing ownership initialization and guarded reversal on isolated PG."""
 
+import re
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -74,6 +75,21 @@ class GroupOwnershipMigrationTests(TransactionTestCase):
         self.assertEqual(owner.joined_at, old_owner.joined_at)
         self.assertEqual(member.role, "member")
         self.assertEqual(member.joined_at, old_member.joined_at)
+
+    def test_initialization_reads_only_group_identifiers(self):
+        selected = []
+
+        def inspect_group_select(execute, statement, params, many, context):
+            if statement.lstrip().upper().startswith("SELECT"):
+                selected.extend(re.findall(r'"accounts_group"\."([^"]+)"', statement))
+            return execute(statement, params, many, context)
+
+        with connection.execute_wrapper(inspect_group_select):
+            MigrationExecutor(connection).migrate(self.new)
+        self.assertLessEqual(set(selected), {"id", "created_by_id"})
+        group = Group.objects.get(pk=self.group_id)
+        self.assertEqual(group.owner_id, self.creator_id)
+        self.assertEqual(group.description, "保存対象の説明")
 
     def test_reversal_when_owner_equals_creator_and_no_request_preserves_roles_and_reapplies(self):
         self.forward()
