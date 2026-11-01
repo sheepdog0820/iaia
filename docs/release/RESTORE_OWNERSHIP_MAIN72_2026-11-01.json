@@ -1,0 +1,289 @@
+{
+  "recorded_at_utc": "2026-11-01T03:21:08.138515+00:00",
+  "result": "PASS_LOCAL_SYNTHETIC_ONLY",
+  "main": "72ad82999739747ba16cf6ad8fda84a0a8bee3fa",
+  "tree": "26a59c5dc82ec5d8abec8e48a0da80b686e3f5bd",
+  "image_revision": "dac04381efe03341055c4ffac2472792af2e15ac",
+  "image_id": "sha256:ddb493e310c75d7b93b1f9312b87e00d99d1801e12b1784c13ba640fbda9fb8f",
+  "postgres_image_id": "sha256:fbaa243599038521bbda8f6fa286d2a8fc1236509606f22de81d0739b0610ba7",
+  "postgres_version": "postgres (PostgreSQL) 18.3 (Debian 18.3-1.pgdg13+1)",
+  "started_at_utc": "2026-11-01T03:19:26.363595+00:00",
+  "completed_at_utc": "2026-11-01T03:20:25.319586+00:00",
+  "restore_comparison": {
+    "mode": "verify",
+    "tables": 95,
+    "rows": 664,
+    "sequences": 91,
+    "constraints": 1149,
+    "file_fields": 11,
+    "references": 11,
+    "media": 11,
+    "result": "pass"
+  },
+  "ownership_restore": {
+    "result": "pass",
+    "checks": 19,
+    "cases": [
+      {
+        "case": "pending-visible-to-owner",
+        "status": 200
+      },
+      {
+        "case": "pending-visible-to-target",
+        "status": 200
+      },
+      {
+        "case": "pending-hidden-from-admin",
+        "status": 200
+      },
+      {
+        "case": "admin-cannot-accept",
+        "status": 404
+      },
+      {
+        "case": "owner-cannot-self-accept",
+        "status": 404
+      },
+      {
+        "case": "target-cannot-cancel",
+        "status": 403
+      },
+      {
+        "case": "expired-request-rejected",
+        "status": 410
+      },
+      {
+        "case": "restored-request-accept",
+        "status": 200
+      },
+      {
+        "case": "restored-request-decline",
+        "status": 200
+      },
+      {
+        "case": "restored-request-cancel",
+        "status": 200
+      },
+      {
+        "case": "accepted-owner-cannot-leave",
+        "status": 400
+      },
+      {
+        "case": "accepted-former-creator-can-leave",
+        "status": 200
+      },
+      {
+        "case": "former-creator-deletion-keeps-group",
+        "pass": true
+      },
+      {
+        "case": "owner-membership-protected",
+        "pass": true
+      },
+      {
+        "case": "owner-not-null",
+        "rejected_by_database": true
+      },
+      {
+        "case": "transfer-users-differ",
+        "rejected_by_database": true
+      },
+      {
+        "case": "transfer-expiry-after-creation",
+        "rejected_by_database": true
+      },
+      {
+        "case": "one-pending-per-group",
+        "rejected_by_database": true
+      },
+      {
+        "case": "transfer-target-fk",
+        "rejected_by_database": true
+      }
+    ],
+    "synthetic_only": true,
+    "production_code_unchanged": true,
+    "http_tls_tested": false
+  },
+  "media_access": {
+    "checks": 76,
+    "all_expected_statuses_matched": true,
+    "sequence_insert_continues": true,
+    "api_client": true,
+    "real_http_or_tls": false
+  },
+  "negative_controls": {
+    "missing_media_detected_before_restore": true,
+    "additional_cases": [
+      {
+        "case": "corrupt-media",
+        "expected_failure": "media mismatch",
+        "detected": true
+      },
+      {
+        "case": "changed-row",
+        "expected_failure": "tables mismatch",
+        "detected": true
+      },
+      {
+        "case": "changed-group-owner",
+        "expected_failure": "tables mismatch",
+        "detected": true
+      },
+      {
+        "case": "missing-pending-transfer",
+        "expected_failure": "tables mismatch",
+        "detected": true
+      },
+      {
+        "case": "changed-sequence",
+        "expected_failure": "sequences mismatch",
+        "detected": true
+      }
+    ]
+  },
+  "steps": [
+    {
+      "step": "create-network",
+      "exit": 0,
+      "seconds": 0.14
+    },
+    {
+      "step": "start-pg",
+      "exit": 0,
+      "seconds": 0.578
+    },
+    {
+      "step": "pg-version",
+      "exit": 0,
+      "seconds": 0.172
+    },
+    {
+      "step": "create-drill_source",
+      "exit": 0,
+      "seconds": 0.218
+    },
+    {
+      "step": "create-drill_restored",
+      "exit": 0,
+      "seconds": 0.187
+    },
+    {
+      "step": "migrate-source",
+      "exit": 0,
+      "seconds": 20.516
+    },
+    {
+      "step": "seed",
+      "exit": 0,
+      "seconds": 3.0
+    },
+    {
+      "step": "dump",
+      "exit": 0,
+      "seconds": 0.343
+    },
+    {
+      "step": "media-backup",
+      "exit": 0,
+      "seconds": 0.25
+    },
+    {
+      "step": "restore-db",
+      "exit": 0,
+      "seconds": 0.516
+    },
+    {
+      "step": "detect-missing-media",
+      "exit": 1,
+      "seconds": 2.703
+    },
+    {
+      "step": "restore-media-bytes",
+      "exit": 0,
+      "seconds": 0.032,
+      "files": 11
+    },
+    {
+      "step": "verify-restored",
+      "exit": 0,
+      "seconds": 2.922
+    },
+    {
+      "step": "detect-corruption",
+      "exit": 0,
+      "seconds": 4.75
+    },
+    {
+      "step": "migration-check",
+      "exit": 0,
+      "seconds": 2.984
+    },
+    {
+      "step": "django-check",
+      "exit": 0,
+      "seconds": 2.922
+    },
+    {
+      "step": "verify-ownership",
+      "exit": 0,
+      "seconds": 7.797
+    },
+    {
+      "step": "verify-access",
+      "exit": 0,
+      "seconds": 4.515
+    },
+    {
+      "step": "cleanup-c895dee90324",
+      "exit": 0,
+      "seconds": 0.391
+    },
+    {
+      "step": "cleanup-network",
+      "exit": 0,
+      "seconds": 0.266
+    }
+  ],
+  "cleanup": {
+    "containers_absent": true,
+    "internal_network_absent": true,
+    "synthetic_env_files_absent": true,
+    "cleanup_at_utc": "2026-11-01T03:20:26.542602+00:00"
+  },
+  "artifact_sha256": {
+    "run.py": "6688c547682c23d50519fb28e559c0f77314ff8148e6799049adfb2a7b8e80a2",
+    "drill_probe.py": "f986bdd37d917ec09da0a70e02e2af072e6f754f99650b1c79481d223e3d297b",
+    "drill_settings.py": "ea8155b96514db15eb318b2ec6d9a31af47a46603052c008e2c44ce55f5f4820",
+    "database.dump": "9118826893949f3e63285f1a170f0cce669044b17d81c0db5f2e910c35da9fb6",
+    "media.tar.gz": "a4716d1d989ad3feb18b79ae0417ab933a4daa8243f6bb41397c8494443d77b8",
+    "expected.json": "d9524aef88a5c39ad1e787f4407086c054cc58c9af2a9be3ced0425330528c2c",
+    "verify-results.json": "6553e051fab97f25e8a77a4d1df0ae485cd498efdf0c28931af6828aa151a000",
+    "ownership-results.json": "1ac357b988c5624da192e822c7cb2cfa39840713a97c47017def43c2c0ff01c0",
+    "access-results.json": "ed7a2b25ff9851ed3733077556cdcc2c83507beab65b9c8644ba828fbf86ce72",
+    "negative-results.json": "e75b4dcb5f63a7241a13a0d84ffb080057e73e4883214d9e4eb920c0b2c63ad2",
+    "state.json": "85a8382da9a2079fa2f9e8c79dd1fd7d6f4b753a82fbe7f6f0b467fd03a23d54"
+  },
+  "prior_attempt": {
+    "result": "INCOMPLETE_HARNESS_FAILURE",
+    "cleanup_complete": true,
+    "failed_step": "verify-ownership",
+    "cause": "The standalone API helper explicitly closed an already closed non-streaming APIClient response inside a rollback transaction. The second request_finished signal closed the DB connection.",
+    "change": "Remove only the redundant helper response.close; retain APIClient closure and production code. New isolated trial and new response IDs.",
+    "production_code_changed": false,
+    "state_sha256": "4842a0293c54cbd2e6e9920d25ad783348ccc3935432127b9f551abcbe02a084",
+    "failure_log_sha256": "6482da196abb1fe864d9d971b8c5a8bee81f500a7c1ad3a11f184eef051dfb58"
+  },
+  "limitations": [
+    "Synthetic small fixture only; some application tables are empty.",
+    "PostgreSQL initialization admin role; no least-privilege or TLS acceptance.",
+    "Local filesystem bytes/path restoration; Unix ownership/mode/time not restored.",
+    "Django APIClient; no real HTTP, ALB, CDN, S3 object generations or browser delivery.",
+    "No RDS snapshot/PITR, live-write DB/S3 consistency, production switching, worker or external services tested.",
+    "Elapsed local trial time is not RPO24h/RTO4h acceptance."
+  ],
+  "aws_writes": 0,
+  "shared_database_operations": 0,
+  "formal_release": "No-Go",
+  "acceptance_definitions_unchanged": 25
+}
