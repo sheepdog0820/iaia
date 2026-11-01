@@ -1530,7 +1530,7 @@ class CharacterImageSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(character_image_limit_error_message(limit))
 
         # 総容量制限チェック（30MB）
-        def estimate_size(image_file):
+        def estimate_size(image_file, *, close_after_read=False):
             size = image_file.size
             try:
                 image_file.seek(0)
@@ -1540,7 +1540,11 @@ class CharacterImageSerializer(serializers.ModelSerializer):
                 estimated = size
             finally:
                 try:
-                    image_file.seek(0)
+                    try:
+                        image_file.seek(0)
+                    finally:
+                        if close_after_read:
+                            image_file.close()
                 except (OSError, ValueError):
                     raise serializers.ValidationError(
                         "画像を読み直せませんでした。画像を選び直して再度お試しください。"
@@ -1550,7 +1554,8 @@ class CharacterImageSerializer(serializers.ModelSerializer):
         total_size = 0
         for img in character_sheet.system_data.images.all():
             if img.image and img != self.instance:
-                total_size += estimate_size(img.image)
+                # Saved files are only inspected here; an incoming upload must remain open for saving.
+                total_size += estimate_size(img.image, close_after_read=True)
 
         new_image = attrs.get("image")
         if new_image:
