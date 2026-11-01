@@ -169,21 +169,16 @@ class StripeClientTransportTests(TestCase):
                 "livemode": False,
                 "recurring": {"interval": "month"},
             },
-            listing(
-                "/v1/billing_portal/configurations",
-                [
-                    {
-                        "id": "bpc_fixture",
-                        "object": "billing_portal.configuration",
-                        "active": True,
-                        "livemode": False,
-                        "features": {
-                            name: {"enabled": True}
-                            for name in ("payment_method_update", "subscription_cancel", "invoice_history")
-                        },
-                    }
-                ],
-            ),
+            {
+                "id": "bpc_fixture",
+                "object": "billing_portal.configuration",
+                "active": True,
+                "livemode": False,
+                "features": {
+                    name: {"enabled": True}
+                    for name in ("payment_method_update", "subscription_cancel", "invoice_history")
+                },
+            },
             listing(
                 "/v1/webhook_endpoints",
                 [
@@ -203,6 +198,14 @@ class StripeClientTransportTests(TestCase):
         call_command("billing_stripe_remote_check", stdout=output)
         self.assertIn("billing_stripe_remote_check=ok", output.getvalue())
         self.assertEqual([method for method, _, _, _ in self.transport.calls], ["get", "get", "get"])
+        self.assertEqual(
+            [urlsplit(url).path for _, url, _, _ in self.transport.calls],
+            [
+                "/v1/prices/price_fixture_month",
+                "/v1/billing_portal/configurations/bpc_fixture",
+                "/v1/webhook_endpoints",
+            ],
+        )
 
     def test_development_price_command_uses_real_sdk_parameter_dictionaries(self):
         self.transport.responses = [
