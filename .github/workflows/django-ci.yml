@@ -249,6 +249,7 @@ jobs:
             accounts/test_billing_concurrency.py \
             accounts/test_character_lineage_deletion.py \
             accounts/test_character_image_concurrency.py \
+            accounts/test_image_capacity_stream.py \
             accounts/test_character_image_deletion_retry.py \
             accounts/test_character_skill_log_privacy.py \
             accounts/test_character_skill_create_validation.py \

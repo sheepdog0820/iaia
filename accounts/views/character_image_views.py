@@ -10,6 +10,7 @@ import os
 import re
 import warnings
 import zipfile
+import zlib
 from datetime import timedelta
 
 from botocore.exceptions import BotoCoreError, ClientError
@@ -293,12 +294,23 @@ def _read_storage_file(field_file):
         with field_file.storage.open(field_file.name, "rb") as image_file:
             return image_file.read()
     except Exception:
-        logger.warning(
-            "Failed to add character image to ZIP: %s",
-            getattr(field_file, "name", ""),
-            exc_info=True,
-        )
+        logger.warning("Failed to add character image to ZIP.")
         return None
+
+
+def _zip_compression(content):
+    compressed_format = content.startswith((b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n", b"GIF87a", b"GIF89a")) or (
+        content.startswith(b"RIFF") and content[8:12] == b"WEBP"
+    )
+    if not compressed_format:
+        return zipfile.ZIP_DEFLATED
+    # A PNG can use compression level zero, so keep useful compression when a
+    # bounded sample still shrinks substantially. Never re-encode image pixels.
+    if len(content) > 64 * 1024:
+        sample = content[: 64 * 1024]
+        if len(zlib.compress(sample, level=1)) * 100 < len(sample) * 95:
+            return zipfile.ZIP_DEFLATED
+    return zipfile.ZIP_STORED
 
 
 def _write_zip_entries(archive, zip_entries):
@@ -314,7 +326,7 @@ def _write_zip_entries(archive, zip_entries):
             f"{prefix}{_safe_original_filename(field_file)}",
             used_names,
         )
-        archive.writestr(member_name, content)
+        archive.writestr(member_name, content, compress_type=_zip_compression(content))
         written_count += 1
 
     return written_count
