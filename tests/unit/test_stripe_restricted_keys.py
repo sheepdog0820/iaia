@@ -120,21 +120,16 @@ class StripeRestrictedKeyTests(SimpleTestCase):
                     "livemode": mode,
                     "recurring": {"interval": "month"},
                 },
-                listing(
-                    "/v1/billing_portal/configurations",
-                    [
-                        {
-                            "id": "bpc_fixture",
-                            "object": "billing_portal.configuration",
-                            "active": True,
-                            "livemode": mode,
-                            "features": {
-                                name: {"enabled": True}
-                                for name in ("payment_method_update", "subscription_cancel", "invoice_history")
-                            },
-                        }
-                    ],
-                ),
+                {
+                    "id": "bpc_fixture",
+                    "object": "billing_portal.configuration",
+                    "active": True,
+                    "livemode": mode,
+                    "features": {
+                        name: {"enabled": True}
+                        for name in ("payment_method_update", "subscription_cancel", "invoice_history")
+                    },
+                },
                 listing(
                     "/v1/webhook_endpoints",
                     [
@@ -174,7 +169,7 @@ class StripeRestrictedKeyTests(SimpleTestCase):
             self.assertNotIn(value, output.getvalue())
             self.assertEqual(
                 [urlsplit(url).path for _, url, _, _ in transport.calls],
-                ["/v1/prices/price_fixture", "/v1/billing_portal/configurations", "/v1/webhook_endpoints"],
+                ["/v1/prices/price_fixture", "/v1/billing_portal/configurations/bpc_fixture", "/v1/webhook_endpoints"],
             )
             for method, _, headers, _ in transport.calls:
                 self.assertEqual(method, "get")
