@@ -46,7 +46,21 @@ GitHub APIでも同runのevent/head/pathとcompleted/successを照合した。�
 
 [FlatBuffers公式v25.12.19](https://github.com/google/flatbuffers/tree/7e163021e59cca4f8e1e35a7c828b5c6b7915953)も同commitを指す。その公式archiveは2,359,249 bytes、SHA256 `4236c5d22309abeac2384d3800febcc8d60423e8cb2f573abfa8f798352c4536`。全regular file1,903件・13,181,428 bytesを静的に読み、PBDS関連のliteral4種（pb_ds、__gnu_pbds、binary_heap_tag、extc++.h）は見つからなかった。CMakeLists.txtはGitHub treeに記録されたGit blob `7bf48e6aeccc6564c70f3d6c91f1657daa928011` と一致した。
 
-CMakeのflatc targetはC++のcompiler source集合を使用する。この文字列の不在は、実wheelビルドで別途使われたheader、生成・注入入力、compiler/sysroot、静的同梱部分、macro経由の利用を否定しない。実際の製造runからwheelまでのartifact対応と全build入力は未確認で、PBDSへの非該当は未確定のままである。
+CMakeのflatc targetはC++のcompiler source集合を使用する。この文字列の不在は、実wheelビルドで別途使われたheader、生成・注入入力、compiler/sysroot、静的同梱部分、macro経由の利用を否定しない。後述の実製造run・artifactとの対応を追加確認したが、全build入力とPBDSへの非該当は未確定のままである。
+
+## 実製造run・artifact・binaryとの照合
+
+公開runのCheck if all workflows completedの実ログは、製造対象のcommitを `2ac4f0e26b999cee3377ca51d549f2e5a7813515` と記録していた。Stable Releaseの実ログでは、manylinux用の[製造run39164244787](https://github.com/crossbario/autobahn-python/actions/runs/39164244787)からartifact **12150213420** を取得している。GitHub APIのrun情報も、event push、同じtag commit、wheels-docker.yml、completed/successを示した。公開処理がmaster上で動いたという証明書の情報だけから、wheelもmasterのソースで製造されたと推測しない。
+
+artifact名は `artifacts-manylinux_2_28_x86_64-f47dde0e34bec5a415c04a36ca5a430fe5411c55c10939ba343fcde8679d8247`。GitHub APIの記録で期限切れではないことを確認し、同じIDの公式archiveを読み取り取得した。11,154,363 bytes、SHA256 **eec4077c5c6f765981b200a3f873507693b1e9bc89f5688c92dc37ba2e5885a5** で、APIのartifact digestと一致した。署名URL・credential・応答headerは保存していない。
+
+ZIP内9エントリのうち、対象CPython3.11 wheelのSHA256は上記の署名検証済みPyPI wheel・lockと同じ **e1a0dab939eb8c55d45b2440e123ef8c2ef8107ea71621b29348d34a8c47f57c** だった。含まれるCHECKSUMS.sha256と製造jobの実ログにも同じ値があり、公開処理の実ログにも同じsubject digestがある。archiveからコードを展開・実行せず、wheelとmetadataを読み取った。
+
+[manylinux製造job](https://github.com/crossbario/autobahn-python/actions/runs/39164244787/job/117784635110)の実ログは、FlatBuffers submoduleを上記 `7e163021` にcheckoutし、flatcをbuildしてwheelへ追加したと記録している。container取得時digestは `sha256:1e7b8460ad8fb3fb0fbe1cd818845159ac896b4fd17452d56e892c291f3b97a8`、環境確認のgccは14.2.1 20250110（Red Hat 14.2.1-11）だった。artifact内build-infoはmanylinux_2_28_x86_64、glibc2.28、同gccを記録していた。取得後にyum update等を行うworkflowなので、取得時のbase digestを最終sysroot全体のdigestとして扱わない。
+
+wheel内flatcのELFを実行せずに解析すると、GNU Build IDは **abb9df13d6670c6ab2676d5994f1873bf885cd3d** で製造ログと一致した。DT_NEEDEDはlibstdc++.so.6/libm.so.6/libgcc_s.so.1/libc.so.6。compiler commentにはGCC8.5.0とGCC14.2.1の両方があり、binary全体を単一compilerで作ったとは断定しない。DWARF debug_infoとGCC.command.line sectionはなく、ここから全flags/headerを復元できたとは報告しない。
+
+これにより、公開run→製造run/tag commit→実artifact→署名済みwheel→通常image内flatcという照合ができた。ただし、GitHubの実ログとAPI metadataの整合確認はSLSA build attestationや再現ビルドの代わりではない。全compiler入力・実効flags・sysroot/header・生成コードまでを確定した結果ではなく、PBDSの非該当やOS指摘の解消判定は追加していない。
 
 ## 呼出し範囲と残作業
 
@@ -54,10 +68,10 @@ wheelのPython204ファイルでは、`_flatc` / run_flatc / get_flatc_pathのli
 
 動的import・生成されたコマンド・他依存内部まで確認した結果ではなく、HTTP経由の到達不能を証明したものでもない。compilerの同梱を削除したり、対応機能を取り除いて指摘を減らしたりしていない。
 
-残る確認は、実製造run・compiler/sysroot/header・全flagsとwheelの対応、PBDS/aligned newを含むnative適用範囲、他21 ownerを含む残りのnative部品とOS指摘への対応である。[既存のONNX Runtime調査](ONNXRUNTIME_NATIVE_SOURCE_SCOPE_2026-10-31.md)や[MySQLdbの限定的なC99判断](MYSQL_NATIVE_PBDS_BUILD_SCOPE_2026-10-30.md)とscopeを混同しない。全268 ELFの由来を検証済みとはしない。
+残る確認は、全compiler/sysroot/header・実効flagsや生成入力、PBDS/aligned newを含むnative適用範囲、他21 ownerを含む残りのnative部品とOS指摘への対応である。[既存のONNX Runtime調査](ONNXRUNTIME_NATIVE_SOURCE_SCOPE_2026-10-31.md)や[MySQLdbの限定的なC99判断](MYSQL_NATIVE_PBDS_BUILD_SCOPE_2026-10-30.md)とscopeを混同しない。全268 ELFの由来を検証済みとはしない。
 
 ## 変更・検証・証拠
 
 Git変更はこの調査文書1件だけ。数字・hash・参照リンク・差分・UTF-8/LF/BOMなし・自己レビューを確認する。アプリ全体テストやimage rebuildはこの文書変更のためには再実行しない。文書はrevert PRで戻せ、DB逆移行は不要。DB/実データ・AWS資源/権限/Secrets・費用設定・実Stripe・外部通知を変更していない。PR #63、固定3de/image4617のコピー内5移行、専用S3設定の既存確認3件は別の対象として維持する。[元25受け入れ条件](FORMAL_RELEASE_ACCEPTANCE_MATRIX.md)と正式公開No-Goは不変。
 
-Git管理外の根拠は調査worktree `restore-ownership-evidence-20261101/iaia/tmp/flatc-provenance-20261101/` に保持する。主要記録はcurrent-image-file-proof.json、official-artifacts.json、attestation-verification-result.json/log、negative-verification-results.jsonと2否認log、verified-publisher-certificate-scope.json、各GitHub tag/gitlink/run/workflow、flatbuffers-source-scan.json、flatc-caller-scope.json、verifier-install-report.json。wheel/source archive/証明書/venvはGitへ含めない。
+Git管理外の根拠は調査worktree `restore-ownership-evidence-20261101/iaia/tmp/flatc-provenance-20261101/` に保持する。主要記録はcurrent-image-file-proof.json、official-artifacts.json、attestation-verification-result.json/log、negative-verification-results.jsonと2否認log、verified-publisher-certificate-scope.json、各GitHub tag/gitlink/run/workflow、flatbuffers-source-scan.json、flatc-caller-scope.json、verifier-install-report.json。追記分はpublisher-check-workflows.log、publisher-stable-release.log、manufacturing-run/jobs/artifact-metadata/artifact-proof/ELF-correlation.json、manufacturing-manylinux-job.log、artifact内のbuild-info/CHECKSUMS/VALIDATIONとmanufacturing-final-proof.jsonに保持する。wheel/source archive/artifact ZIP/証明書/venvはGitへ含めない。
