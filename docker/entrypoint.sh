@@ -75,5 +75,5 @@ echo "Starting ASGI server..."
 exec python -m tableno.server \
   --bind 0.0.0.0 \
   --port 8000 \
-  --application-close-timeout ${DAPHNE_APPLICATION_CLOSE_TIMEOUT:-10} \
+  --application-close-timeout "${DAPHNE_APPLICATION_CLOSE_TIMEOUT:-10}" \
   "${DJANGO_ASGI_MODULE:-tableno.asgi}:application"
