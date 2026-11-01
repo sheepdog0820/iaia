@@ -233,7 +233,7 @@ python manage.py billing_verification_record \
   --output docs/runbooks/billing-verification-YYYYMMDD.md
 ```
 
-Customer PortalやWebhook endpointを一時的に別手順で確認する場合は、`--remote-skip-portal` または `--remote-skip-webhook` を付けてください。`--base-url` を指定すると、remote checkのWebhook URLにも同じbase URLが使われます。
+Customer PortalやWebhook endpointを一時的に別手順で確認する場合は、`--remote-skip-portal` または `--remote-skip-webhook` を付けてください。Webhookの省略はendpoint設定確認だけに適用され、`--remote-require-recent-events`（直接実行では `--require-recent-events`）で要求したEvents APIの検査は省略しません。イベント不足・モード不一致・取得失敗は引き続き不合格です。`--base-url` を指定すると、remote checkのWebhook URLにも同じbase URLが使われます。
 
 ## 本番Webhookイベント
 

@@ -111,20 +111,18 @@ class Command(BaseCommand):
 
         if options["skip_webhook"]:
             self.stdout.write(self.style.WARNING("SKIP stripe webhook endpoint"))
-            self.stdout.write(self.style.SUCCESS("billing_stripe_remote_check=ok"))
-            return
-
-        webhook_url = options["webhook_url"] or build_default_webhook_url()
-        endpoints = stripe.v1.webhook_endpoints.list(params={"limit": 100})
-        endpoint_errors = validate_webhook_endpoints(
-            endpoints,
-            webhook_url,
-            expected_livemode=expected_livemode,
-            expected_api_version=settings.STRIPE_API_VERSION,
-        )
-        if endpoint_errors:
-            raise CommandError("Stripe webhook check failed: " + ", ".join(endpoint_errors))
-        self.stdout.write(self.style.SUCCESS(f"OK stripe webhook endpoint {webhook_url}"))
+        else:
+            webhook_url = options["webhook_url"] or build_default_webhook_url()
+            endpoints = stripe.v1.webhook_endpoints.list(params={"limit": 100})
+            endpoint_errors = validate_webhook_endpoints(
+                endpoints,
+                webhook_url,
+                expected_livemode=expected_livemode,
+                expected_api_version=settings.STRIPE_API_VERSION,
+            )
+            if endpoint_errors:
+                raise CommandError("Stripe webhook check failed: " + ", ".join(endpoint_errors))
+            self.stdout.write(self.style.SUCCESS(f"OK stripe webhook endpoint {webhook_url}"))
         if options["require_recent_events"]:
             created_gte = int((timezone.now() - timezone.timedelta(hours=options["recent_hours"])).timestamp())
             recent_events = stripe.v1.events.list(
