@@ -55,6 +55,7 @@ def active_portal_configuration(livemode=False, *, features=None):
     return {
         "id": "bpc_remote",
         "active": True,
+        "is_default": True,
         "livemode": livemode,
         "features": default_features,
     }
@@ -3440,7 +3441,7 @@ class BillingPreflightCommandTestCase(TestCase):
                 }
             ]
         }
-        stripe.v1.billing_portal.configurations.list.return_value = {"data": [active_portal_configuration()]}
+        stripe.v1.billing_portal.configurations.retrieve.return_value = active_portal_configuration()
         get_stripe.return_value = stripe
         stdout = StringIO()
 
@@ -4101,7 +4102,7 @@ class BillingPreflightCommandTestCase(TestCase):
         STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID="bpc_missing",
     )
     @patch("accounts.management.commands.billing_stripe_remote_check.get_stripe")
-    def test_billing_stripe_remote_check_rejects_missing_customer_portal(self, get_stripe):
+    def test_billing_stripe_remote_check_rejects_mismatching_retrieved_customer_portal(self, get_stripe):
         stripe = Mock()
         stripe.v1.prices.retrieve.return_value = {
             "id": "price_remote",
@@ -4110,7 +4111,7 @@ class BillingPreflightCommandTestCase(TestCase):
             "livemode": False,
             "recurring": {"interval": "month"},
         }
-        stripe.v1.billing_portal.configurations.list.return_value = {"data": []}
+        stripe.v1.billing_portal.configurations.retrieve.return_value = active_portal_configuration()
         get_stripe.return_value = stripe
 
         with self.assertRaises(CommandError) as context:
@@ -4138,7 +4139,7 @@ class BillingPreflightCommandTestCase(TestCase):
         inactive_configuration = active_portal_configuration()
         inactive_configuration["id"] = "bpc_inactive"
         inactive_configuration["active"] = False
-        stripe.v1.billing_portal.configurations.list.return_value = {"data": [inactive_configuration]}
+        stripe.v1.billing_portal.configurations.retrieve.return_value = inactive_configuration
         get_stripe.return_value = stripe
 
         with self.assertRaises(CommandError) as context:

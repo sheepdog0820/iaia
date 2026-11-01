@@ -8,7 +8,7 @@ from unittest.mock import patch
 import psycopg
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.db import connection, transaction
+from django.db import DatabaseError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from django.db.migrations.recorder import MigrationRecorder
 from django.test import override_settings
@@ -63,7 +63,7 @@ class VerifiedReleaseMigrationTests(SkillOtherPointsMigrationTests):
                 cursor.execute("SET default_transaction_read_only = off")
         super().tearDown()
 
-    def invoke(self, *, start_read_only=True, **overrides):
+    def invoke(self, *, start_read_only=True, capture_output=None, **overrides):
         options = {
             "apply": True,
             "mode": "billing-skills-ownership",
@@ -76,7 +76,7 @@ class VerifiedReleaseMigrationTests(SkillOtherPointsMigrationTests):
             "confirm_writers_stopped": True,
         }
         options.update(overrides)
-        output = io.StringIO()
+        output = capture_output if capture_output is not None else io.StringIO()
         with connection.cursor() as cursor:
             cursor.execute(
                 "SET default_transaction_read_only = on"
@@ -144,6 +144,75 @@ class VerifiedReleaseMigrationTests(SkillOtherPointsMigrationTests):
     def test_count_drift_is_refused_before_any_data_or_schema_change(self):
         with self.assertRaises(CommandError):
             self.invoke(expected_group_count=4)
+        self.assert_no_changes()
+
+    def test_lost_commit_response_does_not_mean_the_five_migrations_rolled_back(self):
+        output = io.StringIO()
+        real_commit = connection.commit
+
+        def commit_then_lose_response():
+            real_commit()
+            raise DatabaseError("private-fixture commit response lost; synthetic-password")
+
+        with patch.object(connection, "commit", side_effect=commit_then_lose_response) as commit:
+            with self.assertRaisesMessage(CommandError, "確認前に再実行しない") as error:
+                self.invoke(capture_output=output)
+        commit.assert_called_once()
+        self.assertEqual(output.getvalue(), "")
+        self.assertNotIn("private", str(error.exception))
+        self.assertNotIn("synthetic-password", str(error.exception))
+
+        # Observe a new TLS/READ ONLY connection after the real COMMIT. An
+        # exception on the caller is deliberately insufficient evidence here.
+        params = dict(connection.get_connection_params())
+        params["options"] = "-c default_transaction_read_only=on"
+        with psycopg.connect(**params, autocommit=True) as observer:
+            self.assertEqual(observer.execute("SHOW transaction_read_only").fetchone(), ("on",))
+            self.assertEqual(
+                observer.execute("SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()").fetchone(), (True,)
+            )
+            applied = observer.execute(
+                "SELECT name FROM django_migrations WHERE app='accounts' AND name=ANY(%s) ORDER BY name",
+                [self.names],
+            ).fetchall()
+            self.assertEqual(applied, [(name,) for name in self.names])
+            self.assertEqual(observer.execute("SELECT count(*) FROM accounts_groupownershiptransfer").fetchone(), (0,))
+
+        from accounts.models import Group, GroupMembership
+
+        self.assertEqual(
+            list(Group.objects.order_by("pk").values()),
+            [dict(row, owner_id=row["created_by_id"]) for row in self.original_groups],
+        )
+        self.assertEqual(GroupMembership.objects.count(), len(self.original_members) + 1)
+        for group in self.groups:
+            self.assertEqual(GroupMembership.objects.get(group_id=group.pk, user_id=self.owner.pk).role, "admin")
+        for edition in ("6th", "7th"):
+            self.assertEqual(
+                list(self.apps.get_model("accounts", f"CharacterSkill{edition}").objects.order_by("pk").values()),
+                [
+                    dict(row, bonus_points=0, other_points=row["bonus_points"] + row["other_points"])
+                    for row in self.before[edition]
+                ],
+            )
+        for name, before in self.unchanged.items():
+            self.assertEqual(list(self.apps.get_model("accounts", name).objects.order_by("pk").values()), before)
+        after = list(MigrationRecorder.Migration.objects.order_by("pk").values())
+        self.assertEqual(after[: len(self.original_history)], self.original_history)
+        self.assertEqual(len(after), len(self.original_history) + 5)
+        self.assertFalse(MigrationExecutor(connection).migration_plan(self.final_targets))
+        with self.assertRaisesMessage(CommandError, "5件だけ"):
+            self.invoke()
+        self.assertEqual(list(MigrationRecorder.Migration.objects.order_by("pk").values()), after)
+
+    def test_commit_failure_before_database_commit_is_verified_as_unapplied(self):
+        output = io.StringIO()
+        with patch.object(connection, "commit", side_effect=DatabaseError("private-fixture commit rejected")) as commit:
+            with self.assertRaisesMessage(CommandError, "確認前に再実行しない") as error:
+                self.invoke(capture_output=output)
+        commit.assert_called_once()
+        self.assertEqual(output.getvalue(), "")
+        self.assertNotIn("private", str(error.exception))
         self.assert_no_changes()
 
     def test_missing_operator_acknowledgement_is_refused(self):
