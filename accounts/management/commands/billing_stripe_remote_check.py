@@ -92,15 +92,18 @@ class Command(BaseCommand):
         if options["skip_portal"]:
             self.stdout.write(self.style.WARNING("SKIP stripe customer portal"))
         else:
-            portal_configurations = stripe.v1.billing_portal.configurations.list(params={"limit": 100})
+            portal_configuration_id = getattr(settings, "STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID", "")
+            if portal_configuration_id:
+                configuration = stripe.v1.billing_portal.configurations.retrieve(portal_configuration_id)
+                portal_configurations = {"data": [configuration], "has_more": False}
+            else:
+                portal_configurations = stripe.v1.billing_portal.configurations.list(
+                    params={"limit": 100, "is_default": True}
+                )
             portal_errors = validate_portal_configurations(
                 portal_configurations,
                 expected_livemode=expected_livemode,
-                expected_configuration_id=getattr(
-                    settings,
-                    "STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID",
-                    "",
-                ),
+                expected_configuration_id=portal_configuration_id,
             )
             if portal_errors:
                 raise CommandError("Stripe customer portal check failed: " + ", ".join(portal_errors))
@@ -250,41 +253,39 @@ def validate_portal_configurations(
     expected_livemode=None,
     expected_configuration_id="",
 ):
+    if _get(configurations, "has_more", False) is not False:
+        return ["Customer Portal設定一覧が途中までのため検証できません"]
     configuration_data = _get(configurations, "data", []) or []
     if expected_configuration_id:
-        matching_configurations = [
+        selected = [
             configuration
             for configuration in configuration_data
             if _get(configuration, "id") == expected_configuration_id
         ]
-        if not matching_configurations:
+        if not selected:
             return [f"customer portal configuration not found: {expected_configuration_id}"]
-        active_configurations = [
-            configuration for configuration in matching_configurations if _get(configuration, "active", False)
-        ]
-        if not active_configurations:
-            return [f"customer portal configuration is not active: {expected_configuration_id}"]
     else:
-        active_configurations = [
-            configuration for configuration in configuration_data if _get(configuration, "active", False)
-        ]
-    if not active_configurations:
-        return ["active customer portal configuration not found"]
-    known_mode_configurations = [
-        configuration for configuration in active_configurations if _get(configuration, "livemode") is not None
-    ]
-    if expected_livemode is not None and known_mode_configurations:
-        matching_configurations = [
-            configuration
-            for configuration in known_mode_configurations
-            if _get(configuration, "livemode") == expected_livemode
-        ]
-        if not matching_configurations:
+        selected = [configuration for configuration in configuration_data if _get(configuration, "is_default") is True]
+        if not selected:
+            return ["既定のCustomer Portal設定が見つかりません"]
+    if len(selected) != 1:
+        return ["Customer Portalの適用設定を1件に特定できません"]
+    configuration = selected[0]
+    identifier = _get(configuration, "id")
+    if not isinstance(identifier, str) or not identifier:
+        return ["Customer Portal設定のIDを確認できません"]
+    if _get(configuration, "active") is not True:
+        if expected_configuration_id:
+            return [f"customer portal configuration is not active: {expected_configuration_id}"]
+        return ["既定のCustomer Portal設定が有効ではありません"]
+    actual_mode = _get(configuration, "livemode")
+    if expected_livemode is not None:
+        if type(actual_mode) is not bool:
+            return ["Customer Portal設定のモードを確認できません"]
+        if actual_mode is not expected_livemode:
             expected = "live" if expected_livemode else "test"
-            actual_modes = {
-                "live" if _get(configuration, "livemode") else "test" for configuration in known_mode_configurations
-            }
-            return ["customer portal livemode mismatch: " f'expected {expected}, got {", ".join(sorted(actual_modes))}']
+            actual = "live" if actual_mode else "test"
+            return [f"customer portal livemode mismatch: expected {expected}, got {actual}"]
     feature_errors = []
     feature_requirements = {
         "payment_method_update": "payment method update",
@@ -292,17 +293,15 @@ def validate_portal_configurations(
         "invoice_history": "invoice history",
     }
     for feature_key, label in feature_requirements.items():
-        if not any(portal_feature_enabled(configuration, feature_key) for configuration in active_configurations):
+        if not portal_feature_enabled(configuration, feature_key):
             feature_errors.append(f"customer portal {label} is not enabled")
-    if feature_errors:
-        return feature_errors
-    return []
+    return feature_errors
 
 
 def portal_feature_enabled(configuration, feature_key):
     features = _get(configuration, "features", {}) or {}
     feature = _get(features, feature_key, {}) or {}
-    return bool(_get(feature, "enabled", False))
+    return _get(feature, "enabled", False) is True
 
 
 def validate_recent_operational_events(events, expected_livemode=None):

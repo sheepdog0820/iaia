@@ -29,6 +29,8 @@
 
 RAKのキー形式対応は、実際の権限・認証・対象アカウントの一致を証明しません。`billing_preflight`、`billing_development_check`、`billing_stripe_remote_check`、テストPrice作成と本番/staging設定でサーバーキーの種類・モードを共通判定します。公開キー、organizationキー、不明形式やprefixだけの値はサーバーキーとして使えません。本番設定はテストキーを、staging起動はライブキーを拒否し、購入開始が無効でもこの境界を維持します。
 
+`billing_stripe_remote_check` のPortal検査は、アプリがsession作成時に使う設定1件を対象にします。`STRIPE_CUSTOMER_PORTAL_CONFIGURATION_ID` が指定されていれば直接取得し、未指定ならStripeの既定設定（`is_default=true`）を一意に確認します。その同じ設定の有効状態・test/live mode・支払方法更新・解約機能・請求履歴を検査し、別の設定から機能を合算しません。既定なし/複数・途中までの一覧・モード不明等は停止条件です。この検査は読取りだけで、設定を作成・有効化・変更しません。期間末解約の設定と実動作は、引き続き実Portalで照合してください。
+
 AWSの実キーは既存のSecrets Manager等で保管・注入し、Git・会話・コマンド引数・ログに残さないでください。ローカルの例示値もプレースホルダーです。実キーを貼り付けたコマンドを履歴へ保存せず、安全なSecrets参照からプロセスへ渡してください。[公式のキー保護手順](https://docs.stripe.com/keys-best-practices)に従い、`sk_live_` と `rk_live_` の双方を検知するコミット前の漏えい検査も運用へ組み込んでください。
 
 アプリ用RAK、読み取り検査用RAK、テスト商品作成用RAKの権限を分けます。`billing_stripe_remote_check` はPrice / Portal Configuration / Webhook Endpoint / Eventsの必要なRead権限を持つ検査用キーで実行します。403等の権限不足は不合格であり、検査を省略して合格扱いにしません。`create_stripe_development_prices` にはProduct/PriceのWriteが必要ですが、そのために通常Webのキーへ商品管理権限を追加しないでください。キー発行・権限・Secrets・Webhook設定の変更は、対象・費用・切戻しを確認して別途承認を受けます。
