@@ -2608,6 +2608,9 @@ cancel_at_period_end=true
 StripeWebhookEvent
 PremiumSubscription
 Premium audit logs
+
+## 判定
+| 判定 | Go |
 """
 
     @override_settings(

@@ -67,6 +67,10 @@ python manage.py billing_webhook_smoke
 
 `billing_release_gate` is the paid Checkout exposure guard. If `STRIPE_CHECKOUT_ENABLED=False`, it passes because paid Checkout is hidden. If `STRIPE_CHECKOUT_ENABLED=True`, it requires a final aws-pre verification record with real Stripe test-mode event IDs, recent-event output, cancel-at-period-end evidence, and no unfinished placeholders.
 
+有料Checkoutが有効な場合、確認記録の `## 判定` セクションを1件だけ設け、その表に `| 判定 | Go |` を1件だけ記載してください。`No-Go`、条件付きGo、空欄、ひな形の選択肢、重複する判定は拒否します。コード例、HTMLコメント、引用・インデントされた例のGoは最終判定として数えません。記録生成コマンドのひな形を自動的にGoへ置換せず、実Stripe/アプリ/メールの証拠を確認した担当者が判断します。
+
+このゲートは記録の形式検査です。Goの文字列やイベントIDを記入するだけでは、実Stripeの対象account/mode・AWS配備版・権限/監査・メール到達の独立照合、正式公開の全受け入れ条件、実行承認を代用できません。料金の税表示・税務方針は公開前の別確認として維持し、今回の修正でStripe Taxや課税設定を変更しません。
+
 Account deletion safety: users with an active Stripe subscription must cancel through `/accounts/billing/` before account deletion. The delete view treats `PremiumSubscription.is_stripe_active` plus Stripe customer/subscription IDs as active billing evidence, blocks deletion, shows the billing management route, and leaves the user and billing records intact until cancellation is complete.
 
 Stripe outage safety: Checkout and Customer Portal API failures are logged server-side and return a generic 503 `Stripe service is temporarily unavailable` response, so transient Stripe downtime does not expose exception details to users.
