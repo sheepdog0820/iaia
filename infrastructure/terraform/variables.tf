@@ -172,6 +172,18 @@ variable "worker_memory" {
   default = 1024
 }
 
+variable "worker_concurrency" {
+  description = "Worker child-process count; explicit so a container does not use its host CPU count."
+  type        = number
+  default     = 2
+  nullable    = false
+
+  validation {
+    condition     = var.worker_concurrency >= 1 && floor(var.worker_concurrency) == var.worker_concurrency
+    error_message = "worker_concurrency must be a positive whole number; zero would restore automatic host-based sizing."
+  }
+}
+
 variable "beat_cpu" {
   type    = number
   default = 256

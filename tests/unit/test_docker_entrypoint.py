@@ -282,6 +282,21 @@ class DockerEntrypointTests(SimpleTestCase):
             "False",
         )
 
+    def test_release_migration_verification_runs_with_real_tls_in_ci(self):
+        job = self.load_ci_workflow()["jobs"]["production-database"]
+        self.assertEqual(job["env"].get("DB_SSL_MODE"), "require")
+        steps = job["steps"]
+        tls_index = next(
+            index for index, step in enumerate(steps) if step.get("name") == "Enable TLS on disposable PostgreSQL"
+        )
+        migrate_index = next(
+            index for index, step in enumerate(steps) if "manage.py migrate --noinput" in step.get("run", "")
+        )
+        self.assertLess(tls_index, migrate_index)
+        self.assertEqual(steps[tls_index]["run"], "bash scripts/ci/enable_postgres_tls.sh")
+        runs = "\n".join(step.get("run", "") for step in steps)
+        self.assertIn("tests/integration/test_verified_release_migrations.py", runs)
+
     def test_python_version_is_consistent_for_release_paths(self):
         dockerfile = (self.ROOT / "Dockerfile").read_text(encoding="utf-8")
         workflow = (self.ROOT / ".github" / "workflows" / "django-ci.yml").read_text(encoding="utf-8")

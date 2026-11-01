@@ -77,7 +77,7 @@ def queue_discord_event(group_id, event_type, payload, idempotency_key):
         send_discord_webhook.delay(group_id, event_type, payload, idempotency_key)
         return True
     except Exception:
-        logger.exception("Unable to enqueue Discord webhook delivery.")
+        logger.error("Unable to enqueue Discord webhook delivery.")
         return False
 
 
@@ -90,7 +90,7 @@ def queue_google_calendar_sync(sync_id, job_id):
         AsyncJob.objects.filter(pk=job_id).update(celery_task_id=result.id)
         return True
     except Exception:
-        logger.exception("Unable to enqueue Google Calendar synchronization.")
+        logger.error("Unable to enqueue Google Calendar synchronization.")
         return False
 
 
@@ -103,7 +103,7 @@ def queue_google_sheet_export(job_id, user_id, spreadsheet_id, range_name, value
         AsyncJob.objects.filter(pk=job_id).update(celery_task_id=result.id)
         return True
     except Exception:
-        logger.exception("Unable to enqueue Google Sheets export.")
+        logger.error("Unable to enqueue Google Sheets export.")
         return False
 
 
