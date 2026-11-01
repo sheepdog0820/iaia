@@ -10,6 +10,7 @@ import time
 from collections.abc import Mapping
 
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.validators import ProhibitNullCharactersValidator
 from django.db import IntegrityError, OperationalError, transaction
 from django.db.models import Prefetch, Q
 from drf_spectacular.types import OpenApiTypes
@@ -40,6 +41,10 @@ from .common_imports import *
 from .mixins import CharacterNestedResourceMixin, CharacterSheetAccessMixin, ErrorHandlerMixin
 
 logger = logging.getLogger(__name__)
+
+CCFOLIA_IMPORT_VALIDATION_ERROR = (
+    "名前や文章の文字・長さ、数値を確認してください。技能値は0～999で指定してください。変更は保存されていません。"
+)
 
 COC6_BASIC_SKILL_NAMES = [
     "回避",
@@ -409,15 +414,9 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
         sanity_max = max(0, 99 - mythos)
 
         detail_model = CharacterSheet6th if edition == "6th" else CharacterSheet7th
-        existing_details = [
-            sheet.system_data for sheet in CharacterSheet.objects.by_system_name(name, user=user, edition=edition)
-        ]
-        version = max((detail.version for detail in existing_details), default=0) + 1
-        parent_data = min(existing_details, key=lambda detail: detail.version) if existing_details else None
-
         with transaction.atomic():
             character_sheet = CharacterSheet.objects.create(user=user, edition=edition)
-            detail = detail_model.objects.create(
+            detail = detail_model(
                 character_sheet=character_sheet,
                 name=name,
                 player_name="",
@@ -443,8 +442,6 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                 sanity_max=sanity_max,
                 sanity_current=sanity_current,
                 notes=notes,
-                version=version,
-                parent_data=parent_data,
                 **(
                     {
                         "luck_starting": imported_luck_starting,
@@ -455,6 +452,20 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                     else {}
                 ),
             )
+
+            try:
+                self._validate_ccfolia_model_fields(detail)
+                existing_details = [
+                    sheet.system_data
+                    for sheet in CharacterSheet.objects.by_system_name(name, user=user, edition=edition)
+                ]
+                detail.version = max((existing.version for existing in existing_details), default=0) + 1
+                detail.parent_data = (
+                    min(existing_details, key=lambda existing: existing.version) if existing_details else None
+                )
+                detail.save()
+            except (DjangoValidationError, UnicodeEncodeError):
+                raise DRFValidationError({"ccfolia": CCFOLIA_IMPORT_VALIDATION_ERROR}) from None
 
             for skill_name, total_value in skill_totals.items():
                 if not skill_name:
@@ -488,12 +499,25 @@ class CharacterSheetViewSet(CharacterSheetAccessMixin, PermissionMixin, viewsets
                     other_points=other_points,
                 )
                 try:
+                    self._validate_ccfolia_model_fields(skill)
                     skill.save(skip_point_validation=True)
+                except (DjangoValidationError, UnicodeEncodeError):
+                    raise DRFValidationError({"ccfolia": CCFOLIA_IMPORT_VALIDATION_ERROR}) from None
                 except IntegrityError:
                     continue
 
         response_serializer = CharacterSheetSerializer(character_sheet, context={"request": request})
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def _validate_ccfolia_model_fields(instance):
+        validate_no_null = ProhibitNullCharactersValidator()
+        for field in instance._meta.concrete_fields:
+            value = getattr(instance, field.attname)
+            if isinstance(value, str):
+                validate_no_null(value)
+                value.encode("utf-8")
+        instance.clean_fields()
 
     @staticmethod
     def _extract_ccfolia_payload(request_data):
