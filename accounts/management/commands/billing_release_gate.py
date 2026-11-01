@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from django.conf import settings
@@ -77,6 +78,9 @@ class Command(BaseCommand):
     def _validate_record(self, content):
         issues = []
 
+        if not self._has_final_go(content):
+            issues.append("最終判定は「## 判定」内に「| 判定 | Go |」を1件だけ記録してください")
+
         for marker in BLOCKING_RECORD_MARKERS:
             if marker in content:
                 issues.append(f"blocking marker found: {marker}")
@@ -109,3 +113,32 @@ class Command(BaseCommand):
             issues.append("missing real Stripe event ID evidence")
 
         return issues
+
+    def _has_final_go(self, content):
+        # Examples and comments are not the operator's final release decision.
+        content = re.sub(r"<!--.*?(?:-->|\Z)", "", content, flags=re.DOTALL)
+        fence = None
+        sections = 0
+        in_decision = False
+        decisions = []
+        for line in content.splitlines():
+            if fence is not None:
+                if re.fullmatch(r" {0,3}" + re.escape(fence[0]) + "{" + str(len(fence)) + r",}[ \t]*", line):
+                    fence = None
+                continue
+            opening = re.match(r" {0,3}(`{3,}|~{3,})", line)
+            if opening:
+                fence = opening.group(1)
+                continue
+            if line.startswith(("    ", "\t")):
+                continue
+            heading = line.strip()
+            if re.match(r"#{1,6}(?:[ \t]|$)", heading):
+                in_decision = heading == "## 判定"
+                sections += int(in_decision)
+                continue
+            if in_decision:
+                cells = [cell.strip() for cell in line.strip().split("|")]
+                if len(cells) >= 3 and cells[1] == "判定":
+                    decisions.append(cells)
+        return sections == 1 and decisions == [["", "判定", "Go", ""]]
