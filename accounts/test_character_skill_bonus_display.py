@@ -1,7 +1,7 @@
 """Regression coverage for bonus points in character detail skill breakdowns."""
 
 import shutil
-import subprocess
+import subprocess  # nosec B404 - Runs the repository's fixed JavaScript test through Node.
 from pathlib import Path
 from unittest import skipUnless
 
@@ -67,7 +67,7 @@ class CharacterSkillBonusRenderingTests(SimpleTestCase):
     @skipUnless(shutil.which("node"), "Node.js is required for skill rendering checks")
     def test_rendered_skill_breakdowns(self):
         script = Path(settings.BASE_DIR) / "tests/unit/character_detail_skills.test.js"
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 - Fixed test path and arguments, with no shell.
             [shutil.which("node"), "--test", str(script)],
             capture_output=True,
             text=True,
