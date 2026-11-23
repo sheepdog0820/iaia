@@ -355,6 +355,8 @@ CCB<={EDU}*5 【EDU × 5】
 - Other users can read `link` characters only through fixed share URLs or issued `ShareLink` URLs; ID reads return 404.
 - 他ユーザーの `private` キャラクター: アクセス不可
 - 共有レスポンスでは所有者情報、許可ユーザー、キャラクターメモ、version note を返さない
+- キャラクター一覧の「リンクコピー」で開く固定共有画面では、所有者本人と、所有者と共通のグループに所属するログイン済みユーザーが「秘匿HO情報を表示」で本文を確認できる。グループ外の閲覧者と未ログインの閲覧者には秘匿HO情報を返さない。6版・7版共通。
+- 固定共有画面はキャッシュを禁止する。共有データAPIとココフォリア出力に秘匿HO情報は含めない。
 
 ### 6. ステータス管理
 

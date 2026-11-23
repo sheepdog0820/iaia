@@ -1,11 +1,13 @@
 from datetime import timedelta
 
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import json_script
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.character_models import CharacterSheet, CharacterSheet6th
 from accounts.models import CustomUser, Group, GroupMembership
+from accounts.test_character_factories import create_character_with_system_data
 from scenarios.models import Scenario, ScenarioHandout
 from schedules import session_permissions
 from schedules.models import HandoutInfo, TRPGSession
@@ -62,11 +64,7 @@ class FixedShareUrlTests(APITestCase):
             "notes": "private notes must not render",
         }
         values.update(overrides)
-        user = values.pop("user")
-        edition = values.pop("edition")
-        access_scope = values.pop("access_scope")
-        character = CharacterSheet.objects.create(user=user, edition=edition, access_scope=access_scope)
-        CharacterSheet6th.objects.create(character_sheet=character, **values)
+        character, _ = create_character_with_system_data(**values)
         return character
 
     def create_session(self, **overrides):
@@ -222,6 +220,42 @@ class FixedShareUrlTests(APITestCase):
         self.assertNotContains(response, "character_sheets/legacy.png")
         self.assertNotContains(response, "first.png")
         self.assertNotContains(response, "main.png")
+
+    def test_character_fixed_share_secret_ho_requires_current_common_group(self):
+        ho_text = "Test HO for group members\n</script>"
+        ho_element_id = "shared-character-secret-ho-info"
+        for edition, access_scope in (("6th", "group"), ("7th", "public")):
+            with self.subTest(edition=edition, access_scope=access_scope):
+                character = self.create_character(edition=edition, access_scope=access_scope, secret_ho_info=ho_text)
+                character.allowed_users.add(self.other_user)
+
+                self.client.force_authenticate(self.owner)
+                issued = self.issue_fixed_url("character", character.id)
+                self.assertEqual(issued.status_code, status.HTTP_200_OK)
+                share_url = issued.data["share_url"]
+                shared_api_url = reverse("shared-character-detail", kwargs={"token": character.share_token})
+
+                membership = GroupMembership.objects.create(group=self.group, user=self.other_user, role="member")
+                self.client.force_authenticate(self.other_user)
+                member_page = self.client.get(share_url)
+                shared_data = self.client.get(shared_api_url)
+                membership.delete()
+
+                self.assertContains(member_page, json_script(ho_text, ho_element_id))
+                self.assertContains(member_page, 'data-public-view="true"')
+                self.assertNotContains(member_page, 'id="editButton"')
+                self.assertNotContains(member_page, "private notes must not render")
+                self.assertIn("private", member_page.headers["Cache-Control"])
+                self.assertIn("no-store", member_page.headers["Cache-Control"])
+                self.assertEqual(shared_data.status_code, status.HTTP_200_OK)
+                self.assertNotIn("secret_ho_info", shared_data.data)
+
+                for viewer in (self.other_user, None):
+                    self.client.force_authenticate(viewer)
+                    public_page = self.client.get(share_url)
+                    self.assertContains(public_page, "Fixed URL Investigator")
+                    self.assertNotContains(public_page, f'id="{ho_element_id}"')
+                    self.assertNotContains(public_page, "Test HO for group members")
 
     def test_character_fixed_share_og_image_uses_first_character_image_when_no_main(self):
         character = self.create_character(access_scope="link")

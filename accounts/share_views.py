@@ -6,6 +6,8 @@ import uuid
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -26,6 +28,7 @@ from accounts.share_serializers import (
     ShareLinkSerializer,
 )
 from accounts.views.character_image_views import build_character_images_zip_response
+from accounts.views.mixins import CharacterSheetAccessMixin
 from scenarios.models import Scenario
 from schedules import session_permissions
 from schedules.models import DatePoll, HandoutInfo, SessionParticipant, SessionParticipantRole, TRPGSession
@@ -585,6 +588,7 @@ class SharedStatsDetailView(APIView):
         return Response(SharedStatsSerializer(session).data)
 
 
+@method_decorator(never_cache, name="dispatch")
 class FixedSharedCharacterView(APIView):
     permission_classes = [AllowAny]
 
@@ -633,23 +637,22 @@ class FixedSharedCharacterView(APIView):
             preview_image_url = request.build_absolute_uri(
                 reverse("shared-character-preview-image", kwargs={"token": character.share_token})
             )
-        return render(
+        context = build_character_detail_context(
             request,
-            "accounts/character_detail.html",
-            build_character_detail_context(
-                request,
-                character,
-                is_public_view=not is_owner,
-                is_shared_view=True,
-                can_edit_character=is_owner,
-                shared_api_url=shared_api_url,
-                images_api_url=images_api_url,
-                images_zip_url=images_zip_url,
-                ccfolia_json_url=ccfolia_json_url,
-                reference_url=reference_url,
-                preview_image_url=preview_image_url,
-            ),
+            character,
+            is_public_view=not is_owner,
+            is_shared_view=True,
+            can_edit_character=is_owner,
+            shared_api_url=shared_api_url,
+            images_api_url=images_api_url,
+            images_zip_url=images_zip_url,
+            ccfolia_json_url=ccfolia_json_url,
+            reference_url=reference_url,
+            preview_image_url=preview_image_url,
         )
+        if not is_owner and CharacterSheetAccessMixin.shares_group_with_owner(character, request.user):
+            context["shared_secret_ho_info"] = context["character_system_data"].secret_ho_info
+        return render(request, "accounts/character_detail.html", context)
 
 
 class FixedSharedSessionView(APIView):

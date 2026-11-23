@@ -22,6 +22,9 @@
 {% block content %}
 <div class="container character-detail" id="characterDetailContainer" data-screen-actions-page data-character-id="{{ character.id }}" data-public-view="{% if is_public_view %}true{% else %}false{% endif %}" data-shared-api-url="{{ character_shared_api_url|default:'' }}" data-character-images-api-url="{{ character_images_api_url|default:'' }}" data-character-images-zip-url="{{ character_images_zip_url|default:'' }}" data-character-ccfolia-json-url="{{ character_ccfolia_json_url|default:'' }}" data-character-reference-url="{{ character_reference_url|default:'' }}">
     {{ character_image_file_names|json_script:"character-image-file-names" }}
+    {% if shared_secret_ho_info is not None %}
+    {{ shared_secret_ho_info|json_script:"shared-character-secret-ho-info" }}
+    {% endif %}
     <!-- ローディング -->
     <div class="text-center" id="loading">
         <div class="spinner-border text-primary" role="status">
@@ -681,8 +684,12 @@ document.addEventListener('DOMContentLoaded', function() {
             { label: 'メモ', value: getDisplayMemo(background), type: 'longText' }
         ];
         
-        if (!isPublicView) {
-            const secretHoInfo = String(character.secret_ho_info || '').trim();
+        const sharedSecretHoInfo = document.getElementById('shared-character-secret-ho-info');
+        const secretHoInfoValue = sharedSecretHoInfo
+            ? JSON.parse(sharedSecretHoInfo.textContent)
+            : character.secret_ho_info;
+        if (!isPublicView || sharedSecretHoInfo) {
+            const secretHoInfo = String(secretHoInfoValue || '').trim();
             info.push({
                 label: '秘匿HO情報',
                 value: secretHoInfo || '未設定',
@@ -736,7 +743,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            secretHoInfoContent.innerHTML = formatInfoValue(character.secret_ho_info);
+            secretHoInfoContent.innerHTML = formatInfoValue(secretHoInfoValue);
             secretHoInfoContent.hidden = false;
             secretHoInfoToggle.setAttribute('aria-expanded', 'true');
             secretHoInfoToggle.textContent = '秘匿HO情報を隠す';

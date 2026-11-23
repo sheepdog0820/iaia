@@ -44,6 +44,18 @@ class CharacterSheetAccessMixin:
         return access_scope == "public"
 
     @staticmethod
+    def shares_group_with_owner(character_sheet, user):
+        if not user or not user.is_authenticated:
+            return False
+
+        from ..models import GroupMembership
+
+        owner_group_ids = GroupMembership.objects.filter(user_id=character_sheet.user_id).values_list(
+            "group_id", flat=True
+        )
+        return GroupMembership.objects.filter(user=user, group_id__in=owner_group_ids).exists()
+
+    @staticmethod
     def can_read_character_sheet(character_sheet, user):
         """Return whether user can read a character sheet."""
         if not user or not user.is_authenticated:
@@ -60,17 +72,8 @@ class CharacterSheetAccessMixin:
         if character_sheet.allowed_users.filter(id=user.id).exists():
             return True
 
-        if access_scope == "group":
-            from ..models import GroupMembership
-
-            owner_group_ids = GroupMembership.objects.filter(user_id=character_sheet.user_id).values_list(
-                "group_id", flat=True
-            )
-            if GroupMembership.objects.filter(
-                user=user,
-                group_id__in=owner_group_ids,
-            ).exists():
-                return True
+        if access_scope == "group" and CharacterSheetAccessMixin.shares_group_with_owner(character_sheet, user):
+            return True
 
         from schedules.models import SessionParticipantRole
 
