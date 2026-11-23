@@ -1407,10 +1407,12 @@ numpy==2.4.6 \
     #   scikit-image
     #   scipy
     #   tifffile
-oauthlib==4.0.0 \
-    --hash=sha256:624c28c13a0a59cabf9747dfa52af63be3e512a7f2714df16e91b5b3a145e6cd \
-    --hash=sha256:efb274799819440f95b4ab3b818869f1ce9ae26c5beacba0201d1a1b76b54f86
-    # via requests-oauthlib
+oauthlib==4.0.1 \
+    --hash=sha256:3d73febdb6faa00f277c81fb04be7b7586fb96fc3b7f0b9c772dada69a25ede7 \
+    --hash=sha256:498a298876e996301950a5b053d12c31628bb7b895db03666430c69ce182eb61
+    # via
+    #   -r requirements.txt
+    #   requests-oauthlib
 onnxruntime==1.29.0 \
     --hash=sha256:07c5907474dec4a2792fd7626b753dc66707808385a6d9eecf993db0066a9d0f \
     --hash=sha256:0d4f427afac434b0070fe992b540ddf20a7aff2265f760f314d91331935b6b98 \
