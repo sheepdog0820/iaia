@@ -57,18 +57,24 @@ def _broker_available():
         return False
 
 
-def queue_discord_event(group_id, event_type, payload, idempotency_key):
+def discord_event_settings(group_id, event_type):
     if not group_id:
-        return False
+        return None
     settings_obj = (
         GroupDiscordSettings.objects.filter(
             group_id=group_id,
             enabled=True,
         )
-        .only("event_types")
+        .only("event_types", "updated_at")
         .first()
     )
     if not settings_obj or event_type not in settings_obj.event_types:
+        return None
+    return settings_obj
+
+
+def queue_discord_event(group_id, event_type, payload, idempotency_key):
+    if not discord_event_settings(group_id, event_type):
         return False
     if not _broker_available():
         logger.warning("Discord delivery was not queued because the broker is unavailable.")
@@ -107,16 +113,20 @@ def queue_google_sheet_export(job_id, user_id, spreadsheet_id, range_name, value
         return False
 
 
-def schedule_session_google_syncs(session):
-    user_ids = set(session.participants.values_list("id", flat=True))
-    user_ids.add(session.gm_id)
+def calendar_integrations_for_users(user_ids):
     integrations = GoogleIntegration.objects.filter(
         user_id__in=user_ids,
         calendar_enabled=True,
     )
-    for integration in integrations:
-        if not integration.has_scope(GoogleIntegration.REQUIRED_CALENDAR_SCOPE):
-            continue
+    return (
+        integration for integration in integrations if integration.has_scope(GoogleIntegration.REQUIRED_CALENDAR_SCOPE)
+    )
+
+
+def schedule_session_google_syncs(session):
+    user_ids = set(session.participants.values_list("id", flat=True))
+    user_ids.add(session.gm_id)
+    for integration in calendar_integrations_for_users(user_ids):
         sync, _ = GoogleCalendarSync.objects.get_or_create(
             user_id=integration.user_id,
             session=session,

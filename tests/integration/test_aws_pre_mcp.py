@@ -1,6 +1,7 @@
 import base64
 import hashlib
 from datetime import timedelta
+from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -11,12 +12,15 @@ from django.db import DatabaseError, connection
 from django.test import Client
 from django.utils import timezone
 from mcp.server.fastmcp.exceptions import ToolError
+from rest_framework.exceptions import ValidationError
 from starlette.testclient import TestClient
 
 from accounts.character_models import CharacterSheet, CharacterSheet6th
-from schedules.models import TRPGSession
-from tableno_mcp.config import AWS_PRE_ORIGIN, MCP_RESOURCE
-from tableno_mcp.http import PilotTokenVerifier, create_app, read_for_user
+from accounts.models import Group, GroupDiscordSettings
+from accounts.serializers import CharacterSheetCreateSerializer
+from schedules.models import GoogleIntegration, TRPGSession
+from tableno_mcp.config import AWS_PRE_ORIGIN, MCP_RESOURCE, WRITE_SCOPES
+from tableno_mcp.http import PilotTokenVerifier, create_app, run_for_user
 
 pytestmark = [
     pytest.mark.skipif(not getattr(settings, "TABLENO_MCP_ENABLED", False), reason="use --ds=tests.mcp_settings"),
@@ -284,7 +288,7 @@ def test_postgres_tool_transactions_refuse_database_writes(pilot):
         owner.save(update_fields=["username"])
 
     with pytest.raises(ToolError, match="データを読み取れません"):
-        async_to_sync(read_for_user)(user.pk, write_instead_of_reading)
+        async_to_sync(run_for_user)(user.pk, write_instead_of_reading)
     user.refresh_from_db()
     assert user.username == "pilot"
 
@@ -302,4 +306,185 @@ def test_missing_or_unavailable_identity_stops_reads(monkeypatch):
         pytest.fail("read executed for an unapproved user")
 
     with pytest.raises(ToolError, match="このアカウント"):
-        async_to_sync(read_for_user)(999, must_not_run)
+        async_to_sync(run_for_user)(999, must_not_run)
+
+
+@pytest.fixture
+def write_pilot(pilot, settings):
+    settings.TABLENO_MCP_WRITE_ENABLED = True
+    settings.OAUTH2_PROVIDER = {
+        **settings.OAUTH2_PROVIDER,
+        "SCOPES": settings.OAUTH2_PROVIDER["SCOPES"] | WRITE_SCOPES,
+    }
+    return pilot
+
+
+def call_tool(mcp, token, name, **arguments):
+    response = protocol(mcp, "tools/call", token=token, params={"name": name, "arguments": arguments})
+    return response.json()["result"]
+
+
+def issue_test_token(browser, client_app, scope):
+    response = exchange(browser, client_app, authorize(browser, client_app, scope=scope))
+    assert response.status_code == 200
+    return response.json()["access_token"]
+
+
+def test_session_creation_previews_and_queues_only_confirmed_integrations(write_pilot, monkeypatch):
+    browser, client_app, user, _ = write_pilot
+    token = issue_test_token(browser, client_app, "sessions:write")
+    group = Group.objects.create(name="検証グループ", owner=user)
+    GoogleIntegration.objects.create(
+        user=user, calendar_enabled=True, scopes=[GoogleIntegration.REQUIRED_CALENDAR_SCOPE]
+    )
+    discord = GroupDiscordSettings.objects.create(group=group, enabled=True, event_types=["session_created"])
+    notices = []
+    monkeypatch.setattr(
+        "schedules.tasks.send_discord_webhook.delay", lambda *args: notices.append(("discord", args[0]))
+    )
+    monkeypatch.setattr("schedules.tasks._broker_available", lambda: True)
+
+    def queue_google(sync_id, job_id):
+        notices.append(("google", sync_id))
+        return SimpleNamespace(id="test-job")
+
+    monkeypatch.setattr("schedules.tasks.sync_google_calendar.delay", queue_google)
+    data = {
+        "title": "MCPで作る卓",
+        "date": "2027-01-10T20:00:00+09:00",
+        "group_id": group.pk,
+        "send_discord_notification": True,
+        "sync_google_calendar": True,
+    }
+    with TestClient(create_app(), base_url=AWS_PRE_ORIGIN) as mcp:
+        before = call_tool(mcp, token, "preview_session_creation", session=data)["structuredContent"]
+        assert before["preview"]["date"] == "2027-01-10T20:00:00+09:00"
+        assert before["preview"]["notifications"] == {"discord": True, "google_calendar": True}
+        assert not TRPGSession.objects.exists() and not notices
+
+        discord.enabled = False
+        discord.save(update_fields=["enabled", "updated_at"])
+        stale = call_tool(mcp, token, "create_session", confirmation_token=before["confirmation_token"])
+        assert stale["isError"] and not TRPGSession.objects.exists()
+        discord.enabled = True
+        discord.save(update_fields=["enabled", "updated_at"])
+        preview = call_tool(mcp, token, "preview_session_creation", session=data)["structuredContent"]
+        result = call_tool(mcp, token, "create_session", confirmation_token=preview["confirmation_token"])
+        assert not result.get("isError"), result
+        same = call_tool(mcp, token, "create_session", confirmation_token=preview["confirmation_token"])
+        assert result["structuredContent"] == same["structuredContent"]
+        created = TRPGSession.objects.get()
+        detail_url = result["structuredContent"]["url"]
+        assert urlsplit(detail_url).netloc == urlsplit(AWS_PRE_ORIGIN).netloc
+        assert browser.get(urlsplit(detail_url).path, secure=True).status_code == 200
+        assert created.created_by == user and created.participants.filter(pk=user.pk).exists()
+        assert [kind for kind, _ in notices] == ["discord", "google"]
+        silent = call_tool(
+            mcp, token, "preview_session_creation", session={"title": "連携なしの卓", "group_id": group.pk}
+        )["structuredContent"]
+        assert silent["preview"]["notifications"] == {"discord": False, "google_calendar": False}
+        assert not call_tool(mcp, token, "create_session", confirmation_token=silent["confirmation_token"]).get(
+            "isError"
+        )
+        assert TRPGSession.objects.count() == 2
+        assert [kind for kind, _ in notices] == ["discord", "google"]
+
+
+def test_character_creation_requires_own_confirmed_preview_and_returns_detail(write_pilot):
+    browser, client_app, user, other = write_pilot
+    token = issue_test_token(browser, client_app, "characters:write sessions:write")
+    read_only = issue_test_token(browser, client_app, "characters:read")
+    browser.force_login(other)
+    other_token = issue_test_token(browser, client_app, "characters:write")
+    abilities = {key: 50 for key in ("str", "con", "pow", "dex", "app", "siz", "int", "edu")}
+    character = {
+        "edition": "7th",
+        "name": "確認用探索者",
+        "abilities": abilities,
+        "luck": 55,
+        "skills": [{"skill_name": "目星", "base_value": 25, "occupation_points": 30}],
+    }
+    sixth = CharacterSheet.objects.create(user=user, edition="6th")
+    CharacterSheet6th.objects.create(character_sheet=sixth, name=character["name"], version=3)
+    group = Group.objects.create(name="別の利用者のグループ", owner=other)
+    with TestClient(create_app(), base_url=AWS_PRE_ORIGIN) as mcp:
+        assert call_tool(mcp, token, "preview_session_creation", session={"title": "権限外", "group_id": group.pk})[
+            "isError"
+        ]
+        assert call_tool(mcp, read_only, "preview_character_creation", character=character)["isError"]
+        assert call_tool(mcp, token, "preview_character_creation", character={**character, "luck": 52})["isError"]
+        preview = call_tool(mcp, token, "preview_character_creation", character=character)["structuredContent"]
+        assert preview["preview"]["notifications"] == {"discord": False, "google_calendar": False}
+        assert preview["preview"]["version"] == 1
+        assert CharacterSheet.objects.count() == 1
+        key = preview["confirmation_token"]
+        assert call_tool(mcp, token, "create_session", confirmation_token=key)["isError"]
+        assert call_tool(mcp, other_token, "create_character", confirmation_token=key)["isError"]
+        assert call_tool(mcp, token, "create_character", confirmation_token=key + "invalid")["isError"]
+        assert CharacterSheet.objects.count() == 1
+        result = call_tool(mcp, token, "create_character", confirmation_token=key)["structuredContent"]
+        assert call_tool(mcp, token, "create_character", confirmation_token=key)["structuredContent"] == result
+        sheet = CharacterSheet.objects.get(edition="7th")
+        assert sheet.user_id == user.pk
+        assert sheet.access_scope == "private" and sheet.system_data.version == 1
+        assert sheet.system_data.skills.get(skill_name="目星").current_value == 55
+        browser.force_login(user)
+        detail = browser.get(urlsplit(result["url"]).path, secure=True, follow=True)
+        assert detail.status_code == 200 and character["name"] in detail.content.decode()
+
+
+def test_invalid_character_skills_and_expired_preview_do_not_save(write_pilot, monkeypatch):
+    browser, client_app, _, _ = write_pilot
+    token = issue_test_token(browser, client_app, "characters:write")
+    base = {
+        "edition": "6th",
+        "name": "技能確認",
+        "abilities": {key: 10 for key in ("str", "con", "pow", "dex", "app", "siz", "int", "edu")},
+    }
+    with TestClient(create_app(), base_url=AWS_PRE_ORIGIN) as mcp:
+        for inputs in (
+            {"luck": 55},
+            {"skills": [{"skill_name": "目星"}, {"skill_name": "目星"}]},
+            {"skills": [{"skill_name": "目星", "occupation_points": 201}]},
+            {"skills": [{"skill_name": "目星", "interest_points": 101}]},
+            {"skills": [{"skill_name": "目星", "base_value": 999, "other_points": 1}]},
+        ):
+            assert call_tool(mcp, token, "preview_character_creation", character={**base, **inputs})["isError"]
+        key = call_tool(mcp, token, "preview_character_creation", character=base)["structuredContent"][
+            "confirmation_token"
+        ]
+        monkeypatch.setattr("tableno_mcp.creation.PREVIEW_LIFETIME", -1)
+        assert call_tool(mcp, token, "create_character", confirmation_token=key)["isError"]
+        assert not CharacterSheet.objects.exists()
+
+
+def test_failed_save_rolls_back_and_confirmation_can_be_retried(write_pilot, monkeypatch):
+    from tableno_mcp.models import CreationReceipt
+
+    browser, client_app, _, _ = write_pilot
+    token = issue_test_token(browser, client_app, "characters:write")
+    character = {
+        "edition": "6th",
+        "name": "再試行用探索者",
+        "abilities": {key: 10 for key in ("str", "con", "pow", "dex", "app", "siz", "int", "edu")},
+    }
+    save = CharacterSheetCreateSerializer.save
+
+    def fail_after_save(serializer, **kwargs):
+        save(serializer, **kwargs)
+        raise ValidationError("試験用の保存エラー")
+
+    with TestClient(create_app(), base_url=AWS_PRE_ORIGIN) as mcp:
+        with monkeypatch.context() as patch:
+            patch.setattr("tableno_mcp.creation.MAX_CONFIRMATION_TOKEN_LENGTH", 1)
+            assert call_tool(mcp, token, "preview_character_creation", character=character)["isError"]
+        key = call_tool(mcp, token, "preview_character_creation", character=character)["structuredContent"][
+            "confirmation_token"
+        ]
+        with monkeypatch.context() as patch:
+            patch.setattr(CharacterSheetCreateSerializer, "save", fail_after_save)
+            assert call_tool(mcp, token, "create_character", confirmation_token=key)["isError"]
+        assert not CharacterSheet.objects.exists()
+        assert not CreationReceipt.objects.exists()
+        assert not call_tool(mcp, token, "create_character", confirmation_token=key).get("isError")
+        assert CharacterSheet.objects.count() == 1 and CreationReceipt.objects.count() == 1

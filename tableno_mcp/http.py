@@ -60,32 +60,45 @@ class PilotTokenVerifier:
 
 
 @sync_to_async
-def read_for_user(user_id, operation, **arguments):
+def run_for_user(user_id, operation, *, read_only=True, **arguments):
     try:
         with transaction.atomic():
-            if connection.vendor == "postgresql":
+            if read_only and connection.vendor == "postgresql":
                 with connection.cursor() as cursor:
                     cursor.execute("SET TRANSACTION READ ONLY")
-            user = (
+            users = (
                 get_user_model()
                 .objects.filter(pk=user_id, pk__in=settings.TABLENO_MCP_USER_IDS, is_active=True)
                 .only("id")
-                .first()
             )
+            if not read_only:
+                users = users.select_for_update()
+            user = users.first()
             if user is None:
                 raise ToolError("このアカウントではタブレノMCPを利用できません。")
             return operation(user, **arguments)
     except DatabaseError:
-        raise ToolError("タブレノからデータを読み取れませんでした。") from None
+        message = (
+            "タブレノからデータを読み取れませんでした。" if read_only else "タブレノにデータを保存できませんでした。"
+        )
+        raise ToolError(message) from None
     finally:
         connection.close()
 
 
-async def read_authorized(operation, scope, **arguments):
+def authorized_subject(scope):
     token = get_access_token()
     if token is None or token.subject is None or scope not in token.scopes:
-        raise ToolError("この機能の閲覧が許可されていません。")
-    return await read_for_user(token.subject, operation, **arguments)
+        raise ToolError("この操作が許可されていません。")
+    return token.subject
+
+
+async def read_authorized(operation, scope, **arguments):
+    return await run_for_user(authorized_subject(scope), operation, **arguments)
+
+
+async def write_authorized(operation, scope, **arguments):
+    return await run_for_user(authorized_subject(scope), operation, read_only=False, **arguments)
 
 
 def create_app():
@@ -94,8 +107,10 @@ def create_app():
 
     from tableno_mcp.tools import build_tools
 
+    allow_creation = settings.TABLENO_MCP_WRITE_ENABLED
     server = build_tools(
         read_authorized,
+        creation_enabled=allow_creation,
         streamable_http_path="/mcp",
         stateless_http=True,
         json_response=True,
@@ -112,6 +127,10 @@ def create_app():
             allowed_origins=[AWS_PRE_ORIGIN],
         ),
     )
+    if allow_creation:
+        from tableno_mcp.creation_tools import add_creation_tools
+
+        add_creation_tools(server, read_authorized, write_authorized)
 
     @server.custom_route("/health/live", methods=["GET"])
     async def health(request):

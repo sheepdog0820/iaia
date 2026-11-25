@@ -80,6 +80,7 @@ from .serializers import (
     build_internal_character_url,
 )
 from .services import YouTubeService
+from .session_creation import queue_session_creation_integrations, save_session
 from .template_services import bind_slot_handouts_to_participant, clone_scenario_handouts_to_session
 
 
@@ -554,28 +555,8 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
             or self.request.data.get("is_gm")
             or ""
         ).lower() in {"1", "true", "yes", "on"}
-        serializer.save(
-            created_by=self.request.user,
-            gm=self.request.user if self_as_gm else None,
-        )
-        session = serializer.instance
-        session_permissions.initialize_created_session_permissions(
-            session,
-            created_by=self.request.user,
-            gm=self.request.user if self_as_gm else None,
-        )
-        clone_scenario_handouts_to_session(session.scenario, session)
-        from .tasks import queue_discord_event
-
-        queue_discord_event(
-            session.group_id,
-            "session_created",
-            {"content": f"Session created: {session.title}"},
-            f"session-created:{session.pk}",
-        )
-        from .tasks import schedule_session_google_syncs
-
-        schedule_session_google_syncs(session)
+        session = save_session(serializer, self.request.user, as_gm=self_as_gm)
+        queue_session_creation_integrations(session)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop("partial", False)

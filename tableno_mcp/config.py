@@ -1,11 +1,18 @@
 AWS_PRE_HOST = "stg.tableno.jp"
 AWS_PRE_ORIGIN = f"https://{AWS_PRE_HOST}"
 MCP_RESOURCE = f"{AWS_PRE_ORIGIN}/mcp"
+MAX_CONFIRMATION_TOKEN_LENGTH = 60_000
 SESSIONS_READ = "sessions:read"
 CHARACTERS_READ = "characters:read"
+SESSIONS_WRITE = "sessions:write"
+CHARACTERS_WRITE = "characters:write"
 SCOPES = {
     SESSIONS_READ: "自分が作成・担当・参加する卓の予定を読む",
     CHARACTERS_READ: "自分が所有する探索者シートを読む",
+}
+WRITE_SCOPES = {
+    SESSIONS_WRITE: "確認したセッションを作成する",
+    CHARACTERS_WRITE: "確認した探索者シートを作成する",
 }
 
 OAUTH_SETTINGS = {
