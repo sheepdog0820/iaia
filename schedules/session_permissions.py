@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.db import transaction
+from django.db.models import Q
 
 from accounts.models import GroupMembership
 
@@ -30,6 +31,11 @@ def _user_participant(user, session: TRPGSession) -> SessionParticipant | None:
     if not _is_authenticated(user):
         return None
     return SessionParticipant.objects.filter(session=session, user=user).first()
+
+
+def sessions_for_participant_or_creator(user):
+    participant_session_ids = SessionParticipant.objects.filter(user=user).values("session_id")
+    return TRPGSession.objects.filter(Q(created_by=user) | Q(pk__in=participant_session_ids))
 
 
 def get_participant_role_values(participant: SessionParticipant) -> set[str]:

@@ -943,7 +943,9 @@ class CharacterSheetCreateSerializer(serializers.ModelSerializer):
         validated_data["user"] = self.context["request"].user
 
         # 同名キャラクターが存在する場合、バージョン番号を調整
-        existing_chars = CharacterSheet.objects.by_system_name(validated_data["name"], user=validated_data["user"])
+        existing_chars = CharacterSheet.objects.by_system_name(
+            validated_data["name"], user=validated_data["user"], edition=validated_data["edition"]
+        )
 
         detail_model = CharacterSheet6th if validated_data["edition"] == "6th" else CharacterSheet7th
         existing_details = [sheet.system_data for sheet in existing_chars]

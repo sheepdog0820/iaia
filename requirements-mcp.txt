@@ -1,0 +1,4 @@
+# MCP transports for local Codex and the aws-pre pilot.
+mcp==1.30.0
+# Keep the platform marker in the shared lock when pip-tools resolves on Windows.
+pywin32>=310; sys_platform == "win32"
