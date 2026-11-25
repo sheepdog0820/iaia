@@ -26,12 +26,11 @@ MCPタスクはポート8000で待機し、ALBのターゲットグループは 
 
 ## Codexでの確認
 
-Codexの `~/.codex/config.toml` に開発環境の設定を追加します。例の `http://127.0.0.1:1455/callback` は、管理画面に登録するリダイレクトURIと完全一致させます。既存のローカル版とは別のサーバー名で利用できます。 [Codexの設定項目](https://learn.chatgpt.com/docs/config-file/config-reference)
+Codexの `~/.codex/config.toml` に開発環境の設定を追加します。例の `http://127.0.0.1:1455/callback` は、管理画面に登録するリダイレクトURIと完全一致させます。CodexはOAuthの接続先をサーバーのメタデータから取得します。既存のローカル版とは別のサーバー名で利用できます。 [Codexの設定項目](https://learn.chatgpt.com/docs/config-file/config-reference)
 
 ```toml
 [mcp_servers.tableno-aws-pre]
 url = "https://stg.tableno.jp/mcp"
-oauth_resource = "https://stg.tableno.jp/mcp"
 scopes = ["sessions:read", "characters:read"]
 
 [mcp_servers.tableno-aws-pre.oauth]
