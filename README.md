@@ -80,6 +80,8 @@ python manage.py runserver
 
 固定のテストアカウントやパスワードはREADMEに記載しません。必要なアカウントは `python scripts/dev/create_admin.py` や開発用管理コマンドでローカル環境で作成してください。
 
+ローカルデータをCodexで閲覧する手順は [Codexでタブレノを参照する](docs/runbooks/LOCAL_CODEX_MCP.md) を参照してください。
+
 ## Demo / Screenshots
 
 スクリーンショットは `docs/reports/screenshots/` に配置する想定です。公開前には、PC幅とスマホ幅で以下の画面を撮影してREADMEへ差し込みます。

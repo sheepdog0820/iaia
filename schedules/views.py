@@ -1235,7 +1235,7 @@ class TRPGSessionViewSet(viewsets.ModelViewSet):
         gm_role_session_id_set = set(gm_role_session_ids)
 
         sessions = (
-            TRPGSession.objects.filter(Q(created_by=user) | Q(id__in=participant_session_ids))
+            session_permissions.sessions_for_participant_or_creator(user)
             .select_related("gm", "group", "scenario")
             .prefetch_related("sessionparticipant_set__user")
             .distinct()

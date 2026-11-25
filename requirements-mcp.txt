@@ -1,0 +1,2 @@
+# Optional dependency for the local STDIO server.
+mcp==1.30.0
