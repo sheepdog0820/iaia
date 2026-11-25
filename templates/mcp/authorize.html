@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}タブレノMCPのアクセス許可{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="h3">タブレノへのアクセスを許可しますか？</h1>
+    {% if error %}
+    <p role="alert">接続を開始できませんでした。Codexから操作をやり直してください。</p>
+    {% else %}
+    <p>「{{ application.name }}」が次の情報へのアクセスを求めています。</p>
+    <ul>
+        {% for scope in scopes_descriptions %}
+        <li>{{ scope }}</li>
+        {% endfor %}
+    </ul>
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+        {% if form.errors %}
+        <p role="alert">接続情報を確認できませんでした。Codexから操作をやり直してください。</p>
+        {% endif %}
+        <button type="submit" class="btn btn-outline-secondary">キャンセル</button>
+        <button type="submit" class="btn btn-primary" name="allow" value="1">許可する</button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

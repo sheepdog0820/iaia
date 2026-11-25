@@ -4,7 +4,7 @@ CodexがタブレノのローカルMCPを起動します。タブレノのWebサ
 
 ## 設定
 
-1. タブレノの仮想環境で `python -m pip install -r requirements.lock.txt -r requirements-mcp.txt` を実行します。
+1. タブレノの仮想環境で `python -m pip install -r requirements.lock.txt` を実行します。
 2. Codexのユーザー設定 `~/.codex/config.toml` に次の設定を追加します。Python、作業ディレクトリ、読み取るSQLiteファイルには絶対パスを設定します。`--username` にはそのDBで使用している本人のログイン名を指定します。
 3. Codexで新しいチャットを開きます。
 
@@ -29,3 +29,5 @@ macOS・Linuxでは、仮想環境のPythonのパスは通常 `.venv/bin/python`
 SQLiteは読み取り専用で開きます。Codexへ渡す項目はツールごとに決まっており、秘匿ハンドアウトやメモは含みません。設定はローカルファイルにアクセスできるPC所有者向けです。参照できるデータは指定したDBに保存されている範囲です。
 
 設定を解除するときは `codex mcp remove tableno` を実行します。
+
+開発AWS環境での利用については [開発AWS環境のタブレノMCP](AWS_PRE_CODEX_MCP.md) を参照してください。

@@ -344,6 +344,9 @@ urlpatterns = [
     path("", TemplateView.as_view(template_name="home.html"), name="home"),
 ]
 
+if settings.TABLENO_MCP_ENABLED:
+    urlpatterns += [path("", include("tableno_mcp.oauth_urls"))]
+
 # Normalize and authorize private paths before any development static serving.
 urlpatterns += [
     path(

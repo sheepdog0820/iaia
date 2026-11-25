@@ -161,6 +161,17 @@ INSTALLED_APPS = [
     "support.apps.SupportConfig",
 ]
 
+TABLENO_MCP_ENABLED = APP_ENV == "aws-pre" and _get_bool("TABLENO_MCP_ENABLED")
+if TABLENO_MCP_ENABLED:
+    from tableno_mcp.config import OAUTH_SETTINGS, pilot_enrollment
+
+    TABLENO_MCP_CLIENT_ID, TABLENO_MCP_USER_IDS = pilot_enrollment(
+        os.environ.get("TABLENO_MCP_CLIENT_ID", ""),
+        os.environ.get("TABLENO_MCP_USER_IDS", ""),
+    )
+    INSTALLED_APPS.append("oauth2_provider")
+    OAUTH2_PROVIDER = OAUTH_SETTINGS
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     # 'corsheaders.middleware.CorsMiddleware',  # 8000番ポート統一のため無効化
