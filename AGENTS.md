@@ -66,38 +66,30 @@
 ## 🚀 クイックスタート
 
 ### 開発環境セットアップ
+
+[READMEのローカル起動手順](README.md#ローカルで起動する)に従い、新しいターミナルでPython 3.11の仮想環境を作成・有効化し、`python -m pip install -r requirements-dev.lock.txt` で固定依存関係をインストールする。
+
+`.env.development` がなければ `.env.example` から作成し、`SECRET_KEY` に開発用の値を設定する。同じターミナルで `APP_ENV=local`、`ENV_FILE=.env.development`、`DB_ENGINE=sqlite`、`DJANGO_SETTINGS_MODULE=tableno.settings` を指定する。
+
+接続先のリポジトリ直下の `db.sqlite3` が未作成か、実データから隔離した開発専用DBであることを確認してから次を実行する。実データを含む場合は、別のチェックアウトで新しいローカルDBを使う。
+
 ```bash
-# 仮想環境の作成と有効化
-python3 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 依存関係のインストール
-pip install -r requirements.txt
-
-# データベースセットアップ
-python3 manage.py migrate
-
-# スーパーユーザー作成（自動化済み）
-python3 scripts/dev/create_admin.py  # パスワードは実行時に表示されます
-
-# サンプルデータ生成
-python3 manage.py create_sample_data
-
-# 開発サーバー起動
-python3 manage.py runserver
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
 ```
 
+サンプルが必要な場合は、同じ隔離DBで `python manage.py create_sample_data` を実行する。
+
 ### 基本的なコマンド
+
+検査とテストは実データから隔離したローカル環境で実行する。マイグレーションの適用は上記の開発専用DBに限る。
+
 ```bash
-# テスト実行
-python3 manage.py test
-
-# マイグレーション
-python3 manage.py makemigrations
-python3 manage.py migrate
-
-# 静的ファイル収集
-python3 manage.py collectstatic --noinput
+python manage.py check
+python manage.py makemigrations --check --dry-run
+python manage.py migrate --check
+python -m pytest
 ```
 
 ## 🏗️ プロジェクト構造
