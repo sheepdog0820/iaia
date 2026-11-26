@@ -1,10 +1,18 @@
 # 有料プラン・外部連携を含む正式公開の受け入れ条件
 
-## 現在の公開判断（2026-11-01）
+## 現在の公開判断（2026-11-26 JST、作業開始時点）
 
-正式公開は **No-Go**。承認済み[PR #60](https://github.com/sheepdog0820/iaia/pull/60)と[PR #62](https://github.com/sheepdog0820/iaia/pull/62)を通常マージし、mainは`72ad8299`。[PR #62マージ後CI](https://github.com/sheepdog0820/iaia/actions/runs/41266689270)は全6成功で、全体2,485成功・183省略、PG811成功・462 subtests・省略0、画面246成功を実ログ確認した。mainのtreeは検証head`dac04381`・通常image`ddb493e3`と一致する。稼働Webは別の定義55で、今回のマージはAWS反映や共有0065〜0069適用の承認・完了を意味しない。
+正式公開は **No-Go**。下の判定表の全25条件を適用する。
 
-[所有権状態を含む合成DB/メディア復元](RESTORE_OWNERSHIP_MAIN72_2026-11-01.md)は成功したが、実RDS/S3の時点整合・世代選択・アプリ切替を含むRPO24h/RTO4hは未検証。0069を含むAWSコピー内5移行の固定対象リハーサルは既存の承認待ちで、先行するコピー内4移行の成功で代用しない。最新通常imageの未除外OS監査は53指摘（C2/H10/M6/L35）・exit2であり、隔離ローカルでの性能成功も実AWS・全主要操作の合格には広げない。全writerと自動再開の停止、直前backup、DB/コード/staticの一体切替、外部連携・実有料・監視・事業者運用を含む下表の全25条件を維持する。
+- **mainとCI**　HEADは [`4627cdd04eea48dd9b81c1cb558acb73bd1b47f6`](https://github.com/sheepdog0820/iaia/commit/4627cdd04eea48dd9b81c1cb558acb73bd1b47f6)。2026-11-01に [PR #66](https://github.com/sheepdog0820/iaia/pull/66) をマージし、同じSHAの [main push CI](https://github.com/sheepdog0820/iaia/actions/runs/41304175048) は全6ジョブ成功。オープンPRと各headのCIは [READMEの冒頭](../../README.md) を参照する。
+- **開発AWS**　ECSサービスはWebタスク定義59で切替完了、稼働1・待機0。稼働タスクは `RUNNING` / `HEALTHY`。ECSで確認した稼働digest `sha256:e80ed7a726c2c322182d14b50bda2026628deb3ed10830af791d21f2ad235955` をECRタグ `aws-pre-4e19a16e` と照合した。タグに対応する [開発反映ブランチのコミット](https://github.com/sheepdog0820/iaia/commit/4e19a16ea6ac0d4286daf93c6417acc7aa027c6c) はmainの履歴に含まれず、[同SHAのpush CI](https://github.com/sheepdog0820/iaia/actions/runs/45545739625) は全6ジョブ成功。確認範囲はECS/ECRの読み取りとGitHubの記録。実DBの移行履歴、アプリ操作、実サービスの動作、本番稼働版は未確認。
+- **残る公開条件**　共有DBの `accounts` 0065〜0069 の適用状況の確定と本番相当の移行・復旧、OS指摘の判定・対処、Google・Discord等の外部連携、公開対象版と実AWS設定での有料決済検証が残る。既存の限定検証の対象と結果は以下の履歴と判定表を参照する。
+
+## 2026-11-01の統合・検証記録（当時の情報）
+
+承認済み [PR #60](https://github.com/sheepdog0820/iaia/pull/60) と [PR #62](https://github.com/sheepdog0820/iaia/pull/62) を通常マージした時点のmainは [`72ad8299`](https://github.com/sheepdog0820/iaia/commit/72ad82999739747ba16cf6ad8fda84a0a8bee3fa)。[PR #62マージ後CI](https://github.com/sheepdog0820/iaia/actions/runs/41266689270) は全6ジョブ成功で、全体2,485成功・183省略、PG811成功・462 subtests・省略0、画面246成功を当時の実ログで確認した。当時のmainのtreeは検証head `dac04381`・通常イメージ `ddb493e3` と一致し、開発AWSの稼働Webは定義55だった。このマージの対象はコードの統合までだった。
+
+[所有権状態を含む合成DB/メディア復元](RESTORE_OWNERSHIP_MAIN72_2026-11-01.md)は成功したが、実RDS/S3の時点整合・世代選択・アプリ切替を含むRPO24h/RTO4hは未検証。0069を含むAWSコピー内5移行の固定対象リハーサルは既存の承認待ちで、先行するコピー内4移行の成功で代用しない。当時の通常イメージの未除外OS監査は53指摘（C2/H10/M6/L35）・exit2であり、隔離ローカルでの性能成功も実AWS・全主要操作の合格には広げない。全writerと自動再開の停止、直前backup、DB/コード/staticの一体切替、外部連携・実有料・監視・事業者運用を含む下表の全25条件を維持する。
 
 ## 10月31日の候補と検証記録（当時の情報）
 
